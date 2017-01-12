@@ -2,6 +2,7 @@ package clickhouse
 
 import (
 	"bytes"
+	"compress/gzip"
 	"crypto/tls"
 	"database/sql"
 	"database/sql/driver"
@@ -44,6 +45,7 @@ type connect struct {
 	log           logger
 	queries       []string
 	buffers       []bytes.Buffer
+	compress      bool
 	inTransaction bool
 }
 
@@ -75,13 +77,13 @@ func (conn *connect) Open(dsn string) (driver.Conn, error) {
 		}
 	}
 	return &connect{
-		log: log,
+		log:      log,
+		compress: compress,
 		http: http.Client{
 			Timeout: timeout,
 			Transport: &transport{
 				hosts:    hosts,
 				scheme:   url.Scheme,
-				compress: compress,
 				username: url.Query().Get("username"),
 				password: url.Query().Get("password"),
 				origin: &http.Transport{
@@ -148,10 +150,23 @@ func (conn *connect) Commit() error {
 	return nil
 }
 
-func (conn *connect) do(query string, data *bytes.Buffer /*io.Reader*/) (io.Reader, error) {
+func (conn *connect) do(query string, data *bytes.Buffer) (io.Reader, error) {
 	query = formatQuery(query)
-	conn.log("[connect] [do] format query: %s", query)
-	response, err := conn.http.Post("?"+(&url.Values{"query": []string{query}}).Encode(), "application/x-www-form-urlencoded", data)
+	conn.log("[connect] [do] compress: %t, format query: %s", conn.compress, query)
+	var body io.ReadWriter = data
+	if conn.compress {
+		body = &bytes.Buffer{}
+		compress := gzip.NewWriter(body)
+		data.WriteTo(compress)
+		compress.Flush()
+		compress.Close()
+	}
+	req, _ := http.NewRequest("POST", "?"+(&url.Values{"query": []string{query}}).Encode(), body)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if conn.compress {
+		req.Header.Set("Content-Encoding", "gzip")
+	}
+	response, err := conn.http.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -163,11 +178,11 @@ func (conn *connect) do(query string, data *bytes.Buffer /*io.Reader*/) (io.Read
 		}
 		return nil, fmt.Errorf(string(message))
 	}
-	var body bytes.Buffer
-	if _, err := io.Copy(&body, response.Body); err != nil {
+	var responseBody bytes.Buffer
+	if _, err := io.Copy(&responseBody, response.Body); err != nil {
 		return nil, err
 	}
-	return &body, nil
+	return &responseBody, nil
 }
 
 func (conn *connect) Rollback() error {

@@ -15,16 +15,12 @@ type transport struct {
 	hosts    []string
 	username string
 	password string
-	compress bool
 }
 
 func (t *transport) RoundTrip(req *http.Request) (response *http.Response, err error) {
 	req.URL.Scheme = t.scheme
 	if len(t.username) != 0 && len(t.password) != 0 {
 		req.SetBasicAuth(t.username, t.password)
-	}
-	if t.compress {
-		req.Header.Set("Accept-Encoding", "gzip")
 	}
 	var (
 		body, _ = ioutil.ReadAll(req.Body)
