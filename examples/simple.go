@@ -1,14 +1,3 @@
-# clickhouse
-
-Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/)
-
-## Install
-```
-go get -u github.com/kshvakov/clickhouse
-```
-
-## Example
-```go 
 package main
 
 import (
@@ -73,4 +62,3 @@ func main() {
 		log.Fatal(err)
 	}
 }
-```

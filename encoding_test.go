@@ -23,7 +23,7 @@ func Test_Encode(t *testing.T) {
 	)
 
 	for value, expected := range assets {
-		assert.Equal(t, expected, encode(value))
+		assert.Equal(t, expected, quote(value))
 	}
 }
 

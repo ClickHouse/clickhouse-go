@@ -28,8 +28,11 @@ func (stmt *stmt) Exec(args []driver.Value) (driver.Result, error) {
 		buffer = &stmt.conn.buffers[stmt.index]
 	}
 	if len(args) != 0 {
-		for _, v := range args {
-			buffer.WriteString(encode(v) + "\t")
+		for i, v := range args {
+			buffer.WriteString(encode(v))
+			if i < len(args)-1 {
+				buffer.WriteString("\t")
+			}
 		}
 		buffer.WriteString("\n")
 	}
@@ -47,7 +50,7 @@ func (stmt *stmt) Query(args []driver.Value) (driver.Rows, error) {
 	for index, value := range strings.Split(stmt.query, "?") {
 		query = append(query, value)
 		if index < len(args) {
-			query = append(query, encode(args[index]))
+			query = append(query, quote(args[index]))
 		}
 	}
 

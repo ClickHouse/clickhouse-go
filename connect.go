@@ -109,8 +109,7 @@ func (conn *connect) Prepare(query string) (driver.Stmt, error) {
 		index    int
 		numInput = len(strings.Split(query, "?")) - 1
 	)
-	if table, ok := isInsert(query); ok {
-		query = "INSERT INTO " + table
+	if isInsert(query) {
 		if conn.inTransaction {
 			conn.queries = append(conn.queries, query)
 			conn.buffers = append(conn.buffers, bytes.Buffer{})
@@ -149,13 +148,9 @@ func (conn *connect) Commit() error {
 	return nil
 }
 
-func (conn *connect) do(query string, data io.Reader) (io.Reader, error) {
-	conn.log("[connect] [do] query: %s", query)
-	if _, ok := isInsert(query); ok {
-		query += " FORMAT TabSeparated"
-	} else {
-		query += " FORMAT TabSeparatedWithNamesAndTypes"
-	}
+func (conn *connect) do(query string, data *bytes.Buffer /*io.Reader*/) (io.Reader, error) {
+	query = formatQuery(query)
+	conn.log("[connect] [do] format query: %s", query)
 	response, err := conn.http.Post("?"+(&url.Values{"query": []string{query}}).Encode(), "application/x-www-form-urlencoded", data)
 	if err != nil {
 		return nil, err

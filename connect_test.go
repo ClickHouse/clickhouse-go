@@ -15,43 +15,6 @@ func Test_Open(t *testing.T) {
 	}
 }
 
-func Test_Batch(t *testing.T) {
-	connect, err := sql.Open("clickhouse", "http://127.0.0.1:8123?debug=true")
-	if assert.NoError(t, err) {
-		assert.NoError(t, connect.Ping())
-	}
-	if tx, err := connect.Begin(); assert.NoError(t, err) {
-		tx.Query("SELECT * FROM imps")
-		if stmt, err := tx.Prepare("INSERT INTO imps (a, b, c, d) VALUES (?, ?, ?, ?)"); assert.NoError(t, err) {
-			for i := 0; i < 10; i++ {
-				if _, err := stmt.Exec(1, 2, 3, 4); assert.NoError(t, err) {
-				}
-			}
-		}
-		tx.Query("SELECT * FROM imps2")
-		if stmt, err := tx.Prepare("INSERT INTO imps2 VALUES (?, ?, ?)"); assert.NoError(t, err) {
-			for i := 0; i < 10; i++ {
-				if _, err := stmt.Exec(1, 2, "tab	tab	tab"); assert.NoError(t, err) {
-				}
-			}
-		}
-		if err := tx.Commit(); assert.NoError(t, err) {
-			assert.Equal(t, sql.ErrTxDone, tx.Rollback())
-		}
-	}
-}
-
-func Test_Exec(t *testing.T) {
-	connect, err := sql.Open("clickhouse", "http://127.0.0.1:8123?debug=true")
-	if assert.NoError(t, err) {
-		assert.NoError(t, connect.Ping())
-	}
-	if _, err := connect.Exec("INSERT INTO simple_exec VALUES (?, ?, ?)", "a", "b", "c"); assert.NoError(t, err) {
-		if _, err := connect.Exec("INSERT INTO simple_exec2 VALUES (?, ?, ?)", "a2", "b2", "c2"); assert.NoError(t, err) {
-		}
-	}
-}
-
 /*
 CREATE TABLE stats
 (
@@ -62,6 +25,30 @@ CREATE TABLE stats
     datetime DateTime
 ) ENGINE = Memory
 */
+func Test_Batch(t *testing.T) {
+	connect, err := sql.Open("clickhouse", "http://127.0.0.1:8123?debug=true")
+	if assert.NoError(t, err) {
+		assert.NoError(t, connect.Ping())
+	}
+	if tx, err := connect.Begin(); assert.NoError(t, err) {
+		if stmt, err := tx.Prepare("INSERT INTO stats (app_id, language, country, date, datetime) VALUES (?, ?, ?, ?, ?)"); assert.NoError(t, err) {
+			for i := 0; i < 10; i++ {
+				if _, err := stmt.Exec(1, "RU", "RU", time.Date(2017, 1, 12, 0, 0, 0, 0, time.UTC), time.Now()); assert.NoError(t, err) {
+				}
+			}
+		}
+		if stmt, err := tx.Prepare("INSERT INTO stats VALUES (?, ?, ?, ?, ?)"); assert.NoError(t, err) {
+			for i := 0; i < 10; i++ {
+				if _, err := stmt.Exec(1, "RU", "RU", time.Date(2017, 1, 12, 0, 0, 0, 0, time.UTC), time.Now()); assert.NoError(t, err) {
+				}
+			}
+		}
+		if err := tx.Commit(); assert.NoError(t, err) {
+			assert.Equal(t, sql.ErrTxDone, tx.Rollback())
+		}
+	}
+}
+
 func Test_Query(t *testing.T) {
 	connect, err := sql.Open("clickhouse", "http://127.0.0.1:8123?debug=true")
 	if err != nil {

@@ -8,12 +8,20 @@ import (
 	"time"
 )
 
+func quote(v driver.Value) string {
+	switch v.(type) {
+	case string, *string, time.Time, *time.Time:
+		return "'" + encode(v) + "'"
+	}
+	return encode(v)
+}
+
 func encode(v driver.Value) string {
 	switch value := v.(type) {
 	case string:
-		return "'" + strings.NewReplacer(`\`, `\\`, `'`, `\'`).Replace(value) + "'"
+		return strings.NewReplacer(`\`, `\\`, `'`, `\'`).Replace(value)
 	case *string:
-		return "'" + strings.NewReplacer(`\`, `\\`, `'`, `\'`).Replace(*value) + "'"
+		return strings.NewReplacer(`\`, `\\`, `'`, `\'`).Replace(*value)
 	case time.Time:
 		return encodeTime(value)
 	case *time.Time:
@@ -24,9 +32,9 @@ func encode(v driver.Value) string {
 
 func encodeTime(value time.Time) string {
 	if (value.Hour() + value.Minute() + value.Second() + value.Nanosecond()) == 0 {
-		return "'" + value.Format("2006-01-02") + "'"
+		return value.Format("2006-01-02")
 	}
-	return "'" + value.Format("2006-01-02 15:04:05") + "'"
+	return value.Format("2006-01-02 15:04:05")
 }
 
 func decode(t string, v []byte) (driver.Value, error) {
