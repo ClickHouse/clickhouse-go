@@ -19,7 +19,10 @@ Current version of driver uses [ClickHouse HTTP interface](https://clickhouse.ya
 * username/password - auth credentials
 * alt_hosts - comma separated list of single address host for load-balancing and fallback 
 
-example: http://127.0.0.1:8123?timeout=60&compress=true&username=user&password=qwerty&alt_hosts=host2:8123,host3:8123
+example:
+```
+http://127.0.0.1:8123?timeout=60&compress=true&username=user&password=qwerty&alt_hosts=host2:8123,host3:8123
+```
 
 
 ## Install
