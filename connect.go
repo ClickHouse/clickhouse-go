@@ -111,13 +111,11 @@ func (conn *connect) Prepare(query string) (driver.Stmt, error) {
 		index    int
 		numInput = len(strings.Split(query, "?")) - 1
 	)
-	if isInsert(query) {
-		if conn.inTransaction {
-			conn.queries = append(conn.queries, query)
-			conn.buffers = append(conn.buffers, bytes.Buffer{})
-			index = len(conn.buffers) - 1
-			conn.log("[connect] [prepare] tx len: %d", len(conn.queries))
-		}
+	if isInsert(query) && conn.inTransaction {
+		conn.queries = append(conn.queries, query)
+		conn.buffers = append(conn.buffers, bytes.Buffer{})
+		index = len(conn.buffers) - 1
+		conn.log("[connect] [prepare] tx len: %d", len(conn.queries))
 	}
 	return &stmt{
 		conn:     conn,
