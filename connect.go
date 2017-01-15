@@ -9,13 +9,23 @@ import (
 )
 
 const (
-	ClientHelloPacket = 0
+	ClientHelloPacket  = 0
+	ClientQueryPacket  = 1
+	ClientDataPacket   = 2
+	ClientCancelPacket = 3
+	ClientPingPacket   = 4
 )
 
 const (
-	ServerHelloPacket     = 0
-	ServerDataPacket      = 1
-	ServerExceptionPacket = 2
+	ServerHelloPacket       = 0
+	ServerDataPacket        = 1
+	ServerExceptionPacket   = 2
+	ServerProgressPacket    = 3
+	ServerPongPacket        = 4
+	ServerEndOfStreamPacket = 5
+	ServerProfileInfoPacket = 6
+	ServerTotalsPacket      = 7
+	ServerExtremesPacket    = 8
 )
 
 var (
@@ -49,7 +59,6 @@ func dial(network string, hosts []string) (*connect, error) {
 
 type connect struct {
 	net.Conn
-	timezone *time.Location
 }
 
 func (conn *connect) writeUInt(i uint) error {
@@ -99,8 +108,4 @@ func (conn *connect) readString() (string, error) {
 		return "", err
 	}
 	return string(str), nil
-}
-
-func (conn *connect) ping() error {
-	return nil
 }
