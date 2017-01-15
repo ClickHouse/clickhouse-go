@@ -2,7 +2,6 @@ package clickhouse
 
 import (
 	"bufio"
-	"bytes"
 	"database/sql/driver"
 	"io"
 )
@@ -18,17 +17,6 @@ func (rows *rows) Columns() []string {
 }
 
 func (rows *rows) Next(dest []driver.Value) error {
-	if !rows.scanner.Scan() {
-		return io.EOF
-	}
-	values := bytes.Split(rows.scanner.Bytes(), []byte("\t"))
-	for i := range dest {
-		v, err := decode(rows.types[i], values[i])
-		if err != nil {
-			return err
-		}
-		dest[i] = v
-	}
 	return nil
 }
 

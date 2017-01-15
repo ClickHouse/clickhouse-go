@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"time"
 
@@ -9,10 +10,12 @@ import (
 )
 
 func main() {
-	connect, err := sql.Open("clickhouse", "http://127.0.0.1:8123?compress=true&debug=true")
+	connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?compress=true&debug=true")
 	if err != nil {
 		log.Fatal(err)
 	}
+	fmt.Println(connect.Ping())
+	return
 	_, err = connect.Exec(`
         CREATE TABLE example (
             country_code FixedString(2),

@@ -8,6 +8,12 @@ import (
 	"time"
 )
 
+type (
+	Date     time.Time
+	DateTime time.Time
+	String   string
+)
+
 func quote(v driver.Value) string {
 	switch v.(type) {
 	case string, *string, time.Time, *time.Time:
