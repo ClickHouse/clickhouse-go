@@ -19,7 +19,7 @@ func isSelect(query string) bool {
 	return false
 }
 
-var splitInsertRe = regexp.MustCompile(`(?i)\sVALUES\s+\(.*?\)`)
+var splitInsertRe = regexp.MustCompile(`(?i)\sVALUES\s*\(.*?\)`)
 
 func formatQuery(query string) string {
 	switch {
