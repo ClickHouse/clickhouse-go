@@ -2,19 +2,27 @@ package main
 
 import (
 	"database/sql"
-	"fmt"
 	"log"
 	"time"
 
-	_ "github.com/kshvakov/clickhouse"
+	"fmt"
+
+	"github.com/kshvakov/clickhouse"
 )
 
 func main() {
-	connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?compress=true&debug=true")
+	connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?username=&compress=true&debug=true")
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(connect.Ping())
+	if err := connect.Ping(); err != nil {
+		if exception, ok := err.(*clickhouse.Exception); ok {
+			fmt.Printf("[%d] %s \n%s\n", exception.Code, exception.Message, exception.StackTrace)
+		} else {
+			fmt.Println(err)
+		}
+		return
+	}
 	return
 	_, err = connect.Exec(`
         CREATE TABLE example (

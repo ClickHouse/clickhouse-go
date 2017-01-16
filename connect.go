@@ -1,6 +1,7 @@
 package clickhouse
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"net"
@@ -90,14 +91,6 @@ func (conn *connect) readUInt() (uint, error) {
 	return uint(v), nil
 }
 
-func (conn *connect) ReadByte() (byte, error) {
-	b := make([]byte, 1)
-	if _, err := conn.Read(b); err != nil {
-		return 0x0, err
-	}
-	return b[0], nil
-}
-
 func (conn *connect) readString() (string, error) {
 	length, err := conn.readUInt()
 	if err != nil {
@@ -108,4 +101,34 @@ func (conn *connect) readString() (string, error) {
 		return "", err
 	}
 	return string(str), nil
+}
+
+func (conn *connect) readBinaryBool() (bool, error) {
+	buf := make([]byte, 1)
+	if _, err := conn.Read(buf); err != nil {
+		return false, err
+	}
+	return buf[0] == 1, nil
+}
+
+func (conn *connect) readBinaryInt32() (int32, error) {
+	var (
+		v   int32
+		buf = make([]byte, 4)
+	)
+	if _, err := conn.Read(buf); err != nil {
+		return 0, err
+	}
+	if err := binary.Read(bytes.NewBuffer(buf), binary.LittleEndian, &v); err != nil {
+		return 0, err
+	}
+	return v, nil
+}
+
+func (conn *connect) ReadByte() (byte, error) {
+	b := make([]byte, 1)
+	if _, err := conn.Read(b); err != nil {
+		return 0x0, err
+	}
+	return b[0], nil
 }

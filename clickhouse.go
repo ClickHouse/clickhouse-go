@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -40,6 +41,7 @@ func init() {
 type clickhouse struct {
 	log                logger
 	conn               *connect
+	compress           bool
 	serverName         string
 	serverRevision     uint
 	serverVersionMinor uint
@@ -53,6 +55,7 @@ func (ch *clickhouse) Open(dsn string) (driver.Conn, error) {
 		return nil, err
 	}
 	var (
+		hosts    = []string{url.Host}
 		database = url.Query().Get("database")
 		username = url.Query().Get("username")
 		password = url.Query().Get("password")
@@ -68,7 +71,13 @@ func (ch *clickhouse) Open(dsn string) (driver.Conn, error) {
 	if debug, err := strconv.ParseBool(url.Query().Get("debug")); err == nil && debug {
 		ch.log = debuglog
 	}
-	if ch.conn, err = dial(url.Scheme, []string{url.Host}); err != nil {
+	if compress, err := strconv.ParseBool(url.Query().Get("compress")); err == nil {
+		ch.compress = compress
+	}
+	if altHosts := strings.Split(url.Query().Get("alt_hosts"), ","); len(altHosts) != 0 {
+		hosts = append(hosts, altHosts...)
+	}
+	if ch.conn, err = dial(url.Scheme, hosts); err != nil {
 		return nil, err
 	}
 	if err := ch.hello(database, username, password); err != nil {
@@ -90,7 +99,12 @@ func (ch *clickhouse) Close() error {
 }
 
 func (ch *clickhouse) hello(database, username, password string) error {
-	ch.log("-> hello")
+	ch.log("[hello] -> %s %d.%d.%d",
+		ClientName,
+		ClickHouseDBMSVersionMajor,
+		ClickHouseDBMSVersionMinor,
+		ClickHouseRevision,
+	)
 	{
 		ch.conn.writeUInt(ClientHelloPacket)
 		ch.conn.writeString(ClientName)
@@ -136,39 +150,50 @@ func (ch *clickhouse) hello(database, username, password string) error {
 			return fmt.Errorf("Unexpected packet from server")
 		}
 	}
-	ch.log("[hello] %s %d.%d.%d (%s)",
+	ch.log("[hello] <- %s %d.%d.%d (%s)",
 		ch.serverName,
-		ch.serverVersionMinor,
 		ch.serverVersionMajor,
+		ch.serverVersionMinor,
 		ch.serverRevision,
 		ch.serverTimezone,
 	)
 	return nil
 }
 
-type exception struct {
-	Code       int
+type Exception struct {
+	Code       int32
 	Name       string
 	Message    string
 	StackTrace string
 	nested     error
 }
 
-func (e *exception) Error() string {
-	return ""
+func (e *Exception) Error() string {
+	return fmt.Sprintf("code: %d, message: %s", e.Code, e.Message)
 }
 
 func (ch *clickhouse) exception() error {
 	var (
+		e         Exception
+		err       error
 		hasNested bool
-		e         exception
 	)
-	buf := make([]byte, 3000)
-	len, err := ch.conn.Read(buf)
-	if err != nil {
+	if e.Code, err = ch.conn.readBinaryInt32(); err != nil {
 		return err
 	}
-	fmt.Println(len, buf[:len], string(buf[:len]))
+	if e.Name, err = ch.conn.readString(); err != nil {
+		return err
+	}
+	if e.Message, err = ch.conn.readString(); err != nil {
+		return err
+	}
+	e.Message = strings.TrimSpace(strings.TrimPrefix(e.Message, e.Name+":"))
+	if e.StackTrace, err = ch.conn.readString(); err != nil {
+		return err
+	}
+	if hasNested, err = ch.conn.readBinaryBool(); err != nil {
+		return err
+	}
 	if hasNested {
 		e.nested = ch.exception()
 	}
