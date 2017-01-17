@@ -6,19 +6,17 @@ Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/)
 
 * Uses native ClickHouse tcp client-server protocol
 * Compatibility with `database/sql`
-* Support compression 
 * Round Robin load-balancing
 
 ## DSN 
 
-* timeout - timeout in seccond
-* compress - disable/enable compression 
+* timeout - timeout in seccond 
 * username/password - auth credentials
 * alt_hosts - comma separated list of single address host for load-balancing
 
 example:
 ```
-tcp://host1:9000?timeout=60&compress=true&username=user&password=qwerty&alt_hosts=host2:9000,host3:9000
+tcp://host1:9000?timeout=60&username=user&password=qwerty&alt_hosts=host2:9000,host3:9000
 ```
 
 

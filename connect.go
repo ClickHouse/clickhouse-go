@@ -3,35 +3,9 @@ package clickhouse
 import (
 	"bytes"
 	"encoding/binary"
-	"errors"
 	"net"
 	"sync/atomic"
 	"time"
-)
-
-const (
-	ClientHelloPacket  = 0
-	ClientQueryPacket  = 1
-	ClientDataPacket   = 2
-	ClientCancelPacket = 3
-	ClientPingPacket   = 4
-)
-
-const (
-	ServerHelloPacket       = 0
-	ServerDataPacket        = 1
-	ServerExceptionPacket   = 2
-	ServerProgressPacket    = 3
-	ServerPongPacket        = 4
-	ServerEndOfStreamPacket = 5
-	ServerProfileInfoPacket = 6
-	ServerTotalsPacket      = 7
-	ServerExtremesPacket    = 8
-)
-
-var (
-	ErrTransactionInProgress   = errors.New("there is already a transaction in progress")
-	ErrNoTransactionInProgress = errors.New("there is no transaction in progress")
 )
 
 var tick int32
@@ -50,6 +24,9 @@ func dial(network string, hosts []string) (*connect, error) {
 	)
 	for i := 0; i <= len(hosts); i++ {
 		if conn, err = net.DialTimeout(network, hosts[(index+i)%len(hosts)], time.Second); err == nil {
+			if tcp, ok := conn.(*net.TCPConn); ok {
+				tcp.SetNoDelay(true)
+			}
 			return &connect{
 				Conn: conn,
 			}, nil
@@ -91,32 +68,38 @@ func (conn *connect) readUInt() (uint, error) {
 	return uint(v), nil
 }
 
+func (conn *connect) readFixed(len int) ([]byte, error) {
+	buf := make([]byte, len)
+	if _, err := conn.Read(buf); err != nil {
+		return nil, err
+	}
+	return buf, nil
+}
+
 func (conn *connect) readString() (string, error) {
-	length, err := conn.readUInt()
+	len, err := conn.readUInt()
 	if err != nil {
 		return "", err
 	}
-	str := make([]byte, length)
-	if _, err := conn.Read(str); err != nil {
+	str, err := conn.readFixed(int(len))
+	if err != nil {
 		return "", err
 	}
 	return string(str), nil
 }
 
 func (conn *connect) readBinaryBool() (bool, error) {
-	buf := make([]byte, 1)
-	if _, err := conn.Read(buf); err != nil {
+	bytes, err := conn.readFixed(1)
+	if err != nil {
 		return false, err
 	}
-	return buf[0] == 1, nil
+	return bytes[0] == 1, nil
 }
 
 func (conn *connect) readBinaryInt32() (int32, error) {
-	var (
-		v   int32
-		buf = make([]byte, 4)
-	)
-	if _, err := conn.Read(buf); err != nil {
+	var v int32
+	buf, err := conn.readFixed(4)
+	if err != nil {
 		return 0, err
 	}
 	if err := binary.Read(bytes.NewBuffer(buf), binary.LittleEndian, &v); err != nil {
@@ -126,9 +109,9 @@ func (conn *connect) readBinaryInt32() (int32, error) {
 }
 
 func (conn *connect) ReadByte() (byte, error) {
-	b := make([]byte, 1)
-	if _, err := conn.Read(b); err != nil {
+	bytes, err := conn.readFixed(1)
+	if err != nil {
 		return 0x0, err
 	}
-	return b[0], nil
+	return bytes[0], nil
 }

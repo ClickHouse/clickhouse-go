@@ -17,7 +17,7 @@ const (
 )
 
 const (
-	ClickHouseRevision         = 54058
+	ClickHouseRevision         = 54126
 	ClickHouseDBMSVersionMajor = 1
 	ClickHouseDBMSVersionMinor = 1
 )
@@ -30,8 +30,9 @@ const (
 type logger func(format string, v ...interface{})
 
 var (
-	nolog    = func(string, ...interface{}) {}
-	debuglog = log.New(os.Stdout, "[clickhouse]", 0).Printf
+	nolog       = func(string, ...interface{}) {}
+	debuglog    = log.New(os.Stdout, "[clickhouse]", 0).Printf
+	hostname, _ = os.Hostname()
 )
 
 func init() {
@@ -75,23 +76,120 @@ func (ch *clickhouse) Open(dsn string) (driver.Conn, error) {
 		ch.compress = compress
 	}
 	if altHosts := strings.Split(url.Query().Get("alt_hosts"), ","); len(altHosts) != 0 {
-		hosts = append(hosts, altHosts...)
+		for _, host := range altHosts {
+			if len(host) != 0 {
+				hosts = append(hosts, host)
+			}
+		}
 	}
+	ch.log("host(s): %s, database: %s, username: %s, compress: %t",
+		strings.Join(hosts, ", "),
+		database,
+		username,
+		ch.compress,
+	)
 	if ch.conn, err = dial(url.Scheme, hosts); err != nil {
 		return nil, err
 	}
 	if err := ch.hello(database, username, password); err != nil {
 		return nil, err
 	}
-	return nil, nil
+	return ch, nil
 }
 
 func (ch *clickhouse) Prepare(query string) (driver.Stmt, error) {
-	return nil, nil
+	ch.log("[prepare] %s", query)
+	if isInsert(query) {
+		return ch.insert(query)
+	}
+	return &stmt{
+		ch:       ch,
+		query:    query,
+		numInput: strings.Count(query, "?"),
+	}, nil
+}
+
+func (ch *clickhouse) insert(query string) (driver.Stmt, error) {
+	if err := ch.sendQuery(formatQuery(query)); err != nil {
+		return nil, err
+	}
+	datapacket, err := ch.datapacket()
+	if err != nil {
+		return nil, err
+	}
+	return &stmt{
+		ch:           ch,
+		isInsert:     true,
+		numInput:     strings.Count(query, "?"),
+		columnsTypes: datapacket.columnsTypes,
+		datapacket:   datapacket,
+	}, nil
+}
+
+func (ch *clickhouse) sendQuery(query string) error {
+	ch.log("[send query] %s", query)
+	if err := ch.conn.writeUInt(ClientQueryPacket); err != nil {
+		return err
+	}
+	if err := ch.conn.writeString(""); err != nil { // queryID
+		return err
+	}
+	if ch.serverRevision >= DBMS_MIN_REVISION_WITH_CLIENT_INFO {
+		ch.conn.writeUInt(1)
+		ch.conn.writeString("")
+		ch.conn.writeString("") //initial_query_id
+		ch.conn.writeString("[::ffff:127.0.0.1]:0")
+		ch.conn.writeUInt(1) // iface type TCP
+		ch.conn.writeString(hostname)
+		ch.conn.writeString("localhost")
+		ch.conn.writeString(ClientName)
+		ch.conn.writeUInt(ClickHouseDBMSVersionMajor)
+		ch.conn.writeUInt(ClickHouseDBMSVersionMinor)
+		ch.conn.writeUInt(ClickHouseRevision)
+		if ch.serverRevision >= DBMS_MIN_REVISION_WITH_QUOTA_KEY_IN_CLIENT_INFO {
+			ch.conn.writeString("")
+		}
+	}
+	if err := ch.conn.writeString(""); err != nil { // settings
+		return err
+	}
+	if err := ch.conn.writeUInt(StateComplete); err != nil {
+		return err
+	}
+	if err := ch.conn.writeUInt(0); err != nil { // compress
+		return err
+	}
+	if err := ch.conn.writeString(query); err != nil {
+		return err
+	}
+	{ // datablock
+		if err := ch.conn.writeUInt(ClientDataPacket); err != nil {
+			return err
+		}
+		if ch.serverRevision >= DBMS_MIN_REVISION_WITH_TEMPORARY_TABLES {
+			if err := ch.conn.writeString(""); err != nil {
+				return err
+			}
+		}
+		for _, z := range []uint{0, 0, 0} { // empty block
+			if err := ch.conn.writeUInt(z); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (ch *clickhouse) Begin() (driver.Tx, error) {
-	return nil, nil
+	return ch, nil
+}
+
+func (ch *clickhouse) Rollback() error {
+	return nil
+}
+
+func (ch *clickhouse) Commit() error {
+	return nil
 }
 
 func (ch *clickhouse) Close() error {
@@ -160,46 +258,6 @@ func (ch *clickhouse) hello(database, username, password string) error {
 	return nil
 }
 
-type Exception struct {
-	Code       int32
-	Name       string
-	Message    string
-	StackTrace string
-	nested     error
-}
-
-func (e *Exception) Error() string {
-	return fmt.Sprintf("code: %d, message: %s", e.Code, e.Message)
-}
-
-func (ch *clickhouse) exception() error {
-	var (
-		e         Exception
-		err       error
-		hasNested bool
-	)
-	if e.Code, err = ch.conn.readBinaryInt32(); err != nil {
-		return err
-	}
-	if e.Name, err = ch.conn.readString(); err != nil {
-		return err
-	}
-	if e.Message, err = ch.conn.readString(); err != nil {
-		return err
-	}
-	e.Message = strings.TrimSpace(strings.TrimPrefix(e.Message, e.Name+":"))
-	if e.StackTrace, err = ch.conn.readString(); err != nil {
-		return err
-	}
-	if hasNested, err = ch.conn.readBinaryBool(); err != nil {
-		return err
-	}
-	if hasNested {
-		e.nested = ch.exception()
-	}
-	return &e
-}
-
 func (ch *clickhouse) ping() error {
 	ch.log("-> ping")
 	if err := ch.conn.writeUInt(ClientPingPacket); err != nil {
@@ -222,29 +280,4 @@ func (ch *clickhouse) ping() error {
 	}
 	ch.log("<- pong")
 	return nil
-}
-
-type progress struct {
-	rows      uint
-	bytes     uint
-	totalRows uint
-}
-
-func (ch *clickhouse) progress() (*progress, error) {
-	var (
-		p   progress
-		err error
-	)
-	if p.rows, err = ch.conn.readUInt(); err != nil {
-		return nil, err
-	}
-	if p.bytes, err = ch.conn.readUInt(); err != nil {
-		return nil, err
-	}
-	if ch.serverRevision >= DBMS_MIN_REVISION_WITH_TOTAL_ROWS_IN_PROGRESS {
-		if p.totalRows, err = ch.conn.readUInt(); err != nil {
-			return nil, err
-		}
-	}
-	return &p, nil
 }
