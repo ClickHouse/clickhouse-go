@@ -1,6 +1,21 @@
 package clickhouse
 
 const (
+	ClientName = "Golang SQLDriver"
+)
+
+const (
+	ClickHouseRevision         = 54126
+	ClickHouseDBMSVersionMajor = 1
+	ClickHouseDBMSVersionMinor = 1
+)
+
+const (
+	DefaultDatabase = "default"
+	DefaultUsername = "default"
+)
+
+const (
 	ClientHelloPacket  = 0
 	ClientQueryPacket  = 1
 	ClientDataPacket   = 2

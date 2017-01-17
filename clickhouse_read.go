@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-func (ch *clickhouse) readByColumnType(columnType string) (driver.Value, error) {
+func (ch *clickhouse) read(columnType string) (driver.Value, error) {
 	if strings.HasPrefix(columnType, "FixedString") {
 		var len int
 		if _, err := fmt.Sscanf(columnType, "FixedString(%d)", &len); err != nil {
@@ -67,13 +67,13 @@ func (ch *clickhouse) readByColumnType(columnType string) (driver.Value, error) 
 		}
 		return v, nil
 	case "Float32":
-		x, err := ch.readByColumnType("UInt32")
+		x, err := ch.read("UInt32")
 		if err != nil {
 			return nil, err
 		}
 		return math.Float32frombits(x.(uint32)), nil
 	case "Float64":
-		x, err := ch.readByColumnType("UInt64")
+		x, err := ch.read("UInt64")
 		if err != nil {
 			return nil, err
 		}
@@ -93,7 +93,7 @@ func (ch *clickhouse) readByColumnType(columnType string) (driver.Value, error) 
 		}
 		return time.Unix(int64(sec), 0).In(ch.serverTimezone), nil
 	case "Boolean":
-		v, err := ch.readByColumnType("UInt8")
+		v, err := ch.read("UInt8")
 		if err != nil {
 			return nil, err
 		}

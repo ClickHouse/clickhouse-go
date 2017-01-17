@@ -83,7 +83,7 @@ func (ch *clickhouse) datapacket() (*datapacket, error) {
 		datapacket.columns = append(datapacket.columns, column)
 		datapacket.columnsTypes = append(datapacket.columnsTypes, columnType)
 		for index := 0; index < int(datapacket.numRows); index++ {
-			v, err := ch.readByColumnType(columnType)
+			v, err := ch.read(columnType)
 			if err != nil {
 				return nil, err
 			}

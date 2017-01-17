@@ -3,28 +3,13 @@ package clickhouse
 import (
 	"database/sql"
 	"database/sql/driver"
-	"fmt"
+	"errors"
 	"log"
 	"net/url"
 	"os"
 	"strconv"
 	"strings"
 	"time"
-)
-
-const (
-	ClientName = "Golang SQLDriver"
-)
-
-const (
-	ClickHouseRevision         = 54126
-	ClickHouseDBMSVersionMajor = 1
-	ClickHouseDBMSVersionMinor = 1
-)
-
-const (
-	DefaultDatabase = "default"
-	DefaultUsername = "default"
 )
 
 type logger func(format string, v ...interface{})
@@ -48,6 +33,8 @@ type clickhouse struct {
 	serverVersionMinor uint
 	serverVersionMajor uint
 	serverTimezone     *time.Location
+	inTransaction      bool
+	batch              *batch
 }
 
 func (ch *clickhouse) Open(dsn string) (driver.Conn, error) {
@@ -97,9 +84,17 @@ func (ch *clickhouse) Open(dsn string) (driver.Conn, error) {
 	return ch, nil
 }
 
+var (
+	ErrInsertInNotBatchMode    = errors.New("insert statement supported only in the batch mode (use begin/commit)")
+	ErrLimitBatchStatementInTx = errors.New("other batch request has already been prepared in transaction")
+)
+
 func (ch *clickhouse) Prepare(query string) (driver.Stmt, error) {
 	ch.log("[prepare] %s", query)
 	if isInsert(query) {
+		if !ch.inTransaction {
+			return nil, ErrInsertInNotBatchMode
+		}
 		return ch.insert(query)
 	}
 	return &stmt{
@@ -117,167 +112,70 @@ func (ch *clickhouse) insert(query string) (driver.Stmt, error) {
 	if err != nil {
 		return nil, err
 	}
+	if ch.batch != nil {
+		return nil, ErrLimitBatchStatementInTx
+	}
+	ch.batch = &batch{
+		datapacket: datapacket,
+	}
 	return &stmt{
-		ch:           ch,
-		isInsert:     true,
-		numInput:     strings.Count(query, "?"),
-		columnsTypes: datapacket.columnsTypes,
-		datapacket:   datapacket,
+		ch:       ch,
+		isInsert: true,
+		numInput: strings.Count(query, "?"),
 	}, nil
 }
 
-func (ch *clickhouse) sendQuery(query string) error {
-	ch.log("[send query] %s", query)
-	if err := ch.conn.writeUInt(ClientQueryPacket); err != nil {
-		return err
-	}
-	if err := ch.conn.writeString(""); err != nil { // queryID
-		return err
-	}
-	if ch.serverRevision >= DBMS_MIN_REVISION_WITH_CLIENT_INFO {
-		ch.conn.writeUInt(1)
-		ch.conn.writeString("")
-		ch.conn.writeString("") //initial_query_id
-		ch.conn.writeString("[::ffff:127.0.0.1]:0")
-		ch.conn.writeUInt(1) // iface type TCP
-		ch.conn.writeString(hostname)
-		ch.conn.writeString("localhost")
-		ch.conn.writeString(ClientName)
-		ch.conn.writeUInt(ClickHouseDBMSVersionMajor)
-		ch.conn.writeUInt(ClickHouseDBMSVersionMinor)
-		ch.conn.writeUInt(ClickHouseRevision)
-		if ch.serverRevision >= DBMS_MIN_REVISION_WITH_QUOTA_KEY_IN_CLIENT_INFO {
-			ch.conn.writeString("")
-		}
-	}
-	if err := ch.conn.writeString(""); err != nil { // settings
-		return err
-	}
-	if err := ch.conn.writeUInt(StateComplete); err != nil {
-		return err
-	}
-	if err := ch.conn.writeUInt(0); err != nil { // compress
-		return err
-	}
-	if err := ch.conn.writeString(query); err != nil {
-		return err
-	}
-	{ // datablock
-		if err := ch.conn.writeUInt(ClientDataPacket); err != nil {
-			return err
-		}
-		if ch.serverRevision >= DBMS_MIN_REVISION_WITH_TEMPORARY_TABLES {
-			if err := ch.conn.writeString(""); err != nil {
-				return err
-			}
-		}
-		for _, z := range []uint{0, 0, 0} { // empty block
-			if err := ch.conn.writeUInt(z); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
 func (ch *clickhouse) Begin() (driver.Tx, error) {
+	if ch.inTransaction {
+		return nil, sql.ErrTxDone
+	}
+	ch.batch = nil
+	ch.inTransaction = true
 	return ch, nil
 }
 
 func (ch *clickhouse) Rollback() error {
+	if !ch.inTransaction {
+		return sql.ErrTxDone
+	}
+	ch.batch = nil
+	ch.inTransaction = false
 	return nil
 }
 
 func (ch *clickhouse) Commit() error {
+	if !ch.inTransaction {
+		return sql.ErrTxDone
+	}
+	ch.batch = nil
+	ch.inTransaction = false
+	//send batch request
+	/*
+		stmt.ch.conn.writeUInt(ClientDataPacket)
+		stmt.ch.conn.writeString("") //tmp
+		stmt.datapacket.blockInfo.write(stmt.ch.conn)
+		stmt.ch.conn.writeUInt(stmt.datapacket.numColumns)
+		stmt.ch.conn.writeUInt(2)
+
+		for _, name := range []string{"os_id", "browser_id"} {
+			fmt.Println("Write", name)
+			stmt.ch.conn.writeString(name)
+			stmt.ch.conn.writeString("UInt8")
+			fmt.Println(binary.Write(stmt.ch.conn, binary.LittleEndian, uint8(44)))
+			fmt.Println(binary.Write(stmt.ch.conn, binary.LittleEndian, uint8(88)))
+		}
+		fmt.Println("DONE", stmt.ch.ping())
+		fmt.Println(stmt.ch.receivePacket())
+	*/
+	if err := ch.ping(); err != nil {
+		return err
+	}
+	if _, err := ch.receivePacket(); err != nil {
+		return err
+	}
 	return nil
 }
 
 func (ch *clickhouse) Close() error {
 	return ch.conn.Close()
-}
-
-func (ch *clickhouse) hello(database, username, password string) error {
-	ch.log("[hello] -> %s %d.%d.%d",
-		ClientName,
-		ClickHouseDBMSVersionMajor,
-		ClickHouseDBMSVersionMinor,
-		ClickHouseRevision,
-	)
-	{
-		ch.conn.writeUInt(ClientHelloPacket)
-		ch.conn.writeString(ClientName)
-		ch.conn.writeUInt(ClickHouseDBMSVersionMajor)
-		ch.conn.writeUInt(ClickHouseDBMSVersionMinor)
-		ch.conn.writeUInt(ClickHouseRevision)
-		ch.conn.writeString(database)
-		ch.conn.writeString(username)
-		ch.conn.writeString(password)
-	}
-	{
-		packet, err := ch.conn.readUInt()
-		if err != nil {
-			return err
-		}
-		switch packet {
-		case ServerExceptionPacket:
-			return ch.exception()
-		case ServerHelloPacket:
-			var err error
-			if ch.serverName, err = ch.conn.readString(); err != nil {
-				return err
-			}
-			if ch.serverVersionMinor, err = ch.conn.readUInt(); err != nil {
-				return err
-			}
-			if ch.serverVersionMajor, err = ch.conn.readUInt(); err != nil {
-				return err
-			}
-			if ch.serverRevision, err = ch.conn.readUInt(); err != nil {
-				return err
-			}
-			if ch.serverRevision >= DBMS_MIN_REVISION_WITH_SERVER_TIMEZONE {
-				timezone, err := ch.conn.readString()
-				if err != nil {
-					return err
-				}
-				if ch.serverTimezone, err = time.LoadLocation(timezone); err != nil {
-					return err
-				}
-			}
-		default:
-			return fmt.Errorf("Unexpected packet from server")
-		}
-	}
-	ch.log("[hello] <- %s %d.%d.%d (%s)",
-		ch.serverName,
-		ch.serverVersionMajor,
-		ch.serverVersionMinor,
-		ch.serverRevision,
-		ch.serverTimezone,
-	)
-	return nil
-}
-
-func (ch *clickhouse) ping() error {
-	ch.log("-> ping")
-	if err := ch.conn.writeUInt(ClientPingPacket); err != nil {
-		return err
-	}
-	packet, err := ch.conn.readUInt()
-	if err != nil {
-		return err
-	}
-	for packet == ServerProgressPacket {
-		if _, err = ch.progress(); err != nil {
-			return err
-		}
-		if packet, err = ch.conn.readUInt(); err != nil {
-			return err
-		}
-	}
-	if packet != ServerPongPacket {
-		return fmt.Errorf("Unexpected packet from server")
-	}
-	ch.log("<- pong")
-	return nil
 }
