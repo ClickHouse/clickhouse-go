@@ -2,10 +2,9 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"time"
-
-	"fmt"
 
 	"github.com/kshvakov/clickhouse"
 )
@@ -29,6 +28,7 @@ func main() {
 			country_code FixedString(2),
 			os_id        UInt8,
 			browser_id   UInt8,
+			action_day   Date,
 			action_time  DateTime
 		) engine=Memory
 	`)
@@ -38,11 +38,11 @@ func main() {
 	}
 	var (
 		tx, _   = connect.Begin()
-		stmt, _ = tx.Prepare("INSERT INTO example (country_code, os_id, browser_id, action_time) VALUES (?, ?, ?, ?)")
+		stmt, _ = tx.Prepare("INSERT INTO example (country_code, os_id, browser_id, action_day, action_time) VALUES (?, ?, ?, ?, ?)")
 	)
 
 	for i := 0; i < 100; i++ {
-		if _, err := stmt.Exec("RU", 10+i, 100+i, time.Now()); err != nil {
+		if _, err := stmt.Exec("RU", 10+i, 100+i, time.Now(), time.Now()); err != nil {
 			log.Fatal(err)
 		}
 	}
@@ -51,21 +51,21 @@ func main() {
 		log.Fatal(err)
 	}
 
-	rows, err := connect.Query("SELECT country_code, os_id, browser_id, action_time FROM example WHERE browser_id = ? or browser_id = ?", 88, 89)
+	rows, err := connect.Query("SELECT country_code, os_id, browser_id, action_day, action_time FROM example")
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	for rows.Next() {
 		var (
-			country     string
-			os, browser uint8
-			actionTime  time.Time
+			country               string
+			os, browser           uint8
+			actionDay, actionTime time.Time
 		)
-		if err := rows.Scan(&country, &os, &browser, &actionTime); err != nil {
+		if err := rows.Scan(&country, &os, &browser, &actionDay, &actionTime); err != nil {
 			log.Fatal(err)
 		}
-		log.Printf("country: %s, os: %d, browser: %d, action_time: %s", country, os, browser, actionTime)
+		log.Printf("country: %s, os: %d, browser: %d, action_day: %s, action_time: %s", country, os, browser, actionDay, actionTime)
 	}
 
 	if _, err := connect.Exec("DROP TABLE example"); err != nil {

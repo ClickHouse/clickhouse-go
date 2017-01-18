@@ -8,12 +8,6 @@ import (
 	"time"
 )
 
-type (
-	Date     time.Time
-	DateTime time.Time
-	String   string
-)
-
 func isInsert(query string) bool {
 	if f := strings.Fields(query); len(f) > 2 {
 		return strings.EqualFold("INSERT", f[0]) && strings.EqualFold("INTO", f[1]) && strings.Index(strings.ToUpper(query), " SELECT ") == -1
@@ -28,7 +22,7 @@ func isSelect(query string) bool {
 	return false
 }
 
-var splitInsertRe = regexp.MustCompile(`(?i)\sVALUES\s*\(.*?\)`)
+var splitInsertRe = regexp.MustCompile(`(?i)\sVALUES\s*\(`)
 
 func formatQuery(query string) string {
 	if isInsert(query) {

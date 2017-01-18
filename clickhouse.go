@@ -105,6 +105,7 @@ func (ch *clickhouse) Prepare(query string) (driver.Stmt, error) {
 }
 
 func (ch *clickhouse) insert(query string) (driver.Stmt, error) {
+
 	if err := ch.sendQuery(formatQuery(query)); err != nil {
 		return nil, err
 	}
@@ -144,34 +145,24 @@ func (ch *clickhouse) Rollback() error {
 }
 
 func (ch *clickhouse) Commit() error {
+	ch.log("[commit] tx=%t, batch=%t", ch.inTransaction, ch.batch != nil)
 	if !ch.inTransaction {
 		return sql.ErrTxDone
 	}
-	ch.batch = nil
-	ch.inTransaction = false
-	//send batch request
-	/*
-		stmt.ch.conn.writeUInt(ClientDataPacket)
-		stmt.ch.conn.writeString("") //tmp
-		stmt.datapacket.blockInfo.write(stmt.ch.conn)
-		stmt.ch.conn.writeUInt(stmt.datapacket.numColumns)
-		stmt.ch.conn.writeUInt(2)
-
-		for _, name := range []string{"os_id", "browser_id"} {
-			fmt.Println("Write", name)
-			stmt.ch.conn.writeString(name)
-			stmt.ch.conn.writeString("UInt8")
-			fmt.Println(binary.Write(stmt.ch.conn, binary.LittleEndian, uint8(44)))
-			fmt.Println(binary.Write(stmt.ch.conn, binary.LittleEndian, uint8(88)))
+	defer func() {
+		ch.batch = nil
+		ch.inTransaction = false
+	}()
+	if ch.batch != nil {
+		if err := ch.batch.sendData(ch.conn); err != nil {
+			return err
 		}
-		fmt.Println("DONE", stmt.ch.ping())
-		fmt.Println(stmt.ch.receivePacket())
-	*/
-	if err := ch.ping(); err != nil {
-		return err
-	}
-	if _, err := ch.receivePacket(); err != nil {
-		return err
+		if err := ch.ping(); err != nil {
+			return err
+		}
+		if _, err := ch.receivePacket(); err != nil {
+			return err
+		}
 	}
 	return nil
 }

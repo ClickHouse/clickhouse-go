@@ -1,11 +1,11 @@
 package clickhouse
 
 func (ch *clickhouse) sendQuery(query string) error {
-	ch.log("[send query] %s", query)
+	ch.log("[send query] query=%s", query)
 	if err := ch.conn.writeUInt(ClientQueryPacket); err != nil {
 		return err
 	}
-	if err := ch.conn.writeString(""); err != nil { // queryID
+	if err := ch.conn.writeString(""); err != nil {
 		return err
 	}
 	if ch.serverRevision >= DBMS_MIN_REVISION_WITH_CLIENT_INFO {

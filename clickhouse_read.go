@@ -85,19 +85,13 @@ func (ch *clickhouse) read(columnType string) (driver.Value, error) {
 		if err := binary.Read(ch.conn, binary.LittleEndian, &sec); err != nil {
 			return nil, err
 		}
-		return time.Unix(int64(sec), 0).In(ch.serverTimezone), nil
+		return time.Unix(int64(sec)*24*3600, 0).In(ch.serverTimezone), nil
 	case "DateTime":
 		var sec int32
 		if err := binary.Read(ch.conn, binary.LittleEndian, &sec); err != nil {
 			return nil, err
 		}
 		return time.Unix(int64(sec), 0).In(ch.serverTimezone), nil
-	case "Boolean":
-		v, err := ch.read("UInt8")
-		if err != nil {
-			return nil, err
-		}
-		return v == 1, nil
 	default:
 		return nil, fmt.Errorf("unexpected type: %s", columnType)
 	}

@@ -1,6 +1,7 @@
 package clickhouse
 
 import (
+	"bytes"
 	"database/sql/driver"
 	"encoding/binary"
 )
@@ -42,6 +43,7 @@ func (info *blockInfo) write(conn *connect) error {
 }
 
 type datapacket struct {
+	revision     uint
 	table        string
 	blockInfo    blockInfo
 	numRows      uint
@@ -51,10 +53,45 @@ type datapacket struct {
 	rows         [][]driver.Value
 }
 
+func (d *datapacket) sendData(conn *connect, numRows uint, values []bytes.Buffer) error {
+	if err := conn.writeUInt(ClientDataPacket); err != nil {
+		return err
+	}
+	if d.revision >= DBMS_MIN_REVISION_WITH_TEMPORARY_TABLES {
+		if err := conn.writeString(d.table); err != nil {
+			return err
+		}
+	}
+	if d.revision >= DBMS_MIN_REVISION_WITH_TEMPORARY_TABLES {
+		d.blockInfo.write(conn)
+	}
+	if err := conn.writeUInt(d.numColumns); err != nil {
+		return err
+	}
+	if err := conn.writeUInt(numRows); err != nil {
+		return err
+	}
+	for i, column := range d.columns {
+		if err := conn.writeString(column); err != nil {
+			return err
+		}
+		if err := conn.writeString(d.columnsTypes[i]); err != nil {
+			return err
+		}
+
+		if _, err := values[i].WriteTo(conn); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (ch *clickhouse) datapacket() (*datapacket, error) {
 	var (
 		err        error
-		datapacket datapacket
+		datapacket = datapacket{
+			revision: ch.serverRevision,
+		}
 	)
 	if ch.serverRevision >= DBMS_MIN_REVISION_WITH_TEMPORARY_TABLES {
 		if datapacket.table, err = ch.conn.readString(); err != nil {
