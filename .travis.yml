@@ -1,0 +1,16 @@
+sudo: required
+language: go
+go: 
+  - 1.6
+  - 1.7
+  - tip
+services:
+  - docker
+install:
+  - go get github.com/stretchr/testify/assert
+before_install:
+  - docker pull yandex/clickhouse-server
+  - docker run -d --name clickhouse-server -p 9000:9000 --ulimit nofile=262144:262144 yandex/clickhouse-server
+  - docker ps -a
+script:
+  - go test -v .

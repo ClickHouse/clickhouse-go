@@ -1,6 +1,6 @@
 # ClickHouse
 
-Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/)
+Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/) [![Build Status](https://travis-ci.org/kshvakov/clickhouse.svg?branch=master)](https://travis-ci.org/kshvakov/clickhouse)
 
 ## Key features
 
@@ -13,6 +13,15 @@ Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/)
 * timeout - timeout in seccond 
 * username/password - auth credentials
 * alt_hosts - comma separated list of single address host for load-balancing
+
+## Supported data types
+
+* UInt8, UInt16, UInt32, UInt64, Int8, Int16, Int32, Int64
+* Float32, Float64
+* String
+* FixedString(N)
+* Date 
+* DateTime
 
 example:
 ```
