@@ -47,6 +47,7 @@ func (ch *clickhouse) Open(dsn string) (driver.Conn, error) {
 		database = url.Query().Get("database")
 		username = url.Query().Get("username")
 		password = url.Query().Get("password")
+		timeout  = time.Second
 	)
 	if len(database) == 0 {
 		database = DefaultDatabase
@@ -62,6 +63,9 @@ func (ch *clickhouse) Open(dsn string) (driver.Conn, error) {
 	if compress, err := strconv.ParseBool(url.Query().Get("compress")); err == nil {
 		ch.compress = compress
 	}
+	if t, err := strconv.ParseInt(url.Query().Get("timeout"), 10, 64); err == nil {
+		timeout = time.Duration(t) * time.Second
+	}
 	if altHosts := strings.Split(url.Query().Get("alt_hosts"), ","); len(altHosts) != 0 {
 		for _, host := range altHosts {
 			if len(host) != 0 {
@@ -69,13 +73,13 @@ func (ch *clickhouse) Open(dsn string) (driver.Conn, error) {
 			}
 		}
 	}
-	ch.log("host(s): %s, database: %s, username: %s, compress: %t",
+	ch.log("host(s)=%s, database=%s, username=%s, compress=%t",
 		strings.Join(hosts, ", "),
 		database,
 		username,
 		ch.compress,
 	)
-	if ch.conn, err = dial(url.Scheme, hosts); err != nil {
+	if ch.conn, err = dial(url.Scheme, hosts, timeout); err != nil {
 		return nil, err
 	}
 	if err := ch.hello(database, username, password); err != nil {
@@ -86,11 +90,14 @@ func (ch *clickhouse) Open(dsn string) (driver.Conn, error) {
 
 var (
 	ErrInsertInNotBatchMode    = errors.New("insert statement supported only in the batch mode (use begin/commit)")
-	ErrLimitBatchStatementInTx = errors.New("other batch request has already been prepared in transaction")
+	ErrLimitBatchStatementInTx = errors.New("batch request has already been prepared in transaction")
 )
 
 func (ch *clickhouse) Prepare(query string) (driver.Stmt, error) {
 	ch.log("[prepare] %s", query)
+	if ch.batch != nil {
+		return nil, ErrLimitBatchStatementInTx
+	}
 	if isInsert(query) {
 		if !ch.inTransaction {
 			return nil, ErrInsertInNotBatchMode
@@ -104,29 +111,8 @@ func (ch *clickhouse) Prepare(query string) (driver.Stmt, error) {
 	}, nil
 }
 
-func (ch *clickhouse) insert(query string) (driver.Stmt, error) {
-
-	if err := ch.sendQuery(formatQuery(query)); err != nil {
-		return nil, err
-	}
-	datapacket, err := ch.datapacket()
-	if err != nil {
-		return nil, err
-	}
-	if ch.batch != nil {
-		return nil, ErrLimitBatchStatementInTx
-	}
-	ch.batch = &batch{
-		datapacket: datapacket,
-	}
-	return &stmt{
-		ch:       ch,
-		isInsert: true,
-		numInput: strings.Count(query, "?"),
-	}, nil
-}
-
 func (ch *clickhouse) Begin() (driver.Tx, error) {
+	ch.log("[begin] tx=%t, batch=%t", ch.inTransaction, ch.batch != nil)
 	if ch.inTransaction {
 		return nil, sql.ErrTxDone
 	}
@@ -136,11 +122,16 @@ func (ch *clickhouse) Begin() (driver.Tx, error) {
 }
 
 func (ch *clickhouse) Rollback() error {
+	ch.log("[rollback] tx=%t, batch=%t", ch.inTransaction, ch.batch != nil)
 	if !ch.inTransaction {
 		return sql.ErrTxDone
 	}
 	ch.batch = nil
 	ch.inTransaction = false
+	ch.conn.writeUInt(ClientCancelPacket)
+	if err := ch.ping(); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -168,5 +159,24 @@ func (ch *clickhouse) Commit() error {
 }
 
 func (ch *clickhouse) Close() error {
+	ch.log("[close]")
 	return ch.conn.Close()
+}
+
+func (ch *clickhouse) insert(query string) (driver.Stmt, error) {
+	if err := ch.sendQuery(formatQuery(query)); err != nil {
+		return nil, err
+	}
+	datapacket, err := ch.datapacket()
+	if err != nil {
+		return nil, err
+	}
+	ch.batch = &batch{
+		datapacket: datapacket,
+	}
+	return &stmt{
+		ch:       ch,
+		isInsert: true,
+		numInput: strings.Count(query, "?"),
+	}, nil
 }

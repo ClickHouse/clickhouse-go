@@ -10,7 +10,7 @@ import (
 
 var tick int32
 
-func dial(network string, hosts []string) (*connect, error) {
+func dial(network string, hosts []string, timeout time.Duration) (*connect, error) {
 	var (
 		err  error
 		conn net.Conn
@@ -23,7 +23,7 @@ func dial(network string, hosts []string) (*connect, error) {
 		index = abs(int(atomic.AddInt32(&tick, 1)))
 	)
 	for i := 0; i <= len(hosts); i++ {
-		if conn, err = net.DialTimeout(network, hosts[(index+i)%len(hosts)], time.Second); err == nil {
+		if conn, err = net.DialTimeout(network, hosts[(index+i)%len(hosts)], timeout); err == nil {
 			if tcp, ok := conn.(*net.TCPConn); ok {
 				tcp.SetNoDelay(true)
 			}

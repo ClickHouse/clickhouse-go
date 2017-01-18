@@ -206,3 +206,18 @@ func Test_Insert(t *testing.T) {
 
 	}
 }
+
+func Test_Tx(t *testing.T) {
+	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) {
+		if tx, err := connect.Begin(); assert.NoError(t, err) {
+			_, err = tx.Query("SELECT 1")
+			if assert.NoError(t, err) {
+				if !assert.NoError(t, tx.Rollback()) {
+					return
+				}
+			}
+			_, err = tx.Query("SELECT 1")
+			assert.Error(t, err)
+		}
+	}
+}
