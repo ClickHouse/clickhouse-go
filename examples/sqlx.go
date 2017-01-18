@@ -1,17 +1,26 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"time"
 
 	"github.com/jmoiron/sqlx"
-	_ "github.com/kshvakov/clickhouse"
+	"github.com/kshvakov/clickhouse"
 )
 
 func main() {
-	connect, err := sqlx.Open("clickhouse", "http://127.0.0.1:8123?compress=true&debug=true")
+	connect, err := sqlx.Open("clickhouse", "tcp://127.0.0.1:9000?compress=true&debug=true")
 	if err != nil {
 		log.Fatal(err)
+	}
+	if err := connect.Ping(); err != nil {
+		if exception, ok := err.(*clickhouse.Exception); ok {
+			fmt.Printf("[%d] %s \n%s\n", exception.Code, exception.Message, exception.StackTrace)
+		} else {
+			fmt.Println(err)
+		}
+		return
 	}
 	_, err = connect.Exec(`
         CREATE TABLE example (

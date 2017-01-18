@@ -2,210 +2,116 @@ package clickhouse
 
 import (
 	"bytes"
-	"compress/gzip"
-	"crypto/tls"
-	"database/sql"
-	"database/sql/driver"
-	"errors"
-	"fmt"
-	"io"
-	"io/ioutil"
-	"log"
+	"encoding/binary"
 	"net"
-	"net/http"
-	"net/url"
-	"os"
-	"strconv"
-	"strings"
+	"sync/atomic"
 	"time"
 )
 
-const (
-	DefaultTimeout = time.Minute
-)
+var tick int32
 
-func init() {
-	sql.Register("clickhouse", &connect{})
+func dial(network string, hosts []string, timeout time.Duration) (*connect, error) {
+	var (
+		err  error
+		conn net.Conn
+		abs  = func(v int) int {
+			if v < 0 {
+				return -1
+			}
+			return v
+		}
+		index = abs(int(atomic.AddInt32(&tick, 1)))
+	)
+	for i := 0; i <= len(hosts); i++ {
+		if conn, err = net.DialTimeout(network, hosts[(index+i)%len(hosts)], timeout); err == nil {
+			if tcp, ok := conn.(*net.TCPConn); ok {
+				tcp.SetNoDelay(true)
+			}
+			return &connect{
+				Conn: conn,
+			}, nil
+		}
+	}
+	return nil, err
 }
-
-type logger func(format string, v ...interface{})
-
-var (
-	ErrTransactionInProgress   = errors.New("there is already a transaction in progress")
-	ErrNoTransactionInProgress = errors.New("there is no transaction in progress")
-)
-
-var (
-	nolog    = func(string, ...interface{}) {}
-	debuglog = log.New(os.Stdout, "[clickhouse]", 0).Printf
-)
 
 type connect struct {
-	http          http.Client
-	log           logger
-	queries       []string
-	buffers       []bytes.Buffer
-	compress      bool
-	inTransaction bool
+	net.Conn
 }
 
-func (conn *connect) Open(dsn string) (driver.Conn, error) {
-	url, err := url.Parse(dsn)
-	if err != nil {
-		return nil, err
-	}
+func (conn *connect) writeUInt(i uint) error {
 	var (
-		hosts    = []string{url.Host}
-		log      = nolog
-		timeout  = DefaultTimeout
-		compress bool
+		buf = make([]byte, binary.MaxVarintLen64)
+		len = binary.PutUvarint(buf, uint64(i))
 	)
-	if altHosts := strings.Split(url.Query().Get("alt_hosts"), ","); len(altHosts) != 0 && len(altHosts[0]) != 0 {
-		hosts = append(hosts, altHosts...)
-	}
-	if t, err := strconv.ParseInt(url.Query().Get("timeout"), 10, 64); err == nil && t != 0 {
-		timeout = time.Duration(t) * time.Second
-	}
-	if v, err := strconv.ParseBool(url.Query().Get("compress")); err == nil {
-		compress = v
-	}
-	if debug, err := strconv.ParseBool(url.Query().Get("debug")); err == nil && debug {
-		log = debuglog
-		log("hosts: %v, timeout: %s, compress: %t", hosts, timeout, compress)
-		if username := url.Query().Get("username"); len(username) != 0 {
-			log("[basic auth], username: %s, password: %s", username, url.Query().Get("password"))
-		}
-	}
-	return &connect{
-		log:      log,
-		compress: compress,
-		http: http.Client{
-			Timeout: timeout,
-			Transport: &transport{
-				hosts:    hosts,
-				scheme:   url.Scheme,
-				username: url.Query().Get("username"),
-				password: url.Query().Get("password"),
-				origin: &http.Transport{
-					DialContext: (&net.Dialer{
-						Timeout:   30 * time.Second,
-						KeepAlive: 30 * time.Second,
-					}).DialContext,
-					MaxIdleConns:          100,
-					MaxIdleConnsPerHost:   20,
-					IdleConnTimeout:       90 * time.Second,
-					TLSHandshakeTimeout:   10 * time.Second,
-					ExpectContinueTimeout: 1 * time.Second,
-					TLSClientConfig: &tls.Config{
-						InsecureSkipVerify: true,
-					},
-				},
-			},
-		},
-	}, nil
-}
-
-func (conn *connect) Prepare(query string) (driver.Stmt, error) {
-	conn.log("[connect] prepare: %s", query)
-	var (
-		index    int
-		numInput = len(strings.Split(query, "?")) - 1
-	)
-	if isInsert(query) && conn.inTransaction {
-		conn.queries = append(conn.queries, query)
-		conn.buffers = append(conn.buffers, bytes.Buffer{})
-		index = len(conn.buffers) - 1
-		conn.log("[connect] [prepare] tx len: %d", len(conn.queries))
-	}
-	return &stmt{
-		conn:     conn,
-		query:    query,
-		index:    index,
-		numInput: numInput,
-	}, nil
-}
-
-func (conn *connect) Begin() (driver.Tx, error) {
-	conn.log("[connect] begin")
-	if conn.inTransaction {
-		return nil, ErrTransactionInProgress
-	}
-	conn.inTransaction = true
-	return conn, nil
-}
-
-func (conn *connect) Commit() error {
-	conn.log("[connect] commit")
-	defer conn.reset()
-	if !conn.inTransaction {
-		return ErrNoTransactionInProgress
-	}
-	for index, query := range conn.queries {
-		if _, err := conn.do(query, &conn.buffers[index]); err != nil {
-			return err
-		}
+	if _, err := conn.Write(buf[0:len]); err != nil {
+		return err
 	}
 	return nil
 }
 
-func (conn *connect) do(query string, data *bytes.Buffer) (io.Reader, error) {
-	query = formatQuery(query)
-	conn.log("[connect] [do] compress: %t, format query: %s", conn.compress, query)
-	var body io.ReadWriter = data
-	if conn.compress {
-		body = &bytes.Buffer{}
-		compress := gzip.NewWriter(body)
-		data.WriteTo(compress)
-		compress.Flush()
-		compress.Close()
+func (conn *connect) writeString(str string) error {
+	if err := conn.writeUInt(uint(len([]byte(str)))); err != nil {
+		return err
 	}
-	req, _ := http.NewRequest("POST", "?"+(&url.Values{"query": []string{query}}).Encode(), body)
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	if conn.compress {
-		req.Header.Set("Content-Encoding", "gzip")
+	if _, err := conn.Write([]byte(str)); err != nil {
+		return err
 	}
-	response, err := conn.http.Do(req)
+	return nil
+}
+
+func (conn *connect) readUInt() (uint, error) {
+	v, err := binary.ReadUvarint(conn)
 	if err != nil {
+		return 0, err
+	}
+	return uint(v), nil
+}
+
+func (conn *connect) readFixed(len int) ([]byte, error) {
+	buf := make([]byte, len)
+	if _, err := conn.Read(buf); err != nil {
 		return nil, err
 	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		message, err := ioutil.ReadAll(response.Body)
-		if err != nil {
-			return nil, err
-		}
-		return nil, fmt.Errorf(string(message))
-	}
-	var responseBody bytes.Buffer
-	if _, err := io.Copy(&responseBody, response.Body); err != nil {
-		return nil, err
-	}
-	return &responseBody, nil
+	return buf, nil
 }
 
-func (conn *connect) Rollback() error {
-	conn.log("[connect] rollback")
-	defer conn.reset()
-	if !conn.inTransaction {
-		return ErrNoTransactionInProgress
+func (conn *connect) readString() (string, error) {
+	len, err := conn.readUInt()
+	if err != nil {
+		return "", err
 	}
-	return nil
+	str, err := conn.readFixed(int(len))
+	if err != nil {
+		return "", err
+	}
+	return string(str), nil
 }
 
-func (conn *connect) Close() error {
-	conn.log("[connect] close")
-	conn.reset()
-	return nil
+func (conn *connect) readBinaryBool() (bool, error) {
+	bytes, err := conn.readFixed(1)
+	if err != nil {
+		return false, err
+	}
+	return bytes[0] == 1, nil
 }
 
-func (conn *connect) reset() {
-	conn.log("[connect] reset")
-	if conn.inTransaction {
-		conn.inTransaction = false
-		for _, buffer := range conn.buffers {
-			buffer.Reset()
-		}
-		conn.queries = conn.queries[0:0]
-		conn.buffers = conn.buffers[0:0]
+func (conn *connect) readBinaryInt32() (int32, error) {
+	var v int32
+	buf, err := conn.readFixed(4)
+	if err != nil {
+		return 0, err
 	}
+	if err := binary.Read(bytes.NewBuffer(buf), binary.LittleEndian, &v); err != nil {
+		return 0, err
+	}
+	return v, nil
+}
+
+func (conn *connect) ReadByte() (byte, error) {
+	bytes, err := conn.readFixed(1)
+	if err != nil {
+		return 0x0, err
+	}
+	return bytes[0], nil
 }

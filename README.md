@@ -1,27 +1,22 @@
-# clickhouse
+# ClickHouse
 
 Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/)
 
-## Notice 
-
-Current version of driver uses [ClickHouse HTTP interface](https://clickhouse.yandex/reference_en.html#Interfaces)
-
 ## Key features
 
+* Uses native ClickHouse tcp client-server protocol
 * Compatibility with `database/sql`
-* Support for gzip compression 
-* Round Robin load-balancing and fallback 
+* Round Robin load-balancing
 
 ## DSN 
 
-* timeout - timeout in seccond
-* compress - disable/enable gzip compression 
+* timeout - timeout in seccond 
 * username/password - auth credentials
-* alt_hosts - comma separated list of single address host for load-balancing and fallback 
+* alt_hosts - comma separated list of single address host for load-balancing
 
 example:
 ```
-http://127.0.0.1:8123?timeout=60&compress=true&username=user&password=qwerty&alt_hosts=host2:8123,host3:8123
+tcp://host1:9000?timeout=60&username=user&password=qwerty&alt_hosts=host2:9000,host3:9000
 ```
 
 
@@ -43,7 +38,7 @@ import (
 )
 
 func main() {
-	connect, err := sql.Open("clickhouse", "http://127.0.0.1:8123")
+	connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -66,7 +61,7 @@ func main() {
 	)
 	// write to buffer
 	for i := 0; i < 100; i++ {
-		if _, err := stmt.Exec("RU", 100+i, 200+i, time.Now()); err != nil {
+		if _, err := stmt.Exec("RU", 10+i, 100+i, time.Now()); err != nil {
 			log.Fatal(err)
 		}
 	}
@@ -112,7 +107,7 @@ import (
 )
 
 func main() {
-	connect, err := sqlx.Open("clickhouse", "http://127.0.0.1:8123?compress=true&debug=true")
+	connect, err := sqlx.Open("clickhouse", "tcp://127.0.0.1:9000?compress=true&debug=true")
 	if err != nil {
 		log.Fatal(err)
 	}

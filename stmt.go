@@ -1,17 +1,17 @@
 package clickhouse
 
 import (
-	"bufio"
-	"bytes"
 	"database/sql/driver"
 	"strings"
 )
 
 type stmt struct {
-	conn     *connect
-	query    string
-	index    int
-	numInput int
+	ch         *clickhouse
+	rows       rows
+	query      string
+	numInput   int
+	isInsert   bool
+	datapacket *datapacket
 }
 
 func (stmt *stmt) NumInput() int {
@@ -22,30 +22,22 @@ func (stmt *stmt) NumInput() int {
 }
 
 func (stmt *stmt) Exec(args []driver.Value) (driver.Result, error) {
-	stmt.conn.log("[stmt] exec. args: %v", args)
-	buffer := &bytes.Buffer{}
-	if stmt.conn.inTransaction {
-		buffer = &stmt.conn.buffers[stmt.index]
-	}
-	if len(args) != 0 {
-		for i, v := range args {
-			buffer.WriteString(encode(v))
-			if i < len(args)-1 {
-				buffer.WriteString("\t")
-			}
-		}
-		buffer.WriteString("\n")
-	}
-	if !stmt.conn.inTransaction {
-		if _, err := stmt.conn.do(stmt.query, buffer); err != nil {
+	if stmt.isInsert {
+		if err := stmt.ch.batch.insert(args); err != nil {
 			return nil, err
 		}
+		return &result{}, nil
+	}
+	if err := stmt.ch.sendQuery(stmt.query); err != nil {
+		return nil, err
+	}
+	if _, err := stmt.ch.receivePacket(); err != nil {
+		return nil, err
 	}
 	return &result{}, nil
 }
 
 func (stmt *stmt) Query(args []driver.Value) (driver.Rows, error) {
-	stmt.conn.log("[stmt] query. args: %v", args)
 	var query []string
 	for index, value := range strings.Split(stmt.query, "?") {
 		query = append(query, value)
@@ -53,26 +45,18 @@ func (stmt *stmt) Query(args []driver.Value) (driver.Rows, error) {
 			query = append(query, quote(args[index]))
 		}
 	}
-
-	body, err := stmt.conn.do(strings.Join(query, ""), &bytes.Buffer{})
+	if err := stmt.ch.sendQuery(strings.Join(query, "")); err != nil {
+		return nil, err
+	}
+	rows, err := stmt.ch.receivePacket()
 	if err != nil {
 		return nil, err
 	}
-
-	scanner := bufio.NewScanner(body)
-	scanner.Scan()
-	columns := strings.Fields(scanner.Text())
-	scanner.Scan()
-	types := strings.Fields(scanner.Text())
-	stmt.conn.log("[stmt] query. columns: %v, types: %v", columns, types)
-	return &rows{
-		types:   types,
-		scanner: scanner,
-		columns: columns,
-	}, nil
+	return rows, nil
 }
 
 func (stmt *stmt) Close() error {
-	stmt.conn.log("[stmt] close")
+	stmt.ch.log("[stmt] close")
+	stmt.rows = rows{}
 	return nil
 }
