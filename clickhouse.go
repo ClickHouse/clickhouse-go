@@ -55,8 +55,10 @@ func (ch *clickhouse) Open(dsn string) (driver.Conn, error) {
 	if len(username) == 0 {
 		username = DefaultUsername
 	}
-	ch.log = nolog
-	ch.serverTimezone = time.UTC
+	ch = &clickhouse{
+		log:            nolog,
+		serverTimezone: time.UTC,
+	}
 	if debug, err := strconv.ParseBool(url.Query().Get("debug")); err == nil && debug {
 		ch.log = debuglog
 	}

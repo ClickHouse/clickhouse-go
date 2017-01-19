@@ -243,7 +243,19 @@ func Test_Temporary_Table(t *testing.T) {
 							}
 							count++
 						}
-						assert.Equal(t, int(10), count)
+						if _, err = tx.Query("SELECT ID FROM clickhouse_test_temporary_table"); assert.NoError(t, err) {
+							if _, err = connect.Query("SELECT ID FROM clickhouse_test_temporary_table"); assert.Error(t, err) {
+								if exception, ok := err.(*clickhouse.Exception); assert.True(t, ok) {
+									assert.Equal(t, int32(60), exception.Code)
+								}
+							}
+						}
+
+						if assert.Equal(t, int(10), count) {
+							if assert.NoError(t, tx.Commit()) {
+								assert.NoError(t, connect.Close())
+							}
+						}
 					}
 				}
 			}
