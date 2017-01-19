@@ -2,10 +2,10 @@ package clickhouse
 
 import "fmt"
 
-func (ch *clickhouse) receivePacket() (*rows, error) {
+func (ch *clickhouse) receiveData() (*rows, error) {
 	var rows rows
 	for {
-		packet, err := ch.conn.readUInt()
+		packet, err := readUvariant(ch.conn)
 		if err != nil {
 			return nil, err
 		}
@@ -24,24 +24,26 @@ func (ch *clickhouse) receivePacket() (*rows, error) {
 				progress.totalRows,
 			)
 		case ServerDataPacket:
-			datapacket, err := ch.datapacket()
-			if err != nil {
+			var block block
+			if err := block.read(ch.serverRevision, ch.conn); err != nil {
 				return nil, err
 			}
-			rows.append(datapacket)
-			ch.log("[receive packet] <- datapacket: columns=%d, rows=%d", datapacket.numColumns, datapacket.numRows)
+			if block.numRows > 0 {
+				rows.append(&block)
+			}
+			ch.log("[receive packet] <- data: columns=%d, rows=%d", block.numColumns, block.numRows)
 		case ServerExtremesPacket:
-			datapacket, err := ch.datapacket()
-			if err != nil {
+			var block block
+			if err := block.read(ch.serverRevision, ch.conn); err != nil {
 				return nil, err
 			}
-			ch.log("[receive packet] <- extremes: columns=%d, rows=%d", datapacket.numColumns, datapacket.numRows)
+			ch.log("[receive packet] <- extremes: columns=%d, rows=%d", block.numColumns, block.numRows)
 		case ServerTotalsPacket:
-			datapacket, err := ch.datapacket()
-			if err != nil {
+			var block block
+			if err := block.read(ch.serverRevision, ch.conn); err != nil {
 				return nil, err
 			}
-			ch.log("[receive packet] <- totalpacket: columns=%d, rows=%d", datapacket.numColumns, datapacket.numRows)
+			ch.log("[receive packet] <- totalpacket: columns=%d, rows=%d", block.numColumns, block.numRows)
 		case ServerProfileInfoPacket:
 			profileInfo, err := ch.profileInfo()
 			if err != nil {

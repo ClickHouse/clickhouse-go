@@ -1,7 +1,9 @@
 package clickhouse
 
-import "database/sql/driver"
-import "io"
+import (
+	"database/sql/driver"
+	"io"
+)
 
 type rows struct {
 	index   int
@@ -9,11 +11,17 @@ type rows struct {
 	rows    [][]driver.Value
 }
 
-func (rows *rows) append(d *datapacket) {
-	if len(rows.columns) == 0 && len(d.columns) != 0 {
-		rows.columns = d.columns
+func (rows *rows) append(block *block) {
+	if len(rows.columns) == 0 && len(block.columnNames) != 0 {
+		rows.columns = block.columnNames
 	}
-	rows.rows = append(rows.rows, d.rows...)
+	for rowNum := 0; rowNum < int(block.numRows); rowNum++ {
+		row := make([]driver.Value, 0, block.numColumns)
+		for columnNum := 0; columnNum < int(block.numColumns); columnNum++ {
+			row = append(row, block.columns[columnNum][rowNum])
+		}
+		rows.rows = append(rows.rows, row)
+	}
 }
 
 func (rows *rows) Columns() []string {
