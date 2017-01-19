@@ -4,101 +4,58 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"errors"
-	"log"
-	"net/url"
-	"os"
-	"strconv"
+	"fmt"
 	"strings"
 	"time"
 )
 
-type logger func(format string, v ...interface{})
-
-var (
-	nolog       = func(string, ...interface{}) {}
-	debuglog    = log.New(os.Stdout, "[clickhouse]", 0).Printf
-	hostname, _ = os.Hostname()
+const (
+	ClientHelloPacket  = 0
+	ClientQueryPacket  = 1
+	ClientDataPacket   = 2
+	ClientCancelPacket = 3
+	ClientPingPacket   = 4
 )
 
-func init() {
-	sql.Register("clickhouse", &clickhouse{})
-}
+const (
+	StateComplete = 2
+)
+
+const (
+	ServerHelloPacket       = 0
+	ServerDataPacket        = 1
+	ServerExceptionPacket   = 2
+	ServerProgressPacket    = 3
+	ServerPongPacket        = 4
+	ServerEndOfStreamPacket = 5
+	ServerProfileInfoPacket = 6
+	ServerTotalsPacket      = 7
+	ServerExtremesPacket    = 8
+)
+
+var (
+	ErrInsertInNotBatchMode = errors.New("insert statement supported only in the batch mode (use begin/commit)")
+	ErrLimitDataRequestInTx = errors.New("data request has already been prepared in transaction")
+)
+
+type logger func(format string, v ...interface{})
 
 type clickhouse struct {
 	log                logger
 	conn               *connect
-	compress           bool
 	serverName         string
-	serverRevision     uint
-	serverVersionMinor uint
-	serverVersionMajor uint
+	serverRevision     uint64
+	serverVersionMinor uint64
+	serverVersionMajor uint64
 	serverTimezone     *time.Location
 	inTransaction      bool
-	batch              *batch
+	data               *block
 }
-
-func (ch *clickhouse) Open(dsn string) (driver.Conn, error) {
-	url, err := url.Parse(dsn)
-	if err != nil {
-		return nil, err
-	}
-	var (
-		hosts    = []string{url.Host}
-		database = url.Query().Get("database")
-		username = url.Query().Get("username")
-		password = url.Query().Get("password")
-		timeout  = time.Second
-	)
-	if len(database) == 0 {
-		database = DefaultDatabase
-	}
-	if len(username) == 0 {
-		username = DefaultUsername
-	}
-	ch = &clickhouse{
-		log:            nolog,
-		serverTimezone: time.UTC,
-	}
-	if debug, err := strconv.ParseBool(url.Query().Get("debug")); err == nil && debug {
-		ch.log = debuglog
-	}
-	if compress, err := strconv.ParseBool(url.Query().Get("compress")); err == nil {
-		ch.compress = compress
-	}
-	if t, err := strconv.ParseInt(url.Query().Get("timeout"), 10, 64); err == nil {
-		timeout = time.Duration(t) * time.Second
-	}
-	if altHosts := strings.Split(url.Query().Get("alt_hosts"), ","); len(altHosts) != 0 {
-		for _, host := range altHosts {
-			if len(host) != 0 {
-				hosts = append(hosts, host)
-			}
-		}
-	}
-	ch.log("host(s)=%s, database=%s, username=%s, compress=%t",
-		strings.Join(hosts, ", "),
-		database,
-		username,
-		ch.compress,
-	)
-	if ch.conn, err = dial(url.Scheme, hosts, timeout); err != nil {
-		return nil, err
-	}
-	if err := ch.hello(database, username, password); err != nil {
-		return nil, err
-	}
-	return ch, nil
-}
-
-var (
-	ErrInsertInNotBatchMode    = errors.New("insert statement supported only in the batch mode (use begin/commit)")
-	ErrLimitBatchStatementInTx = errors.New("batch request has already been prepared in transaction")
-)
 
 func (ch *clickhouse) Prepare(query string) (driver.Stmt, error) {
 	ch.log("[prepare] %s", query)
-	if ch.batch != nil {
-		return nil, ErrLimitBatchStatementInTx
+	if ch.data != nil {
+		return nil, ErrLimitDataRequestInTx
 	}
 	if isInsert(query) {
 		if !ch.inTransaction {
@@ -113,72 +70,108 @@ func (ch *clickhouse) Prepare(query string) (driver.Stmt, error) {
 	}, nil
 }
 
+func (ch *clickhouse) insert(query string) (driver.Stmt, error) {
+	if err := ch.sendQuery(formatQuery(query)); err != nil {
+		return nil, err
+	}
+	for {
+		packet, err := readUvariant(ch.conn)
+		if err != nil {
+			return nil, err
+		}
+		switch packet {
+		case ServerDataPacket:
+			var block block
+			if err := block.read(ch.serverRevision, ch.conn); err != nil {
+				return nil, err
+			}
+			ch.data = &block
+			return &stmt{
+				ch:       ch,
+				isInsert: true,
+				numInput: strings.Count(query, "?"),
+			}, nil
+		case ServerExceptionPacket:
+			return nil, ch.exception()
+		default:
+			return nil, fmt.Errorf("unexpected packet [%d] from server", packet)
+		}
+	}
+}
+
 func (ch *clickhouse) Begin() (driver.Tx, error) {
-	ch.log("[begin] tx=%t, batch=%t", ch.inTransaction, ch.batch != nil)
+	ch.log("[begin] tx=%t, data=%t", ch.inTransaction, ch.data != nil)
 	if ch.inTransaction {
 		return nil, sql.ErrTxDone
 	}
-	ch.batch = nil
+	ch.data = nil
 	ch.inTransaction = true
 	return ch, nil
 }
 
-func (ch *clickhouse) Rollback() error {
-	ch.log("[rollback] tx=%t, batch=%t", ch.inTransaction, ch.batch != nil)
-	if !ch.inTransaction {
-		return sql.ErrTxDone
-	}
-	ch.batch = nil
-	ch.inTransaction = false
-	ch.conn.writeUInt(ClientCancelPacket)
-	if err := ch.ping(); err != nil {
-		return err
-	}
-	return nil
-}
-
 func (ch *clickhouse) Commit() error {
-	ch.log("[commit] tx=%t, batch=%t", ch.inTransaction, ch.batch != nil)
+	ch.log("[commit] tx=%t, data=%t", ch.inTransaction, ch.data != nil)
 	if !ch.inTransaction {
 		return sql.ErrTxDone
 	}
 	defer func() {
-		ch.batch = nil
+		ch.data = nil
 		ch.inTransaction = false
 	}()
-	if ch.batch != nil {
-		if err := ch.batch.sendData(ch.conn); err != nil {
+	if ch.data != nil {
+		if err := ch.data.write(ch.serverRevision, ch.conn); err != nil {
 			return err
 		}
 		if err := ch.ping(); err != nil {
 			return err
 		}
-		if _, err := ch.receivePacket(); err != nil {
+		if err := ch.gotPacket(ServerEndOfStreamPacket); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
+func (ch *clickhouse) Rollback() error {
+	ch.log("[rollback] tx=%t, data=%t", ch.inTransaction, ch.data != nil)
+	if !ch.inTransaction {
+		return sql.ErrTxDone
+	}
+	ch.data = nil
+	ch.inTransaction = false
+	if err := writeUvarint(ch.conn, ClientCancelPacket); err != nil {
+		return err
+	}
+	return ch.ping()
+}
+
 func (ch *clickhouse) Close() error {
-	ch.log("[close]")
 	return ch.conn.Close()
 }
 
-func (ch *clickhouse) insert(query string) (driver.Stmt, error) {
-	if err := ch.sendQuery(formatQuery(query)); err != nil {
-		return nil, err
-	}
-	datapacket, err := ch.datapacket()
+func (ch *clickhouse) gotPacket(p uint64) error {
+	packet, err := readUvariant(ch.conn)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	ch.batch = &batch{
-		datapacket: datapacket,
+	for packet != p {
+		switch packet {
+		case ServerExceptionPacket:
+			return ch.exception()
+		case ServerProgressPacket:
+			ch.progress()
+		case ServerDataPacket:
+			var block block
+			if err := block.read(ch.serverRevision, ch.conn); err != nil {
+				return err
+			}
+			ch.log("[gp][query] <- data: columns=%d, rows=%d", block.numColumns, block.numRows)
+		default:
+			return fmt.Errorf("unexpected packet [%d] from server", packet)
+		}
+		if packet, err = readUvariant(ch.conn); err != nil {
+			return err
+		}
 	}
-	return &stmt{
-		ch:       ch,
-		isInsert: true,
-		numInput: strings.Count(query, "?"),
-	}, nil
+	return nil
 }

@@ -1,11 +1,11 @@
 package clickhouse
 
 type profileInfo struct {
-	rows                      uint
-	bytes                     uint
-	blocks                    uint
+	rows                      uint64
+	bytes                     uint64
+	blocks                    uint64
 	appliedLimit              bool
-	rowsBeforeLimit           uint
+	rowsBeforeLimit           uint64
 	calculatedRowsBeforeLimit bool
 }
 
@@ -14,22 +14,22 @@ func (ch *clickhouse) profileInfo() (*profileInfo, error) {
 		p   profileInfo
 		err error
 	)
-	if p.rows, err = ch.conn.readUInt(); err != nil {
+	if p.rows, err = readUvariant(ch.conn); err != nil {
 		return nil, err
 	}
-	if p.bytes, err = ch.conn.readUInt(); err != nil {
+	if p.bytes, err = readUvariant(ch.conn); err != nil {
 		return nil, err
 	}
-	if p.blocks, err = ch.conn.readUInt(); err != nil {
+	if p.blocks, err = readUvariant(ch.conn); err != nil {
 		return nil, err
 	}
-	if p.appliedLimit, err = ch.conn.readBinaryBool(); err != nil {
+	if p.appliedLimit, err = readBool(ch.conn); err != nil {
 		return nil, err
 	}
-	if p.rowsBeforeLimit, err = ch.conn.readUInt(); err != nil {
+	if p.rowsBeforeLimit, err = readUvariant(ch.conn); err != nil {
 		return nil, err
 	}
-	if p.calculatedRowsBeforeLimit, err = ch.conn.readBinaryBool(); err != nil {
+	if p.calculatedRowsBeforeLimit, err = readBool(ch.conn); err != nil {
 		return nil, err
 	}
 	return &p, nil
