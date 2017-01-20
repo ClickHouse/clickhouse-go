@@ -174,7 +174,7 @@ func (b *block) appendValue(i int, v driver.Value) error {
 			return fmt.Errorf("unexpected type %T for column %s (%s)", v, column, columnType)
 		}
 		if columnType == "Date" {
-			if err := binary.Write(buffer, binary.LittleEndian, int16(date.Truncate(24*3600).Unix()/24/3600)+1); err != nil {
+			if err := binary.Write(buffer, binary.LittleEndian, int16(date.Unix()/24/3600)); err != nil {
 				return err
 			}
 		} else if err := binary.Write(buffer, binary.LittleEndian, int32(date.Unix())); err != nil {
