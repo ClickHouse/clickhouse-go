@@ -10,9 +10,10 @@ Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/) [
 
 ## DSN 
 
-* timeout - timeout in seccond 
+* read_timeout/write_timeout - timeout in second 
 * username/password - auth credentials
 * alt_hosts - comma separated list of single address host for load-balancing
+* debug - enable debug output (boolean value)
 
 ## Supported data types
 
@@ -22,6 +23,11 @@ Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/) [
 * FixedString(N)
 * Date 
 * DateTime
+
+## TODO 
+
+* Array types 
+* Compression
 
 example:
 ```
@@ -116,7 +122,7 @@ import (
 )
 
 func main() {
-	connect, err := sqlx.Open("clickhouse", "tcp://127.0.0.1:9000?compress=true&debug=true")
+	connect, err := sqlx.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true")
 	if err != nil {
 		log.Fatal(err)
 	}
