@@ -203,7 +203,77 @@ func Test_Insert(t *testing.T) {
 				}
 			}
 		}
+	}
+}
 
+func Test_Select(t *testing.T) {
+	const (
+		ddl = `
+			CREATE TABLE clickhouse_test_select (
+				id       Int32,
+				code     FixedString(2),
+				date     Date,
+				datetime DateTime
+			) Engine=Memory
+		`
+		dml = `
+			INSERT INTO clickhouse_test_select VALUES (?, ?, ?, ?)
+		`
+	)
+
+	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) && assert.NoError(t, connect.Ping()) {
+		if _, err := connect.Exec("DROP TABLE IF EXISTS clickhouse_test_select"); assert.NoError(t, err) {
+			if _, err := connect.Exec(ddl); assert.NoError(t, err) {
+				if tx, err := connect.Begin(); assert.NoError(t, err) {
+					if stmt, err := tx.Prepare(dml); assert.NoError(t, err) {
+						if _, err := stmt.Exec(1, "RU", time.Date(2017, 1, 20, 0, 0, 0, 0, time.Local), time.Date(2017, 1, 20, 13, 0, 0, 0, time.Local)); !assert.NoError(t, err) {
+							return
+						}
+						if _, err := stmt.Exec(2, "UA", time.Date(2017, 1, 20, 0, 0, 0, 0, time.Local), time.Date(2017, 1, 20, 14, 0, 0, 0, time.Local)); !assert.NoError(t, err) {
+							return
+						}
+						if _, err := stmt.Exec(3, "DE", time.Date(2017, 1, 19, 0, 0, 0, 0, time.Local), time.Date(2017, 1, 20, 14, 0, 0, 0, time.Local)); !assert.NoError(t, err) {
+							return
+						}
+						if _, err := stmt.Exec(4, "US", time.Date(2017, 1, 19, 0, 0, 0, 0, time.Local), time.Date(2017, 1, 20, 13, 0, 0, 0, time.Local)); !assert.NoError(t, err) {
+							return
+						}
+						if assert.NoError(t, tx.Commit()) {
+							if row := connect.QueryRow("SELECT COUNT(*) FROM clickhouse_test_select"); assert.NotNil(t, row) {
+								var count int
+								if err := row.Scan(&count); assert.NoError(t, err) {
+									assert.Equal(t, int(4), count)
+								}
+							}
+							if row := connect.QueryRow("SELECT COUNT(*) FROM clickhouse_test_select WHERE date = ?", time.Date(2017, 1, 20, 0, 0, 0, 0, time.Local)); assert.NotNil(t, row) {
+								var count int
+								if err := row.Scan(&count); assert.NoError(t, err) {
+									assert.Equal(t, int(2), count)
+								}
+							}
+							if row := connect.QueryRow("SELECT COUNT(*) FROM clickhouse_test_select WHERE datetime = ?", time.Date(2017, 1, 20, 14, 0, 0, 0, time.Local)); assert.NotNil(t, row) {
+								var count int
+								if err := row.Scan(&count); assert.NoError(t, err) {
+									assert.Equal(t, int(2), count)
+								}
+							}
+							if row := connect.QueryRow("SELECT COUNT(*) FROM clickhouse_test_select WHERE id IN (?, ?, ?)", 1, 3, 4); assert.NotNil(t, row) {
+								var count int
+								if err := row.Scan(&count); assert.NoError(t, err) {
+									assert.Equal(t, int(3), count)
+								}
+							}
+							if row := connect.QueryRow("SELECT COUNT(*) FROM clickhouse_test_select WHERE code IN (?, ?, ?)", "US", "DE", "RU"); assert.NotNil(t, row) {
+								var count int
+								if err := row.Scan(&count); assert.NoError(t, err) {
+									assert.Equal(t, int(3), count)
+								}
+							}
+						}
+					}
+				}
+			}
+		}
 	}
 }
 
