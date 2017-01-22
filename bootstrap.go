@@ -93,7 +93,6 @@ func (d *bootstrap) Open(dsn string) (driver.Conn, error) {
 	if err := ch.hello(database, username, password); err != nil {
 		return nil, err
 	}
-	ch.conn.timeLocation = ch.serverTimezone
 	return &ch, nil
 }
 
@@ -115,7 +114,7 @@ func (ch *clickhouse) hello(database, username, password string) error {
 		writeString(ch.conn, password)
 	}
 	{
-		packet, err := readUvariant(ch.conn)
+		packet, err := readUvarint(ch.conn)
 		if err != nil {
 			return err
 		}
@@ -127,13 +126,13 @@ func (ch *clickhouse) hello(database, username, password string) error {
 			if ch.serverName, err = readString(ch.conn); err != nil {
 				return err
 			}
-			if ch.serverVersionMinor, err = readUvariant(ch.conn); err != nil {
+			if ch.serverVersionMinor, err = readUvarint(ch.conn); err != nil {
 				return err
 			}
-			if ch.serverVersionMajor, err = readUvariant(ch.conn); err != nil {
+			if ch.serverVersionMajor, err = readUvarint(ch.conn); err != nil {
 				return err
 			}
-			if ch.serverRevision, err = readUvariant(ch.conn); err != nil {
+			if ch.serverRevision, err = readUvarint(ch.conn); err != nil {
 				return err
 			}
 			if ch.serverRevision >= DBMS_MIN_REVISION_WITH_SERVER_TIMEZONE {

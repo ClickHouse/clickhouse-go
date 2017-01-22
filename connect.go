@@ -27,7 +27,6 @@ func dial(network string, hosts []string, r, w time.Duration) (*connect, error) 
 			}
 			return &connect{
 				Conn:         conn,
-				timeLocation: time.Local,
 				readTimeout:  r,
 				writeTimeout: w,
 			}, nil
@@ -38,7 +37,6 @@ func dial(network string, hosts []string, r, w time.Duration) (*connect, error) 
 
 type connect struct {
 	net.Conn
-	timeLocation *time.Location
 	readTimeout  time.Duration
 	writeTimeout time.Duration
 }

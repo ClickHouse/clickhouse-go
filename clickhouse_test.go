@@ -320,7 +320,6 @@ func Test_Temporary_Table(t *testing.T) {
 								}
 							}
 						}
-
 						if assert.Equal(t, int(10), count) {
 							if assert.NoError(t, tx.Commit()) {
 								assert.NoError(t, connect.Close())

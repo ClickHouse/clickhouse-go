@@ -5,7 +5,7 @@ import "fmt"
 func (ch *clickhouse) receiveData() (*rows, error) {
 	var rows rows
 	for {
-		packet, err := readUvariant(ch.conn)
+		packet, err := readUvarint(ch.conn)
 		if err != nil {
 			return nil, err
 		}

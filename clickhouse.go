@@ -75,7 +75,7 @@ func (ch *clickhouse) insert(query string) (driver.Stmt, error) {
 		return nil, err
 	}
 	for {
-		packet, err := readUvariant(ch.conn)
+		packet, err := readUvarint(ch.conn)
 		if err != nil {
 			return nil, err
 		}
@@ -150,7 +150,7 @@ func (ch *clickhouse) Close() error {
 }
 
 func (ch *clickhouse) gotPacket(p uint64) error {
-	packet, err := readUvariant(ch.conn)
+	packet, err := readUvarint(ch.conn)
 	if err != nil {
 		return err
 	}
@@ -169,7 +169,7 @@ func (ch *clickhouse) gotPacket(p uint64) error {
 		default:
 			return fmt.Errorf("unexpected packet [%d] from server", packet)
 		}
-		if packet, err = readUvariant(ch.conn); err != nil {
+		if packet, err = readUvarint(ch.conn); err != nil {
 			return err
 		}
 	}

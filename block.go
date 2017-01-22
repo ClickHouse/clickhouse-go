@@ -32,19 +32,19 @@ type blockInfo struct {
 
 func (info *blockInfo) read(conn *connect) error {
 	var err error
-	if info.num1, err = readUvariant(conn); err != nil {
+	if info.num1, err = readUvarint(conn); err != nil {
 		return err
 	}
 	if info.isOverflows, err = readBool(conn); err != nil {
 		return err
 	}
-	if info.num2, err = readUvariant(conn); err != nil {
+	if info.num2, err = readUvarint(conn); err != nil {
 		return err
 	}
 	if info.bucketNum, err = readInt32(conn); err != nil {
 		return err
 	}
-	if info.num3, err = readUvariant(conn); err != nil {
+	if info.num3, err = readUvarint(conn); err != nil {
 		return err
 	}
 	return nil
@@ -83,10 +83,10 @@ func (b *block) read(revision uint64, conn *connect) error {
 			return err
 		}
 	}
-	if b.numColumns, err = readUvariant(conn); err != nil {
+	if b.numColumns, err = readUvarint(conn); err != nil {
 		return err
 	}
-	if b.numRows, err = readUvariant(conn); err != nil {
+	if b.numRows, err = readUvarint(conn); err != nil {
 		return err
 	}
 	b.columns = make([][]interface{}, b.numColumns)
