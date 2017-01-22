@@ -43,3 +43,10 @@ func writeInt32(conn *connect, v int32) error {
 	}
 	return nil
 }
+
+func writeUInt64(conn *connect, v uint64) error {
+	if err := binary.Write(conn, binary.LittleEndian, v); err != nil {
+		return err
+	}
+	return nil
+}

@@ -23,10 +23,10 @@ Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/) [
 * FixedString(N)
 * Date 
 * DateTime
+* [Array(T) (one-dimensional)](https://clickhouse.yandex/reference_en.html#Array(T))
 
 ## TODO 
 
-* Array types 
 * Compression
 
 example:

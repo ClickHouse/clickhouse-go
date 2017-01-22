@@ -58,18 +58,19 @@ func readInt32(conn *connect) (int32, error) {
 }
 
 var arrayTypes = map[string]interface{}{
-	"Int8":    []int8{},
-	"Int16":   []int16{},
-	"Int32":   []int32{},
-	"Int64":   []int64{},
-	"UInt8":   []uint8{},
-	"UInt16":  []uint16{},
-	"UInt32":  []uint32{},
-	"UInt64":  []uint64{},
-	"Float32": []float32{},
-	"Float64": []float64{},
-	"String":  []string{},
-	"Date":    []time.Time{},
+	"Int8":     []int8{},
+	"Int16":    []int16{},
+	"Int32":    []int32{},
+	"Int64":    []int64{},
+	"UInt8":    []uint8{},
+	"UInt16":   []uint16{},
+	"UInt32":   []uint32{},
+	"UInt64":   []uint64{},
+	"Float32":  []float32{},
+	"Float64":  []float64{},
+	"String":   []string{},
+	"Date":     []time.Time{},
+	"DateTime": []time.Time{},
 }
 
 func sliceType(columnType string) (interface{}, error) {
