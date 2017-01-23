@@ -36,21 +36,5 @@ func (ch *clickhouse) sendQuery(query string) error {
 	if err := writeString(ch.conn, query); err != nil {
 		return err
 	}
-	/*{ // datablock
-		if err := writeUvarint(ch.conn, ClientDataPacket); err != nil {
-			return err
-		}
-		if ch.serverRevision >= DBMS_MIN_REVISION_WITH_TEMPORARY_TABLES {
-			if err := writeString(ch.conn, ""); err != nil {
-				return err
-			}
-		}
-		for _, z := range []uint64{0, 0, 0} { // empty block
-			if err := writeUvarint(ch.conn, z); err != nil {
-				return err
-			}
-		}
-	}*/
-	//return nil
 	return (&block{}).write(ch.serverRevision, ch.conn)
 }

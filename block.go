@@ -16,6 +16,7 @@ type block struct {
 	columnNames []string
 	columnTypes []string
 	columns     [][]interface{}
+	offsets     [][]uint64
 	buffers     []bytes.Buffer
 }
 
@@ -160,6 +161,11 @@ func (b *block) write(revision uint64, conn *connect) error {
 		if err := writeString(conn, columnType); err != nil {
 			return err
 		}
+		for _, offset := range b.offsets[i] {
+			if err := writeUInt64(conn, offset); err != nil {
+				return err
+			}
+		}
 		if _, err := b.buffers[i].WriteTo(conn); err != nil {
 			return err
 		}
@@ -170,6 +176,7 @@ func (b *block) write(revision uint64, conn *connect) error {
 func (b *block) append(args []driver.Value) error {
 	if len(b.buffers) == 0 && len(args) != 0 {
 		b.numRows = 0
+		b.offsets = make([][]uint64, len(args))
 		b.buffers = make([]bytes.Buffer, len(args))
 	}
 	b.numRows++
@@ -178,9 +185,33 @@ func (b *block) append(args []driver.Value) error {
 			column     = b.columnNames[columnNum]
 			columnType = b.columnTypes[columnNum]
 			buffer     = &b.buffers[columnNum]
+			offsets    = b.offsets[columnNum]
 		)
-		if err := write(buffer, columnType, args[columnNum]); err != nil {
-			return fmt.Errorf("Column %s (%s): %s", column, columnType, err.Error())
+		switch {
+		case strings.HasPrefix(columnType, "Array"):
+			array, ok := args[columnNum].([]byte)
+			if !ok {
+				return fmt.Errorf("Column %s (%s): unexpected type %T of value", column, columnType, args[columnNum])
+			}
+			ct, arrayLen, data, err := arrayInfo(array)
+			if err != nil {
+				return err
+			}
+			if len(offsets) == 0 {
+				offsets = append(offsets, arrayLen)
+			} else {
+				offsets = append(offsets, arrayLen+offsets[len(offsets)-1])
+			}
+			if ct != columnType {
+				return fmt.Errorf("Column %s (%s): unexpected type %s of value", column, columnType, ct)
+			}
+			if _, err := buffer.Write(data); err != nil {
+				return err
+			}
+		default:
+			if err := write(buffer, columnType, args[columnNum]); err != nil {
+				return fmt.Errorf("Column %s (%s): %s", column, columnType, err.Error())
+			}
 		}
 	}
 	return nil

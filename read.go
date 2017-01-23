@@ -10,9 +10,7 @@ import (
 	"time"
 )
 
-type byteReader struct {
-	io.Reader
-}
+type byteReader struct{ io.Reader }
 
 func (b *byteReader) ReadByte() (byte, error) {
 	bytes, err := readFixed(b, 1)
