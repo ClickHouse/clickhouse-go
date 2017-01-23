@@ -3,17 +3,30 @@ package clickhouse
 import (
 	"encoding/binary"
 	"fmt"
+	"io"
 	"math"
 	"reflect"
 	"strings"
 	"time"
 )
 
-func readUvarint(conn *connect) (uint64, error) {
-	return binary.ReadUvarint(conn)
+type byteReader struct {
+	io.Reader
 }
 
-func readFixed(conn *connect, len int) ([]byte, error) {
+func (b *byteReader) ReadByte() (byte, error) {
+	bytes, err := readFixed(b, 1)
+	if err != nil {
+		return 0x0, err
+	}
+	return bytes[0], nil
+}
+
+func readUvarint(conn io.Reader) (uint64, error) {
+	return binary.ReadUvarint(&byteReader{conn})
+}
+
+func readFixed(conn io.Reader, len int) ([]byte, error) {
 	buf := make([]byte, len)
 	if _, err := conn.Read(buf); err != nil {
 		return nil, err
@@ -21,7 +34,7 @@ func readFixed(conn *connect, len int) ([]byte, error) {
 	return buf, nil
 }
 
-func readBool(conn *connect) (bool, error) {
+func readBool(conn io.Reader) (bool, error) {
 	b, err := readFixed(conn, 1)
 	if err != nil {
 		return false, err
@@ -29,7 +42,7 @@ func readBool(conn *connect) (bool, error) {
 	return b[0] == 1, nil
 }
 
-func readString(conn *connect) (string, error) {
+func readString(conn io.Reader) (string, error) {
 	len, err := readUvarint(conn)
 	if err != nil {
 		return "", err
@@ -41,7 +54,7 @@ func readString(conn *connect) (string, error) {
 	return string(str), nil
 }
 
-func readUInt64(conn *connect) (uint64, error) {
+func readUInt64(conn io.Reader) (uint64, error) {
 	value, err := read(conn, "UInt64")
 	if err != nil {
 		return 0, err
@@ -49,7 +62,7 @@ func readUInt64(conn *connect) (uint64, error) {
 	return value.(uint64), nil
 }
 
-func readInt32(conn *connect) (int32, error) {
+func readInt32(conn io.Reader) (int32, error) {
 	value, err := read(conn, "Int32")
 	if err != nil {
 		return 0, err
@@ -83,7 +96,7 @@ func sliceType(columnType string) (interface{}, error) {
 	return nil, fmt.Errorf("unsupported array type '%s", columnType)
 }
 
-func read(conn *connect, columnType string) (interface{}, error) {
+func read(conn io.Reader, columnType string) (interface{}, error) {
 	switch {
 	case strings.HasPrefix(columnType, "FixedString"):
 		var len int

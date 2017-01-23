@@ -54,11 +54,3 @@ func (conn *connect) Write(b []byte) (int, error) {
 	}
 	return conn.Conn.Write(b)
 }
-
-func (conn *connect) ReadByte() (byte, error) {
-	bytes, err := readFixed(conn, 1)
-	if err != nil {
-		return 0x0, err
-	}
-	return bytes[0], nil
-}

@@ -3,11 +3,7 @@ package clickhouse
 import (
 	"bytes"
 	"database/sql/driver"
-	"encoding/binary"
 	"fmt"
-	"math"
-	"strings"
-	"time"
 )
 
 // data block
@@ -153,138 +149,14 @@ func (b *block) append(args []driver.Value) error {
 	}
 	b.numRows++
 	for columnNum := range b.columnTypes {
-		if err := b.appendValue(columnNum, args[columnNum]); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (b *block) appendValue(i int, v driver.Value) error {
-	var (
-		column     = b.columnNames[i]
-		columnType = b.columnTypes[i]
-		buffer     = &b.buffers[i]
-	)
-
-	switch columnType {
-	case "Date", "DateTime":
-		date, ok := v.(time.Time)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for column %s (%s)", v, column, columnType)
-		}
-		if columnType == "Date" {
-			if err := binary.Write(buffer, binary.LittleEndian, int16(date.Unix()/24/3600)); err != nil {
-				return err
-			}
-		} else if err := binary.Write(buffer, binary.LittleEndian, int32(date.Unix())); err != nil {
-			return err
-		}
-		return nil
-	case "String":
-		var str string
-		switch v := v.(type) {
-		case []byte:
-			str = string(v)
-		case string:
-			str = v
-		default:
-			return fmt.Errorf("unexpected type %T for column %s (%s)", v, column, columnType)
-		}
 		var (
-			buf = make([]byte, binary.MaxVarintLen64)
-			len = binary.PutUvarint(buf, uint64(len(str)))
+			column     = b.columnNames[columnNum]
+			columnType = b.columnTypes[columnNum]
+			buffer     = &b.buffers[columnNum]
 		)
-		if _, err := buffer.Write(buf[0:len]); err != nil {
-			return err
+		if err := write(buffer, columnType, args[columnNum]); err != nil {
+			return fmt.Errorf("Column %s (%s): %s", column, columnType, err.Error())
 		}
-		if _, err := buffer.WriteString(str); err != nil {
-			return err
-		}
-		return nil
-	}
-
-	switch {
-	case
-		strings.HasPrefix(columnType, "Int"),
-		strings.HasPrefix(columnType, "UInt"):
-		value, ok := v.(int64)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for column %s (%s)", v, column, columnType)
-		}
-		switch columnType {
-		case "Int8":
-			if err := binary.Write(buffer, binary.LittleEndian, int8(value)); err != nil {
-				return err
-			}
-		case "Int16":
-			if err := binary.Write(buffer, binary.LittleEndian, int16(value)); err != nil {
-				return err
-			}
-		case "Int32":
-			if err := binary.Write(buffer, binary.LittleEndian, int32(value)); err != nil {
-				return err
-			}
-		case "Int64":
-			if err := binary.Write(buffer, binary.LittleEndian, int64(value)); err != nil {
-				return err
-			}
-		case "UInt8":
-			if err := binary.Write(buffer, binary.LittleEndian, uint8(value)); err != nil {
-				return err
-			}
-		case "UInt16":
-			if err := binary.Write(buffer, binary.LittleEndian, uint16(value)); err != nil {
-				return err
-			}
-		case "UInt32":
-			if err := binary.Write(buffer, binary.LittleEndian, uint32(value)); err != nil {
-				return err
-			}
-		case "UInt64":
-			if err := binary.Write(buffer, binary.LittleEndian, uint64(value)); err != nil {
-				return err
-			}
-		}
-	case strings.HasPrefix(columnType, "Float"):
-		value, ok := v.(float64)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for column %s (%s)", v, column, columnType)
-		}
-		switch columnType {
-		case "Float32":
-			if err := binary.Write(buffer, binary.LittleEndian, math.Float32bits(float32(value))); err != nil {
-				return err
-			}
-		case "Float64":
-			if err := binary.Write(buffer, binary.LittleEndian, math.Float64bits(float64(value))); err != nil {
-				return err
-			}
-		}
-	case strings.HasPrefix(columnType, "FixedString"):
-		var (
-			strlen int
-			str    []byte
-		)
-		switch v := v.(type) {
-		case []byte:
-			str = v
-		case string:
-			str = []byte(v)
-		default:
-			fmt.Errorf("unexpected type %T for column %s (%s)", v, column, columnType)
-		}
-		if _, err := fmt.Sscanf(columnType, "FixedString(%d)", &strlen); err != nil {
-			return err
-		}
-		if len(str) > strlen {
-			return fmt.Errorf("too large value for column %s (%s)", column, columnType)
-		}
-		if _, err := buffer.Write(str); err != nil {
-			return err
-		}
-	default:
-		return fmt.Errorf("unexpected type %T for column %s (%s)", v, column, columnType)
 	}
 	return nil
 }
