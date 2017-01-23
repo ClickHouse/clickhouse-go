@@ -96,6 +96,25 @@ func sliceType(columnType string) (interface{}, error) {
 	return nil, fmt.Errorf("unsupported array type '%s", columnType)
 }
 
+func readArray(conn io.Reader, ct string, sliceLen uint64) (interface{}, error) {
+	var (
+		err        error
+		columnType = ct[6:][:len(ct)-7]
+	)
+	sliceType, err := sliceType(columnType)
+	if err != nil {
+		return nil, err
+	}
+	slice := reflect.MakeSlice(reflect.TypeOf(sliceType), 0, int(sliceLen))
+	for i := 0; i < int(sliceLen); i++ {
+		value, err := read(conn, columnType)
+		if err != nil {
+			return nil, err
+		}
+		slice = reflect.Append(slice, reflect.ValueOf(value))
+	}
+	return slice.Interface(), nil
+}
 func read(conn io.Reader, columnType string) (interface{}, error) {
 	switch {
 	case strings.HasPrefix(columnType, "FixedString"):
@@ -108,28 +127,6 @@ func read(conn io.Reader, columnType string) (interface{}, error) {
 			return nil, err
 		}
 		return string(str), nil
-	case strings.HasPrefix(columnType, "Array"):
-		var (
-			err        error
-			sliceLen   uint64
-			columnType = columnType[6:][:len(columnType)-7]
-		)
-		sliceType, err := sliceType(columnType)
-		if err != nil {
-			return nil, err
-		}
-		if sliceLen, err = readUInt64(conn); err != nil {
-			return nil, err
-		}
-		slice := reflect.MakeSlice(reflect.TypeOf(sliceType), 0, int(sliceLen))
-		for i := 0; i < int(sliceLen); i++ {
-			value, err := read(conn, columnType)
-			if err != nil {
-				return nil, err
-			}
-			slice = reflect.Append(slice, reflect.ValueOf(value))
-		}
-		return slice.Interface(), nil
 	}
 	switch columnType {
 	case "Int8":
