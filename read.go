@@ -3,16 +3,30 @@ package clickhouse
 import (
 	"encoding/binary"
 	"fmt"
+	"io"
 	"math"
+	"reflect"
 	"strings"
 	"time"
 )
 
-func readUvariant(conn *connect) (uint64, error) {
-	return binary.ReadUvarint(conn)
+type byteReader struct {
+	io.Reader
 }
 
-func readFixed(conn *connect, len int) ([]byte, error) {
+func (b *byteReader) ReadByte() (byte, error) {
+	bytes, err := readFixed(b, 1)
+	if err != nil {
+		return 0x0, err
+	}
+	return bytes[0], nil
+}
+
+func readUvarint(conn io.Reader) (uint64, error) {
+	return binary.ReadUvarint(&byteReader{conn})
+}
+
+func readFixed(conn io.Reader, len int) ([]byte, error) {
 	buf := make([]byte, len)
 	if _, err := conn.Read(buf); err != nil {
 		return nil, err
@@ -20,7 +34,7 @@ func readFixed(conn *connect, len int) ([]byte, error) {
 	return buf, nil
 }
 
-func readBool(conn *connect) (bool, error) {
+func readBool(conn io.Reader) (bool, error) {
 	b, err := readFixed(conn, 1)
 	if err != nil {
 		return false, err
@@ -28,8 +42,8 @@ func readBool(conn *connect) (bool, error) {
 	return b[0] == 1, nil
 }
 
-func readString(conn *connect) (string, error) {
-	len, err := readUvariant(conn)
+func readString(conn io.Reader) (string, error) {
+	len, err := readUvarint(conn)
 	if err != nil {
 		return "", err
 	}
@@ -40,7 +54,15 @@ func readString(conn *connect) (string, error) {
 	return string(str), nil
 }
 
-func readInt32(conn *connect) (int32, error) {
+func readUInt64(conn io.Reader) (uint64, error) {
+	value, err := read(conn, "UInt64")
+	if err != nil {
+		return 0, err
+	}
+	return value.(uint64), nil
+}
+
+func readInt32(conn io.Reader) (int32, error) {
 	value, err := read(conn, "Int32")
 	if err != nil {
 		return 0, err
@@ -48,13 +70,66 @@ func readInt32(conn *connect) (int32, error) {
 	return value.(int32), nil
 }
 
-func read(conn *connect, columnType string) (interface{}, error) {
+var arrayTypes = map[string]interface{}{
+	"Int8":     []int8{},
+	"Int16":    []int16{},
+	"Int32":    []int32{},
+	"Int64":    []int64{},
+	"UInt8":    []uint8{},
+	"UInt16":   []uint16{},
+	"UInt32":   []uint32{},
+	"UInt64":   []uint64{},
+	"Float32":  []float32{},
+	"Float64":  []float64{},
+	"String":   []string{},
+	"Date":     []time.Time{},
+	"DateTime": []time.Time{},
+}
+
+func sliceType(columnType string) (interface{}, error) {
 	if strings.HasPrefix(columnType, "FixedString") {
+		return arrayTypes["String"], nil
+	}
+	if slice, found := arrayTypes[columnType]; found {
+		return slice, nil
+	}
+	return nil, fmt.Errorf("unsupported array type '%s", columnType)
+}
+
+func read(conn io.Reader, columnType string) (interface{}, error) {
+	switch {
+	case strings.HasPrefix(columnType, "FixedString"):
 		var len int
 		if _, err := fmt.Sscanf(columnType, "FixedString(%d)", &len); err != nil {
 			return nil, err
 		}
-		return readFixed(conn, len)
+		str, err := readFixed(conn, len)
+		if err != nil {
+			return nil, err
+		}
+		return string(str), nil
+	case strings.HasPrefix(columnType, "Array"):
+		var (
+			err        error
+			sliceLen   uint64
+			columnType = columnType[6:][:len(columnType)-7]
+		)
+		sliceType, err := sliceType(columnType)
+		if err != nil {
+			return nil, err
+		}
+		if sliceLen, err = readUInt64(conn); err != nil {
+			return nil, err
+		}
+		slice := reflect.MakeSlice(reflect.TypeOf(sliceType), 0, int(sliceLen))
+		for i := 0; i < int(sliceLen); i++ {
+			value, err := read(conn, columnType)
+			if err != nil {
+				return nil, err
+			}
+			slice = reflect.Append(slice, reflect.ValueOf(value))
+		}
+		return slice.Interface(), nil
 	}
 	switch columnType {
 	case "Int8":
@@ -125,13 +200,13 @@ func read(conn *connect, columnType string) (interface{}, error) {
 		if err := binary.Read(conn, binary.LittleEndian, &sec); err != nil {
 			return nil, err
 		}
-		return time.Unix(int64(sec)*24*3600, 0).In(conn.timeLocation), nil
+		return time.Unix(int64(sec)*24*3600, 0), nil
 	case "DateTime":
 		var sec int32
 		if err := binary.Read(conn, binary.LittleEndian, &sec); err != nil {
 			return nil, err
 		}
-		return time.Unix(int64(sec), 0).In(conn.timeLocation), nil
+		return time.Unix(int64(sec), 0), nil
 	default:
 		return nil, fmt.Errorf("type '%s' is not supported", columnType)
 	}

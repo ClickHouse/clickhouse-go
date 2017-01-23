@@ -8,16 +8,36 @@ import (
 	"time"
 )
 
+// Truncate timezone
+//
+//   clickhouse.Date(time.Date(2017, 1, 1, 0, 0, 0, 0, time.Local)) -> time.Date(2017, 1, 1, 0, 0, 0, 0, time.UTC)
+type Date time.Time
+
+func (date Date) Value() (driver.Value, error) {
+	return time.Date(time.Time(date).Year(), time.Time(date).Month(), time.Time(date).Day(), 0, 0, 0, 0, time.UTC), nil
+}
+
+// Truncate timezone
+//
+//   clickhouse.DateTime(time.Date(2017, 1, 1, 0, 0, 0, 0, time.Local)) -> time.Date(2017, 1, 1, 0, 0, 0, 0, time.UTC)
+type DateTime time.Time
+
+func (datetime DateTime) Value() (driver.Value, error) {
+	return time.Date(
+		time.Time(datetime).Year(),
+		time.Time(datetime).Month(),
+		time.Time(datetime).Day(),
+		time.Time(datetime).Hour(),
+		time.Time(datetime).Minute(),
+		time.Time(datetime).Second(),
+		0,
+		time.UTC,
+	), nil
+}
+
 func isInsert(query string) bool {
 	if f := strings.Fields(query); len(f) > 2 {
 		return strings.EqualFold("INSERT", f[0]) && strings.EqualFold("INTO", f[1]) && strings.Index(strings.ToUpper(query), " SELECT ") == -1
-	}
-	return false
-}
-
-func isSelect(query string) bool {
-	if f := strings.Fields(query); len(f) > 3 {
-		return strings.EqualFold("SELECT", f[0])
 	}
 	return false
 }
@@ -49,6 +69,12 @@ func escape(v driver.Value) string {
 		return formatTime(value)
 	case *time.Time:
 		return formatTime(*value)
+	case Date:
+		v, _ := value.Value()
+		return v.(time.Time).Format("2006-01-02")
+	case DateTime:
+		v, _ := value.Value()
+		return v.(time.Time).Format("2006-01-02 15:04:05")
 	}
 	return fmt.Sprint(v)
 }

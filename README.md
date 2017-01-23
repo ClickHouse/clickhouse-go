@@ -1,6 +1,6 @@
 # ClickHouse
 
-Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/) [![Build Status](https://travis-ci.org/kshvakov/clickhouse.svg?branch=master)](https://travis-ci.org/kshvakov/clickhouse)
+Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/) [![Build Status](https://travis-ci.org/kshvakov/clickhouse.svg?branch=master)](https://travis-ci.org/kshvakov/clickhouse) [![Go Report Card](https://goreportcard.com/badge/github.com/kshvakov/clickhouse)](https://goreportcard.com/report/github.com/kshvakov/clickhouse)
 
 ## Key features
 
@@ -23,10 +23,10 @@ Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/) [
 * FixedString(N)
 * Date 
 * DateTime
+* [Array(T) (one-dimensional)](https://clickhouse.yandex/reference_en.html#Array(T))
 
 ## TODO 
 
-* Array types 
 * Compression
 
 example:

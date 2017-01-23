@@ -27,7 +27,6 @@ func dial(network string, hosts []string, r, w time.Duration) (*connect, error) 
 			}
 			return &connect{
 				Conn:         conn,
-				timeLocation: time.Local,
 				readTimeout:  r,
 				writeTimeout: w,
 			}, nil
@@ -38,7 +37,6 @@ func dial(network string, hosts []string, r, w time.Duration) (*connect, error) 
 
 type connect struct {
 	net.Conn
-	timeLocation *time.Location
 	readTimeout  time.Duration
 	writeTimeout time.Duration
 }
@@ -55,12 +53,4 @@ func (conn *connect) Write(b []byte) (int, error) {
 		conn.SetWriteDeadline(time.Now().Add(conn.writeTimeout))
 	}
 	return conn.Conn.Write(b)
-}
-
-func (conn *connect) ReadByte() (byte, error) {
-	bytes, err := readFixed(conn, 1)
-	if err != nil {
-		return 0x0, err
-	}
-	return bytes[0], nil
 }
