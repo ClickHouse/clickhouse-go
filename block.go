@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"database/sql/driver"
 	"fmt"
+	"strings"
 )
 
 // data block
@@ -96,12 +97,36 @@ func (b *block) read(revision uint64, conn *connect) error {
 		}
 		b.columnNames = append(b.columnNames, column)
 		b.columnTypes = append(b.columnTypes, columnType)
-		for row := 0; row < int(b.numRows); row++ {
-			value, err := read(conn, columnType)
-			if err != nil {
-				return err
+		switch {
+		case strings.HasPrefix(columnType, "Array"):
+			offsets := make([]uint64, 0, b.numRows)
+			for row := 0; row < int(b.numRows); row++ {
+				offset, err := readUInt64(conn)
+				if err != nil {
+					return err
+				}
+				offsets = append(offsets, offset)
 			}
-			b.columns[i] = append(b.columns[i], value)
+
+			for n, offset := range offsets {
+				len := offset
+				if n != 0 {
+					len = len - offsets[n-1]
+				}
+				value, err := readArray(conn, columnType, len)
+				if err != nil {
+					return err
+				}
+				b.columns[i] = append(b.columns[i], value)
+			}
+		default:
+			for row := 0; row < int(b.numRows); row++ {
+				value, err := read(conn, columnType)
+				if err != nil {
+					return err
+				}
+				b.columns[i] = append(b.columns[i], value)
+			}
 		}
 	}
 	return nil
