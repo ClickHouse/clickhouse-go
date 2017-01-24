@@ -16,6 +16,7 @@ type block struct {
 	columnNames []string
 	columnTypes []string
 	columns     [][]interface{}
+	offsets     [][]uint64
 	buffers     []bytes.Buffer
 }
 
@@ -107,7 +108,6 @@ func (b *block) read(revision uint64, conn *connect) error {
 				}
 				offsets = append(offsets, offset)
 			}
-
 			for n, offset := range offsets {
 				len := offset
 				if n != 0 {
@@ -160,6 +160,11 @@ func (b *block) write(revision uint64, conn *connect) error {
 		if err := writeString(conn, columnType); err != nil {
 			return err
 		}
+		for _, offset := range b.offsets[i] {
+			if err := writeUInt64(conn, offset); err != nil {
+				return err
+			}
+		}
 		if _, err := b.buffers[i].WriteTo(conn); err != nil {
 			return err
 		}
@@ -170,6 +175,7 @@ func (b *block) write(revision uint64, conn *connect) error {
 func (b *block) append(args []driver.Value) error {
 	if len(b.buffers) == 0 && len(args) != 0 {
 		b.numRows = 0
+		b.offsets = make([][]uint64, len(args))
 		b.buffers = make([]bytes.Buffer, len(args))
 	}
 	b.numRows++
@@ -179,8 +185,31 @@ func (b *block) append(args []driver.Value) error {
 			columnType = b.columnTypes[columnNum]
 			buffer     = &b.buffers[columnNum]
 		)
-		if err := write(buffer, columnType, args[columnNum]); err != nil {
-			return fmt.Errorf("Column %s (%s): %s", column, columnType, err.Error())
+		switch {
+		case strings.HasPrefix(columnType, "Array"):
+			array, ok := args[columnNum].([]byte)
+			if !ok {
+				return fmt.Errorf("Column %s (%s): unexpected type %T of value", column, columnType, args[columnNum])
+			}
+			ct, arrayLen, data, err := arrayInfo(array)
+			if err != nil {
+				return err
+			}
+			if len(b.offsets[columnNum]) == 0 {
+				b.offsets[columnNum] = append(b.offsets[columnNum], arrayLen)
+			} else {
+				b.offsets[columnNum] = append(b.offsets[columnNum], arrayLen+b.offsets[columnNum][len(b.offsets[columnNum])-1])
+			}
+			if "Array("+ct+")" != columnType {
+				return fmt.Errorf("Column %s (%s): unexpected type %s of value", column, columnType, ct)
+			}
+			if _, err := buffer.Write(data); err != nil {
+				return err
+			}
+		default:
+			if err := write(buffer, columnType, args[columnNum]); err != nil {
+				return fmt.Errorf("Column %s (%s): %s", column, columnType, err.Error())
+			}
 		}
 	}
 	return nil

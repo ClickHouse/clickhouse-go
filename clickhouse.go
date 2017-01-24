@@ -146,6 +146,7 @@ func (ch *clickhouse) Rollback() error {
 }
 
 func (ch *clickhouse) Close() error {
+	ch.data = nil
 	return ch.conn.Close()
 }
 
@@ -157,15 +158,24 @@ func (ch *clickhouse) gotPacket(p uint64) error {
 	for packet != p {
 		switch packet {
 		case ServerExceptionPacket:
+			ch.log("[got packet] <- exception")
 			return ch.exception()
 		case ServerProgressPacket:
-			ch.progress()
+			progress, err := ch.progress()
+			if err != nil {
+				return err
+			}
+			ch.log("[got packet] <- progress: rows=%d, bytes=%d, total rows=%d",
+				progress.bytes,
+				progress.rows,
+				progress.totalRows,
+			)
 		case ServerDataPacket:
 			var block block
 			if err := block.read(ch.serverRevision, ch.conn); err != nil {
 				return err
 			}
-			ch.log("[gp][query] <- data: columns=%d, rows=%d", block.numColumns, block.numRows)
+			ch.log("[got packet] <- data: columns=%d, rows=%d", block.numColumns, block.numRows)
 		default:
 			return fmt.Errorf("unexpected packet [%d] from server", packet)
 		}

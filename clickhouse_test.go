@@ -277,6 +277,197 @@ func Test_Select(t *testing.T) {
 	}
 }
 
+func Test_ArrayT(t *testing.T) {
+	const (
+		ddl = `
+			CREATE TABLE clickhouse_test_array (
+				int8     Array(Int8),
+				int16    Array(Int16),
+				int32    Array(Int32),
+				int64    Array(Int64),
+				uint8    Array(UInt8),
+				uint16   Array(UInt16),
+				uint32   Array(UInt32),
+				uint64   Array(UInt64),
+				float32  Array(Float32),
+				float64  Array(Float64),
+				string   Array(String),
+				fString  Array(FixedString(2)),
+				date     Array(Date),
+				datetime Array(DateTime)
+			) Engine=Memory
+		`
+		dml = `
+			INSERT INTO clickhouse_test_array (
+				int8,
+                int16, 
+                int32,
+                int64,
+                uint8, 
+                uint16, 
+                uint32,
+                uint64,
+                float32,
+                float64,
+                string,
+                fString,
+                date,
+                datetime
+            ) VALUES (
+                ?, 
+                ?, 
+                ?,
+                ?,
+                ?,
+                ?,
+                ?,
+                ?,
+                ?,
+                ?,
+                ?,
+                ?,
+                ?,
+                ?
+            )
+		`
+		query = `
+            SELECT 
+                int8, 
+                int16, 
+                int32,
+                int64,
+                uint8, 
+                uint16, 
+                uint32,
+                uint64,
+                float32,
+                float64,
+                string,
+                fString,
+                date,
+                datetime
+            FROM clickhouse_test_array
+        `
+	)
+	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) && assert.NoError(t, connect.Ping()) {
+		if _, err := connect.Exec("DROP TABLE IF EXISTS clickhouse_test_array"); assert.NoError(t, err) {
+			if _, err := connect.Exec(ddl); assert.NoError(t, err) {
+				if tx, err := connect.Begin(); assert.NoError(t, err) {
+					if stmt, err := tx.Prepare(dml); assert.NoError(t, err) {
+						for i := 1; i <= 10; i++ {
+							_, err = stmt.Exec(
+								clickhouse.Array("Int8", []int8{1, 2, 3}),
+								clickhouse.Array("Int16", []int16{5, 6, 7}),
+								clickhouse.Array("Int32", []int32{8, 9, 10}),
+								clickhouse.Array("Int64", []int64{11, 12, 13}),
+								clickhouse.Array("UInt8", []uint8{14, 15, 16}),
+								clickhouse.Array("UInt16", []uint16{17, 18, 19}),
+								clickhouse.Array("UInt32", []uint32{20, 21, 22}),
+								clickhouse.Array("UInt64", []uint64{23, 24, 25}),
+								clickhouse.Array("Float32", []float32{32.1, 32.2}),
+								clickhouse.Array("Float64", []float32{64.1, 64.2}),
+								clickhouse.Array("String", []string{fmt.Sprintf("A_%d", i), "B", "C"}),
+								clickhouse.Array("FixedString(2)", []string{"RU", "EN", "DE"}),
+								clickhouse.Array("Date", []time.Time{time.Now(), time.Now()}),
+								clickhouse.Array("DateTime", []time.Time{time.Now(), time.Now()}),
+							)
+							if !assert.NoError(t, err) {
+								return
+							}
+							_, err = stmt.Exec(
+								clickhouse.Array("Int8", []int8{100, 101, 102, 103, 104, 105}),
+								clickhouse.Array("Int16", []int16{200, 201}),
+								clickhouse.Array("Int32", []int32{300, 301, 302, 303}),
+								clickhouse.Array("Int64", []int64{400, 401, 402}),
+								clickhouse.Array("UInt8", []uint8{250, 251, 252, 253, 254}),
+								clickhouse.Array("UInt16", []uint16{1000, 1001, 1002, 1003, 1004}),
+								clickhouse.Array("UInt32", []uint32{2001, 2002}),
+								clickhouse.Array("UInt64", []uint64{3000}),
+								clickhouse.Array("Float32", []float32{1000.1, 100.1, 2000}),
+								clickhouse.Array("Float64", []float32{640, 8, 650.9, 703.5, 800}),
+								clickhouse.Array("String", []string{fmt.Sprintf("D_%d", i), "E", "F", "G"}),
+								clickhouse.Array("FixedString(2)", []string{"UA", "GB"}),
+								clickhouse.Array("Date", []time.Time{time.Now(), time.Now(), time.Now(), time.Now()}),
+								clickhouse.Array("DateTime", []time.Time{time.Now(), time.Now()}),
+							)
+							if !assert.NoError(t, err) {
+								return
+							}
+						}
+					}
+					if assert.NoError(t, tx.Commit()) {
+						var item struct {
+							Int8        []int8
+							Int16       []int16
+							Int32       []int32
+							Int64       []int64
+							UInt8       []uint8
+							UInt16      []uint16
+							UInt32      []uint32
+							UInt64      []uint64
+							Float32     []float32
+							Float64     []float64
+							String      []string
+							FixedString []string
+							Date        []time.Time
+							DateTime    []time.Time
+						}
+						if rows, err := connect.Query(query); assert.NoError(t, err) {
+							var count int
+							for rows.Next() {
+								count++
+								err := rows.Scan(
+									&item.Int8,
+									&item.Int16,
+									&item.Int32,
+									&item.Int64,
+									&item.UInt8,
+									&item.UInt16,
+									&item.UInt32,
+									&item.UInt64,
+									&item.Float32,
+									&item.Float64,
+									&item.String,
+									&item.FixedString,
+									&item.Date,
+									&item.DateTime,
+								)
+								if !assert.NoError(t, err) {
+									return
+								}
+								t.Logf("Int8=%v, Int16=%v, Int32=%v, Int64=%v",
+									item.Int8,
+									item.Int16,
+									item.Int32,
+									item.Int64,
+								)
+								t.Logf("UInt8=%v, UInt16=%v, UInt32=%v, UInt64=%v",
+									item.UInt8,
+									item.UInt16,
+									item.UInt32,
+									item.UInt64,
+								)
+								t.Logf("Float32=%v, Float64=%v",
+									item.Float32,
+									item.Float64,
+								)
+								t.Logf("String=%v, FixedString=%v",
+									item.String,
+									item.FixedString,
+								)
+								t.Logf("Date=%v, DateTime=%v",
+									item.Date,
+									item.DateTime,
+								)
+							}
+							assert.Equal(t, int(20), count)
+						}
+					}
+				}
+			}
+		}
+	}
+}
 func Test_Tx(t *testing.T) {
 	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) {
 		if tx, err := connect.Begin(); assert.NoError(t, err) {
