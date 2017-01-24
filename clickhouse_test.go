@@ -277,6 +277,23 @@ func Test_Select(t *testing.T) {
 	}
 }
 
+func Test_SimpleSelect(t *testing.T) {
+	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) && assert.NoError(t, connect.Ping()) {
+		if rows, err := connect.Query("SELECT a FROM (SELECT 1 AS a UNION ALL SELECT 2 AS a UNION ALL SELECT 3 AS a) ORDER BY a ASC"); assert.NoError(t, err) {
+			defer rows.Close()
+			var cnt int
+			for rows.Next() {
+				cnt++
+				var value int
+				if assert.NoError(t, rows.Scan(&value)) {
+					assert.Equal(t, cnt, value)
+				}
+			}
+			assert.Equal(t, int(3), cnt)
+		}
+	}
+}
+
 func Test_ArrayT(t *testing.T) {
 	const (
 		ddl = `
