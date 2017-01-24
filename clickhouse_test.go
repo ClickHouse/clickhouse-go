@@ -291,6 +291,30 @@ func Test_SimpleSelect(t *testing.T) {
 			}
 			assert.Equal(t, int(3), cnt)
 		}
+		if row := connect.QueryRow("SELECT min(a) FROM (SELECT 1 AS a UNION ALL SELECT 2 AS a UNION ALL SELECT 3 AS a)"); assert.NotNil(t, row) {
+			var min int64
+			if assert.NoError(t, row.Scan(&min)) {
+				assert.Equal(t, int64(1), min)
+			}
+		}
+		if row := connect.QueryRow("SELECT max(a) FROM (SELECT 1 AS a UNION ALL SELECT 2 AS a UNION ALL SELECT 3 AS a)"); assert.NotNil(t, row) {
+			var max int64
+			if assert.NoError(t, row.Scan(&max)) {
+				assert.Equal(t, int64(3), max)
+			}
+		}
+		if row := connect.QueryRow("SELECT sum(a) FROM (SELECT 1 AS a UNION ALL SELECT 2 AS a UNION ALL SELECT 3 AS a)"); assert.NotNil(t, row) {
+			var sum int64
+			if assert.NoError(t, row.Scan(&sum)) {
+				assert.Equal(t, int64(6), sum)
+			}
+		}
+		if row := connect.QueryRow("SELECT median(a) FROM (SELECT 1 AS a UNION ALL SELECT 2 AS a UNION ALL SELECT 3 AS a)"); assert.NotNil(t, row) {
+			var median float64
+			if assert.NoError(t, row.Scan(&median)) {
+				assert.Equal(t, float64(2), median)
+			}
+		}
 	}
 }
 
