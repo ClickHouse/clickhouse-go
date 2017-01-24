@@ -23,7 +23,7 @@ Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/) [
 * FixedString(N)
 * Date 
 * DateTime
-* [Array(T) (one-dimensional)](https://clickhouse.yandex/reference_en.html#Array(T))
+* [Array(T) (one-dimensional)](https://clickhouse.yandex/reference_en.html#Array(T)) [godoc](https://godoc.org/github.com/kshvakov/clickhouse#Array)
 
 ## TODO 
 
@@ -91,7 +91,7 @@ func main() {
 			"RU",
 			10+i,
 			100+i,
-			clickhouse.Array("Int16", []int16{1, 2, 3}),
+			clickhouse.Array([]int16{1, 2, 3}),
 			time.Now(),
 			time.Now(),
 		); err != nil {

@@ -81,10 +81,30 @@ func formatTime(value time.Time) string {
 	return value.Format("2006-01-02 15:04:05")
 }
 
-func Array(columnType string, v interface{}) *array {
+func Array(v interface{}) *array {
+	return &array{
+		values: v,
+	}
+}
+
+func ArrayFixedString(len int, v []string) *array {
 	return &array{
 		values:     v,
-		columnType: columnType,
+		columnType: fmt.Sprintf("FixedString(%d)", len),
+	}
+}
+
+func ArrayDate(v []time.Time) *array {
+	return &array{
+		values:     v,
+		columnType: "Date",
+	}
+}
+
+func ArrayDateTime(v []time.Time) *array {
+	return &array{
+		values:     v,
+		columnType: "DateTime",
 	}
 }
 
@@ -99,54 +119,72 @@ func (a *array) Value() (driver.Value, error) {
 		elements []interface{}
 	)
 	switch values := a.values.(type) {
-	case []string:
+	case []time.Time:
+		if len(a.columnType) == 0 {
+			return nil, fmt.Errorf("unexpected column type")
+		}
 		for _, v := range values {
 			elements = append(elements, v)
 		}
-	case []time.Time:
+	case []string:
+		if len(a.columnType) == 0 {
+			a.columnType = "String"
+		}
 		for _, v := range values {
 			elements = append(elements, v)
 		}
 	case []float32:
+		a.columnType = "Float32"
 		for _, v := range values {
 			elements = append(elements, float64(v))
 		}
 	case []float64:
+		a.columnType = "Float64"
 		for _, v := range values {
 			elements = append(elements, v)
 		}
 	case []int8:
+		a.columnType = "Int8"
 		for _, v := range values {
 			elements = append(elements, int64(v))
 		}
 	case []int16:
+		a.columnType = "Int16"
 		for _, v := range values {
 			elements = append(elements, int64(v))
 		}
 	case []int32:
+		a.columnType = "Int32"
 		for _, v := range values {
 			elements = append(elements, int64(v))
 		}
 	case []int64:
+		a.columnType = "Int64"
 		for _, v := range values {
 			elements = append(elements, v)
 		}
 	case []uint8:
+		a.columnType = "UInt8"
 		for _, v := range values {
 			elements = append(elements, int64(v))
 		}
 	case []uint16:
+		a.columnType = "UInt16"
 		for _, v := range values {
 			elements = append(elements, int64(v))
 		}
 	case []uint32:
+		a.columnType = "UInt32"
 		for _, v := range values {
 			elements = append(elements, int64(v))
 		}
 	case []uint64:
+		a.columnType = "UInt64"
 		for _, v := range values {
 			elements = append(elements, int64(v))
 		}
+	default:
+		return nil, fmt.Errorf("unsupported array type %T", a.values)
 	}
 	if err := writeString(&buf, a.columnType); err != nil {
 		return nil, err
