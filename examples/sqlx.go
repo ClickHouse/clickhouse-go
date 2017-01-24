@@ -27,6 +27,7 @@ func main() {
             country_code FixedString(2),
             os_id        UInt8,
             browser_id   UInt8,
+			categories   Array(Int16),
             action_time  DateTime
         ) engine=Memory
     `)
@@ -37,11 +38,17 @@ func main() {
 
 	var (
 		tx, _   = connect.Begin()
-		stmt, _ = tx.Prepare("INSERT INTO example (country_code, os_id, browser_id, action_time) VALUES (?, ?, ?, ?)")
+		stmt, _ = tx.Prepare("INSERT INTO example (country_code, os_id, browser_id, categories, action_time) VALUES (?, ?, ?, ?, ?)")
 	)
 
 	for i := 0; i < 100; i++ {
-		if _, err := stmt.Exec("RU", 10+i, 100+i, time.Now()); err != nil {
+		if _, err := stmt.Exec(
+			"RU",
+			10+i,
+			100+i,
+			clickhouse.Array("Int16", []int16{1, 2, 3}),
+			time.Now(),
+		); err != nil {
 			log.Fatal(err)
 		}
 	}
@@ -54,15 +61,16 @@ func main() {
 		CountryCode string    `db:"country_code"`
 		OsID        uint8     `db:"os_id"`
 		BrowserID   uint8     `db:"browser_id"`
+		Categories  []int16   `db:"categories"`
 		ActionTime  time.Time `db:"action_time"`
 	}
 
-	if err := connect.Select(&items, "SELECT country_code, os_id, browser_id, action_time FROM example"); err != nil {
+	if err := connect.Select(&items, "SELECT country_code, os_id, browser_id, categories, action_time FROM example"); err != nil {
 		log.Fatal(err)
 	}
 
 	for _, item := range items {
-		log.Printf("country: %s, os: %d, browser: %d, action_time: %s", item.CountryCode, item.OsID, item.BrowserID, item.ActionTime)
+		log.Printf("country: %s, os: %d, browser: %d, categories: %v, action_time: %s", item.CountryCode, item.OsID, item.BrowserID, item.Categories, item.ActionTime)
 	}
 
 	if _, err := connect.Exec("DROP TABLE example"); err != nil {

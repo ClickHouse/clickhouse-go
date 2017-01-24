@@ -108,7 +108,6 @@ func (b *block) read(revision uint64, conn *connect) error {
 				}
 				offsets = append(offsets, offset)
 			}
-
 			for n, offset := range offsets {
 				len := offset
 				if n != 0 {
@@ -185,7 +184,6 @@ func (b *block) append(args []driver.Value) error {
 			column     = b.columnNames[columnNum]
 			columnType = b.columnTypes[columnNum]
 			buffer     = &b.buffers[columnNum]
-			offsets    = b.offsets[columnNum]
 		)
 		switch {
 		case strings.HasPrefix(columnType, "Array"):
@@ -197,12 +195,12 @@ func (b *block) append(args []driver.Value) error {
 			if err != nil {
 				return err
 			}
-			if len(offsets) == 0 {
-				offsets = append(offsets, arrayLen)
+			if len(b.offsets[columnNum]) == 0 {
+				b.offsets[columnNum] = append(b.offsets[columnNum], arrayLen)
 			} else {
-				offsets = append(offsets, arrayLen+offsets[len(offsets)-1])
+				b.offsets[columnNum] = append(b.offsets[columnNum], arrayLen+b.offsets[columnNum][len(b.offsets[columnNum])-1])
 			}
-			if ct != columnType {
+			if "Array("+ct+")" != columnType {
 				return fmt.Errorf("Column %s (%s): unexpected type %s of value", column, columnType, ct)
 			}
 			if _, err := buffer.Write(data); err != nil {

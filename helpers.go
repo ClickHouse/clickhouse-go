@@ -145,7 +145,7 @@ func (a *array) Value() (driver.Value, error) {
 		}
 	case []uint64:
 		for _, v := range values {
-			elements = append(elements, v)
+			elements = append(elements, int64(v))
 		}
 	}
 	if err := writeString(&buf, a.columnType); err != nil {
