@@ -46,11 +46,11 @@ func Test_OpenConnectAndPing(t *testing.T) {
 
 func Test_CreateTable(t *testing.T) {
 	const ddl = `
-        CREATE TABLE clickhouse_test_create_table (
-            click_id   FixedString(64),
-            click_time DateTime
-        ) Engine=Memory
-    `
+		CREATE TABLE clickhouse_test_create_table (
+			click_id   FixedString(64),
+			click_time DateTime
+		) Engine=Memory
+	`
 	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) {
 		if _, err := connect.Exec("DROP TABLE IF EXISTS clickhouse_test_create_table"); assert.NoError(t, err) {
 			if _, err := connect.Exec(ddl); assert.NoError(t, err) {
@@ -67,74 +67,74 @@ func Test_CreateTable(t *testing.T) {
 func Test_Insert(t *testing.T) {
 	const (
 		ddl = `
-            CREATE TABLE clickhouse_test_insert (
-                int8  Int8,
-                int16 Int16,
-                int32 Int32,
-                int64 Int64,
-                uint8  UInt8,
-                uint16 UInt16,
-                uint32 UInt32,
-                uint64 UInt64,
-                float32 Float32,
-                float64 Float64,
-                string  String,
-                fString FixedString(2),
-                date    Date,
-                datetime DateTime
-            ) Engine=Memory
-        `
+			CREATE TABLE clickhouse_test_insert (
+				int8  Int8,
+				int16 Int16,
+				int32 Int32,
+				int64 Int64,
+				uint8  UInt8,
+				uint16 UInt16,
+				uint32 UInt32,
+				uint64 UInt64,
+				float32 Float32,
+				float64 Float64,
+				string  String,
+				fString FixedString(2),
+				date    Date,
+				datetime DateTime
+			) Engine=Memory
+		`
 		dml = `
-            INSERT INTO clickhouse_test_insert (
-                int8, 
-                int16, 
-                int32,
-                int64,
-                uint8, 
-                uint16, 
-                uint32,
-                uint64,
-                float32,
-                float64,
-                string,
-                fString,
-                date,
-                datetime
-            ) VALUES (
-                ?, 
-                ?, 
-                ?,
-                ?,
-                ?,
-                ?,
-                ?,
-                ?,
-                ?,
-                ?,
-                ?,
-                ?,
-                ?,
-                ?
-            )
-        `
+			INSERT INTO clickhouse_test_insert (
+				int8, 
+				int16, 
+				int32,
+				int64,
+				uint8, 
+				uint16, 
+				uint32,
+				uint64,
+				float32,
+				float64,
+				string,
+				fString,
+				date,
+				datetime
+			) VALUES (
+				?, 
+				?, 
+				?,
+				?,
+				?,
+				?,
+				?,
+				?,
+				?,
+				?,
+				?,
+				?,
+				?,
+				?
+			)
+		`
 		query = `
-            SELECT 
-                int8, 
-                int16, 
-                int32,
-                int64,
-                uint8, 
-                uint16, 
-                uint32,
-                uint64,
-                float32,
-                float64,
-                string,
-                fString,
-                date,
-                datetime
-            FROM clickhouse_test_insert
-        `
+			SELECT 
+				int8, 
+				int16, 
+				int32,
+				int64,
+				uint8, 
+				uint16, 
+				uint32,
+				uint64,
+				float32,
+				float64,
+				string,
+				fString,
+				date,
+				datetime
+			FROM clickhouse_test_insert
+		`
 	)
 	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) && assert.NoError(t, connect.Ping()) {
 		if _, err := connect.Exec("DROP TABLE IF EXISTS clickhouse_test_insert"); assert.NoError(t, err) {
@@ -341,54 +341,54 @@ func Test_ArrayT(t *testing.T) {
 		dml = `
 			INSERT INTO clickhouse_test_array (
 				int8,
-                int16, 
-                int32,
-                int64,
-                uint8, 
-                uint16, 
-                uint32,
-                uint64,
-                float32,
-                float64,
-                string,
-                fString,
-                date,
-                datetime
-            ) VALUES (
-                ?, 
-                ?, 
-                ?,
-                ?,
-                ?,
-                ?,
-                ?,
-                ?,
-                ?,
-                ?,
-                ?,
-                ?,
-                ?,
-                ?
-            )
+				int16, 
+				int32,
+				int64,
+				uint8, 
+				uint16, 
+				uint32,
+				uint64,
+				float32,
+				float64,
+				string,
+				fString,
+				date,
+				datetime
+			) VALUES (
+				?, 
+				?, 
+				?,
+				?,
+				?,
+				?,
+				?,
+				?,
+				?,
+				?,
+				?,
+				?,
+				?,
+				?
+			)
 		`
 		query = `
-            SELECT 
-                int8, 
-                int16, 
-                int32,
-                int64,
-                uint8, 
-                uint16, 
-                uint32,
-                uint64,
-                float32,
-                float64,
-                string,
-                fString,
-                date,
-                datetime
-            FROM clickhouse_test_array
-        `
+			SELECT 
+				int8, 
+				int16, 
+				int32,
+				int64,
+				uint8, 
+				uint16, 
+				uint32,
+				uint64,
+				float32,
+				float64,
+				string,
+				fString,
+				date,
+				datetime
+			FROM clickhouse_test_array
+		`
 	)
 	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) && assert.NoError(t, connect.Ping()) {
 		if _, err := connect.Exec("DROP TABLE IF EXISTS clickhouse_test_array"); assert.NoError(t, err) {
@@ -513,21 +513,19 @@ func Test_ArrayT(t *testing.T) {
 func Test_With_Totals(t *testing.T) {
 	const (
 		ddl = `
-            CREATE TABLE clickhouse_test_with_totals (
-                country FixedString(2)
-            ) Engine=Memory
-        `
-		dml = `
-            INSERT INTO clickhouse_test_with_totals (country) VALUES (?)
-        `
+			CREATE TABLE clickhouse_test_with_totals (
+				country FixedString(2)
+			) Engine=Memory
+		`
+		dml   = `INSERT INTO clickhouse_test_with_totals (country) VALUES (?)`
 		query = `
-            SELECT 
-                country,
+			SELECT 
+				country,
 				COUNT(*)
-            FROM clickhouse_test_with_totals
+			FROM clickhouse_test_with_totals
 			GROUP BY country
 				WITH TOTALS
-        `
+		`
 	)
 	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) && assert.NoError(t, connect.Ping()) {
 		if _, err := connect.Exec("DROP TABLE IF EXISTS clickhouse_test_with_totals"); assert.NoError(t, err) {
