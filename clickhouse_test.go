@@ -509,6 +509,90 @@ func Test_ArrayT(t *testing.T) {
 		}
 	}
 }
+
+func Test_With_Totals(t *testing.T) {
+	const (
+		ddl = `
+            CREATE TABLE clickhouse_test_with_totals (
+                country FixedString(2)
+            ) Engine=Memory
+        `
+		dml = `
+            INSERT INTO clickhouse_test_with_totals (country) VALUES (?)
+        `
+		query = `
+            SELECT 
+                country,
+				COUNT(*)
+            FROM clickhouse_test_with_totals
+			GROUP BY country
+				WITH TOTALS
+        `
+	)
+	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) && assert.NoError(t, connect.Ping()) {
+		if _, err := connect.Exec("DROP TABLE IF EXISTS clickhouse_test_with_totals"); assert.NoError(t, err) {
+			if _, err := connect.Exec(ddl); assert.NoError(t, err) {
+				if tx, err := connect.Begin(); assert.NoError(t, err) {
+					if stmt, err := tx.Prepare(dml); assert.NoError(t, err) {
+						if _, err := stmt.Exec("RU"); !assert.NoError(t, err) {
+							return
+						}
+						if _, err := stmt.Exec("EN"); !assert.NoError(t, err) {
+							return
+						}
+						if _, err := stmt.Exec("RU"); !assert.NoError(t, err) {
+							return
+						}
+						if _, err := stmt.Exec("RU"); !assert.NoError(t, err) {
+							return
+						}
+						if _, err := stmt.Exec("EN"); !assert.NoError(t, err) {
+							return
+						}
+						if _, err := stmt.Exec("RU"); !assert.NoError(t, err) {
+							return
+						}
+					}
+					if assert.NoError(t, tx.Commit()) {
+						var item struct {
+							Country string
+							Count   int64
+						}
+						if rows, err := connect.Query(query); assert.NoError(t, err) {
+							var count int
+							for rows.Next() {
+								count++
+								err := rows.Scan(
+									&item.Country,
+									&item.Count,
+								)
+								if !assert.NoError(t, err) {
+									return
+								}
+								switch item.Country {
+								case "RU":
+									if !assert.Equal(t, int64(4), item.Count) {
+										return
+									}
+								case "EN":
+									if !assert.Equal(t, int64(2), item.Count) {
+										return
+									}
+								default:
+									if !assert.Equal(t, int64(6), item.Count) {
+										return
+									}
+								}
+							}
+							assert.Equal(t, int(3), count)
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 func Test_Tx(t *testing.T) {
 	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) {
 		if tx, err := connect.Begin(); assert.NoError(t, err) {

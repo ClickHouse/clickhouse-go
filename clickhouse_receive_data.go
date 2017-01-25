@@ -43,7 +43,10 @@ func (ch *clickhouse) receiveData() (*rows, error) {
 			if err := block.read(ch.serverRevision, ch.conn); err != nil {
 				return nil, err
 			}
-			ch.log("[receive packet] <- totalpacket: columns=%d, rows=%d", block.numColumns, block.numRows)
+			if block.numRows > 0 {
+				rows.append(&block)
+			}
+			ch.log("[receive packet] <- totals: columns=%d, rows=%d", block.numColumns, block.numRows)
 		case ServerProfileInfoPacket:
 			profileInfo, err := ch.profileInfo()
 			if err != nil {
