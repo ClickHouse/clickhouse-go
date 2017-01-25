@@ -2,7 +2,6 @@ package clickhouse
 
 import (
 	"bytes"
-	"database/sql/driver"
 	"fmt"
 	"strings"
 )
@@ -172,7 +171,7 @@ func (b *block) write(revision uint64, conn *connect) error {
 	return nil
 }
 
-func (b *block) append(args []driver.Value) error {
+func (b *block) append(args []namedValue) error {
 	if len(b.buffers) == 0 && len(args) != 0 {
 		b.numRows = 0
 		b.offsets = make([][]uint64, len(args))
@@ -187,9 +186,9 @@ func (b *block) append(args []driver.Value) error {
 		)
 		switch {
 		case strings.HasPrefix(columnType, "Array"):
-			array, ok := args[columnNum].([]byte)
+			array, ok := args[columnNum].Value.([]byte)
 			if !ok {
-				return fmt.Errorf("Column %s (%s): unexpected type %T of value", column, columnType, args[columnNum])
+				return fmt.Errorf("Column %s (%s): unexpected type %T of value", column, columnType, args[columnNum].Value)
 			}
 			ct, arrayLen, data, err := arrayInfo(array)
 			if err != nil {
@@ -207,7 +206,7 @@ func (b *block) append(args []driver.Value) error {
 				return err
 			}
 		default:
-			if err := write(buffer, columnType, args[columnNum]); err != nil {
+			if err := write(buffer, columnType, args[columnNum].Value); err != nil {
 				return fmt.Errorf("Column %s (%s): %s", column, columnType, err.Error())
 			}
 		}

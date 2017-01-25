@@ -1,6 +1,7 @@
 package clickhouse
 
 import (
+	"context"
 	"database/sql"
 	"database/sql/driver"
 	"errors"
@@ -53,6 +54,10 @@ type clickhouse struct {
 }
 
 func (ch *clickhouse) Prepare(query string) (driver.Stmt, error) {
+	return ch.prepareContext(context.Background(), query)
+}
+
+func (ch *clickhouse) prepareContext(ctx context.Context, query string) (driver.Stmt, error) {
 	ch.log("[prepare] %s", query)
 	if ch.data != nil {
 		return nil, ErrLimitDataRequestInTx
@@ -100,6 +105,15 @@ func (ch *clickhouse) insert(query string) (driver.Stmt, error) {
 }
 
 func (ch *clickhouse) Begin() (driver.Tx, error) {
+	return ch.beginTx(context.Background(), txOptions{})
+}
+
+type txOptions struct {
+	Isolation int
+	ReadOnly  bool
+}
+
+func (ch *clickhouse) beginTx(ctx context.Context, opts txOptions) (driver.Tx, error) {
 	ch.log("[begin] tx=%t, data=%t", ch.inTransaction, ch.data != nil)
 	if ch.inTransaction {
 		return nil, sql.ErrTxDone
