@@ -1,6 +1,7 @@
 package clickhouse
 
 import (
+	"context"
 	"database/sql/driver"
 	"strings"
 )
@@ -20,6 +21,10 @@ func (stmt *stmt) NumInput() int {
 }
 
 func (stmt *stmt) Exec(args []driver.Value) (driver.Result, error) {
+	return stmt.execContext(context.Background(), convertOldArgs(args))
+}
+
+func (stmt *stmt) execContext(ctx context.Context, args []namedValue) (driver.Result, error) {
 	if stmt.isInsert {
 		if err := stmt.ch.data.append(args); err != nil {
 			return nil, err
@@ -36,11 +41,15 @@ func (stmt *stmt) Exec(args []driver.Value) (driver.Result, error) {
 }
 
 func (stmt *stmt) Query(args []driver.Value) (driver.Rows, error) {
+	return stmt.queryContext(context.Background(), convertOldArgs(args))
+}
+
+func (stmt *stmt) queryContext(ctx context.Context, args []namedValue) (driver.Rows, error) {
 	var query []string
 	for index, value := range strings.Split(stmt.query, "?") {
 		query = append(query, value)
 		if index < len(args) {
-			query = append(query, quote(args[index]))
+			query = append(query, quote(args[index].Value))
 		}
 	}
 	if err := stmt.ch.sendQuery(strings.Join(query, "")); err != nil {
@@ -56,4 +65,21 @@ func (stmt *stmt) Query(args []driver.Value) (driver.Rows, error) {
 func (stmt *stmt) Close() error {
 	stmt.ch.log("[stmt] close")
 	return nil
+}
+
+type namedValue struct {
+	Name    string
+	Ordinal int
+	Value   driver.Value
+}
+
+func convertOldArgs(args []driver.Value) []namedValue {
+	dargs := make([]namedValue, len(args))
+	for i, v := range args {
+		dargs[i] = namedValue{
+			Ordinal: i + 1,
+			Value:   v,
+		}
+	}
+	return dargs
 }
