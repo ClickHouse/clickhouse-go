@@ -1,6 +1,6 @@
 # ClickHouse
 
-Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/) [![Build Status](https://travis-ci.org/kshvakov/clickhouse.svg?branch=master)](https://travis-ci.org/kshvakov/clickhouse) [![Go Report Card](https://goreportcard.com/badge/github.com/kshvakov/clickhouse)](https://goreportcard.com/report/github.com/kshvakov/clickhouse)
+Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/) [![Build Status](https://travis-ci.org/kshvakov/clickhouse.svg?branch=master)](https://travis-ci.org/kshvakov/clickhouse) [![Go Report Card](https://goreportcard.com/badge/github.com/kshvakov/clickhouse)](https://goreportcard.com/report/github.com/kshvakov/clickhouse) [![Coverage Status](https://coveralls.io/repos/github/kshvakov/clickhouse/badge.svg?branch=master)](https://coveralls.io/github/kshvakov/clickhouse?branch=master)
 
 ## Key features
 

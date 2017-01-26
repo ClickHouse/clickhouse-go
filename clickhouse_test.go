@@ -3,8 +3,8 @@ package clickhouse_test
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 	"testing"
-
 	"time"
 
 	"github.com/kshvakov/clickhouse"
@@ -502,6 +502,35 @@ func Test_ArrayT(t *testing.T) {
 								)
 							}
 							assert.Equal(t, int(20), count)
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+func Test_Insert_FixedString(t *testing.T) {
+	const (
+		ddl = `
+			CREATE TABLE clickhouse_test_fixed_string (
+				str2  FixedString(2),
+				str5  FixedString(5),
+				str10 FixedString(10)
+			) Engine=Memory
+		`
+		dml   = `INSERT INTO clickhouse_test_fixed_string VALUES (?, ?, ?)`
+		query = `SELECT str2, str5, str10 FROM clickhouse_test_fixed_string`
+	)
+	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) && assert.NoError(t, connect.Ping()) {
+		if _, err := connect.Exec("DROP TABLE IF EXISTS clickhouse_test_fixed_string"); assert.NoError(t, err) {
+			if _, err := connect.Exec(ddl); assert.NoError(t, err) {
+				if tx, err := connect.Begin(); assert.NoError(t, err) {
+					if stmt, err := tx.Prepare(dml); assert.NoError(t, err) {
+						if _, err := stmt.Exec(strings.Repeat("a", 2), strings.Repeat("b", 5), strings.Repeat("c", 10)); assert.NoError(t, err) {
+							if _, err := stmt.Exec("A", "B", "C"); assert.NoError(t, err) {
+								assert.NoError(t, tx.Commit())
+							}
 						}
 					}
 				}

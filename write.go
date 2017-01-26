@@ -194,7 +194,9 @@ func write(buffer io.Writer, columnType string, v driver.Value) error {
 		if len(str) > strlen {
 			return fmt.Errorf("too large value")
 		}
-		if _, err := buffer.Write(str); err != nil {
+		fixedString := make([]byte, strlen)
+		copy(fixedString, str)
+		if _, err := buffer.Write(fixedString); err != nil {
 			return err
 		}
 	default:
