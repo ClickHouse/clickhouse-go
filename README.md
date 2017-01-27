@@ -1,6 +1,6 @@
-# ClickHouse
+# ClickHouse [![Build Status](https://travis-ci.org/kshvakov/clickhouse.svg?branch=master)](https://travis-ci.org/kshvakov/clickhouse) [![Go Report Card](https://goreportcard.com/badge/github.com/kshvakov/clickhouse)](https://goreportcard.com/report/github.com/kshvakov/clickhouse) [![Coverage Status](https://coveralls.io/repos/github/kshvakov/clickhouse/badge.svg?branch=master)](https://coveralls.io/github/kshvakov/clickhouse?branch=master)
 
-Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/) [![Build Status](https://travis-ci.org/kshvakov/clickhouse.svg?branch=master)](https://travis-ci.org/kshvakov/clickhouse) [![Go Report Card](https://goreportcard.com/badge/github.com/kshvakov/clickhouse)](https://goreportcard.com/report/github.com/kshvakov/clickhouse) [![Coverage Status](https://coveralls.io/repos/github/kshvakov/clickhouse/badge.svg?branch=master)](https://coveralls.io/github/kshvakov/clickhouse?branch=master)
+Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/) 
 
 ## Key features
 
@@ -10,8 +10,9 @@ Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/) [
 
 ## DSN 
 
-* read_timeout/write_timeout - timeout in second 
 * username/password - auth credentials
+* database - select the current default database
+* read_timeout/write_timeout - timeout in second 
 * alt_hosts - comma separated list of single address host for load-balancing
 * debug - enable debug output (boolean value)
 
@@ -31,7 +32,7 @@ Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/) [
 
 example:
 ```
-tcp://host1:9000?timeout=60&username=user&password=qwerty&alt_hosts=host2:9000,host3:9000
+tcp://host1:9000?username=user&password=qwerty&database=clicks&read_timeout=10&write_timeout=20&alt_hosts=host2:9000,host3:9000
 ```
 
 
@@ -54,7 +55,7 @@ import (
 )
 
 func main() {
-	connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?username=&compress=true&debug=true")
+	connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true")
 	if err != nil {
 		log.Fatal(err)
 	}
