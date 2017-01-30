@@ -129,6 +129,7 @@ func (ch *clickhouse) Commit() error {
 		return sql.ErrTxDone
 	}
 	defer func() {
+		ch.data.reset()
 		ch.data = nil
 		ch.inTransaction = false
 	}()

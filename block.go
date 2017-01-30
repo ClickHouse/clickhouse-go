@@ -5,7 +5,15 @@ import (
 	"fmt"
 	"github.com/youtube/vitess/go/bytes2"
 	"strings"
+	"sync"
 )
+
+// Recycle column buffers, preallocate column buffers
+var bufferPool = sync.Pool{
+	New: func() interface{} {
+		return bytes2.NewChunkedWriter(256 * 1024)
+	},
+}
 
 // data block
 type block struct {
@@ -179,13 +187,22 @@ func (b *block) write(revision uint64, conn *connect) error {
 	return nil
 }
 
+// Reset and recycle column buffers
+func (b *block) reset() {
+	for _, b := range b.buffers {
+		b.Reset()
+		bufferPool.Put(b)
+	}
+	b.buffers = nil
+}
+
 func (b *block) append(args []driver.Value) error {
 	if len(b.buffers) == 0 && len(args) != 0 {
 		b.numRows = 0
 		b.offsets = make([][]uint64, len(args))
 		b.buffers = make([]*bytes2.ChunkedWriter, len(args))
 		for i := range args {
-			b.buffers[i] = bytes2.NewChunkedWriter(256 * 1024)
+			b.buffers[i] = bufferPool.Get().(*bytes2.ChunkedWriter)
 		}
 	}
 	b.numRows++
