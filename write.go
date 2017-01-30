@@ -4,9 +4,9 @@ import (
 	"database/sql/driver"
 	"encoding/binary"
 	"fmt"
+	"github.com/youtube/vitess/go/bytes2"
 	"io"
 	"math"
-	"strings"
 	"time"
 )
 
@@ -56,128 +56,77 @@ func writeUInt64(conn io.Writer, v uint64) error {
 	return nil
 }
 
-func write(buffer io.Writer, columnType string, v driver.Value) error {
-	switch columnType {
-	case "Date", "DateTime":
-		var (
-			err  error
-			date time.Time
-		)
+func write(buffer *bytes2.ChunkedWriter, columnInfo interface{}, v driver.Value) error {
+	var err error
+	switch columnInfo.(type) {
+	case Date:
+		var tv time.Time
 		switch value := v.(type) {
 		case time.Time:
-			date = value
+			tv = value
 		case string:
-			if columnType == "Date" {
-				if date, err = time.Parse("2006-01-02", value); err != nil {
-					return err
-				}
-			} else if date, err = time.Parse("2006-01-02 15:04:05", value); err != nil {
+			if tv, err = time.Parse("2006-01-02", value); err != nil {
 				return err
 			}
-			date = time.Date(
-				time.Time(date).Year(),
-				time.Time(date).Month(),
-				time.Time(date).Day(),
-				time.Time(date).Hour(),
-				time.Time(date).Minute(),
-				time.Time(date).Second(),
+			tv = time.Date(
+				time.Time(tv).Year(),
+				time.Time(tv).Month(),
+				time.Time(tv).Day(),
+				0, 0, 0, 0, time.UTC,
+			)
+		default:
+			return fmt.Errorf("unexpected type %T", v)
+		}
+		binary.LittleEndian.PutUint16(buffer.Reserve(2), uint16(tv.Unix()/24/3600))
+	case DateTime:
+		var tv time.Time
+		switch value := v.(type) {
+		case time.Time:
+			tv = value
+		case string:
+			if tv, err = time.Parse("2006-01-02 15:04:05", value); err != nil {
+				return err
+			}
+			tv = time.Date(
+				time.Time(tv).Year(),
+				time.Time(tv).Month(),
+				time.Time(tv).Day(),
+				time.Time(tv).Hour(),
+				time.Time(tv).Minute(),
+				time.Time(tv).Second(),
 				0,
 				time.UTC,
 			)
 		default:
 			return fmt.Errorf("unexpected type %T", v)
 		}
-		if columnType == "Date" {
-			if err := binary.Write(buffer, binary.LittleEndian, int16(date.Unix()/24/3600)); err != nil {
-				return err
-			}
-		} else if err := binary.Write(buffer, binary.LittleEndian, int32(date.Unix())); err != nil {
-			return err
-		}
-		return nil
-	case "String":
-		var str string
+		binary.LittleEndian.PutUint32(buffer.Reserve(4), uint32(tv.Unix()))
+	case string:
 		switch v := v.(type) {
 		case []byte:
-			str = string(v)
+			scratch := make([]byte, binary.MaxVarintLen64)
+			vlen := binary.PutUvarint(scratch, uint64(len(v)))
+			if _, err := buffer.Write(scratch[0:vlen]); err != nil {
+				return err
+			}
+			if _, err := buffer.Write(v); err != nil {
+				return err
+			}
 		case string:
-			str = v
+			scratch := make([]byte, binary.MaxVarintLen64)
+			vlen := binary.PutUvarint(scratch, uint64(len(v)))
+			if _, err := buffer.Write(scratch[0:vlen]); err != nil {
+				return err
+			}
+			if _, err := buffer.WriteString(v); err != nil {
+				return err
+			}
 		default:
 			return fmt.Errorf("unexpected type %T", v)
 		}
+	case []byte:
 		var (
-			buf = make([]byte, binary.MaxVarintLen64)
-			len = binary.PutUvarint(buf, uint64(len(str)))
-		)
-		if _, err := buffer.Write(buf[0:len]); err != nil {
-			return err
-		}
-		if _, err := buffer.Write([]byte(str)); err != nil {
-			return err
-		}
-		return nil
-	}
-
-	switch {
-	case
-		strings.HasPrefix(columnType, "Int"),
-		strings.HasPrefix(columnType, "UInt"):
-		value, ok := v.(int64)
-		if !ok {
-			return fmt.Errorf("unexpected type %T", v)
-		}
-		switch columnType {
-		case "Int8":
-			if err := binary.Write(buffer, binary.LittleEndian, int8(value)); err != nil {
-				return err
-			}
-		case "Int16":
-			if err := binary.Write(buffer, binary.LittleEndian, int16(value)); err != nil {
-				return err
-			}
-		case "Int32":
-			if err := binary.Write(buffer, binary.LittleEndian, int32(value)); err != nil {
-				return err
-			}
-		case "Int64":
-			if err := binary.Write(buffer, binary.LittleEndian, int64(value)); err != nil {
-				return err
-			}
-		case "UInt8":
-			if err := binary.Write(buffer, binary.LittleEndian, uint8(value)); err != nil {
-				return err
-			}
-		case "UInt16":
-			if err := binary.Write(buffer, binary.LittleEndian, uint16(value)); err != nil {
-				return err
-			}
-		case "UInt32":
-			if err := binary.Write(buffer, binary.LittleEndian, uint32(value)); err != nil {
-				return err
-			}
-		case "UInt64":
-			if err := binary.Write(buffer, binary.LittleEndian, uint64(value)); err != nil {
-				return err
-			}
-		}
-	case strings.HasPrefix(columnType, "Float"):
-		value, ok := v.(float64)
-		if !ok {
-			return fmt.Errorf("unexpected type %T", v)
-		}
-		switch columnType {
-		case "Float32":
-			if err := binary.Write(buffer, binary.LittleEndian, math.Float32bits(float32(value))); err != nil {
-				return err
-			}
-		case "Float64":
-			if err := binary.Write(buffer, binary.LittleEndian, math.Float64bits(float64(value))); err != nil {
-				return err
-			}
-		}
-	case strings.HasPrefix(columnType, "FixedString"):
-		var (
-			strlen int
+			strlen int = len(columnInfo.([]byte))
 			str    []byte
 		)
 		switch v := v.(type) {
@@ -188,19 +137,75 @@ func write(buffer io.Writer, columnType string, v driver.Value) error {
 		default:
 			return fmt.Errorf("unexpected type %T", v)
 		}
-		if _, err := fmt.Sscanf(columnType, "FixedString(%d)", &strlen); err != nil {
-			return err
-		}
 		if len(str) > strlen {
 			return fmt.Errorf("too large value")
+		} else if len(str) == 0 {
+			// When empty, insert default value to avoid allocation
+			str = columnInfo.([]byte)
+		} else if len(str) < strlen {
+			fixedString := make([]byte, strlen)
+			copy(fixedString, str)
+			str = fixedString
 		}
-		fixedString := make([]byte, strlen)
-		copy(fixedString, str)
-		if _, err := buffer.Write(fixedString); err != nil {
+		if _, err := buffer.Write(str); err != nil {
 			return err
 		}
+	case float32:
+		if value, ok := v.(float32); ok {
+			binary.LittleEndian.PutUint32(buffer.Reserve(4), math.Float32bits(value))
+		} else {
+			return fmt.Errorf("unexpected type %T", v)
+		}
+	case float64:
+		if value, ok := v.(float64); ok {
+			binary.LittleEndian.PutUint64(buffer.Reserve(8), math.Float64bits(value))
+		} else {
+			return fmt.Errorf("unexpected type %T", v)
+		}
+	case int8, uint8:
+		switch value := v.(type) {
+		case int8:
+			buffer.WriteByte(uint8(value))
+		case uint8:
+			buffer.WriteByte(value)
+		case int64: // Implicit driver.Value coercion
+			buffer.WriteByte(uint8(value))
+		default:
+			return fmt.Errorf("unexpected type %T", v)
+		}
+	case int16, uint16:
+		switch value := v.(type) {
+		case int16:
+			binary.LittleEndian.PutUint16(buffer.Reserve(2), uint16(value))
+		case uint16:
+			binary.LittleEndian.PutUint16(buffer.Reserve(2), value)
+		case int64: // Implicit driver.Value coercion
+			binary.LittleEndian.PutUint16(buffer.Reserve(2), uint16(value))
+		default:
+			return fmt.Errorf("unexpected type %T", v)
+		}
+	case int32, uint32:
+		switch value := v.(type) {
+		case int32:
+			binary.LittleEndian.PutUint32(buffer.Reserve(4), uint32(value))
+		case uint32:
+			binary.LittleEndian.PutUint32(buffer.Reserve(4), value)
+		case int64: // Implicit driver.Value coercion
+			binary.LittleEndian.PutUint32(buffer.Reserve(4), uint32(value))
+		default:
+			return fmt.Errorf("unexpected type %T", v)
+		}
+	case int64, uint64:
+		switch value := v.(type) {
+		case int64:
+			binary.LittleEndian.PutUint64(buffer.Reserve(8), uint64(value))
+		case uint64:
+			binary.LittleEndian.PutUint64(buffer.Reserve(8), value)
+		default:
+			return fmt.Errorf("unexpected type %T", v)
+		}
 	default:
-		return fmt.Errorf("unexpected type %T", v)
+		return fmt.Errorf("unhandled type %T", v)
 	}
 	return nil
 }

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"database/sql/driver"
 	"fmt"
+	"github.com/youtube/vitess/go/bytes2"
 	"regexp"
 	"strings"
 	"time"
@@ -108,6 +109,56 @@ func ArrayDateTime(v []time.Time) *array {
 	}
 }
 
+func toColumnType(ct string) (interface{}, error) {
+	// PODs
+	switch ct {
+	case "Date":
+		return Date{}, nil
+	case "DateTime":
+		return DateTime{}, nil
+	case "String":
+		return string(""), nil
+	case "Int8":
+		return int8(0), nil
+	case "Int16":
+		return int16(0), nil
+	case "Int32":
+		return int32(0), nil
+	case "Int64":
+		return int64(0), nil
+	case "UInt8":
+		return uint8(0), nil
+	case "UInt16":
+		return uint16(0), nil
+	case "UInt32":
+		return uint32(0), nil
+	case "UInt64":
+		return uint64(0), nil
+	case "Float32":
+		return float32(0), nil
+	case "Float64":
+		return float64(0), nil
+	}
+
+	// Specialised types
+	switch {
+	case strings.HasPrefix(ct, "FixedString"):
+		var arrLen int
+		if _, err := fmt.Sscanf(ct, "FixedString(%d)", &arrLen); err != nil {
+			return nil, err
+		}
+		return make([]byte, arrLen), nil
+	case strings.HasPrefix(ct, "Enum8"):
+		return uint8(0), nil
+	case strings.HasPrefix(ct, "Enum16"):
+		return uint16(0), nil
+	case strings.HasPrefix(ct, "Array"):
+		return array{}, nil
+	}
+
+	return nil, fmt.Errorf("unhandled type %v", ct)
+}
+
 type array struct {
 	values     interface{}
 	columnType string
@@ -115,7 +166,7 @@ type array struct {
 
 func (a *array) Value() (driver.Value, error) {
 	var (
-		buf      bytes.Buffer
+		buf      bytes2.ChunkedWriter
 		elements []interface{}
 	)
 	switch values := a.values.(type) {

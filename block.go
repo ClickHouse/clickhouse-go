@@ -1,8 +1,9 @@
 package clickhouse
 
 import (
-	"bytes"
+	"database/sql/driver"
 	"fmt"
+	"github.com/youtube/vitess/go/bytes2"
 	"strings"
 )
 
@@ -14,9 +15,10 @@ type block struct {
 	numColumns  uint64
 	columnNames []string
 	columnTypes []string
+	columnInfo  []interface{}
 	columns     [][]interface{}
 	offsets     [][]uint64
-	buffers     []bytes.Buffer
+	buffers     []*bytes2.ChunkedWriter
 }
 
 type blockInfo struct {
@@ -97,6 +99,12 @@ func (b *block) read(revision uint64, conn *connect) error {
 		}
 		b.columnNames = append(b.columnNames, column)
 		b.columnTypes = append(b.columnTypes, columnType)
+		// Coerce column type to Go type
+		if info, err := toColumnType(columnType); err != nil {
+			return err
+		} else {
+			b.columnInfo = append(b.columnInfo, info)
+		}
 		switch {
 		case strings.HasPrefix(columnType, "Array"):
 			offsets := make([]uint64, 0, b.numRows)
@@ -175,16 +183,19 @@ func (b *block) append(args []driver.Value) error {
 	if len(b.buffers) == 0 && len(args) != 0 {
 		b.numRows = 0
 		b.offsets = make([][]uint64, len(args))
-		b.buffers = make([]bytes.Buffer, len(args))
+		b.buffers = make([]*bytes2.ChunkedWriter, len(args))
+		for i := range args {
+			b.buffers[i] = bytes2.NewChunkedWriter(256 * 1024)
+		}
 	}
 	b.numRows++
-	for columnNum := range b.columnTypes {
+	for columnNum, info := range b.columnInfo {
 		var (
-			buffer     = &b.buffers[columnNum]
 			column = &b.columnNames[columnNum]
+			buffer = b.buffers[columnNum]
 		)
-		switch {
-		case strings.HasPrefix(columnType, "Array"):
+		switch info.(type) {
+		case array:
 			array, ok := args[columnNum].([]byte)
 			if !ok {
 				return fmt.Errorf("Column %s (%s): unexpected type %T of value", *column, b.columnTypes[columnNum], args[columnNum])
@@ -205,7 +216,7 @@ func (b *block) append(args []driver.Value) error {
 				return err
 			}
 		default:
-			if err := write(buffer, columnType, args[columnNum]); err != nil {
+			if err := write(buffer, info, args[columnNum]); err != nil {
 				return fmt.Errorf("Column %s (%s): %s", *column, b.columnTypes[columnNum], err.Error())
 			}
 		}
