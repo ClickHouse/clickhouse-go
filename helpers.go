@@ -108,16 +108,63 @@ func ArrayDateTime(v []time.Time) *array {
 	}
 }
 
+func toColumnType(ct string) (interface{}, error) {
+	// PODs
+	switch ct {
+	case "Date":
+		return Date{}, nil
+	case "DateTime":
+		return DateTime{}, nil
+	case "String":
+		return string(""), nil
+	case "Int8":
+		return int8(0), nil
+	case "Int16":
+		return int16(0), nil
+	case "Int32":
+		return int32(0), nil
+	case "Int64":
+		return int64(0), nil
+	case "UInt8":
+		return uint8(0), nil
+	case "UInt16":
+		return uint16(0), nil
+	case "UInt32":
+		return uint32(0), nil
+	case "UInt64":
+		return uint64(0), nil
+	case "Float32":
+		return float32(0), nil
+	case "Float64":
+		return float64(0), nil
+	}
+
+	// Specialised types
+	switch {
+	case strings.HasPrefix(ct, "FixedString"):
+		var arrLen int
+		if _, err := fmt.Sscanf(ct, "FixedString(%d)", &arrLen); err != nil {
+			return nil, err
+		}
+		return make([]byte, arrLen), nil
+	case strings.HasPrefix(ct, "Enum8"):
+		return uint8(0), nil
+	case strings.HasPrefix(ct, "Enum16"):
+		return uint16(0), nil
+	case strings.HasPrefix(ct, "Array"):
+		return array{}, nil
+	}
+
+	return nil, fmt.Errorf("unhandled type %v", ct)
+}
+
 type array struct {
 	values     interface{}
 	columnType string
 }
 
 func (a *array) Value() (driver.Value, error) {
-	var (
-		buf      bytes.Buffer
-		elements []interface{}
-	)
+	var elements []interface{}
 	switch values := a.values.(type) {
 	case []time.Time:
 		if len(a.columnType) == 0 {
@@ -186,14 +233,20 @@ func (a *array) Value() (driver.Value, error) {
 	default:
 		return nil, fmt.Errorf("unsupported array type %T", a.values)
 	}
-	if err := writeString(&buf, a.columnType); err != nil {
+
+	buf := bytes.NewBuffer(make([]byte, 0, len(a.columnType)+(2*len(elements))+8))
+	if err := writeString(buf, a.columnType); err != nil {
 		return nil, err
 	}
-	if err := writeUvarint(&buf, uint64(len(elements))); err != nil {
+	if err := writeUvarint(buf, uint64(len(elements))); err != nil {
+		return nil, err
+	}
+	columnType, err := toColumnType(a.columnType)
+	if err != nil {
 		return nil, err
 	}
 	for _, value := range elements {
-		if err := write(&buf, a.columnType, value); err != nil {
+		if err := write(buf, columnType, value); err != nil {
 			return nil, err
 		}
 	}

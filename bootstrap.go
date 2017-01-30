@@ -44,6 +44,10 @@ func init() {
 type bootstrap struct{}
 
 func (d *bootstrap) Open(dsn string) (driver.Conn, error) {
+	return Open(dsn)
+}
+
+func Open(dsn string) (driver.Conn, error) {
 	url, err := url.Parse(dsn)
 	if err != nil {
 		return nil, err
