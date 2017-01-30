@@ -22,9 +22,6 @@ func dial(network string, hosts []string, r, w time.Duration) (*connect, error) 
 	)
 	for i := 0; i <= len(hosts); i++ {
 		if conn, err = net.DialTimeout(network, hosts[(index+i)%len(hosts)], 2*time.Second); err == nil {
-			if tcp, ok := conn.(*net.TCPConn); ok {
-				tcp.SetNoDelay(true)
-			}
 			return &connect{
 				Conn:         conn,
 				readTimeout:  r,

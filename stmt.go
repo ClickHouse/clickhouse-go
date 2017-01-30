@@ -13,6 +13,8 @@ type stmt struct {
 	isInsert bool
 }
 
+var emptyResult = &result{}
+
 func (stmt *stmt) NumInput() int {
 	if stmt.numInput < 0 {
 		return 0
@@ -21,15 +23,15 @@ func (stmt *stmt) NumInput() int {
 }
 
 func (stmt *stmt) Exec(args []driver.Value) (driver.Result, error) {
-	return stmt.execContext(context.Background(), convertOldArgs(args))
+	return stmt.execContext(context.Background(), args)
 }
 
-func (stmt *stmt) execContext(ctx context.Context, args []namedValue) (driver.Result, error) {
+func (stmt *stmt) execContext(ctx context.Context, args []driver.Value) (driver.Result, error) {
 	if stmt.isInsert {
 		if err := stmt.ch.data.append(args); err != nil {
 			return nil, err
 		}
-		return &result{}, nil
+		return emptyResult, nil
 	}
 	if err := stmt.ch.sendQuery(stmt.query); err != nil {
 		return nil, err
@@ -37,7 +39,7 @@ func (stmt *stmt) execContext(ctx context.Context, args []namedValue) (driver.Re
 	if _, err := stmt.ch.receiveData(); err != nil {
 		return nil, err
 	}
-	return &result{}, nil
+	return emptyResult, nil
 }
 
 func (stmt *stmt) Query(args []driver.Value) (driver.Rows, error) {

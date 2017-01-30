@@ -2,9 +2,18 @@ package clickhouse
 
 import (
 	"bytes"
+	"database/sql/driver"
 	"fmt"
 	"strings"
+	"sync"
 )
+
+// Recycle column buffers, preallocate column buffers
+var bufferPool = sync.Pool{
+	New: func() interface{} {
+		return bytes.NewBuffer(make([]byte, 0, 256*1024))
+	},
+}
 
 // data block
 type block struct {
@@ -14,9 +23,10 @@ type block struct {
 	numColumns  uint64
 	columnNames []string
 	columnTypes []string
+	columnInfo  []interface{}
 	columns     [][]interface{}
 	offsets     [][]uint64
-	buffers     []bytes.Buffer
+	buffers     []*bytes.Buffer
 }
 
 type blockInfo struct {
@@ -97,6 +107,12 @@ func (b *block) read(revision uint64, conn *connect) error {
 		}
 		b.columnNames = append(b.columnNames, column)
 		b.columnTypes = append(b.columnTypes, columnType)
+		// Coerce column type to Go type
+		if info, err := toColumnType(columnType); err != nil {
+			return err
+		} else {
+			b.columnInfo = append(b.columnInfo, info)
+		}
 		switch {
 		case strings.HasPrefix(columnType, "Array"):
 			offsets := make([]uint64, 0, b.numRows)
@@ -171,24 +187,38 @@ func (b *block) write(revision uint64, conn *connect) error {
 	return nil
 }
 
-func (b *block) append(args []namedValue) error {
+// Reset and recycle column buffers
+func (b *block) reset() {
+	if b == nil {
+		return
+	}
+	for _, b := range b.buffers {
+		b.Reset()
+		bufferPool.Put(b)
+	}
+	b.buffers = nil
+}
+
+func (b *block) append(args []driver.Value) error {
 	if len(b.buffers) == 0 && len(args) != 0 {
 		b.numRows = 0
 		b.offsets = make([][]uint64, len(args))
-		b.buffers = make([]bytes.Buffer, len(args))
+		b.buffers = make([]*bytes.Buffer, len(args))
+		for i := range args {
+			b.buffers[i] = bufferPool.Get().(*bytes.Buffer)
+		}
 	}
 	b.numRows++
-	for columnNum := range b.columnTypes {
+	for columnNum, info := range b.columnInfo {
 		var (
-			column     = b.columnNames[columnNum]
-			columnType = b.columnTypes[columnNum]
-			buffer     = &b.buffers[columnNum]
+			column = b.columnNames[columnNum]
+			buffer = b.buffers[columnNum]
 		)
-		switch {
-		case strings.HasPrefix(columnType, "Array"):
-			array, ok := args[columnNum].Value.([]byte)
+		switch info.(type) {
+		case array:
+			array, ok := args[columnNum].([]byte)
 			if !ok {
-				return fmt.Errorf("Column %s (%s): unexpected type %T of value", column, columnType, args[columnNum].Value)
+				return fmt.Errorf("Column %s (%s): unexpected type %T of value", column, b.columnTypes[columnNum], args[columnNum])
 			}
 			ct, arrayLen, data, err := arrayInfo(array)
 			if err != nil {
@@ -199,15 +229,15 @@ func (b *block) append(args []namedValue) error {
 			} else {
 				b.offsets[columnNum] = append(b.offsets[columnNum], arrayLen+b.offsets[columnNum][len(b.offsets[columnNum])-1])
 			}
-			if "Array("+ct+")" != columnType {
-				return fmt.Errorf("Column %s (%s): unexpected type %s of value", column, columnType, ct)
+			if "Array("+ct+")" != b.columnTypes[columnNum] {
+				return fmt.Errorf("Column %s (%s): unexpected type %s of value", column, b.columnTypes[columnNum], ct)
 			}
 			if _, err := buffer.Write(data); err != nil {
 				return err
 			}
 		default:
-			if err := write(buffer, columnType, args[columnNum].Value); err != nil {
-				return fmt.Errorf("Column %s (%s): %s", column, columnType, err.Error())
+			if err := write(buffer, info, args[columnNum]); err != nil {
+				return fmt.Errorf("Column %s (%s): %s", column, b.columnTypes[columnNum], err.Error())
 			}
 		}
 	}

@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"database/sql/driver"
 	"fmt"
 	"log"
 	"time"
@@ -9,8 +10,25 @@ import (
 	"github.com/kshvakov/clickhouse"
 )
 
+func query(query string) (driver.Rows, error) {
+	tx, _ := connect.Begin()
+	stmt, _ := tx.Prepare(query)
+	rows, err := stmt.Query([]driver.Value{})
+	stmt.Close()
+	return rows, err
+}
+
+func exec(query string) error {
+	tx, _ := connect.Begin()
+	stmt, _ := tx.Prepare(query)
+	if err := stmt.Exec([]driver.Value{}); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
 func main() {
-	connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?username=&compress=true&debug=true")
+	connect, err := clickhouse.Open("tcp://127.0.0.1:9000?username=&debug=true")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -23,7 +41,7 @@ func main() {
 		return
 	}
 
-	_, err = connect.Exec(`
+	if err := exec(`
 		CREATE TABLE IF NOT EXISTS example (
 			country_code FixedString(2),
 			os_id        UInt8,
@@ -32,25 +50,22 @@ func main() {
 			action_day   Date,
 			action_time  DateTime
 		) engine=Memory
-	`)
-
-	if err != nil {
+	`); err != nil {
 		log.Fatal(err)
 	}
-	var (
-		tx, _   = connect.Begin()
-		stmt, _ = tx.Prepare("INSERT INTO example (country_code, os_id, browser_id, categories, action_day, action_time) VALUES (?, ?, ?, ?, ?, ?)")
-	)
+
+	tx, _ = connect.Begin()
+	stmt, _ = tx.Prepare("INSERT INTO example (country_code, os_id, browser_id, categories, action_day, action_time) VALUES (?, ?, ?, ?, ?, ?)")
 
 	for i := 0; i < 100; i++ {
-		if _, err := stmt.Exec(
-			"RU",
-			10+i,
-			100+i,
+		if _, err := stmt.Exec([]driver.Value{
+			"CZ",
+			10 + i,
+			100 + i,
 			clickhouse.Array([]int16{1, 2, 3}),
 			time.Now(),
 			time.Now(),
-		); err != nil {
+		}); err != nil {
 			log.Fatal(err)
 		}
 	}
@@ -59,9 +74,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	tx, _ = connect.Begin()
-	stmt, _ = tx.Prepare("SELECT country_code, os_id, browser_id, categories, action_day, action_time FROM example")
-	rows, err := stmt.Query()
+	rows, err := query("SELECT country_code, os_id, browser_id, categories, action_day, action_time FROM example")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -79,7 +92,7 @@ func main() {
 		log.Printf("country: %s, os: %d, browser: %d, categories: %v, action_day: %s, action_time: %s", country, os, browser, categories, actionDay, actionTime)
 	}
 
-	if _, err := connect.Exec("DROP TABLE example"); err != nil {
+	if err := exec("DROP TABLE example"); err != nil {
 		log.Fatal(err)
 	}
 }
