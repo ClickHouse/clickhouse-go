@@ -164,10 +164,7 @@ type array struct {
 }
 
 func (a *array) Value() (driver.Value, error) {
-	var (
-		buf      bytes.Buffer
-		elements []interface{}
-	)
+	var elements []interface{}
 	switch values := a.values.(type) {
 	case []time.Time:
 		if len(a.columnType) == 0 {
@@ -236,10 +233,12 @@ func (a *array) Value() (driver.Value, error) {
 	default:
 		return nil, fmt.Errorf("unsupported array type %T", a.values)
 	}
-	if err := writeString(&buf, a.columnType); err != nil {
+
+	buf := bytes.NewBuffer(make([]byte, 0, len(a.columnType)+(2*len(elements))+8))
+	if err := writeString(buf, a.columnType); err != nil {
 		return nil, err
 	}
-	if err := writeUvarint(&buf, uint64(len(elements))); err != nil {
+	if err := writeUvarint(buf, uint64(len(elements))); err != nil {
 		return nil, err
 	}
 	columnType, err := toColumnType(a.columnType)
@@ -247,7 +246,7 @@ func (a *array) Value() (driver.Value, error) {
 		return nil, err
 	}
 	for _, value := range elements {
-		if err := write(&buf, columnType, value); err != nil {
+		if err := write(buf, columnType, value); err != nil {
 			return nil, err
 		}
 	}
