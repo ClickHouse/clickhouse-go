@@ -86,12 +86,16 @@ func readArray(conn io.Reader, columnInfo interface{}, sliceLen uint64) (interfa
 		sliceType = []uint32{}
 	case uint64:
 		sliceType = []uint64{}
+	case float32:
+		sliceType = []float32{}
+	case float64:
+		sliceType = []float64{}
 	case string, []byte, enum8, enum16:
 		sliceType = []string{}
 	case Date, DateTime:
 		sliceType = []time.Time{}
 	default:
-		return nil, fmt.Errorf("unsupported array type '%T", columnInfo)
+		return nil, fmt.Errorf("unsupported array type '%T'", columnInfo)
 	}
 	slice := reflect.MakeSlice(reflect.TypeOf(sliceType), 0, int(sliceLen))
 	for i := 0; i < int(sliceLen); i++ {
