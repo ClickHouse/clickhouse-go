@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"database/sql/driver"
 	"fmt"
-	"strings"
 	"sync"
 )
 
@@ -98,23 +97,25 @@ func (b *block) read(revision uint64, conn *connect) error {
 	}
 	b.columns = make([][]interface{}, b.numColumns)
 	for i := 0; i < int(b.numColumns); i++ {
-		var column, columnType string
-		if column, err = readString(conn); err != nil {
+		var columnName, columnType string
+
+		if columnName, err = readString(conn); err != nil {
 			return err
 		}
 		if columnType, err = readString(conn); err != nil {
 			return err
 		}
-		b.columnNames = append(b.columnNames, column)
-		b.columnTypes = append(b.columnTypes, columnType)
+
 		// Coerce column type to Go type
-		if info, err := toColumnType(columnType); err != nil {
+		columnInfo, err := toColumnType(columnType)
+		if err != nil {
 			return err
-		} else {
-			b.columnInfo = append(b.columnInfo, info)
 		}
-		switch {
-		case strings.HasPrefix(columnType, "Array"):
+		b.columnInfo = append(b.columnInfo, columnInfo)
+		b.columnNames = append(b.columnNames, columnName)
+		b.columnTypes = append(b.columnTypes, columnType)
+		switch info := columnInfo.(type) {
+		case array:
 			offsets := make([]uint64, 0, b.numRows)
 			for row := 0; row < int(b.numRows); row++ {
 				offset, err := readUInt64(conn)
@@ -128,7 +129,7 @@ func (b *block) read(revision uint64, conn *connect) error {
 				if n != 0 {
 					len = len - offsets[n-1]
 				}
-				value, err := readArray(conn, columnType, len)
+				value, err := readArray(conn, info.baseType, len)
 				if err != nil {
 					return err
 				}
@@ -136,7 +137,7 @@ func (b *block) read(revision uint64, conn *connect) error {
 			}
 		default:
 			for row := 0; row < int(b.numRows); row++ {
-				value, err := read(conn, columnType)
+				value, err := read(conn, columnInfo)
 				if err != nil {
 					return err
 				}

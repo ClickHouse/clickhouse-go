@@ -6,6 +6,9 @@ import (
 	"strings"
 )
 
+type enum8 enum
+type enum16 enum
+
 type enum struct {
 	iv map[string]interface{}
 	vi map[interface{}]string
