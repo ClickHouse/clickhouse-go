@@ -31,9 +31,9 @@ func (stmt *stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (d
 }
 
 func (stmt *stmt) ExecContext(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
-	dargs := make([]namedValue, len(args))
+	dargs := make([]driver.Value, len(args))
 	for i, nv := range args {
-		dargs[i] = namedValue(nv)
+		dargs[i] = nv.Value
 	}
 	return stmt.execContext(ctx, dargs)
 }

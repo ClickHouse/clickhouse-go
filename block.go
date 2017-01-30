@@ -171,7 +171,7 @@ func (b *block) write(revision uint64, conn *connect) error {
 	return nil
 }
 
-func (b *block) append(args []namedValue) error {
+func (b *block) append(args []driver.Value) error {
 	if len(b.buffers) == 0 && len(args) != 0 {
 		b.numRows = 0
 		b.offsets = make([][]uint64, len(args))
@@ -180,15 +180,14 @@ func (b *block) append(args []namedValue) error {
 	b.numRows++
 	for columnNum := range b.columnTypes {
 		var (
-			column     = b.columnNames[columnNum]
-			columnType = b.columnTypes[columnNum]
 			buffer     = &b.buffers[columnNum]
+			column = &b.columnNames[columnNum]
 		)
 		switch {
 		case strings.HasPrefix(columnType, "Array"):
-			array, ok := args[columnNum].Value.([]byte)
+			array, ok := args[columnNum].([]byte)
 			if !ok {
-				return fmt.Errorf("Column %s (%s): unexpected type %T of value", column, columnType, args[columnNum].Value)
+				return fmt.Errorf("Column %s (%s): unexpected type %T of value", *column, b.columnTypes[columnNum], args[columnNum])
 			}
 			ct, arrayLen, data, err := arrayInfo(array)
 			if err != nil {
@@ -199,15 +198,15 @@ func (b *block) append(args []namedValue) error {
 			} else {
 				b.offsets[columnNum] = append(b.offsets[columnNum], arrayLen+b.offsets[columnNum][len(b.offsets[columnNum])-1])
 			}
-			if "Array("+ct+")" != columnType {
-				return fmt.Errorf("Column %s (%s): unexpected type %s of value", column, columnType, ct)
+			if "Array("+ct+")" != b.columnTypes[columnNum] {
+				return fmt.Errorf("Column %s (%s): unexpected type %s of value", *column, b.columnTypes[columnNum], ct)
 			}
 			if _, err := buffer.Write(data); err != nil {
 				return err
 			}
 		default:
-			if err := write(buffer, columnType, args[columnNum].Value); err != nil {
-				return fmt.Errorf("Column %s (%s): %s", column, columnType, err.Error())
+			if err := write(buffer, columnType, args[columnNum]); err != nil {
+				return fmt.Errorf("Column %s (%s): %s", *column, b.columnTypes[columnNum], err.Error())
 			}
 		}
 	}
