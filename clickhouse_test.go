@@ -15,33 +15,6 @@ func Test_OpenConnectAndPing(t *testing.T) {
 	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) {
 		assert.NoError(t, connect.Ping())
 	}
-	if connect, err := sql.Open("clickhouse", ""); assert.NoError(t, err) {
-		assert.Error(t, connect.Ping())
-	}
-	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:10000"); assert.NoError(t, err) {
-		assert.Error(t, connect.Ping())
-	}
-	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?username=invalid"); assert.NoError(t, err) {
-		if err := connect.Ping(); assert.Error(t, err) {
-			if exception, ok := err.(*clickhouse.Exception); assert.True(t, ok) {
-				assert.Equal(t, int32(192), exception.Code)
-			}
-		}
-	}
-	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?password=invalid"); assert.NoError(t, err) {
-		if err := connect.Ping(); assert.Error(t, err) {
-			if exception, ok := err.(*clickhouse.Exception); assert.True(t, ok) {
-				assert.Equal(t, int32(193), exception.Code)
-			}
-		}
-	}
-	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?database=invalid"); assert.NoError(t, err) {
-		if err := connect.Ping(); assert.Error(t, err) {
-			if exception, ok := err.(*clickhouse.Exception); assert.True(t, ok) {
-				assert.Equal(t, int32(81), exception.Code)
-			}
-		}
-	}
 }
 
 func Test_CreateTable(t *testing.T) {
@@ -669,6 +642,32 @@ func Test_Temporary_Table(t *testing.T) {
 							}
 						}
 					}
+				}
+			}
+		}
+	}
+}
+
+/*
+CREATE TABLE test_enum (
+	enum8  Enum8 ('a' = 1, 'b' = 2),
+	enum16 Enum16('c' = 1, 'd' = 2),
+	arr_enum8  Array(Enum8 ('a' = 1, 'b' = 2)),
+	arr_enum16 Array(Enum16('c' = 1, 'd' = 2))
+) Engine=Memory
+
+INSERT INTO test_enum VALUES ('a', 'c', ['a', 'b'], ['c', 'd']), ('b', 'd', ['b', 'a'], ['c', 'd']);
+*/
+func _Test_Enum(t *testing.T) {
+	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) && assert.NoError(t, connect.Ping()) {
+		if rows, err := connect.Query("SELECT enum8, enum16, arr_enum8, arr_enum16 FROM test_enum"); assert.NoError(t, err) {
+			for rows.Next() {
+				var (
+					a, b string
+					c, d []string
+				)
+				if err := rows.Scan(&a, &b, &c, &d); assert.NoError(t, err) {
+					t.Log(a, b, c, d)
 				}
 			}
 		}

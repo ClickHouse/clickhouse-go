@@ -24,11 +24,9 @@ Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/)
 * FixedString(N)
 * Date 
 * DateTime
+* Enum
 * [Array(T) (one-dimensional)](https://clickhouse.yandex/reference_en.html#Array(T)) [godoc](https://godoc.org/github.com/kshvakov/clickhouse#Array)
 
-## TODO 
-
-* Compression
 
 example:
 ```
