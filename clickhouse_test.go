@@ -648,19 +648,38 @@ func Test_Temporary_Table(t *testing.T) {
 	}
 }
 
-/*
-CREATE TABLE test_enum (
-	enum8  Enum8 ('a' = 1, 'b' = 2),
-	enum16 Enum16('c' = 1, 'd' = 2),
-	arr_enum8  Array(Enum8 ('a' = 1, 'b' = 2)),
-	arr_enum16 Array(Enum16('c' = 1, 'd' = 2))
-) Engine=Memory
+func Test_Enum(t *testing.T) {
 
-INSERT INTO test_enum VALUES ('a', 'c', ['a', 'b'], ['c', 'd']), ('b', 'd', ['b', 'a'], ['c', 'd']);
-*/
-func _Test_Enum(t *testing.T) {
+	const (
+		ddl = `
+			CREATE TABLE clickhouse_test_enum (
+				enum8            Enum8 ('a' = 1, 'b' = 2),
+				enum16           Enum16('c' = 1, 'd' = 2),
+				arr_enum8  Array(Enum8 ('a' = 1, 'b' = 2)),
+				arr_enum16 Array(Enum16('c' = 1, 'd' = 2))
+			) Engine=Memory
+		`
+		dml = `INSERT INTO clickhouse_test_enum VALUES (?, ?, ?, ?)`
+	)
 	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) && assert.NoError(t, connect.Ping()) {
-		if rows, err := connect.Query("SELECT enum8, enum16, arr_enum8, arr_enum16 FROM test_enum"); assert.NoError(t, err) {
+		if _, err := connect.Exec("DROP TABLE IF EXISTS clickhouse_test_enum"); assert.NoError(t, err) {
+			if _, err := connect.Exec(ddl); assert.NoError(t, err) {
+				if tx, err := connect.Begin(); assert.NoError(t, err) {
+					if stmt, err := tx.Prepare(dml); assert.NoError(t, err) {
+						if _, err := stmt.Exec("a", "c", clickhouse.Array([]string{"a", "b"}), clickhouse.Array([]string{"c", "d"})); !assert.NoError(t, err) {
+							return
+						}
+						if _, err := stmt.Exec("b", "d", clickhouse.Array([]string{"b", "a"}), clickhouse.Array([]string{"d", "c"})); !assert.NoError(t, err) {
+							return
+						}
+					}
+					if err := tx.Commit(); !assert.NoError(t, err) {
+						return
+					}
+				}
+			}
+		}
+		if rows, err := connect.Query("SELECT enum8, enum16, arr_enum8, arr_enum16 FROM clickhouse_test_enum"); assert.NoError(t, err) {
 			for rows.Next() {
 				var (
 					a, b string

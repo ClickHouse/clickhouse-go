@@ -188,18 +188,6 @@ func (b *block) write(revision uint64, conn *connect) error {
 	return nil
 }
 
-// Reset and recycle column buffers
-func (b *block) reset() {
-	if b == nil {
-		return
-	}
-	for _, b := range b.buffers {
-		b.Reset()
-		bufferPool.Put(b)
-	}
-	b.buffers = nil
-}
-
 func (b *block) append(args []driver.Value) error {
 	if len(b.buffers) == 0 && len(args) != 0 {
 		b.numRows = 0
@@ -215,7 +203,7 @@ func (b *block) append(args []driver.Value) error {
 			column = b.columnNames[columnNum]
 			buffer = b.buffers[columnNum]
 		)
-		switch info.(type) {
+		switch v := info.(type) {
 		case array:
 			array, ok := args[columnNum].([]byte)
 			if !ok {
@@ -230,11 +218,52 @@ func (b *block) append(args []driver.Value) error {
 			} else {
 				b.offsets[columnNum] = append(b.offsets[columnNum], arrayLen+b.offsets[columnNum][len(b.offsets[columnNum])-1])
 			}
-			if "Array("+ct+")" != b.columnTypes[columnNum] {
-				return fmt.Errorf("Column %s (%s): unexpected type %s of value", column, b.columnTypes[columnNum], ct)
+			switch v := v.baseType.(type) {
+			case enum8:
+				if data, err = arrayStringToArrayEnum(arrayLen, data, enum(v)); err != nil {
+					return err
+				}
+			case enum16:
+				if data, err = arrayStringToArrayEnum(arrayLen, data, enum(v)); err != nil {
+					return err
+				}
+			default:
+				if "Array("+ct+")" != b.columnTypes[columnNum] {
+					return fmt.Errorf("Column %s (%s): unexpected type %s of value", column, b.columnTypes[columnNum], ct)
+				}
 			}
 			if _, err := buffer.Write(data); err != nil {
 				return err
+			}
+		case enum8:
+			ident, ok := args[columnNum].(string)
+			if !ok {
+				return fmt.Errorf("Column %s (%s): invalid ident type %T", column, b.columnTypes[columnNum], args[columnNum])
+			}
+			var (
+				enum       = enum(v)
+				value, err = enum.toValue(ident)
+			)
+			if err != nil {
+				return fmt.Errorf("Column %s (%s): %s", column, b.columnTypes[columnNum], err.Error())
+			}
+			if err := write(buffer, v, value); err != nil {
+				return fmt.Errorf("Column %s (%s): %s", column, b.columnTypes[columnNum], err.Error())
+			}
+		case enum16:
+			ident, ok := args[columnNum].(string)
+			if !ok {
+				return fmt.Errorf("Column %s (%s): invalid ident type %T", column, b.columnTypes[columnNum], args[columnNum])
+			}
+			var (
+				enum       = enum(v)
+				value, err = enum.toValue(ident)
+			)
+			if err != nil {
+				return fmt.Errorf("Column %s (%s): %s", column, b.columnTypes[columnNum], err.Error())
+			}
+			if err := write(buffer, v, value); err != nil {
+				return fmt.Errorf("Column %s (%s): %s", column, b.columnTypes[columnNum], err.Error())
 			}
 		default:
 			if err := write(buffer, info, args[columnNum]); err != nil {
@@ -243,4 +272,16 @@ func (b *block) append(args []driver.Value) error {
 		}
 	}
 	return nil
+}
+
+// Reset and recycle column buffers
+func (b *block) reset() {
+	if b == nil {
+		return
+	}
+	for _, b := range b.buffers {
+		b.Reset()
+		bufferPool.Put(b)
+	}
+	b.buffers = nil
 }
