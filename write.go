@@ -183,7 +183,7 @@ func write(buffer io.Writer, columnInfo interface{}, v driver.Value) error {
 		default:
 			return fmt.Errorf("unexpected type %T", v)
 		}
-	case int8, uint8:
+	case int8, uint8, enum8:
 		switch value := v.(type) {
 		case int8:
 			buffer.Write([]byte{uint8(value)})
@@ -194,7 +194,7 @@ func write(buffer io.Writer, columnInfo interface{}, v driver.Value) error {
 		default:
 			return fmt.Errorf("unexpected type %T", v)
 		}
-	case int16, uint16:
+	case int16, uint16, enum16:
 		buf := make([]byte, 2)
 		switch value := v.(type) {
 		case int16:
