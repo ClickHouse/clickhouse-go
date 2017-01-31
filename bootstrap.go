@@ -54,6 +54,7 @@ func Open(dsn string) (driver.Conn, error) {
 	}
 	var (
 		hosts        = []string{url.Host}
+		noDelay      = true
 		database     = url.Query().Get("database")
 		username     = url.Query().Get("username")
 		password     = url.Query().Get("password")
@@ -65,6 +66,9 @@ func Open(dsn string) (driver.Conn, error) {
 	}
 	if len(username) == 0 {
 		username = DefaultUsername
+	}
+	if v, err := strconv.ParseBool(url.Query().Get("no_delay")); err == nil && !v {
+		noDelay = false
 	}
 	if duration, err := strconv.ParseInt(url.Query().Get("read_timeout"), 10, 64); err == nil {
 		readTimeout = time.Duration(duration) * time.Second
@@ -91,7 +95,7 @@ func Open(dsn string) (driver.Conn, error) {
 		database,
 		username,
 	)
-	if ch.conn, err = dial("tcp", hosts, readTimeout, writeTimeout); err != nil {
+	if ch.conn, err = dial("tcp", hosts, noDelay, readTimeout, writeTimeout); err != nil {
 		return nil, err
 	}
 	if err := ch.hello(database, username, password); err != nil {

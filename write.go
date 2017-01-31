@@ -9,47 +9,47 @@ import (
 	"time"
 )
 
-func writeBool(conn io.Writer, v bool) error {
+func writeBool(w io.Writer, v bool) error {
 	value := []byte{0}
 	if v {
 		value[0] = 1
 	}
-	if _, err := conn.Write(value); err != nil {
+	if _, err := w.Write(value); err != nil {
 		return err
 	}
 	return nil
 }
 
-func writeUvarint(conn io.Writer, v uint64) error {
+func writeUvarint(w io.Writer, v uint64) error {
 	var (
 		buf = make([]byte, binary.MaxVarintLen64)
 		len = binary.PutUvarint(buf, v)
 	)
-	if _, err := conn.Write(buf[0:len]); err != nil {
+	if _, err := w.Write(buf[0:len]); err != nil {
 		return err
 	}
 	return nil
 }
 
-func writeString(conn io.Writer, str string) error {
-	if err := writeUvarint(conn, uint64(len([]byte(str)))); err != nil {
+func writeString(w io.Writer, str string) error {
+	if err := writeUvarint(w, uint64(len([]byte(str)))); err != nil {
 		return err
 	}
-	if _, err := conn.Write([]byte(str)); err != nil {
-		return err
-	}
-	return nil
-}
-
-func writeInt32(conn io.Writer, v int32) error {
-	if err := binary.Write(conn, binary.LittleEndian, v); err != nil {
+	if _, err := w.Write([]byte(str)); err != nil {
 		return err
 	}
 	return nil
 }
 
-func writeUInt64(conn io.Writer, v uint64) error {
-	if err := binary.Write(conn, binary.LittleEndian, v); err != nil {
+func writeInt32(w io.Writer, v int32) error {
+	if err := binary.Write(w, binary.LittleEndian, v); err != nil {
+		return err
+	}
+	return nil
+}
+
+func writeUInt64(w io.Writer, v uint64) error {
+	if err := binary.Write(w, binary.LittleEndian, v); err != nil {
 		return err
 	}
 	return nil

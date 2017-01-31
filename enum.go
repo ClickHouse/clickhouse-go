@@ -34,6 +34,9 @@ func parseEnum(str string) (enum, error) {
 		data     string
 		isEnum16 bool
 	)
+	if len(str) < 8 {
+		return enum{}, fmt.Errorf("invalid Enum format: %s", str)
+	}
 	switch {
 	case strings.HasPrefix(str, "Enum8"):
 		data = str[6:]
