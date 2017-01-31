@@ -26,6 +26,7 @@ func (ch *clickhouse) receiveData() (*rows, error) {
 		case ServerDataPacket:
 			var block block
 			if err := block.read(ch.serverRevision, ch.conn); err != nil {
+				ch.log("[receive packet] err: %v", err)
 				return nil, err
 			}
 			if block.numRows > 0 {

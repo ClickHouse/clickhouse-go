@@ -1,14 +1,19 @@
 package clickhouse
 
 import (
+	"bytes"
 	"fmt"
 	"strconv"
 	"strings"
 )
 
+type enum8 enum
+type enum16 enum
+
 type enum struct {
-	iv map[string]interface{}
-	vi map[interface{}]string
+	iv       map[string]interface{}
+	vi       map[interface{}]string
+	baseType interface{}
 }
 
 func (e *enum) toIdent(v interface{}) (string, error) {
@@ -59,7 +64,10 @@ func parseEnum(str string) (enum, error) {
 				ident             = ident[1 : len(ident)-1]
 				value interface{} = int16(value)
 			)
-			if !isEnum16 {
+			if isEnum16 {
+				enum.baseType = int16(0)
+			} else {
+				enum.baseType = int8(0)
 				value = int8(value.(int16))
 			}
 			enum.iv[ident] = value
@@ -67,4 +75,25 @@ func parseEnum(str string) (enum, error) {
 		}
 	}
 	return enum, nil
+}
+
+func arrayStringToArrayEnum(arrLen uint64, data []byte, enum enum) ([]byte, error) {
+	var (
+		enumByffer  bytes.Buffer
+		arrayBuffer = bytes.NewBuffer(data)
+	)
+	for i := 0; i < int(arrLen); i++ {
+		ident, err := readString(arrayBuffer)
+		if err != nil {
+			return nil, err
+		}
+		value, err := enum.toValue(ident)
+		if err != nil {
+			return nil, err
+		}
+		if err := write(&enumByffer, enum.baseType, value); err != nil {
+			return nil, err
+		}
+	}
+	return enumByffer.Bytes(), nil
 }

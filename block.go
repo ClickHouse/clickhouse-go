@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"database/sql/driver"
 	"fmt"
-	"strings"
 	"sync"
 )
 
@@ -98,23 +97,25 @@ func (b *block) read(revision uint64, conn *connect) error {
 	}
 	b.columns = make([][]interface{}, b.numColumns)
 	for i := 0; i < int(b.numColumns); i++ {
-		var column, columnType string
-		if column, err = readString(conn); err != nil {
+		var columnName, columnType string
+
+		if columnName, err = readString(conn); err != nil {
 			return err
 		}
 		if columnType, err = readString(conn); err != nil {
 			return err
 		}
-		b.columnNames = append(b.columnNames, column)
-		b.columnTypes = append(b.columnTypes, columnType)
+
 		// Coerce column type to Go type
-		if info, err := toColumnType(columnType); err != nil {
+		columnInfo, err := toColumnType(columnType)
+		if err != nil {
 			return err
-		} else {
-			b.columnInfo = append(b.columnInfo, info)
 		}
-		switch {
-		case strings.HasPrefix(columnType, "Array"):
+		b.columnInfo = append(b.columnInfo, columnInfo)
+		b.columnNames = append(b.columnNames, columnName)
+		b.columnTypes = append(b.columnTypes, columnType)
+		switch info := columnInfo.(type) {
+		case array:
 			offsets := make([]uint64, 0, b.numRows)
 			for row := 0; row < int(b.numRows); row++ {
 				offset, err := readUInt64(conn)
@@ -128,7 +129,7 @@ func (b *block) read(revision uint64, conn *connect) error {
 				if n != 0 {
 					len = len - offsets[n-1]
 				}
-				value, err := readArray(conn, columnType, len)
+				value, err := readArray(conn, info.baseType, len)
 				if err != nil {
 					return err
 				}
@@ -136,7 +137,7 @@ func (b *block) read(revision uint64, conn *connect) error {
 			}
 		default:
 			for row := 0; row < int(b.numRows); row++ {
-				value, err := read(conn, columnType)
+				value, err := read(conn, columnInfo)
 				if err != nil {
 					return err
 				}
@@ -187,18 +188,6 @@ func (b *block) write(revision uint64, conn *connect) error {
 	return nil
 }
 
-// Reset and recycle column buffers
-func (b *block) reset() {
-	if b == nil {
-		return
-	}
-	for _, b := range b.buffers {
-		b.Reset()
-		bufferPool.Put(b)
-	}
-	b.buffers = nil
-}
-
 func (b *block) append(args []driver.Value) error {
 	if len(b.buffers) == 0 && len(args) != 0 {
 		b.numRows = 0
@@ -214,7 +203,7 @@ func (b *block) append(args []driver.Value) error {
 			column = b.columnNames[columnNum]
 			buffer = b.buffers[columnNum]
 		)
-		switch info.(type) {
+		switch v := info.(type) {
 		case array:
 			array, ok := args[columnNum].([]byte)
 			if !ok {
@@ -229,11 +218,52 @@ func (b *block) append(args []driver.Value) error {
 			} else {
 				b.offsets[columnNum] = append(b.offsets[columnNum], arrayLen+b.offsets[columnNum][len(b.offsets[columnNum])-1])
 			}
-			if "Array("+ct+")" != b.columnTypes[columnNum] {
-				return fmt.Errorf("Column %s (%s): unexpected type %s of value", column, b.columnTypes[columnNum], ct)
+			switch v := v.baseType.(type) {
+			case enum8:
+				if data, err = arrayStringToArrayEnum(arrayLen, data, enum(v)); err != nil {
+					return err
+				}
+			case enum16:
+				if data, err = arrayStringToArrayEnum(arrayLen, data, enum(v)); err != nil {
+					return err
+				}
+			default:
+				if "Array("+ct+")" != b.columnTypes[columnNum] {
+					return fmt.Errorf("Column %s (%s): unexpected type %s of value", column, b.columnTypes[columnNum], ct)
+				}
 			}
 			if _, err := buffer.Write(data); err != nil {
 				return err
+			}
+		case enum8:
+			ident, ok := args[columnNum].(string)
+			if !ok {
+				return fmt.Errorf("Column %s (%s): invalid ident type %T", column, b.columnTypes[columnNum], args[columnNum])
+			}
+			var (
+				enum       = enum(v)
+				value, err = enum.toValue(ident)
+			)
+			if err != nil {
+				return fmt.Errorf("Column %s (%s): %s", column, b.columnTypes[columnNum], err.Error())
+			}
+			if err := write(buffer, v, value); err != nil {
+				return fmt.Errorf("Column %s (%s): %s", column, b.columnTypes[columnNum], err.Error())
+			}
+		case enum16:
+			ident, ok := args[columnNum].(string)
+			if !ok {
+				return fmt.Errorf("Column %s (%s): invalid ident type %T", column, b.columnTypes[columnNum], args[columnNum])
+			}
+			var (
+				enum       = enum(v)
+				value, err = enum.toValue(ident)
+			)
+			if err != nil {
+				return fmt.Errorf("Column %s (%s): %s", column, b.columnTypes[columnNum], err.Error())
+			}
+			if err := write(buffer, v, value); err != nil {
+				return fmt.Errorf("Column %s (%s): %s", column, b.columnTypes[columnNum], err.Error())
 			}
 		default:
 			if err := write(buffer, info, args[columnNum]); err != nil {
@@ -242,4 +272,16 @@ func (b *block) append(args []driver.Value) error {
 		}
 	}
 	return nil
+}
+
+// Reset and recycle column buffers
+func (b *block) reset() {
+	if b == nil {
+		return
+	}
+	for _, b := range b.buffers {
+		b.Reset()
+		bufferPool.Put(b)
+	}
+	b.buffers = nil
 }
