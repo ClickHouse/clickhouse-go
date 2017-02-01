@@ -82,7 +82,7 @@ func parseEnum(str string) (enum, error) {
 
 func arrayStringToArrayEnum(arrLen uint64, data []byte, enum enum) ([]byte, error) {
 	var (
-		enumByffer  bytes.Buffer
+		enumByffer  = wb(int(arrLen * 2))
 		arrayBuffer = bytes.NewBuffer(data)
 	)
 	for i := 0; i < int(arrLen); i++ {
@@ -94,9 +94,9 @@ func arrayStringToArrayEnum(arrLen uint64, data []byte, enum enum) ([]byte, erro
 		if err != nil {
 			return nil, err
 		}
-		if err := write(&enumByffer, enum.baseType, value); err != nil {
+		if err := write(enumByffer, enum.baseType, value); err != nil {
 			return nil, err
 		}
 	}
-	return enumByffer.Bytes(), nil
+	return enumByffer.bytes(), nil
 }

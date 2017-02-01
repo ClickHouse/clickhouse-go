@@ -110,7 +110,7 @@ func (a *array) Value() (driver.Value, error) {
 	default:
 		return nil, fmt.Errorf("unsupported array type %T", a.values)
 	}
-	buf := bytes.NewBuffer(make([]byte, 0, len(a.columnType)+(2*len(elements))+8))
+	buf := wb(len(a.columnType) + (2 * len(elements)) + 8)
 	if err := writeString(buf, a.columnType); err != nil {
 		return nil, err
 	}
@@ -126,7 +126,7 @@ func (a *array) Value() (driver.Value, error) {
 			return nil, err
 		}
 	}
-	return buf.Bytes(), nil
+	return buf.bytes(), nil
 }
 
 func arrayInfo(b []byte) (string, uint64, []byte, error) {

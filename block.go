@@ -1,7 +1,6 @@
 package clickhouse
 
 import (
-	"bytes"
 	"database/sql/driver"
 	"fmt"
 	"io"
@@ -11,7 +10,7 @@ import (
 // Recycle column buffers, preallocate column buffers
 var bufferPool = sync.Pool{
 	New: func() interface{} {
-		return bytes.NewBuffer(make([]byte, 0, 256*1024))
+		return wb(256 * 1024)
 	},
 }
 
@@ -26,7 +25,7 @@ type block struct {
 	columnInfo  []interface{}
 	columns     [][]interface{}
 	offsets     [][]uint64
-	buffers     []*bytes.Buffer
+	buffers     []*writeBuffer
 }
 
 type blockInfo struct {
@@ -181,7 +180,7 @@ func (b *block) write(revision uint64, w io.Writer) error {
 				return err
 			}
 		}
-		if _, err := b.buffers[i].WriteTo(w); err != nil {
+		if err := b.buffers[i].writeTo(w); err != nil {
 			return err
 		}
 	}
@@ -192,9 +191,9 @@ func (b *block) append(args []driver.Value) error {
 	if len(b.buffers) == 0 && len(args) != 0 {
 		b.numRows = 0
 		b.offsets = make([][]uint64, len(args))
-		b.buffers = make([]*bytes.Buffer, len(args))
+		b.buffers = make([]*writeBuffer, len(args))
 		for i := range args {
-			b.buffers[i] = bufferPool.Get().(*bytes.Buffer)
+			b.buffers[i] = bufferPool.Get().(*writeBuffer)
 		}
 	}
 	b.numRows++
@@ -280,7 +279,7 @@ func (b *block) reset() {
 		return
 	}
 	for _, b := range b.buffers {
-		b.Reset()
+		b.free()
 		bufferPool.Put(b)
 	}
 	b.buffers = nil
