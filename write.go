@@ -107,7 +107,7 @@ func write(buffer *writeBuffer, columnInfo interface{}, v driver.Value) error {
 				scratch = make([]byte, binary.MaxVarintLen64)
 				vlen    = binary.PutUvarint(scratch, uint64(len(v)))
 			)
-			if _, err := buffer.Write(scratch[0:vlen]); err != nil {
+			if _, err := buffer.Write(scratch[:vlen]); err != nil {
 				return err
 			}
 			if _, err := buffer.Write(v); err != nil {
@@ -116,7 +116,7 @@ func write(buffer *writeBuffer, columnInfo interface{}, v driver.Value) error {
 		case string:
 			scratch := make([]byte, binary.MaxVarintLen64)
 			vlen := binary.PutUvarint(scratch, uint64(len(v)))
-			if _, err := buffer.Write(scratch[0:vlen]); err != nil {
+			if _, err := buffer.Write(scratch[:vlen]); err != nil {
 				return err
 			}
 			if _, err := buffer.Write([]byte(v)); err != nil {
@@ -152,7 +152,7 @@ func write(buffer *writeBuffer, columnInfo interface{}, v driver.Value) error {
 			return err
 		}
 	case float32:
-		buf := make([]byte, 4)
+		buf := buffer.alloc(4)
 		switch value := v.(type) {
 		case float32:
 			binary.LittleEndian.PutUint32(buf, math.Float32bits(value))
@@ -161,55 +161,57 @@ func write(buffer *writeBuffer, columnInfo interface{}, v driver.Value) error {
 		default:
 			return fmt.Errorf("unexpected type %T", v)
 		}
-		if _, err := buffer.Write(buf); err != nil {
-			return err
-		}
 	case float64:
+		buf := buffer.alloc(8)
 		switch value := v.(type) {
 		case float64:
-			binary.LittleEndian.PutUint64(buffer.alloc(8), math.Float64bits(value))
+			binary.LittleEndian.PutUint64(buf, math.Float64bits(value))
 		default:
 			return fmt.Errorf("unexpected type %T", v)
 		}
 	case int8, uint8, enum8:
+		buf := buffer.alloc(1)
 		switch value := v.(type) {
 		case int8:
-			buffer.Write([]byte{uint8(value)})
+			buf[0] = uint8(value)
 		case uint8:
-			buffer.Write([]byte{value})
+			buf[0] = value
 		case int64: // Implicit driver.Value coercion
-			buffer.Write([]byte{uint8(value)})
+			buf[0] = uint8(value)
 		default:
 			return fmt.Errorf("unexpected type %T", v)
 		}
 	case int16, uint16, enum16:
+		buf := buffer.alloc(2)
 		switch value := v.(type) {
 		case int16:
-			binary.LittleEndian.PutUint16(buffer.alloc(2), uint16(value))
+			binary.LittleEndian.PutUint16(buf, uint16(value))
 		case uint16:
-			binary.LittleEndian.PutUint16(buffer.alloc(2), value)
+			binary.LittleEndian.PutUint16(buf, value)
 		case int64: // Implicit driver.Value coercion
-			binary.LittleEndian.PutUint16(buffer.alloc(2), uint16(value))
+			binary.LittleEndian.PutUint16(buf, uint16(value))
 		default:
 			return fmt.Errorf("unexpected type %T", v)
 		}
 	case int32, uint32:
+		buf := buffer.alloc(4)
 		switch value := v.(type) {
 		case int32:
-			binary.LittleEndian.PutUint32(buffer.alloc(4), uint32(value))
+			binary.LittleEndian.PutUint32(buf, uint32(value))
 		case uint32:
-			binary.LittleEndian.PutUint32(buffer.alloc(4), value)
+			binary.LittleEndian.PutUint32(buf, value)
 		case int64: // Implicit driver.Value coercion
-			binary.LittleEndian.PutUint32(buffer.alloc(4), uint32(value))
+			binary.LittleEndian.PutUint32(buf, uint32(value))
 		default:
 			return fmt.Errorf("unexpected type %T", v)
 		}
 	case int64, uint64:
+		buf := buffer.alloc(8)
 		switch value := v.(type) {
 		case int64:
-			binary.LittleEndian.PutUint64(buffer.alloc(8), uint64(value))
+			binary.LittleEndian.PutUint64(buf, uint64(value))
 		case uint64:
-			binary.LittleEndian.PutUint64(buffer.alloc(8), value)
+			binary.LittleEndian.PutUint64(buf, value)
 		default:
 			return fmt.Errorf("unexpected type %T", v)
 		}
