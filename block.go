@@ -1,16 +1,16 @@
 package clickhouse
 
 import (
-	"bytes"
 	"database/sql/driver"
 	"fmt"
+	"io"
 	"sync"
 )
 
 // Recycle column buffers, preallocate column buffers
 var bufferPool = sync.Pool{
 	New: func() interface{} {
-		return bytes.NewBuffer(make([]byte, 0, 256*1024))
+		return wb(256 * 1024)
 	},
 }
 
@@ -25,7 +25,7 @@ type block struct {
 	columnInfo  []interface{}
 	columns     [][]interface{}
 	offsets     [][]uint64
-	buffers     []*bytes.Buffer
+	buffers     []*writeBuffer
 }
 
 type blockInfo struct {
@@ -36,76 +36,75 @@ type blockInfo struct {
 	num3        uint64
 }
 
-func (info *blockInfo) read(conn *connect) error {
+func (info *blockInfo) read(r io.Reader) error {
 	var err error
-	if info.num1, err = readUvarint(conn); err != nil {
+	if info.num1, err = readUvarint(r); err != nil {
 		return err
 	}
-	if info.isOverflows, err = readBool(conn); err != nil {
+	if info.isOverflows, err = readBool(r); err != nil {
 		return err
 	}
-	if info.num2, err = readUvarint(conn); err != nil {
+	if info.num2, err = readUvarint(r); err != nil {
 		return err
 	}
-	if info.bucketNum, err = readInt32(conn); err != nil {
+	if info.bucketNum, err = readInt32(r); err != nil {
 		return err
 	}
-	if info.num3, err = readUvarint(conn); err != nil {
+	if info.num3, err = readUvarint(r); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (info *blockInfo) write(conn *connect) error {
-	if err := writeUvarint(conn, info.num1); err != nil {
+func (info *blockInfo) write(w io.Writer) error {
+	if err := writeUvarint(w, info.num1); err != nil {
 		return err
 	}
 	if info.num1 != 0 {
-		if err := writeBool(conn, info.isOverflows); err != nil {
+		if err := writeBool(w, info.isOverflows); err != nil {
 			return err
 		}
-		if err := writeUvarint(conn, info.num2); err != nil {
+		if err := writeUvarint(w, info.num2); err != nil {
 			return err
 		}
-		if err := writeInt32(conn, info.bucketNum); err != nil {
+		if err := writeInt32(w, info.bucketNum); err != nil {
 			return err
 		}
-		if err := writeUvarint(conn, info.num3); err != nil {
+		if err := writeUvarint(w, info.num3); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (b *block) read(revision uint64, conn *connect) error {
+func (b *block) read(revision uint64, r io.Reader) error {
 	var err error
 	if revision >= DBMS_MIN_REVISION_WITH_TEMPORARY_TABLES {
-		if b.table, err = readString(conn); err != nil {
+		if b.table, err = readString(r); err != nil {
 			return err
 		}
 	}
 	if revision >= DBMS_MIN_REVISION_WITH_BLOCK_INFO {
-		if err := b.info.read(conn); err != nil {
+		if err := b.info.read(r); err != nil {
 			return err
 		}
 	}
-	if b.numColumns, err = readUvarint(conn); err != nil {
+	if b.numColumns, err = readUvarint(r); err != nil {
 		return err
 	}
-	if b.numRows, err = readUvarint(conn); err != nil {
+	if b.numRows, err = readUvarint(r); err != nil {
 		return err
 	}
 	b.columns = make([][]interface{}, b.numColumns)
 	for i := 0; i < int(b.numColumns); i++ {
 		var columnName, columnType string
 
-		if columnName, err = readString(conn); err != nil {
+		if columnName, err = readString(r); err != nil {
 			return err
 		}
-		if columnType, err = readString(conn); err != nil {
+		if columnType, err = readString(r); err != nil {
 			return err
 		}
-
 		// Coerce column type to Go type
 		columnInfo, err := toColumnType(columnType)
 		if err != nil {
@@ -118,7 +117,7 @@ func (b *block) read(revision uint64, conn *connect) error {
 		case array:
 			offsets := make([]uint64, 0, b.numRows)
 			for row := 0; row < int(b.numRows); row++ {
-				offset, err := readUInt64(conn)
+				offset, err := readUInt64(r)
 				if err != nil {
 					return err
 				}
@@ -129,7 +128,7 @@ func (b *block) read(revision uint64, conn *connect) error {
 				if n != 0 {
 					len = len - offsets[n-1]
 				}
-				value, err := readArray(conn, info.baseType, len)
+				value, err := readArray(r, info.baseType, len)
 				if err != nil {
 					return err
 				}
@@ -137,7 +136,7 @@ func (b *block) read(revision uint64, conn *connect) error {
 			}
 		default:
 			for row := 0; row < int(b.numRows); row++ {
-				value, err := read(conn, columnInfo)
+				value, err := read(r, columnInfo)
 				if err != nil {
 					return err
 				}
@@ -148,40 +147,40 @@ func (b *block) read(revision uint64, conn *connect) error {
 	return nil
 }
 
-func (b *block) write(revision uint64, conn *connect) error {
-	if err := writeUvarint(conn, ClientDataPacket); err != nil {
+func (b *block) write(revision uint64, w io.Writer) error {
+	if err := writeUvarint(w, ClientDataPacket); err != nil {
 		return err
 	}
 	if revision >= DBMS_MIN_REVISION_WITH_TEMPORARY_TABLES {
-		if err := writeString(conn, b.table); err != nil {
+		if err := writeString(w, b.table); err != nil {
 			return err
 		}
 	}
 	if revision >= DBMS_MIN_REVISION_WITH_BLOCK_INFO {
-		if err := b.info.write(conn); err != nil {
+		if err := b.info.write(w); err != nil {
 			return err
 		}
 	}
-	if err := writeUvarint(conn, b.numColumns); err != nil {
+	if err := writeUvarint(w, b.numColumns); err != nil {
 		return err
 	}
-	if err := writeUvarint(conn, b.numRows); err != nil {
+	if err := writeUvarint(w, b.numRows); err != nil {
 		return err
 	}
 	for i, column := range b.columnNames {
 		columnType := b.columnTypes[i]
-		if err := writeString(conn, column); err != nil {
+		if err := writeString(w, column); err != nil {
 			return err
 		}
-		if err := writeString(conn, columnType); err != nil {
+		if err := writeString(w, columnType); err != nil {
 			return err
 		}
 		for _, offset := range b.offsets[i] {
-			if err := writeUInt64(conn, offset); err != nil {
+			if err := writeUInt64(w, offset); err != nil {
 				return err
 			}
 		}
-		if _, err := b.buffers[i].WriteTo(conn); err != nil {
+		if err := b.buffers[i].writeTo(w); err != nil {
 			return err
 		}
 	}
@@ -192,9 +191,9 @@ func (b *block) append(args []driver.Value) error {
 	if len(b.buffers) == 0 && len(args) != 0 {
 		b.numRows = 0
 		b.offsets = make([][]uint64, len(args))
-		b.buffers = make([]*bytes.Buffer, len(args))
+		b.buffers = make([]*writeBuffer, len(args))
 		for i := range args {
-			b.buffers[i] = bufferPool.Get().(*bytes.Buffer)
+			b.buffers[i] = bufferPool.Get().(*writeBuffer)
 		}
 	}
 	b.numRows++
@@ -280,7 +279,7 @@ func (b *block) reset() {
 		return
 	}
 	for _, b := range b.buffers {
-		b.Reset()
+		b.free()
 		bufferPool.Put(b)
 	}
 	b.buffers = nil

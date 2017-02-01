@@ -6,6 +6,7 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -75,8 +76,10 @@ func (ch *clickhouse) prepareContext(ctx context.Context, query string) (driver.
 	}, nil
 }
 
+var splitInsertRe = regexp.MustCompile(`(?i)\sVALUES\s*\(`)
+
 func (ch *clickhouse) insert(query string) (driver.Stmt, error) {
-	if err := ch.sendQuery(formatQuery(query)); err != nil {
+	if err := ch.sendQuery(splitInsertRe.Split(query, -1)[0] + " VALUES "); err != nil {
 		return nil, err
 	}
 	for {

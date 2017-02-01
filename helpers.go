@@ -3,7 +3,6 @@ package clickhouse
 import (
 	"database/sql/driver"
 	"fmt"
-	"regexp"
 	"strings"
 	"time"
 )
@@ -40,15 +39,6 @@ func isInsert(query string) bool {
 		return strings.EqualFold("INSERT", f[0]) && strings.EqualFold("INTO", f[1]) && strings.Index(strings.ToUpper(query), " SELECT ") == -1
 	}
 	return false
-}
-
-var splitInsertRe = regexp.MustCompile(`(?i)\sVALUES\s*\(`)
-
-func formatQuery(query string) string {
-	if isInsert(query) {
-		return splitInsertRe.Split(query, -1)[0] + " VALUES "
-	}
-	return query
 }
 
 func quote(v driver.Value) string {
@@ -132,6 +122,9 @@ func toColumnType(ct string) (interface{}, error) {
 		}
 		return enum16(enum), nil
 	case strings.HasPrefix(ct, "Array"):
+		if len(ct) < 11 {
+			return nil, fmt.Errorf("invalid Array column type: %s", ct)
+		}
 		baseType, err := toColumnType(ct[6:][:len(ct)-7])
 		if err != nil {
 			return nil, fmt.Errorf("array: %v", err)
