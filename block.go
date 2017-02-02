@@ -237,6 +237,10 @@ func (b *block) append(args []driver.Value) error {
 		case enum8:
 			ident, ok := args[columnNum].(string)
 			if !ok {
+				// Attempt to serialise as integer type without ident checking
+				if err := write(buffer, info, args[columnNum]); err == nil {
+					return nil
+				}
 				return fmt.Errorf("Column %s (%s): invalid ident type %T", column, b.columnTypes[columnNum], args[columnNum])
 			}
 			var (
@@ -252,6 +256,10 @@ func (b *block) append(args []driver.Value) error {
 		case enum16:
 			ident, ok := args[columnNum].(string)
 			if !ok {
+				// Attempt to serialise as integer type without ident checking
+				if err := write(buffer, info, args[columnNum]); err == nil {
+					return nil
+				}
 				return fmt.Errorf("Column %s (%s): invalid ident type %T", column, b.columnTypes[columnNum], args[columnNum])
 			}
 			var (
