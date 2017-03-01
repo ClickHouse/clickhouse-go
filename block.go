@@ -4,6 +4,7 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"io"
+	"strings"
 	"sync"
 )
 
@@ -188,6 +189,9 @@ func (b *block) write(revision uint64, w io.Writer) error {
 }
 
 func (b *block) append(args []driver.Value) error {
+	if len(b.columnNames) != len(args) {
+		return fmt.Errorf("block: expected %d arguments (columns: %s), got %d", len(b.columnNames), strings.Join(b.columnNames, ", "), len(args))
+	}
 	if len(b.buffers) == 0 && len(args) != 0 {
 		b.numRows = 0
 		b.offsets = make([][]uint64, len(args))
@@ -206,7 +210,7 @@ func (b *block) append(args []driver.Value) error {
 		case array:
 			array, ok := args[columnNum].([]byte)
 			if !ok {
-				return fmt.Errorf("Column %s (%s): unexpected type %T of value", column, b.columnTypes[columnNum], args[columnNum])
+				return fmt.Errorf("column %s (%s): unexpected type %T of value", column, b.columnTypes[columnNum], args[columnNum])
 			}
 			ct, arrayLen, data, err := arrayInfo(array)
 			if err != nil {
@@ -228,7 +232,7 @@ func (b *block) append(args []driver.Value) error {
 				}
 			default:
 				if "Array("+ct+")" != b.columnTypes[columnNum] {
-					return fmt.Errorf("Column %s (%s): unexpected type %s of value", column, b.columnTypes[columnNum], ct)
+					return fmt.Errorf("column %s (%s): unexpected type %s of value", column, b.columnTypes[columnNum], ct)
 				}
 			}
 			if _, err := buffer.Write(data); err != nil {
@@ -245,10 +249,10 @@ func (b *block) append(args []driver.Value) error {
 				value, err = enum(v).toValue(ident)
 			}
 			if err != nil {
-				return fmt.Errorf("Column %s (%s): %s", column, b.columnTypes[columnNum], err.Error())
+				return fmt.Errorf("column %s (%s): %s", column, b.columnTypes[columnNum], err.Error())
 			}
 			if err := write(buffer, info, value); err != nil {
-				return fmt.Errorf("Column %s (%s): %s", column, b.columnTypes[columnNum], err.Error())
+				return fmt.Errorf("column %s (%s): %s", column, b.columnTypes[columnNum], err.Error())
 			}
 		case enum16:
 			var (
@@ -261,14 +265,14 @@ func (b *block) append(args []driver.Value) error {
 				value, err = enum(v).toValue(ident)
 			}
 			if err != nil {
-				return fmt.Errorf("Column %s (%s): %s", column, b.columnTypes[columnNum], err.Error())
+				return fmt.Errorf("column %s (%s): %s", column, b.columnTypes[columnNum], err.Error())
 			}
 			if err := write(buffer, info, value); err != nil {
-				return fmt.Errorf("Column %s (%s): %s", column, b.columnTypes[columnNum], err.Error())
+				return fmt.Errorf("column %s (%s): %s", column, b.columnTypes[columnNum], err.Error())
 			}
 		default:
 			if err := write(buffer, info, args[columnNum]); err != nil {
-				return fmt.Errorf("Column %s (%s): %s", column, b.columnTypes[columnNum], err.Error())
+				return fmt.Errorf("column %s (%s): %s", column, b.columnTypes[columnNum], err.Error())
 			}
 		}
 	}
