@@ -17,6 +17,11 @@ Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/)
 * alt_hosts - comma separated list of single address host for load-balancing
 * debug - enable debug output (boolean value)
 
+example:
+```
+tcp://host1:9000?username=user&password=qwerty&database=clicks&read_timeout=10&write_timeout=20&alt_hosts=host2:9000,host3:9000
+```
+
 ## Supported data types
 
 * UInt8, UInt16, UInt32, UInt64, Int8, Int16, Int32, Int64
@@ -33,12 +38,6 @@ Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/)
 * Improve write performance for Array(T)/Enum data types 
 * Nullable data types 
 * Compression 
-
-example:
-```
-tcp://host1:9000?username=user&password=qwerty&database=clicks&read_timeout=10&write_timeout=20&alt_hosts=host2:9000,host3:9000
-```
-
 
 ## Install
 ```
