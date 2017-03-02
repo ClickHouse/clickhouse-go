@@ -28,6 +28,11 @@ Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/)
 * Enum
 * [Array(T) (one-dimensional)](https://clickhouse.yandex/reference_en.html#Array(T)) [godoc](https://godoc.org/github.com/kshvakov/clickhouse#Array)
 
+## TODO
+
+* Improve write performance for Array(T)/Enum data types 
+* Nullable data types 
+* Compression 
 
 example:
 ```
