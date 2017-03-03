@@ -17,16 +17,17 @@ var bufferPool = sync.Pool{
 
 // data block
 type block struct {
-	table       string
-	info        blockInfo
-	numRows     uint64
-	numColumns  uint64
-	columnNames []string
-	columnTypes []string
-	columnInfo  []interface{}
-	columns     [][]interface{}
-	offsets     [][]uint64
-	buffers     []*writeBuffer
+	table         string
+	info          blockInfo
+	numRows       uint64
+	numColumns    uint64
+	columnNames   []string
+	columnTypes   []string
+	columnInfo    []interface{}
+	columns       [][]interface{}
+	offsets       [][]uint64
+	buffers       []*writeBuffer
+	offsetBuffers []*writeBuffer
 }
 
 type blockInfo struct {
@@ -176,10 +177,8 @@ func (b *block) write(revision uint64, w io.Writer) error {
 		if err := writeString(w, columnType); err != nil {
 			return err
 		}
-		for _, offset := range b.offsets[i] {
-			if err := writeUInt64(w, offset); err != nil {
-				return err
-			}
+		if err := b.offsetBuffers[i].writeTo(w); err != nil {
+			return err
 		}
 		if err := b.buffers[i].writeTo(w); err != nil {
 			return err
@@ -196,8 +195,10 @@ func (b *block) append(args []driver.Value) error {
 		b.numRows = 0
 		b.offsets = make([][]uint64, len(args))
 		b.buffers = make([]*writeBuffer, len(args))
+		b.offsetBuffers = make([]*writeBuffer, len(args))
 		for i := range args {
 			b.buffers[i] = bufferPool.Get().(*writeBuffer)
+			b.offsetBuffers[i] = bufferPool.Get().(*writeBuffer)
 		}
 	}
 	b.numRows++
@@ -205,6 +206,7 @@ func (b *block) append(args []driver.Value) error {
 		var (
 			column = b.columnNames[columnNum]
 			buffer = b.buffers[columnNum]
+			offset = b.offsetBuffers[columnNum]
 		)
 		switch v := info.(type) {
 		case array:
@@ -217,9 +219,12 @@ func (b *block) append(args []driver.Value) error {
 				return err
 			}
 			if len(b.offsets[columnNum]) == 0 {
-				b.offsets[columnNum] = append(b.offsets[columnNum], arrayLen)
+				b.offsets[columnNum] = []uint64{arrayLen}
 			} else {
-				b.offsets[columnNum] = append(b.offsets[columnNum], arrayLen+b.offsets[columnNum][len(b.offsets[columnNum])-1])
+				b.offsets[columnNum][0] = b.offsets[columnNum][0] + arrayLen
+			}
+			if err := writeUInt64(offset, b.offsets[columnNum][0]); err != nil {
+				return err
 			}
 			switch v := v.baseType.(type) {
 			case enum8:
