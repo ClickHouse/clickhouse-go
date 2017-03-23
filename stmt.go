@@ -47,10 +47,18 @@ func (stmt *stmt) Query(args []driver.Value) (driver.Rows, error) {
 }
 
 func (stmt *stmt) queryContext(ctx context.Context, args []namedValue) (driver.Rows, error) {
-	var query []string
-	for index, value := range strings.Split(stmt.query, "?") {
+	var (
+		sql   = stmt.query
+		query []string
+	)
+	for _, v := range args {
+		if len(v.Name) != 0 {
+			sql = strings.Replace(sql, "@"+v.Name, quote(v.Value), -1)
+		}
+	}
+	for index, value := range strings.Split(sql, "?") {
 		query = append(query, value)
-		if index < len(args) {
+		if index < len(args) && len(args[index].Name) == 0 {
 			query = append(query, quote(args[index].Value))
 		}
 	}

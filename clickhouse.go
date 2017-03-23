@@ -40,6 +40,11 @@ var (
 	ErrLimitDataRequestInTx = errors.New("data request has already been prepared in transaction")
 )
 
+var (
+	namedArgsRe   = regexp.MustCompile("@\\w")
+	splitInsertRe = regexp.MustCompile(`(?i)\sVALUES\s*\(`)
+)
+
 type logger func(format string, v ...interface{})
 
 type clickhouse struct {
@@ -72,11 +77,9 @@ func (ch *clickhouse) prepareContext(ctx context.Context, query string) (driver.
 	return &stmt{
 		ch:       ch,
 		query:    query,
-		numInput: strings.Count(query, "?"),
+		numInput: strings.Count(query, "?") + len(namedArgsRe.FindAllString(query, -1)),
 	}, nil
 }
-
-var splitInsertRe = regexp.MustCompile(`(?i)\sVALUES\s*\(`)
 
 func (ch *clickhouse) insert(query string) (driver.Stmt, error) {
 	if err := ch.sendQuery(splitInsertRe.Split(query, -1)[0] + " VALUES "); err != nil {
@@ -97,7 +100,7 @@ func (ch *clickhouse) insert(query string) (driver.Stmt, error) {
 			return &stmt{
 				ch:       ch,
 				isInsert: true,
-				numInput: strings.Count(query, "?"),
+				numInput: strings.Count(query, "?") + len(namedArgsRe.FindAllString(query, -1)),
 			}, nil
 		case ServerExceptionPacket:
 			return nil, ch.exception()
