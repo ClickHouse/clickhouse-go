@@ -48,10 +48,9 @@ func (stmt *stmt) Query(args []driver.Value) (driver.Rows, error) {
 
 func (stmt *stmt) queryContext(ctx context.Context, args []namedValue) (driver.Rows, error) {
 	var (
-		sql   = stmt.query
 		query []string
+		tmp   = strings.Fields(stmt.query)
 	)
-	tmp := strings.Fields(stmt.query)
 	for i, arg := range tmp {
 		if strings.HasPrefix(arg, "@") {
 			for _, v := range args {
@@ -61,11 +60,7 @@ func (stmt *stmt) queryContext(ctx context.Context, args []namedValue) (driver.R
 			}
 		}
 	}
-	for _, v := range args {
-		if len(v.Name) != 0 {
-			sql = strings.Replace(sql, "@"+v.Name, quote(v.Value), -1)
-		}
-	}
+	sql := strings.Join(tmp, " ")
 	for index, value := range strings.Split(sql, "?") {
 		query = append(query, value)
 		if index < len(args) && len(args[index].Name) == 0 {
