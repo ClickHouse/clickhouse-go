@@ -51,6 +51,16 @@ func (stmt *stmt) queryContext(ctx context.Context, args []namedValue) (driver.R
 		sql   = stmt.query
 		query []string
 	)
+	tmp := strings.Fields(stmt.query)
+	for i, arg := range tmp {
+		if strings.HasPrefix(arg, "@") {
+			for _, v := range args {
+				if len(v.Name) != 0 && "@"+v.Name == arg {
+					tmp[i] = quote(v.Value)
+				}
+			}
+		}
+	}
 	for _, v := range args {
 		if len(v.Name) != 0 {
 			sql = strings.Replace(sql, "@"+v.Name, quote(v.Value), -1)

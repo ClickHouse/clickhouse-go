@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
-	"strings"
 	"time"
 )
 
@@ -41,7 +40,6 @@ var (
 )
 
 var (
-	namedArgsRe   = regexp.MustCompile("@\\w")
 	splitInsertRe = regexp.MustCompile(`(?i)\sVALUES\s*\(`)
 )
 
@@ -77,7 +75,7 @@ func (ch *clickhouse) prepareContext(ctx context.Context, query string) (driver.
 	return &stmt{
 		ch:       ch,
 		query:    query,
-		numInput: strings.Count(query, "?") + len(namedArgsRe.FindAllString(query, -1)),
+		numInput: numInput(query),
 	}, nil
 }
 
@@ -100,7 +98,7 @@ func (ch *clickhouse) insert(query string) (driver.Stmt, error) {
 			return &stmt{
 				ch:       ch,
 				isInsert: true,
-				numInput: strings.Count(query, "?") + len(namedArgsRe.FindAllString(query, -1)),
+				numInput: numInput(query),
 			}, nil
 		case ServerExceptionPacket:
 			return nil, ch.exception()

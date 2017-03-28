@@ -34,6 +34,20 @@ func (datetime DateTime) Value() (driver.Value, error) {
 	), nil
 }
 
+func numInput(query string) int {
+	count := strings.Count(query, "?")
+	args := make(map[string]struct{})
+	for _, arg := range strings.Fields(query) {
+		if strings.HasPrefix(arg, "@") {
+			if _, found := args[arg]; !found {
+				args[arg] = struct{}{}
+				count++
+			}
+		}
+	}
+	return count
+}
+
 func isInsert(query string) bool {
 	if f := strings.Fields(query); len(f) > 2 {
 		return strings.EqualFold("INSERT", f[0]) && strings.EqualFold("INTO", f[1]) && strings.Index(strings.ToUpper(query), " SELECT ") == -1
