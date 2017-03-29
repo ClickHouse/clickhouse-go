@@ -1,6 +1,7 @@
 package clickhouse
 
 import (
+	"bytes"
 	"context"
 	"database/sql/driver"
 	"strings"
@@ -48,19 +49,28 @@ func (stmt *stmt) Query(args []driver.Value) (driver.Rows, error) {
 
 func (stmt *stmt) queryContext(ctx context.Context, args []namedValue) (driver.Rows, error) {
 	var (
-		query []string
-		tmp   = strings.Fields(stmt.query)
+		query  []string
+		buf    bytes.Buffer
+		reader = bytes.NewReader([]byte(stmt.query))
 	)
-	for i, arg := range tmp {
-		if strings.HasPrefix(arg, "@") {
-			for _, v := range args {
-				if len(v.Name) != 0 && "@"+v.Name == arg {
-					tmp[i] = quote(v.Value)
+	for {
+		if char, _, err := reader.ReadRune(); err == nil {
+			if char == '@' {
+				if param := paramParser(reader); len(param) != 0 {
+					for _, v := range args {
+						if len(v.Name) != 0 && v.Name == param {
+							buf.WriteString(quote(v.Value))
+						}
+					}
 				}
+			} else {
+				buf.WriteRune(char)
 			}
+		} else {
+			break
 		}
 	}
-	sql := strings.Join(tmp, " ")
+	sql := buf.String()
 	for index, value := range strings.Split(sql, "?") {
 		query = append(query, value)
 		if index < len(args) && len(args[index].Name) == 0 {

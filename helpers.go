@@ -1,6 +1,7 @@
 package clickhouse
 
 import (
+	"bytes"
 	"database/sql/driver"
 	"fmt"
 	"strings"
@@ -35,19 +36,44 @@ func (datetime DateTime) Value() (driver.Value, error) {
 }
 
 func numInput(query string) int {
-	count := strings.Count(query, "?")
-	args := make(map[string]struct{})
-	for _, arg := range strings.Fields(query) {
-		if strings.HasPrefix(arg, "@") {
-			if _, found := args[arg]; !found {
-				args[arg] = struct{}{}
-				count++
+	var (
+		args   = make(map[string]struct{})
+		count  = strings.Count(query, "?")
+		reader = bytes.NewReader([]byte(query))
+	)
+	for {
+		if char, _, err := reader.ReadRune(); err == nil {
+			if char == '@' {
+				if param := paramParser(reader); len(param) != 0 {
+					if _, found := args[param]; !found {
+						args[param] = struct{}{}
+						count++
+					}
+				}
 			}
+		} else {
+			break
 		}
 	}
 	return count
 }
 
+func paramParser(reader *bytes.Reader) string {
+	var name bytes.Buffer
+	for {
+		if char, _, err := reader.ReadRune(); err == nil {
+			if char == '_' || char >= '0' && char <= '9' || 'a' <= char && char <= 'z' || 'A' <= char && char <= 'Z' {
+				name.WriteRune(char)
+			} else {
+				reader.UnreadRune()
+				break
+			}
+		} else {
+			break
+		}
+	}
+	return name.String()
+}
 func isInsert(query string) bool {
 	if f := strings.Fields(query); len(f) > 2 {
 		return strings.EqualFold("INSERT", f[0]) && strings.EqualFold("INTO", f[1]) && strings.Index(strings.ToUpper(query), " SELECT ") == -1

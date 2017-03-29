@@ -67,9 +67,11 @@ func Test_ToColumnType(t *testing.T) {
 
 func Test_NumInput(t *testing.T) {
 	for query, num := range map[string]int{
-		"SELECT * FROM example WHERE os_id = 42":                              0,
-		"SELECT * FROM example WHERE os_id = @os_id AND browser_id = @os_id":  1,
-		"SELECT * FROM example WHERE os_id = @os_id AND browser_id = @os_id2": 2,
+		"SELECT * FROM example WHERE os_id = 42":                                                  0,
+		"SELECT * FROM example WHERE os_id = @os_id AND browser_id = @os_id":                      1,
+		"SELECT * FROM example WHERE os_id = @os_id AND browser_id = @os_id2":                     2,
+		"SELECT * FROM example WHERE os_id in (@os_id,@browser_id) browser_id = @browser_id":      2,
+		"SELECT * FROM example WHERE os_id IN (@os_id, @browser_id) AND browser_id = @browser_id": 2,
 	} {
 		assert.Equal(t, num, numInput(query))
 	}
