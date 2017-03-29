@@ -76,3 +76,10 @@ func Test_NumInput(t *testing.T) {
 		assert.Equal(t, num, numInput(query))
 	}
 }
+
+func Benchmark_NumInput(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		numInput("SELECT * FROM example WHERE os_id in (@os_id,@browser_id) browser_id = @browser_id")
+	}
+}

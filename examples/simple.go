@@ -11,9 +11,7 @@ import (
 
 func main() {
 	connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?username=&compress=true&debug=true")
-	if err != nil {
-		log.Fatal(err)
-	}
+	checkErr(err)
 	if err := connect.Ping(); err != nil {
 		if exception, ok := err.(*clickhouse.Exception); ok {
 			fmt.Printf("[%d] %s \n%s\n", exception.Code, exception.Message, exception.StackTrace)
@@ -34,13 +32,11 @@ func main() {
 		) engine=Memory
 	`)
 
-	if err != nil {
-		log.Fatal(err)
-	}
-	var (
-		tx, _   = connect.Begin()
-		stmt, _ = tx.Prepare("INSERT INTO example (country_code, os_id, browser_id, categories, action_day, action_time) VALUES (?, ?, ?, ?, ?, ?)")
-	)
+	checkErr(err)
+	tx, err := connect.Begin()
+	checkErr(err)
+	stmt, err := tx.Prepare("INSERT INTO example (country_code, os_id, browser_id, categories, action_day, action_time) VALUES (?, ?, ?, ?, ?, ?)")
+	checkErr(err)
 
 	for i := 0; i < 100; i++ {
 		if _, err := stmt.Exec(
@@ -54,18 +50,9 @@ func main() {
 			log.Fatal(err)
 		}
 	}
-
-	if err := tx.Commit(); err != nil {
-		log.Fatal(err)
-	}
-
-	tx, _ = connect.Begin()
-	stmt, _ = tx.Prepare("SELECT country_code, os_id, browser_id, categories, action_day, action_time FROM example")
-	rows, err := stmt.Query()
-	if err != nil {
-		log.Fatal(err)
-	}
-
+	checkErr(tx.Commit())
+	rows, err := connect.Query("SELECT country_code, os_id, browser_id, categories, action_day, action_time FROM example")
+	checkErr(err)
 	for rows.Next() {
 		var (
 			country               string
@@ -73,13 +60,17 @@ func main() {
 			categories            []int16
 			actionDay, actionTime time.Time
 		)
-		if err := rows.Scan(&country, &os, &browser, &categories, &actionDay, &actionTime); err != nil {
-			log.Fatal(err)
-		}
+		checkErr(rows.Scan(&country, &os, &browser, &categories, &actionDay, &actionTime))
 		log.Printf("country: %s, os: %d, browser: %d, categories: %v, action_day: %s, action_time: %s", country, os, browser, categories, actionDay, actionTime)
 	}
 
 	if _, err := connect.Exec("DROP TABLE example"); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func checkErr(err error) {
+	if err != nil {
 		log.Fatal(err)
 	}
 }
