@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"database/sql/driver"
-	"strings"
 )
 
 type stmt struct {
@@ -49,13 +48,14 @@ func (stmt *stmt) Query(args []driver.Value) (driver.Rows, error) {
 
 func (stmt *stmt) queryContext(ctx context.Context, args []namedValue) (driver.Rows, error) {
 	var (
-		query  []string
 		buf    bytes.Buffer
+		index  int
 		reader = bytes.NewReader([]byte(stmt.query))
 	)
 	for {
 		if char, _, err := reader.ReadRune(); err == nil {
-			if char == '@' {
+			switch char {
+			case '@':
 				if param := paramParser(reader); len(param) != 0 {
 					for _, v := range args {
 						if len(v.Name) != 0 && v.Name == param {
@@ -63,21 +63,19 @@ func (stmt *stmt) queryContext(ctx context.Context, args []namedValue) (driver.R
 						}
 					}
 				}
-			} else {
+			case '?':
+				if index < len(args) && len(args[index].Name) == 0 {
+					buf.WriteString(quote(args[index].Value))
+				}
+				index++
+			default:
 				buf.WriteRune(char)
 			}
 		} else {
 			break
 		}
 	}
-	sql := buf.String()
-	for index, value := range strings.Split(sql, "?") {
-		query = append(query, value)
-		if index < len(args) && len(args[index].Name) == 0 {
-			query = append(query, quote(args[index].Value))
-		}
-	}
-	if err := stmt.ch.sendQuery(strings.Join(query, "")); err != nil {
+	if err := stmt.ch.sendQuery(buf.String()); err != nil {
 		return nil, err
 	}
 	rows, err := stmt.ch.receiveData()
