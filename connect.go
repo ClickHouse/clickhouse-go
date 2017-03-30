@@ -23,12 +23,13 @@ func dial(network string, hosts []string, noDelay bool, r, w time.Duration, log 
 	)
 	for i := 0; i <= len(hosts); i++ {
 		if conn, err = net.DialTimeout(network, hosts[(index+1)%len(hosts)], 2*time.Second); err == nil {
-			log("connect[%d] to: %s", tick, conn.RemoteAddr())
+			log("[connect] num=%d -> %s", tick, conn.RemoteAddr())
 			if tcp, ok := conn.(*net.TCPConn); ok {
 				tcp.SetNoDelay(noDelay) // Disable or enable the Nagle Algorithm for this tcp socket
 			}
 			return &connect{
 				Conn:         conn,
+				log:          log,
 				readTimeout:  r,
 				writeTimeout: w,
 			}, nil
@@ -39,6 +40,7 @@ func dial(network string, hosts []string, noDelay bool, r, w time.Duration, log 
 
 type connect struct {
 	net.Conn
+	log          func(string, ...interface{})
 	readTimeout  time.Duration
 	writeTimeout time.Duration
 }
@@ -49,10 +51,8 @@ func (conn *connect) Read(b []byte) (int, error) {
 	}
 	n, err := conn.Conn.Read(b)
 	if err != nil {
-		if _, ok := err.(*net.OpError); ok {
-			return n, driver.ErrBadConn
-		}
-		return n, err
+		conn.log("[connect] read error: %v", err)
+		return n, driver.ErrBadConn
 	}
 	return n, nil
 }
@@ -63,10 +63,8 @@ func (conn *connect) Write(b []byte) (int, error) {
 	}
 	n, err := conn.Conn.Write(b)
 	if err != nil {
-		if _, ok := err.(*net.OpError); ok {
-			return n, driver.ErrBadConn
-		}
-		return n, err
+		conn.log("[connect] write error: %v", err)
+		return n, driver.ErrBadConn
 	}
 	return n, nil
 }
