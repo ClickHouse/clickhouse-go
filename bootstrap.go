@@ -95,7 +95,7 @@ func Open(dsn string) (driver.Conn, error) {
 		database,
 		username,
 	)
-	if ch.conn, err = dial("tcp", hosts, noDelay, readTimeout, writeTimeout); err != nil {
+	if ch.conn, err = dial("tcp", hosts, noDelay, readTimeout, writeTimeout, ch.log); err != nil {
 		return nil, err
 	}
 	if err := ch.hello(database, username, password); err != nil {

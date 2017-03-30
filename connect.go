@@ -1,6 +1,7 @@
 package clickhouse
 
 import (
+	"database/sql/driver"
 	"net"
 	"sync/atomic"
 	"time"
@@ -8,7 +9,7 @@ import (
 
 var tick int32
 
-func dial(network string, hosts []string, noDelay bool, r, w time.Duration) (*connect, error) {
+func dial(network string, hosts []string, noDelay bool, r, w time.Duration, log func(string, ...interface{})) (*connect, error) {
 	var (
 		err error
 		abs = func(v int) int {
@@ -21,7 +22,8 @@ func dial(network string, hosts []string, noDelay bool, r, w time.Duration) (*co
 		index = abs(int(atomic.AddInt32(&tick, 1)))
 	)
 	for i := 0; i <= len(hosts); i++ {
-		if conn, err = net.DialTimeout(network, hosts[(index+i)%len(hosts)], 2*time.Second); err == nil {
+		if conn, err = net.DialTimeout(network, hosts[(index+1)%len(hosts)], 2*time.Second); err == nil {
+			log("connect[%d] to: %s", tick, conn.RemoteAddr())
 			if tcp, ok := conn.(*net.TCPConn); ok {
 				tcp.SetNoDelay(noDelay) // Disable or enable the Nagle Algorithm for this tcp socket
 			}
@@ -45,12 +47,26 @@ func (conn *connect) Read(b []byte) (int, error) {
 	if conn.readTimeout != 0 {
 		conn.SetReadDeadline(time.Now().Add(conn.readTimeout))
 	}
-	return conn.Conn.Read(b)
+	n, err := conn.Conn.Read(b)
+	if err != nil {
+		if _, ok := err.(*net.OpError); ok {
+			return n, driver.ErrBadConn
+		}
+		return n, err
+	}
+	return n, nil
 }
 
 func (conn *connect) Write(b []byte) (int, error) {
 	if conn.writeTimeout != 0 {
 		conn.SetWriteDeadline(time.Now().Add(conn.writeTimeout))
 	}
-	return conn.Conn.Write(b)
+	n, err := conn.Conn.Write(b)
+	if err != nil {
+		if _, ok := err.(*net.OpError); ok {
+			return n, driver.ErrBadConn
+		}
+		return n, err
+	}
+	return n, nil
 }
