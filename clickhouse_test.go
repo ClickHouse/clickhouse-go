@@ -728,5 +728,37 @@ func Test_Ternary_Operator(t *testing.T) {
 				}
 			}
 		}
+		if rows, err := connect.Query("SELECT a, b FROM clickhouse_ternary_operator WHERE a = ? AND b < ?", 1, 2); assert.NoError(t, err) {
+			for rows.Next() {
+				var (
+					a, b int
+				)
+				if err := rows.Scan(&a, &b); assert.NoError(t, err) {
+					assert.Equal(t, 1, a)
+					assert.Equal(t, 0, b)
+				}
+			}
+		}
+		if rows, err := connect.Query(`
+			SELECT 
+				a ? 
+					'+' : '-', 
+				b ? '+' : '-' ,
+				a, b
+			FROM clickhouse_ternary_operator 
+				WHERE a = ? AND b < ? AND a IN(?,
+			?
+			) OR b = 0 OR b > ?`, 1, 2, 1, 100, -1); assert.NoError(t, err) {
+			for rows.Next() {
+				var (
+					a, b string
+					c, d int
+				)
+				if err := rows.Scan(&a, &b, &c, &d); assert.NoError(t, err) {
+					assert.Equal(t, "+", a)
+					assert.Equal(t, "-", b)
+				}
+			}
+		}
 	}
 }
