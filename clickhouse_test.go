@@ -649,7 +649,6 @@ func Test_Temporary_Table(t *testing.T) {
 }
 
 func Test_Enum(t *testing.T) {
-
 	const (
 		ddl = `
 			CREATE TABLE clickhouse_test_enum (
@@ -687,6 +686,45 @@ func Test_Enum(t *testing.T) {
 				)
 				if err := rows.Scan(&a, &b, &c, &d); assert.NoError(t, err) {
 					t.Log(a, b, c, d)
+				}
+			}
+		}
+	}
+}
+
+func Test_Ternary_Operator(t *testing.T) {
+	const (
+		ddl = `
+			CREATE TABLE clickhouse_ternary_operator (
+				a UInt8,
+				b UInt8
+			) Engine=Memory
+		`
+		dml = `INSERT INTO clickhouse_ternary_operator VALUES (?, ?)`
+	)
+	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) && assert.NoError(t, connect.Ping()) {
+		if _, err := connect.Exec("DROP TABLE IF EXISTS clickhouse_ternary_operator"); assert.NoError(t, err) {
+			if _, err := connect.Exec(ddl); assert.NoError(t, err) {
+				if tx, err := connect.Begin(); assert.NoError(t, err) {
+					if stmt, err := tx.Prepare(dml); assert.NoError(t, err) {
+						if _, err := stmt.Exec(1, 0); !assert.NoError(t, err) {
+							return
+						}
+					}
+					if err := tx.Commit(); !assert.NoError(t, err) {
+						return
+					}
+				}
+			}
+		}
+		if rows, err := connect.Query("SELECT a ? '+' : '-', b ? '+' : '-' FROM clickhouse_ternary_operator WHERE a = ? AND b < ?", 1, 2); assert.NoError(t, err) {
+			for rows.Next() {
+				var (
+					a, b string
+				)
+				if err := rows.Scan(&a, &b); assert.NoError(t, err) {
+					assert.Equal(t, "+", a)
+					assert.Equal(t, "-", b)
 				}
 			}
 		}
