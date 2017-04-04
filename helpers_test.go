@@ -72,8 +72,21 @@ func Test_NumInput(t *testing.T) {
 		"SELECT * FROM example WHERE os_id = @os_id AND browser_id = @os_id2":                     2,
 		"SELECT * FROM example WHERE os_id in (@os_id,@browser_id) browser_id = @browser_id":      2,
 		"SELECT * FROM example WHERE os_id IN (@os_id, @browser_id) AND browser_id = @browser_id": 2,
+		"SELECT * FROM example WHERE os_id = ? AND browser_id = ?":                                2,
+		"SELECT * FROM example WHERE os_id in (?,?) browser_id = ?":                               3,
+		"SELECT * FROM example WHERE os_id IN (?, ?) AND browser_id = ?":                          3,
+		"SELECT a ? '+' : '-'":                                                                    0,
+		"SELECT a ? '+' : '-' FROM example WHERE a = ? AND b IN(?)":                               2,
+		`SELECT 
+			a ? '+' : '-' 
+		FROM example WHERE a = 42 and b in(
+			?,
+			?,
+			?
+		)
+		`: 3,
 	} {
-		assert.Equal(t, num, numInput(query))
+		assert.Equal(t, num, numInput(query), query)
 	}
 }
 

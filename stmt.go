@@ -48,9 +48,10 @@ func (stmt *stmt) Query(args []driver.Value) (driver.Rows, error) {
 
 func (stmt *stmt) queryContext(ctx context.Context, args []namedValue) (driver.Rows, error) {
 	var (
-		buf    bytes.Buffer
-		index  int
-		reader = bytes.NewReader([]byte(stmt.query))
+		buf     bytes.Buffer
+		index   int
+		reader  = bytes.NewReader([]byte(stmt.query))
+		keyword bool
 	)
 	for {
 		if char, _, err := reader.ReadRune(); err == nil {
@@ -64,11 +65,25 @@ func (stmt *stmt) queryContext(ctx context.Context, args []namedValue) (driver.R
 					}
 				}
 			case '?':
-				if index < len(args) && len(args[index].Name) == 0 {
+				if keyword && index < len(args) && len(args[index].Name) == 0 {
 					buf.WriteString(quote(args[index].Value))
+					index++
+				} else {
+					buf.WriteRune(char)
 				}
-				index++
 			default:
+				switch {
+				case
+					char == '=',
+					char == '<',
+					char == '>',
+					char == '(',
+					char == ',',
+					char == '%':
+					keyword = true
+				default:
+					keyword = keyword && (char == ' ' || char == '\t' || char == '\n')
+				}
 				buf.WriteRune(char)
 			}
 		} else {
