@@ -28,7 +28,14 @@ func (stmt *stmt) Exec(args []driver.Value) (driver.Result, error) {
 
 func (stmt *stmt) execContext(ctx context.Context, args []driver.Value) (driver.Result, error) {
 	if stmt.isInsert {
-		if err := stmt.ch.data.append(args); err != nil {
+		colCount := len(stmt.ch.data.columnNames)
+		if len(args)%colCount == 0 {
+			for i := 0; i < len(args); i += colCount {
+				if err := stmt.ch.data.append(args[i : i+colCount]); err != nil {
+					return nil, err
+				}
+			}
+		} else if err := stmt.ch.data.append(args); err != nil {
 			return nil, err
 		}
 		return emptyResult, nil
