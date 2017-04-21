@@ -55,6 +55,7 @@ type clickhouse struct {
 	serverTimezone     *time.Location
 	inTransaction      bool
 	data               *block
+	blockSize          int
 }
 
 func (ch *clickhouse) Prepare(query string) (driver.Stmt, error) {

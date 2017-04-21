@@ -184,6 +184,7 @@ func (b *block) write(revision uint64, w io.Writer) error {
 			return err
 		}
 	}
+	b.numRows = 0
 	return nil
 }
 

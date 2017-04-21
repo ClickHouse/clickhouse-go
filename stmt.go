@@ -11,6 +11,7 @@ type stmt struct {
 	query    string
 	numInput int
 	isInsert bool
+	counter  int
 }
 
 var emptyResult = &result{}
@@ -28,8 +29,14 @@ func (stmt *stmt) Exec(args []driver.Value) (driver.Result, error) {
 
 func (stmt *stmt) execContext(ctx context.Context, args []driver.Value) (driver.Result, error) {
 	if stmt.isInsert {
+		stmt.counter++
 		if err := stmt.ch.data.append(args); err != nil {
 			return nil, err
+		}
+		if (stmt.counter % stmt.ch.blockSize) == 0 {
+			if err := stmt.ch.data.write(stmt.ch.serverRevision, stmt.ch.conn); err != nil {
+				return nil, err
+			}
 		}
 		return emptyResult, nil
 	}
