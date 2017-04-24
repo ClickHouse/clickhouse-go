@@ -1,7 +1,7 @@
 package clickhouse
 
 func (ch *clickhouse) sendQuery(query string) error {
-	ch.log("[send query] %s", query)
+	ch.logf("[send query] %s", query)
 	if err := writeUvarint(ch.conn, ClientQueryPacket); err != nil {
 		return err
 	}

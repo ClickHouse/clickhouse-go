@@ -46,16 +46,16 @@ var (
 type logger func(format string, v ...interface{})
 
 type clickhouse struct {
-	log                logger
+	logf               logger
 	conn               *connect
 	serverName         string
 	serverRevision     uint64
 	serverVersionMinor uint64
 	serverVersionMajor uint64
 	serverTimezone     *time.Location
-	inTransaction      bool
 	data               *block
 	blockSize          int
+	inTransaction      bool
 }
 
 func (ch *clickhouse) Prepare(query string) (driver.Stmt, error) {
@@ -63,7 +63,7 @@ func (ch *clickhouse) Prepare(query string) (driver.Stmt, error) {
 }
 
 func (ch *clickhouse) prepareContext(ctx context.Context, query string) (driver.Stmt, error) {
-	ch.log("[prepare] %s", query)
+	ch.logf("[prepare] %s", query)
 	if ch.data != nil {
 		return nil, ErrLimitDataRequestInTx
 	}
@@ -119,7 +119,7 @@ type txOptions struct {
 }
 
 func (ch *clickhouse) beginTx(ctx context.Context, opts txOptions) (driver.Tx, error) {
-	ch.log("[begin] tx=%t, data=%t", ch.inTransaction, ch.data != nil)
+	ch.logf("[begin] tx=%t, data=%t", ch.inTransaction, ch.data != nil)
 	if ch.inTransaction {
 		return nil, sql.ErrTxDone
 	}
@@ -129,7 +129,7 @@ func (ch *clickhouse) beginTx(ctx context.Context, opts txOptions) (driver.Tx, e
 }
 
 func (ch *clickhouse) Commit() error {
-	ch.log("[commit] tx=%t, data=%t", ch.inTransaction, ch.data != nil)
+	ch.logf("[commit] tx=%t, data=%t", ch.inTransaction, ch.data != nil)
 	if !ch.inTransaction {
 		return sql.ErrTxDone
 	}
@@ -153,7 +153,7 @@ func (ch *clickhouse) Commit() error {
 }
 
 func (ch *clickhouse) Rollback() error {
-	ch.log("[rollback] tx=%t, data=%t", ch.inTransaction, ch.data != nil)
+	ch.logf("[rollback] tx=%t, data=%t", ch.inTransaction, ch.data != nil)
 	if !ch.inTransaction {
 		return sql.ErrTxDone
 	}
@@ -178,14 +178,14 @@ func (ch *clickhouse) gotPacket(p uint64) error {
 	for packet != p {
 		switch packet {
 		case ServerExceptionPacket:
-			ch.log("[got packet] <- exception")
+			ch.logf("[got packet] <- exception")
 			return ch.exception()
 		case ServerProgressPacket:
 			progress, err := ch.progress()
 			if err != nil {
 				return err
 			}
-			ch.log("[got packet] <- progress: rows=%d, bytes=%d, total rows=%d",
+			ch.logf("[got packet] <- progress: rows=%d, bytes=%d, total rows=%d",
 				progress.bytes,
 				progress.rows,
 				progress.totalRows,
@@ -195,7 +195,7 @@ func (ch *clickhouse) gotPacket(p uint64) error {
 			if err := block.read(ch.serverRevision, ch.conn); err != nil {
 				return err
 			}
-			ch.log("[got packet] <- data: columns=%d, rows=%d", block.numColumns, block.numRows)
+			ch.logf("[got packet] <- data: columns=%d, rows=%d", block.numColumns, block.numRows)
 		default:
 			return fmt.Errorf("unexpected packet [%d] from server", packet)
 		}

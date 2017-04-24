@@ -108,7 +108,7 @@ func (stmt *stmt) queryContext(ctx context.Context, args []namedValue) (driver.R
 }
 
 func (stmt *stmt) Close() error {
-	stmt.ch.log("[stmt] close")
+	stmt.ch.logf("[stmt] close")
 	return nil
 }
 
