@@ -60,6 +60,7 @@ func Open(dsn string) (driver.Conn, error) {
 		password     = url.Query().Get("password")
 		readTimeout  = DefaultReadTimeout
 		writeTimeout = DefaultWriteTimeout
+		blockSize    = 100000
 	)
 	if len(database) == 0 {
 		database = DefaultDatabase
@@ -76,6 +77,9 @@ func Open(dsn string) (driver.Conn, error) {
 	if duration, err := strconv.ParseInt(url.Query().Get("write_timeout"), 10, 64); err == nil {
 		writeTimeout = time.Duration(duration) * time.Second
 	}
+	if size, err := strconv.ParseInt(url.Query().Get("block_size"), 10, 64); err == nil {
+		blockSize = int(size)
+	}
 	if altHosts := strings.Split(url.Query().Get("alt_hosts"), ","); len(altHosts) != 0 {
 		for _, host := range altHosts {
 			if len(host) != 0 {
@@ -84,18 +88,19 @@ func Open(dsn string) (driver.Conn, error) {
 		}
 	}
 	ch := clickhouse{
-		log:            func(string, ...interface{}) {},
+		logf:           func(string, ...interface{}) {},
+		blockSize:      blockSize,
 		serverTimezone: time.Local,
 	}
 	if debug, err := strconv.ParseBool(url.Query().Get("debug")); err == nil && debug {
-		ch.log = log.New(os.Stdout, "[clickhouse]", 0).Printf
+		ch.logf = log.New(os.Stdout, "[clickhouse]", 0).Printf
 	}
-	ch.log("host(s)=%s, database=%s, username=%s",
+	ch.logf("host(s)=%s, database=%s, username=%s",
 		strings.Join(hosts, ", "),
 		database,
 		username,
 	)
-	if ch.conn, err = dial("tcp", hosts, noDelay, readTimeout, writeTimeout, ch.log); err != nil {
+	if ch.conn, err = dial("tcp", hosts, noDelay, readTimeout, writeTimeout, ch.logf); err != nil {
 		return nil, err
 	}
 	if err := ch.hello(database, username, password); err != nil {
@@ -105,7 +110,7 @@ func Open(dsn string) (driver.Conn, error) {
 }
 
 func (ch *clickhouse) hello(database, username, password string) error {
-	ch.log("[hello] -> %s %d.%d.%d",
+	ch.logf("[hello] -> %s %d.%d.%d",
 		ClientName,
 		ClickHouseDBMSVersionMajor,
 		ClickHouseDBMSVersionMinor,
@@ -156,7 +161,7 @@ func (ch *clickhouse) hello(database, username, password string) error {
 			return fmt.Errorf("unexpected packet [%d] from server", packet)
 		}
 	}
-	ch.log("[hello] <- %s %d.%d.%d (%s)",
+	ch.logf("[hello] <- %s %d.%d.%d (%s)",
 		ch.serverName,
 		ch.serverVersionMajor,
 		ch.serverVersionMinor,

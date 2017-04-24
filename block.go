@@ -169,6 +169,7 @@ func (b *block) write(revision uint64, w io.Writer) error {
 	if err := writeUvarint(w, b.numRows); err != nil {
 		return err
 	}
+	b.numRows = 0
 	for i, column := range b.columnNames {
 		columnType := b.columnTypes[i]
 		if err := writeString(w, column); err != nil {
