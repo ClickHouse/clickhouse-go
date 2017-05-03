@@ -211,38 +211,52 @@ func (b *block) append(args []driver.Value) error {
 		)
 		switch v := info.(type) {
 		case array:
-			array, ok := args[columnNum].([]byte)
-			if !ok {
-				return fmt.Errorf("column %s (%s): unexpected type %T of value", column, b.columnTypes[columnNum], args[columnNum])
-			}
-			ct, arrayLen, data, err := arrayInfo(array)
-			if err != nil {
-				return err
-			}
-			if len(b.offsets[columnNum]) == 0 {
-				b.offsets[columnNum] = []uint64{arrayLen}
-			} else {
-				b.offsets[columnNum][0] = b.offsets[columnNum][0] + arrayLen
-			}
-			if err := writeUInt64(offset, b.offsets[columnNum][0]); err != nil {
-				return err
-			}
-			switch v := v.baseType.(type) {
-			case enum8:
-				if data, err = arrayStringToArrayEnum(arrayLen, data, enum(v)); err != nil {
+			switch tArray := args[columnNum].(type) {
+			case *array:
+				arrayLen, err := tArray.write(v.baseType, buffer)
+				if err != nil {
+					return fmt.Errorf("column %s (%s): %s", column, b.columnTypes[columnNum], err.Error())
+				}
+				if len(b.offsets[columnNum]) == 0 {
+					b.offsets[columnNum] = []uint64{arrayLen}
+				} else {
+					b.offsets[columnNum][0] = b.offsets[columnNum][0] + arrayLen
+				}
+				if err := writeUInt64(offset, b.offsets[columnNum][0]); err != nil {
 					return err
 				}
-			case enum16:
-				if data, err = arrayStringToArrayEnum(arrayLen, data, enum(v)); err != nil {
+			case []byte:
+				ct, arrayLen, data, err := arrayInfo(tArray)
+				if err != nil {
+					return err
+				}
+				if len(b.offsets[columnNum]) == 0 {
+					b.offsets[columnNum] = []uint64{arrayLen}
+				} else {
+					b.offsets[columnNum][0] = b.offsets[columnNum][0] + arrayLen
+				}
+				if err := writeUInt64(offset, b.offsets[columnNum][0]); err != nil {
+					return err
+				}
+				switch v := v.baseType.(type) {
+				case enum8:
+					if data, err = arrayStringToArrayEnum(arrayLen, data, enum(v)); err != nil {
+						return err
+					}
+				case enum16:
+					if data, err = arrayStringToArrayEnum(arrayLen, data, enum(v)); err != nil {
+						return err
+					}
+				default:
+					if "Array("+ct+")" != b.columnTypes[columnNum] {
+						return fmt.Errorf("column %s (%s): unexpected type %s of value", column, b.columnTypes[columnNum], ct)
+					}
+				}
+				if _, err := buffer.Write(data); err != nil {
 					return err
 				}
 			default:
-				if "Array("+ct+")" != b.columnTypes[columnNum] {
-					return fmt.Errorf("column %s (%s): unexpected type %s of value", column, b.columnTypes[columnNum], ct)
-				}
-			}
-			if _, err := buffer.Write(data); err != nil {
-				return err
+				return fmt.Errorf("column %s (%s): unexpected type %T of value", column, b.columnTypes[columnNum], args[columnNum])
 			}
 		case enum8:
 			var (
