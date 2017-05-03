@@ -36,8 +36,6 @@ tcp://host1:9000?username=user&password=qwerty&database=clicks&read_timeout=10&w
 
 ## TODO
 
-* Improve write performance for Array(T)/Enum data types 
-* Nullable data types 
 * Compression 
 
 ## Install

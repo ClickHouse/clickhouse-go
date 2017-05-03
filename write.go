@@ -127,7 +127,7 @@ func write(buffer *writeBuffer, columnInfo interface{}, v driver.Value) error {
 		}
 	case []byte:
 		var (
-			strlen int = len(columnInfo.([]byte))
+			strlen = len(columnInfo.([]byte))
 			str    []byte
 		)
 		switch v := v.(type) {
@@ -216,7 +216,7 @@ func write(buffer *writeBuffer, columnInfo interface{}, v driver.Value) error {
 			return fmt.Errorf("unexpected type %T", v)
 		}
 	default:
-		return fmt.Errorf("unhandled type %T", v)
+		return fmt.Errorf("func write: unhandled type %T", columnInfo)
 	}
 	return nil
 }

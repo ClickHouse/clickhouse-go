@@ -21,7 +21,7 @@ const (
 
 const ClientName = "Golang SQLDriver"
 const (
-	ClickHouseRevision         = 54126
+	ClickHouseRevision         = 54213
 	ClickHouseDBMSVersionMajor = 1
 	ClickHouseDBMSVersionMinor = 1
 )

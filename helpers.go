@@ -188,5 +188,5 @@ func toColumnType(ct string) (interface{}, error) {
 		}, nil
 	}
 
-	return nil, fmt.Errorf("unhandled type %v", ct)
+	return nil, fmt.Errorf("func toColumnType: unhandled type %v", ct)
 }
