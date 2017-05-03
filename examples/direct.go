@@ -20,6 +20,7 @@ func main() {
 				country_code FixedString(2),
 				os_id        UInt8,
 				browser_id   UInt8,
+				categories   Array(Int16),
 				action_day   Date,
 				action_time  DateTime
 			) engine=Memory
@@ -32,12 +33,13 @@ func main() {
 	}
 	{
 		tx, _ := connect.Begin()
-		stmt, _ := connect.Prepare("INSERT INTO example (country_code, os_id, browser_id, action_day, action_time) VALUES (?, ?, ?, ?, ?)")
+		stmt, _ := connect.Prepare("INSERT INTO example (country_code, os_id, browser_id, categories, action_day, action_time) VALUES (?, ?, ?, ?, ?, ?)")
 		for i := 0; i < 100; i++ {
 			if _, err := stmt.Exec([]driver.Value{
 				"CZ",
 				uint8(10 + i),
 				uint8(100 + i),
+				clickhouse.Array([]int16{1, 2, 3}),
 				time.Now(),
 				time.Now(),
 			}); err != nil {
