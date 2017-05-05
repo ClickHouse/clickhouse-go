@@ -401,7 +401,9 @@ func Test_ArrayT(t *testing.T) {
 				string   Array(String),
 				fString  Array(FixedString(2)),
 				date     Array(Date),
-				datetime Array(DateTime)
+				datetime Array(DateTime),
+				enum8    Array(Enum8 ('a' = 1, 'b' = 2)),
+				enum16   Array(Enum16('c' = 1, 'd' = 2))
 			) Engine=Memory
 		`
 		dml = `
@@ -419,10 +421,14 @@ func Test_ArrayT(t *testing.T) {
 				string,
 				fString,
 				date,
-				datetime
+				datetime,
+				enum8,
+				enum16
 			) VALUES (
 				?, 
 				?, 
+				?,
+				?,
 				?,
 				?,
 				?,
@@ -477,6 +483,8 @@ func Test_ArrayT(t *testing.T) {
 								clickhouse.ArrayFixedString(2, []string{"RU", "EN", "DE"}),
 								clickhouse.ArrayDate([]time.Time{time.Now(), time.Now()}),
 								clickhouse.ArrayDateTime([]time.Time{time.Now(), time.Now()}),
+								clickhouse.Array([]string{"a", "b"}),
+								clickhouse.Array([]string{"c", "d"}),
 							)
 							if !assert.NoError(t, err) {
 								return
@@ -496,6 +504,8 @@ func Test_ArrayT(t *testing.T) {
 								clickhouse.ArrayFixedString(2, []string{"UA", "GB"}),
 								clickhouse.ArrayDate([]time.Time{time.Now(), time.Now(), time.Now(), time.Now()}),
 								clickhouse.ArrayDateTime([]time.Time{time.Now(), time.Now()}),
+								clickhouse.Array([]string{"a", "b"}),
+								clickhouse.Array([]string{"c", "d"}),
 							)
 							if !assert.NoError(t, err) {
 								return
