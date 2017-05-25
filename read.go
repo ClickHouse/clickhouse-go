@@ -24,18 +24,9 @@ func readUvarint(conn io.Reader) (uint64, error) {
 }
 
 func readFixed(conn io.Reader, len int) ([]byte, error) {
-	var (
-		total int
-		buf   = make([]byte, len)
-	)
-	for total != len {
-		tmp := make([]byte, len-total)
-		n, err := conn.Read(tmp)
-		if err != nil {
-			return nil, err
-		}
-		copy(buf, tmp[:n])
-		total += n
+	buf := make([]byte, len)
+	if _, err := conn.Read(buf); err != nil {
+		return nil, err
 	}
 	return buf, nil
 }
