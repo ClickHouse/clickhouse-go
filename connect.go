@@ -50,21 +50,23 @@ func (conn *connect) Read(b []byte) (int, error) {
 		conn.SetReadDeadline(time.Now().Add(conn.readTimeout))
 	}
 	var (
-		total int
-		len   = len(b)
-		buf   = make([]byte, 0, len)
+		total  int
+		dstLen = len(b)
+		buffer = make([]byte, 0, dstLen)
 	)
-	for total != len {
-		tmp := make([]byte, len-total)
-		n, err := conn.Conn.Read(tmp)
+	for total != dstLen {
+		var (
+			tmp    = make([]byte, dstLen-total)
+			n, err = conn.Conn.Read(tmp)
+		)
 		if err != nil {
 			conn.logf("[connect] read error: %v", err)
 			return n, driver.ErrBadConn
 		}
-		buf = append(buf, tmp[:n]...)
+		buffer = append(buffer, tmp[:n]...)
 		total += n
 	}
-	copy(b, buf)
+	copy(b, buffer)
 	return total, nil
 }
 
