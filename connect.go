@@ -1,7 +1,6 @@
 package clickhouse
 
 import (
-	"bufio"
 	"database/sql/driver"
 	"net"
 	"sync/atomic"
@@ -30,7 +29,6 @@ func dial(network string, hosts []string, noDelay bool, r, w time.Duration, logf
 			}
 			return &connect{
 				Conn:         conn,
-				buf:          bufio.NewReader(conn),
 				logf:         logf,
 				readTimeout:  r,
 				writeTimeout: w,
@@ -42,7 +40,6 @@ func dial(network string, hosts []string, noDelay bool, r, w time.Duration, logf
 
 type connect struct {
 	net.Conn
-	buf          *bufio.Reader
 	logf         func(string, ...interface{})
 	readTimeout  time.Duration
 	writeTimeout time.Duration
@@ -52,12 +49,23 @@ func (conn *connect) Read(b []byte) (int, error) {
 	if conn.readTimeout != 0 {
 		conn.SetReadDeadline(time.Now().Add(conn.readTimeout))
 	}
-	n, err := conn.buf.Read(b)
-	if err != nil {
-		conn.logf("[connect] read error: %v", err)
-		return n, driver.ErrBadConn
+	var (
+		total int
+		len   = len(b)
+		buf   = make([]byte, 0, len)
+	)
+	for total != len {
+		tmp := make([]byte, len-total)
+		n, err := conn.Conn.Read(tmp)
+		if err != nil {
+			conn.logf("[connect] read error: %v", err)
+			return n, driver.ErrBadConn
+		}
+		buf = append(buf, tmp[:n]...)
+		total += n
 	}
-	return n, nil
+	copy(b, buf)
+	return total, nil
 }
 
 func (conn *connect) Write(b []byte) (int, error) {
