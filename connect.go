@@ -14,7 +14,7 @@ func dial(network string, hosts []string, noDelay bool, r, w time.Duration, logf
 		err error
 		abs = func(v int) int {
 			if v < 0 {
-				return -1
+				return -1 * v
 			}
 			return v
 		}
@@ -50,23 +50,18 @@ func (conn *connect) Read(b []byte) (int, error) {
 		conn.SetReadDeadline(time.Now().Add(conn.readTimeout))
 	}
 	var (
+		n      int
+		err    error
 		total  int
 		dstLen = len(b)
-		buffer = make([]byte, 0, dstLen)
 	)
 	for total != dstLen {
-		var (
-			tmp    = make([]byte, dstLen-total)
-			n, err = conn.Conn.Read(tmp)
-		)
-		if err != nil {
+		if n, err = conn.Conn.Read(b[total:]); err != nil {
 			conn.logf("[connect] read error: %v", err)
 			return n, driver.ErrBadConn
 		}
-		buffer = append(buffer, tmp[:n]...)
 		total += n
 	}
-	copy(b, buffer)
 	return total, nil
 }
 
