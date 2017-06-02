@@ -212,6 +212,8 @@ func write(buffer *writeBuffer, columnInfo interface{}, v driver.Value) error {
 			binary.LittleEndian.PutUint64(buf, uint64(value))
 		case uint64:
 			binary.LittleEndian.PutUint64(buf, value)
+		case []byte: // high bit uint64 hack
+			copy(buf, value)
 		default:
 			return fmt.Errorf("unexpected type %T", v)
 		}
