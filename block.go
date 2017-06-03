@@ -188,20 +188,25 @@ func (b *block) write(revision uint64, w io.Writer) error {
 	return nil
 }
 
-func (b *block) append(args []driver.Value) error {
-	if len(b.columnNames) != len(args) {
-		return fmt.Errorf("block: expected %d arguments (columns: %s), got %d", len(b.columnNames), strings.Join(b.columnNames, ", "), len(args))
-	}
-	if len(b.buffers) == 0 && len(args) != 0 {
+func (b *block) reserveColumns() {
+	if len(b.buffers) == 0 {
+		columnCount := len(b.columnNames)
 		b.numRows = 0
-		b.offsets = make([][]uint64, len(args))
-		b.buffers = make([]*writeBuffer, len(args))
-		b.offsetBuffers = make([]*writeBuffer, len(args))
-		for i := range args {
+		b.offsets = make([][]uint64, columnCount)
+		b.buffers = make([]*writeBuffer, columnCount)
+		b.offsetBuffers = make([]*writeBuffer, columnCount)
+		for i := 0; i < columnCount; i++ {
 			b.buffers[i] = bufferPool.Get().(*writeBuffer)
 			b.offsetBuffers[i] = bufferPool.Get().(*writeBuffer)
 		}
 	}
+}
+
+func (b *block) append(args []driver.Value) error {
+	if len(b.columnNames) != len(args) {
+		return fmt.Errorf("block: expected %d arguments (columns: %s), got %d", len(b.columnNames), strings.Join(b.columnNames, ", "), len(args))
+	}
+	b.reserveColumns()
 	b.numRows++
 	for columnNum, info := range b.columnInfo {
 		var (
