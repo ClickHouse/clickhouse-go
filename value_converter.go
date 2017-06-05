@@ -50,6 +50,13 @@ func (c converter) ConvertValue(v interface{}) (driver.Value, error) {
 		return float64(value), nil
 	case float64:
 		return value, nil
+	case
+		[]int, []int8, []int16, []int32, []int64,
+		[]uint, []uint8, []uint16, []uint32, []uint64,
+		[]string:
+		return &array{
+			values: v,
+		}, nil
 	}
 
 	if rv := reflect.ValueOf(v); rv.Kind() == reflect.Ptr {

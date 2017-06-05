@@ -159,10 +159,7 @@ func (ch *clickhouse) Rollback() error {
 	}
 	ch.data = nil
 	ch.inTransaction = false
-	if err := writeUvarint(ch.conn, ClientCancelPacket); err != nil {
-		return err
-	}
-	return ch.ping()
+	return ch.cancel()
 }
 
 func (ch *clickhouse) Close() error {
@@ -204,4 +201,12 @@ func (ch *clickhouse) gotPacket(p uint64) error {
 		}
 	}
 	return nil
+}
+
+func (ch *clickhouse) cancel() error {
+	ch.logf("cancel request")
+	if err := writeUvarint(ch.conn, ClientCancelPacket); err != nil {
+		return err
+	}
+	return ch.ping()
 }
