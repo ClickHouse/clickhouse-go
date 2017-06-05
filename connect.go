@@ -55,7 +55,7 @@ func (conn *connect) Read(b []byte) (int, error) {
 		total  int
 		dstLen = len(b)
 	)
-	for total != dstLen {
+	for total < dstLen {
 		if n, err = conn.Conn.Read(b[total:]); err != nil {
 			conn.logf("[connect] read error: %v", err)
 			return n, driver.ErrBadConn

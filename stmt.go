@@ -28,6 +28,9 @@ func (stmt *stmt) Exec(args []driver.Value) (driver.Result, error) {
 }
 
 func (stmt *stmt) execContext(ctx context.Context, args []driver.Value) (driver.Result, error) {
+	if finish := stmt.ch.watchCancel(ctx); finish != nil {
+		defer finish()
+	}
 	if stmt.isInsert {
 		stmt.counter++
 		if err := stmt.ch.data.append(args); err != nil {
@@ -60,6 +63,11 @@ func (stmt *stmt) queryContext(ctx context.Context, args []namedValue) (driver.R
 		reader  = bytes.NewReader([]byte(stmt.query))
 		keyword bool
 	)
+
+	if finish := stmt.ch.watchCancel(ctx); finish != nil {
+		defer finish()
+	}
+
 	for {
 		if char, _, err := reader.ReadRune(); err == nil {
 			switch char {

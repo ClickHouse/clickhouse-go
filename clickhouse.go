@@ -123,6 +123,9 @@ func (ch *clickhouse) beginTx(ctx context.Context, opts txOptions) (driver.Tx, e
 	if ch.inTransaction {
 		return nil, sql.ErrTxDone
 	}
+	if finish := ch.watchCancel(ctx); finish != nil {
+		defer finish()
+	}
 	ch.data = nil
 	ch.inTransaction = true
 	return ch, nil
@@ -159,10 +162,7 @@ func (ch *clickhouse) Rollback() error {
 	}
 	ch.data = nil
 	ch.inTransaction = false
-	if err := writeUvarint(ch.conn, ClientCancelPacket); err != nil {
-		return err
-	}
-	return ch.ping()
+	return ch.cancel()
 }
 
 func (ch *clickhouse) Close() error {
@@ -201,6 +201,37 @@ func (ch *clickhouse) gotPacket(p uint64) error {
 		}
 		if packet, err = readUvarint(ch.conn); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+func (ch *clickhouse) cancel() error {
+	ch.logf("cancel request")
+	if err := writeUvarint(ch.conn, ClientCancelPacket); err != nil {
+		return err
+	}
+	return ch.conn.Close()
+}
+
+func (ch *clickhouse) watchCancel(ctx context.Context) func() {
+	if done := ctx.Done(); done != nil {
+		finished := make(chan struct{})
+		go func() {
+			select {
+			case <-done:
+				_ = ch.cancel()
+				finished <- struct{}{}
+				ch.logf("[ch] watchCancel <- done")
+			case <-finished:
+				ch.logf("[ch] watchCancel <- finished")
+			}
+		}()
+		return func() {
+			select {
+			case <-finished:
+			case finished <- struct{}{}:
+			}
 		}
 	}
 	return nil
