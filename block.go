@@ -5,15 +5,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"sync"
 )
-
-// Recycle column buffers, preallocate column buffers
-var bufferPool = sync.Pool{
-	New: func() interface{} {
-		return wb(256 * 1024)
-	},
-}
 
 // data block
 type block struct {
@@ -196,8 +188,8 @@ func (b *block) reserveColumns() {
 		b.buffers = make([]*writeBuffer, columnCount)
 		b.offsetBuffers = make([]*writeBuffer, columnCount)
 		for i := 0; i < columnCount; i++ {
-			b.buffers[i] = bufferPool.Get().(*writeBuffer)
-			b.offsetBuffers[i] = bufferPool.Get().(*writeBuffer)
+			b.buffers[i] = wb(WriteBufferInitialSize)
+			b.offsetBuffers[i] = wb(WriteBufferInitialSize)
 		}
 	}
 }
@@ -311,7 +303,6 @@ func (b *block) reset() {
 	}
 	for _, b := range b.buffers {
 		b.free()
-		bufferPool.Put(b)
 	}
 	b.buffers = nil
 }

@@ -32,7 +32,7 @@ func Test_WriteBuffer(t *testing.T) {
 				{
 					if assert.Len(t, wb.chunks, 1) {
 						if assert.Equal(t, int(0), wb.len()) {
-							assert.Equal(t, int(10), cap(wb.chunks[0]))
+							assert.Equal(t, int(64), cap(wb.chunks[0]))
 						}
 					}
 				}
@@ -52,7 +52,7 @@ func Test_WriteBuffer(t *testing.T) {
 				{
 					if assert.Len(t, wb.chunks, 1) {
 						if assert.Equal(t, int(0), wb.len()) {
-							assert.Equal(t, int(10), cap(wb.chunks[0]))
+							assert.Equal(t, int(64), cap(wb.chunks[0]))
 						}
 					}
 				}

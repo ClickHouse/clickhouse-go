@@ -1,13 +1,17 @@
 package clickhouse
 
 import "io"
+import "sync"
 
-func wb(cap int) *writeBuffer {
-	return &writeBuffer{
-		chunks: [][]byte{
-			make([]byte, 0, cap),
-		},
-	}
+const WriteBufferInitialSize = 256 * 1024
+
+// Recycle column buffers, preallocate column buffers
+var chunkPool = sync.Pool{}
+
+func wb(initSize int) *writeBuffer {
+	wb := &writeBuffer{}
+	wb.addChunk(0, initSize)
+	return wb
 }
 
 type writeBuffer struct{ chunks [][]byte }
@@ -25,7 +29,7 @@ func (wb *writeBuffer) Write(data []byte) (int, error) {
 		}
 		wb.chunks[chunkIdx] = append(wb.chunks[chunkIdx], data[:freeSize]...)
 		data = data[freeSize:]
-		wb.chunks = append(wb.chunks, make([]byte, 0, wb.calcCap(dataSize)))
+		wb.addChunk(0, wb.calcCap(len(data)))
 		chunkIdx++
 	}
 }
@@ -36,11 +40,21 @@ func (wb *writeBuffer) alloc(size int) []byte {
 		chunkLen = len(wb.chunks[chunkIdx])
 	)
 	if (cap(wb.chunks[chunkIdx]) - chunkLen) < size {
-		wb.chunks = append(wb.chunks, make([]byte, size, wb.calcCap(size)))
+		wb.addChunk(size, wb.calcCap(size))
 		return wb.chunks[chunkIdx+1]
 	}
 	wb.chunks[chunkIdx] = wb.chunks[chunkIdx][:chunkLen+size]
 	return wb.chunks[chunkIdx][chunkLen : chunkLen+size]
+}
+
+func (wb *writeBuffer) addChunk(size, capacity int) {
+	var chunk []byte
+	if c := chunkPool.Get(); c != nil {
+		chunk = c.([]byte)[:size]
+	} else {
+		chunk = make([]byte, size, capacity)
+	}
+	wb.chunks = append(wb.chunks, chunk)
 }
 
 func (wb *writeBuffer) writeTo(w io.Writer) error {
@@ -78,13 +92,27 @@ func (wb *writeBuffer) calcCap(dataSize int) int {
 	if len(wb.chunks) == 0 {
 		return dataSize
 	}
+	// Always double the size of the last chunk
 	return max(dataSize, cap(wb.chunks[len(wb.chunks)-1])*2)
 }
 
 func (wb *writeBuffer) free() {
-	wb.chunks = [][]byte{
-		wb.chunks[0][0:0],
+	if len(wb.chunks) == 0 {
+		return
 	}
+	// Recycle all chunks except the last one
+	chunkSizeThreshold := cap(wb.chunks[0])
+	for _, chunk := range wb.chunks[:len(wb.chunks)-1] {
+		// Drain chunks smaller than the initial size
+		if cap(chunk) >= chunkSizeThreshold {
+			chunkPool.Put(chunk[:0])
+		} else {
+			chunkSizeThreshold = cap(chunk)
+		}
+	}
+	// Keep the largest chunk
+	wb.chunks[0] = wb.chunks[len(wb.chunks)-1][:0]
+	wb.chunks = wb.chunks[:1]
 }
 
 func max(a, b int) int {
