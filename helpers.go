@@ -37,13 +37,20 @@ func (datetime DateTime) Value() (driver.Value, error) {
 
 func numInput(query string) int {
 	var (
-		count   int
-		args    = make(map[string]struct{})
-		reader  = bytes.NewReader([]byte(query))
-		keyword bool
+		count          int
+		args           = make(map[string]struct{})
+		reader         = bytes.NewReader([]byte(query))
+		quote, keyword bool
 	)
 	for {
 		if char, _, err := reader.ReadRune(); err == nil {
+			switch char {
+			case '\'', '`':
+				quote = !quote
+			}
+			if quote {
+				continue
+			}
 			switch {
 			case char == '?' && keyword:
 				count++
@@ -88,6 +95,7 @@ func paramParser(reader *bytes.Reader) string {
 	}
 	return name.String()
 }
+
 func isInsert(query string) bool {
 	if f := strings.Fields(query); len(f) > 2 {
 		return strings.EqualFold("INSERT", f[0]) && strings.EqualFold("INTO", f[1]) && strings.Index(strings.ToUpper(query), " SELECT ") == -1

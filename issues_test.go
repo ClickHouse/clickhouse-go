@@ -82,3 +82,63 @@ func Test_Issue38_uint64_support(t *testing.T) {
 		}
 	}
 }
+
+func Test_Issue42_Plain_SQL_Support(t *testing.T) {
+	const (
+		ddl = `
+			CREATE TABLE dbr_people (
+				id    UInt64,
+				name  String,
+				email String
+			) Engine=Memory
+		`
+		dml   = "INSERT INTO `dbr_people` (`id`,`name`,`email`) VALUES (?, ?, ?)"
+		query = "SELECT `id`,`name`,`email` FROM `dbr_people` WHERE `email` = 'jonathan@uservoice.com'"
+	)
+
+	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) && assert.NoError(t, connect.Ping()) {
+		if _, err := connect.Exec("DROP TABLE IF EXISTS `dbr_people`"); assert.NoError(t, err) {
+			if _, err := connect.Exec(ddl); assert.NoError(t, err) {
+				if tx, err := connect.Begin(); assert.NoError(t, err) {
+
+					if stmt, err := tx.Prepare(dml); assert.NoError(t, err) {
+						_, err = stmt.Exec(
+							258,
+							"jonathan",
+							"jonathan@uservoice.com",
+						)
+						if !assert.NoError(t, err) {
+							return
+						}
+
+					}
+					if assert.NoError(t, tx.Commit()) {
+						var item struct {
+							ID    uint64
+							Name  string
+							Email string
+						}
+						if rows, err := connect.Query(query); assert.NoError(t, err) {
+
+							for rows.Next() {
+								err := rows.Scan(
+									&item.ID,
+									&item.Name,
+									&item.Email,
+								)
+								if !assert.NoError(t, err) {
+									return
+								}
+							}
+							assert.Equal(t, uint64(258), item.ID)
+							assert.Equal(t, "jonathan", item.Name)
+							assert.Equal(t, "jonathan@uservoice.com", item.Email)
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+//INSERT INTO `dbr_people` (`id`,`name`,`email`) VALUES (258,'jonathan','jonathan@uservoice.com')
