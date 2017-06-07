@@ -60,7 +60,6 @@ func (stmt *stmt) queryContext(ctx context.Context, args []namedValue) (driver.R
 	var (
 		buf     bytes.Buffer
 		index   int
-		reader  = bytes.NewReader([]byte(stmt.query))
 		keyword bool
 	)
 
@@ -68,50 +67,59 @@ func (stmt *stmt) queryContext(ctx context.Context, args []namedValue) (driver.R
 		defer finish()
 	}
 
-	for {
-		if char, _, err := reader.ReadRune(); err == nil {
-			switch char {
-			case '@':
-				if param := paramParser(reader); len(param) != 0 {
-					for _, v := range args {
-						if len(v.Name) != 0 && v.Name == param {
-							buf.WriteString(quote(v.Value))
+	switch {
+	case stmt.NumInput() != 0:
+		reader := bytes.NewReader([]byte(stmt.query))
+		for {
+			if char, _, err := reader.ReadRune(); err == nil {
+				switch char {
+				case '@':
+					if param := paramParser(reader); len(param) != 0 {
+						for _, v := range args {
+							if len(v.Name) != 0 && v.Name == param {
+								buf.WriteString(quote(v.Value))
+							}
 						}
 					}
-				}
-			case '?':
-				if keyword && index < len(args) && len(args[index].Name) == 0 {
-					buf.WriteString(quote(args[index].Value))
-					index++
-				} else {
+				case '?':
+					if keyword && index < len(args) && len(args[index].Name) == 0 {
+						buf.WriteString(quote(args[index].Value))
+						index++
+					} else {
+						buf.WriteRune(char)
+					}
+				default:
+					switch {
+					case
+						char == '=',
+						char == '<',
+						char == '>',
+						char == '(',
+						char == ',',
+						char == '%':
+						keyword = true
+					default:
+						keyword = keyword && (char == ' ' || char == '\t' || char == '\n')
+					}
 					buf.WriteRune(char)
 				}
-			default:
-				switch {
-				case
-					char == '=',
-					char == '<',
-					char == '>',
-					char == '(',
-					char == ',',
-					char == '%':
-					keyword = true
-				default:
-					keyword = keyword && (char == ' ' || char == '\t' || char == '\n')
-				}
-				buf.WriteRune(char)
+			} else {
+				break
 			}
-		} else {
-			break
 		}
+	default:
+		buf.WriteString(stmt.query)
 	}
+
 	if err := stmt.ch.sendQuery(buf.String()); err != nil {
 		return nil, err
 	}
+
 	rows, err := stmt.ch.receiveData()
 	if err != nil {
 		return nil, err
 	}
+
 	return rows, nil
 }
 
