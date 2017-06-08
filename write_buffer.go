@@ -49,8 +49,8 @@ func (wb *writeBuffer) alloc(size int) []byte {
 
 func (wb *writeBuffer) addChunk(size, capacity int) {
 	var chunk []byte
-	if c := chunkPool.Get(); c != nil {
-		chunk = c.([]byte)[:size]
+	if c, ok := chunkPool.Get().([]byte); ok && cap(c) >= size {
+		chunk = c[:size]
 	} else {
 		chunk = make([]byte, size, capacity)
 	}
