@@ -9,13 +9,15 @@ import (
 	"reflect"
 )
 
+var _converter = &converter{}
+
 func (stmt *stmt) ColumnConverter(idx int) driver.ValueConverter {
-	return converter{}
+	return _converter
 }
 
 type converter struct{}
 
-func (c converter) ConvertValue(v interface{}) (driver.Value, error) {
+func (c *converter) ConvertValue(v interface{}) (driver.Value, error) {
 	if driver.IsValue(v) {
 		return v, nil
 	}
@@ -54,9 +56,7 @@ func (c converter) ConvertValue(v interface{}) (driver.Value, error) {
 		[]int, []int8, []int16, []int32, []int64,
 		[]uint, []uint8, []uint16, []uint32, []uint64,
 		[]string:
-		return &array{
-			values: v,
-		}, nil
+		return (&array{values: v}).Value()
 	}
 
 	if rv := reflect.ValueOf(v); rv.Kind() == reflect.Ptr {
