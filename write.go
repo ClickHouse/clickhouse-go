@@ -42,14 +42,18 @@ func writeString(w io.Writer, str string) error {
 }
 
 func writeInt32(w io.Writer, v int32) error {
-	if err := binary.Write(w, binary.LittleEndian, v); err != nil {
+	chunk := make([]byte, 4)
+	binary.LittleEndian.PutUint32(chunk, uint32(v))
+	if _, err := w.Write(chunk); err != nil {
 		return err
 	}
 	return nil
 }
 
 func writeUInt64(w io.Writer, v uint64) error {
-	if err := binary.Write(w, binary.LittleEndian, v); err != nil {
+	chunk := make([]byte, 8)
+	binary.LittleEndian.PutUint64(chunk, v)
+	if _, err := w.Write(chunk); err != nil {
 		return err
 	}
 	return nil
