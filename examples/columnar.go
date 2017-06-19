@@ -19,6 +19,8 @@ func main() {
 			CREATE TABLE IF NOT EXISTS example (
 				os_id        UInt8,
 				action_day   Date,
+				tags         Array(String),
+				categories   Array(UInt8)
 			) engine=Memory
 		`)
 
@@ -29,7 +31,7 @@ func main() {
 	}
 	{
 		tx, _ := connect.Begin()
-		stmt, _ := connect.Prepare("INSERT INTO example (os_id, action_day) VALUES (?, ?)")
+		stmt, _ := connect.Prepare("INSERT INTO example (os_id, action_day, tags, categories) VALUES (?, ?, ?, ?)")
 		cstmt, ok := stmt.(clickhouse.ColumnarStatement)
 		if !ok {
 			log.Fatal("Column writer is not supported")
@@ -42,6 +44,14 @@ func main() {
 
 		for i := 0; i < 100; i++ {
 			w.WriteDate(1, time.Now())
+		}
+
+		for i := 0; i < 100; i++ {
+			w.WriteArray(2, clickhouse.Array([]string{"A", "B", "C"}))
+		}
+
+		for i := 0; i < 100; i++ {
+			w.WriteArray(3, clickhouse.Array([]uint8{1, 2, 3, 4, 5}))
 		}
 
 		if err := cstmt.ColumnWriterEnd(100); err != nil {

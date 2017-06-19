@@ -41,6 +41,7 @@ type ColumnWriter interface {
 	WriteFloat32(c int, v float32) error
 	WriteFloat64(c int, v float64) error
 	WriteBytes(c int, v []byte) error
+	WriteArray(c int, v *array) error
 	WriteString(c int, v string) error
 	WriteFixedString(c int, v []byte) error
 }
@@ -87,8 +88,10 @@ func (b *block) WriteFloat64(c int, v float64) error {
 }
 
 func (b *block) WriteBytes(c int, v []byte) error {
-	scratch := make([]byte, binary.MaxVarintLen64)
-	vlen := binary.PutUvarint(scratch, uint64(len(v)))
+	var (
+		scratch = make([]byte, binary.MaxVarintLen64)
+		vlen    = binary.PutUvarint(scratch, uint64(len(v)))
+	)
 	if _, err := b.buffers[c].Write(scratch[:vlen]); err != nil {
 		return err
 	}
@@ -99,8 +102,10 @@ func (b *block) WriteBytes(c int, v []byte) error {
 }
 
 func (b *block) WriteString(c int, v string) error {
-	scratch := make([]byte, binary.MaxVarintLen64)
-	vlen := binary.PutUvarint(scratch, uint64(len(v)))
+	var (
+		scratch = make([]byte, binary.MaxVarintLen64)
+		vlen    = binary.PutUvarint(scratch, uint64(len(v)))
+	)
 	if _, err := b.buffers[c].Write(scratch[:vlen]); err != nil {
 		return err
 	}
@@ -122,6 +127,24 @@ func (b *block) WriteFixedString(c int, v []byte) error {
 		copy(fixedString, v)
 		v = fixedString
 	}
-	_, err := b.buffers[c].Write(v)
-	return err
+	if _, err := b.buffers[c].Write(v); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (b *block) WriteArray(c int, v *array) error {
+	arrayLen, err := v.write(b.columnInfo[c], b.buffers[c])
+	if err != nil {
+		return err
+	}
+	if len(b.offsets[c]) == 0 {
+		b.offsets[c] = []uint64{arrayLen}
+	} else {
+		b.offsets[c][0] = b.offsets[c][0] + arrayLen
+	}
+	if err := writeUInt64(b.offsetBuffers[c], b.offsets[c][0]); err != nil {
+		return err
+	}
+	return nil
 }
