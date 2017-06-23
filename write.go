@@ -143,7 +143,7 @@ func write(buffer *writeBuffer, columnInfo interface{}, v driver.Value) error {
 			return fmt.Errorf("unexpected type %T", v)
 		}
 		if len(str) > strlen {
-			return fmt.Errorf("too large value")
+			return fmt.Errorf("too large value (expected %d, got %d)", strlen, len(str))
 		} else if len(str) == 0 {
 			// When empty, insert default value to avoid allocation
 			str = columnInfo.([]byte)

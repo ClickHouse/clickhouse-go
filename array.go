@@ -14,7 +14,7 @@ func Array(v interface{}) *array {
 	}
 }
 
-func ArrayFixedString(len int, v []string) *array {
+func ArrayFixedString(len int, v interface{}) *array {
 	return &array{
 		values:     v,
 		columnType: fmt.Sprintf("FixedString(%d)", len),
@@ -138,6 +138,18 @@ func (a *array) write(base interface{}, buf *writeBuffer) (uint64, error) {
 				}
 			} else {
 				columnType = string("")
+			}
+			for _, v := range values {
+				elements = append(elements, v)
+			}
+		case [][]byte:
+			if len(a.columnType) != 0 {
+				columnType, err = toColumnType(a.columnType)
+				if err != nil {
+					return 0, err
+				}
+			} else {
+				columnType = []byte{}
 			}
 			for _, v := range values {
 				elements = append(elements, v)
