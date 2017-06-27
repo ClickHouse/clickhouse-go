@@ -138,12 +138,8 @@ func (b *block) WriteArray(c int, v *array) error {
 	if err != nil {
 		return err
 	}
-	if len(b.offsets[c]) == 0 {
-		b.offsets[c] = []uint64{arrayLen}
-	} else {
-		b.offsets[c][0] = b.offsets[c][0] + arrayLen
-	}
-	if err := writeUInt64(b.offsetBuffers[c], b.offsets[c][0]); err != nil {
+	b.offsets[c] += arrayLen
+	if err := writeUInt64(b.offsetBuffers[c], b.offsets[c]); err != nil {
 		return err
 	}
 	return nil
