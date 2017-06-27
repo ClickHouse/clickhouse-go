@@ -17,7 +17,7 @@ type block struct {
 	columnTypes   []string
 	columnInfo    []interface{}
 	columns       [][]interface{}
-	offsets       [][]uint64
+	offsets       []uint64
 	buffers       []*writeBuffer
 	offsetBuffers []*writeBuffer
 }
@@ -162,6 +162,7 @@ func (b *block) write(revision uint64, w io.Writer) error {
 		return err
 	}
 	b.numRows = 0
+	b.offsets = make([]uint64, len(b.columnNames))
 	for i, column := range b.columnNames {
 		columnType := b.columnTypes[i]
 		if err := writeString(w, column); err != nil {
@@ -184,7 +185,7 @@ func (b *block) reserveColumns() {
 	if len(b.buffers) == 0 {
 		columnCount := len(b.columnNames)
 		b.numRows = 0
-		b.offsets = make([][]uint64, columnCount)
+		b.offsets = make([]uint64, columnCount)
 		b.buffers = make([]*writeBuffer, columnCount)
 		b.offsetBuffers = make([]*writeBuffer, columnCount)
 		for i := 0; i < columnCount; i++ {
@@ -214,12 +215,8 @@ func (b *block) append(args []driver.Value) error {
 				if err != nil {
 					return fmt.Errorf("column %s (%s): %s", column, b.columnTypes[columnNum], err.Error())
 				}
-				if len(b.offsets[columnNum]) == 0 {
-					b.offsets[columnNum] = []uint64{arrayLen}
-				} else {
-					b.offsets[columnNum][0] = b.offsets[columnNum][0] + arrayLen
-				}
-				if err := writeUInt64(offset, b.offsets[columnNum][0]); err != nil {
+				b.offsets[columnNum] += arrayLen
+				if err := writeUInt64(offset, b.offsets[columnNum]); err != nil {
 					return err
 				}
 			case []byte:
@@ -227,12 +224,8 @@ func (b *block) append(args []driver.Value) error {
 				if err != nil {
 					return err
 				}
-				if len(b.offsets[columnNum]) == 0 {
-					b.offsets[columnNum] = []uint64{arrayLen}
-				} else {
-					b.offsets[columnNum][0] = b.offsets[columnNum][0] + arrayLen
-				}
-				if err := writeUInt64(offset, b.offsets[columnNum][0]); err != nil {
+				b.offsets[columnNum] += arrayLen
+				if err := writeUInt64(offset, b.offsets[columnNum]); err != nil {
 					return err
 				}
 				switch v := v.baseType.(type) {
@@ -304,5 +297,9 @@ func (b *block) reset() {
 	for _, b := range b.buffers {
 		b.free()
 	}
+	for _, b := range b.offsetBuffers {
+		b.free()
+	}
 	b.buffers = nil
+	b.offsets = nil
 }
