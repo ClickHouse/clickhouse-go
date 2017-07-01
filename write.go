@@ -131,10 +131,15 @@ func write(buffer *writeBuffer, columnInfo interface{}, v driver.Value) error {
 		}
 	case []byte:
 		var (
-			strlen = len(columnInfo.([]byte))
 			str    []byte
+			err    error
+			strlen = len(columnInfo.([]byte))
 		)
 		switch v := v.(type) {
+		case UUID:
+			if str, err = uuid2bytes(string(v)); err != nil {
+				return err
+			}
 		case []byte:
 			str = v
 		case string:

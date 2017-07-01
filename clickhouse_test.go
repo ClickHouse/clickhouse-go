@@ -865,3 +865,40 @@ func Test_Ternary_Operator(t *testing.T) {
 		}
 	}
 }
+
+func Test_UUID(t *testing.T) {
+	const (
+		ddl = `
+			CREATE TABLE clickhouse_test_uuid (
+				UUID FixedString(16)
+			) Engine=Memory;
+		`
+	)
+	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) {
+		if tx, err := connect.Begin(); assert.NoError(t, err) {
+			if _, err := connect.Exec("DROP TABLE IF EXISTS clickhouse_test_uuid"); assert.NoError(t, err) {
+				if _, err := tx.Exec(ddl); assert.NoError(t, err) {
+					if tx, err := connect.Begin(); assert.NoError(t, err) {
+						if stmt, err := tx.Prepare("INSERT INTO clickhouse_test_uuid VALUES(?)"); assert.NoError(t, err) {
+							if _, err := stmt.Exec(clickhouse.UUID("123e4567-e89b-12d3-a456-426655440000")); !assert.NoError(t, err) {
+								t.Fatal(err)
+							}
+						}
+						if err := tx.Commit(); !assert.NoError(t, err) {
+							t.Fatal(err)
+						}
+					}
+
+					if rows, err := connect.Query("SELECT UUIDNumToString(UUID) FROM clickhouse_test_uuid"); assert.NoError(t, err) {
+						if assert.True(t, rows.Next()) {
+							var uuid string
+							if err := rows.Scan(&uuid); assert.NoError(t, err) {
+								assert.Equal(t, "123e4567-e89b-12d3-a456-426655440000", uuid)
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
