@@ -4,6 +4,7 @@ import (
 	"database/sql/driver"
 	"encoding/hex"
 	"errors"
+	"fmt"
 )
 
 var InvalidUUIDFormatError = errors.New("invalid UUID format")
@@ -12,6 +13,35 @@ type UUID string
 
 func (str UUID) Value() (driver.Value, error) {
 	return uuid2bytes(string(str))
+}
+
+func (str *UUID) Scan(v interface{}) error {
+	var src []byte
+	switch v := v.(type) {
+	case string:
+		src = []byte(v)
+	case []byte:
+		src = v
+	}
+
+	if len(src) != 16 {
+		return fmt.Errorf("invalid UUID length: %d", len(src))
+	}
+
+	var uuid [36]byte
+	{
+		hex.Encode(uuid[:], src[:4])
+		uuid[8] = '-'
+		hex.Encode(uuid[9:13], src[4:6])
+		uuid[13] = '-'
+		hex.Encode(uuid[14:18], src[6:8])
+		uuid[18] = '-'
+		hex.Encode(uuid[19:23], src[8:10])
+		uuid[23] = '-'
+		hex.Encode(uuid[24:], src[10:])
+	}
+	*str = UUID(uuid[:])
+	return nil
 }
 
 func uuid2bytes(str string) ([]byte, error) {
@@ -32,20 +62,6 @@ func uuid2bytes(str string) ([]byte, error) {
 		}
 	}
 	return uuid[:], nil
-}
-
-func bytes2uuid(src []byte) string {
-	var uuid [36]byte
-	hex.Encode(uuid[:], src[:4])
-	uuid[8] = '-'
-	hex.Encode(uuid[9:13], src[4:6])
-	uuid[13] = '-'
-	hex.Encode(uuid[14:18], src[6:8])
-	uuid[18] = '-'
-	hex.Encode(uuid[19:23], src[8:10])
-	uuid[23] = '-'
-	hex.Encode(uuid[24:], src[10:])
-	return string(uuid[:])
 }
 
 // xvalues returns the value of a byte as a hexadecimal digit or 255.

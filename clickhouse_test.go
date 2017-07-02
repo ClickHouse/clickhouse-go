@@ -897,6 +897,15 @@ func Test_UUID(t *testing.T) {
 							}
 						}
 					}
+
+					if rows, err := connect.Query("SELECT UUID FROM clickhouse_test_uuid"); assert.NoError(t, err) {
+						if assert.True(t, rows.Next()) {
+							var uuid clickhouse.UUID
+							if err := rows.Scan(&uuid); assert.NoError(t, err) {
+								assert.Equal(t, clickhouse.UUID("123e4567-e89b-12d3-a456-426655440000"), uuid)
+							}
+						}
+					}
 				}
 			}
 		}

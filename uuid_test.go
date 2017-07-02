@@ -2,10 +2,25 @@ package clickhouse
 
 import (
 	"github.com/stretchr/testify/assert"
+
+	"encoding/hex"
 	"testing"
 )
 
-func Test_UUID(t *testing.T) {
+func Test_UUID2Bytes(t *testing.T) {
+	bytes2uuid := func(src []byte) string {
+		var uuid [36]byte
+		hex.Encode(uuid[:], src[:4])
+		uuid[8] = '-'
+		hex.Encode(uuid[9:13], src[4:6])
+		uuid[13] = '-'
+		hex.Encode(uuid[14:18], src[6:8])
+		uuid[18] = '-'
+		hex.Encode(uuid[19:23], src[8:10])
+		uuid[23] = '-'
+		hex.Encode(uuid[24:], src[10:])
+		return string(uuid[:])
+	}
 	origin := "123e4567-e89b-12d3-a456-426655440000"
 	if uuid, err := uuid2bytes(origin); assert.NoError(t, err) {
 		assert.Equal(t, origin, bytes2uuid(uuid))

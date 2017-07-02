@@ -29,7 +29,8 @@ func Test_DirectInsert(t *testing.T) {
 				date    Date,
 				datetime DateTime,
 				enum8    Enum8 ('a' = 1, 'b' = 2),
-				enum16   Enum16('c' = 1, 'd' = 2)
+				enum16   Enum16('c' = 1, 'd' = 2),
+				uuid     FixedString(16)
 			) Engine=Memory
 		`
 		dml = `
@@ -49,10 +50,12 @@ func Test_DirectInsert(t *testing.T) {
 				date,
 				datetime,
 				enum8,
-				enum16
+				enum16,
+				uuid
 			) VALUES (
 				?, 
 				?, 
+				?,
 				?,
 				?,
 				?,
@@ -113,6 +116,8 @@ func Test_DirectInsert(t *testing.T) {
 
 							"a",
 							"d",
+
+							clickhouse.UUID("123e4567-e89b-12d3-a456-426655440000"),
 						})
 						if !assert.NoError(t, err) {
 							return
