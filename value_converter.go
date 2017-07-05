@@ -6,6 +6,7 @@ import (
 	"database/sql/driver"
 	"encoding/binary"
 	"fmt"
+	"net"
 	"reflect"
 )
 
@@ -57,6 +58,8 @@ func (c *converter) ConvertValue(v interface{}) (driver.Value, error) {
 		[]uint, []uint8, []uint16, []uint32, []uint64,
 		[]string:
 		return (&array{values: v}).Value()
+	case net.IP:
+		return IP(value).Value()
 	}
 
 	if rv := reflect.ValueOf(v); rv.Kind() == reflect.Ptr {
