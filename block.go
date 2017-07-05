@@ -171,11 +171,13 @@ func (b *block) write(revision uint64, w io.Writer) error {
 		if err := writeString(w, columnType); err != nil {
 			return err
 		}
-		if err := b.offsetBuffers[i].writeTo(w); err != nil {
-			return err
-		}
-		if err := b.buffers[i].writeTo(w); err != nil {
-			return err
+		if len(b.buffers) != 0 {
+			if err := b.offsetBuffers[i].writeTo(w); err != nil {
+				return err
+			}
+			if err := b.buffers[i].writeTo(w); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
