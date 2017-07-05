@@ -69,10 +69,18 @@ func (conn *connect) Write(b []byte) (int, error) {
 	if conn.writeTimeout != 0 {
 		conn.SetWriteDeadline(time.Now().Add(conn.writeTimeout))
 	}
-	n, err := conn.Conn.Write(b)
-	if err != nil {
-		conn.logf("[connect] write error: %v", err)
-		return n, driver.ErrBadConn
+	var (
+		n      int
+		err    error
+		total  int
+		srcLen = len(b)
+	)
+	for total < srcLen {
+		if n, err = conn.Conn.Write(b[total:]); err != nil {
+			conn.logf("[connect] write error: %v", err)
+			return n, driver.ErrBadConn
+		}
+		total += n
 	}
 	return n, nil
 }
