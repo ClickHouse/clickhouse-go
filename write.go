@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"net"
 	"time"
 )
 
@@ -139,6 +140,22 @@ func write(buffer *writeBuffer, columnInfo interface{}, v driver.Value) error {
 		case UUID:
 			if str, err = uuid2bytes(string(v)); err != nil {
 				return err
+			}
+		case IP, net.IP:
+			var ip IP
+			switch v := v.(type) {
+			case IP:
+				ip = v
+			case net.IP:
+				ip = IP(v)
+			}
+			value, err := ip.Value()
+			if err != nil {
+				return err
+			}
+			var ok bool
+			if str, ok = value.([]byte); !ok {
+				return fmt.Errorf("unexpected type %T for IP", value)
 			}
 		case []byte:
 			str = v

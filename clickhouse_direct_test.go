@@ -8,6 +8,7 @@ import (
 
 	"github.com/kshvakov/clickhouse"
 	"github.com/stretchr/testify/assert"
+	"net"
 )
 
 func Test_DirectInsert(t *testing.T) {
@@ -30,7 +31,8 @@ func Test_DirectInsert(t *testing.T) {
 				datetime DateTime,
 				enum8    Enum8 ('a' = 1, 'b' = 2),
 				enum16   Enum16('c' = 1, 'd' = 2),
-				uuid     FixedString(16)
+				uuid     FixedString(16),
+				ip       FixedString(16)
 			) Engine=Memory
 		`
 		dml = `
@@ -51,10 +53,12 @@ func Test_DirectInsert(t *testing.T) {
 				datetime,
 				enum8,
 				enum16,
-				uuid
+				uuid,
+				ip
 			) VALUES (
 				?, 
 				?, 
+				?,
 				?,
 				?,
 				?,
@@ -118,6 +122,7 @@ func Test_DirectInsert(t *testing.T) {
 							"d",
 
 							clickhouse.UUID("123e4567-e89b-12d3-a456-426655440000"),
+							net.ParseIP("127.0.0.1"),
 						})
 						if !assert.NoError(t, err) {
 							return

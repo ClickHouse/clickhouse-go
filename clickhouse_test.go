@@ -9,6 +9,7 @@ import (
 
 	"github.com/kshvakov/clickhouse"
 	"github.com/stretchr/testify/assert"
+	"net"
 )
 
 func Test_OpenConnectAndPing(t *testing.T) {
@@ -889,20 +890,59 @@ func Test_UUID(t *testing.T) {
 						}
 					}
 
-					if rows, err := connect.Query("SELECT UUIDNumToString(UUID) FROM clickhouse_test_uuid"); assert.NoError(t, err) {
+					if rows, err := connect.Query("SELECT UUID, UUIDNumToString(UUID) FROM clickhouse_test_uuid"); assert.NoError(t, err) {
 						if assert.True(t, rows.Next()) {
-							var uuid string
-							if err := rows.Scan(&uuid); assert.NoError(t, err) {
-								assert.Equal(t, "123e4567-e89b-12d3-a456-426655440000", uuid)
+							var (
+								uuid    clickhouse.UUID
+								uuidStr string
+							)
+							if err := rows.Scan(&uuid, &uuidStr); assert.NoError(t, err) {
+								if assert.Equal(t, "123e4567-e89b-12d3-a456-426655440000", uuidStr) {
+									assert.Equal(t, clickhouse.UUID("123e4567-e89b-12d3-a456-426655440000"), uuid)
+								}
 							}
 						}
 					}
+				}
+			}
+		}
+	}
+}
 
-					if rows, err := connect.Query("SELECT UUID FROM clickhouse_test_uuid"); assert.NoError(t, err) {
+func Test_IP(t *testing.T) {
+	const (
+		ddl = `
+			CREATE TABLE clickhouse_test_ip (
+				IPv4 FixedString(16),
+				IPv6 FixedString(16)
+			) Engine=Memory;
+		`
+	)
+	var (
+		ipv4 = net.ParseIP("127.0.0.1")
+		ipv6 = net.ParseIP("2001:0db8:0000:0000:0000:ff00:0042:8329")
+	)
+	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) {
+		if tx, err := connect.Begin(); assert.NoError(t, err) {
+			if _, err := connect.Exec("DROP TABLE IF EXISTS clickhouse_test_ip"); assert.NoError(t, err) {
+				if _, err := tx.Exec(ddl); assert.NoError(t, err) {
+					if tx, err := connect.Begin(); assert.NoError(t, err) {
+						if stmt, err := tx.Prepare("INSERT INTO clickhouse_test_ip VALUES(?, ?)"); assert.NoError(t, err) {
+							if _, err := stmt.Exec(clickhouse.IP(ipv4), clickhouse.IP(ipv6)); !assert.NoError(t, err) {
+								t.Fatal(err)
+							}
+						}
+						if err := tx.Commit(); !assert.NoError(t, err) {
+							t.Fatal(err)
+						}
+					}
+					if rows, err := connect.Query("SELECT IPv4, IPv6 FROM clickhouse_test_ip"); assert.NoError(t, err) {
 						if assert.True(t, rows.Next()) {
-							var uuid clickhouse.UUID
-							if err := rows.Scan(&uuid); assert.NoError(t, err) {
-								assert.Equal(t, clickhouse.UUID("123e4567-e89b-12d3-a456-426655440000"), uuid)
+							var v4, v6 clickhouse.IP
+							if err := rows.Scan(&v4, &v6); assert.NoError(t, err) {
+								if assert.Equal(t, ipv4, net.IP(v4)) {
+									assert.Equal(t, ipv6, net.IP(v6))
+								}
 							}
 						}
 					}
