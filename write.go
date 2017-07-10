@@ -65,9 +65,11 @@ func write(buffer *writeBuffer, columnInfo interface{}, v driver.Value) error {
 	switch columnInfo.(type) {
 	case Date:
 		var tv time.Time
+		buf := buffer.alloc(2)
 		switch value := v.(type) {
 		case time.Time:
 			tv = value
+			binary.LittleEndian.PutUint16(buf, uint16(tv.Unix()/24/3600))
 		case string:
 			if tv, err = time.Parse("2006-01-02", value); err != nil {
 				return err
@@ -78,15 +80,25 @@ func write(buffer *writeBuffer, columnInfo interface{}, v driver.Value) error {
 				time.Time(tv).Day(),
 				0, 0, 0, 0, time.UTC,
 			)
+			binary.LittleEndian.PutUint16(buf, uint16(tv.Unix()/24/3600))
+		case int32: // Implicit driver.Value coercion
+			binary.LittleEndian.PutUint16(buf, uint16(uint32(value)/24/3600))
+		case uint32: // Implicit driver.Value coercion
+			binary.LittleEndian.PutUint16(buf, uint16(value/24/3600))
+		case int64: // Implicit driver.Value coercion
+			binary.LittleEndian.PutUint16(buf, uint16(value/24/3600))
+		case uint64: // Implicit driver.Value coercion
+			binary.LittleEndian.PutUint16(buf, uint16(value/24/3600))
 		default:
 			return fmt.Errorf("unexpected type %T", v)
 		}
-		binary.LittleEndian.PutUint16(buffer.alloc(2), uint16(tv.Unix()/24/3600))
 	case DateTime:
 		var tv time.Time
+		buf := buffer.alloc(4)
 		switch value := v.(type) {
 		case time.Time:
 			tv = value
+			binary.LittleEndian.PutUint32(buf, uint32(tv.Unix()))
 		case string:
 			if tv, err = time.Parse("2006-01-02 15:04:05", value); err != nil {
 				return err
@@ -101,10 +113,18 @@ func write(buffer *writeBuffer, columnInfo interface{}, v driver.Value) error {
 				0,
 				time.UTC,
 			)
+			binary.LittleEndian.PutUint32(buf, uint32(tv.Unix()))
+		case int32:
+			binary.LittleEndian.PutUint32(buf, uint32(value))
+		case uint32:
+			binary.LittleEndian.PutUint32(buf, value)
+		case int64: // Implicit driver.Value coercion
+			binary.LittleEndian.PutUint32(buf, uint32(value))
+		case uint64: // Implicit driver.Value coercion
+			binary.LittleEndian.PutUint32(buf, uint32(value))
 		default:
 			return fmt.Errorf("unexpected type %T", v)
 		}
-		binary.LittleEndian.PutUint32(buffer.alloc(4), uint32(tv.Unix()))
 	case string:
 		switch v := v.(type) {
 		case []byte:
@@ -204,6 +224,8 @@ func write(buffer *writeBuffer, columnInfo interface{}, v driver.Value) error {
 			buf[0] = value
 		case int64: // Implicit driver.Value coercion
 			buf[0] = uint8(value)
+		case uint64: // Implicit driver.Value coercion
+			buf[0] = uint8(value)
 		default:
 			return fmt.Errorf("unexpected type %T", v)
 		}
@@ -216,6 +238,9 @@ func write(buffer *writeBuffer, columnInfo interface{}, v driver.Value) error {
 			binary.LittleEndian.PutUint16(buf, value)
 		case int64: // Implicit driver.Value coercion
 			binary.LittleEndian.PutUint16(buf, uint16(value))
+		case uint64: // Implicit driver.Value coercion
+			binary.LittleEndian.PutUint16(buf, uint16(value))
+
 		default:
 			return fmt.Errorf("unexpected type %T", v)
 		}
@@ -227,6 +252,8 @@ func write(buffer *writeBuffer, columnInfo interface{}, v driver.Value) error {
 		case uint32:
 			binary.LittleEndian.PutUint32(buf, value)
 		case int64: // Implicit driver.Value coercion
+			binary.LittleEndian.PutUint32(buf, uint32(value))
+		case uint64: // Implicit driver.Value coercion
 			binary.LittleEndian.PutUint32(buf, uint32(value))
 		default:
 			return fmt.Errorf("unexpected type %T", v)
