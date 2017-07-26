@@ -217,7 +217,7 @@ func (ch *clickhouse) cancel() error {
 	if err := writeUvarint(ch.conn, ClientCancelPacket); err != nil {
 		return err
 	}
-	return ch.conn.Close()
+	return nil
 }
 
 func (ch *clickhouse) watchCancel(ctx context.Context) func() {
@@ -226,7 +226,10 @@ func (ch *clickhouse) watchCancel(ctx context.Context) func() {
 		go func() {
 			select {
 			case <-done:
-				_ = ch.cancel()
+				{
+					ch.cancel()
+					ch.conn.Close()
+				}
 				finished <- struct{}{}
 				ch.logf("[ch] watchCancel <- done")
 			case <-finished:
