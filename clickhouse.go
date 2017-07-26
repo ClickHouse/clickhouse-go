@@ -63,6 +63,9 @@ func (ch *clickhouse) Prepare(query string) (driver.Stmt, error) {
 }
 
 func (ch *clickhouse) prepareContext(ctx context.Context, query string) (driver.Stmt, error) {
+	if ch.conn.isBad {
+		return nil, driver.ErrBadConn
+	}
 	ch.logf("[prepare] %s", query)
 	if ch.data != nil {
 		return nil, ErrLimitDataRequestInTx
@@ -119,6 +122,9 @@ type txOptions struct {
 }
 
 func (ch *clickhouse) beginTx(ctx context.Context, opts txOptions) (driver.Tx, error) {
+	if ch.conn.isBad {
+		return nil, driver.ErrBadConn
+	}
 	ch.logf("[begin] tx=%t, data=%t", ch.inTransaction, ch.data != nil)
 	if ch.inTransaction {
 		return nil, sql.ErrTxDone
