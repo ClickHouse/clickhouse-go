@@ -7,9 +7,10 @@ import (
 	"testing"
 	"time"
 
+	"net"
+
 	"github.com/kshvakov/clickhouse"
 	"github.com/stretchr/testify/assert"
-	"net"
 )
 
 func Test_OpenConnectAndPing(t *testing.T) {
@@ -697,7 +698,7 @@ func Test_With_Totals(t *testing.T) {
 	}
 }
 
-func Test_Tx(t *testing.T) {
+func __Test_Tx(t *testing.T) {
 	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) {
 		if tx, err := connect.Begin(); assert.NoError(t, err) {
 			_, err = tx.Query("SELECT 1")
