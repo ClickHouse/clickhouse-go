@@ -168,7 +168,10 @@ func (ch *clickhouse) Rollback() error {
 	}
 	ch.data = nil
 	ch.inTransaction = false
-	return ch.cancel()
+	if err := ch.cancel(); err != nil {
+		return err
+	}
+	return driver.ErrBadConn
 }
 
 func (ch *clickhouse) Close() error {
@@ -217,7 +220,7 @@ func (ch *clickhouse) cancel() error {
 	if err := writeUvarint(ch.conn, ClientCancelPacket); err != nil {
 		return err
 	}
-	return nil
+	return ch.conn.Close()
 }
 
 func (ch *clickhouse) watchCancel(ctx context.Context) func() {
@@ -226,10 +229,7 @@ func (ch *clickhouse) watchCancel(ctx context.Context) func() {
 		go func() {
 			select {
 			case <-done:
-				{
-					ch.cancel()
-					ch.conn.Close()
-				}
+				ch.cancel()
 				finished <- struct{}{}
 				ch.logf("[ch] watchCancel <- done")
 			case <-finished:
