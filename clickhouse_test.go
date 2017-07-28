@@ -2,6 +2,7 @@ package clickhouse_test
 
 import (
 	"database/sql"
+	"database/sql/driver"
 	"fmt"
 	"strings"
 	"testing"
@@ -698,17 +699,18 @@ func Test_With_Totals(t *testing.T) {
 	}
 }
 
-func __Test_Tx(t *testing.T) {
+func Test_Tx(t *testing.T) {
 	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) {
 		if tx, err := connect.Begin(); assert.NoError(t, err) {
 			_, err = tx.Query("SELECT 1")
 			if assert.NoError(t, err) {
-				if !assert.NoError(t, tx.Rollback()) {
+				if !assert.Equal(t, driver.ErrBadConn, tx.Rollback()) {
 					return
 				}
 			}
-			_, err = tx.Query("SELECT 1")
-			assert.Error(t, err)
+			if _, err := tx.Query("SELECT 2"); assert.Error(t, err) {
+				assert.Equal(t, sql.ErrTxDone, err)
+			}
 		}
 	}
 }
