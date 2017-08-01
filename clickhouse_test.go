@@ -2,7 +2,6 @@ package clickhouse_test
 
 import (
 	"database/sql"
-	"database/sql/driver"
 	"fmt"
 	"strings"
 	"testing"
@@ -704,7 +703,7 @@ func Test_Tx(t *testing.T) {
 		if tx, err := connect.Begin(); assert.NoError(t, err) {
 			_, err = tx.Query("SELECT 1")
 			if assert.NoError(t, err) {
-				if !assert.Equal(t, driver.ErrBadConn, tx.Rollback()) {
+				if !assert.NoError(t, tx.Rollback()) {
 					return
 				}
 			}

@@ -168,10 +168,7 @@ func (ch *clickhouse) Rollback() error {
 	}
 	ch.data = nil
 	ch.inTransaction = false
-	if err := ch.cancel(); err != nil {
-		return err
-	}
-	return driver.ErrBadConn
+	return nil
 }
 
 func (ch *clickhouse) Close() error {

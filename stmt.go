@@ -43,7 +43,8 @@ func (stmt *stmt) execContext(ctx context.Context, args []driver.Value) (driver.
 		}
 		return emptyResult, nil
 	}
-	if err := stmt.ch.sendQuery(stmt.query); err != nil {
+
+	if err := stmt.ch.sendQuery(stmt.bind(convertOldArgs(args))); err != nil {
 		return nil, err
 	}
 	if _, err := stmt.ch.receiveData(); err != nil {
@@ -57,16 +58,33 @@ func (stmt *stmt) Query(args []driver.Value) (driver.Rows, error) {
 }
 
 func (stmt *stmt) queryContext(ctx context.Context, args []namedValue) (driver.Rows, error) {
+	if finish := stmt.ch.watchCancel(ctx); finish != nil {
+		defer finish()
+	}
+
+	if err := stmt.ch.sendQuery(stmt.bind(args)); err != nil {
+		return nil, err
+	}
+
+	rows, err := stmt.ch.receiveData()
+	if err != nil {
+		return nil, err
+	}
+
+	return rows, nil
+}
+
+func (stmt *stmt) Close() error {
+	stmt.ch.logf("[stmt] close")
+	return nil
+}
+
+func (stmt *stmt) bind(args []namedValue) string {
 	var (
 		buf     bytes.Buffer
 		index   int
 		keyword bool
 	)
-
-	if finish := stmt.ch.watchCancel(ctx); finish != nil {
-		defer finish()
-	}
-
 	switch {
 	case stmt.NumInput() != 0:
 		reader := bytes.NewReader([]byte(stmt.query))
@@ -110,22 +128,7 @@ func (stmt *stmt) queryContext(ctx context.Context, args []namedValue) (driver.R
 	default:
 		buf.WriteString(stmt.query)
 	}
-
-	if err := stmt.ch.sendQuery(buf.String()); err != nil {
-		return nil, err
-	}
-
-	rows, err := stmt.ch.receiveData()
-	if err != nil {
-		return nil, err
-	}
-
-	return rows, nil
-}
-
-func (stmt *stmt) Close() error {
-	stmt.ch.logf("[stmt] close")
-	return nil
+	return buf.String()
 }
 
 type namedValue struct {
