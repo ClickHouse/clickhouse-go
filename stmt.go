@@ -17,7 +17,10 @@ type stmt struct {
 var emptyResult = &result{}
 
 func (stmt *stmt) NumInput() int {
-	if stmt.numInput < 0 {
+	switch {
+	case stmt.ch.data != nil:
+		return len(stmt.ch.data.columnNames)
+	case stmt.numInput < 0:
 		return 0
 	}
 	return stmt.numInput
