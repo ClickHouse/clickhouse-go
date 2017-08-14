@@ -2,6 +2,7 @@ package clickhouse
 
 import (
 	"database/sql/driver"
+	//"fmt"
 	"net"
 	"sync/atomic"
 	"time"
@@ -83,6 +84,7 @@ func (conn *connect) Write(b []byte) (int, error) {
 		total  int
 		srcLen = len(b)
 	)
+	//	fmt.Printf("%v (%s)", b, b)
 	for total < srcLen {
 		if n, err = conn.Conn.Write(b[total:]); err != nil {
 			conn.logf("[connect] write error: %v", err)
@@ -92,4 +94,9 @@ func (conn *connect) Write(b []byte) (int, error) {
 		total += n
 	}
 	return n, nil
+}
+
+func (conn *connect) Close() error {
+	conn.isBad = true
+	return conn.Conn.Close()
 }

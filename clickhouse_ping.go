@@ -1,13 +1,33 @@
 package clickhouse
 
+import (
+	"fmt"
+
+	"github.com/kshvakov/clickhouse/internal/protocol"
+)
+
 func (ch *clickhouse) ping() error {
 	ch.logf("-> ping")
-	if err := writeUvarint(ch.conn, ClientPingPacket); err != nil {
+	if err := ch.encoder.Uvarint(protocol.ClientPing); err != nil {
 		return err
 	}
-	if err := ch.gotPacket(ServerPongPacket); err != nil {
+	if err := ch.buffer.Flush(); err != nil {
 		return err
 	}
-	ch.logf("<- pong")
-	return nil
+	packet, err := ch.decoder.Uvarint()
+	if err != nil {
+		return err
+	}
+	for {
+		switch packet {
+		case protocol.ServerException:
+			ch.logf("[ping] <- exception")
+			return ch.exception()
+		case protocol.ServerPong:
+			ch.logf("<- pong")
+			return nil
+		default:
+			return fmt.Errorf("unexpected packet [%d] from server", packet)
+		}
+	}
 }

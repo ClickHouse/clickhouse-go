@@ -1,7 +1,7 @@
 package clickhouse
 
 import (
-	"bytes"
+	//"bytes"
 	"fmt"
 	"strconv"
 	"strings"
@@ -82,10 +82,10 @@ func parseEnum(str string) (enum, error) {
 
 func arrayStringToArrayEnum(arrLen uint64, data []byte, enum enum) ([]byte, error) {
 	var (
-		enumByffer  = wb(int(arrLen * 2))
-		arrayBuffer = bytes.NewBuffer(data)
+		enumByffer = wb(int(arrLen * 2))
+	//	arrayBuffer = bytes.NewBuffer(data)
 	)
-	for i := 0; i < int(arrLen); i++ {
+	/*	for i := 0; i < int(arrLen); i++ {
 		ident, err := readString(arrayBuffer)
 		if err != nil {
 			return nil, err
@@ -94,9 +94,10 @@ func arrayStringToArrayEnum(arrLen uint64, data []byte, enum enum) ([]byte, erro
 		if err != nil {
 			return nil, err
 		}
-		if err := write(enumByffer, enum.baseType, value); err != nil {
-			return nil, err
-		}
-	}
+		/*	if err := write(enumByffer, enum.baseType, value); err != nil {
+				return nil, err
+			}
+
+	}*/
 	return enumByffer.bytes(), nil
 }

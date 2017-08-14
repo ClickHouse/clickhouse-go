@@ -1,5 +1,6 @@
 package clickhouse
 
+/*
 import (
 	"database/sql/driver"
 	"encoding/binary"
@@ -275,3 +276,4 @@ func write(buffer *writeBuffer, columnInfo interface{}, v driver.Value) error {
 	}
 	return nil
 }
+*/

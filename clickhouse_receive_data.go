@@ -1,65 +1,58 @@
 package clickhouse
 
-import "fmt"
+import (
+	"fmt"
 
-func (ch *clickhouse) receiveData() (*rows, error) {
-	var rows rows
+	"github.com/kshvakov/clickhouse/internal/data"
+	"github.com/kshvakov/clickhouse/internal/protocol"
+)
+
+func (ch *clickhouse) receiveData(block *data.Block) error {
 	for {
-		packet, err := readUvarint(ch.conn)
+		packet, err := ch.decoder.Uvarint()
 		if err != nil {
-			return nil, err
+			return err
 		}
 		switch packet {
-		case ServerExceptionPacket:
+		case protocol.ServerException:
 			ch.logf("[receive packet] <- exception")
-			return nil, ch.exception()
-		case ServerProgressPacket:
+			return ch.exception()
+		case protocol.ServerProgress:
 			progress, err := ch.progress()
 			if err != nil {
-				return nil, err
+				return err
 			}
 			ch.logf("[receive packet] <- progress: rows=%d, bytes=%d, total rows=%d",
 				progress.bytes,
 				progress.rows,
 				progress.totalRows,
 			)
-		case ServerDataPacket:
-			var block block
-			if err := block.read(ch.serverRevision, ch.conn); err != nil {
+		case
+			protocol.ServerData,
+			protocol.ServerTotals,
+			protocol.ServerExtremes:
+			if ch.ServerInfo.Revision >= protocol.DBMS_MIN_REVISION_WITH_TEMPORARY_TABLES {
+				if _, err := ch.decoder.String(); err != nil {
+					return err
+				}
+			}
+			if err := block.Read(&ch.ServerInfo, ch.decoder); err != nil {
 				ch.logf("[receive packet] err: %v", err)
-				return nil, err
+				return err
 			}
-			if block.numRows > 0 {
-				rows.append(&block)
-			}
-			ch.logf("[receive packet] <- data: columns=%d, rows=%d", block.numColumns, block.numRows)
-		case ServerExtremesPacket:
-			var block block
-			if err := block.read(ch.serverRevision, ch.conn); err != nil {
-				return nil, err
-			}
-			ch.logf("[receive packet] <- extremes: columns=%d, rows=%d", block.numColumns, block.numRows)
-		case ServerTotalsPacket:
-			var block block
-			if err := block.read(ch.serverRevision, ch.conn); err != nil {
-				return nil, err
-			}
-			if block.numRows > 0 {
-				rows.append(&block)
-			}
-			ch.logf("[receive packet] <- totals: columns=%d, rows=%d", block.numColumns, block.numRows)
-		case ServerProfileInfoPacket:
+			ch.logf("[receive packet] <- data: packet=%d, columns=%d, rows=%d", packet, block.NumColumns, block.NumRows)
+		case protocol.ServerProfileInfo:
 			profileInfo, err := ch.profileInfo()
 			if err != nil {
-				return nil, err
+				return err
 			}
 			ch.logf("[receive packet] <- profiling: rows=%d, bytes=%d, blocks=%d", profileInfo.rows, profileInfo.bytes, profileInfo.blocks)
-		case ServerEndOfStreamPacket:
+		case protocol.ServerEndOfStream:
 			ch.logf("[receive packet] <- end of stream")
-			return &rows, nil
+			return nil
 		default:
 			ch.logf("[receive packet] unexpected packet [%d]", packet)
-			return nil, fmt.Errorf("unexpected packet [%d] from server", packet)
+			return fmt.Errorf("unexpected packet [%d] from server", packet)
 		}
 	}
 }

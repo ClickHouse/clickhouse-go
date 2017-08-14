@@ -39,6 +39,95 @@ func Test_CreateTable(t *testing.T) {
 	}
 }
 
+func Test_Insert2(t *testing.T) {
+	const (
+		ddl = `
+			CREATE TABLE clickhouse_test_insert (
+				int8  Int8,
+				int16 Int16,
+				int32 Int32,
+				int64 Int64,
+				uint8  UInt8,
+				uint16 UInt16,
+				uint32 UInt32,
+				uint64 UInt64,
+				float32 Float32,
+				float64 Float64,
+				string  String,
+				fString FixedString(2),
+				date    Date,
+				datetime DateTime
+			) Engine=Memory
+		`
+		dml = `
+			INSERT INTO clickhouse_test_insert (
+				int8, 
+				string
+			) VALUES (
+				?, 
+				?
+			)
+		`
+		query = `
+			SELECT 
+				int8, 
+				string
+			FROM clickhouse_test_insert
+		`
+	)
+	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) && assert.NoError(t, connect.Ping()) {
+		if _, err := connect.Exec("DROP TABLE IF EXISTS clickhouse_test_insert"); assert.NoError(t, err) {
+			if _, err := connect.Exec(ddl); assert.NoError(t, err) {
+				if tx, err := connect.Begin(); assert.NoError(t, err) {
+					if stmt, err := tx.Prepare(dml); assert.NoError(t, err) {
+						for i := 1; i <= 10; i++ {
+							_, err = stmt.Exec(
+								i, "RU",
+							)
+							if !assert.NoError(t, err) {
+								return
+							}
+						}
+					}
+					if assert.NoError(t, tx.Commit()) {
+						var item struct {
+							Int8        int8
+							Int16       int16
+							Int32       int32
+							Int64       int64
+							UInt8       uint8
+							UInt16      uint16
+							UInt32      uint32
+							UInt64      uint64
+							Float32     float32
+							Float64     float64
+							String      string
+							FixedString string
+							Date        time.Time
+							DateTime    time.Time
+						}
+						if rows, err := connect.Query(query); assert.NoError(t, err) {
+							var count int
+							for rows.Next() {
+								count++
+								err := rows.Scan(
+									&item.Int8,
+									&item.String,
+								)
+								if !assert.NoError(t, err) {
+									return
+								}
+								t.Log(item.Int8, item.String)
+							}
+							assert.Equal(t, int(10), count)
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 func Test_Insert(t *testing.T) {
 	const (
 		ddl = `

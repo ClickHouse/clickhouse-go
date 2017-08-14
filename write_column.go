@@ -1,5 +1,6 @@
 package clickhouse
 
+/*
 import (
 	"encoding/binary"
 	"fmt"
@@ -13,19 +14,20 @@ type ColumnarStatement interface {
 	ColumnWriterEnd(rows uint64) error
 }
 
+
 func (stmt *stmt) ColumnWriter() ColumnWriter {
-	stmt.ch.data.reserveColumns()
+	stmt.ch.data.Reserve()
 	return stmt.ch.data
 }
 
 func (stmt *stmt) ColumnWriterEnd(rows uint64) error {
 	writtenBlocks := stmt.counter / stmt.ch.blockSize
 	stmt.counter += int(rows)
-	stmt.ch.data.numRows += rows
+	stmt.ch.block.NumRows += rows
 
 	var err error
 	if stmt.counter/stmt.ch.blockSize > writtenBlocks {
-		err = stmt.ch.data.write(stmt.ch.serverRevision, stmt.ch.conn)
+		err = stmt.ch.sendData()
 	}
 	return err
 }
@@ -144,3 +146,4 @@ func (b *block) WriteArray(c int, v *array) error {
 	}
 	return nil
 }
+*/

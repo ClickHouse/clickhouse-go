@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"context"
 	"database/sql/driver"
+	"fmt"
+
+	"github.com/kshvakov/clickhouse/internal/protocol"
 )
 
 type stmt struct {
@@ -17,7 +20,10 @@ type stmt struct {
 var emptyResult = &result{}
 
 func (stmt *stmt) NumInput() int {
-	if stmt.numInput < 0 {
+	switch {
+	case stmt.ch.block != nil:
+		return len(stmt.ch.block.Columns)
+	case stmt.numInput < 0:
 		return 0
 	}
 	return stmt.numInput
@@ -33,21 +39,20 @@ func (stmt *stmt) execContext(ctx context.Context, args []driver.Value) (driver.
 	}
 	if stmt.isInsert {
 		stmt.counter++
-		if err := stmt.ch.data.append(args); err != nil {
+		if err := stmt.ch.block.AppendRow(args); err != nil {
 			return nil, err
 		}
 		if (stmt.counter % stmt.ch.blockSize) == 0 {
-			if err := stmt.ch.data.write(stmt.ch.serverRevision, stmt.ch.conn); err != nil {
+			if err := stmt.ch.writeBlock(stmt.ch.block); err != nil {
 				return nil, err
 			}
 		}
 		return emptyResult, nil
 	}
-
 	if err := stmt.ch.sendQuery(stmt.bind(convertOldArgs(args))); err != nil {
 		return nil, err
 	}
-	if _, err := stmt.ch.receiveData(); err != nil {
+	if err := stmt.ch.wait(); err != nil {
 		return nil, err
 	}
 	return emptyResult, nil
@@ -66,12 +71,30 @@ func (stmt *stmt) queryContext(ctx context.Context, args []namedValue) (driver.R
 		return nil, err
 	}
 
-	rows, err := stmt.ch.receiveData()
-	if err != nil {
-		return nil, err
+	for {
+		packet, err := stmt.ch.decoder.Uvarint()
+		if err != nil {
+			return nil, err
+		}
+		switch packet {
+		case protocol.ServerData:
+			block, err := stmt.ch.readBlock()
+			if err != nil {
+				return nil, err
+			}
+			rows := &rows{
+				ch:      stmt.ch,
+				columns: block.ColumnNames(),
+				stream:  make(chan []driver.Value, 1000),
+			}
+			go rows.receiveData()
+			return rows, nil
+		case protocol.ServerException:
+			return nil, stmt.ch.exception()
+		default:
+			return nil, fmt.Errorf("unexpected packet [%d] from server", packet)
+		}
 	}
-
-	return rows, nil
 }
 
 func (stmt *stmt) Close() error {

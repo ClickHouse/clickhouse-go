@@ -3,12 +3,12 @@ package clickhouse_test
 import (
 	"database/sql/driver"
 	"fmt"
+	"net"
 	"testing"
 	"time"
 
 	"github.com/kshvakov/clickhouse"
 	"github.com/stretchr/testify/assert"
-	"net"
 )
 
 func Test_DirectInsert(t *testing.T) {

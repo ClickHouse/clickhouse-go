@@ -1,10 +1,12 @@
 package clickhouse
 
+/*
 import (
 	"database/sql/driver"
 	"fmt"
 	"io"
 	"strings"
+	//	"github.com/kshvakov/clickhouse/internal/protocol"
 )
 
 // data block
@@ -30,26 +32,6 @@ type blockInfo struct {
 	num3        uint64
 }
 
-func (info *blockInfo) read(r io.Reader) error {
-	var err error
-	if info.num1, err = readUvarint(r); err != nil {
-		return err
-	}
-	if info.isOverflows, err = readBool(r); err != nil {
-		return err
-	}
-	if info.num2, err = readUvarint(r); err != nil {
-		return err
-	}
-	if info.bucketNum, err = readInt32(r); err != nil {
-		return err
-	}
-	if info.num3, err = readUvarint(r); err != nil {
-		return err
-	}
-	return nil
-}
-
 func (info *blockInfo) write(w io.Writer) error {
 	if err := writeUvarint(w, info.num1); err != nil {
 		return err
@@ -71,75 +53,6 @@ func (info *blockInfo) write(w io.Writer) error {
 	return nil
 }
 
-func (b *block) read(revision uint64, r io.Reader) error {
-	var err error
-	if revision >= DBMS_MIN_REVISION_WITH_TEMPORARY_TABLES {
-		if b.table, err = readString(r); err != nil {
-			return err
-		}
-	}
-	if revision >= DBMS_MIN_REVISION_WITH_BLOCK_INFO {
-		if err := b.info.read(r); err != nil {
-			return err
-		}
-	}
-	if b.numColumns, err = readUvarint(r); err != nil {
-		return err
-	}
-	if b.numRows, err = readUvarint(r); err != nil {
-		return err
-	}
-	b.columns = make([][]interface{}, b.numColumns)
-	for i := 0; i < int(b.numColumns); i++ {
-		var columnName, columnType string
-
-		if columnName, err = readString(r); err != nil {
-			return err
-		}
-		if columnType, err = readString(r); err != nil {
-			return err
-		}
-		// Coerce column type to Go type
-		columnInfo, err := toColumnType(columnType)
-		if err != nil {
-			return err
-		}
-		b.columnInfo = append(b.columnInfo, columnInfo)
-		b.columnNames = append(b.columnNames, columnName)
-		b.columnTypes = append(b.columnTypes, columnType)
-		switch info := columnInfo.(type) {
-		case array:
-			offsets := make([]uint64, 0, b.numRows)
-			for row := 0; row < int(b.numRows); row++ {
-				offset, err := readUInt64(r)
-				if err != nil {
-					return err
-				}
-				offsets = append(offsets, offset)
-			}
-			for n, offset := range offsets {
-				len := offset
-				if n != 0 {
-					len = len - offsets[n-1]
-				}
-				value, err := readArray(r, info.baseType, len)
-				if err != nil {
-					return err
-				}
-				b.columns[i] = append(b.columns[i], value)
-			}
-		default:
-			for row := 0; row < int(b.numRows); row++ {
-				value, err := read(r, columnInfo)
-				if err != nil {
-					return err
-				}
-				b.columns[i] = append(b.columns[i], value)
-			}
-		}
-	}
-	return nil
-}
 
 func (b *block) write(revision uint64, w io.Writer) error {
 	if err := writeUvarint(w, ClientDataPacket); err != nil {
@@ -305,3 +218,4 @@ func (b *block) reset() {
 	b.buffers = nil
 	b.offsets = nil
 }
+*/
