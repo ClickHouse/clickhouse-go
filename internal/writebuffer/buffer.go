@@ -1,22 +1,26 @@
-package clickhouse
+package writebuffer
 
-import "io"
-import "sync"
+import (
+	"io"
+	"sync"
+)
 
-const WriteBufferInitialSize = 256 * 1024
+const InitialSize = 256 * 1024
 
 // Recycle column buffers, preallocate column buffers
 var chunkPool = sync.Pool{}
 
-func wb(initSize int) *writeBuffer {
-	wb := &writeBuffer{}
+func New(initSize int) *WriteBuffer {
+	wb := &WriteBuffer{}
 	wb.addChunk(0, initSize)
 	return wb
 }
 
-type writeBuffer struct{ chunks [][]byte }
+type WriteBuffer struct {
+	chunks [][]byte
+}
 
-func (wb *writeBuffer) Write(data []byte) (int, error) {
+func (wb *WriteBuffer) Write(data []byte) (int, error) {
 	var (
 		chunkIdx = len(wb.chunks) - 1
 		dataSize = len(data)
@@ -34,20 +38,21 @@ func (wb *writeBuffer) Write(data []byte) (int, error) {
 	}
 }
 
-func (wb *writeBuffer) alloc(size int) []byte {
-	var (
-		chunkIdx = len(wb.chunks) - 1
-		chunkLen = len(wb.chunks[chunkIdx])
-	)
-	if (cap(wb.chunks[chunkIdx]) - chunkLen) < size {
-		wb.addChunk(size, wb.calcCap(size))
-		return wb.chunks[chunkIdx+1]
+func (wb *WriteBuffer) WriteTo(w io.Writer) (int64, error) {
+	var size int64
+	for _, chunk := range wb.chunks {
+		ln, err := w.Write(chunk)
+		if err != nil {
+			wb.Free()
+			return 0, err
+		}
+		size += int64(ln)
 	}
-	wb.chunks[chunkIdx] = wb.chunks[chunkIdx][:chunkLen+size]
-	return wb.chunks[chunkIdx][chunkLen : chunkLen+size]
+	wb.Free()
+	return size, nil
 }
 
-func (wb *writeBuffer) addChunk(size, capacity int) {
+func (wb *WriteBuffer) addChunk(size, capacity int) {
 	var chunk []byte
 	if c, ok := chunkPool.Get().([]byte); ok && cap(c) >= size {
 		chunk = c[:size]
@@ -57,29 +62,7 @@ func (wb *writeBuffer) addChunk(size, capacity int) {
 	wb.chunks = append(wb.chunks, chunk)
 }
 
-func (wb *writeBuffer) writeTo(w io.Writer) error {
-	for _, chunk := range wb.chunks {
-		if _, err := w.Write(chunk); err != nil {
-			wb.free()
-			return err
-		}
-	}
-	wb.free()
-	return nil
-}
-
-func (wb *writeBuffer) bytes() []byte {
-	if len(wb.chunks) == 1 {
-		return wb.chunks[0]
-	}
-	bytes := make([]byte, 0, wb.len())
-	for _, chunk := range wb.chunks {
-		bytes = append(bytes, chunk...)
-	}
-	return bytes
-}
-
-func (wb *writeBuffer) len() int {
+func (wb *WriteBuffer) len() int {
 	var v int
 	for _, chunk := range wb.chunks {
 		v += len(chunk)
@@ -87,7 +70,7 @@ func (wb *writeBuffer) len() int {
 	return v
 }
 
-func (wb *writeBuffer) calcCap(dataSize int) int {
+func (wb *WriteBuffer) calcCap(dataSize int) int {
 	dataSize = max(dataSize, 64)
 	if len(wb.chunks) == 0 {
 		return dataSize
@@ -96,7 +79,7 @@ func (wb *writeBuffer) calcCap(dataSize int) int {
 	return max(dataSize, cap(wb.chunks[len(wb.chunks)-1])*2)
 }
 
-func (wb *writeBuffer) free() {
+func (wb *WriteBuffer) Free() {
 	if len(wb.chunks) == 0 {
 		return
 	}

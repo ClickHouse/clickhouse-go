@@ -4,9 +4,6 @@ import (
 	"bytes"
 	"context"
 	"database/sql/driver"
-	"fmt"
-
-	"github.com/kshvakov/clickhouse/internal/protocol"
 )
 
 type stmt struct {
@@ -30,10 +27,18 @@ func (stmt *stmt) NumInput() int {
 }
 
 func (stmt *stmt) Exec(args []driver.Value) (driver.Result, error) {
-	return stmt.execContext(context.Background(), args)
+	return stmt.execContext(context.Background(), convertOldArgs(args))
 }
 
-func (stmt *stmt) execContext(ctx context.Context, args []driver.Value) (driver.Result, error) {
+func (stmt *stmt) ExecContext(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
+	dargs := make([]driver.Value, len(args))
+	for i, nv := range args {
+		dargs[i] = nv.Value
+	}
+	return stmt.execContext(ctx, args)
+}
+
+func (stmt *stmt) execContext(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
 	if finish := stmt.ch.watchCancel(ctx); finish != nil {
 		defer finish()
 	}
@@ -49,10 +54,10 @@ func (stmt *stmt) execContext(ctx context.Context, args []driver.Value) (driver.
 		}
 		return emptyResult, nil
 	}
-	if err := stmt.ch.sendQuery(stmt.bind(convertOldArgs(args))); err != nil {
+	if err := stmt.ch.sendQuery(stmt.bind(args)); err != nil {
 		return nil, err
 	}
-	if err := stmt.ch.wait(); err != nil {
+	if err := stmt.ch.process(); err != nil {
 		return nil, err
 	}
 	return emptyResult, nil
@@ -62,39 +67,32 @@ func (stmt *stmt) Query(args []driver.Value) (driver.Rows, error) {
 	return stmt.queryContext(context.Background(), convertOldArgs(args))
 }
 
-func (stmt *stmt) queryContext(ctx context.Context, args []namedValue) (driver.Rows, error) {
+func (stmt *stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driver.Rows, error) {
+	return stmt.queryContext(ctx, args)
+}
+
+func (stmt *stmt) queryContext(ctx context.Context, args []driver.NamedValue) (driver.Rows, error) {
 	if finish := stmt.ch.watchCancel(ctx); finish != nil {
 		defer finish()
 	}
 
-	if err := stmt.ch.sendQuery(stmt.bind(args)); err != nil {
+	err := stmt.ch.sendQuery(stmt.bind(args))
+	if err != nil {
 		return nil, err
 	}
 
-	for {
-		packet, err := stmt.ch.decoder.Uvarint()
-		if err != nil {
-			return nil, err
-		}
-		switch packet {
-		case protocol.ServerData:
-			block, err := stmt.ch.readBlock()
-			if err != nil {
-				return nil, err
-			}
-			rows := &rows{
-				ch:      stmt.ch,
-				columns: block.ColumnNames(),
-				stream:  make(chan []driver.Value, 1000),
-			}
-			go rows.receiveData()
-			return rows, nil
-		case protocol.ServerException:
-			return nil, stmt.ch.exception()
-		default:
-			return nil, fmt.Errorf("unexpected packet [%d] from server", packet)
-		}
+	if stmt.ch.block, err = stmt.ch.readMeta(); err != nil {
+		return nil, err
 	}
+
+	rows := &rows{
+		ch:      stmt.ch,
+		columns: stmt.ch.block.ColumnNames(),
+		stream:  make(chan []driver.Value, 1000),
+	}
+	go rows.receiveData()
+	return rows, nil
+
 }
 
 func (stmt *stmt) Close() error {
@@ -102,7 +100,7 @@ func (stmt *stmt) Close() error {
 	return nil
 }
 
-func (stmt *stmt) bind(args []namedValue) string {
+func (stmt *stmt) bind(args []driver.NamedValue) string {
 	var (
 		buf     bytes.Buffer
 		index   int
@@ -154,16 +152,10 @@ func (stmt *stmt) bind(args []namedValue) string {
 	return buf.String()
 }
 
-type namedValue struct {
-	Name    string
-	Ordinal int
-	Value   driver.Value
-}
-
-func convertOldArgs(args []driver.Value) []namedValue {
-	dargs := make([]namedValue, len(args))
+func convertOldArgs(args []driver.Value) []driver.NamedValue {
+	dargs := make([]driver.NamedValue, len(args))
 	for i, v := range args {
-		dargs[i] = namedValue{
+		dargs[i] = driver.NamedValue{
 			Ordinal: i + 1,
 			Value:   v,
 		}

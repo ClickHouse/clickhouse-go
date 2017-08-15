@@ -7,17 +7,9 @@ import (
 )
 
 type Array struct {
-	name, chType string
-	base         Column
-	sliceType    interface{}
-}
-
-func (array *Array) Name() string {
-	return array.name
-}
-
-func (array *Array) CHType() string {
-	return array.chType
+	base
+	baseColumn Column
+	sliceType  interface{}
 }
 
 func (array *Array) Read(decoder *binary.Decoder) (interface{}, error) {
@@ -31,8 +23,4 @@ func (array *Array) ReadArray(decoder *binary.Decoder, ln int) (interface{}, err
 
 func (array *Array) Write(encoder *binary.Encoder, v interface{}) error {
 	return nil
-}
-
-func (array *Array) String() string {
-	return fmt.Sprintf("%s (%s)", array.name, array.chType)
 }

@@ -2,21 +2,15 @@ package column
 
 import (
 	"fmt"
+	"reflect"
 
 	"github.com/kshvakov/clickhouse/internal/binary"
 )
 
 type FixedString struct {
-	name, chType string
-	len          int
-}
-
-func (str *FixedString) Name() string {
-	return str.name
-}
-
-func (str *FixedString) CHType() string {
-	return str.chType
+	base
+	len      int
+	scanType reflect.Type
 }
 
 func (str *FixedString) Read(decoder *binary.Decoder) (interface{}, error) {
@@ -49,8 +43,4 @@ func (str *FixedString) Write(encoder *binary.Encoder, v interface{}) error {
 		return err
 	}
 	return nil
-}
-
-func (str *FixedString) String() string {
-	return fmt.Sprintf("%s (%s)", str.name, str.chType)
 }

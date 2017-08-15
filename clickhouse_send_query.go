@@ -20,7 +20,7 @@ func (ch *clickhouse) sendQuery(query string) error {
 		ch.encoder.String("[::ffff:127.0.0.1]:0")
 		ch.encoder.Uvarint(1) // iface type TCP
 		ch.encoder.String(hostname)
-		ch.encoder.String("localhost")
+		ch.encoder.String(hostname)
 		if err := ch.ClientInfo.Write(ch.encoder); err != nil {
 			return err
 		}

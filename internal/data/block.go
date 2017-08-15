@@ -1,7 +1,6 @@
 package data
 
 import (
-	"bytes"
 	"database/sql/driver"
 	"fmt"
 	"io"
@@ -10,6 +9,7 @@ import (
 	"github.com/kshvakov/clickhouse/internal/binary"
 	"github.com/kshvakov/clickhouse/internal/column"
 	"github.com/kshvakov/clickhouse/internal/protocol"
+	wb "github.com/kshvakov/clickhouse/internal/writebuffer"
 )
 
 type Block struct {
@@ -92,7 +92,7 @@ func (block *Block) Read(serverInfo *ServerInfo, decoder *binary.Decoder) (err e
 	return nil
 }
 
-func (block *Block) AppendRow(args []driver.Value) error {
+func (block *Block) AppendRow(args []driver.NamedValue) error {
 	if len(block.Columns) != len(args) {
 		return fmt.Errorf("block: expected %d arguments (columns: %s), got %d", len(block.Columns), strings.Join(block.ColumnNames(), ", "), len(args))
 	}
@@ -104,7 +104,7 @@ func (block *Block) AppendRow(args []driver.Value) error {
 		switch column := c.(type) {
 		case *column.Array:
 		default:
-			if err := column.Write(block.Buffers[num].Column, args[num]); err != nil {
+			if err := column.Write(block.Buffers[num].Column, args[num].Value); err != nil {
 				return err
 			}
 		}
@@ -116,10 +116,15 @@ func (block *Block) Reserve() {
 	if len(block.Buffers) == 0 {
 		block.Buffers = make([]*buffer, len(block.Columns))
 		for i := 0; i < len(block.Columns); i++ {
-			bf := bytes.Buffer{}
+			var (
+				offsetBuffer = wb.New(wb.InitialSize)
+				columnBuffer = wb.New(wb.InitialSize)
+			)
 			block.Buffers[i] = &buffer{
-				cBuffer: &bf,
-				Column:  binary.NewEncoder(&bf),
+				Offset:       binary.NewEncoder(offsetBuffer),
+				Column:       binary.NewEncoder(columnBuffer),
+				offsetBuffer: offsetBuffer,
+				columnBuffer: columnBuffer,
 			}
 		}
 	}
@@ -203,16 +208,32 @@ func (info *blockInfo) write(encoder *binary.Encoder) error {
 }
 
 type buffer struct {
-	cBuffer *bytes.Buffer
-	Offset  *binary.Encoder
-	Column  *binary.Encoder
+	Offset       *binary.Encoder
+	Column       *binary.Encoder
+	offsetBuffer *wb.WriteBuffer
+	columnBuffer *wb.WriteBuffer
 }
 
 func (buf *buffer) WriteTo(w io.Writer) (int64, error) {
-	buf.cBuffer.WriteTo(w)
-	return 0, nil
+	var size int64
+	{
+		ln, err := buf.offsetBuffer.WriteTo(w)
+		if err != nil {
+			return size, err
+		}
+		size += ln
+	}
+	{
+		ln, err := buf.columnBuffer.WriteTo(w)
+		if err != nil {
+			return size, err
+		}
+		size += ln
+	}
+	return size, nil
 }
 
-func (b *buffer) reset() {
-
+func (buf *buffer) reset() {
+	buf.offsetBuffer.Free()
+	buf.columnBuffer.Free()
 }

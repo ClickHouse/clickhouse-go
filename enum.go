@@ -1,5 +1,6 @@
 package clickhouse
 
+/*
 import (
 	//"bytes"
 	"fmt"
@@ -98,6 +99,7 @@ func arrayStringToArrayEnum(arrLen uint64, data []byte, enum enum) ([]byte, erro
 				return nil, err
 			}
 
-	}*/
+	}
 	return enumByffer.bytes(), nil
 }
+*/

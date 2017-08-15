@@ -43,6 +43,10 @@ func (ch *clickhouse) Prepare(query string) (driver.Stmt, error) {
 	return ch.prepareContext(context.Background(), query)
 }
 
+func (ch *clickhouse) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
+	return ch.prepareContext(ctx, query)
+}
+
 func (ch *clickhouse) prepareContext(ctx context.Context, query string) (driver.Stmt, error) {
 	if ch.conn.isBad {
 		return nil, driver.ErrBadConn
@@ -65,33 +69,28 @@ func (ch *clickhouse) prepareContext(ctx context.Context, query string) (driver.
 }
 
 func (ch *clickhouse) insert(query string) (driver.Stmt, error) {
-	if err := ch.sendQuery(splitInsertRe.Split(query, -1)[0] + " VALUES "); err != nil {
+	err := ch.sendQuery(splitInsertRe.Split(query, -1)[0] + " VALUES ")
+	if err != nil {
 		return nil, err
 	}
-	for {
-		packet, err := ch.decoder.Uvarint()
-		if err != nil {
-			return nil, err
-		}
-		switch packet {
-		case protocol.ServerData:
-			if ch.block, err = ch.readBlock(); err != nil {
-				return nil, err
-			}
-			return &stmt{
-				ch:       ch,
-				isInsert: true,
-			}, nil
-		case protocol.ServerException:
-			return nil, ch.exception()
-		default:
-			return nil, fmt.Errorf("unexpected packet [%d] from server", packet)
-		}
+	if ch.block, err = ch.readMeta(); err != nil {
+		return nil, err
 	}
+	return &stmt{
+		ch:       ch,
+		isInsert: true,
+	}, nil
 }
 
 func (ch *clickhouse) Begin() (driver.Tx, error) {
 	return ch.beginTx(context.Background(), txOptions{})
+}
+
+func (ch *clickhouse) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
+	return ch.beginTx(ctx, txOptions{
+		Isolation: int(opts.Isolation),
+		ReadOnly:  opts.ReadOnly,
+	})
 }
 
 type txOptions struct {
@@ -124,8 +123,10 @@ func (ch *clickhouse) Commit() error {
 		return driver.ErrBadConn
 	}
 	defer func() {
-		ch.block.Reset()
-		ch.block = nil
+		if ch.block != nil {
+			ch.block.Reset()
+			ch.block = nil
+		}
 		ch.inTransaction = false
 	}()
 	if ch.block != nil {
@@ -137,8 +138,10 @@ func (ch *clickhouse) Commit() error {
 	if err := ch.writeBlock(&data.Block{}); err != nil {
 		return err
 	}
-	ch.buffer.Flush()
-	return ch.wait()
+	if err := ch.buffer.Flush(); err != nil {
+		return err
+	}
+	return ch.process()
 }
 
 func (ch *clickhouse) Rollback() error {
@@ -159,7 +162,7 @@ func (ch *clickhouse) Close() error {
 	return ch.conn.Close()
 }
 
-func (ch *clickhouse) wait() error {
+func (ch *clickhouse) process() error {
 	packet, err := ch.decoder.Uvarint()
 	if err != nil {
 		return err
@@ -167,18 +170,24 @@ func (ch *clickhouse) wait() error {
 	for {
 		switch packet {
 		case protocol.ServerException:
-			ch.logf("[got packet] <- exception")
+			ch.logf("[process] <- exception")
 			return ch.exception()
 		case protocol.ServerProgress:
 			progress, err := ch.progress()
 			if err != nil {
 				return err
 			}
-			ch.logf("[got packet] <- progress: rows=%d, bytes=%d, total rows=%d",
-				progress.bytes,
+			ch.logf("[process] <- progress: rows=%d, bytes=%d, total rows=%d",
 				progress.rows,
+				progress.bytes,
 				progress.totalRows,
 			)
+		case protocol.ServerProfileInfo:
+			profileInfo, err := ch.profileInfo()
+			if err != nil {
+				return err
+			}
+			ch.logf("[process] <- profiling: rows=%d, bytes=%d, blocks=%d", profileInfo.rows, profileInfo.bytes, profileInfo.blocks)
 		case protocol.ServerEndOfStream:
 			return nil
 		default:

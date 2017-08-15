@@ -1,5 +1,6 @@
 package clickhouse
 
+/*
 import (
 	"testing"
 )
@@ -42,3 +43,4 @@ func Benchmark_ArrayValue(b *testing.B) {
 		array.Value()
 	}
 }
+*/

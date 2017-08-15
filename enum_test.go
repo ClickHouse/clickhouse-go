@@ -1,5 +1,6 @@
 package clickhouse
 
+/*
 import (
 	"testing"
 
@@ -68,3 +69,4 @@ func Test_Parse_Enum(t *testing.T) {
 		}
 	}
 }
+*/

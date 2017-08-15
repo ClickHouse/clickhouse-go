@@ -14,22 +14,23 @@ func (ch *clickhouse) profileInfo() (*profileInfo, error) {
 		p   profileInfo
 		err error
 	)
-	if p.rows, err = readUvarint(ch.conn); err != nil {
+	if p.rows, err = ch.decoder.Uvarint(); err != nil {
 		return nil, err
 	}
-	if p.bytes, err = readUvarint(ch.conn); err != nil {
+	if p.blocks, err = ch.decoder.Uvarint(); err != nil {
 		return nil, err
 	}
-	if p.blocks, err = readUvarint(ch.conn); err != nil {
+	if p.bytes, err = ch.decoder.Uvarint(); err != nil {
 		return nil, err
 	}
-	if p.appliedLimit, err = readBool(ch.conn); err != nil {
+
+	if p.appliedLimit, err = ch.decoder.Bool(); err != nil {
 		return nil, err
 	}
-	if p.rowsBeforeLimit, err = readUvarint(ch.conn); err != nil {
+	if p.rowsBeforeLimit, err = ch.decoder.Uvarint(); err != nil {
 		return nil, err
 	}
-	if p.calculatedRowsBeforeLimit, err = readBool(ch.conn); err != nil {
+	if p.calculatedRowsBeforeLimit, err = ch.decoder.Bool(); err != nil {
 		return nil, err
 	}
 	return &p, nil

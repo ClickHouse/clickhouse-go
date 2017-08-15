@@ -6,17 +6,7 @@ import (
 	"github.com/kshvakov/clickhouse/internal/binary"
 )
 
-type String struct {
-	name, chType string
-}
-
-func (str *String) Name() string {
-	return str.name
-}
-
-func (str *String) CHType() string {
-	return str.chType
-}
+type String struct{ base }
 
 func (str *String) Read(decoder *binary.Decoder) (interface{}, error) {
 	v, err := decoder.String()
@@ -34,8 +24,4 @@ func (str *String) Write(encoder *binary.Encoder, v interface{}) error {
 		return encoder.RawString(v)
 	}
 	return fmt.Errorf("unexpected type %T", v)
-}
-
-func (str *String) String() string {
-	return fmt.Sprintf("%s (%s)", str.name, str.chType)
 }

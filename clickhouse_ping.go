@@ -1,10 +1,15 @@
 package clickhouse
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/kshvakov/clickhouse/internal/protocol"
 )
+
+func (ch *clickhouse) Ping(ctx context.Context) error {
+	return ch.ping()
+}
 
 func (ch *clickhouse) ping() error {
 	ch.logf("-> ping")
@@ -18,16 +23,14 @@ func (ch *clickhouse) ping() error {
 	if err != nil {
 		return err
 	}
-	for {
-		switch packet {
-		case protocol.ServerException:
-			ch.logf("[ping] <- exception")
-			return ch.exception()
-		case protocol.ServerPong:
-			ch.logf("<- pong")
-			return nil
-		default:
-			return fmt.Errorf("unexpected packet [%d] from server", packet)
-		}
+	switch packet {
+	case protocol.ServerException:
+		ch.logf("[ping] <- exception")
+		return ch.exception()
+	case protocol.ServerPong:
+		ch.logf("<- pong")
+		return nil
+	default:
+		return fmt.Errorf("unexpected packet [%d] from server", packet)
 	}
 }

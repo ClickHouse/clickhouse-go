@@ -135,6 +135,7 @@ func formatTime(value time.Time) string {
 	return value.Format("2006-01-02 15:04:05")
 }
 
+/*
 func toColumnType(ct string) (interface{}, error) {
 	// PODs
 	switch ct {
@@ -201,3 +202,4 @@ func toColumnType(ct string) (interface{}, error) {
 
 	return nil, fmt.Errorf("func toColumnType: unhandled type %v", ct)
 }
+*/

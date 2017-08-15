@@ -3,6 +3,7 @@ package binary
 import (
 	"encoding/binary"
 	"io"
+	"math"
 	"reflect"
 	"unsafe"
 )
@@ -90,6 +91,14 @@ func (enc *Encoder) UInt64(v uint64) error {
 		return err
 	}
 	return nil
+}
+
+func (enc *Encoder) Float32(v float32) error {
+	return enc.UInt32(math.Float32bits(v))
+}
+
+func (enc *Encoder) Float64(v float64) error {
+	return enc.UInt64(math.Float64bits(v))
 }
 
 func (enc *Encoder) String(v string) error {

@@ -1,5 +1,6 @@
 package clickhouse
 
+// @todo: restore this functionality
 /*
 import (
 	"encoding/binary"
