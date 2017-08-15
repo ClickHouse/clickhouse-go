@@ -81,13 +81,14 @@ func (stmt *stmt) queryContext(ctx context.Context, args []driver.NamedValue) (d
 		return nil, err
 	}
 
-	if stmt.ch.block, err = stmt.ch.readMeta(); err != nil {
+	block, err := stmt.ch.readMeta()
+	if err != nil {
 		return nil, err
 	}
-
 	rows := &rows{
 		ch:      stmt.ch,
-		columns: stmt.ch.block.ColumnNames(),
+		block:   block,
+		columns: block.ColumnNames(),
 		stream:  make(chan []driver.Value, 1000),
 	}
 	go rows.receiveData()

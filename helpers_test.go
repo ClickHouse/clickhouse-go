@@ -1,12 +1,12 @@
 package clickhouse
 
-/*
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
+/*
 func Test_ToColumnType(t *testing.T) {
 	assets := map[string]interface{}{
 		"Date":           Date{},
@@ -65,6 +65,7 @@ func Test_ToColumnType(t *testing.T) {
 		}
 	}
 }
+*/
 
 func Test_NumInput(t *testing.T) {
 	for query, num := range map[string]int{
@@ -98,4 +99,3 @@ func Benchmark_NumInput(b *testing.B) {
 		numInput("SELECT * FROM example WHERE os_id in (@os_id,@browser_id) browser_id = @browser_id")
 	}
 }
-*/

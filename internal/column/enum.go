@@ -2,7 +2,6 @@ package column
 
 import (
 	"fmt"
-	"reflect"
 	"strconv"
 	"strings"
 
@@ -79,7 +78,7 @@ func parseEnum(name, chType string) (*Enum, error) {
 		base: base{
 			name:     name,
 			chType:   chType,
-			scanType: reflect.TypeOf(string("")),
+			scanType: scanTypes[string("")],
 		},
 		iv: make(map[string]interface{}),
 		vi: make(map[interface{}]string),

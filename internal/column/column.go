@@ -24,7 +24,7 @@ func Factory(name, chType string, timezone *time.Location) (Column, error) {
 			base: base{
 				name:     name,
 				chType:   chType,
-				scanType: reflect.TypeOf(int8(0)),
+				scanType: scanTypes[int8(0)],
 			},
 		}, nil
 	case "Int16":
@@ -32,7 +32,71 @@ func Factory(name, chType string, timezone *time.Location) (Column, error) {
 			base: base{
 				name:     name,
 				chType:   chType,
-				scanType: reflect.TypeOf(int16(0)),
+				scanType: scanTypes[int16(0)],
+			},
+		}, nil
+	case "Int32":
+		return &Int32{
+			base: base{
+				name:     name,
+				chType:   chType,
+				scanType: scanTypes[int32(0)],
+			},
+		}, nil
+	case "Int64":
+		return &Int64{
+			base: base{
+				name:     name,
+				chType:   chType,
+				scanType: scanTypes[int64(0)],
+			},
+		}, nil
+	case "UInt8":
+		return &UInt8{
+			base: base{
+				name:     name,
+				chType:   chType,
+				scanType: scanTypes[uint8(0)],
+			},
+		}, nil
+	case "UInt16":
+		return &UInt16{
+			base: base{
+				name:     name,
+				chType:   chType,
+				scanType: scanTypes[uint16(0)],
+			},
+		}, nil
+	case "UInt32":
+		return &UInt32{
+			base: base{
+				name:     name,
+				chType:   chType,
+				scanType: scanTypes[uint32(0)],
+			},
+		}, nil
+	case "UInt64":
+		return &UInt64{
+			base: base{
+				name:     name,
+				chType:   chType,
+				scanType: scanTypes[uint64(0)],
+			},
+		}, nil
+	case "Float32":
+		return &Float32{
+			base: base{
+				name:     name,
+				chType:   chType,
+				scanType: scanTypes[float32(0)],
+			},
+		}, nil
+	case "Float64":
+		return &Float64{
+			base: base{
+				name:     name,
+				chType:   chType,
+				scanType: scanTypes[float64(0)],
 			},
 		}, nil
 	case "String":
@@ -40,10 +104,19 @@ func Factory(name, chType string, timezone *time.Location) (Column, error) {
 			base: base{
 				name:     name,
 				chType:   chType,
-				scanType: reflect.TypeOf(string("")),
+				scanType: scanTypes[string("")],
 			},
 		}, nil
-	case "DateTime":
+	case "Date", "DateTime":
+		return &DateTime{
+			base: base{
+				name:     name,
+				chType:   chType,
+				scanType: scanTypes[time.Time{}],
+			},
+			isFull:   chType == "DateTime",
+			timezone: timezone,
+		}, nil
 	}
 
 	switch {
@@ -56,34 +129,13 @@ func Factory(name, chType string, timezone *time.Location) (Column, error) {
 			base: base{
 				name:     name,
 				chType:   chType,
-				scanType: reflect.TypeOf(string("")),
+				scanType: scanTypes[string("")],
 			},
-			len:      strLen,
+			len: strLen,
 		}, nil
 	case strings.HasPrefix(chType, "Enum8"), strings.HasPrefix(chType, "Enum16"):
 		return parseEnum(name, chType)
 	case strings.HasPrefix(chType, "Array"):
 	}
 	return nil, fmt.Errorf("column: unhandled type %v", chType)
-}
-
-type base struct {
-	name, chType string
-	scanType     reflect.Type
-}
-
-func (base *base) Name() string {
-	return base.name
-}
-
-func (base *base) CHType() string {
-	return base.chType
-}
-
-func (base *base) ScanType() reflect.Type {
-	return base.scanType
-}
-
-func (base *base) String() string {
-	return fmt.Sprintf("%s (%s)", base.name, base.chType)
 }

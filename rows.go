@@ -13,6 +13,7 @@ import (
 type rows struct {
 	err      error
 	ch       *clickhouse
+	block    *data.Block
 	stream   chan []driver.Value
 	columns  []string
 	totals   [][]driver.Value
@@ -24,11 +25,11 @@ func (rows *rows) Columns() []string {
 }
 
 func (rows *rows) ColumnTypeScanType(idx int) reflect.Type {
-	return rows.ch.block.Columns[idx].ScanType()
+	return rows.block.Columns[idx].ScanType()
 }
 
 func (rows *rows) ColumnTypeDatabaseTypeName(idx int) string {
-	return rows.ch.block.Columns[idx].CHType()
+	return rows.block.Columns[idx].CHType()
 }
 
 func (rows *rows) Next(dest []driver.Value) error {

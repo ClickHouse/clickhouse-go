@@ -169,6 +169,9 @@ func (ch *clickhouse) process() error {
 	}
 	for {
 		switch packet {
+		case protocol.ServerPong:
+			ch.logf("[process] <- pong")
+			return nil
 		case protocol.ServerException:
 			ch.logf("[process] <- exception")
 			return ch.exception()

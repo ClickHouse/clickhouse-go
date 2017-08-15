@@ -8,7 +8,7 @@ import (
 
 type String struct{ base }
 
-func (str *String) Read(decoder *binary.Decoder) (interface{}, error) {
+func (String) Read(decoder *binary.Decoder) (interface{}, error) {
 	v, err := decoder.String()
 	if err != nil {
 		return "", err
@@ -16,7 +16,7 @@ func (str *String) Read(decoder *binary.Decoder) (interface{}, error) {
 	return v, nil
 }
 
-func (str *String) Write(encoder *binary.Encoder, v interface{}) error {
+func (String) Write(encoder *binary.Encoder, v interface{}) error {
 	switch v := v.(type) {
 	case string:
 		return encoder.String(v)
