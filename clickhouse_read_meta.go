@@ -14,7 +14,7 @@ func (ch *clickhouse) readMeta() (*data.Block, error) {
 	}
 	switch packet {
 	case protocol.ServerData:
-		block, err := ch.readBlock()
+		block, err := ch.readBlock(ch.decoder)
 		if err != nil {
 			return nil, err
 		}

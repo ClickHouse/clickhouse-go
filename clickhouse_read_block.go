@@ -1,13 +1,14 @@
 package clickhouse
 
 import (
+	"github.com/kshvakov/clickhouse/internal/binary"
 	"github.com/kshvakov/clickhouse/internal/data"
 	"github.com/kshvakov/clickhouse/internal/protocol"
 )
 
-func (ch *clickhouse) readBlock() (*data.Block, error) {
+func (ch *clickhouse) readBlock(decoder *binary.Decoder) (*data.Block, error) {
 	if ch.ServerInfo.Revision >= protocol.DBMS_MIN_REVISION_WITH_TEMPORARY_TABLES {
-		if _, err := ch.decoder.String(); err != nil {
+		if _, err := decoder.String(); err != nil {
 			return nil, err
 		}
 	}
@@ -15,7 +16,7 @@ func (ch *clickhouse) readBlock() (*data.Block, error) {
 
 	}
 	var block data.Block
-	if err := block.Read(&ch.ServerInfo, ch.decoder); err != nil {
+	if err := block.Read(&ch.ServerInfo, decoder); err != nil {
 		return nil, err
 	}
 	return &block, nil

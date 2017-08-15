@@ -6,6 +6,7 @@ import (
 	"io"
 	"reflect"
 
+	"github.com/kshvakov/clickhouse/internal/binary"
 	"github.com/kshvakov/clickhouse/internal/data"
 	"github.com/kshvakov/clickhouse/internal/protocol"
 )
@@ -51,10 +52,11 @@ func (rows *rows) receiveData() {
 		packet   uint64
 		block    *data.Block
 		progress *progress
+		decoder  = binary.NewDecoder(rows.ch.conn)
 	)
 	defer close(rows.stream)
 	for {
-		if packet, rows.err = rows.ch.decoder.Uvarint(); rows.err != nil {
+		if packet, rows.err = decoder.Uvarint(); rows.err != nil {
 			return
 		}
 		switch packet {
@@ -80,7 +82,7 @@ func (rows *rows) receiveData() {
 			rows.ch.logf("[receive data] <- profiling: rows=%d, bytes=%d, blocks=%d", profileInfo.rows, profileInfo.bytes, profileInfo.blocks)
 
 		case protocol.ServerData, protocol.ServerTotals, protocol.ServerExtremes:
-			if block, rows.err = rows.ch.readBlock(); rows.err != nil {
+			if block, rows.err = rows.ch.readBlock(decoder); rows.err != nil {
 				return
 			}
 			if len(rows.columns) == 0 && len(block.Columns) != 0 {
