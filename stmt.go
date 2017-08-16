@@ -72,9 +72,15 @@ func (stmt *stmt) queryContext(ctx context.Context, args []driver.NamedValue) (d
 		return nil, err
 	}
 
-	return &rows{
+	rows := rows{
 		ch: stmt.ch,
-	}, nil
+	}
+	for len(rows.columns) == 0 {
+		if err := rows.receiveData(); err != nil {
+			return nil, err
+		}
+	}
+	return &rows, nil
 }
 
 func (stmt *stmt) Close() error {

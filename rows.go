@@ -25,9 +25,6 @@ type rows struct {
 }
 
 func (rows *rows) Columns() []string {
-	if len(rows.columns) == 0 {
-		rows.receiveData()
-	}
 	return rows.columns
 }
 
