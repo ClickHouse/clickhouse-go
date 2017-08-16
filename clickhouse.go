@@ -36,7 +36,6 @@ type clickhouse struct {
 	decoder       *binary.Decoder
 	encoder       *binary.Encoder
 	compress      bool
-	blockSize     int
 	inTransaction bool
 }
 

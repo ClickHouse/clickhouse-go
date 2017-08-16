@@ -27,7 +27,7 @@ func (array *Array) Write(encoder *binary.Encoder, v interface{}) error {
 }
 
 func (array *Array) ReadArray(decoder *binary.Decoder, ln int) (interface{}, error) {
-	slice := reflect.MakeSlice(array.scanType, 0, ln)
+	slice := reflect.MakeSlice(array.valueOf.Type(), 0, ln)
 	for i := 0; i < ln; i++ {
 		value, err := array.column.Read(decoder)
 		if err != nil {
@@ -82,7 +82,7 @@ func parseArray(name, chType string, timezone *time.Location) (*Array, error) {
 	}
 	column, err := Factory(name, chType[6:][:len(chType)-7], timezone)
 	if err != nil {
-		return nil, fmt.Errorf("array: %v", err)
+		return nil, fmt.Errorf("Array(T): %v", err)
 	}
 
 	var scanType interface{}
@@ -109,16 +109,16 @@ func parseArray(name, chType string, timezone *time.Location) (*Array, error) {
 		scanType = []float64{}
 	case reflect.String:
 		scanType = []string{}
-	case scanTypes[time.Time{}].Kind():
+	case baseTypes[time.Time{}].Kind():
 		scanType = []time.Time{}
 	default:
 		return nil, fmt.Errorf("unsupported array type '%s'", column.ScanType().Name())
 	}
 	return &Array{
 		base: base{
-			name:     name,
-			chType:   chType,
-			scanType: reflect.TypeOf(scanType),
+			name:    name,
+			chType:  chType,
+			valueOf: reflect.ValueOf(scanType),
 		},
 		column: column,
 	}, nil

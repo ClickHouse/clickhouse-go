@@ -877,6 +877,46 @@ func Test_IP(t *testing.T) {
 	}
 }
 
+func Test_Nullable(t *testing.T) {
+	const (
+		ddl = `
+			CREATE TABLE clickhouse_test_nullable (
+				int8  Nullable(Int8),
+				int16 Nullable(Int16)
+			) Engine=Memory;
+		`
+	)
+	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) {
+		if tx, err := connect.Begin(); assert.NoError(t, err) {
+			if _, err := connect.Exec("DROP TABLE IF EXISTS clickhouse_test_nullable"); assert.NoError(t, err) {
+				if _, err := tx.Exec(ddl); assert.NoError(t, err) {
+					if tx, err := connect.Begin(); assert.NoError(t, err) {
+						if stmt, err := tx.Prepare("INSERT INTO clickhouse_test_nullable VALUES(?, ?)"); assert.NoError(t, err) {
+							if _, err := stmt.Exec(42, nil); !assert.NoError(t, err) {
+								t.Fatal(err)
+							}
+						}
+						if err := tx.Commit(); !assert.NoError(t, err) {
+							t.Fatal(err)
+						}
+					}
+					if rows, err := connect.Query("SELECT int8, int16 FROM clickhouse_test_nullable"); assert.NoError(t, err) {
+						if assert.True(t, rows.Next()) {
+							var a int
+							var b = new(int)
+							if err := rows.Scan(&a, &b); assert.NoError(t, err) {
+								if assert.Equal(t, int(42), a) {
+									assert.Nil(t, b)
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 func _Test_Context_Timeout(t *testing.T) {
 	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) && assert.NoError(t, connect.Ping()) {
 		{

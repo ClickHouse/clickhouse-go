@@ -11,7 +11,6 @@ type stmt struct {
 	query    string
 	numInput int
 	isInsert bool
-	counter  int
 }
 
 var emptyResult = &result{}
@@ -36,17 +35,12 @@ func (stmt *stmt) ExecContext(ctx context.Context, args []driver.NamedValue) (dr
 
 func (stmt *stmt) execContext(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
 	if finish := stmt.ch.watchCancel(ctx); finish != nil {
+		stmt.ch.logf("[exec] query with cancel")
 		defer finish()
 	}
 	if stmt.isInsert {
-		stmt.counter++
 		if err := stmt.ch.block.AppendRow(args); err != nil {
 			return nil, err
-		}
-		if (stmt.counter % stmt.ch.blockSize) == 0 {
-			if err := stmt.ch.writeBlock(stmt.ch.block); err != nil {
-				return nil, err
-			}
 		}
 		return emptyResult, nil
 	}
@@ -69,6 +63,7 @@ func (stmt *stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (d
 
 func (stmt *stmt) queryContext(ctx context.Context, args []driver.NamedValue) (driver.Rows, error) {
 	if finish := stmt.ch.watchCancel(ctx); finish != nil {
+		stmt.ch.logf("[stmt] query with cancel")
 		defer finish()
 	}
 

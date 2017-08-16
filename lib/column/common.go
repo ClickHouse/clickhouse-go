@@ -6,24 +6,24 @@ import (
 	"time"
 )
 
-var scanTypes = map[interface{}]reflect.Type{
-	int8(0):     reflect.TypeOf(int8(0)),
-	int16(0):    reflect.TypeOf(int16(0)),
-	int32(0):    reflect.TypeOf(int32(0)),
-	int64(0):    reflect.TypeOf(int64(0)),
-	uint8(0):    reflect.TypeOf(uint8(0)),
-	uint16(0):   reflect.TypeOf(uint16(0)),
-	uint32(0):   reflect.TypeOf(uint32(0)),
-	uint64(0):   reflect.TypeOf(uint64(0)),
-	float32(0):  reflect.TypeOf(float32(0)),
-	float64(0):  reflect.TypeOf(float64(0)),
-	string(""):  reflect.TypeOf(string("")),
-	time.Time{}: reflect.TypeOf(time.Time{}),
+var baseTypes = map[interface{}]reflect.Value{
+	int8(0):     reflect.ValueOf(int8(0)),
+	int16(0):    reflect.ValueOf(int16(0)),
+	int32(0):    reflect.ValueOf(int32(0)),
+	int64(0):    reflect.ValueOf(int64(0)),
+	uint8(0):    reflect.ValueOf(uint8(0)),
+	uint16(0):   reflect.ValueOf(uint16(0)),
+	uint32(0):   reflect.ValueOf(uint32(0)),
+	uint64(0):   reflect.ValueOf(uint64(0)),
+	float32(0):  reflect.ValueOf(float32(0)),
+	float64(0):  reflect.ValueOf(float64(0)),
+	string(""):  reflect.ValueOf(string("")),
+	time.Time{}: reflect.ValueOf(time.Time{}),
 }
 
 type base struct {
 	name, chType string
-	scanType     reflect.Type
+	valueOf      reflect.Value
 }
 
 func (base *base) Name() string {
@@ -35,7 +35,11 @@ func (base *base) CHType() string {
 }
 
 func (base *base) ScanType() reflect.Type {
-	return base.scanType
+	return base.valueOf.Type()
+}
+
+func (base *base) defaultValue() interface{} {
+	return base.valueOf.Interface()
 }
 
 func (base *base) String() string {

@@ -52,9 +52,9 @@ func parseFixedString(name, chType string) (*FixedString, error) {
 	}
 	return &FixedString{
 		base: base{
-			name:     name,
-			chType:   chType,
-			scanType: scanTypes[string("")],
+			name:    name,
+			chType:  chType,
+			valueOf: baseTypes[string("")],
 		},
 		len: strLen,
 	}, nil

@@ -76,9 +76,9 @@ func parseEnum(name, chType string) (*Enum, error) {
 	}
 	enum := Enum{
 		base: base{
-			name:     name,
-			chType:   chType,
-			scanType: scanTypes[string("")],
+			name:    name,
+			chType:  chType,
+			valueOf: baseTypes[string("")],
 		},
 		iv: make(map[string]interface{}),
 		vi: make(map[interface{}]string),
