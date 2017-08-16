@@ -13,5 +13,5 @@ before_install:
   - docker run -d -p 127.0.0.1:9000:9000 --name some-clickhouse-server --ulimit nofile=262144:262144 yandex/clickhouse-server
   - docker ps -a
 script:
-  - go test -v -race -covermode=count -coverprofile=coverage.out .
+  - go test -v -race -covermode=atomic -coverprofile=coverage.out .
   - goveralls -coverprofile=coverage.out -service travis-ci -repotoken $COVERALLS_TOKEN
