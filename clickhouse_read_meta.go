@@ -24,6 +24,6 @@ func (ch *clickhouse) readMeta() (*data.Block, error) {
 		ch.logf("[read meta] <- exception")
 		return nil, ch.exception(ch.decoder)
 	default:
-		return nil, fmt.Errorf("unexpected packet [%d] from server", packet)
+		return nil, fmt.Errorf("[read meta] unexpected packet [%d] from server", packet)
 	}
 }

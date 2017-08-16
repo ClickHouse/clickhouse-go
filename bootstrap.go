@@ -95,10 +95,7 @@ func Open(dsn string) (driver.Conn, error) {
 	if ch.conn, err = dial("tcp", hosts, noDelay, readTimeout, writeTimeout, ch.logf); err != nil {
 		return nil, err
 	}
-	ch.buffer = bufio.NewReadWriter(
-		bufio.NewReader(ch.conn),
-		bufio.NewWriter(ch.conn),
-	)
+	ch.buffer = bufio.NewWriter(ch.conn)
 	ch.decoder = binary.NewDecoder(ch.conn)
 	ch.encoder = binary.NewEncoder(ch.buffer)
 	if err := ch.hello(database, username, password); err != nil {
@@ -137,7 +134,7 @@ func (ch *clickhouse) hello(database, username, password string) error {
 			}
 		default:
 			ch.conn.Close()
-			return fmt.Errorf("unexpected packet [%d] from server", packet)
+			return fmt.Errorf("[hello] unexpected packet [%d] from server", packet)
 		}
 	}
 	ch.logf("[hello] <- %s", ch.ServerInfo)

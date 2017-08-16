@@ -32,7 +32,7 @@ type clickhouse struct {
 	logf          logger
 	conn          *connect
 	block         *data.Block
-	buffer        *bufio.ReadWriter
+	buffer        *bufio.Writer
 	decoder       *binary.Decoder
 	encoder       *binary.Encoder
 	compress      bool
