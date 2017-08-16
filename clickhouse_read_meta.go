@@ -8,22 +8,41 @@ import (
 )
 
 func (ch *clickhouse) readMeta() (*data.Block, error) {
-	packet, err := ch.decoder.Uvarint()
-	if err != nil {
-		return nil, err
-	}
-	switch packet {
-	case protocol.ServerData:
-		block, err := ch.readBlock(ch.decoder)
+	for {
+		packet, err := ch.decoder.Uvarint()
 		if err != nil {
 			return nil, err
 		}
-		ch.logf("[read meta] <- data: packet=%d, columns=%d, rows=%d", packet, block.NumColumns, block.NumRows)
-		return block, nil
-	case protocol.ServerException:
-		ch.logf("[read meta] <- exception")
-		return nil, ch.exception(ch.decoder)
-	default:
-		return nil, fmt.Errorf("[read meta] unexpected packet [%d] from server", packet)
+		switch packet {
+		case protocol.ServerException:
+			ch.logf("[read meta] <- exception")
+			return nil, ch.exception(ch.decoder)
+		case protocol.ServerProgress:
+			progress, err := ch.progress(ch.decoder)
+			if err != nil {
+				return nil, err
+			}
+			ch.logf("[read meta] <- progress: rows=%d, bytes=%d, total rows=%d",
+				progress.rows,
+				progress.bytes,
+				progress.totalRows,
+			)
+		case protocol.ServerProfileInfo:
+			profileInfo, err := ch.profileInfo(ch.decoder)
+			if err != nil {
+				return nil, err
+			}
+			ch.logf("[read meta] <- profiling: rows=%d, bytes=%d, blocks=%d", profileInfo.rows, profileInfo.bytes, profileInfo.blocks)
+		case protocol.ServerData:
+			block, err := ch.readBlock(ch.decoder)
+			if err != nil {
+				return nil, err
+			}
+			ch.logf("[read meta] <- data: packet=%d, columns=%d, rows=%d", packet, block.NumColumns, block.NumRows)
+			return block, nil
+
+		default:
+			return nil, fmt.Errorf("[read meta] unexpected packet [%d] from server", packet)
+		}
 	}
 }
