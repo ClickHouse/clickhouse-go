@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/kshvakov/clickhouse/internal/binary"
+	"github.com/kshvakov/clickhouse/lib/binary"
 )
 
 type ArrayWriter interface {

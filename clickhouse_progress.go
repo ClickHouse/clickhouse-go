@@ -1,7 +1,7 @@
 package clickhouse
 
 import (
-	"github.com/kshvakov/clickhouse/internal/protocol"
+	"github.com/kshvakov/clickhouse/lib/protocol"
 )
 
 type progress struct {

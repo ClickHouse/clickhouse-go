@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/kshvakov/clickhouse/internal/binary"
+	"github.com/kshvakov/clickhouse/lib/binary"
 )
 
 type Enum struct {

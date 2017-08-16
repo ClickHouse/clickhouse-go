@@ -6,9 +6,9 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/kshvakov/clickhouse/internal/binary"
-	"github.com/kshvakov/clickhouse/internal/column"
-	"github.com/kshvakov/clickhouse/internal/writebuffer"
+	"github.com/kshvakov/clickhouse/lib/binary"
+	"github.com/kshvakov/clickhouse/lib/column"
+	"github.com/kshvakov/clickhouse/lib/writebuffer"
 )
 
 func NewArray(v interface{}) *Array {

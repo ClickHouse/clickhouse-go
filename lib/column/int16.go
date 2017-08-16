@@ -3,7 +3,7 @@ package column
 import (
 	"fmt"
 
-	"github.com/kshvakov/clickhouse/internal/binary"
+	"github.com/kshvakov/clickhouse/lib/binary"
 )
 
 type Int16 struct{ base }

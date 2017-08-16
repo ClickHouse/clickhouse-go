@@ -1,9 +1,9 @@
 package clickhouse
 
 import (
-	"github.com/kshvakov/clickhouse/internal/binary"
-	"github.com/kshvakov/clickhouse/internal/data"
-	"github.com/kshvakov/clickhouse/internal/protocol"
+	"github.com/kshvakov/clickhouse/lib/binary"
+	"github.com/kshvakov/clickhouse/lib/data"
+	"github.com/kshvakov/clickhouse/lib/protocol"
 )
 
 func (ch *clickhouse) readBlock(decoder *binary.Decoder) (*data.Block, error) {

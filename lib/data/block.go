@@ -6,10 +6,10 @@ import (
 	"io"
 	"strings"
 
-	"github.com/kshvakov/clickhouse/internal/binary"
-	"github.com/kshvakov/clickhouse/internal/column"
-	"github.com/kshvakov/clickhouse/internal/protocol"
-	wb "github.com/kshvakov/clickhouse/internal/writebuffer"
+	"github.com/kshvakov/clickhouse/lib/binary"
+	"github.com/kshvakov/clickhouse/lib/column"
+	"github.com/kshvakov/clickhouse/lib/protocol"
+	wb "github.com/kshvakov/clickhouse/lib/writebuffer"
 )
 
 type Block struct {

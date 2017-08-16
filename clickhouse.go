@@ -10,9 +10,9 @@ import (
 	"regexp"
 	"sync/atomic"
 
-	"github.com/kshvakov/clickhouse/internal/binary"
-	"github.com/kshvakov/clickhouse/internal/data"
-	"github.com/kshvakov/clickhouse/internal/protocol"
+	"github.com/kshvakov/clickhouse/lib/binary"
+	"github.com/kshvakov/clickhouse/lib/data"
+	"github.com/kshvakov/clickhouse/lib/protocol"
 )
 
 var (
@@ -189,10 +189,16 @@ func (ch *clickhouse) process() error {
 				return err
 			}
 			ch.logf("[process] <- profiling: rows=%d, bytes=%d, blocks=%d", profileInfo.rows, profileInfo.bytes, profileInfo.blocks)
+		case protocol.ServerData:
+			block, err := ch.readBlock(ch.decoder)
+			if err != nil {
+				return err
+			}
+			ch.logf("[process] <- data: packet=%d, columns=%d, rows=%d", packet, block.NumColumns, block.NumRows)
 		case protocol.ServerEndOfStream:
 			return nil
 		default:
-			return fmt.Errorf("unexpected packet [%d] from server", packet)
+			return fmt.Errorf("[process] unexpected packet [%d] from server", packet)
 		}
 		if packet, err = ch.decoder.Uvarint(); err != nil {
 			return err

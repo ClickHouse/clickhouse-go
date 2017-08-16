@@ -6,9 +6,9 @@ import (
 	"io"
 	"reflect"
 
-	"github.com/kshvakov/clickhouse/internal/binary"
-	"github.com/kshvakov/clickhouse/internal/data"
-	"github.com/kshvakov/clickhouse/internal/protocol"
+	"github.com/kshvakov/clickhouse/lib/binary"
+	"github.com/kshvakov/clickhouse/lib/data"
+	"github.com/kshvakov/clickhouse/lib/protocol"
 )
 
 type rows struct {

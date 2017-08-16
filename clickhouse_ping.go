@@ -3,7 +3,7 @@ package clickhouse
 import (
 	"context"
 
-	"github.com/kshvakov/clickhouse/internal/protocol"
+	"github.com/kshvakov/clickhouse/lib/protocol"
 )
 
 func (ch *clickhouse) Ping(ctx context.Context) error {
