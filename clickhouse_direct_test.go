@@ -1,5 +1,6 @@
 package clickhouse_test
 
+/*
 import (
 	"database/sql/driver"
 	"fmt"
@@ -37,12 +38,12 @@ func Test_DirectInsert(t *testing.T) {
 		`
 		dml = `
 			INSERT INTO clickhouse_test_direct_insert (
-				int8, 
-				int16, 
+				int8,
+				int16,
 				int32,
 				int64,
-				uint8, 
-				uint16, 
+				uint8,
+				uint16,
 				uint32,
 				uint64,
 				float32,
@@ -56,8 +57,8 @@ func Test_DirectInsert(t *testing.T) {
 				uuid,
 				ip
 			) VALUES (
-				?, 
-				?, 
+				?,
+				?,
 				?,
 				?,
 				?,
@@ -160,11 +161,11 @@ func Test_DirectArrayT(t *testing.T) {
 		dml = `
 			INSERT INTO clickhouse_test_direct_array (
 				int8,
-				int16, 
+				int16,
 				int32,
 				int64,
-				uint8, 
-				uint16, 
+				uint8,
+				uint16,
 				uint32,
 				uint64,
 				float32,
@@ -176,8 +177,8 @@ func Test_DirectArrayT(t *testing.T) {
 				enum8,
 				enum16
 			) VALUES (
-				?, 
-				?, 
+				?,
+				?,
 				?,
 				?,
 				?,
@@ -246,3 +247,4 @@ func Test_DirectArrayT(t *testing.T) {
 		}
 	}
 }
+*/

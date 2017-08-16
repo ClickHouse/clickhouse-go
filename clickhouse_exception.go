@@ -3,6 +3,8 @@ package clickhouse
 import (
 	"fmt"
 	"strings"
+
+	"github.com/kshvakov/clickhouse/lib/binary"
 )
 
 type Exception struct {
@@ -17,30 +19,31 @@ func (e *Exception) Error() string {
 	return fmt.Sprintf("code: %d, message: %s", e.Code, e.Message)
 }
 
-func (ch *clickhouse) exception() error {
+func (ch *clickhouse) exception(decoder *binary.Decoder) error {
 	var (
 		e         Exception
 		err       error
 		hasNested bool
 	)
-	if e.Code, err = ch.decoder.Int32(); err != nil {
+	if e.Code, err = decoder.Int32(); err != nil {
 		return err
 	}
-	if e.Name, err = ch.decoder.String(); err != nil {
+	if e.Name, err = decoder.String(); err != nil {
 		return err
 	}
-	if e.Message, err = ch.decoder.String(); err != nil {
+	if e.Message, err = decoder.String(); err != nil {
 		return err
 	}
 	e.Message = strings.TrimSpace(strings.TrimPrefix(e.Message, e.Name+":"))
-	if e.StackTrace, err = ch.decoder.String(); err != nil {
+	if e.StackTrace, err = decoder.String(); err != nil {
 		return err
 	}
-	if hasNested, err = ch.decoder.Bool(); err != nil {
+	if hasNested, err = decoder.Bool(); err != nil {
 		return err
 	}
 	if hasNested {
-		e.nested = ch.exception()
+		e.nested = ch.exception(decoder)
 	}
+	ch.conn.Close()
 	return &e
 }

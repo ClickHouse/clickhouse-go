@@ -183,99 +183,6 @@ func Test_Insert(t *testing.T) {
 	}
 }
 
-func Test_InsertBatch(t *testing.T) {
-	const (
-		ddl = `
-			CREATE TABLE clickhouse_test_insert_batch (
-				int8  Int8,
-				int16 Int16,
-				int32 Int32,
-				int64 Int64,
-				uint8  UInt8,
-				uint16 UInt16,
-				uint32 UInt32,
-				uint64 UInt64,
-				float32 Float32,
-				float64 Float64,
-				string  String,
-				fString FixedString(2),
-				date    Date,
-				datetime DateTime
-			) Engine=Memory
-		`
-		dml = `
-			INSERT INTO clickhouse_test_insert_batch (
-				int8, 
-				int16, 
-				int32,
-				int64,
-				uint8, 
-				uint16, 
-				uint32,
-				uint64,
-				float32,
-				float64,
-				string,
-				fString,
-				date,
-				datetime
-			) VALUES (
-				?, 
-				?, 
-				?,
-				?,
-				?,
-				?,
-				?,
-				?,
-				?,
-				?,
-				?,
-				?,
-				?,
-				?
-			)
-		`
-		query = `SELECT COUNT(*) FROM clickhouse_test_insert_batch`
-	)
-	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true&block_size=11"); assert.NoError(t, err) && assert.NoError(t, connect.Ping()) {
-		if _, err := connect.Exec("DROP TABLE IF EXISTS clickhouse_test_insert_batch"); assert.NoError(t, err) {
-			if _, err := connect.Exec(ddl); assert.NoError(t, err) {
-				if tx, err := connect.Begin(); assert.NoError(t, err) {
-					if stmt, err := tx.Prepare(dml); assert.NoError(t, err) {
-						for i := 1; i <= 10000; i++ {
-							_, err = stmt.Exec(
-								-1*i, -2*i, -4*i, -8*i, // int
-								uint8(1*i), uint16(2*i), uint32(4*i), uint64(8*i), // uint
-								1.32*float32(i), 1.64*float64(i), //float
-								fmt.Sprintf("string %d", i), // string
-								"RU",       //fixedstring,
-								time.Now(), //date
-								time.Now(), //datetime
-							)
-							if !assert.NoError(t, err) {
-								return
-							}
-						}
-					}
-					if assert.NoError(t, tx.Commit()) {
-						if rows, err := connect.Query(query); assert.NoError(t, err) {
-							var count int
-							for rows.Next() {
-								err := rows.Scan(&count)
-								if !assert.NoError(t, err) {
-									return
-								}
-							}
-							assert.Equal(t, int(10000), count)
-						}
-					}
-				}
-			}
-		}
-	}
-}
-
 func Test_Select(t *testing.T) {
 	const (
 		ddl = `
@@ -685,13 +592,27 @@ func Test_With_Totals(t *testing.T) {
 									if !assert.Equal(t, int64(2), item.Count) {
 										return
 									}
-								default:
-									if !assert.Equal(t, int64(6), item.Count) {
-										return
-									}
 								}
 							}
-							assert.Equal(t, int(3), count)
+
+							if assert.Equal(t, int(2), count) && assert.True(t, rows.NextResultSet()) {
+								var count int
+								for rows.Next() {
+									count++
+									err := rows.Scan(
+										&item.Country,
+										&item.Count,
+									)
+									if !assert.NoError(t, err) {
+										return
+									}
+
+									if assert.Equal(t, "\x00\x00", item.Country) {
+										assert.Equal(t, int64(6), item.Count)
+									}
+								}
+								assert.Equal(t, int(1), count)
+							}
 						}
 					}
 				}
@@ -728,7 +649,7 @@ func Test_Temporary_Table(t *testing.T) {
 		if tx, err := connect.Begin(); assert.NoError(t, err) {
 			if _, err := tx.Exec(ddl); assert.NoError(t, err) {
 				if _, err := tx.Exec("INSERT INTO clickhouse_test_temporary_table (ID) SELECT number AS ID FROM system.numbers LIMIT 10"); assert.NoError(t, err) {
-					if rows, err := tx.Query("SELECT ID FROM clickhouse_test_temporary_table"); assert.NoError(t, err) {
+					if rows, err := tx.Query("SELECT ID AS ID FROM clickhouse_test_temporary_table"); assert.NoError(t, err) {
 						var count int
 						for rows.Next() {
 							var num int
@@ -737,8 +658,8 @@ func Test_Temporary_Table(t *testing.T) {
 							}
 							count++
 						}
-						if _, err = tx.Query("SELECT ID FROM clickhouse_test_temporary_table"); assert.NoError(t, err) {
-							if _, err = connect.Query("SELECT ID FROM clickhouse_test_temporary_table"); assert.Error(t, err) {
+						if _, err = tx.Query("SELECT ID AS ID1 FROM clickhouse_test_temporary_table"); assert.NoError(t, err) {
+							if _, err = connect.Query("SELECT ID AS ID2 FROM clickhouse_test_temporary_table"); assert.Error(t, err) {
 								if exception, ok := err.(*clickhouse.Exception); assert.True(t, ok) {
 									assert.Equal(t, int32(60), exception.Code)
 								}
@@ -956,12 +877,14 @@ func Test_IP(t *testing.T) {
 	}
 }
 
-func Test_Context_Timeout(t *testing.T) {
+func _Test_Context_Timeout(t *testing.T) {
 	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) && assert.NoError(t, connect.Ping()) {
 		{
 			ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*20)
 			defer cancel()
-			if _, err := connect.QueryContext(ctx, "SELECT 1, sleep(10)"); assert.Error(t, err) {
+			_, err := connect.QueryContext(ctx, "SELECT 1, sleep(10)")
+			fmt.Println(err)
+			if assert.Error(t, err) {
 				assert.Equal(t, context.DeadlineExceeded, err)
 			}
 		}

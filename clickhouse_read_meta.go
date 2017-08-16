@@ -22,7 +22,7 @@ func (ch *clickhouse) readMeta() (*data.Block, error) {
 		return block, nil
 	case protocol.ServerException:
 		ch.logf("[read meta] <- exception")
-		return nil, ch.exception()
+		return nil, ch.exception(ch.decoder)
 	default:
 		return nil, fmt.Errorf("unexpected packet [%d] from server", packet)
 	}

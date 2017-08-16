@@ -134,15 +134,16 @@ func (ch *clickhouse) Commit() error {
 		if err := ch.writeBlock(ch.block); err != nil {
 			return err
 		}
+		// Send empty block as marker of end of data.
+		if err := ch.writeBlock(&data.Block{}); err != nil {
+			return err
+		}
+		if err := ch.buffer.Flush(); err != nil {
+			return err
+		}
+		return ch.process()
 	}
-	// Send empty block as marker of end of data.
-	if err := ch.writeBlock(&data.Block{}); err != nil {
-		return err
-	}
-	if err := ch.buffer.Flush(); err != nil {
-		return err
-	}
-	return ch.process()
+	return nil
 }
 
 func (ch *clickhouse) Rollback() error {
@@ -172,9 +173,9 @@ func (ch *clickhouse) process() error {
 			return nil
 		case protocol.ServerException:
 			ch.logf("[process] <- exception")
-			return ch.exception()
+			return ch.exception(ch.decoder)
 		case protocol.ServerProgress:
-			progress, err := ch.progress()
+			progress, err := ch.progress(ch.decoder)
 			if err != nil {
 				return err
 			}
@@ -184,7 +185,7 @@ func (ch *clickhouse) process() error {
 				progress.totalRows,
 			)
 		case protocol.ServerProfileInfo:
-			profileInfo, err := ch.profileInfo()
+			profileInfo, err := ch.profileInfo(ch.decoder)
 			if err != nil {
 				return err
 			}
@@ -222,9 +223,9 @@ func (ch *clickhouse) watchCancel(ctx context.Context) func() {
 			case <-done:
 				ch.cancel()
 				finished <- struct{}{}
-				ch.logf("[ch] watchCancel <- done")
+				ch.logf("[cancel] <- done")
 			case <-finished:
-				ch.logf("[ch] watchCancel <- finished")
+				ch.logf("[cancel] <- finished")
 			}
 		}()
 		return func() {

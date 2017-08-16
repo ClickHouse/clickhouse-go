@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"sync/atomic"
 
 	"github.com/kshvakov/clickhouse/lib/binary"
 	"github.com/kshvakov/clickhouse/lib/data"
@@ -12,13 +13,14 @@ import (
 )
 
 type rows struct {
-	err      error
-	ch       *clickhouse
-	block    *data.Block
-	stream   chan []driver.Value
-	columns  []string
-	totals   [][]driver.Value
-	extremes [][]driver.Value
+	err           error
+	ch            *clickhouse
+	block         *data.Block
+	stream        chan []driver.Value
+	columns       []string
+	totals        [][]driver.Value
+	extremes      [][]driver.Value
+	hasNextResult int32
 }
 
 func (rows *rows) Columns() []string {
@@ -47,6 +49,33 @@ func (rows *rows) Next(dest []driver.Value) error {
 	return nil
 }
 
+func (rows *rows) HasNextResultSet() bool {
+	return atomic.LoadInt32(&rows.hasNextResult) != 0
+}
+
+func (rows *rows) NextResultSet() error {
+	switch {
+	case len(rows.totals) != 0:
+		rows.stream = make(chan []driver.Value, len(rows.totals))
+		for _, v := range rows.totals {
+			rows.stream <- v
+		}
+		rows.totals = nil
+		close(rows.stream)
+	case len(rows.extremes) != 0:
+		rows.stream = make(chan []driver.Value, len(rows.extremes))
+		for _, v := range rows.extremes {
+			rows.stream <- v
+		}
+		rows.extremes = nil
+		close(rows.stream)
+	default:
+		atomic.StoreInt32(&rows.hasNextResult, 0)
+		return io.EOF
+	}
+	return nil
+}
+
 func (rows *rows) receiveData() {
 	var (
 		packet   uint64
@@ -62,10 +91,10 @@ func (rows *rows) receiveData() {
 		switch packet {
 		case protocol.ServerException:
 			rows.ch.logf("[receive data] <- exception")
-			rows.err = rows.ch.exception()
+			rows.err = rows.ch.exception(decoder)
 			return
 		case protocol.ServerProgress:
-			progress, rows.err = rows.ch.progress()
+			progress, rows.err = rows.ch.progress(decoder)
 			if rows.err != nil {
 				return
 			}
@@ -75,7 +104,7 @@ func (rows *rows) receiveData() {
 				progress.totalRows,
 			)
 		case protocol.ServerProfileInfo:
-			profileInfo, err := rows.ch.profileInfo()
+			profileInfo, err := rows.ch.profileInfo(decoder)
 			if err != nil {
 				return
 			}
@@ -98,8 +127,10 @@ func (rows *rows) receiveData() {
 				}
 			case protocol.ServerTotals:
 				rows.totals = values
+				atomic.StoreInt32(&rows.hasNextResult, 1)
 			case protocol.ServerExtremes:
 				rows.extremes = values
+				atomic.StoreInt32(&rows.hasNextResult, 1)
 			}
 		case protocol.ServerEndOfStream:
 			rows.ch.logf("[receive data] <- end of stream")
