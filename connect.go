@@ -22,7 +22,7 @@ func dial(network string, hosts []string, noDelay bool, r, w time.Duration, logf
 		index = abs(int(atomic.AddInt32(&tick, 1)))
 	)
 	for i := 0; i <= len(hosts); i++ {
-		if conn, err = net.DialTimeout(network, hosts[(index+1)%len(hosts)], 2*time.Second); err == nil {
+		if conn, err = net.DialTimeout(network, hosts[(index+1)%len(hosts)], 20*time.Second); err == nil {
 			logf("[connect] num=%d -> %s", tick, conn.RemoteAddr())
 			if tcp, ok := conn.(*net.TCPConn); ok {
 				tcp.SetNoDelay(noDelay) // Disable or enable the Nagle Algorithm for this tcp socket

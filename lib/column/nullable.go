@@ -23,6 +23,9 @@ func (null *Nullable) Read(decoder *binary.Decoder) (interface{}, error) {
 	case err != nil:
 		return nil, err
 	case isNull == 1:
+		if _, err := null.column.Read(decoder); err != nil {
+			return nil, err
+		}
 		return nil, nil
 	}
 	return null.column.Read(decoder)
