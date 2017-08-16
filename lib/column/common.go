@@ -6,6 +6,10 @@ import (
 	"time"
 )
 
+type NativeConverter interface {
+	Native() ([]byte, error)
+}
+
 var baseTypes = map[interface{}]reflect.Value{
 	int8(0):     reflect.ValueOf(int8(0)),
 	int16(0):    reflect.ValueOf(int16(0)),

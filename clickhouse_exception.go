@@ -44,6 +44,5 @@ func (ch *clickhouse) exception(decoder *binary.Decoder) error {
 	if hasNested {
 		e.nested = ch.exception(decoder)
 	}
-	ch.conn.Close()
 	return &e
 }

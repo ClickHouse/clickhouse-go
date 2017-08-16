@@ -1,9 +1,8 @@
 package clickhouse_test
 
-/*
 import (
 	"database/sql/driver"
-	"fmt"
+	//	"fmt"
 	"net"
 	"testing"
 	"time"
@@ -123,7 +122,7 @@ func Test_DirectInsert(t *testing.T) {
 							"d",
 
 							clickhouse.UUID("123e4567-e89b-12d3-a456-426655440000"),
-							net.ParseIP("127.0.0.1"),
+							clickhouse.IP(net.ParseIP("127.0.0.1")),
 						})
 						if !assert.NoError(t, err) {
 							return
@@ -136,6 +135,7 @@ func Test_DirectInsert(t *testing.T) {
 	}
 }
 
+/*
 func Test_DirectArrayT(t *testing.T) {
 	const (
 		ddl = `

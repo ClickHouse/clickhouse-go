@@ -15,6 +15,10 @@ func (str UUID) Value() (driver.Value, error) {
 	return uuid2bytes(string(str))
 }
 
+func (str UUID) Native() ([]byte, error) {
+	return uuid2bytes(string(str))
+}
+
 func (str *UUID) Scan(v interface{}) error {
 	var src []byte
 	switch v := v.(type) {

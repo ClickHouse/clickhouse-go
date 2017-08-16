@@ -21,6 +21,10 @@ type IP net.IP
 // Value implements the driver.Valuer interface, json field interface
 // Alignment on the right side
 func (ip IP) Value() (driver.Value, error) {
+	return ip.Native()
+}
+
+func (ip IP) Native() ([]byte, error) {
 	if len(ip) < 16 {
 		var (
 			buff = make([]byte, 16)

@@ -116,12 +116,6 @@ func (ch *clickhouse) beginTx(ctx context.Context, opts txOptions) (driver.Tx, e
 
 func (ch *clickhouse) Commit() error {
 	ch.logf("[commit] tx=%t, data=%t", ch.inTransaction, ch.block != nil)
-	switch {
-	case !ch.inTransaction:
-		return sql.ErrTxDone
-	case atomic.LoadInt32(&ch.conn.closed) != 0:
-		return driver.ErrBadConn
-	}
 	defer func() {
 		if ch.block != nil {
 			ch.block.Reset()
@@ -129,6 +123,12 @@ func (ch *clickhouse) Commit() error {
 		}
 		ch.inTransaction = false
 	}()
+	switch {
+	case !ch.inTransaction:
+		return sql.ErrTxDone
+	case atomic.LoadInt32(&ch.conn.closed) != 0:
+		return driver.ErrBadConn
+	}
 	if ch.block != nil {
 		if err := ch.writeBlock(ch.block); err != nil {
 			return err
@@ -147,12 +147,12 @@ func (ch *clickhouse) Commit() error {
 
 func (ch *clickhouse) Rollback() error {
 	ch.logf("[rollback] tx=%t, data=%t", ch.inTransaction, ch.block != nil)
+	ch.block = nil
+	ch.inTransaction = false
 	if !ch.inTransaction {
 		return sql.ErrTxDone
 	}
-	ch.block = nil
-	ch.inTransaction = false
-	return ch.conn.Close()
+	return nil
 }
 
 func (ch *clickhouse) Close() error {
