@@ -114,8 +114,8 @@ func Factory(name, chType string, timezone *time.Location) (Column, error) {
 				chType:   chType,
 				scanType: scanTypes[time.Time{}],
 			},
-			isFull:   chType == "DateTime",
-			timezone: timezone,
+			IsFull:   chType == "DateTime",
+			Timezone: timezone,
 		}, nil
 	}
 

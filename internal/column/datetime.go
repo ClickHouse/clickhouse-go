@@ -8,23 +8,23 @@ import (
 
 type DateTime struct {
 	base
-	isFull   bool
-	timezone *time.Location
+	IsFull   bool
+	Timezone *time.Location
 }
 
 func (dt *DateTime) Read(decoder *binary.Decoder) (interface{}, error) {
-	if dt.isFull {
+	if dt.IsFull {
 		sec, err := decoder.Int32()
 		if err != nil {
 			return nil, err
 		}
-		return time.Unix(int64(sec), 0).In(dt.timezone), nil
+		return time.Unix(int64(sec), 0).In(dt.Timezone), nil
 	}
 	sec, err := decoder.Int16()
 	if err != nil {
 		return nil, err
 	}
-	return time.Unix(int64(sec)*24*3600, 0).In(dt.timezone), nil
+	return time.Unix(int64(sec)*24*3600, 0).In(dt.Timezone), nil
 }
 
 func (dt *DateTime) Write(encoder *binary.Encoder, v interface{}) error {
@@ -40,18 +40,7 @@ func (dt *DateTime) Write(encoder *binary.Encoder, v interface{}) error {
 		timestamp = value
 	case string:
 		switch {
-		case dt.isFull:
-			tv, err := time.Parse("2006-01-02", value)
-			if err != nil {
-				return err
-			}
-			timestamp = time.Date(
-				time.Time(tv).Year(),
-				time.Time(tv).Month(),
-				time.Time(tv).Day(),
-				0, 0, 0, 0, time.UTC,
-			).Unix()
-		default:
+		case dt.IsFull:
 			tv, err := time.Parse("2006-01-02 15:04:05", value)
 			if err != nil {
 				return err
@@ -65,10 +54,21 @@ func (dt *DateTime) Write(encoder *binary.Encoder, v interface{}) error {
 				time.Time(tv).Second(),
 				0, time.UTC,
 			).Unix()
+		default:
+			tv, err := time.Parse("2006-01-02", value)
+			if err != nil {
+				return err
+			}
+			timestamp = time.Date(
+				time.Time(tv).Year(),
+				time.Time(tv).Month(),
+				time.Time(tv).Day(),
+				0, 0, 0, 0, time.UTC,
+			).Unix()
 		}
 	}
 
-	if dt.isFull {
+	if dt.IsFull {
 		return encoder.Int32(int32(timestamp))
 	}
 	return encoder.Int16(int16(timestamp / 24 / 3600))

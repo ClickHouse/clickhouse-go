@@ -80,7 +80,6 @@ func (rows *rows) receiveData() {
 				return
 			}
 			rows.ch.logf("[receive data] <- profiling: rows=%d, bytes=%d, blocks=%d", profileInfo.rows, profileInfo.bytes, profileInfo.blocks)
-
 		case protocol.ServerData, protocol.ServerTotals, protocol.ServerExtremes:
 			if block, rows.err = rows.ch.readBlock(decoder); rows.err != nil {
 				return
@@ -114,9 +113,6 @@ func (rows *rows) receiveData() {
 }
 
 func (rows *rows) Close() error {
-	rows.totals = nil
-	rows.columns = nil
-	rows.extremes = nil
 	return nil
 }
 

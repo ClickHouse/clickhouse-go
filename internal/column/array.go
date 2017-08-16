@@ -1,13 +1,17 @@
 package column
 
 import (
+	"bytes"
 	"fmt"
 	"reflect"
 	"time"
 
 	"github.com/kshvakov/clickhouse/internal/binary"
-	"github.com/kshvakov/clickhouse/internal/types"
 )
+
+type ArrayWriter interface {
+	WriteArray(encoder *binary.Encoder, column Column) (uint64, error)
+}
 
 type Array struct {
 	base
@@ -36,8 +40,38 @@ func (array *Array) ReadArray(decoder *binary.Decoder, ln int) (interface{}, err
 
 func (array *Array) WriteArray(encoder *binary.Encoder, v interface{}) (uint64, error) {
 	switch value := v.(type) {
-	case *types.Array:
-		_ = value
+	case ArrayWriter:
+		return value.WriteArray(encoder, array.column)
+	case []byte:
+		var (
+			buff    = bytes.NewBuffer(value)
+			decoder = binary.NewDecoder(buff)
+		)
+		ln, err := decoder.Uvarint()
+		if err != nil {
+			return 0, err
+		}
+		switch array.column.(type) {
+		case *Enum:
+			slice := make([]string, 0, ln)
+			for i := 0; i < int(ln); i++ {
+				v, err := decoder.String()
+				if err != nil {
+					return 0, err
+				}
+				slice = append(slice, v)
+			}
+			for _, v := range slice {
+				if err := array.column.Write(encoder, v); err != nil {
+					return 0, err
+				}
+			}
+		default:
+			if _, err := buff.WriteTo(encoder); err != nil {
+				return 0, err
+			}
+		}
+		return ln, nil
 	}
 	return 0, nil
 }

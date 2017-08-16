@@ -18,7 +18,7 @@ func (str *FixedString) Read(decoder *binary.Decoder) (interface{}, error) {
 	if err != nil {
 		return "", err
 	}
-	return v, nil
+	return string(v), nil
 }
 
 func (str *FixedString) Write(encoder *binary.Encoder, v interface{}) error {

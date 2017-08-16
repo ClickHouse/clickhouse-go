@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"net"
 	"reflect"
+
+	"github.com/kshvakov/clickhouse/internal/types"
 )
 
 var _converter = &converter{}
@@ -57,7 +59,7 @@ func (c *converter) ConvertValue(v interface{}) (driver.Value, error) {
 		[]int, []int8, []int16, []int32, []int64,
 		[]uint, []uint8, []uint16, []uint32, []uint64,
 		[]string:
-		return (&array{values: v}).Value()
+		return (types.NewArray(v)).Value()
 	case net.IP:
 		return IP(value).Value()
 	}

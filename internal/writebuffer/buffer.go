@@ -52,6 +52,17 @@ func (wb *WriteBuffer) WriteTo(w io.Writer) (int64, error) {
 	return size, nil
 }
 
+func (wb *WriteBuffer) Bytes() []byte {
+	if len(wb.chunks) == 1 {
+		return wb.chunks[0]
+	}
+	bytes := make([]byte, 0, wb.len())
+	for _, chunk := range wb.chunks {
+		bytes = append(bytes, chunk...)
+	}
+	return bytes
+}
+
 func (wb *WriteBuffer) addChunk(size, capacity int) {
 	var chunk []byte
 	if c, ok := chunkPool.Get().([]byte); ok && cap(c) >= size {
