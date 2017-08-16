@@ -31,10 +31,6 @@ func (stmt *stmt) Exec(args []driver.Value) (driver.Result, error) {
 }
 
 func (stmt *stmt) ExecContext(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
-	dargs := make([]driver.Value, len(args))
-	for i, nv := range args {
-		dargs[i] = nv.Value
-	}
 	return stmt.execContext(ctx, args)
 }
 

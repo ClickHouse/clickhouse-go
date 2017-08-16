@@ -44,3 +44,18 @@ func (str *FixedString) Write(encoder *binary.Encoder, v interface{}) error {
 	}
 	return nil
 }
+
+func parseFixedString(name, chType string) (*FixedString, error) {
+	var strLen int
+	if _, err := fmt.Sscanf(chType, "FixedString(%d)", &strLen); err != nil {
+		return nil, err
+	}
+	return &FixedString{
+		base: base{
+			name:     name,
+			chType:   chType,
+			scanType: scanTypes[string("")],
+		},
+		len: strLen,
+	}, nil
+}

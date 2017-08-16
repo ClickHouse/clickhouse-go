@@ -18,8 +18,8 @@ type Block struct {
 	Buffers    []*buffer
 	NumRows    uint64
 	NumColumns uint64
+	offsets    []uint64
 	info       blockInfo
-	table      string
 }
 
 func (block *Block) ColumnNames() []string {
@@ -103,6 +103,14 @@ func (block *Block) AppendRow(args []driver.NamedValue) error {
 	for num, c := range block.Columns {
 		switch column := c.(type) {
 		case *column.Array:
+			ln, err := column.WriteArray(block.Buffers[num].Column, args[num].Value)
+			if err != nil {
+				return err
+			}
+			block.offsets[num] += ln
+			if err := block.Buffers[num].Offset.UInt64(block.offsets[num]); err != nil {
+				return err
+			}
 		default:
 			if err := column.Write(block.Buffers[num].Column, args[num].Value); err != nil {
 				return err
@@ -115,6 +123,7 @@ func (block *Block) AppendRow(args []driver.NamedValue) error {
 func (block *Block) Reserve() {
 	if len(block.Buffers) == 0 {
 		block.Buffers = make([]*buffer, len(block.Columns))
+		block.offsets = make([]uint64, len(block.Columns))
 		for i := 0; i < len(block.Columns); i++ {
 			var (
 				offsetBuffer = wb.New(wb.InitialSize)
@@ -136,6 +145,7 @@ func (block *Block) Reset() {
 	for _, buffer := range block.Buffers {
 		buffer.reset()
 	}
+	block.offsets = nil
 	block.Buffers = nil
 }
 

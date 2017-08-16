@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"sync/atomic"
 
 	"github.com/kshvakov/clickhouse/internal/binary"
 	"github.com/kshvakov/clickhouse/internal/data"
@@ -48,7 +49,7 @@ func (ch *clickhouse) PrepareContext(ctx context.Context, query string) (driver.
 }
 
 func (ch *clickhouse) prepareContext(ctx context.Context, query string) (driver.Stmt, error) {
-	if ch.conn.isBad {
+	if atomic.LoadInt32(&ch.conn.closed) != 0 {
 		return nil, driver.ErrBadConn
 	}
 	ch.logf("[prepare] %s", query)
@@ -99,11 +100,11 @@ type txOptions struct {
 }
 
 func (ch *clickhouse) beginTx(ctx context.Context, opts txOptions) (driver.Tx, error) {
-	ch.logf("[begin] tx=%t, data=%t, bad connection=%t", ch.inTransaction, ch.block != nil, ch.conn.isBad)
+	ch.logf("[begin] tx=%t, data=%t", ch.inTransaction, ch.block != nil)
 	switch {
 	case ch.inTransaction:
 		return nil, sql.ErrTxDone
-	case ch.conn.isBad:
+	case atomic.LoadInt32(&ch.conn.closed) != 0:
 		return nil, driver.ErrBadConn
 	}
 	if finish := ch.watchCancel(ctx); finish != nil {
@@ -115,11 +116,11 @@ func (ch *clickhouse) beginTx(ctx context.Context, opts txOptions) (driver.Tx, e
 }
 
 func (ch *clickhouse) Commit() error {
-	ch.logf("[commit] tx=%t, data=%t, bad connection=%t", ch.inTransaction, ch.block != nil, ch.conn.isBad)
+	ch.logf("[commit] tx=%t, data=%t", ch.inTransaction, ch.block != nil)
 	switch {
 	case !ch.inTransaction:
 		return sql.ErrTxDone
-	case ch.conn.isBad:
+	case atomic.LoadInt32(&ch.conn.closed) != 0:
 		return driver.ErrBadConn
 	}
 	defer func() {
@@ -145,12 +146,9 @@ func (ch *clickhouse) Commit() error {
 }
 
 func (ch *clickhouse) Rollback() error {
-	ch.logf("[rollback] tx=%t, data=%t, bad connection=%t", ch.inTransaction, ch.block != nil, ch.conn.isBad)
-	switch {
-	case !ch.inTransaction:
+	ch.logf("[rollback] tx=%t, data=%t", ch.inTransaction, ch.block != nil)
+	if !ch.inTransaction {
 		return sql.ErrTxDone
-	case ch.conn.isBad:
-		return driver.ErrBadConn
 	}
 	ch.block = nil
 	ch.inTransaction = false

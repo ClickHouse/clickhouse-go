@@ -120,22 +120,12 @@ func Factory(name, chType string, timezone *time.Location) (Column, error) {
 	}
 
 	switch {
+	case strings.HasPrefix(chType, "Array"):
+		return parseArray(name, chType, timezone)
 	case strings.HasPrefix(chType, "FixedString"):
-		var strLen int
-		if _, err := fmt.Sscanf(chType, "FixedString(%d)", &strLen); err != nil {
-			return nil, err
-		}
-		return &FixedString{
-			base: base{
-				name:     name,
-				chType:   chType,
-				scanType: scanTypes[string("")],
-			},
-			len: strLen,
-		}, nil
+		return parseFixedString(name, chType)
 	case strings.HasPrefix(chType, "Enum8"), strings.HasPrefix(chType, "Enum16"):
 		return parseEnum(name, chType)
-	case strings.HasPrefix(chType, "Array"):
 	}
 	return nil, fmt.Errorf("column: unhandled type %v", chType)
 }
