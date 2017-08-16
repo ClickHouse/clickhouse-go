@@ -5,98 +5,106 @@ import (
 	"fmt"
 	"io"
 	"reflect"
-	"sync/atomic"
 
-	"github.com/kshvakov/clickhouse/lib/binary"
+	"github.com/kshvakov/clickhouse/lib/column"
 	"github.com/kshvakov/clickhouse/lib/data"
 	"github.com/kshvakov/clickhouse/lib/protocol"
 )
 
 type rows struct {
-	err           error
-	ch            *clickhouse
-	block         *data.Block
-	stream        chan []driver.Value
-	columns       []string
-	totals        [][]driver.Value
-	extremes      [][]driver.Value
-	hasNextResult int32
+	ch      *clickhouse
+	columns []string
+
+	index    int
+	values   [][]driver.Value
+	totals   [][]driver.Value
+	extremes [][]driver.Value
+
+	blockColumns      []column.Column
+	allDataIsReceived bool
 }
 
 func (rows *rows) Columns() []string {
+	if len(rows.columns) == 0 {
+		rows.receiveData()
+	}
 	return rows.columns
 }
 
 func (rows *rows) ColumnTypeScanType(idx int) reflect.Type {
-	return rows.block.Columns[idx].ScanType()
+	return rows.blockColumns[idx].ScanType()
 }
 
 func (rows *rows) ColumnTypeDatabaseTypeName(idx int) string {
-	return rows.block.Columns[idx].CHType()
+	return rows.blockColumns[idx].CHType()
 }
 
 func (rows *rows) Next(dest []driver.Value) error {
-	row, open := <-rows.stream
-	if !open && row == nil {
-		if rows.err != nil {
-			return rows.err
+begin:
+	if len(rows.values) <= rows.index {
+		switch {
+		case rows.allDataIsReceived:
+			return io.EOF
+		default:
+			if err := rows.receiveData(); err != nil {
+				return err
+			}
+			goto begin
 		}
-		return io.EOF
 	}
 	for i := range dest {
-		dest[i] = row[i]
+		dest[i] = rows.values[rows.index][i]
+	}
+	rows.index++
+	if len(rows.values) <= rows.index {
+		rows.values = nil
+		for !(rows.allDataIsReceived || len(rows.values) != 0) {
+			if err := rows.receiveData(); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }
 
 func (rows *rows) HasNextResultSet() bool {
-	return atomic.LoadInt32(&rows.hasNextResult) != 0
+	return len(rows.totals) != 0 || len(rows.extremes) != 0
 }
 
 func (rows *rows) NextResultSet() error {
 	switch {
 	case len(rows.totals) != 0:
-		rows.stream = make(chan []driver.Value, len(rows.totals))
-		for _, v := range rows.totals {
-			rows.stream <- v
+		for _, value := range rows.totals {
+			rows.values = append(rows.values, value)
 		}
+		rows.index = 0
 		rows.totals = nil
-		close(rows.stream)
 	case len(rows.extremes) != 0:
-		rows.stream = make(chan []driver.Value, len(rows.extremes))
-		for _, v := range rows.extremes {
-			rows.stream <- v
+		for _, value := range rows.extremes {
+			rows.values = append(rows.values, value)
 		}
+		rows.index = 0
 		rows.extremes = nil
-		close(rows.stream)
 	default:
-		atomic.StoreInt32(&rows.hasNextResult, 0)
 		return io.EOF
 	}
 	return nil
 }
 
-func (rows *rows) receiveData() {
-	var (
-		packet   uint64
-		block    *data.Block
-		progress *progress
-		decoder  = binary.NewDecoder(rows.ch.conn)
-	)
-	defer close(rows.stream)
+func (rows *rows) receiveData() error {
 	for {
-		if packet, rows.err = decoder.Uvarint(); rows.err != nil {
-			return
+		packet, err := rows.ch.decoder.Uvarint()
+		if err != nil {
+			return err
 		}
 		switch packet {
 		case protocol.ServerException:
 			rows.ch.logf("[receive data] <- exception")
-			rows.err = rows.ch.exception(decoder)
-			return
+			return rows.ch.exception(rows.ch.decoder)
 		case protocol.ServerProgress:
-			progress, rows.err = rows.ch.progress(decoder)
-			if rows.err != nil {
-				return
+			progress, err := rows.ch.progress(rows.ch.decoder)
+			if err != nil {
+				return err
 			}
 			rows.ch.logf("[receive data] <- progress: rows=%d, bytes=%d, total rows=%d",
 				progress.rows,
@@ -104,41 +112,46 @@ func (rows *rows) receiveData() {
 				progress.totalRows,
 			)
 		case protocol.ServerProfileInfo:
-			profileInfo, err := rows.ch.profileInfo(decoder)
+			profileInfo, err := rows.ch.profileInfo(rows.ch.decoder)
 			if err != nil {
-				return
+				return err
 			}
 			rows.ch.logf("[receive data] <- profiling: rows=%d, bytes=%d, blocks=%d", profileInfo.rows, profileInfo.bytes, profileInfo.blocks)
 		case protocol.ServerData, protocol.ServerTotals, protocol.ServerExtremes:
-			if block, rows.err = rows.ch.readBlock(decoder); rows.err != nil {
-				return
-			}
-			if len(rows.columns) == 0 && len(block.Columns) != 0 {
-				rows.columns = block.ColumnNames()
+			block, err := rows.ch.readBlock(rows.ch.decoder)
+			if err != nil {
+				return err
 			}
 			rows.ch.logf("[receive data] <- data: packet=%d, columns=%d, rows=%d", packet, block.NumColumns, block.NumRows)
+
+			if len(rows.columns) == 0 && len(block.Columns) != 0 {
+				rows.columns = block.ColumnNames()
+				rows.blockColumns = block.Columns
+				if block.NumRows == 0 {
+					return nil
+				}
+			}
 			values := convertBlockToDriverValues(block)
 			switch block.Reset(); packet {
 			case protocol.ServerData:
-				for _, value := range values {
-					if len(value) != 0 {
-						rows.stream <- value
-					}
-				}
+				rows.index = 0
+				rows.values = values
 			case protocol.ServerTotals:
 				rows.totals = values
-				atomic.StoreInt32(&rows.hasNextResult, 1)
 			case protocol.ServerExtremes:
 				rows.extremes = values
-				atomic.StoreInt32(&rows.hasNextResult, 1)
+			}
+			if len(rows.values) != 0 {
+				return nil
 			}
 		case protocol.ServerEndOfStream:
+			rows.allDataIsReceived = true
 			rows.ch.logf("[receive data] <- end of stream")
-			return
+			return nil
 		default:
+			rows.ch.conn.Close()
 			rows.ch.logf("[receive data] unexpected packet [%d]", packet)
-			rows.err = fmt.Errorf("unexpected packet [%d] from server", packet)
-			return
+			return fmt.Errorf("unexpected packet [%d] from server", packet)
 		}
 	}
 }

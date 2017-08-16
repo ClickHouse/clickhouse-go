@@ -147,11 +147,11 @@ func (ch *clickhouse) Commit() error {
 
 func (ch *clickhouse) Rollback() error {
 	ch.logf("[rollback] tx=%t, data=%t", ch.inTransaction, ch.block != nil)
-	ch.block = nil
-	ch.inTransaction = false
 	if !ch.inTransaction {
 		return sql.ErrTxDone
 	}
+	ch.block = nil
+	ch.inTransaction = false
 	return nil
 }
 

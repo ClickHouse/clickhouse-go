@@ -72,19 +72,9 @@ func (stmt *stmt) queryContext(ctx context.Context, args []driver.NamedValue) (d
 		return nil, err
 	}
 
-	block, err := stmt.ch.readMeta()
-	if err != nil {
-		return nil, err
-	}
-	rows := rows{
-		ch:      stmt.ch,
-		block:   block,
-		columns: block.ColumnNames(),
-		stream:  make(chan []driver.Value, 1000),
-	}
-	go rows.receiveData()
-	return &rows, nil
-
+	return &rows{
+		ch: stmt.ch,
+	}, nil
 }
 
 func (stmt *stmt) Close() error {
