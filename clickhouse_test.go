@@ -3,6 +3,7 @@ package clickhouse_test
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"fmt"
 	"net"
 	"strings"
@@ -1182,26 +1183,23 @@ func Test_Nullable(t *testing.T) {
 	}
 }
 
-func _Test_Context_Timeout(t *testing.T) {
+func Test_Context_Timeout(t *testing.T) {
 	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) && assert.NoError(t, connect.Ping()) {
 		{
 			ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*20)
 			defer cancel()
-			_, err := connect.QueryContext(ctx, "SELECT 1, sleep(10)")
-			fmt.Println(err)
-			if assert.Error(t, err) {
-				assert.Equal(t, context.DeadlineExceeded, err)
+			if row := connect.QueryRowContext(ctx, "SELECT 1, sleep(10)"); assert.NotNil(t, row) {
+				var a, b int
+				assert.Equal(t, driver.ErrBadConn, row.Scan(&a, &b))
 			}
 		}
 		{
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
-			if rows, err := connect.QueryContext(ctx, "SELECT 1, sleep(0.1)"); assert.NoError(t, err) {
-				if assert.True(t, rows.Next()) {
-					var value, value2 int
-					if assert.NoError(t, rows.Scan(&value, &value2)) {
-						assert.Equal(t, int(1), value)
-					}
+			if row := connect.QueryRowContext(ctx, "SELECT 1, sleep(0.1)"); assert.NotNil(t, row) {
+				var value, value2 int
+				if assert.NoError(t, row.Scan(&value, &value2)) {
+					assert.Equal(t, int(1), value)
 				}
 			}
 		}

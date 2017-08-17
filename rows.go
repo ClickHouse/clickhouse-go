@@ -12,14 +12,13 @@ import (
 )
 
 type rows struct {
-	ch      *clickhouse
-	columns []string
-
-	index    int
-	values   [][]driver.Value
-	totals   [][]driver.Value
-	extremes [][]driver.Value
-
+	ch                *clickhouse
+	index             int
+	finish            func()
+	values            [][]driver.Value
+	totals            [][]driver.Value
+	extremes          [][]driver.Value
+	columns           []string
 	blockColumns      []column.Column
 	allDataIsReceived bool
 }
@@ -37,16 +36,12 @@ func (rows *rows) ColumnTypeDatabaseTypeName(idx int) string {
 }
 
 func (rows *rows) Next(dest []driver.Value) error {
-begin:
-	if len(rows.values) <= rows.index {
-		switch {
-		case rows.allDataIsReceived:
+	for len(rows.values) <= rows.index {
+		if rows.allDataIsReceived {
 			return io.EOF
-		default:
-			if err := rows.receiveData(); err != nil {
-				return err
-			}
-			goto begin
+		}
+		if err := rows.receiveData(); err != nil {
+			return err
 		}
 	}
 	for i := range dest {
@@ -154,6 +149,10 @@ func (rows *rows) receiveData() error {
 }
 
 func (rows *rows) Close() error {
+	rows.columns = nil
+	if rows.finish != nil {
+		rows.finish()
+	}
 	return nil
 }
 

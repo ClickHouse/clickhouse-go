@@ -66,18 +66,13 @@ func (stmt *stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (d
 }
 
 func (stmt *stmt) queryContext(ctx context.Context, args []driver.NamedValue) (driver.Rows, error) {
-	if finish := stmt.ch.watchCancel(ctx); finish != nil {
-		stmt.ch.logf("[stmt] query with cancel")
-		defer finish()
-	}
-
 	err := stmt.ch.sendQuery(stmt.bind(args))
 	if err != nil {
 		return nil, err
 	}
-
 	rows := rows{
-		ch: stmt.ch,
+		ch:     stmt.ch,
+		finish: stmt.ch.watchCancel(ctx),
 	}
 	for len(rows.columns) == 0 {
 		if err := rows.receiveData(); err != nil {

@@ -207,11 +207,11 @@ func (ch *clickhouse) process() error {
 }
 
 func (ch *clickhouse) cancel() error {
-	ch.logf("cancel request")
+	ch.logf("[cancel request]")
 	if err := ch.encoder.Uvarint(protocol.ClientCancel); err != nil {
 		return err
 	}
-	return nil //ch.conn.Close()
+	return ch.conn.Close()
 }
 
 func (ch *clickhouse) watchCancel(ctx context.Context) func() {
