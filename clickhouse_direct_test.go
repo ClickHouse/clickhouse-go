@@ -2,6 +2,7 @@ package clickhouse_test
 
 import (
 	"database/sql/driver"
+	"fmt"
 	//	"fmt"
 	"net"
 	"testing"
@@ -135,7 +136,6 @@ func Test_DirectInsert(t *testing.T) {
 	}
 }
 
-/*
 func Test_DirectArrayT(t *testing.T) {
 	const (
 		ddl = `
@@ -247,4 +247,3 @@ func Test_DirectArrayT(t *testing.T) {
 		}
 	}
 }
-*/

@@ -16,9 +16,9 @@ func (ch *clickhouse) readMeta() (*data.Block, error) {
 		switch packet {
 		case protocol.ServerException:
 			ch.logf("[read meta] <- exception")
-			return nil, ch.exception(ch.decoder)
+			return nil, ch.exception()
 		case protocol.ServerProgress:
-			progress, err := ch.progress(ch.decoder)
+			progress, err := ch.progress()
 			if err != nil {
 				return nil, err
 			}
@@ -28,13 +28,13 @@ func (ch *clickhouse) readMeta() (*data.Block, error) {
 				progress.totalRows,
 			)
 		case protocol.ServerProfileInfo:
-			profileInfo, err := ch.profileInfo(ch.decoder)
+			profileInfo, err := ch.profileInfo()
 			if err != nil {
 				return nil, err
 			}
 			ch.logf("[read meta] <- profiling: rows=%d, bytes=%d, blocks=%d", profileInfo.rows, profileInfo.bytes, profileInfo.blocks)
 		case protocol.ServerData:
-			block, err := ch.readBlock(ch.decoder)
+			block, err := ch.readBlock()
 			if err != nil {
 				return nil, err
 			}

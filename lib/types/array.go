@@ -63,8 +63,20 @@ func (array *Array) Value() (driver.Value, error) {
 }
 
 func (array *Array) WriteArray(encoder *binary.Encoder, column column.Column) (uint64, error) {
+	if array.err != nil {
+		return 0, array.err
+	}
+	var (
+		v  = reflect.ValueOf(array.values)
+		ln = v.Len()
+	)
+	for i := 0; i < v.Len(); i++ {
 
-	return 0, nil
+		if err := column.Write(encoder, v.Index(i).Interface()); err != nil {
+			return 0, err
+		}
+	}
+	return uint64(ln), nil
 }
 
 var columnsMap = map[reflect.Type]column.Column{

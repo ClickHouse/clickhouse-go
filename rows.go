@@ -97,9 +97,9 @@ func (rows *rows) receiveData() error {
 		switch packet {
 		case protocol.ServerException:
 			rows.ch.logf("[receive data] <- exception")
-			return rows.ch.exception(rows.ch.decoder)
+			return rows.ch.exception()
 		case protocol.ServerProgress:
-			progress, err := rows.ch.progress(rows.ch.decoder)
+			progress, err := rows.ch.progress()
 			if err != nil {
 				return err
 			}
@@ -109,13 +109,13 @@ func (rows *rows) receiveData() error {
 				progress.totalRows,
 			)
 		case protocol.ServerProfileInfo:
-			profileInfo, err := rows.ch.profileInfo(rows.ch.decoder)
+			profileInfo, err := rows.ch.profileInfo()
 			if err != nil {
 				return err
 			}
 			rows.ch.logf("[receive data] <- profiling: rows=%d, bytes=%d, blocks=%d", profileInfo.rows, profileInfo.bytes, profileInfo.blocks)
 		case protocol.ServerData, protocol.ServerTotals, protocol.ServerExtremes:
-			block, err := rows.ch.readBlock(rows.ch.decoder)
+			block, err := rows.ch.readBlock()
 			if err != nil {
 				return err
 			}

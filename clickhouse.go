@@ -172,9 +172,9 @@ func (ch *clickhouse) process() error {
 			return nil
 		case protocol.ServerException:
 			ch.logf("[process] <- exception")
-			return ch.exception(ch.decoder)
+			return ch.exception()
 		case protocol.ServerProgress:
-			progress, err := ch.progress(ch.decoder)
+			progress, err := ch.progress()
 			if err != nil {
 				return err
 			}
@@ -184,13 +184,13 @@ func (ch *clickhouse) process() error {
 				progress.totalRows,
 			)
 		case protocol.ServerProfileInfo:
-			profileInfo, err := ch.profileInfo(ch.decoder)
+			profileInfo, err := ch.profileInfo()
 			if err != nil {
 				return err
 			}
 			ch.logf("[process] <- profiling: rows=%d, bytes=%d, blocks=%d", profileInfo.rows, profileInfo.bytes, profileInfo.blocks)
 		case protocol.ServerData:
-			block, err := ch.readBlock(ch.decoder)
+			block, err := ch.readBlock()
 			if err != nil {
 				return err
 			}

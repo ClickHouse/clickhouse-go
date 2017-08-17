@@ -127,7 +127,7 @@ func (ch *clickhouse) hello(database, username, password string) error {
 		}
 		switch packet {
 		case protocol.ServerException:
-			return ch.exception(ch.decoder)
+			return ch.exception()
 		case protocol.ServerHello:
 			if err := ch.ServerInfo.Read(ch.decoder); err != nil {
 				return err

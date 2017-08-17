@@ -43,6 +43,11 @@ func (block *Block) Read(serverInfo *ServerInfo, decoder *binary.Decoder) (err e
 		return err
 	}
 	block.Values = make([][]interface{}, block.NumColumns)
+	if block.NumRows > 10 {
+		for i := 0; i < int(block.NumColumns); i++ {
+			block.Values[i] = make([]interface{}, 0, block.NumRows)
+		}
+	}
 	for i := 0; i < int(block.NumColumns); i++ {
 		var (
 			value      interface{}
