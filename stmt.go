@@ -26,14 +26,18 @@ func (stmt *stmt) NumInput() int {
 }
 
 func (stmt *stmt) Exec(args []driver.Value) (driver.Result, error) {
-	return stmt.execContext(context.Background(), convertOldArgs(args))
+	return stmt.execContext(context.Background(), args)
 }
 
 func (stmt *stmt) ExecContext(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
-	return stmt.execContext(ctx, args)
+	dargs := make([]driver.Value, len(args))
+	for i, nv := range args {
+		dargs[i] = nv.Value
+	}
+	return stmt.execContext(ctx, dargs)
 }
 
-func (stmt *stmt) execContext(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
+func (stmt *stmt) execContext(ctx context.Context, args []driver.Value) (driver.Result, error) {
 	if finish := stmt.ch.watchCancel(ctx); finish != nil {
 		stmt.ch.logf("[exec] query with cancel")
 		defer finish()
@@ -44,7 +48,7 @@ func (stmt *stmt) execContext(ctx context.Context, args []driver.NamedValue) (dr
 		}
 		return emptyResult, nil
 	}
-	if err := stmt.ch.sendQuery(stmt.bind(args)); err != nil {
+	if err := stmt.ch.sendQuery(stmt.bind(convertOldArgs(args))); err != nil {
 		return nil, err
 	}
 	if err := stmt.ch.process(); err != nil {

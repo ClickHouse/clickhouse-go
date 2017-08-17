@@ -97,7 +97,7 @@ func (block *Block) Read(serverInfo *ServerInfo, decoder *binary.Decoder) (err e
 	return nil
 }
 
-func (block *Block) AppendRow(args []driver.NamedValue) error {
+func (block *Block) AppendRow(args []driver.Value) error {
 	if len(block.Columns) != len(args) {
 		return fmt.Errorf("block: expected %d arguments (columns: %s), got %d", len(block.Columns), strings.Join(block.ColumnNames(), ", "), len(args))
 	}
@@ -108,7 +108,7 @@ func (block *Block) AppendRow(args []driver.NamedValue) error {
 	for num, c := range block.Columns {
 		switch column := c.(type) {
 		case *column.Array:
-			ln, err := column.WriteArray(block.Buffers[num].Column, args[num].Value)
+			ln, err := column.WriteArray(block.Buffers[num].Column, args[num])
 			if err != nil {
 				return err
 			}
@@ -117,7 +117,7 @@ func (block *Block) AppendRow(args []driver.NamedValue) error {
 				return err
 			}
 		default:
-			if err := column.Write(block.Buffers[num].Column, args[num].Value); err != nil {
+			if err := column.Write(block.Buffers[num].Column, args[num]); err != nil {
 				return err
 			}
 		}
