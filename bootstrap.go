@@ -77,15 +77,18 @@ func Open(dsn string) (driver.Conn, error) {
 		//compress = true
 	}
 
-	ch := clickhouse{
-		logf:     func(string, ...interface{}) {},
-		compress: compress,
-		ServerInfo: data.ServerInfo{
-			Timezone: time.Local,
-		},
-	}
+	var (
+		ch = clickhouse{
+			logf:     func(string, ...interface{}) {},
+			compress: compress,
+			ServerInfo: data.ServerInfo{
+				Timezone: time.Local,
+			},
+		}
+		logger = log.New(os.Stdout, "[clickhouse]", 0)
+	)
 	if debug, err := strconv.ParseBool(url.Query().Get("debug")); err == nil && debug {
-		ch.logf = log.New(os.Stdout, "[clickhouse]", 0).Printf
+		ch.logf = logger.Printf
 	}
 	ch.logf("host(s)=%s, database=%s, username=%s",
 		strings.Join(hosts, ", "),
@@ -95,6 +98,7 @@ func Open(dsn string) (driver.Conn, error) {
 	if ch.conn, err = dial("tcp", hosts, noDelay, readTimeout, writeTimeout, ch.logf); err != nil {
 		return nil, err
 	}
+	logger.SetPrefix(fmt.Sprintf("[clickhouse][connect=%d]", ch.conn.ident))
 	ch.buffer = bufio.NewWriter(ch.conn)
 	ch.decoder = binary.NewDecoder(ch.conn)
 	ch.encoder = binary.NewEncoder(ch.buffer)

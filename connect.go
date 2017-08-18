@@ -19,16 +19,18 @@ func dial(network string, hosts []string, noDelay bool, r, w time.Duration, logf
 			return v
 		}
 		conn  net.Conn
-		index = abs(int(atomic.AddInt32(&tick, 1)))
+		ident = abs(int(atomic.AddInt32(&tick, 1)))
 	)
 	for i := 0; i <= len(hosts); i++ {
-		if conn, err = net.DialTimeout(network, hosts[(index+1)%len(hosts)], 20*time.Second); err == nil {
-			logf("[connect] num=%d -> %s", tick, conn.RemoteAddr())
+		num := (ident + 1) % len(hosts)
+		if conn, err = net.DialTimeout(network, hosts[num], 20*time.Second); err == nil {
+			logf("[connect=%d] server=%d -> %s", ident, num, conn.RemoteAddr())
 			if tcp, ok := conn.(*net.TCPConn); ok {
 				tcp.SetNoDelay(noDelay) // Disable or enable the Nagle Algorithm for this tcp socket
 			}
 			return &connect{
 				Conn:         conn,
+				ident:        ident,
 				logf:         logf,
 				readTimeout:  r,
 				writeTimeout: w,
@@ -41,6 +43,7 @@ func dial(network string, hosts []string, noDelay bool, r, w time.Duration, logf
 type connect struct {
 	net.Conn
 	logf         func(string, ...interface{})
+	ident        int
 	closed       int32
 	readTimeout  time.Duration
 	writeTimeout time.Duration

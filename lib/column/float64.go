@@ -11,7 +11,7 @@ type Float64 struct{ base }
 func (Float64) Read(decoder *binary.Decoder) (interface{}, error) {
 	v, err := decoder.Float64()
 	if err != nil {
-		return float32(0), err
+		return float64(0), err
 	}
 	return v, nil
 }
