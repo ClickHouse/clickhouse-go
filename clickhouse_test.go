@@ -184,6 +184,99 @@ func Test_Insert(t *testing.T) {
 	}
 }
 
+func Test_InsertBatch(t *testing.T) {
+	const (
+		ddl = `
+			CREATE TABLE clickhouse_test_insert_batch (
+				int8  Int8,
+				int16 Int16,
+				int32 Int32,
+				int64 Int64,
+				uint8  UInt8,
+				uint16 UInt16,
+				uint32 UInt32,
+				uint64 UInt64,
+				float32 Float32,
+				float64 Float64,
+				string  String,
+				fString FixedString(2),
+				date    Date,
+				datetime DateTime
+			) Engine=Memory
+		`
+		dml = `
+			INSERT INTO clickhouse_test_insert_batch (
+				int8, 
+				int16, 
+				int32,
+				int64,
+				uint8, 
+				uint16, 
+				uint32,
+				uint64,
+				float32,
+				float64,
+				string,
+				fString,
+				date,
+				datetime
+			) VALUES (
+				?, 
+				?, 
+				?,
+				?,
+				?,
+				?,
+				?,
+				?,
+				?,
+				?,
+				?,
+				?,
+				?,
+				?
+			)
+		`
+		query = `SELECT COUNT(*) FROM clickhouse_test_insert_batch`
+	)
+	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true&block_size=11"); assert.NoError(t, err) && assert.NoError(t, connect.Ping()) {
+		if _, err := connect.Exec("DROP TABLE IF EXISTS clickhouse_test_insert_batch"); assert.NoError(t, err) {
+			if _, err := connect.Exec(ddl); assert.NoError(t, err) {
+				if tx, err := connect.Begin(); assert.NoError(t, err) {
+					if stmt, err := tx.Prepare(dml); assert.NoError(t, err) {
+						for i := 1; i <= 1000; i++ {
+							_, err = stmt.Exec(
+								-1*i, -2*i, -4*i, -8*i, // int
+								uint8(1*i), uint16(2*i), uint32(4*i), uint64(8*i), // uint
+								1.32*float32(i), 1.64*float64(i), //float
+								fmt.Sprintf("string %d ", i), // string
+								"RU",       //fixedstring,
+								time.Now(), //date
+								time.Now(), //datetime
+							)
+							if !assert.NoError(t, err) {
+								return
+							}
+						}
+					}
+					if assert.NoError(t, tx.Commit()) {
+						if rows, err := connect.Query(query); assert.NoError(t, err) {
+							var count int
+							for rows.Next() {
+								err := rows.Scan(&count)
+								if !assert.NoError(t, err) {
+									return
+								}
+							}
+							assert.Equal(t, int(1000), count)
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 func Test_Select(t *testing.T) {
 	const (
 		ddl = `
@@ -245,6 +338,25 @@ func Test_Select(t *testing.T) {
 								var count int
 								if err := row.Scan(&count); assert.NoError(t, err) {
 									assert.Equal(t, int(3), count)
+								}
+							}
+						}
+
+						{
+							row1 := connect.QueryRow("SELECT COUNT(*) /* ROW1 */ FROM clickhouse_test_select WHERE date = ?", time.Date(2017, 1, 20, 0, 0, 0, 0, time.UTC))
+							row2 := connect.QueryRow("SELECT COUNT(*) /* ROW2 */ FROM clickhouse_test_select WHERE datetime = ?", time.Date(2017, 1, 20, 14, 0, 0, 0, time.Local))
+
+							if assert.NotNil(t, row2) {
+								var count int
+								if err := row2.Scan(&count); assert.NoError(t, err) {
+									assert.Equal(t, int(2), count)
+								}
+							}
+
+							if assert.NotNil(t, row1) {
+								var count int
+								if err := row1.Scan(&count); assert.NoError(t, err) {
+									assert.Equal(t, int(2), count)
 								}
 							}
 						}

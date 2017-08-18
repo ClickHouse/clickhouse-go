@@ -48,6 +48,7 @@ func Open(dsn string) (driver.Conn, error) {
 		database     = url.Query().Get("database")
 		username     = url.Query().Get("username")
 		password     = url.Query().Get("password")
+		blockSize    = 1000000
 		readTimeout  = DefaultReadTimeout
 		writeTimeout = DefaultWriteTimeout
 	)
@@ -62,6 +63,9 @@ func Open(dsn string) (driver.Conn, error) {
 	}
 	if duration, err := strconv.ParseInt(url.Query().Get("read_timeout"), 10, 64); err == nil {
 		readTimeout = time.Duration(duration) * time.Second
+	}
+	if size, err := strconv.ParseInt(url.Query().Get("block_size"), 10, 64); err == nil {
+		blockSize = int(size)
 	}
 	if duration, err := strconv.ParseInt(url.Query().Get("write_timeout"), 10, 64); err == nil {
 		writeTimeout = time.Duration(duration) * time.Second
@@ -79,8 +83,9 @@ func Open(dsn string) (driver.Conn, error) {
 
 	var (
 		ch = clickhouse{
-			logf:     func(string, ...interface{}) {},
-			compress: compress,
+			logf:      func(string, ...interface{}) {},
+			compress:  compress,
+			blockSize: blockSize,
 			ServerInfo: data.ServerInfo{
 				Timezone: time.Local,
 			},

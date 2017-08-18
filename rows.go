@@ -91,14 +91,14 @@ func (rows *rows) receiveData() error {
 		}
 		switch packet {
 		case protocol.ServerException:
-			rows.ch.logf("[receive data] <- exception")
+			rows.ch.logf("[rows] <- exception")
 			return rows.ch.exception()
 		case protocol.ServerProgress:
 			progress, err := rows.ch.progress()
 			if err != nil {
 				return err
 			}
-			rows.ch.logf("[receive data] <- progress: rows=%d, bytes=%d, total rows=%d",
+			rows.ch.logf("[rows] <- progress: rows=%d, bytes=%d, total rows=%d",
 				progress.rows,
 				progress.bytes,
 				progress.totalRows,
@@ -108,13 +108,13 @@ func (rows *rows) receiveData() error {
 			if err != nil {
 				return err
 			}
-			rows.ch.logf("[receive data] <- profiling: rows=%d, bytes=%d, blocks=%d", profileInfo.rows, profileInfo.bytes, profileInfo.blocks)
+			rows.ch.logf("[rows] <- profiling: rows=%d, bytes=%d, blocks=%d", profileInfo.rows, profileInfo.bytes, profileInfo.blocks)
 		case protocol.ServerData, protocol.ServerTotals, protocol.ServerExtremes:
 			block, err := rows.ch.readBlock()
 			if err != nil {
 				return err
 			}
-			rows.ch.logf("[receive data] <- data: packet=%d, columns=%d, rows=%d", packet, block.NumColumns, block.NumRows)
+			rows.ch.logf("[rows] <- data: packet=%d, columns=%d, rows=%d", packet, block.NumColumns, block.NumRows)
 
 			if len(rows.columns) == 0 && len(block.Columns) != 0 {
 				rows.columns = block.ColumnNames()
@@ -138,17 +138,18 @@ func (rows *rows) receiveData() error {
 			}
 		case protocol.ServerEndOfStream:
 			rows.allDataIsReceived = true
-			rows.ch.logf("[receive data] <- end of stream")
+			rows.ch.logf("[rows] <- end of stream")
 			return nil
 		default:
 			rows.ch.conn.Close()
-			rows.ch.logf("[receive data] unexpected packet [%d]", packet)
-			return fmt.Errorf("unexpected packet [%d] from server", packet)
+			rows.ch.logf("[rows] unexpected packet [%d]", packet)
+			return fmt.Errorf("[rows] unexpected packet [%d] from server", packet)
 		}
 	}
 }
 
 func (rows *rows) Close() error {
+	rows.ch.logf("[rows] close")
 	rows.columns = nil
 	if rows.finish != nil {
 		rows.finish()

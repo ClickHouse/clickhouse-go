@@ -1,6 +1,6 @@
 package clickhouse
 
-// @todo: restore this functionality
+// @todo: restore block_size functionality
 
 import (
 	"time"

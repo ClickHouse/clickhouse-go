@@ -36,6 +36,7 @@ type clickhouse struct {
 	decoder       *binary.Decoder
 	encoder       *binary.Encoder
 	compress      bool
+	blockSize     int
 	inTransaction bool
 }
 
@@ -196,6 +197,7 @@ func (ch *clickhouse) process() error {
 			}
 			ch.logf("[process] <- data: packet=%d, columns=%d, rows=%d", packet, block.NumColumns, block.NumRows)
 		case protocol.ServerEndOfStream:
+			ch.logf("[process] <- end of stream")
 			return nil
 		default:
 			return fmt.Errorf("[process] unexpected packet [%d] from server", packet)

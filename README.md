@@ -15,6 +15,7 @@ Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/)
 * read_timeout/write_timeout - timeout in second 
 * no_delay   - disable/enable the Nagle Algorithm for tcp socket (default is 'true' - disable)
 * alt_hosts  - comma separated list of single address host for load-balancing
+* block_size - maximum rows in block (default is 1000000). If the rows are larger then the data will be split into several blocks to send them to the server
 * debug - enable debug output (boolean value)
 
 example:

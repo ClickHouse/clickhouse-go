@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/kshvakov/clickhouse/lib/binary"
+	"github.com/kshvakov/clickhouse/lib/column"
 	"github.com/kshvakov/clickhouse/lib/types"
 )
 
@@ -64,7 +65,10 @@ func (block *Block) WriteFixedString(c int, v []byte) error {
 }
 
 func (block *Block) WriteArray(c int, v *types.Array) error {
-	// @todo: write array
-	block.offsets[c] += 0
+	ln, err := block.Columns[c].(*column.Array).WriteArray(block.Buffers[c].Column, v)
+	if err != nil {
+		return err
+	}
+	block.offsets[c] += ln
 	return block.Buffers[c].Offset.UInt64(block.offsets[c])
 }

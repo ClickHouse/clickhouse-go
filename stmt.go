@@ -9,6 +9,7 @@ import (
 type stmt struct {
 	ch       *clickhouse
 	query    string
+	counter  int
 	numInput int
 	isInsert bool
 }
@@ -43,8 +44,18 @@ func (stmt *stmt) execContext(ctx context.Context, args []driver.Value) (driver.
 		defer finish()
 	}
 	if stmt.isInsert {
+		stmt.counter++
 		if err := stmt.ch.block.AppendRow(args); err != nil {
 			return nil, err
+		}
+		if (stmt.counter % stmt.ch.blockSize) == 0 {
+			stmt.ch.logf("[exec] flush block")
+			if err := stmt.ch.writeBlock(stmt.ch.block); err != nil {
+				return nil, err
+			}
+			if err := stmt.ch.buffer.Flush(); err != nil {
+				return nil, err
+			}
 		}
 		return emptyResult, nil
 	}

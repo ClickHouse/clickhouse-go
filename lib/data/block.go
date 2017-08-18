@@ -155,7 +155,6 @@ func (block *Block) Reset() {
 }
 
 func (block *Block) Write(serverInfo *ServerInfo, encoder *binary.Encoder) error {
-	defer block.Reset()
 	if serverInfo.Revision >= protocol.DBMS_MIN_REVISION_WITH_BLOCK_INFO {
 		if err := block.info.write(encoder); err != nil {
 			return err
@@ -163,6 +162,8 @@ func (block *Block) Write(serverInfo *ServerInfo, encoder *binary.Encoder) error
 	}
 	encoder.Uvarint(block.NumColumns)
 	encoder.Uvarint(block.NumRows)
+	block.NumRows = 0
+	block.offsets = block.offsets[:0]
 	for i, column := range block.Columns {
 		encoder.String(column.Name())
 		encoder.String(column.CHType())
