@@ -316,7 +316,7 @@ func Test_Column_Enum8(t *testing.T) {
 		encoder = binary.NewEncoder(&buf)
 		decoder = binary.NewDecoder(&buf)
 	)
-	if column, err := columns.Factory("column_name", "Enum8(A=1,B=2,C=3)", time.Local); assert.NoError(t, err) {
+	if column, err := columns.Factory("column_name", "Enum8('A'=1,'B'=2,'C'=3)", time.Local); assert.NoError(t, err) {
 		if err := column.Write(encoder, "B"); assert.NoError(t, err) {
 			if v, err := column.Read(decoder); assert.NoError(t, err) {
 				assert.Equal(t, "B", v)
@@ -329,7 +329,7 @@ func Test_Column_Enum8(t *testing.T) {
 				}
 			}
 		}
-		if assert.Equal(t, "column_name", column.Name()) && assert.Equal(t, "Enum8(A=1,B=2,C=3)", column.CHType()) {
+		if assert.Equal(t, "column_name", column.Name()) && assert.Equal(t, "Enum8('A'=1,'B'=2,'C'=3)", column.CHType()) {
 			assert.Equal(t, reflect.String, column.ScanType().Kind())
 		}
 		if err := column.Write(encoder, int(0)); assert.Error(t, err) {
@@ -346,7 +346,7 @@ func Test_Column_Enum16(t *testing.T) {
 		encoder = binary.NewEncoder(&buf)
 		decoder = binary.NewDecoder(&buf)
 	)
-	if column, err := columns.Factory("column_name", "Enum16(A=1,B=2,C=3)", time.Local); assert.NoError(t, err) {
+	if column, err := columns.Factory("column_name", "Enum16('A'=1,'B'=2,'C'=3)", time.Local); assert.NoError(t, err) {
 		if err := column.Write(encoder, "B"); assert.NoError(t, err) {
 			if v, err := column.Read(decoder); assert.NoError(t, err) {
 				assert.Equal(t, "B", v)
@@ -359,7 +359,7 @@ func Test_Column_Enum16(t *testing.T) {
 				}
 			}
 		}
-		if assert.Equal(t, "column_name", column.Name()) && assert.Equal(t, "Enum16(A=1,B=2,C=3)", column.CHType()) {
+		if assert.Equal(t, "column_name", column.Name()) && assert.Equal(t, "Enum16('A'=1,'B'=2,'C'=3)", column.CHType()) {
 			assert.Equal(t, reflect.String, column.ScanType().Kind())
 		}
 		if err := column.Write(encoder, int(0)); assert.Error(t, err) {

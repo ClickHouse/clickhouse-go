@@ -182,7 +182,7 @@ func Benchmark_Column_FixedString(b *testing.B) {
 
 func Benchmark_Column_Enum8(b *testing.B) {
 	var (
-		column, _ = Factory("", "Enum8(A=1, B=2, C=3)", time.Local)
+		column, _ = Factory("", "Enum8('A'=1, 'B'=2, 'C'=3)", time.Local)
 		encoder   = binary.NewEncoder(ioutil.Discard)
 	)
 	b.ResetTimer()
@@ -196,7 +196,7 @@ func Benchmark_Column_Enum8(b *testing.B) {
 
 func Benchmark_Column_Enum16(b *testing.B) {
 	var (
-		column, _ = Factory("", "Enum16(A=1,B=2,C=3)", time.Local)
+		column, _ = Factory("", "Enum16('A'=1,'B'=2,'C'=3)", time.Local)
 		encoder   = binary.NewEncoder(ioutil.Discard)
 	)
 	b.ResetTimer()

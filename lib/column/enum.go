@@ -101,7 +101,7 @@ func parseEnum(name, chType string) (*Enum, error) {
 		}
 		{
 			var (
-				ident             = strings.TrimSpace(ident) //ident[1 : len(ident)-1]
+				ident             = ident[1 : len(ident)-1]
 				value interface{} = int16(value)
 			)
 			if isEnum16 {
