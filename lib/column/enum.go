@@ -50,11 +50,15 @@ func (enum *Enum) Write(encoder *binary.Encoder, v interface{}) error {
 			return encoder.Int16(ident)
 		}
 	case int8:
-		return encoder.Int8(v)
+		if _, ok := enum.baseType.(int8); ok {
+			return encoder.Int8(v)
+		}
 	case int16:
-		return encoder.Int16(v)
+		if _, ok := enum.baseType.(int16); ok {
+			return encoder.Int16(v)
+		}
 	}
-	return fmt.Errorf("unexpected type %T", v)
+	return &ErrUnexpectedType{v}
 }
 
 func parseEnum(name, chType string) (*Enum, error) {
@@ -97,7 +101,7 @@ func parseEnum(name, chType string) (*Enum, error) {
 		}
 		{
 			var (
-				ident             = ident[1 : len(ident)-1]
+				ident             = strings.TrimSpace(ident) //ident[1 : len(ident)-1]
 				value interface{} = int16(value)
 			)
 			if isEnum16 {

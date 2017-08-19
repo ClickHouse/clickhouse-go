@@ -112,7 +112,7 @@ func parseArray(name, chType string, timezone *time.Location) (*Array, error) {
 	case baseTypes[time.Time{}].Kind():
 		scanType = []time.Time{}
 	default:
-		return nil, fmt.Errorf("unsupported array type '%s'", column.ScanType().Name())
+		return nil, fmt.Errorf("unsupported Array type '%s'", column.ScanType().Name())
 	}
 	return &Array{
 		base: base{

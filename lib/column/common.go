@@ -6,6 +6,14 @@ import (
 	"time"
 )
 
+type ErrUnexpectedType struct {
+	T interface{}
+}
+
+func (err *ErrUnexpectedType) Error() string {
+	return fmt.Sprintf("unexpected type %T", err.T)
+}
+
 type NativeConverter interface {
 	Native() ([]byte, error)
 }

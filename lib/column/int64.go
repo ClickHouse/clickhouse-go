@@ -1,8 +1,6 @@
 package column
 
 import (
-	"fmt"
-
 	"github.com/kshvakov/clickhouse/lib/binary"
 )
 
@@ -18,13 +16,13 @@ func (Int64) Read(decoder *binary.Decoder) (interface{}, error) {
 
 func (Int64) Write(encoder *binary.Encoder, v interface{}) error {
 	switch v := v.(type) {
+	case int64:
+		return encoder.Int64(v)
 	case []byte:
 		if _, err := encoder.Write(v); err != nil {
 			return err
 		}
 		return nil
-	case int64:
-		return encoder.Int64(v)
 	}
-	return fmt.Errorf("unexpected type %T", v)
+	return &ErrUnexpectedType{v}
 }

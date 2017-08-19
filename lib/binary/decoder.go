@@ -4,8 +4,6 @@ import (
 	"encoding/binary"
 	"io"
 	"math"
-	//"reflect"
-	//"time"
 )
 
 func NewDecoder(input io.Reader) *Decoder {

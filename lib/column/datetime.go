@@ -66,6 +66,8 @@ func (dt *DateTime) Write(encoder *binary.Encoder, v interface{}) error {
 				0, 0, 0, 0, time.UTC,
 			).Unix()
 		}
+	default:
+		return &ErrUnexpectedType{v}
 	}
 
 	if dt.IsFull {

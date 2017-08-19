@@ -1,8 +1,6 @@
 package column
 
 import (
-	"fmt"
-
 	"github.com/kshvakov/clickhouse/lib/binary"
 )
 
@@ -25,5 +23,5 @@ func (UInt8) Write(encoder *binary.Encoder, v interface{}) error {
 	case int64:
 		return encoder.UInt8(uint8(v))
 	}
-	return fmt.Errorf("unexpected type %T", v)
+	return &ErrUnexpectedType{v}
 }

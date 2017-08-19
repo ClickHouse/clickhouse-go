@@ -20,8 +20,8 @@ type Encoder struct {
 }
 
 func (enc *Encoder) Uvarint(v uint64) error {
-	len := binary.PutUvarint(enc.scratch[:binary.MaxVarintLen64], v)
-	if _, err := enc.output.Write(enc.scratch[0:len]); err != nil {
+	ln := binary.PutUvarint(enc.scratch[:binary.MaxVarintLen64], v)
+	if _, err := enc.output.Write(enc.scratch[0:ln]); err != nil {
 		return err
 	}
 	return nil

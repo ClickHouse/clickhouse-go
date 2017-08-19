@@ -71,7 +71,6 @@ func (array *Array) WriteArray(encoder *binary.Encoder, column column.Column) (u
 		ln = v.Len()
 	)
 	for i := 0; i < v.Len(); i++ {
-
 		if err := column.Write(encoder, v.Index(i).Interface()); err != nil {
 			return 0, err
 		}
