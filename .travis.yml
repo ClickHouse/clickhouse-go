@@ -4,6 +4,7 @@ go:
   - 1.7.x
   - 1.8.x
   - master
+go_import_path: github.com/kshvakov/clickhouse
 services:
   - docker
 install:
