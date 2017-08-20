@@ -53,7 +53,7 @@ func (array *Array) Value() (driver.Value, error) {
 		encoder = binary.NewEncoder(buff)
 	)
 	encoder.Uvarint(uint64(ln))
-	for i := 0; i < v.Len(); i++ {
+	for i := 0; i < ln; i++ {
 		if err := array.column.Write(encoder, v.Index(i).Interface()); err != nil {
 			buff.Free()
 			return nil, err

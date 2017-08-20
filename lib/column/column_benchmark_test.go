@@ -207,3 +207,33 @@ func Benchmark_Column_Enum16(b *testing.B) {
 		}
 	}
 }
+
+func Benchmark_Column_Date(b *testing.B) {
+	var (
+		column, _ = Factory("", "Date", time.Local)
+		encoder   = binary.NewEncoder(ioutil.Discard)
+		timeNow   = time.Now()
+	)
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if err := column.Write(encoder, timeNow); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func Benchmark_Column_DateTime(b *testing.B) {
+	var (
+		column, _ = Factory("", "DateTime", time.Local)
+		encoder   = binary.NewEncoder(ioutil.Discard)
+		timeNow   = time.Now()
+	)
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if err := column.Write(encoder, timeNow); err != nil {
+			b.Fatal(err)
+		}
+	}
+}

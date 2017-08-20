@@ -1,7 +1,8 @@
 sudo: required
 language: go
 go: 
-  - 1.8
+  - 1.8.x
+  - master
 services:
   - docker
 install:
@@ -13,7 +14,6 @@ before_install:
   - docker run -d -p 127.0.0.1:9000:9000 --name some-clickhouse-server --ulimit nofile=262144:262144 yandex/clickhouse-server
   - docker ps -a
 script:
-  - go test -v -bench=. ../clickhouse/lib/...
-  - go test -v -race .
-  - go test -covermode=count -coverprofile=coverage.out . > /dev/null 2>&1
-  - goveralls -coverprofile=coverage.out -service travis-ci -repotoken $COVERALLS_TOKEN
+   - ./go.test.sh
+after_success:
+  - bash <(curl -s https://codecov.io/bash)

@@ -369,3 +369,61 @@ func Test_Column_Enum16(t *testing.T) {
 		}
 	}
 }
+
+func Test_Column_Date(t *testing.T) {
+	var (
+		buf     bytes.Buffer
+		timeNow = time.Now().Truncate(24 * time.Hour)
+		encoder = binary.NewEncoder(&buf)
+		decoder = binary.NewDecoder(&buf)
+	)
+	if column, err := columns.Factory("column_name", "Date", time.Local); assert.NoError(t, err) {
+		if err := column.Write(encoder, timeNow); assert.NoError(t, err) {
+			if v, err := column.Read(decoder); assert.NoError(t, err) {
+				assert.Equal(t, timeNow, v)
+			}
+		}
+		if err := column.Write(encoder, timeNow.In(time.UTC).Format("2006-01-02")); assert.NoError(t, err) {
+			if v, err := column.Read(decoder); assert.NoError(t, err) {
+				assert.Equal(t, timeNow, v)
+			}
+		}
+		if assert.Equal(t, "column_name", column.Name()) && assert.Equal(t, "Date", column.CHType()) {
+			assert.Equal(t, reflect.TypeOf(time.Time{}).Kind(), column.ScanType().Kind())
+		}
+		if err := column.Write(encoder, int8(0)); assert.Error(t, err) {
+			if e, ok := err.(*columns.ErrUnexpectedType); assert.True(t, ok) {
+				assert.Equal(t, int8(0), e.T)
+			}
+		}
+	}
+}
+
+func Test_Column_DateTime(t *testing.T) {
+	var (
+		buf     bytes.Buffer
+		timeNow = time.Now().Truncate(time.Second)
+		encoder = binary.NewEncoder(&buf)
+		decoder = binary.NewDecoder(&buf)
+	)
+	if column, err := columns.Factory("column_name", "DateTime", time.Local); assert.NoError(t, err) {
+		if err := column.Write(encoder, timeNow); assert.NoError(t, err) {
+			if v, err := column.Read(decoder); assert.NoError(t, err) {
+				assert.Equal(t, timeNow, v)
+			}
+		}
+		if err := column.Write(encoder, timeNow.In(time.UTC).Format("2006-01-02 15:04:05")); assert.NoError(t, err) {
+			if v, err := column.Read(decoder); assert.NoError(t, err) {
+				assert.Equal(t, timeNow, v)
+			}
+		}
+		if assert.Equal(t, "column_name", column.Name()) && assert.Equal(t, "DateTime", column.CHType()) {
+			assert.Equal(t, reflect.TypeOf(time.Time{}).Kind(), column.ScanType().Kind())
+		}
+		if err := column.Write(encoder, int8(0)); assert.Error(t, err) {
+			if e, ok := err.(*columns.ErrUnexpectedType); assert.True(t, ok) {
+				assert.Equal(t, int8(0), e.T)
+			}
+		}
+	}
+}
