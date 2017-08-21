@@ -909,7 +909,8 @@ func Test_UUID(t *testing.T) {
 	const (
 		ddl = `
 			CREATE TABLE clickhouse_test_uuid (
-				UUID FixedString(16)
+				UUID    FixedString(16),
+				Builtin UUID
 			) Engine=Memory;
 		`
 	)
@@ -919,7 +920,7 @@ func Test_UUID(t *testing.T) {
 				if _, err := tx.Exec(ddl); assert.NoError(t, err) {
 					if tx, err := connect.Begin(); assert.NoError(t, err) {
 						if stmt, err := tx.Prepare("INSERT INTO clickhouse_test_uuid VALUES(?)"); assert.NoError(t, err) {
-							if _, err := stmt.Exec(clickhouse.UUID("123e4567-e89b-12d3-a456-426655440000")); !assert.NoError(t, err) {
+							if _, err := stmt.Exec(clickhouse.UUID("123e4567-e89b-12d3-a456-426655440000"), "123e4567-e89b-12d3-a456-426655440000"); !assert.NoError(t, err) {
 								t.Fatal(err)
 							}
 						}
@@ -928,15 +929,17 @@ func Test_UUID(t *testing.T) {
 						}
 					}
 
-					if rows, err := connect.Query("SELECT UUID, UUIDNumToString(UUID) FROM clickhouse_test_uuid"); assert.NoError(t, err) {
+					if rows, err := connect.Query("SELECT UUID, UUIDNumToString(UUID), Builtin FROM clickhouse_test_uuid"); assert.NoError(t, err) {
 						if assert.True(t, rows.Next()) {
 							var (
-								uuid    clickhouse.UUID
-								uuidStr string
+								uuid        clickhouse.UUID
+								uuidStr     string
+								builtinUUID string
 							)
-							if err := rows.Scan(&uuid, &uuidStr); assert.NoError(t, err) {
+							if err := rows.Scan(&uuid, &uuidStr, &builtinUUID); assert.NoError(t, err) {
 								if assert.Equal(t, "123e4567-e89b-12d3-a456-426655440000", uuidStr) {
 									assert.Equal(t, clickhouse.UUID("123e4567-e89b-12d3-a456-426655440000"), uuid)
+									assert.Equal(t, "123e4567-e89b-12d3-a456-426655440000", builtinUUID)
 								}
 							}
 						}

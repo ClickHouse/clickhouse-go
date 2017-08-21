@@ -108,6 +108,14 @@ func Factory(name, chType string, timezone *time.Location) (Column, error) {
 				valueOf: baseTypes[string("")],
 			},
 		}, nil
+	case "UUID":
+		return &UUID{
+			base: base{
+				name:    name,
+				chType:  chType,
+				valueOf: baseTypes[string("")],
+			},
+		}, nil
 	case "Date", "DateTime":
 		return &DateTime{
 			base: base{
