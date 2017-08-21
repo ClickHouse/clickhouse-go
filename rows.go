@@ -7,7 +7,6 @@ import (
 	"reflect"
 
 	"github.com/kshvakov/clickhouse/lib/column"
-	"github.com/kshvakov/clickhouse/lib/data"
 	"github.com/kshvakov/clickhouse/lib/protocol"
 )
 
@@ -15,9 +14,9 @@ type rows struct {
 	ch                *clickhouse
 	index             int
 	finish            func()
-	values            [][]driver.Value
-	totals            [][]driver.Value
-	extremes          [][]driver.Value
+	values            [][]interface{}
+	totals            [][]interface{}
+	extremes          [][]interface{}
 	columns           []string
 	blockColumns      []column.Column
 	allDataIsReceived bool
@@ -36,7 +35,7 @@ func (rows *rows) ColumnTypeDatabaseTypeName(idx int) string {
 }
 
 func (rows *rows) Next(dest []driver.Value) error {
-	for len(rows.values) <= rows.index {
+	for len(rows.values) == 0 || len(rows.values[0]) <= rows.index {
 		if rows.allDataIsReceived {
 			return io.EOF
 		}
@@ -45,10 +44,10 @@ func (rows *rows) Next(dest []driver.Value) error {
 		}
 	}
 	for i := range dest {
-		dest[i] = rows.values[rows.index][i]
+		dest[i] = rows.values[i][rows.index]
 	}
 	rows.index++
-	if len(rows.values) <= rows.index {
+	if len(rows.values) == 0 || len(rows.values[0]) <= rows.index {
 		rows.values = nil
 		for !(rows.allDataIsReceived || len(rows.values) != 0) {
 			if err := rows.receiveData(); err != nil {
@@ -115,7 +114,6 @@ func (rows *rows) receiveData() error {
 				return err
 			}
 			rows.ch.logf("[rows] <- data: packet=%d, columns=%d, rows=%d", packet, block.NumColumns, block.NumRows)
-
 			if len(rows.columns) == 0 && len(block.Columns) != 0 {
 				rows.columns = block.ColumnNames()
 				rows.blockColumns = block.Columns
@@ -123,15 +121,14 @@ func (rows *rows) receiveData() error {
 					return nil
 				}
 			}
-			values := convertBlockToDriverValues(block)
 			switch block.Reset(); packet {
 			case protocol.ServerData:
 				rows.index = 0
-				rows.values = values
+				rows.values = block.Values
 			case protocol.ServerTotals:
-				rows.totals = values
+				rows.totals = block.Values
 			case protocol.ServerExtremes:
-				rows.extremes = values
+				rows.extremes = block.Values
 			}
 			if len(rows.values) != 0 {
 				return nil
@@ -155,16 +152,4 @@ func (rows *rows) Close() error {
 		rows.finish()
 	}
 	return nil
-}
-
-func convertBlockToDriverValues(block *data.Block) [][]driver.Value {
-	values := make([][]driver.Value, 0, int(block.NumRows))
-	for rowNum := 0; rowNum < int(block.NumRows); rowNum++ {
-		row := make([]driver.Value, 0, block.NumColumns)
-		for columnNum := 0; columnNum < int(block.NumColumns); columnNum++ {
-			row = append(row, block.Values[columnNum][rowNum])
-		}
-		values = append(values, row)
-	}
-	return values
 }

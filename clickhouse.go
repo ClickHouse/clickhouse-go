@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
-	"sync/atomic"
 
 	"github.com/kshvakov/clickhouse/lib/binary"
 	"github.com/kshvakov/clickhouse/lib/data"
@@ -49,7 +48,7 @@ func (ch *clickhouse) PrepareContext(ctx context.Context, query string) (driver.
 }
 
 func (ch *clickhouse) prepareContext(ctx context.Context, query string) (driver.Stmt, error) {
-	if atomic.LoadInt32(&ch.conn.closed) != 0 {
+	if ch.conn.closed {
 		return nil, driver.ErrBadConn
 	}
 	ch.logf("[prepare] %s", query)
@@ -104,7 +103,7 @@ func (ch *clickhouse) beginTx(ctx context.Context, opts txOptions) (driver.Tx, e
 	switch {
 	case ch.inTransaction:
 		return nil, sql.ErrTxDone
-	case atomic.LoadInt32(&ch.conn.closed) != 0:
+	case ch.conn.closed:
 		return nil, driver.ErrBadConn
 	}
 	if finish := ch.watchCancel(ctx); finish != nil {
@@ -127,7 +126,7 @@ func (ch *clickhouse) Commit() error {
 	switch {
 	case !ch.inTransaction:
 		return sql.ErrTxDone
-	case atomic.LoadInt32(&ch.conn.closed) != 0:
+	case ch.conn.closed:
 		return driver.ErrBadConn
 	}
 	if ch.block != nil {

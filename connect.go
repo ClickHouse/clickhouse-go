@@ -44,7 +44,7 @@ type connect struct {
 	net.Conn
 	logf         func(string, ...interface{})
 	ident        int
-	closed       int32
+	closed       bool
 	readTimeout  time.Duration
 	writeTimeout time.Duration
 }
@@ -62,7 +62,7 @@ func (conn *connect) Read(b []byte) (int, error) {
 	for total < dstLen {
 		if n, err = conn.Conn.Read(b[total:]); err != nil {
 			conn.logf("[connect] read error: %v", err)
-			atomic.CompareAndSwapInt32(&conn.closed, 0, 1)
+			conn.closed = true
 			return n, driver.ErrBadConn
 		}
 		total += n
@@ -83,7 +83,7 @@ func (conn *connect) Write(b []byte) (int, error) {
 	for total < srcLen {
 		if n, err = conn.Conn.Write(b[total:]); err != nil {
 			conn.logf("[connect] write error: %v", err)
-			atomic.CompareAndSwapInt32(&conn.closed, 0, 1)
+			conn.closed = true
 			return n, driver.ErrBadConn
 		}
 		total += n
@@ -92,7 +92,8 @@ func (conn *connect) Write(b []byte) (int, error) {
 }
 
 func (conn *connect) Close() error {
-	if atomic.CompareAndSwapInt32(&conn.closed, 0, 1) {
+	if !conn.closed {
+		conn.closed = true
 		return conn.Conn.Close()
 	}
 	return nil
