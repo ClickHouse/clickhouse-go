@@ -237,3 +237,17 @@ func Benchmark_Column_DateTime(b *testing.B) {
 		}
 	}
 }
+
+func Benchmark_Column_UUID(b *testing.B) {
+	var (
+		column  UUID
+		encoder = binary.NewEncoder(ioutil.Discard)
+	)
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if err := column.Write(encoder, "0492351a-3cb1-4cb5-855f-e0508145a54c"); err != nil {
+			b.Fatal(err)
+		}
+	}
+}

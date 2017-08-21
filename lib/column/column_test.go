@@ -427,3 +427,37 @@ func Test_Column_DateTime(t *testing.T) {
 		}
 	}
 }
+
+func Test_Column_UUID(t *testing.T) {
+	var (
+		buf     bytes.Buffer
+		encoder = binary.NewEncoder(&buf)
+		decoder = binary.NewDecoder(&buf)
+	)
+	if column, err := columns.Factory("column_name", "UUID", time.Local); assert.NoError(t, err) {
+		for _, uuid := range []string{
+			"6e6a7955-3237-3461-3036-663239386432",
+			"4c436370-6130-6461-6437-336534326163",
+			"47474674-3238-3066-3236-373437666435",
+			"0492351a-3cb1-4cb5-855f-e0508145a54c",
+			"798c4344-de6c-4c02-95ba-fea4f7d5fafd",
+		} {
+			if err := column.Write(encoder, uuid); assert.NoError(t, err) {
+				if v, err := column.Read(decoder); assert.NoError(t, err) {
+					assert.Equal(t, uuid, v)
+				}
+			}
+		}
+		if assert.Equal(t, "column_name", column.Name()) && assert.Equal(t, "UUID", column.CHType()) {
+			assert.Equal(t, reflect.String, column.ScanType().Kind())
+		}
+		if err := column.Write(encoder, int8(0)); assert.Error(t, err) {
+			if e, ok := err.(*columns.ErrUnexpectedType); assert.True(t, ok) {
+				assert.Equal(t, int8(0), e.T)
+			}
+		}
+		if err := column.Write(encoder, "invalid-uuid"); assert.Error(t, err) {
+			assert.Equal(t, columns.ErrInvalidUUIDFormat, err)
+		}
+	}
+}

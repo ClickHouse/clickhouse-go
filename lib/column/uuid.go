@@ -15,7 +15,6 @@ var ErrInvalidUUIDFormat = errors.New("invalid UUID format")
 
 type UUID struct {
 	base
-	len      int
 	scanType reflect.Type
 }
 
