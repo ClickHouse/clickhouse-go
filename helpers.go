@@ -107,97 +107,18 @@ func isInsert(query string) bool {
 }
 
 func quote(v driver.Value) string {
-	switch v.(type) {
-	case string, *string, time.Time, *time.Time:
-		return "'" + escape(v) + "'"
-	}
-	return fmt.Sprint(v)
-}
-
-func escape(v driver.Value) string {
-	switch value := v.(type) {
+	switch v := v.(type) {
 	case string:
-		return strings.NewReplacer(`\`, `\\`, `'`, `\'`).Replace(value)
-	case *string:
-		return strings.NewReplacer(`\`, `\\`, `'`, `\'`).Replace(*value)
+		return "'" + strings.NewReplacer(`\`, `\\`, `'`, `\'`).Replace(v) + "'"
 	case time.Time:
-		return formatTime(value)
-	case *time.Time:
-		return formatTime(*value)
+		return formatTime(v)
 	}
 	return fmt.Sprint(v)
 }
 
 func formatTime(value time.Time) string {
 	if (value.Hour() + value.Minute() + value.Second() + value.Nanosecond()) == 0 {
-		return value.Format("2006-01-02")
+		return fmt.Sprintf("toDate(%d)", int(int16(value.Unix()/24/3600)))
 	}
-	return value.Format("2006-01-02 15:04:05")
-}
-
-func toColumnType(ct string) (interface{}, error) {
-	// PODs
-	switch ct {
-	case "Date":
-		return Date{}, nil
-	case "DateTime":
-		return DateTime{}, nil
-	case "String":
-		return string(""), nil
-	case "Int8":
-		return int8(0), nil
-	case "Int16":
-		return int16(0), nil
-	case "Int32":
-		return int32(0), nil
-	case "Int64":
-		return int64(0), nil
-	case "UInt8":
-		return uint8(0), nil
-	case "UInt16":
-		return uint16(0), nil
-	case "UInt32":
-		return uint32(0), nil
-	case "UInt64":
-		return uint64(0), nil
-	case "Float32":
-		return float32(0), nil
-	case "Float64":
-		return float64(0), nil
-	}
-
-	// Specialised types
-	switch {
-	case strings.HasPrefix(ct, "FixedString"):
-		var arrLen int
-		if _, err := fmt.Sscanf(ct, "FixedString(%d)", &arrLen); err != nil {
-			return nil, err
-		}
-		return make([]byte, arrLen), nil
-	case strings.HasPrefix(ct, "Enum8"):
-		enum, err := parseEnum(ct)
-		if err != nil {
-			return nil, err
-		}
-		return enum8(enum), nil
-	case strings.HasPrefix(ct, "Enum16"):
-		enum, err := parseEnum(ct)
-		if err != nil {
-			return nil, err
-		}
-		return enum16(enum), nil
-	case strings.HasPrefix(ct, "Array"):
-		if len(ct) < 11 {
-			return nil, fmt.Errorf("invalid Array column type: %s", ct)
-		}
-		baseType, err := toColumnType(ct[6:][:len(ct)-7])
-		if err != nil {
-			return nil, fmt.Errorf("array: %v", err)
-		}
-		return array{
-			baseType: baseType,
-		}, nil
-	}
-
-	return nil, fmt.Errorf("func toColumnType: unhandled type %v", ct)
+	return fmt.Sprintf("toDateTime(%d)", int(uint32(value.Unix())))
 }

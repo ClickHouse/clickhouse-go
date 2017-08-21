@@ -38,23 +38,23 @@ func main() {
 		}
 
 		w := cstmt.ColumnWriter()
-		for i := 0; i < 100; i++ {
+		for i := 0; i < 1000; i++ {
 			w.WriteUInt8(0, uint8(10+i))
 		}
 
-		for i := 0; i < 100; i++ {
+		for i := 0; i < 1000; i++ {
 			w.WriteDate(1, time.Now())
 		}
 
-		for i := 0; i < 100; i++ {
+		for i := 0; i < 1000; i++ {
 			w.WriteArray(2, clickhouse.Array([]string{"A", "B", "C"}))
 		}
 
-		for i := 0; i < 100; i++ {
+		for i := 0; i < 1000; i++ {
 			w.WriteArray(3, clickhouse.Array([]uint8{1, 2, 3, 4, 5}))
 		}
 
-		if err := cstmt.ColumnWriterEnd(100); err != nil {
+		if err := cstmt.ColumnWriterEnd(1000); err != nil {
 			log.Fatal(err)
 		}
 

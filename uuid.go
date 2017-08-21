@@ -9,9 +9,14 @@ import (
 
 var InvalidUUIDFormatError = errors.New("invalid UUID format")
 
+// this type will be deprecated because the ClickHouse server (>=1.1.54276) has a built-in type UUID
 type UUID string
 
 func (str UUID) Value() (driver.Value, error) {
+	return uuid2bytes(string(str))
+}
+
+func (str UUID) Native() ([]byte, error) {
 	return uuid2bytes(string(str))
 }
 

@@ -2,45 +2,169 @@ package clickhouse
 
 import (
 	"database/sql/driver"
+	"fmt"
 	"io"
+	"reflect"
+
+	"github.com/kshvakov/clickhouse/lib/column"
+	"github.com/kshvakov/clickhouse/lib/data"
+	"github.com/kshvakov/clickhouse/lib/protocol"
 )
 
 type rows struct {
-	index   int
-	columns []string
-	rows    [][]driver.Value
-}
-
-func (rows *rows) append(block *block) {
-	if len(rows.columns) == 0 && len(block.columnNames) != 0 {
-		rows.columns = block.columnNames
-	}
-	for rowNum := 0; rowNum < int(block.numRows); rowNum++ {
-		row := make([]driver.Value, 0, block.numColumns)
-		for columnNum := 0; columnNum < int(block.numColumns); columnNum++ {
-			row = append(row, block.columns[columnNum][rowNum])
-		}
-		rows.rows = append(rows.rows, row)
-	}
+	ch                *clickhouse
+	index             int
+	finish            func()
+	values            [][]driver.Value
+	totals            [][]driver.Value
+	extremes          [][]driver.Value
+	columns           []string
+	blockColumns      []column.Column
+	allDataIsReceived bool
 }
 
 func (rows *rows) Columns() []string {
 	return rows.columns
 }
 
+func (rows *rows) ColumnTypeScanType(idx int) reflect.Type {
+	return rows.blockColumns[idx].ScanType()
+}
+
+func (rows *rows) ColumnTypeDatabaseTypeName(idx int) string {
+	return rows.blockColumns[idx].CHType()
+}
+
 func (rows *rows) Next(dest []driver.Value) error {
-	if len(rows.rows) <= rows.index {
-		return io.EOF
+	for len(rows.values) <= rows.index {
+		if rows.allDataIsReceived {
+			return io.EOF
+		}
+		if err := rows.receiveData(); err != nil {
+			return err
+		}
 	}
 	for i := range dest {
-		dest[i] = rows.rows[rows.index][i]
+		dest[i] = rows.values[rows.index][i]
 	}
 	rows.index++
+	if len(rows.values) <= rows.index {
+		rows.values = nil
+		for !(rows.allDataIsReceived || len(rows.values) != 0) {
+			if err := rows.receiveData(); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
-func (rows *rows) Close() error {
-	rows.rows = rows.rows[0:0]
-	rows.columns = rows.columns[0:0]
+func (rows *rows) HasNextResultSet() bool {
+	return len(rows.totals) != 0 || len(rows.extremes) != 0
+}
+
+func (rows *rows) NextResultSet() error {
+	switch {
+	case len(rows.totals) != 0:
+		for _, value := range rows.totals {
+			rows.values = append(rows.values, value)
+		}
+		rows.index = 0
+		rows.totals = nil
+	case len(rows.extremes) != 0:
+		for _, value := range rows.extremes {
+			rows.values = append(rows.values, value)
+		}
+		rows.index = 0
+		rows.extremes = nil
+	default:
+		return io.EOF
+	}
 	return nil
+}
+
+func (rows *rows) receiveData() error {
+	for {
+		packet, err := rows.ch.decoder.Uvarint()
+		if err != nil {
+			return err
+		}
+		switch packet {
+		case protocol.ServerException:
+			rows.ch.logf("[rows] <- exception")
+			return rows.ch.exception()
+		case protocol.ServerProgress:
+			progress, err := rows.ch.progress()
+			if err != nil {
+				return err
+			}
+			rows.ch.logf("[rows] <- progress: rows=%d, bytes=%d, total rows=%d",
+				progress.rows,
+				progress.bytes,
+				progress.totalRows,
+			)
+		case protocol.ServerProfileInfo:
+			profileInfo, err := rows.ch.profileInfo()
+			if err != nil {
+				return err
+			}
+			rows.ch.logf("[rows] <- profiling: rows=%d, bytes=%d, blocks=%d", profileInfo.rows, profileInfo.bytes, profileInfo.blocks)
+		case protocol.ServerData, protocol.ServerTotals, protocol.ServerExtremes:
+			block, err := rows.ch.readBlock()
+			if err != nil {
+				return err
+			}
+			rows.ch.logf("[rows] <- data: packet=%d, columns=%d, rows=%d", packet, block.NumColumns, block.NumRows)
+
+			if len(rows.columns) == 0 && len(block.Columns) != 0 {
+				rows.columns = block.ColumnNames()
+				rows.blockColumns = block.Columns
+				if block.NumRows == 0 {
+					return nil
+				}
+			}
+			values := convertBlockToDriverValues(block)
+			switch block.Reset(); packet {
+			case protocol.ServerData:
+				rows.index = 0
+				rows.values = values
+			case protocol.ServerTotals:
+				rows.totals = values
+			case protocol.ServerExtremes:
+				rows.extremes = values
+			}
+			if len(rows.values) != 0 {
+				return nil
+			}
+		case protocol.ServerEndOfStream:
+			rows.allDataIsReceived = true
+			rows.ch.logf("[rows] <- end of stream")
+			return nil
+		default:
+			rows.ch.conn.Close()
+			rows.ch.logf("[rows] unexpected packet [%d]", packet)
+			return fmt.Errorf("[rows] unexpected packet [%d] from server", packet)
+		}
+	}
+}
+
+func (rows *rows) Close() error {
+	rows.ch.logf("[rows] close")
+	rows.columns = nil
+	if rows.finish != nil {
+		rows.finish()
+	}
+	return nil
+}
+
+func convertBlockToDriverValues(block *data.Block) [][]driver.Value {
+	values := make([][]driver.Value, 0, int(block.NumRows))
+	for rowNum := 0; rowNum < int(block.NumRows); rowNum++ {
+		row := make([]driver.Value, 0, block.NumColumns)
+		for columnNum := 0; columnNum < int(block.NumColumns); columnNum++ {
+			row = append(row, block.Values[columnNum][rowNum])
+		}
+		values = append(values, row)
+	}
+	return values
 }

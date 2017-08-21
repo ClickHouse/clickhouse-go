@@ -1,4 +1,4 @@
-# ClickHouse [![Build Status](https://travis-ci.org/kshvakov/clickhouse.svg?branch=master)](https://travis-ci.org/kshvakov/clickhouse) [![Go Report Card](https://goreportcard.com/badge/github.com/kshvakov/clickhouse)](https://goreportcard.com/report/github.com/kshvakov/clickhouse) [![Coverage Status](https://coveralls.io/repos/github/kshvakov/clickhouse/badge.svg?branch=master)](https://coveralls.io/github/kshvakov/clickhouse?branch=master)
+# ClickHouse [![Build Status](https://travis-ci.org/kshvakov/clickhouse.svg?branch=master)](https://travis-ci.org/kshvakov/clickhouse) [![Go Report Card](https://goreportcard.com/badge/github.com/kshvakov/clickhouse)](https://goreportcard.com/report/github.com/kshvakov/clickhouse) [![codecov](https://codecov.io/gh/kshvakov/clickhouse/branch/master/graph/badge.svg)](https://codecov.io/gh/kshvakov/clickhouse)
 
 Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/) 
 
@@ -15,7 +15,7 @@ Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/)
 * read_timeout/write_timeout - timeout in second 
 * no_delay   - disable/enable the Nagle Algorithm for tcp socket (default is 'true' - disable)
 * alt_hosts  - comma separated list of single address host for load-balancing
-* block_size - maximum rows in block (default is 100000). If the rows are larger then the data will be split into several blocks to send them to the server
+* block_size - maximum rows in block (default is 1000000). If the rows are larger then the data will be split into several blocks to send them to the server
 * debug - enable debug output (boolean value)
 
 example:
@@ -32,6 +32,8 @@ tcp://host1:9000?username=user&password=qwerty&database=clicks&read_timeout=10&w
 * Date 
 * DateTime
 * Enum
+* UUID
+* Nullable(T)
 * [Array(T) (one-dimensional)](https://clickhouse.yandex/reference_en.html#Array(T)) [godoc](https://godoc.org/github.com/kshvakov/clickhouse#Array)
 
 ## TODO

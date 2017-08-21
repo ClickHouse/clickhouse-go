@@ -1,6 +1,7 @@
 package clickhouse
 
 import (
+	"bufio"
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
@@ -10,29 +11,17 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/kshvakov/clickhouse/lib/binary"
+	"github.com/kshvakov/clickhouse/lib/data"
+	"github.com/kshvakov/clickhouse/lib/protocol"
 )
 
 const (
 	DefaultDatabase     = "default"
 	DefaultUsername     = "default"
-	DefaultReadTimeout  = 30 * time.Second
+	DefaultReadTimeout  = time.Minute
 	DefaultWriteTimeout = time.Minute
-)
-
-const ClientName = "Golang SQLDriver"
-const (
-	ClickHouseRevision         = 54213
-	ClickHouseDBMSVersionMajor = 1
-	ClickHouseDBMSVersionMinor = 1
-)
-
-const (
-	DBMS_MIN_REVISION_WITH_TEMPORARY_TABLES         = 50264
-	DBMS_MIN_REVISION_WITH_TOTAL_ROWS_IN_PROGRESS   = 51554
-	DBMS_MIN_REVISION_WITH_BLOCK_INFO               = 51903
-	DBMS_MIN_REVISION_WITH_CLIENT_INFO              = 54032
-	DBMS_MIN_REVISION_WITH_SERVER_TIMEZONE          = 54058
-	DBMS_MIN_REVISION_WITH_QUOTA_KEY_IN_CLIENT_INFO = 54060
 )
 
 var hostname, _ = os.Hostname()
@@ -55,12 +44,13 @@ func Open(dsn string) (driver.Conn, error) {
 	var (
 		hosts        = []string{url.Host}
 		noDelay      = true
+		compress     = false
 		database     = url.Query().Get("database")
 		username     = url.Query().Get("username")
 		password     = url.Query().Get("password")
+		blockSize    = 1000000
 		readTimeout  = DefaultReadTimeout
 		writeTimeout = DefaultWriteTimeout
-		blockSize    = 100000
 	)
 	if len(database) == 0 {
 		database = DefaultDatabase
@@ -74,11 +64,11 @@ func Open(dsn string) (driver.Conn, error) {
 	if duration, err := strconv.ParseInt(url.Query().Get("read_timeout"), 10, 64); err == nil {
 		readTimeout = time.Duration(duration) * time.Second
 	}
-	if duration, err := strconv.ParseInt(url.Query().Get("write_timeout"), 10, 64); err == nil {
-		writeTimeout = time.Duration(duration) * time.Second
-	}
 	if size, err := strconv.ParseInt(url.Query().Get("block_size"), 10, 64); err == nil {
 		blockSize = int(size)
+	}
+	if duration, err := strconv.ParseInt(url.Query().Get("write_timeout"), 10, 64); err == nil {
+		writeTimeout = time.Duration(duration) * time.Second
 	}
 	if altHosts := strings.Split(url.Query().Get("alt_hosts"), ","); len(altHosts) != 0 {
 		for _, host := range altHosts {
@@ -87,13 +77,23 @@ func Open(dsn string) (driver.Conn, error) {
 			}
 		}
 	}
-	ch := clickhouse{
-		logf:           func(string, ...interface{}) {},
-		blockSize:      blockSize,
-		serverTimezone: time.Local,
+	if v, err := strconv.ParseBool(url.Query().Get("compress")); err == nil && v {
+		//compress = true
 	}
+
+	var (
+		ch = clickhouse{
+			logf:      func(string, ...interface{}) {},
+			compress:  compress,
+			blockSize: blockSize,
+			ServerInfo: data.ServerInfo{
+				Timezone: time.Local,
+			},
+		}
+		logger = log.New(os.Stdout, "[clickhouse]", 0)
+	)
 	if debug, err := strconv.ParseBool(url.Query().Get("debug")); err == nil && debug {
-		ch.logf = log.New(os.Stdout, "[clickhouse]", 0).Printf
+		ch.logf = logger.Printf
 	}
 	ch.logf("host(s)=%s, database=%s, username=%s",
 		strings.Join(hosts, ", "),
@@ -103,6 +103,10 @@ func Open(dsn string) (driver.Conn, error) {
 	if ch.conn, err = dial("tcp", hosts, noDelay, readTimeout, writeTimeout, ch.logf); err != nil {
 		return nil, err
 	}
+	logger.SetPrefix(fmt.Sprintf("[clickhouse][connect=%d]", ch.conn.ident))
+	ch.buffer = bufio.NewWriter(ch.conn)
+	ch.decoder = binary.NewDecoder(ch.conn)
+	ch.encoder = binary.NewEncoder(ch.buffer)
 	if err := ch.hello(database, username, password); err != nil {
 		return nil, err
 	}
@@ -110,63 +114,38 @@ func Open(dsn string) (driver.Conn, error) {
 }
 
 func (ch *clickhouse) hello(database, username, password string) error {
-	ch.logf("[hello] -> %s %d.%d.%d",
-		ClientName,
-		ClickHouseDBMSVersionMajor,
-		ClickHouseDBMSVersionMinor,
-		ClickHouseRevision,
-	)
+	ch.logf("[hello] -> %s", ch.ClientInfo)
 	{
-		writeUvarint(ch.conn, ClientHelloPacket)
-		writeString(ch.conn, ClientName)
-		writeUvarint(ch.conn, ClickHouseDBMSVersionMajor)
-		writeUvarint(ch.conn, ClickHouseDBMSVersionMinor)
-		writeUvarint(ch.conn, ClickHouseRevision)
-		writeString(ch.conn, database)
-		writeString(ch.conn, username)
-		writeString(ch.conn, password)
+		ch.encoder.Uvarint(protocol.ClientHello)
+		if err := ch.ClientInfo.Write(ch.encoder); err != nil {
+			return err
+		}
+		{
+			ch.encoder.String(database)
+			ch.encoder.String(username)
+			ch.encoder.String(password)
+		}
+		if err := ch.buffer.Flush(); err != nil {
+			return err
+		}
 	}
 	{
-		packet, err := readUvarint(ch.conn)
+		packet, err := ch.decoder.Uvarint()
 		if err != nil {
 			return err
 		}
 		switch packet {
-		case ServerExceptionPacket:
+		case protocol.ServerException:
 			return ch.exception()
-		case ServerHelloPacket:
-			var err error
-			if ch.serverName, err = readString(ch.conn); err != nil {
+		case protocol.ServerHello:
+			if err := ch.ServerInfo.Read(ch.decoder); err != nil {
 				return err
-			}
-			if ch.serverVersionMinor, err = readUvarint(ch.conn); err != nil {
-				return err
-			}
-			if ch.serverVersionMajor, err = readUvarint(ch.conn); err != nil {
-				return err
-			}
-			if ch.serverRevision, err = readUvarint(ch.conn); err != nil {
-				return err
-			}
-			if ch.serverRevision >= DBMS_MIN_REVISION_WITH_SERVER_TIMEZONE {
-				timezone, err := readString(ch.conn)
-				if err != nil {
-					return err
-				}
-				if ch.serverTimezone, err = time.LoadLocation(timezone); err != nil {
-					return err
-				}
 			}
 		default:
-			return fmt.Errorf("unexpected packet [%d] from server", packet)
+			ch.conn.Close()
+			return fmt.Errorf("[hello] unexpected packet [%d] from server", packet)
 		}
 	}
-	ch.logf("[hello] <- %s %d.%d.%d (%s)",
-		ch.serverName,
-		ch.serverVersionMajor,
-		ch.serverVersionMinor,
-		ch.serverRevision,
-		ch.serverTimezone,
-	)
+	ch.logf("[hello] <- %s", ch.ServerInfo)
 	return nil
 }

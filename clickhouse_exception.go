@@ -23,20 +23,20 @@ func (ch *clickhouse) exception() error {
 		err       error
 		hasNested bool
 	)
-	if e.Code, err = readInt32(ch.conn); err != nil {
+	if e.Code, err = ch.decoder.Int32(); err != nil {
 		return err
 	}
-	if e.Name, err = readString(ch.conn); err != nil {
+	if e.Name, err = ch.decoder.String(); err != nil {
 		return err
 	}
-	if e.Message, err = readString(ch.conn); err != nil {
+	if e.Message, err = ch.decoder.String(); err != nil {
 		return err
 	}
 	e.Message = strings.TrimSpace(strings.TrimPrefix(e.Message, e.Name+":"))
-	if e.StackTrace, err = readString(ch.conn); err != nil {
+	if e.StackTrace, err = ch.decoder.String(); err != nil {
 		return err
 	}
-	if hasNested, err = readBool(ch.conn); err != nil {
+	if hasNested, err = ch.decoder.Bool(); err != nil {
 		return err
 	}
 	if hasNested {
