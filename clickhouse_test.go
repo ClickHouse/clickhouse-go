@@ -201,7 +201,8 @@ func Test_InsertBatch(t *testing.T) {
 				string  String,
 				fString FixedString(2),
 				date    Date,
-				datetime DateTime
+				datetime DateTime,
+				arrayString Array(String)
 			) Engine=Memory
 		`
 		dml = `
@@ -219,10 +220,12 @@ func Test_InsertBatch(t *testing.T) {
 				string,
 				fString,
 				date,
-				datetime
+				datetime,
+				arrayString
 			) VALUES (
 				?, 
 				?, 
+				?,
 				?,
 				?,
 				?,
@@ -253,6 +256,7 @@ func Test_InsertBatch(t *testing.T) {
 								"RU",       //fixedstring,
 								time.Now(), //date
 								time.Now(), //datetime
+								clickhouse.Array([]string{"A", "B", "C"}),
 							)
 							if !assert.NoError(t, err) {
 								return

@@ -163,7 +163,9 @@ func (block *Block) Write(serverInfo *ServerInfo, encoder *binary.Encoder) error
 	encoder.Uvarint(block.NumColumns)
 	encoder.Uvarint(block.NumRows)
 	block.NumRows = 0
-	block.offsets = block.offsets[:0]
+	for i := range block.offsets {
+		block.offsets[i] = 0
+	}
 	for i, column := range block.Columns {
 		encoder.String(column.Name())
 		encoder.String(column.CHType())
