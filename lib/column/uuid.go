@@ -38,7 +38,7 @@ func (*UUID) Read(decoder *binary.Decoder) (interface{}, error) {
 	return string(uuid[:]), nil
 }
 
-func (*UUID) Write(encoder *binary.Encoder, v interface{}) (err error) {
+func (u *UUID) Write(encoder *binary.Encoder, v interface{}) (err error) {
 	var uuid []byte
 	switch v := v.(type) {
 	case string:
@@ -51,7 +51,10 @@ func (*UUID) Write(encoder *binary.Encoder, v interface{}) (err error) {
 		}
 		uuid = v
 	default:
-		return &ErrUnexpectedType{v}
+		return &ErrUnexpectedType{
+			T:      v,
+			Column: u,
+		}
 	}
 	if _, err := encoder.Write(uuid); err != nil {
 		return err

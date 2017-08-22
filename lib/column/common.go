@@ -7,11 +7,12 @@ import (
 )
 
 type ErrUnexpectedType struct {
-	T interface{}
+	Column Column
+	T      interface{}
 }
 
 func (err *ErrUnexpectedType) Error() string {
-	return fmt.Sprintf("unexpected type %T", err.T)
+	return fmt.Sprintf("%s: unexpected type %T", err.Column, err.T)
 }
 
 type NativeConverter interface {

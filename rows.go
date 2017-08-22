@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"time"
 
 	"github.com/kshvakov/clickhouse/lib/column"
 	"github.com/kshvakov/clickhouse/lib/protocol"
@@ -109,11 +110,14 @@ func (rows *rows) receiveData() error {
 			}
 			rows.ch.logf("[rows] <- profiling: rows=%d, bytes=%d, blocks=%d", profileInfo.rows, profileInfo.bytes, profileInfo.blocks)
 		case protocol.ServerData, protocol.ServerTotals, protocol.ServerExtremes:
-			block, err := rows.ch.readBlock()
+			var (
+				begin      = time.Now()
+				block, err = rows.ch.readBlock()
+			)
 			if err != nil {
 				return err
 			}
-			rows.ch.logf("[rows] <- data: packet=%d, columns=%d, rows=%d", packet, block.NumColumns, block.NumRows)
+			rows.ch.logf("[rows] <- data: packet=%d, columns=%d, rows=%d, elapsed=%s", packet, block.NumColumns, block.NumRows, time.Since(begin))
 			if len(rows.columns) == 0 && len(block.Columns) != 0 {
 				rows.columns = block.ColumnNames()
 				rows.blockColumns = block.Columns

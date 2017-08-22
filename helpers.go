@@ -15,7 +15,11 @@ import (
 type Date time.Time
 
 func (date Date) Value() (driver.Value, error) {
-	return time.Date(time.Time(date).Year(), time.Time(date).Month(), time.Time(date).Day(), 0, 0, 0, 0, time.UTC), nil
+	return date.convert(), nil
+}
+
+func (date Date) convert() time.Time {
+	return time.Date(time.Time(date).Year(), time.Time(date).Month(), time.Time(date).Day(), 0, 0, 0, 0, time.UTC)
 }
 
 // Truncate timezone
@@ -24,6 +28,10 @@ func (date Date) Value() (driver.Value, error) {
 type DateTime time.Time
 
 func (datetime DateTime) Value() (driver.Value, error) {
+	return datetime.convert(), nil
+}
+
+func (datetime DateTime) convert() time.Time {
 	return time.Date(
 		time.Time(datetime).Year(),
 		time.Time(datetime).Month(),
@@ -33,7 +41,7 @@ func (datetime DateTime) Value() (driver.Value, error) {
 		time.Time(datetime).Second(),
 		0,
 		time.UTC,
-	), nil
+	)
 }
 
 func numInput(query string) int {

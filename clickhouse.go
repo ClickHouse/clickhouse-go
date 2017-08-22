@@ -155,6 +155,16 @@ func (ch *clickhouse) Rollback() error {
 	return nil
 }
 
+func (ch *clickhouse) CheckNamedValue(nv *driver.NamedValue) error {
+	switch v := nv.Value.(type) {
+	case Date:
+		nv.Value = v.convert()
+	case DateTime:
+		nv.Value = v.convert()
+	}
+	return nil
+}
+
 func (ch *clickhouse) Close() error {
 	ch.block = nil
 	return ch.conn.Close()

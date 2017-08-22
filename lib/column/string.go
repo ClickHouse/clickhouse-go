@@ -14,12 +14,15 @@ func (String) Read(decoder *binary.Decoder) (interface{}, error) {
 	return v, nil
 }
 
-func (String) Write(encoder *binary.Encoder, v interface{}) error {
+func (str *String) Write(encoder *binary.Encoder, v interface{}) error {
 	switch v := v.(type) {
 	case string:
 		return encoder.String(v)
 	case []byte:
 		return encoder.RawString(v)
 	}
-	return &ErrUnexpectedType{v}
+	return &ErrUnexpectedType{
+		T:      v,
+		Column: str,
+	}
 }

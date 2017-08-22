@@ -58,7 +58,10 @@ func (enum *Enum) Write(encoder *binary.Encoder, v interface{}) error {
 			return encoder.Int16(v)
 		}
 	}
-	return &ErrUnexpectedType{v}
+	return &ErrUnexpectedType{
+		T:      v,
+		Column: enum,
+	}
 }
 
 func parseEnum(name, chType string) (*Enum, error) {

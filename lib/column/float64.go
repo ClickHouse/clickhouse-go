@@ -14,12 +14,15 @@ func (Float64) Read(decoder *binary.Decoder) (interface{}, error) {
 	return v, nil
 }
 
-func (Float64) Write(encoder *binary.Encoder, v interface{}) error {
+func (float *Float64) Write(encoder *binary.Encoder, v interface{}) error {
 	switch v := v.(type) {
 	case float32:
 		return encoder.Float64(float64(v))
 	case float64:
 		return encoder.Float64(v)
 	}
-	return &ErrUnexpectedType{v}
+	return &ErrUnexpectedType{
+		T:      v,
+		Column: float,
+	}
 }

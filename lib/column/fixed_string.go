@@ -35,7 +35,10 @@ func (str *FixedString) Write(encoder *binary.Encoder, v interface{}) error {
 		}
 		fixedString = bytes
 	default:
-		return &ErrUnexpectedType{v}
+		return &ErrUnexpectedType{
+			T:      v,
+			Column: str,
+		}
 	}
 	switch {
 	case len(fixedString) > str.len:

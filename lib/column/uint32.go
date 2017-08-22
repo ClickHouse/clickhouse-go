@@ -14,12 +14,17 @@ func (UInt32) Read(decoder *binary.Decoder) (interface{}, error) {
 	return v, nil
 }
 
-func (UInt32) Write(encoder *binary.Encoder, v interface{}) error {
+func (u *UInt32) Write(encoder *binary.Encoder, v interface{}) error {
 	switch v := v.(type) {
 	case uint32:
 		return encoder.UInt32(v)
 	case int64:
 		return encoder.UInt32(uint32(v))
+	case int:
+		return encoder.UInt32(uint32(v))
 	}
-	return &ErrUnexpectedType{v}
+	return &ErrUnexpectedType{
+		T:      v,
+		Column: u,
+	}
 }

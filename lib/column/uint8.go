@@ -14,7 +14,7 @@ func (UInt8) Read(decoder *binary.Decoder) (interface{}, error) {
 	return v, nil
 }
 
-func (UInt8) Write(encoder *binary.Encoder, v interface{}) error {
+func (u *UInt8) Write(encoder *binary.Encoder, v interface{}) error {
 	switch v := v.(type) {
 	case bool:
 		return encoder.Bool(v)
@@ -22,6 +22,11 @@ func (UInt8) Write(encoder *binary.Encoder, v interface{}) error {
 		return encoder.UInt8(v)
 	case int64:
 		return encoder.UInt8(uint8(v))
+	case int:
+		return encoder.UInt8(uint8(v))
 	}
-	return &ErrUnexpectedType{v}
+	return &ErrUnexpectedType{
+		T:      v,
+		Column: u,
+	}
 }
