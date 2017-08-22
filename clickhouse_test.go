@@ -1324,3 +1324,24 @@ func Test_Context_Timeout(t *testing.T) {
 		}
 	}
 }
+
+func Test_Timeout(t *testing.T) {
+	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true&read_timeout=0.1"); assert.NoError(t, err) && assert.NoError(t, connect.Ping()) {
+		{
+			if row := connect.QueryRow("SELECT 1, sleep(10)"); assert.NotNil(t, row) {
+				var a, b int
+				assert.Equal(t, driver.ErrBadConn, row.Scan(&a, &b))
+			}
+		}
+		{
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+			if row := connect.QueryRowContext(ctx, "SELECT 1, sleep(0.1)"); assert.NotNil(t, row) {
+				var value, value2 int
+				if assert.NoError(t, row.Scan(&value, &value2)) {
+					assert.Equal(t, int(1), value)
+				}
+			}
+		}
+	}
+}

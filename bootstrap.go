@@ -61,14 +61,14 @@ func Open(dsn string) (driver.Conn, error) {
 	if v, err := strconv.ParseBool(url.Query().Get("no_delay")); err == nil && !v {
 		noDelay = false
 	}
-	if duration, err := strconv.ParseInt(url.Query().Get("read_timeout"), 10, 64); err == nil {
-		readTimeout = time.Duration(duration) * time.Second
+	if duration, err := strconv.ParseFloat(url.Query().Get("read_timeout"), 64); err == nil {
+		readTimeout = time.Duration(duration * float64(time.Second))
+	}
+	if duration, err := strconv.ParseFloat(url.Query().Get("write_timeout"), 64); err == nil {
+		writeTimeout = time.Duration(duration * float64(time.Second))
 	}
 	if size, err := strconv.ParseInt(url.Query().Get("block_size"), 10, 64); err == nil {
 		blockSize = int(size)
-	}
-	if duration, err := strconv.ParseInt(url.Query().Get("write_timeout"), 10, 64); err == nil {
-		writeTimeout = time.Duration(duration) * time.Second
 	}
 	if altHosts := strings.Split(url.Query().Get("alt_hosts"), ","); len(altHosts) != 0 {
 		for _, host := range altHosts {
@@ -83,9 +83,11 @@ func Open(dsn string) (driver.Conn, error) {
 
 	var (
 		ch = clickhouse{
-			logf:      func(string, ...interface{}) {},
-			compress:  compress,
-			blockSize: blockSize,
+			logf:         func(string, ...interface{}) {},
+			compress:     compress,
+			blockSize:    blockSize,
+			readTimeout:  readTimeout,
+			writeTimeout: writeTimeout,
 			ServerInfo: data.ServerInfo{
 				Timezone: time.Local,
 			},
@@ -100,7 +102,7 @@ func Open(dsn string) (driver.Conn, error) {
 		database,
 		username,
 	)
-	if ch.conn, err = dial("tcp", hosts, noDelay, readTimeout, writeTimeout, ch.logf); err != nil {
+	if ch.conn, err = dial("tcp", hosts, noDelay, ch.logf); err != nil {
 		return nil, err
 	}
 	logger.SetPrefix(fmt.Sprintf("[clickhouse][connect=%d]", ch.conn.ident))

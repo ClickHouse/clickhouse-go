@@ -10,7 +10,7 @@ import (
 
 var tick int32
 
-func dial(network string, hosts []string, noDelay bool, r, w time.Duration, logf func(string, ...interface{})) (*connect, error) {
+func dial(network string, hosts []string, noDelay bool, logf func(string, ...interface{})) (*connect, error) {
 	var (
 		err error
 		abs = func(v int) int {
@@ -30,12 +30,10 @@ func dial(network string, hosts []string, noDelay bool, r, w time.Duration, logf
 				tcp.SetNoDelay(noDelay) // Disable or enable the Nagle Algorithm for this tcp socket
 			}
 			return &connect{
-				Conn:         conn,
-				logf:         logf,
-				ident:        ident,
-				buffer:       bufio.NewReaderSize(conn, 4096*256),
-				readTimeout:  r,
-				writeTimeout: w,
+				Conn:   conn,
+				logf:   logf,
+				ident:  ident,
+				buffer: bufio.NewReaderSize(conn, 4*1024*1024),
 			}, nil
 		}
 	}
@@ -44,18 +42,13 @@ func dial(network string, hosts []string, noDelay bool, r, w time.Duration, logf
 
 type connect struct {
 	net.Conn
-	logf         func(string, ...interface{})
-	ident        int
-	buffer       *bufio.Reader
-	closed       bool
-	readTimeout  time.Duration
-	writeTimeout time.Duration
+	logf   func(string, ...interface{})
+	ident  int
+	buffer *bufio.Reader
+	closed bool
 }
 
 func (conn *connect) Read(b []byte) (int, error) {
-	if conn.readTimeout != 0 {
-		conn.SetReadDeadline(time.Now().Add(conn.readTimeout))
-	}
 	var (
 		n      int
 		err    error
@@ -74,9 +67,6 @@ func (conn *connect) Read(b []byte) (int, error) {
 }
 
 func (conn *connect) Write(b []byte) (int, error) {
-	if conn.writeTimeout != 0 {
-		conn.SetWriteDeadline(time.Now().Add(conn.writeTimeout))
-	}
 	var (
 		n      int
 		err    error

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"time"
 
 	"github.com/kshvakov/clickhouse/lib/binary"
 	"github.com/kshvakov/clickhouse/lib/data"
@@ -37,6 +38,8 @@ type clickhouse struct {
 	compress      bool
 	blockSize     int
 	inTransaction bool
+	readTimeout   time.Duration
+	writeTimeout  time.Duration
 }
 
 func (ch *clickhouse) Prepare(query string) (driver.Stmt, error) {
@@ -106,7 +109,7 @@ func (ch *clickhouse) beginTx(ctx context.Context, opts txOptions) (driver.Tx, e
 	case ch.conn.closed:
 		return nil, driver.ErrBadConn
 	}
-	if finish := ch.watchCancel(ctx); finish != nil {
+	if finish := ch.watchCancel(ctx, ch.writeTimeout); finish != nil {
 		defer finish()
 	}
 	ch.block = nil
@@ -225,7 +228,7 @@ func (ch *clickhouse) cancel() error {
 	return ch.conn.Close()
 }
 
-func (ch *clickhouse) watchCancel(ctx context.Context) func() {
+func (ch *clickhouse) watchCancel(ctx context.Context, timeout time.Duration) func() {
 	if done := ctx.Done(); done != nil {
 		finished := make(chan struct{})
 		go func() {
@@ -245,5 +248,15 @@ func (ch *clickhouse) watchCancel(ctx context.Context) func() {
 			}
 		}
 	}
+	go func() {
+		tick := time.NewTicker(timeout)
+		defer tick.Stop()
+		select {
+		case <-tick.C:
+			ch.logf("[cancel] <- timeout")
+			ch.conn.SetReadDeadline(time.Now().Add(time.Millisecond))
+			ch.conn.SetWriteDeadline(time.Now().Add(time.Millisecond))
+		}
+	}()
 	return nil
 }

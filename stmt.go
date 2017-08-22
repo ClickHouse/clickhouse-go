@@ -39,7 +39,7 @@ func (stmt *stmt) ExecContext(ctx context.Context, args []driver.NamedValue) (dr
 }
 
 func (stmt *stmt) execContext(ctx context.Context, args []driver.Value) (driver.Result, error) {
-	if finish := stmt.ch.watchCancel(ctx); finish != nil {
+	if finish := stmt.ch.watchCancel(ctx, stmt.ch.writeTimeout); finish != nil {
 		stmt.ch.logf("[exec] query with cancel")
 		defer finish()
 	}
@@ -83,7 +83,7 @@ func (stmt *stmt) queryContext(ctx context.Context, args []driver.NamedValue) (d
 	}
 	rows := rows{
 		ch:     stmt.ch,
-		finish: stmt.ch.watchCancel(ctx),
+		finish: stmt.ch.watchCancel(ctx, stmt.ch.readTimeout),
 	}
 	for len(rows.columns) == 0 {
 		if err := rows.receiveData(); err != nil {
