@@ -242,18 +242,16 @@ func (ch *clickhouse) watchCancel(ctx context.Context, timeout time.Duration) fu
 				ch.logf("[cancel] <- finished")
 			}
 		}()
-	case timeout != 0:
+	default:
 		tick := time.NewTicker(timeout)
 		go func() {
 			defer tick.Stop()
 			select {
 			case <-tick.C:
-				ch.logf("[cancel] <- timeout")
 				ch.conn.SetReadDeadline(time.Now().Add(time.Millisecond))
 				ch.conn.SetWriteDeadline(time.Now().Add(time.Millisecond))
 				finished <- struct{}{}
 			case <-finished:
-				ch.logf("[cancel] <- skip")
 			}
 		}()
 	}

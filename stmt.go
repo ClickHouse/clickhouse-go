@@ -39,10 +39,6 @@ func (stmt *stmt) ExecContext(ctx context.Context, args []driver.NamedValue) (dr
 }
 
 func (stmt *stmt) execContext(ctx context.Context, args []driver.Value) (driver.Result, error) {
-	if finish := stmt.ch.watchCancel(ctx, stmt.ch.writeTimeout); finish != nil {
-		stmt.ch.logf("[exec] query with cancel")
-		defer finish()
-	}
 	if stmt.isInsert {
 		stmt.counter++
 		if err := stmt.ch.block.AppendRow(args); err != nil {
