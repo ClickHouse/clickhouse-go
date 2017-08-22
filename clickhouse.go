@@ -229,8 +229,9 @@ func (ch *clickhouse) cancel() error {
 }
 
 func (ch *clickhouse) watchCancel(ctx context.Context, timeout time.Duration) func() {
-	if done := ctx.Done(); done != nil {
-		finished := make(chan struct{})
+	finished := make(chan struct{})
+	switch done := ctx.Done(); true {
+	case done != nil:
 		go func() {
 			select {
 			case <-done:
@@ -241,22 +242,25 @@ func (ch *clickhouse) watchCancel(ctx context.Context, timeout time.Duration) fu
 				ch.logf("[cancel] <- finished")
 			}
 		}()
-		return func() {
+	case timeout != 0:
+		tick := time.NewTicker(timeout)
+		go func() {
+			defer tick.Stop()
 			select {
+			case <-tick.C:
+				ch.logf("[cancel] <- timeout")
+				ch.conn.SetReadDeadline(time.Now().Add(time.Millisecond))
+				ch.conn.SetWriteDeadline(time.Now().Add(time.Millisecond))
+				finished <- struct{}{}
 			case <-finished:
-			case finished <- struct{}{}:
+				ch.logf("[cancel] <- skip")
 			}
+		}()
+	}
+	return func() {
+		select {
+		case <-finished:
+		case finished <- struct{}{}:
 		}
 	}
-	go func() {
-		tick := time.NewTicker(timeout)
-		defer tick.Stop()
-		select {
-		case <-tick.C:
-			ch.logf("[cancel] <- timeout")
-			ch.conn.SetReadDeadline(time.Now().Add(time.Millisecond))
-			ch.conn.SetWriteDeadline(time.Now().Add(time.Millisecond))
-		}
-	}()
-	return nil
 }
