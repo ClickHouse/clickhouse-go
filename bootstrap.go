@@ -37,6 +37,10 @@ func (d *bootstrap) Open(dsn string) (driver.Conn, error) {
 }
 
 func Open(dsn string) (driver.Conn, error) {
+	return open(dsn)
+}
+
+func open(dsn string) (*clickhouse, error) {
 	url, err := url.Parse(dsn)
 	if err != nil {
 		return nil, err

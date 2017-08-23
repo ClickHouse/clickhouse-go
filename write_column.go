@@ -1,30 +1,26 @@
 package clickhouse
 
-// @todo: restore block_size functionality
-
 import (
+	"database/sql"
+	"database/sql/driver"
 	"time"
 
+	"github.com/kshvakov/clickhouse/lib/data"
 	"github.com/kshvakov/clickhouse/lib/types"
 )
 
-// Statement supporting columnar writer
-type ColumnarStatement interface {
-	ColumnWriter() ColumnWriter
-	ColumnWriterEnd(rows uint64) error
+// Interface for Clickhouse driver
+type Clickhouse interface {
+	Block() (*data.Block, error)
+	Prepare(query string) (driver.Stmt, error)
+	Begin() (driver.Tx, error)
+	Commit() error
+	Rollback() error
+	Close() error
+	WriteBlock(block *data.Block) error
 }
 
-func (stmt *stmt) ColumnWriter() ColumnWriter {
-	stmt.ch.block.Reserve()
-	return stmt.ch.block
-}
-
-func (stmt *stmt) ColumnWriterEnd(rows uint64) error {
-	stmt.ch.block.NumRows += rows
-	return nil
-}
-
-// Interface for block writer allowing writes to individual columns
+// Interface for Block allowing writes to individual columns
 type ColumnWriter interface {
 	WriteDate(c int, v time.Time) error
 	WriteDateTime(c int, v time.Time) error
@@ -38,4 +34,22 @@ type ColumnWriter interface {
 	WriteArray(c int, v *types.Array) error
 	WriteString(c int, v string) error
 	WriteFixedString(c int, v []byte) error
+}
+
+func OpenDirect(dsn string) (Clickhouse, error) {
+	return open(dsn)
+}
+
+func (ch *clickhouse) Block() (*data.Block, error) {
+	if ch.block == nil {
+		return nil, sql.ErrTxDone
+	}
+	return ch.block, nil
+}
+
+func (ch *clickhouse) WriteBlock(block *data.Block) error {
+	if block == nil {
+		return sql.ErrTxDone
+	}
+	return ch.writeBlock(block)
 }

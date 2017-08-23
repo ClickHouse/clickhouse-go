@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"sync"
 	"time"
 
 	"github.com/kshvakov/clickhouse/lib/binary"
@@ -27,6 +28,7 @@ var (
 type logger func(format string, v ...interface{})
 
 type clickhouse struct {
+	sync.Mutex
 	data.ServerInfo
 	data.ClientInfo
 	logf          logger
@@ -99,7 +101,7 @@ type txOptions struct {
 	ReadOnly  bool
 }
 
-func (ch *clickhouse) beginTx(ctx context.Context, opts txOptions) (driver.Tx, error) {
+func (ch *clickhouse) beginTx(ctx context.Context, opts txOptions) (*clickhouse, error) {
 	ch.logf("[begin] tx=%t, data=%t", ch.inTransaction, ch.block != nil)
 	switch {
 	case ch.inTransaction:
