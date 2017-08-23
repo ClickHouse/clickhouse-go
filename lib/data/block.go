@@ -22,6 +22,14 @@ type Block struct {
 	info       blockInfo
 }
 
+func (block *Block) Copy() *Block {
+	return &Block{
+		Columns:    block.Columns,
+		NumColumns: block.NumColumns,
+		info:       block.info,
+	}
+}
+
 func (block *Block) ColumnNames() []string {
 	names := make([]string, 0, len(block.Columns))
 	for _, column := range block.Columns {
