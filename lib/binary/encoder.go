@@ -16,7 +16,7 @@ func NewEncoder(output io.Writer) *Encoder {
 
 type Encoder struct {
 	output  io.Writer
-	scratch [16]byte
+	scratch [binary.MaxVarintLen64]byte
 }
 
 func (enc *Encoder) Uvarint(v uint64) error {

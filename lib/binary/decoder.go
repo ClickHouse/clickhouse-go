@@ -14,7 +14,7 @@ func NewDecoder(input io.Reader) *Decoder {
 
 type Decoder struct {
 	input   io.Reader
-	scratch [16]byte
+	scratch [binary.MaxVarintLen64]byte
 }
 
 func (decoder *Decoder) Bool() (bool, error) {
@@ -70,28 +70,34 @@ func (decoder *Decoder) UInt8() (uint8, error) {
 }
 
 func (decoder *Decoder) UInt16() (uint16, error) {
-	buf := decoder.scratch[:2]
-	if _, err := decoder.input.Read(buf); err != nil {
+	if _, err := decoder.input.Read(decoder.scratch[:2]); err != nil {
 		return 0, err
 	}
-	return uint16(buf[0]) | uint16(buf[1])<<8, nil
+	return uint16(decoder.scratch[0]) | uint16(decoder.scratch[1])<<8, nil
 }
 
 func (decoder *Decoder) UInt32() (uint32, error) {
-	buf := decoder.scratch[:4]
-	if _, err := decoder.input.Read(buf); err != nil {
+	if _, err := decoder.input.Read(decoder.scratch[:4]); err != nil {
 		return 0, err
 	}
-	return uint32(buf[0]) | uint32(buf[1])<<8 | uint32(buf[2])<<16 | uint32(buf[3])<<24, nil
+	return uint32(decoder.scratch[0]) |
+		uint32(decoder.scratch[1])<<8 |
+		uint32(decoder.scratch[2])<<16 |
+		uint32(decoder.scratch[3])<<24, nil
 }
 
 func (decoder *Decoder) UInt64() (uint64, error) {
-	buf := decoder.scratch[:8]
-	if _, err := decoder.input.Read(buf); err != nil {
+	if _, err := decoder.input.Read(decoder.scratch[:8]); err != nil {
 		return 0, err
 	}
-	return uint64(buf[0]) | uint64(buf[1])<<8 | uint64(buf[2])<<16 | uint64(buf[3])<<24 |
-		uint64(buf[4])<<32 | uint64(buf[5])<<40 | uint64(buf[6])<<48 | uint64(buf[7])<<56, nil
+	return uint64(decoder.scratch[0]) |
+		uint64(decoder.scratch[1])<<8 |
+		uint64(decoder.scratch[2])<<16 |
+		uint64(decoder.scratch[3])<<24 |
+		uint64(decoder.scratch[4])<<32 |
+		uint64(decoder.scratch[5])<<40 |
+		uint64(decoder.scratch[6])<<48 |
+		uint64(decoder.scratch[7])<<56, nil
 }
 
 func (decoder *Decoder) Float32() (float32, error) {
