@@ -42,15 +42,17 @@ func Open(dsn string) (driver.Conn, error) {
 		return nil, err
 	}
 	var (
-		hosts        = []string{url.Host}
-		noDelay      = true
-		compress     = false
-		database     = url.Query().Get("database")
-		username     = url.Query().Get("username")
-		password     = url.Query().Get("password")
-		blockSize    = 1000000
-		readTimeout  = DefaultReadTimeout
-		writeTimeout = DefaultWriteTimeout
+		hosts            = []string{url.Host}
+		query            = url.Query()
+		noDelay          = true
+		compress         = false
+		database         = query.Get("database")
+		username         = query.Get("username")
+		password         = query.Get("password")
+		blockSize        = 1000000
+		readTimeout      = DefaultReadTimeout
+		writeTimeout     = DefaultWriteTimeout
+		connOpenStrategy = connOpenRandom
 	)
 	if len(database) == 0 {
 		database = DefaultDatabase
@@ -58,26 +60,33 @@ func Open(dsn string) (driver.Conn, error) {
 	if len(username) == 0 {
 		username = DefaultUsername
 	}
-	if v, err := strconv.ParseBool(url.Query().Get("no_delay")); err == nil && !v {
+	if v, err := strconv.ParseBool(query.Get("no_delay")); err == nil && !v {
 		noDelay = false
 	}
-	if duration, err := strconv.ParseFloat(url.Query().Get("read_timeout"), 64); err == nil {
+	if duration, err := strconv.ParseFloat(query.Get("read_timeout"), 64); err == nil {
 		readTimeout = time.Duration(duration * float64(time.Second))
 	}
-	if duration, err := strconv.ParseFloat(url.Query().Get("write_timeout"), 64); err == nil {
+	if duration, err := strconv.ParseFloat(query.Get("write_timeout"), 64); err == nil {
 		writeTimeout = time.Duration(duration * float64(time.Second))
 	}
-	if size, err := strconv.ParseInt(url.Query().Get("block_size"), 10, 64); err == nil {
+	if size, err := strconv.ParseInt(query.Get("block_size"), 10, 64); err == nil {
 		blockSize = int(size)
 	}
-	if altHosts := strings.Split(url.Query().Get("alt_hosts"), ","); len(altHosts) != 0 {
+	if altHosts := strings.Split(query.Get("alt_hosts"), ","); len(altHosts) != 0 {
 		for _, host := range altHosts {
 			if len(host) != 0 {
 				hosts = append(hosts, host)
 			}
 		}
 	}
-	if v, err := strconv.ParseBool(url.Query().Get("compress")); err == nil && v {
+	switch query.Get("connection_open_strategy") {
+	case "random":
+		connOpenStrategy = connOpenRandom
+	case "in_order":
+		connOpenStrategy = connOpenInOrder
+	}
+
+	if v, err := strconv.ParseBool(query.Get("compress")); err == nil && v {
 		//compress = true
 	}
 
@@ -102,7 +111,7 @@ func Open(dsn string) (driver.Conn, error) {
 		database,
 		username,
 	)
-	if ch.conn, err = dial("tcp", hosts, noDelay, ch.logf); err != nil {
+	if ch.conn, err = dial("tcp", hosts, noDelay, connOpenStrategy, ch.logf); err != nil {
 		return nil, err
 	}
 	logger.SetPrefix(fmt.Sprintf("[clickhouse][connect=%d]", ch.conn.ident))

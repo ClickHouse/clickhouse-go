@@ -51,14 +51,13 @@ func (ch *clickhouse) PrepareContext(ctx context.Context, query string) (driver.
 }
 
 func (ch *clickhouse) prepareContext(ctx context.Context, query string) (driver.Stmt, error) {
-	if ch.conn.closed {
-		return nil, driver.ErrBadConn
-	}
 	ch.logf("[prepare] %s", query)
-	if ch.block != nil {
+	switch {
+	case ch.conn.closed:
+		return nil, driver.ErrBadConn
+	case ch.block != nil:
 		return nil, ErrLimitDataRequestInTx
-	}
-	if isInsert(query) {
+	case isInsert(query):
 		if !ch.inTransaction {
 			return nil, ErrInsertInNotBatchMode
 		}
@@ -71,9 +70,8 @@ func (ch *clickhouse) prepareContext(ctx context.Context, query string) (driver.
 	}, nil
 }
 
-func (ch *clickhouse) insert(query string) (driver.Stmt, error) {
-	err := ch.sendQuery(splitInsertRe.Split(query, -1)[0] + " VALUES ")
-	if err != nil {
+func (ch *clickhouse) insert(query string) (_ driver.Stmt, err error) {
+	if err := ch.sendQuery(splitInsertRe.Split(query, -1)[0] + " VALUES "); err != nil {
 		return nil, err
 	}
 	if ch.block, err = ch.readMeta(); err != nil {
@@ -248,10 +246,12 @@ func (ch *clickhouse) watchCancel(ctx context.Context, timeout time.Duration) fu
 			defer tick.Stop()
 			select {
 			case <-tick.C:
+				ch.logf("[cancel] <- timeout")
 				ch.conn.SetReadDeadline(time.Now().Add(time.Millisecond))
 				ch.conn.SetWriteDeadline(time.Now().Add(time.Millisecond))
 				finished <- struct{}{}
 			case <-finished:
+				ch.logf("[cancel] <- skip")
 			}
 		}()
 	}

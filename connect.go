@@ -10,7 +10,22 @@ import (
 
 var tick int32
 
-func dial(network string, hosts []string, noDelay bool, logf func(string, ...interface{})) (*connect, error) {
+type openStrategy int8
+
+func (s openStrategy) String() string {
+	switch s {
+	case connOpenInOrder:
+		return "in_order"
+	}
+	return "random"
+}
+
+const (
+	connOpenRandom openStrategy = iota + 1
+	connOpenInOrder
+)
+
+func dial(network string, hosts []string, noDelay bool, openStrategy openStrategy, logf func(string, ...interface{})) (*connect, error) {
 	var (
 		err error
 		abs = func(v int) int {
@@ -23,9 +38,15 @@ func dial(network string, hosts []string, noDelay bool, logf func(string, ...int
 		ident = abs(int(atomic.AddInt32(&tick, 1)))
 	)
 	for i := 0; i <= len(hosts); i++ {
-		num := (ident + 1) % len(hosts)
+		var num int
+		switch openStrategy {
+		case connOpenInOrder:
+			num = i
+		case connOpenRandom:
+			num = (ident + 1) % len(hosts)
+		}
 		if conn, err = net.DialTimeout(network, hosts[num], 20*time.Second); err == nil {
-			logf("[connect=%d] server=%d -> %s", ident, num, conn.RemoteAddr())
+			logf("[dial] strategy=%s, ident=%d, server=%d -> %s", openStrategy, ident, num, conn.RemoteAddr())
 			if tcp, ok := conn.(*net.TCPConn); ok {
 				tcp.SetNoDelay(noDelay) // Disable or enable the Nagle Algorithm for this tcp socket
 			}

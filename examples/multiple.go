@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?username=&compress=true&debug=true")
+	connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?username=&debug=true")
 	checkErr(err)
 	if err := connect.Ping(); err != nil {
 		if exception, ok := err.(*clickhouse.Exception); ok {
