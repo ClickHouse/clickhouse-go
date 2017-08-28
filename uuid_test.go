@@ -21,7 +21,7 @@ func Test_UUID2Bytes(t *testing.T) {
 		hex.Encode(uuid[24:], src[10:])
 		return string(uuid[:])
 	}
-	origin := "123e4567-e89b-12d3-a456-426655440000"
+	origin := "00000000-0000-0000-0000-000000000000"
 	if uuid, err := uuid2bytes(origin); assert.NoError(t, err) {
 		assert.Equal(t, origin, bytes2uuid(uuid))
 	}
@@ -30,7 +30,7 @@ func Test_UUID2Bytes(t *testing.T) {
 func Benchmark_UUID2Bytes(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		if _, err := uuid2bytes("123e4567-e89b-12d3-a456-426655440000"); err != nil {
+		if _, err := uuid2bytes("00000000-0000-0000-0000-000000000000"); err != nil {
 			b.Fatal(err)
 		}
 	}

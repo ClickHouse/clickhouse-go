@@ -436,6 +436,7 @@ func Test_Column_UUID(t *testing.T) {
 	)
 	if column, err := columns.Factory("column_name", "UUID", time.Local); assert.NoError(t, err) {
 		for _, uuid := range []string{
+			"00000000-0000-0000-0000-000000000000",
 			"6e6a7955-3237-3461-3036-663239386432",
 			"4c436370-6130-6461-6437-336534326163",
 			"47474674-3238-3066-3236-373437666435",

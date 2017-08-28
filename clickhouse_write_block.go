@@ -1,6 +1,8 @@
 package clickhouse
 
 import (
+	"time"
+
 	"github.com/kshvakov/clickhouse/lib/data"
 	"github.com/kshvakov/clickhouse/lib/protocol"
 )
@@ -8,6 +10,10 @@ import (
 func (ch *clickhouse) writeBlock(block *data.Block) error {
 	ch.Lock()
 	defer ch.Unlock()
+	{
+		ch.conn.SetReadDeadline(time.Now().Add(ch.readTimeout))
+		ch.conn.SetWriteDeadline(time.Now().Add(ch.writeTimeout))
+	}
 	if err := ch.encoder.Uvarint(protocol.ClientData); err != nil {
 		return err
 	}
