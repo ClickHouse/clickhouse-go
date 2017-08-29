@@ -123,7 +123,15 @@ func (block *Block) AppendRow(args []driver.Value) error {
 				return err
 			}
 		default:
-			if err := column.Write(block.Buffers[num].Column, args[num]); err != nil {
+			var val interface{} = args[num]
+			var err error
+			if v, ok := val.(driver.Valuer); ok {
+				val, err = v.Value()
+				if err != nil {
+					return err
+				}
+			}
+			if err := column.Write(block.Buffers[num].Column, val); err != nil {
 				return err
 			}
 		}
