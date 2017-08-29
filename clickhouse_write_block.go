@@ -17,11 +17,11 @@ func (ch *clickhouse) writeBlock(block *data.Block) error {
 	if err := ch.encoder.Uvarint(protocol.ClientData); err != nil {
 		return err
 	}
-	if ch.ServerInfo.Revision >= protocol.DBMS_MIN_REVISION_WITH_TEMPORARY_TABLES {
-		if err := ch.encoder.String(""); err != nil {
-			return err
-		}
+
+	if err := ch.encoder.String(""); err != nil { // temporary table
+		return err
 	}
+
 	// @todo: implement CityHash v 1.0.2 and add LZ4 compression
 	if ch.compress {
 		/*

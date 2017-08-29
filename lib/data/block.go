@@ -8,7 +8,6 @@ import (
 
 	"github.com/kshvakov/clickhouse/lib/binary"
 	"github.com/kshvakov/clickhouse/lib/column"
-	"github.com/kshvakov/clickhouse/lib/protocol"
 	wb "github.com/kshvakov/clickhouse/lib/writebuffer"
 )
 
@@ -39,11 +38,10 @@ func (block *Block) ColumnNames() []string {
 }
 
 func (block *Block) Read(serverInfo *ServerInfo, decoder *binary.Decoder) (err error) {
-	if serverInfo.Revision >= protocol.DBMS_MIN_REVISION_WITH_BLOCK_INFO {
-		if err = block.info.read(decoder); err != nil {
-			return err
-		}
+	if err = block.info.read(decoder); err != nil {
+		return err
 	}
+
 	if block.NumColumns, err = decoder.Uvarint(); err != nil {
 		return err
 	}
@@ -163,11 +161,10 @@ func (block *Block) Reset() {
 }
 
 func (block *Block) Write(serverInfo *ServerInfo, encoder *binary.Encoder) error {
-	if serverInfo.Revision >= protocol.DBMS_MIN_REVISION_WITH_BLOCK_INFO {
-		if err := block.info.write(encoder); err != nil {
-			return err
-		}
+	if err := block.info.write(encoder); err != nil {
+		return err
 	}
+
 	encoder.Uvarint(block.NumColumns)
 	encoder.Uvarint(block.NumRows)
 	block.NumRows = 0

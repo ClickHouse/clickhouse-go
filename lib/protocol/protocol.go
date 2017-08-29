@@ -1,10 +1,6 @@
 package protocol
 
 const (
-	DBMS_MIN_REVISION_WITH_TEMPORARY_TABLES         = 50264
-	DBMS_MIN_REVISION_WITH_TOTAL_ROWS_IN_PROGRESS   = 51554
-	DBMS_MIN_REVISION_WITH_BLOCK_INFO               = 51903
-	DBMS_MIN_REVISION_WITH_CLIENT_INFO              = 54032
 	DBMS_MIN_REVISION_WITH_SERVER_TIMEZONE          = 54058
 	DBMS_MIN_REVISION_WITH_QUOTA_KEY_IN_CLIENT_INFO = 54060
 )
@@ -16,8 +12,6 @@ const (
 	ClientCancel = 3
 	ClientPing   = 4
 )
-
-const Query = 1
 
 const (
 	CompressEnable  uint64 = 1
