@@ -19,14 +19,15 @@ func (ch *clickhouse) sendQuery(query string) error {
 	if err := ch.encoder.String(""); err != nil {
 		return err
 	}
-
-	ch.encoder.Uvarint(1)
-	ch.encoder.String("")
-	ch.encoder.String("") //initial_query_id
-	ch.encoder.String("[::ffff:127.0.0.1]:0")
-	ch.encoder.Uvarint(1) // iface type TCP
-	ch.encoder.String(hostname)
-	ch.encoder.String(hostname)
+	{ // client info
+		ch.encoder.Uvarint(1)
+		ch.encoder.String("")
+		ch.encoder.String("") //initial_query_id
+		ch.encoder.String("[::ffff:127.0.0.1]:0")
+		ch.encoder.Uvarint(1) // iface type TCP
+		ch.encoder.String(hostname)
+		ch.encoder.String(hostname)
+	}
 	if err := ch.ClientInfo.Write(ch.encoder); err != nil {
 		return err
 	}

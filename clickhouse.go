@@ -7,6 +7,8 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
+	"net"
+	"reflect"
 	"regexp"
 	"sync"
 	"time"
@@ -14,6 +16,7 @@ import (
 	"github.com/kshvakov/clickhouse/lib/binary"
 	"github.com/kshvakov/clickhouse/lib/data"
 	"github.com/kshvakov/clickhouse/lib/protocol"
+	"github.com/kshvakov/clickhouse/lib/types"
 )
 
 var (
@@ -109,7 +112,7 @@ func (ch *clickhouse) beginTx(ctx context.Context, opts txOptions) (*clickhouse,
 	case ch.conn.closed:
 		return nil, driver.ErrBadConn
 	}
-	if finish := ch.watchCancel(ctx, ch.writeTimeout); finish != nil {
+	if finish := ch.watchCancel(ctx); finish != nil {
 		defer finish()
 	}
 	ch.block = nil
@@ -164,6 +167,42 @@ func (ch *clickhouse) CheckNamedValue(nv *driver.NamedValue) error {
 		nv.Value = v.convert()
 	case DateTime:
 		nv.Value = v.convert()
+	case IP, *types.Array, UUID:
+		nv.Value = v
+	case net.IP:
+		nv.Value = IP(v)
+	default:
+		switch value := reflect.ValueOf(nv.Value); value.Kind() {
+		case reflect.Bool:
+			nv.Value = uint8(0)
+			if value.Bool() {
+				nv.Value = uint8(1)
+			}
+		case reflect.Int8:
+			nv.Value = int8(value.Int())
+		case reflect.Int16:
+			nv.Value = int16(value.Int())
+		case reflect.Int32:
+			nv.Value = int32(value.Int())
+		case reflect.Int64:
+			nv.Value = value.Int()
+		case reflect.Uint8:
+			nv.Value = uint8(value.Uint())
+		case reflect.Uint16:
+			nv.Value = uint16(value.Uint())
+		case reflect.Uint32:
+			nv.Value = uint32(value.Uint())
+		case reflect.Uint64:
+			nv.Value = uint64(value.Uint())
+		case reflect.Float32:
+			nv.Value = float32(value.Float())
+		case reflect.Float64:
+			nv.Value = float64(value.Float())
+		case reflect.String:
+			nv.Value = value.String()
+		case reflect.Slice:
+			nv.Value = types.NewArray(value.Interface())
+		}
 	}
 	return nil
 }
@@ -229,7 +268,7 @@ func (ch *clickhouse) cancel() error {
 	return ch.conn.Close()
 }
 
-func (ch *clickhouse) watchCancel(ctx context.Context, timeout time.Duration) func() {
+func (ch *clickhouse) watchCancel(ctx context.Context) func() {
 	if done := ctx.Done(); done != nil {
 		finished := make(chan struct{})
 		go func() {

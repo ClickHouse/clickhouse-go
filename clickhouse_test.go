@@ -256,7 +256,7 @@ func Test_InsertBatch(t *testing.T) {
 								"RU",       //fixedstring,
 								time.Now(), //date
 								time.Now(), //datetime
-								clickhouse.Array([]string{"A", "B", "C"}),
+								[]string{"A", "B", "C"},
 							)
 							if !assert.NoError(t, err) {
 								return
@@ -497,43 +497,43 @@ func Test_ArrayT(t *testing.T) {
 					if stmt, err := tx.Prepare(dml); assert.NoError(t, err) {
 						for i := 1; i <= 10; i++ {
 							_, err = stmt.Exec(
-								clickhouse.Array([]int8{1, 2, 3}),
-								clickhouse.Array([]int16{5, 6, 7}),
-								clickhouse.Array([]int32{8, 9, 10}),
-								clickhouse.Array([]int64{11, 12, 13}),
+								[]int8{1, 2, 3},
+								[]int16{5, 6, 7},
+								[]int32{8, 9, 10},
+								[]int64{11, 12, 13},
 								clickhouse.Array([]uint8{14, 15, 16}),
-								clickhouse.Array([]uint16{17, 18, 19}),
-								clickhouse.Array([]uint32{20, 21, 22}),
-								clickhouse.Array([]uint64{23, 24, 25}),
-								clickhouse.Array([]float32{32.1, 32.2}),
-								clickhouse.Array([]float64{64.1, 64.2}),
-								clickhouse.Array([]string{fmt.Sprintf("A_%d", i), "B", "C"}),
+								[]uint16{17, 18, 19},
+								[]uint32{20, 21, 22},
+								[]uint64{23, 24, 25},
+								[]float32{32.1, 32.2},
+								[]float64{64.1, 64.2},
+								[]string{fmt.Sprintf("A_%d", i), "B", "C"},
 								clickhouse.ArrayFixedString(2, []string{"RU", "EN", "DE"}),
 								clickhouse.ArrayDate([]time.Time{time.Now(), time.Now()}),
 								clickhouse.ArrayDateTime([]time.Time{time.Now(), time.Now()}),
-								clickhouse.Array([]string{"a", "b"}),
-								clickhouse.Array([]string{"c", "d"}),
+								[]string{"a", "b"},
+								[]string{"c", "d"},
 							)
 							if !assert.NoError(t, err) {
 								return
 							}
 							_, err = stmt.Exec(
-								clickhouse.Array([]int8{100, 101, 102, 103, 104, 105}),
-								clickhouse.Array([]int16{200, 201}),
-								clickhouse.Array([]int32{300, 301, 302, 303}),
-								clickhouse.Array([]int64{400, 401, 402}),
+								[]int8{100, 101, 102, 103, 104, 105},
+								[]int16{200, 201},
+								[]int32{300, 301, 302, 303},
+								[]int64{400, 401, 402},
 								clickhouse.Array([]uint8{250, 251, 252, 253, 254}),
-								clickhouse.Array([]uint16{1000, 1001, 1002, 1003, 1004}),
-								clickhouse.Array([]uint32{2001, 2002}),
-								clickhouse.Array([]uint64{3000}),
-								clickhouse.Array([]float32{1000.1, 100.1, 2000}),
-								clickhouse.Array([]float64{640, 8, 650.9, 703.5, 800}),
-								clickhouse.Array([]string{fmt.Sprintf("D_%d", i), "E", "F", "G"}),
+								[]uint16{1000, 1001, 1002, 1003, 1004},
+								[]uint32{2001, 2002},
+								[]uint64{3000},
+								[]float32{1000.1, 100.1, 2000},
+								[]float64{640, 8, 650.9, 703.5, 800},
+								[]string{fmt.Sprintf("D_%d", i), "E", "F", "G"},
 								clickhouse.ArrayFixedString(2, []string{"UA", "GB"}),
 								clickhouse.ArrayDate([]time.Time{time.Now(), time.Now(), time.Now(), time.Now()}),
 								clickhouse.ArrayDateTime([]time.Time{time.Now(), time.Now()}),
-								clickhouse.Array([]string{"a", "b"}),
-								clickhouse.Array([]string{"c", "d"}),
+								[]string{"a", "b"},
+								[]string{"c", "d"},
 							)
 							if !assert.NoError(t, err) {
 								return
@@ -811,10 +811,10 @@ func Test_Enum(t *testing.T) {
 			if _, err := connect.Exec(ddl); assert.NoError(t, err) {
 				if tx, err := connect.Begin(); assert.NoError(t, err) {
 					if stmt, err := tx.Prepare(dml); assert.NoError(t, err) {
-						if _, err := stmt.Exec("a", "c", clickhouse.Array([]string{"a", "b"}), clickhouse.Array([]string{"c", "d"})); !assert.NoError(t, err) {
+						if _, err := stmt.Exec("a", "c", []string{"a", "b"}, []string{"c", "d"}); !assert.NoError(t, err) {
 							return
 						}
-						if _, err := stmt.Exec("b", "d", clickhouse.Array([]string{"b", "a"}), clickhouse.Array([]string{"d", "c"})); !assert.NoError(t, err) {
+						if _, err := stmt.Exec("b", "d", []string{"b", "a"}, []string{"d", "c"}); !assert.NoError(t, err) {
 							return
 						}
 					}

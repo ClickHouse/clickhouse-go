@@ -43,7 +43,7 @@ func main() {
 			"RU",
 			10+i,
 			100+i,
-			clickhouse.Array([]int16{1, 2, 3}),
+			[]int16{1, 2, 3},
 			time.Now(),
 			time.Now(),
 		); err != nil {

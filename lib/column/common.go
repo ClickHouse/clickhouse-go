@@ -15,10 +15,6 @@ func (err *ErrUnexpectedType) Error() string {
 	return fmt.Sprintf("%s: unexpected type %T", err.Column, err.T)
 }
 
-type NativeConverter interface {
-	Native() ([]byte, error)
-}
-
 var baseTypes = map[interface{}]reflect.Value{
 	int8(0):     reflect.ValueOf(int8(0)),
 	int16(0):    reflect.ValueOf(int16(0)),

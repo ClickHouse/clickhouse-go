@@ -79,7 +79,7 @@ func (stmt *stmt) queryContext(ctx context.Context, args []driver.NamedValue) (d
 	}
 	rows := rows{
 		ch:     stmt.ch,
-		finish: stmt.ch.watchCancel(ctx, stmt.ch.readTimeout),
+		finish: stmt.ch.watchCancel(ctx),
 	}
 	for len(rows.columns) == 0 {
 		if err := rows.receiveData(); err != nil {

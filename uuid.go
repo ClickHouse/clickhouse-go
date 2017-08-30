@@ -16,7 +16,7 @@ func (str UUID) Value() (driver.Value, error) {
 	return uuid2bytes(string(str))
 }
 
-func (str UUID) Native() ([]byte, error) {
+func (str UUID) MarshalBinary() ([]byte, error) {
 	return uuid2bytes(string(str))
 }
 
