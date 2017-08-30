@@ -2,6 +2,7 @@ package clickhouse_test
 
 import (
 	"database/sql"
+	"database/sql/driver"
 	"fmt"
 	"testing"
 
@@ -152,6 +153,65 @@ func Test_Custom_Types(t *testing.T) {
 								}
 							}
 							assert.Equal(t, int(10), count)
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+type PointType struct {
+	x int32
+	y int32
+	z int32
+}
+
+func (p PointType) Value() (driver.Value, error) {
+	return fmt.Sprintf("%v,%v,%v", p.x, p.y, p.z), nil
+}
+
+func (p *PointType) Scan(v interface{}) error {
+	var src string
+	switch v := v.(type) {
+	case string:
+		src = v
+	case []byte:
+		src = string(v)
+	default:
+		return fmt.Errorf("unexpected type '%T'", v)
+	}
+	if _, err := fmt.Sscanf(src, "%d,%d,%d", &p.x, &p.y, &p.z); err != nil {
+		return err
+	}
+	return nil
+}
+
+func Test_Scan_Value(t *testing.T) {
+	const (
+		ddl = `
+	CREATE TABLE clickhouse_test_scan_value (
+		Value String
+	) Engine = Memory
+	`
+	)
+
+	point := PointType{1, 2, 3}
+	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) && assert.NoError(t, connect.Ping()) {
+		if _, err := connect.Exec("DROP TABLE IF EXISTS clickhouse_test_scan_value"); assert.NoError(t, err) {
+			if _, err := connect.Exec(ddl); assert.NoError(t, err) {
+				if tx, err := connect.Begin(); assert.NoError(t, err) {
+					if stmt, err := tx.Prepare(`INSERT INTO clickhouse_test_scan_value VALUES (?)`); assert.NoError(t, err) {
+						if _, err = stmt.Exec(point); !assert.NoError(t, err) {
+							return
+						}
+					} else {
+						return
+					}
+					if assert.NoError(t, tx.Commit()) {
+						var p PointType
+						if err := connect.QueryRow(`SELECT Value FROM clickhouse_test_scan_value`).Scan(&p); assert.NoError(t, err) {
+							assert.Equal(t, point, p)
 						}
 					}
 				}

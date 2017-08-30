@@ -173,12 +173,14 @@ func (ch *clickhouse) CheckNamedValue(nv *driver.NamedValue) error {
 		[]float32, []float64,
 		[]string:
 		nv.Value = types.NewArray(v)
-	case Date:
-		nv.Value = v.convert()
-	case DateTime:
-		nv.Value = v.convert()
 	case net.IP:
 		nv.Value = IP(v)
+	case driver.Valuer:
+		value, err := v.Value()
+		if err != nil {
+			return err
+		}
+		nv.Value = value
 	default:
 		switch value := reflect.ValueOf(nv.Value); value.Kind() {
 		case reflect.Bool:

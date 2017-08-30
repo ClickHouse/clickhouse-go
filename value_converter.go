@@ -63,6 +63,8 @@ func (c *converter) ConvertValue(v interface{}) (driver.Value, error) {
 		return (types.NewArray(v)).Value()
 	case net.IP:
 		return IP(value).Value()
+	case driver.Valuer:
+		return value.Value()
 	}
 
 	switch v := v.(type) {
