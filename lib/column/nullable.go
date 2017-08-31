@@ -18,27 +18,21 @@ func (null *Nullable) ScanType() reflect.Type {
 }
 
 func (null *Nullable) Read(decoder *binary.Decoder) (interface{}, error) {
-	isNull, err := decoder.Uvarint()
-	switch {
-	case err != nil:
-		return nil, err
-	case isNull == 1:
-		if _, err := null.column.Read(decoder); err != nil {
-			return nil, err
-		}
-		return nil, nil
-	}
 	return null.column.Read(decoder)
 }
 
 func (null *Nullable) Write(encoder *binary.Encoder, v interface{}) error {
+	return nil
+}
+
+func (null *Nullable) WriteNull(nulls, encoder *binary.Encoder, v interface{}) error {
 	if v == nil {
-		if err := encoder.Uvarint(1); err != nil {
+		if _, err := nulls.Write([]byte{1}); err != nil {
 			return err
 		}
 		return null.column.Write(encoder, null.column.defaultValue())
 	}
-	if err := encoder.Uvarint(0); err != nil {
+	if _, err := nulls.Write([]byte{0}); err != nil {
 		return err
 	}
 	return null.column.Write(encoder, v)

@@ -73,13 +73,13 @@ func (block *Block) Read(serverInfo *ServerInfo, decoder *binary.Decoder) (err e
 		block.Columns = append(block.Columns, c)
 		switch column := c.(type) {
 		case *column.Array:
-			offsets := make([]uint64, 0, block.NumRows)
+			offsets := make([]uint64, block.NumRows)
 			for row := 0; row < int(block.NumRows); row++ {
 				offset, err := decoder.UInt64()
 				if err != nil {
 					return err
 				}
-				offsets = append(offsets, offset)
+				offsets[row] = offset
 			}
 			for n, offset := range offsets {
 				ln := offset
@@ -90,6 +90,27 @@ func (block *Block) Read(serverInfo *ServerInfo, decoder *binary.Decoder) (err e
 					return err
 				}
 				block.Values[i] = append(block.Values[i], value)
+			}
+		case *column.Nullable:
+			var (
+				isNull byte
+				nulls  = make([]byte, block.NumRows)
+			)
+			for i := 0; i < int(block.NumRows); i++ {
+				if isNull, err = decoder.ReadByte(); err != nil {
+					return err
+				}
+				nulls[i] = isNull
+			}
+			for _, isNull := range nulls {
+				switch value, err = column.Read(decoder); true {
+				case err != nil:
+					return err
+				case isNull == 0:
+					block.Values[i] = append(block.Values[i], value)
+				default:
+					block.Values[i] = append(block.Values[i], nil)
+				}
 			}
 		default:
 			for row := 0; row < int(block.NumRows); row++ {
@@ -120,6 +141,10 @@ func (block *Block) AppendRow(args []driver.Value) error {
 			}
 			block.offsets[num] += ln
 			if err := block.Buffers[num].Offset.UInt64(block.offsets[num]); err != nil {
+				return err
+			}
+		case *column.Nullable:
+			if err := column.WriteNull(block.Buffers[num].Offset, block.Buffers[num].Column, args[num]); err != nil {
 				return err
 			}
 		default:
