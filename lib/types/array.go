@@ -55,7 +55,7 @@ func (array *Array) Value() (driver.Value, error) {
 	encoder.Uvarint(uint64(ln))
 	for i := 0; i < ln; i++ {
 		if err := array.column.Write(encoder, v.Index(i).Interface()); err != nil {
-			buff.Free()
+			buff.Reset()
 			return nil, err
 		}
 	}

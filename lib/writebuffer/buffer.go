@@ -43,12 +43,12 @@ func (wb *WriteBuffer) WriteTo(w io.Writer) (int64, error) {
 	for _, chunk := range wb.chunks {
 		ln, err := w.Write(chunk)
 		if err != nil {
-			wb.Free()
+			wb.Reset()
 			return 0, err
 		}
 		size += int64(ln)
 	}
-	wb.Free()
+	wb.Reset()
 	return size, nil
 }
 
@@ -90,7 +90,7 @@ func (wb *WriteBuffer) calcCap(dataSize int) int {
 	return max(dataSize, cap(wb.chunks[len(wb.chunks)-1])*2)
 }
 
-func (wb *WriteBuffer) Free() {
+func (wb *WriteBuffer) Reset() {
 	if len(wb.chunks) == 0 {
 		return
 	}

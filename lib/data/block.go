@@ -14,10 +14,10 @@ import (
 type Block struct {
 	Values     [][]interface{}
 	Columns    []column.Column
-	Buffers    []*buffer
 	NumRows    uint64
 	NumColumns uint64
 	offsets    []uint64
+	buffers    []*buffer
 	info       blockInfo
 }
 
@@ -73,44 +73,12 @@ func (block *Block) Read(serverInfo *ServerInfo, decoder *binary.Decoder) (err e
 		block.Columns = append(block.Columns, c)
 		switch column := c.(type) {
 		case *column.Array:
-			offsets := make([]uint64, block.NumRows)
-			for row := 0; row < int(block.NumRows); row++ {
-				offset, err := decoder.UInt64()
-				if err != nil {
-					return err
-				}
-				offsets[row] = offset
-			}
-			for n, offset := range offsets {
-				ln := offset
-				if n != 0 {
-					ln = ln - offsets[n-1]
-				}
-				if value, err = column.ReadArray(decoder, int(ln)); err != nil {
-					return err
-				}
-				block.Values[i] = append(block.Values[i], value)
+			if block.Values[i], err = column.ReadArray(decoder, int(block.NumRows)); err != nil {
+				return err
 			}
 		case *column.Nullable:
-			var (
-				isNull byte
-				nulls  = make([]byte, block.NumRows)
-			)
-			for i := 0; i < int(block.NumRows); i++ {
-				if isNull, err = decoder.ReadByte(); err != nil {
-					return err
-				}
-				nulls[i] = isNull
-			}
-			for _, isNull := range nulls {
-				switch value, err = column.Read(decoder); true {
-				case err != nil:
-					return err
-				case isNull == 0:
-					block.Values[i] = append(block.Values[i], value)
-				default:
-					block.Values[i] = append(block.Values[i], nil)
-				}
+			if block.Values[i], err = column.ReadNull(decoder, int(block.NumRows)); err != nil {
+				return err
 			}
 		default:
 			for row := 0; row < int(block.NumRows); row++ {
@@ -135,20 +103,20 @@ func (block *Block) AppendRow(args []driver.Value) error {
 	for num, c := range block.Columns {
 		switch column := c.(type) {
 		case *column.Array:
-			ln, err := column.WriteArray(block.Buffers[num].Column, args[num])
+			ln, err := column.WriteArray(block.buffers[num].Column, args[num])
 			if err != nil {
 				return err
 			}
 			block.offsets[num] += ln
-			if err := block.Buffers[num].Offset.UInt64(block.offsets[num]); err != nil {
+			if err := block.buffers[num].Offset.UInt64(block.offsets[num]); err != nil {
 				return err
 			}
 		case *column.Nullable:
-			if err := column.WriteNull(block.Buffers[num].Offset, block.Buffers[num].Column, args[num]); err != nil {
+			if err := column.WriteNull(block.buffers[num].Offset, block.buffers[num].Column, args[num]); err != nil {
 				return err
 			}
 		default:
-			if err := column.Write(block.Buffers[num].Column, args[num]); err != nil {
+			if err := column.Write(block.buffers[num].Column, args[num]); err != nil {
 				return err
 			}
 		}
@@ -157,15 +125,15 @@ func (block *Block) AppendRow(args []driver.Value) error {
 }
 
 func (block *Block) Reserve() {
-	if len(block.Buffers) == 0 {
-		block.Buffers = make([]*buffer, len(block.Columns))
+	if len(block.buffers) == 0 {
+		block.buffers = make([]*buffer, len(block.Columns))
 		block.offsets = make([]uint64, len(block.Columns))
 		for i := 0; i < len(block.Columns); i++ {
 			var (
 				offsetBuffer = wb.New(wb.InitialSize)
 				columnBuffer = wb.New(wb.InitialSize)
 			)
-			block.Buffers[i] = &buffer{
+			block.buffers[i] = &buffer{
 				Offset:       binary.NewEncoder(offsetBuffer),
 				Column:       binary.NewEncoder(columnBuffer),
 				offsetBuffer: offsetBuffer,
@@ -178,11 +146,13 @@ func (block *Block) Reserve() {
 func (block *Block) Reset() {
 	block.NumRows = 0
 	block.NumColumns = 0
-	for _, buffer := range block.Buffers {
+	for _, buffer := range block.buffers {
 		buffer.reset()
 	}
-	block.offsets = nil
-	block.Buffers = nil
+	{
+		block.offsets = nil
+		block.buffers = nil
+	}
 }
 
 func (block *Block) Write(serverInfo *ServerInfo, encoder *binary.Encoder) error {
@@ -199,8 +169,8 @@ func (block *Block) Write(serverInfo *ServerInfo, encoder *binary.Encoder) error
 	for i, column := range block.Columns {
 		encoder.String(column.Name())
 		encoder.String(column.CHType())
-		if len(block.Buffers) == len(block.Columns) {
-			if _, err := block.Buffers[i].WriteTo(encoder); err != nil {
+		if len(block.buffers) == len(block.Columns) {
+			if _, err := block.buffers[i].WriteTo(encoder); err != nil {
 				return err
 			}
 		}
@@ -282,6 +252,6 @@ func (buf *buffer) WriteTo(w io.Writer) (int64, error) {
 }
 
 func (buf *buffer) reset() {
-	buf.offsetBuffer.Free()
-	buf.columnBuffer.Free()
+	buf.offsetBuffer.Reset()
+	buf.columnBuffer.Reset()
 }

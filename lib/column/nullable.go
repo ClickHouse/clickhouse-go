@@ -25,6 +25,31 @@ func (null *Nullable) Write(encoder *binary.Encoder, v interface{}) error {
 	return nil
 }
 
+func (null *Nullable) ReadNull(decoder *binary.Decoder, rows int) (_ []interface{}, err error) {
+	var (
+		isNull byte
+		value  interface{}
+		nulls  = make([]byte, rows)
+		values = make([]interface{}, rows)
+	)
+	for i := 0; i < rows; i++ {
+		if isNull, err = decoder.ReadByte(); err != nil {
+			return nil, err
+		}
+		nulls[i] = isNull
+	}
+	for i, isNull := range nulls {
+		switch value, err = null.column.Read(decoder); true {
+		case err != nil:
+			return nil, err
+		case isNull == 0:
+			values[i] = value
+		default:
+			values[i] = nil
+		}
+	}
+	return values, nil
+}
 func (null *Nullable) WriteNull(nulls, encoder *binary.Encoder, v interface{}) error {
 	if v == nil {
 		if _, err := nulls.Write([]byte{1}); err != nil {

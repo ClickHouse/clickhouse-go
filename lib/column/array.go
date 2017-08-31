@@ -26,7 +26,31 @@ func (array *Array) Write(encoder *binary.Encoder, v interface{}) error {
 	return fmt.Errorf("do not use Write method for Array(T) column")
 }
 
-func (array *Array) ReadArray(decoder *binary.Decoder, ln int) (interface{}, error) {
+func (array *Array) ReadArray(decoder *binary.Decoder, rows int) (_ []interface{}, err error) {
+	var (
+		values  = make([]interface{}, rows)
+		offsets = make([]uint64, rows)
+	)
+	for i := 0; i < rows; i++ {
+		offset, err := decoder.UInt64()
+		if err != nil {
+			return nil, err
+		}
+		offsets[i] = offset
+	}
+	for n, offset := range offsets {
+		ln := offset
+		if n != 0 {
+			ln = ln - offsets[n-1]
+		}
+		if values[n], err = array.read(decoder, int(ln)); err != nil {
+			return nil, err
+		}
+	}
+	return values, nil
+}
+
+func (array *Array) read(decoder *binary.Decoder, ln int) (interface{}, error) {
 	slice := reflect.MakeSlice(array.valueOf.Type(), 0, ln)
 	for i := 0; i < ln; i++ {
 		value, err := array.column.Read(decoder)
