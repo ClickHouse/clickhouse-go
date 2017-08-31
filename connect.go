@@ -37,7 +37,7 @@ func dial(network string, hosts []string, noDelay bool, openStrategy openStrateg
 		conn  net.Conn
 		ident = abs(int(atomic.AddInt32(&tick, 1)))
 	)
-	for i := 0; i <= len(hosts); i++ {
+	for i := range hosts {
 		var num int
 		switch openStrategy {
 		case connOpenInOrder:
