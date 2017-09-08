@@ -1,6 +1,6 @@
 sudo: required
 language: go
-go: 
+go:
   - 1.8.x
   - 1.9.x
   - master
@@ -12,9 +12,9 @@ install:
   - go get golang.org/x/tools/cmd/cover
   - go get github.com/stretchr/testify/assert
 before_install:
-  - docker pull yandex/clickhouse-server
-  - docker run -d -p 127.0.0.1:9000:9000 --name some-clickhouse-server --ulimit nofile=262144:262144 yandex/clickhouse-server
-  - docker ps -a
+  - docker --version
+  - docker-compose --version
+  - docker-compose up -d
 script:
   - ./go.test.sh
 after_success:
