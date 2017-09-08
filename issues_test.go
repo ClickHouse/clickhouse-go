@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func Test_Issue38_uint64_support(t *testing.T) {
@@ -20,19 +21,19 @@ func Test_Issue38_uint64_support(t *testing.T) {
 		`
 		dml = `
 			INSERT INTO clickhouse_test_uint64_support (
-				A, 
-				B, 
+				A,
+				B,
 				C
 			) VALUES (
-				?, 
-				?, 
+				?,
+				?,
 				?
 			)
 		`
 		query = `
-			SELECT 
-				A, 
-				B, 
+			SELECT
+				A,
+				B,
 				C
 			FROM clickhouse_test_uint64_support
 		`
@@ -139,6 +140,25 @@ func Test_Issue42_Plain_SQL_Support(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestBytes(t *testing.T) {
+	connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true")
+	require.NoError(t, err)
+	require.NoError(t, connect.Ping())
+	defer connect.Close()
+
+	_, err = connect.Exec(`DROP TABLE IF EXISTS TestBytes`)
+	require.NoError(t, err)
+	_, err = connect.Exec(`CREATE TABLE TestBytes (s String) Engine=Memory`)
+	require.NoError(t, err)
+
+	tx, err := connect.Begin()
+	require.NoError(t, err)
+	defer tx.Rollback()
+
+	_, err = tx.Exec(`INSERT INTO TestBytes (s) VALUES (?)`, []byte("foo"))
+	assert.NoError(t, err)
 }
 
 //INSERT INTO `dbr_people` (`id`,`name`,`email`) VALUES (258,'jonathan','jonathan@uservoice.com')
