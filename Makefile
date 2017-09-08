@@ -1,4 +1,6 @@
 test:
+	go install -race -v
+	go test -i -v
 	go test -race -v .
 
 coverage:
