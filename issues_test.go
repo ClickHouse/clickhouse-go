@@ -160,5 +160,3 @@ func TestBytes(t *testing.T) {
 	_, err = tx.Exec(`INSERT INTO TestBytes (s) VALUES (?)`, []byte("foo"))
 	assert.NoError(t, err)
 }
-
-//INSERT INTO `dbr_people` (`id`,`name`,`email`) VALUES (258,'jonathan','jonathan@uservoice.com')
