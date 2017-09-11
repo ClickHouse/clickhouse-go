@@ -21,19 +21,19 @@ func Test_Issue38_uint64_support(t *testing.T) {
 		`
 		dml = `
 			INSERT INTO clickhouse_test_uint64_support (
-				A, 
-				B, 
+				A,
+				B,
 				C
 			) VALUES (
-				?, 
-				?, 
+				?,
+				?,
 				?
 			)
 		`
 		query = `
-			SELECT 
-				A, 
-				B, 
+			SELECT
+				A,
+				B,
 				C
 			FROM clickhouse_test_uint64_support
 		`
