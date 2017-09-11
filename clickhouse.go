@@ -162,11 +162,14 @@ func (ch *clickhouse) Rollback() error {
 }
 
 func (ch *clickhouse) CheckNamedValue(nv *driver.NamedValue) error {
-	switch v := nv.Value.(type) {
+	switch nv.Value.(type) {
 	case IP, *types.Array, UUID:
 		return nil
-	case int8, int16, int32, int64, uint8, uint16, uint32, uint64, float32, float64, string, time.Time:
+	case []byte, int8, int16, int32, int64, uint8, uint16, uint32, uint64, float32, float64, string, time.Time:
 		return nil
+	}
+
+	switch v := nv.Value.(type) {
 	case
 		[]int, []int8, []int16, []int32, []int64,
 		[]uint, []uint8, []uint16, []uint32, []uint64,
