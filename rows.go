@@ -5,22 +5,25 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"sync/atomic"
 	"time"
 
 	"github.com/kshvakov/clickhouse/lib/column"
+	"github.com/kshvakov/clickhouse/lib/data"
 	"github.com/kshvakov/clickhouse/lib/protocol"
 )
 
 type rows struct {
 	ch                *clickhouse
-	index             int
+	err               error
 	finish            func()
-	values            [][]interface{}
-	totals            [][]interface{}
-	extremes          [][]interface{}
+	values            [][]driver.Value
+	totals            [][]driver.Value
+	extremes          [][]driver.Value
+	stream            chan []driver.Value
 	columns           []string
 	blockColumns      []column.Column
-	allDataIsReceived bool
+	allDataIsReceived int32
 }
 
 func (rows *rows) Columns() []string {
@@ -36,25 +39,15 @@ func (rows *rows) ColumnTypeDatabaseTypeName(idx int) string {
 }
 
 func (rows *rows) Next(dest []driver.Value) error {
-	for len(rows.values) == 0 || len(rows.values[0]) <= rows.index {
-		if rows.allDataIsReceived {
-			return io.EOF
+	row, ok := <-rows.stream
+	if !ok {
+		if rows.err != nil {
+			return rows.err
 		}
-		if err := rows.receiveData(); err != nil {
-			return err
-		}
+		return io.EOF
 	}
 	for i := range dest {
-		dest[i] = rows.values[i][rows.index]
-	}
-	rows.index++
-	if len(rows.values) == 0 || len(rows.values[0]) <= rows.index {
-		rows.values = nil
-		for !(rows.allDataIsReceived || len(rows.values) != 0) {
-			if err := rows.receiveData(); err != nil {
-				return err
-			}
-		}
+		dest[i] = row[i]
 	}
 	return nil
 }
@@ -66,16 +59,18 @@ func (rows *rows) HasNextResultSet() bool {
 func (rows *rows) NextResultSet() error {
 	switch {
 	case len(rows.totals) != 0:
+		rows.stream = make(chan []driver.Value, len(rows.totals)+1)
 		for _, value := range rows.totals {
-			rows.values = append(rows.values, value)
+			rows.stream <- value
 		}
-		rows.index = 0
+		close(rows.stream)
 		rows.totals = nil
 	case len(rows.extremes) != 0:
+		rows.stream = make(chan []driver.Value, len(rows.extremes)+1)
 		for _, value := range rows.extremes {
-			rows.values = append(rows.values, value)
+			rows.stream <- value
 		}
-		rows.index = 0
+		close(rows.stream)
 		rows.extremes = nil
 	default:
 		return io.EOF
@@ -84,19 +79,26 @@ func (rows *rows) NextResultSet() error {
 }
 
 func (rows *rows) receiveData() error {
+	defer func() {
+		close(rows.stream)
+		atomic.StoreInt32(&rows.allDataIsReceived, 1)
+	}()
+	var (
+		packet      uint64
+		progress    *progress
+		profileInfo *profileInfo
+	)
 	for {
-		packet, err := rows.ch.decoder.Uvarint()
-		if err != nil {
-			return err
+		if packet, rows.err = rows.ch.decoder.Uvarint(); rows.err != nil {
+			return rows.err
 		}
 		switch packet {
 		case protocol.ServerException:
 			rows.ch.logf("[rows] <- exception")
 			return rows.ch.exception()
 		case protocol.ServerProgress:
-			progress, err := rows.ch.progress()
-			if err != nil {
-				return err
+			if progress, rows.err = rows.ch.progress(); rows.err != nil {
+				return rows.err
 			}
 			rows.ch.logf("[rows] <- progress: rows=%d, bytes=%d, total rows=%d",
 				progress.rows,
@@ -104,41 +106,31 @@ func (rows *rows) receiveData() error {
 				progress.totalRows,
 			)
 		case protocol.ServerProfileInfo:
-			profileInfo, err := rows.ch.profileInfo()
-			if err != nil {
-				return err
+			if profileInfo, rows.err = rows.ch.profileInfo(); rows.err != nil {
+				return rows.err
 			}
 			rows.ch.logf("[rows] <- profiling: rows=%d, bytes=%d, blocks=%d", profileInfo.rows, profileInfo.bytes, profileInfo.blocks)
 		case protocol.ServerData, protocol.ServerTotals, protocol.ServerExtremes:
 			var (
-				begin      = time.Now()
-				block, err = rows.ch.readBlock()
+				block *data.Block
+				begin = time.Now()
 			)
-			if err != nil {
-				return err
+			if block, rows.err = rows.ch.readBlock(); rows.err != nil {
+				return rows.err
 			}
 			rows.ch.logf("[rows] <- data: packet=%d, columns=%d, rows=%d, elapsed=%s", packet, block.NumColumns, block.NumRows, time.Since(begin))
-			if len(rows.columns) == 0 && len(block.Columns) != 0 {
-				rows.columns = block.ColumnNames()
-				rows.blockColumns = block.Columns
-				if block.NumRows == 0 {
-					return nil
-				}
-			}
-			switch block.Reset(); packet {
+			switch packet {
 			case protocol.ServerData:
-				rows.index = 0
-				rows.values = block.Values
+				for _, row := range convertBlockToDriverValues(block) {
+					rows.stream <- row
+				}
 			case protocol.ServerTotals:
-				rows.totals = block.Values
+				rows.totals = convertBlockToDriverValues(block)
 			case protocol.ServerExtremes:
-				rows.extremes = block.Values
+				rows.extremes = convertBlockToDriverValues(block)
 			}
-			if len(rows.values) != 0 {
-				return nil
-			}
+			block.Reset()
 		case protocol.ServerEndOfStream:
-			rows.allDataIsReceived = true
 			rows.ch.logf("[rows] <- end of stream")
 			return nil
 		default:
@@ -152,8 +144,23 @@ func (rows *rows) receiveData() error {
 func (rows *rows) Close() error {
 	rows.ch.logf("[rows] close")
 	rows.columns = nil
+	for !atomic.CompareAndSwapInt32(&rows.allDataIsReceived, 1, 2) {
+		time.Sleep(time.Millisecond * 2)
+	}
 	if rows.finish != nil {
 		rows.finish()
 	}
 	return nil
+}
+
+func convertBlockToDriverValues(block *data.Block) [][]driver.Value {
+	values := make([][]driver.Value, 0, int(block.NumRows))
+	for rowNum := 0; rowNum < int(block.NumRows); rowNum++ {
+		row := make([]driver.Value, 0, block.NumColumns)
+		for columnNum := 0; columnNum < int(block.NumColumns); columnNum++ {
+			row = append(row, block.Values[columnNum][rowNum])
+		}
+		values = append(values, row)
+	}
+	return values
 }
