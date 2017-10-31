@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"database/sql/driver"
+
+	"github.com/kshvakov/clickhouse/lib/data"
 )
 
 type stmt struct {
@@ -84,7 +86,7 @@ func (stmt *stmt) queryContext(ctx context.Context, args []driver.NamedValue) (d
 	rows := rows{
 		ch:      stmt.ch,
 		finish:  stmt.ch.watchCancel(ctx),
-		stream:  make(chan []driver.Value, 65000),
+		stream:  make(chan *data.Block, 50),
 		columns: meta.ColumnNames(),
 	}
 	go rows.receiveData()
