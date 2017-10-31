@@ -101,7 +101,7 @@ func (rows *rows) receiveData() error {
 		switch packet {
 		case protocol.ServerException:
 			rows.ch.logf("[rows] <- exception")
-			return rows.ch.exception()
+			return rows.setError(rows.ch.exception())
 		case protocol.ServerProgress:
 			if progress, err = rows.ch.progress(); err != nil {
 				return rows.setError(err)
