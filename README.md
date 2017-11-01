@@ -21,6 +21,11 @@ Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/)
 * block_size - maximum rows in block (default is 1000000). If the rows are larger then the data will be split into several blocks to send them to the server
 * debug - enable debug output (boolean value)
 
+SSL/TLS parameters:
+
+* secure - establish secure connection (default is false)
+* skip_verify - skip certificate verification (default is true)
+
 example:
 ```
 tcp://host1:9000?username=user&password=qwerty&database=clicks&read_timeout=10&write_timeout=20&alt_hosts=host2:9000,host3:9000

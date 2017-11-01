@@ -2,6 +2,7 @@ package clickhouse
 
 import (
 	"bufio"
+	"crypto/tls"
 	"database/sql/driver"
 	"net"
 	"sync/atomic"
@@ -25,7 +26,7 @@ const (
 	connOpenInOrder
 )
 
-func dial(network string, hosts []string, noDelay bool, openStrategy openStrategy, logf func(string, ...interface{})) (*connect, error) {
+func dial(secure, skipVerify bool, hosts []string, noDelay bool, openStrategy openStrategy, logf func(string, ...interface{})) (*connect, error) {
 	var (
 		err error
 		abs = func(v int) int {
@@ -45,8 +46,22 @@ func dial(network string, hosts []string, noDelay bool, openStrategy openStrateg
 		case connOpenRandom:
 			num = (ident + 1) % len(hosts)
 		}
-		if conn, err = net.DialTimeout(network, hosts[num], 20*time.Second); err == nil {
-			logf("[dial] strategy=%s, ident=%d, server=%d -> %s", openStrategy, ident, num, conn.RemoteAddr())
+		switch {
+		case secure:
+			conn, err = tls.DialWithDialer(
+				&net.Dialer{
+					Timeout: 5 * time.Second,
+				},
+				"tcp",
+				hosts[num],
+				&tls.Config{
+					InsecureSkipVerify: skipVerify,
+				})
+		default:
+			conn, err = net.DialTimeout("tcp", hosts[num], 5*time.Second)
+		}
+		if err == nil {
+			logf("[dial] secure=%t, skip_verify=%t, strategy=%s, ident=%d, server=%d -> %s", secure, skipVerify, openStrategy, ident, num, conn.RemoteAddr())
 			if tcp, ok := conn.(*net.TCPConn); ok {
 				tcp.SetNoDelay(noDelay) // Disable or enable the Nagle Algorithm for this tcp socket
 			}

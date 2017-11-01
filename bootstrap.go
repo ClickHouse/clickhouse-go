@@ -48,6 +48,8 @@ func open(dsn string) (*clickhouse, error) {
 	var (
 		hosts            = []string{url.Host}
 		query            = url.Query()
+		secure           = false
+		skipVerify       = true
 		noDelay          = true
 		compress         = false
 		database         = query.Get("database")
@@ -66,6 +68,12 @@ func open(dsn string) (*clickhouse, error) {
 	}
 	if v, err := strconv.ParseBool(query.Get("no_delay")); err == nil && !v {
 		noDelay = false
+	}
+	if v, err := strconv.ParseBool(query.Get("secure")); err == nil && v {
+		secure = true
+	}
+	if v, err := strconv.ParseBool(query.Get("skip_verify")); err == nil && !v {
+		skipVerify = false
 	}
 	if duration, err := strconv.ParseFloat(query.Get("read_timeout"), 64); err == nil {
 		readTimeout = time.Duration(duration * float64(time.Second))
@@ -115,7 +123,7 @@ func open(dsn string) (*clickhouse, error) {
 		database,
 		username,
 	)
-	if ch.conn, err = dial("tcp", hosts, noDelay, connOpenStrategy, ch.logf); err != nil {
+	if ch.conn, err = dial(secure, skipVerify, hosts, noDelay, connOpenStrategy, ch.logf); err != nil {
 		return nil, err
 	}
 	logger.SetPrefix(fmt.Sprintf("[clickhouse][connect=%d]", ch.conn.ident))
