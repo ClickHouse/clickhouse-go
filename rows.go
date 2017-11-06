@@ -47,8 +47,6 @@ func (rows *rows) Next(dest []driver.Value) error {
 				return err
 			}
 			return io.EOF
-		case block.NumRows == 0:
-			return io.EOF
 		default:
 			rows.block = block
 			rows.offset = 0
@@ -120,6 +118,9 @@ func (rows *rows) receiveData() error {
 				return rows.setError(err)
 			}
 			rows.ch.logf("[rows] <- data: packet=%d, columns=%d, rows=%d, elapsed=%s", packet, block.NumColumns, block.NumRows, time.Since(begin))
+			if block.NumRows == 0 {
+				continue
+			}
 			switch packet {
 			case protocol.ServerData:
 				rows.stream <- block
