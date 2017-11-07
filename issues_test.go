@@ -160,3 +160,77 @@ func TestBytes(t *testing.T) {
 	_, err = tx.Exec(`INSERT INTO TestBytes (s) VALUES (?)`, []byte("foo"))
 	assert.NoError(t, err)
 }
+
+func TestNullableEnumWithoutLeadZero(t *testing.T) {
+	const (
+		ddl = `
+			CREATE TABLE test_nullable_enum_without_lead_zero (
+				value  Nullable(Enum8('A' = 1, 'B' = 2)),
+				value2 Nullable(Enum16('A' = 1, 'B' = 2))
+			) Engine=Memory
+		`
+		dml   = "INSERT INTO test_nullable_enum_without_lead_zero (value, value2) VALUES (?, ?)"
+		query = "SELECT value, value2 FROM test_nullable_enum_without_lead_zero"
+	)
+	var data = [][]interface{}{
+		{"A", nil},
+		{"A", "B"},
+		{nil, "B"},
+	}
+	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) && assert.NoError(t, connect.Ping()) {
+		if _, err := connect.Exec("DROP TABLE IF EXISTS test_nullable_enum_without_lead_zero"); assert.NoError(t, err) {
+			if _, err := connect.Exec(ddl); assert.NoError(t, err) {
+				if tx, err := connect.Begin(); assert.NoError(t, err) {
+
+					if stmt, err := tx.Prepare(dml); assert.NoError(t, err) {
+						for _, v := range data {
+							if _, err = stmt.Exec(v...); !assert.NoError(t, err) {
+								return
+							}
+						}
+
+					}
+					if assert.NoError(t, tx.Commit()) {
+						var item struct {
+							Value  *string
+							Value2 *string
+						}
+						if rows, err := connect.Query(query); assert.NoError(t, err) {
+							var i int
+							for rows.Next() {
+								err := rows.Scan(
+									&item.Value,
+									&item.Value2,
+								)
+								if !assert.NoError(t, err) {
+									return
+								}
+								switch v := item.Value; true {
+								case v != nil:
+									if !assert.Equal(t, data[i][0], *v) {
+										return
+									}
+								default:
+									if !assert.Equal(t, (*string)(nil), v) {
+										return
+									}
+								}
+								switch v := item.Value2; true {
+								case v != nil:
+									if !assert.Equal(t, data[i][1], *v) {
+										return
+									}
+								default:
+									if !assert.Equal(t, (*string)(nil), v) {
+										return
+									}
+								}
+								i++
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}

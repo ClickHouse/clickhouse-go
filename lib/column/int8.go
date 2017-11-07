@@ -22,6 +22,11 @@ func (i *Int8) Write(encoder *binary.Encoder, v interface{}) error {
 		return encoder.Int8(int8(v))
 	case int:
 		return encoder.Int8(int8(v))
+	case bool:
+		if v {
+			return encoder.Int8(int8(1))
+		}
+		return encoder.Int8(int8(0))
 	}
 	return &ErrUnexpectedType{
 		T:      v,

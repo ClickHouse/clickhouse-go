@@ -71,6 +71,10 @@ func (enum *Enum) Write(encoder *binary.Encoder, v interface{}) error {
 	}
 }
 
+func (enum *Enum) defaultValue() interface{} {
+	return enum.baseType
+}
+
 func parseEnum(name, chType string) (*Enum, error) {
 	var (
 		data     string
@@ -114,11 +118,11 @@ func parseEnum(name, chType string) (*Enum, error) {
 				ident             = ident[1 : len(ident)-1]
 				value interface{} = int16(value)
 			)
-			if isEnum16 {
-				enum.baseType = int16(0)
-			} else {
-				enum.baseType = int8(0)
+			if !isEnum16 {
 				value = int8(value.(int16))
+			}
+			if enum.baseType == nil {
+				enum.baseType = value
 			}
 			enum.iv[ident] = value
 			enum.vi[value] = ident
