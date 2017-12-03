@@ -15,6 +15,7 @@ import (
 	"github.com/kshvakov/clickhouse/lib/binary"
 	"github.com/kshvakov/clickhouse/lib/data"
 	"github.com/kshvakov/clickhouse/lib/protocol"
+	zlog "github.com/rs/zerolog/log"
 )
 
 const (
@@ -113,7 +114,7 @@ func open(dsn string) (*clickhouse, error) {
 				Timezone: time.Local,
 			},
 		}
-		logger = log.New(os.Stdout, "[clickhouse]", 0)
+		logger = log.New(zlog.Logger, "[clickhouse]", 0)
 	)
 	if debug, err := strconv.ParseBool(url.Query().Get("debug")); err == nil && debug {
 		ch.logf = logger.Printf
