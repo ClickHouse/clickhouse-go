@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
+	"io"
 	"log"
 	"net/url"
 	"os"
@@ -24,7 +25,10 @@ const (
 	DefaultWriteTimeout = time.Minute
 )
 
-var hostname, _ = os.Hostname()
+var (
+	logOutput   io.Writer = os.Stdout
+	hostname, _           = os.Hostname()
+)
 
 func init() {
 	sql.Register("clickhouse", &bootstrap{})
@@ -34,6 +38,10 @@ type bootstrap struct{}
 
 func (d *bootstrap) Open(dsn string) (driver.Conn, error) {
 	return Open(dsn)
+}
+
+func SetLogOutput(output io.Writer) {
+	logOutput = output
 }
 
 func Open(dsn string) (driver.Conn, error) {
@@ -113,7 +121,7 @@ func open(dsn string) (*clickhouse, error) {
 				Timezone: time.Local,
 			},
 		}
-		logger = log.New(os.Stdout, "[clickhouse]", 0)
+		logger = log.New(logOutput, "[clickhouse]", 0)
 	)
 	if debug, err := strconv.ParseBool(url.Query().Get("debug")); err == nil && debug {
 		ch.logf = logger.Printf
