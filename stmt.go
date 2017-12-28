@@ -84,10 +84,11 @@ func (stmt *stmt) queryContext(ctx context.Context, args []driver.NamedValue) (d
 		return nil, err
 	}
 	rows := rows{
-		ch:      stmt.ch,
-		finish:  stmt.ch.watchCancel(ctx),
-		stream:  make(chan *data.Block, 50),
-		columns: meta.ColumnNames(),
+		ch:           stmt.ch,
+		finish:       stmt.ch.watchCancel(ctx),
+		stream:       make(chan *data.Block, 50),
+		columns:      meta.ColumnNames(),
+		blockColumns: meta.Columns,
 	}
 	go rows.receiveData()
 	return &rows, nil
