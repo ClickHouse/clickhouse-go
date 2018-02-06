@@ -1,3 +1,4 @@
+group: deprecated-2017Q4
 sudo: required
 language: go
 go:
