@@ -26,7 +26,7 @@ const (
 	connOpenInOrder
 )
 
-func dial(secure, skipVerify bool, hosts []string, noDelay bool, openStrategy openStrategy, logf func(string, ...interface{})) (*connect, error) {
+func dial(secure, skipVerify bool, hosts []string, readTimeout, writeTimeout time.Duration, noDelay bool, openStrategy openStrategy, logf func(string, ...interface{})) (*connect, error) {
 	var (
 		err error
 		abs = func(v int) int {
@@ -66,10 +66,12 @@ func dial(secure, skipVerify bool, hosts []string, noDelay bool, openStrategy op
 				tcp.SetNoDelay(noDelay) // Disable or enable the Nagle Algorithm for this tcp socket
 			}
 			return &connect{
-				Conn:   conn,
-				logf:   logf,
-				ident:  ident,
-				buffer: bufio.NewReaderSize(conn, 4*1024*1024),
+				Conn:         conn,
+				logf:         logf,
+				ident:        ident,
+				buffer:       bufio.NewReaderSize(conn, 4*1024*1024),
+				readTimeout:  readTimeout,
+				writeTimeout: writeTimeout,
 			}, nil
 		}
 	}
@@ -78,10 +80,14 @@ func dial(secure, skipVerify bool, hosts []string, noDelay bool, openStrategy op
 
 type connect struct {
 	net.Conn
-	logf   func(string, ...interface{})
-	ident  int
-	buffer *bufio.Reader
-	closed bool
+	logf                  func(string, ...interface{})
+	ident                 int
+	buffer                *bufio.Reader
+	closed                bool
+	readTimeout           time.Duration
+	writeTimeout          time.Duration
+	lastReadDeadlineTime  time.Time
+	lastWriteDeadlineTime time.Time
 }
 
 func (conn *connect) Read(b []byte) (int, error) {
@@ -91,10 +97,14 @@ func (conn *connect) Read(b []byte) (int, error) {
 		total  int
 		dstLen = len(b)
 	)
+	if currentTime := now(); conn.readTimeout != 0 && currentTime.Sub(conn.lastReadDeadlineTime) > (conn.readTimeout>>2) {
+		conn.SetReadDeadline(time.Now().Add(conn.readTimeout))
+		conn.lastReadDeadlineTime = currentTime
+	}
 	for total < dstLen {
 		if n, err = conn.buffer.Read(b[total:]); err != nil {
 			conn.logf("[connect] read error: %v", err)
-			conn.closed = true
+			conn.Close()
 			return n, driver.ErrBadConn
 		}
 		total += n
@@ -109,10 +119,14 @@ func (conn *connect) Write(b []byte) (int, error) {
 		total  int
 		srcLen = len(b)
 	)
+	if currentTime := now(); conn.writeTimeout != 0 && currentTime.Sub(conn.lastWriteDeadlineTime) > (conn.writeTimeout>>2) {
+		conn.SetWriteDeadline(time.Now().Add(conn.writeTimeout))
+		conn.lastWriteDeadlineTime = currentTime
+	}
 	for total < srcLen {
 		if n, err = conn.Conn.Write(b[total:]); err != nil {
 			conn.logf("[connect] write error: %v", err)
-			conn.closed = true
+			conn.Close()
 			return n, driver.ErrBadConn
 		}
 		total += n

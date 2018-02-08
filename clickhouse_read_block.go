@@ -1,17 +1,10 @@
 package clickhouse
 
 import (
-	"time"
-
 	"github.com/kshvakov/clickhouse/lib/data"
 )
 
 func (ch *clickhouse) readBlock() (*data.Block, error) {
-	{
-		ch.conn.SetReadDeadline(time.Now().Add(ch.readTimeout))
-		ch.conn.SetWriteDeadline(time.Now().Add(ch.writeTimeout))
-	}
-
 	if _, err := ch.decoder.String(); err != nil { // temporary table
 		return nil, err
 	}

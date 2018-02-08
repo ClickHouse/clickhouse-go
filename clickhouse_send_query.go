@@ -1,18 +1,12 @@
 package clickhouse
 
 import (
-	"time"
-
 	"github.com/kshvakov/clickhouse/lib/data"
 	"github.com/kshvakov/clickhouse/lib/protocol"
 )
 
 func (ch *clickhouse) sendQuery(query string) error {
 	ch.logf("[send query] %s", query)
-	{
-		ch.conn.SetReadDeadline(time.Now().Add(ch.readTimeout))
-		ch.conn.SetWriteDeadline(time.Now().Add(ch.writeTimeout))
-	}
 	if err := ch.encoder.Uvarint(protocol.ClientQuery); err != nil {
 		return err
 	}

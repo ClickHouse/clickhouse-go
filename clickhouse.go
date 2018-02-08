@@ -43,8 +43,6 @@ type clickhouse struct {
 	compress      bool
 	blockSize     int
 	inTransaction bool
-	readTimeout   time.Duration
-	writeTimeout  time.Duration
 }
 
 func (ch *clickhouse) Prepare(query string) (driver.Stmt, error) {

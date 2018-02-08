@@ -1002,7 +1002,7 @@ func Test_Context_Timeout(t *testing.T) {
 		{
 			ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*20)
 			defer cancel()
-			if row := connect.QueryRowContext(ctx, "SELECT 1, sleep(10)"); assert.NotNil(t, row) {
+			if row := connect.QueryRowContext(ctx, "SELECT 1, sleep(2)"); assert.NotNil(t, row) {
 				var a, b int
 				assert.Equal(t, driver.ErrBadConn, row.Scan(&a, &b))
 			}
@@ -1023,7 +1023,7 @@ func Test_Context_Timeout(t *testing.T) {
 func Test_Timeout(t *testing.T) {
 	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true&read_timeout=0.2"); assert.NoError(t, err) && assert.NoError(t, connect.Ping()) {
 		{
-			if row := connect.QueryRow("SELECT 1, sleep(10)"); assert.NotNil(t, row) {
+			if row := connect.QueryRow("SELECT 1, sleep(2)"); assert.NotNil(t, row) {
 				var a, b int
 				assert.Equal(t, driver.ErrBadConn, row.Scan(&a, &b))
 			}
