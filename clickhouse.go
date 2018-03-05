@@ -154,9 +154,13 @@ func (ch *clickhouse) Rollback() error {
 	if !ch.inTransaction {
 		return sql.ErrTxDone
 	}
+	if ch.block != nil {
+		ch.block.Reset()
+	}
 	ch.block = nil
+	ch.buffer = nil
 	ch.inTransaction = false
-	return nil
+	return ch.conn.Close()
 }
 
 func (ch *clickhouse) CheckNamedValue(nv *driver.NamedValue) error {
