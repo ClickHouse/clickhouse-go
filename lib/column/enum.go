@@ -49,9 +49,17 @@ func (enum *Enum) Write(encoder *binary.Encoder, v interface{}) error {
 		case int16:
 			return encoder.Int16(ident)
 		}
+	case uint8:
+		if _, ok := enum.baseType.(int8); ok {
+			return encoder.Int8(int8(v))
+		}
 	case int8:
 		if _, ok := enum.baseType.(int8); ok {
 			return encoder.Int8(v)
+		}
+	case uint16:
+		if _, ok := enum.baseType.(int16); ok {
+			return encoder.Int16(int16(v))
 		}
 	case int16:
 		if _, ok := enum.baseType.(int16); ok {
