@@ -16,6 +16,22 @@ func (block *Block) WriteDateTime(c int, v time.Time) error {
 	return block.buffers[c].Column.UInt32(uint32(v.Unix()))
 }
 
+func (block *Block) WriteInt8(c int, v int8) error {
+	return block.buffers[c].Column.Int8(v)
+}
+
+func (block *Block) WriteInt16(c int, v int16) error {
+	return block.buffers[c].Column.Int16(v)
+}
+
+func (block *Block) WriteInt32(c int, v int32) error {
+	return block.buffers[c].Column.Int32(v)
+}
+
+func (block *Block) WriteInt64(c int, v int64) error {
+	return block.buffers[c].Column.Int64(v)
+}
+
 func (block *Block) WriteUInt8(c int, v uint8) error {
 	return block.buffers[c].Column.UInt8(v)
 }
