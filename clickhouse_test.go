@@ -1020,6 +1020,36 @@ func Test_Context_Timeout(t *testing.T) {
 	}
 }
 
+func Test_Ping_Context_Timeout(t *testing.T) {
+	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) && assert.NoError(t, connect.Ping()) {
+		{
+			ctx, cancel := context.WithTimeout(context.Background(), time.Nanosecond)
+			defer cancel()
+			if err := connect.PingContext(ctx); assert.Error(t, err) {
+				assert.Equal(t, context.DeadlineExceeded, err)
+			}
+		}
+		{
+			ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*20)
+			defer cancel()
+			if row := connect.QueryRowContext(ctx, "SELECT 1, sleep(2)"); assert.NotNil(t, row) {
+				var a, b int
+				assert.Equal(t, driver.ErrBadConn, row.Scan(&a, &b))
+			}
+		}
+		{
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+			if row := connect.QueryRowContext(ctx, "SELECT 1, sleep(0.1)"); assert.NotNil(t, row) {
+				var value, value2 int
+				if assert.NoError(t, row.Scan(&value, &value2)) {
+					assert.Equal(t, int(1), value)
+				}
+			}
+		}
+	}
+}
+
 func Test_Timeout(t *testing.T) {
 	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true&read_timeout=0.2"); assert.NoError(t, err) && assert.NoError(t, connect.Ping()) {
 		{

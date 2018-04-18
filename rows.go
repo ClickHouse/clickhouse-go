@@ -145,9 +145,7 @@ func (rows *rows) Close() error {
 	rows.columns = nil
 	for range rows.stream {
 	}
-	if rows.finish != nil {
-		rows.finish()
-	}
+	rows.finish()
 	return nil
 }
 

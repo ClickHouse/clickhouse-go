@@ -301,5 +301,5 @@ func (ch *clickhouse) watchCancel(ctx context.Context) func() {
 			}
 		}
 	}
-	return nil
+	return func() {}
 }

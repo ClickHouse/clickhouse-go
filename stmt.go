@@ -77,16 +77,12 @@ func (stmt *stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (d
 func (stmt *stmt) queryContext(ctx context.Context, args []driver.NamedValue) (driver.Rows, error) {
 	finish := stmt.ch.watchCancel(ctx)
 	if err := stmt.ch.sendQuery(stmt.bind(args)); err != nil {
-		if finish != nil {
-			finish()
-		}
+		finish()
 		return nil, err
 	}
 	meta, err := stmt.ch.readMeta()
 	if err != nil {
-		if finish != nil {
-			finish()
-		}
+		finish()
 		return nil, err
 	}
 	rows := rows{
