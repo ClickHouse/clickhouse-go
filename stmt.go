@@ -136,7 +136,8 @@ func (stmt *stmt) bind(args []driver.NamedValue) string {
 						char == '>',
 						char == '(',
 						char == ',',
-						char == '%':
+						char == '%',
+						char == '[':
 						keyword = true
 					default:
 						keyword = keyword && (char == ' ' || char == '\t' || char == '\n')

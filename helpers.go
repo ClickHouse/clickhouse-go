@@ -76,7 +76,8 @@ func numInput(query string) int {
 				char == '>',
 				char == '(',
 				char == ',',
-				char == '%':
+				char == '%',
+				char == '[':
 				keyword = true
 			default:
 				keyword = keyword && (char == ' ' || char == '\t' || char == '\n')
