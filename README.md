@@ -98,6 +98,7 @@ func main() {
 		tx, _   = connect.Begin()
 		stmt, _ = tx.Prepare("INSERT INTO example (country_code, os_id, browser_id, categories, action_day, action_time) VALUES (?, ?, ?, ?, ?, ?)")
 	)
+	defer stmt.Close()
 
 	for i := 0; i < 100; i++ {
 		if _, err := stmt.Exec(
@@ -120,6 +121,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer rows.Close()
 
 	for rows.Next() {
 		var (
