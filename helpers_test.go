@@ -38,3 +38,14 @@ func Benchmark_NumInput(b *testing.B) {
 		numInput("SELECT * FROM example WHERE os_id in (@os_id,@browser_id) browser_id = @browser_id")
 	}
 }
+
+func Test_Quote(t *testing.T) {
+	for expected, value := range map[string]interface{}{
+		"'a'":           "a",
+		"1":             1,
+		"'a', 'b', 'c'": []string{"a", "b", "c"},
+		"1, 2, 3, 4, 5": []int{1, 2, 3, 4, 5},
+	} {
+		assert.Equal(t, expected, quote(value))
+	}
+}
