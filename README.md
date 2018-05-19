@@ -7,6 +7,7 @@ Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/)
 * Uses native ClickHouse tcp client-server protocol
 * Compatibility with `database/sql`
 * Round Robin load-balancing
+* Bulk write support :  `begin->prepare->(in loop exec)->commit`
 
 ## DSN 
 
