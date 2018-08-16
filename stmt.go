@@ -106,6 +106,7 @@ func (stmt *stmt) bind(args []driver.NamedValue) string {
 		buf     bytes.Buffer
 		index   int
 		keyword bool
+		limit   = newMatcher("limit")
 	)
 	switch {
 	case stmt.NumInput() != 0:
@@ -140,7 +141,11 @@ func (stmt *stmt) bind(args []driver.NamedValue) string {
 						char == '[':
 						keyword = true
 					default:
-						keyword = keyword && (char == ' ' || char == '\t' || char == '\n')
+						if limit.matchRune(char) {
+							keyword = true
+						} else {
+							keyword = keyword && (char == ' ' || char == '\t' || char == '\n')
+						}
 					}
 					buf.WriteRune(char)
 				}

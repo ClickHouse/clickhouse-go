@@ -27,8 +27,8 @@ func Test_NumInput(t *testing.T) {
 			?
 		)
 		`: 3,
-		"SELECT * from EXAMPLE LIMIT ?":          1,
-		"SELECT * from EXAMPLE LIMIT ? OFFSET ?": 2,
+		"SELECT * from EXAMPLE LIMIT ?":    1,
+		"SELECT * from EXAMPLE LIMIT ?, ?": 2,
 	} {
 		assert.Equal(t, num, numInput(query), query)
 	}
