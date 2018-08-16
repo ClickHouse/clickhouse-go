@@ -46,11 +46,13 @@ func (datetime DateTime) convert() time.Time {
 }
 
 func numInput(query string) int {
+
 	var (
 		count          int
 		args           = make(map[string]struct{})
 		reader         = bytes.NewReader([]byte(query))
 		quote, keyword bool
+		limit          = newMatcher("limit")
 	)
 	for {
 		if char, _, err := reader.ReadRune(); err == nil {
@@ -81,7 +83,11 @@ func numInput(query string) int {
 				char == '[':
 				keyword = true
 			default:
-				keyword = keyword && (char == ' ' || char == '\t' || char == '\n')
+				if limit.matchRune(char) {
+					keyword = true
+				} else {
+					keyword = keyword && (char == ' ' || char == '\t' || char == '\n')
+				}
 			}
 		} else {
 			break

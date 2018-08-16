@@ -344,6 +344,42 @@ func Test_Select(t *testing.T) {
 									assert.Equal(t, int(3), count)
 								}
 							}
+							if rows, err := connect.Query("SELECT id FROM clickhouse_test_select ORDER BY id LIMIT ?", 1); assert.NoError(t, err) {
+								i := 0
+								for rows.Next() {
+									var (
+										id int32
+									)
+									if err := rows.Scan(&id); assert.NoError(t, err) {
+										if i == 0 {
+											assert.Equal(t, id, int32(1))
+										} else {
+											t.Error("Should return exactly one record")
+										}
+									}
+									i++
+								}
+								rows.Close()
+							}
+							if rows, err := connect.Query("SELECT id FROM clickhouse_test_select ORDER BY id LIMIT ?,?", 1, 2); assert.NoError(t, err) {
+								i := 0
+								for rows.Next() {
+									var (
+										id int32
+									)
+									if err := rows.Scan(&id); assert.NoError(t, err) {
+										if i == 0 {
+											assert.Equal(t, id, int32(2))
+										} else if i == 1 {
+											assert.Equal(t, id, int32(3))
+										} else {
+											t.Error("Should return exactly two records")
+										}
+									}
+									i++
+								}
+								rows.Close()
+							}
 						}
 
 						{
