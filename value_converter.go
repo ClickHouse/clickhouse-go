@@ -9,7 +9,7 @@ import (
 	"net"
 	"reflect"
 
-	"github.com/demdxx/clickhouse/lib/column"
+	"github.com/kshvakov/clickhouse/lib/column"
 	"github.com/kshvakov/clickhouse/lib/types"
 )
 

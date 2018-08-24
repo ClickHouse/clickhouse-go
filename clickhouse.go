@@ -13,8 +13,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/demdxx/clickhouse/lib/column"
 	"github.com/kshvakov/clickhouse/lib/binary"
+	"github.com/kshvakov/clickhouse/lib/column"
 	"github.com/kshvakov/clickhouse/lib/data"
 	"github.com/kshvakov/clickhouse/lib/protocol"
 	"github.com/kshvakov/clickhouse/lib/types"
