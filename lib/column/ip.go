@@ -2,7 +2,7 @@
 IP type supporting for clickhouse as FixedString(16)
 */
 
-package clickhouse
+package column
 
 import (
 	"database/sql/driver"

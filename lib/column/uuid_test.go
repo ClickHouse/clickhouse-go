@@ -1,4 +1,4 @@
-package clickhouse
+package column
 
 import (
 	"github.com/stretchr/testify/assert"
