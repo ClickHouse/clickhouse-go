@@ -1,4 +1,4 @@
-package clickhouse
+package types
 
 import (
 	"database/sql/driver"
@@ -95,3 +95,5 @@ func xtob(x1, x2 byte) (byte, bool) {
 	b2 := xvalues[x2]
 	return (b1 << 4) | b2, b1 != 255 && b2 != 255
 }
+
+var _ driver.Valuer = UUID("")

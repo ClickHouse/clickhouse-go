@@ -3,12 +3,15 @@ package clickhouse_test
 import (
 	"database/sql/driver"
 	"fmt"
+
 	//	"fmt"
 	"net"
 	"testing"
 	"time"
 
 	"github.com/kshvakov/clickhouse"
+	"github.com/kshvakov/clickhouse/lib/column"
+	"github.com/kshvakov/clickhouse/lib/types"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -122,8 +125,8 @@ func Test_DirectInsert(t *testing.T) {
 							"a",
 							"d",
 
-							clickhouse.UUID("123e4567-e89b-12d3-a456-426655440000"),
-							clickhouse.IP(net.ParseIP("127.0.0.1")),
+							types.UUID("123e4567-e89b-12d3-a456-426655440000"),
+							column.IP(net.ParseIP("127.0.0.1")),
 						})
 						if !assert.NoError(t, err) {
 							return

@@ -9,6 +9,7 @@ import (
 	"net"
 	"reflect"
 
+	"github.com/kshvakov/clickhouse/lib/column"
 	"github.com/kshvakov/clickhouse/lib/types"
 )
 
@@ -62,32 +63,25 @@ func (c *converter) ConvertValue(v interface{}) (driver.Value, error) {
 		[]string:
 		return (types.NewArray(v)).Value()
 	case net.IP:
-		return IP(value).Value()
+		return column.IP(value).Value()
 	case driver.Valuer:
 		return value.Value()
 	}
 
-	switch v := v.(type) {
-	case Date:
-		return v.convert(), nil
-	case DateTime:
-		return v.convert(), nil
-	default:
-		switch value := reflect.ValueOf(v); value.Kind() {
-		case reflect.Bool:
-			if value.Bool() {
-				return int64(1), nil
-			}
-			return int64(0), nil
-		case reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-			return value.Int(), nil
-		case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-			return int64(value.Uint()), nil
-		case reflect.Float32, reflect.Float64:
-			return value.Float(), nil
-		case reflect.String:
-			return value.String(), nil
+	switch value := reflect.ValueOf(v); value.Kind() {
+	case reflect.Bool:
+		if value.Bool() {
+			return int64(1), nil
 		}
+		return int64(0), nil
+	case reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return value.Int(), nil
+	case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return int64(value.Uint()), nil
+	case reflect.Float32, reflect.Float64:
+		return value.Float(), nil
+	case reflect.String:
+		return value.String(), nil
 	}
 
 	if rv := reflect.ValueOf(v); rv.Kind() == reflect.Ptr {

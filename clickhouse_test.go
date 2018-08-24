@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/kshvakov/clickhouse"
+	"github.com/kshvakov/clickhouse/lib/column"
+	"github.com/kshvakov/clickhouse/lib/types"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -301,7 +303,7 @@ func Test_Select(t *testing.T) {
 			if _, err := connect.Exec(ddl); assert.NoError(t, err) {
 				if tx, err := connect.Begin(); assert.NoError(t, err) {
 					if stmt, err := tx.Prepare(dml); assert.NoError(t, err) {
-						if _, err := stmt.Exec(1, "RU", clickhouse.Date(time.Date(2017, 1, 20, 0, 0, 0, 0, time.Local)), time.Date(2017, 1, 20, 13, 0, 0, 0, time.Local)); !assert.NoError(t, err) {
+						if _, err := stmt.Exec(1, "RU", types.Date(time.Date(2017, 1, 20, 0, 0, 0, 0, time.Local)), time.Date(2017, 1, 20, 13, 0, 0, 0, time.Local)); !assert.NoError(t, err) {
 							return
 						}
 						if _, err := stmt.Exec(2, "UA", time.Date(2017, 1, 20, 0, 0, 0, 0, time.UTC), time.Date(2017, 1, 20, 14, 0, 0, 0, time.Local)); !assert.NoError(t, err) {
@@ -960,7 +962,7 @@ func Test_UUID(t *testing.T) {
 				if _, err := tx.Exec(ddl); assert.NoError(t, err) {
 					if tx, err := connect.Begin(); assert.NoError(t, err) {
 						if stmt, err := tx.Prepare("INSERT INTO clickhouse_test_uuid VALUES(?)"); assert.NoError(t, err) {
-							if _, err := stmt.Exec(clickhouse.UUID("123e4567-e89b-12d3-a456-426655440000"), "123e4567-e89b-12d3-a456-426655440000"); !assert.NoError(t, err) {
+							if _, err := stmt.Exec(types.UUID("123e4567-e89b-12d3-a456-426655440000"), "123e4567-e89b-12d3-a456-426655440000"); !assert.NoError(t, err) {
 								t.Fatal(err)
 							}
 						}
@@ -972,13 +974,13 @@ func Test_UUID(t *testing.T) {
 					if rows, err := connect.Query("SELECT UUID, UUIDNumToString(UUID), Builtin FROM clickhouse_test_uuid"); assert.NoError(t, err) {
 						if assert.True(t, rows.Next()) {
 							var (
-								uuid        clickhouse.UUID
+								uuid        types.UUID
 								uuidStr     string
 								builtinUUID string
 							)
 							if err := rows.Scan(&uuid, &uuidStr, &builtinUUID); assert.NoError(t, err) {
 								if assert.Equal(t, "123e4567-e89b-12d3-a456-426655440000", uuidStr) {
-									assert.Equal(t, clickhouse.UUID("123e4567-e89b-12d3-a456-426655440000"), uuid)
+									assert.Equal(t, types.UUID("123e4567-e89b-12d3-a456-426655440000"), uuid)
 									assert.Equal(t, "123e4567-e89b-12d3-a456-426655440000", builtinUUID)
 								}
 							}
@@ -1009,7 +1011,7 @@ func Test_IP(t *testing.T) {
 				if _, err := tx.Exec(ddl); assert.NoError(t, err) {
 					if tx, err := connect.Begin(); assert.NoError(t, err) {
 						if stmt, err := tx.Prepare("INSERT INTO clickhouse_test_ip VALUES(?, ?)"); assert.NoError(t, err) {
-							if _, err := stmt.Exec(clickhouse.IP(ipv4), clickhouse.IP(ipv6)); !assert.NoError(t, err) {
+							if _, err := stmt.Exec(column.IP(ipv4), column.IP(ipv6)); !assert.NoError(t, err) {
 								t.Fatal(err)
 							}
 						}
@@ -1019,7 +1021,7 @@ func Test_IP(t *testing.T) {
 					}
 					if rows, err := connect.Query("SELECT IPv4, IPv6 FROM clickhouse_test_ip"); assert.NoError(t, err) {
 						if assert.True(t, rows.Next()) {
-							var v4, v6 clickhouse.IP
+							var v4, v6 column.IP
 							if err := rows.Scan(&v4, &v6); assert.NoError(t, err) {
 								if assert.Equal(t, ipv4, net.IP(v4)) {
 									assert.Equal(t, ipv6, net.IP(v6))

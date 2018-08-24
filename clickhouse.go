@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/kshvakov/clickhouse/lib/binary"
+	"github.com/kshvakov/clickhouse/lib/column"
 	"github.com/kshvakov/clickhouse/lib/data"
 	"github.com/kshvakov/clickhouse/lib/protocol"
 	"github.com/kshvakov/clickhouse/lib/types"
@@ -165,7 +166,7 @@ func (ch *clickhouse) Rollback() error {
 
 func (ch *clickhouse) CheckNamedValue(nv *driver.NamedValue) error {
 	switch nv.Value.(type) {
-	case IP, *types.Array, UUID:
+	case column.IP, *types.Array, column.UUID:
 		return nil
 	case nil, []byte, int8, int16, int32, int64, uint8, uint16, uint32, uint64, float32, float64, string, time.Time:
 		return nil
@@ -179,7 +180,7 @@ func (ch *clickhouse) CheckNamedValue(nv *driver.NamedValue) error {
 		[]string:
 		nv.Value = types.NewArray(v)
 	case net.IP:
-		nv.Value = IP(v)
+		nv.Value = column.IP(v)
 	case driver.Valuer:
 		value, err := v.Value()
 		if err != nil {
