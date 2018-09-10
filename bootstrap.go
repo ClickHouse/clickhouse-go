@@ -184,6 +184,9 @@ func (ch *clickhouse) hello(database, username, password string) error {
 			if err := ch.ServerInfo.Read(ch.decoder); err != nil {
 				return err
 			}
+		case protocol.ServerEndOfStream:
+			ch.logf("[bootstrap] <- end of stream")
+			return nil
 		default:
 			ch.conn.Close()
 			return fmt.Errorf("[hello] unexpected packet [%d] from server", packet)
