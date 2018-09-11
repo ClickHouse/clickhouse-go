@@ -129,6 +129,8 @@ func Factory(name, chType string, timezone *time.Location) (Column, error) {
 	}
 
 	switch {
+	case strings.HasPrefix(chType, "AggregateFunction"):
+		return parseAggregateFunction(name, chType, timezone)
 	case strings.HasPrefix(chType, "Array"):
 		return parseArray(name, chType, timezone)
 	case strings.HasPrefix(chType, "Nullable"):
