@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/kshvakov/clickhouse/lib/binary"
-	columns "github.com/kshvakov/clickhouse/lib/column"
+	columns "github.com/joemadeus/clickhouse/lib/column"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -459,6 +459,14 @@ func Test_Column_UUID(t *testing.T) {
 		}
 		if err := column.Write(encoder, "invalid-uuid"); assert.Error(t, err) {
 			assert.Equal(t, columns.ErrInvalidUUIDFormat, err)
+		}
+	}
+}
+
+func Test_Column_AggregateFunction(t *testing.T) {
+	if column, err := columns.Factory("aggfunc_col", "AggregateFunction(max, UInt64)", time.Local); assert.NoError(t, err) {
+		if assert.Equal(t, "aggfunc_col", column.Name()) && assert.Equal(t, "AggregateFunction(max, UInt64)", column.CHType()) {
+			assert.Equal(t, reflect.Uint64, column.ScanType().Kind())
 		}
 	}
 }
