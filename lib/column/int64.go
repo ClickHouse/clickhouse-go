@@ -25,7 +25,14 @@ func (i *Int64) Write(encoder *binary.Encoder, v interface{}) error {
 			return err
 		}
 		return nil
+
+	// this relies on Nullable never sending nil values through
+	case *int:
+		return encoder.Int64(int64(*v))
+	case *int64:
+		return encoder.Int64(*v)
 	}
+
 	return &ErrUnexpectedType{
 		T:      v,
 		Column: i,
