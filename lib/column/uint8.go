@@ -24,7 +24,18 @@ func (u *UInt8) Write(encoder *binary.Encoder, v interface{}) error {
 		return encoder.UInt8(uint8(v))
 	case int:
 		return encoder.UInt8(uint8(v))
+
+	// this relies on Nullable never sending nil values through
+	case *bool:
+		return encoder.Bool(*v)
+	case *uint8:
+		return encoder.UInt8(*v)
+	case *int64:
+		return encoder.UInt8(uint8(*v))
+	case *int:
+		return encoder.UInt8(uint8(*v))
 	}
+
 	return &ErrUnexpectedType{
 		T:      v,
 		Column: u,

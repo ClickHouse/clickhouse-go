@@ -20,7 +20,14 @@ func (float *Float64) Write(encoder *binary.Encoder, v interface{}) error {
 		return encoder.Float64(float64(v))
 	case float64:
 		return encoder.Float64(v)
+
+	// this relies on Nullable never sending nil values through
+	case *float32:
+		return encoder.Float64(float64(*v))
+	case *float64:
+		return encoder.Float64(*v)
 	}
+
 	return &ErrUnexpectedType{
 		T:      v,
 		Column: float,

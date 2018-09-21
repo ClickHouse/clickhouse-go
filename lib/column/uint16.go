@@ -22,7 +22,16 @@ func (u *UInt16) Write(encoder *binary.Encoder, v interface{}) error {
 		return encoder.UInt16(uint16(v))
 	case int:
 		return encoder.UInt16(uint16(v))
+
+	// this relies on Nullable never sending nil values through
+	case *uint16:
+		return encoder.UInt16(*v)
+	case *int64:
+		return encoder.UInt16(uint16(*v))
+	case *int:
+		return encoder.UInt16(uint16(*v))
 	}
+
 	return &ErrUnexpectedType{
 		T:      v,
 		Column: u,
