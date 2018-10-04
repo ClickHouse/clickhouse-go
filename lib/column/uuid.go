@@ -23,6 +23,9 @@ func (*UUID) Read(decoder *binary.Decoder) (interface{}, error) {
 	if err != nil {
 		return "", err
 	}
+
+	src = swap(src)
+
 	var uuid [36]byte
 	{
 		hex.Encode(uuid[:], src[:4])
@@ -56,10 +59,26 @@ func (u *UUID) Write(encoder *binary.Encoder, v interface{}) (err error) {
 			Column: u,
 		}
 	}
+
+	uuid = swap(uuid)
+
 	if _, err := encoder.Write(uuid); err != nil {
 		return err
 	}
 	return nil
+}
+
+func swap(src []byte) []byte {
+	_ = src[15]
+	src[0], src[7] = src[7], src[0]
+	src[1], src[6] = src[6], src[1]
+	src[2], src[5] = src[5], src[2]
+	src[3], src[4] = src[4], src[3]
+	src[8], src[15] = src[15], src[8]
+	src[9], src[14] = src[14], src[9]
+	src[10], src[13] = src[13], src[10]
+	src[11], src[12] = src[12], src[11]
+	return src
 }
 
 func uuid2bytes(str string) ([]byte, error) {
