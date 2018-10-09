@@ -51,7 +51,7 @@ func (null *Nullable) ReadNull(decoder *binary.Decoder, rows int) (_ []interface
 	return values, nil
 }
 func (null *Nullable) WriteNull(nulls, encoder *binary.Encoder, v interface{}) error {
-	if v == nil || reflect.ValueOf(v).IsNil() {
+	if value := reflect.ValueOf(v); v == nil || (value.Kind() == reflect.Ptr && value.IsNil()) {
 		if _, err := nulls.Write([]byte{1}); err != nil {
 			return err
 		}
