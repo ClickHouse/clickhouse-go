@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql/driver"
+	"unicode"
 
 	"github.com/kshvakov/clickhouse/lib/data"
 )
@@ -138,13 +139,17 @@ func (stmt *stmt) bind(args []driver.NamedValue) string {
 						char == '(',
 						char == ',',
 						char == '%',
+						char == '+',
+						char == '-',
+						char == '*',
+						char == '/',
 						char == '[':
 						keyword = true
 					default:
 						if limit.matchRune(char) {
 							keyword = true
 						} else {
-							keyword = keyword && (char == ' ' || char == '\t' || char == '\n')
+							keyword = keyword && unicode.IsSpace(char)
 						}
 					}
 					buf.WriteRune(char)
