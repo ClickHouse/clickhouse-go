@@ -64,12 +64,12 @@ func Test_Insert(t *testing.T) {
 		`
 		dml = `
 			INSERT INTO clickhouse_test_insert (
-				int8, 
-				int16, 
+				int8,
+				int16,
 				int32,
 				int64,
-				uint8, 
-				uint16, 
+				uint8,
+				uint16,
 				uint32,
 				uint64,
 				float32,
@@ -79,8 +79,8 @@ func Test_Insert(t *testing.T) {
 				date,
 				datetime
 			) VALUES (
-				?, 
-				?, 
+				?,
+				?,
 				?,
 				?,
 				?,
@@ -96,13 +96,13 @@ func Test_Insert(t *testing.T) {
 			)
 		`
 		query = `
-			SELECT 
-				int8, 
-				int16, 
+			SELECT
+				int8,
+				int16,
 				int32,
 				int64,
-				uint8, 
-				uint16, 
+				uint8,
+				uint16,
 				uint32,
 				uint64,
 				float32,
@@ -125,9 +125,9 @@ func Test_Insert(t *testing.T) {
 								uint8(1*i), uint16(2*i), uint32(4*i), uint64(8*i), // uint
 								1.32*float32(i), 1.64*float64(i), //float
 								fmt.Sprintf("string %d", i), // string
-								"RU",       //fixedstring,
-								time.Now(), //date
-								time.Now(), //datetime
+								"RU",                        //fixedstring,
+								time.Now(),                  //date
+								time.Now(),                  //datetime
 							)
 							if !assert.NoError(t, err) {
 								return
@@ -209,12 +209,12 @@ func Test_InsertBatch(t *testing.T) {
 		`
 		dml = `
 			INSERT INTO clickhouse_test_insert_batch (
-				int8, 
-				int16, 
+				int8,
+				int16,
 				int32,
 				int64,
-				uint8, 
-				uint16, 
+				uint8,
+				uint16,
 				uint32,
 				uint64,
 				float32,
@@ -225,8 +225,8 @@ func Test_InsertBatch(t *testing.T) {
 				datetime,
 				arrayString
 			) VALUES (
-				?, 
-				?, 
+				?,
+				?,
 				?,
 				?,
 				?,
@@ -255,9 +255,9 @@ func Test_InsertBatch(t *testing.T) {
 								uint8(1*i), uint16(2*i), uint32(4*i), uint64(8*i), // uint
 								1.32*float32(i), 1.64*float64(i), //float
 								fmt.Sprintf("string %d ", i), // string
-								"RU",       //fixedstring,
-								time.Now(), //date
-								time.Now(), //datetime
+								"RU",                         //fixedstring,
+								time.Now(),                   //date
+								time.Now(),                   //datetime
 								[]string{"A", "B", "C"},
 							)
 							if !assert.NoError(t, err) {
@@ -475,11 +475,11 @@ func Test_ArrayT(t *testing.T) {
 		dml = `
 			INSERT INTO clickhouse_test_array (
 				int8,
-				int16, 
+				int16,
 				int32,
 				int64,
-				uint8, 
-				uint16, 
+				uint8,
+				uint16,
 				uint32,
 				uint64,
 				float32,
@@ -491,8 +491,8 @@ func Test_ArrayT(t *testing.T) {
 				enum8,
 				enum16
 			) VALUES (
-				?, 
-				?, 
+				?,
+				?,
 				?,
 				?,
 				?,
@@ -510,13 +510,13 @@ func Test_ArrayT(t *testing.T) {
 			)
 		`
 		query = `
-			SELECT 
-				int8, 
-				int16, 
+			SELECT
+				int8,
+				int16,
 				int32,
 				int64,
-				uint8, 
-				uint16, 
+				uint8,
+				uint16,
 				uint32,
 				uint64,
 				float32,
@@ -690,7 +690,7 @@ func Test_With_Totals(t *testing.T) {
 		`
 		dml   = `INSERT INTO clickhouse_test_with_totals (country) VALUES (?)`
 		query = `
-			SELECT 
+			SELECT
 				country,
 				COUNT(*)
 			FROM clickhouse_test_with_totals
@@ -924,12 +924,12 @@ func Test_Ternary_Operator(t *testing.T) {
 			}
 		}
 		if rows, err := connect.Query(`
-			SELECT 
-				a ? 
-					'+' : '-', 
+			SELECT
+				a ?
+					'+' : '-',
 				b ? '+' : '-' ,
 				a, b
-			FROM clickhouse_ternary_operator 
+			FROM clickhouse_ternary_operator
 				WHERE a = ? AND b < ? AND a IN(?,
 			?
 			) OR b = 0 OR b > ?`, 1, 2, 1, 100, -1); assert.NoError(t, err) {
@@ -1103,6 +1103,52 @@ func Test_Timeout(t *testing.T) {
 				var value, value2 int
 				if assert.NoError(t, row.Scan(&value, &value2)) {
 					assert.Equal(t, int(1), value)
+				}
+			}
+		}
+	}
+}
+
+func Test_InArray(t *testing.T) {
+	const (
+		ddl = `
+			CREATE TABLE clickhouse_test_in_array (
+				Value String
+			) Engine=Memory
+		`
+		dml = `
+			INSERT INTO clickhouse_test_in_array (Value) VALUES (?)
+		`
+		query = `
+			SELECT
+				groupArray(Value)
+			FROM clickhouse_test_in_array WHERE Value IN(?)
+		`
+	)
+	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) && assert.NoError(t, connect.Ping()) {
+		if _, err := connect.Exec("DROP TABLE IF EXISTS clickhouse_test_in_array"); assert.NoError(t, err) {
+			if _, err := connect.Exec(ddl); assert.NoError(t, err) {
+				if tx, err := connect.Begin(); assert.NoError(t, err) {
+					if stmt, err := tx.Prepare(dml); assert.NoError(t, err) {
+						for _, v := range []string{"A", "B", "C"} {
+							_, err = stmt.Exec(v)
+							if !assert.NoError(t, err) {
+								return
+							}
+						}
+					} else {
+						return
+					}
+					if assert.NoError(t, tx.Commit()) {
+						var value []string
+						if err := connect.QueryRow(query, []string{"A", "C"}).Scan(&value); assert.NoError(t, err) {
+							if !assert.NoError(t, err) {
+								return
+							}
+						}
+						assert.Equal(t, []string{"A", "C"}, value)
+
+					}
 				}
 			}
 		}

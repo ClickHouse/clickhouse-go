@@ -62,6 +62,10 @@ func (array *Array) Value() (driver.Value, error) {
 	return buff.Bytes(), nil
 }
 
+func (array *Array) Values() interface{} {
+	return array.values
+}
+
 func (array *Array) WriteArray(encoder *binary.Encoder, column column.Column) (uint64, error) {
 	if array.err != nil {
 		return 0, array.err
