@@ -44,7 +44,7 @@ func dial(secure, skipVerify bool, hosts []string, readTimeout, writeTimeout tim
 		case connOpenInOrder:
 			num = i
 		case connOpenRandom:
-			num = (ident + 1) % len(hosts)
+			num = (ident + i) % len(hosts)
 		}
 		switch {
 		case secure:
