@@ -85,7 +85,7 @@ func Test_DirectInsert(t *testing.T) {
 		{
 			var (
 				tx, _   = connect.Begin()
-				stmt, _ = connect.Prepare("DROP TABLE clickhouse_test_direct_insert")
+				stmt, _ = connect.Prepare("DROP TABLE IF EXISTS clickhouse_test_direct_insert")
 			)
 			stmt.Exec([]driver.Value{})
 			tx.Commit()
@@ -204,7 +204,7 @@ func Test_DirectArrayT(t *testing.T) {
 		{
 			var (
 				tx, _   = connect.Begin()
-				stmt, _ = connect.Prepare("DROP TABLE clickhouse_test_direct_array")
+				stmt, _ = connect.Prepare("DROP TABLE IF EXISTS clickhouse_test_direct_array")
 			)
 			stmt.Exec([]driver.Value{})
 			tx.Commit()

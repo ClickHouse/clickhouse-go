@@ -60,7 +60,7 @@ func Test_ColumnarInsert(t *testing.T) {
 	if connect, err := clickhouse.OpenDirect("tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) {
 		{
 			connect.Begin()
-			stmt, _ := connect.Prepare("DROP TABLE clickhouse_test_columnar_insert")
+			stmt, _ := connect.Prepare("DROP TABLE IF EXISTS clickhouse_test_columnar_insert")
 			stmt.Exec([]driver.Value{})
 			connect.Commit()
 		}
