@@ -20,6 +20,12 @@ import (
 	"github.com/kshvakov/clickhouse/lib/types"
 )
 
+type (
+	Date     = types.Date
+	DateTime = types.DateTime
+	UUID     = types.UUID
+)
+
 var (
 	ErrInsertInNotBatchMode = errors.New("insert statement supported only in the batch mode (use begin/commit)")
 	ErrLimitDataRequestInTx = errors.New("data request has already been prepared in transaction")

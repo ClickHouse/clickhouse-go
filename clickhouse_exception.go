@@ -18,6 +18,7 @@ func (e *Exception) Error() string {
 }
 
 func (ch *clickhouse) exception() error {
+	defer ch.conn.Close()
 	var (
 		e         Exception
 		err       error
