@@ -95,7 +95,6 @@ var columnsMap = map[reflect.Type]column.Column{
 	reflect.TypeOf([]float64{}): &column.Float64{},
 	reflect.TypeOf([]string{}):  &column.String{},
 	reflect.TypeOf([]time.Time{}): &column.DateTime{
-		IsFull:   true,
 		Timezone: time.Local,
 	},
 }

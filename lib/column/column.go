@@ -116,14 +116,24 @@ func Factory(name, chType string, timezone *time.Location) (Column, error) {
 				valueOf: baseTypes[string("")],
 			},
 		}, nil
-	case "Date", "DateTime":
+	case "Date":
+		_, offset := time.Unix(0, 0).In(timezone).Zone()
+		return &Date{
+			base: base{
+				name:    name,
+				chType:  chType,
+				valueOf: baseTypes[time.Time{}],
+			},
+			Timezone: timezone,
+			offset:   int64(offset),
+		}, nil
+	case "DateTime":
 		return &DateTime{
 			base: base{
 				name:    name,
 				chType:  chType,
 				valueOf: baseTypes[time.Time{}],
 			},
-			IsFull:   chType == "DateTime",
 			Timezone: timezone,
 		}, nil
 	}
