@@ -17,7 +17,7 @@ func (dt *Date) Read(decoder *binary.Decoder) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	return time.Unix(int64(sec)*24*3600, 0).In(dt.Timezone), nil
+	return time.Unix(int64(sec)*24*3600-dt.offset, 0).In(dt.Timezone), nil
 }
 
 func (dt *Date) Write(encoder *binary.Encoder, v interface{}) error {
