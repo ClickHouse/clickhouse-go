@@ -10,7 +10,7 @@ import (
 
 func (block *Block) WriteDate(c int, v time.Time) error {
 	_, offset := v.Zone()
-	nday := (v.Unix()+offset) / 24 / 3600
+	nday := (v.Unix()+int64(offset)) / 24 / 3600
 	return block.buffers[c].Column.UInt16(uint16(nday))
 }
 
