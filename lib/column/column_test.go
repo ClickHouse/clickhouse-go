@@ -373,21 +373,39 @@ func Test_Column_Enum16(t *testing.T) {
 func Test_Column_Date(t *testing.T) {
 	var (
 		buf     bytes.Buffer
-		timeNow = time.Now().Truncate(24 * time.Hour)
 		encoder = binary.NewEncoder(&buf)
 		decoder = binary.NewDecoder(&buf)
 	)
 	if column, err := columns.Factory("column_name", "Date", time.Local); assert.NoError(t, err) {
-		if err := column.Write(encoder, timeNow); assert.NoError(t, err) {
-			if v, err := column.Read(decoder); assert.NoError(t, err) {
-				assert.Equal(t, timeNow, v)
+		year, month, day := time.Now().Date()
+		today := time.Date(year, month, day, 0, 0, 0, 0, time.Local)
+
+		for i := 0; i < 24; i++ {
+			todayHour := today.Add(time.Duration(i) * time.Hour)
+
+			// time.Time type
+			if err := column.Write(encoder, todayHour); assert.NoError(t, err) {
+				if v, err := column.Read(decoder); assert.NoError(t, err) {
+					assert.Equal(t, today, v)
+				}
 			}
-		}
-		if err := column.Write(encoder, timeNow.In(time.UTC).Format("2006-01-02")); assert.NoError(t, err) {
-			if v, err := column.Read(decoder); assert.NoError(t, err) {
-				assert.Equal(t, timeNow, v)
+
+			// int64 type
+			if err := column.Write(encoder, todayHour.Unix()); assert.NoError(t, err) {
+				if v, err := column.Read(decoder); assert.NoError(t, err) {
+					assert.Equal(t, today, v)
+				}
 			}
+
+			// string type
+			if err := column.Write(encoder, todayHour.Format("2006-01-02")); assert.NoError(t, err) {
+				if v, err := column.Read(decoder); assert.NoError(t, err) {
+					assert.Equal(t, today, v)
+				}
+			}
+
 		}
+
 		if assert.Equal(t, "column_name", column.Name()) && assert.Equal(t, "Date", column.CHType()) {
 			assert.Equal(t, reflect.TypeOf(time.Time{}).Kind(), column.ScanType().Kind())
 		}
