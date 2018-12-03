@@ -27,7 +27,7 @@ func (dt *Date) Write(encoder *binary.Encoder, v interface{}) error {
 		_, offset := value.Zone()
 		timestamp = value.Unix() + int64(offset)
 	case int16:
-		timestamp = int64(value) + dt.offset
+		return encoder.Int16(value)
 	case int32:
 		timestamp = int64(value) + dt.offset
 	case int64:
@@ -44,7 +44,7 @@ func (dt *Date) Write(encoder *binary.Encoder, v interface{}) error {
 		_, offset := value.Zone()
 		timestamp = (*value).Unix() + int64(offset)
 	case *int16:
-		timestamp = int64(*value) + dt.offset
+		return encoder.Int16(*value)
 	case *int32:
 		timestamp = int64(*value) + dt.offset
 	case *int64:
