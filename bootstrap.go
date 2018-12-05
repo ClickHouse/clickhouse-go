@@ -121,7 +121,7 @@ func open(dsn string) (*clickhouse, error) {
 	}
 
 	if v, err := strconv.ParseBool(query.Get("compress")); err == nil && v {
-		//compress = true
+		compress = true
 	}
 
 	var (
@@ -148,8 +148,10 @@ func open(dsn string) (*clickhouse, error) {
 	}
 	logger.SetPrefix(fmt.Sprintf("[clickhouse][connect=%d]", ch.conn.ident))
 	ch.buffer = bufio.NewWriter(ch.conn)
+
 	ch.decoder = binary.NewDecoder(ch.conn)
 	ch.encoder = binary.NewEncoder(ch.buffer)
+
 	if err := ch.hello(database, username, password); err != nil {
 		return nil, err
 	}
@@ -168,9 +170,10 @@ func (ch *clickhouse) hello(database, username, password string) error {
 			ch.encoder.String(username)
 			ch.encoder.String(password)
 		}
-		if err := ch.buffer.Flush(); err != nil {
+		if err := ch.encoder.Flush(); err != nil {
 			return err
 		}
+
 	}
 	{
 		packet, err := ch.decoder.Uvarint()

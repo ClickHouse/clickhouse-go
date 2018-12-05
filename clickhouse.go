@@ -148,7 +148,7 @@ func (ch *clickhouse) Commit() error {
 		if err := ch.writeBlock(&data.Block{}); err != nil {
 			return err
 		}
-		if err := ch.buffer.Flush(); err != nil {
+		if err := ch.encoder.Flush(); err != nil {
 			return err
 		}
 		return ch.process()

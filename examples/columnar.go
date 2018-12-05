@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	connect, err := clickhouse.OpenDirect("tcp://127.0.0.1:9000?username=&debug=true")
+	connect, err := clickhouse.OpenDirect("tcp://127.0.0.1:9000?username=&debug=true&compress=1")
 	if err != nil {
 		log.Fatal(err)
 	}

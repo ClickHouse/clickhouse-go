@@ -52,7 +52,7 @@ func (stmt *stmt) execContext(ctx context.Context, args []driver.Value) (driver.
 			if err := stmt.ch.writeBlock(stmt.ch.block); err != nil {
 				return nil, err
 			}
-			if err := stmt.ch.buffer.Flush(); err != nil {
+			if err := stmt.ch.encoder.Flush(); err != nil {
 				return nil, err
 			}
 		}

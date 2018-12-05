@@ -216,6 +216,9 @@ func (info *blockInfo) write(encoder *binary.Encoder) error {
 	if err := encoder.Uvarint(2); err != nil {
 		return err
 	}
+	if info.bucketNum == 0 {
+		info.bucketNum = -1
+	}
 	if err := encoder.Int32(info.bucketNum); err != nil {
 		return err
 	}
