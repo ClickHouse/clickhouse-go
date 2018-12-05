@@ -2,13 +2,11 @@ package writebuffer
 
 import (
 	"io"
-	"sync"
+
+	"github.com/kshvakov/clickhouse/lib/leakypool"
 )
 
 const InitialSize = 256 * 1024
-
-// Recycle column buffers, preallocate column buffers
-var chunkPool = sync.Pool{}
 
 func New(initSize int) *WriteBuffer {
 	wb := &WriteBuffer{}
@@ -64,11 +62,9 @@ func (wb *WriteBuffer) Bytes() []byte {
 }
 
 func (wb *WriteBuffer) addChunk(size, capacity int) {
-	var chunk []byte
-	if c, ok := chunkPool.Get().([]byte); ok && cap(c) >= size {
-		chunk = c[:size]
-	} else {
-		chunk = make([]byte, size, capacity)
+	chunk := leakypool.GetBytes(size, capacity)
+	if cap(chunk) >= size {
+		chunk = chunk[:size]
 	}
 	wb.chunks = append(wb.chunks, chunk)
 }
@@ -99,7 +95,7 @@ func (wb *WriteBuffer) Reset() {
 	for _, chunk := range wb.chunks[:len(wb.chunks)-1] {
 		// Drain chunks smaller than the initial size
 		if cap(chunk) >= chunkSizeThreshold {
-			chunkPool.Put(chunk[:0])
+			leakypool.PutBytes(chunk[:0])
 		} else {
 			chunkSizeThreshold = cap(chunk)
 		}
