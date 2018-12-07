@@ -85,7 +85,7 @@ func open(dsn string) (*clickhouse, error) {
 		readTimeout      = DefaultReadTimeout
 		writeTimeout     = DefaultWriteTimeout
 		connOpenStrategy = connOpenRandom
-		poolSize         = 1000
+		poolSize         = 100
 	)
 	if len(database) == 0 {
 		database = DefaultDatabase

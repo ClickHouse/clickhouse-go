@@ -20,6 +20,7 @@ Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/)
     * random   - choose random server from set 
     * in_order - first live server is choosen in specified order
 * block_size - maximum rows in block (default is 1000000). If the rows are larger then the data will be split into several blocks to send them to the server
+* pool size - maximum amount of preallocated byte chunks used in queries (default is 100). Decrease this if you experience memory problems at the expense of more GC pressure and vice versa.
 * debug - enable debug output (boolean value)
 
 SSL/TLS parameters:
