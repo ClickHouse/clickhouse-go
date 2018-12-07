@@ -13,6 +13,7 @@ func (ch *clickhouse) readMeta() (*data.Block, error) {
 		if err != nil {
 			return nil, err
 		}
+
 		switch packet {
 		case protocol.ServerException:
 			ch.logf("[read meta] <- exception")

@@ -48,5 +48,5 @@ func (ch *clickhouse) sendQuery(query string) error {
 	if err := ch.writeBlock(&data.Block{}); err != nil {
 		return err
 	}
-	return ch.buffer.Flush()
+	return ch.encoder.Flush()
 }

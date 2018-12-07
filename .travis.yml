@@ -11,6 +11,7 @@ install:
   - go get github.com/mattn/goveralls
   - go get golang.org/x/tools/cmd/cover
   - go get github.com/stretchr/testify/assert
+  - go get github.com/cloudflare/golz4
 before_install:
   - docker --version
   - docker-compose --version

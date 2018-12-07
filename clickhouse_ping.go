@@ -21,7 +21,7 @@ func (ch *clickhouse) ping(ctx context.Context) error {
 	if err := ch.encoder.Uvarint(protocol.ClientPing); err != nil {
 		return err
 	}
-	if err := ch.buffer.Flush(); err != nil {
+	if err := ch.encoder.Flush(); err != nil {
 		return err
 	}
 	return ch.process()
