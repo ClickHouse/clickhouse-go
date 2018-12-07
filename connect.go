@@ -69,7 +69,7 @@ func dial(secure, skipVerify bool, hosts []string, readTimeout, writeTimeout tim
 				Conn:         conn,
 				logf:         logf,
 				ident:        ident,
-				buffer:       bufio.NewReaderSize(conn, 4*1024*1024),
+				buffer:       bufio.NewReader(conn),
 				readTimeout:  readTimeout,
 				writeTimeout: writeTimeout,
 			}, nil
