@@ -15,8 +15,7 @@ type compressWriter struct {
 	// data position
 	pos int
 	// data compressed
-	zdata     []byte
-	hashtable []int
+	zdata []byte
 }
 
 // NewCompressWriter wrap the io.Writer
