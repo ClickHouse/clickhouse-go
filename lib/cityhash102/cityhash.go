@@ -130,7 +130,7 @@ func hashLen0to16(s []byte, length uint32) uint64 {
 
 	if length >= 4 {
 		var a = fetch32(s)
-		return hashLen16(uint64(length+(a<<3)), uint64(fetch32(s[length-4:])))
+		return hashLen16(uint64(length)+(uint64(a)<<3), uint64(fetch32(s[length-4:])))
 	}
 
 	if length > 0 {
@@ -140,6 +140,7 @@ func hashLen0to16(s []byte, length uint32) uint64 {
 
 		var y uint32 = uint32(a) + (uint32(b) << 8)
 		var z uint32 = length + (uint32(c) << 2)
+
 		return shiftMix(uint64(y)*k2^uint64(z)*k3) * k2
 	}
 
@@ -213,7 +214,7 @@ func CityHash64(s []byte, length uint32) uint64 {
 	var y uint64 = fetch64(s[length-16:]) ^ k1
 	var z uint64 = fetch64(s[length-56:]) ^ k0
 
-	var v Uint128 = weakHashLen32WithSeeds_3(s[length-64:], uint64(length), z)
+	var v Uint128 = weakHashLen32WithSeeds_3(s[length-64:], uint64(length), y)
 	var w Uint128 = weakHashLen32WithSeeds_3(s[length-32:], uint64(length)*k1, k0)
 
 	z += shiftMix(v.Higher64()) * k1
@@ -222,7 +223,7 @@ func CityHash64(s []byte, length uint32) uint64 {
 
 	length = (length - 1) & ^uint32(63)
 	for {
-		x = rotate64(x+y+v.Lower64()+fetch64(s[8:]), 37) * k1
+		x = rotate64(x+y+v.Lower64()+fetch64(s[16:]), 37) * k1
 		y = rotate64(y+v.Higher64()+fetch64(s[48:]), 42) * k1
 
 		x ^= w.Higher64()
@@ -268,6 +269,7 @@ func cityMurmur(s []byte, length uint32, seed Uint128) Uint128 {
 		} else {
 			d = shiftMix(a + c)
 		}
+
 	} else { // len > 16
 		c = hashLen16(fetch64(s[length-8:])+k1, a)
 		d = hashLen16(b+uint64(length), c+fetch64(s[length-16:]))
@@ -288,7 +290,6 @@ func cityMurmur(s []byte, length uint32, seed Uint128) Uint128 {
 			}
 		}
 	}
-
 	a = hashLen16(a, c)
 	b = hashLen16(d, b)
 	return Uint128{a ^ b, hashLen16(b, a)}
@@ -306,8 +307,8 @@ func CityHash128WithSeed(s []byte, length uint32, seed Uint128) Uint128 {
 	var y uint64 = seed.Higher64()
 	var z uint64 = uint64(length) * k1
 
-	origLength := length
-	var t []byte = s
+	var pos uint32
+	var t = s
 
 	v.setLower64(rotate64(y^k1, 49)*k1 + fetch64(s))
 	v.setHigher64(rotate64(v.Lower64(), 42)*k1 + fetch64(s[8:]))
@@ -326,6 +327,8 @@ func CityHash128WithSeed(s []byte, length uint32, seed Uint128) Uint128 {
 		w = weakHashLen32WithSeeds_3(s[32:], z+w.Higher64(), y)
 		swap64(&z, &x)
 		s = s[64:]
+		pos += 64
+
 		x = rotate64(x+y+v.Lower64()+fetch64(s[16:]), 37) * k1
 		y = rotate64(y+v.Higher64()+fetch64(s[48:]), 42) * k1
 		x ^= w.Higher64()
@@ -335,6 +338,7 @@ func CityHash128WithSeed(s []byte, length uint32, seed Uint128) Uint128 {
 		w = weakHashLen32WithSeeds_3(s[32:], z+w.Higher64(), y)
 		swap64(&z, &x)
 		s = s[64:]
+		pos += 64
 		length -= 128
 
 		if length < 128 {
@@ -352,10 +356,10 @@ func CityHash128WithSeed(s []byte, length uint32, seed Uint128) Uint128 {
 		y = rotate64(y-x, 42)*k0 + v.Higher64()
 
 		//TODO why not use origin_len ?
-		w.setLower64(w.Lower64() + fetch64(t[origLength-tailDone+16:]))
+		w.setLower64(w.Lower64() + fetch64(t[pos+length-tailDone+16:]))
 		x = rotate64(x, 49)*k0 + w.Lower64()
 		w.setLower64(w.Lower64() + v.Lower64())
-		v = weakHashLen32WithSeeds_3(t[origLength-tailDone:], v.Lower64(), v.Higher64())
+		v = weakHashLen32WithSeeds_3(t[pos+length-tailDone:], v.Lower64(), v.Higher64())
 	}
 	// At this point our 48 bytes of state should contain more than
 	// enough information for a strong 128-bit hash.  We use two

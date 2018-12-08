@@ -1,4 +1,4 @@
-// +build !clz4
+// +build clz4
 
 package binary
 
@@ -6,8 +6,8 @@ import (
 	"encoding/binary"
 	"io"
 
+	lz4 "github.com/cloudflare/golz4"
 	"github.com/kshvakov/clickhouse/lib/cityhash102"
-	"github.com/kshvakov/clickhouse/lib/lz4"
 )
 
 type compressWriter struct {
@@ -25,7 +25,7 @@ func NewCompressWriter(w io.Writer) *compressWriter {
 	p := &compressWriter{writer: w}
 	p.data = make([]byte, BlockMaxSize, BlockMaxSize)
 
-	zlen := lz4.CompressBound(BlockMaxSize) + HeaderSize
+	zlen := lz4.CompressBound(p.data) + HeaderSize
 	p.zdata = make([]byte, zlen, zlen)
 	return p
 }
@@ -53,9 +53,8 @@ func (cw *compressWriter) Flush() (err error) {
 	if cw.pos == 0 {
 		return
 	}
-
 	// write the headers
-	compressedSize, err := lz4.Encode(cw.zdata[HeaderSize:], cw.data[:cw.pos])
+	compressedSize, err := lz4.Compress(cw.data[:cw.pos], cw.zdata[HeaderSize:])
 	if err != nil {
 		return err
 	}

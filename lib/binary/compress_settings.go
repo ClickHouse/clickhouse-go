@@ -13,6 +13,7 @@ const (
 	ChecksumSize = 16
 	// CompressHeader magic + compressed_size + uncompressed_size
 	CompressHeaderSize = 1 + 4 + 4
+
 	// HeaderSize
 	HeaderSize = ChecksumSize + CompressHeaderSize
 	// BlockMaxSize 1MB
