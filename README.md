@@ -8,7 +8,7 @@ Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/)
 * Compatibility with `database/sql`
 * Round Robin load-balancing
 * Bulk write support :  `begin->prepare->(in loop exec)->commit`
-* LZ4 compression support (with clz4 build tags support)
+* LZ4 compression support (default to use pure go lz4, switch to use cgo lz4 by turn clz4 build tags on)
 
 ## DSN 
 
