@@ -119,8 +119,11 @@ func Encode(dst, src []byte) (compressedSize int, error error) {
 		return 0, ErrEncodeTooSmall
 	}
 
-	hashTable := hashPool.Get()
-	e := encoder{src: src, dst: dst, hashTable: hashTable.([]uint32)}
+	hashTable := hashPool.Get().([]uint32)
+	for i := range hashTable {
+		hashTable[i] = 0
+	}
+	e := encoder{src: src, dst: dst, hashTable: hashTable}
 	defer func() {
 		hashPool.Put(hashTable)
 	}()

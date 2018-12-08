@@ -16,13 +16,18 @@ func roundtrip(t *testing.T, input []byte) {
 	}
 
 	var newInput = make([]byte, len(input))
-	_, err = Decode(newInput, output[:compressedSize])
+
+	decompressedSize, err := Decode(newInput, output[:compressedSize])
+
+	if decompressedSize != len(newInput) {
+		t.Errorf("decompressed size not match")
+	}
 
 	if err != nil {
 		t.Errorf("got error during decompress: %s", err)
 	}
 	if !bytes.Equal(newInput, input) {
-		t.Errorf("roundtrip failed")
+		t.Error("roundtrip failed", len(input))
 	}
 }
 
@@ -36,7 +41,7 @@ func TestLengths(t *testing.T) {
 		roundtrip(t, testfile[:i])
 	}
 
-	for i := 1024; i < len(testfile); i += 1024 {
+	for i := 1024; i < len(testfile); i += 1024 * 4 {
 		roundtrip(t, testfile[:i])
 	}
 }
