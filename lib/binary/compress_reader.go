@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	lz4 "github.com/cloudflare/golz4"
+	"github.com/kshvakov/clickhouse/lib/lz4"
 )
 
 type compressReader struct {
@@ -28,7 +28,7 @@ func NewCompressReader(r io.Reader) *compressReader {
 	}
 	p.data = make([]byte, BlockMaxSize, BlockMaxSize)
 
-	zlen := lz4.CompressBound(p.data) + CompressHeaderSize
+	zlen := lz4.CompressBound(BlockMaxSize) + HeaderSize
 	p.zdata = make([]byte, zlen, zlen)
 
 	p.pos = len(p.data)
@@ -87,16 +87,16 @@ func (cr *compressReader) readCompressedData() (err error) {
 
 	// @TODO checksum
 	if cr.header[16] == LZ4 {
-		// compressedSize, err := lz4.CompressBlock(cw.data, cw.zdata[HeaderSize:], 0)
 		n, err = cr.reader.Read(cr.zdata)
 		if err != nil {
 			return
 		}
+
 		if n != len(cr.zdata) {
-			return fmt.Errorf("Lz4 decompression EOF")
+			return fmt.Errorf("Decompress read size not match")
 		}
 
-		err = lz4.Uncompress(cr.zdata, cr.data)
+		_, err = lz4.Decode(cr.data, cr.zdata)
 		if err != nil {
 			return
 		}

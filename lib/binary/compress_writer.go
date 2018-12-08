@@ -5,8 +5,7 @@ import (
 	"io"
 
 	"github.com/kshvakov/clickhouse/lib/cityhash102"
-
-	lz4 "github.com/cloudflare/golz4"
+	"github.com/kshvakov/clickhouse/lib/lz4"
 )
 
 type compressWriter struct {
@@ -16,7 +15,8 @@ type compressWriter struct {
 	// data position
 	pos int
 	// data compressed
-	zdata []byte
+	zdata     []byte
+	hashtable []int
 }
 
 // NewCompressWriter wrap the io.Writer
@@ -24,7 +24,7 @@ func NewCompressWriter(w io.Writer) *compressWriter {
 	p := &compressWriter{writer: w}
 	p.data = make([]byte, BlockMaxSize, BlockMaxSize)
 
-	zlen := lz4.CompressBound(p.data) + HeaderSize
+	zlen := lz4.CompressBound(BlockMaxSize) + HeaderSize
 	p.zdata = make([]byte, zlen, zlen)
 	return p
 }
@@ -54,7 +54,7 @@ func (cw *compressWriter) Flush() (err error) {
 	}
 
 	// write the headers
-	compressedSize, err := lz4.Compress(cw.data[:cw.pos], cw.zdata[HeaderSize:])
+	compressedSize, err := lz4.Encode(cw.zdata[HeaderSize:], cw.data[:cw.pos])
 	if err != nil {
 		return err
 	}
