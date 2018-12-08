@@ -111,7 +111,6 @@ func (e *encoder) writeLiterals(length, mlLen, pos uint32) {
 // Encode returns the encoded form of src.  The returned array may be a
 // sub-slice of dst if it was large enough to hold the entire output.
 func Encode(dst, src []byte) (compressedSize int, error error) {
-
 	if len(src) >= MaxInputSize {
 		return 0, ErrTooLarge
 	}

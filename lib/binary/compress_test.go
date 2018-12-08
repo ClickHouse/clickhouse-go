@@ -14,20 +14,19 @@ import (
 )
 
 func Test_CompressCorrect(t *testing.T) {
-	var cases = [][]byte{genBytes(5), genBytes(25), genBytes(255), genBytes(2555), genBytes(25555)} // genBytes(255),
-	// genBytes(2555),
+	var cases = [][]byte{genBytes(5), genBytes(25), genBytes(255), genBytes(2555), genBytes(25555)}
 
 	for _, c := range cases {
 		// cfRes is the correct answer
 		cfRes := GetCfEncode(c)
 
-		ownRes := GetPiEncode(c)
+		ownRes := GetOwnEncode(c)
 		bkRes := GetBkEncode(c)
 		piRes := GetPiEncode(c)
 
 		assert.Equal(t, cfRes, ownRes, "own not matched")
 		assert.Equal(t, cfRes, bkRes, "bk not matched")
-		assert.Equal(t, cfRes, piRes, "pi not matched")
+		assert.NotEqual(t, cfRes, piRes, "pi  matched")
 	}
 }
 
