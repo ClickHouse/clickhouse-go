@@ -1,4 +1,4 @@
-// +build !clz4
+// +build clz4
 
 package binary
 
@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/kshvakov/clickhouse/lib/lz4"
+	lz4 "github.com/cloudflare/golz4"
 )
 
 type compressReader struct {
@@ -30,7 +30,7 @@ func NewCompressReader(r io.Reader) *compressReader {
 	}
 	p.data = make([]byte, BlockMaxSize, BlockMaxSize)
 
-	zlen := lz4.CompressBound(BlockMaxSize) + HeaderSize
+	zlen := lz4.CompressBound(p.data) + HeaderSize
 	p.zdata = make([]byte, zlen, zlen)
 
 	p.pos = len(p.data)
@@ -98,7 +98,7 @@ func (cr *compressReader) readCompressedData() (err error) {
 			return fmt.Errorf("Decompress read size not match")
 		}
 
-		_, err = lz4.Decode(cr.data, cr.zdata)
+		err = lz4.Uncompress(cr.zdata, cr.data)
 		if err != nil {
 			return
 		}
