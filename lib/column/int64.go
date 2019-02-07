@@ -20,6 +20,8 @@ func (i *Int64) Write(encoder *binary.Encoder, v interface{}) error {
 		return encoder.Int64(int64(v))
 	case int64:
 		return encoder.Int64(v)
+	case *int64:
+		return encoder.Int64(*v)
 	case []byte:
 		if _, err := encoder.Write(v); err != nil {
 			return err

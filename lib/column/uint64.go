@@ -23,6 +23,8 @@ func (u *UInt64) Write(encoder *binary.Encoder, v interface{}) error {
 		return nil
 	case uint64:
 		return encoder.UInt64(v)
+	case *uint64:
+		return encoder.UInt64(*v)
 	case int64:
 		return encoder.UInt64(uint64(v))
 	case int:

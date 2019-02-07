@@ -18,6 +18,8 @@ func (str *String) Write(encoder *binary.Encoder, v interface{}) error {
 	switch v := v.(type) {
 	case string:
 		return encoder.String(v)
+	case *string:
+		return encoder.String(*v)
 	case []byte:
 		return encoder.RawString(v)
 

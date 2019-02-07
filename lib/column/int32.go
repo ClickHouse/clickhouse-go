@@ -18,6 +18,8 @@ func (i *Int32) Write(encoder *binary.Encoder, v interface{}) error {
 	switch v := v.(type) {
 	case int32:
 		return encoder.Int32(v)
+	case *int32:
+		return encoder.Int32(*v)
 	case int64:
 		return encoder.Int32(int32(v))
 	case int:
