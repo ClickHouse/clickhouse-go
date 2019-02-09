@@ -66,7 +66,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/kshvakov/clickhouse"
+	_ "github.com/kshvakov/clickhouse" // registers "clickhouse" driver
 )
 
 func main() {
