@@ -1,9 +1,9 @@
 package column
 
 import (
-	"bytes"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/kshvakov/clickhouse/lib/binary"
@@ -15,6 +15,7 @@ type ArrayWriter interface {
 
 type Array struct {
 	base
+	depth  int
 	column Column
 }
 
@@ -23,7 +24,16 @@ func (array *Array) Read(decoder *binary.Decoder) (interface{}, error) {
 }
 
 func (array *Array) Write(encoder *binary.Encoder, v interface{}) error {
-	return fmt.Errorf("do not use Write method for Array(T) column")
+	value := reflect.ValueOf(v)
+	if value.Kind() != reflect.Slice {
+		return fmt.Errorf("unsupported Array(T) type [%T]", value.Interface())
+	}
+	for i := 0; i < value.Len(); i++ {
+		if err := array.column.Write(encoder, value.Index(i).Interface()); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (array *Array) ReadArray(decoder *binary.Decoder, rows int) (_ []interface{}, err error) {
@@ -62,49 +72,26 @@ func (array *Array) read(decoder *binary.Decoder, ln int) (interface{}, error) {
 	return slice.Interface(), nil
 }
 
-func (array *Array) WriteArray(encoder *binary.Encoder, v interface{}) (uint64, error) {
-	switch value := v.(type) {
-	case ArrayWriter:
-		return value.WriteArray(encoder, array.column)
-	case []byte:
-		var (
-			buff    = bytes.NewBuffer(value)
-			decoder = binary.NewDecoder(buff)
-		)
-		ln, err := decoder.Uvarint()
-		if err != nil {
-			return 0, err
-		}
-		switch array.column.(type) {
-		case *Enum:
-			slice := make([]string, 0, ln)
-			for i := 0; i < int(ln); i++ {
-				v, err := decoder.String()
-				if err != nil {
-					return 0, err
-				}
-				slice = append(slice, v)
-			}
-			for _, v := range slice {
-				if err := array.column.Write(encoder, v); err != nil {
-					return 0, err
-				}
-			}
-		default:
-			if _, err := buff.WriteTo(encoder); err != nil {
-				return 0, err
-			}
-		}
-		return ln, nil
-	}
-	return 0, nil
-}
-
 func parseArray(name, chType string, timezone *time.Location) (*Array, error) {
 	if len(chType) < 11 {
 		return nil, fmt.Errorf("invalid Array column type: %s", chType)
 	}
-	column, err := Factory(name, chType[6:][:len(chType)-7], timezone)
+	var (
+		depth      int
+		columnType = chType
+	)
+
+loop:
+	for _, str := range strings.Split(chType, "Array(") {
+		switch {
+		case len(str) == 0:
+			depth++
+		default:
+			chType = str[:len(str)-depth]
+			break loop
+		}
+	}
+	column, err := Factory(name, chType, timezone)
 	if err != nil {
 		return nil, fmt.Errorf("Array(T): %v", err)
 	}
@@ -141,9 +128,10 @@ func parseArray(name, chType string, timezone *time.Location) (*Array, error) {
 	return &Array{
 		base: base{
 			name:    name,
-			chType:  chType,
+			chType:  columnType,
 			valueOf: reflect.ValueOf(scanType),
 		},
+		depth:  depth,
 		column: column,
 	}, nil
 }

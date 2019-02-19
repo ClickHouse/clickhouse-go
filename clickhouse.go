@@ -172,19 +172,12 @@ func (ch *clickhouse) Rollback() error {
 
 func (ch *clickhouse) CheckNamedValue(nv *driver.NamedValue) error {
 	switch nv.Value.(type) {
-	case column.IP, *types.Array, column.UUID:
+	case column.IP, column.UUID:
 		return nil
 	case nil, []byte, int8, int16, int32, int64, uint8, uint16, uint32, uint64, float32, float64, string, time.Time:
 		return nil
 	}
-
 	switch v := nv.Value.(type) {
-	case
-		[]int, []int8, []int16, []int32, []int64,
-		[]uint, []uint8, []uint16, []uint32, []uint64,
-		[]float32, []float64,
-		[]string:
-		nv.Value = types.NewArray(v)
 	case net.IP:
 		nv.Value = column.IP(v)
 	case driver.Valuer:
@@ -195,6 +188,8 @@ func (ch *clickhouse) CheckNamedValue(nv *driver.NamedValue) error {
 		nv.Value = value
 	default:
 		switch value := reflect.ValueOf(nv.Value); value.Kind() {
+		case reflect.Slice:
+			return nil
 		case reflect.Bool:
 			nv.Value = uint8(0)
 			if value.Bool() {

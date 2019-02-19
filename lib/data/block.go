@@ -4,6 +4,7 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"io"
+	"reflect"
 	"strings"
 
 	"github.com/kshvakov/clickhouse/lib/binary"
@@ -11,12 +12,14 @@ import (
 	wb "github.com/kshvakov/clickhouse/lib/writebuffer"
 )
 
+type offset [][]int
+
 type Block struct {
 	Values     [][]interface{}
 	Columns    []column.Column
 	NumRows    uint64
 	NumColumns uint64
-	offsets    []uint64
+	offsets    []offset
 	buffers    []*buffer
 	info       blockInfo
 }
@@ -92,6 +95,27 @@ func (block *Block) Read(serverInfo *ServerInfo, decoder *binary.Decoder) (err e
 	return nil
 }
 
+func (block *Block) prepareArray(arr interface{}, num, level int) (values []interface{}) {
+	value := reflect.ValueOf(arr)
+	switch {
+	case value.Kind() == reflect.Slice:
+		if len(block.offsets[num]) < level {
+			block.offsets[num] = append(block.offsets[num], []int{value.Len()})
+		} else {
+			block.offsets[num][level-1] = append(
+				block.offsets[num][level-1],
+				block.offsets[num][level-1][len(block.offsets[num][level-1])-1]+value.Len(),
+			)
+		}
+		for i := 0; i < value.Len(); i++ {
+			values = append(values, block.prepareArray(value.Index(i).Interface(), num, level+1)...)
+		}
+	default:
+		values = append(values, value.Interface())
+	}
+	return values
+}
+
 func (block *Block) AppendRow(args []driver.Value) error {
 	if len(block.Columns) != len(args) {
 		return fmt.Errorf("block: expected %d arguments (columns: %s), got %d", len(block.Columns), strings.Join(block.ColumnNames(), ", "), len(args))
@@ -103,12 +127,8 @@ func (block *Block) AppendRow(args []driver.Value) error {
 	for num, c := range block.Columns {
 		switch column := c.(type) {
 		case *column.Array:
-			ln, err := column.WriteArray(block.buffers[num].Column, args[num])
-			if err != nil {
-				return err
-			}
-			block.offsets[num] += ln
-			if err := block.buffers[num].Offset.UInt64(block.offsets[num]); err != nil {
+			values := block.prepareArray(args[num], num, 1)
+			if err := column.Write(block.buffers[num].Column, values); err != nil {
 				return err
 			}
 		case *column.Nullable:
@@ -127,7 +147,7 @@ func (block *Block) AppendRow(args []driver.Value) error {
 func (block *Block) Reserve() {
 	if len(block.buffers) == 0 {
 		block.buffers = make([]*buffer, len(block.Columns))
-		block.offsets = make([]uint64, len(block.Columns))
+		block.offsets = make([]offset, len(block.Columns))
 		for i := 0; i < len(block.Columns); i++ {
 			var (
 				offsetBuffer = wb.New(wb.InitialSize)
@@ -159,17 +179,25 @@ func (block *Block) Write(serverInfo *ServerInfo, encoder *binary.Encoder) error
 	if err := block.info.write(encoder); err != nil {
 		return err
 	}
-
 	encoder.Uvarint(block.NumColumns)
 	encoder.Uvarint(block.NumRows)
-	block.NumRows = 0
-	for i := range block.offsets {
-		block.offsets[i] = 0
-	}
+	defer func() {
+		block.NumRows = 0
+		for i := range block.offsets {
+			block.offsets[i] = offset{}
+		}
+	}()
 	for i, column := range block.Columns {
 		encoder.String(column.Name())
 		encoder.String(column.CHType())
 		if len(block.buffers) == len(block.Columns) {
+			for _, offsets := range block.offsets[i] {
+				for _, offset := range offsets {
+					if err := encoder.UInt64(uint64(offset)); err != nil {
+						return err
+					}
+				}
+			}
 			if _, err := block.buffers[i].WriteTo(encoder); err != nil {
 				return err
 			}

@@ -1,24 +1,21 @@
 package clickhouse
 
 import (
-	"fmt"
 	"time"
-
-	"github.com/kshvakov/clickhouse/lib/types"
 )
 
-func Array(v interface{}) *types.Array {
-	return types.NewArray(v)
+func Array(v interface{}) interface{} {
+	return v
 }
 
-func ArrayFixedString(len int, v interface{}) *types.Array {
-	return types.NewArrayByType(fmt.Sprintf("FixedString(%d)", len), v)
+func ArrayFixedString(len int, v interface{}) interface{} {
+	return v
 }
 
-func ArrayDate(v []time.Time) *types.Array {
-	return types.NewArrayByType("Date", v)
+func ArrayDate(v []time.Time) interface{} {
+	return v
 }
 
-func ArrayDateTime(v []time.Time) *types.Array {
-	return types.NewArrayByType("DateTime", v)
+func ArrayDateTime(v []time.Time) interface{} {
+	return v
 }

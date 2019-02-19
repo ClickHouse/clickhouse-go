@@ -4,13 +4,11 @@ import (
 	"time"
 
 	"github.com/kshvakov/clickhouse/lib/binary"
-	"github.com/kshvakov/clickhouse/lib/column"
-	"github.com/kshvakov/clickhouse/lib/types"
 )
 
 func (block *Block) WriteDate(c int, v time.Time) error {
 	_, offset := v.Zone()
-	nday := (v.Unix()+int64(offset)) / 24 / 3600
+	nday := (v.Unix() + int64(offset)) / 24 / 3600
 	return block.buffers[c].Column.UInt16(uint16(nday))
 }
 
@@ -82,11 +80,10 @@ func (block *Block) WriteFixedString(c int, v []byte) error {
 	return block.Columns[c].Write(block.buffers[c].Column, v)
 }
 
-func (block *Block) WriteArray(c int, v *types.Array) error {
-	ln, err := block.Columns[c].(*column.Array).WriteArray(block.buffers[c].Column, v)
-	if err != nil {
+func (block *Block) WriteArray(c int, v interface{}) error {
+	values := block.prepareArray(v, c, 1)
+	if err := block.Columns[c].Write(block.buffers[c].Column, values); err != nil {
 		return err
 	}
-	block.offsets[c] += ln
-	return block.buffers[c].Offset.UInt64(block.offsets[c])
+	return nil
 }

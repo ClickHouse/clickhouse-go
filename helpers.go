@@ -8,8 +8,6 @@ import (
 	"regexp"
 	"strings"
 	"time"
-
-	"github.com/kshvakov/clickhouse/lib/types"
 )
 
 func numInput(query string) int {
@@ -90,10 +88,6 @@ func isInsert(query string) bool {
 }
 
 func quote(v driver.Value) string {
-	switch value := v.(type) {
-	case *types.Array:
-		v = value.Values()
-	}
 	switch v := reflect.ValueOf(v); v.Kind() {
 	case reflect.Slice:
 		values := make([]string, 0, v.Len())
