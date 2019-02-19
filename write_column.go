@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/kshvakov/clickhouse/lib/data"
-	"github.com/kshvakov/clickhouse/lib/types"
 )
 
 // Interface for Clickhouse driver
@@ -31,7 +30,7 @@ type ColumnWriter interface {
 	WriteFloat32(c int, v float32) error
 	WriteFloat64(c int, v float64) error
 	WriteBytes(c int, v []byte) error
-	WriteArray(c int, v *types.Array) error
+	WriteArray(c int, v interface{}) error
 	WriteString(c int, v string) error
 	WriteFixedString(c int, v []byte) error
 }

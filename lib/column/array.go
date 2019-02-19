@@ -1,7 +1,6 @@
 package column
 
 import (
-	"bytes"
 	"fmt"
 	"reflect"
 	"strings"
@@ -71,44 +70,6 @@ func (array *Array) read(decoder *binary.Decoder, ln int) (interface{}, error) {
 		slice = reflect.Append(slice, reflect.ValueOf(value))
 	}
 	return slice.Interface(), nil
-}
-
-func (array *Array) WriteArray(encoder *binary.Encoder, v interface{}) (uint64, error) {
-	switch value := v.(type) {
-	case ArrayWriter:
-		return value.WriteArray(encoder, array.column)
-	case []byte:
-		var (
-			buff    = bytes.NewBuffer(value)
-			decoder = binary.NewDecoder(buff)
-		)
-		ln, err := decoder.Uvarint()
-		if err != nil {
-			return 0, err
-		}
-		switch array.column.(type) {
-		case *Enum:
-			slice := make([]string, 0, ln)
-			for i := 0; i < int(ln); i++ {
-				v, err := decoder.String()
-				if err != nil {
-					return 0, err
-				}
-				slice = append(slice, v)
-			}
-			for _, v := range slice {
-				if err := array.column.Write(encoder, v); err != nil {
-					return 0, err
-				}
-			}
-		default:
-			if _, err := buff.WriteTo(encoder); err != nil {
-				return 0, err
-			}
-		}
-		return ln, nil
-	}
-	return 0, nil
 }
 
 func parseArray(name, chType string, timezone *time.Location) (*Array, error) {

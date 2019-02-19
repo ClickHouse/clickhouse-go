@@ -193,7 +193,9 @@ func (block *Block) Write(serverInfo *ServerInfo, encoder *binary.Encoder) error
 		if len(block.buffers) == len(block.Columns) {
 			for _, offsets := range block.offsets[i] {
 				for _, offset := range offsets {
-					encoder.UInt64(uint64(offset))
+					if err := encoder.UInt64(uint64(offset)); err != nil {
+						return err
+					}
 				}
 			}
 			if _, err := block.buffers[i].WriteTo(encoder); err != nil {
