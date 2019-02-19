@@ -22,9 +22,11 @@ func Test_ColumnarInsert(t *testing.T) {
 				string  String,
 				fString FixedString(2),
 				date    Date,
-				datetime DateTime,
-				enum8    Enum8 ('a' = 1, 'b' = 2),
-				enum16   Enum16('c' = 1, 'd' = 2)
+				datetime   DateTime,
+				enum8      Enum8 ('a' = 1, 'b' = 2),
+				enum16     Enum16('c' = 1, 'd' = 2),
+				array      Array(String),
+				arrayArray Array(Array(String))
 			) Engine=Memory
 		`
 		dml = `
@@ -40,8 +42,12 @@ func Test_ColumnarInsert(t *testing.T) {
 				date,
 				datetime,
 				enum8,
-				enum16
+				enum16,
+				array,
+				arrayArray
 			) VALUES (
+				?,
+				?,
 				?,
 				?,
 				?,
@@ -97,7 +103,8 @@ func Test_ColumnarInsert(t *testing.T) {
 
 						block.WriteUInt8(10, 1)
 						block.WriteUInt16(11, 2)
-
+						block.WriteArray(12, []string{"A", "B", "C"})
+						block.WriteArray(13, [][]string{[]string{"A", "B"}, []string{"CC", "DD", "EE"}})
 						if !assert.NoError(t, err) {
 							return
 						}

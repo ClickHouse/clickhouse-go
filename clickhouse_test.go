@@ -502,7 +502,7 @@ func Test_ArrayT(t *testing.T) {
 				?,
 				?,
 				?,
-				?,
+				?
 				?,
 				?,
 				?,
@@ -546,9 +546,9 @@ func Test_ArrayT(t *testing.T) {
 								[]float32{32.1, 32.2},
 								[]float64{64.1, 64.2},
 								[]string{fmt.Sprintf("A_%d", i), "B", "C"},
-								clickhouse.ArrayFixedString(2, []string{"RU", "EN", "DE"}),
-								clickhouse.ArrayDate([]time.Time{time.Now(), time.Now()}),
-								clickhouse.ArrayDateTime([]time.Time{time.Now(), time.Now()}),
+								[]string{"RU", "EN", "DE"},
+								[]time.Time{time.Now(), time.Now()},
+								[]time.Time{time.Now(), time.Now()},
 								[]string{"a", "b"},
 								[]string{"c", "d"},
 							)
@@ -567,9 +567,9 @@ func Test_ArrayT(t *testing.T) {
 								[]float32{1000.1, 100.1, 2000},
 								[]float64{640, 8, 650.9, 703.5, 800},
 								[]string{fmt.Sprintf("D_%d", i), "E", "F", "G"},
-								clickhouse.ArrayFixedString(2, []string{"UA", "GB"}),
-								clickhouse.ArrayDate([]time.Time{time.Now(), time.Now(), time.Now(), time.Now()}),
-								clickhouse.ArrayDateTime([]time.Time{time.Now(), time.Now()}),
+								[]string{"UA", "GB"},
+								[]time.Time{time.Now(), time.Now(), time.Now(), time.Now()},
+								[]time.Time{time.Now(), time.Now()},
 								[]string{"a", "b"},
 								[]string{"c", "d"},
 							)
@@ -1148,6 +1148,56 @@ func Test_InArray(t *testing.T) {
 						}
 						assert.Equal(t, []string{"A", "C"}, value)
 
+					}
+				}
+			}
+		}
+	}
+}
+
+func TestArrayArrayT(t *testing.T) {
+	const (
+		ddl = `
+			CREATE TABLE clickhouse_test_array_array_t (
+				String Array(Array(String))
+				, String2 Array(String)
+				, Int32 Array(Int32)
+			) Engine=Memory
+		`
+		dml = `
+			INSERT INTO clickhouse_test_array_array_t (String, String2, Int32) VALUES (?)
+		`
+		query = `
+			SELECT
+				String
+			FROM clickhouse_test_array_array_t
+		`
+	)
+	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) && assert.NoError(t, connect.Ping()) {
+		if _, err := connect.Exec("DROP TABLE IF EXISTS clickhouse_test_array_array_t"); assert.NoError(t, err) {
+			if _, err := connect.Exec(ddl); assert.NoError(t, err) {
+				if tx, err := connect.Begin(); assert.NoError(t, err) {
+					if stmt, err := tx.Prepare(dml); assert.NoError(t, err) {
+						_, err = stmt.Exec([][]string{[]string{"A"}, []string{"B"}, []string{"C"}}, []string{"X", "Y"}, []int32{1, 2, 3})
+						if !assert.NoError(t, err) {
+							return
+						}
+						_, err = stmt.Exec([][]string{[]string{"AA"}, []string{"BB"}, []string{"C4C"}}, []string{"XX", "YY"}, []int32{4, 5, 6})
+						if !assert.NoError(t, err) {
+							return
+						}
+					} else {
+						return
+					}
+					if assert.NoError(t, tx.Commit()) {
+						/*	var value []string
+							if err := connect.QueryRow(query).Scan(&value); assert.NoError(t, err) {
+								if !assert.NoError(t, err) {
+									return
+								}
+							}
+							assert.Equal(t, []string{"A", "C"}, value)
+						*/
 					}
 				}
 			}
