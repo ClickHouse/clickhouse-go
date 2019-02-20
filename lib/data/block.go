@@ -95,8 +95,7 @@ func (block *Block) Read(serverInfo *ServerInfo, decoder *binary.Decoder) (err e
 	return nil
 }
 
-func (block *Block) prepareArray(arr interface{}, num, level int) (values []interface{}) {
-	value := reflect.ValueOf(arr)
+func (block *Block) prepareArray(value reflect.Value, num, level int) (values []interface{}) {
 	switch {
 	case value.Kind() == reflect.Slice:
 		if len(block.offsets[num]) < level {
@@ -108,7 +107,7 @@ func (block *Block) prepareArray(arr interface{}, num, level int) (values []inte
 			)
 		}
 		for i := 0; i < value.Len(); i++ {
-			values = append(values, block.prepareArray(value.Index(i).Interface(), num, level+1)...)
+			values = append(values, block.prepareArray(value.Index(i), num, level+1)...)
 		}
 	default:
 		values = append(values, value.Interface())
@@ -127,9 +126,14 @@ func (block *Block) AppendRow(args []driver.Value) error {
 	for num, c := range block.Columns {
 		switch column := c.(type) {
 		case *column.Array:
-			values := block.prepareArray(args[num], num, 1)
-			if err := column.Write(block.buffers[num].Column, values); err != nil {
-				return err
+			value := reflect.ValueOf(args[num])
+			if value.Kind() != reflect.Slice {
+				return fmt.Errorf("unsupported Array(T) type [%T]", value.Interface())
+			}
+			for _, value := range block.prepareArray(value, num, 1) {
+				if err := column.Write(block.buffers[num].Column, value); err != nil {
+					return err
+				}
 			}
 		case *column.Nullable:
 			if err := column.WriteNull(block.buffers[num].Offset, block.buffers[num].Column, args[num]); err != nil {

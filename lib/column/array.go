@@ -24,16 +24,7 @@ func (array *Array) Read(decoder *binary.Decoder) (interface{}, error) {
 }
 
 func (array *Array) Write(encoder *binary.Encoder, v interface{}) error {
-	value := reflect.ValueOf(v)
-	if value.Kind() != reflect.Slice {
-		return fmt.Errorf("unsupported Array(T) type [%T]", value.Interface())
-	}
-	for i := 0; i < value.Len(); i++ {
-		if err := array.column.Write(encoder, value.Index(i).Interface()); err != nil {
-			return err
-		}
-	}
-	return nil
+	return array.column.Write(encoder, v)
 }
 
 func (array *Array) ReadArray(decoder *binary.Decoder, rows int) (_ []interface{}, err error) {

@@ -1,6 +1,8 @@
 package data
 
 import (
+	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/kshvakov/clickhouse/lib/binary"
@@ -14,6 +16,13 @@ func (block *Block) WriteDate(c int, v time.Time) error {
 
 func (block *Block) WriteDateTime(c int, v time.Time) error {
 	return block.buffers[c].Column.UInt32(uint32(v.Unix()))
+}
+
+func (block *Block) WriteBool(c int, v bool) error {
+	if v {
+		return block.buffers[c].Column.UInt8(1)
+	}
+	return block.buffers[c].Column.UInt8(0)
 }
 
 func (block *Block) WriteInt8(c int, v int8) error {
@@ -81,9 +90,14 @@ func (block *Block) WriteFixedString(c int, v []byte) error {
 }
 
 func (block *Block) WriteArray(c int, v interface{}) error {
-	values := block.prepareArray(v, c, 1)
-	if err := block.Columns[c].Write(block.buffers[c].Column, values); err != nil {
-		return err
+	value := reflect.ValueOf(v)
+	if value.Kind() != reflect.Slice {
+		return fmt.Errorf("unsupported Array(T) type [%T]", value.Interface())
+	}
+	for _, value := range block.prepareArray(value, c, 1) {
+		if err := block.Columns[c].Write(block.buffers[c].Column, value); err != nil {
+			return err
+		}
 	}
 	return nil
 }
