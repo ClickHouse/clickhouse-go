@@ -94,10 +94,5 @@ func (block *Block) WriteArray(c int, v interface{}) error {
 	if value.Kind() != reflect.Slice {
 		return fmt.Errorf("unsupported Array(T) type [%T]", value.Interface())
 	}
-	for _, value := range block.prepareArray(value, c, 1) {
-		if err := block.Columns[c].Write(block.buffers[c].Column, value); err != nil {
-			return err
-		}
-	}
-	return nil
+	return block.writeArray(block.Columns[c], value, c, 1)
 }

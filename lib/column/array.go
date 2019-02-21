@@ -9,10 +9,6 @@ import (
 	"github.com/kshvakov/clickhouse/lib/binary"
 )
 
-type ArrayWriter interface {
-	WriteArray(encoder *binary.Encoder, column Column) (uint64, error)
-}
-
 type Array struct {
 	base
 	depth  int
