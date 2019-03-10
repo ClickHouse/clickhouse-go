@@ -25,13 +25,13 @@ func (wb *WriteBuffer) Write(data []byte) (int, error) {
 	)
 	for {
 		freeSize := cap(wb.chunks[chunkIdx]) - len(wb.chunks[chunkIdx])
-		if freeSize >= dataSize {
+		if freeSize >= len(data) {
 			wb.chunks[chunkIdx] = append(wb.chunks[chunkIdx], data...)
 			return dataSize, nil
 		}
 		wb.chunks[chunkIdx] = append(wb.chunks[chunkIdx], data[:freeSize]...)
 		data = data[freeSize:]
-		wb.addChunk(0, wb.calcCap(dataSize))
+		wb.addChunk(0, wb.calcCap(len(data)))
 		chunkIdx++
 	}
 }
