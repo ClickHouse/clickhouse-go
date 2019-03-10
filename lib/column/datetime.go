@@ -23,7 +23,9 @@ func (dt *DateTime) Write(encoder *binary.Encoder, v interface{}) error {
 	var timestamp int64
 	switch value := v.(type) {
 	case time.Time:
-		timestamp = value.Unix()
+		if !value.IsZero() {
+			timestamp = value.Unix()
+		}
 	case int16:
 		timestamp = int64(value)
 	case int32:
@@ -37,9 +39,10 @@ func (dt *DateTime) Write(encoder *binary.Encoder, v interface{}) error {
 			return err
 		}
 
-	// this relies on Nullable never sending nil values through
 	case *time.Time:
-		timestamp = (*value).Unix()
+		if value != nil && !(*value).IsZero() {
+			timestamp = (*value).Unix()
+		}
 	case *int16:
 		timestamp = int64(*value)
 	case *int32:
