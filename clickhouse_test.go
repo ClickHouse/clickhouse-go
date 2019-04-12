@@ -2,6 +2,7 @@ package clickhouse_test
 
 import (
 	"context"
+	"crypto/tls"
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
@@ -16,10 +17,39 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const (
+	tlsName = "default_tls"
+)
+
 func Test_OpenConnectAndPing(t *testing.T) {
 	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) {
 		assert.NoError(t, connect.Ping())
 	}
+}
+
+func Test_RegisterTLSConfig(t *testing.T) {
+	tlsConfig := &tls.Config{}
+
+	connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true&tls_config="+tlsName)
+	assert.NoError(t, err)
+	assert.EqualError(t, connect.Ping(), "invalid tls_config - no config registered under name default_tls")
+
+	err = clickhouse.RegisterTLSConfig(tlsName, tlsConfig)
+	assert.NoError(t, err)
+
+	connect, err = sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true&secure=false&tls_config="+tlsName)
+	assert.NoError(t, err)
+	assert.NoError(t, connect.Ping())
+
+	connect, err = sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true&tls_config="+tlsName)
+	assert.NoError(t, err)
+	assert.EqualError(t, connect.Ping(), "tls: first record does not look like a TLS handshake")
+
+	clickhouse.DeregisterTLSConfig(tlsName)
+
+	connect, err = sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true&tls_config="+tlsName)
+	assert.NoError(t, err)
+	assert.EqualError(t, connect.Ping(), "invalid tls_config - no config registered under name default_tls")
 }
 
 func Test_CreateTable(t *testing.T) {

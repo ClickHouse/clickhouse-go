@@ -26,7 +26,17 @@ const (
 	connOpenInOrder
 )
 
-func dial(secure, skipVerify bool, hosts []string, readTimeout, writeTimeout time.Duration, noDelay bool, openStrategy openStrategy, logf func(string, ...interface{})) (*connect, error) {
+type connOptions struct {
+	secure, skipVerify                     bool
+	tlsConfig                              *tls.Config
+	hosts                                  []string
+	connTimeout, readTimeout, writeTimeout time.Duration
+	noDelay                                bool
+	openStrategy                           openStrategy
+	logf                                   func(string, ...interface{})
+}
+
+func dial(options connOptions) (*connect, error) {
 	var (
 		err error
 		abs = func(v int) int {
@@ -38,40 +48,57 @@ func dial(secure, skipVerify bool, hosts []string, readTimeout, writeTimeout tim
 		conn  net.Conn
 		ident = abs(int(atomic.AddInt32(&tick, 1)))
 	)
-	for i := range hosts {
+	tlsConfig := options.tlsConfig
+	if options.secure {
+		if tlsConfig == nil {
+			tlsConfig = &tls.Config{}
+		}
+		tlsConfig.InsecureSkipVerify = options.skipVerify
+	}
+	for i := range options.hosts {
 		var num int
-		switch openStrategy {
+		switch options.openStrategy {
 		case connOpenInOrder:
 			num = i
 		case connOpenRandom:
-			num = (ident + i) % len(hosts)
+			num = (ident + i) % len(options.hosts)
 		}
 		switch {
-		case secure:
+		case options.secure:
 			conn, err = tls.DialWithDialer(
 				&net.Dialer{
 					Timeout: 5 * time.Second,
 				},
 				"tcp",
-				hosts[num],
-				&tls.Config{
-					InsecureSkipVerify: skipVerify,
-				})
+				options.hosts[num],
+				tlsConfig,
+			)
 		default:
-			conn, err = net.DialTimeout("tcp", hosts[num], 5*time.Second)
+			conn, err = net.DialTimeout("tcp", options.hosts[num], options.connTimeout)
 		}
 		if err == nil {
-			logf("[dial] secure=%t, skip_verify=%t, strategy=%s, ident=%d, server=%d -> %s", secure, skipVerify, openStrategy, ident, num, conn.RemoteAddr())
+			options.logf(
+				"[dial] secure=%t, skip_verify=%t, strategy=%s, ident=%d, server=%d -> %s",
+				options.secure,
+				options.skipVerify,
+				options.openStrategy,
+				ident,
+				num,
+				conn.RemoteAddr(),
+			)
 			if tcp, ok := conn.(*net.TCPConn); ok {
-				tcp.SetNoDelay(noDelay) // Disable or enable the Nagle Algorithm for this tcp socket
+				err = tcp.SetNoDelay(options.noDelay) // Disable or enable the Nagle Algorithm for this tcp socket
+				if err != nil {
+					return nil, err
+				}
 			}
 			return &connect{
 				Conn:         conn,
-				logf:         logf,
+				logf:         options.logf,
 				ident:        ident,
 				buffer:       bufio.NewReader(conn),
-				readTimeout:  readTimeout,
-				writeTimeout: writeTimeout,
+				readTimeout:  options.readTimeout,
+				writeTimeout: options.writeTimeout,
 			}, nil
 		}
 	}

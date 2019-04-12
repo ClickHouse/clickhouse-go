@@ -23,9 +23,15 @@ import (
 )
 
 const (
-	DefaultDatabase     = "default"
-	DefaultUsername     = "default"
-	DefaultReadTimeout  = time.Minute
+	// DefaultDatabase when connecting to ClickHouse
+	DefaultDatabase = "default"
+	// DefaultUsername when connecting to ClickHouse
+	DefaultUsername = "default"
+	// DefaultConnTimeout when connecting to ClickHouse
+	DefaultConnTimeout = 5 * time.Second
+	// DefaultReadTimeout when reading query results
+	DefaultReadTimeout = time.Minute
+	// DefaultWriteTimeout when sending queries
 	DefaultWriteTimeout = time.Minute
 )
 
@@ -58,10 +64,12 @@ func (d *bootstrap) Open(dsn string) (driver.Conn, error) {
 	return Open(dsn)
 }
 
+// SetLogOutput allows to change output of the default logger
 func SetLogOutput(output io.Writer) {
 	logOutput = output
 }
 
+// Open the connection
 func Open(dsn string) (driver.Conn, error) {
 	return open(dsn)
 }
@@ -75,13 +83,15 @@ func open(dsn string) (*clickhouse, error) {
 		hosts            = []string{url.Host}
 		query            = url.Query()
 		secure           = false
-		skipVerify       = true
+		skipVerify       = false
+		tlsConfigName    = query.Get("tls_config")
 		noDelay          = true
 		compress         = false
 		database         = query.Get("database")
 		username         = query.Get("username")
 		password         = query.Get("password")
 		blockSize        = 1000000
+		connTimeout      = DefaultConnTimeout
 		readTimeout      = DefaultReadTimeout
 		writeTimeout     = DefaultWriteTimeout
 		connOpenStrategy = connOpenRandom
@@ -93,14 +103,22 @@ func open(dsn string) (*clickhouse, error) {
 	if len(username) == 0 {
 		username = DefaultUsername
 	}
-	if v, err := strconv.ParseBool(query.Get("no_delay")); err == nil && !v {
-		noDelay = false
+	if v, err := strconv.ParseBool(query.Get("no_delay")); err == nil {
+		noDelay = v
 	}
-	if v, err := strconv.ParseBool(query.Get("secure")); err == nil && v {
-		secure = true
+	tlsConfig := getTLSConfigClone(tlsConfigName)
+	if tlsConfigName != "" && tlsConfig == nil {
+		return nil, fmt.Errorf("invalid tls_config - no config registered under name %s", tlsConfigName)
 	}
-	if v, err := strconv.ParseBool(query.Get("skip_verify")); err == nil && !v {
-		skipVerify = false
+	secure = tlsConfig != nil
+	if v, err := strconv.ParseBool(query.Get("secure")); err == nil {
+		secure = v
+	}
+	if v, err := strconv.ParseBool(query.Get("skip_verify")); err == nil {
+		skipVerify = v
+	}
+	if duration, err := strconv.ParseFloat(query.Get("timeout"), 64); err == nil {
+		connTimeout = time.Duration(duration * float64(time.Second))
 	}
 	if duration, err := strconv.ParseFloat(query.Get("read_timeout"), 64); err == nil {
 		readTimeout = time.Duration(duration * float64(time.Second))
@@ -131,8 +149,8 @@ func open(dsn string) (*clickhouse, error) {
 		connOpenStrategy = connOpenInOrder
 	}
 
-	if v, err := strconv.ParseBool(query.Get("compress")); err == nil && v {
-		compress = true
+	if v, err := strconv.ParseBool(query.Get("compress")); err == nil {
+		compress = v
 	}
 
 	var (
@@ -154,7 +172,19 @@ func open(dsn string) (*clickhouse, error) {
 		database,
 		username,
 	)
-	if ch.conn, err = dial(secure, skipVerify, hosts, readTimeout, writeTimeout, noDelay, connOpenStrategy, ch.logf); err != nil {
+	options := connOptions{
+		secure:       secure,
+		tlsConfig:    tlsConfig,
+		skipVerify:   skipVerify,
+		hosts:        hosts,
+		connTimeout:  connTimeout,
+		readTimeout:  readTimeout,
+		writeTimeout: writeTimeout,
+		noDelay:      noDelay,
+		openStrategy: connOpenStrategy,
+		logf:         ch.logf,
+	}
+	if ch.conn, err = dial(options); err != nil {
 		return nil, err
 	}
 	logger.SetPrefix(fmt.Sprintf("[clickhouse][connect=%d]", ch.conn.ident))
