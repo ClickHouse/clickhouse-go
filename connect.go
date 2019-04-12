@@ -87,7 +87,10 @@ func dial(options connOptions) (*connect, error) {
 				conn.RemoteAddr(),
 			)
 			if tcp, ok := conn.(*net.TCPConn); ok {
-				tcp.SetNoDelay(options.noDelay) // Disable or enable the Nagle Algorithm for this tcp socket
+				err = tcp.SetNoDelay(options.noDelay) // Disable or enable the Nagle Algorithm for this tcp socket
+				if err != nil {
+					return nil, err
+				}
 			}
 			return &connect{
 				Conn:         conn,

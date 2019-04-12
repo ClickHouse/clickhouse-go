@@ -20,8 +20,8 @@ type WriteBuffer struct {
 
 func (wb *WriteBuffer) Write(data []byte) (int, error) {
 	var (
-		chunkIdx = len(wb.chunks) - 1
-		dataSize = len(data)
+		chunkIdx    = len(wb.chunks) - 1
+		dataSize    = len(data)
 		writtenSize = 0
 	)
 	for {
