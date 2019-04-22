@@ -85,13 +85,38 @@ func (d *Decimal) write32(encoder *binary.Encoder, v interface{}) error {
 	case float64:
 		fixed := d.float2int32(float64(v))
 		return encoder.Int32(fixed)
+
+	// this relies on Nullable never sending nil values through
+	case *int8:
+		return encoder.Int32(int32(*v))
+	case *int16:
+		return encoder.Int32(int32(*v))
+	case *int32:
+		return encoder.Int32(int32(*v))
+	case *int64:
+		return errors.New("narrowing type conversion from int64 to int32")
+
+	case *uint8:
+		return encoder.Int32(int32(*v))
+	case *uint16:
+		return encoder.Int32(int32(*v))
+	case *uint32:
+		return errors.New("narrowing type conversion from uint32 to int32")
+	case *uint64:
+		return errors.New("narrowing type conversion from uint64 to int32")
+
+	case *float32:
+		fixed := d.float2int32(float64(*v))
+		return encoder.Int32(fixed)
+	case *float64:
+		fixed := d.float2int32(float64(*v))
+		return encoder.Int32(fixed)
 	}
 
 	return &ErrUnexpectedType{
 		T:      v,
 		Column: d,
 	}
-	return errors.New("narrowing type conversion from int64 to int32")
 }
 
 func (d *Decimal) write64(encoder *binary.Encoder, v interface{}) error {
@@ -121,6 +146,34 @@ func (d *Decimal) write64(encoder *binary.Encoder, v interface{}) error {
 		return encoder.Int64(fixed)
 	case float64:
 		fixed := d.float2int64(float64(v))
+		return encoder.Int64(fixed)
+
+	// this relies on Nullable never sending nil values through
+	case *int:
+		return encoder.Int64(int64(*v))
+	case *int8:
+		return encoder.Int64(int64(*v))
+	case *int16:
+		return encoder.Int64(int64(*v))
+	case *int32:
+		return encoder.Int64(int64(*v))
+	case *int64:
+		return encoder.Int64(int64(*v))
+
+	case *uint8:
+		return encoder.Int64(int64(*v))
+	case *uint16:
+		return encoder.Int64(int64(*v))
+	case *uint32:
+		return encoder.Int64(int64(*v))
+	case *uint64:
+		return errors.New("narrowing type conversion from uint64 to int64")
+
+	case *float32:
+		fixed := d.float2int64(float64(*v))
+		return encoder.Int64(fixed)
+	case *float64:
+		fixed := d.float2int64(float64(*v))
 		return encoder.Int64(fixed)
 	}
 
