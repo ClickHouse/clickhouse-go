@@ -37,7 +37,7 @@ func (datetime DateTime) convert() time.Time {
 		time.Time(datetime).Hour(),
 		time.Time(datetime).Minute(),
 		time.Time(datetime).Second(),
-		0,
+		1,
 		time.UTC,
 	)
 }
