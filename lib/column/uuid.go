@@ -52,7 +52,8 @@ func (u *UUID) Write(encoder *binary.Encoder, v interface{}) (err error) {
 		if len(v) != UUIDLen {
 			return fmt.Errorf("invalid raw UUID len '%s' (expected %d, got %d)", uuid, UUIDLen, len(uuid))
 		}
-		uuid = v
+		uuid = make([]byte, 16)
+		copy(uuid, v)
 	default:
 		return &ErrUnexpectedType{
 			T:      v,
