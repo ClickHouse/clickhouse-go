@@ -97,7 +97,7 @@ func open(dsn string) (*clickhouse, error) {
 		writeTimeout     = DefaultWriteTimeout
 		connOpenStrategy = connOpenRandom
 		poolSize         = 100
-		decimalMode      = column.DecimalAsInt
+		decimalMode      = 0 // column.DecimalAsInt
 	)
 	if len(database) == 0 {
 		database = DefaultDatabase

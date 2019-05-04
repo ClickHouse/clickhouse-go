@@ -62,7 +62,7 @@ func (d *Decimal) Read(decoder *binary.Decoder) (interface{}, error) {
 			}
 			low := stdbinary.LittleEndian.Uint64(buf[:8])
 			high := stdbinary.LittleEndian.Uint64(buf[8:16])
-			ret := float64(int64(high))*float64(2<<64) + float64(low)
+			ret := float64(int64(high))*float64(1<<64) + float64(low)
 			ret /= factors10[d.scale]
 			return ret, nil
 		default:
@@ -80,6 +80,11 @@ func (d *Decimal) Write(encoder *binary.Encoder, v interface{}) error {
 		return d.write32(encoder, v)
 	case 64:
 		return d.write64(encoder, v)
+	case 128:
+		if err := d.write64(encoder, v); err != nil {
+			return err
+		}
+		return encoder.UInt64(0)
 	default:
 		return errors.New("unachievable execution path")
 	}
