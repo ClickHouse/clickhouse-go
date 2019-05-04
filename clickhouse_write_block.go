@@ -34,7 +34,11 @@ func (ch *clickhouse) writeBlock(block *data.Block) error {
 		utils/compressor, TCPHandler.
 	*/
 	ch.encoder.SelectCompress(ch.compress)
-	err := block.Write(&ch.ServerInfo, ch.encoder)
+	option := data.BlockRWOption{
+		Timezone:    ch.ServerInfo.Timezone,
+		DecimalMode: ch.decimalMode,
+	}
+	err := block.Write(&option, ch.encoder)
 	ch.encoder.SelectCompress(false)
 	return err
 }

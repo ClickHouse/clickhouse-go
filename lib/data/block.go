@@ -6,6 +6,7 @@ import (
 	"io"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/kshvakov/clickhouse/lib/binary"
 	"github.com/kshvakov/clickhouse/lib/column"
@@ -13,6 +14,11 @@ import (
 )
 
 type offset [][]int
+
+type BlockRWOption struct {
+	Timezone    *time.Location
+	DecimalMode int
+}
 
 type Block struct {
 	Values     [][]interface{}
@@ -40,7 +46,7 @@ func (block *Block) ColumnNames() []string {
 	return names
 }
 
-func (block *Block) Read(serverInfo *ServerInfo, decoder *binary.Decoder) (err error) {
+func (block *Block) Read(option *BlockRWOption, decoder *binary.Decoder) (err error) {
 	if err = block.info.read(decoder); err != nil {
 		return err
 	}
@@ -69,7 +75,7 @@ func (block *Block) Read(serverInfo *ServerInfo, decoder *binary.Decoder) (err e
 		if columnType, err = decoder.String(); err != nil {
 			return err
 		}
-		c, err := column.Factory(columnName, columnType, serverInfo.Timezone)
+		c, err := column.Factory(columnName, columnType, option.Timezone, option.DecimalMode)
 		if err != nil {
 			return err
 		}
@@ -181,7 +187,7 @@ func (block *Block) Reset() {
 	}
 }
 
-func (block *Block) Write(serverInfo *ServerInfo, encoder *binary.Encoder) error {
+func (block *Block) Write(option *BlockRWOption, encoder *binary.Encoder) error {
 	if err := block.info.write(encoder); err != nil {
 		return err
 	}

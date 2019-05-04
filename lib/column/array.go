@@ -59,7 +59,7 @@ func (array *Array) read(decoder *binary.Decoder, ln int) (interface{}, error) {
 	return slice.Interface(), nil
 }
 
-func parseArray(name, chType string, timezone *time.Location) (*Array, error) {
+func parseArray(name, chType string, timezone *time.Location, decimalMode int) (*Array, error) {
 	if len(chType) < 11 {
 		return nil, fmt.Errorf("invalid Array column type: %s", chType)
 	}
@@ -78,7 +78,7 @@ loop:
 			break loop
 		}
 	}
-	column, err := Factory(name, chType, timezone)
+	column, err := Factory(name, chType, timezone, decimalMode)
 	if err != nil {
 		return nil, fmt.Errorf("Array(T): %v", err)
 	}

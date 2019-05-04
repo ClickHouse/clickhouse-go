@@ -63,11 +63,11 @@ func (null *Nullable) WriteNull(nulls, encoder *binary.Encoder, v interface{}) e
 	return null.column.Write(encoder, v)
 }
 
-func parseNullable(name, chType string, timezone *time.Location) (*Nullable, error) {
+func parseNullable(name, chType string, timezone *time.Location, decimalMode int) (*Nullable, error) {
 	if len(chType) < 14 {
 		return nil, fmt.Errorf("invalid Nullable column type: %s", chType)
 	}
-	column, err := Factory(name, chType[9:][:len(chType)-10], timezone)
+	column, err := Factory(name, chType[9:][:len(chType)-10], timezone, decimalMode)
 	if err != nil {
 		return nil, fmt.Errorf("Nullable(T): %v", err)
 	}

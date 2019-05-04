@@ -50,6 +50,7 @@ type clickhouse struct {
 	compress      bool
 	blockSize     int
 	inTransaction bool
+	decimalMode   int
 }
 
 func (ch *clickhouse) Prepare(query string) (driver.Stmt, error) {

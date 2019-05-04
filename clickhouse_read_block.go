@@ -11,7 +11,11 @@ func (ch *clickhouse) readBlock() (*data.Block, error) {
 
 	ch.decoder.SelectCompress(ch.compress)
 	var block data.Block
-	if err := block.Read(&ch.ServerInfo, ch.decoder); err != nil {
+	option := data.BlockRWOption{
+		Timezone:    ch.ServerInfo.Timezone,
+		DecimalMode: ch.decimalMode,
+	}
+	if err := block.Read(&option, ch.decoder); err != nil {
 		return nil, err
 	}
 	ch.decoder.SelectCompress(false)

@@ -18,7 +18,7 @@ type Column interface {
 	defaultValue() interface{}
 }
 
-func Factory(name, chType string, timezone *time.Location) (Column, error) {
+func Factory(name, chType string, timezone *time.Location, decimalMode int) (Column, error) {
 	switch chType {
 	case "Int8":
 		return &Int8{
@@ -140,15 +140,15 @@ func Factory(name, chType string, timezone *time.Location) (Column, error) {
 
 	switch {
 	case strings.HasPrefix(chType, "Array"):
-		return parseArray(name, chType, timezone)
+		return parseArray(name, chType, timezone, decimalMode)
 	case strings.HasPrefix(chType, "Nullable"):
-		return parseNullable(name, chType, timezone)
+		return parseNullable(name, chType, timezone, decimalMode)
 	case strings.HasPrefix(chType, "FixedString"):
 		return parseFixedString(name, chType)
 	case strings.HasPrefix(chType, "Enum8"), strings.HasPrefix(chType, "Enum16"):
 		return parseEnum(name, chType)
 	case strings.HasPrefix(chType, "Decimal"):
-		return parseDecimal(name, chType)
+		return parseDecimal(name, chType, decimalMode)
 	}
 	return nil, fmt.Errorf("column: unhandled type %v", chType)
 }

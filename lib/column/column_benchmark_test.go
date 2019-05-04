@@ -168,7 +168,7 @@ func Benchmark_Column_String(b *testing.B) {
 func Benchmark_Column_FixedString(b *testing.B) {
 	var (
 		str       = []byte(fmt.Sprintf("str_%d", time.Now().Unix()))
-		column, _ = Factory("", "FixedString(14)", time.Local)
+		column, _ = Factory("", "FixedString(14)", time.Local, 0)
 		encoder   = binary.NewEncoder(ioutil.Discard)
 	)
 	b.ResetTimer()
@@ -182,7 +182,7 @@ func Benchmark_Column_FixedString(b *testing.B) {
 
 func Benchmark_Column_Enum8(b *testing.B) {
 	var (
-		column, _ = Factory("", "Enum8('A'=1, 'B'=2, 'C'=3)", time.Local)
+		column, _ = Factory("", "Enum8('A'=1, 'B'=2, 'C'=3)", time.Local, 0)
 		encoder   = binary.NewEncoder(ioutil.Discard)
 	)
 	b.ResetTimer()
@@ -196,7 +196,7 @@ func Benchmark_Column_Enum8(b *testing.B) {
 
 func Benchmark_Column_Enum16(b *testing.B) {
 	var (
-		column, _ = Factory("", "Enum16('A'=1,'B'=2,'C'=3)", time.Local)
+		column, _ = Factory("", "Enum16('A'=1,'B'=2,'C'=3)", time.Local, 0)
 		encoder   = binary.NewEncoder(ioutil.Discard)
 	)
 	b.ResetTimer()
@@ -210,7 +210,7 @@ func Benchmark_Column_Enum16(b *testing.B) {
 
 func Benchmark_Column_Date(b *testing.B) {
 	var (
-		column, _ = Factory("", "Date", time.Local)
+		column, _ = Factory("", "Date", time.Local, 0)
 		encoder   = binary.NewEncoder(ioutil.Discard)
 		timeNow   = time.Now()
 	)
@@ -225,7 +225,7 @@ func Benchmark_Column_Date(b *testing.B) {
 
 func Benchmark_Column_DateTime(b *testing.B) {
 	var (
-		column, _ = Factory("", "DateTime", time.Local)
+		column, _ = Factory("", "DateTime", time.Local, 0)
 		encoder   = binary.NewEncoder(ioutil.Discard)
 		timeNow   = time.Now()
 	)

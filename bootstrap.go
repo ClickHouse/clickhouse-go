@@ -15,6 +15,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/kshvakov/clickhouse/lib/column"
 	"github.com/kshvakov/clickhouse/lib/leakypool"
 
 	"github.com/kshvakov/clickhouse/lib/binary"
@@ -96,6 +97,7 @@ func open(dsn string) (*clickhouse, error) {
 		writeTimeout     = DefaultWriteTimeout
 		connOpenStrategy = connOpenRandom
 		poolSize         = 100
+		decimalMode      = column.DecimalAsInt
 	)
 	if len(database) == 0 {
 		database = DefaultDatabase
@@ -153,6 +155,15 @@ func open(dsn string) (*clickhouse, error) {
 		compress = v
 	}
 
+	switch query.Get("decimal_mode") {
+	case "int":
+		decimalMode = column.DecimalAsInt
+	case "float":
+		decimalMode = column.DecimalAsFloat
+	default: // int
+		decimalMode = column.DecimalAsInt // as the default
+	}
+
 	var (
 		ch = clickhouse{
 			logf:      func(string, ...interface{}) {},
@@ -161,6 +172,7 @@ func open(dsn string) (*clickhouse, error) {
 			ServerInfo: data.ServerInfo{
 				Timezone: time.Local,
 			},
+			decimalMode: decimalMode,
 		}
 		logger = log.New(logOutput, "[clickhouse]", 0)
 	)

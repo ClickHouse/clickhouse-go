@@ -1,12 +1,18 @@
 package column
 
 import (
+	stdbinary "encoding/binary"
 	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 
 	"github.com/kshvakov/clickhouse/lib/binary"
+)
+
+const (
+	DecimalAsInt = iota
+	DecimalAsFloat
 )
 
 // Table of powers of 10 for fast casting from floating types to decimal type
@@ -25,14 +31,44 @@ type Decimal struct {
 	nobits    int // its domain is {32, 64}
 	precision int
 	scale     int
+	mode      int // its domain is {DecimalAsInt, DecimalAsFloat}
 }
 
 func (d *Decimal) Read(decoder *binary.Decoder) (interface{}, error) {
-	switch d.nobits {
-	case 32:
-		return decoder.Int32()
-	case 64:
-		return decoder.Int64()
+	switch d.mode {
+	case DecimalAsInt:
+		switch d.nobits {
+		case 32:
+			return decoder.Int32()
+		case 64:
+			return decoder.Int64()
+		default:
+			return nil, errors.New("unachievable execution path")
+		}
+
+	case DecimalAsFloat:
+		switch d.nobits {
+		case 32:
+			ret, err := decoder.Int32()
+			return float64(ret) / factors10[d.scale], err
+		case 64:
+			ret, err := decoder.Int64()
+			return float64(ret) / factors10[d.scale], err
+		case 128:
+			buf := make([]byte, 16)
+			// Fixed(ln int) ([]byte, error) {
+			if _, err := decoder.Get().Read(buf); err != nil {
+				return nil, err
+			}
+			low := stdbinary.LittleEndian.Uint64(buf[:8])
+			high := stdbinary.LittleEndian.Uint64(buf[8:16])
+			ret := float64(int64(high))*float64(2<<64) + float64(low)
+			ret /= factors10[d.scale]
+			return ret, nil
+		default:
+			return nil, errors.New("unachievable execution path")
+		}
+
 	default:
 		return nil, errors.New("unachievable execution path")
 	}
@@ -183,7 +219,7 @@ func (d *Decimal) write64(encoder *binary.Encoder, v interface{}) error {
 	}
 }
 
-func parseDecimal(name, chType string) (Column, error) {
+func parseDecimal(name, chType string, mode int) (Column, error) {
 	switch {
 	case len(chType) < 12:
 		fallthrough
@@ -224,17 +260,39 @@ func parseDecimal(name, chType string) (Column, error) {
 		return nil, errors.New("wrong scale of Decimal type")
 	}
 
-	switch {
-	case decimal.precision <= 9:
-		decimal.nobits = 32
-		decimal.valueOf = baseTypes[int32(0)]
-	case decimal.precision <= 18:
-		decimal.nobits = 64
-		decimal.valueOf = baseTypes[int64(0)]
-	case decimal.precision <= 38:
-		return nil, errors.New("Decimal128 is not supported")
+	decimal.mode = mode
+	switch mode {
+	case DecimalAsInt:
+		switch {
+		case decimal.precision <= 9:
+			decimal.nobits = 32
+			decimal.valueOf = baseTypes[int32(0)]
+		case decimal.precision <= 18:
+			decimal.nobits = 64
+			decimal.valueOf = baseTypes[int64(0)]
+		case decimal.precision <= 38:
+			return nil, errors.New("Decimal128 is not supported")
+		default:
+			return nil, errors.New("precision of Decimal exceeds max bound")
+		}
+
+	case DecimalAsFloat:
+		switch {
+		case decimal.precision <= 9:
+			decimal.nobits = 32
+			decimal.valueOf = baseTypes[float32(0)]
+		case decimal.precision <= 18:
+			decimal.nobits = 64
+			decimal.valueOf = baseTypes[float64(0)]
+		case decimal.precision <= 38:
+			decimal.nobits = 128
+			decimal.valueOf = baseTypes[float64(0)]
+		default:
+			return nil, errors.New("precision of Decimal exceeds max bound")
+		}
+
 	default:
-		return nil, errors.New("precision of Decimal exceeds max bound")
+		return nil, errors.New("unachievable execution path")
 	}
 
 	return decimal, nil
