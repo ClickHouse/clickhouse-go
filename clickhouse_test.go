@@ -1234,3 +1234,115 @@ func TestArrayArrayT(t *testing.T) {
 		}
 	}
 }
+
+func Test_LikeQuery(t *testing.T) {
+	const (
+		ddl = `
+			CREATE TABLE clickhouse_test_like (
+				firstName String,
+                lastName String
+			) Engine=Memory
+		`
+		dml = `
+			INSERT INTO clickhouse_test_like (
+  				firstName,
+				lastName
+			) VALUES (
+				?,
+                ?
+			)
+		`
+		query = `
+			SELECT
+				firstName,
+                lastName
+			FROM clickhouse_test_like 
+			WHERE firstName LIKE ? and lastName LIKE ? 
+		`
+	)
+	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) && assert.NoError(t, connect.Ping()) {
+		if _, err := connect.Exec("DROP TABLE IF EXISTS clickhouse_test_like"); assert.NoError(t, err) {
+			if _, err := connect.Exec(ddl); assert.NoError(t, err) {
+				if tx, err := connect.Begin(); assert.NoError(t, err) {
+					if stmt, err := tx.Prepare(dml); assert.NoError(t, err) {
+						var names = []struct{
+							First string
+							Last string
+						}{
+							{First: "JeanPierre", Last: "Baltasar"},{First: "DonPierre", Last: "Baltasar"},
+						}
+						for i := range names {
+							_, err = stmt.Exec(
+								names[i].First,
+								names[i].Last,
+							)
+							if !assert.NoError(t, err) {
+								return
+							}
+						}
+					}
+					if assert.NoError(t, tx.Commit()) {
+						var tests = []struct {
+							Param1 string
+							Param2 string
+							ExpectedFirst string
+							ExpectedLast string
+						}{
+							{
+								Param1: "Don%",
+								Param2: "%lta%",
+								ExpectedFirst: "DonPierre",
+								ExpectedLast: "Baltasar",
+							},
+							{
+								Param1: "%eanP%",
+								Param2: "%asar",
+								ExpectedFirst: "JeanPierre",
+								ExpectedLast: "Baltasar",
+							},
+							{
+								Param1: "Don",
+								Param2: "%asar",
+								ExpectedFirst: "",
+								ExpectedLast: "",
+							},
+							{
+								Param1: "Jean%",
+								Param2: "%",
+								ExpectedFirst: "JeanPierre",
+								ExpectedLast: "Baltasar",
+							},
+							{
+								Param1: "%",
+								Param2: "Baptiste",
+								ExpectedFirst: "",
+								ExpectedLast: "",
+							},
+						}
+
+						for _, test := range tests {
+							var result struct {
+								FirstName string
+								LastName  string
+							}
+							if rows, err := connect.Query(query, test.Param1, test.Param2); assert.NoError(t, err) {
+
+								for rows.Next() {
+									err := rows.Scan(
+										&result.FirstName,
+										&result.LastName,
+									)
+									if !assert.NoError(t, err) {
+										return
+									}
+								}
+								assert.Equal(t, test.ExpectedFirst, result.FirstName)
+								assert.Equal(t, test.ExpectedLast, result.LastName)
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
