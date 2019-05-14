@@ -17,6 +17,7 @@ func numInput(query string) int {
 		args           = make(map[string]struct{})
 		reader         = bytes.NewReader([]byte(query))
 		quote, keyword bool
+		like          = newMatcher("like")
 		limit          = newMatcher("limit")
 	)
 	for {
@@ -44,11 +45,10 @@ func numInput(query string) int {
 				char == '>',
 				char == '(',
 				char == ',',
-				char == '%',
 				char == '[':
 				keyword = true
 			default:
-				if limit.matchRune(char) {
+				if limit.matchRune(char) || like.matchRune(char) {
 					keyword = true
 				} else {
 					keyword = keyword && (char == ' ' || char == '\t' || char == '\n')
