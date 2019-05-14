@@ -682,6 +682,73 @@ func Test_ArrayT(t *testing.T) {
 	}
 }
 
+func Test_LikeQuery(t *testing.T) {
+	const (
+		ddl = `
+			CREATE TABLE clickhouse_test_like (
+				firstName String,
+                lastName String
+			) Engine=Memory
+		`
+		dml = `
+			INSERT INTO clickhouse_test_like (
+  				firstName,
+				lastName
+			) VALUES (
+				?,
+                ?
+			)
+		`
+		query = `
+			SELECT
+				firstName,
+                lastName
+			FROM clickhouse_test_like 
+			WHERE firstName LIKE ? and lastName LIKE ? 
+		`
+	)
+	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) && assert.NoError(t, connect.Ping()) {
+		if _, err := connect.Exec("DROP TABLE IF EXISTS clickhouse_test_like"); assert.NoError(t, err) {
+			if _, err := connect.Exec(ddl); assert.NoError(t, err) {
+				if tx, err := connect.Begin(); assert.NoError(t, err) {
+					if stmt, err := tx.Prepare(dml); assert.NoError(t, err) {
+
+							_, err = stmt.Exec(
+								"JeanPierre",
+								      "Kookoo",
+							)
+							if !assert.NoError(t, err) {
+								return
+							}
+					}
+					if assert.NoError(t, tx.Commit()) {
+						var result struct {
+							FirstName        string
+							LastName        string
+						}
+						if rows, err := connect.Query(query, "%eanP%", "%koo"); assert.NoError(t, err) {
+							var count int
+							for rows.Next() {
+								count++
+								err := rows.Scan(
+									&result.FirstName,
+									&result.LastName,
+								)
+								if !assert.NoError(t, err) {
+									return
+								}
+							}
+							assert.Equal(t, "JeanPierre", result.FirstName)
+							assert.Equal(t, "Kookoo", result.LastName)
+							assert.Equal(t, int(1), count)
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 func Test_Insert_FixedString(t *testing.T) {
 	const (
 		ddl = `
