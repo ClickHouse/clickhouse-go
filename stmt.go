@@ -107,6 +107,7 @@ func (stmt *stmt) bind(args []driver.NamedValue) string {
 		buf     bytes.Buffer
 		index   int
 		keyword bool
+		like   = newMatcher("like")
 		limit   = newMatcher("limit")
 	)
 	switch {
@@ -138,7 +139,6 @@ func (stmt *stmt) bind(args []driver.NamedValue) string {
 						char == '>',
 						char == '(',
 						char == ',',
-						char == '%',
 						char == '+',
 						char == '-',
 						char == '*',
@@ -146,7 +146,7 @@ func (stmt *stmt) bind(args []driver.NamedValue) string {
 						char == '[':
 						keyword = true
 					default:
-						if limit.matchRune(char) {
+						if limit.matchRune(char) || like.matchRune(char) {
 							keyword = true
 						} else {
 							keyword = keyword && unicode.IsSpace(char)
