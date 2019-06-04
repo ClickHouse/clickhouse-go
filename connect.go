@@ -102,13 +102,13 @@ func dial(options connOptions) (*connect, error) {
 			}, nil
 		} else {
 			options.logf(
-				"[dial] err=%v, secure=%t, skip_verify=%t, strategy=%s, ident=%d, addr=%s",
-				err,
+				"[dial err] secure=%t, skip_verify=%t, strategy=%s, ident=%d, addr=%s\n%#v",
 				options.secure,
 				options.skipVerify,
 				options.openStrategy,
 				ident,
 				options.hosts[num],
+				err,
 			)
 		}
 	}
