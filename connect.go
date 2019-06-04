@@ -76,17 +76,16 @@ func dial(options connOptions) (*connect, error) {
 		default:
 			conn, err = net.DialTimeout("tcp", options.hosts[num], options.connTimeout)
 		}
-		options.logf(
-			"[dial] err=%v, secure=%t, skip_verify=%t, strategy=%s, ident=%d, server=%d -> %s",
-			err,
-			options.secure,
-			options.skipVerify,
-			options.openStrategy,
-			ident,
-			num,
-			conn.RemoteAddr(),
-		)
 		if err == nil {
+			options.logf(
+				"[dial] secure=%t, skip_verify=%t, strategy=%s, ident=%d, server=%d -> %s",
+				options.secure,
+				options.skipVerify,
+				options.openStrategy,
+				ident,
+				num,
+				conn.RemoteAddr(),
+			)
 			if tcp, ok := conn.(*net.TCPConn); ok {
 				err = tcp.SetNoDelay(options.noDelay) // Disable or enable the Nagle Algorithm for this tcp socket
 				if err != nil {
@@ -101,6 +100,16 @@ func dial(options connOptions) (*connect, error) {
 				readTimeout:  options.readTimeout,
 				writeTimeout: options.writeTimeout,
 			}, nil
+		} else {
+			options.logf(
+				"[dial] err=%v, secure=%t, skip_verify=%t, strategy=%s, ident=%d, addr=%s",
+				err,
+				options.secure,
+				options.skipVerify,
+				options.openStrategy,
+				ident,
+				options.hosts[num],
+			)
 		}
 	}
 	return nil, err
