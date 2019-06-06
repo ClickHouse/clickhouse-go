@@ -103,7 +103,7 @@ func (cr *compressReader) readCompressedData() (err error) {
 			return
 		}
 	} else {
-		return fmt.Errorf("Unknown compression method: %d ", cr.header[16])
+		return fmt.Errorf("Unknown compression method: 0x%02x ", cr.header[16])
 	}
 
 	return nil
