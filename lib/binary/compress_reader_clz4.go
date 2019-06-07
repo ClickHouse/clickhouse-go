@@ -52,13 +52,10 @@ func (cr *compressReader) Read(buf []byte) (n int, err error) {
 		if err = cr.readCompressedData(); err != nil {
 			return bytesRead, err
 		}
-		if len(cr.data) < n-bytesRead {
-			bytesRead += len(cr.data)
-		} else {
-			bytesRead += n - bytesRead
-			cr.pos += n - bytesRead
-			break
-		}
+		copyedSize := copy(buf[bytesRead:], cr.data)
+
+		bytesRead += copyedSize
+		cr.pos = copyedSize
 	}
 	return n, nil
 }
@@ -103,7 +100,7 @@ func (cr *compressReader) readCompressedData() (err error) {
 			return
 		}
 	} else {
-		return fmt.Errorf("Unknown compression method: %d ", cr.header[0])
+		return fmt.Errorf("Unknown compression method: 0x%02x ", cr.header[16])
 	}
 
 	return nil
