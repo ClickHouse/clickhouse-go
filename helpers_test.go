@@ -27,9 +27,13 @@ func Test_NumInput(t *testing.T) {
 			?
 		)
 		`: 3,
-		"SELECT * from EXAMPLE LIMIT ?":    1,
-		"SELECT * from EXAMPLE LIMIT ?, ?": 2,
-		"SELECT * from EXAMPLE WHERE os_id like ?": 1,
+		"SELECT * from EXAMPLE LIMIT ?":                                       1,
+		"SELECT * from EXAMPLE LIMIT ?, ?":                                    2,
+		"SELECT * from EXAMPLE WHERE os_id like ?":                            1,
+		"SELECT * FROM example WHERE a BETWEEN ? AND ?":                       2,
+		"SELECT * FROM example WHERE a BETWEEN ? AND ? AND b = ?":             3,
+		"SELECT * FROM example WHERE a = ? AND b BETWEEN ? AND ?":             3,
+		"SELECT * FROM example WHERE a BETWEEN ? AND ? AND b BETWEEN ? AND ?": 4,
 	} {
 		assert.Equal(t, num, numInput(query), query)
 	}

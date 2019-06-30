@@ -17,8 +17,11 @@ func numInput(query string) int {
 		args           = make(map[string]struct{})
 		reader         = bytes.NewReader([]byte(query))
 		quote, keyword bool
-		like          = newMatcher("like")
+		inBetween      bool
+		like           = newMatcher("like")
 		limit          = newMatcher("limit")
+		between        = newMatcher("between")
+		and            = newMatcher("and")
 	)
 	for {
 		if char, _, err := reader.ReadRune(); err == nil {
@@ -50,6 +53,12 @@ func numInput(query string) int {
 			default:
 				if limit.matchRune(char) || like.matchRune(char) {
 					keyword = true
+				} else if between.matchRune(char) {
+					keyword = true
+					inBetween = true
+				} else if inBetween && and.matchRune(char) {
+					keyword = true
+					inBetween = false
 				} else {
 					keyword = keyword && (char == ' ' || char == '\t' || char == '\n')
 				}
