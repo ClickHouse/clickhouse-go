@@ -67,7 +67,7 @@ func dial(options connOptions) (*connect, error) {
 		case options.secure:
 			conn, err = tls.DialWithDialer(
 				&net.Dialer{
-					Timeout: 5 * time.Second,
+					Timeout: options.connTimeout,
 				},
 				"tcp",
 				options.hosts[num],
