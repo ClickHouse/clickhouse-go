@@ -1026,8 +1026,10 @@ func Test_IP(t *testing.T) {
 	const (
 		ddl = `
 			CREATE TABLE clickhouse_test_ip (
-				IPv4 FixedString(16),
-				IPv6 FixedString(16)
+				OldIPv4 FixedString(16),
+				OldIPv6 FixedString(16),
+				IPv4    IPv4,
+				IPv6    IPv6
 			) Engine=Memory;
 		`
 	)
@@ -1040,8 +1042,8 @@ func Test_IP(t *testing.T) {
 			if _, err := connect.Exec("DROP TABLE IF EXISTS clickhouse_test_ip"); assert.NoError(t, err) {
 				if _, err := tx.Exec(ddl); assert.NoError(t, err) {
 					if tx, err := connect.Begin(); assert.NoError(t, err) {
-						if stmt, err := tx.Prepare("INSERT INTO clickhouse_test_ip VALUES(?, ?)"); assert.NoError(t, err) {
-							if _, err := stmt.Exec(column.IP(ipv4), column.IP(ipv6)); !assert.NoError(t, err) {
+						if stmt, err := tx.Prepare("INSERT INTO clickhouse_test_ip VALUES(?, ?, ?, ?)"); assert.NoError(t, err) {
+							if _, err := stmt.Exec(column.IP(ipv4), column.IP(ipv6), ipv4, ipv6); !assert.NoError(t, err) {
 								t.Fatal(err)
 							}
 						}
@@ -1049,13 +1051,17 @@ func Test_IP(t *testing.T) {
 							t.Fatal(err)
 						}
 					}
-					if rows, err := connect.Query("SELECT IPv4, IPv6 FROM clickhouse_test_ip"); assert.NoError(t, err) {
+					if rows, err := connect.Query("SELECT OldIPv4, OldIPv6, IPv4, IPv6 FROM clickhouse_test_ip"); assert.NoError(t, err) {
 						if assert.True(t, rows.Next()) {
-							var v4, v6 column.IP
-							if err := rows.Scan(&v4, &v6); assert.NoError(t, err) {
-								if assert.Equal(t, ipv4, net.IP(v4)) {
-									assert.Equal(t, ipv6, net.IP(v6))
-								}
+							var (
+								oldIPv4, oldIPv6 column.IP
+								v4, v6           net.IP
+							)
+							if err := rows.Scan(&oldIPv4, &oldIPv6, &v4, &v6); assert.NoError(t, err) {
+								assert.Equal(t, net.IP(oldIPv4), ipv4)
+								assert.Equal(t, net.IP(oldIPv6), ipv6)
+								assert.Equal(t, v4, ipv4)
+								assert.Equal(t, v6, ipv6)
 							}
 						}
 					}
