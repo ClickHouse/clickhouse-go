@@ -43,6 +43,8 @@ tcp://host1:9000?username=user&password=qwerty&database=clicks&read_timeout=10&w
 * FixedString(N)
 * Date 
 * DateTime
+* IPv4
+* IPv6
 * Enum
 * UUID
 * Nullable(T)

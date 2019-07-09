@@ -136,6 +136,20 @@ func Factory(name, chType string, timezone *time.Location) (Column, error) {
 			},
 			Timezone: timezone,
 		}, nil
+	case "IPv4":
+		return &IPv4{
+			base: base{
+				name:   name,
+				chType: chType,
+			},
+		}, nil
+	case "IPv6":
+		return &IPv6{
+			base: base{
+				name:   name,
+				chType: chType,
+			},
+		}, nil
 	}
 
 	switch {
