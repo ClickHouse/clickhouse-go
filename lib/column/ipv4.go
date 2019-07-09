@@ -15,7 +15,7 @@ func (*IPv4) Read(decoder *binary.Decoder) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	return net.IPv4(v[0], v[1], v[2], v[3]), nil
+	return net.IPv4(v[3], v[2], v[1], v[0]), nil
 }
 
 func (ip *IPv4) Write(encoder *binary.Encoder, v interface{}) error {
@@ -26,7 +26,8 @@ func (ip *IPv4) Write(encoder *binary.Encoder, v interface{}) error {
 			Column: ip,
 		}
 	}
-	if _, err := encoder.Write([]byte(netIP.To4())); err != nil {
+	ip4 := netIP.To4()
+	if _, err := encoder.Write([]byte{ip4[3], ip4[2], ip4[1], ip4[0]}); err != nil {
 		return err
 	}
 	return nil
