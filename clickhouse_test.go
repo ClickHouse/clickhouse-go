@@ -376,6 +376,12 @@ func Test_Select(t *testing.T) {
 									assert.Equal(t, int(3), count)
 								}
 							}
+							if row := connect.QueryRow("SELECT COUNT(*) FROM clickhouse_test_select WHERE id BETWEEN ? AND ?", 0, 3); assert.NotNil(t, row) {
+								var count int
+								if err := row.Scan(&count); assert.NoError(t, err) {
+									assert.Equal(t, int(3), count)
+								}
+							}
 							if rows, err := connect.Query("SELECT id FROM clickhouse_test_select ORDER BY id LIMIT ?", 1); assert.NoError(t, err) {
 								i := 0
 								for rows.Next() {
