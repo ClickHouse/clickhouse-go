@@ -1262,8 +1262,8 @@ func Test_LikeQuery(t *testing.T) {
 			SELECT
 				firstName,
                 lastName
-			FROM clickhouse_test_like 
-			WHERE firstName LIKE ? and lastName LIKE ? 
+			FROM clickhouse_test_like
+			WHERE firstName LIKE ? and lastName LIKE ?
 		`
 	)
 	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) && assert.NoError(t, connect.Ping()) {
@@ -1271,11 +1271,11 @@ func Test_LikeQuery(t *testing.T) {
 			if _, err := connect.Exec(ddl); assert.NoError(t, err) {
 				if tx, err := connect.Begin(); assert.NoError(t, err) {
 					if stmt, err := tx.Prepare(dml); assert.NoError(t, err) {
-						var names = []struct{
+						var names = []struct {
 							First string
-							Last string
+							Last  string
 						}{
-							{First: "JeanPierre", Last: "Baltasar"},{First: "DonPierre", Last: "Baltasar"},
+							{First: "JeanPierre", Last: "Baltasar"}, {First: "DonPierre", Last: "Baltasar"},
 						}
 						for i := range names {
 							_, err = stmt.Exec(
@@ -1289,40 +1289,40 @@ func Test_LikeQuery(t *testing.T) {
 					}
 					if assert.NoError(t, tx.Commit()) {
 						var tests = []struct {
-							Param1 string
-							Param2 string
+							Param1        string
+							Param2        string
 							ExpectedFirst string
-							ExpectedLast string
+							ExpectedLast  string
 						}{
 							{
-								Param1: "Don%",
-								Param2: "%lta%",
+								Param1:        "Don%",
+								Param2:        "%lta%",
 								ExpectedFirst: "DonPierre",
-								ExpectedLast: "Baltasar",
+								ExpectedLast:  "Baltasar",
 							},
 							{
-								Param1: "%eanP%",
-								Param2: "%asar",
+								Param1:        "%eanP%",
+								Param2:        "%asar",
 								ExpectedFirst: "JeanPierre",
-								ExpectedLast: "Baltasar",
+								ExpectedLast:  "Baltasar",
 							},
 							{
-								Param1: "Don",
-								Param2: "%asar",
+								Param1:        "Don",
+								Param2:        "%asar",
 								ExpectedFirst: "",
-								ExpectedLast: "",
+								ExpectedLast:  "",
 							},
 							{
-								Param1: "Jean%",
-								Param2: "%",
+								Param1:        "Jean%",
+								Param2:        "%",
 								ExpectedFirst: "JeanPierre",
-								ExpectedLast: "Baltasar",
+								ExpectedLast:  "Baltasar",
 							},
 							{
-								Param1: "%",
-								Param2: "Baptiste",
+								Param1:        "%",
+								Param2:        "Baptiste",
 								ExpectedFirst: "",
-								ExpectedLast: "",
+								ExpectedLast:  "",
 							},
 						}
 
