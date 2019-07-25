@@ -20,19 +20,16 @@ type WriteBuffer struct {
 
 func (wb *WriteBuffer) Write(data []byte) (int, error) {
 	var (
-		chunkIdx    = len(wb.chunks) - 1
-		dataSize    = len(data)
-		writtenSize = 0
+		chunkIdx = len(wb.chunks) - 1
+		dataSize = len(data)
 	)
 	for {
 		freeSize := cap(wb.chunks[chunkIdx]) - len(wb.chunks[chunkIdx])
 		if freeSize >= len(data) {
 			wb.chunks[chunkIdx] = append(wb.chunks[chunkIdx], data...)
-			writtenSize += len(data)
-			return writtenSize, nil
+			return dataSize, nil
 		}
 		wb.chunks[chunkIdx] = append(wb.chunks[chunkIdx], data[:freeSize]...)
-		writtenSize += freeSize
 		data = data[freeSize:]
 		dataSize = dataSize - freeSize
 		wb.addChunk(0, wb.calcCap(len(data)))
