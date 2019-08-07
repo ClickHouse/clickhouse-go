@@ -234,3 +234,18 @@ func TestNullableEnumWithoutLeadZero(t *testing.T) {
 		}
 	}
 }
+
+func TestQuerySettings(t *testing.T) {
+	settings := "max_memory_usage=1000&max_execution_time=10&max_execution_speed=10"
+	connect, err := sql.Open(
+		"clickhouse",
+		"tcp://127.0.0.1:9000?debug=true"+"&"+settings,
+	)
+	require.Nil(t, err)
+	require.Nil(t, connect.Ping())
+	defer connect.Close()
+
+	_, err = connect.Query(`SELECT * FROM system.parts`)
+	require.NotNil(t, err)
+	require.Contains(t, err.Error(), "Memory limit")
+}

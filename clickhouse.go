@@ -47,6 +47,7 @@ type clickhouse struct {
 	buffer        *bufio.Writer
 	decoder       *binary.Decoder
 	encoder       *binary.Encoder
+	settings      *querySettings
 	compress      bool
 	blockSize     int
 	inTransaction bool
