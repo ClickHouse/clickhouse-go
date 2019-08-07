@@ -31,7 +31,6 @@ func (wb *WriteBuffer) Write(data []byte) (int, error) {
 		}
 		wb.chunks[chunkIdx] = append(wb.chunks[chunkIdx], data[:freeSize]...)
 		data = data[freeSize:]
-		dataSize = dataSize - freeSize
 		wb.addChunk(0, wb.calcCap(len(data)))
 		chunkIdx++
 	}
