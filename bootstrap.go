@@ -149,6 +149,11 @@ func open(dsn string) (*clickhouse, error) {
 		connOpenStrategy = connOpenInOrder
 	}
 
+	settings, err := makeQuerySettings(query)
+	if err != nil {
+		return nil, err
+	}
+
 	if v, err := strconv.ParseBool(query.Get("compress")); err == nil {
 		compress = v
 	}
@@ -156,6 +161,7 @@ func open(dsn string) (*clickhouse, error) {
 	var (
 		ch = clickhouse{
 			logf:      func(string, ...interface{}) {},
+			settings:  settings,
 			compress:  compress,
 			blockSize: blockSize,
 			ServerInfo: data.ServerInfo{

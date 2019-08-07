@@ -234,3 +234,35 @@ func TestNullableEnumWithoutLeadZero(t *testing.T) {
 		}
 	}
 }
+
+func TestQuerySettings(t *testing.T) {
+	for i := 0; i < len(querySettingList); i++ {
+		for j := i + 1; j < len(querySettingList); j++ {
+			require.NotEqual(t, querySettingList[i].name, querySettingList[j].name)
+		}
+	}
+
+	settings := ""
+	for _, info := range querySettingList {
+		settings += "&" + info.name + "="
+		switch info.qsType {
+		case uintQS, intQS, timeQS:
+			settings += "1000"
+		case boolQS:
+			settings += "false"
+		}
+	}
+
+	connect, err := sql.Open(
+		"clickhouse",
+		"tcp://127.0.0.1:9000?debug=true"+settings,
+	)
+	require.Nil(t, err)
+	require.Nil(t, connect.Ping())
+	defer connect.Close()
+
+	_, err = connect.Query(`SELECT * FROM system.parts`)
+	if err != nil {
+		require.NotContains(t, err.Error(), "Unknown setting")
+	}
+}
