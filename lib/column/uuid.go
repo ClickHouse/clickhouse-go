@@ -9,7 +9,10 @@ import (
 	"github.com/kshvakov/clickhouse/lib/binary"
 )
 
-const UUIDLen = 16
+const (
+	UUIDLen  = 16
+	NullUUID = "00000000-0000-0000-0000-000000000000"
+)
 
 var ErrInvalidUUIDFormat = errors.New("invalid UUID format")
 
@@ -84,6 +87,12 @@ func swap(src []byte) []byte {
 
 func uuid2bytes(str string) ([]byte, error) {
 	var uuid [16]byte
+	strLength := len(str)
+	if strLength == 0 {
+		str = NullUUID
+	} else if strLength != 36 {
+		return nil, ErrInvalidUUIDFormat
+	}
 	if str[8] != '-' || str[13] != '-' || str[18] != '-' || str[23] != '-' {
 		return nil, ErrInvalidUUIDFormat
 	}
