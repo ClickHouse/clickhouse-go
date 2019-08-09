@@ -697,8 +697,7 @@ func Test_Insert_FixedString(t *testing.T) {
 				str10 FixedString(10)
 			) Engine=Memory
 		`
-		dml   = `INSERT INTO clickhouse_test_fixed_string VALUES (?, ?, ?)`
-		query = `SELECT str2, str5, str10 FROM clickhouse_test_fixed_string`
+		dml = `INSERT INTO clickhouse_test_fixed_string VALUES (?, ?, ?)`
 	)
 	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) && assert.NoError(t, connect.Ping()) {
 		if _, err := connect.Exec("DROP TABLE IF EXISTS clickhouse_test_fixed_string"); assert.NoError(t, err) {
@@ -844,7 +843,7 @@ func Test_Temporary_Table(t *testing.T) {
 						var count int
 						for rows.Next() {
 							var num int
-							if err := rows.Scan(&num); !assert.NoError(t, err) {
+							if err = rows.Scan(&num); !assert.NoError(t, err) {
 								return
 							}
 							count++
@@ -988,7 +987,11 @@ func Test_UUID(t *testing.T) {
 		ddl = `
 			CREATE TABLE clickhouse_test_uuid (
 				UUID    FixedString(16),
-				Builtin UUID
+				Builtin UUID,
+			    BuiltinNullable Nullable(UUID),
+			    BN2 Nullable(UUID),
+			    BN3 Nullable(UUID),
+			    BN4 Nullable(UUID)
 			) Engine=Memory;
 		`
 	)
@@ -998,7 +1001,16 @@ func Test_UUID(t *testing.T) {
 				if _, err := tx.Exec(ddl); assert.NoError(t, err) {
 					if tx, err := connect.Begin(); assert.NoError(t, err) {
 						if stmt, err := tx.Prepare("INSERT INTO clickhouse_test_uuid VALUES(?)"); assert.NoError(t, err) {
-							if _, err := stmt.Exec(types.UUID("123e4567-e89b-12d3-a456-426655440000"), "123e4567-e89b-12d3-a456-426655440000"); !assert.NoError(t, err) {
+							var uuid2 *string
+							uuid3 := ""
+							if _, err := stmt.Exec(
+								types.UUID("123e4567-e89b-12d3-a456-426655440000"),
+								"123e4567-e89b-12d3-a456-426655440000",
+								"123e4567-e89b-12d3-a456-426655440000",
+								uuid2,  //nil только в этом случае реально nil в базу запишет, дело в reflect?
+								uuid3,  // пустая строка
+								&uuid3, //указатель
+							); !assert.NoError(t, err) {
 								t.Fatal(err)
 							}
 						}
@@ -1007,17 +1019,26 @@ func Test_UUID(t *testing.T) {
 						}
 					}
 
-					if rows, err := connect.Query("SELECT UUID, UUIDNumToString(UUID), Builtin FROM clickhouse_test_uuid"); assert.NoError(t, err) {
+					if rows, err := connect.Query("SELECT UUID, UUIDNumToString(UUID), Builtin, BuiltinNullable, BN2, BN3, BN4 FROM clickhouse_test_uuid"); assert.NoError(t, err) {
 						if assert.True(t, rows.Next()) {
 							var (
-								uuid        types.UUID
-								uuidStr     string
-								builtinUUID string
+								uuid            types.UUID
+								uuidStr         string
+								builtinUUID     string
+								builtinNullable sql.NullString
+								bn2             sql.NullString
+								bn3             sql.NullString
+								bn4             sql.NullString
 							)
-							if err := rows.Scan(&uuid, &uuidStr, &builtinUUID); assert.NoError(t, err) {
+							if err := rows.Scan(&uuid, &uuidStr, &builtinUUID, &builtinNullable, &bn2, &bn3, &bn4); assert.NoError(t, err) {
 								if assert.Equal(t, "123e4567-e89b-12d3-a456-426655440000", uuidStr) {
 									assert.Equal(t, types.UUID("123e4567-e89b-12d3-a456-426655440000"), uuid)
 									assert.Equal(t, "123e4567-e89b-12d3-a456-426655440000", builtinUUID)
+									assert.Equal(t, "123e4567-e89b-12d3-a456-426655440000", builtinNullable.String)
+									assert.Equal(t, "", bn2.String)
+									assert.False(t, bn2.Valid)
+									assert.Equal(t, column.NullUUID, bn3.String)
+									assert.Equal(t, column.NullUUID, bn4.String)
 								}
 							}
 						}

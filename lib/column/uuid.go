@@ -51,6 +51,13 @@ func (u *UUID) Write(encoder *binary.Encoder, v interface{}) (err error) {
 		if uuid, err = uuid2bytes(v); err != nil {
 			return err
 		}
+
+		// this relies on Nullable never sending nil values through
+	case *string:
+		//log.Println("dsfd")
+		if uuid, err = uuid2bytes(*v); err != nil {
+			return err
+		}
 	case []byte:
 		if len(v) != UUIDLen {
 			return fmt.Errorf("invalid raw UUID len '%s' (expected %d, got %d)", uuid, UUIDLen, len(uuid))

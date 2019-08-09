@@ -128,7 +128,7 @@ func (block *Block) AppendRow(args []driver.Value) error {
 		block.NumRows++
 	}
 	for num, c := range block.Columns {
-		switch column := c.(type) {
+		switch col := c.(type) {
 		case *column.Array:
 			value := reflect.ValueOf(args[num])
 			if value.Kind() != reflect.Slice {
@@ -138,11 +138,11 @@ func (block *Block) AppendRow(args []driver.Value) error {
 				return err
 			}
 		case *column.Nullable:
-			if err := column.WriteNull(block.buffers[num].Offset, block.buffers[num].Column, args[num]); err != nil {
+			if err := col.WriteNull(block.buffers[num].Offset, block.buffers[num].Column, args[num]); err != nil {
 				return err
 			}
 		default:
-			if err := column.Write(block.buffers[num].Column, args[num]); err != nil {
+			if err := col.Write(block.buffers[num].Column, args[num]); err != nil {
 				return err
 			}
 		}
