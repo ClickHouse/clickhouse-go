@@ -1,6 +1,6 @@
 # ClickHouse [![Build Status](https://travis-ci.org/kshvakov/clickhouse.svg?branch=master)](https://travis-ci.org/kshvakov/clickhouse) [![Go Report Card](https://goreportcard.com/badge/github.com/kshvakov/clickhouse)](https://goreportcard.com/report/github.com/kshvakov/clickhouse) [![codecov](https://codecov.io/gh/kshvakov/clickhouse/branch/master/graph/badge.svg)](https://codecov.io/gh/kshvakov/clickhouse)
 
-Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/) 
+Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/)
 
 ## Key features
 
@@ -10,15 +10,15 @@ Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/)
 * Bulk write support :  `begin->prepare->(in loop exec)->commit`
 * LZ4 compression support (default to use pure go lz4, switch to use cgo lz4 by turn clz4 build tags on)
 
-## DSN 
+## DSN
 
 * username/password - auth credentials
 * database - select the current default database
-* read_timeout/write_timeout - timeout in second 
+* read_timeout/write_timeout - timeout in second
 * no_delay   - disable/enable the Nagle Algorithm for tcp socket (default is 'true' - disable)
 * alt_hosts  - comma separated list of single address host for load-balancing
-* connection_open_strategy - random/in_order (default random). 
-    * random   - choose random server from set 
+* connection_open_strategy - random/in_order (default random).
+    * random   - choose random server from set
     * in_order - first live server is choosen in specified order
 * block_size - maximum rows in block (default is 1000000). If the rows are larger then the data will be split into several blocks to send them to the server
 * pool size - maximum amount of preallocated byte chunks used in queries (default is 100). Decrease this if you experience memory problems at the expense of more GC pressure and vice versa.
@@ -41,7 +41,7 @@ tcp://host1:9000?username=user&password=qwerty&database=clicks&read_timeout=10&w
 * Float32, Float64
 * String
 * FixedString(N)
-* Date 
+* Date
 * DateTime
 * IPv4
 * IPv6
@@ -60,7 +60,7 @@ go get -u github.com/kshvakov/clickhouse
 ```
 
 ## Example
-```go 
+```go
 package main
 
 import (
@@ -140,6 +140,10 @@ func main() {
 			log.Fatal(err)
 		}
 		log.Printf("country: %s, os: %d, browser: %d, categories: %v, action_day: %s, action_time: %s", country, os, browser, categories, actionDay, actionTime)
+	}
+
+	if err := rows.Err(); err != nil {
+		log.Fatal(err)
 	}
 
 	if _, err := connect.Exec("DROP TABLE example"); err != nil {
