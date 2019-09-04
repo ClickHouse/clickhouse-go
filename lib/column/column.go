@@ -16,6 +16,7 @@ type Column interface {
 	Read(*binary.Decoder) (interface{}, error)
 	Write(*binary.Encoder, interface{}) error
 	defaultValue() interface{}
+	Depth() int
 }
 
 func Factory(name, chType string, timezone *time.Location) (Column, error) {

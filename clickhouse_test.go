@@ -1228,6 +1228,18 @@ func TestArrayArrayT(t *testing.T) {
 						if !assert.NoError(t, err) {
 							return
 						}
+						_, err = stmt.Exec(
+							[][][]byte{
+								[][]byte{[]byte("AA")},
+								[][]byte{[]byte("BB")},
+								[][]byte{[]byte("C4C")},
+							},
+							[][]byte{[]byte("XX"), []byte("YY")},
+							[]int32{4, 5, 6},
+						)
+						if !assert.NoError(t, err) {
+							return
+						}
 					} else {
 						return
 					}

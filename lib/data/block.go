@@ -96,6 +96,9 @@ func (block *Block) Read(serverInfo *ServerInfo, decoder *binary.Decoder) (err e
 }
 
 func (block *Block) writeArray(column column.Column, value reflect.Value, num, level int) error {
+	if level > column.Depth() {
+		return column.Write(block.buffers[num].Column, value.Interface())
+	}
 	switch {
 	case value.Kind() == reflect.Slice:
 		if len(block.offsets[num]) < level {
