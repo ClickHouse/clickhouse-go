@@ -59,6 +59,10 @@ func (array *Array) read(decoder *binary.Decoder, ln int) (interface{}, error) {
 	return slice.Interface(), nil
 }
 
+func (array *Array) Depth() int {
+	return array.depth
+}
+
 func parseArray(name, chType string, timezone *time.Location) (*Array, error) {
 	if len(chType) < 11 {
 		return nil, fmt.Errorf("invalid Array column type: %s", chType)

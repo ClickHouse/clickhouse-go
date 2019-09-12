@@ -54,3 +54,7 @@ func (base *base) defaultValue() interface{} {
 func (base *base) String() string {
 	return fmt.Sprintf("%s (%s)", base.name, base.chType)
 }
+
+func (base *base) Depth() int {
+	return 0
+}
