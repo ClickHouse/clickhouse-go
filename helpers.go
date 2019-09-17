@@ -13,23 +13,30 @@ import (
 func numInput(query string) int {
 
 	var (
-		count          int
-		args           = make(map[string]struct{})
-		reader         = bytes.NewReader([]byte(query))
-		quote, keyword bool
-		inBetween      bool
-		like           = newMatcher("like")
-		limit          = newMatcher("limit")
-		between        = newMatcher("between")
-		and            = newMatcher("and")
+		count         int
+		args          = make(map[string]struct{})
+		reader        = bytes.NewReader([]byte(query))
+		quote, gravis bool
+		keyword       bool
+		inBetween     bool
+		like          = newMatcher("like")
+		limit         = newMatcher("limit")
+		between       = newMatcher("between")
+		and           = newMatcher("and")
 	)
 	for {
 		if char, _, err := reader.ReadRune(); err == nil {
 			switch char {
-			case '\'', '`':
-				quote = !quote
+			case '\'':
+				if !gravis {
+					quote = !quote
+				}
+			case '`':
+				if !quote {
+					gravis = !gravis
+				}
 			}
-			if quote {
+			if quote || gravis {
 				continue
 			}
 			switch {
