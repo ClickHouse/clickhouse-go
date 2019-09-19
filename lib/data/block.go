@@ -95,7 +95,7 @@ func (block *Block) Read(serverInfo *ServerInfo, decoder *binary.Decoder) (err e
 	return nil
 }
 
-func (block *Block) writeArray(column column.Column, value reflect.Value, num, level int) error {
+func (block *Block) writeArray(column column.Column, value Value, num, level int) error {
 	if level > column.Depth() {
 		return column.Write(block.buffers[num].Column, value.Interface())
 	}
@@ -137,7 +137,7 @@ func (block *Block) AppendRow(args []driver.Value) error {
 			if value.Kind() != reflect.Slice {
 				return fmt.Errorf("unsupported Array(T) type [%T]", value.Interface())
 			}
-			if err := block.writeArray(c, value, num, 1); err != nil {
+			if err := block.writeArray(c, newValue(value), num, 1); err != nil {
 				return err
 			}
 		case *column.Nullable:

@@ -2,10 +2,12 @@ package clickhouse_test
 
 import (
 	"database/sql/driver"
+	"reflect"
 	"testing"
 	"time"
 
 	"github.com/kshvakov/clickhouse"
+	"github.com/kshvakov/clickhouse/lib/data"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -26,6 +28,7 @@ func Test_ColumnarInsert(t *testing.T) {
 				enum8      Enum8 ('a' = 1, 'b' = 2),
 				enum16     Enum16('c' = 1, 'd' = 2),
 				array      Array(String),
+				array2     Array(String),
 				arrayArray Array(Array(String))
 			) Engine=Memory
 		`
@@ -44,6 +47,7 @@ func Test_ColumnarInsert(t *testing.T) {
 				enum8,
 				enum16,
 				array,
+				array2,
 				arrayArray
 			) VALUES (
 				?,
@@ -104,7 +108,8 @@ func Test_ColumnarInsert(t *testing.T) {
 						block.WriteUInt8(10, 1)
 						block.WriteUInt16(11, 2)
 						block.WriteArray(12, []string{"A", "B", "C"})
-						block.WriteArray(13, [][]string{[]string{"A", "B"}, []string{"CC", "DD", "EE"}})
+						block.WriteArrayWithValue(13, stringSliceValue{value: []string{"A", "B", "C"}})
+						block.WriteArray(14, [][]string{[]string{"A", "B"}, []string{"CC", "DD", "EE"}})
 						if !assert.NoError(t, err) {
 							return
 						}
@@ -115,4 +120,43 @@ func Test_ColumnarInsert(t *testing.T) {
 			}
 		}
 	}
+}
+
+type stringValue struct {
+	value string
+}
+
+func (v stringValue) Kind() reflect.Kind {
+	return reflect.String
+}
+
+func (v stringValue) Len() int {
+	panic("string has no length")
+}
+func (v stringValue) Index(i int) data.Value {
+	panic("string has no index")
+}
+
+func (v stringValue) Interface() interface{} {
+	return v.value
+}
+
+type stringSliceValue struct {
+	value []string
+}
+
+func (v stringSliceValue) Kind() reflect.Kind {
+	return reflect.Slice
+}
+
+func (v stringSliceValue) Len() int {
+	return len(v.value)
+}
+
+func (v stringSliceValue) Index(i int) data.Value {
+	return stringValue{value: v.value[i]}
+}
+
+func (v stringSliceValue) Interface() interface{} {
+	return v.value
 }
