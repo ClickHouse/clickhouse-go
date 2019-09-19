@@ -28,7 +28,7 @@ func Test_ColumnarInsert(t *testing.T) {
 				enum8      Enum8 ('a' = 1, 'b' = 2),
 				enum16     Enum16('c' = 1, 'd' = 2),
 				array      Array(String),
-				array2     Array(String),
+				array2     Array(UInt64),
 				arrayArray Array(Array(String))
 			) Engine=Memory
 		`
@@ -108,7 +108,7 @@ func Test_ColumnarInsert(t *testing.T) {
 						block.WriteUInt8(10, 1)
 						block.WriteUInt16(11, 2)
 						block.WriteArray(12, []string{"A", "B", "C"})
-						block.WriteArrayWithValue(13, stringSliceValue{value: []string{"A", "B", "C"}})
+						block.WriteArrayWithValue(13, uint64SliceValue{value: []uint64{1, 2, 3}})
 						block.WriteArray(14, [][]string{[]string{"A", "B"}, []string{"CC", "DD", "EE"}})
 						if !assert.NoError(t, err) {
 							return
@@ -122,41 +122,42 @@ func Test_ColumnarInsert(t *testing.T) {
 	}
 }
 
-type stringValue struct {
-	value string
+type uint64Value struct {
+	value uint64
 }
 
-func (v stringValue) Kind() reflect.Kind {
+func (v uint64Value) Kind() reflect.Kind {
 	return reflect.String
 }
 
-func (v stringValue) Len() int {
-	panic("string has no length")
-}
-func (v stringValue) Index(i int) data.Value {
-	panic("string has no index")
+func (v uint64Value) Len() int {
+	panic("uint64 has no length")
 }
 
-func (v stringValue) Interface() interface{} {
+func (v uint64Value) Index(i int) data.Value {
+	panic("uint64 has no index")
+}
+
+func (v uint64Value) Interface() interface{} {
 	return v.value
 }
 
-type stringSliceValue struct {
-	value []string
+type uint64SliceValue struct {
+	value []uint64
 }
 
-func (v stringSliceValue) Kind() reflect.Kind {
+func (v uint64SliceValue) Kind() reflect.Kind {
 	return reflect.Slice
 }
 
-func (v stringSliceValue) Len() int {
+func (v uint64SliceValue) Len() int {
 	return len(v.value)
 }
 
-func (v stringSliceValue) Index(i int) data.Value {
-	return stringValue{value: v.value[i]}
+func (v uint64SliceValue) Index(i int) data.Value {
+	return uint64Value{value: v.value[i]}
 }
 
-func (v stringSliceValue) Interface() interface{} {
+func (v uint64SliceValue) Interface() interface{} {
 	return v.value
 }
