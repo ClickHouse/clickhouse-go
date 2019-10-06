@@ -717,6 +717,157 @@ func Test_Insert_FixedString(t *testing.T) {
 	}
 }
 
+func Test_Insert_Date_DateTime(t *testing.T) {
+	const (
+		ddl = `
+			CREATE TABLE clickhouse_test_insert_date_datetime (
+				id       Int,
+				date     Date,
+				datetime DateTime
+			) Engine=Memory
+		`
+		dml = `
+			INSERT INTO clickhouse_test_insert_date_datetime (
+				id,
+				date,
+				datetime
+			) VALUES (
+				?,
+				?,
+				?
+			)
+		`
+		query = `
+			SELECT
+				id,
+				date,
+				datetime
+			FROM clickhouse_test_insert_date_datetime
+		`
+	)
+	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) && assert.NoError(t, connect.Ping()) {
+		if _, err := connect.Exec("DROP TABLE IF EXISTS clickhouse_test_insert_date_datetime"); assert.NoError(t, err) {
+			if _, err := connect.Exec(ddl); assert.NoError(t, err) {
+				if tx, err := connect.Begin(); assert.NoError(t, err) {
+					type item struct {
+						id               int
+						date             time.Time
+						datetime         time.Time
+						dateReturned     time.Time
+						datetimeReturned time.Time
+					}
+					testCases := map[int]item{
+						1: {
+							id:               1,
+							date:             time.Time{},
+							datetime:         time.Time{},
+							dateReturned:     time.Time{},
+							datetimeReturned: time.Time{},
+						},
+						2: {
+							id:               2,
+							date:             time.Unix(0, 0),
+							datetime:         time.Unix(0, 0),
+							dateReturned:     time.Time{},
+							datetimeReturned: time.Time{},
+						},
+						3: {
+							id:               3,
+							date:             time.Date(1969, 12, 31, 23, 59, 59, 0, time.UTC),
+							datetime:         time.Date(1969, 12, 31, 23, 59, 59, 0, time.UTC),
+							dateReturned:     time.Time{},
+							datetimeReturned: time.Time{},
+						},
+						4: {
+							id:               4,
+							date:             time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC),
+							datetime:         time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC),
+							dateReturned:     time.Time{},
+							datetimeReturned: time.Time{},
+						},
+						5: {
+							id:               5,
+							date:             time.Date(1970, 1, 2, 0, 0, 0, 0, time.UTC),
+							datetime:         time.Date(1970, 1, 2, 2, 3, 4, 0, time.UTC),
+							dateReturned:     time.Date(1970, 1, 2, 0, 0, 0, 0, time.UTC),
+							datetimeReturned: time.Date(1970, 1, 2, 2, 3, 4, 0, time.UTC),
+						},
+						6: {
+							id:               6,
+							date:             time.Date(1971, 1, 1, 0, 0, 0, 0, time.UTC),
+							datetime:         time.Date(1971, 1, 1, 2, 3, 4, 0, time.UTC),
+							dateReturned:     time.Date(1971, 1, 1, 0, 0, 0, 0, time.UTC),
+							datetimeReturned: time.Date(1971, 1, 1, 2, 3, 4, 0, time.UTC),
+						},
+						7: {
+							id:               7,
+							date:             time.Date(2019, 1, 1, 0, 0, 0, 0, time.UTC),
+							datetime:         time.Date(2019, 1, 1, 2, 3, 4, 0, time.UTC),
+							dateReturned:     time.Date(2019, 1, 1, 0, 0, 0, 0, time.UTC),
+							datetimeReturned: time.Date(2019, 1, 1, 2, 3, 4, 0, time.UTC),
+						},
+						8: {
+							id:               8,
+							date:             time.Date(2105, 12, 31, 0, 0, 0, 0, time.UTC),
+							datetime:         time.Date(2105, 12, 31, 23, 59, 59, 0, time.UTC),
+							dateReturned:     time.Date(2105, 12, 31, 0, 0, 0, 0, time.UTC),
+							datetimeReturned: time.Date(2105, 12, 31, 23, 59, 59, 0, time.UTC),
+						},
+						9: {
+							id:               9,
+							date:             time.Date(2106, 1, 1, 0, 0, 0, 0, time.UTC),
+							datetime:         time.Date(2106, 1, 1, 0, 0, 0, 0, time.UTC),
+							dateReturned:     time.Time{},
+							datetimeReturned: time.Time{},
+						},
+					}
+					if stmt, err := tx.Prepare(dml); assert.NoError(t, err) {
+						for _, tt := range testCases {
+							_, err = stmt.Exec(
+								tt.id,
+								tt.date,
+								tt.datetime,
+							)
+							if !assert.NoError(t, err) {
+								return
+							}
+						}
+					} else {
+						return
+					}
+					if assert.NoError(t, tx.Commit()) {
+						var it item
+						if rows, err := connect.Query(query); assert.NoError(t, err) {
+							for rows.Next() {
+								err := rows.Scan(
+									&it.id,
+									&it.date,
+									&it.datetime,
+								)
+								if !assert.NoError(t, err) {
+									return
+								}
+								expected, ok := testCases[it.id]
+								if !assert.True(t, ok) {
+									return
+								}
+								if !assert.Equal(t, expected.dateReturned.UTC(), it.date.UTC(),
+									"failed date field for item: %d", expected.id) {
+									return
+								}
+								if !assert.Equal(t, expected.datetimeReturned.UTC(), it.datetime.UTC(),
+									"failed datetime field for item: %d", expected.id) {
+									return
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 func Test_With_Totals(t *testing.T) {
 	const (
 		ddl = `

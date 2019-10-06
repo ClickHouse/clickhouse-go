@@ -6,6 +6,17 @@ import (
 	"github.com/kshvakov/clickhouse/lib/binary"
 )
 
+// Clickhouse has a limitation for Date/DateTime types: 1970-01-01 - 2106-01-01.
+// All dates that are out of this range are truncated to 0000-00-00.
+// More info:
+// https://clickhouse.yandex/docs/en/data_types/date/
+// https://clickhouse.yandex/docs/en/data_types/datetime/
+const (
+	minTimestamp int64 = 0
+	maxTimestamp int64 = 4291747200 // 2106-01-01 00:00:00 +0000 UTC
+)
+
+// NOTE: Supported values range: 1970-01-01 - 2106-01-01.
 type Date struct {
 	base
 	Timezone *time.Location
@@ -16,6 +27,9 @@ func (dt *Date) Read(decoder *binary.Decoder) (interface{}, error) {
 	sec, err := decoder.Int16()
 	if err != nil {
 		return nil, err
+	}
+	if sec == 0 {
+		return time.Time{}, nil
 	}
 	return time.Unix(int64(sec)*24*3600-dt.offset, 0).In(dt.Timezone), nil
 }
@@ -61,6 +75,10 @@ func (dt *Date) Write(encoder *binary.Encoder, v interface{}) error {
 			T:      v,
 			Column: dt,
 		}
+	}
+
+	if timestamp <= minTimestamp || timestamp >= maxTimestamp {
+		timestamp = 0
 	}
 
 	return encoder.Int16(int16(timestamp / 24 / 3600))
