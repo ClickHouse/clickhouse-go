@@ -17,5 +17,5 @@ const (
 	// HeaderSize
 	HeaderSize = ChecksumSize + CompressHeaderSize
 	// BlockMaxSize 1MB
-	BlockMaxSize = 1 << 10
+	BlockMaxSize = 1 << 20
 )
