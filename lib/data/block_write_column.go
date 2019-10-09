@@ -90,7 +90,10 @@ func (block *Block) WriteFixedString(c int, v []byte) error {
 }
 
 func (block *Block) WriteArray(c int, v interface{}) error {
-	value := reflect.ValueOf(v)
+	return block.WriteArrayWithValue(c, newValue(reflect.ValueOf(v)))
+}
+
+func (block *Block) WriteArrayWithValue(c int, value Value) error {
 	if value.Kind() != reflect.Slice {
 		return fmt.Errorf("unsupported Array(T) type [%T]", value.Interface())
 	}
