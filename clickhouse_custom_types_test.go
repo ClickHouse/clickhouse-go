@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func Test_Custom_Types(t *testing.T) {
@@ -43,12 +43,12 @@ func Test_Custom_Types(t *testing.T) {
 		`
 		dml = `
 			INSERT INTO clickhouse_test_custom_types (
-				int8, 
-				int16, 
+				int8,
+				int16,
 				int32,
 				int64,
-				uint8, 
-				uint16, 
+				uint8,
+				uint16,
 				uint32,
 				uint64,
 				float32,
@@ -56,7 +56,7 @@ func Test_Custom_Types(t *testing.T) {
 				string,
 				fString
 			) VALUES (
-				?, 
+				?,
 				?,
 				?,
 				?,
@@ -71,13 +71,13 @@ func Test_Custom_Types(t *testing.T) {
 			)
 		`
 		query = `
-			SELECT 
-				int8, 
-				int16, 
+			SELECT
+				int8,
+				int16,
 				int32,
 				int64,
-				uint8, 
-				uint16, 
+				uint8,
+				uint16,
 				uint32,
 				uint64,
 				float32,
@@ -87,78 +87,78 @@ func Test_Custom_Types(t *testing.T) {
 			FROM clickhouse_test_custom_types
 		`
 	)
-	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) && assert.NoError(t, connect.Ping()) {
-		if _, err := connect.Exec("DROP TABLE IF EXISTS clickhouse_test_custom_types"); assert.NoError(t, err) {
-			if _, err := connect.Exec(ddl); assert.NoError(t, err) {
-				if tx, err := connect.Begin(); assert.NoError(t, err) {
-					if stmt, err := tx.Prepare(dml); assert.NoError(t, err) {
-						for i := 1; i <= 10; i++ {
-							_, err = stmt.Exec(
-								T_Int8(-1*i),
-								T_Int16(-2*i),
-								T_Int32(-4*i),
-								T_Int64(-8*i), // int
-								T_UInt8(1*i),
-								T_UInt16(2*i),
-								T_UInt32(4*i),
-								T_UInt64(8*i), // uint
-								T_Float32(1.32*float32(i)),
-								T_Float64(1.64*float64(i)),            //float
-								T_String(fmt.Sprintf("string %d", i)), // string
-								T_FixedString("RU"),                   //fixedstring,
+	connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true")
+	require.NoError(t, err)
+	require.NoError(t, connect.Ping())
 
-							)
-							if !assert.NoError(t, err) {
-								return
-							}
-						}
-					} else {
-						return
-					}
-					if assert.NoError(t, tx.Commit()) {
-						var item struct {
-							Int8        T_Int8
-							Int16       T_Int16
-							Int32       T_Int32
-							Int64       T_Int64
-							UInt8       T_UInt8
-							UInt16      T_UInt16
-							UInt32      T_UInt32
-							UInt64      T_UInt64
-							Float32     T_Float32
-							Float64     T_Float64
-							String      T_String
-							FixedString T_FixedString
-						}
-						if rows, err := connect.Query(query); assert.NoError(t, err) {
-							var count int
-							for rows.Next() {
-								count++
-								err := rows.Scan(
-									&item.Int8,
-									&item.Int16,
-									&item.Int32,
-									&item.Int64,
-									&item.UInt8,
-									&item.UInt16,
-									&item.UInt32,
-									&item.UInt64,
-									&item.Float32,
-									&item.Float64,
-									&item.String,
-									&item.FixedString,
-								)
-								if !assert.NoError(t, err) {
-									return
-								}
-							}
-							assert.Equal(t, int(10), count)
-						}
-					}
-				}
-			}
-		}
+	_, err = connect.Exec("DROP TABLE IF EXISTS clickhouse_test_custom_types")
+	require.NoError(t, err)
+
+	_, err = connect.Exec(ddl)
+	require.NoError(t, err)
+
+	tx, err := connect.Begin()
+	require.NoError(t, err)
+
+	stmt, err := tx.Prepare(dml)
+	require.NoError(t, err)
+	for i := 1; i <= 10; i++ {
+		_, err = stmt.Exec(
+			T_Int8(-1*i),
+			T_Int16(-2*i),
+			T_Int32(-4*i),
+			T_Int64(-8*i), // int
+			T_UInt8(1*i),
+			T_UInt16(2*i),
+			T_UInt32(4*i),
+			T_UInt64(8*i), // uint
+			T_Float32(1.32*float32(i)),
+			T_Float64(1.64*float64(i)),            // float
+			T_String(fmt.Sprintf("string %d", i)), // string
+			T_FixedString("RU"),                   // fixedstring,
+
+		)
+		require.NoError(t, err)
 	}
+	require.NoError(t, tx.Commit())
+
+	var item struct {
+		Int8        T_Int8
+		Int16       T_Int16
+		Int32       T_Int32
+		Int64       T_Int64
+		UInt8       T_UInt8
+		UInt16      T_UInt16
+		UInt32      T_UInt32
+		UInt64      T_UInt64
+		Float32     T_Float32
+		Float64     T_Float64
+		String      T_String
+		FixedString T_FixedString
+	}
+
+	rows, err := connect.Query(query)
+	require.NoError(t, err)
+	var count int
+	for rows.Next() {
+		count++
+		err := rows.Scan(
+			&item.Int8,
+			&item.Int16,
+			&item.Int32,
+			&item.Int64,
+			&item.UInt8,
+			&item.UInt16,
+			&item.UInt32,
+			&item.UInt64,
+			&item.Float32,
+			&item.Float64,
+			&item.String,
+			&item.FixedString,
+		)
+		require.NoError(t, err)
+	}
+	require.Equal(t, int(10), count)
 }
 
 type PointType struct {
@@ -197,25 +197,29 @@ func Test_Scan_Value(t *testing.T) {
 	)
 
 	point := PointType{1, 2, 3}
-	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) && assert.NoError(t, connect.Ping()) {
-		if _, err := connect.Exec("DROP TABLE IF EXISTS clickhouse_test_scan_value"); assert.NoError(t, err) {
-			if _, err := connect.Exec(ddl); assert.NoError(t, err) {
-				if tx, err := connect.Begin(); assert.NoError(t, err) {
-					if stmt, err := tx.Prepare(`INSERT INTO clickhouse_test_scan_value VALUES (?)`); assert.NoError(t, err) {
-						if _, err = stmt.Exec(point); !assert.NoError(t, err) {
-							return
-						}
-					} else {
-						return
-					}
-					if assert.NoError(t, tx.Commit()) {
-						var p PointType
-						if err := connect.QueryRow(`SELECT Value FROM clickhouse_test_scan_value`).Scan(&p); assert.NoError(t, err) {
-							assert.Equal(t, point, p)
-						}
-					}
-				}
-			}
-		}
-	}
+	connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true")
+	require.NoError(t, err)
+	require.NoError(t, connect.Ping())
+
+	_, err = connect.Exec("DROP TABLE IF EXISTS clickhouse_test_scan_value")
+	require.NoError(t, err)
+
+	_, err = connect.Exec(ddl)
+	require.NoError(t, err)
+
+	tx, err := connect.Begin()
+	require.NoError(t, err)
+
+	stmt, err := tx.Prepare(`INSERT INTO clickhouse_test_scan_value VALUES (?)`)
+	require.NoError(t, err)
+
+	_, err = stmt.Exec(point)
+	require.NoError(t, err)
+
+	require.NoError(t, tx.Commit())
+
+	var p PointType
+	err = connect.QueryRow(`SELECT Value FROM clickhouse_test_scan_value`).Scan(&p)
+	require.NoError(t, err)
+	require.Equal(t, point, p)
 }
