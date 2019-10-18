@@ -83,6 +83,10 @@ func (block *Block) Read(serverInfo *ServerInfo, decoder *binary.Decoder) (err e
 			if block.Values[i], err = column.ReadNull(decoder, int(block.NumRows)); err != nil {
 				return err
 			}
+		case *column.Tuple:
+			if block.Values[i], err = column.ReadTuple(decoder, int(block.NumRows)); err != nil {
+				return err
+			}
 		default:
 			for row := 0; row < int(block.NumRows); row++ {
 				if value, err = column.Read(decoder); err != nil {

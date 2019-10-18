@@ -164,6 +164,8 @@ func Factory(name, chType string, timezone *time.Location) (Column, error) {
 		return parseEnum(name, chType)
 	case strings.HasPrefix(chType, "Decimal"):
 		return parseDecimal(name, chType)
+	case strings.HasPrefix(chType, "Tuple"):
+		return parseTuple(name, chType, timezone)
 	}
 	return nil, fmt.Errorf("column: unhandled type %v", chType)
 }
