@@ -64,7 +64,7 @@ func parseFixedString(name, chType string) (*FixedString, error) {
 		base: base{
 			name:    name,
 			chType:  chType,
-			valueOf: baseTypes[string("")],
+			valueOf: columnBaseTypes[string("")],
 		},
 		len: strLen,
 	}, nil

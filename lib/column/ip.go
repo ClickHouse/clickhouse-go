@@ -61,6 +61,8 @@ func (ip *IP) Scan(value interface{}) (err error) {
 		} else {
 			err = errInvalidScanValue
 		}
+	case net.IP:
+		*ip = IP(v)
 	default:
 		err = errInvalidScanType
 	}
