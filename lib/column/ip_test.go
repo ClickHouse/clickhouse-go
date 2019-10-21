@@ -35,5 +35,17 @@ func Test_IPConverter(t *testing.T) {
 				assert.True(t, ip.Equal(net.IP(ip2)), fmt.Sprintf("Invalid ip restore: %s != %s", ip, ip2))
 			}
 		}
+
+		if assert.NoError(t, err) {
+			err = ip2.Scan(ips)
+			if assert.NoError(t, err) {
+				assert.True(t, ip.Equal(net.IP(ip2)), fmt.Sprintf("Invalid ip restore: %s != %s", ip, ip2))
+			}
+		}
 	}
+	ip := IP(net.ParseIP(""))
+	assert.Equal(t, errInvalidScanValue, ip.Scan(""))
+	assert.Equal(t, errInvalidScanValue, ip.Scan([]byte{'1', '2', '3'}))
+	assert.Equal(t, errInvalidScanType, ip.Scan(1))
+
 }

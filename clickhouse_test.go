@@ -89,7 +89,9 @@ func Test_Insert(t *testing.T) {
 				string  String,
 				fString FixedString(2),
 				date    Date,
-				datetime DateTime
+				datetime DateTime,
+				ipv4 IPv4,
+				ipv6 IPv6
 			) Engine=Memory
 		`
 		dml = `
@@ -107,8 +109,12 @@ func Test_Insert(t *testing.T) {
 				string,
 				fString,
 				date,
-				datetime
+				datetime,
+				ipv4,
+				ipv6
 			) VALUES (
+				?,
+				?,
 				?,
 				?,
 				?,
@@ -140,7 +146,9 @@ func Test_Insert(t *testing.T) {
 				string,
 				fString,
 				date,
-				datetime
+				datetime,
+				ipv4,
+				ipv6
 			FROM clickhouse_test_insert
 		`
 	)
@@ -158,6 +166,8 @@ func Test_Insert(t *testing.T) {
 								"RU",                        //fixedstring,
 								time.Now(),                  //date
 								time.Now(),                  //datetime
+								"1.2.3.4",                   // ipv4
+								"2001:0db8:85a3:0000:0000:8a2e:0370:7334", //ipv6
 							)
 							if !assert.NoError(t, err) {
 								return
@@ -182,6 +192,8 @@ func Test_Insert(t *testing.T) {
 							FixedString string
 							Date        time.Time
 							DateTime    time.Time
+							Ipv6        column.IP
+							Ipv4        column.IP
 						}
 						if rows, err := connect.Query(query); assert.NoError(t, err) {
 							var count int
@@ -202,6 +214,8 @@ func Test_Insert(t *testing.T) {
 									&item.FixedString,
 									&item.Date,
 									&item.DateTime,
+									&item.Ipv4,
+									&item.Ipv6,
 								)
 								if !assert.NoError(t, err) {
 									return
@@ -505,7 +519,9 @@ func Test_ArrayT(t *testing.T) {
 				date     Array(Date),
 				datetime Array(DateTime),
 				enum8    Array(Enum8 ('a' = 1, 'b' = 2)),
-				enum16   Array(Enum16('c' = 1, 'd' = 2))
+				enum16   Array(Enum16('c' = 1, 'd' = 2)),
+				ipv4 Array(IPv4),
+				ipv6 Array(IPv6)
 			) Engine=Memory
 		`
 		dml = `
@@ -525,7 +541,9 @@ func Test_ArrayT(t *testing.T) {
 				date,
 				datetime,
 				enum8,
-				enum16
+				enum16,
+				ipv4,
+				ipv6
 			) VALUES (
 				?,
 				?,
@@ -539,6 +557,8 @@ func Test_ArrayT(t *testing.T) {
 				?,
 				?,
 				?
+				?,
+				?,
 				?,
 				?,
 				?,
@@ -560,7 +580,9 @@ func Test_ArrayT(t *testing.T) {
 				string,
 				fString,
 				date,
-				datetime
+				datetime,
+				ipv4,
+				ipv6
 			FROM clickhouse_test_array
 		`
 	)
@@ -587,6 +609,8 @@ func Test_ArrayT(t *testing.T) {
 								[]time.Time{time.Now(), time.Now()},
 								[]string{"a", "b"},
 								[]string{"c", "d"},
+								[]string{"127.0.0.1", "1.2.3.4"},
+								[]string{"2001:0db8:85a3:0000:0000:8a2e:0370:7334"},
 							)
 							if !assert.NoError(t, err) {
 								return
@@ -608,6 +632,8 @@ func Test_ArrayT(t *testing.T) {
 								[]time.Time{time.Now(), time.Now()},
 								[]string{"a", "b"},
 								[]string{"c", "d"},
+								[]string{"127.0.0.1", "1.2.3.4"},
+								[]string{"2001:0db8:85a3:0000:0000:8a2e:0370:7334"},
 							)
 							if !assert.NoError(t, err) {
 								return
@@ -630,6 +656,8 @@ func Test_ArrayT(t *testing.T) {
 							FixedString []string
 							Date        []time.Time
 							DateTime    []time.Time
+							Ipv4        []column.IP
+							Ipv6        []column.IP
 						}
 						if rows, err := connect.Query(query); assert.NoError(t, err) {
 							var count int
@@ -650,6 +678,8 @@ func Test_ArrayT(t *testing.T) {
 									&item.FixedString,
 									&item.Date,
 									&item.DateTime,
+									&item.Ipv4,
+									&item.Ipv6,
 								)
 								if !assert.NoError(t, err) {
 									return
@@ -677,6 +707,10 @@ func Test_ArrayT(t *testing.T) {
 								t.Logf("Date=%v, DateTime=%v",
 									item.Date,
 									item.DateTime,
+								)
+								t.Logf("Ipv4=%v, Ipv6=%v",
+									item.Ipv4,
+									item.Ipv6,
 								)
 							}
 							assert.Equal(t, int(20), count)
