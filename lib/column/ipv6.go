@@ -34,6 +34,12 @@ func (ip *IPv6) Write(encoder *binary.Encoder, v interface{}) error {
 		}
 	}
 
+	if netIP == nil {
+		return &ErrUnexpectedType{
+			T:      v,
+			Column: ip,
+		}
+	}
 	if _, err := encoder.Write([]byte(netIP.To16())); err != nil {
 		return err
 	}

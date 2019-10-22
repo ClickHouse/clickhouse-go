@@ -91,7 +91,9 @@ func Test_Insert(t *testing.T) {
 				date    Date,
 				datetime DateTime,
 				ipv4 IPv4,
-				ipv6 IPv6
+				ipv6 IPv6,
+				ipv4str FixedString(16),
+				ipv6str FixedString(16)
 			) Engine=Memory
 		`
 		dml = `
@@ -111,8 +113,12 @@ func Test_Insert(t *testing.T) {
 				date,
 				datetime,
 				ipv4,
-				ipv6
+				ipv6,
+				ipv4str,
+				ipv6str
 			) VALUES (
+				?,
+				?,
 				?,
 				?,
 				?,
@@ -148,7 +154,9 @@ func Test_Insert(t *testing.T) {
 				date,
 				datetime,
 				ipv4,
-				ipv6
+				ipv6,
+				ipv4str,
+				ipv6str
 			FROM clickhouse_test_insert
 		`
 	)
@@ -162,12 +170,14 @@ func Test_Insert(t *testing.T) {
 								-1*i, -2*i, -4*i, -8*i, // int
 								uint8(1*i), uint16(2*i), uint32(4*i), uint64(8*i), // uint
 								1.32*float32(i), 1.64*float64(i), //float
-								fmt.Sprintf("string %d", i), // string
-								"RU",                        //fixedstring,
-								time.Now(),                  //date
-								time.Now(),                  //datetime
-								"1.2.3.4",                   // ipv4
+								fmt.Sprintf("string %d", i),               // string
+								"RU",                                      //fixedstring,
+								time.Now(),                                //date
+								time.Now(),                                //datetime
+								"1.2.3.4",                                 // ipv4
 								"2001:0db8:85a3:0000:0000:8a2e:0370:7334", //ipv6
+								column.IP(net.ParseIP("127.0.0.1").To4()),
+								column.IP(net.ParseIP("2001:0db8:85a3:0000:0000:8a2e:0370:7334")),
 							)
 							if !assert.NoError(t, err) {
 								return
@@ -194,6 +204,8 @@ func Test_Insert(t *testing.T) {
 							DateTime    time.Time
 							Ipv6        column.IP
 							Ipv4        column.IP
+							Ipv4str     column.IP
+							Ipv6str     column.IP
 						}
 						if rows, err := connect.Query(query); assert.NoError(t, err) {
 							var count int
@@ -216,6 +228,8 @@ func Test_Insert(t *testing.T) {
 									&item.DateTime,
 									&item.Ipv4,
 									&item.Ipv6,
+									&item.Ipv4str,
+									&item.Ipv6str,
 								)
 								if !assert.NoError(t, err) {
 									return

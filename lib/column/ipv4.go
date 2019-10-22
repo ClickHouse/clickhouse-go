@@ -34,7 +34,19 @@ func (ip *IPv4) Write(encoder *binary.Encoder, v interface{}) error {
 		}
 	}
 
+	if netIP == nil {
+		return &ErrUnexpectedType{
+			T:      v,
+			Column: ip,
+		}
+	}
 	ip4 := netIP.To4()
+	if ip4 == nil {
+		return &ErrUnexpectedType{
+			T:      v,
+			Column: ip,
+		}
+	}
 	if _, err := encoder.Write([]byte{ip4[3], ip4[2], ip4[1], ip4[0]}); err != nil {
 		return err
 	}
