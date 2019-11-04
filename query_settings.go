@@ -178,7 +178,7 @@ var querySettingList = []querySettingInfo{
 	{"low_cardinality_use_single_dictionary_for_part", boolQS},
 	{"decimal_check_overflow", boolQS},
 	{"prefer_localhost_replica", boolQS},
-	{"asterisk_left_columns_only", boolQS},
+	//{"asterisk_left_columns_only", boolQS},
 	{"calculate_text_stack_trace", boolQS},
 	{"allow_ddl", boolQS},
 	{"parallel_view_processing", boolQS},
