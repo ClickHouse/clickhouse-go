@@ -20,6 +20,8 @@ func (u *UInt16) Write(encoder *binary.Encoder, v interface{}) error {
 		return encoder.UInt16(v)
 	case int64:
 		return encoder.UInt16(uint16(v))
+	case uint64:
+		return encoder.UInt16(uint16(v))
 	case int:
 		return encoder.UInt16(uint16(v))
 
@@ -27,6 +29,8 @@ func (u *UInt16) Write(encoder *binary.Encoder, v interface{}) error {
 	case *uint16:
 		return encoder.UInt16(*v)
 	case *int64:
+		return encoder.UInt16(uint16(*v))
+	case *uint64:
 		return encoder.UInt16(uint16(*v))
 	case *int:
 		return encoder.UInt16(uint16(*v))
