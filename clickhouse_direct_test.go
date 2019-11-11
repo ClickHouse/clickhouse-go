@@ -158,7 +158,9 @@ func Test_DirectArrayT(t *testing.T) {
 				date     Array(Date),
 				datetime Array(DateTime),
 				enum8    Array(Enum8 ('a' = 1, 'b' = 2)),
-				enum16   Array(Enum16('c' = 1, 'd' = 2))
+				enum16   Array(Enum16('c' = 1, 'd' = 2)),
+				ipv4     Array(IPv4),
+				ipv6     Array(IPv6)
 			) Engine=Memory
 		`
 		dml = `
@@ -178,8 +180,12 @@ func Test_DirectArrayT(t *testing.T) {
 				date,
 				datetime,
 				enum8,
-				enum16
+				enum16,
+				ipv4,
+				ipv6
 			) VALUES (
+				?,
+				?,
 				?,
 				?,
 				?,
@@ -239,6 +245,8 @@ func Test_DirectArrayT(t *testing.T) {
 							clickhouse.ArrayDateTime([]time.Time{time.Now(), time.Now()}),
 							clickhouse.Array([]string{"a", "b"}),
 							clickhouse.Array([]string{"c", "d"}),
+							clickhouse.Array([]string{"1.2.3.4", "2.2.3.4"}),
+							clickhouse.Array([]string{"2001:0db8:85a3:0000:0000:8a2e:0370:7334"}),
 						})
 						if !assert.NoError(t, err) {
 							return

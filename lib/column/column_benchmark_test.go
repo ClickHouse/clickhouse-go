@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math"
+	"net"
 	"testing"
 	"time"
 
@@ -247,6 +248,34 @@ func Benchmark_Column_UUID(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		if err := column.Write(encoder, "0492351a-3cb1-4cb5-855f-e0508145a54c"); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func Benchmark_Column_IP(b *testing.B) {
+	var (
+		encoder   = binary.NewEncoder(ioutil.Discard)
+		column, _ = Factory("", "IPv4", time.Local)
+	)
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if err := column.Write(encoder, net.ParseIP("1.2.3.4")); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func Benchmark_Column_IP_STRING(b *testing.B) {
+	var (
+		encoder   = binary.NewEncoder(ioutil.Discard)
+		column, _ = Factory("", "IPv4", time.Local)
+	)
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if err := column.Write(encoder, "1.2.3.4"); err != nil {
 			b.Fatal(err)
 		}
 	}

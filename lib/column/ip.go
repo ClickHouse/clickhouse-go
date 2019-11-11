@@ -8,6 +8,7 @@ import (
 	"database/sql/driver"
 	"errors"
 	"net"
+	"strings"
 )
 
 var (
@@ -56,11 +57,21 @@ func (ip *IP) Scan(value interface{}) (err error) {
 			err = errInvalidScanValue
 		}
 	case string:
-		if len(v) == 4 || len(v) == 16 {
-			*ip = IP([]byte(v))
-		} else {
+		if v == "" {
 			err = errInvalidScanValue
+			return
 		}
+		if (len(v) == 4 || len(v) == 16) && !strings.Contains(v, ".") && !strings.Contains(v, ":"){
+			*ip = IP([]byte(v))
+			return
+		}
+		if strings.Contains(v, ":") {
+			*ip = IP(net.ParseIP(v))
+			return
+		}
+		*ip = IP(net.ParseIP(v).To4())
+	case net.IP:
+		*ip = IP(v)
 	default:
 		err = errInvalidScanType
 	}

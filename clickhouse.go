@@ -185,7 +185,7 @@ func (ch *clickhouse) CheckNamedValue(nv *driver.NamedValue) error {
 		[]float32, []float64,
 		[]string:
 		return nil
-	case net.IP:
+	case net.IP, *net.IP:
 		return nil
 	case driver.Valuer:
 		value, err := v.Value()
