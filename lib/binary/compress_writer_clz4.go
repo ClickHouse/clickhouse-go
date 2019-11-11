@@ -7,7 +7,7 @@ import (
 	"io"
 
 	lz4 "github.com/cloudflare/golz4"
-	"github.com/kshvakov/clickhouse/lib/cityhash102"
+	"github.com/ClickHouse/clickhouse-go/lib/cityhash102"
 )
 
 type compressWriter struct {
