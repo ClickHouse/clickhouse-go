@@ -178,10 +178,7 @@ func (block *Block) Reset() {
 	for _, buffer := range block.buffers {
 		buffer.reset()
 	}
-	{
-		block.offsets = nil
-		block.buffers = nil
-	}
+	block.offsets = make([]offset, len(block.Columns))
 }
 
 func (block *Block) Write(serverInfo *ServerInfo, encoder *binary.Encoder) error {

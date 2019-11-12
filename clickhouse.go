@@ -129,10 +129,7 @@ func (ch *clickhouse) beginTx(ctx context.Context, opts txOptions) (*clickhouse,
 func (ch *clickhouse) Commit() error {
 	ch.logf("[commit] tx=%t, data=%t", ch.inTransaction, ch.block != nil)
 	defer func() {
-		if ch.block != nil {
-			ch.block.Reset()
-			ch.block = nil
-		}
+		ch.block = nil
 		ch.inTransaction = false
 	}()
 	switch {
@@ -161,9 +158,6 @@ func (ch *clickhouse) Rollback() error {
 	ch.logf("[rollback] tx=%t, data=%t", ch.inTransaction, ch.block != nil)
 	if !ch.inTransaction {
 		return sql.ErrTxDone
-	}
-	if ch.block != nil {
-		ch.block.Reset()
 	}
 	ch.block = nil
 	ch.buffer = nil
