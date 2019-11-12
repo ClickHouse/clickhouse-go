@@ -95,20 +95,24 @@ func (block *Block) Read(serverInfo *ServerInfo, decoder *binary.Decoder) (err e
 	return nil
 }
 
+func (block *Block) writeLen(l, num, level int) {
+	if len(block.offsets[num]) < level {
+		block.offsets[num] = append(block.offsets[num], []int{l})
+	} else {
+		block.offsets[num][level-1] = append(
+			block.offsets[num][level-1],
+			block.offsets[num][level-1][len(block.offsets[num][level-1])-1]+l,
+		)
+	}
+}
+
 func (block *Block) writeArray(column column.Column, value Value, num, level int) error {
 	if level > column.Depth() {
 		return column.Write(block.buffers[num].Column, value.Interface())
 	}
 	switch {
 	case value.Kind() == reflect.Slice:
-		if len(block.offsets[num]) < level {
-			block.offsets[num] = append(block.offsets[num], []int{value.Len()})
-		} else {
-			block.offsets[num][level-1] = append(
-				block.offsets[num][level-1],
-				block.offsets[num][level-1][len(block.offsets[num][level-1])-1]+value.Len(),
-			)
-		}
+		block.writeLen(value.Len(), num, level)
 		for i := 0; i < value.Len(); i++ {
 			if err := block.writeArray(column, value.Index(i), num, level+1); err != nil {
 				return err
