@@ -10,7 +10,7 @@ func Benchmark_BlockWriteArrayWithLen4(b *testing.B) {
 
 	block := &Block{}
 	block.NumColumns = 1
-	// blocks.Columns = 1
+
 	c, err := column.Factory("test", "Int32", nil)
 	if err != nil {
 		b.Fatal(err)
