@@ -89,8 +89,8 @@ func (block *Block) WriteFixedString(c int, v []byte) error {
 	return block.Columns[c].Write(block.buffers[c].Column, v)
 }
 
-func (block *Block) WriteArrayLen(l, c, level int) {
-	block.writeLen(l, c, level)
+func (block *Block) WriteArrayLen(length, c, level int) {
+	block.writeLen(length, c, level)
 }
 
 func (block *Block) WriteArray(c int, v interface{}) error {

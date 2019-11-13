@@ -95,13 +95,13 @@ func (block *Block) Read(serverInfo *ServerInfo, decoder *binary.Decoder) (err e
 	return nil
 }
 
-func (block *Block) writeLen(l, num, level int) {
+func (block *Block) writeLen(length, num, level int) {
 	if len(block.offsets[num]) < level {
-		block.offsets[num] = append(block.offsets[num], []int{l})
+		block.offsets[num] = append(block.offsets[num], []int{length})
 	} else {
 		block.offsets[num][level-1] = append(
 			block.offsets[num][level-1],
-			block.offsets[num][level-1][len(block.offsets[num][level-1])-1]+l,
+			block.offsets[num][level-1][len(block.offsets[num][level-1])-1]+length,
 		)
 	}
 }
