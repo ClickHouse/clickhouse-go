@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/kshvakov/clickhouse/lib/binary"
+	"github.com/ClickHouse/clickhouse-go/lib/binary"
 )
 
 type FixedString struct {
@@ -64,7 +64,7 @@ func parseFixedString(name, chType string) (*FixedString, error) {
 		base: base{
 			name:    name,
 			chType:  chType,
-			valueOf: baseTypes[string("")],
+			valueOf: columnBaseTypes[string("")],
 		},
 		len: strLen,
 	}, nil

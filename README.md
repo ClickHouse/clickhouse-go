@@ -1,4 +1,4 @@
-# ClickHouse [![Build Status](https://travis-ci.org/kshvakov/clickhouse.svg?branch=master)](https://travis-ci.org/kshvakov/clickhouse) [![Go Report Card](https://goreportcard.com/badge/github.com/kshvakov/clickhouse)](https://goreportcard.com/report/github.com/kshvakov/clickhouse) [![codecov](https://codecov.io/gh/kshvakov/clickhouse/branch/master/graph/badge.svg)](https://codecov.io/gh/kshvakov/clickhouse)
+# ClickHouse [![Build Status](https://travis-ci.org/kshvakov/clickhouse.svg?branch=master)](https://travis-ci.org/kshvakov/clickhouse) [![Go Report Card](https://goreportcard.com/badge/github.com/ClickHouse/clickhouse-go)](https://goreportcard.com/report/github.com/ClickHouse/clickhouse-go) [![codecov](https://codecov.io/gh/kshvakov/clickhouse/branch/master/graph/badge.svg)](https://codecov.io/gh/kshvakov/clickhouse)
 
 Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/)
 
@@ -48,7 +48,7 @@ tcp://host1:9000?username=user&password=qwerty&database=clicks&read_timeout=10&w
 * Enum
 * UUID
 * Nullable(T)
-* [Array(T) (one-dimensional)](https://clickhouse.yandex/reference_en.html#Array(T)) [godoc](https://godoc.org/github.com/kshvakov/clickhouse#Array)
+* [Array(T) (one-dimensional)](https://clickhouse.yandex/reference_en.html#Array(T)) [godoc](https://godoc.org/github.com/ClickHouse/clickhouse-go#Array)
 * Tuple(...T) (one-dimensional)
 
 ## TODO
@@ -57,7 +57,7 @@ tcp://host1:9000?username=user&password=qwerty&database=clicks&read_timeout=10&w
 
 ## Install
 ```
-go get -u github.com/kshvakov/clickhouse
+go get -u github.com/ClickHouse/clickhouse-go
 ```
 
 ## Example
@@ -70,7 +70,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/kshvakov/clickhouse"
+	"github.com/ClickHouse/clickhouse-go"
 )
 
 func main() {
@@ -163,7 +163,7 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
-	_ "github.com/kshvakov/clickhouse"
+	_ "github.com/ClickHouse/clickhouse-go"
 )
 
 func main() {

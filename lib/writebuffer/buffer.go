@@ -3,7 +3,7 @@ package writebuffer
 import (
 	"io"
 
-	"github.com/kshvakov/clickhouse/lib/leakypool"
+	"github.com/ClickHouse/clickhouse-go/lib/leakypool"
 )
 
 const InitialSize = 256 * 1024

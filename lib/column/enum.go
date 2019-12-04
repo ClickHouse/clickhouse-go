@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/kshvakov/clickhouse/lib/binary"
+	"github.com/ClickHouse/clickhouse-go/lib/binary"
 )
 
 type Enum struct {
@@ -104,7 +104,7 @@ func parseEnum(name, chType string) (*Enum, error) {
 		base: base{
 			name:    name,
 			chType:  chType,
-			valueOf: baseTypes[string("")],
+			valueOf: columnBaseTypes[string("")],
 		},
 		iv: make(map[string]interface{}),
 		vi: make(map[interface{}]string),

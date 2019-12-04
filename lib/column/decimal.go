@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/kshvakov/clickhouse/lib/binary"
+	"github.com/ClickHouse/clickhouse-go/lib/binary"
 )
 
 // Table of powers of 10 for fast casting from floating types to decimal type
@@ -227,10 +227,10 @@ func parseDecimal(name, chType string) (Column, error) {
 	switch {
 	case decimal.precision <= 9:
 		decimal.nobits = 32
-		decimal.valueOf = baseTypes[int32(0)]
+		decimal.valueOf = columnBaseTypes[int32(0)]
 	case decimal.precision <= 18:
 		decimal.nobits = 64
-		decimal.valueOf = baseTypes[int64(0)]
+		decimal.valueOf = columnBaseTypes[int64(0)]
 	case decimal.precision <= 38:
 		return nil, errors.New("Decimal128 is not supported")
 	default:

@@ -3,12 +3,13 @@ package column_test
 import (
 	"bytes"
 	"fmt"
+	"net"
 	"reflect"
 	"testing"
 	"time"
 
-	"github.com/kshvakov/clickhouse/lib/binary"
-	columns "github.com/kshvakov/clickhouse/lib/column"
+	"github.com/ClickHouse/clickhouse-go/lib/binary"
+	columns "github.com/ClickHouse/clickhouse-go/lib/column"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -477,6 +478,59 @@ func Test_Column_UUID(t *testing.T) {
 		}
 		if err := column.Write(encoder, "invalid-uuid"); assert.Error(t, err) {
 			assert.Equal(t, columns.ErrInvalidUUIDFormat, err)
+		}
+	}
+}
+
+func Test_Column_IP(t *testing.T) {
+	var (
+		buf     bytes.Buffer
+		encoder = binary.NewEncoder(&buf)
+		decoder = binary.NewDecoder(&buf)
+	)
+	if column, err := columns.Factory("column_name", "IPv4", time.Local); assert.NoError(t, err) {
+		for _, ip := range []string{
+			"127.0.0.1",
+		} {
+			if err := column.Write(encoder, ip); assert.NoError(t, err) {
+				if v, err := column.Read(decoder); assert.NoError(t, err) {
+					assert.Equal(t, net.ParseIP(ip), v)
+				}
+			}
+		}
+		if assert.Equal(t, "column_name", column.Name()) && assert.Equal(t, "IPv4", column.CHType()) {
+			assert.Equal(t, reflect.TypeOf(net.IP{}).Kind(), column.ScanType().Kind())
+		}
+		if err := column.Write(encoder, int8(0)); assert.Error(t, err) {
+			if e, ok := err.(*columns.ErrUnexpectedType); assert.True(t, ok) {
+				assert.Equal(t, int8(0), e.T)
+			}
+		}
+		if err := column.Write(encoder, ""); assert.Error(t, err) {
+			assert.Equal(t, &columns.ErrUnexpectedType{Column: column, T: ""}, err)
+		}
+	}
+
+	if column, err := columns.Factory("column_name", "IPv6", time.Local); assert.NoError(t, err) {
+		for _, ip := range []string{
+			"2001:0db8:0000:0000:0000:ff00:0042:8329",
+		} {
+			if err := column.Write(encoder, ip); assert.NoError(t, err) {
+				if v, err := column.Read(decoder); assert.NoError(t, err) {
+					assert.Equal(t, net.ParseIP(ip), v)
+				}
+			}
+		}
+		if assert.Equal(t, "column_name", column.Name()) && assert.Equal(t, "IPv6", column.CHType()) {
+			assert.Equal(t, reflect.TypeOf(net.IP{}).Kind(), column.ScanType().Kind())
+		}
+		if err := column.Write(encoder, int8(0)); assert.Error(t, err) {
+			if e, ok := err.(*columns.ErrUnexpectedType); assert.True(t, ok) {
+				assert.Equal(t, int8(0), e.T)
+			}
+		}
+		if err := column.Write(encoder, ""); assert.Error(t, err) {
+			assert.Equal(t, &columns.ErrUnexpectedType{Column: column, T: ""}, err)
 		}
 	}
 }

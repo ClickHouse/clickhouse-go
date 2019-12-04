@@ -3,7 +3,7 @@ package column
 import (
 	"net"
 
-	"github.com/kshvakov/clickhouse/lib/binary"
+	"github.com/ClickHouse/clickhouse-go/lib/binary"
 )
 
 type IPv6 struct {
@@ -19,8 +19,22 @@ func (*IPv6) Read(decoder *binary.Decoder) (interface{}, error) {
 }
 
 func (ip *IPv6) Write(encoder *binary.Encoder, v interface{}) error {
-	netIP, ok := v.(net.IP)
-	if !ok {
+	var netIP net.IP
+	switch v.(type) {
+	case string:
+		netIP = net.ParseIP(v.(string))
+	case net.IP:
+		netIP = v.(net.IP)
+	case *net.IP:
+		netIP = *(v.(*net.IP))
+	default:
+		return &ErrUnexpectedType{
+			T:      v,
+			Column: ip,
+		}
+	}
+
+	if netIP == nil {
 		return &ErrUnexpectedType{
 			T:      v,
 			Column: ip,

@@ -13,11 +13,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kshvakov/clickhouse/lib/binary"
-	"github.com/kshvakov/clickhouse/lib/column"
-	"github.com/kshvakov/clickhouse/lib/data"
-	"github.com/kshvakov/clickhouse/lib/protocol"
-	"github.com/kshvakov/clickhouse/lib/types"
+	"github.com/ClickHouse/clickhouse-go/lib/binary"
+	"github.com/ClickHouse/clickhouse-go/lib/column"
+	"github.com/ClickHouse/clickhouse-go/lib/data"
+	"github.com/ClickHouse/clickhouse-go/lib/protocol"
+	"github.com/ClickHouse/clickhouse-go/lib/types"
 )
 
 type (
@@ -185,7 +185,7 @@ func (ch *clickhouse) CheckNamedValue(nv *driver.NamedValue) error {
 		[]float32, []float64,
 		[]string:
 		return nil
-	case net.IP:
+	case net.IP, *net.IP:
 		return nil
 	case driver.Valuer:
 		value, err := v.Value()
