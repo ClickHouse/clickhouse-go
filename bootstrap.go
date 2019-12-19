@@ -196,8 +196,8 @@ func open(dsn string) (*clickhouse, error) {
 	logger.SetPrefix(fmt.Sprintf("[clickhouse][connect=%d]", ch.conn.ident))
 	ch.buffer = bufio.NewWriter(ch.conn)
 
-	ch.decoder = binary.NewDecoder(ch.conn)
-	ch.encoder = binary.NewEncoder(ch.buffer)
+	ch.decoder = binary.NewDecoderWithCompress(ch.conn)
+	ch.encoder = binary.NewEncoderWithCompress(ch.buffer)
 
 	if err := ch.hello(database, username, password); err != nil {
 		return nil, err
