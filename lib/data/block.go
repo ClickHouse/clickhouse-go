@@ -159,10 +159,13 @@ func (block *Block) Reserve() {
 		block.offsets = make([]offset, len(block.Columns))
 		for i := 0; i < len(block.Columns); i++ {
 			var (
+				offsetBuffer = wb.New(wb.InitialSize)
 				columnBuffer = wb.New(wb.InitialSize)
 			)
 			block.buffers[i] = &buffer{
+				Offset:       binary.NewEncoder(offsetBuffer),
 				Column:       binary.NewEncoder(columnBuffer),
+				offsetBuffer: offsetBuffer,
 				columnBuffer: columnBuffer,
 			}
 		}
@@ -265,11 +268,19 @@ func (info *blockInfo) write(encoder *binary.Encoder) error {
 type buffer struct {
 	Offset       *binary.Encoder
 	Column       *binary.Encoder
+	offsetBuffer *wb.WriteBuffer
 	columnBuffer *wb.WriteBuffer
 }
 
 func (buf *buffer) WriteTo(w io.Writer) (int64, error) {
 	var size int64
+	{
+		ln, err := buf.offsetBuffer.WriteTo(w)
+		if err != nil {
+			return size, err
+		}
+		size += ln
+	}
 	{
 		ln, err := buf.columnBuffer.WriteTo(w)
 		if err != nil {
@@ -281,5 +292,6 @@ func (buf *buffer) WriteTo(w io.Writer) (int64, error) {
 }
 
 func (buf *buffer) reset() {
+	buf.offsetBuffer.Reset()
 	buf.columnBuffer.Reset()
 }
