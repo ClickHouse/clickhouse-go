@@ -71,7 +71,12 @@ func SetLogOutput(output io.Writer) {
 
 // Open the connection
 func Open(dsn string) (driver.Conn, error) {
-	return open(dsn)
+	clickhouse, err := open(dsn)
+	if err != nil {
+		return nil, err
+	}
+
+	return clickhouse, err
 }
 
 func open(dsn string) (*clickhouse, error) {
