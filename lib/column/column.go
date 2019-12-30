@@ -166,6 +166,25 @@ func Factory(name, chType string, timezone *time.Location) (Column, error) {
 		return parseEnum(name, chType)
 	case strings.HasPrefix(chType, "Decimal"):
 		return parseDecimal(name, chType)
+	case strings.HasPrefix(chType, "SimpleAggregateFunction"):
+		if nestedType, err := getNestedType(chType, "SimpleAggregateFunction"); err != nil {
+			return nil, err
+		} else {
+			return Factory(name, nestedType, timezone)
+		}
 	}
 	return nil, fmt.Errorf("column: unhandled type %v", chType)
+}
+
+func getNestedType(chType string, wrapType string) (string, error) {
+	prefixLen := len(wrapType) + 1
+	suffixLen := 1
+
+	if len(chType) > prefixLen+suffixLen {
+		nested := strings.Split(chType[prefixLen:len(chType)-suffixLen], ",")
+		if len(nested) == 2 {
+			return strings.TrimSpace(nested[1]), nil
+		}
+	}
+	return "", fmt.Errorf("column: invalid %s type (%s)", wrapType, chType)
 }
