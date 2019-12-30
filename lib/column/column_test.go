@@ -534,3 +534,18 @@ func Test_Column_IP(t *testing.T) {
 		}
 	}
 }
+
+func Test_Column_SimpleAggregateFunc(t *testing.T) {
+	data := map[string]string{
+		"SimpleAggregateFunction(anyLast, UInt8)":          "UInt8",
+		"SimpleAggregateFunction(anyLast, Nullable(IPv4))": "Nullable(IPv4)",
+		"SimpleAggregateFunction(max, Nullable(DateTime))": "Nullable(DateTime)",
+	}
+
+	for key, val := range data {
+		if column, err := columns.Factory("column_name", key, time.Local); assert.NoError(t, err) {
+			assert.Equal(t, "column_name", column.Name())
+			assert.Equal(t, val, column.CHType())
+		}
+	}
+}
