@@ -267,11 +267,29 @@ func Test_Column_String(t *testing.T) {
 	var (
 		buf     bytes.Buffer
 		str     = fmt.Sprintf("str_%d", time.Now().Unix())
+		strP    = &str
+		b       = []byte(str)
+		bp      = &b
 		encoder = binary.NewEncoder(&buf)
 		decoder = binary.NewDecoder(&buf)
 	)
 	if column, err := columns.Factory("column_name", "String", time.Local); assert.NoError(t, err) {
 		if err := column.Write(encoder, str); assert.NoError(t, err) {
+			if v, err := column.Read(decoder); assert.NoError(t, err) {
+				assert.Equal(t, str, v)
+			}
+		}
+		if err := column.Write(encoder, strP); assert.NoError(t, err) {
+			if v, err := column.Read(decoder); assert.NoError(t, err) {
+				assert.Equal(t, str, v)
+			}
+		}
+		if err := column.Write(encoder, b); assert.NoError(t, err) {
+			if v, err := column.Read(decoder); assert.NoError(t, err) {
+				assert.Equal(t, str, v)
+			}
+		}
+		if err := column.Write(encoder, bp); assert.NoError(t, err) {
 			if v, err := column.Read(decoder); assert.NoError(t, err) {
 				assert.Equal(t, str, v)
 			}
