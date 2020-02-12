@@ -87,11 +87,6 @@ func Test_Decimal(t *testing.T) {
 									assert.Equal(t, int(1655000), *decimal)
 								}
 								assert.Nil(t, decimalNullable)
-
-								//t.Log(
-								//	*decimal,
-								//	*decimalNullable,
-								//)
 							}
 						}
 					}
