@@ -51,6 +51,7 @@ tcp://host1:9000?username=user&password=qwerty&database=clicks&read_timeout=10&w
 * Enum
 * UUID
 * Nullable(T)
+* Tuple(...T) (one-dimensional)
 * [Array(T) (one-dimensional)](https://clickhouse.yandex/reference_en.html#Array(T)) [godoc](https://godoc.org/github.com/ClickHouse/clickhouse-go#Array)
 
 ## TODO
