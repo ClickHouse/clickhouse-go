@@ -55,7 +55,7 @@ func init() {
 }
 
 func now() time.Time {
-	return time.Unix(atomic.LoadInt64(&unixtime), 0)
+	return time.Unix(0, atomic.LoadInt64(&unixtime))
 }
 
 type bootstrap struct{}
