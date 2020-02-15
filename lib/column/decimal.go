@@ -239,3 +239,11 @@ func parseDecimal(name, chType string) (Column, error) {
 
 	return decimal, nil
 }
+
+func (d *Decimal) GetPrecision() int {
+	return d.precision
+}
+
+func (d *Decimal) GetScale() int {
+	return d.scale
+}

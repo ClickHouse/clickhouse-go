@@ -567,3 +567,61 @@ func Test_Column_SimpleAggregateFunc(t *testing.T) {
 		}
 	}
 }
+
+func Test_Column_Decimal64(t *testing.T) {
+	var (
+		buf     bytes.Buffer
+		encoder = binary.NewEncoder(&buf)
+		decoder = binary.NewDecoder(&buf)
+	)
+	if columnBase, err := columns.Factory("column_name", "Decimal(18,5)", time.Local); assert.NoError(t, err) {
+
+		decimalCol, ok := columnBase.(*columns.Decimal)
+		if assert.True(t, ok) {
+			assert.Equal(t, 18, decimalCol.GetPrecision())
+			assert.Equal(t, 5, decimalCol.GetScale())
+		}
+
+		if err := columnBase.Write(encoder, float64(1123.12345)); assert.NoError(t, err) {
+			if v, err := columnBase.Read(decoder); assert.NoError(t, err) {
+				assert.Equal(t, int64(112312345), v)
+			}
+		}
+		if assert.Equal(t, "column_name", columnBase.Name()) && assert.Equal(t, "Decimal(18,5)", columnBase.CHType()) {
+			assert.Equal(t, reflect.Int64, columnBase.ScanType().Kind())
+		}
+	}
+}
+
+func Test_Column_NullableDecimal64(t *testing.T) {
+	var (
+		buf     bytes.Buffer
+		encoder = binary.NewEncoder(&buf)
+		decoder = binary.NewDecoder(&buf)
+	)
+	if columnBase, err := columns.Factory("column_name", "Nullable(Decimal(18,5))", time.Local); assert.NoError(t, err) {
+
+		nullableCol, ok := columnBase.(*columns.Nullable)
+		if assert.True(t, ok) {
+			decimalCol := nullableCol.GetColumn().(*columns.Decimal)
+			assert.Equal(t, 18, decimalCol.GetPrecision())
+			assert.Equal(t, 5, decimalCol.GetScale())
+		}
+
+		if err := nullableCol.WriteNull(encoder, encoder, float64(1123.12345)); assert.NoError(t, err) {
+			if v, err := nullableCol.ReadNull(decoder, 1); assert.NoError(t, err) {
+				assert.Equal(t, int64(112312345), v[0])
+			}
+		}
+
+		if err := nullableCol.WriteNull(encoder, encoder, nil); assert.NoError(t, err) {
+			if v, err := nullableCol.ReadNull(decoder, 1); assert.NoError(t, err) {
+				assert.Nil(t, v[0])
+			}
+		}
+
+		if assert.Equal(t, "column_name", columnBase.Name()) && assert.Equal(t, "Nullable(Decimal(18,5))", columnBase.CHType()) {
+			assert.Equal(t, reflect.Int64, columnBase.ScanType().Kind())
+		}
+	}
+}

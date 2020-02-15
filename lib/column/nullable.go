@@ -79,3 +79,7 @@ func parseNullable(name, chType string, timezone *time.Location) (*Nullable, err
 		column: column,
 	}, nil
 }
+
+func (null *Nullable) GetColumn() Column {
+	return null.column
+}
