@@ -2,6 +2,7 @@ package clickhouse_test
 
 import (
 	"database/sql/driver"
+	"net"
 	"reflect"
 	"testing"
 	"time"
@@ -30,7 +31,9 @@ func Test_ColumnarInsert(t *testing.T) {
 				array      Array(String),
 				arrayArray Array(Array(String)),
 				arrayWithValue Array(UInt64),
-				arrayWithValueFast Array(UInt64)
+				arrayWithValueFast Array(UInt64),
+				ipv4 IPv4,
+				ipv6 IPv6
 			) Engine=Memory
 		`
 		dml = `
@@ -50,8 +53,12 @@ func Test_ColumnarInsert(t *testing.T) {
 				array,
 				arrayArray,
 				arrayWithValue,
-				arrayWithValueFast
+				arrayWithValueFast,
+				ipv4,
+				ipv6
 			) VALUES (
+				?,
+				?,
 				?,
 				?,
 				?,
@@ -113,6 +120,8 @@ func Test_ColumnarInsert(t *testing.T) {
 						block.WriteArray(13, [][]string{[]string{"A", "B"}, []string{"CC", "DD", "EE"}})
 						block.WriteArrayWithValue(14, newUint64SliceValueSimple([]uint64{1, 2, 3}))
 						block.WriteArrayWithValue(15, newUint64SliceValueFast([]uint64{10, 20, 30}))
+						block.WriteIP(16, net.ParseIP("213.180.204.62"))
+						block.WriteIP(17, net.ParseIP("2606:4700:5c::a29f:2e07"))
 						if !assert.NoError(t, err) {
 							return
 						}
