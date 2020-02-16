@@ -18,8 +18,9 @@ Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/)
 * no_delay   - disable/enable the Nagle Algorithm for tcp socket (default is 'true' - disable)
 * alt_hosts  - comma separated list of single address host for load-balancing
 * connection_open_strategy - random/in_order (default random).
-    * random   - choose random server from set
-    * in_order - first live server is choosen in specified order
+    * random      - choose random server from set  
+    * in_order    - first live server is choosen in specified order
+    * time_random - choose random(based on current time) server from set. This option differs from `random` in that randomness is based on current time rather than on amount of previous connections.
 * block_size - maximum rows in block (default is 1000000). If the rows are larger then the data will be split into several blocks to send them to the server. If one block was sent to the server, the data will be persisted on the server disk, we can't rollback the transaction. So always keep in mind that the batch size no larger than the block_size if you want atomic batch insert.
 * pool_size - maximum amount of preallocated byte chunks used in queries (default is 100). Decrease this if you experience memory problems at the expense of more GC pressure and vice versa.
 * debug - enable debug output (boolean value)

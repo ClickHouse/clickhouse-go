@@ -152,6 +152,8 @@ func open(dsn string) (*clickhouse, error) {
 		connOpenStrategy = connOpenRandom
 	case "in_order":
 		connOpenStrategy = connOpenInOrder
+	case "time_random":
+		connOpenStrategy = connOpenTimeRandom
 	}
 
 	settings, err := makeQuerySettings(query)
