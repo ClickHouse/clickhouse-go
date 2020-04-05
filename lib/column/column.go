@@ -128,15 +128,6 @@ func Factory(name, chType string, timezone *time.Location) (Column, error) {
 			Timezone: timezone,
 			offset:   int64(offset),
 		}, nil
-	case "DateTime":
-		return &DateTime{
-			base: base{
-				name:    name,
-				chType:  chType,
-				valueOf: columnBaseTypes[time.Time{}],
-			},
-			Timezone: timezone,
-		}, nil
 	case "IPv4":
 		return &IPv4{
 			base: base{
@@ -154,8 +145,16 @@ func Factory(name, chType string, timezone *time.Location) (Column, error) {
 			},
 		}, nil
 	}
-
 	switch {
+	case strings.HasPrefix(chType, "DateTime"):
+		return &DateTime{
+			base: base{
+				name:    name,
+				chType:  "DateTime",
+				valueOf: columnBaseTypes[time.Time{}],
+			},
+			Timezone: timezone,
+		}, nil
 	case strings.HasPrefix(chType, "Array"):
 		return parseArray(name, chType, timezone)
 	case strings.HasPrefix(chType, "Nullable"):
