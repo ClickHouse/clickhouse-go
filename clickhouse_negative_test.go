@@ -18,14 +18,14 @@ func Test_Negative_OpenConnectAndPing(t *testing.T) {
 	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?username=invalid"); assert.NoError(t, err) {
 		if err := connect.Ping(); assert.Error(t, err) {
 			if exception, ok := err.(*clickhouse.Exception); assert.True(t, ok) {
-				assert.Equal(t, int32(192), exception.Code)
+				assert.Truef(t, exception.Code == int32(192) || exception.Code == int32(516), "Not equal. Expected: 192 or 516. Actual: %n", exception.Code)
 			}
 		}
 	}
 	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?password=invalid"); assert.NoError(t, err) {
 		if err := connect.Ping(); assert.Error(t, err) {
 			if exception, ok := err.(*clickhouse.Exception); assert.True(t, ok) {
-				assert.Equal(t, int32(193), exception.Code)
+				assert.Truef(t, exception.Code == int32(192) || exception.Code == int32(516), "Not equal. Expected: 192 or 516. Actual: %n", exception.Code)
 			}
 		}
 	}
