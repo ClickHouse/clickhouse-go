@@ -30,6 +30,10 @@ func (dt *Date) Write(encoder *binary.Encoder, v interface{}) error {
 		return encoder.Int16(value)
 	case int32:
 		timestamp = int64(value) + dt.offset
+	case uint32:
+		timestamp = int64(value) + dt.offset
+	case uint64:
+		timestamp = int64(value) + dt.offset
 	case int64:
 		timestamp = value + dt.offset
 	case string:

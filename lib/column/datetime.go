@@ -30,6 +30,10 @@ func (dt *DateTime) Write(encoder *binary.Encoder, v interface{}) error {
 		timestamp = int64(value)
 	case int32:
 		timestamp = int64(value)
+	case uint32:
+		timestamp = int64(value)
+	case uint64:
+		timestamp = int64(value)
 	case int64:
 		timestamp = value
 	case string:
