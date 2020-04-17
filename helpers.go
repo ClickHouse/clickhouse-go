@@ -23,6 +23,7 @@ func numInput(query string) int {
 		inBetween     bool
 		like          = newMatcher("like")
 		limit         = newMatcher("limit")
+		offset        = newMatcher("offset")
 		between       = newMatcher("between")
 		in            = newMatcher("in")
 		and           = newMatcher("and")
@@ -70,7 +71,7 @@ func numInput(query string) int {
 				char == '%':
 				keyword = true
 			default:
-				if limit.matchRune(char) || like.matchRune(char) || in.matchRune(char) {
+				if limit.matchRune(char) || offset.matchRune(char) || like.matchRune(char) || in.matchRune(char) {
 					keyword = true
 				} else if between.matchRune(char) {
 					keyword = true

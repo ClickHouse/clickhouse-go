@@ -119,6 +119,7 @@ func (stmt *stmt) bind(args []driver.NamedValue) (string, []ExternalTable) {
 		inBetween      bool
 		like           = newMatcher("like")
 		limit          = newMatcher("limit")
+		offset         = newMatcher("offset")
 		between        = newMatcher("between")
 		and            = newMatcher("and")
 		in             = newMatcher("in")
@@ -172,7 +173,7 @@ func (stmt *stmt) bind(args []driver.NamedValue) (string, []ExternalTable) {
 						char == '[':
 						keyword = true
 					default:
-						if limit.matchRune(char) || like.matchRune(char) || in.matchRune(char) {
+						if limit.matchRune(char) || offset.matchRune(char) || like.matchRune(char) || in.matchRune(char) {
 							keyword = true
 						} else if between.matchRune(char) {
 							keyword = true
