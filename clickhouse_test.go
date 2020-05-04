@@ -90,6 +90,7 @@ func Test_Insert(t *testing.T) {
 				fString FixedString(2),
 				date    Date,
 				datetime DateTime,
+				datetime64 DateTime64,
 				ipv4 IPv4,
 				ipv6 IPv6,
 				ipv4str FixedString(16),
@@ -112,6 +113,7 @@ func Test_Insert(t *testing.T) {
 				fString,
 				date,
 				datetime,
+				datetime64,
 				ipv4,
 				ipv6,
 				ipv4str,
@@ -153,6 +155,7 @@ func Test_Insert(t *testing.T) {
 				fString,
 				date,
 				datetime,
+				datetime64,
 				ipv4,
 				ipv6,
 				ipv4str,
@@ -170,11 +173,12 @@ func Test_Insert(t *testing.T) {
 								-1*i, -2*i, -4*i, -8*i, // int
 								uint8(1*i), uint16(2*i), uint32(4*i), uint64(8*i), // uint
 								1.32*float32(i), 1.64*float64(i), //float
-								fmt.Sprintf("string %d", i),               // string
-								"RU",                                      //fixedstring,
-								time.Now(),                                //date
-								time.Now(),                                //datetime
-								"1.2.3.4",                                 // ipv4
+								fmt.Sprintf("string %d", i), // string
+								"RU",                        //fixedstring,
+								time.Now(),                  //date
+								time.Now(),                  //datetime
+								time.Now(),                  //datetime64
+								"1.2.3.4",                   // ipv4
 								"2001:0db8:85a3:0000:0000:8a2e:0370:7334", //ipv6
 								column.IP(net.ParseIP("127.0.0.1").To4()),
 								column.IP(net.ParseIP("2001:0db8:85a3:0000:0000:8a2e:0370:7334")),
@@ -202,6 +206,7 @@ func Test_Insert(t *testing.T) {
 							FixedString string
 							Date        time.Time
 							DateTime    time.Time
+							DateTime64  time.Time
 							Ipv6        column.IP
 							Ipv4        column.IP
 							Ipv4str     column.IP
@@ -226,6 +231,7 @@ func Test_Insert(t *testing.T) {
 									&item.FixedString,
 									&item.Date,
 									&item.DateTime,
+									&item.DateTime64,
 									&item.Ipv4,
 									&item.Ipv6,
 									&item.Ipv4str,
