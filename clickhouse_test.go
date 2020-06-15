@@ -1255,57 +1255,89 @@ func TestArrayArrayT(t *testing.T) {
 	const (
 		ddl = `
 			CREATE TABLE clickhouse_test_array_array_t (
-				String Array(Array(String))
-				, String2 Array(String)
-				, Int32 Array(Int32)
+				String1 Array(Array(String)),
+				String2 Array(Array(Array(String))),
+				Int32   Array(Array(Int32))
 			) Engine=Memory
 		`
 		dml = `
-			INSERT INTO clickhouse_test_array_array_t (String, String2, Int32) VALUES (?)
+			INSERT INTO clickhouse_test_array_array_t (String1, String2, Int32) VALUES (?)
 		`
 		query = `
 			SELECT
-				String
+				String1,
+				String2,
+				Int32
 			FROM clickhouse_test_array_array_t
 		`
 	)
+
+	items := []struct {
+		String1, String2, Int32 interface{}
+	}{
+		{
+			[][]string{
+				[]string{"A"},
+				[]string{"BC"},
+				[]string{"DEF"},
+			},
+			[][][]string{
+				[][]string{
+					[]string{"X"},
+					[]string{"Y"},
+				},
+				[][]string{
+					[]string{"ZZ"},
+				},
+			},
+			[][]int32{
+				[]int32{1},
+				[]int32{2, 3},
+			},
+		},
+		{
+			[][][]byte{
+				[][]byte{[]byte("AA")},
+				[][]byte{[]byte("BB")},
+				[][]byte{[]byte("C4C")},
+			},
+			[][][][]byte{
+				[][][]byte{
+					[][]byte{[]byte("XX"), []byte("YY")},
+				},
+			},
+			[][]int32{
+				[]int32{4, 5, 6},
+			},
+		},
+	}
+
 	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) && assert.NoError(t, connect.Ping()) {
 		if _, err := connect.Exec("DROP TABLE IF EXISTS clickhouse_test_array_array_t"); assert.NoError(t, err) {
 			if _, err := connect.Exec(ddl); assert.NoError(t, err) {
 				if tx, err := connect.Begin(); assert.NoError(t, err) {
 					if stmt, err := tx.Prepare(dml); assert.NoError(t, err) {
-						_, err = stmt.Exec([][]string{[]string{"A"}, []string{"B"}, []string{"C"}}, []string{"X", "Y"}, []int32{1, 2, 3})
-						if !assert.NoError(t, err) {
-							return
+						for _, item := range items {
+							_, err = stmt.Exec(item.String1, item.String2, item.Int32)
+							if !assert.NoError(t, err) {
+								return
+							}
 						}
-						_, err = stmt.Exec([][]string{[]string{"AA"}, []string{"BB"}, []string{"C4C"}}, []string{"XX", "YY"}, []int32{4, 5, 6})
-						if !assert.NoError(t, err) {
-							return
-						}
-						_, err = stmt.Exec(
-							[][][]byte{
-								[][]byte{[]byte("AA")},
-								[][]byte{[]byte("BB")},
-								[][]byte{[]byte("C4C")},
-							},
-							[][]byte{[]byte("XX"), []byte("YY")},
-							[]int32{4, 5, 6},
-						)
-						if !assert.NoError(t, err) {
-							return
-						}
-					} else {
-						return
+
 					}
 					if assert.NoError(t, tx.Commit()) {
-						/*	var value []string
-							if err := connect.QueryRow(query).Scan(&value); assert.NoError(t, err) {
-								if !assert.NoError(t, err) {
-									return
-								}
-							}
-							assert.Equal(t, []string{"A", "C"}, value)
-						*/
+						var result struct {
+							String1 [][]string
+							String2 [][][]string
+							Int32   [][]int32
+						}
+
+						row := connect.QueryRow(query)
+						if err := row.Scan(&result.String1, &result.String2, &result.Int32); assert.NoError(t, err) {
+							assert.Equal(t, items[0].String1, result.String1)
+							assert.Equal(t, items[0].String2, result.String2)
+							assert.Equal(t, items[0].Int32, result.Int32)
+						}
 					}
 				}
 			}
