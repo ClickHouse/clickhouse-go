@@ -22,7 +22,7 @@ func Test_Column_Int8(t *testing.T) {
 	if column, err := columns.Factory("column_name", "Int8", time.Local); assert.NoError(t, err) {
 		for i := -128; i <= 127; i++ {
 			if err := column.Write(encoder, int8(i)); assert.NoError(t, err) {
-				if v, err := column.Read(decoder); assert.NoError(t, err) {
+				if v, err := column.Read(decoder, false); assert.NoError(t, err) {
 					assert.Equal(t, int8(i), v)
 				}
 			}
@@ -47,7 +47,7 @@ func Test_Column_Int16(t *testing.T) {
 	if column, err := columns.Factory("column_name", "Int16", time.Local); assert.NoError(t, err) {
 		for i := -32768; i <= 32767; i++ {
 			if err := column.Write(encoder, int16(i)); assert.NoError(t, err) {
-				if v, err := column.Read(decoder); assert.NoError(t, err) {
+				if v, err := column.Read(decoder, false); assert.NoError(t, err) {
 					assert.Equal(t, int16(i), v)
 				}
 			}
@@ -72,7 +72,7 @@ func Test_Column_Int32(t *testing.T) {
 	if column, err := columns.Factory("column_name", "Int32", time.Local); assert.NoError(t, err) {
 		for i := -2147483648; i <= 2147483648; i += 100000 {
 			if err := column.Write(encoder, int32(i)); assert.NoError(t, err) {
-				if v, err := column.Read(decoder); assert.NoError(t, err) {
+				if v, err := column.Read(decoder, false); assert.NoError(t, err) {
 					assert.Equal(t, int32(i), v)
 				}
 			}
@@ -97,7 +97,7 @@ func Test_Column_Int64(t *testing.T) {
 	if column, err := columns.Factory("column_name", "Int64", time.Local); assert.NoError(t, err) {
 		for i := -2147483648; i <= 2147483648*2; i += 100000 {
 			if err := column.Write(encoder, int64(i)); assert.NoError(t, err) {
-				if v, err := column.Read(decoder); assert.NoError(t, err) {
+				if v, err := column.Read(decoder, false); assert.NoError(t, err) {
 					assert.Equal(t, int64(i), v)
 				}
 			}
@@ -122,7 +122,7 @@ func Test_Column_UInt8(t *testing.T) {
 	if column, err := columns.Factory("column_name", "UInt8", time.Local); assert.NoError(t, err) {
 		for i := 0; i <= 255; i++ {
 			if err := column.Write(encoder, uint8(i)); assert.NoError(t, err) {
-				if v, err := column.Read(decoder); assert.NoError(t, err) {
+				if v, err := column.Read(decoder, false); assert.NoError(t, err) {
 					assert.Equal(t, uint8(i), v)
 				}
 			}
@@ -147,7 +147,7 @@ func Test_Column_UInt16(t *testing.T) {
 	if column, err := columns.Factory("column_name", "UInt16", time.Local); assert.NoError(t, err) {
 		for i := 0; i <= 65535; i++ {
 			if err := column.Write(encoder, uint16(i)); assert.NoError(t, err) {
-				if v, err := column.Read(decoder); assert.NoError(t, err) {
+				if v, err := column.Read(decoder, false); assert.NoError(t, err) {
 					assert.Equal(t, uint16(i), v)
 				}
 			}
@@ -172,7 +172,7 @@ func Test_Column_UInt32(t *testing.T) {
 	if column, err := columns.Factory("column_name", "UInt32", time.Local); assert.NoError(t, err) {
 		for i := 0; i <= 4294967295; i += 100000 {
 			if err := column.Write(encoder, uint32(i)); assert.NoError(t, err) {
-				if v, err := column.Read(decoder); assert.NoError(t, err) {
+				if v, err := column.Read(decoder, false); assert.NoError(t, err) {
 					assert.Equal(t, uint32(i), v)
 				}
 			}
@@ -197,7 +197,7 @@ func Test_Column_UInt64(t *testing.T) {
 	if column, err := columns.Factory("column_name", "UInt64", time.Local); assert.NoError(t, err) {
 		for i := 0; i <= 4294967295*2; i += 100000 {
 			if err := column.Write(encoder, uint64(i)); assert.NoError(t, err) {
-				if v, err := column.Read(decoder); assert.NoError(t, err) {
+				if v, err := column.Read(decoder, false); assert.NoError(t, err) {
 					assert.Equal(t, uint64(i), v)
 				}
 			}
@@ -222,7 +222,7 @@ func Test_Column_Float32(t *testing.T) {
 	if column, err := columns.Factory("column_name", "Float32", time.Local); assert.NoError(t, err) {
 		for i := -2147483648; i <= 2147483648; i += 100000 {
 			if err := column.Write(encoder, float32(i)); assert.NoError(t, err) {
-				if v, err := column.Read(decoder); assert.NoError(t, err) {
+				if v, err := column.Read(decoder, false); assert.NoError(t, err) {
 					assert.Equal(t, float32(i), v)
 				}
 			}
@@ -247,7 +247,7 @@ func Test_Column_Float64(t *testing.T) {
 	if column, err := columns.Factory("column_name", "Float64", time.Local); assert.NoError(t, err) {
 		for i := -2147483648; i <= 2147483648*2; i += 100000 {
 			if err := column.Write(encoder, float64(i)); assert.NoError(t, err) {
-				if v, err := column.Read(decoder); assert.NoError(t, err) {
+				if v, err := column.Read(decoder, false); assert.NoError(t, err) {
 					assert.Equal(t, float64(i), v)
 				}
 			}
@@ -275,22 +275,22 @@ func Test_Column_String(t *testing.T) {
 	)
 	if column, err := columns.Factory("column_name", "String", time.Local); assert.NoError(t, err) {
 		if err := column.Write(encoder, str); assert.NoError(t, err) {
-			if v, err := column.Read(decoder); assert.NoError(t, err) {
+			if v, err := column.Read(decoder, false); assert.NoError(t, err) {
 				assert.Equal(t, str, v)
 			}
 		}
 		if err := column.Write(encoder, strP); assert.NoError(t, err) {
-			if v, err := column.Read(decoder); assert.NoError(t, err) {
+			if v, err := column.Read(decoder, false); assert.NoError(t, err) {
 				assert.Equal(t, str, v)
 			}
 		}
 		if err := column.Write(encoder, b); assert.NoError(t, err) {
-			if v, err := column.Read(decoder); assert.NoError(t, err) {
+			if v, err := column.Read(decoder, false); assert.NoError(t, err) {
 				assert.Equal(t, str, v)
 			}
 		}
 		if err := column.Write(encoder, bp); assert.NoError(t, err) {
-			if v, err := column.Read(decoder); assert.NoError(t, err) {
+			if v, err := column.Read(decoder, false); assert.NoError(t, err) {
 				assert.Equal(t, str, v)
 			}
 		}
@@ -314,7 +314,7 @@ func Test_Column_FixedString(t *testing.T) {
 	)
 	if column, err := columns.Factory("column_name", "FixedString(14)", time.Local); assert.NoError(t, err) {
 		if err := column.Write(encoder, str); assert.NoError(t, err) {
-			if v, err := column.Read(decoder); assert.NoError(t, err) {
+			if v, err := column.Read(decoder, false); assert.NoError(t, err) {
 				assert.Equal(t, str, v)
 			}
 		}
@@ -337,13 +337,13 @@ func Test_Column_Enum8(t *testing.T) {
 	)
 	if column, err := columns.Factory("column_name", "Enum8('A'=1,'B'=2,'C'=3)", time.Local); assert.NoError(t, err) {
 		if err := column.Write(encoder, "B"); assert.NoError(t, err) {
-			if v, err := column.Read(decoder); assert.NoError(t, err) {
+			if v, err := column.Read(decoder, false); assert.NoError(t, err) {
 				assert.Equal(t, "B", v)
 			}
 		}
 		if err := column.Write(encoder, int16(3)); assert.Error(t, err) {
 			if err := column.Write(encoder, int8(3)); assert.NoError(t, err) {
-				if v, err := column.Read(decoder); assert.NoError(t, err) {
+				if v, err := column.Read(decoder, false); assert.NoError(t, err) {
 					assert.Equal(t, "C", v)
 				}
 			}
@@ -367,13 +367,13 @@ func Test_Column_Enum16(t *testing.T) {
 	)
 	if column, err := columns.Factory("column_name", "Enum16('A'=1,'B'=2,'C'=3)", time.Local); assert.NoError(t, err) {
 		if err := column.Write(encoder, "B"); assert.NoError(t, err) {
-			if v, err := column.Read(decoder); assert.NoError(t, err) {
+			if v, err := column.Read(decoder, false); assert.NoError(t, err) {
 				assert.Equal(t, "B", v)
 			}
 		}
 		if err := column.Write(encoder, int8(3)); assert.Error(t, err) {
 			if err := column.Write(encoder, int16(3)); assert.NoError(t, err) {
-				if v, err := column.Read(decoder); assert.NoError(t, err) {
+				if v, err := column.Read(decoder, false); assert.NoError(t, err) {
 					assert.Equal(t, "C", v)
 				}
 			}
@@ -404,21 +404,21 @@ func Test_Column_Date(t *testing.T) {
 
 			// time.Time type
 			if err := column.Write(encoder, todayHour); assert.NoError(t, err) {
-				if v, err := column.Read(decoder); assert.NoError(t, err) {
+				if v, err := column.Read(decoder, false); assert.NoError(t, err) {
 					assert.Equal(t, today, v)
 				}
 			}
 
 			// int64 type
 			if err := column.Write(encoder, todayHour.Unix()); assert.NoError(t, err) {
-				if v, err := column.Read(decoder); assert.NoError(t, err) {
+				if v, err := column.Read(decoder, false); assert.NoError(t, err) {
 					assert.Equal(t, today, v)
 				}
 			}
 
 			// string type
 			if err := column.Write(encoder, todayHour.Format("2006-01-02")); assert.NoError(t, err) {
-				if v, err := column.Read(decoder); assert.NoError(t, err) {
+				if v, err := column.Read(decoder, false); assert.NoError(t, err) {
 					assert.Equal(t, today, v)
 				}
 			}
@@ -445,12 +445,12 @@ func Test_Column_DateTime(t *testing.T) {
 	)
 	if column, err := columns.Factory("column_name", "DateTime", time.Local); assert.NoError(t, err) {
 		if err := column.Write(encoder, timeNow); assert.NoError(t, err) {
-			if v, err := column.Read(decoder); assert.NoError(t, err) {
+			if v, err := column.Read(decoder, false); assert.NoError(t, err) {
 				assert.Equal(t, timeNow, v)
 			}
 		}
 		if err := column.Write(encoder, timeNow.In(time.UTC).Format("2006-01-02 15:04:05")); assert.NoError(t, err) {
-			if v, err := column.Read(decoder); assert.NoError(t, err) {
+			if v, err := column.Read(decoder, false); assert.NoError(t, err) {
 				assert.Equal(t, timeNow, v)
 			}
 		}
@@ -474,12 +474,12 @@ func Test_Column_DateTime64(t *testing.T) {
 	)
 	if column, err := columns.Factory("column_name", "DateTime64(6)", time.UTC); assert.NoError(t, err) {
 		if err := column.Write(encoder, timeNow); assert.NoError(t, err) {
-			if v, err := column.Read(decoder); assert.NoError(t, err) {
+			if v, err := column.Read(decoder, false); assert.NoError(t, err) {
 				assert.Equal(t, timeNow, v)
 			}
 		}
 		if err := column.Write(encoder, timeNow.In(time.UTC).Format("2006-01-02 15:04:05.999999")); assert.NoError(t, err) {
-			if v, err := column.Read(decoder); assert.NoError(t, err) {
+			if v, err := column.Read(decoder, false); assert.NoError(t, err) {
 				assert.Equal(t, timeNow, v)
 			}
 		}
@@ -513,12 +513,12 @@ func Test_Column_DateTimeWithTZ(t *testing.T) {
 	)
 	if column, err := columns.Factory("column_name", `DateTime("UTC")`, time.Local); assert.NoError(t, err) {
 		if err := column.Write(encoder, timeNow); assert.NoError(t, err) {
-			if v, err := column.Read(decoder); assert.NoError(t, err) {
+			if v, err := column.Read(decoder, false); assert.NoError(t, err) {
 				assert.Equal(t, timeNow, v)
 			}
 		}
 		if err := column.Write(encoder, timeNow.In(time.UTC).Format("2006-01-02 15:04:05")); assert.NoError(t, err) {
-			if v, err := column.Read(decoder); assert.NoError(t, err) {
+			if v, err := column.Read(decoder, false); assert.NoError(t, err) {
 				assert.Equal(t, timeNow, v)
 			}
 		}
@@ -549,7 +549,7 @@ func Test_Column_UUID(t *testing.T) {
 			"798c4344-de6c-4c02-95ba-fea4f7d5fafd",
 		} {
 			if err := column.Write(encoder, uuid); assert.NoError(t, err) {
-				if v, err := column.Read(decoder); assert.NoError(t, err) {
+				if v, err := column.Read(decoder, false); assert.NoError(t, err) {
 					assert.Equal(t, uuid, v)
 				}
 			}
@@ -579,7 +579,7 @@ func Test_Column_IP(t *testing.T) {
 			"127.0.0.1",
 		} {
 			if err := column.Write(encoder, ip); assert.NoError(t, err) {
-				if v, err := column.Read(decoder); assert.NoError(t, err) {
+				if v, err := column.Read(decoder, false); assert.NoError(t, err) {
 					assert.Equal(t, net.ParseIP(ip), v)
 				}
 			}
@@ -602,7 +602,7 @@ func Test_Column_IP(t *testing.T) {
 			"2001:0db8:0000:0000:0000:ff00:0042:8329",
 		} {
 			if err := column.Write(encoder, ip); assert.NoError(t, err) {
-				if v, err := column.Read(decoder); assert.NoError(t, err) {
+				if v, err := column.Read(decoder, false); assert.NoError(t, err) {
 					assert.Equal(t, net.ParseIP(ip), v)
 				}
 			}
@@ -651,7 +651,7 @@ func Test_Column_Decimal64(t *testing.T) {
 		}
 
 		if err := columnBase.Write(encoder, float64(1123.12345)); assert.NoError(t, err) {
-			if v, err := columnBase.Read(decoder); assert.NoError(t, err) {
+			if v, err := columnBase.Read(decoder, false); assert.NoError(t, err) {
 				assert.Equal(t, int64(112312345), v)
 			}
 		}
@@ -690,6 +690,49 @@ func Test_Column_NullableDecimal64(t *testing.T) {
 
 		if assert.Equal(t, "column_name", columnBase.Name()) && assert.Equal(t, "Nullable(Decimal(18,5))", columnBase.CHType()) {
 			assert.Equal(t, reflect.Int64, columnBase.ScanType().Kind())
+		}
+	}
+}
+
+func Test_Column_NullableEnum8(t *testing.T) {
+	var (
+		buf     bytes.Buffer
+		encoder = binary.NewEncoder(&buf)
+		decoder = binary.NewDecoder(&buf)
+	)
+	if columnBase, err := columns.Factory("column_name", "Nullable(Enum8('A'=1,'B'=2,'C'=3))", time.Local); assert.NoError(t, err) {
+
+		nullableCol, ok := columnBase.(*columns.Nullable)
+		if assert.True(t, ok) {
+			enumCol := nullableCol.GetColumn().(*columns.Enum)
+			if assert.Equal(t, "column_name", enumCol.Name()) && assert.Equal(t, "Enum8('A'=1,'B'=2,'C'=3)", enumCol.CHType()) {
+				assert.Equal(t, reflect.String, enumCol.ScanType().Kind())
+			}
+		}
+
+		if err = nullableCol.WriteNull(encoder, encoder, "B"); assert.NoError(t, err) {
+			if v, err := nullableCol.ReadNull(decoder, 1); assert.NoError(t, err) {
+				assert.Equal(t, "B", v[0])
+			}
+		}
+
+		if err = nullableCol.WriteNull(encoder, encoder, nil); assert.NoError(t, err) {
+			if v, err := nullableCol.ReadNull(decoder, 1); assert.NoError(t, err) {
+				assert.Nil(t, v[0])
+			}
+		}
+
+		// Clickhouse can return a null result with zero value, even if the enum doesn't start at 0
+		if _, err = encoder.Write([]byte{1}); assert.NoError(t, err) {
+			if err = encoder.Int8(0); assert.NoError(t, err) {
+				if v, err := nullableCol.ReadNull(decoder, 1); assert.NoError(t, err) {
+					assert.Nil(t, v[0])
+				}
+			}
+		}
+
+		if assert.Equal(t, "column_name", columnBase.Name()) && assert.Equal(t, "Nullable(Enum8('A'=1,'B'=2,'C'=3))", columnBase.CHType()) {
+			assert.Equal(t, reflect.String, columnBase.ScanType().Kind())
 		}
 	}
 }
