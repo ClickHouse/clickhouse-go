@@ -14,7 +14,7 @@ type DateTime64 struct {
 	Timezone *time.Location
 }
 
-func (dt *DateTime64) Read(decoder *binary.Decoder) (interface{}, error) {
+func (dt *DateTime64) Read(decoder *binary.Decoder, isNull bool) (interface{}, error) {
 	value, err := decoder.Int64()
 	if err != nil {
 		return nil, err

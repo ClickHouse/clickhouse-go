@@ -6,7 +6,7 @@ import (
 
 type String struct{ base }
 
-func (String) Read(decoder *binary.Decoder) (interface{}, error) {
+func (String) Read(decoder *binary.Decoder, isNull bool) (interface{}, error) {
 	v, err := decoder.String()
 	if err != nil {
 		return "", err

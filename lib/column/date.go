@@ -12,7 +12,7 @@ type Date struct {
 	offset   int64
 }
 
-func (dt *Date) Read(decoder *binary.Decoder) (interface{}, error) {
+func (dt *Date) Read(decoder *binary.Decoder, isNull bool) (interface{}, error) {
 	sec, err := decoder.Int16()
 	if err != nil {
 		return nil, err

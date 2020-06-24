@@ -11,7 +11,7 @@ type DateTime struct {
 	Timezone *time.Location
 }
 
-func (dt *DateTime) Read(decoder *binary.Decoder) (interface{}, error) {
+func (dt *DateTime) Read(decoder *binary.Decoder, isNull bool) (interface{}, error) {
 	sec, err := decoder.Int32()
 	if err != nil {
 		return nil, err
