@@ -16,7 +16,7 @@ type Array struct {
 	column Column
 }
 
-func (array *Array) Read(decoder *binary.Decoder) (interface{}, error) {
+func (array *Array) Read(decoder *binary.Decoder, isNull bool) (interface{}, error) {
 	return nil, fmt.Errorf("do not use Read method for Array(T) column")
 }
 
@@ -69,7 +69,7 @@ func (array *Array) read(decoder *binary.Decoder, offsets [][]uint64, index uint
 			err   error
 		)
 		if level == array.depth-1 {
-			value, err = array.column.Read(decoder)
+			value, err = array.column.Read(decoder, false)
 		} else {
 			value, err = array.read(decoder, offsets, i, level+1)
 		}

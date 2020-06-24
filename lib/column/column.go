@@ -13,7 +13,7 @@ type Column interface {
 	Name() string
 	CHType() string
 	ScanType() reflect.Type
-	Read(*binary.Decoder) (interface{}, error)
+	Read(*binary.Decoder, bool) (interface{}, error)
 	Write(*binary.Encoder, interface{}) error
 	defaultValue() interface{}
 	Depth() int
