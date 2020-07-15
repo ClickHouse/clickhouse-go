@@ -16,12 +16,16 @@ func (Float32) Read(decoder *binary.Decoder, isNull bool) (interface{}, error) {
 
 func (float *Float32) Write(encoder *binary.Encoder, v interface{}) error {
 	switch v := v.(type) {
+	case int64:
+		return encoder.Float32(float32(v))
 	case float32:
 		return encoder.Float32(v)
 	case float64:
 		return encoder.Float32(float32(v))
 
 	// this relies on Nullable never sending nil values through
+	case *int64:
+		return encoder.Float32(float32(*v))
 	case *float32:
 		return encoder.Float32(*v)
 	case *float64:
