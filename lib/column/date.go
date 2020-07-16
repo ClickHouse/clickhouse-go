@@ -1,6 +1,7 @@
 package column
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/lib/binary"
@@ -71,14 +72,15 @@ func (dt *Date) Write(encoder *binary.Encoder, v interface{}) error {
 }
 
 func (dt *Date) parse(value string) (int64, error) {
-	tv, err := time.Parse("2006-01-02", value)
+	var year, month, day int
+	_, err := fmt.Sscanf(value, "%d-%d-%d",
+		&year, &month, &day)
 	if err != nil {
 		return 0, err
 	}
-	return time.Date(
-		time.Time(tv).Year(),
-		time.Time(tv).Month(),
-		time.Time(tv).Day(),
-		0, 0, 0, 0, time.UTC,
-	).Unix(), nil
+
+	if year == 0 {
+		return 0, nil
+	}
+	return makeDaySecond(year, month, day, time.UTC), nil
 }
