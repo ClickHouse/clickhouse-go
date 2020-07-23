@@ -41,12 +41,12 @@ func (wb *WriteBuffer) WriteTo(w io.Writer) (int64, error) {
 	for _, chunk := range wb.chunks {
 		ln, err := w.Write(chunk)
 		if err != nil {
-			wb.Reset()
+			wb.clear()
 			return 0, err
 		}
 		size += int64(ln)
 	}
-	wb.Reset()
+	wb.clear()
 	return size, nil
 }
 
@@ -86,7 +86,7 @@ func (wb *WriteBuffer) calcCap(dataSize int) int {
 	return max(dataSize, cap(wb.chunks[len(wb.chunks)-1])*2)
 }
 
-func (wb *WriteBuffer) Reset() {
+func (wb *WriteBuffer) clear() {
 	if len(wb.chunks) == 0 {
 		return
 	}
@@ -103,6 +103,13 @@ func (wb *WriteBuffer) Reset() {
 	// Keep the largest chunk
 	wb.chunks[0] = wb.chunks[len(wb.chunks)-1][:0]
 	wb.chunks = wb.chunks[:1]
+}
+
+func (wb *WriteBuffer) Reset() {
+	for _, chunk := range wb.chunks {
+		leakypool.PutBytes(chunk[:0])
+	}
+	wb.chunks = nil
 }
 
 func max(a, b int) int {
