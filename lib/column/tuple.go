@@ -17,7 +17,7 @@ func (tuple *Tuple) Read(decoder *binary.Decoder, isNull bool) (interface{}, err
 	return nil, fmt.Errorf("do not use Read method for Tuple(T) column")
 }
 
-func (tuple *Tuple) ReadTuple(decoder *binary.Decoder, rows int) (_ []interface{}, err error) {
+func (tuple *Tuple) ReadTuple(decoder *binary.Decoder, rows int) ([]interface{}, error) {
 	var values = make([][]interface{}, rows)
 
 	for _, c := range tuple.columns {
