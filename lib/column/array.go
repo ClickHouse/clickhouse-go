@@ -48,8 +48,15 @@ func (array *Array) ReadArray(decoder *binary.Decoder, rows int) (_ []interface{
 
 	// Read values
 	for i := 0; i < rows; i++ {
-		if values[i], err = array.read(decoder, offsets, uint64(i), 0); err != nil {
-			return nil, err
+		switch column := array.column.(type) {
+		case *Tuple:
+			if values[i], err = column.ReadTuple(decoder, int(lastOffset)); err != nil {
+				return nil, err
+			}
+		default:
+			if values[i], err = array.read(decoder, offsets, uint64(i), 0); err != nil {
+				return nil, err
+			}
 		}
 	}
 	return values, nil
@@ -145,6 +152,8 @@ loop:
 		scanType = []time.Time{}
 	case arrayBaseTypes[IPv4{}], arrayBaseTypes[IPv6{}]:
 		scanType = []net.IP{}
+	case reflect.ValueOf([]interface{}{}).Type():
+		scanType = [][]interface{}{}
 	default:
 		return nil, fmt.Errorf("unsupported Array type '%s'", column.ScanType().Name())
 	}
