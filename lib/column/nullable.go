@@ -14,7 +14,7 @@ type Nullable struct {
 }
 
 func (null *Nullable) ScanType() reflect.Type {
-	return null.column.ScanType()
+	return reflect.PtrTo(null.column.ScanType())
 }
 
 func (null *Nullable) Read(decoder *binary.Decoder, isNull bool) (interface{}, error) {

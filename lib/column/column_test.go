@@ -689,7 +689,8 @@ func Test_Column_NullableDecimal64(t *testing.T) {
 		}
 
 		if assert.Equal(t, "column_name", columnBase.Name()) && assert.Equal(t, "Nullable(Decimal(18,5))", columnBase.CHType()) {
-			assert.Equal(t, reflect.Int64, columnBase.ScanType().Kind())
+			assert.Equal(t, reflect.Ptr, columnBase.ScanType().Kind())
+			assert.Equal(t, reflect.Int64, columnBase.ScanType().Elem().Kind())
 		}
 	}
 }
@@ -732,7 +733,8 @@ func Test_Column_NullableEnum8(t *testing.T) {
 		}
 
 		if assert.Equal(t, "column_name", columnBase.Name()) && assert.Equal(t, "Nullable(Enum8('A'=1,'B'=2,'C'=3))", columnBase.CHType()) {
-			assert.Equal(t, reflect.String, columnBase.ScanType().Kind())
+			assert.Equal(t, reflect.Ptr, columnBase.ScanType().Kind())
+			assert.Equal(t, reflect.String, columnBase.ScanType().Elem().Kind())
 		}
 	}
 }
