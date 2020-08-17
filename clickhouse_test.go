@@ -7,6 +7,7 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"net"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -1986,6 +1987,113 @@ func Test_ReadArrayArrayTuple(t *testing.T) {
 						}
 
 						t.Log(histArr, group)
+					}
+				}
+			}
+		}
+	}
+}
+
+func Test_NullableScan(t *testing.T) {
+	const (
+		ddl = `
+ 			CREATE TABLE clickhouse_test_scan_nullable (
+ 				int8N      Nullable(Int8),
+ 				int16N     Nullable(Int16),
+ 				int32N     Nullable(Int32),
+ 				int64N     Nullable(Int64),
+ 				uint8N     Nullable(UInt8),
+ 				uint16N    Nullable(UInt16),
+ 				uint32N    Nullable(UInt32),
+ 				uint64N    Nullable(UInt64),
+ 				float32N   Nullable(Float32),
+ 				float64N   Nullable(Float64),
+ 				string     Nullable(String)
+ 			) Engine=Memory;
+ 		`
+		dml = `
+ 			INSERT INTO clickhouse_test_scan_nullable (
+ 				int8N,
+ 				int16N,
+ 				int32N,
+ 				int64N,
+ 				uint8N,
+ 				uint16N,
+ 				uint32N,
+ 				uint64N,
+ 				float32N,
+ 				float64N,
+				string
+ 			) VALUES (
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?
+ 			)
+ 		`
+		query = `
+ 			SELECT
+				int8N,
+ 				int16N,
+ 				int32N,
+ 				int64N,
+ 				uint8N,
+ 				uint16N,
+ 				uint32N,
+ 				uint64N,
+ 				float32N,
+ 				float64N,
+			   	string
+ 			FROM clickhouse_test_scan_nullable
+ 		`
+	)
+
+	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) {
+		if tx, err := connect.Begin(); assert.NoError(t, err) {
+			if _, err := connect.Exec("DROP TABLE IF EXISTS clickhouse_test_scan_nullable"); assert.NoError(t, err) {
+				if _, err := tx.Exec(ddl); assert.NoError(t, err) {
+					if tx, err := connect.Begin(); assert.NoError(t, err) {
+						if stmt, err := tx.Prepare(dml); assert.NoError(t, err) {
+							if _, err := stmt.Exec(
+								nil,
+								nil,
+								nil,
+								nil,
+								nil,
+								nil,
+								nil,
+								nil,
+								nil,
+								nil,
+								nil,
+							); !assert.NoError(t, err) {
+								t.Fatal(err)
+							}
+						}
+						if err := tx.Commit(); !assert.NoError(t, err) {
+							t.Fatal(err)
+						}
+					}
+					if rows, err := connect.Query(query); assert.NoError(t, err) {
+						if columns, err := rows.ColumnTypes(); assert.NoError(t, err) {
+							values := make([]interface{}, len(columns))
+							for i, c := range columns {
+								values[i] = reflect.New(c.ScanType()).Interface()
+							}
+
+							for i := 0; rows.Next(); i++ {
+								if err := rows.Scan(values...); assert.NoError(t, err) {
+									t.Log(values)
+								}
+							}
+						}
 					}
 				}
 			}
