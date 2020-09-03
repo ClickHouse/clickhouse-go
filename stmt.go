@@ -126,6 +126,8 @@ func (stmt *stmt) bind(args []driver.NamedValue) string {
 								buf.WriteString(quote(v.Value))
 							}
 						}
+					} else {
+						buf.WriteRune(char)
 					}
 				case '?':
 					if keyword && index < len(args) && len(args[index].Name) == 0 {
