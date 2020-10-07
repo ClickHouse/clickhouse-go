@@ -85,7 +85,10 @@ func (dt *DateTime64) Write(encoder *binary.Encoder, v interface{}) error {
 func (dt *DateTime64) parse(value string) (int64, error) {
 	tv, err := time.Parse("2006-01-02 15:04:05.999", value)
 	if err != nil {
-		return 0, err
+		tv, err = time.Parse(time.RFC3339Nano, value)
+		if err != nil {
+			return 0, err
+		}
 	}
 	return tv.UnixNano(), nil
 }
