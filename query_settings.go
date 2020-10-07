@@ -16,6 +16,7 @@ const (
 	intQS
 	boolQS
 	timeQS
+	stringQS
 )
 
 // description of single query setting
@@ -214,6 +215,8 @@ var querySettingList = []querySettingInfo{
 	{"http_receive_timeout", timeQS},
 	{"max_execution_time", timeQS},
 	{"timeout_before_checking_execution_speed", timeQS},
+
+	{"date_time_input_format", stringQS},
 }
 
 type querySettingValueEncoder func(enc *binary.Encoder) error
@@ -236,6 +239,9 @@ func makeQuerySettings(query url.Values) (*querySettings, error) {
 		}
 
 		switch info.qsType {
+		case stringQS:
+			qs.settings[info.name] = func(enc *binary.Encoder) error { return enc.String(valueStr) }
+
 		case uintQS, intQS, timeQS:
 			value, err := strconv.ParseUint(valueStr, 10, 64)
 			if err != nil {

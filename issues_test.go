@@ -250,6 +250,8 @@ func TestQuerySettings(t *testing.T) {
 			settings += "1000"
 		case boolQS:
 			settings += "false"
+		case stringQS:
+			settings += "foo"
 		}
 	}
 
