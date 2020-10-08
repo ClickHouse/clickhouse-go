@@ -449,7 +449,12 @@ func Test_Column_DateTime(t *testing.T) {
 				assert.Equal(t, timeNow, v)
 			}
 		}
-		if err := column.Write(encoder, timeNow.In(time.UTC).Format("2006-01-02 15:04:05")); assert.NoError(t, err) {
+		if err := column.Write(encoder, timeNow.In(time.Local).Format("2006-01-02 15:04:05")); assert.NoError(t, err) {
+			if v, err := column.Read(decoder, false); assert.NoError(t, err) {
+				assert.Equal(t, timeNow, v)
+			}
+		}
+		if err := column.Write(encoder, timeNow.In(time.Local).Format(time.RFC3339)); assert.NoError(t, err) {
 			if v, err := column.Read(decoder, false); assert.NoError(t, err) {
 				assert.Equal(t, timeNow, v)
 			}
@@ -472,18 +477,23 @@ func Test_Column_DateTime64(t *testing.T) {
 		encoder = binary.NewEncoder(&buf)
 		decoder = binary.NewDecoder(&buf)
 	)
-	if column, err := columns.Factory("column_name", "DateTime64(6)", time.UTC); assert.NoError(t, err) {
+	if column, err := columns.Factory("column_name", "DateTime64(7)", time.UTC); assert.NoError(t, err) {
 		if err := column.Write(encoder, timeNow); assert.NoError(t, err) {
 			if v, err := column.Read(decoder, false); assert.NoError(t, err) {
 				assert.Equal(t, timeNow, v)
 			}
 		}
-		if err := column.Write(encoder, timeNow.In(time.UTC).Format("2006-01-02 15:04:05.999999")); assert.NoError(t, err) {
+		if err := column.Write(encoder, timeNow.In(time.UTC).Format("2006-01-02 15:04:05.9999999")); assert.NoError(t, err) {
 			if v, err := column.Read(decoder, false); assert.NoError(t, err) {
 				assert.Equal(t, timeNow, v)
 			}
 		}
-		if assert.Equal(t, "column_name", column.Name()) && assert.Equal(t, "DateTime64(6)", column.CHType()) {
+		if err := column.Write(encoder, timeNow.In(time.Local).Format(time.RFC3339Nano)); assert.NoError(t, err) {
+			if v, err := column.Read(decoder, false); assert.NoError(t, err) {
+				assert.Equal(t, timeNow, v)
+			}
+		}
+		if assert.Equal(t, "column_name", column.Name()) && assert.Equal(t, "DateTime64(7)", column.CHType()) {
 			assert.Equal(t, reflect.TypeOf(time.Time{}).Kind(), column.ScanType().Kind())
 		}
 		if err := column.Write(encoder, int8(0)); assert.Error(t, err) {
@@ -517,7 +527,12 @@ func Test_Column_DateTimeWithTZ(t *testing.T) {
 				assert.Equal(t, timeNow, v)
 			}
 		}
-		if err := column.Write(encoder, timeNow.In(time.UTC).Format("2006-01-02 15:04:05")); assert.NoError(t, err) {
+		if err := column.Write(encoder, timeNow.In(time.Local).Format("2006-01-02 15:04:05")); assert.NoError(t, err) {
+			if v, err := column.Read(decoder, false); assert.NoError(t, err) {
+				assert.Equal(t, timeNow, v)
+			}
+		}
+		if err := column.Write(encoder, timeNow.In(time.Local).Format(time.RFC3339)); assert.NoError(t, err) {
 			if v, err := column.Read(decoder, false); assert.NoError(t, err) {
 				assert.Equal(t, timeNow, v)
 			}
