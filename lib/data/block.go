@@ -175,6 +175,9 @@ func (block *Block) Reserve() {
 func (block *Block) Reset() {
 	block.NumRows = 0
 	block.NumColumns = 0
+	block.Values = block.Values[:0]
+	block.Columns = block.Columns[:0]
+	block.info.reset()
 	for _, buffer := range block.buffers {
 		buffer.reset()
 	}
@@ -221,6 +224,14 @@ type blockInfo struct {
 	num2        uint64
 	bucketNum   int32
 	num3        uint64
+}
+
+func (info *blockInfo) reset() {
+	info.num1 = 0
+	info.isOverflows = false
+	info.num2 = 0
+	info.bucketNum = 0
+	info.num3 = 0
 }
 
 func (info *blockInfo) read(decoder *binary.Decoder) error {
