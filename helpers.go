@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"database/sql/driver"
 	"fmt"
+	"math"
 	"reflect"
 	"regexp"
 	"strings"
@@ -122,8 +123,9 @@ func quote(v driver.Value) string {
 }
 
 func formatTime(value time.Time) string {
-	if (value.Hour() + value.Minute() + value.Second() + value.Nanosecond()) == 0 {
-		return fmt.Sprintf("toDate(%d)", int(int16(value.Unix()/24/3600)))
+	// toDate() overflows after 65535 days, but toDateTime() only overflows when time.Time overflows (after 9223372036854775807 seconds)
+	if (value.Hour()+value.Minute()+value.Second()+value.Nanosecond()) == 0 && value.Unix()/24/3600 <= math.MaxUint16 {
+		return fmt.Sprintf("toDate(%d)", value.Unix()/24/3600)
 	}
-	return fmt.Sprintf("toDateTime(%d)", int(uint32(value.Unix())))
+	return fmt.Sprintf("toDateTime(%d)", value.Unix())
 }
