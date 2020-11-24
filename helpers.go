@@ -124,8 +124,8 @@ func quote(v driver.Value) string {
 
 func formatTime(value time.Time) string {
 	// toDate() overflows after 65535 days, but toDateTime() only overflows when time.Time overflows (after 9223372036854775807 seconds)
-	if (value.Hour()+value.Minute()+value.Second()+value.Nanosecond()) == 0 && value.Unix()/24/3600 <= math.MaxUint16 {
-		return fmt.Sprintf("toDate(%d)", value.Unix()/24/3600)
+	if days := value.Unix() / 24 / 3600; days <= math.MaxUint16 && (value.Hour()+value.Minute()+value.Second()+value.Nanosecond()) == 0 {
+		return fmt.Sprintf("toDate(%d)", days)
 	}
 	return fmt.Sprintf("toDateTime(%d)", value.Unix())
 }
