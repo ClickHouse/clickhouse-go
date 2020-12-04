@@ -16,6 +16,8 @@ func (UInt32) Read(decoder *binary.Decoder, isNull bool) (interface{}, error) {
 
 func (u *UInt32) Write(encoder *binary.Encoder, v interface{}) error {
 	switch v := v.(type) {
+	case uint:
+		return encoder.UInt32(uint32(v))
 	case uint32:
 		return encoder.UInt32(v)
 	case uint64:
@@ -26,13 +28,15 @@ func (u *UInt32) Write(encoder *binary.Encoder, v interface{}) error {
 		return encoder.UInt32(uint32(v))
 
 	// this relies on Nullable never sending nil values through
-	case *uint64:
+	case *uint:
 		return encoder.UInt32(uint32(*v))
 	case *uint32:
 		return encoder.UInt32(*v)
-	case *int64:
+	case *uint64:
 		return encoder.UInt32(uint32(*v))
 	case *int:
+		return encoder.UInt32(uint32(*v))
+	case *int64:
 		return encoder.UInt32(uint32(*v))
 	}
 
