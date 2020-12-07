@@ -468,19 +468,25 @@ func Test_Column_DateTime(t *testing.T) {
 func Test_Column_DateTime64(t *testing.T) {
 	var (
 		buf     bytes.Buffer
-		timeNow = time.Now().UTC()
 		encoder = binary.NewEncoder(&buf)
 		decoder = binary.NewDecoder(&buf)
 	)
+
+	timeNowNano := time.Now().UTC().UnixNano()
+
+	// ignore nano secends.
+	nsec := (timeNowNano - timeNowNano/1e9*1e9) / 1e4 * 1e4
+	sec := timeNowNano / 1e9
+	timeNow := time.Unix(sec, nsec).UTC()
 	if column, err := columns.Factory("column_name", "DateTime64(6)", time.UTC); assert.NoError(t, err) {
 		if err := column.Write(encoder, timeNow); assert.NoError(t, err) {
 			if v, err := column.Read(decoder, false); assert.NoError(t, err) {
-				assert.Equal(t, timeNow, v)
+				assert.Equal(t, timeNow, v.(time.Time).UTC())
 			}
 		}
 		if err := column.Write(encoder, timeNow.In(time.UTC).Format("2006-01-02 15:04:05.999999")); assert.NoError(t, err) {
 			if v, err := column.Read(decoder, false); assert.NoError(t, err) {
-				assert.Equal(t, timeNow, v)
+				assert.Equal(t, timeNow, v.(time.Time).UTC())
 			}
 		}
 		if assert.Equal(t, "column_name", column.Name()) && assert.Equal(t, "DateTime64(6)", column.CHType()) {
