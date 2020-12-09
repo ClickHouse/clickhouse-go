@@ -20,6 +20,14 @@ func (*IPv4) Read(decoder *binary.Decoder, isNull bool) (interface{}, error) {
 
 func (ip *IPv4) Write(encoder *binary.Encoder, v interface{}) error {
 	var netIP net.IP
+
+	if v == nil {
+		if err := encoder.UInt32(0); err != nil {
+			return err
+		}
+		return nil
+	}
+
 	switch v.(type) {
 	case string:
 		netIP = net.ParseIP(v.(string))

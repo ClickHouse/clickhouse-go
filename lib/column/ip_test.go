@@ -60,6 +60,10 @@ func TestIPv4_Write(t *testing.T) {
 		Error interface{}
 	}{
 		{
+			nil,
+			nil,
+		},
+		{
 			net.ParseIP("0.0.0.0"),
 			nil,
 		},
