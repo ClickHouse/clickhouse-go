@@ -1,22 +1,30 @@
 package clickhouse
 
 import (
+	"context"
 	"github.com/ClickHouse/clickhouse-go/lib/data"
 	"github.com/ClickHouse/clickhouse-go/lib/protocol"
 )
 
-func (ch *clickhouse) sendQuery(query string, externalTables []ExternalTable) error {
+func (ch *clickhouse) sendQuery(ctx context.Context, query string, externalTables []ExternalTable) error {
 	ch.logf("[send query] %s", query)
 	if err := ch.encoder.Uvarint(protocol.ClientQuery); err != nil {
 		return err
 	}
-	if err := ch.encoder.String(""); err != nil {
+	var queryId string
+	queryIdValue := ctx.Value("query_id")
+	if queryIdValue != nil {
+		if queryIdStr, ok := queryIdValue.(string); ok {
+			queryId = queryIdStr
+		}
+	}
+	if err := ch.encoder.String(queryId); err != nil {  //use customized query_id from caller
 		return err
 	}
 	{ // client info
 		ch.encoder.Uvarint(1)
 		ch.encoder.String("")
-		ch.encoder.String("") //initial_query_id
+		ch.encoder.String("")
 		ch.encoder.String("[::ffff:127.0.0.1]:0")
 		ch.encoder.Uvarint(1) // iface type TCP
 		ch.encoder.String(hostname)
