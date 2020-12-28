@@ -22,6 +22,7 @@ func numInput(query string) int {
 		like          = newMatcher("like")
 		limit         = newMatcher("limit")
 		between       = newMatcher("between")
+		in            = newMatcher("in")
 		and           = newMatcher("and")
 	)
 	for {
@@ -58,7 +59,7 @@ func numInput(query string) int {
 				char == '[':
 				keyword = true
 			default:
-				if limit.matchRune(char) || like.matchRune(char) {
+				if limit.matchRune(char) || like.matchRune(char) || in.matchRune(char) {
 					keyword = true
 				} else if between.matchRune(char) {
 					keyword = true
