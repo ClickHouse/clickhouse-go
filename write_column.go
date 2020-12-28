@@ -50,5 +50,5 @@ func (ch *clickhouse) WriteBlock(block *data.Block) error {
 	if block == nil {
 		return sql.ErrTxDone
 	}
-	return ch.writeBlock(block)
+	return ch.writeBlock(block, "")
 }

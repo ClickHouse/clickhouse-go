@@ -922,6 +922,105 @@ func Test_Temporary_Table(t *testing.T) {
 	}
 }
 
+func Test_Select_External_Tables(t *testing.T) {
+	const (
+		ddl = `
+			CREATE TABLE clickhouse_test_select_external_tables (
+				string1  String,
+				string2  String
+			) Engine=Memory
+		`
+		dml = `
+			INSERT INTO clickhouse_test_select_external_tables (
+				string1,
+				string2
+			) VALUES (
+				?,
+				?
+			)
+		`
+		query      = `SELECT COUNT(*) FROM clickhouse_test_select_external_tables WHERE string1 IN ? AND string2 IN ? AND string1 NOT IN ?`
+		queryNamed = `SELECT COUNT(*) FROM clickhouse_test_select_external_tables WHERE string1 IN @e1 AND string2 IN @e2 AND string1 NOT IN @e3`
+	)
+	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) && assert.NoError(t, connect.Ping()) {
+		if _, err := connect.Exec("DROP TABLE IF EXISTS clickhouse_test_select_external_tables"); assert.NoError(t, err) {
+			if _, err := connect.Exec(ddl); assert.NoError(t, err) {
+				if tx, err := connect.Begin(); assert.NoError(t, err) {
+					if stmt, err := tx.Prepare(dml); assert.NoError(t, err) {
+						for i := 1; i <= 1000; i++ {
+							_, err = stmt.Exec(
+								fmt.Sprintf("string %d", i), // string1
+								fmt.Sprintf("string %d", i), // string2
+							)
+							if !assert.NoError(t, err) {
+								return
+							}
+						}
+					}
+
+					col, err := column.Factory("c1", "String", nil)
+					if err != nil {
+						t.Error(err)
+						return
+					}
+					externalTable1 := clickhouse.ExternalTable{
+						Name: "e1",
+						Values: [][]driver.Value{
+							{"string 1"},
+							{"string 2"},
+						},
+						Columns: []column.Column{
+							col,
+						},
+					}
+					externalTable2 := clickhouse.ExternalTable{
+						Name: "e2",
+						Values: [][]driver.Value{
+							{"string 1"},
+							{"string 2"},
+						},
+						Columns: []column.Column{
+							col,
+						},
+					}
+					externalTable3 := clickhouse.ExternalTable{
+						Name: "e3",
+						Values: [][]driver.Value{
+							{"string 1"},
+						},
+						Columns: []column.Column{
+							col,
+						},
+					}
+					if assert.NoError(t, tx.Commit()) {
+						if rows, err := connect.Query(query, externalTable1, externalTable2, externalTable3); assert.NoError(t, err) {
+							var count int
+							for rows.Next() {
+								err := rows.Scan(&count)
+								if !assert.NoError(t, err) {
+									return
+								}
+							}
+							assert.Equal(t, 1, count)
+						}
+						if rows, err := connect.Query(queryNamed, sql.Named("e1", externalTable1),
+							sql.Named("e2", externalTable2), sql.Named("e3", externalTable3)); assert.NoError(t, err) {
+							var count int
+							for rows.Next() {
+								err := rows.Scan(&count)
+								if !assert.NoError(t, err) {
+									return
+								}
+							}
+							assert.Equal(t, 1, count)
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 func Test_Enum(t *testing.T) {
 	const (
 		ddl = `
