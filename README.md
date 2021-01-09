@@ -24,6 +24,7 @@ Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/)
 * block_size - maximum rows in block (default is 1000000). If the rows are larger then the data will be split into several blocks to send them to the server. If one block was sent to the server, the data will be persisted on the server disk, we can't rollback the transaction. So always keep in mind that the batch size no larger than the block_size if you want atomic batch insert.
 * pool_size - maximum amount of preallocated byte chunks used in queries (default is 100). Decrease this if you experience memory problems at the expense of more GC pressure and vice versa.
 * debug - enable debug output (boolean value)
+* compress - enable lz4 compression (integer value, default is '0')
 
 SSL/TLS parameters:
 
