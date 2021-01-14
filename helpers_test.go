@@ -37,6 +37,7 @@ func Test_NumInput(t *testing.T) {
 		"SELECT * FROM example WHERE a BETWEEN ? AND ? AND b = ?":             3,
 		"SELECT * FROM example WHERE a = ? AND b BETWEEN ? AND ?":             3,
 		"SELECT * FROM example WHERE a BETWEEN ? AND ? AND b BETWEEN ? AND ?": 4,
+		"SELECT replace(a, '\\'', '\"') FROM example WHERE b = ?":             1,
 	} {
 		assert.Equal(t, num, numInput(query), query)
 	}

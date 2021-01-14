@@ -17,6 +17,7 @@ func numInput(query string) int {
 		args          = make(map[string]struct{})
 		reader        = bytes.NewReader([]byte(query))
 		quote, gravis bool
+		escape        bool
 		keyword       bool
 		inBetween     bool
 		like          = newMatcher("like")
@@ -27,7 +28,15 @@ func numInput(query string) int {
 	)
 	for {
 		if char, _, err := reader.ReadRune(); err == nil {
+			if escape {
+				escape = false
+				continue
+			}
 			switch char {
+			case '\\':
+				if gravis || quote {
+					escape = true
+				}
 			case '\'':
 				if !gravis {
 					quote = !quote
