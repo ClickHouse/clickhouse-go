@@ -5,7 +5,7 @@ import (
 	"github.com/ClickHouse/clickhouse-go/lib/protocol"
 )
 
-func (ch *clickhouse) sendQuery(query string) error {
+func (ch *clickhouse) sendQuery(query string, externalTables []ExternalTable) error {
 	ch.logf("[send query] %s", query)
 	if err := ch.encoder.Uvarint(protocol.ClientQuery); err != nil {
 		return err
@@ -53,7 +53,10 @@ func (ch *clickhouse) sendQuery(query string) error {
 	if err := ch.encoder.String(query); err != nil {
 		return err
 	}
-	if err := ch.writeBlock(&data.Block{}); err != nil {
+	if err := ch.sendExternalTables(externalTables); err != nil {
+		return err
+	}
+	if err := ch.writeBlock(&data.Block{}, ""); err != nil {
 		return err
 	}
 	return ch.encoder.Flush()
