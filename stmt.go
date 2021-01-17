@@ -58,7 +58,8 @@ func (stmt *stmt) execContext(ctx context.Context, args []driver.Value) (driver.
 		}
 		return emptyResult, nil
 	}
-	if err := stmt.ch.sendQuery(ctx, stmt.bind(convertOldArgs(args))); err != nil {
+	query, externalTables := stmt.bind(convertOldArgs(args))
+	if err := stmt.ch.sendQuery(ctx, query, externalTables); err != nil {
 		return nil, err
 	}
 	if err := stmt.ch.process(); err != nil {
@@ -77,7 +78,8 @@ func (stmt *stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (d
 
 func (stmt *stmt) queryContext(ctx context.Context, args []driver.NamedValue) (driver.Rows, error) {
 	finish := stmt.ch.watchCancel(ctx)
-	if err := stmt.ch.sendQuery(ctx, stmt.bind(args)); err != nil {
+	query, externalTables := stmt.bind(args)
+	if err := stmt.ch.sendQuery(ctx, query, externalTables); err != nil {
 		finish()
 		return nil, err
 	}
