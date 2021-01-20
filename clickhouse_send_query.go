@@ -11,14 +11,14 @@ func (ch *clickhouse) sendQuery(ctx context.Context, query string, externalTable
 	if err := ch.encoder.Uvarint(protocol.ClientQuery); err != nil {
 		return err
 	}
-	var queryId string
-	queryIdValue := ctx.Value("query_id")
-	if queryIdValue != nil {
-		if queryIdStr, ok := queryIdValue.(string); ok {
-			queryId = queryIdStr
+	var queryID string
+	queryIDValue := ctx.Value(queryIDKey)
+	if queryIDValue != nil {
+		if queryIdStr, ok := queryIDValue.(string); ok {
+			queryID = queryIdStr
 		}
 	}
-	if err := ch.encoder.String(queryId); err != nil {  //use customized query_id from caller
+	if err := ch.encoder.String(queryID); err != nil {
 		return err
 	}
 	{ // client info
