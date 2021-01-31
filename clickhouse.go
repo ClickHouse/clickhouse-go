@@ -117,6 +117,9 @@ type txOptions struct {
 }
 
 func (ch *clickhouse) beginTx(ctx context.Context, opts txOptions) (*clickhouse, error) {
+	if err := ch.ping(ctx); err != nil {
+		return nil, err
+	}
 	ch.logf("[begin] tx=%t, data=%t", ch.inTransaction, ch.block != nil)
 	switch {
 	case ch.inTransaction:
