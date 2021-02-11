@@ -14,7 +14,7 @@ type Tuple struct {
 	columns []Column
 }
 
-func (tuple *Tuple) Read(decoder *binary.Decoder) (interface{}, error) {
+func (tuple *Tuple) Read(decoder *binary.Decoder, isNull bool) (interface{}, error) {
 	return nil, fmt.Errorf("do not use Read method for Tuple(T) column")
 }
 
@@ -53,7 +53,7 @@ func (tuple *Tuple) ReadTuple(decoder *binary.Decoder, rows int) (_ []interface{
 
 		default:
 			for i := 0; i < rows; i++ {
-				value, err := c.Read(decoder)
+				value, err := c.Read(decoder, false)
 				if err != nil {
 					return nil, err
 				}
