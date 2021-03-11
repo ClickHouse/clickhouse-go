@@ -135,6 +135,10 @@ func (block *Block) AppendRow(args []driver.Value) error {
 		case *column.Array:
 			value := reflect.ValueOf(args[num])
 			if value.Kind() != reflect.Slice {
+				if args[num] == nil {
+					return fmt.Errorf("Array(T) type could not be nil, use empty array instead")
+				}
+
 				return fmt.Errorf("unsupported Array(T) type [%T]", value.Interface())
 			}
 			if err := block.writeArray(c, newValue(value), num, 1); err != nil {
