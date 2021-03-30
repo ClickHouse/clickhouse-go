@@ -1555,3 +1555,13 @@ func Test_LikeQuery(t *testing.T) {
 		}
 	}
 }
+
+func Test_RegisterDial(t *testing.T) {
+	clickhouse.RegisterDial(func(network, address string, timeout time.Duration, config *tls.Config) (net.Conn, error) {
+		return net.DialTimeout(network, address, timeout)
+	})
+	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) {
+		assert.NoError(t, connect.Ping())
+	}
+	clickhouse.DeregisterDial()
+}
