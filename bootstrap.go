@@ -80,13 +80,14 @@ func Open(dsn string) (driver.Conn, error) {
 }
 
 func open(dsn string) (*clickhouse, error) {
-	url, err := url.Parse(dsn)
+	parsedUrl, err := url.Parse(dsn)
 	if err != nil {
 		return nil, err
 	}
+
 	var (
-		hosts            = []string{url.Host}
-		query            = url.Query()
+		hosts            = []string{parsedUrl.Host}
+		query            = parsedUrl.Query()
 		secure           = false
 		skipVerify       = false
 		tlsConfigName    = query.Get("tls_config")
@@ -177,7 +178,7 @@ func open(dsn string) (*clickhouse, error) {
 		}
 		logger = log.New(logOutput, "[clickhouse]", 0)
 	)
-	if debug, err := strconv.ParseBool(url.Query().Get("debug")); err == nil && debug {
+	if debug, err := strconv.ParseBool(parsedUrl.Query().Get("debug")); err == nil && debug {
 		ch.logf = logger.Printf
 	}
 	ch.logf("host(s)=%s, database=%s, username=%s",
