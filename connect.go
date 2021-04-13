@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"database/sql/driver"
 	"net"
+	"net/url"
 	"sync/atomic"
 	"time"
 )
@@ -37,6 +38,25 @@ type connOptions struct {
 	noDelay                                bool
 	openStrategy                           openStrategy
 	logf                                   func(string, ...interface{})
+}
+
+type dsnQueryParams struct {
+	rawDsn      string
+	parsedUrl   *url.URL
+	hosts       []string
+	queryParams url.Values
+	settings    *querySettings
+
+	tlsConfigName string
+	database      string
+	username      string
+	password      string
+
+	compress  bool
+	blockSize int
+	poolSize  int
+
+	connOpts connOptions
 }
 
 func dial(options connOptions) (*connect, error) {

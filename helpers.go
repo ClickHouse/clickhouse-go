@@ -5,8 +5,10 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"math"
+	"net/url"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -138,4 +140,84 @@ func formatTime(value time.Time) string {
 		return fmt.Sprintf("toDate(%d)", days)
 	}
 	return fmt.Sprintf("toDateTime(%d)", value.Unix())
+}
+
+// getStringFromQuery checks a url.Values object for a given string.
+// If it exists, that value is returned; otherwise, fallback is returned.
+func getStringFromQuery(params url.Values, key string, fallback string) string {
+	var queryVal = fallback
+
+	if v := params.Get(key); len(v) > 0 {
+		queryVal = v
+	}
+
+	return queryVal
+}
+
+// getEscapedStringFromQuery checks a url.Values object for a given string.
+// If it exists, that value is returned; otherwise, fallback is returned.
+// Unlike getStringFromQuery, getEscapedStringFromQuery will return the output of
+// url.QueryEscape on the value in the url.Values object if found.
+func getEscapedStringFromQuery(params url.Values, key string, fallback string) string {
+	var queryVal = fallback
+
+	if v := params.Get(key); len(v) > 0 {
+		queryVal = url.QueryEscape(v)
+	}
+
+	return queryVal
+}
+
+// getBoolFromQuery checks a url.Values object for a given boolean.
+// If it exists, the bool is parsed out using strconv.ParseBool and the value
+// returned; otherwise, fallback is returned.
+func getBoolFromQuery(params url.Values, key string, fallback bool) bool {
+	var queryVal = fallback
+
+	if v, err := strconv.ParseBool(params.Get(key)); err == nil {
+		queryVal = v
+	}
+
+	return queryVal
+}
+
+// getDurationFromQuery checks a url.Values object for a given duration equivalent.
+// If it exists, the duration is parsed out using strconv.ParseFloat and the value
+// returned; otherwise, fallback is returned.
+func getDurationFromQuery(params url.Values, key string, fallback time.Duration) time.Duration {
+	var queryVal = fallback
+
+	if v, err := strconv.ParseFloat(params.Get(key), 64); err == nil {
+		queryVal = time.Duration(v * float64(time.Second))
+	}
+
+	return queryVal
+}
+
+// getIntFromQuery checks a url.Values object for a given int.
+// If it exists, the int is parsed out using strconv.ParseInt and the value
+// returned; otherwise, fallback is returned.
+func getIntFromQuery(params url.Values, key string, fallback int) int {
+	var queryVal = fallback
+
+	if v, err := strconv.ParseInt(params.Get(key), 10, 64); err == nil {
+		queryVal = int(v)
+	}
+
+	return queryVal
+}
+
+func getConnOpenStrategyFromQuery(params url.Values, fallback openStrategy) openStrategy {
+	var queryVal = fallback
+
+	switch params.Get("connection_open_strategy") {
+	case "random":
+		queryVal = connOpenRandom
+	case "in_order":
+		queryVal = connOpenInOrder
+	case "time_random":
+		queryVal = connOpenTimeRandom
+	}
+
+	return queryVal
 }

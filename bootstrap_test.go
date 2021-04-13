@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func Test_bootstrap_Open(t *testing.T) {
@@ -93,4 +95,106 @@ func Test_now(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_parseDsn(t *testing.T) {
+	type (
+		args struct {
+			dsn string
+		}
+		expectedVal struct {
+			value interface{}
+			field string
+		}
+		testCase struct {
+			name    string
+			args    args
+			want    expectedVal
+			wantErr bool
+		}
+	)
+
+	tests := []testCase{
+		{
+			name: "Return error on invalid DSN",
+			args: args{
+				dsn: "carl:/localhost:44432",
+			},
+			want: expectedVal{
+				value: nil,
+			},
+			wantErr: true,
+		},
+		{
+			name: "Correctly url-escape username",
+			args: args{
+				dsn: "tcp://127.0.0.1:9000?username=testUsername++",
+			},
+			want: expectedVal{
+				value: "testUsername++",
+				field: "username",
+			},
+			wantErr: false,
+		},
+		{
+			name: "Correctly url-escape password",
+			args: args{
+				dsn: "tcp://@127.0.0.1:9000?password=RSzqnN+n",
+			},
+			want: expectedVal{
+				value: "RSzqnN+n",
+				field: "password",
+			},
+			wantErr: false,
+		},
+		{
+			name: "Correctly get conn open strategy",
+			args: args{
+				dsn: "tcp://@127.0.0.1:9000?connection_open_strategy=in_order",
+			},
+			want: expectedVal{
+				value: connOpenInOrder,
+				field: "connection_open_strategy",
+			},
+			wantErr: false,
+		},
+		{
+			name: "Correctly get compress",
+			args: args{
+				dsn: "tcp://@127.0.0.1:9000?compress=true",
+			},
+			want: expectedVal{
+				value: true,
+				field: "compress",
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			parsedDsn, err := parseDsn(tt.args.dsn)
+			if err != nil {
+				if !tt.wantErr {
+					t.Errorf("parseDsn() error = %v, wantErr %v", err, tt.wantErr)
+				} else {
+					return
+				}
+			}
+
+			if tt.want.value != nil {
+				switch tt.want.field {
+				case "username":
+					assert.Equal(t, tt.want.value.(string), parsedDsn.username)
+				case "password":
+					assert.Equal(t, tt.want.value.(string), parsedDsn.password)
+				case "connection_open_strategy":
+					assert.Equal(t, tt.want.value.(openStrategy), parsedDsn.connOpts.openStrategy)
+				case "compress":
+					assert.Equal(t, tt.want.value.(bool), parsedDsn.compress)
+				}
+			}
+		})
+	}
+
 }

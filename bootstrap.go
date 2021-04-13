@@ -9,7 +9,6 @@ import (
 	"log"
 	"net/url"
 	"os"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -80,124 +79,45 @@ func Open(dsn string) (driver.Conn, error) {
 }
 
 func open(dsn string) (*clickhouse, error) {
-	parsedUrl, err := url.Parse(dsn)
+	dsnParams, err := parseDsn(dsn)
 	if err != nil {
 		return nil, err
 	}
 
-	var (
-		hosts            = []string{parsedUrl.Host}
-		query            = parsedUrl.Query()
-		secure           = false
-		skipVerify       = false
-		tlsConfigName    = query.Get("tls_config")
-		noDelay          = true
-		compress         = false
-		database         = query.Get("database")
-		username         = query.Get("username")
-		password         = query.Get("password")
-		blockSize        = 1000000
-		connTimeout      = DefaultConnTimeout
-		readTimeout      = DefaultReadTimeout
-		writeTimeout     = DefaultWriteTimeout
-		connOpenStrategy = connOpenRandom
-		poolSize         = 100
-	)
-	if len(database) == 0 {
-		database = DefaultDatabase
-	}
-	if len(username) == 0 {
-		username = DefaultUsername
-	}
-	if v, err := strconv.ParseBool(query.Get("no_delay")); err == nil {
-		noDelay = v
-	}
-	tlsConfig := getTLSConfigClone(tlsConfigName)
-	if tlsConfigName != "" && tlsConfig == nil {
-		return nil, fmt.Errorf("invalid tls_config - no config registered under name %s", tlsConfigName)
-	}
-	secure = tlsConfig != nil
-	if v, err := strconv.ParseBool(query.Get("secure")); err == nil {
-		secure = v
-	}
-	if v, err := strconv.ParseBool(query.Get("skip_verify")); err == nil {
-		skipVerify = v
-	}
-	if duration, err := strconv.ParseFloat(query.Get("timeout"), 64); err == nil {
-		connTimeout = time.Duration(duration * float64(time.Second))
-	}
-	if duration, err := strconv.ParseFloat(query.Get("read_timeout"), 64); err == nil {
-		readTimeout = time.Duration(duration * float64(time.Second))
-	}
-	if duration, err := strconv.ParseFloat(query.Get("write_timeout"), 64); err == nil {
-		writeTimeout = time.Duration(duration * float64(time.Second))
-	}
-	if size, err := strconv.ParseInt(query.Get("block_size"), 10, 64); err == nil {
-		blockSize = int(size)
-	}
-	if size, err := strconv.ParseInt(query.Get("pool_size"), 10, 64); err == nil {
-		poolSize = int(size)
-	}
 	poolInit.Do(func() {
-		leakypool.InitBytePool(poolSize)
+		leakypool.InitBytePool(dsnParams.poolSize)
 	})
-	if altHosts := strings.Split(query.Get("alt_hosts"), ","); len(altHosts) != 0 {
-		for _, host := range altHosts {
-			if len(host) != 0 {
-				hosts = append(hosts, host)
-			}
-		}
-	}
-	switch query.Get("connection_open_strategy") {
-	case "random":
-		connOpenStrategy = connOpenRandom
-	case "in_order":
-		connOpenStrategy = connOpenInOrder
-	case "time_random":
-		connOpenStrategy = connOpenTimeRandom
-	}
 
-	settings, err := makeQuerySettings(query)
+	settings, err := makeQuerySettings(dsnParams.queryParams)
 	if err != nil {
 		return nil, err
-	}
-
-	if v, err := strconv.ParseBool(query.Get("compress")); err == nil {
-		compress = v
 	}
 
 	var (
 		ch = clickhouse{
 			logf:      func(string, ...interface{}) {},
 			settings:  settings,
-			compress:  compress,
-			blockSize: blockSize,
+			compress:  dsnParams.compress,
+			blockSize: dsnParams.blockSize,
 			ServerInfo: data.ServerInfo{
 				Timezone: time.Local,
 			},
 		}
 		logger = log.New(logOutput, "[clickhouse]", 0)
 	)
-	if debug, err := strconv.ParseBool(parsedUrl.Query().Get("debug")); err == nil && debug {
+
+	if getBoolFromQuery(dsnParams.queryParams, "debug", false) {
 		ch.logf = logger.Printf
 	}
+
 	ch.logf("host(s)=%s, database=%s, username=%s",
-		strings.Join(hosts, ", "),
-		database,
-		username,
+		strings.Join(dsnParams.hosts, ", "),
+		dsnParams.database,
+		dsnParams.username,
 	)
-	options := connOptions{
-		secure:       secure,
-		tlsConfig:    tlsConfig,
-		skipVerify:   skipVerify,
-		hosts:        hosts,
-		connTimeout:  connTimeout,
-		readTimeout:  readTimeout,
-		writeTimeout: writeTimeout,
-		noDelay:      noDelay,
-		openStrategy: connOpenStrategy,
-		logf:         ch.logf,
-	}
+
+	options := dsnParams.connOpts
+
 	if ch.conn, err = dial(options); err != nil {
 		return nil, err
 	}
@@ -207,11 +127,59 @@ func open(dsn string) (*clickhouse, error) {
 	ch.decoder = binary.NewDecoderWithCompress(ch.conn)
 	ch.encoder = binary.NewEncoderWithCompress(ch.buffer)
 
-	if err := ch.hello(database, username, password); err != nil {
+	if err := ch.hello(dsnParams.database, dsnParams.username, dsnParams.password); err != nil {
 		ch.conn.Close()
 		return nil, err
 	}
+
 	return &ch, nil
+}
+
+func parseDsn(dsn string) (*dsnQueryParams, error) {
+	parsedUrl, err := url.Parse(dsn)
+	if err != nil {
+		return nil, err
+	}
+
+	params := parsedUrl.Query()
+	hosts := []string{parsedUrl.Host}
+
+	for _, altHost := range strings.Split(params.Get("alt_hosts"), ",") {
+		if len(altHost) > 0 {
+			hosts = append(hosts, altHost)
+		}
+	}
+
+	tlsConfigName := getStringFromQuery(params, "tls_config", "")
+	tlsConfig := getTLSConfigClone(tlsConfigName)
+	if tlsConfigName != "" && tlsConfig == nil {
+		return nil, fmt.Errorf("invalid tls_config - no config registered under name %s", tlsConfigName)
+	}
+
+	return &dsnQueryParams{
+		rawDsn:        dsn,
+		parsedUrl:     parsedUrl,
+		hosts:         hosts,
+		queryParams:   params,
+		tlsConfigName: tlsConfigName,
+
+		database: getEscapedStringFromQuery(params, "database", DefaultDatabase),
+		username: getEscapedStringFromQuery(params, "username", DefaultUsername),
+		password: getEscapedStringFromQuery(params, "password", ""),
+		connOpts: connOptions{
+			tlsConfig:    tlsConfig,
+			openStrategy: getConnOpenStrategyFromQuery(params, connOpenRandom),
+			noDelay:      getBoolFromQuery(params, "no_delay", true),
+			secure:       getBoolFromQuery(params, "secure", false),
+			skipVerify:   getBoolFromQuery(params, "skip_verify", false),
+			connTimeout:  getDurationFromQuery(params, "timeout", DefaultConnTimeout),
+			readTimeout:  getDurationFromQuery(params, "read_timeout", DefaultReadTimeout),
+			writeTimeout: getDurationFromQuery(params, "write_timeout", DefaultWriteTimeout),
+		},
+		compress:  getBoolFromQuery(params, "compress", false),
+		blockSize: getIntFromQuery(params, "block_size", 1000000),
+		poolSize:  getIntFromQuery(params, "pool_size", 100),
+	}, nil
 }
 
 func (ch *clickhouse) hello(database, username, password string) error {
