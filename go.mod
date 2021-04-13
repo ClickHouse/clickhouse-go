@@ -8,4 +8,5 @@ require (
 	github.com/jmoiron/sqlx v1.2.0
 	github.com/pierrec/lz4 v2.0.5+incompatible
 	github.com/stretchr/testify v1.3.0
+	google.golang.org/appengine v1.6.7 // indirect
 )
