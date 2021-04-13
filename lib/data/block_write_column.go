@@ -2,6 +2,7 @@ package data
 
 import (
 	"fmt"
+	"github.com/ClickHouse/clickhouse-go/lib/column"
 	"net"
 	"reflect"
 	"time"
@@ -16,10 +17,10 @@ func (block *Block) WriteDate(c int, v time.Time) error {
 }
 
 func (block *Block) WriteDateNullable(c int, v *time.Time) error {
-	if v == nil{
+	if v == nil {
 		return block.buffers[c].Column.UInt16Nullable(nil)
 	}
-	unixTime := uint16((*v).Unix()  / 24 / 3600)
+	unixTime := uint16((*v).Unix() / 24 / 3600)
 	return block.buffers[c].Column.UInt16Nullable(&unixTime)
 }
 
@@ -35,7 +36,7 @@ func (block *Block) WriteBool(c int, v bool) error {
 }
 
 func (block *Block) WriteDateTimeNullable(c int, v *time.Time) error {
-	if v == nil{
+	if v == nil {
 		return block.buffers[c].Column.UInt32Nullable(nil)
 	}
 	unixTime := uint32((*v).Unix())
@@ -137,7 +138,7 @@ func (block *Block) WriteBytesNullable(c int, v *[]byte) error {
 	if err := block.buffers[c].Column.Nullable(isNil); err != nil {
 		return err
 	}
-	if isNil{
+	if isNil {
 		return block.WriteBytes(c, []byte{})
 	}
 	return block.WriteBytes(c, *v)
@@ -158,7 +159,7 @@ func (block *Block) WriteStringNullable(c int, v *string) error {
 	if err := block.buffers[c].Column.Nullable(isNil); err != nil {
 		return err
 	}
-	if isNil{
+	if isNil {
 		return block.WriteString(c, "")
 	}
 	return block.WriteString(c, *v)
@@ -184,21 +185,15 @@ func (block *Block) WriteArrayWithValue(c int, value Value) error {
 }
 
 func (block *Block) WriteFixedStringNullable(c int, v *[]byte) error {
-	if err := block.buffers[c].Column.Nullable(v == nil); err != nil {
-		return err
-	}
-	if v == nil{
-		return block.Columns[c].Write(block.buffers[c].Column, []byte{})
-	}
-	return block.Columns[c].Write(block.buffers[c].Column, *v)
+	writer := block.Columns[c].(*column.Nullable)
+	return writer.WriteNull(block.buffers[c].Offset, block.buffers[c].Column, v)
 }
-
 
 func (block *Block) WriteArrayNullable(c int, v *interface{}) error {
 	if err := block.buffers[c].Column.Nullable(v == nil); err != nil {
 		return err
 	}
-	if v == nil{
+	if v == nil {
 		return block.Columns[c].Write(block.buffers[c].Column, []string{})
 	}
 	return block.WriteArray(c, *v)

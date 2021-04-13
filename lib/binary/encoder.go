@@ -47,7 +47,7 @@ func (enc *Encoder) Get() io.Writer {
 
 func (enc *Encoder) Nullable(isNull bool) error {
 	nullablePrefix := uint8(0)
-	if !isNull{
+	if !isNull {
 		nullablePrefix = uint8(1)
 	}
 	if _, err := enc.Get().Write([]byte{nullablePrefix}); err != nil {
