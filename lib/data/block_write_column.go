@@ -132,11 +132,15 @@ func (block *Block) WriteBytes(c int, v []byte) error {
 	return nil
 }
 
-func (block *Block) WriteBytesNullable(c int, v []byte) error {
-	if err := block.buffers[c].Column.Nullable(v == nil); err != nil {
+func (block *Block) WriteBytesNullable(c int, v *[]byte) error {
+	isNil := v == nil
+	if err := block.buffers[c].Column.Nullable(isNil); err != nil {
 		return err
 	}
-	return block.WriteBytes(c, v)
+	if isNil{
+		return block.WriteBytes(c, []byte{})
+	}
+	return block.WriteBytes(c, *v)
 }
 
 func (block *Block) WriteString(c int, v string) error {

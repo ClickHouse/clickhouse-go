@@ -88,7 +88,7 @@ func (enc *Encoder) BoolNullable(v *bool) error {
 		return err
 	}
 	if isNil {
-		return enc.UInt64(0)
+		return enc.Bool(false)
 	}
 	return enc.Bool(*v)
 }
@@ -308,7 +308,7 @@ func (enc *Encoder) RawStringNullable(str *[]byte) error {
 		return err
 	}
 	if isNil {
-		return enc.UInt64(0)
+		return enc.RawString([]byte{})
 	}
 	return enc.RawString(*str)
 }
