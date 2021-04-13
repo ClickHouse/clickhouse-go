@@ -125,8 +125,7 @@ func Test_ColumnarInsert(t *testing.T) {
 						block.WriteArrayWithValue(15, newUint64SliceValueFast([]uint64{10, 20, 30}))
 						block.WriteIP(16, net.ParseIP("213.180.204.62"))
 						block.WriteIP(17, net.ParseIP("2606:4700:5c::a29f:2e07"))
-						res := uint8(i)
-						block.WriteUInt8Nullable(18, &res)
+						block.WriteUInt8Nullable(18, nil)
 						if !assert.NoError(t, err) {
 							return
 						}
