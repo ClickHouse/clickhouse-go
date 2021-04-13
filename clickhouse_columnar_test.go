@@ -33,7 +33,8 @@ func Test_ColumnarInsert(t *testing.T) {
 				arrayWithValue Array(UInt64),
 				arrayWithValueFast Array(UInt64),
 				ipv4 IPv4,
-				ipv6 IPv6
+				ipv6 IPv6,
+				uint8_null  Nullable(UInt8)
 			) Engine=Memory
 		`
 		dml = `
@@ -55,8 +56,10 @@ func Test_ColumnarInsert(t *testing.T) {
 				arrayWithValue,
 				arrayWithValueFast,
 				ipv4,
-				ipv6
+				ipv6,
+				uint8_null
 			) VALUES (
+				?,
 				?,
 				?,
 				?,
@@ -76,7 +79,7 @@ func Test_ColumnarInsert(t *testing.T) {
 			)
 		`
 	)
-	if connect, err := clickhouse.OpenDirect("tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) {
+	if connect, err := clickhouse.OpenDirect("tcp://clickhouse:9000?debug=true"); assert.NoError(t, err) {
 		{
 			connect.Begin()
 			stmt, _ := connect.Prepare("DROP TABLE IF EXISTS clickhouse_test_columnar_insert")
@@ -122,6 +125,8 @@ func Test_ColumnarInsert(t *testing.T) {
 						block.WriteArrayWithValue(15, newUint64SliceValueFast([]uint64{10, 20, 30}))
 						block.WriteIP(16, net.ParseIP("213.180.204.62"))
 						block.WriteIP(17, net.ParseIP("2606:4700:5c::a29f:2e07"))
+						res := uint8(i)
+						block.WriteUInt8Nullable(18, &res)
 						if !assert.NoError(t, err) {
 							return
 						}
