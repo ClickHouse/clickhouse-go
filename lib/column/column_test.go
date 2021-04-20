@@ -742,3 +742,11 @@ func Test_Column_NullableEnum8(t *testing.T) {
 		}
 	}
 }
+
+func Test_Column_AggregateFunction(t *testing.T) {
+	if column, err := columns.Factory("column_name", "AggregateFunction(max, UInt64)", time.Local); assert.NoError(t, err) {
+		if assert.Equal(t, "column_name", column.Name()) && assert.Equal(t, "AggregateFunction(max, UInt64)", column.CHType()) {
+			assert.Equal(t, reflect.Uint64, column.ScanType().Kind())
+		}
+	}
+}

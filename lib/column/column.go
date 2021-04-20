@@ -174,6 +174,8 @@ func Factory(name, chType string, timezone *time.Location) (Column, error) {
 		return parseEnum(name, chType)
 	case strings.HasPrefix(chType, "Decimal"):
 		return parseDecimal(name, chType)
+	case strings.HasPrefix(chType, "AggregateFunction"):
+		return parseAggregateFunction(name, chType, timezone)
 	case strings.HasPrefix(chType, "SimpleAggregateFunction"):
 		if nestedType, err := getNestedType(chType, "SimpleAggregateFunction"); err != nil {
 			return nil, err
