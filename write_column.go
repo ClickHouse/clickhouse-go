@@ -1,6 +1,7 @@
 package clickhouse
 
 import (
+	"context"
 	"database/sql"
 	"database/sql/driver"
 	"time"
@@ -11,7 +12,8 @@ import (
 // Interface for Clickhouse driver
 type Clickhouse interface {
 	Block() (*data.Block, error)
-	Prepare(query string) (driver.Stmt, error)
+	Prepare(query string) (Stmt, error)
+	PrepareContext(ctx context.Context, query string) (Stmt, error)
 	Begin() (driver.Tx, error)
 	Commit() error
 	Rollback() error

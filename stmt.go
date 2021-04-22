@@ -9,6 +9,12 @@ import (
 	"github.com/ClickHouse/clickhouse-go/lib/data"
 )
 
+type Stmt interface {
+	driver.Stmt
+	driver.StmtQueryContext
+	driver.StmtExecContext
+}
+
 type stmt struct {
 	ch       *clickhouse
 	query    string
@@ -20,7 +26,9 @@ type stmt struct {
 var emptyResult = &result{}
 
 type key string
+
 var queryIDKey key
+
 //Put query ID into context and use it in ExecContext or QueryContext
 func WithQueryID(ctx context.Context, queryID string) context.Context {
 	return context.WithValue(ctx, queryIDKey, queryID)
