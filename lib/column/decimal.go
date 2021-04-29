@@ -69,7 +69,7 @@ func (d *Decimal) write32(encoder *binary.Encoder, v interface{}) error {
 	case int32:
 		return encoder.Int32(int32(v))
 	case int64:
-		if v > math.MaxInt32 {
+		if v > math.MaxInt32 || v < math.MinInt32 {
 			return errors.New("overflow when narrowing type conversion from int64 to int32")
 		}
 		return encoder.Int32(int32(v))
@@ -104,7 +104,7 @@ func (d *Decimal) write32(encoder *binary.Encoder, v interface{}) error {
 	case *int32:
 		return encoder.Int32(int32(*v))
 	case *int64:
-		if *v > math.MaxInt32 {
+		if *v > math.MaxInt32 || *v < math.MinInt32 {
 			return errors.New("overflow when narrowing type conversion from int64 to int32")
 		}
 		return encoder.Int32(int32(*v))
