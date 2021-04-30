@@ -1,9 +1,8 @@
 sudo: required
 language: go
 go:
-  - 1.14.x
   - 1.15.x
-  - master
+  - 1.16.x
 go_import_path: github.com/ClickHouse/clickhouse-go
 services:
   - docker
