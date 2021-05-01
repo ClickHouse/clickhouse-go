@@ -41,8 +41,10 @@ func (block *Block) ColumnNames() []string {
 }
 
 func (block *Block) Read(serverInfo *ServerInfo, decoder *binary.Decoder) (err error) {
-	if err = block.info.read(decoder); err != nil {
-		return err
+	if serverInfo.Revision > 0 {
+		if err = block.info.read(decoder); err != nil {
+			return err
+		}
 	}
 
 	if block.NumColumns, err = decoder.Uvarint(); err != nil {
@@ -188,10 +190,14 @@ func (block *Block) Reset() {
 }
 
 func (block *Block) Write(serverInfo *ServerInfo, encoder *binary.Encoder) error {
-	if err := block.info.write(encoder); err != nil {
+	if serverInfo.Revision > 0 {
+		if err := block.info.write(encoder); err != nil {
+			return err
+		}
+	}
+	if err := encoder.Uvarint(block.NumColumns); err != nil {
 		return err
 	}
-	encoder.Uvarint(block.NumColumns)
 	encoder.Uvarint(block.NumRows)
 	defer func() {
 		block.NumRows = 0
