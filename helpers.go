@@ -66,7 +66,8 @@ func numInput(query string) int {
 				char == '>',
 				char == '(',
 				char == ',',
-				char == '[':
+				char == '[',
+				char == '%':
 				keyword = true
 			default:
 				if limit.matchRune(char) || like.matchRune(char) || in.matchRune(char) {
