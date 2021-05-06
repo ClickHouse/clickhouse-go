@@ -3,6 +3,7 @@ package column
 import (
 	"errors"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 
@@ -68,16 +69,25 @@ func (d *Decimal) write32(encoder *binary.Encoder, v interface{}) error {
 	case int32:
 		return encoder.Int32(int32(v))
 	case int64:
-		return errors.New("narrowing type conversion from int64 to int32")
+		if v > math.MaxInt32 || v < math.MinInt32 {
+			return errors.New("overflow when narrowing type conversion from int64 to int32")
+		}
+		return encoder.Int32(int32(v))
 
 	case uint8:
 		return encoder.Int32(int32(v))
 	case uint16:
 		return encoder.Int32(int32(v))
 	case uint32:
-		return errors.New("narrowing type conversion from uint32 to int32")
+		if v > math.MaxInt32 {
+			return errors.New("overflow when narrowing type conversion from uint32 to int32")
+		}
+		return encoder.Int32(int32(v))
 	case uint64:
-		return errors.New("narrowing type conversion from uint64 to int32")
+		if v > math.MaxInt32 {
+			return errors.New("overflow when narrowing type conversion from uint64 to int32")
+		}
+		return encoder.Int32(int32(v))
 
 	case float32:
 		fixed := d.float2int32(float64(v))
@@ -94,16 +104,25 @@ func (d *Decimal) write32(encoder *binary.Encoder, v interface{}) error {
 	case *int32:
 		return encoder.Int32(int32(*v))
 	case *int64:
-		return errors.New("narrowing type conversion from int64 to int32")
+		if *v > math.MaxInt32 || *v < math.MinInt32 {
+			return errors.New("overflow when narrowing type conversion from int64 to int32")
+		}
+		return encoder.Int32(int32(*v))
 
 	case *uint8:
 		return encoder.Int32(int32(*v))
 	case *uint16:
 		return encoder.Int32(int32(*v))
 	case *uint32:
-		return errors.New("narrowing type conversion from uint32 to int32")
+		if *v > math.MaxInt32 {
+			return errors.New("overflow when narrowing type conversion from uint34 to int32")
+		}
+		return encoder.Int32(int32(*v))
 	case *uint64:
-		return errors.New("narrowing type conversion from uint64 to int32")
+		if *v > math.MaxInt32 {
+			return errors.New("overflow when narrowing type conversion from uint64 to int32")
+		}
+		return encoder.Int32(int32(*v))
 
 	case *float32:
 		fixed := d.float2int32(float64(*v))
@@ -139,7 +158,10 @@ func (d *Decimal) write64(encoder *binary.Encoder, v interface{}) error {
 	case uint32:
 		return encoder.Int64(int64(v))
 	case uint64:
-		return errors.New("narrowing type conversion from uint64 to int64")
+		if v > math.MaxInt64 {
+			return errors.New("overflow when narrowing type conversion from uint64 to int64")
+		}
+		return encoder.Int64(int64(v))
 
 	case float32:
 		fixed := d.float2int64(float64(v))
@@ -167,7 +189,10 @@ func (d *Decimal) write64(encoder *binary.Encoder, v interface{}) error {
 	case *uint32:
 		return encoder.Int64(int64(*v))
 	case *uint64:
-		return errors.New("narrowing type conversion from uint64 to int64")
+		if *v > math.MaxInt64 {
+			return errors.New("overflow when narrowing type conversion from uint64 to int64")
+		}
+		return encoder.Int64(int64(*v))
 
 	case *float32:
 		fixed := d.float2int64(float64(*v))

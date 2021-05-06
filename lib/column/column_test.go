@@ -468,19 +468,25 @@ func Test_Column_DateTime(t *testing.T) {
 func Test_Column_DateTime64(t *testing.T) {
 	var (
 		buf     bytes.Buffer
-		timeNow = time.Now().UTC()
 		encoder = binary.NewEncoder(&buf)
 		decoder = binary.NewDecoder(&buf)
 	)
+
+	timeNowNano := time.Now().UTC().UnixNano()
+
+	// ignore nano secends.
+	nsec := (timeNowNano - timeNowNano/1e9*1e9) / 1e4 * 1e4
+	sec := timeNowNano / 1e9
+	timeNow := time.Unix(sec, nsec).UTC()
 	if column, err := columns.Factory("column_name", "DateTime64(6)", time.UTC); assert.NoError(t, err) {
 		if err := column.Write(encoder, timeNow); assert.NoError(t, err) {
 			if v, err := column.Read(decoder, false); assert.NoError(t, err) {
-				assert.Equal(t, timeNow, v)
+				assert.Equal(t, timeNow, v.(time.Time).UTC())
 			}
 		}
 		if err := column.Write(encoder, timeNow.In(time.UTC).Format("2006-01-02 15:04:05.999999")); assert.NoError(t, err) {
 			if v, err := column.Read(decoder, false); assert.NoError(t, err) {
-				assert.Equal(t, timeNow, v)
+				assert.Equal(t, timeNow, v.(time.Time).UTC())
 			}
 		}
 		if assert.Equal(t, "column_name", column.Name()) && assert.Equal(t, "DateTime64(6)", column.CHType()) {
@@ -689,7 +695,8 @@ func Test_Column_NullableDecimal64(t *testing.T) {
 		}
 
 		if assert.Equal(t, "column_name", columnBase.Name()) && assert.Equal(t, "Nullable(Decimal(18,5))", columnBase.CHType()) {
-			assert.Equal(t, reflect.Int64, columnBase.ScanType().Kind())
+			assert.Equal(t, reflect.Ptr, columnBase.ScanType().Kind())
+			assert.Equal(t, reflect.Int64, columnBase.ScanType().Elem().Kind())
 		}
 	}
 }
@@ -732,7 +739,8 @@ func Test_Column_NullableEnum8(t *testing.T) {
 		}
 
 		if assert.Equal(t, "column_name", columnBase.Name()) && assert.Equal(t, "Nullable(Enum8('A'=1,'B'=2,'C'=3))", columnBase.CHType()) {
-			assert.Equal(t, reflect.String, columnBase.ScanType().Kind())
+			assert.Equal(t, reflect.Ptr, columnBase.ScanType().Kind())
+			assert.Equal(t, reflect.String, columnBase.ScanType().Elem().Kind())
 		}
 	}
 }
