@@ -41,8 +41,10 @@ func (block *Block) ColumnNames() []string {
 }
 
 func (block *Block) Read(serverInfo *ServerInfo, decoder *binary.Decoder) (err error) {
-	if err = block.info.read(decoder); err != nil {
-		return err
+	if serverInfo.Revision > 0 {
+		if err = block.info.read(decoder); err != nil {
+			return err
+		}
 	}
 
 	if block.NumColumns, err = decoder.Uvarint(); err != nil {
@@ -81,6 +83,10 @@ func (block *Block) Read(serverInfo *ServerInfo, decoder *binary.Decoder) (err e
 			}
 		case *column.Nullable:
 			if block.Values[i], err = column.ReadNull(decoder, int(block.NumRows)); err != nil {
+				return err
+			}
+		case *column.Tuple:
+			if block.Values[i], err = column.ReadTuple(decoder, int(block.NumRows)); err != nil {
 				return err
 			}
 		default:
@@ -188,10 +194,14 @@ func (block *Block) Reset() {
 }
 
 func (block *Block) Write(serverInfo *ServerInfo, encoder *binary.Encoder) error {
-	if err := block.info.write(encoder); err != nil {
+	if serverInfo.Revision > 0 {
+		if err := block.info.write(encoder); err != nil {
+			return err
+		}
+	}
+	if err := encoder.Uvarint(block.NumColumns); err != nil {
 		return err
 	}
-	encoder.Uvarint(block.NumColumns)
 	encoder.Uvarint(block.NumRows)
 	defer func() {
 		block.NumRows = 0

@@ -1,6 +1,7 @@
 package column
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"reflect"
@@ -9,6 +10,8 @@ import (
 
 	"github.com/ClickHouse/clickhouse-go/lib/binary"
 )
+
+type columnDecoder func() (interface{}, error)
 
 type Array struct {
 	base
@@ -46,16 +49,43 @@ func (array *Array) ReadArray(decoder *binary.Decoder, rows int) (_ []interface{
 		}
 	}
 
+	var cd columnDecoder
+
+	switch column := array.column.(type) {
+	case *Tuple:
+		tupleRows, err := column.ReadTuple(decoder, int(lastOffset))
+		if err != nil {
+			return nil, err
+		}
+		// closure to return fully assembled tuple values as if they
+		// were decoded one at a time
+		cd = func(rows []interface{}) columnDecoder {
+			i := 0
+			return func() (interface{}, error) {
+				if i > len(rows) {
+					return nil, errors.New("not enough rows to return while parsing Tuple column")
+				}
+				ret := rows[i]
+				i++
+				return ret, nil
+			}
+		}(tupleRows)
+	default:
+		cd = func(decoder *binary.Decoder) columnDecoder {
+			return func() (interface{}, error) { return array.column.Read(decoder, false) }
+		}(decoder)
+	}
+
 	// Read values
 	for i := 0; i < rows; i++ {
-		if values[i], err = array.read(decoder, offsets, uint64(i), 0); err != nil {
+		if values[i], err = array.read(cd, offsets, uint64(i), 0); err != nil {
 			return nil, err
 		}
 	}
 	return values, nil
 }
 
-func (array *Array) read(decoder *binary.Decoder, offsets [][]uint64, index uint64, level int) (interface{}, error) {
+func (array *Array) read(readColumn columnDecoder, offsets [][]uint64, index uint64, level int) (interface{}, error) {
 	end := offsets[level][index]
 	start := uint64(0)
 	if index > 0 {
@@ -69,9 +99,9 @@ func (array *Array) read(decoder *binary.Decoder, offsets [][]uint64, index uint
 			err   error
 		)
 		if level == array.depth-1 {
-			value, err = array.column.Read(decoder, false)
+			value, err = readColumn()
 		} else {
-			value, err = array.read(decoder, offsets, i, level+1)
+			value, err = array.read(readColumn, offsets, i, level+1)
 		}
 		if err != nil {
 			return nil, err
@@ -145,6 +175,8 @@ loop:
 		scanType = []time.Time{}
 	case arrayBaseTypes[IPv4{}], arrayBaseTypes[IPv6{}]:
 		scanType = []net.IP{}
+	case reflect.ValueOf([]interface{}{}).Type():
+		scanType = [][]interface{}{}
 	default:
 		return nil, fmt.Errorf("unsupported Array type '%s'", column.ScanType().Name())
 	}

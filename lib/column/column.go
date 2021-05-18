@@ -180,6 +180,8 @@ func Factory(name, chType string, timezone *time.Location) (Column, error) {
 		} else {
 			return Factory(name, nestedType, timezone)
 		}
+	case strings.HasPrefix(chType, "Tuple"):
+		return parseTuple(name, chType, timezone)
 	}
 	return nil, fmt.Errorf("column: unhandled type %v", chType)
 }
