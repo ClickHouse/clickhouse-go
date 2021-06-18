@@ -6,7 +6,7 @@ import (
 	"encoding/binary"
 	"io"
 
-	lz4 "github.com/cloudflare/golz4"
+	lz4 "github.com/DataDog/golz4"
 	"github.com/ClickHouse/clickhouse-go/lib/cityhash102"
 )
 
@@ -54,7 +54,7 @@ func (cw *compressWriter) Flush() (err error) {
 		return
 	}
 	// write the headers
-	compressedSize, err := lz4.Compress(cw.data[:cw.pos], cw.zdata[HeaderSize:])
+	compressedSize, err := lz4.Compress(cw.zdata[:cw.pos], cw.data[HeaderSize:])
 	if err != nil {
 		return err
 	}

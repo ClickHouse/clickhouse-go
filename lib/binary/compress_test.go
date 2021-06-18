@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	bklz4 "github.com/bkaradzic/go-lz4"
-	cflz4 "github.com/cloudflare/golz4"
+	cflz4 "github.com/DataDog/golz4"
 	ownlz4 "github.com/ClickHouse/clickhouse-go/lib/lz4"
 	pilz4 "github.com/pierrec/lz4"
 )
@@ -64,7 +64,7 @@ func genBytes(n int) []byte {
 func GetCfEncode(in []byte) []byte {
 	b := cflz4.CompressBound(in)
 	out := make([]byte, b)
-	compressedSize, err := cflz4.Compress(in, out)
+	compressedSize, err := cflz4.Compress(out, in)
 	if err != nil {
 		log.Fatal(err)
 	}

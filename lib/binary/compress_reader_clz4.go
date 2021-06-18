@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"io"
 
-	lz4 "github.com/cloudflare/golz4"
+	lz4 "github.com/DataDog/golz4"
 )
 
 type compressReader struct {
@@ -95,7 +95,7 @@ func (cr *compressReader) readCompressedData() (err error) {
 			return fmt.Errorf("Decompress read size not match")
 		}
 
-		err = lz4.Uncompress(cr.zdata, cr.data)
+		err = lz4.Uncompress(cr.data, cr.zdata)
 		if err != nil {
 			return
 		}
