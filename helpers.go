@@ -134,8 +134,11 @@ func quote(v driver.Value) string {
 }
 
 func formatTime(value time.Time) string {
+	// Avoid the influence of timezone when parse midnight, because value.Hour() will be
+	// the hour under special timezone
+	utcMidnight := time.Date(value.Year(), value.Month(), value.Day(), 0, 0, 0, 0, time.UTC)
 	// toDate() overflows after 65535 days, but toDateTime() only overflows when time.Time overflows (after 9223372036854775807 seconds)
-	if days := value.Unix() / 24 / 3600; days <= math.MaxUint16 && (value.Hour()+value.Minute()+value.Second()+value.Nanosecond()) == 0 {
+	if days := utcMidnight.Unix() / 24 / 3600; days <= math.MaxUint16 && (value.Hour()+value.Minute()+value.Second()+value.Nanosecond()) == 0 {
 		return fmt.Sprintf("toDate(%d)", days)
 	}
 	return fmt.Sprintf("toDateTime(%d)", value.Unix())

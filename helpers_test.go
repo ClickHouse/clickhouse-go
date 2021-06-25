@@ -1,11 +1,28 @@
 package clickhouse
 
 import (
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
 
+func Test_FormatTime(t *testing.T) {
+	tz := time.FixedZone("Asia/Shanghai", 8*3600)
+	midnightUTC, err := time.ParseInLocation("2006-01-02 15:04:05", "2021-06-25 00:00:00", time.UTC)
+	assert.NoError(t, err)
+	midnightCST, err := time.ParseInLocation("2006-01-02 15:04:05", "2021-06-25 00:00:00", tz)
+	assert.NoError(t, err)
+	normal := time.Now()
+	for tv, expect := range map[time.Time]string{
+		midnightCST: "toDate(18803)", // select SELECT toDate(18803) will be 2021-06-25 in clickhouse
+		midnightUTC: "toDate(18803)", // select SELECT toDate(18803) will be 2021-06-25 in clickhouse
+		normal:      fmt.Sprintf("toDateTime(%d)", normal.Unix()),
+	} {
+		assert.Equal(t, expect, formatTime(tv))
+	}
+}
 func Test_NumInput(t *testing.T) {
 	for query, num := range map[string]int{
 		"SELECT * FROM example WHERE os_id = 42":                                                  0,
