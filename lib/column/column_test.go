@@ -438,20 +438,20 @@ func Test_Column_Date(t *testing.T) {
 
 func Test_Column_DateTime(t *testing.T) {
 	var (
-		buf     bytes.Buffer
-		timeNow = time.Now().Truncate(time.Second)
-		encoder = binary.NewEncoder(&buf)
-		decoder = binary.NewDecoder(&buf)
+		buf           bytes.Buffer
+		inTwentyYears = time.Now().Add(20 * 365 * 24 * time.Hour).Truncate(time.Second)
+		encoder       = binary.NewEncoder(&buf)
+		decoder       = binary.NewDecoder(&buf)
 	)
 	if column, err := columns.Factory("column_name", "DateTime", time.Local); assert.NoError(t, err) {
-		if err := column.Write(encoder, timeNow); assert.NoError(t, err) {
+		if err := column.Write(encoder, inTwentyYears); assert.NoError(t, err) {
 			if v, err := column.Read(decoder, false); assert.NoError(t, err) {
-				assert.Equal(t, timeNow, v)
+				assert.Equal(t, inTwentyYears, v)
 			}
 		}
-		if err := column.Write(encoder, timeNow.In(time.UTC).Format("2006-01-02 15:04:05")); assert.NoError(t, err) {
+		if err := column.Write(encoder, inTwentyYears.In(time.UTC).Format("2006-01-02 15:04:05")); assert.NoError(t, err) {
 			if v, err := column.Read(decoder, false); assert.NoError(t, err) {
-				assert.Equal(t, timeNow, v)
+				assert.Equal(t, inTwentyYears, v)
 			}
 		}
 		if assert.Equal(t, "column_name", column.Name()) && assert.Equal(t, "DateTime", column.CHType()) {

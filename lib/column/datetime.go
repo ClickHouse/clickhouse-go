@@ -12,7 +12,7 @@ type DateTime struct {
 }
 
 func (dt *DateTime) Read(decoder *binary.Decoder, isNull bool) (interface{}, error) {
-	sec, err := decoder.Int32()
+	sec, err := decoder.UInt32()
 	if err != nil {
 		return nil, err
 	}
@@ -20,21 +20,21 @@ func (dt *DateTime) Read(decoder *binary.Decoder, isNull bool) (interface{}, err
 }
 
 func (dt *DateTime) Write(encoder *binary.Encoder, v interface{}) error {
-	var timestamp int64
+	var timestamp uint64
 	switch value := v.(type) {
 	case time.Time:
 		if !value.IsZero() {
-			timestamp = value.Unix()
+			timestamp = uint64(value.Unix())
 		}
 	case int16:
-		timestamp = int64(value)
+		timestamp = uint64(value)
 	case int32:
-		timestamp = int64(value)
+		timestamp = uint64(value)
 	case uint32:
-		timestamp = int64(value)
-	case uint64:
-		timestamp = int64(value)
+		timestamp = uint64(value)
 	case int64:
+		timestamp = uint64(value)
+	case uint64:
 		timestamp = value
 	case string:
 		var err error
@@ -45,14 +45,16 @@ func (dt *DateTime) Write(encoder *binary.Encoder, v interface{}) error {
 
 	case *time.Time:
 		if value != nil && !(*value).IsZero() {
-			timestamp = (*value).Unix()
+			timestamp = uint64((*value).Unix())
 		}
 	case *int16:
-		timestamp = int64(*value)
+		timestamp = uint64(*value)
 	case *int32:
-		timestamp = int64(*value)
-	case *int64:
+		timestamp = uint64(*value)
+	case *uint64:
 		timestamp = *value
+	case *int64:
+		timestamp = uint64(*value)
 	case *string:
 		var err error
 		timestamp, err = dt.parse(*value)
@@ -67,15 +69,15 @@ func (dt *DateTime) Write(encoder *binary.Encoder, v interface{}) error {
 		}
 	}
 
-	return encoder.Int32(int32(timestamp))
+	return encoder.UInt32(uint32(timestamp))
 }
 
-func (dt *DateTime) parse(value string) (int64, error) {
+func (dt *DateTime) parse(value string) (uint64, error) {
 	tv, err := time.Parse("2006-01-02 15:04:05", value)
 	if err != nil {
 		return 0, err
 	}
-	return time.Date(
+	return uint64(time.Date(
 		time.Time(tv).Year(),
 		time.Time(tv).Month(),
 		time.Time(tv).Day(),
@@ -83,5 +85,5 @@ func (dt *DateTime) parse(value string) (int64, error) {
 		time.Time(tv).Minute(),
 		time.Time(tv).Second(),
 		0, time.Local,    //use local timzone when insert into clickhouse
-	).Unix(), nil
+	).Unix()), nil
 }
