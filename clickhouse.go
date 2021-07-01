@@ -78,7 +78,7 @@ func (ch *clickhouse) prepareContext(ctx context.Context, query string) (driver.
 		if !ch.inTransaction {
 			return nil, ErrInsertInNotBatchMode
 		}
-		return ch.insert(query)
+		return ch.insert(ctx, query)
 	}
 	return &stmt{
 		ch:       ch,
@@ -87,8 +87,8 @@ func (ch *clickhouse) prepareContext(ctx context.Context, query string) (driver.
 	}, nil
 }
 
-func (ch *clickhouse) insert(query string) (_ driver.Stmt, err error) {
-	if err := ch.sendQuery(splitInsertRe.Split(query, -1)[0]+" VALUES ", nil); err != nil {
+func (ch *clickhouse) insert(ctx context.Context, query string) (_ driver.Stmt, err error) {
+	if err := ch.sendQuery(ctx, splitInsertRe.Split(query, -1)[0]+" VALUES ", nil); err != nil {
 		return nil, err
 	}
 	if ch.block, err = ch.readMeta(); err != nil {

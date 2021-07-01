@@ -7,6 +7,7 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"net"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -1549,6 +1550,649 @@ func Test_LikeQuery(t *testing.T) {
 								assert.Equal(t, test.ExpectedLast, result.LastName)
 							}
 						}
+					}
+				}
+			}
+		}
+	}
+}
+
+func Test_NullableScan(t *testing.T) {
+	const (
+		ddl = `
+ 			CREATE TABLE clickhouse_test_scan_nullable (
+ 				int8N      Nullable(Int8),
+ 				int16N     Nullable(Int16),
+ 				int32N     Nullable(Int32),
+ 				int64N     Nullable(Int64),
+ 				uint8N     Nullable(UInt8),
+ 				uint16N    Nullable(UInt16),
+ 				uint32N    Nullable(UInt32),
+ 				uint64N    Nullable(UInt64),
+ 				float32N   Nullable(Float32),
+ 				float64N   Nullable(Float64),
+ 				string     Nullable(String)
+ 			) Engine=Memory;
+ 		`
+		dml = `
+ 			INSERT INTO clickhouse_test_scan_nullable (
+ 				int8N,
+ 				int16N,
+ 				int32N,
+ 				int64N,
+ 				uint8N,
+ 				uint16N,
+ 				uint32N,
+ 				uint64N,
+ 				float32N,
+ 				float64N,
+				string
+ 			) VALUES (
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?
+ 			)
+ 		`
+		query = `
+ 			SELECT
+				int8N,
+ 				int16N,
+ 				int32N,
+ 				int64N,
+ 				uint8N,
+ 				uint16N,
+ 				uint32N,
+ 				uint64N,
+ 				float32N,
+ 				float64N,
+			   	string
+ 			FROM clickhouse_test_scan_nullable
+ 		`
+	)
+
+	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) {
+		if tx, err := connect.Begin(); assert.NoError(t, err) {
+			if _, err := connect.Exec("DROP TABLE IF EXISTS clickhouse_test_scan_nullable"); assert.NoError(t, err) {
+				if _, err := tx.Exec(ddl); assert.NoError(t, err) {
+					if tx, err := connect.Begin(); assert.NoError(t, err) {
+						if stmt, err := tx.Prepare(dml); assert.NoError(t, err) {
+							if _, err := stmt.Exec(
+								nil,
+								nil,
+								nil,
+								nil,
+								nil,
+								nil,
+								nil,
+								nil,
+								nil,
+								nil,
+								nil,
+							); !assert.NoError(t, err) {
+								t.Fatal(err)
+							}
+						}
+						if err := tx.Commit(); !assert.NoError(t, err) {
+							t.Fatal(err)
+						}
+					}
+					if rows, err := connect.Query(query); assert.NoError(t, err) {
+						if columns, err := rows.ColumnTypes(); assert.NoError(t, err) {
+							values := make([]interface{}, len(columns))
+							for i, c := range columns {
+								values[i] = reflect.New(c.ScanType()).Interface()
+							}
+
+							for i := 0; rows.Next(); i++ {
+								if err := rows.Scan(values...); assert.NoError(t, err) {
+									t.Log(values)
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+func Test_Tuple(t *testing.T) {
+	const (
+		ddl = `
+ 			CREATE TABLE clickhouse_test_tuple (
+ 			    int8       Int8,
+ 				int16      Int16,
+ 				int32      Int32,
+ 				int64      Int64,
+ 				uint8      UInt8,
+ 				uint16     UInt16,
+ 				uint32     UInt32,
+ 				uint64     UInt64,
+ 				float32    Float32,
+ 				float64    Float64,
+ 				string     String,
+ 				fString    FixedString(2),
+ 				date       Date,
+ 				datetime   DateTime,
+ 				enum8      Enum8 ('a' = 1, 'b' = 2),
+ 				enum16     Enum16('c' = 1, 'd' = 2),
+ 				array      Array(String),
+ 				arrayArray Array(Array(String)),
+ 				int8N      Nullable(Int8),
+ 				int16N     Nullable(Int16),
+ 				int32N     Nullable(Int32),
+ 				int64N     Nullable(Int64),
+ 				uint8N     Nullable(UInt8),
+ 				uint16N    Nullable(UInt16),
+ 				uint32N    Nullable(UInt32),
+ 				uint64N    Nullable(UInt64),
+ 				float32N   Nullable(Float32),
+ 				float64N   Nullable(Float64),
+ 				stringN    Nullable(String),
+ 				fStringN   Nullable(FixedString(2)),
+ 				dateN      Nullable(Date),
+ 				datetimeN  Nullable(DateTime),
+ 				enum8N     Nullable(Enum8 ('a' = 1, 'b' = 2)),
+ 				enum16N    Nullable(Enum16('c' = 1, 'd' = 2))
+ 			) Engine=Memory;
+ 		`
+		dml = `
+ 			INSERT INTO clickhouse_test_tuple (
+ 			   	int8,
+ 				int16,
+ 				int32,
+ 				int64,
+ 				uint8,
+ 				uint16,
+ 				uint32,
+ 				uint64,
+ 				float32,
+ 				float64,
+ 				string,
+ 				fString,
+ 				date,
+ 				datetime,
+ 				enum8,
+ 				enum16,
+ 				array,
+ 				arrayArray,
+ 				int8N,
+ 				int16N,
+ 				int32N,
+ 				int64N,
+ 				uint8N,
+ 				uint16N,
+ 				uint32N,
+ 				uint64N,
+ 				float32N,
+ 				float64N,
+ 				stringN,
+ 				fStringN,
+ 				dateN,
+ 				datetimeN,
+ 				enum8N,
+ 				enum16N
+ 			) VALUES (
+ 			    ?,
+ 				?,
+ 				?,
+ 				?,     
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?
+ 			)
+ 		`
+		query = `
+ 			SELECT
+ 				(
+ 				 	int8,
+ 					int16,
+ 					int32,
+ 					int64,
+ 					uint8,
+ 					uint16,
+ 					uint32,
+ 					uint64,
+ 					float32,
+ 					float64,
+ 					string,
+ 					fString,
+ 					date,
+ 					datetime,
+ 					enum8,
+ 					enum16,
+ 					array,
+ 				    (6.2, 'test'),
+ 					int8N,
+ 					int16N,
+ 					int32N,
+ 					int64N,
+ 				    uint8N,
+ 					uint16N,
+ 					uint32N,
+ 					uint64N,
+ 					float32N,
+ 					float64N,
+ 					stringN,
+ 					fStringN,
+ 					dateN,
+ 					datetimeN,
+ 					enum8N,
+ 					enum16N
+ 				)
+ 			FROM clickhouse_test_tuple
+ 		`
+	)
+
+	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) {
+		if tx, err := connect.Begin(); assert.NoError(t, err) {
+			if _, err := connect.Exec("DROP TABLE IF EXISTS clickhouse_test_tuple"); assert.NoError(t, err) {
+				if _, err := tx.Exec(ddl); assert.NoError(t, err) {
+					if tx, err := connect.Begin(); assert.NoError(t, err) {
+						if stmt, err := tx.Prepare(dml); assert.NoError(t, err) {
+							for i := 0; i < 10; i++ {
+								if _, err := stmt.Exec(
+									8,
+									16,
+									32,
+									64,
+									18,
+									116,
+									132,
+									165,
+									1.1,
+									2.2,
+									"RU",
+									"CN",
+									time.Now(),
+									time.Now(),
+									"a",
+									"c",
+									[]string{"A", "B", "C"},
+									[][]string{{"A", "B"}, {"CC", "DD", "EE"}},
+									new(int8),
+									16,
+									new(int32),
+									64,
+									18,
+									116,
+									132,
+									165,
+									1.1,
+									2.2,
+									nil,
+									"CN",
+									time.Now(),
+									time.Now(),
+									"a",
+									"c",
+								); !assert.NoError(t, err) {
+									t.Fatal(err)
+								}
+							}
+						}
+						if err := tx.Commit(); !assert.NoError(t, err) {
+							t.Fatal(err)
+						}
+					}
+					if rows, err := connect.Query(query); assert.NoError(t, err) {
+						for i := 0; rows.Next(); i++ {
+							var (
+								tuple []interface{}
+							)
+							if err := rows.Scan(
+								&tuple,
+							); assert.NoError(t, err) {
+								if assert.IsType(t, int8(8), tuple[0]) {
+									assert.Equal(t, int8(8), tuple[0].(int8))
+								}
+								if assert.IsType(t, int16(16), tuple[1]) {
+									assert.Equal(t, int16(16), tuple[1].(int16))
+								}
+								if assert.IsType(t, int32(32), tuple[2]) {
+									assert.Equal(t, int32(32), tuple[2].(int32))
+								}
+								if assert.IsType(t, int64(64), tuple[3]) {
+									assert.Equal(t, int64(64), tuple[3].(int64))
+								}
+								if assert.IsType(t, uint8(18), tuple[4]) {
+									assert.Equal(t, uint8(18), tuple[4].(uint8))
+								}
+								if assert.IsType(t, uint16(116), tuple[5]) {
+									assert.Equal(t, uint16(116), tuple[5].(uint16))
+								}
+								if assert.IsType(t, uint32(132), tuple[6]) {
+									assert.Equal(t, uint32(132), tuple[6].(uint32))
+								}
+								if assert.IsType(t, uint64(165), tuple[7]) {
+									assert.Equal(t, uint64(165), tuple[7].(uint64))
+								}
+								if assert.IsType(t, float32(1.1), tuple[8]) {
+									assert.Equal(t, float32(1.1), tuple[8].(float32))
+								}
+								if assert.IsType(t, float64(2.2), tuple[9]) {
+									assert.Equal(t, float64(2.2), tuple[9].(float64))
+								}
+								if assert.IsType(t, "RU", tuple[10]) {
+									assert.Equal(t, "RU", tuple[10].(string))
+								}
+								if assert.IsType(t, "CN", tuple[11]) {
+									assert.Equal(t, "CN", tuple[11].(string))
+								}
+								if assert.IsType(t, time.Now(), tuple[12]) {
+									// nothing
+								}
+								if assert.IsType(t, time.Now(), tuple[13]) {
+									// nothing
+								}
+								if assert.IsType(t, "a", tuple[14]) {
+									assert.Equal(t, "a", tuple[14].(string))
+								}
+								if assert.IsType(t, "c", tuple[15]) {
+									assert.Equal(t, "c", tuple[15].(string))
+								}
+								if assert.IsType(t, []string{"A", "B", "C"}, tuple[16]) {
+									assert.Equal(t, []string{"A", "B", "C"}, tuple[16].([]string))
+								}
+								if assert.IsType(t, []interface{}{}, tuple[17]) {
+									assert.Equal(t, []interface{}{6.2, "test"}, tuple[17].([]interface{}))
+								}
+
+								if assert.IsType(t, int8(0), tuple[18]) {
+									assert.Equal(t, int8(0), tuple[18].(int8))
+								}
+								if assert.IsType(t, int16(16), tuple[19]) {
+									assert.Equal(t, int16(16), tuple[19].(int16))
+								}
+								if assert.IsType(t, int32(0), tuple[20]) {
+									assert.Equal(t, int32(0), tuple[20].(int32))
+								}
+								if assert.IsType(t, int64(64), tuple[21]) {
+									assert.Equal(t, int64(64), tuple[21].(int64))
+								}
+								if assert.IsType(t, uint8(18), tuple[22]) {
+									assert.Equal(t, uint8(18), tuple[22].(uint8))
+								}
+								if assert.IsType(t, uint16(116), tuple[23]) {
+									assert.Equal(t, uint16(116), tuple[23].(uint16))
+								}
+								if assert.IsType(t, uint32(132), tuple[24]) {
+									assert.Equal(t, uint32(132), tuple[24].(uint32))
+								}
+								if assert.IsType(t, uint64(165), tuple[25]) {
+									assert.Equal(t, uint64(165), tuple[25].(uint64))
+								}
+								if assert.IsType(t, float32(1.1), tuple[26]) {
+									assert.Equal(t, float32(1.1), tuple[26].(float32))
+								}
+								if assert.IsType(t, float64(2.2), tuple[27]) {
+									assert.Equal(t, float64(2.2), tuple[27].(float64))
+								}
+								if assert.Nil(t, tuple[28]) {
+									if assert.IsType(t, "CN", tuple[29]) {
+										assert.Equal(t, "CN", tuple[29].(string))
+									}
+								}
+
+								t.Log(tuple)
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+func Test_ReadHistogram(t *testing.T) {
+	const (
+		ddl = `
+ 			CREATE TABLE clickhouse_test_histogram (
+ 			    int8       Int8,
+ 				int16      Int16,
+ 				int32      Int32,
+ 				int64      Int64,
+ 				uint8      UInt8,
+ 				uint16     UInt16,
+ 				uint32     UInt32,
+ 				uint64     UInt64,
+ 				float32    Float32,
+ 				float64    Float64,
+ 				int8N      Nullable(Int8),
+ 				int16N     Nullable(Int16),
+ 				int32N     Nullable(Int32),
+ 				int64N     Nullable(Int64),
+ 				uint8N     Nullable(UInt8),
+ 				uint16N    Nullable(UInt16),
+ 				uint32N    Nullable(UInt32),
+ 				uint64N    Nullable(UInt64),
+ 				float32N   Nullable(Float32),
+ 				float64N   Nullable(Float64)
+ 			) Engine=Memory;
+ 		`
+		dml = `
+ 			INSERT INTO clickhouse_test_histogram (
+ 			   	int8,
+ 				int16,
+ 				int32,
+ 				int64,
+ 				uint8,
+ 				uint16,
+ 				uint32,
+ 				uint64,
+ 				float32,
+ 				float64,
+ 				int8N,
+ 				int16N,
+ 				int32N,
+ 				int64N,
+ 				uint8N,
+ 				uint16N,
+ 				uint32N,
+ 				uint64N,
+ 				float32N,
+ 				float64N
+ 			) VALUES (
+ 			    ?,
+ 				?,
+ 				?,
+ 				?,     
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?,
+ 				?
+ 			)
+ 		`
+		query = `
+ 			SELECT
+				histogram(5)(int8),
+				histogram(5)(int16),
+				histogram(5)(int32),
+				histogram(5)(int64),
+				histogram(5)(uint8),
+				histogram(5)(uint16),
+				histogram(5)(uint32),
+				histogram(5)(uint64),
+				histogram(5)(float32),
+				histogram(5)(float64),
+				histogram(5)(int8N),
+				histogram(5)(int16N),
+				histogram(5)(int32N),
+				histogram(5)(int64N),
+				histogram(5)(uint8N),
+				histogram(5)(uint16N),
+				histogram(5)(uint32N),
+				histogram(5)(uint64N),
+				histogram(5)(float32N),
+				histogram(5)(float64N)
+ 			FROM clickhouse_test_histogram
+ 		`
+	)
+
+	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) {
+		if tx, err := connect.Begin(); assert.NoError(t, err) {
+			if _, err := connect.Exec("DROP TABLE IF EXISTS clickhouse_test_histogram"); assert.NoError(t, err) {
+				if _, err := tx.Exec(ddl); assert.NoError(t, err) {
+					if tx, err := connect.Begin(); assert.NoError(t, err) {
+						if stmt, err := tx.Prepare(dml); assert.NoError(t, err) {
+							for i := 0; i < 10; i++ {
+								if _, err := stmt.Exec(
+									8+i,
+									16+i,
+									32+i,
+									64+i,
+									18+i,
+									116+i,
+									132+i,
+									165+i,
+									1.1+float64(i),
+									2.2+float64(i),
+									new(int8),
+									16+i,
+									new(int32),
+									64+i,
+									18+i,
+									116+i,
+									nil,
+									165+i,
+									1.1+float64(i),
+									2.2+float64(i),
+								); !assert.NoError(t, err) {
+									t.Fatal(err)
+								}
+							}
+						}
+						if err := tx.Commit(); !assert.NoError(t, err) {
+							t.Fatal(err)
+						}
+					}
+					if rows, err := connect.Query(query); assert.NoError(t, err) {
+						for i := 0; rows.Next(); i++ {
+							histos := make([][][]interface{}, 20)
+							histoPtrs := make([]interface{}, 20)
+							for i := range histos {
+								histoPtrs[i] = &histos[i]
+							}
+							if err := rows.Scan(histoPtrs...); assert.NoError(t, err) {
+								for _, histo := range histos {
+									assert.IsType(t, [][]interface{}{}, histo)
+									for _, bucket := range histo {
+										assert.IsType(t, []interface{}{}, bucket)
+										for _, f := range bucket {
+											assert.IsType(t, float64(0), f)
+										}
+									}
+								}
+								t.Log(histos)
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+func Test_ReadArrayArrayTuple(t *testing.T) {
+	const (
+		query = `
+ 			select 
+ 			       [
+ 			           [(1.0, 2.0, 3.0)], 
+ 			           [(4.0, 5.0, 6.0), (7.0, 8.0, 9.0)], 
+ 			           [(10.0, 11.0, 12.0), (13.0, 14.0, 15.0), (16.0, 17.0, 18.0), (19.0, 20.0, 21.0), (22.0, 23.0, 24.0)]
+				   ], 
+ 			       number
+			from numbers(2)
+			group by number;
+ 		`
+	)
+
+	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) {
+		if tx, err := connect.Begin(); assert.NoError(t, err) {
+			if rows, err := tx.Query(query); assert.NoError(t, err) {
+				for i := 0; rows.Next(); i++ {
+					var (
+						histArr [][][]interface{}
+						group   string
+					)
+					if err := rows.Scan(&histArr, &group); assert.NoError(t, err) {
+						assert.Len(t, histArr, 3)
+						assert.Len(t, histArr[0], 1)
+						assert.Len(t, histArr[0][0], 3)
+						assert.Equal(t, []interface{}{1.0, 2.0, 3.0}, histArr[0][0])
+						assert.Len(t, histArr[1], 2)
+						assert.Len(t, histArr[1][0], 3)
+						assert.Len(t, histArr[1][1], 3)
+						assert.Equal(t, []interface{}{4.0, 5.0, 6.0}, histArr[1][0])
+						assert.Equal(t, []interface{}{7.0, 8.0, 9.0}, histArr[1][1])
+						assert.Len(t, histArr[2], 5)
+						assert.Len(t, histArr[2][0], 3)
+						assert.Len(t, histArr[2][1], 3)
+						assert.Len(t, histArr[2][2], 3)
+						assert.Len(t, histArr[2][3], 3)
+						assert.Len(t, histArr[2][4], 3)
+						assert.Equal(t, []interface{}{10.0, 11.0, 12.0}, histArr[2][0])
+						assert.Equal(t, []interface{}{13.0, 14.0, 15.0}, histArr[2][1])
+						assert.Equal(t, []interface{}{16.0, 17.0, 18.0}, histArr[2][2])
+						assert.Equal(t, []interface{}{19.0, 20.0, 21.0}, histArr[2][3])
+						assert.Equal(t, []interface{}{22.0, 23.0, 24.0}, histArr[2][4])
+						for _, histo := range histArr {
+							for _, tup := range histo {
+								for _, f := range tup {
+									assert.IsType(t, float64(0), f)
+								}
+							}
+						}
+
+						t.Log(histArr, group)
 					}
 				}
 			}

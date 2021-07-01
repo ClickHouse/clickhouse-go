@@ -20,8 +20,8 @@ func Test_NumInput(t *testing.T) {
 		"SELECT * FROM example WHERE os_id = ? AND browser_id = ?":                                2,
 		"SELECT * FROM example WHERE os_id in (?,?) browser_id = ?":                               3,
 		"SELECT * FROM example WHERE os_id IN (?, ?) AND browser_id = ?":                          3,
-		"SELECT a ? '+' : '-'":                                                                    0,
-		"SELECT a ? '+' : '-' FROM example WHERE a = ? AND b IN(?)":                               2,
+		"SELECT a ? '+' : '-'": 0,
+		"SELECT a ? '+' : '-' FROM example WHERE a = ? AND b IN(?)": 2,
 		`SELECT
 			a ? '+' : '-'
 		FROM example WHERE a = 42 and b in(
@@ -37,6 +37,9 @@ func Test_NumInput(t *testing.T) {
 		"SELECT * FROM example WHERE a BETWEEN ? AND ? AND b = ?":             3,
 		"SELECT * FROM example WHERE a = ? AND b BETWEEN ? AND ?":             3,
 		"SELECT * FROM example WHERE a BETWEEN ? AND ? AND b BETWEEN ? AND ?": 4,
+		"SELECT replace(a, '\\'', '\"') FROM example WHERE b = ?":             1,
+		"SELECT * FROM example WHERE counter % ? = 0":                         1,
+		"SELECT * FROM example WHERE modulo(counter, ?) = 0":                  1,
 	} {
 		assert.Equal(t, num, numInput(query), query)
 	}

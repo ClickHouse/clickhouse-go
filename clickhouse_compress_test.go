@@ -92,9 +92,9 @@ func Test_Compress(t *testing.T) {
 								uint8(1*i), uint16(2*i), uint32(4*i), uint64(8*i), // uint
 								1.32*float32(i), 1.64*float64(i), //float
 								fmt.Sprintf("string %d", i), // string
-								"RU",       //fixedstring,
-								time.Now(), //date
-								time.Now(), //datetime
+								"RU",                        //fixedstring,
+								time.Now(),                  //date
+								time.Now(),                  //datetime
 							)
 							if !assert.NoError(t, err) {
 								return
