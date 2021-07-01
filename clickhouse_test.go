@@ -453,6 +453,25 @@ func Test_Select(t *testing.T) {
 								}
 								rows.Close()
 							}
+							if rows, err := connect.Query("SELECT id FROM clickhouse_test_select ORDER BY id LIMIT ? OFFSET ?", 2, 1); assert.NoError(t, err) {
+								i := 0
+								for rows.Next() {
+									var (
+										id int32
+									)
+									if err := rows.Scan(&id); assert.NoError(t, err) {
+										if i == 0 {
+											assert.Equal(t, id, int32(2))
+										} else if i == 1 {
+											assert.Equal(t, id, int32(3))
+										} else {
+											t.Error("Should return exactly two records")
+										}
+									}
+									i++
+								}
+								rows.Close()
+							}
 						}
 
 						{

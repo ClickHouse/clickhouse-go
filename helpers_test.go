@@ -32,6 +32,7 @@ func Test_NumInput(t *testing.T) {
 		`: 3,
 		"SELECT * from EXAMPLE LIMIT ?":                                       1,
 		"SELECT * from EXAMPLE LIMIT ?, ?":                                    2,
+		"SELECT * from EXAMPLE LIMIT ? OFFSET ?":                              2,
 		"SELECT * from EXAMPLE WHERE os_id like ?":                            1,
 		"SELECT * FROM example WHERE a BETWEEN ? AND ?":                       2,
 		"SELECT * FROM example WHERE a BETWEEN ? AND ? AND b = ?":             3,
