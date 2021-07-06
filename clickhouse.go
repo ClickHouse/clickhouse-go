@@ -68,17 +68,29 @@ func (ch *clickhouse) PrepareContext(ctx context.Context, query string) (driver.
 }
 
 func (ch *clickhouse) prepareContext(ctx context.Context, query string) (driver.Stmt, error) {
-	ch.logf("[prepare] %s", query)
+	var err error
+	ch.logf("[prepare] server=%s %s", ch.conn.Conn.RemoteAddr().String(), query)
+	defer func() {
+		if err != nil {
+			ch.logf("[prepare] server=%s %s error=%s", ch.conn.Conn.RemoteAddr().String(), query, err.Error())
+		}
+	}()
+
 	switch {
 	case ch.conn.closed:
-		return nil, driver.ErrBadConn
+		err = driver.ErrBadConn
+		return nil, err
 	case ch.block != nil:
-		return nil, ErrLimitDataRequestInTx
+		err = ErrLimitDataRequestInTx
+		return nil, err
 	case isInsert(query):
 		if !ch.inTransaction {
-			return nil, ErrInsertInNotBatchMode
+			err = ErrInsertInNotBatchMode
+			return nil, err
 		}
-		return ch.insert(ctx, query)
+		var stmt driver.Stmt
+		stmt, err = ch.insert(ctx, query)
+		return stmt, err
 	}
 	return &stmt{
 		ch:       ch,
@@ -117,12 +129,21 @@ type txOptions struct {
 }
 
 func (ch *clickhouse) beginTx(ctx context.Context, opts txOptions) (*clickhouse, error) {
-	ch.logf("[begin] tx=%t, data=%t", ch.inTransaction, ch.block != nil)
+	var err error
+	ch.logf("[begin] server=%s tx=%t, data=%t", ch.conn.Conn.RemoteAddr().String(), ch.inTransaction, ch.block != nil)
+	defer func() {
+		if err != nil {
+			ch.logf("[begin] server=%s tx=%t, data=%t error=%s", ch.conn.Conn.RemoteAddr().String(), ch.inTransaction, ch.block != nil, err.Error())
+		}
+	}()
+
 	switch {
 	case ch.inTransaction:
-		return nil, sql.ErrTxDone
+		err = sql.ErrTxDone
+		return nil, err
 	case ch.conn.closed:
-		return nil, driver.ErrBadConn
+		err = driver.ErrBadConn
+		return nil, err
 	}
 	if finish := ch.watchCancel(ctx); finish != nil {
 		defer finish()
@@ -133,7 +154,14 @@ func (ch *clickhouse) beginTx(ctx context.Context, opts txOptions) (*clickhouse,
 }
 
 func (ch *clickhouse) Commit() error {
-	ch.logf("[commit] tx=%t, data=%t", ch.inTransaction, ch.block != nil)
+	var err error
+	ch.logf("[commit] server=%s tx=%t, data=%t", ch.conn.Conn.RemoteAddr().String(), ch.inTransaction, ch.block != nil)
+	defer func() {
+		if err != nil {
+			ch.logf("[commit] server=%s tx=%t, data=%t error=%s", ch.conn.Conn.RemoteAddr().String(), ch.inTransaction, ch.block != nil, err.Error())
+		}
+	}()
+
 	defer func() {
 		if ch.block != nil {
 			ch.block.Reset()
@@ -143,30 +171,41 @@ func (ch *clickhouse) Commit() error {
 	}()
 	switch {
 	case !ch.inTransaction:
-		return sql.ErrTxDone
+		err = sql.ErrTxDone
+		return err
 	case ch.conn.closed:
-		return driver.ErrBadConn
+		err = driver.ErrBadConn
+		return err
 	}
 	if ch.block != nil {
-		if err := ch.writeBlock(ch.block, ""); err != nil {
+		if err = ch.writeBlock(ch.block, ""); err != nil {
 			return err
 		}
 		// Send empty block as marker of end of data.
-		if err := ch.writeBlock(&data.Block{}, ""); err != nil {
+		if err = ch.writeBlock(&data.Block{}, ""); err != nil {
 			return err
 		}
-		if err := ch.encoder.Flush(); err != nil {
+		if err = ch.encoder.Flush(); err != nil {
 			return err
 		}
-		return ch.process()
+		err = ch.process()
+		return err
 	}
 	return nil
 }
 
 func (ch *clickhouse) Rollback() error {
-	ch.logf("[rollback] tx=%t, data=%t", ch.inTransaction, ch.block != nil)
+	var err error
+	ch.logf("[rollback] server=%s tx=%t, data=%t", ch.conn.Conn.RemoteAddr().String(), ch.inTransaction, ch.block != nil)
+	defer func() {
+		if err != nil {
+			ch.logf("[rollback] server=%s tx=%t, data=%t error=%s", ch.conn.Conn.RemoteAddr().String(), ch.inTransaction, ch.block != nil, err.Error())
+		}
+	}()
+
 	if !ch.inTransaction {
-		return sql.ErrTxDone
+		err = sql.ErrTxDone
+		return err
 	}
 	if ch.block != nil {
 		ch.block.Reset()
@@ -174,7 +213,8 @@ func (ch *clickhouse) Rollback() error {
 	ch.block = nil
 	ch.buffer = nil
 	ch.inTransaction = false
-	return ch.conn.Close()
+	err = ch.conn.Close()
+	return err
 }
 
 func (ch *clickhouse) CheckNamedValue(nv *driver.NamedValue) error {
@@ -236,8 +276,17 @@ func (ch *clickhouse) CheckNamedValue(nv *driver.NamedValue) error {
 }
 
 func (ch *clickhouse) Close() error {
+	var err error
+	ch.logf("[close] server=%s", ch.conn.Conn.RemoteAddr())
+	defer func() {
+		if err != nil {
+			ch.logf("[close] server=%s error=%s", ch.conn.Conn.RemoteAddr(), err.Error())
+		}
+	}()
+
 	ch.block = nil
-	return ch.conn.Close()
+	err = ch.conn.Close()
+	return err
 }
 
 func (ch *clickhouse) process() error {
