@@ -48,6 +48,8 @@ var arrayBaseTypes = map[interface{}]reflect.Type{
 	time.Time{}: reflect.ValueOf(time.Time{}).Type(),
 	IPv4{}:      reflect.ValueOf(net.IPv4zero).Type(),
 	IPv6{}:      reflect.ValueOf(net.IPv6unspecified).Type(),
+	"null_str":  reflect.PtrTo(reflect.ValueOf(string("")).Type()),
+	"null_int8":  reflect.PtrTo(reflect.ValueOf(int8(0)).Type()),
 }
 
 type base struct {

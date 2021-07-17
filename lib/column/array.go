@@ -17,6 +17,7 @@ type Array struct {
 	base
 	depth  int
 	column Column
+	isNullable bool
 }
 
 func (array *Array) Read(decoder *binary.Decoder, isNull bool) (interface{}, error) {
@@ -52,6 +53,22 @@ func (array *Array) ReadArray(decoder *binary.Decoder, rows int) (_ []interface{
 	var cd columnDecoder
 
 	switch column := array.column.(type) {
+	case *Nullable:
+		nullRows, err := column.ReadNull(decoder, int(lastOffset))
+		if err != nil {
+			return nil, err
+		}
+		cd = func(rows []interface{}) columnDecoder {
+			i := 0
+			return func() (interface{}, error) {
+				if i > len(rows) {
+					return nil, errors.New("not enough rows to return while parsing Null column")
+				}
+				ret := rows[i]
+				i++
+				return ret, nil
+			}
+		}(nullRows)
 	case *Tuple:
 		tupleRows, err := column.ReadTuple(decoder, int(lastOffset))
 		if err != nil {
@@ -72,7 +89,7 @@ func (array *Array) ReadArray(decoder *binary.Decoder, rows int) (_ []interface{
 		}(tupleRows)
 	default:
 		cd = func(decoder *binary.Decoder) columnDecoder {
-			return func() (interface{}, error) { return array.column.Read(decoder, false) }
+			return func() (interface{}, error) { return array.column.Read(decoder, array.isNullable) }
 		}(decoder)
 	}
 
@@ -106,7 +123,20 @@ func (array *Array) read(readColumn columnDecoder, offsets [][]uint64, index uin
 		if err != nil {
 			return nil, err
 		}
-		slice = reflect.Append(slice, reflect.ValueOf(value))
+		if array.isNullable {
+			fmt.Println(array.column.ScanType())
+			if value != nil {
+				value1 := value.(int8)
+				valuez := &value1
+				slice = reflect.Append(slice, reflect.ValueOf(valuez))
+			} else {
+				var z *int8
+				slice = reflect.Append(slice, reflect.ValueOf(z))
+			}
+		} else {
+			slice = reflect.Append(slice, reflect.ValueOf(value))
+		}
+
 	}
 	return slice.Interface(), nil
 }
@@ -169,6 +199,10 @@ loop:
 		scanType = []float32{}
 	case arrayBaseTypes[float64(0)]:
 		scanType = []float64{}
+	case arrayBaseTypes["null_str"]:
+		scanType = []*string{}
+	case arrayBaseTypes["null_int8"]:
+		scanType = []*int8{}
 	case arrayBaseTypes[string("")]:
 		scanType = []string{}
 	case arrayBaseTypes[time.Time{}]:
@@ -188,5 +222,6 @@ loop:
 		},
 		depth:  depth,
 		column: column,
+		isNullable: strings.HasPrefix(column.CHType(),"Nullable"),
 	}, nil
 }
