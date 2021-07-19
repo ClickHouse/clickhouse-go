@@ -136,7 +136,7 @@ func (array *Array) read(readColumn columnDecoder, offsets [][]uint64, index uin
 			return nil, err
 		}
 		if array.nullable && level == array.depth-1 {
-			cSlice, err := nullAppender[scanT.String()](value, slice)
+			cSlice, err := nullableAppender[scanT.String()](value, slice)
 			if err != nil {
 				return nil, err
 			}

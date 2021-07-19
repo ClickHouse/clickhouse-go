@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-var nullAppender = map[string]func(v interface{}, slice reflect.Value) (reflect.Value, error){
+var nullableAppender = map[string]func(v interface{}, slice reflect.Value) (reflect.Value, error){
 	"*int8": func(v interface{}, slice reflect.Value) (reflect.Value, error) {
 		if v != nil {
 			v, ok := v.(int8)
