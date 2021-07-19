@@ -101,10 +101,15 @@ func (block *Block) Read(serverInfo *ServerInfo, decoder *binary.Decoder) (err e
 	return nil
 }
 
-func (block *Block) writeArray(column column.Column, value Value, num, level int) error {
-	if level > column.Depth() {
-		return column.Write(block.buffers[num].Column, value.Interface())
+func (block *Block) writeArray(col column.Column, value Value, num, level int) error {
+	if level > col.Depth() {
+		arrColumn, ok := col.(*column.Array)
+		if strings.Contains(col.CHType(), "Nullable") && ok {
+			return arrColumn.WriteNull(block.buffers[num].Offset, block.buffers[num].Column, value.Interface())
+		}
+		return col.Write(block.buffers[num].Column, value.Interface())
 	}
+
 	switch {
 	case value.Kind() == reflect.Slice:
 		if len(block.offsets[num]) < level {
@@ -116,12 +121,12 @@ func (block *Block) writeArray(column column.Column, value Value, num, level int
 			)
 		}
 		for i := 0; i < value.Len(); i++ {
-			if err := block.writeArray(column, value.Index(i), num, level+1); err != nil {
+			if err := block.writeArray(col, value.Index(i), num, level+1); err != nil {
 				return err
 			}
 		}
 	default:
-		if err := column.Write(block.buffers[num].Column, value.Interface()); err != nil {
+		if err := col.Write(block.buffers[num].Column, value.Interface()); err != nil {
 			return err
 		}
 	}

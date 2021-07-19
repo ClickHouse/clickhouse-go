@@ -48,8 +48,22 @@ var arrayBaseTypes = map[interface{}]reflect.Type{
 	time.Time{}: reflect.ValueOf(time.Time{}).Type(),
 	IPv4{}:      reflect.ValueOf(net.IPv4zero).Type(),
 	IPv6{}:      reflect.ValueOf(net.IPv6unspecified).Type(),
-	"null_str":  reflect.PtrTo(reflect.ValueOf(string("")).Type()),
-	"null_int8":  reflect.PtrTo(reflect.ValueOf(int8(0)).Type()),
+
+	// nullable
+	"*int8":      reflect.PtrTo(reflect.ValueOf(int8(0)).Type()),
+	"*int16":     reflect.PtrTo(reflect.ValueOf(int16(0)).Type()),
+	"*int32":     reflect.PtrTo(reflect.ValueOf(int32(0)).Type()),
+	"*int64":     reflect.PtrTo(reflect.ValueOf(int64(0)).Type()),
+	"*uint8":     reflect.PtrTo(reflect.ValueOf(uint8(0)).Type()),
+	"*uint16":    reflect.PtrTo(reflect.ValueOf(uint16(0)).Type()),
+	"*uint32":    reflect.PtrTo(reflect.ValueOf(uint32(0)).Type()),
+	"*uint64":    reflect.PtrTo(reflect.ValueOf(uint64(0)).Type()),
+	"*float32":   reflect.PtrTo(reflect.ValueOf(float32(0)).Type()),
+	"*float64":   reflect.PtrTo(reflect.ValueOf(float64(0)).Type()),
+	"*string":    reflect.PtrTo(reflect.ValueOf(string("")).Type()),
+	"*time.Time": reflect.PtrTo(reflect.ValueOf(time.Time{}).Type()),
+	"*IPv4":      reflect.PtrTo(reflect.ValueOf(net.IPv4zero).Type()),
+	"*IPv6":      reflect.PtrTo(reflect.ValueOf(net.IPv6unspecified).Type()),
 }
 
 type base struct {

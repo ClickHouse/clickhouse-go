@@ -15,13 +15,24 @@ type columnDecoder func() (interface{}, error)
 
 type Array struct {
 	base
-	depth  int
-	column Column
-	isNullable bool
+	depth    int
+	column   Column
+	nullable bool
 }
 
 func (array *Array) Read(decoder *binary.Decoder, isNull bool) (interface{}, error) {
 	return nil, fmt.Errorf("do not use Read method for Array(T) column")
+}
+
+func (array *Array) WriteNull(nulls, encoder *binary.Encoder, v interface{}) error {
+	if array.nullable {
+		column, ok := array.column.(*Nullable)
+		if !ok {
+			return fmt.Errorf("cannot convert to nullable type")
+		}
+		return column.WriteNull(nulls, encoder, v)
+	}
+	return fmt.Errorf("write null to not nul array")
 }
 
 func (array *Array) Write(encoder *binary.Encoder, v interface{}) error {
@@ -89,7 +100,7 @@ func (array *Array) ReadArray(decoder *binary.Decoder, rows int) (_ []interface{
 		}(tupleRows)
 	default:
 		cd = func(decoder *binary.Decoder) columnDecoder {
-			return func() (interface{}, error) { return array.column.Read(decoder, array.isNullable) }
+			return func() (interface{}, error) { return array.column.Read(decoder, array.nullable) }
 		}(decoder)
 	}
 
@@ -109,6 +120,7 @@ func (array *Array) read(readColumn columnDecoder, offsets [][]uint64, index uin
 		start = offsets[level][index-1]
 	}
 
+	scanT := array.column.ScanType()
 	slice := reflect.MakeSlice(array.arrayType(level), 0, int(end-start))
 	for i := start; i < end; i++ {
 		var (
@@ -123,16 +135,13 @@ func (array *Array) read(readColumn columnDecoder, offsets [][]uint64, index uin
 		if err != nil {
 			return nil, err
 		}
-		if array.isNullable {
-			fmt.Println(array.column.ScanType())
-			if value != nil {
-				value1 := value.(int8)
-				valuez := &value1
-				slice = reflect.Append(slice, reflect.ValueOf(valuez))
-			} else {
-				var z *int8
-				slice = reflect.Append(slice, reflect.ValueOf(z))
+		if array.nullable && level == array.depth-1 {
+			cSlice, err := nullAppender[scanT.String()](value, slice)
+			if err != nil {
+				return nil, err
 			}
+
+			slice = cSlice
 		} else {
 			slice = reflect.Append(slice, reflect.ValueOf(value))
 		}
@@ -199,10 +208,6 @@ loop:
 		scanType = []float32{}
 	case arrayBaseTypes[float64(0)]:
 		scanType = []float64{}
-	case arrayBaseTypes["null_str"]:
-		scanType = []*string{}
-	case arrayBaseTypes["null_int8"]:
-		scanType = []*int8{}
 	case arrayBaseTypes[string("")]:
 		scanType = []string{}
 	case arrayBaseTypes[time.Time{}]:
@@ -211,6 +216,34 @@ loop:
 		scanType = []net.IP{}
 	case reflect.ValueOf([]interface{}{}).Type():
 		scanType = [][]interface{}{}
+
+	//nullable
+	case arrayBaseTypes["*int8"]:
+		scanType = []*int8{}
+	case arrayBaseTypes["*int16"]:
+		scanType = []*int16{}
+	case arrayBaseTypes["*int32"]:
+		scanType = []*int32{}
+	case arrayBaseTypes["*int64"]:
+		scanType = []*int64{}
+	case arrayBaseTypes["*uint8"]:
+		scanType = []*uint8{}
+	case arrayBaseTypes["*uint16"]:
+		scanType = []*uint16{}
+	case arrayBaseTypes["*uint32"]:
+		scanType = []*uint32{}
+	case arrayBaseTypes["*uint64"]:
+		scanType = []*uint64{}
+	case arrayBaseTypes["*float32"]:
+		scanType = []*float32{}
+	case arrayBaseTypes["*float64"]:
+		scanType = []*float64{}
+	case arrayBaseTypes["*string"]:
+		scanType = []*string{}
+	case arrayBaseTypes["*time.Time"]:
+		scanType = []*time.Time{}
+	case arrayBaseTypes["*IPv4"], arrayBaseTypes["*IPv6"]:
+		scanType = []*net.IP{}
 	default:
 		return nil, fmt.Errorf("unsupported Array type '%s'", column.ScanType().Name())
 	}
@@ -220,8 +253,8 @@ loop:
 			chType:  columnType,
 			valueOf: reflect.ValueOf(scanType),
 		},
-		depth:  depth,
-		column: column,
-		isNullable: strings.HasPrefix(column.CHType(),"Nullable"),
+		depth:    depth,
+		column:   column,
+		nullable: strings.HasPrefix(column.CHType(), "Nullable"),
 	}, nil
 }
