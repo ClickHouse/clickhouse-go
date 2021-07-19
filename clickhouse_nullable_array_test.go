@@ -3,10 +3,10 @@ package clickhouse
 import (
 	"database/sql"
 	"fmt"
-	"github.com/stretchr/testify/assert"
 	"net"
 
-	//"net"
+	"github.com/stretchr/testify/assert"
+
 	"testing"
 	"time"
 )
@@ -101,8 +101,8 @@ func Test_NullableArray(t *testing.T) {
 								float32V := float32(123.5)
 								float64V := 12332.5
 
-								ipv4V := net.ParseIP("1.1.1.1")
 								ipv6V := net.ParseIP("2001:0db8:85a3:0000:0000:8a2e:0370:7334")
+								ipv4V := net.ParseIP("1.1.1.1")
 
 								stringV := "12343"
 								timeV := time.Now()
@@ -120,14 +120,13 @@ func Test_NullableArray(t *testing.T) {
 									[]*float32{&float32V, nil, &float32V},
 									[]*float64{&float64V, nil, &float64V},
 
-									[]*net.IP{&ipv4V, nil, &ipv4V},
 									[]*net.IP{&ipv6V, nil, &ipv6V},
+									[]*net.IP{&ipv4V, nil, &ipv4V},
 
 									[]*string{&stringV, nil, &stringV},
 
 									[]*time.Time{&timeV, nil, &timeV},
 									[]*time.Time{&timeV, nil, &timeV},
-
 								); !assert.NoError(t, err) {
 									t.Fatal(err)
 								}
