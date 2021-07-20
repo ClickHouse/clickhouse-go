@@ -2,7 +2,6 @@ package clickhouse
 
 import (
 	"database/sql"
-	"fmt"
 	"net"
 
 	"github.com/stretchr/testify/assert"
@@ -16,26 +15,28 @@ func Test_NullableArray(t *testing.T) {
 		ddl = `
 			CREATE TABLE clickhouse_test_nullable_array
 			(
-				arr_int8       Array( Nullable (Int8)),
-				arr_int16      Array( Nullable (Int16)),
-				arr_int32      Array( Nullable (Int32)),
-				arr_int64      Array( Nullable (Int64)),
-				arr_uint8      Array( Nullable (UInt8)),
-				arr_uint16     Array( Nullable (UInt16)),
-				arr_uint32     Array( Nullable (UInt32)),
-				arr_uint64     Array( Nullable (UInt64)),
-				arr_float32    Array( Nullable (Float32)),
-				arr_float64    Array( Nullable (Float64)),
-				arr_ipv6       Array( Nullable (IPv6)),
-				arr_ipv4       Array( Nullable (IPv4)),
-				arr_string     Array( Nullable (String)),
-				arr_arr_string Array(Array(Nullable (String))),
-				arr_date       Array( Nullable (Date)),
-				arr_datetime   Array( Nullable (DateTime))
+				arr_decimal    Array(Nullable(Decimal(15, 3))),
+				arr_int8       Array(Nullable(Int8)),
+				arr_int16      Array(Nullable(Int16)),
+				arr_int32      Array(Nullable(Int32)),
+				arr_int64      Array(Nullable(Int64)),
+				arr_uint8      Array(Nullable(UInt8)),
+				arr_uint16     Array(Nullable(UInt16)),
+				arr_uint32     Array(Nullable(UInt32)),
+				arr_uint64     Array(Nullable(UInt64)),
+				arr_float32    Array(Nullable(Float32)),
+				arr_float64    Array(Nullable(Float64)),
+				arr_ipv6       Array(Nullable(IPv6)),
+				arr_ipv4       Array(Nullable(IPv4)),
+				arr_string     Array(Nullable(String)),
+				arr_arr_string Array(Array(Nullable(String))),
+				arr_date       Array(Nullable(Date)),
+				arr_datetime   Array(Nullable(DateTime))
 			) Engine = Memory;
 		`
 		dml = `
 			INSERT INTO clickhouse_test_nullable_array (
+				arr_decimal,
 				arr_int8,
 				arr_int16,
 				arr_int32,
@@ -58,6 +59,7 @@ func Test_NullableArray(t *testing.T) {
 				arr_date,
 				arr_datetime
 			) VALUES (
+			    ?,
 				?,
 				?,
 				?,
@@ -82,7 +84,31 @@ func Test_NullableArray(t *testing.T) {
 		`
 	)
 
-	timeV := time.Now()
+	decV := 16.55
+	int64Dec := int64(16550)
+	int8V := int8(123)
+	int16V := int16(1231)
+	int32V := int32(12312)
+	int64V := int64(123123)
+
+	uint8V := uint8(123)
+	uint16V := uint16(1231)
+	uint32V := uint32(12312)
+	uint64V := uint64(123123)
+
+	float32V := float32(123.123)
+	float64V := 123123.123123
+
+	stringV := "123123"
+
+	ipv6V := net.ParseIP("2001:0db8:85a3:0000:0000:8a2e:0370:7334")
+	ipv4V := net.ParseIP("123.123.123.123")
+
+	timeV, _ := time.Parse("2006-01-02 15:04:05", "2021-07-11 00:00:00")
+	dateV, _ := time.Parse("2006-01-02", "2021-07-11")
+
+	var timeNil *time.Time
+
 	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) {
 		if tx, err := connect.Begin(); assert.NoError(t, err) {
 			if _, err := connect.Exec("DROP TABLE IF EXISTS clickhouse_test_nullable_array"); assert.NoError(t, err) {
@@ -91,24 +117,8 @@ func Test_NullableArray(t *testing.T) {
 						stmt, err := tx.Prepare(dml)
 						if assert.NoError(t, err) {
 							for i := 0; i < 100; i++ {
-								int8V := int8(123)
-								int16V := int16(1231)
-								int32V := int32(12312)
-								int64V := int64(123123)
-
-								uint8V := uint8(123)
-								uint16V := uint16(1231)
-								uint32V := uint32(12312)
-								uint64V := uint64(123123)
-
-								float32V := float32(123.123)
-								float64V := 123123.123123
-
-								ipv6V := net.ParseIP("2001:0db8:85a3:0000:0000:8a2e:0370:7334")
-								ipv4V := net.ParseIP("123.123.123.123")
-
-								stringV := "123123"
 								if _, err := stmt.Exec(
+									[]*float64{&decV, nil, &decV},
 									[]*int8{&int8V, nil, &int8V},
 									[]*int16{&int16V, nil, &int16V},
 									[]*int32{&int32V, nil, &int32V},
@@ -128,7 +138,7 @@ func Test_NullableArray(t *testing.T) {
 									[]*string{&stringV, nil, &stringV},
 									[][]*string{{&stringV, nil, &stringV}},
 
-									[]*time.Time{&timeV, nil, &timeV},
+									[]*time.Time{&dateV, nil, &dateV},
 									[]*time.Time{&timeV, nil, &timeV},
 								); !assert.NoError(t, err) {
 									t.Fatal(err)
@@ -142,6 +152,7 @@ func Test_NullableArray(t *testing.T) {
 					if rows, err := connect.Query(query); assert.NoError(t, err) {
 						for rows.Next() {
 							var (
+								ArrDecimal   = make([]*int64, 0)
 								ArrInt8      = make([]*int8, 0)
 								ArrInt16     = make([]*int16, 0)
 								ArrInt32     = make([]*int32, 0)
@@ -160,6 +171,7 @@ func Test_NullableArray(t *testing.T) {
 								ArrDateTime  = make([]*time.Time, 0)
 							)
 							if err := rows.Scan(
+								&ArrDecimal,
 								&ArrInt8,
 								&ArrInt16,
 								&ArrInt32,
@@ -177,12 +189,36 @@ func Test_NullableArray(t *testing.T) {
 								&ArrDate,
 								&ArrDateTime,
 							); assert.NoError(t, err) {
-								fmt.Printf("ok")
+								assert.Equal(t, ArrDecimal, []*int64{&int64Dec, nil, &int64Dec})
+								assert.Equal(t, ArrInt8, []*int8{&int8V, nil, &int8V})
+								assert.Equal(t, ArrInt16, []*int16{&int16V, nil, &int16V})
+								assert.Equal(t, ArrInt32, []*int32{&int32V, nil, &int32V})
+								assert.Equal(t, ArrInt64, []*int64{&int64V, nil, &int64V})
+
+								assert.Equal(t, ArrUInt8, []*uint8{&uint8V, nil, &uint8V})
+								assert.Equal(t, ArrUInt16, []*uint16{&uint16V, nil, &uint16V})
+								assert.Equal(t, ArrUInt32, []*uint32{&uint32V, nil, &uint32V})
+								assert.Equal(t, ArrUInt64, []*uint64{&uint64V, nil, &uint64V})
+
+								assert.Equal(t, ArrFloat32, []*float32{&float32V, nil, &float32V})
+								assert.Equal(t, ArrFloat64, []*float64{&float64V, nil, &float64V})
+
+								assert.Equal(t, ArrIpv6, []*net.IP{&ipv6V, nil, &ipv6V})
+								assert.Equal(t, ArrIpv4, []*net.IP{&ipv4V, nil, &ipv4V})
+
+								assert.Equal(t, ArrString, []*string{&stringV, nil, &stringV})
+								assert.Equal(t, ArrArrString, [][]*string{{&stringV, nil, &stringV}})
+
+								assert.True(t, ArrDate[0].Equal(dateV))
+								assert.True(t, ArrDate[2].Equal(dateV))
+								assert.True(t, ArrDateTime[0].Equal(timeV))
+								assert.True(t, ArrDateTime[2].Equal(timeV))
+								assert.Equal(t, ArrDate[1], timeNil)
+								assert.Equal(t, ArrDateTime[1], timeNil)
 							}
 						}
 					}
 				}
-
 			}
 		}
 	}

@@ -13,6 +13,9 @@ import (
 
 type columnDecoder func() (interface{}, error)
 
+// If you add Nullable type, that can be used in Array(Nullable(T)) add this type to ../codegen/nullable_appender/main.go in structure values.Types.
+// Run code generation.
+//go:generate go run ../codegen/nullable_appender -package $GOPACKAGE -file nullable_appender.go
 type Array struct {
 	base
 	depth    int
@@ -32,7 +35,7 @@ func (array *Array) WriteNull(nulls, encoder *binary.Encoder, v interface{}) err
 		}
 		return column.WriteNull(nulls, encoder, v)
 	}
-	return fmt.Errorf("write null to not nul array")
+	return fmt.Errorf("write null to not nullable array")
 }
 
 func (array *Array) Write(encoder *binary.Encoder, v interface{}) error {
@@ -218,31 +221,31 @@ loop:
 		scanType = [][]interface{}{}
 
 	//nullable
-	case arrayBaseTypes["*int8"]:
+	case arrayBaseTypes[ptrInt8T]:
 		scanType = []*int8{}
-	case arrayBaseTypes["*int16"]:
+	case arrayBaseTypes[ptrInt16T]:
 		scanType = []*int16{}
-	case arrayBaseTypes["*int32"]:
+	case arrayBaseTypes[ptrInt32T]:
 		scanType = []*int32{}
-	case arrayBaseTypes["*int64"]:
+	case arrayBaseTypes[ptrInt64T]:
 		scanType = []*int64{}
-	case arrayBaseTypes["*uint8"]:
+	case arrayBaseTypes[ptrUInt8T]:
 		scanType = []*uint8{}
-	case arrayBaseTypes["*uint16"]:
+	case arrayBaseTypes[ptrUInt16T]:
 		scanType = []*uint16{}
-	case arrayBaseTypes["*uint32"]:
+	case arrayBaseTypes[ptrUInt32T]:
 		scanType = []*uint32{}
-	case arrayBaseTypes["*uint64"]:
+	case arrayBaseTypes[ptrUInt64T]:
 		scanType = []*uint64{}
-	case arrayBaseTypes["*float32"]:
+	case arrayBaseTypes[ptrFloat32]:
 		scanType = []*float32{}
-	case arrayBaseTypes["*float64"]:
+	case arrayBaseTypes[ptrFloat64]:
 		scanType = []*float64{}
-	case arrayBaseTypes["*string"]:
+	case arrayBaseTypes[ptrString]:
 		scanType = []*string{}
-	case arrayBaseTypes["*time.Time"]:
+	case arrayBaseTypes[ptrTime]:
 		scanType = []*time.Time{}
-	case arrayBaseTypes["*IPv4"], arrayBaseTypes["*IPv6"]:
+	case arrayBaseTypes[ptrIPv4], arrayBaseTypes[ptrIPv6]:
 		scanType = []*net.IP{}
 	default:
 		return nil, fmt.Errorf("unsupported Array type '%s'", column.ScanType().Name())
