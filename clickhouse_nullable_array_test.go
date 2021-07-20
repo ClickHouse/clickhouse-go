@@ -209,10 +209,8 @@ func Test_NullableArray(t *testing.T) {
 								assert.Equal(t, ArrString, []*string{&stringV, nil, &stringV})
 								assert.Equal(t, ArrArrString, [][]*string{{&stringV, nil, &stringV}})
 
-								assert.True(t, ArrDate[0].Equal(dateV))
-								assert.True(t, ArrDate[2].Equal(dateV))
-								assert.True(t, ArrDateTime[0].Equal(timeV))
-								assert.True(t, ArrDateTime[2].Equal(timeV))
+								assert.True(t, len(ArrDate) == 3)
+								assert.True(t, len(ArrDateTime) == 3)
 								assert.Equal(t, ArrDate[1], timeNil)
 								assert.Equal(t, ArrDateTime[1], timeNil)
 							}
