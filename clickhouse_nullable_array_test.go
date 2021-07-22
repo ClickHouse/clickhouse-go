@@ -125,7 +125,7 @@ func Test_NullableArray(t *testing.T) {
 
 	var timeNil *time.Time
 
-	if connect, err := sql.Open("clickhouse", "tcp://0.0.0.0:9000?debug=true"); assert.NoError(t, err) {
+	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) {
 		if tx, err := connect.Begin(); assert.NoError(t, err) {
 			if _, err := connect.Exec("DROP TABLE IF EXISTS clickhouse_test_nullable_array"); assert.NoError(t, err) {
 				if _, err := tx.Exec(ddl); assert.NoError(t, err) {
