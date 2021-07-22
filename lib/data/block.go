@@ -104,7 +104,7 @@ func (block *Block) Read(serverInfo *ServerInfo, decoder *binary.Decoder) (err e
 func (block *Block) writeArray(col column.Column, value Value, num, level int) error {
 	if level > col.Depth() {
 		arrColumn, ok := col.(*column.Array)
-		if strings.Contains(col.CHType(), "Nullable") && ok {
+		if ok && strings.Contains(col.CHType(), "Nullable") {
 			return arrColumn.WriteNull(block.buffers[num].Offset, block.buffers[num].Column, value.Interface())
 		}
 		return col.Write(block.buffers[num].Column, value.Interface())
