@@ -1,6 +1,7 @@
 package data
 
 import (
+	"bytes"
 	"database/sql/driver"
 	"fmt"
 	"io"
@@ -9,7 +10,6 @@ import (
 
 	"github.com/ClickHouse/clickhouse-go/lib/binary"
 	"github.com/ClickHouse/clickhouse-go/lib/column"
-	wb "github.com/ClickHouse/clickhouse-go/lib/writebuffer"
 )
 
 type offset [][]int
@@ -165,8 +165,8 @@ func (block *Block) Reserve() {
 		block.offsets = make([]offset, len(block.Columns))
 		for i := 0; i < len(block.Columns); i++ {
 			var (
-				offsetBuffer = wb.New(wb.InitialSize)
-				columnBuffer = wb.New(wb.InitialSize)
+				offsetBuffer = new(bytes.Buffer)
+				columnBuffer = new(bytes.Buffer)
 			)
 			block.buffers[i] = &buffer{
 				Offset:       binary.NewEncoder(offsetBuffer),
@@ -289,8 +289,8 @@ func (info *blockInfo) write(encoder *binary.Encoder) error {
 type buffer struct {
 	Offset       *binary.Encoder
 	Column       *binary.Encoder
-	offsetBuffer *wb.WriteBuffer
-	columnBuffer *wb.WriteBuffer
+	offsetBuffer *bytes.Buffer
+	columnBuffer *bytes.Buffer
 }
 
 func (buf *buffer) WriteTo(w io.Writer) (int64, error) {
