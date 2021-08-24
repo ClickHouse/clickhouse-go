@@ -171,7 +171,8 @@ func Test_NullableArray(t *testing.T) {
 						}
 					}
 					if rows, err := connect.Query(query); assert.NoError(t, err) {
-						for rows.Next() {
+						for i := 0; i < 10; i++ {
+							rows.Next()
 							var (
 								ArrDecimal     = make([]*int64, 0)
 								ArrInt8        = make([]*int8, 0)
@@ -247,8 +248,12 @@ func Test_NullableArray(t *testing.T) {
 								assert.Equal(t, ArrEnum16Int16, []*string{&enum16VA, nil, &enum16VB})
 								assert.Equal(t, ArrEnum8Str, []*string{&enum8VA, nil, &enum8VB})
 								assert.Equal(t, ArrEnum16Str, []*string{&enum16VA, nil, &enum16VB})
+							} else {
+								t.Fatal(err)
 							}
 						}
+					} else {
+						t.Fatal(err)
 					}
 				}
 			}

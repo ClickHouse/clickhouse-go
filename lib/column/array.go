@@ -13,6 +13,8 @@ import (
 
 type columnDecoder func() (interface{}, error)
 
+var unsupportedArrayTypeErrTemp = "unsupported Array type '%s'"
+
 // If you add Nullable type, that can be used in Array(Nullable(T)) add this type to ../codegen/nullable_appender/main.go in structure values.Types.
 // Run code generation.
 //go:generate go run ../codegen/nullable_appender -package $GOPACKAGE -file nullable_appender.go
@@ -141,7 +143,7 @@ func (array *Array) read(readColumn columnDecoder, offsets [][]uint64, index uin
 		if array.nullable && level == array.depth-1 {
 			f, ok := nullableAppender[scanT.String()]
 			if !ok {
-				return nil, fmt.Errorf("unsupported Array type '%s'", scanT.String())
+				return nil, fmt.Errorf(unsupportedArrayTypeErrTemp, scanT.String())
 			}
 
 			cSlice, err := f(value, slice)
@@ -253,7 +255,7 @@ loop:
 	case arrayBaseTypes[ptrIPv4], arrayBaseTypes[ptrIPv6]:
 		scanType = []*net.IP{}
 	default:
-		return nil, fmt.Errorf("unsupported Array type '%s'", column.ScanType().Name())
+		return nil, fmt.Errorf(unsupportedArrayTypeErrTemp, column.ScanType().Name())
 	}
 	return &Array{
 		base: base{
