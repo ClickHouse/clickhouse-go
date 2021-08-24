@@ -139,7 +139,12 @@ func (array *Array) read(readColumn columnDecoder, offsets [][]uint64, index uin
 			return nil, err
 		}
 		if array.nullable && level == array.depth-1 {
-			cSlice, err := nullableAppender[scanT.String()](value, slice)
+			f, ok := nullableAppender[scanT.String()]
+			if !ok {
+				return nil, fmt.Errorf("unsupported Array type '%s'", scanT.String())
+			}
+
+			cSlice, err := f(value, slice)
 			if err != nil {
 				return nil, err
 			}
