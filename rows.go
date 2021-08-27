@@ -126,6 +126,7 @@ func (rows *rows) receiveData() error {
 				rows.stream <- block
 			case protocol.ServerTotals:
 				rows.totals = block
+				rows.stream <- block
 			case protocol.ServerExtremes:
 				rows.extremes = block
 			}
