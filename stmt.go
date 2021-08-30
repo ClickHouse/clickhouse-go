@@ -20,7 +20,9 @@ type stmt struct {
 var emptyResult = &result{}
 
 type key string
+
 var queryIDKey key
+
 //Put query ID into context and use it in ExecContext or QueryContext
 func WithQueryID(ctx context.Context, queryID string) context.Context {
 	return context.WithValue(ctx, queryIDKey, queryID)
