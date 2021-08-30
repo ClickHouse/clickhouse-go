@@ -1,9 +1,11 @@
 package column
 
 import (
+	b "encoding/binary"
 	"errors"
 	"fmt"
 	"math"
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -17,10 +19,11 @@ var factors10 = []float64{
 	1e14, 1e15, 1e16, 1e17, 1e18,
 }
 
-// Decimal represents Decimal(P, S) ClickHouse. Since there is support for
-// int128 in Golang, the implementation does not support to 128-bits decimals
-// as well. Decimal is represented as integral. Also floating-point types are
-// supported for query parameters.
+// Decimal represents Decimal(P, S) ClickHouse. Decimal is represented as
+// integral. Also floating-point types are supported for query parameters.
+//
+// Since there is no support for int128 in Golang, decimals with precision 19
+// through 38 are represented as 16 little-endian bytes.
 type Decimal struct {
 	base
 	nobits    int // its domain is {32, 64}
@@ -34,6 +37,8 @@ func (d *Decimal) Read(decoder *binary.Decoder, isNull bool) (interface{}, error
 		return decoder.Int32()
 	case 64:
 		return decoder.Int64()
+	case 128:
+		return decoder.Decimal128()
 	default:
 		return nil, errors.New("unachievable execution path")
 	}
@@ -45,6 +50,8 @@ func (d *Decimal) Write(encoder *binary.Encoder, v interface{}) error {
 		return d.write32(encoder, v)
 	case 64:
 		return d.write64(encoder, v)
+	case 128:
+		return d.write128(encoder, v)
 	default:
 		return errors.New("unachievable execution path")
 	}
@@ -208,6 +215,101 @@ func (d *Decimal) write64(encoder *binary.Encoder, v interface{}) error {
 	}
 }
 
+// Turns an int64 into 16 little-endian bytes.
+func int64ToDecimal128(v int64) []byte {
+	bytes := make([]byte, 16)
+	b.LittleEndian.PutUint64(bytes[:8], uint64(v))
+	sign := 0
+	if v < 0 {
+		sign = -1
+	}
+	b.LittleEndian.PutUint64(bytes[8:], uint64(sign))
+	return bytes
+}
+
+// Turns a uint64 into 16 little-endian bytes.
+func uint64ToDecimal128(v uint64) []byte {
+	bytes := make([]byte, 16)
+	b.LittleEndian.PutUint64(bytes[:8], uint64(v))
+	return bytes
+}
+
+func (d *Decimal) write128(encoder *binary.Encoder, v interface{}) error {
+	switch v := v.(type) {
+	case int:
+		return encoder.Decimal128(int64ToDecimal128(int64(v)))
+	case int8:
+		return encoder.Decimal128(int64ToDecimal128(int64(v)))
+	case int16:
+		return encoder.Decimal128(int64ToDecimal128(int64(v)))
+	case int32:
+		return encoder.Decimal128(int64ToDecimal128(int64(v)))
+	case int64:
+		return encoder.Decimal128(int64ToDecimal128(v))
+
+	case uint8:
+		return encoder.Decimal128(uint64ToDecimal128(uint64(v)))
+	case uint16:
+		return encoder.Decimal128(uint64ToDecimal128(uint64(v)))
+	case uint32:
+		return encoder.Decimal128(uint64ToDecimal128(uint64(v)))
+	case uint64:
+		return encoder.Decimal128(uint64ToDecimal128(v))
+
+	case float32:
+		fixed := d.float2int64(float64(v))
+		return encoder.Decimal128(int64ToDecimal128(fixed))
+	case float64:
+		fixed := d.float2int64(float64(v))
+		return encoder.Decimal128(int64ToDecimal128(fixed))
+
+	case []byte:
+		if len(v) != 16 {
+			return errors.New("expected 16 bytes")
+		}
+		return encoder.Decimal128(v)
+
+	// this relies on Nullable never sending nil values through
+	case *int:
+		return encoder.Decimal128(int64ToDecimal128(int64(*v)))
+	case *int8:
+		return encoder.Decimal128(int64ToDecimal128(int64(*v)))
+	case *int16:
+		return encoder.Decimal128(int64ToDecimal128(int64(*v)))
+	case *int32:
+		return encoder.Decimal128(int64ToDecimal128(int64(*v)))
+	case *int64:
+		return encoder.Decimal128(int64ToDecimal128(*v))
+
+	case *uint8:
+		return encoder.Decimal128(uint64ToDecimal128(uint64(*v)))
+	case *uint16:
+		return encoder.Decimal128(uint64ToDecimal128(uint64(*v)))
+	case *uint32:
+		return encoder.Decimal128(uint64ToDecimal128(uint64(*v)))
+	case *uint64:
+		return encoder.Decimal128(uint64ToDecimal128(*v))
+
+	case *float32:
+		fixed := d.float2int64(float64(*v))
+		return encoder.Decimal128(int64ToDecimal128(fixed))
+	case *float64:
+		fixed := d.float2int64(float64(*v))
+		return encoder.Decimal128(int64ToDecimal128(fixed))
+
+	case *[]byte:
+		if len(*v) != 16 {
+			return errors.New("expected 16 bytes")
+		}
+		return encoder.Decimal128(*v)
+	}
+
+	return &ErrUnexpectedType{
+		T:      v,
+		Column: d,
+	}
+}
+
 func parseDecimal(name, chType string) (Column, error) {
 	switch {
 	case len(chType) < 12:
@@ -257,7 +359,8 @@ func parseDecimal(name, chType string) (Column, error) {
 		decimal.nobits = 64
 		decimal.valueOf = columnBaseTypes[int64(0)]
 	case decimal.precision <= 38:
-		return nil, errors.New("Decimal128 is not supported")
+		decimal.nobits = 128
+		decimal.valueOf = reflect.ValueOf([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0})
 	default:
 		return nil, errors.New("precision of Decimal exceeds max bound")
 	}

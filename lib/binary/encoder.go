@@ -313,6 +313,11 @@ func (enc *Encoder) RawStringNullable(str *[]byte) error {
 	return enc.RawString(*str)
 }
 
+func (enc *Encoder) Decimal128(bytes []byte) error {
+	_, err := enc.Get().Write(bytes)
+	return err
+}
+
 func (enc *Encoder) Write(b []byte) (int, error) {
 	return enc.Get().Write(b)
 }
