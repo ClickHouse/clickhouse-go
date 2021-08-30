@@ -27,6 +27,8 @@ func numInput(query string) int {
 		between       = newMatcher("between")
 		in            = newMatcher("in")
 		and           = newMatcher("and")
+		from          = newMatcher("from")
+		join          = newMatcher("join")
 	)
 	for {
 		if char, _, err := reader.ReadRune(); err == nil {
@@ -71,7 +73,8 @@ func numInput(query string) int {
 				char == '%':
 				keyword = true
 			default:
-				if limit.matchRune(char) || offset.matchRune(char) || like.matchRune(char) || in.matchRune(char) {
+				if limit.matchRune(char) || offset.matchRune(char) || like.matchRune(char) ||
+					in.matchRune(char) || from.matchRune(char) || join.matchRune(char) {
 					keyword = true
 				} else if between.matchRune(char) {
 					keyword = true

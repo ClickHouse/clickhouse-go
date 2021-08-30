@@ -959,8 +959,9 @@ func Test_Select_External_Tables(t *testing.T) {
 				?
 			)
 		`
-		query      = `SELECT COUNT(*) FROM clickhouse_test_select_external_tables WHERE string1 IN ? AND string2 IN ? AND string1 NOT IN ?`
-		queryNamed = `SELECT COUNT(*) FROM clickhouse_test_select_external_tables WHERE string1 IN @e1 AND string2 IN @e2 AND string1 NOT IN @e3`
+		query      = `SELECT COUNT(*) FROM clickhouse_test_select_external_tables WHERE string1 IN ? AND string2 IN ? AND string1 NOT IN (SELECT c1 FROM ?)`
+		queryNamed = `SELECT COUNT(*) FROM clickhouse_test_select_external_tables WHERE string1 IN @e1 AND string2 IN @e2 AND string1 NOT IN (SELECT c1 FROM @e3)`
+		queryJoin  = `SELECT COUNT(*) FROM clickhouse_test_select_external_tables AS ctset JOIN ? AS ext ON ctset.string1 = ext.c1`
 	)
 	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) && assert.NoError(t, connect.Ping()) {
 		if _, err := connect.Exec("DROP TABLE IF EXISTS clickhouse_test_select_external_tables"); assert.NoError(t, err) {
@@ -1033,6 +1034,16 @@ func Test_Select_External_Tables(t *testing.T) {
 								}
 							}
 							assert.Equal(t, 1, count)
+						}
+						if rows, err := connect.Query(queryJoin, externalTable1); assert.NoError(t, err) {
+							var count int
+							for rows.Next() {
+								err := rows.Scan(&count)
+								if !assert.NoError(t, err) {
+									return
+								}
+							}
+							assert.Equal(t, 2, count)
 						}
 					}
 				}
