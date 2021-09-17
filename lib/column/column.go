@@ -195,6 +195,11 @@ func getNestedType(chType string, wrapType string) (string, error) {
 		if len(nested) == 2 {
 			return strings.TrimSpace(nested[1]), nil
 		}
+
+		if len(nested) == 3 {
+			return strings.TrimSpace(strings.Join(nested[1:], ",")), nil
+		}
 	}
+
 	return "", fmt.Errorf("column: invalid %s type (%s)", wrapType, chType)
 }

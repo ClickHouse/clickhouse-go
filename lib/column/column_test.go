@@ -632,6 +632,7 @@ func Test_Column_SimpleAggregateFunc(t *testing.T) {
 		"SimpleAggregateFunction(anyLast, UInt8)":          "UInt8",
 		"SimpleAggregateFunction(anyLast, Nullable(IPv4))": "Nullable(IPv4)",
 		"SimpleAggregateFunction(max, Nullable(DateTime))": "Nullable(DateTime)",
+		"SimpleAggregateFunction(sum, Decimal(38, 8))":     "Decimal(38, 8)",
 	}
 
 	for key, val := range data {
