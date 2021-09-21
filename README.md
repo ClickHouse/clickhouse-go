@@ -4,11 +4,11 @@ Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/)
 
 ## Key features
 
-* Uses native ClickHouse tcp client-server protocol
+* Uses native ClickHouse TCP client-server protocol
 * Compatibility with `database/sql`
 * Round Robin load-balancing
 * Bulk write support :  `begin->prepare->(in loop exec)->commit`
-* LZ4 compression support (default to use pure go lz4, switch to use cgo lz4 by turn clz4 build tags on)
+* LZ4 compression support (default is pure go lz4 or switch to use cgo lz4 by turning clz4 build tags on)
 * External Tables support
 
 ## DSN
@@ -17,13 +17,13 @@ Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/)
 * database - select the current default database
 * read_timeout/write_timeout - timeout in second
 * no_delay   - disable/enable the Nagle Algorithm for tcp socket (default is 'true' - disable)
-* alt_hosts  - comma separated list of single address host for load-balancing
+* alt_hosts  - comma-separated list of single address hosts for load-balancing
 * connection_open_strategy - random/in_order (default random).
-    * random      - choose random server from set  
-    * in_order    - first live server is choosen in specified order
-    * time_random - choose random(based on current time) server from set. This option differs from `random` in that randomness is based on current time rather than on amount of previous connections.
-* block_size - maximum rows in block (default is 1000000). If the rows are larger then the data will be split into several blocks to send them to the server. If one block was sent to the server, the data will be persisted on the server disk, we can't rollback the transaction. So always keep in mind that the batch size no larger than the block_size if you want atomic batch insert.
-* pool_size - maximum amount of preallocated byte chunks used in queries (default is 100). Decrease this if you experience memory problems at the expense of more GC pressure and vice versa.
+    * random      - choose a random server from the set  
+    * in_order    - first live server is chosen in specified order
+    * time_random - choose random (based on the current time) server from the set. This option differs from `random` because randomness is based on the current time rather than on the number of previous connections.
+* block_size - maximum rows in block (default is 1000000). If the rows are larger, the data will be split into several blocks to send to the server. If one block was sent to the server, the data would be persisted on the server disk, and we can't roll back the transaction. So always keep in mind that the batch size is no larger than the block_size if you want an atomic batch insert.
+* pool_size - the maximum amount of preallocated byte chunks used in queries (default is 100). Decrease this if you experience memory problems at the expense of more GC pressure and vice versa.
 * debug - enable debug output (boolean value)
 * compress - enable lz4 compression (integer value, default is '0')
 
@@ -33,8 +33,9 @@ SSL/TLS parameters:
 * skip_verify - skip certificate verification (default is false)
 * tls_config - name of a TLS config with client certificates, registered using `clickhouse.RegisterTLSConfig()`; implies secure to be true, unless explicitly specified
 
-example:
-```
+Example:
+
+```sh
 tcp://host1:9000?username=user&password=qwerty&database=clicks&read_timeout=10&write_timeout=20&alt_hosts=host2:9000,host3:9000
 ```
 
@@ -60,11 +61,13 @@ tcp://host1:9000?username=user&password=qwerty&database=clicks&read_timeout=10&w
 * Support other compression methods(zstd ...)
 
 ## Install
-```
+
+```sh
 go get -u github.com/ClickHouse/clickhouse-go
 ```
 
-## Example
+## Examples
+
 ```go
 package main
 
@@ -157,7 +160,7 @@ func main() {
 }
 ```
 
-Use [sqlx](https://github.com/jmoiron/sqlx)
+### Use [sqlx](https://github.com/jmoiron/sqlx)
 
 ```go
 package main
@@ -193,7 +196,8 @@ func main() {
 }
 ```
 
-External tables support
+### External tables support
+
 ```go
 package main
 
