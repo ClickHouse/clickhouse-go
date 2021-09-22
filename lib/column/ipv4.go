@@ -20,34 +20,26 @@ func (*IPv4) Read(decoder *binary.Decoder, isNull bool) (interface{}, error) {
 
 func (ip *IPv4) Write(encoder *binary.Encoder, v interface{}) error {
 	var netIP net.IP
-	switch v.(type) {
+	switch x := v.(type) {
 	case string:
-		netIP = net.ParseIP(v.(string))
+		netIP = net.ParseIP(x)
 	case net.IP:
-		netIP = v.(net.IP)
+		netIP = x
 	case *net.IP:
-		netIP = *(v.(*net.IP))
-	default:
-		return &ErrUnexpectedType{
-			T:      v,
-			Column: ip,
+		if x != nil {
+			netIP = *x
 		}
 	}
 
-	if netIP == nil {
+	r := netIP.To4()
+	if len(r) != 4 {
 		return &ErrUnexpectedType{
 			T:      v,
 			Column: ip,
 		}
 	}
-	ip4 := netIP.To4()
-	if ip4 == nil {
-		return &ErrUnexpectedType{
-			T:      v,
-			Column: ip,
-		}
-	}
-	if _, err := encoder.Write([]byte{ip4[3], ip4[2], ip4[1], ip4[0]}); err != nil {
+	r[0], r[1], r[2], r[3] = r[3], r[2], r[1], r[0]
+	if _, err := encoder.Write(r); err != nil {
 		return err
 	}
 	return nil

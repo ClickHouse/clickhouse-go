@@ -20,27 +20,25 @@ func (*IPv6) Read(decoder *binary.Decoder, isNull bool) (interface{}, error) {
 
 func (ip *IPv6) Write(encoder *binary.Encoder, v interface{}) error {
 	var netIP net.IP
-	switch v.(type) {
+	switch x := v.(type) {
 	case string:
-		netIP = net.ParseIP(v.(string))
+		netIP = net.ParseIP(x)
 	case net.IP:
-		netIP = v.(net.IP)
+		netIP = x
 	case *net.IP:
-		netIP = *(v.(*net.IP))
-	default:
-		return &ErrUnexpectedType{
-			T:      v,
-			Column: ip,
+		if x != nil {
+			netIP = *x
 		}
 	}
 
-	if netIP == nil {
+	r := netIP.To16()
+	if len(r) != 16 {
 		return &ErrUnexpectedType{
 			T:      v,
 			Column: ip,
 		}
 	}
-	if _, err := encoder.Write([]byte(netIP.To16())); err != nil {
+	if _, err := encoder.Write(r); err != nil {
 		return err
 	}
 	return nil
