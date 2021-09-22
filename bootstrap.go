@@ -128,8 +128,8 @@ func open(dsn string) (*clickhouse, error) {
 	if duration, err := strconv.ParseFloat(query.Get("write_timeout"), 64); err == nil {
 		writeTimeout = time.Duration(duration * float64(time.Second))
 	}
-	if size, err := strconv.ParseInt(query.Get("block_size"), 10, 64); err == nil {
-		blockSize = int(size)
+	if size, err := strconv.Atoi(query.Get("block_size")); err == nil {
+		blockSize = size
 	}
 	if altHosts := strings.Split(query.Get("alt_hosts"), ","); len(altHosts) != 0 {
 		for _, host := range altHosts {

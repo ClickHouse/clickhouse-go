@@ -119,19 +119,16 @@ func (enum *Enum) defaultValue() interface{} {
 }
 
 func parseEnum(name, chType string) (*Enum, error) {
-	var (
-		data     string
-		isEnum16 bool
-	)
 	if len(chType) < 8 {
 		return nil, fmt.Errorf("invalid Enum format: %s", chType)
 	}
+	data, bits := "", 8
 	switch {
 	case strings.HasPrefix(chType, "Enum8"):
 		data = chType[6:]
 	case strings.HasPrefix(chType, "Enum16"):
 		data = chType[7:]
-		isEnum16 = true
+		bits = 16
 	default:
 		return nil, fmt.Errorf("'%s' is not Enum type", chType)
 	}
@@ -139,7 +136,7 @@ func parseEnum(name, chType string) (*Enum, error) {
 		base: base{
 			name:    name,
 			chType:  chType,
-			valueOf: columnBaseTypes[string("")],
+			valueOf: columnBaseTypes[""],
 		},
 		iv: make(map[string]interface{}),
 		vi: make(map[interface{}]string),
@@ -149,27 +146,23 @@ func parseEnum(name, chType string) (*Enum, error) {
 		if len(parts) != 2 {
 			return nil, fmt.Errorf("invalid Enum format: %s", chType)
 		}
-		var (
-			ident      = strings.TrimSpace(parts[0])
-			value, err = strconv.ParseInt(strings.TrimSpace(parts[1]), 10, 16)
-		)
+		value, err := strconv.ParseInt(strings.TrimSpace(parts[1]), 10, bits)
 		if err != nil {
 			return nil, fmt.Errorf("invalid Enum value: %v", chType)
 		}
-		{
-			var (
-				ident             = ident[1 : len(ident)-1]
-				value interface{} = int16(value)
-			)
-			if !isEnum16 {
-				value = int8(value.(int16))
-			}
-			if enum.baseType == nil {
-				enum.baseType = value
-			}
-			enum.iv[ident] = value
-			enum.vi[value] = ident
+		var val interface{}
+		if bits == 8 {
+			val = int8(value)
+		} else {
+			val = int16(value)
 		}
+		if enum.baseType == nil {
+			enum.baseType = val
+		}
+		ident := strings.TrimSpace(parts[0])
+		ident = ident[1 : len(ident)-1]
+		enum.iv[ident] = val
+		enum.vi[val] = ident
 	}
 	return &enum, nil
 }
