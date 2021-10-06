@@ -29,6 +29,7 @@ func numInput(query string) int {
 		and           = newMatcher("and")
 		from          = newMatcher("from")
 		join          = newMatcher("join")
+		subSelect     = newMatcher("select")
 	)
 	for {
 		if char, _, err := reader.ReadRune(); err == nil {
@@ -74,7 +75,7 @@ func numInput(query string) int {
 				keyword = true
 			default:
 				if limit.matchRune(char) || offset.matchRune(char) || like.matchRune(char) ||
-					in.matchRune(char) || from.matchRune(char) || join.matchRune(char) {
+					in.matchRune(char) || from.matchRune(char) || join.matchRune(char) || subSelect.matchRune(char) {
 					keyword = true
 				} else if between.matchRune(char) {
 					keyword = true
@@ -133,6 +134,8 @@ func quote(v driver.Value) string {
 		return "'" + strings.NewReplacer(`\`, `\\`, `'`, `\'`).Replace(v) + "'"
 	case time.Time:
 		return formatTime(v)
+	case nil:
+		return "null"
 	}
 	return fmt.Sprint(v)
 }

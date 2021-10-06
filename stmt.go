@@ -127,6 +127,7 @@ func (stmt *stmt) bind(args []driver.NamedValue) (string, []ExternalTable) {
 		in             = newMatcher("in")
 		from           = newMatcher("from")
 		join           = newMatcher("join")
+		subSelect      = newMatcher("select")
 		externalTables = make([]ExternalTable, 0)
 	)
 	switch {
@@ -178,7 +179,7 @@ func (stmt *stmt) bind(args []driver.NamedValue) (string, []ExternalTable) {
 						keyword = true
 					default:
 						if limit.matchRune(char) || offset.matchRune(char) || like.matchRune(char) ||
-							in.matchRune(char) || from.matchRune(char) || join.matchRune(char) {
+							in.matchRune(char) || from.matchRune(char) || join.matchRune(char) || subSelect.matchRune(char) {
 							keyword = true
 						} else if between.matchRune(char) {
 							keyword = true
