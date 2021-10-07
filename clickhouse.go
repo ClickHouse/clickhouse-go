@@ -47,16 +47,17 @@ type clickhouse struct {
 	sync.Mutex
 	data.ServerInfo
 	data.ClientInfo
-	logf          logger
-	conn          *connect
-	block         *data.Block
-	buffer        *bufio.Writer
-	decoder       *binary.Decoder
-	encoder       *binary.Encoder
-	settings      *querySettings
-	compress      bool
-	blockSize     int
-	inTransaction bool
+	logf              logger
+	conn              *connect
+	block             *data.Block
+	buffer            *bufio.Writer
+	decoder           *binary.Decoder
+	encoder           *binary.Encoder
+	settings          *querySettings
+	compress          bool
+	blockSize         int
+	inTransaction     bool
+	checkConnLiveness bool
 }
 
 func (ch *clickhouse) Prepare(query string) (driver.Stmt, error) {
@@ -124,6 +125,18 @@ func (ch *clickhouse) beginTx(ctx context.Context, opts txOptions) (*clickhouse,
 	case ch.conn.closed:
 		return nil, driver.ErrBadConn
 	}
+
+	// Perform a stale connection check. We only perform this check in beginTx,
+	// because database/sql retries driver.ErrBadConn only for first request,
+	// but beginTx doesn't perform any other network interaction.
+	if ch.checkConnLiveness {
+		if err := ch.conn.connCheck(); err != nil {
+			ch.logf("[begin] closing bad idle connection: %w", err)
+			ch.Close()
+			return ch, driver.ErrBadConn
+		}
+	}
+
 	if finish := ch.watchCancel(ctx); finish != nil {
 		defer finish()
 	}
