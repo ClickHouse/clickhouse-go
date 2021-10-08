@@ -83,21 +83,22 @@ func open(dsn string) (*clickhouse, error) {
 		return nil, err
 	}
 	var (
-		hosts            = []string{url.Host}
-		query            = url.Query()
-		secure           = false
-		skipVerify       = false
-		tlsConfigName    = query.Get("tls_config")
-		noDelay          = true
-		compress         = false
-		database         = query.Get("database")
-		username         = query.Get("username")
-		password         = query.Get("password")
-		blockSize        = 1000000
-		connTimeout      = DefaultConnTimeout
-		readTimeout      = DefaultReadTimeout
-		writeTimeout     = DefaultWriteTimeout
-		connOpenStrategy = connOpenRandom
+		hosts             = []string{url.Host}
+		query             = url.Query()
+		secure            = false
+		skipVerify        = false
+		tlsConfigName     = query.Get("tls_config")
+		noDelay           = true
+		compress          = false
+		database          = query.Get("database")
+		username          = query.Get("username")
+		password          = query.Get("password")
+		blockSize         = 1000000
+		connTimeout       = DefaultConnTimeout
+		readTimeout       = DefaultReadTimeout
+		writeTimeout      = DefaultWriteTimeout
+		connOpenStrategy  = connOpenRandom
+		checkConnLiveness = true
 	)
 	if len(database) == 0 {
 		database = DefaultDatabase
@@ -156,12 +157,21 @@ func open(dsn string) (*clickhouse, error) {
 		compress = v
 	}
 
+	if v, err := strconv.ParseBool(query.Get("check_connection_liveness")); err == nil {
+		checkConnLiveness = v
+	}
+	if secure {
+		// There is no way to check the liveness of a secure connection, as long as there is no access to raw TCP net.Conn
+		checkConnLiveness = false
+	}
+
 	var (
 		ch = clickhouse{
-			logf:      func(string, ...interface{}) {},
-			settings:  settings,
-			compress:  compress,
-			blockSize: blockSize,
+			logf:              func(string, ...interface{}) {},
+			settings:          settings,
+			compress:          compress,
+			blockSize:         blockSize,
+			checkConnLiveness: checkConnLiveness,
 			ServerInfo: data.ServerInfo{
 				Timezone: time.Local,
 			},
