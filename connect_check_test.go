@@ -24,8 +24,8 @@ func Test_ConnCheck(t *testing.T) {
 	)
 
 	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=false"); assert.NoError(t, err) {
-		// We could change settings only at session level.
-		// If we have only 1 connection, we guarantee that we change settings for them.
+		// We can only change the settings at the connection level.
+		// If we have only one connection, we change the settings specifically for that connection.
 		connect.SetMaxOpenConns(1)
 		if _, err := connect.Exec("DROP TABLE IF EXISTS clickhouse_test_conncheck"); assert.NoError(t, err) {
 			if _, err := connect.Exec(ddl); assert.NoError(t, err) {
