@@ -2,8 +2,6 @@
 
 package clickhouse
 
-import "net"
-
-func connCheck(conn net.Conn) error {
+func (conn *connect) connCheck() error {
 	return nil
 }
