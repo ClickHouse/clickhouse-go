@@ -58,6 +58,7 @@ type clickhouse struct {
 	blockSize         int
 	inTransaction     bool
 	checkConnLiveness bool
+	profilingInfo     bool
 }
 
 func (ch *clickhouse) Prepare(query string) (driver.Stmt, error) {

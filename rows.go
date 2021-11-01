@@ -14,17 +14,24 @@ import (
 )
 
 type rows struct {
-	ch           *clickhouse
-	err          error
-	mutex        sync.RWMutex
-	finish       func()
-	offset       int
-	block        *data.Block
-	totals       *data.Block
-	extremes     *data.Block
-	stream       chan *data.Block
-	columns      []string
-	blockColumns []column.Column
+	ch                    *clickhouse
+	err                   error
+	mutex                 sync.RWMutex
+	finish                func()
+	offset                int
+	block                 *data.Block
+	totals                *data.Block
+	extremes              *data.Block
+	stream                chan *data.Block
+	columns               []string
+	blockColumns          []column.Column
+	profilingInfo         ProfilingInfo
+	profilingInfoReturned bool
+}
+
+// ProfilingInfo represents profiling info returned during query execution
+type ProfilingInfo struct {
+	BytesRead, RowsRead uint64
 }
 
 func (rows *rows) Columns() []string {
@@ -52,10 +59,22 @@ func (rows *rows) Next(dest []driver.Value) error {
 			rows.offset = 0
 		}
 	}
+
 	for i := range dest {
 		dest[i] = rows.block.Values[i][rows.offset]
 	}
-	rows.offset++
+
+	// If the user requested profiling info, the first "row" will just profiling info returned
+	// as the first column. Rest of the values in the row will be the same as the first row. Since
+	// we skip incrementing the offset below, user can just scan into a ProfilingInfo struct,
+	// before looping over rows
+	if !rows.profilingInfoReturned && rows.ch.profilingInfo {
+		dest[0] = rows.profilingInfo
+		rows.profilingInfoReturned = true
+	} else {
+		rows.offset++
+	}
+
 	return nil
 }
 
@@ -104,6 +123,9 @@ func (rows *rows) receiveData() error {
 				progress.bytes,
 				progress.totalRows,
 			)
+			rows.profilingInfo.BytesRead += progress.bytes
+			rows.profilingInfo.RowsRead += progress.rows
+
 		case protocol.ServerProfileInfo:
 			if profileInfo, err = rows.ch.profileInfo(); err != nil {
 				return rows.setError(err)

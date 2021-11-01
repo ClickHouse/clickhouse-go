@@ -83,23 +83,25 @@ func open(dsn string) (*clickhouse, error) {
 		return nil, err
 	}
 	var (
-		hosts             = []string{url.Host}
-		query             = url.Query()
-		secure            = false
-		skipVerify        = false
-		tlsConfigName     = query.Get("tls_config")
-		noDelay           = true
-		compress          = false
-		database          = query.Get("database")
-		username          = query.Get("username")
-		password          = query.Get("password")
-		blockSize         = 1000000
-		connTimeout       = DefaultConnTimeout
-		readTimeout       = DefaultReadTimeout
-		writeTimeout      = DefaultWriteTimeout
-		connOpenStrategy  = connOpenRandom
-		checkConnLiveness = true
+		hosts                = []string{url.Host}
+		query                = url.Query()
+		secure               = false
+		skipVerify           = false
+		tlsConfigName        = query.Get("tls_config")
+		noDelay              = true
+		compress             = false
+		database             = query.Get("database")
+		username             = query.Get("username")
+		password             = query.Get("password")
+		blockSize            = 1000000
+		connTimeout          = DefaultConnTimeout
+		readTimeout          = DefaultReadTimeout
+		writeTimeout         = DefaultWriteTimeout
+		connOpenStrategy     = connOpenRandom
+		checkConnLiveness    = true
+		profilingInfoEnabled = false
 	)
+
 	if len(database) == 0 {
 		database = DefaultDatabase
 	}
@@ -157,6 +159,10 @@ func open(dsn string) (*clickhouse, error) {
 		compress = v
 	}
 
+	if v, err := strconv.ParseBool(query.Get("profiling_info")); err == nil {
+		profilingInfoEnabled = v
+	}
+
 	if v, err := strconv.ParseBool(query.Get("check_connection_liveness")); err == nil {
 		checkConnLiveness = v
 	}
@@ -175,6 +181,7 @@ func open(dsn string) (*clickhouse, error) {
 			ServerInfo: data.ServerInfo{
 				Timezone: time.Local,
 			},
+			profilingInfo: profilingInfoEnabled,
 		}
 		logger = log.New(logOutput, "[clickhouse]", 0)
 	)
