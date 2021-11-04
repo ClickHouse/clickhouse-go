@@ -90,14 +90,14 @@ func (decoder *Decoder) UInt8() (uint8, error) {
 }
 
 func (decoder *Decoder) UInt16() (uint16, error) {
-	if _, err := decoder.Get().Read(decoder.scratch[:2]); err != nil {
+	if _, err := io.ReadFull(decoder.Get(), decoder.scratch[:2]); err != nil {
 		return 0, err
 	}
 	return uint16(decoder.scratch[0]) | uint16(decoder.scratch[1])<<8, nil
 }
 
 func (decoder *Decoder) UInt32() (uint32, error) {
-	if _, err := decoder.Get().Read(decoder.scratch[:4]); err != nil {
+	if _, err := io.ReadFull(decoder.Get(), decoder.scratch[:4]); err != nil {
 		return 0, err
 	}
 	return uint32(decoder.scratch[0]) |
@@ -107,7 +107,7 @@ func (decoder *Decoder) UInt32() (uint32, error) {
 }
 
 func (decoder *Decoder) UInt64() (uint64, error) {
-	if _, err := decoder.Get().Read(decoder.scratch[:8]); err != nil {
+	if _, err := io.ReadFull(decoder.Get(), decoder.scratch[:8]); err != nil {
 		return 0, err
 	}
 	return uint64(decoder.scratch[0]) |
@@ -141,7 +141,7 @@ func (decoder *Decoder) Fixed(ln int) ([]byte, error) {
 		return reader.Fixed(ln)
 	}
 	buf := make([]byte, ln)
-	if _, err := decoder.Get().Read(buf); err != nil {
+	if _, err := io.ReadFull(decoder.Get(), buf); err != nil {
 		return nil, err
 	}
 	return buf, nil
@@ -161,12 +161,12 @@ func (decoder *Decoder) String() (string, error) {
 
 func (decoder *Decoder) Decimal128() ([]byte, error) {
 	bytes := make([]byte, 16)
-	_, err := decoder.Get().Read(bytes)
+	_, err := io.ReadFull(decoder.Get(), bytes)
 	return bytes, err
 }
 
 func (decoder *Decoder) ReadByte() (byte, error) {
-	if _, err := decoder.Get().Read(decoder.scratch[:1]); err != nil {
+	if _, err := decoder.Get().Read(decoder.scratch[:1]); err != nil { // one byte can be read without ReadFull
 		return 0x0, err
 	}
 	return decoder.scratch[0], nil

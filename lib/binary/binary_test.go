@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type testErrorReadWriter struct{}
@@ -459,5 +460,78 @@ func Test_RawString(t *testing.T) {
 		if v, err := decoder.String(); assert.NoError(t, err) {
 			assert.Equal(t, string(str), v)
 		}
+	}
+}
+
+func Test_ReadFull(t *testing.T) {
+	tests := []struct {
+		name string
+		w    func(e *Encoder) (interface{}, error)
+		r    func(d *Decoder) (interface{}, error)
+	}{
+		{
+			name: "String",
+			w: func(e *Encoder) (interface{}, error) {
+				x := fmt.Sprintf("str_%d", time.Now().Unix())
+				return x, e.String(x)
+			},
+			r: func(d *Decoder) (interface{}, error) { return d.String() },
+		},
+		{
+			name: "Uint64",
+			w: func(e *Encoder) (interface{}, error) {
+				x := uint64(time.Now().Unix())
+				return x, e.UInt64(x)
+			},
+			r: func(d *Decoder) (interface{}, error) { return d.UInt64() },
+		},
+		{
+			name: "Uint32",
+			w: func(e *Encoder) (interface{}, error) {
+				x := uint32(time.Now().Unix())
+				return x, e.UInt32(x)
+			},
+			r: func(d *Decoder) (interface{}, error) { return d.UInt32() },
+		},
+		{
+			name: "Uint16",
+			w: func(e *Encoder) (interface{}, error) {
+				x := uint16(time.Now().Unix())
+				return x, e.UInt16(x)
+			},
+			r: func(d *Decoder) (interface{}, error) { return d.UInt16() },
+		},
+		{
+			name: "Uint8",
+			w: func(e *Encoder) (interface{}, error) {
+				x := uint8(time.Now().Unix())
+				return x, e.UInt8(x)
+			},
+			r: func(d *Decoder) (interface{}, error) { return d.UInt8() },
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var buf bytes.Buffer
+
+			encoder := NewEncoder(&buf)
+
+			x, err := tc.w(encoder)
+			require.NoError(t, err)
+
+			b := buf.Bytes()
+			decReader := io.MultiReader(
+				bytes.NewReader(b[:len(b)/2]),
+				bytes.NewReader(b[len(b)/2:]),
+			)
+
+			decoder := NewDecoder(decReader)
+
+			v, err := tc.r(decoder)
+			require.NoError(t, err)
+
+			assert.Equal(t, x, v)
+		})
 	}
 }
