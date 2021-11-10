@@ -13,14 +13,14 @@ func Test_bootstrap_Open(t *testing.T) {
 	}
 	tests := []struct {
 		name    string
-		d       *bootstrap
+		d       *Bootstrap
 		args    args
 		want    driver.Conn
 		wantErr bool
 	}{
 		{
 			name:    "Return nil connection when error occured",
-			d:       &bootstrap{},
+			d:       &Bootstrap{},
 			args:    args{dsn: "rubbish"},
 			want:    nil,
 			wantErr: true,
@@ -28,7 +28,7 @@ func Test_bootstrap_Open(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			d := &bootstrap{}
+			d := &Bootstrap{}
 			got, err := d.Open(tt.args.dsn)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("bootstrap.Open() error = %v, wantErr %v", err, tt.wantErr)

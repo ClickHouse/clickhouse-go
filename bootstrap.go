@@ -11,7 +11,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -37,11 +36,10 @@ var (
 	unixtime    int64
 	logOutput   io.Writer = os.Stdout
 	hostname, _           = os.Hostname()
-	poolInit    sync.Once
 )
 
 func init() {
-	sql.Register("clickhouse", &bootstrap{})
+	sql.Register("clickhouse", &Bootstrap{})
 	go func() {
 		for tick := time.Tick(time.Second); ; {
 			select {
@@ -56,9 +54,9 @@ func now() time.Time {
 	return time.Unix(0, atomic.LoadInt64(&unixtime))
 }
 
-type bootstrap struct{}
+type Bootstrap struct{}
 
-func (d *bootstrap) Open(dsn string) (driver.Conn, error) {
+func (d *Bootstrap) Open(dsn string) (driver.Conn, error) {
 	return Open(dsn)
 }
 
