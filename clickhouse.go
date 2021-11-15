@@ -117,6 +117,21 @@ type txOptions struct {
 	ReadOnly  bool
 }
 
+func (ch *clickhouse) ResetSession(ctx context.Context) error {
+	ch.logf("[ResetSession] tx=%t, data=%t", ch.inTransaction, ch.block != nil)
+	switch {
+	case ch.inTransaction:
+		return sql.ErrTxDone
+	case ch.conn.closed:
+		return driver.ErrBadConn
+	}
+	if ch.block != nil {
+		ch.block.Reset()
+		ch.block = nil
+	}
+	return nil
+}
+
 func (ch *clickhouse) beginTx(ctx context.Context, opts txOptions) (*clickhouse, error) {
 	ch.logf("[begin] tx=%t, data=%t", ch.inTransaction, ch.block != nil)
 	switch {

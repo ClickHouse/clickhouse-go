@@ -3,7 +3,6 @@ package clickhouse
 import (
 	"bufio"
 	"crypto/tls"
-	"database/sql/driver"
 	"net"
 	"sync/atomic"
 	"time"
@@ -153,7 +152,7 @@ func (conn *connect) Read(b []byte) (int, error) {
 		if n, err = conn.buffer.Read(b[total:]); err != nil {
 			conn.logf("[connect] read error: %v", err)
 			conn.Close()
-			return n, driver.ErrBadConn
+			return n, err
 		}
 		total += n
 	}
@@ -175,7 +174,7 @@ func (conn *connect) Write(b []byte) (int, error) {
 		if n, err = conn.Conn.Write(b[total:]); err != nil {
 			conn.logf("[connect] write error: %v", err)
 			conn.Close()
-			return n, driver.ErrBadConn
+			return n, err
 		}
 		total += n
 	}

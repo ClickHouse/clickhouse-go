@@ -3,7 +3,7 @@ package clickhouse
 import (
 	"context"
 	"database/sql"
-	"database/sql/driver"
+	"io"
 	"testing"
 	"time"
 
@@ -77,9 +77,17 @@ func Test_ConnCheckNegative(t *testing.T) {
 				tx, err := connect.BeginTx(ctx, nil)
 				assert.NoError(t, err)
 
+				// Closing the connection during the
+				// transaction should trigger an EOF.
 				_, err = tx.PrepareContext(ctx, dml)
-				assert.Equal(t, driver.ErrBadConn, err)
+				assert.Equal(t, io.EOF, err)
+				tx.Rollback()
 			}
 		}
+
+		// The connection should be reset before returning it to
+		// the pool; a fresh Ping should not also get an
+		// ErrBadConn.
+		assert.NoError(t, connect.Ping())
 	}
 }

@@ -1268,7 +1268,10 @@ func Test_Context_Timeout(t *testing.T) {
 			defer cancel()
 			if row := connect.QueryRowContext(ctx, "SELECT 1, sleep(2)"); assert.NotNil(t, row) {
 				var a, b int
-				assert.Equal(t, driver.ErrBadConn, row.Scan(&a, &b))
+				if err := row.Scan(&a, &b); assert.Error(t, err) {
+					assert.Contains(t, err.Error(),
+						"use of closed network connection")
+				}
 			}
 		}
 		{
@@ -1298,7 +1301,10 @@ func Test_Ping_Context_Timeout(t *testing.T) {
 			defer cancel()
 			if row := connect.QueryRowContext(ctx, "SELECT 1, sleep(2)"); assert.NotNil(t, row) {
 				var a, b int
-				assert.Equal(t, driver.ErrBadConn, row.Scan(&a, &b))
+				if err := row.Scan(&a, &b); assert.Error(t, err) {
+					assert.Contains(t, err.Error(),
+						"use of closed network connection")
+				}
 			}
 		}
 		{
@@ -1319,7 +1325,10 @@ func Test_Timeout(t *testing.T) {
 		{
 			if row := connect.QueryRow("SELECT 1, sleep(2)"); assert.NotNil(t, row) {
 				var a, b int
-				assert.Equal(t, driver.ErrBadConn, row.Scan(&a, &b))
+				if err := row.Scan(&a, &b); assert.Error(t, err) {
+					assert.Contains(t, err.Error(),
+						"i/o timeout")
+				}
 			}
 		}
 		{
