@@ -1,3 +1,4 @@
+//go:build clz4
 // +build clz4
 
 package binary
@@ -63,7 +64,7 @@ func (cr *compressReader) Read(buf []byte) (n int, err error) {
 func (cr *compressReader) readCompressedData() (err error) {
 	cr.pos = 0
 	var n int
-	n, err = cr.reader.Read(cr.header)
+	n, err = io.ReadFull(cr.reader, cr.header)
 	if err != nil {
 		return
 	}
@@ -86,7 +87,7 @@ func (cr *compressReader) readCompressedData() (err error) {
 
 	// @TODO checksum
 	if cr.header[16] == LZ4 {
-		n, err = cr.reader.Read(cr.zdata)
+		n, err = io.ReadFull(cr.reader, cr.zdata)
 		if err != nil {
 			return
 		}
