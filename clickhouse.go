@@ -21,9 +21,14 @@ import (
 )
 
 type (
-	Date     = types.Date
-	DateTime = types.DateTime
-	UUID     = types.UUID
+	Date        = types.Date
+	DateTime    = types.DateTime
+	UUID        = types.UUID
+	ArrayInt    = types.ArrayInt
+	ArrayInt64  = types.ArrayInt64
+	ArrayUInt   = types.ArrayUInt
+	ArrayUInt64 = types.ArrayInt64
+	ArrayString = types.ArrayString
 )
 
 type ExternalTable struct {
