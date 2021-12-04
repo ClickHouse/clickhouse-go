@@ -1,7 +1,10 @@
 package clickhouse
 
 import (
+	"fmt"
+	"github.com/ClickHouse/clickhouse-go/lib/data"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -54,12 +57,18 @@ func Benchmark_NumInput(b *testing.B) {
 }
 
 func Test_Quote(t *testing.T) {
+	si := data.ServerInfo{Timezone: time.UTC}
+	t1 := time.Date(2006, time.January, 2, 15, 4, 5, 0, time.UTC)
+	tz, _ := time.LoadLocation("America/New_York")          //-5
+	t2 := time.Date(2006, time.January, 2, 19, 0, 0, 0, tz) //UTC 2006 01-03 00:00:00
 	for expected, value := range map[string]interface{}{
-		"'a'":           "a",
-		"1":             1,
-		"'a', 'b', 'c'": []string{"a", "b", "c"},
-		"1, 2, 3, 4, 5": []int{1, 2, 3, 4, 5},
+		"'a'":                    "a",
+		"1":                      1,
+		"'a', 'b', 'c'":          []string{"a", "b", "c"},
+		"1, 2, 3, 4, 5":          []int{1, 2, 3, 4, 5},
+		"toDateTime(1136214245)": t1,
+		fmt.Sprintf("toDate(%d)", t2.Unix()/24/3600): t2,
 	} {
-		assert.Equal(t, expected, quote(value))
+		assert.Equal(t, expected, quote(value, si))
 	}
 }

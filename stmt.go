@@ -145,7 +145,7 @@ func (stmt *stmt) bind(args []driver.NamedValue) (string, []ExternalTable) {
 									buf.WriteString(v.Name)
 									externalTables = append(externalTables, v)
 								default:
-									buf.WriteString(quote(v))
+									buf.WriteString(quote(v, stmt.ch.ServerInfo))
 								}
 							}
 						}
@@ -157,7 +157,7 @@ func (stmt *stmt) bind(args []driver.NamedValue) (string, []ExternalTable) {
 							buf.WriteString(v.Name)
 							externalTables = append(externalTables, v)
 						default:
-							buf.WriteString(quote(v))
+							buf.WriteString(quote(v, stmt.ch.ServerInfo))
 						}
 						index++
 					} else {

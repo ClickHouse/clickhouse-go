@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"database/sql/driver"
 	"fmt"
+	"github.com/ClickHouse/clickhouse-go/lib/data"
 	"math"
 	"reflect"
 	"regexp"
@@ -120,12 +121,12 @@ func isInsert(query string) bool {
 	return false
 }
 
-func quote(v driver.Value) string {
+func quote(v driver.Value, si data.ServerInfo) string {
 	switch v := reflect.ValueOf(v); v.Kind() {
 	case reflect.Slice:
 		values := make([]string, 0, v.Len())
 		for i := 0; i < v.Len(); i++ {
-			values = append(values, quote(v.Index(i).Interface()))
+			values = append(values, quote(v.Index(i).Interface(), si))
 		}
 		return strings.Join(values, ", ")
 	}
@@ -133,17 +134,20 @@ func quote(v driver.Value) string {
 	case string:
 		return "'" + strings.NewReplacer(`\`, `\\`, `'`, `\'`).Replace(v) + "'"
 	case time.Time:
-		return formatTime(v)
+		return formatTime(v, si.Timezone)
 	case nil:
 		return "null"
 	}
 	return fmt.Sprint(v)
 }
 
-func formatTime(value time.Time) string {
+func formatTime(value time.Time, serverTimeZone *time.Location) string {
 	// toDate() overflows after 65535 days, but toDateTime() only overflows when time.Time overflows (after 9223372036854775807 seconds)
-	if days := value.Unix() / 24 / 3600; days <= math.MaxUint16 && (value.Hour()+value.Minute()+value.Second()+value.Nanosecond()) == 0 {
+	// convert into server timezone to judge toDate or toDateTime
+	tsvalue := value.In(serverTimeZone)
+	unixsec := value.Unix()
+	if days := unixsec / 24 / 3600; days <= math.MaxUint16 && (tsvalue.Hour()+tsvalue.Minute()+tsvalue.Second()+tsvalue.Nanosecond()) == 0 {
 		return fmt.Sprintf("toDate(%d)", days)
 	}
-	return fmt.Sprintf("toDateTime(%d)", value.Unix())
+	return fmt.Sprintf("toDateTime(%d)", unixsec)
 }
