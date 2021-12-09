@@ -4,9 +4,12 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/binary"
-	"testing"
-
+	"fmt"
 	chbin "github.com/ClickHouse/clickhouse-go/lib/binary"
+	sdeci "github.com/shopspring/decimal"
+	"math/big"
+	"strings"
+	"testing"
 )
 
 func TestDecimal_Write32(t *testing.T) {
@@ -346,5 +349,59 @@ func TestDecimal_Write64_WithUint64(t *testing.T) {
 		if value != int64(attempt) {
 			t.Errorf("Expecting: %d; Got: %d", attempt, value)
 		}
+	}
+}
+
+func TestDecimal_Write128_WithShopspringDecimal(t *testing.T) {
+	t.Parallel()
+	scales := []int{0, 2, 6}
+	buff := &bytes.Buffer{}
+	encoder := chbin.NewEncoder(buff)
+	encoder.SelectParseDecimal(true)
+	for _, scale := range scales {
+		t.Run(fmt.Sprintf("scale:%d", scale), func(t *testing.T) {
+			minD128, _ := new(big.Int).SetString("-"+strings.Repeat("9", 38-scale), 10)
+			maxD128, _ := new(big.Int).SetString(strings.Repeat("9", 38-scale), 10)
+			data := []sdeci.Decimal{
+				sdeci.Zero,
+				sdeci.NewFromInt32(-1),
+				sdeci.NewFromInt(9223372036854775807),
+				sdeci.NewFromInt(-9223372036854775808),
+				sdeci.NewFromBigInt(minD128, 0),
+				sdeci.NewFromBigInt(maxD128, 0),
+			}
+
+			for _, attempt := range data {
+				buff.Reset()
+
+				d := &Decimal{
+					base: base{
+						name:   "testcolumn",
+						chType: fmt.Sprintf("Decimal(38,%d)", scale),
+					},
+					nobits:    128,
+					precision: 38,
+					scale:     scale,
+				}
+
+				err := d.Write(encoder, attempt)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				err = encoder.Flush()
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				bi, err := decimal128ToBigInt(buff.Bytes())
+				if err != nil {
+					t.Error(err)
+				}
+				if value := sdeci.NewFromBigInt(bi, int32(-scale)); !attempt.Equal(value) {
+					t.Errorf("Expecting: %s; Got: %s", attempt.String(), value.String())
+				}
+			}
+		})
 	}
 }

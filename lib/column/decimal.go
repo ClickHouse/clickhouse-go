@@ -4,7 +4,9 @@ import (
 	b "encoding/binary"
 	"errors"
 	"fmt"
+	sdeci "github.com/shopspring/decimal"
 	"math"
+	"math/big"
 	"reflect"
 	"strconv"
 	"strings"
@@ -34,27 +36,91 @@ type Decimal struct {
 func (d *Decimal) Read(decoder *binary.Decoder, isNull bool) (interface{}, error) {
 	switch d.nobits {
 	case 32:
-		return decoder.Int32()
+		if !decoder.ParseDecimal() {
+			return decoder.UInt32()
+		}
+		v, err := decoder.UInt32()
+		if err != nil {
+			return nil, err
+		}
+		return sdeci.New(int64(v), int32(-d.scale)), err
 	case 64:
-		return decoder.Int64()
+		if !decoder.ParseDecimal() {
+			return decoder.UInt64()
+		}
+		v, err := decoder.UInt64()
+		if err != nil {
+			return nil, err
+		}
+		return sdeci.New(int64(v), int32(-d.scale)), err
 	case 128:
-		return decoder.Decimal128()
+		if !decoder.ParseDecimal() {
+			return decoder.Decimal128()
+		}
+		db, err := decoder.Decimal128()
+		if err != nil {
+			return nil, err
+		}
+		bi, err := decimal128ToBigInt(db)
+		if err != nil {
+			return nil, err
+		}
+		ds := sdeci.NewFromBigInt(bi, int32(-d.scale))
+		return ds, nil
 	default:
 		return nil, errors.New("unachievable execution path")
 	}
 }
 
 func (d *Decimal) Write(encoder *binary.Encoder, v interface{}) error {
+	wv := v
+	if encoder.ParseDecimal() {
+		switch v := v.(type) {
+		case *sdeci.Decimal:
+			wv = d.parseAcceptableValue(v)
+		case sdeci.Decimal:
+			wv = d.parseAcceptableValue(&v)
+		}
+	}
 	switch d.nobits {
 	case 32:
-		return d.write32(encoder, v)
+		return d.write32(encoder, wv)
 	case 64:
-		return d.write64(encoder, v)
+		return d.write64(encoder, wv)
 	case 128:
-		return d.write128(encoder, v)
+		return d.write128(encoder, wv)
 	default:
 		return errors.New("unachievable execution path")
 	}
+}
+
+func (d *Decimal) parseAcceptableValue(v *sdeci.Decimal) interface{} {
+	if v == nil {
+		return nil
+	}
+	if sdeci.Zero.Equal(*v) {
+		return 0
+	}
+	var ret interface{}
+	switch d.nobits {
+	case 32, 64:
+		if int(v.Exponent()) != d.scale {
+			nv := sdeci.NewFromBigInt(v.Coefficient(), v.Exponent()+int32(d.scale))
+			ret = nv.IntPart()
+		} else {
+			ret = v.IntPart()
+		}
+	case 128:
+		var tmp *big.Int
+		if int(v.Exponent()) != d.scale {
+			nv := sdeci.NewFromBigInt(v.Coefficient(), v.Exponent()+int32(d.scale))
+			tmp = nv.BigInt()
+		} else {
+			tmp = v.BigInt()
+		}
+		ret = bigIntToDecimal128(tmp)
+	}
+	return ret
 }
 
 func (d *Decimal) float2int32(floating float64) int32 {
@@ -232,6 +298,51 @@ func uint64ToDecimal128(v uint64) []byte {
 	bytes := make([]byte, 16)
 	b.LittleEndian.PutUint64(bytes[:8], uint64(v))
 	return bytes
+}
+
+// decimal128ToBigInt turns a little-endian bytes to string
+func decimal128ToBigInt(v []byte) (*big.Int, error) {
+	if len(v) != 16 {
+		return nil, errors.New("expected 16 bytes")
+	}
+	//LittleEndian to BigEndian
+	endianSwap(v, false)
+	var lt = new(big.Int)
+	if len(v) > 0 && v[0]&0x80 != 0 {
+		// [0] ^ will +1
+		for i := 0; i < len(v); i++ {
+			v[i] = ^v[i]
+		}
+		lt.SetBytes(v)
+		// neg ^ will -1
+		lt.Not(lt)
+	} else {
+		lt.SetBytes(v)
+	}
+	return lt, nil
+}
+
+func bigIntToDecimal128(v *big.Int) []byte {
+	bytes := make([]byte, 16)
+	sign := 0
+	if v.Sign() < 0 {
+		v.Not(v).FillBytes(bytes)
+		sign = -1
+	} else {
+		v.FillBytes(bytes)
+	}
+	endianSwap(bytes, sign < 0)
+	return bytes
+}
+
+func endianSwap(src []byte, not bool) {
+	for i := 0; i < len(src)/2; i++ {
+		if not {
+			src[i], src[len(src)-i-1] = ^src[len(src)-i-1], ^src[i]
+		} else {
+			src[i], src[len(src)-i-1] = src[len(src)-i-1], src[i]
+		}
+	}
 }
 
 func (d *Decimal) write128(encoder *binary.Encoder, v interface{}) error {

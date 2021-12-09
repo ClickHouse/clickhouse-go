@@ -15,20 +15,22 @@ import (
 type offset [][]int
 
 type Block struct {
-	Values     [][]interface{}
-	Columns    []column.Column
-	NumRows    uint64
-	NumColumns uint64
-	offsets    []offset
-	buffers    []*buffer
-	info       blockInfo
+	Values       [][]interface{}
+	Columns      []column.Column
+	NumRows      uint64
+	NumColumns   uint64
+	offsets      []offset
+	buffers      []*buffer
+	info         blockInfo
+	parseDecimal bool
 }
 
 func (block *Block) Copy() *Block {
 	return &Block{
-		Columns:    block.Columns,
-		NumColumns: block.NumColumns,
-		info:       block.info,
+		Columns:      block.Columns,
+		NumColumns:   block.NumColumns,
+		info:         block.info,
+		parseDecimal: block.parseDecimal,
 	}
 }
 
@@ -98,6 +100,7 @@ func (block *Block) Read(serverInfo *ServerInfo, decoder *binary.Decoder) (err e
 			}
 		}
 	}
+	block.parseDecimal = decoder.ParseDecimal()
 	return nil
 }
 
@@ -174,8 +177,8 @@ func (block *Block) Reserve() {
 				columnBuffer = new(bytes.Buffer)
 			)
 			block.buffers[i] = &buffer{
-				Offset:       binary.NewEncoder(offsetBuffer),
-				Column:       binary.NewEncoder(columnBuffer),
+				Offset:       binary.NewEncoder(offsetBuffer).SelectParseDecimal(block.parseDecimal),
+				Column:       binary.NewEncoder(columnBuffer).SelectParseDecimal(block.parseDecimal),
 				offsetBuffer: offsetBuffer,
 				columnBuffer: columnBuffer,
 			}

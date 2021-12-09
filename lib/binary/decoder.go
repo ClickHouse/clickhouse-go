@@ -24,10 +24,16 @@ type Decoder struct {
 	input         io.Reader
 	compressInput io.Reader
 	scratch       [binary.MaxVarintLen64]byte
+	parseDecimal  bool
 }
 
 func (decoder *Decoder) SelectCompress(compress bool) {
 	decoder.compress = compress
+}
+
+func (decoder *Decoder) SelectParseDecimal(parseDecimal bool) *Decoder {
+	decoder.parseDecimal = parseDecimal
+	return decoder
 }
 
 func (decoder *Decoder) Get() io.Reader {
@@ -163,6 +169,10 @@ func (decoder *Decoder) Decimal128() ([]byte, error) {
 	bytes := make([]byte, 16)
 	_, err := decoder.Get().Read(bytes)
 	return bytes, err
+}
+
+func (decoder *Decoder) ParseDecimal() bool {
+	return decoder.parseDecimal
 }
 
 func (decoder *Decoder) ReadByte() (byte, error) {

@@ -6,9 +6,11 @@ import (
 	"database/sql/driver"
 	"encoding/binary"
 	"math"
+	"strings"
 	"testing"
 
 	"github.com/ClickHouse/clickhouse-go"
+	sdeci "github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -160,6 +162,173 @@ func Test_Decimal128(t *testing.T) {
 					); assert.NoError(t, err) {
 						assert.Equal(t, 0, bytes.Compare(maxDecimal128, decimal))
 						assert.Equal(t, 0, bytes.Compare(maxDecimal128, *decimalNullable))
+					}
+				}
+			}
+		}
+	}
+}
+
+type TestDecimal struct {
+	sdeci.Decimal
+}
+
+func (d *TestDecimal) Scan(value interface{}) error {
+	if v, ok := value.(sdeci.Decimal); ok {
+		d.Decimal = v
+		return nil
+	}
+	return d.Decimal.Scan(value)
+}
+
+func Test_ParseDecimal128(t *testing.T) {
+	const (
+		ddl = `
+			CREATE TABLE clickhouse_test_parse_decimal128 (
+				decimal  Decimal(38,0),
+				decimalNullable  Nullable(Decimal(38,0))
+			) Engine=Memory;
+		`
+		dml = `
+			INSERT INTO clickhouse_test_parse_decimal128 (
+				decimal,
+				decimalNullable
+			) VALUES (
+				?,
+				?
+			)
+		`
+		query = `
+			SELECT
+				decimal,
+				decimalNullable
+			FROM clickhouse_test_parse_decimal128
+		`
+	)
+
+	var (
+		zero        = sdeci.Zero
+		negativeOne = sdeci.NewFromInt(-1)
+		minInt64    = sdeci.NewFromInt(math.MinInt64)
+		maxInt64    = sdeci.NewFromInt(math.MaxInt64)
+	)
+
+	minDecimal128 := getMinDecimal128Bytes()
+	maxDecimal128 := getMaxDecimal128Bytes()
+
+	if connect, err := clickhouse.OpenDirect("tcp://127.0.0.1:9000?debug=true&parse_decimal=true"); assert.NoError(t, err) {
+		{
+			connect.Begin()
+			stmt, _ := connect.Prepare("DROP TABLE IF EXISTS clickhouse_test_parse_decimal128")
+			stmt.Exec([]driver.Value{})
+			connect.Commit()
+		}
+		{
+			if _, err := connect.Begin(); assert.NoError(t, err) {
+				if stmt, err := connect.Prepare(ddl); assert.NoError(t, err) {
+					if _, err := stmt.Exec([]driver.Value{}); assert.NoError(t, err) {
+						assert.NoError(t, connect.Commit())
+					}
+				}
+			}
+		}
+		{
+			if _, err := connect.Begin(); assert.NoError(t, err) {
+				if _, err := connect.Prepare(dml); assert.NoError(t, err) {
+					block, err := connect.Block()
+					assert.NoError(t, err)
+
+					// 1.
+					err = block.AppendRow([]driver.Value{zero, nil})
+					assert.NoError(t, err)
+
+					// 2.
+					err = block.AppendRow([]driver.Value{negativeOne, &zero})
+					assert.NoError(t, err)
+
+					// 3.
+					err = block.AppendRow([]driver.Value{minInt64, &minInt64})
+					assert.NoError(t, err)
+
+					// 4.
+					err = block.AppendRow([]driver.Value{maxInt64, &maxInt64})
+					assert.NoError(t, err)
+
+					// 5.
+					err = block.AppendRow([]driver.Value{minDecimal128, &minDecimal128})
+					assert.NoError(t, err)
+
+					// 6.
+					err = block.AppendRow([]driver.Value{maxDecimal128, &maxDecimal128})
+					assert.NoError(t, err)
+
+					assert.NoError(t, connect.Commit())
+				}
+			}
+		}
+	}
+	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true&parse_decimal=true"); assert.NoError(t, err) {
+		if rows, err := connect.Query(query); assert.NoError(t, err) {
+			assert.NoError(t, err)
+			i := 0
+			for rows.Next() {
+				i++
+				var decimal TestDecimal
+				var decimalNullable *TestDecimal = nil
+
+				switch i {
+				case 1:
+					if err := rows.Scan(
+						&decimal,
+						&decimalNullable,
+					); assert.NoError(t, err) {
+						assert.Equal(t, zero.String(), decimal.String())
+						assert.Nil(t, decimalNullable)
+					}
+
+				case 2:
+					if err := rows.Scan(
+						&decimal,
+						&decimalNullable,
+					); assert.NoError(t, err) {
+						assert.Equal(t, negativeOne.String(), decimal.String())
+						assert.Equal(t, zero.String(), decimalNullable.String())
+					}
+
+				case 3:
+					if err := rows.Scan(
+						&decimal,
+						&decimalNullable,
+					); assert.NoError(t, err) {
+						assert.Equal(t, minInt64.String(), decimal.String())
+						assert.Equal(t, minInt64.String(), decimalNullable.String())
+					}
+
+				case 4:
+					if err := rows.Scan(
+						&decimal,
+						&decimalNullable,
+					); assert.NoError(t, err) {
+						assert.Equal(t, maxInt64.String(), decimal.String())
+						assert.Equal(t, maxInt64.String(), decimalNullable.String())
+					}
+
+				case 5:
+					if err := rows.Scan(
+						&decimal,
+						&decimalNullable,
+					); assert.NoError(t, err) {
+						assert.Equal(t, "-"+strings.Repeat("9", 38), decimal.String())
+						assert.Equal(t, "-"+strings.Repeat("9", 38), decimalNullable.String())
+					}
+
+				case 6:
+					if err := rows.Scan(
+						&decimal,
+						&decimalNullable,
+					); assert.NoError(t, err) {
+						assert.Equal(t, strings.Repeat("9", 38), decimal.String())
+						assert.Equal(t, strings.Repeat("9", 38), decimalNullable.String())
 					}
 				}
 			}

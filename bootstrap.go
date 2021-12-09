@@ -178,6 +178,9 @@ func open(dsn string) (*clickhouse, error) {
 		}
 		logger = log.New(logOutput, "[clickhouse]", 0)
 	)
+	if parseDecimal, err := strconv.ParseBool(url.Query().Get("parse_decimal")); err == nil {
+		ch.parseDecimal = parseDecimal
+	}
 	if debug, err := strconv.ParseBool(url.Query().Get("debug")); err == nil && debug {
 		ch.logf = logger.Printf
 	}
@@ -205,7 +208,9 @@ func open(dsn string) (*clickhouse, error) {
 	ch.buffer = bufio.NewWriter(ch.conn)
 
 	ch.decoder = binary.NewDecoderWithCompress(ch.conn)
+	ch.decoder.SelectParseDecimal(ch.parseDecimal)
 	ch.encoder = binary.NewEncoderWithCompress(ch.buffer)
+	ch.encoder.SelectParseDecimal(ch.parseDecimal)
 
 	if err := ch.hello(database, username, password); err != nil {
 		ch.conn.Close()

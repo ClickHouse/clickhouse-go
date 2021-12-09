@@ -26,6 +26,7 @@ type Encoder struct {
 	output         io.Writer
 	compressOutput io.Writer
 	scratch        [binary.MaxVarintLen64]byte
+	parseDecimal   bool
 }
 
 func (enc *Encoder) SelectCompress(compress bool) {
@@ -36,6 +37,15 @@ func (enc *Encoder) SelectCompress(compress bool) {
 		enc.Flush()
 	}
 	enc.compress = compress
+}
+
+func (enc *Encoder) SelectParseDecimal(parseDecimal bool) *Encoder {
+	enc.parseDecimal = parseDecimal
+	return enc
+}
+
+func (enc *Encoder) ParseDecimal() bool {
+	return enc.parseDecimal
 }
 
 func (enc *Encoder) Get() io.Writer {
