@@ -37,7 +37,7 @@ const (
 
 var (
 	unixtime    int64
-	logOutput   io.Writer = os.Stdout
+	logOutput   io.Writer = nil
 	hostname, _           = os.Hostname()
 	poolInit    sync.Once
 )
@@ -187,7 +187,7 @@ func open(dsn string) (*clickhouse, error) {
 		}
 		logger = log.New(logOutput, "[clickhouse]", 0)
 	)
-	if debug, err := strconv.ParseBool(url.Query().Get("debug")); err == nil && debug {
+	if logOutput != nil {
 		ch.logf = logger.Printf
 	}
 	ch.logf("host(s)=%s, database=%s, username=%s",
