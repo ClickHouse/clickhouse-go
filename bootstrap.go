@@ -22,7 +22,7 @@ import (
 	"github.com/ClickHouse/clickhouse-go/lib/protocol"
 )
 
-const (
+var (
 	// DefaultDatabase when connecting to ClickHouse
 	DefaultDatabase = "default"
 	// DefaultUsername when connecting to ClickHouse
