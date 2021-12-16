@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"database/sql/driver"
 	"fmt"
-	"math"
 	"reflect"
 	"regexp"
 	"strings"
@@ -142,8 +141,10 @@ func quote(v driver.Value) string {
 
 func formatTime(value time.Time) string {
 	// toDate() overflows after 65535 days, but toDateTime() only overflows when time.Time overflows (after 9223372036854775807 seconds)
-	if days := value.Unix() / 24 / 3600; days <= math.MaxUint16 && (value.Hour()+value.Minute()+value.Second()+value.Nanosecond()) == 0 {
-		return fmt.Sprintf("toDate(%d)", days)
-	}
+	
+	// fix bug #150 [Incorrect midnight time conversion for non UTC time]
+	//if days := value.Unix() / 24 / 3600; days <= math.MaxUint16 && (value.Hour()+value.Minute()+value.Second()+value.Nanosecond()) == 0 {
+	//	return fmt.Sprintf("toDate(%d)", days)
+	//}
 	return fmt.Sprintf("toDateTime(%d)", value.Unix())
 }
