@@ -267,14 +267,15 @@ func (ch *clickhouse) process() error {
 			ch.logf("[process] <- exception")
 			return ch.exception()
 		case protocol.ServerProgress:
-			progress, err := ch.progress()
+			progress := &Progress{}
+			err := progress.update(ch)
 			if err != nil {
 				return err
 			}
 			ch.logf("[process] <- progress: rows=%d, bytes=%d, total rows=%d",
-				progress.rows,
-				progress.bytes,
-				progress.totalRows,
+				progress.Rows,
+				progress.Bytes,
+				progress.TotalRows,
 			)
 		case protocol.ServerProfileInfo:
 			profileInfo, err := ch.profileInfo()

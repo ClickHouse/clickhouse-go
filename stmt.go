@@ -22,10 +22,25 @@ var emptyResult = &result{}
 type key string
 
 var queryIDKey key
+var progressKey key
 
 //Put query ID into context and use it in ExecContext or QueryContext
 func WithQueryID(ctx context.Context, queryID string) context.Context {
 	return context.WithValue(ctx, queryIDKey, queryID)
+}
+
+//Put query Progress into context and extract by user if needed
+func WithQueryProgress(ctx context.Context) context.Context {
+	return context.WithValue(ctx, progressKey, &Progress{})
+}
+
+//Put query Progress into context and extract by user if needed
+func QueryProgress(ctx context.Context) *Progress {
+	if p := ctx.Value(progressKey); p != nil {
+		return p.(*Progress)
+	} else {
+		return &Progress{}
+	}
 }
 
 func (stmt *stmt) NumInput() int {
@@ -103,6 +118,7 @@ func (stmt *stmt) queryContext(ctx context.Context, args []driver.NamedValue) (d
 		stream:       make(chan *data.Block, 50),
 		columns:      meta.ColumnNames(),
 		blockColumns: meta.Columns,
+		progress:     QueryProgress(ctx),
 	}
 	go rows.receiveData()
 	return &rows, nil

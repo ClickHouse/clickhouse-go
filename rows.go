@@ -25,6 +25,7 @@ type rows struct {
 	stream       chan *data.Block
 	columns      []string
 	blockColumns []column.Column
+	progress     *Progress
 }
 
 func (rows *rows) Columns() []string {
@@ -84,8 +85,8 @@ func (rows *rows) receiveData() error {
 	var (
 		err         error
 		packet      uint64
-		progress    *progress
 		profileInfo *profileInfo
+		progress    = rows.progress
 	)
 	for {
 		if packet, err = rows.ch.decoder.Uvarint(); err != nil {
@@ -96,13 +97,13 @@ func (rows *rows) receiveData() error {
 			rows.ch.logf("[rows] <- exception")
 			return rows.setError(rows.ch.exception())
 		case protocol.ServerProgress:
-			if progress, err = rows.ch.progress(); err != nil {
+			if err = progress.update(rows.ch); err != nil {
 				return rows.setError(err)
 			}
 			rows.ch.logf("[rows] <- progress: rows=%d, bytes=%d, total rows=%d",
-				progress.rows,
-				progress.bytes,
-				progress.totalRows,
+				progress.Rows,
+				progress.Bytes,
+				progress.TotalRows,
 			)
 		case protocol.ServerProfileInfo:
 			if profileInfo, err = rows.ch.profileInfo(); err != nil {

@@ -1,26 +1,26 @@
 package clickhouse
 
-type progress struct {
-	rows      uint64
-	bytes     uint64
-	totalRows uint64
+type Progress struct {
+	Rows      uint64
+	Bytes     uint64
+	TotalRows uint64
 }
 
-func (ch *clickhouse) progress() (*progress, error) {
-	var (
-		p   progress
-		err error
-	)
-	if p.rows, err = ch.decoder.Uvarint(); err != nil {
-		return nil, err
+func (p *Progress) update(ch *clickhouse) error {
+	if rows, err := ch.decoder.Uvarint(); err != nil {
+		return err
+	} else {
+		p.Rows = p.Rows + rows
 	}
-	if p.bytes, err = ch.decoder.Uvarint(); err != nil {
-		return nil, err
+	if bytes, err := ch.decoder.Uvarint(); err != nil {
+		return err
+	} else {
+		p.Bytes = p.Bytes + bytes
 	}
-
-	if p.totalRows, err = ch.decoder.Uvarint(); err != nil {
-		return nil, err
+	if totalRows, err := ch.decoder.Uvarint(); err != nil {
+		return err
+	} else {
+		p.TotalRows = p.TotalRows + totalRows
 	}
-
-	return &p, nil
+	return nil
 }

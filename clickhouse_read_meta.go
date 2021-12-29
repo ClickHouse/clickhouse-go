@@ -19,14 +19,15 @@ func (ch *clickhouse) readMeta() (*data.Block, error) {
 			ch.logf("[read meta] <- exception")
 			return nil, ch.exception()
 		case protocol.ServerProgress:
-			progress, err := ch.progress()
+			progress := &Progress{}
+			err := progress.update(ch)
 			if err != nil {
 				return nil, err
 			}
 			ch.logf("[read meta] <- progress: rows=%d, bytes=%d, total rows=%d",
-				progress.rows,
-				progress.bytes,
-				progress.totalRows,
+				progress.Rows,
+				progress.Bytes,
+				progress.TotalRows,
 			)
 		case protocol.ServerProfileInfo:
 			profileInfo, err := ch.profileInfo()
