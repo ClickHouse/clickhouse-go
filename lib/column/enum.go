@@ -8,168 +8,162 @@ import (
 	"github.com/ClickHouse/clickhouse-go/lib/binary"
 )
 
-type Enum struct {
-	iv map[string]interface{}
-	vi map[interface{}]string
-	base
-	baseType interface{}
+type Enum8 struct {
+	iv     map[string]uint8
+	vi     map[uint8]string
+	values []string
 }
 
-func (enum *Enum) Read(decoder *binary.Decoder, isNull bool) (interface{}, error) {
-	var (
-		err   error
-		ident interface{}
-	)
-	switch enum.baseType.(type) {
-	case int16:
-		if ident, err = decoder.Int16(); err != nil {
-			return nil, err
-		}
-	default:
-		if ident, err = decoder.Int8(); err != nil {
-			return nil, err
-		}
-	}
-	if ident, found := enum.vi[ident]; found || isNull {
-		return ident, nil
-	}
-	return nil, fmt.Errorf("invalid Enum value: %v", ident)
+func (e *Enum8) Rows() int {
+	return len(e.values)
 }
 
-func (enum *Enum) Write(encoder *binary.Encoder, v interface{}) error {
+func (e *Enum8) Decode(decoder *binary.Decoder, rows int) error {
+	for i := 0; i < int(rows); i++ {
+		v, err := decoder.UInt8()
+		if err != nil {
+			return err
+		}
+		e.values = append(e.values, e.vi[v])
+	}
+	return nil
+}
+
+func (e *Enum8) ScanRow(dest interface{}, row int) error {
+	switch d := dest.(type) {
+	case *string:
+		*d = e.values[row]
+	case **string:
+		*d = new(string)
+		**d = e.values[row]
+	}
+	return nil
+}
+
+func (e *Enum8) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case string:
-		return enum.encodeFromString(v, encoder)
-	case uint8:
-		if _, ok := enum.baseType.(int8); ok {
-			return encoder.Int8(int8(v))
+		e.values = append(e.values, v)
+	case null:
+		e.values = append(e.values, "")
+	}
+	return nil
+}
+
+func (e *Enum8) Encode(encoder *binary.Encoder) error {
+	for _, v := range e.values {
+		if err := encoder.UInt8(e.iv[v]); err != nil {
+			return err
 		}
-	case int8:
-		if _, ok := enum.baseType.(int8); ok {
-			return encoder.Int8(v)
+	}
+	return nil
+}
+
+type Enum16 struct {
+	iv     map[string]uint16
+	vi     map[uint16]string
+	values []string
+}
+
+func (e *Enum16) Rows() int {
+	return len(e.values)
+}
+
+func (e *Enum16) Decode(decoder *binary.Decoder, rows int) error {
+	for i := 0; i < int(rows); i++ {
+		v, err := decoder.UInt16()
+		if err != nil {
+			return err
 		}
-	case uint16:
-		if _, ok := enum.baseType.(int16); ok {
-			return encoder.Int16(int16(v))
-		}
-	case int16:
-		if _, ok := enum.baseType.(int16); ok {
-			return encoder.Int16(v)
-		}
-	case int64:
-		switch enum.baseType.(type) {
-		case int8:
-			return encoder.Int8(int8(v))
-		case int16:
-			return encoder.Int16(int16(v))
-		}
-	// nullable enums
+		e.values = append(e.values, e.vi[v])
+	}
+	return nil
+}
+
+func (e *Enum16) ScanRow(dest interface{}, row int) error {
+	switch d := dest.(type) {
 	case *string:
-		return enum.encodeFromString(*v, encoder)
-	case *uint8:
-		if _, ok := enum.baseType.(int8); ok {
-			return encoder.Int8(int8(*v))
-		}
-	case *int8:
-		if _, ok := enum.baseType.(int8); ok {
-			return encoder.Int8(*v)
-		}
-	case *uint16:
-		if _, ok := enum.baseType.(int16); ok {
-			return encoder.Int16(int16(*v))
-		}
-	case *int16:
-		if _, ok := enum.baseType.(int16); ok {
-			return encoder.Int16(*v)
-		}
-	case *int64:
-		switch enum.baseType.(type) {
-		case int8:
-			return encoder.Int8(int8(*v))
-		case int16:
-			return encoder.Int16(int16(*v))
-		}
+		*d = e.values[row]
+	case **string:
+		*d = new(string)
+		**d = e.values[row]
 	}
-	return &ErrUnexpectedType{
-		T:      v,
-		Column: enum,
-	}
+	return nil
 }
 
-func (enum *Enum) encodeFromString(v string, encoder *binary.Encoder) error {
-	ident, found := enum.iv[v]
-	if !found {
-		return fmt.Errorf("invalid Enum ident: %s", v)
+func (e *Enum16) AppendRow(v interface{}) error {
+	switch v := v.(type) {
+	case string:
+		e.values = append(e.values, v)
+	case null:
+		e.values = append(e.values, "")
 	}
-	switch ident := ident.(type) {
-	case int8:
-		return encoder.Int8(ident)
-	case int16:
-		return encoder.Int16(ident)
-	default:
-		return &ErrUnexpectedType{
-			T:      ident,
-			Column: enum,
+	return nil
+}
+func (e *Enum16) Encode(encoder *binary.Encoder) error {
+	for _, v := range e.values {
+		if err := encoder.UInt16(e.iv[v]); err != nil {
+			return err
 		}
 	}
+	return nil
 }
 
-func (enum *Enum) defaultValue() interface{} {
-	return enum.baseType
-}
+var (
+	_ Interface = (*Enum8)(nil)
+	_ Interface = (*Enum16)(nil)
+)
 
-func parseEnum(name, chType string) (*Enum, error) {
-	var (
-		data     string
-		isEnum16 bool
-	)
-	if len(chType) < 8 {
-		return nil, fmt.Errorf("invalid Enum format: %s", chType)
+func Enum(columnType string) (Interface, error) {
+	var payload string
+	if len(columnType) < 8 {
+		return nil, fmt.Errorf("invalid Enum format: %s", columnType)
 	}
 	switch {
-	case strings.HasPrefix(chType, "Enum8"):
-		data = chType[6:]
-	case strings.HasPrefix(chType, "Enum16"):
-		data = chType[7:]
-		isEnum16 = true
+	case strings.HasPrefix(columnType, "Enum8"):
+		payload = columnType[6:]
+	case strings.HasPrefix(columnType, "Enum16"):
+		payload = columnType[7:]
 	default:
-		return nil, fmt.Errorf("'%s' is not Enum type", chType)
+		return nil, fmt.Errorf("'%s' is not Enum type", columnType)
 	}
-	enum := Enum{
-		base: base{
-			name:    name,
-			chType:  chType,
-			valueOf: columnBaseTypes[string("")],
-		},
-		iv: make(map[string]interface{}),
-		vi: make(map[interface{}]string),
-	}
-	for _, block := range strings.Split(data[:len(data)-1], ",") {
+	var (
+		idents  []string
+		indexes []int64
+	)
+	for _, block := range strings.Split(payload[:len(payload)-1], ",") {
 		parts := strings.Split(block, "=")
 		if len(parts) != 2 {
-			return nil, fmt.Errorf("invalid Enum format: %s", chType)
+			return nil, fmt.Errorf("invalid Enum format: %s", columnType)
 		}
 		var (
 			ident      = strings.TrimSpace(parts[0])
-			value, err = strconv.ParseInt(strings.TrimSpace(parts[1]), 10, 16)
+			index, err = strconv.ParseInt(strings.TrimSpace(parts[1]), 10, 16)
 		)
-		if err != nil {
-			return nil, fmt.Errorf("invalid Enum value: %v", chType)
+		if err != nil || len(ident) < 2 {
+			return nil, fmt.Errorf("invalid Enum value: %v", columnType)
 		}
-		{
-			var (
-				ident             = ident[1 : len(ident)-1]
-				value interface{} = int16(value)
-			)
-			if !isEnum16 {
-				value = int8(value.(int16))
-			}
-			if enum.baseType == nil {
-				enum.baseType = value
-			}
-			enum.iv[ident] = value
-			enum.vi[value] = ident
+		ident = ident[1 : len(ident)-1]
+		idents, indexes = append(idents, ident), append(indexes, index)
+	}
+	if strings.HasPrefix(columnType, "Enum8") {
+		enum := Enum8{
+			iv: make(map[string]uint8, len(idents)),
+			vi: make(map[uint8]string, len(idents)),
 		}
+		for i := range idents {
+			enum.iv[idents[i]] = uint8(indexes[i])
+			enum.vi[uint8(indexes[i])] = idents[i]
+		}
+		return &enum, nil
+	}
+	enum := Enum16{
+		iv: make(map[string]uint16, len(idents)),
+		vi: make(map[uint16]string, len(idents)),
+	}
+	for i := range idents {
+		enum.iv[idents[i]] = uint16(indexes[i])
+		enum.vi[uint16(indexes[i])] = idents[i]
 	}
 	return &enum, nil
 }

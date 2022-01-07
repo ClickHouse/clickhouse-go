@@ -1,11 +1,10 @@
 module github.com/ClickHouse/clickhouse-go
 
-go 1.12
+go 1.16
 
 require (
-	github.com/bkaradzic/go-lz4 v1.0.0
-	github.com/cloudflare/golz4 v0.0.0-20150217214814-ef862a3cdc58
-	github.com/jmoiron/sqlx v1.2.0
-	github.com/pierrec/lz4 v2.0.5+incompatible
-	github.com/stretchr/testify v1.3.0
+	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/pierrec/lz4/v4 v4.1.12
+	github.com/stretchr/testify v1.7.0
+	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
 )

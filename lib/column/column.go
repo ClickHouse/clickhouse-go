@@ -2,204 +2,54 @@ package column
 
 import (
 	"fmt"
-	"reflect"
 	"strings"
-	"time"
 
 	"github.com/ClickHouse/clickhouse-go/lib/binary"
 )
 
-type Column interface {
-	Name() string
-	CHType() string
-	ScanType() reflect.Type
-	Read(*binary.Decoder, bool) (interface{}, error)
-	Write(*binary.Encoder, interface{}) error
-	defaultValue() interface{}
-	Depth() int
+type null struct{}
+type Type string
+
+func (t Type) String() string {
+	return string(t)
 }
 
-func Factory(name, chType string, timezone *time.Location) (Column, error) {
-	switch chType {
-	case "Int8":
-		return &Int8{
-			base: base{
-				name:    name,
-				chType:  chType,
-				valueOf: columnBaseTypes[int8(0)],
-			},
-		}, nil
-	case "Int16":
-		return &Int16{
-			base: base{
-				name:    name,
-				chType:  chType,
-				valueOf: columnBaseTypes[int16(0)],
-			},
-		}, nil
-	case "Int32":
-		return &Int32{
-			base: base{
-				name:    name,
-				chType:  chType,
-				valueOf: columnBaseTypes[int32(0)],
-			},
-		}, nil
-	case "Int64":
-		return &Int64{
-			base: base{
-				name:    name,
-				chType:  chType,
-				valueOf: columnBaseTypes[int64(0)],
-			},
-		}, nil
-	case "UInt8":
-		return &UInt8{
-			base: base{
-				name:    name,
-				chType:  chType,
-				valueOf: columnBaseTypes[uint8(0)],
-			},
-		}, nil
-	case "UInt16":
-		return &UInt16{
-			base: base{
-				name:    name,
-				chType:  chType,
-				valueOf: columnBaseTypes[uint16(0)],
-			},
-		}, nil
-	case "UInt32":
-		return &UInt32{
-			base: base{
-				name:    name,
-				chType:  chType,
-				valueOf: columnBaseTypes[uint32(0)],
-			},
-		}, nil
-	case "UInt64":
-		return &UInt64{
-			base: base{
-				name:    name,
-				chType:  chType,
-				valueOf: columnBaseTypes[uint64(0)],
-			},
-		}, nil
-	case "Float32":
-		return &Float32{
-			base: base{
-				name:    name,
-				chType:  chType,
-				valueOf: columnBaseTypes[float32(0)],
-			},
-		}, nil
-	case "Float64":
-		return &Float64{
-			base: base{
-				name:    name,
-				chType:  chType,
-				valueOf: columnBaseTypes[float64(0)],
-			},
-		}, nil
-	case "String":
-		return &String{
-			base: base{
-				name:    name,
-				chType:  chType,
-				valueOf: columnBaseTypes[string("")],
-			},
-		}, nil
-	case "UUID":
-		return &UUID{
-			base: base{
-				name:    name,
-				chType:  chType,
-				valueOf: columnBaseTypes[string("")],
-			},
-		}, nil
-	case "Date":
-		_, offset := time.Unix(0, 0).In(timezone).Zone()
-		return &Date{
-			base: base{
-				name:    name,
-				chType:  chType,
-				valueOf: columnBaseTypes[time.Time{}],
-			},
-			Timezone: timezone,
-			offset:   int64(offset),
-		}, nil
-	case "IPv4":
-		return &IPv4{
-			base: base{
-				name:    name,
-				chType:  chType,
-				valueOf: columnBaseTypes[IPv4{}],
-			},
-		}, nil
-	case "IPv6":
-		return &IPv6{
-			base: base{
-				name:    name,
-				chType:  chType,
-				valueOf: columnBaseTypes[IPv6{}],
-			},
-		}, nil
+func (t Type) Base() Type {
+	switch start, end := strings.Index(string(t), "("), strings.LastIndex(string(t), ")"); {
+	case len(t) == 0, start <= 0, end <= 0, end < start:
+		return ""
+	default:
+		return t[start+1 : end]
 	}
-	switch {
-	case strings.HasPrefix(chType, "DateTime") && !strings.HasPrefix(chType, "DateTime64"):
-		return &DateTime{
-			base: base{
-				name:    name,
-				chType:  "DateTime",
-				valueOf: columnBaseTypes[time.Time{}],
-			},
-			Timezone: timezone,
-		}, nil
-	case strings.HasPrefix(chType, "DateTime64"):
-		return &DateTime64{
-			base: base{
-				name:    name,
-				chType:  chType,
-				valueOf: columnBaseTypes[time.Time{}],
-			},
-			Timezone: timezone,
-		}, nil
-	case strings.HasPrefix(chType, "Array"):
-		return parseArray(name, chType, timezone)
-	case strings.HasPrefix(chType, "Nullable"):
-		return parseNullable(name, chType, timezone)
-	case strings.HasPrefix(chType, "FixedString"):
-		return parseFixedString(name, chType)
-	case strings.HasPrefix(chType, "Enum8"), strings.HasPrefix(chType, "Enum16"):
-		return parseEnum(name, chType)
-	case strings.HasPrefix(chType, "Decimal"):
-		return parseDecimal(name, chType)
-	case strings.HasPrefix(chType, "SimpleAggregateFunction"):
-		if nestedType, err := getNestedType(chType, "SimpleAggregateFunction"); err != nil {
-			return nil, err
-		} else {
-			return Factory(name, nestedType, timezone)
-		}
-	case strings.HasPrefix(chType, "Tuple"):
-		return parseTuple(name, chType, timezone)
-	}
-	return nil, fmt.Errorf("column: unhandled type %v", chType)
 }
 
-func getNestedType(chType string, wrapType string) (string, error) {
-	prefixLen := len(wrapType) + 1
-	suffixLen := 1
-
-	if len(chType) > prefixLen+suffixLen {
-		nested := strings.Split(chType[prefixLen:len(chType)-suffixLen], ",")
-		if len(nested) == 2 {
-			return strings.TrimSpace(nested[1]), nil
-		}
-
-		if len(nested) == 3 {
-			return strings.TrimSpace(strings.Join(nested[1:], ",")), nil
-		}
-	}
-
-	return "", fmt.Errorf("column: invalid %s type (%s)", wrapType, chType)
+func (t Type) IsArray() bool {
+	return strings.HasPrefix(string(t), "Array")
 }
+
+func (t Type) IsEnum() bool {
+	return strings.HasPrefix(string(t), "Enum8") || strings.HasPrefix(string(t), "Enum16")
+}
+
+func (t Type) IsNullable() bool {
+	return strings.HasPrefix(string(t), "Nullable")
+}
+
+type Interface interface {
+	Rows() int
+	ScanRow(dest interface{}, row int) error
+	AppendRow(v interface{}) error
+	//Append(v interface{}) error
+	Decode(decoder *binary.Decoder, rows int) error
+	Encode(*binary.Encoder) error
+}
+
+type Undefined struct{}
+
+func (Undefined) Rows() int                         { return 0 }
+func (Undefined) ScanRow(interface{}, int) error    { return fmt.Errorf("undefined") }
+func (Undefined) AppendRow(interface{}) error       { return fmt.Errorf("undefined") }
+func (Undefined) Decode(*binary.Decoder, int) error { return fmt.Errorf("undefined") }
+func (Undefined) Encode(*binary.Encoder) error      { return fmt.Errorf("undefined") }
+
+var _ Interface = (*Undefined)(nil)

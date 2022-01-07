@@ -1,354 +1,198 @@
 package clickhouse
 
 import (
-	"bufio"
 	"context"
-	"database/sql"
-	"database/sql/driver"
-	"errors"
-	"fmt"
-	"net"
-	"reflect"
-	"regexp"
-	"sync"
+	"crypto/tls"
+	"io"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/lib/binary"
-	"github.com/ClickHouse/clickhouse-go/lib/column"
-	"github.com/ClickHouse/clickhouse-go/lib/data"
-	"github.com/ClickHouse/clickhouse-go/lib/protocol"
-	"github.com/ClickHouse/clickhouse-go/lib/types"
+	"github.com/ClickHouse/clickhouse-go/lib/compress"
+	"github.com/ClickHouse/clickhouse-go/lib/driver"
+	"github.com/ClickHouse/clickhouse-go/lib/proto"
+)
+
+func Named(name string, value interface{}) driver.NamedValue {
+	return driver.NamedValue{
+		Name:  name,
+		Value: value,
+	}
+}
+
+type (
+	Date     time.Time
+	DateTime time.Time
 )
 
 type (
-	Date     = types.Date
-	DateTime = types.DateTime
-	UUID     = types.UUID
+	Progress      = proto.Progress
+	Exception     = proto.Exception
+	ServerVersion = proto.ServerHandshake
 )
 
-type ExternalTable struct {
-	Name    string
-	Values  [][]driver.Value
-	Columns []column.Column
+var (
+	CompressionLZ4 compress.Method = compress.LZ4
+)
+
+type Auth struct { // has_control_character
+	Database string
+	Username string
+	Password string
 }
 
-var (
-	ErrInsertInNotBatchMode = errors.New("insert statement supported only in the batch mode (use begin/commit)")
-	ErrLimitDataRequestInTx = errors.New("data request has already been prepared in transaction")
-)
+type Compression struct {
+	Method compress.Method
+}
 
-var (
-	splitInsertRe = regexp.MustCompile(`(?i)\sVALUES\s*\(`)
-)
+type Options struct {
+	Addr            []string
+	Auth            Auth
+	TLS             *tls.Config
+	Debug           bool
+	Settings        Settings
+	DialTimeout     time.Duration
+	Compression     *Compression
+	MaxOpenConns    int
+	MaxIdleConns    int
+	ConnMaxLifetime time.Duration
+}
 
-type logger func(format string, v ...interface{})
+func (o *Options) setDefaults() {
+	if o.DialTimeout == 0 {
+		o.DialTimeout = time.Second
+	}
+	if o.MaxIdleConns <= 0 {
+		o.MaxIdleConns = 5
+	}
+	if o.MaxOpenConns <= 0 {
+		o.MaxOpenConns = o.MaxIdleConns + 5
+	}
+	if o.ConnMaxLifetime == 0 {
+		o.ConnMaxLifetime = time.Hour
+	}
+}
+
+func Open(opt *Options) (driver.Conn, error) {
+	opt.setDefaults()
+
+	return &clickhouse{
+		opt:  opt,
+		idle: make(chan *connect, opt.MaxIdleConns),
+		open: make(chan struct{}, opt.MaxOpenConns),
+	}, nil
+}
 
 type clickhouse struct {
-	sync.Mutex
-	data.ServerInfo
-	data.ClientInfo
-	logf              logger
-	conn              *connect
-	block             *data.Block
-	buffer            *bufio.Writer
-	decoder           *binary.Decoder
-	encoder           *binary.Encoder
-	settings          *querySettings
-	compress          bool
-	blockSize         int
-	inTransaction     bool
-	checkConnLiveness bool
+	opt  *Options
+	idle chan *connect
+	open chan struct{}
 }
 
-func (ch *clickhouse) Prepare(query string) (driver.Stmt, error) {
-	return ch.prepareContext(context.Background(), query)
-}
-
-func (ch *clickhouse) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
-	return ch.prepareContext(ctx, query)
-}
-
-func (ch *clickhouse) prepareContext(ctx context.Context, query string) (driver.Stmt, error) {
-	ch.logf("[prepare] %s", query)
-	switch {
-	case ch.conn.closed:
-		return nil, driver.ErrBadConn
-	case ch.block != nil:
-		return nil, ErrLimitDataRequestInTx
-	case isInsert(query):
-		if !ch.inTransaction {
-			return nil, ErrInsertInNotBatchMode
-		}
-		return ch.insert(ctx, query)
-	}
-	return &stmt{
-		ch:       ch,
-		query:    query,
-		numInput: numInput(query),
-	}, nil
-}
-
-func (ch *clickhouse) insert(ctx context.Context, query string) (_ driver.Stmt, err error) {
-	if err := ch.sendQuery(ctx, splitInsertRe.Split(query, -1)[0]+" VALUES ", nil); err != nil {
+func (ch *clickhouse) ServerVersion() (*driver.ServerVersion, error) {
+	conn, err := ch.acquire()
+	if err != nil {
 		return nil, err
 	}
-	if ch.block, err = ch.readMeta(); err != nil {
+	defer ch.release(conn)
+	return &conn.server, nil
+}
+
+func (ch *clickhouse) Query(ctx context.Context, query string, args ...interface{}) (rows driver.Rows, err error) {
+	conn, err := ch.acquire()
+	if err != nil {
 		return nil, err
 	}
-	return &stmt{
-		ch:       ch,
-		isInsert: true,
-	}, nil
+	defer ch.release(conn)
+	return conn.query(ctx, query, args...)
 }
 
-func (ch *clickhouse) Begin() (driver.Tx, error) {
-	return ch.beginTx(context.Background(), txOptions{})
-}
-
-func (ch *clickhouse) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
-	return ch.beginTx(ctx, txOptions{
-		Isolation: int(opts.Isolation),
-		ReadOnly:  opts.ReadOnly,
-	})
-}
-
-type txOptions struct {
-	Isolation int
-	ReadOnly  bool
-}
-
-func (ch *clickhouse) beginTx(ctx context.Context, opts txOptions) (*clickhouse, error) {
-	ch.logf("[begin] tx=%t, data=%t", ch.inTransaction, ch.block != nil)
-	switch {
-	case ch.inTransaction:
-		return nil, sql.ErrTxDone
-	case ch.conn.closed:
-		return nil, driver.ErrBadConn
-	}
-
-	// Perform a stale connection check. We only perform this check in beginTx,
-	// because database/sql retries driver.ErrBadConn only for first request,
-	// but beginTx doesn't perform any other network interaction.
-	if ch.checkConnLiveness {
-		if err := ch.conn.connCheck(); err != nil {
-			ch.logf("[begin] closing bad idle connection: %w", err)
-			ch.Close()
-			return ch, driver.ErrBadConn
-		}
-	}
-
-	if finish := ch.watchCancel(ctx); finish != nil {
-		defer finish()
-	}
-	ch.block = nil
-	ch.inTransaction = true
-	return ch, nil
-}
-
-func (ch *clickhouse) Commit() error {
-	ch.logf("[commit] tx=%t, data=%t", ch.inTransaction, ch.block != nil)
-	defer func() {
-		if ch.block != nil {
-			ch.block.Reset()
-			ch.block = nil
-		}
-		ch.inTransaction = false
-	}()
-	switch {
-	case !ch.inTransaction:
-		return sql.ErrTxDone
-	case ch.conn.closed:
-		return driver.ErrBadConn
-	}
-	if ch.block != nil {
-		if err := ch.writeBlock(ch.block, ""); err != nil {
-			return err
-		}
-		// Send empty block as marker of end of data.
-		if err := ch.writeBlock(&data.Block{}, ""); err != nil {
-			return err
-		}
-		if err := ch.encoder.Flush(); err != nil {
-			return err
-		}
-		return ch.process()
-	}
-	return nil
-}
-
-func (ch *clickhouse) Rollback() error {
-	ch.logf("[rollback] tx=%t, data=%t", ch.inTransaction, ch.block != nil)
-	if !ch.inTransaction {
-		return sql.ErrTxDone
-	}
-	if ch.block != nil {
-		ch.block.Reset()
-	}
-	ch.block = nil
-	ch.buffer = nil
-	ch.inTransaction = false
-	return ch.conn.Close()
-}
-
-func (ch *clickhouse) CheckNamedValue(nv *driver.NamedValue) error {
-	switch nv.Value.(type) {
-	case ExternalTable, column.IP, column.UUID:
-		return nil
-	case nil, []byte, int8, int16, int32, int64, uint8, uint16, uint32, uint64, float32, float64, string, time.Time:
-		return nil
-	}
-	switch v := nv.Value.(type) {
-	case
-		[]int, []int8, []int16, []int32, []int64,
-		[]uint, []uint8, []uint16, []uint32, []uint64,
-		[]float32, []float64,
-		[]string:
-		return nil
-	case net.IP, *net.IP:
-		return nil
-	case driver.Valuer:
-		value, err := v.Value()
-		if err != nil {
-			return err
-		}
-		nv.Value = value
-	default:
-		switch value := reflect.ValueOf(nv.Value); value.Kind() {
-		case reflect.Slice:
-			return nil
-		case reflect.Bool:
-			nv.Value = uint8(0)
-			if value.Bool() {
-				nv.Value = uint8(1)
-			}
-		case reflect.Int8:
-			nv.Value = int8(value.Int())
-		case reflect.Int16:
-			nv.Value = int16(value.Int())
-		case reflect.Int32:
-			nv.Value = int32(value.Int())
-		case reflect.Int64:
-			nv.Value = value.Int()
-		case reflect.Uint8:
-			nv.Value = uint8(value.Uint())
-		case reflect.Uint16:
-			nv.Value = uint16(value.Uint())
-		case reflect.Uint32:
-			nv.Value = uint32(value.Uint())
-		case reflect.Uint64:
-			nv.Value = uint64(value.Uint())
-		case reflect.Float32:
-			nv.Value = float32(value.Float())
-		case reflect.Float64:
-			nv.Value = float64(value.Float())
-		case reflect.String:
-			nv.Value = value.String()
-		}
-	}
-	return nil
-}
-
-func (ch *clickhouse) Close() error {
-	ch.block = nil
-	return ch.conn.Close()
-}
-
-func (ch *clickhouse) process() error {
-	packet, err := ch.decoder.Uvarint()
+func (ch *clickhouse) QueryBlock(ctx context.Context, query string, cb func(driver.Block), args ...interface{}) error {
+	conn, err := ch.acquire()
 	if err != nil {
 		return err
 	}
-	for {
-		switch packet {
-		case protocol.ServerPong:
-			ch.logf("[process] <- pong")
-			return nil
-		case protocol.ServerException:
-			ch.logf("[process] <- exception")
-			return ch.exception()
-		case protocol.ServerProgress:
-			progress, err := ch.progress()
-			if err != nil {
-				return err
-			}
-			ch.logf("[process] <- progress: rows=%d, bytes=%d, total rows=%d",
-				progress.rows,
-				progress.bytes,
-				progress.totalRows,
-			)
-		case protocol.ServerProfileInfo:
-			profileInfo, err := ch.profileInfo()
-			if err != nil {
-				return err
-			}
-			ch.logf("[process] <- profiling: rows=%d, bytes=%d, blocks=%d", profileInfo.rows, profileInfo.bytes, profileInfo.blocks)
-		case protocol.ServerData:
-			block, err := ch.readBlock()
-			if err != nil {
-				return err
-			}
-			ch.logf("[process] <- data: packet=%d, columns=%d, rows=%d", packet, block.NumColumns, block.NumRows)
-		case protocol.ServerEndOfStream:
-			ch.logf("[process] <- end of stream")
-			return nil
-		default:
-			ch.conn.Close()
-			return fmt.Errorf("[process] unexpected packet [%d] from server", packet)
-		}
-		if packet, err = ch.decoder.Uvarint(); err != nil {
-			return err
-		}
-	}
+	defer ch.release(conn)
+	return conn.queryBlock(ctx, query, cb, args...)
 }
 
-func (ch *clickhouse) cancel() error {
-	ch.logf("[cancel request]")
-	// even if we fail to write the cancel, we still need to close
-	err := ch.encoder.Uvarint(protocol.ClientCancel)
-	if err == nil {
-		err = ch.encoder.Flush()
+func (ch *clickhouse) Exec(ctx context.Context, query string, args ...interface{}) error {
+	conn, err := ch.acquire()
+	if err != nil {
+		return err
 	}
-	// return the close error if there was one, otherwise return the write error
-	if cerr := ch.conn.Close(); cerr != nil {
-		return cerr
-	}
-	return err
+	defer ch.release(conn)
+	return conn.exec(ctx, query, args...)
 }
 
-func (ch *clickhouse) watchCancel(ctx context.Context) func() {
-	if done := ctx.Done(); done != nil {
-		finished := make(chan struct{})
-		go func() {
-			select {
-			case <-done:
-				ch.cancel()
-				finished <- struct{}{}
-				ch.logf("[cancel] <- done")
-			case <-finished:
-				ch.logf("[cancel] <- finished")
-			}
-		}()
-		return func() {
-			select {
-			case <-finished:
-			case finished <- struct{}{}:
-			}
-		}
-	}
-	return func() {}
-}
-
-func (ch *clickhouse) ExecContext(ctx context.Context, query string,
-	args []driver.NamedValue) (driver.Result, error) {
-	finish := ch.watchCancel(ctx)
-	defer finish()
-	stmt, err := ch.PrepareContext(ctx, query)
+func (ch *clickhouse) PrepareBatch(ctx context.Context, query string) (driver.Batch, error) {
+	conn, err := ch.acquire()
 	if err != nil {
 		return nil, err
 	}
-	dargs := make([]driver.Value, len(args))
-	for i, nv := range args {
-		dargs[i] = nv.Value
+	return conn.prepareBatch(ctx, query, ch.release)
+}
+
+func (ch *clickhouse) Ping(ctx context.Context) error {
+	conn, err := ch.acquire()
+	if err != nil {
+		return err
 	}
-	return stmt.Exec(dargs)
+	defer ch.release(conn)
+	return conn.ping(ctx)
+}
+
+func (ch *clickhouse) Stats() driver.Stats {
+	return driver.Stats{
+		Open:         len(ch.open),
+		Idle:         len(ch.idle),
+		MaxOpenConns: cap(ch.open),
+		MaxIdleConns: cap(ch.idle),
+	}
+}
+
+func (ch *clickhouse) acquire() (conn *connect, err error) {
+	timer := time.NewTimer(time.Second)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+		return nil, io.EOF
+	case ch.open <- struct{}{}:
+	}
+	select {
+	case <-timer.C:
+		return nil, io.EOF
+	case conn := <-ch.idle:
+		return conn, nil
+	default:
+	}
+	for _, addr := range ch.opt.Addr {
+		if conn, err = dial(addr, ch.opt); err == nil {
+			return
+		}
+	}
+	return
+}
+
+func (ch *clickhouse) release(conn *connect) {
+	select {
+	case <-ch.open:
+	default:
+	}
+	if conn.err != nil || time.Since(conn.connectedAt) >= ch.opt.ConnMaxLifetime {
+		conn.close()
+		return
+	}
+	select {
+	case ch.idle <- conn:
+	default:
+		conn.close()
+	}
+}
+
+func (ch *clickhouse) Close() error {
+	return nil
+	close(ch.idle)
+	for c := range ch.idle {
+		c.close()
+	}
+	return nil
 }

@@ -1,6 +1,6 @@
 # ClickHouse [![Build Status](https://travis-ci.org/ClickHouse/clickhouse-go.svg?branch=master)](https://travis-ci.org/ClickHouse/clickhouse-go) [![Go Report Card](https://goreportcard.com/badge/github.com/ClickHouse/clickhouse-go)](https://goreportcard.com/report/github.com/ClickHouse/clickhouse-go) [![codecov](https://codecov.io/gh/ClickHouse/clickhouse-go/branch/master/graph/badge.svg)](https://codecov.io/gh/ClickHouse/clickhouse-go)
 
-Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/)
+Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/). Supported by [Kinescope](https://kinescope.io)
 
 ## Key features
 
@@ -19,7 +19,7 @@ Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/)
 * no_delay   - disable/enable the Nagle Algorithm for tcp socket (default is 'true' - disable)
 * alt_hosts  - comma-separated list of single address hosts for load-balancing
 * connection_open_strategy - random/in_order (default random).
-    * random      - choose a random server from the set  
+    * random      - choose a random server from the set
     * in_order    - first live server is chosen in specified order
     * time_random - choose random (based on the current time) server from the set. This option differs from `random` because randomness is based on the current time rather than on the number of previous connections.
 * block_size - maximum rows in block (default is 1000000). If the rows are larger, the data will be split into several blocks to send to the server. If one block was sent to the server, the data would be persisted on the server disk, and we can't roll back the transaction. So always keep in mind that the batch size is no larger than the block_size if you want an atomic batch insert.
@@ -275,7 +275,7 @@ func main() {
 		},
 		Columns: []column.Column{col},
 	}
-	
+
     rows, err := connect.Query("SELECT country_code, os_id, browser_id, categories, action_day, action_time "+
             "FROM example WHERE country_code IN ?", countriesExternalTable)
 	if err != nil {
