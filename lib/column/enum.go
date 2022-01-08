@@ -29,6 +29,10 @@ func (e *Enum8) Decode(decoder *binary.Decoder, rows int) error {
 	return nil
 }
 
+func (e *Enum8) RowValue(row int) interface{} {
+	return e.values[row]
+}
+
 func (e *Enum8) ScanRow(dest interface{}, row int) error {
 	switch d := dest.(type) {
 	case *string:
@@ -78,6 +82,10 @@ func (e *Enum16) Decode(decoder *binary.Decoder, rows int) error {
 		e.values = append(e.values, e.vi[v])
 	}
 	return nil
+}
+
+func (e *Enum16) RowValue(row int) interface{} {
+	return e.values[row]
 }
 
 func (e *Enum16) ScanRow(dest interface{}, row int) error {

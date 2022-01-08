@@ -189,10 +189,12 @@ func (ch *clickhouse) release(conn *connect) {
 }
 
 func (ch *clickhouse) Close() error {
-	return nil
-	close(ch.idle)
-	for c := range ch.idle {
-		c.close()
+	for {
+		select {
+		case c := <-ch.idle:
+			c.close()
+		default:
+			return nil
+		}
 	}
-	return nil
 }

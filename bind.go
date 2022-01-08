@@ -78,7 +78,7 @@ func bindNamed(query string, args ...interface{}) (string, error) {
 		return params[n]
 	})
 	for param := range unbind {
-		return "", fmt.Errorf("have no arg for %s param", param)
+		return "", fmt.Errorf("have no arg for %q param", param)
 	}
 	return query, nil
 }

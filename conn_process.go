@@ -2,6 +2,7 @@ package clickhouse
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/ClickHouse/clickhouse-go/lib/proto"
 )
@@ -11,23 +12,22 @@ type onProcess struct {
 	progress func(*Progress)
 }
 
-func (c *connect) processFirstBlock() (*proto.Block, error) {
+func (c *connect) nextBlock(on *onProcess) (*proto.Block, error) {
 	for {
 		packet, err := c.decoder.ReadByte()
 		if err != nil {
 			return nil, err
 		}
-		var block *proto.Block
-		if err := c.handle(packet, &onProcess{
-			data: func(b *proto.Block) {
-				block = b
-			},
-		}); err != nil {
-			return nil, err
-		}
 		switch packet {
 		case proto.ServerData:
-			return block, nil
+			return c.readData(true)
+		case proto.ServerEndOfStream:
+			c.debugf("[end of stream]")
+			return nil, io.EOF
+		default:
+			if err := c.handle(packet, on); err != nil {
+				return nil, err
+			}
 		}
 	}
 }
@@ -81,9 +81,6 @@ func (c *connect) handle(packet byte, on *onProcess) error {
 		if err := c.logs(); err != nil {
 			return err
 		}
-	case proto.ServerEndOfStream:
-		c.debugf("[end of stream]")
-		return nil
 	case proto.ServerProgress:
 		progress, err := c.progress()
 		if err != nil {

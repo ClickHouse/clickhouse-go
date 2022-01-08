@@ -23,6 +23,13 @@ func (c *Nullable) Decode(decoder *binary.Decoder, rows int) (err error) {
 	return nil
 }
 
+func (c *Nullable) RowValue(row int) interface{} {
+	if c.nulls[row] == 1 {
+		return nil
+	}
+	return c.base.RowValue(row)
+}
+
 func (c *Nullable) ScanRow(dest interface{}, row int) error {
 	if len(c.nulls) < row {
 

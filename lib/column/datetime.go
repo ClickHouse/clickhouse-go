@@ -23,6 +23,11 @@ func (dt *DateTime) Decode(decoder *binary.Decoder, rows int) error {
 	return nil
 }
 
+func (dt *DateTime) RowValue(row int) interface{} {
+	value := *dt
+	return time.Unix(int64(value[row]), 0)
+}
+
 func (dt *DateTime) ScanRow(dest interface{}, row int) error {
 	v := *dt
 	switch d := dest.(type) {

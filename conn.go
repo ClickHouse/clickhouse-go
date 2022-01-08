@@ -5,6 +5,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/lib/binary"
@@ -56,10 +57,10 @@ func dial(addr string, opt *Options) (*connect, error) {
 
 // https://github.com/ClickHouse/ClickHouse/blob/master/src/Client/Connection.cpp
 type connect struct {
-	err  error
-	opt  *Options
-	conn net.Conn
-	//mutex       sync.Mutex
+	err         error
+	opt         *Options
+	conn        net.Conn
+	mutex       sync.Mutex
 	debugf      func(format string, v ...interface{})
 	server      ServerVersion
 	stream      *io.Stream
@@ -72,8 +73,8 @@ type connect struct {
 }
 
 func (c *connect) close() error {
-	//	c.mutex.Lock()
-	//	defer c.mutex.Unlock()
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 	if c.closed {
 		return nil
 	}
@@ -114,7 +115,10 @@ func (c *connect) sendData(block *proto.Block, name string) error {
 	}
 	if c.compression {
 		c.stream.Compress(true)
-		defer c.stream.Compress(false)
+		defer func() {
+			c.stream.Compress(false)
+			c.encoder.Flush()
+		}()
 	}
 	return block.Encode(c.encoder, c.revision)
 }

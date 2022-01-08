@@ -43,5 +43,7 @@ func (t Type) Column() (Interface, error) {
 	if strings.HasPrefix(string(t), "Enum8") {
 		return Enum(string(t))
 	}
-	return &Undefined{}, nil
+	return &UnsupportedColumnType{
+		t: t,
+	}, nil
 }

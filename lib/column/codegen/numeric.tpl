@@ -1,6 +1,7 @@
 package column
 
 import (
+	"fmt"
 	"github.com/ClickHouse/clickhouse-go/lib/binary"
 )
 type (
@@ -28,8 +29,15 @@ func (col *{{ .Type }}) ScanRow(dest interface{}, row int) error {
 	case **{{ .GoType }}:
 		*d = new({{ .GoType }})
 		**d = value[row]
+	default:
+		return fmt.Errorf("unsupported type %T", d)
 	}
 	return nil
+}
+
+func (col *{{ .Type }}) RowValue(row int) interface{} {
+	value := *col
+	return value[row]
 }
 
 func (col *{{ .Type }}) AppendRow(v interface{}) error {

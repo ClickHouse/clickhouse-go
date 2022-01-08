@@ -1,6 +1,7 @@
 package column
 
 import (
+	"fmt"
 	"github.com/ClickHouse/clickhouse-go/lib/binary"
 )
 
@@ -42,8 +43,15 @@ func (col *Float32) ScanRow(dest interface{}, row int) error {
 	case **float32:
 		*d = new(float32)
 		**d = value[row]
+	default:
+		return fmt.Errorf("unsupported type %T", d)
 	}
 	return nil
+}
+
+func (col *Float32) RowValue(row int) interface{} {
+	value := *col
+	return value[row]
 }
 
 func (col *Float32) AppendRow(v interface{}) error {
@@ -88,8 +96,15 @@ func (col *Float64) ScanRow(dest interface{}, row int) error {
 	case **float64:
 		*d = new(float64)
 		**d = value[row]
+	default:
+		return fmt.Errorf("unsupported type %T", d)
 	}
 	return nil
+}
+
+func (col *Float64) RowValue(row int) interface{} {
+	value := *col
+	return value[row]
 }
 
 func (col *Float64) AppendRow(v interface{}) error {
@@ -134,8 +149,15 @@ func (col *Int8) ScanRow(dest interface{}, row int) error {
 	case **int8:
 		*d = new(int8)
 		**d = value[row]
+	default:
+		return fmt.Errorf("unsupported type %T", d)
 	}
 	return nil
+}
+
+func (col *Int8) RowValue(row int) interface{} {
+	value := *col
+	return value[row]
 }
 
 func (col *Int8) AppendRow(v interface{}) error {
@@ -180,8 +202,15 @@ func (col *Int16) ScanRow(dest interface{}, row int) error {
 	case **int16:
 		*d = new(int16)
 		**d = value[row]
+	default:
+		return fmt.Errorf("unsupported type %T", d)
 	}
 	return nil
+}
+
+func (col *Int16) RowValue(row int) interface{} {
+	value := *col
+	return value[row]
 }
 
 func (col *Int16) AppendRow(v interface{}) error {
@@ -226,8 +255,15 @@ func (col *Int32) ScanRow(dest interface{}, row int) error {
 	case **int32:
 		*d = new(int32)
 		**d = value[row]
+	default:
+		return fmt.Errorf("unsupported type %T", d)
 	}
 	return nil
+}
+
+func (col *Int32) RowValue(row int) interface{} {
+	value := *col
+	return value[row]
 }
 
 func (col *Int32) AppendRow(v interface{}) error {
@@ -272,8 +308,15 @@ func (col *Int64) ScanRow(dest interface{}, row int) error {
 	case **int64:
 		*d = new(int64)
 		**d = value[row]
+	default:
+		return fmt.Errorf("unsupported type %T", d)
 	}
 	return nil
+}
+
+func (col *Int64) RowValue(row int) interface{} {
+	value := *col
+	return value[row]
 }
 
 func (col *Int64) AppendRow(v interface{}) error {
@@ -318,8 +361,15 @@ func (col *UInt8) ScanRow(dest interface{}, row int) error {
 	case **uint8:
 		*d = new(uint8)
 		**d = value[row]
+	default:
+		return fmt.Errorf("unsupported type %T", d)
 	}
 	return nil
+}
+
+func (col *UInt8) RowValue(row int) interface{} {
+	value := *col
+	return value[row]
 }
 
 func (col *UInt8) AppendRow(v interface{}) error {
@@ -364,8 +414,15 @@ func (col *UInt16) ScanRow(dest interface{}, row int) error {
 	case **uint16:
 		*d = new(uint16)
 		**d = value[row]
+	default:
+		return fmt.Errorf("unsupported type %T", d)
 	}
 	return nil
+}
+
+func (col *UInt16) RowValue(row int) interface{} {
+	value := *col
+	return value[row]
 }
 
 func (col *UInt16) AppendRow(v interface{}) error {
@@ -410,8 +467,15 @@ func (col *UInt32) ScanRow(dest interface{}, row int) error {
 	case **uint32:
 		*d = new(uint32)
 		**d = value[row]
+	default:
+		return fmt.Errorf("unsupported type %T", d)
 	}
 	return nil
+}
+
+func (col *UInt32) RowValue(row int) interface{} {
+	value := *col
+	return value[row]
 }
 
 func (col *UInt32) AppendRow(v interface{}) error {
@@ -456,8 +520,15 @@ func (col *UInt64) ScanRow(dest interface{}, row int) error {
 	case **uint64:
 		*d = new(uint64)
 		**d = value[row]
+	default:
+		return fmt.Errorf("unsupported type %T", d)
 	}
 	return nil
+}
+
+func (col *UInt64) RowValue(row int) interface{} {
+	value := *col
+	return value[row]
 }
 
 func (col *UInt64) AppendRow(v interface{}) error {

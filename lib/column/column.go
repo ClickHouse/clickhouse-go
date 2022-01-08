@@ -37,6 +37,7 @@ func (t Type) IsNullable() bool {
 
 type Interface interface {
 	Rows() int
+	RowValue(row int) interface{}
 	ScanRow(dest interface{}, row int) error
 	AppendRow(v interface{}) error
 	//Append(v interface{}) error
@@ -44,12 +45,22 @@ type Interface interface {
 	Encode(*binary.Encoder) error
 }
 
-type Undefined struct{}
+type UnsupportedColumnType struct {
+	t Type
+}
 
-func (Undefined) Rows() int                         { return 0 }
-func (Undefined) ScanRow(interface{}, int) error    { return fmt.Errorf("undefined") }
-func (Undefined) AppendRow(interface{}) error       { return fmt.Errorf("undefined") }
-func (Undefined) Decode(*binary.Decoder, int) error { return fmt.Errorf("undefined") }
-func (Undefined) Encode(*binary.Encoder) error      { return fmt.Errorf("undefined") }
+func (UnsupportedColumnType) Rows() int                            { return 0 }
+func (u *UnsupportedColumnType) RowValue(row int) interface{}      { return nil }
+func (u *UnsupportedColumnType) ScanRow(interface{}, int) error    { return u }
+func (u *UnsupportedColumnType) AppendRow(interface{}) error       { return u }
+func (u *UnsupportedColumnType) Decode(*binary.Decoder, int) error { return u }
+func (u *UnsupportedColumnType) Encode(*binary.Encoder) error      { return u }
 
-var _ Interface = (*Undefined)(nil)
+func (u *UnsupportedColumnType) Error() string {
+	return fmt.Sprintf("unsupported column type %q", u.t)
+}
+
+var (
+	_ error     = (*UnsupportedColumnType)(nil)
+	_ Interface = (*UnsupportedColumnType)(nil)
+)

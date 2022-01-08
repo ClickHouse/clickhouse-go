@@ -126,7 +126,7 @@ func TestQuery(t *testing.T) {
 					rowNil *uint64
 				)
 				if err := rows.Scan(&rowInt, &rowNil); assert.NoError(t, err) {
-					//t.Log("SCANN", rowInt, rowNil)
+					t.Log("SCANN", rowInt, rowNil)
 				}
 			}
 		}

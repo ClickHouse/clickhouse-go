@@ -19,6 +19,11 @@ func (s *String) Decode(decoder *binary.Decoder, rows int) error {
 	return nil
 }
 
+func (s *String) RowValue(row int) interface{} {
+	value := *s
+	return value[row]
+}
+
 func (s *String) ScanRow(dest interface{}, row int) error {
 	v := *s
 	switch d := dest.(type) {

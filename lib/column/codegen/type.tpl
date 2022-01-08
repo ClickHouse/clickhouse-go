@@ -8,8 +8,8 @@ import (
 func (t Type) Column() (Interface,error) {
 	if t.IsNullable() {
 		base,err:=t.Base().Column()
-		if err!=nil{
-			return nil,err
+		if err != nil {
+			return nil, err
 		}
 		return &Nullable{
 			base: base,
@@ -28,5 +28,7 @@ func (t Type) Column() (Interface,error) {
 	if strings.HasPrefix(string(t), "Enum8") {
 		return Enum(string(t))
 	}
-	return &Undefined{}, nil
+	return &UnsupportedColumnType{
+		t: t,
+	}, nil
 }
