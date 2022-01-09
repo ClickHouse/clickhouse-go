@@ -12,8 +12,7 @@ import (
 )
 
 func init() {
-	driver := stdDriver{}
-	sql.Register("clickhouse", &driver)
+	sql.Register("clickhouse", &stdDriver{})
 }
 
 type stdDriver struct {
