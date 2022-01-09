@@ -10,13 +10,6 @@ import (
 	"github.com/ClickHouse/clickhouse-go/lib/proto"
 )
 
-func Named(name string, value interface{}) driver.NamedValue {
-	return driver.NamedValue{
-		Name:  name,
-		Value: value,
-	}
-}
-
 type (
 	Date     time.Time
 	DateTime time.Time
@@ -65,6 +58,17 @@ func (ch *clickhouse) Query(ctx context.Context, query string, args ...interface
 	}
 	defer ch.release(conn)
 	return conn.query(ctx, query, args...)
+}
+
+func (ch *clickhouse) QueryRow(ctx context.Context, query string, args ...interface{}) (rows driver.Row) {
+	conn, err := ch.acquire(ctx)
+	if err != nil {
+		return &row{
+			err: err,
+		}
+	}
+	defer ch.release(conn)
+	return conn.queryRow(ctx, query, args...)
 }
 
 func (ch *clickhouse) Exec(ctx context.Context, query string, args ...interface{}) error {

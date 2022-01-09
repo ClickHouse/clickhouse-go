@@ -51,19 +51,7 @@ type batch struct {
 }
 
 func (b *batch) Append(v ...interface{}) error {
-	columns := b.block.Columns
-	if len(columns) != len(v) {
-		return &UnexpectedArguments{
-			got:  len(v),
-			want: len(columns),
-		}
-	}
-	for i, v := range v {
-		if err := b.block.Columns[i].AppendRow(v); err != nil {
-			return err
-		}
-	}
-	return nil
+	return b.block.Append(v...)
 }
 
 func (b *batch) Column(int) (driver.BatchColumn, error) {

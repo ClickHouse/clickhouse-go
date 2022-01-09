@@ -19,6 +19,33 @@ func (b *Block) Rows() int {
 	return int(b.rows)
 }
 
+func (b *Block) AddColumn(name string, ct column.Type) error {
+	column, err := ct.Column()
+	if err != nil {
+		return err
+	}
+	b.names = append(b.names, name)
+	b.types = append(b.types, string(ct))
+	b.Columns = append(b.Columns, column)
+	return nil
+}
+
+func (b *Block) Append(v ...interface{}) error {
+	columns := b.Columns
+	if len(columns) != len(v) {
+		return &UnexpectedArguments{
+			got:  len(v),
+			want: len(columns),
+		}
+	}
+	for i, v := range v {
+		if err := b.Columns[i].AppendRow(v); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (b *Block) ColumnsNames() []string {
 	return b.names
 }
@@ -38,7 +65,6 @@ func (b *Block) Encode(encoder *binary.Encoder, revision uint64) error {
 	encoder.Uvarint(uint64(len(b.Columns)))
 	encoder.Uvarint(b.rows)
 	for i, c := range b.Columns {
-		//	fmt.Println("ENCODE", b.names[i], b.types[i], b.rows, c)
 		if err := encoder.String(b.names[i]); err != nil {
 			return err
 		}
@@ -113,4 +139,10 @@ func decodeBlockInfo(decoder *binary.Decoder) error {
 		return err
 	}
 	return nil
+}
+
+type UnexpectedArguments struct{ got, want int }
+
+func (e *UnexpectedArguments) Error() string {
+	return fmt.Sprintf("clickhouse: expected %d arguments, got %d", e.want, e.got)
 }

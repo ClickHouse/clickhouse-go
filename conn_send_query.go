@@ -17,10 +17,15 @@ func (c *connect) sendQuery(body string, o *QueryOptions) error {
 		QuotaKey:       o.quotaKey,
 		Compression:    c.compression,
 		InitialAddress: c.conn.LocalAddr().String(),
-		Settings:       o.Settings(),
+		Settings:       c.settings(o.settings),
 	}
 	if err := q.Encode(c.encoder, c.revision); err != nil {
 		return err
+	}
+	for _, table := range o.external {
+		if err := c.sendData(table.Block(), table.Name()); err != nil {
+			return err
+		}
 	}
 	if err := c.sendData(&proto.Block{}, ""); err != nil {
 		return err

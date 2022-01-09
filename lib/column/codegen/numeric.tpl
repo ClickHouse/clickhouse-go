@@ -30,7 +30,7 @@ func (col *{{ .Type }}) ScanRow(dest interface{}, row int) error {
 		*d = new({{ .GoType }})
 		**d = value[row]
 	default:
-		return fmt.Errorf("unsupported type %T", d)
+		return fmt.Errorf("converting {{ .Type }} to %T is unsupported", d)
 	}
 	return nil
 }

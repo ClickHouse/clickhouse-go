@@ -2,6 +2,7 @@ package clickhouse
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/lib/proto"
@@ -57,4 +58,43 @@ func (c *connect) query(ctx context.Context, query string, args ...interface{}) 
 		errors:  errors,
 		columns: init.ColumnsNames(),
 	}, nil
+}
+
+func (c *connect) queryRow(ctx context.Context, query string, args ...interface{}) *row {
+	rows, err := c.query(ctx, query, args...)
+	if err != nil {
+		return &row{
+			err: err,
+		}
+	}
+	return &row{
+		rows: rows,
+	}
+}
+
+type row struct {
+	err  error
+	rows *rows
+}
+
+func (r *row) Err() error {
+	return r.err
+}
+
+func (r *row) Scan(dest ...interface{}) error {
+	if r.err != nil {
+		return r.err
+	}
+	defer r.rows.Close()
+	if !r.rows.Next() {
+		if err := r.rows.Err(); err != nil {
+			return err
+		}
+		return sql.ErrNoRows
+	}
+	err := r.rows.Scan(dest...)
+	if err != nil {
+		return err
+	}
+	return r.rows.Close()
 }

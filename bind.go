@@ -10,6 +10,13 @@ import (
 	"github.com/ClickHouse/clickhouse-go/lib/driver"
 )
 
+func Named(name string, value interface{}) driver.NamedValue {
+	return driver.NamedValue{
+		Name:  name,
+		Value: value,
+	}
+}
+
 func bind(query string, args ...interface{}) (string, error) {
 	if len(args) == 0 {
 		return query, nil

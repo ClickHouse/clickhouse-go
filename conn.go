@@ -71,6 +71,23 @@ type connect struct {
 	connectedAt time.Time
 }
 
+func (c *connect) settings(querySettings Settings) []proto.Setting {
+	settings := make([]proto.Setting, 0, len(c.opt.Settings)+len(querySettings))
+	for k, v := range c.opt.Settings {
+		settings = append(settings, proto.Setting{
+			Key:   k,
+			Value: fmt.Sprint(v),
+		})
+	}
+	for k, v := range querySettings {
+		settings = append(settings, proto.Setting{
+			Key:   k,
+			Value: fmt.Sprint(v),
+		})
+	}
+	return settings
+}
+
 func (c *connect) close() error {
 	if c.closed {
 		return nil

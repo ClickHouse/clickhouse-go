@@ -44,7 +44,7 @@ func (col *Float32) ScanRow(dest interface{}, row int) error {
 		*d = new(float32)
 		**d = value[row]
 	default:
-		return fmt.Errorf("unsupported type %T", d)
+		return fmt.Errorf("converting Float32 to %T is unsupported", d)
 	}
 	return nil
 }
@@ -97,7 +97,7 @@ func (col *Float64) ScanRow(dest interface{}, row int) error {
 		*d = new(float64)
 		**d = value[row]
 	default:
-		return fmt.Errorf("unsupported type %T", d)
+		return fmt.Errorf("converting Float64 to %T is unsupported", d)
 	}
 	return nil
 }
@@ -150,7 +150,7 @@ func (col *Int8) ScanRow(dest interface{}, row int) error {
 		*d = new(int8)
 		**d = value[row]
 	default:
-		return fmt.Errorf("unsupported type %T", d)
+		return fmt.Errorf("converting Int8 to %T is unsupported", d)
 	}
 	return nil
 }
@@ -203,7 +203,7 @@ func (col *Int16) ScanRow(dest interface{}, row int) error {
 		*d = new(int16)
 		**d = value[row]
 	default:
-		return fmt.Errorf("unsupported type %T", d)
+		return fmt.Errorf("converting Int16 to %T is unsupported", d)
 	}
 	return nil
 }
@@ -256,7 +256,7 @@ func (col *Int32) ScanRow(dest interface{}, row int) error {
 		*d = new(int32)
 		**d = value[row]
 	default:
-		return fmt.Errorf("unsupported type %T", d)
+		return fmt.Errorf("converting Int32 to %T is unsupported", d)
 	}
 	return nil
 }
@@ -309,7 +309,7 @@ func (col *Int64) ScanRow(dest interface{}, row int) error {
 		*d = new(int64)
 		**d = value[row]
 	default:
-		return fmt.Errorf("unsupported type %T", d)
+		return fmt.Errorf("converting Int64 to %T is unsupported", d)
 	}
 	return nil
 }
@@ -362,7 +362,7 @@ func (col *UInt8) ScanRow(dest interface{}, row int) error {
 		*d = new(uint8)
 		**d = value[row]
 	default:
-		return fmt.Errorf("unsupported type %T", d)
+		return fmt.Errorf("converting UInt8 to %T is unsupported", d)
 	}
 	return nil
 }
@@ -415,7 +415,7 @@ func (col *UInt16) ScanRow(dest interface{}, row int) error {
 		*d = new(uint16)
 		**d = value[row]
 	default:
-		return fmt.Errorf("unsupported type %T", d)
+		return fmt.Errorf("converting UInt16 to %T is unsupported", d)
 	}
 	return nil
 }
@@ -468,7 +468,7 @@ func (col *UInt32) ScanRow(dest interface{}, row int) error {
 		*d = new(uint32)
 		**d = value[row]
 	default:
-		return fmt.Errorf("unsupported type %T", d)
+		return fmt.Errorf("converting UInt32 to %T is unsupported", d)
 	}
 	return nil
 }
@@ -521,7 +521,7 @@ func (col *UInt64) ScanRow(dest interface{}, row int) error {
 		*d = new(uint64)
 		**d = value[row]
 	default:
-		return fmt.Errorf("unsupported type %T", d)
+		return fmt.Errorf("converting UInt64 to %T is unsupported", d)
 	}
 	return nil
 }

@@ -8,11 +8,22 @@ Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/). 
 
 * Uses native ClickHouse TCP client-server protocol
 * Compatibility with [`database/sql`](#std-databasesql-interface) (slower than [native interface](#native-interface)!)
+* Connection pool
 * Failover and load balancing
 * Bulk write support (for `database/sql` use `begin->prepare->(in loop exec)->commit`)
 * Named and numeric placeholders support
 * LZ4 compression support
-* External Tables support
+* External data
+
+Support for the ClickHouse protocol advanced features using `Context`:
+
+* Query ID
+* Quota Key
+* Settings
+* Execution events:
+	* Logs
+	* Progress
+	* Profile events
 
 # `database/sql` interface
 
@@ -27,7 +38,6 @@ Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/). 
     * in_order    - first live server is chosen in specified order
 * debug - enable debug output (boolean value)
 * compress - enable lz4 compression (boolean value)
-* check_connection_liveness - on supported platforms non-secure connections retrieved from the connection pool are checked in beginTx() for liveness before using them. If the check fails, the respective connection is marked as bad and the query retried with another connection. (boolean value, default is 'true')
 
 SSL/TLS parameters:
 

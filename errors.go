@@ -1,9 +1,7 @@
 package clickhouse
 
-import "fmt"
+import (
+	"github.com/ClickHouse/clickhouse-go/lib/proto"
+)
 
-type UnexpectedArguments struct{ got, want int }
-
-func (e *UnexpectedArguments) Error() string {
-	return fmt.Sprintf("clickhouse: expected %d arguments, got %d", e.want, e.got)
-}
+type UnexpectedArguments = proto.UnexpectedArguments
