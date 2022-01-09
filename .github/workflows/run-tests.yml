@@ -21,7 +21,7 @@ jobs:
           - 21.12.3.32
     services:
       clickhouse:
-        image: clickhouse-server:${{ matrix.clickhouse }}
+        image: yandex/clickhouse-server:${{ matrix.clickhouse }}
         ports:
           - 9000:9000
         options: --ulimit nofile=262144:262144
