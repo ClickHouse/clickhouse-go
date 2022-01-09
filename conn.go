@@ -2,10 +2,10 @@ package clickhouse
 
 import (
 	"crypto/tls"
+	"fmt"
 	"log"
 	"net"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/lib/binary"
@@ -13,14 +13,14 @@ import (
 	"github.com/ClickHouse/clickhouse-go/lib/proto"
 )
 
-func dial(addr string, opt *Options) (*connect, error) {
+func dial(addr string, num int, opt *Options) (*connect, error) {
 	var (
 		err    error
 		conn   net.Conn
 		debugf = func(format string, v ...interface{}) {}
 	)
 	if opt.Debug {
-		debugf = log.New(os.Stdout, "[clickhouse]", 0).Printf
+		debugf = log.New(os.Stdout, fmt.Sprintf("[clickhouse][conn=%d]", num), 0).Printf
 	}
 	switch {
 	case opt.TLS != nil:
@@ -60,7 +60,6 @@ type connect struct {
 	err         error
 	opt         *Options
 	conn        net.Conn
-	mutex       sync.Mutex
 	debugf      func(format string, v ...interface{})
 	server      ServerVersion
 	stream      *io.Stream
@@ -73,8 +72,6 @@ type connect struct {
 }
 
 func (c *connect) close() error {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
 	if c.closed {
 		return nil
 	}

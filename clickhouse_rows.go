@@ -1,24 +1,15 @@
-package ch
+package clickhouse
 
 import (
 	"fmt"
 
-	"github.com/ClickHouse/clickhouse-go/lib/driver"
 	"github.com/ClickHouse/clickhouse-go/lib/proto"
 )
-
-func Rows(b *proto.Block, s chan *proto.Block, e chan error) driver.Rows {
-	return &rows{
-		block:   b,
-		stream:  s,
-		errors:  e,
-		columns: b.ColumnsNames(),
-	}
-}
 
 type rows struct {
 	err     error
 	row     int
+	conn    *connect
 	block   *proto.Block
 	errors  chan error
 	stream  chan *proto.Block
@@ -47,9 +38,6 @@ next:
 }
 
 func (r *rows) Scan(dest ...interface{}) error {
-	if err := r.checkErr(); err != nil {
-		return err
-	}
 	columns := r.block.Columns
 	if len(columns) != len(dest) {
 		return fmt.Errorf("sql: expected %d destination arguments in Scan, not %d", len(columns), len(dest))
@@ -66,14 +54,14 @@ func (r *rows) Columns() []string {
 	return r.columns
 }
 
-func (r *rows) checkErr() error {
-	if r.err != nil {
-		return r.err
+func (r *rows) Close() error {
+	for range r.stream {
 	}
-	select {
-	case err := <-r.errors:
-		return err
-	default:
-		return nil
+	for range r.errors {
 	}
+	return nil
+}
+
+func (r *rows) Err() error {
+	return r.err
 }

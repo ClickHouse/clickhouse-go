@@ -2,7 +2,7 @@ package clickhouse
 
 import (
 	"context"
-	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -10,7 +10,13 @@ import (
 	"github.com/ClickHouse/clickhouse-go/lib/proto"
 )
 
+var (
+	splitInsertRe = regexp.MustCompile(`(?i)\sVALUES\s*\(`)
+)
+
+// ch.sendQuery(ctx, splitInsertRe.Split(query, -1)[0]+" VALUES "
 func (c *connect) prepareBatch(ctx context.Context, query string, release func(*connect)) (*batch, error) {
+	query = splitInsertRe.Split(query, -1)[0]
 	if !strings.HasSuffix(strings.TrimSpace(strings.ToUpper(query)), "VALUES") {
 		query += " VALUES"
 	}
@@ -23,7 +29,7 @@ func (c *connect) prepareBatch(ctx context.Context, query string, release func(*
 		release(c)
 		return nil, c.err
 	}
-	block, err := c.nextBlock(&onProcess{})
+	block, err := c.firstBlock(&onProcess{})
 	if err != nil {
 		release(c)
 		return nil, err
@@ -66,11 +72,9 @@ func (b *batch) Column(int) (driver.BatchColumn, error) {
 
 func (b *batch) Send() (err error) {
 	defer b.release(b.conn, err)
-	fmt.Println("SEND DATA")
 	if err = b.conn.sendData(b.block, ""); err != nil {
 		return err
 	}
-	fmt.Println("SEND END")
 	if err = b.conn.sendData(&proto.Block{}, ""); err != nil {
 		return err
 	}

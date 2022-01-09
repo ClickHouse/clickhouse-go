@@ -25,7 +25,7 @@ func (t Type) Column() (Interface,error) {
 	case "DateTime":
 		return &DateTime{}, nil
 	}
-	if strings.HasPrefix(string(t), "Enum8") {
+	if strings.HasPrefix(string(t), "Enum") {
 		return Enum(string(t))
 	}
 	return &UnsupportedColumnType{

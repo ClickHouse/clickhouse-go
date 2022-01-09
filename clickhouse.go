@@ -4,6 +4,9 @@ import (
 	"context"
 	"crypto/tls"
 	"io"
+	"net/url"
+	"strconv"
+	"sync/atomic"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/lib/compress"
@@ -56,7 +59,46 @@ type Options struct {
 	ConnMaxLifetime time.Duration
 }
 
+func (o *Options) fromDSN(in string) error {
+	dsn, err := url.Parse(in)
+	if err != nil {
+		return err
+	}
+	o.Addr = append(o.Addr, dsn.Host)
+	params := dsn.Query()
+	for v := range params {
+		switch v {
+		case "debug":
+			o.Debug, _ = strconv.ParseBool(params.Get(v))
+		case "compress":
+			if on, _ := strconv.ParseBool(params.Get(v)); on {
+				o.Compression = &Compression{
+					Method: CompressionLZ4,
+				}
+			}
+		case "dial_timeout":
+		case "alt_hosts":
+		case "secure":
+		case "skip_verify":
+		case "connection_open_strategy":
+			switch params.Get("v") {
+			case "random":
+			case "in_order":
+			case "time_random":
+			}
+		}
+	}
+	o.setDefaults()
+	return nil
+}
+
 func (o *Options) setDefaults() {
+	if len(o.Auth.Database) == 0 {
+		o.Auth.Database = "default"
+	}
+	if len(o.Auth.Username) == 0 {
+		o.Auth.Username = "default"
+	}
 	if o.DialTimeout == 0 {
 		o.DialTimeout = time.Second
 	}
@@ -82,9 +124,10 @@ func Open(opt *Options) (driver.Conn, error) {
 }
 
 type clickhouse struct {
-	opt  *Options
-	idle chan *connect
-	open chan struct{}
+	opt     *Options
+	idle    chan *connect
+	open    chan struct{}
+	counter int64
 }
 
 func (ch *clickhouse) ServerVersion() (*driver.ServerVersion, error) {
@@ -103,15 +146,6 @@ func (ch *clickhouse) Query(ctx context.Context, query string, args ...interface
 	}
 	defer ch.release(conn)
 	return conn.query(ctx, query, args...)
-}
-
-func (ch *clickhouse) QueryBlock(ctx context.Context, query string, cb func(driver.Block), args ...interface{}) error {
-	conn, err := ch.acquire()
-	if err != nil {
-		return err
-	}
-	defer ch.release(conn)
-	return conn.queryBlock(ctx, query, cb, args...)
 }
 
 func (ch *clickhouse) Exec(ctx context.Context, query string, args ...interface{}) error {
@@ -164,8 +198,9 @@ func (ch *clickhouse) acquire() (conn *connect, err error) {
 		return conn, nil
 	default:
 	}
+	num := int(atomic.AddInt64(&ch.counter, 1))
 	for _, addr := range ch.opt.Addr {
-		if conn, err = dial(addr, ch.opt); err == nil {
+		if conn, err = dial(addr, num, ch.opt); err == nil {
 			return
 		}
 	}

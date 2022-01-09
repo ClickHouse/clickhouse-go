@@ -1,6 +1,7 @@
 package clickhouse
 
 import (
+	std_driver "database/sql/driver"
 	"fmt"
 	"reflect"
 	"regexp"
@@ -104,4 +105,21 @@ func format(v interface{}) string {
 		return strings.Join(values, ", ")
 	}
 	return fmt.Sprint(v)
+}
+
+func rebind(in []std_driver.NamedValue) []interface{} {
+	args := make([]interface{}, 0, len(in))
+	for _, v := range in {
+		switch {
+		case len(v.Name) != 0:
+			args = append(args, driver.NamedValue{
+				Name:  v.Name,
+				Value: v.Value,
+			})
+
+		default:
+			args = append(args, v.Value)
+		}
+	}
+	return args
 }

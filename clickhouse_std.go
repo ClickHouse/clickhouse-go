@@ -8,49 +8,42 @@ import (
 	"io"
 	"regexp"
 	"strings"
-	"time"
+	"sync/atomic"
 )
 
 func init() {
-	driver := STDDriver{}
+	driver := stdDriver{}
 	sql.Register("clickhouse", &driver)
 }
 
-type STDDriver struct {
-	counter uint64
+type stdDriver struct {
 	conn    *connect
 	commit  func() error
+	counter int64
 }
 
-func (d *STDDriver) Open(dsn string) (driver.Conn, error) {
-	conn, err := dial("127.0.0.1:9000", &Options{
-		Auth: Auth{
-			Database: "default",
-			Username: "default",
-		},
-		DialTimeout: time.Second,
-		Compression: &Compression{
-			Method: CompressionLZ4,
-		},
-		Debug: true,
-	})
+func (d *stdDriver) Open(dsn string) (driver.Conn, error) {
+	var (
+		opt Options
+		num = int(atomic.AddInt64(&d.counter, 1))
+	)
+	if err := opt.fromDSN(dsn); err != nil {
+		return nil, err
+	}
+	conn, err := dial(opt.Addr[0], num, &opt)
 	if err != nil {
 		return nil, err
 	}
-	return &STDDriver{
+	return &stdDriver{
 		conn: conn,
 	}, nil
 }
 
-func (d *STDDriver) Begin() (driver.Tx, error) {
-	return d, nil
-}
+func (std *stdDriver) Ping(ctx context.Context) error { return std.conn.ping(ctx) }
 
-func (std *STDDriver) Ping(ctx context.Context) error {
-	return std.conn.ping(ctx)
-}
+func (std *stdDriver) Begin() (driver.Tx, error) { return std, nil }
 
-func (std *STDDriver) Commit() error {
+func (std *stdDriver) Commit() error {
 	if std.commit == nil {
 		return nil
 	}
@@ -60,24 +53,21 @@ func (std *STDDriver) Commit() error {
 	return std.commit()
 }
 
-func (std *STDDriver) Rollback() error {
+func (std *stdDriver) Rollback() error {
 	std.commit = nil
+	std.conn.close()
 	return nil
 }
 
-func (std *STDDriver) CheckNamedValue(nv *driver.NamedValue) error {
-	return nil
-}
+func (std *stdDriver) CheckNamedValue(nv *driver.NamedValue) error { return nil }
 
-func (std *STDDriver) Close() error {
-	return std.conn.close()
-}
+func (std *stdDriver) Close() error { return std.conn.close() }
 
-func (std *STDDriver) Prepare(query string) (driver.Stmt, error) {
+func (std *stdDriver) Prepare(query string) (driver.Stmt, error) {
 	return std.PrepareContext(context.Background(), query)
 }
 
-func (std *STDDriver) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
+func (std *stdDriver) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
 	if isInsert(query) {
 		return std.insert(ctx, query)
 	}
@@ -87,7 +77,7 @@ func (std *STDDriver) PrepareContext(ctx context.Context, query string) (driver.
 	}, nil
 }
 
-func (std *STDDriver) insert(ctx context.Context, query string) (driver.Stmt, error) {
+func (std *stdDriver) insert(ctx context.Context, query string) (driver.Stmt, error) {
 	batch, err := std.conn.prepareBatch(ctx, query, func(c *connect) {})
 	if err != nil {
 		return nil, err
@@ -118,9 +108,7 @@ func (s *stdBatch) Query(args []driver.Value) (driver.Rows, error) {
 	return nil, errors.New("only Exec method supported in batch mode")
 }
 
-func (s *stdBatch) Close() error {
-	return nil
-}
+func (s *stdBatch) Close() error { return nil }
 
 type stmt struct {
 	conn  *connect
@@ -130,36 +118,22 @@ type stmt struct {
 func (s *stmt) NumInput() int { return -1 }
 
 func (s *stmt) Exec(args []driver.Value) (driver.Result, error) {
-	var params []driver.NamedValue
-	for i, v := range args {
-		params = append(params, driver.NamedValue{
-			Ordinal: i,
-			Value:   v,
-		})
-	}
-	return s.ExecContext(context.Background(), params)
+	return s.ExecContext(context.Background(), driverValueToNamedValue(args))
 }
 
 func (s *stmt) ExecContext(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
-	if err := s.conn.exec(ctx, s.query); err != nil {
+	if err := s.conn.exec(ctx, s.query, rebind(args)...); err != nil {
 		return nil, err
 	}
 	return driver.RowsAffected(0), nil
 }
 
 func (s *stmt) Query(args []driver.Value) (driver.Rows, error) {
-	var params []driver.NamedValue
-	for i, v := range args {
-		params = append(params, driver.NamedValue{
-			Ordinal: i,
-			Value:   v,
-		})
-	}
-	return s.QueryContext(context.Background(), params)
+	return s.QueryContext(context.Background(), driverValueToNamedValue(args))
 }
 
 func (s *stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driver.Rows, error) {
-	r, err := s.conn.query(ctx, s.query)
+	r, err := s.conn.query(ctx, s.query, rebind(args)...)
 	if err != nil {
 		return nil, err
 	}
@@ -192,7 +166,7 @@ func (r *stdRows) Next(dest []driver.Value) error {
 }
 
 func (r *stdRows) Close() error {
-	return nil
+	return r.rows.Close()
 }
 
 var selectRe = regexp.MustCompile(`\s+SELECT\s+`)
@@ -204,4 +178,15 @@ func isInsert(query string) bool {
 			!selectRe.MatchString(strings.ToUpper(query))
 	}
 	return false
+}
+
+func driverValueToNamedValue(args []driver.Value) []driver.NamedValue {
+	named := make([]driver.NamedValue, 0, len(args))
+	for i, v := range args {
+		named = append(named, driver.NamedValue{
+			Ordinal: i + 1,
+			Value:   v,
+		})
+	}
+	return named
 }

@@ -30,7 +30,6 @@ type (
 		// Get(tx context.Context, dst interface{}, query string, args ...interface{}) error
 		// Select(tx context.Context, dst interface{}, query string, args ...interface{}) error
 		Query(ctx context.Context, query string, args ...interface{}) (Rows, error)
-		QueryBlock(ctx context.Context, query string, cb func(Block), args ...interface{}) error
 		PrepareBatch(ctx context.Context, query string) (Batch, error)
 		Exec(ctx context.Context, query string, args ...interface{}) error
 		Ping(context.Context) error
@@ -41,6 +40,8 @@ type (
 		Next() bool
 		Scan(dest ...interface{}) error
 		Columns() []string
+		Close() error
+		Err() error
 		// Totals(dest ...interface{}) error
 		// Extremes(dest ...interface{}) error
 	}

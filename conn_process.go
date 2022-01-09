@@ -12,7 +12,7 @@ type onProcess struct {
 	progress func(*Progress)
 }
 
-func (c *connect) nextBlock(on *onProcess) (*proto.Block, error) {
+func (c *connect) firstBlock(on *onProcess) (*proto.Block, error) {
 	for {
 		packet, err := c.decoder.ReadByte()
 		if err != nil {
