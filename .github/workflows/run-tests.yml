@@ -19,12 +19,14 @@ jobs:
         clickhouse:
           - 21.8.11.4
           - 21.12.3.32
+
     services:
       clickhouse:
         image: yandex/clickhouse-server:${{ matrix.clickhouse }}
         ports:
           - 9000:9000
         options: --ulimit nofile=262144:262144
+
     steps:
       - uses: actions/checkout@v2
 
@@ -33,11 +35,5 @@ jobs:
         with:
           go-version: ${{ matrix.go }}
 
-      - name: Get Go environment
-        id: go-env
-        run: |
-          echo "::set-output name=cache::$(go env GOCACHE)"
-          echo "::set-output name=modcache::$(go env GOMODCACHE)"
-
       - name: Run tests
-        run: go test -v ./...
+        run: go test -v .

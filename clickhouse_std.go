@@ -17,26 +17,31 @@ func init() {
 }
 
 type stdDriver struct {
-	conn    *connect
-	commit  func() error
-	counter int64
+	conn   *connect
+	commit func() error
+	connID int64
 }
 
-func (d *stdDriver) Open(dsn string) (driver.Conn, error) {
+func (d *stdDriver) Open(dsn string) (_ driver.Conn, err error) {
 	var (
-		opt Options
-		num = int(atomic.AddInt64(&d.counter, 1))
+		opt    Options
+		conn   *connect
+		connID = int(atomic.AddInt64(&d.connID, 1))
 	)
-	if err := opt.fromDSN(dsn); err != nil {
+	if err = opt.fromDSN(dsn); err != nil {
 		return nil, err
 	}
-	conn, err := dial(opt.Addr[0], num, &opt)
-	if err != nil {
-		return nil, err
+	for num := range opt.Addr {
+		if opt.ConnOpenStrategy == ConnOpenRoundRobin {
+			num = int(connID) % len(opt.Addr)
+		}
+		if conn, err = dial(opt.Addr[num], connID, &opt); err == nil {
+			return &stdDriver{
+				conn: conn,
+			}, nil
+		}
 	}
-	return &stdDriver{
-		conn: conn,
-	}, nil
+	return nil, err
 }
 
 func (std *stdDriver) Ping(ctx context.Context) error { return std.conn.ping(ctx) }

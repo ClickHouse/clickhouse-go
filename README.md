@@ -1,61 +1,43 @@
-# ClickHouse [![Build Status](https://travis-ci.org/ClickHouse/clickhouse-go.svg?branch=master)](https://travis-ci.org/ClickHouse/clickhouse-go) [![Go Report Card](https://goreportcard.com/badge/github.com/ClickHouse/clickhouse-go)](https://goreportcard.com/report/github.com/ClickHouse/clickhouse-go) [![codecov](https://codecov.io/gh/ClickHouse/clickhouse-go/branch/master/graph/badge.svg)](https://codecov.io/gh/ClickHouse/clickhouse-go)
+# ClickHouse
+[![run-tests](https://github.com/ClickHouse/clickhouse-go/actions/workflows/run-tests.yml/badge.svg?branch=v2)](https://github.com/ClickHouse/clickhouse-go/actions/workflows/run-tests.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/ClickHouse/clickhouse-go)](https://goreportcard.com/report/github.com/ClickHouse/clickhouse-go)
 
-Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/). Supported by [Kinescope](https://kinescope.io)
+Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/). Supported by [Kinescope](https://kinescope.io).
 
 ## Key features
 
 * Uses native ClickHouse TCP client-server protocol
-* Compatibility with `database/sql`
-* Round Robin load-balancing
-* Bulk write support :  `begin->prepare->(in loop exec)->commit`
-* LZ4 compression support (default is pure go lz4 or switch to use cgo lz4 by turning clz4 build tags on)
+* Compatibility with `database/sql` (slower than native interface!)
+* Load-balancing
+* Bulk write support (for `database/sql` use `begin->prepare->(in loop exec)->commit`)
+* LZ4 compression support
 * External Tables support
+
+# `database/sql` interface
 
 ## DSN
 
+* hosts  - comma-separated list of single address hosts for load-balancing
 * username/password - auth credentials
 * database - select the current default database
-* read_timeout/write_timeout - timeout in second
-* no_delay   - disable/enable the Nagle Algorithm for tcp socket (default is 'true' - disable)
-* alt_hosts  - comma-separated list of single address hosts for load-balancing
+* dial_timeout -  A duration string is a possibly signed sequence of decimal numbers, each with optional fraction and a unit suffix such as "300ms", "1s". Valid time units are "ms", "s", "m".
 * connection_open_strategy - random/in_order (default random).
-    * random      - choose a random server from the set
+    * round-robin      - choose a round-robin server from the set
     * in_order    - first live server is chosen in specified order
-    * time_random - choose random (based on the current time) server from the set. This option differs from `random` because randomness is based on the current time rather than on the number of previous connections.
-* block_size - maximum rows in block (default is 1000000). If the rows are larger, the data will be split into several blocks to send to the server. If one block was sent to the server, the data would be persisted on the server disk, and we can't roll back the transaction. So always keep in mind that the batch size is no larger than the block_size if you want an atomic batch insert.
-* pool_size - the maximum amount of preallocated byte chunks used in queries (default is 100). Decrease this if you experience memory problems at the expense of more GC pressure and vice versa.
 * debug - enable debug output (boolean value)
-* compress - enable lz4 compression (integer value, default is '0')
+* compress - enable lz4 compression (boolean value)
 * check_connection_liveness - on supported platforms non-secure connections retrieved from the connection pool are checked in beginTx() for liveness before using them. If the check fails, the respective connection is marked as bad and the query retried with another connection. (boolean value, default is 'true')
 
 SSL/TLS parameters:
 
 * secure - establish secure connection (default is false)
 * skip_verify - skip certificate verification (default is false)
-* tls_config - name of a TLS config with client certificates, registered using `clickhouse.RegisterTLSConfig()`; implies secure to be true, unless explicitly specified
 
 Example:
 
 ```sh
-tcp://host1:9000?username=user&password=qwerty&database=clicks&read_timeout=10&write_timeout=20&alt_hosts=host2:9000,host3:9000
+clickhouse://username:password@host1:9000,host2:9000?&database=kinescope&dial_timeout=200ms
 ```
-
-## Supported data types
-
-* UInt8, UInt16, UInt32, UInt64, Int8, Int16, Int32, Int64
-* Float32, Float64
-* String
-* FixedString(N)
-* Date
-* DateTime
-* IPv4
-* IPv6
-* Enum
-* UUID
-* Nullable(T)
-* [Array(T)](https://clickhouse.yandex/reference_en.html#Array(T)) [godoc](https://godoc.org/github.com/ClickHouse/clickhouse-go#Array)
-* Array(Nullable(T))
-* Tuple(...T)
 
 ## TODO
 
@@ -80,6 +62,10 @@ import (
 
 	"github.com/ClickHouse/clickhouse-go"
 )
+
+func example() error {
+	conn,err:=
+}
 
 func main() {
 	connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true")

@@ -2,14 +2,10 @@ package clickhouse
 
 import (
 	"context"
-	"crypto/tls"
 	"io"
-	"net/url"
-	"strconv"
 	"sync/atomic"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/lib/compress"
 	"github.com/ClickHouse/clickhouse-go/lib/driver"
 	"github.com/ClickHouse/clickhouse-go/lib/proto"
 )
@@ -32,87 +28,6 @@ type (
 	ServerVersion = proto.ServerHandshake
 )
 
-var (
-	CompressionLZ4 compress.Method = compress.LZ4
-)
-
-type Auth struct { // has_control_character
-	Database string
-	Username string
-	Password string
-}
-
-type Compression struct {
-	Method compress.Method
-}
-
-type Options struct {
-	Addr            []string
-	Auth            Auth
-	TLS             *tls.Config
-	Debug           bool
-	Settings        Settings
-	DialTimeout     time.Duration
-	Compression     *Compression
-	MaxOpenConns    int
-	MaxIdleConns    int
-	ConnMaxLifetime time.Duration
-}
-
-func (o *Options) fromDSN(in string) error {
-	dsn, err := url.Parse(in)
-	if err != nil {
-		return err
-	}
-	o.Addr = append(o.Addr, dsn.Host)
-	params := dsn.Query()
-	for v := range params {
-		switch v {
-		case "debug":
-			o.Debug, _ = strconv.ParseBool(params.Get(v))
-		case "compress":
-			if on, _ := strconv.ParseBool(params.Get(v)); on {
-				o.Compression = &Compression{
-					Method: CompressionLZ4,
-				}
-			}
-		case "dial_timeout":
-		case "alt_hosts":
-		case "secure":
-		case "skip_verify":
-		case "connection_open_strategy":
-			switch params.Get("v") {
-			case "random":
-			case "in_order":
-			case "time_random":
-			}
-		}
-	}
-	o.setDefaults()
-	return nil
-}
-
-func (o *Options) setDefaults() {
-	if len(o.Auth.Database) == 0 {
-		o.Auth.Database = "default"
-	}
-	if len(o.Auth.Username) == 0 {
-		o.Auth.Username = "default"
-	}
-	if o.DialTimeout == 0 {
-		o.DialTimeout = time.Second
-	}
-	if o.MaxIdleConns <= 0 {
-		o.MaxIdleConns = 5
-	}
-	if o.MaxOpenConns <= 0 {
-		o.MaxOpenConns = o.MaxIdleConns + 5
-	}
-	if o.ConnMaxLifetime == 0 {
-		o.ConnMaxLifetime = time.Hour
-	}
-}
-
 func Open(opt *Options) (driver.Conn, error) {
 	opt.setDefaults()
 
@@ -124,14 +39,18 @@ func Open(opt *Options) (driver.Conn, error) {
 }
 
 type clickhouse struct {
-	opt     *Options
-	idle    chan *connect
-	open    chan struct{}
-	counter int64
+	opt    *Options
+	idle   chan *connect
+	open   chan struct{}
+	connID int64
 }
 
 func (ch *clickhouse) ServerVersion() (*driver.ServerVersion, error) {
-	conn, err := ch.acquire()
+	var (
+		ctx, cancel = context.WithTimeout(context.Background(), ch.opt.DialTimeout)
+		conn, err   = ch.acquire(ctx)
+	)
+	defer cancel()
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +59,7 @@ func (ch *clickhouse) ServerVersion() (*driver.ServerVersion, error) {
 }
 
 func (ch *clickhouse) Query(ctx context.Context, query string, args ...interface{}) (rows driver.Rows, err error) {
-	conn, err := ch.acquire()
+	conn, err := ch.acquire(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +68,7 @@ func (ch *clickhouse) Query(ctx context.Context, query string, args ...interface
 }
 
 func (ch *clickhouse) Exec(ctx context.Context, query string, args ...interface{}) error {
-	conn, err := ch.acquire()
+	conn, err := ch.acquire(ctx)
 	if err != nil {
 		return err
 	}
@@ -158,7 +77,7 @@ func (ch *clickhouse) Exec(ctx context.Context, query string, args ...interface{
 }
 
 func (ch *clickhouse) PrepareBatch(ctx context.Context, query string) (driver.Batch, error) {
-	conn, err := ch.acquire()
+	conn, err := ch.acquire(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -166,12 +85,12 @@ func (ch *clickhouse) PrepareBatch(ctx context.Context, query string) (driver.Ba
 }
 
 func (ch *clickhouse) Ping(ctx context.Context) error {
-	conn, err := ch.acquire()
+	conn, err := ch.acquire(ctx)
 	if err != nil {
 		return err
 	}
 	defer ch.release(conn)
-	return conn.ping(ctx)
+	return nil
 }
 
 func (ch *clickhouse) Stats() driver.Stats {
@@ -183,9 +102,27 @@ func (ch *clickhouse) Stats() driver.Stats {
 	}
 }
 
-func (ch *clickhouse) acquire() (conn *connect, err error) {
+func (ch *clickhouse) dial() (conn *connect, err error) {
+	connID := int(atomic.AddInt64(&ch.connID, 1))
+	for num := range ch.opt.Addr {
+		if ch.opt.ConnOpenStrategy == ConnOpenRoundRobin {
+			num = int(connID) % len(ch.opt.Addr)
+		}
+		if conn, err = dial(ch.opt.Addr[num], connID, ch.opt); err == nil {
+			return conn, nil
+		}
+	}
+	return nil, err
+}
+
+func (ch *clickhouse) acquire(ctx context.Context) (conn *connect, err error) {
 	timer := time.NewTimer(time.Second)
 	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
 	select {
 	case <-timer.C:
 		return nil, io.EOF
@@ -195,16 +132,14 @@ func (ch *clickhouse) acquire() (conn *connect, err error) {
 	case <-timer.C:
 		return nil, io.EOF
 	case conn := <-ch.idle:
+		if err := conn.ping(ctx); err != nil {
+			conn.close()
+			return ch.dial()
+		}
 		return conn, nil
 	default:
 	}
-	num := int(atomic.AddInt64(&ch.counter, 1))
-	for _, addr := range ch.opt.Addr {
-		if conn, err = dial(addr, num, ch.opt); err == nil {
-			return
-		}
-	}
-	return
+	return ch.dial()
 }
 
 func (ch *clickhouse) release(conn *connect) {
