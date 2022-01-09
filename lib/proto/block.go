@@ -1,6 +1,7 @@
 package proto
 
 import (
+	"database/sql/driver"
 	"fmt"
 
 	"github.com/ClickHouse/clickhouse-go/lib/binary"
@@ -30,7 +31,7 @@ func (b *Block) AddColumn(name string, ct column.Type) error {
 	return nil
 }
 
-func (b *Block) Append(v ...interface{}) error {
+func (b *Block) Append(v ...interface{}) (err error) {
 	columns := b.Columns
 	if len(columns) != len(v) {
 		return &UnexpectedArguments{
@@ -39,7 +40,13 @@ func (b *Block) Append(v ...interface{}) error {
 		}
 	}
 	for i, v := range v {
-		if err := b.Columns[i].AppendRow(v); err != nil {
+		value := v
+		if fn, ok := v.(driver.Valuer); ok {
+			if value, err = fn.Value(); err != nil {
+				return err
+			}
+		}
+		if err := b.Columns[i].AppendRow(value); err != nil {
 			return err
 		}
 	}

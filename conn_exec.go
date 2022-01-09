@@ -20,5 +20,5 @@ func (c *connect) exec(ctx context.Context, query string, args ...interface{}) e
 	if c.err = c.sendQuery(body, &options); c.err != nil {
 		return c.err
 	}
-	return c.process(&onProcess{})
+	return c.process(options.onProcess())
 }

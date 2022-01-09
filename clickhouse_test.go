@@ -112,9 +112,8 @@ func TestExec(t *testing.T) {
 	}
 }
 func TestContext(t *testing.T) {
-	progress := make(chan clickhouse.Progress)
 	clickhouse.Context(context.Background(),
-		clickhouse.WithProgress(progress),
+		clickhouse.WithProgress(func(p *clickhouse.Progress) {}),
 		clickhouse.WithSettings(clickhouse.Settings{
 			"max_execution_time": 256,
 		}),

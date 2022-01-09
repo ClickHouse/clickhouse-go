@@ -2,7 +2,6 @@ package clickhouse
 
 import (
 	"context"
-	"database/sql"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/lib/proto"
@@ -11,6 +10,7 @@ import (
 func (c *connect) query(ctx context.Context, query string, args ...interface{}) (*rows, error) {
 	var (
 		options   = queryOptions(ctx)
+		onProcess = options.onProcess()
 		body, err = bind(query, args...)
 	)
 
@@ -27,7 +27,7 @@ func (c *connect) query(ctx context.Context, query string, args ...interface{}) 
 		return nil, c.err
 	}
 
-	init, err := c.firstBlock(&onProcess{})
+	init, err := c.firstBlock(onProcess)
 
 	if err != nil {
 		return nil, err
@@ -39,11 +39,10 @@ func (c *connect) query(ctx context.Context, query string, args ...interface{}) 
 	)
 
 	go func() {
-		c.err = c.process(&onProcess{
-			data: func(b *proto.Block) {
-				stream <- b
-			},
-		})
+		onProcess.data = func(b *proto.Block) {
+			stream <- b
+		}
+		c.err = c.process(onProcess)
 		if c.err != nil {
 			errors <- c.err
 		}
@@ -70,31 +69,4 @@ func (c *connect) queryRow(ctx context.Context, query string, args ...interface{
 	return &row{
 		rows: rows,
 	}
-}
-
-type row struct {
-	err  error
-	rows *rows
-}
-
-func (r *row) Err() error {
-	return r.err
-}
-
-func (r *row) Scan(dest ...interface{}) error {
-	if r.err != nil {
-		return r.err
-	}
-	defer r.rows.Close()
-	if !r.rows.Next() {
-		if err := r.rows.Err(); err != nil {
-			return err
-		}
-		return sql.ErrNoRows
-	}
-	err := r.rows.Scan(dest...)
-	if err != nil {
-		return err
-	}
-	return r.rows.Close()
 }

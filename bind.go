@@ -44,12 +44,17 @@ func bind(query string, args ...interface{}) (string, error) {
 
 var bindNumericRe = regexp.MustCompile(`\$[0-9]+`)
 
-func bindNumeric(query string, args ...interface{}) (string, error) {
+func bindNumeric(query string, args ...interface{}) (_ string, err error) {
 	var (
 		unbind = make(map[string]struct{})
 		params = make(map[string]string)
 	)
 	for i, v := range args {
+		if fn, ok := v.(std_driver.Valuer); ok {
+			if v, err = fn.Value(); err != nil {
+				return "", nil
+			}
+		}
 		params[fmt.Sprintf("$%d", i+1)] = format(v)
 	}
 	query = bindNumericRe.ReplaceAllStringFunc(query, func(n string) string {
@@ -67,7 +72,7 @@ func bindNumeric(query string, args ...interface{}) (string, error) {
 
 var bindNamedRe = regexp.MustCompile(`@[a-zA-Z0-9\_]+`)
 
-func bindNamed(query string, args ...interface{}) (string, error) {
+func bindNamed(query string, args ...interface{}) (_ string, err error) {
 	var (
 		unbind = make(map[string]struct{})
 		params = make(map[string]string)
@@ -75,7 +80,13 @@ func bindNamed(query string, args ...interface{}) (string, error) {
 	for _, v := range args {
 		switch v := v.(type) {
 		case driver.NamedValue:
-			params["@"+v.Name] = format(v.Value)
+			value := v.Value
+			if fn, ok := v.Value.(std_driver.Valuer); ok {
+				if value, err = fn.Value(); err != nil {
+					return "", err
+				}
+			}
+			params["@"+v.Name] = format(value)
 		}
 	}
 	query = bindNamedRe.ReplaceAllStringFunc(query, func(n string) string {

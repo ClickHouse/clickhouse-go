@@ -1,6 +1,7 @@
 package clickhouse
 
 import (
+	"database/sql"
 	"fmt"
 
 	"github.com/ClickHouse/clickhouse-go/lib/proto"
@@ -43,8 +44,15 @@ func (r *rows) Scan(dest ...interface{}) error {
 		return fmt.Errorf("sql: expected %d destination arguments in Scan, not %d", len(columns), len(dest))
 	}
 	for i, d := range dest {
-		if err := columns[i].ScanRow(d, r.row-1); err != nil {
-			return err
+		switch d := d.(type) {
+		case sql.Scanner:
+			if err := d.Scan(columns[i].RowValue(r.row - 1)); err != nil {
+				return err
+			}
+		default:
+			if err := columns[i].ScanRow(d, r.row-1); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -64,4 +72,31 @@ func (r *rows) Close() error {
 
 func (r *rows) Err() error {
 	return r.err
+}
+
+type row struct {
+	err  error
+	rows *rows
+}
+
+func (r *row) Err() error {
+	return r.err
+}
+
+func (r *row) Scan(dest ...interface{}) error {
+	if r.err != nil {
+		return r.err
+	}
+	defer r.rows.Close()
+	if !r.rows.Next() {
+		if err := r.rows.Err(); err != nil {
+			return err
+		}
+		return sql.ErrNoRows
+	}
+	err := r.rows.Scan(dest...)
+	if err != nil {
+		return err
+	}
+	return r.rows.Close()
 }

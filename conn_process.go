@@ -8,8 +8,10 @@ import (
 )
 
 type onProcess struct {
-	data     func(*proto.Block)
-	progress func(*Progress)
+	data          func(*proto.Block)
+	logs          func([]Log)
+	progress      func(*Progress)
+	profileEvents func([]ProfileEvent)
 }
 
 func (c *connect) firstBlock(on *onProcess) (*proto.Block, error) {
@@ -74,22 +76,24 @@ func (c *connect) handle(packet byte, on *onProcess) error {
 		}
 		c.debugf("[table columns]")
 	case proto.ServerProfileEvents:
-		if err := c.profileEvents(); err != nil {
+		events, err := c.profileEvents()
+		if err != nil {
 			return err
 		}
+		on.profileEvents(events)
 	case proto.ServerLog:
-		if err := c.logs(); err != nil {
+		logs, err := c.logs()
+		if err != nil {
 			return err
 		}
+		on.logs(logs)
 	case proto.ServerProgress:
 		progress, err := c.progress()
 		if err != nil {
 			return err
 		}
 		c.debugf("[progress] %s", progress)
-		if on.progress != nil {
-			on.progress(progress)
-		}
+		on.progress(progress)
 	default:
 		return fmt.Errorf("unexpected packet %d", packet)
 	}

@@ -19,9 +19,9 @@ type (
 		queryID  string
 		quotaKey string
 		events   struct {
-			logs          chan Log
-			progress      chan Progress
-			profileEvents chan ProfileEvent
+			logs          func(*Log)
+			progress      func(*Progress)
+			profileEvents func([]ProfileEvent)
 		}
 		settings Settings
 		external []*external.Table
@@ -49,23 +49,23 @@ func WithSettings(settings Settings) QueryOption {
 	}
 }
 
-func WithProgress(progress chan Progress) QueryOption {
+func WithLogs(fn func(*Log)) QueryOption {
 	return func(o *QueryOptions) error {
-		o.events.progress = progress
+		o.events.logs = fn
 		return nil
 	}
 }
 
-func WithLogs(logs chan Log) QueryOption {
+func WithProgress(fn func(*Progress)) QueryOption {
 	return func(o *QueryOptions) error {
-		o.events.logs = logs
+		o.events.progress = fn
 		return nil
 	}
 }
 
-func WithProfileEvents(events chan ProfileEvent) QueryOption {
+func WithProfileEvents(fn func([]ProfileEvent)) QueryOption {
 	return func(o *QueryOptions) error {
-		o.events.profileEvents = events
+		o.events.profileEvents = fn
 		return nil
 	}
 }
@@ -90,4 +90,26 @@ func queryOptions(ctx context.Context) QueryOptions {
 		return o
 	}
 	return QueryOptions{}
+}
+
+func (q *QueryOptions) onProcess() *onProcess {
+	return &onProcess{
+		logs: func(logs []Log) {
+			if q.events.logs != nil {
+				for _, l := range logs {
+					q.events.logs(&l)
+				}
+			}
+		},
+		progress: func(p *Progress) {
+			if q.events.progress != nil {
+				q.events.progress(p)
+			}
+		},
+		profileEvents: func(events []ProfileEvent) {
+			if q.events.profileEvents != nil {
+				q.events.profileEvents(events)
+			}
+		},
+	}
 }
