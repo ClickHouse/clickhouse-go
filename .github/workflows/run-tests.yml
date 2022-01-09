@@ -22,29 +22,20 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: Set up ClickHouse cache
-        uses: actions/cache@v2.1.7
-        with:
-          path: /opt/ch/clickhouse
-          key: ClickHouse-${{ matrix.clickhouse }}
+      - name: Add ClickHouse repo
+        run: |
+          sudo apt-get install apt-transport-https ca-certificates dirmngr
+          sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv E0C56BD4
 
-      - name: Check ClickHouse
-        id: "ch_exists"
-        uses: andstor/file-existence-action@v1
-        with:
-          files: /opt/ch/clickhouse
+          echo "deb https://repo.clickhouse.com/deb/stable/ main/" | sudo tee \
+              /etc/apt/sources.list.d/clickhouse.list
+          sudo apt-get update
 
-      - name: Get ClickHouse asset version
-        id: asset
-        run: echo "::set-output name=version::$(echo '${{ matrix.clickhouse }}' | cut -f1 -d'-')"
+      - name: Install ClickHouse ${{ matrix.clickhouse }}
+        run: sudo apt-get install -y clickhouse-server=${{ matrix.clickhouse }}
 
-      - name: Download ClickHouse
-        if: steps.ch_exists.outputs.files_exists != 'true'
-        run: wget -O /tmp/static.tgz "https://github.com/ClickHouse/ClickHouse/releases/download/v${{ matrix.clickhouse }}/clickhouse-common-static-${{ steps.asset.outputs.version }}.tgz"
-
-      - name: Install ClickHouse
-        if: steps.ch_exists.outputs.files_exists != 'true'
-        run: mkdir /opt/ch && tar -C /opt/ch -v --strip-components 4 --extract --file /tmp/static.tgz --wildcards "*/bin/clickhouse" && rm /tmp/static.tgz
+      - name: Run ClickHouse
+        run: sudo service clickhouse-server start
 
       - name: Install Go ${{ matrix.go }}
         uses: actions/setup-go@v2.1.5
