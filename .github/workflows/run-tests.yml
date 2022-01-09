@@ -17,8 +17,8 @@ jobs:
           - 1.16
           - 1.17
         clickhouse:
-          - 21.8.11.4-lts
-          - 21.12.3.32-stable
+          - 21.8.11.4
+          - 21.12.3.32
     steps:
       - uses: actions/checkout@v2
 
