@@ -49,6 +49,7 @@ func (c *connect) prepareBatch(ctx context.Context, query string, release func(*
 type batch struct {
 	err       error
 	conn      *connect
+	sent      bool
 	block     *proto.Block
 	release   func(*connect, error)
 	onProcess *onProcess
@@ -77,6 +78,12 @@ func (b *batch) Column(idx int) driver.BatchColumn {
 }
 
 func (b *batch) Send() (err error) {
+	defer func() {
+		b.sent = true
+	}()
+	if b.sent {
+		return &BatchAlreadySent{}
+	}
 	if b.err != nil {
 		return b.err
 	}

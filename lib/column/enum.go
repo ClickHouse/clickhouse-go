@@ -8,10 +8,19 @@ import (
 	"github.com/ClickHouse/clickhouse-go/lib/binary"
 )
 
+type UnknownElementForEnum struct {
+	element string
+}
+
+func (e *UnknownElementForEnum) Error() string {
+	return fmt.Sprintf("clickhouse: Unknown element %q for enum", e.element)
+}
+
 type Enum8 struct {
-	iv     map[string]uint8
-	vi     map[uint8]string
-	values []string
+	iv         map[string]uint8
+	vi         map[uint8]string
+	values     UInt8
+	defaultVal uint8
 }
 
 func (e *Enum8) Rows() int {
@@ -19,27 +28,20 @@ func (e *Enum8) Rows() int {
 }
 
 func (e *Enum8) Decode(decoder *binary.Decoder, rows int) error {
-	for i := 0; i < int(rows); i++ {
-		v, err := decoder.UInt8()
-		if err != nil {
-			return err
-		}
-		e.values = append(e.values, e.vi[v])
-	}
-	return nil
+	return e.values.Decode(decoder, rows)
 }
 
 func (e *Enum8) RowValue(row int) interface{} {
-	return e.values[row]
+	return e.vi[e.values[row]]
 }
 
 func (e *Enum8) ScanRow(dest interface{}, row int) error {
 	switch d := dest.(type) {
 	case *string:
-		*d = e.values[row]
+		*d = e.vi[e.values[row]]
 	case **string:
 		*d = new(string)
-		**d = e.values[row]
+		**d = e.vi[e.values[row]]
 	default:
 		return &ColumnConverterErr{
 			op:   "ScanRow",
@@ -53,9 +55,15 @@ func (e *Enum8) ScanRow(dest interface{}, row int) error {
 func (e *Enum8) Append(v interface{}) error {
 	switch v := v.(type) {
 	case []string:
-		e.values = append(e.values, v...)
-	case []null:
-		e.values = append(e.values, make([]string, len(v))...)
+		for _, elem := range v {
+			v, ok := e.iv[elem]
+			if !ok {
+				return &UnknownElementForEnum{
+					element: elem,
+				}
+			}
+			e.values = append(e.values, v)
+		}
 	default:
 		return &ColumnConverterErr{
 			op:   "Append",
@@ -66,35 +74,38 @@ func (e *Enum8) Append(v interface{}) error {
 	return nil
 }
 
-func (e *Enum8) AppendRow(v interface{}) error {
-	switch v := v.(type) {
+func (e *Enum8) AppendRow(elem interface{}) error {
+	switch elem := elem.(type) {
 	case string:
+		v, ok := e.iv[elem]
+		if !ok {
+			return &UnknownElementForEnum{
+				element: elem,
+			}
+		}
+
 		e.values = append(e.values, v)
 	case null:
-		e.values = append(e.values, "")
+		e.values = append(e.values, e.defaultVal)
 	default:
 		return &ColumnConverterErr{
 			op:   "AppendRow",
 			to:   "Enum8",
-			from: fmt.Sprintf("%T", v),
+			from: fmt.Sprintf("%T", elem),
 		}
 	}
 	return nil
 }
 
 func (e *Enum8) Encode(encoder *binary.Encoder) error {
-	for _, v := range e.values {
-		if err := encoder.UInt8(e.iv[v]); err != nil {
-			return err
-		}
-	}
-	return nil
+	return e.values.Encode(encoder)
 }
 
 type Enum16 struct {
-	iv     map[string]uint16
-	vi     map[uint16]string
-	values []string
+	iv         map[string]uint16
+	vi         map[uint16]string
+	values     UInt16
+	defaultVal uint16
 }
 
 func (e *Enum16) Rows() int {
@@ -102,27 +113,23 @@ func (e *Enum16) Rows() int {
 }
 
 func (e *Enum16) Decode(decoder *binary.Decoder, rows int) error {
-	for i := 0; i < int(rows); i++ {
-		v, err := decoder.UInt16()
-		if err != nil {
-			return err
-		}
-		e.values = append(e.values, e.vi[v])
+	if err := e.values.Decode(decoder, rows); err != nil {
+		return err
 	}
 	return nil
 }
 
 func (e *Enum16) RowValue(row int) interface{} {
-	return e.values[row]
+	return e.vi[e.values[row]]
 }
 
 func (e *Enum16) ScanRow(dest interface{}, row int) error {
 	switch d := dest.(type) {
 	case *string:
-		*d = e.values[row]
+		*d = e.vi[e.values[row]]
 	case **string:
 		*d = new(string)
-		**d = e.values[row]
+		**d = e.vi[e.values[row]]
 	default:
 		return &ColumnConverterErr{
 			op:   "ScanRow",
@@ -136,7 +143,15 @@ func (e *Enum16) ScanRow(dest interface{}, row int) error {
 func (e *Enum16) Append(v interface{}) error {
 	switch v := v.(type) {
 	case []string:
-		e.values = append(e.values, v...)
+		for _, elem := range v {
+			v, ok := e.iv[elem]
+			if !ok {
+				return &UnknownElementForEnum{
+					element: elem,
+				}
+			}
+			e.values = append(e.values, v)
+		}
 	default:
 		return &ColumnConverterErr{
 			op:   "Append",
@@ -147,28 +162,30 @@ func (e *Enum16) Append(v interface{}) error {
 	return nil
 }
 
-func (e *Enum16) AppendRow(v interface{}) error {
-	switch v := v.(type) {
+func (e *Enum16) AppendRow(elem interface{}) error {
+	switch elem := elem.(type) {
 	case string:
+		v, ok := e.iv[elem]
+		if !ok {
+			return &UnknownElementForEnum{
+				element: elem,
+			}
+		}
 		e.values = append(e.values, v)
 	case null:
-		e.values = append(e.values, "")
+		e.values = append(e.values, e.defaultVal)
 	default:
 		return &ColumnConverterErr{
 			op:   "AppendRow",
 			to:   "Enum16",
-			from: fmt.Sprintf("%T", v),
+			from: fmt.Sprintf("%T", elem),
 		}
 	}
 	return nil
 }
+
 func (e *Enum16) Encode(encoder *binary.Encoder) error {
-	for _, v := range e.values {
-		if err := encoder.UInt16(e.iv[v]); err != nil {
-			return err
-		}
-	}
-	return nil
+	return e.values.Encode(encoder)
 }
 
 var (

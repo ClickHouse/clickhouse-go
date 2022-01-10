@@ -17,6 +17,7 @@ func (col *Float32) Decode(decoder *binary.Decoder, rows int) error {
 		return nil
 	}
 	const size = 32 / 8
+	//scratch := make([]byte, size*rows)
 
 	*col = append(*col, make([]float32, rows)...)
 
@@ -29,6 +30,7 @@ func (col *Float32) Decode(decoder *binary.Decoder, rows int) error {
 	if err := decoder.Raw(dst); err != nil {
 		return err
 	}
+	//copy(dst, scratch)
 	return nil
 }
 
@@ -39,7 +41,7 @@ func (col *Float32) Encode(encoder *binary.Encoder) error {
 	const size = 32 / 8
 	scratch := make([]byte, size*len(*col))
 	{
-		slice := *(*reflect.SliceHeader)(unsafe.Pointer(&col))
+		slice := *(*reflect.SliceHeader)(unsafe.Pointer(col))
 		slice.Len *= size
 		slice.Cap *= size
 		src := *(*[]byte)(unsafe.Pointer(&slice))
@@ -54,6 +56,7 @@ func (col *Float64) Decode(decoder *binary.Decoder, rows int) error {
 		return nil
 	}
 	const size = 64 / 8
+	//scratch := make([]byte, size*rows)
 
 	*col = append(*col, make([]float64, rows)...)
 
@@ -66,6 +69,7 @@ func (col *Float64) Decode(decoder *binary.Decoder, rows int) error {
 	if err := decoder.Raw(dst); err != nil {
 		return err
 	}
+	//copy(dst, scratch)
 	return nil
 }
 
@@ -76,7 +80,7 @@ func (col *Float64) Encode(encoder *binary.Encoder) error {
 	const size = 64 / 8
 	scratch := make([]byte, size*len(*col))
 	{
-		slice := *(*reflect.SliceHeader)(unsafe.Pointer(&col))
+		slice := *(*reflect.SliceHeader)(unsafe.Pointer(col))
 		slice.Len *= size
 		slice.Cap *= size
 		src := *(*[]byte)(unsafe.Pointer(&slice))
@@ -91,6 +95,7 @@ func (col *Int8) Decode(decoder *binary.Decoder, rows int) error {
 		return nil
 	}
 	const size = 8 / 8
+	//scratch := make([]byte, size*rows)
 
 	*col = append(*col, make([]int8, rows)...)
 
@@ -103,6 +108,7 @@ func (col *Int8) Decode(decoder *binary.Decoder, rows int) error {
 	if err := decoder.Raw(dst); err != nil {
 		return err
 	}
+	//copy(dst, scratch)
 	return nil
 }
 
@@ -113,7 +119,7 @@ func (col *Int8) Encode(encoder *binary.Encoder) error {
 	const size = 8 / 8
 	scratch := make([]byte, size*len(*col))
 	{
-		slice := *(*reflect.SliceHeader)(unsafe.Pointer(&col))
+		slice := *(*reflect.SliceHeader)(unsafe.Pointer(col))
 		slice.Len *= size
 		slice.Cap *= size
 		src := *(*[]byte)(unsafe.Pointer(&slice))
@@ -128,6 +134,7 @@ func (col *Int16) Decode(decoder *binary.Decoder, rows int) error {
 		return nil
 	}
 	const size = 16 / 8
+	//scratch := make([]byte, size*rows)
 
 	*col = append(*col, make([]int16, rows)...)
 
@@ -140,6 +147,7 @@ func (col *Int16) Decode(decoder *binary.Decoder, rows int) error {
 	if err := decoder.Raw(dst); err != nil {
 		return err
 	}
+	//copy(dst, scratch)
 	return nil
 }
 
@@ -150,7 +158,7 @@ func (col *Int16) Encode(encoder *binary.Encoder) error {
 	const size = 16 / 8
 	scratch := make([]byte, size*len(*col))
 	{
-		slice := *(*reflect.SliceHeader)(unsafe.Pointer(&col))
+		slice := *(*reflect.SliceHeader)(unsafe.Pointer(col))
 		slice.Len *= size
 		slice.Cap *= size
 		src := *(*[]byte)(unsafe.Pointer(&slice))
@@ -165,6 +173,7 @@ func (col *Int32) Decode(decoder *binary.Decoder, rows int) error {
 		return nil
 	}
 	const size = 32 / 8
+	//scratch := make([]byte, size*rows)
 
 	*col = append(*col, make([]int32, rows)...)
 
@@ -177,6 +186,7 @@ func (col *Int32) Decode(decoder *binary.Decoder, rows int) error {
 	if err := decoder.Raw(dst); err != nil {
 		return err
 	}
+	//copy(dst, scratch)
 	return nil
 }
 
@@ -187,7 +197,7 @@ func (col *Int32) Encode(encoder *binary.Encoder) error {
 	const size = 32 / 8
 	scratch := make([]byte, size*len(*col))
 	{
-		slice := *(*reflect.SliceHeader)(unsafe.Pointer(&col))
+		slice := *(*reflect.SliceHeader)(unsafe.Pointer(col))
 		slice.Len *= size
 		slice.Cap *= size
 		src := *(*[]byte)(unsafe.Pointer(&slice))
@@ -202,6 +212,7 @@ func (col *Int64) Decode(decoder *binary.Decoder, rows int) error {
 		return nil
 	}
 	const size = 64 / 8
+	//scratch := make([]byte, size*rows)
 
 	*col = append(*col, make([]int64, rows)...)
 
@@ -214,6 +225,7 @@ func (col *Int64) Decode(decoder *binary.Decoder, rows int) error {
 	if err := decoder.Raw(dst); err != nil {
 		return err
 	}
+	//copy(dst, scratch)
 	return nil
 }
 
@@ -224,7 +236,7 @@ func (col *Int64) Encode(encoder *binary.Encoder) error {
 	const size = 64 / 8
 	scratch := make([]byte, size*len(*col))
 	{
-		slice := *(*reflect.SliceHeader)(unsafe.Pointer(&col))
+		slice := *(*reflect.SliceHeader)(unsafe.Pointer(col))
 		slice.Len *= size
 		slice.Cap *= size
 		src := *(*[]byte)(unsafe.Pointer(&slice))
@@ -239,6 +251,7 @@ func (col *UInt8) Decode(decoder *binary.Decoder, rows int) error {
 		return nil
 	}
 	const size = 8 / 8
+	//scratch := make([]byte, size*rows)
 
 	*col = append(*col, make([]uint8, rows)...)
 
@@ -251,6 +264,7 @@ func (col *UInt8) Decode(decoder *binary.Decoder, rows int) error {
 	if err := decoder.Raw(dst); err != nil {
 		return err
 	}
+	//copy(dst, scratch)
 	return nil
 }
 
@@ -261,7 +275,7 @@ func (col *UInt8) Encode(encoder *binary.Encoder) error {
 	const size = 8 / 8
 	scratch := make([]byte, size*len(*col))
 	{
-		slice := *(*reflect.SliceHeader)(unsafe.Pointer(&col))
+		slice := *(*reflect.SliceHeader)(unsafe.Pointer(col))
 		slice.Len *= size
 		slice.Cap *= size
 		src := *(*[]byte)(unsafe.Pointer(&slice))
@@ -276,6 +290,7 @@ func (col *UInt16) Decode(decoder *binary.Decoder, rows int) error {
 		return nil
 	}
 	const size = 16 / 8
+	//scratch := make([]byte, size*rows)
 
 	*col = append(*col, make([]uint16, rows)...)
 
@@ -288,6 +303,7 @@ func (col *UInt16) Decode(decoder *binary.Decoder, rows int) error {
 	if err := decoder.Raw(dst); err != nil {
 		return err
 	}
+	//copy(dst, scratch)
 	return nil
 }
 
@@ -298,7 +314,7 @@ func (col *UInt16) Encode(encoder *binary.Encoder) error {
 	const size = 16 / 8
 	scratch := make([]byte, size*len(*col))
 	{
-		slice := *(*reflect.SliceHeader)(unsafe.Pointer(&col))
+		slice := *(*reflect.SliceHeader)(unsafe.Pointer(col))
 		slice.Len *= size
 		slice.Cap *= size
 		src := *(*[]byte)(unsafe.Pointer(&slice))
@@ -313,6 +329,7 @@ func (col *UInt32) Decode(decoder *binary.Decoder, rows int) error {
 		return nil
 	}
 	const size = 32 / 8
+	//scratch := make([]byte, size*rows)
 
 	*col = append(*col, make([]uint32, rows)...)
 
@@ -325,6 +342,7 @@ func (col *UInt32) Decode(decoder *binary.Decoder, rows int) error {
 	if err := decoder.Raw(dst); err != nil {
 		return err
 	}
+	//copy(dst, scratch)
 	return nil
 }
 
@@ -335,7 +353,7 @@ func (col *UInt32) Encode(encoder *binary.Encoder) error {
 	const size = 32 / 8
 	scratch := make([]byte, size*len(*col))
 	{
-		slice := *(*reflect.SliceHeader)(unsafe.Pointer(&col))
+		slice := *(*reflect.SliceHeader)(unsafe.Pointer(col))
 		slice.Len *= size
 		slice.Cap *= size
 		src := *(*[]byte)(unsafe.Pointer(&slice))
@@ -350,6 +368,7 @@ func (col *UInt64) Decode(decoder *binary.Decoder, rows int) error {
 		return nil
 	}
 	const size = 64 / 8
+	//scratch := make([]byte, size*rows)
 
 	*col = append(*col, make([]uint64, rows)...)
 
@@ -362,6 +381,7 @@ func (col *UInt64) Decode(decoder *binary.Decoder, rows int) error {
 	if err := decoder.Raw(dst); err != nil {
 		return err
 	}
+	//copy(dst, scratch)
 	return nil
 }
 
@@ -372,7 +392,7 @@ func (col *UInt64) Encode(encoder *binary.Encoder) error {
 	const size = 64 / 8
 	scratch := make([]byte, size*len(*col))
 	{
-		slice := *(*reflect.SliceHeader)(unsafe.Pointer(&col))
+		slice := *(*reflect.SliceHeader)(unsafe.Pointer(col))
 		slice.Len *= size
 		slice.Cap *= size
 		src := *(*[]byte)(unsafe.Pointer(&slice))

@@ -41,7 +41,7 @@ func (col *{{ .ChType }}) Encode(encoder *binary.Encoder) error {
 	const size = {{ .Size }} / 8
 	scratch := make([]byte, size*len(*col))
 	{
-		slice := *(*reflect.SliceHeader)(unsafe.Pointer(&col))
+		slice := *(*reflect.SliceHeader)(unsafe.Pointer(col))
 		slice.Len *= size
 		slice.Cap *= size
 		src := *(*[]byte)(unsafe.Pointer(&slice))

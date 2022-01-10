@@ -41,3 +41,9 @@ type UnexpectedScanDestination struct {
 func (e *UnexpectedScanDestination) Error() string {
 	return fmt.Sprintf("clickhouse [%s]: expected %d destination arguments in Scan, not %d", e.op, e.expected, e.got)
 }
+
+type BatchAlreadySent struct{}
+
+func (e *BatchAlreadySent) Error() string {
+	return "clickhouse: batch has already been sent"
+}
