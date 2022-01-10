@@ -65,12 +65,18 @@ func (b *Block) Encode(encoder *binary.Encoder, revision uint64) error {
 		b.rows = uint64(b.Columns[0].Rows())
 		for _, c := range b.Columns[1:] {
 			if b.rows != uint64(c.Rows()) {
-				return fmt.Errorf("invalid data")
+				return &InvalidBlockData{
+					msg: "mismatched len of columns",
+				}
 			}
 		}
 	}
-	encoder.Uvarint(uint64(len(b.Columns)))
-	encoder.Uvarint(b.rows)
+	if err := encoder.Uvarint(uint64(len(b.Columns))); err != nil {
+		return err
+	}
+	if err := encoder.Uvarint(b.rows); err != nil {
+		return err
+	}
 	for i, c := range b.Columns {
 		if err := encoder.String(b.names[i]); err != nil {
 			return err
@@ -95,8 +101,10 @@ func (b *Block) Decode(decoder *binary.Decoder, revision uint64) (err error) {
 	if b.rows, err = decoder.Uvarint(); err != nil {
 		return err
 	}
-	if b.rows > 100000 {
-		return fmt.Errorf("invalid block")
+	if b.rows > 1_000_000 {
+		return &InvalidBlockData{
+			msg: "more then 1 000 000 rows in block",
+		}
 	}
 	b.Columns = make([]column.Interface, 0, b.numColumns)
 	for i := 0; i < int(b.numColumns); i++ {
@@ -127,20 +135,36 @@ func (b *Block) Decode(decoder *binary.Decoder, revision uint64) (err error) {
 
 func encodeBlockInfo(encoder *binary.Encoder) error {
 	{
-		encoder.Uvarint(1)
-		encoder.Bool(false)
-		encoder.Uvarint(2)
-		encoder.Int32(-1)
+		if err := encoder.Uvarint(1); err != nil {
+			return err
+		}
+		if err := encoder.Bool(false); err != nil {
+			return err
+		}
+		if err := encoder.Uvarint(2); err != nil {
+			return err
+		}
+		if err := encoder.Int32(-1); err != nil {
+			return err
+		}
 	}
 	return encoder.Uvarint(0)
 }
 
 func decodeBlockInfo(decoder *binary.Decoder) error {
 	{
-		decoder.Uvarint()
-		decoder.Bool()
-		decoder.Uvarint()
-		decoder.Int32()
+		if _, err := decoder.Uvarint(); err != nil {
+			return err
+		}
+		if _, err := decoder.Bool(); err != nil {
+			return err
+		}
+		if _, err := decoder.Uvarint(); err != nil {
+			return err
+		}
+		if _, err := decoder.Int32(); err != nil {
+			return err
+		}
 	}
 	if _, err := decoder.Uvarint(); err != nil {
 		return err
@@ -152,4 +176,15 @@ type UnexpectedArguments struct{ got, want int }
 
 func (e *UnexpectedArguments) Error() string {
 	return fmt.Sprintf("clickhouse: expected %d arguments, got %d", e.want, e.got)
+}
+
+type InvalidBlockData struct {
+	msg string
+}
+
+func (e *InvalidBlockData) Error() string {
+	if len(e.msg) != 0 {
+		return "clickhouse: invalid block data. " + e.msg
+	}
+	return "clickhouse: invalid block data"
 }

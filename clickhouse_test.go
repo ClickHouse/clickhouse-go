@@ -2,7 +2,9 @@ package clickhouse_test
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
+	"io"
 	"testing"
 	"time"
 
@@ -30,6 +32,71 @@ func TestConn(t *testing.T) {
 				t.Log(conn.Stats())
 				t.Log(conn.ServerVersion())
 				t.Log(conn.Ping(context.Background()))
+			}
+		}
+	}
+}
+
+func TestSimpleQuery(t *testing.T) {
+	var (
+		ctx       = context.Background()
+		conn, err = clickhouse.Open(&clickhouse.Options{
+			Addr: []string{"127.0.0.1:9000"},
+			Auth: clickhouse.Auth{
+				Database: "default",
+				Username: "default",
+				Password: "",
+			},
+			Compression: &clickhouse.Compression{
+				Method: clickhouse.CompressionLZ4,
+			},
+			Debug: true,
+		})
+	)
+	if assert.NoError(t, err) {
+		{
+			if rows, err := conn.Query(ctx, "SELECT 1::UInt8 AS result"); assert.NoError(t, err) {
+				if assert.True(t, rows.Next()) {
+					var result uint8
+					if assert.NoError(t, rows.Scan(&result)) {
+						assert.Equal(t, uint8(1), result)
+					}
+					if assert.NoError(t, rows.Close()) {
+						assert.NoError(t, rows.Err())
+					}
+				}
+			}
+			{
+				var result uint8
+				if row := conn.QueryRow(ctx, "SELECT 1::UInt8 AS result"); assert.NoError(t, row.Scan(&result)) {
+					if assert.Equal(t, uint8(1), result) {
+						assert.NoError(t, row.Err())
+					}
+				}
+			}
+		}
+		{
+			if rows, err := conn.Query(ctx, "SELECT 1::UInt8 AS result WHERE FALSE"); assert.NoError(t, err) {
+				if assert.False(t, rows.Next()) {
+					var result uint8
+					if err := rows.Scan(&result); assert.Error(t, err) {
+						assert.Equal(t, uint8(0), result)
+						assert.Equal(t, io.EOF, err)
+					}
+					if assert.NoError(t, rows.Close()) {
+						assert.NoError(t, rows.Err())
+					}
+				}
+			}
+			{
+				var result uint8
+				row := conn.QueryRow(ctx, "SELECT 1::UInt8 AS result WHERE FALSE")
+				if err := row.Scan(&result); assert.Error(t, err) {
+					assert.Equal(t, sql.ErrNoRows, err)
+					if assert.Equal(t, uint8(0), result) {
+						assert.NoError(t, row.Err())
+					}
+				}
 			}
 		}
 	}

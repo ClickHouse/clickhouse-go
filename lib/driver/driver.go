@@ -52,7 +52,7 @@ type (
 	}
 	Batch interface {
 		Append(v ...interface{}) error
-		Column(int) (BatchColumn, error)
+		Column(int) BatchColumn
 		Send() error
 	}
 	BatchColumn interface {

@@ -40,6 +40,28 @@ func (e *Enum8) ScanRow(dest interface{}, row int) error {
 	case **string:
 		*d = new(string)
 		**d = e.values[row]
+	default:
+		return &ColumnConverterErr{
+			op:   "ScanRow",
+			to:   fmt.Sprintf("%T", dest),
+			from: "Enum8",
+		}
+	}
+	return nil
+}
+
+func (e *Enum8) Append(v interface{}) error {
+	switch v := v.(type) {
+	case []string:
+		e.values = append(e.values, v...)
+	case []null:
+		e.values = append(e.values, make([]string, len(v))...)
+	default:
+		return &ColumnConverterErr{
+			op:   "Append",
+			to:   "Enum8",
+			from: fmt.Sprintf("%T", v),
+		}
 	}
 	return nil
 }
@@ -50,6 +72,12 @@ func (e *Enum8) AppendRow(v interface{}) error {
 		e.values = append(e.values, v)
 	case null:
 		e.values = append(e.values, "")
+	default:
+		return &ColumnConverterErr{
+			op:   "AppendRow",
+			to:   "Enum8",
+			from: fmt.Sprintf("%T", v),
+		}
 	}
 	return nil
 }
@@ -95,6 +123,26 @@ func (e *Enum16) ScanRow(dest interface{}, row int) error {
 	case **string:
 		*d = new(string)
 		**d = e.values[row]
+	default:
+		return &ColumnConverterErr{
+			op:   "ScanRow",
+			to:   fmt.Sprintf("%T", dest),
+			from: "Enum16",
+		}
+	}
+	return nil
+}
+
+func (e *Enum16) Append(v interface{}) error {
+	switch v := v.(type) {
+	case []string:
+		e.values = append(e.values, v...)
+	default:
+		return &ColumnConverterErr{
+			op:   "Append",
+			to:   "Enum16",
+			from: fmt.Sprintf("%T", v),
+		}
 	}
 	return nil
 }
@@ -105,6 +153,12 @@ func (e *Enum16) AppendRow(v interface{}) error {
 		e.values = append(e.values, v)
 	case null:
 		e.values = append(e.values, "")
+	default:
+		return &ColumnConverterErr{
+			op:   "AppendRow",
+			to:   "Enum16",
+			from: fmt.Sprintf("%T", v),
+		}
 	}
 	return nil
 }

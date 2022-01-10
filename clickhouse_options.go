@@ -76,7 +76,7 @@ func (o *Options) fromDSN(in string) error {
 		case "dial_timeout":
 			duration, err := time.ParseDuration(params.Get(v))
 			if err != nil {
-				return fmt.Errorf("dial timeout: %s", err)
+				return fmt.Errorf("clickhouse [dsn parse]: dial timeout: %s", err)
 			}
 			o.DialTimeout = duration
 		case "secure":

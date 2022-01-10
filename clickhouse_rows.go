@@ -3,6 +3,7 @@ package clickhouse
 import (
 	"database/sql"
 	"fmt"
+	"io"
 
 	"github.com/ClickHouse/clickhouse-go/lib/proto"
 )
@@ -39,6 +40,9 @@ next:
 }
 
 func (r *rows) Scan(dest ...interface{}) error {
+	if r.row == 0 && r.row >= r.block.Rows() { // call without next when result is empty
+		return io.EOF
+	}
 	columns := r.block.Columns
 	if len(columns) != len(dest) {
 		return fmt.Errorf("sql: expected %d destination arguments in Scan, not %d", len(columns), len(dest))

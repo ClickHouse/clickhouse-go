@@ -91,7 +91,11 @@ func (col *Float32) ScanRow(dest interface{}, row int) error {
 		*d = new(float32)
 		**d = value[row]
 	default:
-		return fmt.Errorf("converting Float32 to %T is unsupported", d)
+		return &ColumnConverterErr{
+			op:   "ScanRow",
+			to:   fmt.Sprintf("%T", dest),
+			from: "Float32",
+		}
 	}
 	return nil
 }
@@ -101,12 +105,32 @@ func (col *Float32) RowValue(row int) interface{} {
 	return value[row]
 }
 
+func (col *Float32) Append(v interface{}) error {
+	switch v := v.(type) {
+	case []float32:
+		*col = append(*col, v...)
+	default:
+		return &ColumnConverterErr{
+			op:   "Append",
+			to:   "Float32",
+			from: fmt.Sprintf("%T", v),
+		}
+	}
+	return nil
+}
+
 func (col *Float32) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case float32:
 		*col = append(*col, v)
 	case null:
 		*col = append(*col, 0)
+	default:
+		return &ColumnConverterErr{
+			op:   "AppendRow",
+			to:   "Float32",
+			from: fmt.Sprintf("%T", v),
+		}
 	}
 	return nil
 }
@@ -144,7 +168,11 @@ func (col *Float64) ScanRow(dest interface{}, row int) error {
 		*d = new(float64)
 		**d = value[row]
 	default:
-		return fmt.Errorf("converting Float64 to %T is unsupported", d)
+		return &ColumnConverterErr{
+			op:   "ScanRow",
+			to:   fmt.Sprintf("%T", dest),
+			from: "Float64",
+		}
 	}
 	return nil
 }
@@ -154,12 +182,32 @@ func (col *Float64) RowValue(row int) interface{} {
 	return value[row]
 }
 
+func (col *Float64) Append(v interface{}) error {
+	switch v := v.(type) {
+	case []float64:
+		*col = append(*col, v...)
+	default:
+		return &ColumnConverterErr{
+			op:   "Append",
+			to:   "Float64",
+			from: fmt.Sprintf("%T", v),
+		}
+	}
+	return nil
+}
+
 func (col *Float64) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case float64:
 		*col = append(*col, v)
 	case null:
 		*col = append(*col, 0)
+	default:
+		return &ColumnConverterErr{
+			op:   "AppendRow",
+			to:   "Float64",
+			from: fmt.Sprintf("%T", v),
+		}
 	}
 	return nil
 }
@@ -197,7 +245,11 @@ func (col *Int8) ScanRow(dest interface{}, row int) error {
 		*d = new(int8)
 		**d = value[row]
 	default:
-		return fmt.Errorf("converting Int8 to %T is unsupported", d)
+		return &ColumnConverterErr{
+			op:   "ScanRow",
+			to:   fmt.Sprintf("%T", dest),
+			from: "Int8",
+		}
 	}
 	return nil
 }
@@ -207,12 +259,32 @@ func (col *Int8) RowValue(row int) interface{} {
 	return value[row]
 }
 
+func (col *Int8) Append(v interface{}) error {
+	switch v := v.(type) {
+	case []int8:
+		*col = append(*col, v...)
+	default:
+		return &ColumnConverterErr{
+			op:   "Append",
+			to:   "Int8",
+			from: fmt.Sprintf("%T", v),
+		}
+	}
+	return nil
+}
+
 func (col *Int8) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case int8:
 		*col = append(*col, v)
 	case null:
 		*col = append(*col, 0)
+	default:
+		return &ColumnConverterErr{
+			op:   "AppendRow",
+			to:   "Int8",
+			from: fmt.Sprintf("%T", v),
+		}
 	}
 	return nil
 }
@@ -250,7 +322,11 @@ func (col *Int16) ScanRow(dest interface{}, row int) error {
 		*d = new(int16)
 		**d = value[row]
 	default:
-		return fmt.Errorf("converting Int16 to %T is unsupported", d)
+		return &ColumnConverterErr{
+			op:   "ScanRow",
+			to:   fmt.Sprintf("%T", dest),
+			from: "Int16",
+		}
 	}
 	return nil
 }
@@ -260,12 +336,32 @@ func (col *Int16) RowValue(row int) interface{} {
 	return value[row]
 }
 
+func (col *Int16) Append(v interface{}) error {
+	switch v := v.(type) {
+	case []int16:
+		*col = append(*col, v...)
+	default:
+		return &ColumnConverterErr{
+			op:   "Append",
+			to:   "Int16",
+			from: fmt.Sprintf("%T", v),
+		}
+	}
+	return nil
+}
+
 func (col *Int16) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case int16:
 		*col = append(*col, v)
 	case null:
 		*col = append(*col, 0)
+	default:
+		return &ColumnConverterErr{
+			op:   "AppendRow",
+			to:   "Int16",
+			from: fmt.Sprintf("%T", v),
+		}
 	}
 	return nil
 }
@@ -303,7 +399,11 @@ func (col *Int32) ScanRow(dest interface{}, row int) error {
 		*d = new(int32)
 		**d = value[row]
 	default:
-		return fmt.Errorf("converting Int32 to %T is unsupported", d)
+		return &ColumnConverterErr{
+			op:   "ScanRow",
+			to:   fmt.Sprintf("%T", dest),
+			from: "Int32",
+		}
 	}
 	return nil
 }
@@ -313,12 +413,32 @@ func (col *Int32) RowValue(row int) interface{} {
 	return value[row]
 }
 
+func (col *Int32) Append(v interface{}) error {
+	switch v := v.(type) {
+	case []int32:
+		*col = append(*col, v...)
+	default:
+		return &ColumnConverterErr{
+			op:   "Append",
+			to:   "Int32",
+			from: fmt.Sprintf("%T", v),
+		}
+	}
+	return nil
+}
+
 func (col *Int32) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case int32:
 		*col = append(*col, v)
 	case null:
 		*col = append(*col, 0)
+	default:
+		return &ColumnConverterErr{
+			op:   "AppendRow",
+			to:   "Int32",
+			from: fmt.Sprintf("%T", v),
+		}
 	}
 	return nil
 }
@@ -356,7 +476,11 @@ func (col *Int64) ScanRow(dest interface{}, row int) error {
 		*d = new(int64)
 		**d = value[row]
 	default:
-		return fmt.Errorf("converting Int64 to %T is unsupported", d)
+		return &ColumnConverterErr{
+			op:   "ScanRow",
+			to:   fmt.Sprintf("%T", dest),
+			from: "Int64",
+		}
 	}
 	return nil
 }
@@ -366,12 +490,32 @@ func (col *Int64) RowValue(row int) interface{} {
 	return value[row]
 }
 
+func (col *Int64) Append(v interface{}) error {
+	switch v := v.(type) {
+	case []int64:
+		*col = append(*col, v...)
+	default:
+		return &ColumnConverterErr{
+			op:   "Append",
+			to:   "Int64",
+			from: fmt.Sprintf("%T", v),
+		}
+	}
+	return nil
+}
+
 func (col *Int64) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case int64:
 		*col = append(*col, v)
 	case null:
 		*col = append(*col, 0)
+	default:
+		return &ColumnConverterErr{
+			op:   "AppendRow",
+			to:   "Int64",
+			from: fmt.Sprintf("%T", v),
+		}
 	}
 	return nil
 }
@@ -409,7 +553,11 @@ func (col *UInt8) ScanRow(dest interface{}, row int) error {
 		*d = new(uint8)
 		**d = value[row]
 	default:
-		return fmt.Errorf("converting UInt8 to %T is unsupported", d)
+		return &ColumnConverterErr{
+			op:   "ScanRow",
+			to:   fmt.Sprintf("%T", dest),
+			from: "UInt8",
+		}
 	}
 	return nil
 }
@@ -419,12 +567,32 @@ func (col *UInt8) RowValue(row int) interface{} {
 	return value[row]
 }
 
+func (col *UInt8) Append(v interface{}) error {
+	switch v := v.(type) {
+	case []uint8:
+		*col = append(*col, v...)
+	default:
+		return &ColumnConverterErr{
+			op:   "Append",
+			to:   "UInt8",
+			from: fmt.Sprintf("%T", v),
+		}
+	}
+	return nil
+}
+
 func (col *UInt8) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case uint8:
 		*col = append(*col, v)
 	case null:
 		*col = append(*col, 0)
+	default:
+		return &ColumnConverterErr{
+			op:   "AppendRow",
+			to:   "UInt8",
+			from: fmt.Sprintf("%T", v),
+		}
 	}
 	return nil
 }
@@ -462,7 +630,11 @@ func (col *UInt16) ScanRow(dest interface{}, row int) error {
 		*d = new(uint16)
 		**d = value[row]
 	default:
-		return fmt.Errorf("converting UInt16 to %T is unsupported", d)
+		return &ColumnConverterErr{
+			op:   "ScanRow",
+			to:   fmt.Sprintf("%T", dest),
+			from: "UInt16",
+		}
 	}
 	return nil
 }
@@ -472,12 +644,32 @@ func (col *UInt16) RowValue(row int) interface{} {
 	return value[row]
 }
 
+func (col *UInt16) Append(v interface{}) error {
+	switch v := v.(type) {
+	case []uint16:
+		*col = append(*col, v...)
+	default:
+		return &ColumnConverterErr{
+			op:   "Append",
+			to:   "UInt16",
+			from: fmt.Sprintf("%T", v),
+		}
+	}
+	return nil
+}
+
 func (col *UInt16) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case uint16:
 		*col = append(*col, v)
 	case null:
 		*col = append(*col, 0)
+	default:
+		return &ColumnConverterErr{
+			op:   "AppendRow",
+			to:   "UInt16",
+			from: fmt.Sprintf("%T", v),
+		}
 	}
 	return nil
 }
@@ -515,7 +707,11 @@ func (col *UInt32) ScanRow(dest interface{}, row int) error {
 		*d = new(uint32)
 		**d = value[row]
 	default:
-		return fmt.Errorf("converting UInt32 to %T is unsupported", d)
+		return &ColumnConverterErr{
+			op:   "ScanRow",
+			to:   fmt.Sprintf("%T", dest),
+			from: "UInt32",
+		}
 	}
 	return nil
 }
@@ -525,12 +721,32 @@ func (col *UInt32) RowValue(row int) interface{} {
 	return value[row]
 }
 
+func (col *UInt32) Append(v interface{}) error {
+	switch v := v.(type) {
+	case []uint32:
+		*col = append(*col, v...)
+	default:
+		return &ColumnConverterErr{
+			op:   "Append",
+			to:   "UInt32",
+			from: fmt.Sprintf("%T", v),
+		}
+	}
+	return nil
+}
+
 func (col *UInt32) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case uint32:
 		*col = append(*col, v)
 	case null:
 		*col = append(*col, 0)
+	default:
+		return &ColumnConverterErr{
+			op:   "AppendRow",
+			to:   "UInt32",
+			from: fmt.Sprintf("%T", v),
+		}
 	}
 	return nil
 }
@@ -568,7 +784,11 @@ func (col *UInt64) ScanRow(dest interface{}, row int) error {
 		*d = new(uint64)
 		**d = value[row]
 	default:
-		return fmt.Errorf("converting UInt64 to %T is unsupported", d)
+		return &ColumnConverterErr{
+			op:   "ScanRow",
+			to:   fmt.Sprintf("%T", dest),
+			from: "UInt64",
+		}
 	}
 	return nil
 }
@@ -578,12 +798,32 @@ func (col *UInt64) RowValue(row int) interface{} {
 	return value[row]
 }
 
+func (col *UInt64) Append(v interface{}) error {
+	switch v := v.(type) {
+	case []uint64:
+		*col = append(*col, v...)
+	default:
+		return &ColumnConverterErr{
+			op:   "Append",
+			to:   "UInt64",
+			from: fmt.Sprintf("%T", v),
+		}
+	}
+	return nil
+}
+
 func (col *UInt64) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case uint64:
 		*col = append(*col, v)
 	case null:
 		*col = append(*col, 0)
+	default:
+		return &ColumnConverterErr{
+			op:   "AppendRow",
+			to:   "UInt64",
+			from: fmt.Sprintf("%T", v),
+		}
 	}
 	return nil
 }

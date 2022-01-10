@@ -33,7 +33,7 @@ func bind(query string, args ...interface{}) (string, error) {
 			haveNumeric = true
 		}
 		if haveNamed && haveNumeric {
-			return "", fmt.Errorf("clickhouse bind: mixed named and numeric parameters")
+			return "", &BindMixedNamedAndNumericParams{}
 		}
 	}
 	if haveNamed {

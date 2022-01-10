@@ -1,6 +1,10 @@
 package column
 
-import "github.com/ClickHouse/clickhouse-go/lib/binary"
+import (
+	"fmt"
+
+	"github.com/ClickHouse/clickhouse-go/lib/binary"
+)
 
 type String []string
 
@@ -47,8 +51,16 @@ func (s *String) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case string:
 		*s = append(*s, v)
+	case *string:
+		*s = append(*s, *v)
 	case null:
 		*s = append(*s, "")
+	default:
+		return &ColumnConverterErr{
+			op:   "AppendRow",
+			to:   "String",
+			from: fmt.Sprintf("%T", v),
+		}
 	}
 	return nil
 }

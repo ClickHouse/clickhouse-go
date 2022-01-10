@@ -19,6 +19,13 @@ type Encoder struct {
 	scratch [binary.MaxVarintLen64]byte
 }
 
+func (enc *Encoder) Raw(b []byte) error {
+	if _, err := enc.output.Write(b); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (enc *Encoder) Bool(v bool) error {
 	if v {
 		return enc.UInt8(1)

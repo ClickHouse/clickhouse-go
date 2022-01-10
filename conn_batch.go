@@ -6,15 +6,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ClickHouse/clickhouse-go/lib/column"
 	"github.com/ClickHouse/clickhouse-go/lib/driver"
 	"github.com/ClickHouse/clickhouse-go/lib/proto"
 )
 
-var (
-	splitInsertRe = regexp.MustCompile(`(?i)\sVALUES\s*\(`)
-)
+var splitInsertRe = regexp.MustCompile(`(?i)\sVALUES\s*\(`)
 
-// ch.sendQuery(ctx, splitInsertRe.Split(query, -1)[0]+" VALUES "
 func (c *connect) prepareBatch(ctx context.Context, query string, release func(*connect)) (*batch, error) {
 	query = splitInsertRe.Split(query, -1)[0]
 	if !strings.HasSuffix(strings.TrimSpace(strings.ToUpper(query)), "VALUES") {
@@ -49,6 +47,7 @@ func (c *connect) prepareBatch(ctx context.Context, query string, release func(*
 }
 
 type batch struct {
+	err       error
 	conn      *connect
 	block     *proto.Block
 	release   func(*connect, error)
@@ -59,11 +58,28 @@ func (b *batch) Append(v ...interface{}) error {
 	return b.block.Append(v...)
 }
 
-func (b *batch) Column(int) (driver.BatchColumn, error) {
-	return &batchColumn{}, nil
+func (b *batch) Column(idx int) driver.BatchColumn {
+	if len(b.block.Columns) <= idx {
+		return &batchColumn{
+			err: &InvalidColumnIndex{
+				op:  "batch.Column(idx)",
+				idx: idx,
+			},
+		}
+	}
+	return &batchColumn{
+		column: b.block.Columns[idx],
+		release: func(err error) {
+			b.err = err
+			b.release(b.conn, err)
+		},
+	}
 }
 
 func (b *batch) Send() (err error) {
+	if b.err != nil {
+		return b.err
+	}
 	defer b.release(b.conn, err)
 	if err = b.conn.sendData(b.block, ""); err != nil {
 		return err
@@ -81,9 +97,20 @@ func (b *batch) Send() (err error) {
 }
 
 type batchColumn struct {
+	err     error
+	column  column.Interface
+	release func(error)
 }
 
-func (b *batchColumn) Append(v interface{}) error {
+func (b *batchColumn) Append(v interface{}) (err error) {
+	if b.err != nil {
+		b.release(b.err)
+		return b.err
+	}
+	if err = b.column.Append(v); err != nil {
+		b.release(err)
+		return err
+	}
 	return nil
 }
 

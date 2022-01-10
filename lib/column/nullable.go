@@ -1,6 +1,8 @@
 package column
 
 import (
+	"reflect"
+
 	"github.com/ClickHouse/clickhouse-go/lib/binary"
 )
 
@@ -38,6 +40,30 @@ func (c *Nullable) ScanRow(dest interface{}, row int) error {
 		return nil
 	}
 	return c.base.ScanRow(dest, row)
+}
+
+func (col *Nullable) Append(v interface{}) error {
+	// @todo: rm reflect and add Column.AppendWithNulls ([]null, error)
+	switch reflect.TypeOf(v).Kind() {
+	case reflect.Slice:
+		s := reflect.ValueOf(v)
+		for i := 0; i < s.Len(); i++ {
+			v := s.Index(i).Interface()
+			switch {
+			case s.Index(i).IsNil():
+				col.nulls = append(col.nulls, 1)
+				if err := col.base.AppendRow(null{}); err != nil {
+					return err
+				}
+			default:
+				col.nulls = append(col.nulls, 0)
+				if err := col.base.AppendRow(v); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func (col *Nullable) AppendRow(v interface{}) error {

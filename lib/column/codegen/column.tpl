@@ -64,7 +64,11 @@ func (col *{{ .ChType }}) ScanRow(dest interface{}, row int) error {
 		*d = new({{ .GoType }})
 		**d = value[row]
 	default:
-		return fmt.Errorf("converting {{ .ChType }} to %T is unsupported", d)
+		return &ColumnConverterErr{
+			op:   "ScanRow",
+			to:   fmt.Sprintf("%T", dest),
+			from: "{{ .ChType }}",
+		}
 	}
 	return nil
 }
@@ -74,12 +78,33 @@ func (col *{{ .ChType }}) RowValue(row int) interface{} {
 	return value[row]
 }
 
+
+func (col *{{ .ChType }}) Append(v interface{}) error {
+	switch v := v.(type) {
+	case []{{ .GoType }}:
+		*col = append(*col, v...)
+	default:
+		return &ColumnConverterErr{
+			op:   "Append",
+			to:   "{{ .ChType }}",
+			from: fmt.Sprintf("%T", v),
+		}
+	}
+	return nil
+}
+
 func (col *{{ .ChType }}) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case {{ .GoType }}:
 		*col = append(*col, v)
 	case null:
 		*col = append(*col, 0)
+	default:
+		return &ColumnConverterErr{
+			op:   "AppendRow",
+			to:   "{{ .ChType }}",
+			from: fmt.Sprintf("%T", v),
+		}
 	}
 	return nil
 }

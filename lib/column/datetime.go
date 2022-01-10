@@ -1,6 +1,7 @@
 package column
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/lib/binary"
@@ -36,6 +37,12 @@ func (dt *DateTime) ScanRow(dest interface{}, row int) error {
 	case **time.Time:
 		*d = new(time.Time)
 		**d = time.Unix(int64(v[row]), 0)
+	default:
+		return &ColumnConverterErr{
+			op:   "ScanRow",
+			to:   fmt.Sprintf("%T", dest),
+			from: "DateTime",
+		}
 	}
 	return nil
 }
@@ -46,6 +53,30 @@ func (dt *DateTime) AppendRow(v interface{}) error {
 		*dt = append(*dt, int32(v.Unix()))
 	case null:
 		*dt = append(*dt, 0)
+	default:
+		return &ColumnConverterErr{
+			op:   "AppendRow",
+			to:   "DateTime",
+			from: fmt.Sprintf("%T", v),
+		}
+	}
+	return nil
+}
+
+func (dt *DateTime) Append(v interface{}) error {
+	switch v := v.(type) {
+	case []time.Time:
+		in := make([]int32, 0, len(v))
+		for _, t := range v {
+			in = append(in, int32(t.Unix()))
+		}
+		*dt = append(*dt, in...)
+	default:
+		return &ColumnConverterErr{
+			op:   "Append",
+			to:   "DateTime",
+			from: fmt.Sprintf("%T", v),
+		}
 	}
 	return nil
 }

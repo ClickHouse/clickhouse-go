@@ -1,7 +1,6 @@
 package clickhouse
 
 import (
-	"fmt"
 	"io"
 
 	"github.com/ClickHouse/clickhouse-go/lib/proto"
@@ -95,7 +94,10 @@ func (c *connect) handle(packet byte, on *onProcess) error {
 		c.debugf("[progress] %s", progress)
 		on.progress(progress)
 	default:
-		return fmt.Errorf("unexpected packet %d", packet)
+		return &UnexpectedPacket{
+			op:     "process",
+			packet: packet,
+		}
 	}
 	return nil
 }
