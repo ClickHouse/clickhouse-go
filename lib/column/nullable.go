@@ -49,7 +49,6 @@ func (col *Nullable) AppendRow(v interface{}) error {
 		col.nulls = append(col.nulls, 0)
 		return col.base.AppendRow(v)
 	}
-	return nil
 }
 
 func (col *Nullable) Encode(encoder *binary.Encoder) error {

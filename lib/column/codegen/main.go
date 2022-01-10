@@ -12,38 +12,36 @@ import (
 )
 
 var (
-	//go:embed type.tpl
-	typeSrc string
-	//go:embed numeric.tpl
-	numericSrc string
+	//go:embed column.tpl
+	columnSrc string
 )
 var (
 	types []_type
 )
 
 type _type struct {
-	Type   string
+	ChType string
 	GoType string
 }
 
 func init() {
 	for _, size := range []int{8, 16, 32, 64} {
 		types = append(types, _type{
-			Type:   fmt.Sprintf("Int%d", size),
+			ChType: fmt.Sprintf("Int%d", size),
 			GoType: fmt.Sprintf("int%d", size),
 		}, _type{
-			Type:   fmt.Sprintf("UInt%d", size),
+			ChType: fmt.Sprintf("UInt%d", size),
 			GoType: fmt.Sprintf("uint%d", size),
 		})
 	}
 	for _, size := range []int{32, 64} {
 		types = append(types, _type{
-			Type:   fmt.Sprintf("Float%d", size),
+			ChType: fmt.Sprintf("Float%d", size),
 			GoType: fmt.Sprintf("float%d", size),
 		})
 	}
 	sort.Slice(types, func(i, j int) bool {
-		return sequenceKey(types[i].Type) < sequenceKey(types[j].Type)
+		return sequenceKey(types[i].ChType) < sequenceKey(types[j].ChType)
 	})
 }
 func write(name string, v interface{}, t *template.Template) error {
@@ -64,13 +62,9 @@ func write(name string, v interface{}, t *template.Template) error {
 
 func main() {
 	var (
-		typeTpl    = template.Must(template.New("type").Parse(typeSrc))
-		numericTpl = template.Must(template.New("numeric").Parse(numericSrc))
+		columnTpl = template.Must(template.New("column").Parse(columnSrc))
 	)
-	if err := write("column_gen", types, numericTpl); err != nil {
-		log.Fatal(err)
-	}
-	if err := write("type_gen", types, typeTpl); err != nil {
+	if err := write("column_gen", types, columnTpl); err != nil {
 		log.Fatal(err)
 	}
 }

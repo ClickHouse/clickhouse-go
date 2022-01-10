@@ -97,6 +97,8 @@ func example() error {
 	}
 	ctx := clickhouse.Context(context.Background(), clickhouse.WithSettings(clickhouse.Settings{
 		"max_block_size": 10,
+	}), clickhouse.WithProgress(func(p *clickhouse.Progress) {
+		fmt.Println("progress: ", p)
 	}))
 	if err := conn.Ping(ctx); err != nil {
 		if exception, ok := err.(*clickhouse.Exception); ok {
@@ -181,6 +183,8 @@ func example() error {
 	conn.SetConnMaxLifetime(time.Hour)
 	ctx := clickhouse.Context(context.Background(), clickhouse.WithSettings(clickhouse.Settings{
 		"max_block_size": 10,
+	}), clickhouse.WithProgress(func(p *clickhouse.Progress) {
+		fmt.Println("progress: ", p)
 	}))
 	if err := conn.PingContext(ctx); err != nil {
 		if exception, ok := err.(*clickhouse.Exception); ok {
