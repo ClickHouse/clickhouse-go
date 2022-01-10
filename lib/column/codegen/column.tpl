@@ -5,9 +5,7 @@ package column
 
 import (
 	"fmt"
-	"github.com/ClickHouse/clickhouse-go/lib/binary"
 )
-
 
 func (t Type) Column() (Interface,error) {
 	switch t {
@@ -104,26 +102,6 @@ func (col *{{ .ChType }}) AppendRow(v interface{}) error {
 			op:   "AppendRow",
 			to:   "{{ .ChType }}",
 			from: fmt.Sprintf("%T", v),
-		}
-	}
-	return nil
-}
-
-func (col *{{ .ChType }}) Decode(decoder *binary.Decoder, rows int) error {
-	for i := 0; i < rows; i++ {
-		v, err := decoder.{{ .ChType }}()
-		if err != nil {
-			return err
-		}
-		*col = append(*col, v)
-	}
-	return nil
-}
-
-func (col *{{ .ChType }}) Encode(encoder *binary.Encoder) error {
-	for _, v := range *col {
-		if err := encoder.{{ .ChType }}(v); err != nil {
-			return err
 		}
 	}
 	return nil

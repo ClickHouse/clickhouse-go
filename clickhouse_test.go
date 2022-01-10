@@ -149,6 +149,89 @@ func TestPingDeadline(t *testing.T) {
 	}
 }
 
+func TestNumericColumns(t *testing.T) {
+	var (
+		ctx       = context.Background()
+		conn, err = clickhouse.Open(&clickhouse.Options{
+			Addr: []string{"127.0.0.1:9000"},
+			Auth: clickhouse.Auth{
+				Database: "default",
+				Username: "default",
+				Password: "",
+			},
+			Compression: &clickhouse.Compression{
+				Method: clickhouse.CompressionLZ4,
+			},
+			Debug: true,
+		})
+	)
+	if assert.NoError(t, err) {
+		const query = `
+			SELECT
+				  number::Int8
+				, number::Int16
+				, number::Int32
+				, number::Int64
+				, number::UInt8
+				, number::UInt16
+				, number::UInt32
+				, number::UInt64
+				, number::Float32
+				, number::Float64
+			FROM system.numbers_mt LIMIT 20
+		`
+		if rows, err := conn.Query(ctx, query); assert.NoError(t, err) {
+			var number int
+			for rows.Next() {
+				var (
+					Int8    int8
+					Int16   int16
+					Int32   int32
+					Int64   int64
+					UInt8   uint8
+					UInt16  uint16
+					UInt32  uint32
+					UInt64  uint64
+					Float32 float32
+					Float64 float64
+				)
+				err := rows.Scan(
+					&Int8,
+					&Int16,
+					&Int32,
+					&Int64,
+					&UInt8,
+					&UInt16,
+					&UInt32,
+					&UInt64,
+					&Float32,
+					&Float64,
+				)
+				if assert.NoError(t, err) {
+					{
+						assert.Equal(t, int8(number), Int8)
+						assert.Equal(t, int16(number), Int16)
+						assert.Equal(t, int32(number), Int32)
+						assert.Equal(t, int64(number), Int64)
+					}
+					{
+						assert.Equal(t, uint8(number), UInt8)
+						assert.Equal(t, uint16(number), UInt16)
+						assert.Equal(t, uint32(number), UInt32)
+						assert.Equal(t, uint64(number), UInt64)
+					}
+					{
+						assert.Equal(t, float32(number), Float32)
+						assert.Equal(t, float64(number), Float64)
+					}
+				}
+				number++
+			}
+			assert.Equal(t, 20, number)
+		}
+	}
+}
+
 func TestExec(t *testing.T) {
 	conn, err := clickhouse.Open(&clickhouse.Options{
 		Addr: []string{"127.0.0.1:9000"},

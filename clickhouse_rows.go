@@ -2,7 +2,6 @@ package clickhouse
 
 import (
 	"database/sql"
-	"fmt"
 	"io"
 
 	"github.com/ClickHouse/clickhouse-go/lib/proto"
@@ -45,7 +44,11 @@ func (r *rows) Scan(dest ...interface{}) error {
 	}
 	columns := r.block.Columns
 	if len(columns) != len(dest) {
-		return fmt.Errorf("sql: expected %d destination arguments in Scan, not %d", len(columns), len(dest))
+		return &UnexpectedScanDestination{
+			op:       "Scan",
+			got:      len(dest),
+			expected: len(columns),
+		}
 	}
 	for i, d := range dest {
 		switch d := d.(type) {

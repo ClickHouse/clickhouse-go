@@ -31,3 +31,13 @@ type UnexpectedPacket struct {
 func (e *UnexpectedPacket) Error() string {
 	return fmt.Sprintf("clickhouse [%s]: unexpected packet %d", e.op, e.packet)
 }
+
+type UnexpectedScanDestination struct {
+	op       string
+	got      int
+	expected int
+}
+
+func (e *UnexpectedScanDestination) Error() string {
+	return fmt.Sprintf("clickhouse [%s]: expected %d destination arguments in Scan, not %d", e.op, e.expected, e.got)
+}

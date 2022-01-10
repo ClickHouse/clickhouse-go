@@ -14,12 +14,17 @@ import (
 var (
 	//go:embed column.tpl
 	columnSrc string
+	//go:embed column_safe.tpl
+	columnSafeSrc string
+	//go:embed column_unsafe.tpl
+	columnUnsafeSrc string
 )
 var (
 	types []_type
 )
 
 type _type struct {
+	Size   int
 	ChType string
 	GoType string
 }
@@ -27,15 +32,18 @@ type _type struct {
 func init() {
 	for _, size := range []int{8, 16, 32, 64} {
 		types = append(types, _type{
+			Size:   size,
 			ChType: fmt.Sprintf("Int%d", size),
 			GoType: fmt.Sprintf("int%d", size),
 		}, _type{
+			Size:   size,
 			ChType: fmt.Sprintf("UInt%d", size),
 			GoType: fmt.Sprintf("uint%d", size),
 		})
 	}
 	for _, size := range []int{32, 64} {
 		types = append(types, _type{
+			Size:   size,
 			ChType: fmt.Sprintf("Float%d", size),
 			GoType: fmt.Sprintf("float%d", size),
 		})
@@ -61,11 +69,14 @@ func write(name string, v interface{}, t *template.Template) error {
 }
 
 func main() {
-	var (
-		columnTpl = template.Must(template.New("column").Parse(columnSrc))
-	)
-	if err := write("column_gen", types, columnTpl); err != nil {
-		log.Fatal(err)
+	for name, tpl := range map[string]*template.Template{
+		"column_gen":        template.Must(template.New("column").Parse(columnSrc)),
+		"column_safe_gen":   template.Must(template.New("column").Parse(columnSafeSrc)),
+		"column_unsafe_gen": template.Must(template.New("column").Parse(columnUnsafeSrc)),
+	} {
+		if err := write(name, types, tpl); err != nil {
+			log.Fatal(err)
+		}
 	}
 }
 
