@@ -76,7 +76,7 @@ func TestSimpleQuery(t *testing.T) {
 			}
 		}
 		{
-			if rows, err := conn.Query(ctx, "SELECT 1::UInt8 AS result WHERE FALSE"); assert.NoError(t, err) {
+			if rows, err := conn.Query(ctx, "SELECT 1::UInt8 AS result WHERE 1 <> 1"); assert.NoError(t, err) {
 				if assert.False(t, rows.Next()) {
 					var result uint8
 					if err := rows.Scan(&result); assert.Error(t, err) {
@@ -90,7 +90,7 @@ func TestSimpleQuery(t *testing.T) {
 			}
 			{
 				var result uint8
-				row := conn.QueryRow(ctx, "SELECT 1::UInt8 AS result WHERE FALSE")
+				row := conn.QueryRow(ctx, "SELECT 1::UInt8 AS result WHERE 1 <> 1")
 				if err := row.Scan(&result); assert.Error(t, err) {
 					assert.Equal(t, sql.ErrNoRows, err)
 					if assert.Equal(t, uint8(0), result) {
