@@ -59,6 +59,15 @@ func (dt *DateTime) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case time.Time:
 		dt.values = append(dt.values, int32(v.Unix()))
+	case *time.Time:
+		switch {
+		case v == nil:
+			dt.values = append(dt.values, int32(v.Unix()))
+		default:
+			dt.values = append(dt.values, 0)
+		}
+	case int32:
+		dt.values = append(dt.values, v)
 	case null:
 		dt.values = append(dt.values, 0)
 	default:
@@ -79,6 +88,8 @@ func (dt *DateTime) Append(v interface{}) error {
 			in = append(in, int32(t.Unix()))
 		}
 		dt.values = append(dt.values, in...)
+	case []int32:
+		dt.values = append(dt.values, v...)
 	default:
 		return &ColumnConverterErr{
 			op:   "Append",

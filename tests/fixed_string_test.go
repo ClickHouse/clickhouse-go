@@ -71,6 +71,19 @@ func TestFixedString(t *testing.T) {
 				}
 			}
 		}
+		if rows, err := conn.Query(ctx, "SELECT 'RU'::FixedString(2) FROM system.numbers_mt LIMIT 10"); assert.NoError(t, err) {
+			var count int
+			for rows.Next() {
+				var code string
+				if !assert.NoError(t, rows.Scan(&code)) || !assert.Equal(t, "RU", code) {
+					return
+				}
+				count++
+			}
+			if assert.Equal(t, 10, count) && assert.NoError(t, rows.Err()) {
+				assert.NoError(t, rows.Close())
+			}
+		}
 	}
 }
 

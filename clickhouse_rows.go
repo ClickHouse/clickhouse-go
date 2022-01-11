@@ -24,7 +24,7 @@ next:
 		case err := <-r.errors:
 			if err != nil {
 				r.err = err
-				return true
+				return false
 			}
 			goto next
 		case block := <-r.stream:

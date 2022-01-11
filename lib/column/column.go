@@ -48,7 +48,7 @@ func (u *UnsupportedColumnType) Decode(*binary.Decoder, int) error { return u }
 func (u *UnsupportedColumnType) Encode(*binary.Encoder) error      { return u }
 
 func (u *UnsupportedColumnType) Error() string {
-	return fmt.Sprintf("unsupported column type %q", u.t)
+	return fmt.Sprintf("clickhouse: unsupported column type %q", u.t)
 }
 
 var (

@@ -18,6 +18,7 @@ func (col *FixedString) parse(t Type) (*FixedString, error) {
 	}
 	return col, nil
 }
+
 func (col *FixedString) Type() Type {
 	return Type(fmt.Sprintf("FixedString(%d)", col.size))
 }
@@ -40,8 +41,16 @@ func (col *FixedString) ScanRow(dest interface{}, row int) error {
 	case **[]byte:
 		*d = new([]byte)
 		**d = col.row(row)
+	case *string:
+		*d = string(col.row(row))
 	case encoding.BinaryUnmarshaler:
 		return d.UnmarshalBinary(col.row(row))
+	default:
+		return &ColumnConverterErr{
+			op:   "ScanRow",
+			to:   fmt.Sprintf("%T", dest),
+			from: "FixedString",
+		}
 	}
 	return nil
 }
