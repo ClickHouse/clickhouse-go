@@ -114,7 +114,7 @@ func (b *batchColumn) Append(v interface{}) (err error) {
 		b.release(b.err)
 		return b.err
 	}
-	if err = b.column.Append(v); err != nil {
+	if _, err = b.column.Append(v); err != nil {
 		b.release(err)
 		return err
 	}

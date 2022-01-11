@@ -55,11 +55,8 @@ func test(str string, lower uint64, upper uint64, t *testing.T) {
 
 func Test_Hash(t *testing.T) {
 	buildData(t)
-
-	var i int
-	for i = 0; i < len(testdata); i++ {
-		t.Logf("INFO: offset = %d, length = %d", i, len(testdata))
+	for i := 0; i < len(testdata); i++ {
+		//t.Logf("INFO: offset = %d, length = %d", i, len(testdata))
 		test(testdata[i].key, testdata[i].lower, testdata[i].upper, t)
 	}
-	return
 }

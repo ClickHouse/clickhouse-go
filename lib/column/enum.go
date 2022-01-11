@@ -44,26 +44,44 @@ func (e *Enum8) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (e *Enum8) Append(v interface{}) error {
+func (e *Enum8) Append(v interface{}) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []string:
+		nulls = make([]uint8, len(v))
 		for _, elem := range v {
 			v, ok := e.iv[elem]
 			if !ok {
-				return &UnknownElementForEnum{
+				return nil, &UnknownElementForEnum{
 					element: elem,
 				}
 			}
 			e.values = append(e.values, v)
 		}
+	case []*string:
+		nulls = make([]uint8, len(v))
+		for i, elem := range v {
+			switch {
+			case elem != nil:
+				v, ok := e.iv[*elem]
+				if !ok {
+					return nil, &UnknownElementForEnum{
+						element: *elem,
+					}
+				}
+				e.values = append(e.values, v)
+			default:
+				e.values, nulls[i] = append(e.values, 0), 1
+			}
+
+		}
 	default:
-		return &ColumnConverterErr{
+		return nil, &ColumnConverterErr{
 			op:   "Append",
 			to:   "Enum8",
 			from: fmt.Sprintf("%T", v),
 		}
 	}
-	return nil
+	return
 }
 
 func (e *Enum8) AppendRow(elem interface{}) error {
@@ -75,7 +93,6 @@ func (e *Enum8) AppendRow(elem interface{}) error {
 				element: elem,
 			}
 		}
-
 		e.values = append(e.values, v)
 	case null:
 		e.values = append(e.values, 0)
@@ -133,26 +150,37 @@ func (e *Enum16) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (e *Enum16) Append(v interface{}) error {
+func (e *Enum16) Append(v interface{}) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []string:
+		nulls = make([]uint8, len(v))
 		for _, elem := range v {
 			v, ok := e.iv[elem]
 			if !ok {
-				return &UnknownElementForEnum{
+				return nil, &UnknownElementForEnum{
 					element: elem,
 				}
 			}
 			e.values = append(e.values, v)
 		}
-	default:
-		return &ColumnConverterErr{
-			op:   "Append",
-			to:   "Enum16",
-			from: fmt.Sprintf("%T", v),
+	case []*string:
+		nulls = make([]uint8, len(v))
+		for i, elem := range v {
+			switch {
+			case elem != nil:
+				v, ok := e.iv[*elem]
+				if !ok {
+					return nil, &UnknownElementForEnum{
+						element: *elem,
+					}
+				}
+				e.values = append(e.values, v)
+			default:
+				e.values, nulls[i] = append(e.values, 0), 1
+			}
 		}
 	}
-	return nil
+	return
 }
 
 func (e *Enum16) AppendRow(elem interface{}) error {

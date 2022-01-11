@@ -19,7 +19,7 @@ func TestNothing(t *testing.T) {
 		Compression: &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
 		},
-		Debug: true,
+		//Debug: true,
 	})
 	if assert.NoError(t, err) {
 		if rows, err := conn.Query(context.Background(), "SELECT NULL FROM system.numbers_mt LIMIT 10"); assert.NoError(t, err) {

@@ -80,24 +80,44 @@ func (dt *DateTime) AppendRow(v interface{}) error {
 	return nil
 }
 
-func (dt *DateTime) Append(v interface{}) error {
+func (dt *DateTime) Append(v interface{}) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []time.Time:
 		in := make([]int32, 0, len(v))
 		for _, t := range v {
 			in = append(in, int32(t.Unix()))
 		}
-		dt.values = append(dt.values, in...)
+		dt.values, nulls = append(dt.values, in...), make([]uint8, len(v))
 	case []int32:
-		dt.values = append(dt.values, v...)
+		dt.values, nulls = append(dt.values, v...), make([]uint8, len(v))
+	case []*time.Time:
+		nulls = make([]uint8, len(v))
+		for i, v := range v {
+			switch {
+			case v != nil:
+				dt.values = append(dt.values, int32(v.Unix()))
+			default:
+				dt.values, nulls[i] = append(dt.values, 0), 1
+			}
+		}
+	case []*int32:
+		nulls = make([]uint8, len(v))
+		for i, v := range v {
+			switch {
+			case v != nil:
+				dt.values = append(dt.values, *v)
+			default:
+				dt.values, nulls[i] = append(dt.values, 0), 1
+			}
+		}
 	default:
-		return &ColumnConverterErr{
+		return nil, &ColumnConverterErr{
 			op:   "Append",
 			to:   "DateTime",
 			from: fmt.Sprintf("%T", v),
 		}
 	}
-	return nil
+	return
 }
 
 func (dt *DateTime) Decode(decoder *binary.Decoder, rows int) error {

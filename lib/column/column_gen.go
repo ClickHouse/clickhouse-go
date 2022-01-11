@@ -108,18 +108,28 @@ func (col *Float32) RowValue(row int) interface{} {
 	return value[row]
 }
 
-func (col *Float32) Append(v interface{}) error {
+func (col *Float32) Append(v interface{}) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []float32:
-		*col = append(*col, v...)
+		*col, nulls = append(*col, v...), make([]uint8, len(v))
+	case []*float32:
+		nulls = make([]uint8, len(v))
+		for i, v := range v {
+			switch {
+			case v != nil:
+				*col = append(*col, *v)
+			default:
+				*col, nulls[i] = append(*col, 0), 1
+			}
+		}
 	default:
-		return &ColumnConverterErr{
+		return nil, &ColumnConverterErr{
 			op:   "Append",
 			to:   "Float32",
 			from: fmt.Sprintf("%T", v),
 		}
 	}
-	return nil
+	return
 }
 
 func (col *Float32) AppendRow(v interface{}) error {
@@ -169,18 +179,28 @@ func (col *Float64) RowValue(row int) interface{} {
 	return value[row]
 }
 
-func (col *Float64) Append(v interface{}) error {
+func (col *Float64) Append(v interface{}) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []float64:
-		*col = append(*col, v...)
+		*col, nulls = append(*col, v...), make([]uint8, len(v))
+	case []*float64:
+		nulls = make([]uint8, len(v))
+		for i, v := range v {
+			switch {
+			case v != nil:
+				*col = append(*col, *v)
+			default:
+				*col, nulls[i] = append(*col, 0), 1
+			}
+		}
 	default:
-		return &ColumnConverterErr{
+		return nil, &ColumnConverterErr{
 			op:   "Append",
 			to:   "Float64",
 			from: fmt.Sprintf("%T", v),
 		}
 	}
-	return nil
+	return
 }
 
 func (col *Float64) AppendRow(v interface{}) error {
@@ -230,18 +250,28 @@ func (col *Int8) RowValue(row int) interface{} {
 	return value[row]
 }
 
-func (col *Int8) Append(v interface{}) error {
+func (col *Int8) Append(v interface{}) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []int8:
-		*col = append(*col, v...)
+		*col, nulls = append(*col, v...), make([]uint8, len(v))
+	case []*int8:
+		nulls = make([]uint8, len(v))
+		for i, v := range v {
+			switch {
+			case v != nil:
+				*col = append(*col, *v)
+			default:
+				*col, nulls[i] = append(*col, 0), 1
+			}
+		}
 	default:
-		return &ColumnConverterErr{
+		return nil, &ColumnConverterErr{
 			op:   "Append",
 			to:   "Int8",
 			from: fmt.Sprintf("%T", v),
 		}
 	}
-	return nil
+	return
 }
 
 func (col *Int8) AppendRow(v interface{}) error {
@@ -291,18 +321,28 @@ func (col *Int16) RowValue(row int) interface{} {
 	return value[row]
 }
 
-func (col *Int16) Append(v interface{}) error {
+func (col *Int16) Append(v interface{}) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []int16:
-		*col = append(*col, v...)
+		*col, nulls = append(*col, v...), make([]uint8, len(v))
+	case []*int16:
+		nulls = make([]uint8, len(v))
+		for i, v := range v {
+			switch {
+			case v != nil:
+				*col = append(*col, *v)
+			default:
+				*col, nulls[i] = append(*col, 0), 1
+			}
+		}
 	default:
-		return &ColumnConverterErr{
+		return nil, &ColumnConverterErr{
 			op:   "Append",
 			to:   "Int16",
 			from: fmt.Sprintf("%T", v),
 		}
 	}
-	return nil
+	return
 }
 
 func (col *Int16) AppendRow(v interface{}) error {
@@ -352,18 +392,28 @@ func (col *Int32) RowValue(row int) interface{} {
 	return value[row]
 }
 
-func (col *Int32) Append(v interface{}) error {
+func (col *Int32) Append(v interface{}) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []int32:
-		*col = append(*col, v...)
+		*col, nulls = append(*col, v...), make([]uint8, len(v))
+	case []*int32:
+		nulls = make([]uint8, len(v))
+		for i, v := range v {
+			switch {
+			case v != nil:
+				*col = append(*col, *v)
+			default:
+				*col, nulls[i] = append(*col, 0), 1
+			}
+		}
 	default:
-		return &ColumnConverterErr{
+		return nil, &ColumnConverterErr{
 			op:   "Append",
 			to:   "Int32",
 			from: fmt.Sprintf("%T", v),
 		}
 	}
-	return nil
+	return
 }
 
 func (col *Int32) AppendRow(v interface{}) error {
@@ -413,18 +463,28 @@ func (col *Int64) RowValue(row int) interface{} {
 	return value[row]
 }
 
-func (col *Int64) Append(v interface{}) error {
+func (col *Int64) Append(v interface{}) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []int64:
-		*col = append(*col, v...)
+		*col, nulls = append(*col, v...), make([]uint8, len(v))
+	case []*int64:
+		nulls = make([]uint8, len(v))
+		for i, v := range v {
+			switch {
+			case v != nil:
+				*col = append(*col, *v)
+			default:
+				*col, nulls[i] = append(*col, 0), 1
+			}
+		}
 	default:
-		return &ColumnConverterErr{
+		return nil, &ColumnConverterErr{
 			op:   "Append",
 			to:   "Int64",
 			from: fmt.Sprintf("%T", v),
 		}
 	}
-	return nil
+	return
 }
 
 func (col *Int64) AppendRow(v interface{}) error {
@@ -474,18 +534,28 @@ func (col *UInt8) RowValue(row int) interface{} {
 	return value[row]
 }
 
-func (col *UInt8) Append(v interface{}) error {
+func (col *UInt8) Append(v interface{}) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []uint8:
-		*col = append(*col, v...)
+		*col, nulls = append(*col, v...), make([]uint8, len(v))
+	case []*uint8:
+		nulls = make([]uint8, len(v))
+		for i, v := range v {
+			switch {
+			case v != nil:
+				*col = append(*col, *v)
+			default:
+				*col, nulls[i] = append(*col, 0), 1
+			}
+		}
 	default:
-		return &ColumnConverterErr{
+		return nil, &ColumnConverterErr{
 			op:   "Append",
 			to:   "UInt8",
 			from: fmt.Sprintf("%T", v),
 		}
 	}
-	return nil
+	return
 }
 
 func (col *UInt8) AppendRow(v interface{}) error {
@@ -535,18 +605,28 @@ func (col *UInt16) RowValue(row int) interface{} {
 	return value[row]
 }
 
-func (col *UInt16) Append(v interface{}) error {
+func (col *UInt16) Append(v interface{}) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []uint16:
-		*col = append(*col, v...)
+		*col, nulls = append(*col, v...), make([]uint8, len(v))
+	case []*uint16:
+		nulls = make([]uint8, len(v))
+		for i, v := range v {
+			switch {
+			case v != nil:
+				*col = append(*col, *v)
+			default:
+				*col, nulls[i] = append(*col, 0), 1
+			}
+		}
 	default:
-		return &ColumnConverterErr{
+		return nil, &ColumnConverterErr{
 			op:   "Append",
 			to:   "UInt16",
 			from: fmt.Sprintf("%T", v),
 		}
 	}
-	return nil
+	return
 }
 
 func (col *UInt16) AppendRow(v interface{}) error {
@@ -596,18 +676,28 @@ func (col *UInt32) RowValue(row int) interface{} {
 	return value[row]
 }
 
-func (col *UInt32) Append(v interface{}) error {
+func (col *UInt32) Append(v interface{}) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []uint32:
-		*col = append(*col, v...)
+		*col, nulls = append(*col, v...), make([]uint8, len(v))
+	case []*uint32:
+		nulls = make([]uint8, len(v))
+		for i, v := range v {
+			switch {
+			case v != nil:
+				*col = append(*col, *v)
+			default:
+				*col, nulls[i] = append(*col, 0), 1
+			}
+		}
 	default:
-		return &ColumnConverterErr{
+		return nil, &ColumnConverterErr{
 			op:   "Append",
 			to:   "UInt32",
 			from: fmt.Sprintf("%T", v),
 		}
 	}
-	return nil
+	return
 }
 
 func (col *UInt32) AppendRow(v interface{}) error {
@@ -657,18 +747,28 @@ func (col *UInt64) RowValue(row int) interface{} {
 	return value[row]
 }
 
-func (col *UInt64) Append(v interface{}) error {
+func (col *UInt64) Append(v interface{}) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []uint64:
-		*col = append(*col, v...)
+		*col, nulls = append(*col, v...), make([]uint8, len(v))
+	case []*uint64:
+		nulls = make([]uint8, len(v))
+		for i, v := range v {
+			switch {
+			case v != nil:
+				*col = append(*col, *v)
+			default:
+				*col, nulls[i] = append(*col, 0), 1
+			}
+		}
 	default:
-		return &ColumnConverterErr{
+		return nil, &ColumnConverterErr{
 			op:   "Append",
 			to:   "UInt64",
 			from: fmt.Sprintf("%T", v),
 		}
 	}
-	return nil
+	return
 }
 
 func (col *UInt64) AppendRow(v interface{}) error {

@@ -11,7 +11,7 @@ import (
 )
 
 func Test_OpenConnectAndPing(t *testing.T) {
-	if connect, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000?debug=true"); assert.NoError(t, err) {
+	if connect, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000"); assert.NoError(t, err) {
 		assert.NoError(t, connect.Ping())
 	}
 }
@@ -23,7 +23,7 @@ func Test_CreateTable(t *testing.T) {
 			click_time DateTime
 		) Engine=Memory
 	`
-	if connect, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000?debug=true"); assert.NoError(t, err) {
+	if connect, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000"); assert.NoError(t, err) {
 		if _, err := connect.Exec("DROP TABLE IF EXISTS clickhouse_test_create_table"); assert.NoError(t, err) {
 			if _, err := connect.Exec(ddl); assert.NoError(t, err) {
 				if _, err := connect.Exec(ddl); assert.Error(t, err) {
@@ -37,7 +37,7 @@ func Test_CreateTable(t *testing.T) {
 }
 
 func Test_SimpleSelect(t *testing.T) {
-	if connect, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000?debug=true"); assert.NoError(t, err) && assert.NoError(t, connect.Ping()) {
+	if connect, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000"); assert.NoError(t, err) && assert.NoError(t, connect.Ping()) {
 		if rows, err := connect.Query("SELECT a FROM (SELECT 1 AS a UNION ALL SELECT 2 AS a UNION ALL SELECT 3 AS a) ORDER BY a ASC"); assert.NoError(t, err) {
 			defer rows.Close()
 			var cnt int
@@ -78,7 +78,7 @@ func Test_SimpleSelect(t *testing.T) {
 }
 
 func Test_Tx(t *testing.T) {
-	if connect, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000?debug=true"); assert.NoError(t, err) {
+	if connect, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000"); assert.NoError(t, err) {
 		if tx, err := connect.Begin(); assert.NoError(t, err) {
 			_, err = tx.Query("SELECT 1")
 			if assert.NoError(t, err) {
@@ -101,7 +101,7 @@ func Test_Temporary_Table(t *testing.T) {
 			);
 		`
 	)
-	if connect, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000?debug=true"); assert.NoError(t, err) {
+	if connect, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000"); assert.NoError(t, err) {
 		if tx, err := connect.Begin(); assert.NoError(t, err) {
 			if _, err := tx.Exec(ddl); assert.NoError(t, err) {
 				if _, err := tx.Exec("INSERT INTO clickhouse_test_temporary_table (ID) SELECT number AS ID FROM system.numbers LIMIT 10"); assert.NoError(t, err) {
@@ -134,7 +134,7 @@ func Test_Temporary_Table(t *testing.T) {
 }
 
 func Test_Context_Timeout(t *testing.T) {
-	if connect, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000?debug=true"); assert.NoError(t, err) && assert.NoError(t, connect.Ping()) {
+	if connect, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000"); assert.NoError(t, err) && assert.NoError(t, connect.Ping()) {
 		{
 			ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*20)
 			defer cancel()

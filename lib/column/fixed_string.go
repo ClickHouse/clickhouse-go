@@ -55,43 +55,53 @@ func (col *FixedString) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (col *FixedString) Append(v interface{}) error {
+func (col *FixedString) Append(v interface{}) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []byte:
 		if len(v)%col.size != 0 {
-			return &InvalidFixedSizeData{
+			return nil, &InvalidFixedSizeData{
 				op:       "Append",
 				got:      len(v),
 				expected: col.size,
 			}
 		}
-		col.data = append(col.data, v...)
+		col.data, nulls = append(col.data, v...), make([]uint8, len(v)/col.size)
 	case [][]byte:
 		for _, v := range v {
 			if len(v) != col.size {
-				return &InvalidFixedSizeData{
+				return nil, &InvalidFixedSizeData{
 					op:       "Append",
 					got:      len(v),
 					expected: col.size,
 				}
 			}
-			col.data = append(col.data, v...)
+			col.data, nulls = append(col.data, v...), make([]uint8, len(v))
+		}
+	case []*[]byte:
+		nulls = make([]uint8, len(v))
+		for i, v := range v {
+			switch {
+			case v != nil:
+				col.data = append(col.data, *v...)
+			default:
+				col.data, nulls[i] = append(col.data, make([]byte, col.size)...), 1
+			}
 		}
 	case encoding.BinaryMarshaler:
 		data, err := v.MarshalBinary()
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if len(data)%col.size != 0 {
-			return &InvalidFixedSizeData{
+			return nil, &InvalidFixedSizeData{
 				op:       "Append",
 				got:      len(data),
 				expected: col.size,
 			}
 		}
-		col.data = append(col.data, data...)
+		col.data, nulls = append(col.data, data...), make([]uint8, len(data)/col.size)
 	}
-	return nil
+	return
 }
 
 func (col *FixedString) AppendRow(v interface{}) error {

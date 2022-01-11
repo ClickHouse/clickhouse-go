@@ -24,7 +24,7 @@ func TestSimpleQuery(t *testing.T) {
 			Compression: &clickhouse.Compression{
 				Method: clickhouse.CompressionLZ4,
 			},
-			Debug: true,
+			//	Debug: true,
 		})
 	)
 	if assert.NoError(t, err) {
@@ -89,7 +89,7 @@ func TestNumericColumns(t *testing.T) {
 			Compression: &clickhouse.Compression{
 				Method: clickhouse.CompressionLZ4,
 			},
-			Debug: true,
+			//Debug: true,
 		})
 	)
 	if assert.NoError(t, err) {
@@ -170,7 +170,7 @@ func TestExec(t *testing.T) {
 		Compression: &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
 		},
-		Debug: true,
+		//Debug: true,
 	})
 
 	if assert.NoError(t, err) {
@@ -208,7 +208,7 @@ func TestQuery(t *testing.T) {
 		Compression: &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
 		},
-		Debug: true,
+		//	Debug: true,
 	})
 	if assert.NoError(t, err) {
 		ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Second))
@@ -252,7 +252,7 @@ func TestQueryBindNumeric(t *testing.T) {
 		Compression: &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
 		},
-		Debug: true,
+		//	Debug: true,
 	})
 	if assert.NoError(t, err) {
 		rows, err := conn.Query(context.Background(), `

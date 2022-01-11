@@ -39,18 +39,28 @@ func (s *String) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (s *String) Append(v interface{}) error {
+func (s *String) Append(v interface{}) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []string:
-		*s = append(*s, v...)
+		*s, nulls = append(*s, v...), make([]uint8, len(v))
+	case []*string:
+		nulls = make([]uint8, len(v))
+		for i, v := range v {
+			switch {
+			case v != nil:
+				*s = append(*s, *v)
+			default:
+				*s, nulls[i] = append(*s, ""), 1
+			}
+		}
 	default:
-		return &ColumnConverterErr{
+		return nil, &ColumnConverterErr{
 			op:   "Append",
 			to:   "String",
 			from: fmt.Sprintf("%T", v),
 		}
 	}
-	return nil
+	return
 }
 
 func (s *String) AppendRow(v interface{}) error {

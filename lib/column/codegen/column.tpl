@@ -81,18 +81,28 @@ func (col *{{ .ChType }}) RowValue(row int) interface{} {
 }
 
 
-func (col *{{ .ChType }}) Append(v interface{}) error {
+func (col *{{ .ChType }}) Append(v interface{}) (nulls []uint8,err error) {
 	switch v := v.(type) {
 	case []{{ .GoType }}:
-		*col = append(*col, v...)
+		*col, nulls = append(*col, v...), make([]uint8, len(v))
+	case []*{{ .GoType }}:
+		nulls = make([]uint8, len(v))
+		for i, v:= range v {
+			switch {
+			case v != nil:
+				*col = append(*col, *v)
+			default:
+				*col, nulls[i] = append(*col, 0), 1
+			}
+		}
 	default:
-		return &ColumnConverterErr{
+		return nil, &ColumnConverterErr{
 			op:   "Append",
 			to:   "{{ .ChType }}",
 			from: fmt.Sprintf("%T", v),
 		}
 	}
-	return nil
+	return
 }
 
 func (col *{{ .ChType }}) AppendRow(v interface{}) error {
