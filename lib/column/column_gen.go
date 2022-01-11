@@ -5,6 +5,7 @@ package column
 
 import (
 	"fmt"
+	"strings"
 )
 
 func (t Type) Column() (Interface, error) {
@@ -31,10 +32,9 @@ func (t Type) Column() (Interface, error) {
 		return &UInt64{}, nil
 	case "String":
 		return &String{}, nil
-	case "DateTime":
-		return &DateTime{}, nil
 	}
-	switch {
+
+	switch strType := string(t); {
 	case t.IsEnum():
 		return Enum(string(t))
 	case t.IsNullable():
@@ -45,6 +45,8 @@ func (t Type) Column() (Interface, error) {
 		return &Nullable{
 			base: base,
 		}, nil
+	case strings.HasPrefix(strType, "DateTime") && !strings.HasPrefix(strType, "DateTime64"):
+		return (&DateTime{chType: t}).new()
 	}
 	return &UnsupportedColumnType{
 		t: t,

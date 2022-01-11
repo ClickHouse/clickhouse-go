@@ -2,41 +2,54 @@ package column
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/timezone"
 )
 
-type DateTime []int32
+type DateTime struct {
+	chType   Type
+	values   Int32
+	timezone *time.Location
+}
+
+func (dt *DateTime) new() (*DateTime, error) {
+	if dt.chType == "DateTime" {
+		return &DateTime{}, nil
+	}
+	var (
+		name          = strings.TrimSuffix(strings.TrimPrefix(string(dt.chType), "DateTime('"), "')")
+		timezone, err = timezone.Load(name)
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &DateTime{
+		timezone: timezone,
+	}, nil
+}
 
 func (dt *DateTime) Rows() int {
-	return len(*dt)
+	return len(dt.values)
 }
 
 func (dt *DateTime) Decode(decoder *binary.Decoder, rows int) error {
-	for i := 0; i < int(rows); i++ {
-		v, err := decoder.Int32()
-		if err != nil {
-			return err
-		}
-		*dt = append(*dt, v)
-	}
-	return nil
+	return dt.values.Decode(decoder, rows)
 }
 
 func (dt *DateTime) RowValue(row int) interface{} {
-	value := *dt
-	return time.Unix(int64(value[row]), 0)
+	return dt.row(row)
 }
 
 func (dt *DateTime) ScanRow(dest interface{}, row int) error {
-	v := *dt
 	switch d := dest.(type) {
 	case *time.Time:
-		*d = time.Unix(int64(v[row]), 0)
+		*d = dt.row(row)
 	case **time.Time:
 		*d = new(time.Time)
-		**d = time.Unix(int64(v[row]), 0)
+		**d = dt.row(row)
 	default:
 		return &ColumnConverterErr{
 			op:   "ScanRow",
@@ -50,9 +63,9 @@ func (dt *DateTime) ScanRow(dest interface{}, row int) error {
 func (dt *DateTime) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case time.Time:
-		*dt = append(*dt, int32(v.Unix()))
+		dt.values = append(dt.values, int32(v.Unix()))
 	case null:
-		*dt = append(*dt, 0)
+		dt.values = append(dt.values, 0)
 	default:
 		return &ColumnConverterErr{
 			op:   "AppendRow",
@@ -70,7 +83,7 @@ func (dt *DateTime) Append(v interface{}) error {
 		for _, t := range v {
 			in = append(in, int32(t.Unix()))
 		}
-		*dt = append(*dt, in...)
+		dt.values = append(dt.values, in...)
 	default:
 		return &ColumnConverterErr{
 			op:   "Append",
@@ -82,12 +95,15 @@ func (dt *DateTime) Append(v interface{}) error {
 }
 
 func (dt *DateTime) Encode(encoder *binary.Encoder) error {
-	for _, v := range *dt {
-		if err := encoder.Int32(v); err != nil {
-			return err
-		}
+	return dt.values.Encode(encoder)
+}
+
+func (dt *DateTime) row(row int) time.Time {
+	v := time.Unix(int64(dt.values[row]), 0)
+	if dt.timezone != nil {
+		v = v.In(dt.timezone)
 	}
-	return nil
+	return v
 }
 
 var _ Interface = (*DateTime)(nil)

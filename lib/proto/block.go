@@ -35,6 +35,7 @@ func (b *Block) Append(v ...interface{}) (err error) {
 	columns := b.Columns
 	if len(columns) != len(v) {
 		return &UnexpectedArguments{
+			op:   "block append",
 			got:  len(v),
 			want: len(columns),
 		}
@@ -172,9 +173,15 @@ func decodeBlockInfo(decoder *binary.Decoder) error {
 	return nil
 }
 
-type UnexpectedArguments struct{ got, want int }
+type UnexpectedArguments struct {
+	op        string
+	got, want int
+}
 
 func (e *UnexpectedArguments) Error() string {
+	if len(e.op) != 0 {
+		return fmt.Sprintf("clickhouse [%s]: expected %d arguments, got %d", e.op, e.want, e.got)
+	}
 	return fmt.Sprintf("clickhouse: expected %d arguments, got %d", e.want, e.got)
 }
 
