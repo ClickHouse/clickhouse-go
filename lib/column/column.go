@@ -23,19 +23,8 @@ func (t Type) Base() Type {
 	}
 }
 
-func (t Type) IsArray() bool {
-	return strings.HasPrefix(string(t), "Array")
-}
-
-func (t Type) IsEnum() bool {
-	return strings.HasPrefix(string(t), "Enum8") || strings.HasPrefix(string(t), "Enum16")
-}
-
-func (t Type) IsNullable() bool {
-	return strings.HasPrefix(string(t), "Nullable")
-}
-
 type Interface interface {
+	Type() Type
 	Rows() int
 	RowValue(row int) interface{}
 	ScanRow(dest interface{}, row int) error
@@ -49,6 +38,7 @@ type UnsupportedColumnType struct {
 	t Type
 }
 
+func (u *UnsupportedColumnType) Type() Type                        { return u.t }
 func (UnsupportedColumnType) Rows() int                            { return 0 }
 func (u *UnsupportedColumnType) RowValue(row int) interface{}      { return nil }
 func (u *UnsupportedColumnType) ScanRow(interface{}, int) error    { return u }

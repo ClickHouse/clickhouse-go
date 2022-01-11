@@ -19,18 +19,12 @@ func (t Type) Column() (Interface, error) {
 	}
 
 	switch strType := string(t); {
-	case t.IsEnum():
-		return Enum(string(t))
-	case t.IsNullable():
-		base, err := t.Base().Column()
-		if err != nil {
-			return nil, err
-		}
-		return &Nullable{
-			base: base,
-		}, nil
+	case strings.HasPrefix(string(t), "Nullable"):
+		return (&Nullable{}).new(t)
+	case strings.HasPrefix(string(t), "Enum8") || strings.HasPrefix(string(t), "Enum16"):
+		return Enum(t)
 	case strings.HasPrefix(strType, "DateTime") && !strings.HasPrefix(strType, "DateTime64"):
-		return (&DateTime{chType:t}).new()
+		return (&DateTime{}).new(t)
 	}
 	return &UnsupportedColumnType{
 		t: t,
@@ -50,6 +44,10 @@ var (
 )
 
 {{- range . }}
+
+func (col *{{ .ChType }}) Type() Type {
+	return "{{ .ChType }}"
+}
 
 func (col *{{ .ChType }}) Rows() int {
 	return len(*col)

@@ -35,18 +35,12 @@ func (t Type) Column() (Interface, error) {
 	}
 
 	switch strType := string(t); {
-	case t.IsEnum():
-		return Enum(string(t))
-	case t.IsNullable():
-		base, err := t.Base().Column()
-		if err != nil {
-			return nil, err
-		}
-		return &Nullable{
-			base: base,
-		}, nil
+	case strings.HasPrefix(string(t), "Nullable"):
+		return (&Nullable{}).new(t)
+	case strings.HasPrefix(string(t), "Enum8") || strings.HasPrefix(string(t), "Enum16"):
+		return Enum(t)
 	case strings.HasPrefix(strType, "DateTime") && !strings.HasPrefix(strType, "DateTime64"):
-		return (&DateTime{chType: t}).new()
+		return (&DateTime{}).new(t)
 	}
 	return &UnsupportedColumnType{
 		t: t,
@@ -78,6 +72,10 @@ var (
 	_ Interface = (*UInt32)(nil)
 	_ Interface = (*UInt64)(nil)
 )
+
+func (col *Float32) Type() Type {
+	return "Float32"
+}
 
 func (col *Float32) Rows() int {
 	return len(*col)
@@ -134,6 +132,10 @@ func (col *Float32) AppendRow(v interface{}) error {
 		}
 	}
 	return nil
+}
+
+func (col *Float64) Type() Type {
+	return "Float64"
 }
 
 func (col *Float64) Rows() int {
@@ -193,6 +195,10 @@ func (col *Float64) AppendRow(v interface{}) error {
 	return nil
 }
 
+func (col *Int8) Type() Type {
+	return "Int8"
+}
+
 func (col *Int8) Rows() int {
 	return len(*col)
 }
@@ -248,6 +254,10 @@ func (col *Int8) AppendRow(v interface{}) error {
 		}
 	}
 	return nil
+}
+
+func (col *Int16) Type() Type {
+	return "Int16"
 }
 
 func (col *Int16) Rows() int {
@@ -307,6 +317,10 @@ func (col *Int16) AppendRow(v interface{}) error {
 	return nil
 }
 
+func (col *Int32) Type() Type {
+	return "Int32"
+}
+
 func (col *Int32) Rows() int {
 	return len(*col)
 }
@@ -362,6 +376,10 @@ func (col *Int32) AppendRow(v interface{}) error {
 		}
 	}
 	return nil
+}
+
+func (col *Int64) Type() Type {
+	return "Int64"
 }
 
 func (col *Int64) Rows() int {
@@ -421,6 +439,10 @@ func (col *Int64) AppendRow(v interface{}) error {
 	return nil
 }
 
+func (col *UInt8) Type() Type {
+	return "UInt8"
+}
+
 func (col *UInt8) Rows() int {
 	return len(*col)
 }
@@ -476,6 +498,10 @@ func (col *UInt8) AppendRow(v interface{}) error {
 		}
 	}
 	return nil
+}
+
+func (col *UInt16) Type() Type {
+	return "UInt16"
 }
 
 func (col *UInt16) Rows() int {
@@ -535,6 +561,10 @@ func (col *UInt16) AppendRow(v interface{}) error {
 	return nil
 }
 
+func (col *UInt32) Type() Type {
+	return "UInt32"
+}
+
 func (col *UInt32) Rows() int {
 	return len(*col)
 }
@@ -590,6 +620,10 @@ func (col *UInt32) AppendRow(v interface{}) error {
 		}
 	}
 	return nil
+}
+
+func (col *UInt64) Type() Type {
+	return "UInt64"
 }
 
 func (col *UInt64) Rows() int {

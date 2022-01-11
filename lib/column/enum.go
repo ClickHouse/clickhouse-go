@@ -11,7 +11,12 @@ import (
 type Enum8 struct {
 	iv     map[string]uint8
 	vi     map[uint8]string
+	chType Type
 	values UInt8
+}
+
+func (e *Enum8) Type() Type {
+	return e.chType
 }
 
 func (e *Enum8) Rows() int {
@@ -93,10 +98,14 @@ func (e *Enum8) Encode(encoder *binary.Encoder) error {
 }
 
 type Enum16 struct {
-	iv         map[string]uint16
-	vi         map[uint16]string
-	values     UInt16
-	defaultVal uint16
+	iv     map[string]uint16
+	vi     map[uint16]string
+	chType Type
+	values UInt16
+}
+
+func (e *Enum16) Type() Type {
+	return e.chType
 }
 
 func (e *Enum16) Rows() int {
@@ -181,8 +190,11 @@ var (
 	_ Interface = (*Enum16)(nil)
 )
 
-func Enum(columnType string) (Interface, error) {
-	var payload string
+func Enum(chType Type) (Interface, error) {
+	var (
+		payload    string
+		columnType = string(chType)
+	)
 	if len(columnType) < 8 {
 		return nil, fmt.Errorf("invalid Enum format: %s", columnType)
 	}
@@ -215,8 +227,9 @@ func Enum(columnType string) (Interface, error) {
 	}
 	if strings.HasPrefix(columnType, "Enum8") {
 		enum := Enum8{
-			iv: make(map[string]uint8, len(idents)),
-			vi: make(map[uint8]string, len(idents)),
+			iv:     make(map[string]uint8, len(idents)),
+			vi:     make(map[uint8]string, len(idents)),
+			chType: chType,
 		}
 		for i := range idents {
 			enum.iv[idents[i]] = uint8(indexes[i])
@@ -225,8 +238,9 @@ func Enum(columnType string) (Interface, error) {
 		return &enum, nil
 	}
 	enum := Enum16{
-		iv: make(map[string]uint16, len(idents)),
-		vi: make(map[uint16]string, len(idents)),
+		iv:     make(map[string]uint16, len(idents)),
+		vi:     make(map[uint16]string, len(idents)),
+		chType: chType,
 	}
 	for i := range idents {
 		enum.iv[idents[i]] = uint16(indexes[i])

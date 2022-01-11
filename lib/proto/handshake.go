@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/timezone"
 )
 
 const ClientName = "Golang SQLDriver"
@@ -18,11 +19,16 @@ const (
 type ClientHandshake struct{}
 
 func (ClientHandshake) Encode(encoder *binary.Encoder) error {
-	encoder.String(ClientName)
-	encoder.Uvarint(ClientVersionMajor)
-	encoder.Uvarint(ClientVersionMinor)
-	encoder.Uvarint(ClientTCPProtocolVersion)
-	return nil
+	if err := encoder.String(ClientName); err != nil {
+		return err
+	}
+	if err := encoder.Uvarint(ClientVersionMajor); err != nil {
+		return err
+	}
+	if err := encoder.Uvarint(ClientVersionMinor); err != nil {
+		return err
+	}
+	return encoder.Uvarint(ClientTCPProtocolVersion)
 }
 
 func (ClientHandshake) String() string {
@@ -55,11 +61,11 @@ func (srv *ServerHandshake) Decode(decoder *binary.Decoder) (err error) {
 		return fmt.Errorf("could not read server revision: %v", err)
 	}
 	if srv.Revision >= DBMS_MIN_REVISION_WITH_SERVER_TIMEZONE {
-		timezone, err := decoder.String()
+		name, err := decoder.String()
 		if err != nil {
 			return fmt.Errorf("could not read server timezone: %v", err)
 		}
-		if srv.Timezone, err = time.LoadLocation(timezone); err != nil {
+		if srv.Timezone, err = timezone.Load(name); err != nil {
 			return fmt.Errorf("could not load time location: %v", err)
 		}
 	}

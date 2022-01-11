@@ -11,39 +11,60 @@ type Nullable struct {
 	nulls UInt8
 }
 
+func (col *Nullable) new(t Type) (*Nullable, error) {
+	base, err := t.Base().Column()
+	if err != nil {
+		return nil, err
+	}
+	return &Nullable{
+		base: base,
+	}, nil
+}
+
+func (col *Nullable) Type() Type {
+	return "Nullable(" + col.base.Type() + ")"
+}
+
 func (col *Nullable) Rows() int {
 	return len(col.nulls)
 }
 
-func (c *Nullable) Decode(decoder *binary.Decoder, rows int) (err error) {
-	if err := c.nulls.Decode(decoder, rows); err != nil {
+func (col *Nullable) Decode(decoder *binary.Decoder, rows int) (err error) {
+	if err := col.nulls.Decode(decoder, rows); err != nil {
 		return err
 	}
-	if err := c.base.Decode(decoder, rows); err != nil {
+	if err := col.base.Decode(decoder, rows); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (c *Nullable) RowValue(row int) interface{} {
-	if c.nulls[row] == 1 {
+func (col *Nullable) RowValue(row int) interface{} {
+	if col.nulls[row] == 1 {
 		return nil
 	}
-	return c.base.RowValue(row)
+	return col.base.RowValue(row)
 }
 
-func (c *Nullable) ScanRow(dest interface{}, row int) error {
-	if len(c.nulls) < row {
-
-	}
-	if c.nulls[row] == 1 {
+func (col *Nullable) ScanRow(dest interface{}, row int) error {
+	if col.nulls[row] == 1 {
 		return nil
 	}
-	return c.base.ScanRow(dest, row)
+	return col.base.ScanRow(dest, row)
 }
 
 func (col *Nullable) Append(v interface{}) error {
-	// @todo: rm reflect and add Column.AppendWithNulls ([]null, error)
+	type appender interface {
+		appendWithNulls(v interface{}) ([]uint8, error)
+	}
+	if column, ok := col.base.(appender); ok {
+		nulls, err := column.appendWithNulls(v)
+		if err != nil {
+			return err
+		}
+		col.nulls = append(col.nulls, nulls...)
+		return nil
+	}
 	switch reflect.TypeOf(v).Kind() {
 	case reflect.Slice:
 		s := reflect.ValueOf(v)

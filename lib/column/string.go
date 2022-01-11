@@ -8,6 +8,10 @@ import (
 
 type String []string
 
+func (String) Type() Type {
+	return "String"
+}
+
 func (col *String) Rows() int {
 	return len(*col)
 }

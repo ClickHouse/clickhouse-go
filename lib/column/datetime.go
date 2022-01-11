@@ -15,20 +15,27 @@ type DateTime struct {
 	timezone *time.Location
 }
 
-func (dt *DateTime) new() (*DateTime, error) {
-	if dt.chType == "DateTime" {
-		return &DateTime{}, nil
+func (dt *DateTime) new(t Type) (*DateTime, error) {
+	if t == "DateTime" {
+		return &DateTime{
+			chType: t,
+		}, nil
 	}
 	var (
-		name          = strings.TrimSuffix(strings.TrimPrefix(string(dt.chType), "DateTime('"), "')")
+		name          = strings.TrimSuffix(strings.TrimPrefix(string(t), "DateTime('"), "')")
 		timezone, err = timezone.Load(name)
 	)
 	if err != nil {
 		return nil, err
 	}
 	return &DateTime{
+		chType:   t,
 		timezone: timezone,
 	}, nil
+}
+
+func (dt *DateTime) Type() Type {
+	return dt.chType
 }
 
 func (dt *DateTime) Rows() int {
