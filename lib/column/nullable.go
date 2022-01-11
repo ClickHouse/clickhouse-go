@@ -11,14 +11,11 @@ type Nullable struct {
 	nulls UInt8
 }
 
-func (col *Nullable) new(t Type) (*Nullable, error) {
-	base, err := t.Base().Column()
-	if err != nil {
+func (col *Nullable) parse(t Type) (_ *Nullable, err error) {
+	if col.base, err = t.Base().Column(); err != nil {
 		return nil, err
 	}
-	return &Nullable{
-		base: base,
-	}, nil
+	return col, nil
 }
 
 func (col *Nullable) Type() Type {
@@ -27,16 +24,6 @@ func (col *Nullable) Type() Type {
 
 func (col *Nullable) Rows() int {
 	return len(col.nulls)
-}
-
-func (col *Nullable) Decode(decoder *binary.Decoder, rows int) (err error) {
-	if err := col.nulls.Decode(decoder, rows); err != nil {
-		return err
-	}
-	if err := col.base.Decode(decoder, rows); err != nil {
-		return err
-	}
-	return nil
 }
 
 func (col *Nullable) RowValue(row int) interface{} {
@@ -96,6 +83,16 @@ func (col *Nullable) AppendRow(v interface{}) error {
 		col.nulls = append(col.nulls, 0)
 		return col.base.AppendRow(v)
 	}
+}
+
+func (col *Nullable) Decode(decoder *binary.Decoder, rows int) (err error) {
+	if err := col.nulls.Decode(decoder, rows); err != nil {
+		return err
+	}
+	if err := col.base.Decode(decoder, rows); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (col *Nullable) Encode(encoder *binary.Encoder) error {

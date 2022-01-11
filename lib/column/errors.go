@@ -19,3 +19,13 @@ type UnknownElementForEnum struct {
 func (e *UnknownElementForEnum) Error() string {
 	return fmt.Sprintf("clickhouse: unknown element %q for enum", e.element)
 }
+
+type InvalidFixedSizeData struct {
+	op       string
+	got      int
+	expected int
+}
+
+func (e *InvalidFixedSizeData) Error() string {
+	return fmt.Sprintf("clickhouse [%s]: invalid fixed size data expected %d got %d", e.op, e.expected, e.got)
+}

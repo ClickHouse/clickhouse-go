@@ -16,17 +16,6 @@ func (col *String) Rows() int {
 	return len(*col)
 }
 
-func (s *String) Decode(decoder *binary.Decoder, rows int) error {
-	for i := 0; i < int(rows); i++ {
-		v, err := decoder.String()
-		if err != nil {
-			return err
-		}
-		*s = append(*s, v)
-	}
-	return nil
-}
-
 func (s *String) RowValue(row int) interface{} {
 	value := *s
 	return value[row]
@@ -40,13 +29,26 @@ func (s *String) ScanRow(dest interface{}, row int) error {
 	case **string:
 		*d = new(string)
 		**d = v[row]
+	default:
+		return &ColumnConverterErr{
+			op:   "ScanRow",
+			to:   fmt.Sprintf("%T", dest),
+			from: "String",
+		}
 	}
 	return nil
 }
 
 func (s *String) Append(v interface{}) error {
-	if v, ok := v.([]string); ok {
+	switch v := v.(type) {
+	case []string:
 		*s = append(*s, v...)
+	default:
+		return &ColumnConverterErr{
+			op:   "Append",
+			to:   "String",
+			from: fmt.Sprintf("%T", v),
+		}
 	}
 	return nil
 }
@@ -65,6 +67,17 @@ func (s *String) AppendRow(v interface{}) error {
 			to:   "String",
 			from: fmt.Sprintf("%T", v),
 		}
+	}
+	return nil
+}
+
+func (s *String) Decode(decoder *binary.Decoder, rows int) error {
+	for i := 0; i < int(rows); i++ {
+		v, err := decoder.String()
+		if err != nil {
+			return err
+		}
+		*s = append(*s, v)
 	}
 	return nil
 }

@@ -23,10 +23,6 @@ func (e *Enum8) Rows() int {
 	return len(e.values)
 }
 
-func (e *Enum8) Decode(decoder *binary.Decoder, rows int) error {
-	return e.values.Decode(decoder, rows)
-}
-
 func (e *Enum8) RowValue(row int) interface{} {
 	return e.vi[e.values[row]]
 }
@@ -93,6 +89,10 @@ func (e *Enum8) AppendRow(elem interface{}) error {
 	return nil
 }
 
+func (e *Enum8) Decode(decoder *binary.Decoder, rows int) error {
+	return e.values.Decode(decoder, rows)
+}
+
 func (e *Enum8) Encode(encoder *binary.Encoder) error {
 	return e.values.Encode(encoder)
 }
@@ -110,10 +110,6 @@ func (e *Enum16) Type() Type {
 
 func (e *Enum16) Rows() int {
 	return len(e.values)
-}
-
-func (e *Enum16) Decode(decoder *binary.Decoder, rows int) error {
-	return e.values.Decode(decoder, rows)
 }
 
 func (e *Enum16) RowValue(row int) interface{} {
@@ -179,6 +175,10 @@ func (e *Enum16) AppendRow(elem interface{}) error {
 		}
 	}
 	return nil
+}
+
+func (e *Enum16) Decode(decoder *binary.Decoder, rows int) error {
+	return e.values.Decode(decoder, rows)
 }
 
 func (e *Enum16) Encode(encoder *binary.Encoder) error {

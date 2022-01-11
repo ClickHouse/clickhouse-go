@@ -20,11 +20,13 @@ func (t Type) Column() (Interface, error) {
 
 	switch strType := string(t); {
 	case strings.HasPrefix(string(t), "Nullable"):
-		return (&Nullable{}).new(t)
+		return (&Nullable{}).parse(t)
+	case strings.HasPrefix(string(t), "FixedString"):
+		return (&FixedString{}).parse(t)
 	case strings.HasPrefix(string(t), "Enum8") || strings.HasPrefix(string(t), "Enum16"):
 		return Enum(t)
 	case strings.HasPrefix(strType, "DateTime") && !strings.HasPrefix(strType, "DateTime64"):
-		return (&DateTime{}).new(t)
+		return (&DateTime{}).parse(t)
 	}
 	return &UnsupportedColumnType{
 		t: t,

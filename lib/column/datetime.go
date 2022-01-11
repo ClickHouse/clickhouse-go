@@ -15,23 +15,15 @@ type DateTime struct {
 	timezone *time.Location
 }
 
-func (dt *DateTime) new(t Type) (*DateTime, error) {
-	if t == "DateTime" {
-		return &DateTime{
-			chType: t,
-		}, nil
+func (dt *DateTime) parse(t Type) (_ *DateTime, err error) {
+	if dt.chType = t; dt.chType == "DateTime" {
+		return dt, nil
 	}
-	var (
-		name          = strings.TrimSuffix(strings.TrimPrefix(string(t), "DateTime('"), "')")
-		timezone, err = timezone.Load(name)
-	)
-	if err != nil {
+	var name = strings.TrimSuffix(strings.TrimPrefix(string(t), "DateTime('"), "')")
+	if dt.timezone, err = timezone.Load(name); err != nil {
 		return nil, err
 	}
-	return &DateTime{
-		chType:   t,
-		timezone: timezone,
-	}, nil
+	return dt, nil
 }
 
 func (dt *DateTime) Type() Type {
@@ -40,10 +32,6 @@ func (dt *DateTime) Type() Type {
 
 func (dt *DateTime) Rows() int {
 	return len(dt.values)
-}
-
-func (dt *DateTime) Decode(decoder *binary.Decoder, rows int) error {
-	return dt.values.Decode(decoder, rows)
 }
 
 func (dt *DateTime) RowValue(row int) interface{} {
@@ -99,6 +87,10 @@ func (dt *DateTime) Append(v interface{}) error {
 		}
 	}
 	return nil
+}
+
+func (dt *DateTime) Decode(decoder *binary.Decoder, rows int) error {
+	return dt.values.Decode(decoder, rows)
 }
 
 func (dt *DateTime) Encode(encoder *binary.Encoder) error {
