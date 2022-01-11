@@ -23,7 +23,7 @@ func TestColumnInterface(t *testing.T) {
 			Compression: &clickhouse.Compression{
 				Method: clickhouse.CompressionLZ4,
 			},
-			Debug: true,
+			//Debug: true,
 		})
 	)
 	if assert.NoError(t, err) {

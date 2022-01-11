@@ -29,3 +29,11 @@ type InvalidFixedSizeData struct {
 func (e *InvalidFixedSizeData) Error() string {
 	return fmt.Sprintf("clickhouse [%s]: invalid fixed size data expected %d got %d", e.op, e.expected, e.got)
 }
+
+type StoreSpecialDataType struct {
+	t Type
+}
+
+func (e *StoreSpecialDataType) Error() string {
+	return fmt.Sprintf("clickhouse: %q data type values can't be stored in tables", e.t)
+}

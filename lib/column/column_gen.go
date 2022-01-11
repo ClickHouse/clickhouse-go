@@ -37,6 +37,8 @@ func (t Type) Column() (Interface, error) {
 	}
 
 	switch strType := string(t); {
+	case strings.HasPrefix(string(t), "Interval"):
+		return (&Interval{}).parse(t)
 	case strings.HasPrefix(string(t), "Nullable"):
 		return (&Nullable{}).parse(t)
 	case strings.HasPrefix(string(t), "FixedString"):
