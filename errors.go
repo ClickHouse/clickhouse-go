@@ -3,7 +3,7 @@ package clickhouse
 import (
 	"fmt"
 
-	"github.com/ClickHouse/clickhouse-go/lib/proto"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 
 type UnexpectedArguments = proto.UnexpectedArguments

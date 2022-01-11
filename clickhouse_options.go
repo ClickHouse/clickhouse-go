@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/lib/compress"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/compress"
 )
 
 var (

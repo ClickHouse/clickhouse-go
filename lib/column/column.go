@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/ClickHouse/clickhouse-go/lib/binary"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
 )
 
 type null struct{}
@@ -43,16 +43,6 @@ type Interface interface {
 	AppendRow(v interface{}) error
 	Decode(decoder *binary.Decoder, rows int) error
 	Encode(*binary.Encoder) error
-}
-
-type ColumnConverterErr struct {
-	op   string
-	to   string
-	from string
-}
-
-func (e *ColumnConverterErr) Error() string {
-	return fmt.Sprintf("%s: converting %s to %s is unsupported", e.op, e.from, e.to)
 }
 
 type UnsupportedColumnType struct {

@@ -3,7 +3,7 @@ package column
 import (
 	"fmt"
 
-	"github.com/ClickHouse/clickhouse-go/lib/binary"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
 )
 
 type String []string

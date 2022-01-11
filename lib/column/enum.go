@@ -5,22 +5,13 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ClickHouse/clickhouse-go/lib/binary"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
 )
 
-type UnknownElementForEnum struct {
-	element string
-}
-
-func (e *UnknownElementForEnum) Error() string {
-	return fmt.Sprintf("clickhouse: Unknown element %q for enum", e.element)
-}
-
 type Enum8 struct {
-	iv         map[string]uint8
-	vi         map[uint8]string
-	values     UInt8
-	defaultVal uint8
+	iv     map[string]uint8
+	vi     map[uint8]string
+	values UInt8
 }
 
 func (e *Enum8) Rows() int {
@@ -86,7 +77,7 @@ func (e *Enum8) AppendRow(elem interface{}) error {
 
 		e.values = append(e.values, v)
 	case null:
-		e.values = append(e.values, e.defaultVal)
+		e.values = append(e.values, 0)
 	default:
 		return &ColumnConverterErr{
 			op:   "AppendRow",
@@ -113,10 +104,7 @@ func (e *Enum16) Rows() int {
 }
 
 func (e *Enum16) Decode(decoder *binary.Decoder, rows int) error {
-	if err := e.values.Decode(decoder, rows); err != nil {
-		return err
-	}
-	return nil
+	return e.values.Decode(decoder, rows)
 }
 
 func (e *Enum16) RowValue(row int) interface{} {
@@ -173,7 +161,7 @@ func (e *Enum16) AppendRow(elem interface{}) error {
 		}
 		e.values = append(e.values, v)
 	case null:
-		e.values = append(e.values, e.defaultVal)
+		e.values = append(e.values, 0)
 	default:
 		return &ColumnConverterErr{
 			op:   "AppendRow",

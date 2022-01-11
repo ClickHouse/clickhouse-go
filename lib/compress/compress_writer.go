@@ -3,7 +3,7 @@ package compress
 import (
 	"io"
 
-	"github.com/ClickHouse/clickhouse-go/lib/cityhash102"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/cityhash102"
 	"github.com/pierrec/lz4/v4"
 )
 
@@ -63,4 +63,10 @@ func (w *Writer) Flush() (err error) {
 	}*/
 	w.pos = 0
 	return
+}
+
+func (w *Writer) Close() error {
+	w.data = nil
+	w.zdata = nil
+	return nil
 }

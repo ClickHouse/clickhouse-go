@@ -86,3 +86,9 @@ func (r *Reader) readBlock() (err error) {
 	}
 	return nil
 }
+
+func (r *Reader) Close() error {
+	r.data = nil
+	r.zdata = nil
+	return nil
+}

@@ -7,7 +7,7 @@
 package column
 
 import (
-	"github.com/ClickHouse/clickhouse-go/lib/binary"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
 )
 
 func (col *Float32) Decode(decoder *binary.Decoder, rows int) error {

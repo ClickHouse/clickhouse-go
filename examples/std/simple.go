@@ -2,48 +2,37 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go"
+	"github.com/ClickHouse/clickhouse-go/v2"
 )
 
 func example() error {
-	conn, err := clickhouse.Open(&clickhouse.Options{
-		Addr: []string{"127.0.0.1:9000"},
-		Auth: clickhouse.Auth{
-			Database: "default",
-			Username: "default",
-			Password: "",
-		},
-		//Debug:           true,
-		DialTimeout:     time.Second,
-		MaxOpenConns:    10,
-		MaxIdleConns:    5,
-		ConnMaxLifetime: time.Hour,
-		Compression: &clickhouse.Compression{
-			Method: clickhouse.CompressionLZ4,
-		},
-	})
+	conn, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000?dial_timeout=1s&compress=true")
 	if err != nil {
 		return err
 	}
+	conn.SetMaxIdleConns(5)
+	conn.SetMaxOpenConns(10)
+	conn.SetConnMaxLifetime(time.Hour)
 	ctx := clickhouse.Context(context.Background(), clickhouse.WithSettings(clickhouse.Settings{
 		"max_block_size": 10,
 	}), clickhouse.WithProgress(func(p *clickhouse.Progress) {
 		fmt.Println("progress: ", p)
 	}))
-	if err := conn.Ping(ctx); err != nil {
+	if err := conn.PingContext(ctx); err != nil {
 		if exception, ok := err.(*clickhouse.Exception); ok {
 			fmt.Printf("Catch exception [%d] %s \n%s\n", exception.Code, exception.Message, exception.StackTrace)
 		}
 		return err
 	}
-	if err := conn.Exec(ctx, `DROP TABLE IF EXISTS example`); err != nil {
+	if _, err := conn.ExecContext(ctx, `DROP TABLE IF EXISTS example`); err != nil {
 		return err
 	}
-	err = conn.Exec(ctx, `
+	_, err = conn.ExecContext(ctx, `
 		CREATE TABLE IF NOT EXISTS example (
 			Col1 UInt8,
 			Col2 String,
@@ -53,20 +42,25 @@ func example() error {
 	if err != nil {
 		return err
 	}
-	batch, err := conn.PrepareBatch(ctx, "INSERT INTO example (Col1, Col2, Col3)")
+	scope, err := conn.Begin()
 	if err != nil {
 		return err
 	}
-	for i := 0; i < 10; i++ {
-		if err := batch.Append(uint8(i), fmt.Sprintf("value_%d", i), time.Now()); err != nil {
+	{
+		batch, err := scope.PrepareContext(ctx, "INSERT INTO example (Col1, Col2, Col3)")
+		if err != nil {
 			return err
 		}
+		for i := 0; i < 10; i++ {
+			if _, err := batch.Exec(uint8(i), fmt.Sprintf("value_%d", i), time.Now()); err != nil {
+				return err
+			}
+		}
 	}
-	if err := batch.Send(); err != nil {
+	if err := scope.Commit(); err != nil {
 		return err
 	}
-
-	rows, err := conn.Query(ctx, "SELECT Col1, Col2, Col3 FROM example")
+	rows, err := conn.QueryContext(ctx, "SELECT Col1, Col2, Col3 FROM example")
 	if err != nil {
 		return err
 	}

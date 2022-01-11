@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/lib/proto"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 
 func (c *connect) query(ctx context.Context, query string, args ...interface{}) (*rows, error) {

@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/ClickHouse/clickhouse-go/lib/driver"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 )
 
 func Named(name string, value interface{}) driver.NamedValue {

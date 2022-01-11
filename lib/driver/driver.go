@@ -3,7 +3,7 @@ package driver
 import (
 	"context"
 
-	"github.com/ClickHouse/clickhouse-go/lib/proto"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 
 type ServerVersion = proto.ServerHandshake

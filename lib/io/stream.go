@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"io"
 
-	"github.com/ClickHouse/clickhouse-go/lib/compress"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/compress"
 )
 
 const (
@@ -55,4 +55,11 @@ func (s *Stream) Flush() error {
 		return err
 	}
 	return s.w.Flush()
+}
+
+func (s *Stream) Close() error {
+	s.r, s.w = nil, nil
+	s.compress.r.Close()
+	s.compress.w.Close()
+	return nil
 }

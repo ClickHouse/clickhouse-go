@@ -3,7 +3,7 @@ package clickhouse
 import (
 	"io"
 
-	"github.com/ClickHouse/clickhouse-go/lib/proto"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 
 type onProcess struct {

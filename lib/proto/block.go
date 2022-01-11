@@ -4,8 +4,8 @@ import (
 	"database/sql/driver"
 	"fmt"
 
-	"github.com/ClickHouse/clickhouse-go/lib/binary"
-	"github.com/ClickHouse/clickhouse-go/lib/column"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 )
 
 type Block struct {

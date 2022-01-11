@@ -8,9 +8,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/lib/binary"
-	"github.com/ClickHouse/clickhouse-go/lib/io"
-	"github.com/ClickHouse/clickhouse-go/lib/proto"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/io"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 
 func dial(addr string, num int, opt *Options) (*connect, error) {
@@ -95,6 +95,7 @@ func (c *connect) close() error {
 	c.closed = true
 	c.encoder = nil
 	c.decoder = nil
+	c.stream.Close()
 	if err := c.conn.Close(); err != nil {
 		return err
 	}

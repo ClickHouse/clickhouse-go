@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/ClickHouse/clickhouse-go"
+	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -21,7 +21,7 @@ func TestEnum(t *testing.T) {
 			Compression: &clickhouse.Compression{
 				Method: clickhouse.CompressionLZ4,
 			},
-			//	Debug: true,
+			//Debug: true,
 		})
 	)
 	if assert.NoError(t, err) {
@@ -68,7 +68,7 @@ func TestNullableEnum(t *testing.T) {
 			Compression: &clickhouse.Compression{
 				Method: clickhouse.CompressionLZ4,
 			},
-			Debug: true,
+			//Debug: true,
 		})
 	)
 	if assert.NoError(t, err) {

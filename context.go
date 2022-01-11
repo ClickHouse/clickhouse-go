@@ -3,7 +3,7 @@ package clickhouse
 import (
 	"context"
 
-	"github.com/ClickHouse/clickhouse-go/external"
+	"github.com/ClickHouse/clickhouse-go/v2/external"
 )
 
 var _contextOptionKey = &QueryOptions{

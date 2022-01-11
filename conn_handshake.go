@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/lib/proto"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 
 var ErrUnsupportedServerRevision = errors.New("unsupported server revision")
