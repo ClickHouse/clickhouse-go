@@ -26,12 +26,8 @@ func TestDate32(t *testing.T) {
 		})
 	)
 	if assert.NoError(t, err) {
-		version, err := conn.ServerVersion()
-		if !assert.NoError(t, err) {
-			return
-		}
-		if version.Version.Major < 21 || (version.Version.Major == 21 && version.Version.Minor < 9) {
-			t.Skipf("server version %d.%d < 21.9", version.Version.Major, version.Version.Minor)
+		if err := checkMinServerVersion(conn, 21, 9); err != nil {
+			t.Skip(err.Error())
 			return
 		}
 		const ddl = `
@@ -90,12 +86,8 @@ func TestNullableDate32(t *testing.T) {
 		})
 	)
 	if assert.NoError(t, err) {
-		version, err := conn.ServerVersion()
-		if !assert.NoError(t, err) {
-			return
-		}
-		if version.Version.Major < 21 || (version.Version.Major == 21 && version.Version.Minor < 9) {
-			t.Skipf("server version %d.%d < 21.9", version.Version.Major, version.Version.Minor)
+		if err := checkMinServerVersion(conn, 21, 9); err != nil {
+			t.Skip(err.Error())
 			return
 		}
 		const ddl = `
@@ -168,12 +160,8 @@ func TestColumnarDate32(t *testing.T) {
 		})
 	)
 	if assert.NoError(t, err) {
-		version, err := conn.ServerVersion()
-		if !assert.NoError(t, err) {
-			return
-		}
-		if version.Version.Major < 21 || (version.Version.Major == 21 && version.Version.Minor < 9) {
-			t.Skipf("server version %d.%d < 21.9", version.Version.Major, version.Version.Minor)
+		if err := checkMinServerVersion(conn, 21, 9); err != nil {
+			t.Skip(err.Error())
 			return
 		}
 		const ddl = `

@@ -10,7 +10,7 @@ type Nullable struct {
 }
 
 func (col *Nullable) parse(t Type) (_ *Nullable, err error) {
-	if col.base, err = t.Base().Column(); err != nil {
+	if col.base, err = Type(t.params()).Column(); err != nil {
 		return nil, err
 	}
 	return col, nil

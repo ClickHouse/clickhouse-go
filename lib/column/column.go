@@ -14,12 +14,12 @@ func (t Type) String() string {
 	return string(t)
 }
 
-func (t Type) Base() Type {
+func (t Type) params() string {
 	switch start, end := strings.Index(string(t), "("), strings.LastIndex(string(t), ")"); {
 	case len(t) == 0, start <= 0, end <= 0, end < start:
 		return ""
 	default:
-		return t[start+1 : end]
+		return string(t[start+1 : end])
 	}
 }
 

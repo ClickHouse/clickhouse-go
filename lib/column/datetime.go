@@ -66,8 +66,6 @@ func (dt *DateTime) AppendRow(v interface{}) error {
 		default:
 			dt.values = append(dt.values, 0)
 		}
-	case int32:
-		dt.values = append(dt.values, v)
 	case null:
 		dt.values = append(dt.values, 0)
 	default:
@@ -88,24 +86,12 @@ func (dt *DateTime) Append(v interface{}) (nulls []uint8, err error) {
 			in = append(in, int32(t.Unix()))
 		}
 		dt.values, nulls = append(dt.values, in...), make([]uint8, len(v))
-	case []int32:
-		dt.values, nulls = append(dt.values, v...), make([]uint8, len(v))
 	case []*time.Time:
 		nulls = make([]uint8, len(v))
 		for i, v := range v {
 			switch {
 			case v != nil:
 				dt.values = append(dt.values, int32(v.Unix()))
-			default:
-				dt.values, nulls[i] = append(dt.values, 0), 1
-			}
-		}
-	case []*int32:
-		nulls = make([]uint8, len(v))
-		for i, v := range v {
-			switch {
-			case v != nil:
-				dt.values = append(dt.values, *v)
 			default:
 				dt.values, nulls[i] = append(dt.values, 0), 1
 			}
