@@ -14,6 +14,7 @@ func (c *connect) sendQuery(body string, o *QueryOptions) error {
 	q := proto.Query{
 		ID:             o.queryID,
 		Body:           body,
+		Span:           o.span,
 		QuotaKey:       o.quotaKey,
 		Compression:    c.compression,
 		InitialAddress: c.conn.LocalAddr().String(),

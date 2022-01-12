@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/ClickHouse/clickhouse-go/v2/external"
+	"go.opentelemetry.io/otel/trace"
 )
 
 var _contextOptionKey = &QueryOptions{
@@ -16,6 +17,7 @@ type Settings map[string]interface{}
 type (
 	QueryOption  func(*QueryOptions) error
 	QueryOptions struct {
+		span     trace.SpanContext
 		queryID  string
 		quotaKey string
 		events   struct {
@@ -27,6 +29,13 @@ type (
 		external []*external.Table
 	}
 )
+
+func WithSpan(span trace.SpanContext) QueryOption {
+	return func(o *QueryOptions) error {
+		o.span = span
+		return nil
+	}
+}
 
 func WithQueryID(queryID string) QueryOption {
 	return func(o *QueryOptions) error {

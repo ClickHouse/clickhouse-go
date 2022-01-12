@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
+	"go.opentelemetry.io/otel/trace"
 )
 
 var (
@@ -13,6 +14,7 @@ var (
 
 type Query struct {
 	ID             string
+	Span           trace.SpanContext
 	Body           string
 	QuotaKey       string
 	Settings       Settings
@@ -72,17 +74,23 @@ func (q *Query) encodeClientInfo(encoder *binary.Encoder, revision uint64) error
 		encoder.Uvarint(0)
 	}
 	if revision >= DBMS_MIN_REVISION_WITH_OPENTELEMETRY {
-		encoder.Byte(0)
-		/*
-					 // Have OpenTelemetry header.
-			            writeBinary(uint8_t(1), out);
-			            // No point writing these numbers with variable length, because they
-			            // are random and will probably require the full length anyway.
-			            writeBinary(client_trace_context.trace_id, out);
-			            writeBinary(client_trace_context.span_id, out);
-			            writeBinary(client_trace_context.tracestate, out);
-			            writeBinary(client_trace_context.trace_flags, out);
-		*/
+		switch {
+		case q.Span.IsValid():
+			encoder.Byte(1)
+			{
+				v := q.Span.TraceID()
+				encoder.Raw(v[:])
+			}
+			{
+				v := q.Span.SpanID()
+				encoder.Raw(v[:])
+			}
+			encoder.String(q.Span.TraceState().String())
+			encoder.Byte(byte(q.Span.TraceFlags()))
+
+		default:
+			encoder.Byte(0)
+		}
 	}
 	if revision >= DBMS_MIN_REVISION_WITH_PARALLEL_REPLICAS {
 		encoder.Uvarint(0) // collaborate_with_initiator
