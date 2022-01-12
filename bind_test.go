@@ -2,12 +2,13 @@ package clickhouse
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestBindNumeric(t *testing.T) {
-	query, err := bind(`
+	query, err := bind(time.Local, `
 	SELECT * FROM t WHERE col = $1
 		AND col2 = $2
 		AND col3 = $1
@@ -40,7 +41,7 @@ func TestBindNumeric(t *testing.T) {
 		}
 
 		for _, asset := range assets {
-			if actual, err := bind(asset.query, asset.params...); assert.NoError(t, err) {
+			if actual, err := bind(time.Local, asset.query, asset.params...); assert.NoError(t, err) {
 				assert.Equal(t, asset.expected, actual)
 			}
 		}
@@ -48,7 +49,7 @@ func TestBindNumeric(t *testing.T) {
 }
 
 func TestBindNamed(t *testing.T) {
-	query, err := bind(`
+	query, err := bind(time.Local, `
 	SELECT * FROM t WHERE col = @col1
 		AND col2 = @col2
 		AND col3 = @col1
@@ -96,9 +97,21 @@ func TestBindNamed(t *testing.T) {
 			},
 		}
 		for _, asset := range assets {
-			if actual, err := bind(asset.query, asset.params...); assert.NoError(t, err) {
+			if actual, err := bind(time.Local, asset.query, asset.params...); assert.NoError(t, err) {
 				assert.Equal(t, asset.expected, actual)
 			}
+		}
+	}
+}
+
+func TestFormatTime(t *testing.T) {
+	var (
+		t1, _   = time.Parse("2006-01-02 15:04:05", "2022-01-12 15:00:00")
+		tz, err = time.LoadLocation("Europe/London")
+	)
+	if assert.NoError(t, err) {
+		if assert.Equal(t, "toDateTime('2022-01-12 15:00:00')", format(t1.Location(), t1)) {
+			assert.Equal(t, "toDateTime('2022-01-12 15:00:00', 'UTC')", format(tz, t1))
 		}
 	}
 }
@@ -106,7 +119,7 @@ func TestBindNamed(t *testing.T) {
 func BenchmarkBindNumeric(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		_, err := bind(`
+		_, err := bind(time.Local, `
 		SELECT * FROM t WHERE col = $1
 			AND col2 = $2
 			AND col3 = $1
@@ -123,7 +136,7 @@ func BenchmarkBindNumeric(b *testing.B) {
 func BenchmarkBindNamed(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		_, err := bind(`
+		_, err := bind(time.Local, `
 		SELECT * FROM t WHERE col = @col1
 			AND col2 = @col2
 			AND col3 = @col1

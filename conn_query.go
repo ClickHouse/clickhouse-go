@@ -11,7 +11,7 @@ func (c *connect) query(ctx context.Context, query string, args ...interface{}) 
 	var (
 		options   = queryOptions(ctx)
 		onProcess = options.onProcess()
-		body, err = bind(query, args...)
+		body, err = bind(c.server.Timezone, query, args...)
 	)
 
 	if err != nil {

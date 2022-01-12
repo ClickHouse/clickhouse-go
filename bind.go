@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 )
@@ -17,7 +18,7 @@ func Named(name string, value interface{}) driver.NamedValue {
 	}
 }
 
-func bind(query string, args ...interface{}) (string, error) {
+func bind(tz *time.Location, query string, args ...interface{}) (string, error) {
 	if len(args) == 0 {
 		return query, nil
 	}
@@ -37,14 +38,14 @@ func bind(query string, args ...interface{}) (string, error) {
 		}
 	}
 	if haveNamed {
-		return bindNamed(query, args...)
+		return bindNamed(tz, query, args...)
 	}
-	return bindNumeric(query, args...)
+	return bindNumeric(tz, query, args...)
 }
 
 var bindNumericRe = regexp.MustCompile(`\$[0-9]+`)
 
-func bindNumeric(query string, args ...interface{}) (_ string, err error) {
+func bindNumeric(tz *time.Location, query string, args ...interface{}) (_ string, err error) {
 	var (
 		unbind = make(map[string]struct{})
 		params = make(map[string]string)
@@ -55,7 +56,7 @@ func bindNumeric(query string, args ...interface{}) (_ string, err error) {
 				return "", nil
 			}
 		}
-		params[fmt.Sprintf("$%d", i+1)] = format(v)
+		params[fmt.Sprintf("$%d", i+1)] = format(tz, v)
 	}
 	query = bindNumericRe.ReplaceAllStringFunc(query, func(n string) string {
 		if _, found := params[n]; !found {
@@ -72,7 +73,7 @@ func bindNumeric(query string, args ...interface{}) (_ string, err error) {
 
 var bindNamedRe = regexp.MustCompile(`@[a-zA-Z0-9\_]+`)
 
-func bindNamed(query string, args ...interface{}) (_ string, err error) {
+func bindNamed(tz *time.Location, query string, args ...interface{}) (_ string, err error) {
 	var (
 		unbind = make(map[string]struct{})
 		params = make(map[string]string)
@@ -86,7 +87,7 @@ func bindNamed(query string, args ...interface{}) (_ string, err error) {
 					return "", err
 				}
 			}
-			params["@"+v.Name] = format(value)
+			params["@"+v.Name] = format(tz, value)
 		}
 	}
 	query = bindNamedRe.ReplaceAllStringFunc(query, func(n string) string {
@@ -102,7 +103,7 @@ func bindNamed(query string, args ...interface{}) (_ string, err error) {
 	return query, nil
 }
 
-func format(v interface{}) string {
+func format(tz *time.Location, v interface{}) string {
 	quote := func(v string) string {
 		return "'" + strings.NewReplacer(`\`, `\\`, `'`, `\'`).Replace(v) + "'"
 	}
@@ -111,6 +112,11 @@ func format(v interface{}) string {
 		return "NULL"
 	case string:
 		return quote(v)
+	case time.Time:
+		if v.Location().String() == tz.String() {
+			return v.Format("toDateTime('2006-01-02 15:04:05')")
+		}
+		return v.Format("toDateTime('2006-01-02 15:04:05', '" + v.Location().String() + "')")
 	case fmt.Stringer:
 		return quote(v.String())
 	}
@@ -118,7 +124,7 @@ func format(v interface{}) string {
 	case reflect.Slice:
 		values := make([]string, 0, v.Len())
 		for i := 0; i < v.Len(); i++ {
-			values = append(values, format(v.Index(i).Interface()))
+			values = append(values, format(tz, v.Index(i).Interface()))
 		}
 		return strings.Join(values, ", ")
 	}

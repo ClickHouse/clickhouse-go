@@ -8,7 +8,7 @@ import (
 func (c *connect) exec(ctx context.Context, query string, args ...interface{}) error {
 	var (
 		options   = queryOptions(ctx)
-		body, err = bind(query, args...)
+		body, err = bind(c.server.Timezone, query, args...)
 	)
 	if err != nil {
 		return err
