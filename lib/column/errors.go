@@ -20,6 +20,14 @@ func (e *UnknownElementForEnum) Error() string {
 	return fmt.Sprintf("clickhouse: unknown element %q for enum", e.element)
 }
 
+type InvalidEnum struct {
+	t Type
+}
+
+func (e *InvalidEnum) Error() string {
+	return fmt.Sprintf("clickhouse: invalid Enum %s", e.t)
+}
+
 type InvalidFixedSizeData struct {
 	op       string
 	got      int
