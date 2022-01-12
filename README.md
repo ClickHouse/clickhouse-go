@@ -20,6 +20,7 @@ Support for the ClickHouse protocol advanced features using `Context`:
 * Query ID
 * Quota Key
 * Settings
+* OpenTelemetry
 * Execution events:
 	* Logs
 	* Progress
@@ -52,12 +53,16 @@ clickhouse://username:password@host1:9000,host2:9000?&database=kinescope&dial_ti
 
 ## TODO
 
-* Support other compression methods(zstd ...)
+* [ ] [Decimal](https://github.com/ClickHouse/clickhouse-go/pull/442)
+* [ ] Tuple(t1, T2, ...)
+* [ ] Map(key, value)
+* [ ] Array(T)
+* [ ] LowCardinality
 
 ## Install
 
 ```sh
-go get -u github.com/ClickHouse/clickhouse-go
+go get -u github.com/ClickHouse/clickhouse-go/v2
 ```
 
 ## Examples
