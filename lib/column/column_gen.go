@@ -32,6 +32,8 @@ func (t Type) Column() (Interface, error) {
 		return &UInt64{}, nil
 	case "IPv4":
 		return &IPv4{}, nil
+	case "IPv6":
+		return &IPv6{}, nil
 	case "Date":
 		return &Date{}, nil
 	case "Date32":
