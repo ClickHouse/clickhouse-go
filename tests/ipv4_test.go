@@ -1,0 +1,185 @@
+package tests
+
+import (
+	"context"
+	"net"
+	"testing"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/stretchr/testify/assert"
+)
+
+func TestIPv4(t *testing.T) {
+	var (
+		ctx       = context.Background()
+		conn, err = clickhouse.Open(&clickhouse.Options{
+			Addr: []string{"127.0.0.1:9000"},
+			Auth: clickhouse.Auth{
+				Database: "default",
+				Username: "default",
+				Password: "",
+			},
+			Compression: &clickhouse.Compression{
+				Method: clickhouse.CompressionLZ4,
+			},
+			//	Debug: true,
+		})
+	)
+	if assert.NoError(t, err) {
+		const ddl = `
+			CREATE TABLE test_ipv4 (
+				  Col1 IPv4
+				, Col2 IPv4
+			) Engine Memory
+		`
+		if err := conn.Exec(ctx, "DROP TABLE IF EXISTS test_ipv4"); assert.NoError(t, err) {
+			if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
+				if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_ipv4"); assert.NoError(t, err) {
+					var (
+						col1Data = net.ParseIP("127.0.0.1").To4()
+						col2Data = net.ParseIP("8.8.8.8").To4()
+					)
+					if err := batch.Append(col1Data, col2Data); assert.NoError(t, err) {
+						if assert.NoError(t, batch.Send()) {
+							var (
+								col1 net.IP
+								col2 net.IP
+							)
+							if err := conn.QueryRow(ctx, "SELECT * FROM test_ipv4").Scan(&col1, &col2); assert.NoError(t, err) {
+								assert.Equal(t, col1Data, col1)
+								assert.Equal(t, col2Data, col2)
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+func TestNullableIPv4(t *testing.T) {
+	var (
+		ctx       = context.Background()
+		conn, err = clickhouse.Open(&clickhouse.Options{
+			Addr: []string{"127.0.0.1:9000"},
+			Auth: clickhouse.Auth{
+				Database: "default",
+				Username: "default",
+				Password: "",
+			},
+			Compression: &clickhouse.Compression{
+				Method: clickhouse.CompressionLZ4,
+			},
+			//Debug: true,
+		})
+	)
+	if assert.NoError(t, err) {
+		const ddl = `
+			CREATE TABLE test_ipv4 (
+				  Col1 Nullable(IPv4)
+				, Col2 Nullable(IPv4)
+			) Engine Memory
+		`
+		if err := conn.Exec(ctx, "DROP TABLE IF EXISTS test_ipv4"); assert.NoError(t, err) {
+			if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
+				if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_ipv4"); assert.NoError(t, err) {
+					var (
+						col1Data = net.ParseIP("127.0.0.1").To4()
+						col2Data = net.ParseIP("8.8.8.8").To4()
+					)
+					if err := batch.Append(col1Data, col2Data); assert.NoError(t, err) {
+						if assert.NoError(t, batch.Send()) {
+							var (
+								col1 *net.IP
+								col2 *net.IP
+							)
+							if err := conn.QueryRow(ctx, "SELECT * FROM test_ipv4").Scan(&col1, &col2); assert.NoError(t, err) {
+								assert.Equal(t, col1Data, *col1)
+								assert.Equal(t, col2Data, *col2)
+							}
+						}
+					}
+				}
+			}
+		}
+		if err := conn.Exec(ctx, "TRUNCATE TABLE test_ipv4"); !assert.NoError(t, err) {
+			return
+		}
+		if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_ipv4"); assert.NoError(t, err) {
+			var col1Data = net.ParseIP("1.1.1.1").To4()
+			if err := batch.Append(col1Data, nil); assert.NoError(t, err) {
+				if assert.NoError(t, batch.Send()) {
+					var (
+						col1 *net.IP
+						col2 *net.IP
+					)
+					if err := conn.QueryRow(ctx, "SELECT * FROM test_ipv4").Scan(&col1, &col2); assert.NoError(t, err) {
+						if assert.Nil(t, col2) {
+							assert.Equal(t, col1Data, *col1)
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+func TestColumnarIPv4(t *testing.T) {
+	var (
+		ctx       = context.Background()
+		conn, err = clickhouse.Open(&clickhouse.Options{
+			Addr: []string{"127.0.0.1:9000"},
+			Auth: clickhouse.Auth{
+				Database: "default",
+				Username: "default",
+				Password: "",
+			},
+			Compression: &clickhouse.Compression{
+				Method: clickhouse.CompressionLZ4,
+			},
+			//Debug: true,
+		})
+	)
+	if assert.NoError(t, err) {
+		const ddl = `
+			CREATE TABLE test_ipv4 (
+				  Col1 IPv4
+				, Col2 IPv4
+				, Col3 Nullable(IPv4)
+			) Engine Memory
+		`
+		if err := conn.Exec(ctx, "DROP TABLE IF EXISTS test_ipv4"); assert.NoError(t, err) {
+			if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
+				if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_ipv4"); assert.NoError(t, err) {
+					var (
+						col1Data []*net.IP
+						col2Data []*net.IP
+						col3Data []*net.IP
+						v1, v2   = net.ParseIP("1.1.1.1"), net.ParseIP("8.8.8.8")
+					)
+					col1Data = append(col1Data, &v1)
+					col2Data = append(col2Data, &v2)
+					col3Data = append(col3Data, nil)
+					{
+						batch.Column(0).Append(col1Data)
+						batch.Column(1).Append(col2Data)
+						batch.Column(2).Append(col3Data)
+					}
+					if assert.NoError(t, batch.Send()) {
+						var (
+							col1 *net.IP
+							col2 *net.IP
+							col3 *net.IP
+						)
+						if err := conn.QueryRow(ctx, "SELECT * FROM test_ipv4").Scan(&col1, &col2, &col3); assert.NoError(t, err) {
+							if assert.Nil(t, col3) {
+								assert.Equal(t, v1.To4(), *col1)
+								assert.Equal(t, v2.To4(), *col2)
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}

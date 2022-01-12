@@ -14,6 +14,8 @@ func (t Type) Column() (Interface, error) {
 	case "{{ .ChType }}":
 		return &{{ .ChType }}{}, nil
 {{- end }}
+	case "IPv4":
+		return &IPv4{}, nil
 	case "Date":
 		return &Date{}, nil
 	case "Date32":

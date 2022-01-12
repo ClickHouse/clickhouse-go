@@ -11,12 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func Test_OpenConnectAndPing(t *testing.T) {
-	if connect, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000"); assert.NoError(t, err) {
-		assert.NoError(t, connect.Ping())
-	}
-}
-
 func Test_CreateTable(t *testing.T) {
 	const ddl = `
 		CREATE TABLE clickhouse_test_create_table (
