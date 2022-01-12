@@ -100,6 +100,12 @@ func (col *FixedString) Append(v interface{}) (nulls []uint8, err error) {
 			}
 		}
 		col.data, nulls = append(col.data, data...), make([]uint8, len(data)/col.size)
+	default:
+		return nil, &ColumnConverterErr{
+			op:   "Append",
+			to:   "FixedString",
+			from: fmt.Sprintf("%T", v),
+		}
 	}
 	return
 }

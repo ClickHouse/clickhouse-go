@@ -43,13 +43,19 @@ func (col *Interval) ScanRow(dest interface{}, row int) error {
 	}
 	return nil
 }
+
 func (Interval) Append(v interface{}) ([]uint8, error) {
 	return nil, &StoreSpecialDataType{"Interval"}
 }
-func (Interval) AppendRow(v interface{}) error { return &StoreSpecialDataType{"Interval"} }
+
+func (Interval) AppendRow(v interface{}) error {
+	return &StoreSpecialDataType{"Interval"}
+}
+
 func (col *Interval) Decode(decoder *binary.Decoder, rows int) error {
 	return col.values.Decode(decoder, rows)
 }
+
 func (Interval) Encode(encoder *binary.Encoder) error { return &StoreSpecialDataType{"Interval"} }
 
 func (col *Interval) row(i int) string {

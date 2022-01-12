@@ -6,6 +6,7 @@ import (
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
+	"github.com/google/uuid"
 )
 
 type Block struct {
@@ -40,8 +41,10 @@ func (b *Block) Append(v ...interface{}) (err error) {
 	}
 	for i, v := range v {
 		value := v
-		if fn, ok := v.(driver.Valuer); ok {
-			if value, err = fn.Value(); err != nil {
+		switch v := v.(type) {
+		case uuid.UUID:
+		case driver.Valuer:
+			if value, err = v.Value(); err != nil {
 				return err
 			}
 		}

@@ -14,6 +14,8 @@ func (t Type) Column() (Interface, error) {
 	case "{{ .ChType }}":
 		return &{{ .ChType }}{}, nil
 {{- end }}
+	case "UUID":
+		return &UUID{}, nil
 	case "Nothing":
 		return &Nothing{}, nil
 	case "String":

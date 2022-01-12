@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestColumnInterface(t *testing.T) {
+func TestColumnarInterface(t *testing.T) {
 	var (
 		ctx       = context.Background()
 		conn, err = clickhouse.Open(&clickhouse.Options{
@@ -94,7 +94,7 @@ func TestColumnInterface(t *testing.T) {
 		}
 	}
 }
-func TestNullableColumnInterface(t *testing.T) {
+func TestNullableColumnarInterface(t *testing.T) {
 	var (
 		ctx       = context.Background()
 		conn, err = clickhouse.Open(&clickhouse.Options{
