@@ -29,7 +29,7 @@ func TestSimpleQuery(t *testing.T) {
 	)
 	if assert.NoError(t, err) {
 		{
-			if rows, err := conn.Query(ctx, "SELECT 1::UInt8 AS result"); assert.NoError(t, err) {
+			if rows, err := conn.Query(ctx, "SELECT toUInt8(1) AS result"); assert.NoError(t, err) {
 				if assert.True(t, rows.Next()) {
 					var result uint8
 					if assert.NoError(t, rows.Scan(&result)) {
@@ -42,7 +42,7 @@ func TestSimpleQuery(t *testing.T) {
 			}
 			{
 				var result uint8
-				if row := conn.QueryRow(ctx, "SELECT 1::UInt8 AS result"); assert.NoError(t, row.Scan(&result)) {
+				if row := conn.QueryRow(ctx, "SELECT toUInt8(1) AS result"); assert.NoError(t, row.Scan(&result)) {
 					if assert.Equal(t, uint8(1), result) {
 						assert.NoError(t, row.Err())
 					}
@@ -50,7 +50,7 @@ func TestSimpleQuery(t *testing.T) {
 			}
 		}
 		{
-			if rows, err := conn.Query(ctx, "SELECT 1::UInt8 AS result WHERE 1 <> 1"); assert.NoError(t, err) {
+			if rows, err := conn.Query(ctx, "SELECT toUInt8(1) AS result WHERE 1 <> 1"); assert.NoError(t, err) {
 				if assert.False(t, rows.Next()) {
 					var result uint8
 					if err := rows.Scan(&result); assert.Error(t, err) {
@@ -64,7 +64,7 @@ func TestSimpleQuery(t *testing.T) {
 			}
 			{
 				var result uint8
-				row := conn.QueryRow(ctx, "SELECT 1::UInt8 AS result WHERE 1 <> 1")
+				row := conn.QueryRow(ctx, "SELECT toUInt8(1) AS result WHERE 1 <> 1")
 				if err := row.Scan(&result); assert.Error(t, err) {
 					assert.Equal(t, sql.ErrNoRows, err)
 					if assert.Equal(t, uint8(0), result) {
@@ -95,17 +95,17 @@ func TestNumericColumns(t *testing.T) {
 	if assert.NoError(t, err) {
 		const query = `
 			SELECT
-				  number::Int8
-				, number::Int16
-				, number::Int32
-				, number::Int64
-				, number::UInt8
-				, number::UInt16
-				, number::UInt32
-				, number::UInt64
-				, number::Float32
-				, number::Float64
-			FROM system.numbers_mt LIMIT 20
+				  toInt8(number)
+				, toInt16(number)
+				, toInt32(number)
+				, toInt64(number)
+				, toUInt8(number)
+				, toUInt16(number)
+				, toUInt32(number)
+				, toUInt64(number)
+				, toFloat32(number)
+				, toFloat64(number)
+			FROM system.numbers LIMIT 20
 		`
 		if rows, err := conn.Query(ctx, query); assert.NoError(t, err) {
 			var number int
@@ -219,7 +219,7 @@ func TestQuery(t *testing.T) {
 		rows, err := conn.Query(ctx, `
 			SELECT
 				number AS int
-				, number::Nullable(UInt64) AS nullable
+				, CAST(number AS Nullable(UInt64)) AS nullable
 			FROM system.numbers
 			LIMIT 20`)
 		if assert.NoError(t, err) {
@@ -257,10 +257,10 @@ func TestQueryBindNumeric(t *testing.T) {
 	if assert.NoError(t, err) {
 		rows, err := conn.Query(context.Background(), `
 		SELECT
-			  $1::Int8
-			, $2::Int64
-			, $1::UInt8
-			, $2::UInt64
+			  CAST($1 AS Int8)
+			, CAST($2 AS Int64)
+			, CAST($1 AS UInt8)
+			, CAST($2 AS UInt64)
 		`, 10, 1000)
 		if assert.NoError(t, err) {
 			for rows.Next() {

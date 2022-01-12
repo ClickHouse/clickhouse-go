@@ -71,7 +71,7 @@ func TestFixedString(t *testing.T) {
 				}
 			}
 		}
-		if rows, err := conn.Query(ctx, "SELECT 'RU'::FixedString(2) FROM system.numbers_mt LIMIT 10"); assert.NoError(t, err) {
+		if rows, err := conn.Query(ctx, "SELECT CAST('RU' AS FixedString(2)) FROM system.numbers_mt LIMIT 10"); assert.NoError(t, err) {
 			var count int
 			for rows.Next() {
 				var code string
