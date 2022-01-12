@@ -22,7 +22,7 @@ func TestUUID(t *testing.T) {
 			Compression: &clickhouse.Compression{
 				Method: clickhouse.CompressionLZ4,
 			},
-			Debug: true,
+			//	Debug: true,
 		})
 	)
 	if assert.NoError(t, err) {
@@ -70,7 +70,7 @@ func TestNullableUUID(t *testing.T) {
 			Compression: &clickhouse.Compression{
 				Method: clickhouse.CompressionLZ4,
 			},
-			Debug: true,
+			//Debug: true,
 		})
 	)
 	if assert.NoError(t, err) {
@@ -142,7 +142,7 @@ func TestColumnarUUID(t *testing.T) {
 			Compression: &clickhouse.Compression{
 				Method: clickhouse.CompressionLZ4,
 			},
-			Debug: true,
+			//Debug: true,
 		})
 	)
 	if assert.NoError(t, err) {

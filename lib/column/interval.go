@@ -59,10 +59,11 @@ func (col *Interval) Decode(decoder *binary.Decoder, rows int) error {
 func (Interval) Encode(encoder *binary.Encoder) error { return &StoreSpecialDataType{"Interval"} }
 
 func (col *Interval) row(i int) string {
+	v := fmt.Sprintf("%d %s", col.values[i], strings.TrimPrefix(string(col.chType), "Interval"))
 	if col.values[i] > 1 {
-		return fmt.Sprintf("%d %s", col.values[i], strings.TrimPrefix(string(col.chType), "Interval")) + "s"
+		v += "s"
 	}
-	return fmt.Sprintf("%d %s", col.values[i], strings.TrimPrefix(string(col.chType), "Interval"))
+	return v
 }
 
 var _ Interface = (*Interval)(nil)

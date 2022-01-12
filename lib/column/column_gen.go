@@ -30,6 +30,8 @@ func (t Type) Column() (Interface, error) {
 		return &UInt32{}, nil
 	case "UInt64":
 		return &UInt64{}, nil
+	case "Date":
+		return &Date{}, nil
 	case "UUID":
 		return &UUID{}, nil
 	case "Nothing":
