@@ -16,6 +16,8 @@ func (t Type) Column() (Interface, error) {
 {{- end }}
 	case "Date":
 		return &Date{}, nil
+	case "Date32":
+		return &Date32{}, nil
 	case "UUID":
 		return &UUID{}, nil
 	case "Nothing":
