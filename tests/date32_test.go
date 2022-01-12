@@ -26,6 +26,14 @@ func TestDate32(t *testing.T) {
 		})
 	)
 	if assert.NoError(t, err) {
+		version, err := conn.ServerVersion()
+		if !assert.NoError(t, err) {
+			return
+		}
+		if version.Version.Major < 21 || (version.Version.Major == 21 && version.Version.Minor < 9) {
+			t.Skipf("server version %d.%d < 21.9", version.Version.Major, version.Version.Minor)
+			return
+		}
 		const ddl = `
 			CREATE TABLE test_date32 (
 				  Col1 Date32
@@ -82,6 +90,14 @@ func TestNullableDate32(t *testing.T) {
 		})
 	)
 	if assert.NoError(t, err) {
+		version, err := conn.ServerVersion()
+		if !assert.NoError(t, err) {
+			return
+		}
+		if version.Version.Major < 21 || (version.Version.Major == 21 && version.Version.Minor < 9) {
+			t.Skipf("server version %d.%d < 21.9", version.Version.Major, version.Version.Minor)
+			return
+		}
 		const ddl = `
 			CREATE TABLE test_date32 (
 				    Col1 Date32
@@ -152,6 +168,14 @@ func TestColumnarDate32(t *testing.T) {
 		})
 	)
 	if assert.NoError(t, err) {
+		version, err := conn.ServerVersion()
+		if !assert.NoError(t, err) {
+			return
+		}
+		if version.Version.Major < 21 || (version.Version.Major == 21 && version.Version.Minor < 9) {
+			t.Skipf("server version %d.%d < 21.9", version.Version.Major, version.Version.Minor)
+			return
+		}
 		const ddl = `
 		CREATE TABLE test_date32 (
 				Col1 Date32
