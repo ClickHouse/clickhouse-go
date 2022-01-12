@@ -3,6 +3,7 @@ package clickhouse_test
 import (
 	"context"
 	"database/sql"
+	"net"
 	"testing"
 	"time"
 
@@ -138,9 +139,16 @@ func Test_Context_Timeout(t *testing.T) {
 		{
 			ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*20)
 			defer cancel()
-			if row := connect.QueryRowContext(ctx, "SELECT 1, sleep(2)"); assert.NotNil(t, row) {
+			if row := connect.QueryRowContext(ctx, "SELECT 1, sleep(1)"); assert.NotNil(t, row) {
 				var a, b int
-				assert.Equal(t, context.DeadlineExceeded, row.Scan(&a, &b))
+				if err := row.Scan(&a, &b); assert.Error(t, err) {
+					switch err := err.(type) {
+					case *net.OpError:
+						assert.Equal(t, "read", err.Op)
+					default:
+						assert.Equal(t, context.DeadlineExceeded, err)
+					}
+				}
 			}
 		}
 		{
