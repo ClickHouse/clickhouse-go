@@ -19,9 +19,6 @@ func dial(addr string, num int, opt *Options) (*connect, error) {
 		conn   net.Conn
 		debugf = func(format string, v ...interface{}) {}
 	)
-	if opt.Debug {
-		debugf = log.New(os.Stdout, fmt.Sprintf("[clickhouse][conn=%d]", num), 0).Printf
-	}
 	switch {
 	case opt.TLS != nil:
 		conn, err = tls.DialWithDialer(&net.Dialer{Timeout: opt.DialTimeout}, "tcp", addr, opt.TLS)
@@ -30,6 +27,9 @@ func dial(addr string, num int, opt *Options) (*connect, error) {
 	}
 	if err != nil {
 		return nil, err
+	}
+	if opt.Debug {
+		debugf = log.New(os.Stdout, fmt.Sprintf("[clickhouse][conn=%d][%s]", num, conn.RemoteAddr()), 0).Printf
 	}
 	var compression bool
 	if opt.Compression != nil {
