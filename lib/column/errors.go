@@ -45,3 +45,13 @@ type StoreSpecialDataType struct {
 func (e *StoreSpecialDataType) Error() string {
 	return fmt.Sprintf("clickhouse: %q data type values can't be stored in tables", e.t)
 }
+
+type BadSizeOfTuple struct {
+	op       string
+	got      int
+	expected int
+}
+
+func (e *BadSizeOfTuple) Error() string {
+	return fmt.Sprintf("clickhouse [%s]: bad size of tuple. expected %d got %d", e.op, e.expected, e.got)
+}

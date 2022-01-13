@@ -42,14 +42,14 @@ func (col *FixedString) Row(i int) interface{} {
 func (col *FixedString) ScanRow(dest interface{}, row int) error {
 	switch d := dest.(type) {
 	case *[]byte:
-		*d = col.row(row)
+		*d = col.rowBytes(row)
 	case **[]byte:
 		*d = new([]byte)
-		**d = col.row(row)
+		**d = col.rowBytes(row)
 	case *string:
-		*d = string(col.row(row))
+		*d = col.row(row)
 	case encoding.BinaryUnmarshaler:
-		return d.UnmarshalBinary(col.row(row))
+		return d.UnmarshalBinary(col.rowBytes(row))
 	default:
 		return &ColumnConverterErr{
 			op:   "ScanRow",
@@ -126,6 +126,16 @@ func (col *FixedString) AppendRow(v interface{}) error {
 			}
 		}
 		col.data = append(col.data, v...)
+	case string:
+		s := []byte(v)
+		if len(s) != col.size {
+			return &InvalidFixedSizeData{
+				op:       "AppendRow",
+				got:      len(s),
+				expected: col.size,
+			}
+		}
+		col.data = append(col.data, s...)
 	case encoding.BinaryMarshaler:
 		data, err := v.MarshalBinary()
 		if err != nil {
@@ -160,7 +170,11 @@ func (col *FixedString) Encode(encoder *binary.Encoder) error {
 	return encoder.Raw(col.data)
 }
 
-func (col *FixedString) row(i int) []byte {
+func (col *FixedString) row(i int) string {
+	return string(col.data[i*col.size : (i+1)*col.size])
+}
+
+func (col *FixedString) rowBytes(i int) []byte {
 	return col.data[i*col.size : (i+1)*col.size]
 }
 

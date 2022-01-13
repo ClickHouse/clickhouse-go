@@ -37,6 +37,8 @@ func (t Type) Column() (Interface, error) {
 	switch strType := string(t); {
 	case strings.HasPrefix(string(t), "Map("):
 		return (&Map{}).parse(t)
+	case strings.HasPrefix(string(t), "Tuple("):
+		return (&Tuple{}).parse(t)
 	case strings.HasPrefix(string(t), "Interval"):
 		return (&Interval{}).parse(t)
 	case strings.HasPrefix(string(t), "Nullable"):
@@ -71,9 +73,10 @@ var (
 	{{- range . }}
 		scanType{{ .ChType }} = reflect.TypeOf({{ .GoType }}(0))
 	{{- end }}
-		scanTypeIP = reflect.TypeOf(net.IP{})
-		scanTypeUUID = reflect.TypeOf(uuid.UUID{})
-		scanTypeTime = reflect.TypeOf(time.Time{})
+		scanTypeIP     = reflect.TypeOf(net.IP{})
+		scanTypeUUID   = reflect.TypeOf(uuid.UUID{})
+		scanTypeTime   = reflect.TypeOf(time.Time{})
+		scanTypeSlice  = reflect.TypeOf([]interface{}{})
 		scanTypeString = reflect.TypeOf("")
 	)
 
