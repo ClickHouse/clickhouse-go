@@ -4,8 +4,12 @@
 package column
 
 import (
+	"reflect"
 	"strings"
 	"fmt"
+	"time"
+	"net"
+	"github.com/google/uuid"
 )
 
 func (t Type) Column() (Interface, error) {
@@ -31,6 +35,8 @@ func (t Type) Column() (Interface, error) {
 	}
 
 	switch strType := string(t); {
+	case strings.HasPrefix(string(t), "Map("):
+		return (&Map{}).parse(t)
 	case strings.HasPrefix(string(t), "Interval"):
 		return (&Interval{}).parse(t)
 	case strings.HasPrefix(string(t), "Nullable"):
@@ -61,10 +67,24 @@ var (
 {{- end }}
 )
 
+var (
+	{{- range . }}
+		scanType{{ .ChType }} = reflect.TypeOf({{ .GoType }}(0))
+	{{- end }}
+		scanTypeIP = reflect.TypeOf(net.IP{})
+		scanTypeUUID = reflect.TypeOf(uuid.UUID{})
+		scanTypeTime = reflect.TypeOf(time.Time{})
+		scanTypeString = reflect.TypeOf("")
+	)
+
 {{- range . }}
 
 func (col *{{ .ChType }}) Type() Type {
 	return "{{ .ChType }}"
+}
+
+func (col *{{ .ChType }}) ScanType() reflect.Type {
+	return scanType{{ .ChType }}
 }
 
 func (col *{{ .ChType }}) Rows() int {
@@ -89,11 +109,10 @@ func (col *{{ .ChType }}) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (col *{{ .ChType }}) RowValue(row int) interface{} {
+func (col *{{ .ChType }}) Row(i int) interface{} {
 	value := *col
-	return value[row]
+	return value[i]
 }
-
 
 func (col *{{ .ChType }}) Append(v interface{}) (nulls []uint8,err error) {
 	switch v := v.(type) {

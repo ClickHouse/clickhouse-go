@@ -1,6 +1,8 @@
 package column
 
 import (
+	"reflect"
+
 	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
 )
 
@@ -20,15 +22,19 @@ func (col *Nullable) Type() Type {
 	return "Nullable(" + col.base.Type() + ")"
 }
 
+func (col *Nullable) ScanType() reflect.Type {
+	return col.base.ScanType()
+}
+
 func (col *Nullable) Rows() int {
 	return len(col.nulls)
 }
 
-func (col *Nullable) RowValue(row int) interface{} {
-	if col.nulls[row] == 1 {
+func (col *Nullable) Row(i int) interface{} {
+	if col.nulls[i] == 1 {
 		return nil
 	}
-	return col.base.RowValue(row)
+	return col.base.Row(i)
 }
 
 func (col *Nullable) ScanRow(dest interface{}, row int) error {

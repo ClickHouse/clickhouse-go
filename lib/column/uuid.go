@@ -2,6 +2,7 @@ package column
 
 import (
 	"fmt"
+	"reflect"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
 	"github.com/google/uuid"
@@ -17,13 +18,17 @@ func (col *UUID) Type() Type {
 	return "UUID"
 }
 
+func (col *UUID) ScanType() reflect.Type {
+	return scanTypeUUID
+}
+
 func (col *UUID) Rows() int {
 	return len(col.data) / uuidSize
 }
 
 // sql.Scanner
-func (col *UUID) RowValue(row int) interface{} {
-	return col.row(row)
+func (col *UUID) Row(i int) interface{} {
+	return col.row(i)
 }
 
 func (col *UUID) ScanRow(dest interface{}, row int) error {
@@ -100,8 +105,8 @@ func (col *UUID) Encode(encoder *binary.Encoder) error {
 	return encoder.Raw(col.data)
 }
 
-func (col *UUID) row(row int) []byte {
-	return col.data[row*uuidSize : (row+1)*uuidSize]
+func (col *UUID) row(i int) []byte {
+	return col.data[i*uuidSize : (i+1)*uuidSize]
 }
 
 var _ Interface = (*UUID)(nil)

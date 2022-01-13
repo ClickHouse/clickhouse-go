@@ -2,6 +2,7 @@ package column
 
 import (
 	"fmt"
+	"reflect"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
 )
@@ -12,13 +13,17 @@ func (String) Type() Type {
 	return "String"
 }
 
+func (String) ScanType() reflect.Type {
+	return scanTypeString
+}
+
 func (col *String) Rows() int {
 	return len(*col)
 }
 
-func (s *String) RowValue(row int) interface{} {
+func (s *String) Row(i int) interface{} {
 	value := *s
-	return value[row]
+	return value[i]
 }
 
 func (s *String) ScanRow(dest interface{}, row int) error {

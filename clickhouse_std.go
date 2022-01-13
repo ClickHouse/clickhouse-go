@@ -162,7 +162,7 @@ func (r *stdRows) Columns() []string {
 func (r *stdRows) Next(dest []driver.Value) error {
 	if r.rows.Next() {
 		for i := range dest {
-			dest[i] = r.rows.block.Columns[i].RowValue(r.rows.row - 1)
+			dest[i] = r.rows.block.Columns[i].Row(r.rows.row - 1)
 		}
 		return nil
 	}

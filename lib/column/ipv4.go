@@ -3,6 +3,7 @@ package column
 import (
 	"fmt"
 	"net"
+	"reflect"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
 )
@@ -17,12 +18,16 @@ func (col *IPv4) Type() Type {
 	return "IPv4"
 }
 
+func (col *IPv4) ScanType() reflect.Type {
+	return scanTypeIP
+}
+
 func (col *IPv4) Rows() int {
 	return len(col.data) / ipV4Size
 }
 
-func (col *IPv4) RowValue(row int) interface{} {
-	return col.row(row)
+func (col *IPv4) Row(i int) interface{} {
+	return col.row(i)
 }
 
 func (col *IPv4) ScanRow(dest interface{}, row int) error {
@@ -118,8 +123,8 @@ func (col *IPv4) Encode(encoder *binary.Encoder) error {
 	return encoder.Raw(col.data)
 }
 
-func (col *IPv4) row(row int) net.IP {
-	return col.data[row*ipV4Size : (row+1)*ipV4Size]
+func (col *IPv4) row(i int) net.IP {
+	return col.data[i*ipV4Size : (i+1)*ipV4Size]
 }
 
 var _ Interface = (*IPv4)(nil)

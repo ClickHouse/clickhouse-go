@@ -55,7 +55,6 @@ clickhouse://username:password@host1:9000,host2:9000?&database=kinescope&dial_ti
 
 * [ ] [Decimal](https://github.com/ClickHouse/clickhouse-go/pull/442)
 * [ ] Tuple(t1, T2, ...)
-* [ ] Map(key, value)
 * [ ] Array(T)
 * [ ] LowCardinality
 

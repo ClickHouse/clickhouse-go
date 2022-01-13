@@ -53,7 +53,7 @@ func (r *rows) Scan(dest ...interface{}) error {
 	for i, d := range dest {
 		switch d := d.(type) {
 		case sql.Scanner:
-			if err := d.Scan(columns[i].RowValue(r.row - 1)); err != nil {
+			if err := d.Scan(columns[i].Row(r.row - 1)); err != nil {
 				return err
 			}
 		default:

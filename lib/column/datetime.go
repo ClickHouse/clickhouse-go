@@ -2,6 +2,7 @@ package column
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
@@ -30,12 +31,16 @@ func (dt *DateTime) Type() Type {
 	return dt.chType
 }
 
+func (col *DateTime) ScanType() reflect.Type {
+	return scanTypeTime
+}
+
 func (dt *DateTime) Rows() int {
 	return len(dt.values)
 }
 
-func (dt *DateTime) RowValue(row int) interface{} {
-	return dt.row(row)
+func (dt *DateTime) Row(i int) interface{} {
+	return dt.row(i)
 }
 
 func (dt *DateTime) ScanRow(dest interface{}, row int) error {
@@ -114,8 +119,8 @@ func (dt *DateTime) Encode(encoder *binary.Encoder) error {
 	return dt.values.Encode(encoder)
 }
 
-func (dt *DateTime) row(row int) time.Time {
-	v := time.Unix(int64(dt.values[row]), 0)
+func (dt *DateTime) row(i int) time.Time {
+	v := time.Unix(int64(dt.values[i]), 0)
 	if dt.timezone != nil {
 		v = v.In(dt.timezone)
 	}

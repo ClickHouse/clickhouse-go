@@ -3,6 +3,7 @@ package column
 import (
 	"fmt"
 	"math"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -44,12 +45,16 @@ func (dt *DateTime64) Type() Type {
 	return dt.chType
 }
 
+func (col *DateTime64) ScanType() reflect.Type {
+	return scanTypeTime
+}
+
 func (dt *DateTime64) Rows() int {
 	return len(dt.values)
 }
 
-func (dt *DateTime64) RowValue(row int) interface{} {
-	return dt.row(row)
+func (dt *DateTime64) Row(i int) interface{} {
+	return dt.row(i)
 }
 
 func (dt *DateTime64) ScanRow(dest interface{}, row int) error {
@@ -128,10 +133,10 @@ func (dt *DateTime64) Encode(encoder *binary.Encoder) error {
 	return dt.values.Encode(encoder)
 }
 
-func (dt *DateTime64) row(row int) time.Time {
+func (dt *DateTime64) row(i int) time.Time {
 	var nano int64
 	if dt.precision < 19 {
-		nano = dt.values[row] * int64(math.Pow10(9-dt.precision))
+		nano = dt.values[i] * int64(math.Pow10(9-dt.precision))
 	}
 	var (
 		sec  = nano / int64(10e8)

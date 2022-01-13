@@ -5,7 +5,11 @@ package column
 
 import (
 	"fmt"
+	"github.com/google/uuid"
+	"net"
+	"reflect"
 	"strings"
+	"time"
 )
 
 func (t Type) Column() (Interface, error) {
@@ -47,6 +51,8 @@ func (t Type) Column() (Interface, error) {
 	}
 
 	switch strType := string(t); {
+	case strings.HasPrefix(string(t), "Map("):
+		return (&Map{}).parse(t)
 	case strings.HasPrefix(string(t), "Interval"):
 		return (&Interval{}).parse(t)
 	case strings.HasPrefix(string(t), "Nullable"):
@@ -91,8 +97,29 @@ var (
 	_ Interface = (*UInt64)(nil)
 )
 
+var (
+	scanTypeFloat32 = reflect.TypeOf(float32(0))
+	scanTypeFloat64 = reflect.TypeOf(float64(0))
+	scanTypeInt8    = reflect.TypeOf(int8(0))
+	scanTypeInt16   = reflect.TypeOf(int16(0))
+	scanTypeInt32   = reflect.TypeOf(int32(0))
+	scanTypeInt64   = reflect.TypeOf(int64(0))
+	scanTypeUInt8   = reflect.TypeOf(uint8(0))
+	scanTypeUInt16  = reflect.TypeOf(uint16(0))
+	scanTypeUInt32  = reflect.TypeOf(uint32(0))
+	scanTypeUInt64  = reflect.TypeOf(uint64(0))
+	scanTypeIP      = reflect.TypeOf(net.IP{})
+	scanTypeUUID    = reflect.TypeOf(uuid.UUID{})
+	scanTypeTime    = reflect.TypeOf(time.Time{})
+	scanTypeString  = reflect.TypeOf("")
+)
+
 func (col *Float32) Type() Type {
 	return "Float32"
+}
+
+func (col *Float32) ScanType() reflect.Type {
+	return scanTypeFloat32
 }
 
 func (col *Float32) Rows() int {
@@ -117,9 +144,9 @@ func (col *Float32) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (col *Float32) RowValue(row int) interface{} {
+func (col *Float32) Row(i int) interface{} {
 	value := *col
-	return value[row]
+	return value[i]
 }
 
 func (col *Float32) Append(v interface{}) (nulls []uint8, err error) {
@@ -166,6 +193,10 @@ func (col *Float64) Type() Type {
 	return "Float64"
 }
 
+func (col *Float64) ScanType() reflect.Type {
+	return scanTypeFloat64
+}
+
 func (col *Float64) Rows() int {
 	return len(*col)
 }
@@ -188,9 +219,9 @@ func (col *Float64) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (col *Float64) RowValue(row int) interface{} {
+func (col *Float64) Row(i int) interface{} {
 	value := *col
-	return value[row]
+	return value[i]
 }
 
 func (col *Float64) Append(v interface{}) (nulls []uint8, err error) {
@@ -237,6 +268,10 @@ func (col *Int8) Type() Type {
 	return "Int8"
 }
 
+func (col *Int8) ScanType() reflect.Type {
+	return scanTypeInt8
+}
+
 func (col *Int8) Rows() int {
 	return len(*col)
 }
@@ -259,9 +294,9 @@ func (col *Int8) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (col *Int8) RowValue(row int) interface{} {
+func (col *Int8) Row(i int) interface{} {
 	value := *col
-	return value[row]
+	return value[i]
 }
 
 func (col *Int8) Append(v interface{}) (nulls []uint8, err error) {
@@ -308,6 +343,10 @@ func (col *Int16) Type() Type {
 	return "Int16"
 }
 
+func (col *Int16) ScanType() reflect.Type {
+	return scanTypeInt16
+}
+
 func (col *Int16) Rows() int {
 	return len(*col)
 }
@@ -330,9 +369,9 @@ func (col *Int16) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (col *Int16) RowValue(row int) interface{} {
+func (col *Int16) Row(i int) interface{} {
 	value := *col
-	return value[row]
+	return value[i]
 }
 
 func (col *Int16) Append(v interface{}) (nulls []uint8, err error) {
@@ -379,6 +418,10 @@ func (col *Int32) Type() Type {
 	return "Int32"
 }
 
+func (col *Int32) ScanType() reflect.Type {
+	return scanTypeInt32
+}
+
 func (col *Int32) Rows() int {
 	return len(*col)
 }
@@ -401,9 +444,9 @@ func (col *Int32) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (col *Int32) RowValue(row int) interface{} {
+func (col *Int32) Row(i int) interface{} {
 	value := *col
-	return value[row]
+	return value[i]
 }
 
 func (col *Int32) Append(v interface{}) (nulls []uint8, err error) {
@@ -450,6 +493,10 @@ func (col *Int64) Type() Type {
 	return "Int64"
 }
 
+func (col *Int64) ScanType() reflect.Type {
+	return scanTypeInt64
+}
+
 func (col *Int64) Rows() int {
 	return len(*col)
 }
@@ -472,9 +519,9 @@ func (col *Int64) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (col *Int64) RowValue(row int) interface{} {
+func (col *Int64) Row(i int) interface{} {
 	value := *col
-	return value[row]
+	return value[i]
 }
 
 func (col *Int64) Append(v interface{}) (nulls []uint8, err error) {
@@ -521,6 +568,10 @@ func (col *UInt8) Type() Type {
 	return "UInt8"
 }
 
+func (col *UInt8) ScanType() reflect.Type {
+	return scanTypeUInt8
+}
+
 func (col *UInt8) Rows() int {
 	return len(*col)
 }
@@ -543,9 +594,9 @@ func (col *UInt8) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (col *UInt8) RowValue(row int) interface{} {
+func (col *UInt8) Row(i int) interface{} {
 	value := *col
-	return value[row]
+	return value[i]
 }
 
 func (col *UInt8) Append(v interface{}) (nulls []uint8, err error) {
@@ -592,6 +643,10 @@ func (col *UInt16) Type() Type {
 	return "UInt16"
 }
 
+func (col *UInt16) ScanType() reflect.Type {
+	return scanTypeUInt16
+}
+
 func (col *UInt16) Rows() int {
 	return len(*col)
 }
@@ -614,9 +669,9 @@ func (col *UInt16) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (col *UInt16) RowValue(row int) interface{} {
+func (col *UInt16) Row(i int) interface{} {
 	value := *col
-	return value[row]
+	return value[i]
 }
 
 func (col *UInt16) Append(v interface{}) (nulls []uint8, err error) {
@@ -663,6 +718,10 @@ func (col *UInt32) Type() Type {
 	return "UInt32"
 }
 
+func (col *UInt32) ScanType() reflect.Type {
+	return scanTypeUInt32
+}
+
 func (col *UInt32) Rows() int {
 	return len(*col)
 }
@@ -685,9 +744,9 @@ func (col *UInt32) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (col *UInt32) RowValue(row int) interface{} {
+func (col *UInt32) Row(i int) interface{} {
 	value := *col
-	return value[row]
+	return value[i]
 }
 
 func (col *UInt32) Append(v interface{}) (nulls []uint8, err error) {
@@ -734,6 +793,10 @@ func (col *UInt64) Type() Type {
 	return "UInt64"
 }
 
+func (col *UInt64) ScanType() reflect.Type {
+	return scanTypeUInt64
+}
+
 func (col *UInt64) Rows() int {
 	return len(*col)
 }
@@ -756,9 +819,9 @@ func (col *UInt64) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (col *UInt64) RowValue(row int) interface{} {
+func (col *UInt64) Row(i int) interface{} {
 	value := *col
-	return value[row]
+	return value[i]
 }
 
 func (col *UInt64) Append(v interface{}) (nulls []uint8, err error) {

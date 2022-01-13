@@ -3,6 +3,7 @@ package column
 import (
 	"fmt"
 	"math"
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -20,12 +21,16 @@ func (e *Enum8) Type() Type {
 	return e.chType
 }
 
+func (col *Enum8) ScanType() reflect.Type {
+	return scanTypeString
+}
+
 func (e *Enum8) Rows() int {
 	return len(e.values)
 }
 
-func (e *Enum8) RowValue(row int) interface{} {
-	return e.vi[e.values[row]]
+func (e *Enum8) Row(i int) interface{} {
+	return e.vi[e.values[i]]
 }
 
 func (e *Enum8) ScanRow(dest interface{}, row int) error {
@@ -126,12 +131,16 @@ func (e *Enum16) Type() Type {
 	return e.chType
 }
 
+func (col *Enum16) ScanType() reflect.Type {
+	return scanTypeString
+}
+
 func (e *Enum16) Rows() int {
 	return len(e.values)
 }
 
-func (e *Enum16) RowValue(row int) interface{} {
-	return e.vi[e.values[row]]
+func (e *Enum16) Row(i int) interface{} {
+	return e.vi[e.values[i]]
 }
 
 func (e *Enum16) ScanRow(dest interface{}, row int) error {

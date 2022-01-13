@@ -3,6 +3,7 @@ package column
 import (
 	"encoding"
 	"fmt"
+	"reflect"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
 )
@@ -23,6 +24,10 @@ func (col *FixedString) Type() Type {
 	return Type(fmt.Sprintf("FixedString(%d)", col.size))
 }
 
+func (col *FixedString) ScanType() reflect.Type {
+	return scanTypeString
+}
+
 func (col *FixedString) Rows() int {
 	if col.size == 0 {
 		return 0
@@ -30,8 +35,8 @@ func (col *FixedString) Rows() int {
 	return len(col.data) / col.size
 }
 
-func (col *FixedString) RowValue(row int) interface{} {
-	return col.row(row)
+func (col *FixedString) Row(i int) interface{} {
+	return col.row(i)
 }
 
 func (col *FixedString) ScanRow(dest interface{}, row int) error {
@@ -155,8 +160,8 @@ func (col *FixedString) Encode(encoder *binary.Encoder) error {
 	return encoder.Raw(col.data)
 }
 
-func (col *FixedString) row(row int) []byte {
-	return col.data[row*col.size : (row+1)*col.size]
+func (col *FixedString) row(i int) []byte {
+	return col.data[i*col.size : (i+1)*col.size]
 }
 
 var _ Interface = (*FixedString)(nil)

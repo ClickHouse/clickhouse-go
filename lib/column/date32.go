@@ -2,6 +2,7 @@ package column
 
 import (
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
@@ -18,12 +19,16 @@ func (dt *Date32) Type() Type {
 	return "Date32"
 }
 
+func (col *Date32) ScanType() reflect.Type {
+	return scanTypeTime
+}
+
 func (dt *Date32) Rows() int {
 	return len(dt.values)
 }
 
-func (dt *Date32) RowValue(row int) interface{} {
-	return dt.row(row)
+func (dt *Date32) Row(i int) interface{} {
+	return dt.row(i)
 }
 
 func (dt *Date32) ScanRow(dest interface{}, row int) error {
@@ -102,8 +107,8 @@ func (dt *Date32) Encode(encoder *binary.Encoder) error {
 	return dt.values.Encode(encoder)
 }
 
-func (dt *Date32) row(row int) time.Time {
-	return time.Unix((int64(dt.values[row])*secInDay)+date32Epoch, 0).UTC()
+func (dt *Date32) row(i int) time.Time {
+	return time.Unix((int64(dt.values[i])*secInDay)+date32Epoch, 0).UTC()
 }
 
 func timeToInt32(t time.Time) int32 {

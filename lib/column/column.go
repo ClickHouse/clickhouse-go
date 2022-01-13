@@ -2,6 +2,7 @@ package column
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
@@ -26,12 +27,13 @@ func (t Type) params() string {
 type Interface interface {
 	Type() Type
 	Rows() int
-	RowValue(row int) interface{}
+	Row(i int) interface{}
 	ScanRow(dest interface{}, row int) error
 	Append(v interface{}) (nulls []uint8, err error)
 	AppendRow(v interface{}) error
 	Decode(decoder *binary.Decoder, rows int) error
 	Encode(*binary.Encoder) error
+	ScanType() reflect.Type
 }
 
 type UnsupportedColumnType struct {
@@ -40,12 +42,13 @@ type UnsupportedColumnType struct {
 
 func (u *UnsupportedColumnType) Type() Type                          { return u.t }
 func (UnsupportedColumnType) Rows() int                              { return 0 }
-func (u *UnsupportedColumnType) RowValue(row int) interface{}        { return nil }
+func (u *UnsupportedColumnType) Row(int) interface{}                 { return nil }
 func (u *UnsupportedColumnType) ScanRow(interface{}, int) error      { return u }
 func (u *UnsupportedColumnType) Append(interface{}) ([]uint8, error) { return nil, u }
 func (u *UnsupportedColumnType) AppendRow(interface{}) error         { return u }
 func (u *UnsupportedColumnType) Decode(*binary.Decoder, int) error   { return u }
 func (u *UnsupportedColumnType) Encode(*binary.Encoder) error        { return u }
+func (u *UnsupportedColumnType) ScanType() reflect.Type              { return reflect.TypeOf(nil) }
 
 func (u *UnsupportedColumnType) Error() string {
 	return fmt.Sprintf("clickhouse: unsupported column type %q", u.t)

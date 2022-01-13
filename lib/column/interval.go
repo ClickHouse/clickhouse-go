@@ -2,6 +2,7 @@ package column
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
@@ -22,10 +23,11 @@ func (col *Interval) parse(t Type) (Interface, error) {
 	}, nil
 }
 
-func (col *Interval) Type() Type { return col.chType }
-func (col *Interval) Rows() int  { return len(col.values) }
-func (col *Interval) RowValue(row int) interface{} {
-	return col.row(row)
+func (col *Interval) Type() Type             { return col.chType }
+func (col *Interval) ScanType() reflect.Type { return scanTypeString }
+func (col *Interval) Rows() int              { return len(col.values) }
+func (col *Interval) Row(i int) interface{} {
+	return col.row(i)
 }
 func (col *Interval) ScanRow(dest interface{}, row int) error {
 	switch d := dest.(type) {
@@ -44,11 +46,11 @@ func (col *Interval) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (Interval) Append(v interface{}) ([]uint8, error) {
+func (Interval) Append(interface{}) ([]uint8, error) {
 	return nil, &StoreSpecialDataType{"Interval"}
 }
 
-func (Interval) AppendRow(v interface{}) error {
+func (Interval) AppendRow(interface{}) error {
 	return &StoreSpecialDataType{"Interval"}
 }
 
@@ -56,7 +58,7 @@ func (col *Interval) Decode(decoder *binary.Decoder, rows int) error {
 	return col.values.Decode(decoder, rows)
 }
 
-func (Interval) Encode(encoder *binary.Encoder) error { return &StoreSpecialDataType{"Interval"} }
+func (Interval) Encode(*binary.Encoder) error { return &StoreSpecialDataType{"Interval"} }
 
 func (col *Interval) row(i int) string {
 	v := fmt.Sprintf("%d %s", col.values[i], strings.TrimPrefix(string(col.chType), "Interval"))
