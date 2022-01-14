@@ -55,3 +55,11 @@ type BadSizeOfTuple struct {
 func (e *BadSizeOfTuple) Error() string {
 	return fmt.Sprintf("clickhouse [%s]: bad size of tuple. expected %d got %d", e.op, e.expected, e.got)
 }
+
+type LowCardinalityDecode struct {
+	msg string
+}
+
+func (e *LowCardinalityDecode) Error() string {
+	return fmt.Sprintf("clickhouse: LowCardinality decode. %s", e.msg)
+}

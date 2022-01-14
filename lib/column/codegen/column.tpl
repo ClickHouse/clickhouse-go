@@ -45,6 +45,8 @@ func (t Type) Column() (Interface, error) {
 		return (&Nullable{}).parse(t)
 	case strings.HasPrefix(string(t), "FixedString"):
 		return (&FixedString{}).parse(t)
+	case strings.HasPrefix(string(t), "LowCardinality"):
+		return (&LowCardinality{}).parse(t)
 	case strings.HasPrefix(string(t), "Enum8") || strings.HasPrefix(string(t), "Enum16"):
 		return Enum(t)
 	case strings.HasPrefix(string(t), "DateTime64"):

@@ -2,10 +2,15 @@ package tests
 
 import (
 	"fmt"
+	"math/rand"
+	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 )
 
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
 func checkMinServerVersion(conn driver.Conn, major, minor uint64) error {
 	v, err := conn.ServerVersion()
 	if err != nil {
