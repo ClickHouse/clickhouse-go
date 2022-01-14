@@ -54,7 +54,7 @@ func (dt *Date32) AppendRow(v interface{}) error {
 		dt.values = append(dt.values, timeToInt32(v))
 	case *time.Time:
 		switch {
-		case v == nil:
+		case v != nil:
 			dt.values = append(dt.values, timeToInt32(*v))
 		default:
 			dt.values = append(dt.values, 0)

@@ -38,6 +38,8 @@ func (t Type) Column() (Interface, error) {
 		return &IPv4{}, nil
 	case "IPv6":
 		return &IPv6{}, nil
+	case "Bool", "Boolean":
+		return &Bool{}, nil
 	case "Date":
 		return &Date{}, nil
 	case "Date32":
@@ -113,6 +115,7 @@ var (
 	scanTypeUInt32  = reflect.TypeOf(uint32(0))
 	scanTypeUInt64  = reflect.TypeOf(uint64(0))
 	scanTypeIP      = reflect.TypeOf(net.IP{})
+	scanTypeBool    = reflect.TypeOf(true)
 	scanTypeUUID    = reflect.TypeOf(uuid.UUID{})
 	scanTypeTime    = reflect.TypeOf(time.Time{})
 	scanTypeSlice   = reflect.TypeOf([]interface{}{})
