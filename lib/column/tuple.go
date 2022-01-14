@@ -13,13 +13,23 @@ type Tuple struct {
 	columns []Interface
 }
 
-// @todo: parse named Tuple(s String, i Int64)
 func (col *Tuple) parse(t Type) (_ Interface, err error) {
 	col.chType = t
 	var (
-		element  []rune
-		elements []string
-		brackets int
+		element       []rune
+		elements      []string
+		brackets      int
+		appendElement = func() {
+			if len(element) != 0 {
+				name := strings.TrimSpace(string(element))
+				if parts := strings.SplitN(name, " ", 2); len(parts) == 2 {
+					if !strings.Contains(parts[0], "(") {
+						name = parts[1]
+					}
+				}
+				elements = append(elements, name)
+			}
+		}
 	)
 	for _, r := range t.params() {
 		switch r {
@@ -29,15 +39,14 @@ func (col *Tuple) parse(t Type) (_ Interface, err error) {
 			brackets--
 		case ',':
 			if brackets == 0 {
-				elements, element = append(elements, string(element)), element[:0]
+				appendElement()
+				element = element[:0]
 				continue
 			}
 		}
 		element = append(element, r)
 	}
-	if len(element) != 0 {
-		elements = append(elements, string(element))
-	}
+	appendElement()
 	for _, ct := range elements {
 		column, err := Type(strings.TrimSpace(ct)).Column()
 		if err != nil {

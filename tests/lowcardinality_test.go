@@ -103,7 +103,7 @@ func TestColmnarLowCardinality(t *testing.T) {
 		})
 	)
 	if assert.NoError(t, err) {
-		if err := checkMinServerVersion(conn, 19, 11); err != nil {
+		if err := checkMinServerVersion(conn, 20, 1); err != nil {
 			t.Skip(err.Error())
 			return
 		}

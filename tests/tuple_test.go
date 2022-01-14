@@ -35,7 +35,7 @@ func TestTuple(t *testing.T) {
 		CREATE TABLE test_tuple (
 			  Col1 Tuple(String, Int64)
 			, Col2 Tuple(String, Int8, DateTime)
-			, Col3 Tuple(DateTime, FixedString(2), Map(String, String))
+			, Col3 Tuple(name1 DateTime, name2 FixedString(2), name3 Map(String, String))
 		) Engine Memory
 		`
 		if err := conn.Exec(ctx, "DROP TABLE IF EXISTS test_tuple"); assert.NoError(t, err) {
