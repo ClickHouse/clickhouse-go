@@ -57,6 +57,8 @@ func (t Type) Column() (Interface, error) {
 		return (&Map{}).parse(t)
 	case strings.HasPrefix(string(t), "Tuple("):
 		return (&Tuple{}).parse(t)
+	case strings.HasPrefix(string(t), "Array("):
+		return (&Array{}).parse(t)
 	case strings.HasPrefix(string(t), "Interval"):
 		return (&Interval{}).parse(t)
 	case strings.HasPrefix(string(t), "Nullable"):

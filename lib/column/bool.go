@@ -11,7 +11,7 @@ type Bool struct {
 	values UInt8
 }
 
-func (dt *Bool) Type() Type {
+func (col *Bool) Type() Type {
 	return "Bool"
 }
 
@@ -19,21 +19,21 @@ func (col *Bool) ScanType() reflect.Type {
 	return scanTypeBool
 }
 
-func (dt *Bool) Rows() int {
-	return len(dt.values)
+func (col *Bool) Rows() int {
+	return len(col.values)
 }
 
-func (dt *Bool) Row(i int) interface{} {
-	return dt.row(i)
+func (col *Bool) Row(i int) interface{} {
+	return col.row(i)
 }
 
-func (dt *Bool) ScanRow(dest interface{}, row int) error {
+func (col *Bool) ScanRow(dest interface{}, row int) error {
 	switch d := dest.(type) {
 	case *bool:
-		*d = dt.row(row)
+		*d = col.row(row)
 	case **bool:
 		*d = new(bool)
-		**d = dt.row(row)
+		**d = col.row(row)
 	default:
 		return &ColumnConverterErr{
 			op:   "ScanRow",
@@ -44,29 +44,29 @@ func (dt *Bool) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (dt *Bool) AppendRow(v interface{}) error {
+func (col *Bool) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case bool:
 		switch {
 		case v:
-			dt.values = append(dt.values, 1)
+			col.values = append(col.values, 1)
 		default:
-			dt.values = append(dt.values, 0)
+			col.values = append(col.values, 0)
 		}
 	case *bool:
 		switch {
 		case v != nil:
 			switch {
 			case *v:
-				dt.values = append(dt.values, 1)
+				col.values = append(col.values, 1)
 			default:
-				dt.values = append(dt.values, 0)
+				col.values = append(col.values, 0)
 			}
 		default:
-			dt.values = append(dt.values, 0)
+			col.values = append(col.values, 0)
 		}
 	case null:
-		dt.values = append(dt.values, 0)
+		col.values = append(col.values, 0)
 	default:
 		return &ColumnConverterErr{
 			op:   "AppendRow",
@@ -77,7 +77,7 @@ func (dt *Bool) AppendRow(v interface{}) error {
 	return nil
 }
 
-func (dt *Bool) Append(v interface{}) (nulls []uint8, err error) {
+func (col *Bool) Append(v interface{}) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []bool:
 		in := make([]uint8, 0, len(v))
@@ -89,7 +89,7 @@ func (dt *Bool) Append(v interface{}) (nulls []uint8, err error) {
 				in = append(in, 0)
 			}
 		}
-		dt.values = append(dt.values, in...)
+		col.values = append(col.values, in...)
 	case []*bool:
 		nulls = make([]uint8, len(v))
 		in := make([]uint8, 0, len(v))
@@ -106,7 +106,7 @@ func (dt *Bool) Append(v interface{}) (nulls []uint8, err error) {
 				in, nulls[i] = append(in, 0), 1
 			}
 		}
-		dt.values = append(dt.values, in...)
+		col.values = append(col.values, in...)
 	default:
 		return nil, &ColumnConverterErr{
 			op:   "Append",
@@ -117,16 +117,16 @@ func (dt *Bool) Append(v interface{}) (nulls []uint8, err error) {
 	return
 }
 
-func (dt *Bool) Decode(decoder *binary.Decoder, rows int) error {
-	return dt.values.Decode(decoder, rows)
+func (col *Bool) Decode(decoder *binary.Decoder, rows int) error {
+	return col.values.Decode(decoder, rows)
 }
 
-func (dt *Bool) Encode(encoder *binary.Encoder) error {
-	return dt.values.Encode(encoder)
+func (col *Bool) Encode(encoder *binary.Encoder) error {
+	return col.values.Encode(encoder)
 }
 
-func (dt *Bool) row(i int) bool {
-	return dt.values[i] == 1
+func (col *Bool) row(i int) bool {
+	return col.values[i] == 1
 }
 
 var _ Interface = (*Bool)(nil)
