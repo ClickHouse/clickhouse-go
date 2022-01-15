@@ -56,15 +56,8 @@ func (r *rows) Scan(dest ...interface{}) error {
 		}
 	}
 	for i, d := range dest {
-		switch d := d.(type) {
-		case sql.Scanner:
-			if err := d.Scan(columns[i].Row(r.row - 1)); err != nil {
-				return err
-			}
-		default:
-			if err := columns[i].ScanRow(d, r.row-1); err != nil {
-				return err
-			}
+		if err := columns[i].ScanRow(d, r.row-1); err != nil {
+			return err
 		}
 	}
 	return nil

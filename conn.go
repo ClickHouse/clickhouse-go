@@ -77,13 +77,13 @@ func (c *connect) settings(querySettings Settings) []proto.Setting {
 	for k, v := range c.opt.Settings {
 		settings = append(settings, proto.Setting{
 			Key:   k,
-			Value: fmt.Sprint(v),
+			Value: v,
 		})
 	}
 	for k, v := range querySettings {
 		settings = append(settings, proto.Setting{
 			Key:   k,
-			Value: fmt.Sprint(v),
+			Value: v,
 		})
 	}
 	return settings

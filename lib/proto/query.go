@@ -1,6 +1,7 @@
 package proto
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
@@ -104,23 +105,38 @@ type Settings []Setting
 
 type Setting struct {
 	Key   string
-	Value string
+	Value interface{}
 }
 
 func (s Settings) Encode(encoder *binary.Encoder, revision uint64) error {
-	if revision <= DBMS_MIN_REVISION_WITH_SETTINGS_SERIALIZED_AS_STRINGS {
-		return nil
-	}
 	for _, s := range s {
-		if err := s.encode(encoder); err != nil {
+		if err := s.encode(encoder, revision); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (s *Setting) encode(encoder *binary.Encoder) error {
-	encoder.String(s.Key)
-	encoder.Bool(true) // is_important
-	return encoder.String(s.Value)
+func (s *Setting) encode(encoder *binary.Encoder, revision uint64) error {
+	if err := encoder.String(s.Key); err != nil {
+		return err
+	}
+	if revision <= DBMS_MIN_REVISION_WITH_SETTINGS_SERIALIZED_AS_STRINGS {
+		var value uint64
+		switch v := s.Value.(type) {
+		case int:
+			value = uint64(v)
+		case bool:
+			if value = 0; v {
+				value = 1
+			}
+		default:
+			return fmt.Errorf("query setting %s has unsupported data type", s.Key)
+		}
+		return encoder.Uvarint(value)
+	}
+	if err := encoder.Bool(true); err != nil { // is_important
+		return err
+	}
+	return encoder.String(fmt.Sprint(s.Value))
 }

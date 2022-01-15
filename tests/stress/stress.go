@@ -33,7 +33,7 @@ func (app *App) batch() {
 	if err != nil {
 		log.Fatal("PrepareBatch", err)
 	}
-	for i := 0; i < 1500; i++ {
+	for i := 0; i < 15000; i++ {
 		err := batch.Append(
 			uint8(1),
 			uuid.New(),

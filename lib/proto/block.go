@@ -1,13 +1,10 @@
 package proto
 
 import (
-	"database/sql/driver"
 	"fmt"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
-	"github.com/google/uuid"
-	"github.com/shopspring/decimal"
 )
 
 type Block struct {
@@ -41,15 +38,7 @@ func (b *Block) Append(v ...interface{}) (err error) {
 		}
 	}
 	for i, v := range v {
-		value := v
-		switch v := v.(type) {
-		case uuid.UUID, decimal.Decimal:
-		case driver.Valuer:
-			if value, err = v.Value(); err != nil {
-				return err
-			}
-		}
-		if err := b.Columns[i].AppendRow(value); err != nil {
+		if err := b.Columns[i].AppendRow(v); err != nil {
 			return err
 		}
 	}

@@ -157,7 +157,6 @@ func (s *stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driv
 }
 
 func (s *stmt) Close() error {
-
 	return nil
 }
 
@@ -185,7 +184,16 @@ func (r *stdRows) ColumnTypeNullable(idx int) (nullable, ok bool) {
 func (r *stdRows) Next(dest []driver.Value) error {
 	if r.rows.Next() {
 		for i := range dest {
-			dest[i] = r.rows.block.Columns[i].Row(r.rows.row - 1)
+			switch value := r.rows.block.Columns[i].Row(r.rows.row - 1).(type) {
+			case driver.Valuer:
+				v, err := value.Value()
+				if err != nil {
+					return err
+				}
+				dest[i] = v
+			default:
+				dest[i] = value
+			}
 		}
 		return nil
 	}
