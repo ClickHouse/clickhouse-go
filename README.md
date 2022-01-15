@@ -7,7 +7,7 @@ Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/). 
 ## Key features
 
 * Uses native ClickHouse TCP client-server protocol
-* Compatibility with [`database/sql`](#std-databasesql-interface) (slower than [native interface](#native-interface)!)
+* Compatibility with [`database/sql`](#std-databasesql-interface) ([slower](#benchmark) than [native interface](#native-interface)!)
 * Connection pool
 * Failover and load balancing
 * Bulk write support (for `database/sql` use `begin->prepare->(in loop exec)->commit`)
@@ -54,6 +54,13 @@ clickhouse://username:password@host1:9000,host2:9000?&database=kinescope&dial_ti
 ## TODO
 
 * [ ] [Decimal](https://github.com/ClickHouse/clickhouse-go/pull/442)
+
+## Benchmark
+
+| [V1 (READ)](benchmark/v1/read/main.go) | [V2 (READ) std](benchmark/v2/read/main.go) | [V2 (READ) native](benchmark/v2/read-native/main.go) |
+| -------------------------------------- | ------------------------------------------ | ---------------------------------------------------- |
+| 1.218s                                 | 924.390ms                                  | 675.721ms                                            |  |
+
 
 
 ## Install
