@@ -6,9 +6,12 @@ import (
 	"database/sql/driver"
 	"errors"
 	"io"
+	"reflect"
 	"regexp"
 	"strings"
 	"sync/atomic"
+
+	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 )
 
 func init() {
@@ -41,6 +44,13 @@ func (d *stdDriver) Open(dsn string) (_ driver.Conn, err error) {
 		}
 	}
 	return nil, err
+}
+
+func (std *stdDriver) ResetSession(ctx context.Context) error {
+	if std.conn.isBad() {
+		return driver.ErrBadConn
+	}
+	return nil
 }
 
 func (std *stdDriver) Ping(ctx context.Context) error { return std.conn.ping(ctx) }
@@ -157,6 +167,19 @@ type stdRows struct {
 
 func (r *stdRows) Columns() []string {
 	return r.rows.Columns()
+}
+
+func (r *stdRows) ColumnTypeScanType(idx int) reflect.Type {
+	return r.rows.block.Columns[idx].ScanType()
+}
+
+func (r *stdRows) ColumnTypeDatabaseTypeName(idx int) string {
+	return string(r.rows.block.Columns[idx].Type())
+}
+
+func (r *stdRows) ColumnTypeNullable(idx int) (nullable, ok bool) {
+	_, ok = r.rows.block.Columns[idx].(*column.Nullable)
+	return ok, true
 }
 
 func (r *stdRows) Next(dest []driver.Value) error {

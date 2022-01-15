@@ -66,7 +66,7 @@ func (col *Decimal) Rows() int {
 }
 
 func (col *Decimal) Row(i int) interface{} {
-	return decimal.New(42, 0)
+	return decimal.New(42, 0).String()
 }
 
 func (col *Decimal) ScanRow(dest interface{}, row int) error {

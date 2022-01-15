@@ -27,7 +27,7 @@ func (col *UUID) Rows() int {
 }
 
 func (col *UUID) Row(i int) interface{} {
-	return col.row(i)
+	return col.rowBytes(i)
 }
 
 func (col *UUID) ScanRow(dest interface{}, row int) error {
@@ -103,6 +103,10 @@ func (col *UUID) Encode(encoder *binary.Encoder) error {
 func (col *UUID) row(i int) (uuid uuid.UUID) {
 	copy(uuid[:], col.data[i*uuidSize:(i+1)*uuidSize])
 	return
+}
+
+func (col *UUID) rowBytes(i int) []byte {
+	return col.data[i*uuidSize : (i+1)*uuidSize]
 }
 
 var _ Interface = (*UUID)(nil)

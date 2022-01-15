@@ -5,8 +5,6 @@ import (
 	"io"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
-	"github.com/google/uuid"
-	"github.com/shopspring/decimal"
 )
 
 type rows struct {
@@ -19,13 +17,18 @@ type rows struct {
 	columns []string
 }
 
-func (r *rows) Next() bool {
+func (r *rows) Next() (result bool) {
+	defer func() {
+		if !result {
+			r.Close()
+		}
+	}()
 next:
 	if r.row >= r.block.Rows() {
 		select {
 		case err := <-r.errors:
 			if err != nil {
-				r.err = err
+				r.err, r.conn.err = err, err
 				return false
 			}
 			goto next
@@ -53,14 +56,9 @@ func (r *rows) Scan(dest ...interface{}) error {
 		}
 	}
 	for i, d := range dest {
-		_, useScanner := d.(sql.Scanner)
-		switch d.(type) {
-		case *uuid.UUID, uuid.UUID, *decimal.Decimal, decimal.Decimal:
-			useScanner = false
-		}
-		switch {
-		case useScanner:
-			if err := d.(sql.Scanner).Scan(columns[i].Row(r.row - 1)); err != nil {
+		switch d := d.(type) {
+		case sql.Scanner:
+			if err := d.Scan(columns[i].Row(r.row - 1)); err != nil {
 				return err
 			}
 		default:

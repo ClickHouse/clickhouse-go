@@ -38,7 +38,7 @@ func (c *connect) prepareBatch(ctx context.Context, query string, release func(*
 	return &batch{
 		conn:  c,
 		block: block,
-		release: func(c *connect, err error) {
+		release: func(err error) {
 			c.err = err
 			release(c)
 		},
@@ -51,16 +51,21 @@ type batch struct {
 	conn      *connect
 	sent      bool
 	block     *proto.Block
-	release   func(*connect, error)
+	release   func(error)
 	onProcess *onProcess
 }
 
 func (b *batch) Append(v ...interface{}) error {
-	return b.block.Append(v...)
+	if err := b.block.Append(v...); err != nil {
+		b.release(err)
+		return err
+	}
+	return nil
 }
 
 func (b *batch) Column(idx int) driver.BatchColumn {
 	if len(b.block.Columns) <= idx {
+		b.release(nil)
 		return &batchColumn{
 			err: &InvalidColumnIndex{
 				op:  "batch.Column(idx)",
@@ -72,12 +77,13 @@ func (b *batch) Column(idx int) driver.BatchColumn {
 		column: b.block.Columns[idx],
 		release: func(err error) {
 			b.err = err
-			b.release(b.conn, err)
+			b.release(err)
 		},
 	}
 }
 
 func (b *batch) Send() (err error) {
+	defer b.release(err)
 	defer func() {
 		b.sent = true
 	}()
@@ -87,7 +93,6 @@ func (b *batch) Send() (err error) {
 	if b.err != nil {
 		return b.err
 	}
-	defer b.release(b.conn, err)
 	if err = b.conn.sendData(b.block, ""); err != nil {
 		return err
 	}

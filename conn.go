@@ -66,6 +66,7 @@ type connect struct {
 	closed      bool
 	encoder     *binary.Encoder
 	decoder     *binary.Decoder
+	released    bool
 	revision    uint64
 	compression bool
 	connectedAt time.Time
@@ -86,6 +87,14 @@ func (c *connect) settings(querySettings Settings) []proto.Setting {
 		})
 	}
 	return settings
+}
+
+func (c *connect) isBad() bool {
+	switch {
+	case c.closed, c.err != nil:
+		return true
+	}
+	return false
 }
 
 func (c *connect) close() error {
