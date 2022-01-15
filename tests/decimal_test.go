@@ -26,6 +26,10 @@ func TestBlankDecimal(t *testing.T) {
 		})
 	)
 	if assert.NoError(t, err) {
+		if err := checkMinServerVersion(conn, 21, 9); err != nil {
+			t.Skip(err.Error())
+			return
+		}
 		var result decimal.Decimal
 		if err := conn.QueryRow(ctx, "SELECT CAST(1, 'Decimal128(5)')").Scan(&result); assert.NoError(t, err) {
 			t.Log(result)
