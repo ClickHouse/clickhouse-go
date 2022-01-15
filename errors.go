@@ -47,3 +47,10 @@ type BatchAlreadySent struct{}
 func (e *BatchAlreadySent) Error() string {
 	return "clickhouse: batch has already been sent"
 }
+
+type AcquireConnTimeout struct {
+}
+
+func (e *AcquireConnTimeout) Error() string {
+	return "acquire conn timeout"
+}

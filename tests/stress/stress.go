@@ -1,0 +1,128 @@
+package main
+
+import (
+	"context"
+	"log"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"net/http"
+	_ "net/http/pprof"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"github.com/google/uuid"
+	_ "github.com/mkevac/debugcharts"
+)
+
+type App struct {
+	conn   driver.Conn
+	signal chan os.Signal
+}
+
+func (app *App) worker() {
+	for range time.Tick(time.Second) {
+		app.batch()
+	}
+}
+
+func (app *App) batch() {
+	batch, err := app.conn.PrepareBatch(context.Background(), "INSERT INTO stress")
+	if err != nil {
+		log.Fatal("PrepareBatch", err)
+	}
+	for i := 0; i < 1500; i++ {
+		err := batch.Append(
+			uint8(1),
+			uuid.New(),
+			time.Now(),
+			[][]time.Time{
+				[]time.Time{
+					time.Now(),
+					time.Now(),
+				},
+				[]time.Time{
+					time.Now(),
+					time.Now(),
+				},
+				[]time.Time{
+					time.Now(),
+					time.Now(),
+				},
+			},
+			map[string]string{
+				"key": "value",
+			},
+		)
+		if err != nil {
+			log.Fatal("Append", err)
+		}
+	}
+	if err := batch.Send(); err != nil {
+		log.Fatal("Send", err)
+	}
+}
+
+const ddl = `
+CREATE TABLE stress (
+	  Col1 UInt8
+	, Col2 UUID
+	, Col3 DateTime
+	, Col4 Array(Array(DateTime))
+	, Col5 Map(String, String)
+) Engine Null
+`
+
+func main() {
+	go func() {
+		log.Fatal(http.ListenAndServe(":8080", nil))
+	}()
+	conn, err := clickhouse.Open(&clickhouse.Options{
+		Addr: []string{"127.0.0.1:9000"},
+		Auth: clickhouse.Auth{
+			Database: "default",
+			Username: "default",
+			Password: "",
+		},
+		MaxOpenConns:    15,
+		MaxIdleConns:    10,
+		ConnMaxLifetime: 3 * time.Minute,
+		Compression: &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		},
+		//Debug: true,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := conn.Exec(context.Background(), "DROP TABLE IF EXISTS stress"); err != nil {
+		log.Fatal(err)
+	}
+	if err := conn.Exec(context.Background(), ddl); err != nil {
+		log.Fatal(err)
+	}
+	var (
+		app = App{
+			conn:   conn,
+			signal: make(chan os.Signal),
+		}
+		signals = []os.Signal{
+			syscall.SIGINT,
+			syscall.SIGTERM,
+			syscall.SIGKILL,
+		}
+	)
+	for i := 0; i < 20; i++ {
+		go app.worker()
+	}
+	signal.Notify(app.signal, signals...)
+	{
+		signal := <-app.signal
+		{
+			log.Println("got signal:", signal)
+		}
+		os.Exit(0)
+	}
+}

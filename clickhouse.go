@@ -2,7 +2,6 @@ package clickhouse
 
 import (
 	"context"
-	"io"
 	"sync/atomic"
 	"time"
 
@@ -23,7 +22,6 @@ type (
 
 func Open(opt *Options) (driver.Conn, error) {
 	opt.setDefaults()
-
 	return &clickhouse{
 		opt:  opt,
 		idle: make(chan *connect, opt.MaxIdleConns),
@@ -129,17 +127,18 @@ func (ch *clickhouse) acquire(ctx context.Context) (conn *connect, err error) {
 	}
 	select {
 	case <-timer.C:
-		return nil, io.EOF
+		return nil, &AcquireConnTimeout{}
 	case ch.open <- struct{}{}:
 	}
 	select {
 	case <-timer.C:
-		return nil, io.EOF
+		return nil, &AcquireConnTimeout{}
 	case conn := <-ch.idle:
 		if conn.isBad() {
 			conn.close()
 			return ch.dial()
 		}
+		conn.released = false
 		return conn, nil
 	default:
 	}
