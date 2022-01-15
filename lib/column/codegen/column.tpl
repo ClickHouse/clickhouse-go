@@ -10,6 +10,7 @@ import (
 	"time"
 	"net"
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 )
 
 func (t Type) Column() (Interface, error) {
@@ -41,6 +42,8 @@ func (t Type) Column() (Interface, error) {
 		return (&Map{}).parse(t)
 	case strings.HasPrefix(string(t), "Tuple("):
 		return (&Tuple{}).parse(t)
+	case strings.HasPrefix(string(t), "Decimal("):
+		return (&Decimal{}).parse(t)
 	case strings.HasPrefix(string(t), "Array("):
 		return (&Array{}).parse(t)
 	case strings.HasPrefix(string(t), "Interval"):
@@ -79,12 +82,13 @@ var (
 	{{- range . }}
 		scanType{{ .ChType }} = reflect.TypeOf({{ .GoType }}(0))
 	{{- end }}
-		scanTypeIP     = reflect.TypeOf(net.IP{})
-		scanTypeBool   = reflect.TypeOf(true)
-		scanTypeUUID   = reflect.TypeOf(uuid.UUID{})
-		scanTypeTime   = reflect.TypeOf(time.Time{})
-		scanTypeSlice  = reflect.TypeOf([]interface{}{})
-		scanTypeString = reflect.TypeOf("")
+		scanTypeIP      = reflect.TypeOf(net.IP{})
+		scanTypeBool    = reflect.TypeOf(true)
+		scanTypeUUID    = reflect.TypeOf(uuid.UUID{})
+		scanTypeTime    = reflect.TypeOf(time.Time{})
+		scanTypeSlice   = reflect.TypeOf([]interface{}{})
+		scanTypeString  = reflect.TypeOf("")
+		scanTypeDecimal = reflect.TypeOf(decimal.Decimal{})
 	)
 
 {{- range . }}

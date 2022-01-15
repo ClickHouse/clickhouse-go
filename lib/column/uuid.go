@@ -26,7 +26,6 @@ func (col *UUID) Rows() int {
 	return len(col.data) / uuidSize
 }
 
-// sql.Scanner
 func (col *UUID) Row(i int) interface{} {
 	return col.row(i)
 }
@@ -34,14 +33,10 @@ func (col *UUID) Row(i int) interface{} {
 func (col *UUID) ScanRow(dest interface{}, row int) error {
 	switch d := dest.(type) {
 	case *uuid.UUID:
-		var v uuid.UUID
-		copy(v[:], col.row(row))
-		*d = v
+		*d = col.row(row)
 	case **uuid.UUID:
-		var v uuid.UUID
-		copy(v[:], col.row(row))
 		*d = new(uuid.UUID)
-		**d = v
+		**d = col.row(row)
 	default:
 		return &ColumnConverterErr{
 			op:   "ScanRow",
@@ -105,8 +100,9 @@ func (col *UUID) Encode(encoder *binary.Encoder) error {
 	return encoder.Raw(col.data)
 }
 
-func (col *UUID) row(i int) []byte {
-	return col.data[i*uuidSize : (i+1)*uuidSize]
+func (col *UUID) row(i int) (uuid uuid.UUID) {
+	copy(uuid[:], col.data[i*uuidSize:(i+1)*uuidSize])
+	return
 }
 
 var _ Interface = (*UUID)(nil)

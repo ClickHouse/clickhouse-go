@@ -5,6 +5,8 @@ import (
 	"io"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
+	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 )
 
 type rows struct {
@@ -51,9 +53,14 @@ func (r *rows) Scan(dest ...interface{}) error {
 		}
 	}
 	for i, d := range dest {
-		switch d := d.(type) {
-		case sql.Scanner:
-			if err := d.Scan(columns[i].Row(r.row - 1)); err != nil {
+		_, useScanner := d.(sql.Scanner)
+		switch d.(type) {
+		case *uuid.UUID, uuid.UUID, *decimal.Decimal, decimal.Decimal:
+			useScanner = false
+		}
+		switch {
+		case useScanner:
+			if err := d.(sql.Scanner).Scan(columns[i].Row(r.row - 1)); err != nil {
 				return err
 			}
 		default:

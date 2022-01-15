@@ -6,6 +6,7 @@ package column
 import (
 	"fmt"
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 	"net"
 	"reflect"
 	"strings"
@@ -57,6 +58,8 @@ func (t Type) Column() (Interface, error) {
 		return (&Map{}).parse(t)
 	case strings.HasPrefix(string(t), "Tuple("):
 		return (&Tuple{}).parse(t)
+	case strings.HasPrefix(string(t), "Decimal("):
+		return (&Decimal{}).parse(t)
 	case strings.HasPrefix(string(t), "Array("):
 		return (&Array{}).parse(t)
 	case strings.HasPrefix(string(t), "Interval"):
@@ -122,6 +125,7 @@ var (
 	scanTypeTime    = reflect.TypeOf(time.Time{})
 	scanTypeSlice   = reflect.TypeOf([]interface{}{})
 	scanTypeString  = reflect.TypeOf("")
+	scanTypeDecimal = reflect.TypeOf(decimal.Decimal{})
 )
 
 func (col *Float32) Type() Type {

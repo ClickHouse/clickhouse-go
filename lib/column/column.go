@@ -11,10 +11,6 @@ import (
 type null struct{}
 type Type string
 
-func (t Type) String() string {
-	return string(t)
-}
-
 func (t Type) params() string {
 	switch start, end := strings.Index(string(t), "("), strings.LastIndex(string(t), ")"); {
 	case len(t) == 0, start <= 0, end <= 0, end < start:
