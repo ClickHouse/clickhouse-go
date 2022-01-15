@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
-	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
 )
@@ -94,14 +93,17 @@ func (col *Array) ScanRow(dest interface{}, row int) error {
 }
 
 func (col *Array) Append(v interface{}) (nulls []uint8, err error) {
-	switch v := v.(type) {
-	case []time.Time:
-
-	default:
+	value := reflect.Indirect(reflect.ValueOf(v))
+	if value.Kind() != reflect.Slice {
 		return nil, &ColumnConverterErr{
 			op:   "Append",
 			to:   string(col.chType),
 			from: fmt.Sprintf("%T", v),
+		}
+	}
+	for i := 0; i < value.Len(); i++ {
+		if err := col.AppendRow(value.Index(i).Interface()); err != nil {
+			return nil, err
 		}
 	}
 	return
