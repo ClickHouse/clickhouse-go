@@ -2,6 +2,8 @@ package clickhouse
 
 import (
 	"time"
+
+	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 
 type Log struct {
@@ -16,7 +18,7 @@ type Log struct {
 }
 
 func (c *connect) logs() ([]Log, error) {
-	block, err := c.readData(false)
+	block, err := c.readData(proto.ServerLog, false)
 	if err != nil {
 		return nil, err
 	}

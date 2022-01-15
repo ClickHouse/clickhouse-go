@@ -21,7 +21,7 @@ func (c *connect) firstBlock(on *onProcess) (*proto.Block, error) {
 		}
 		switch packet {
 		case proto.ServerData:
-			return c.readData(true)
+			return c.readData(packet, true)
 		case proto.ServerEndOfStream:
 			c.debugf("[end of stream]")
 			return nil, io.EOF
@@ -53,7 +53,7 @@ func (c *connect) process(on *onProcess) error {
 func (c *connect) handle(packet byte, on *onProcess) error {
 	switch packet {
 	case proto.ServerData, proto.ServerTotals, proto.ServerExtremes:
-		block, err := c.readData(true)
+		block, err := c.readData(packet, true)
 		if err != nil {
 			return err
 		}

@@ -44,11 +44,10 @@ type (
 	Rows interface {
 		Next() bool
 		Scan(dest ...interface{}) error
+		Totals(dest ...interface{}) error
 		Columns() []string
 		Close() error
 		Err() error
-		// Totals(dest ...interface{}) error
-		// Extremes(dest ...interface{}) error
 	}
 	Batch interface {
 		Append(v ...interface{}) error

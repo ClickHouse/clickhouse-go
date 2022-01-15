@@ -9,6 +9,7 @@ import (
 
 type Block struct {
 	names   []string
+	Packet  byte
 	Columns []column.Interface
 }
 

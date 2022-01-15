@@ -12,6 +12,7 @@ type rows struct {
 	row     int
 	conn    *connect
 	block   *proto.Block
+	totals  *proto.Block
 	errors  chan error
 	stream  chan *proto.Block
 	columns []string
@@ -23,6 +24,9 @@ func (r *rows) Next() (result bool) {
 			r.Close()
 		}
 	}()
+	if r.block == nil {
+		return false
+	}
 next:
 	if r.row >= r.block.Rows() {
 		select {
@@ -36,6 +40,10 @@ next:
 			if block == nil || block.Rows() == 0 {
 				return false
 			}
+			if block.Packet == proto.ServerTotals {
+				r.row, r.block, r.totals = 0, nil, block
+				return false
+			}
 			r.row, r.block = 0, block
 		}
 	}
@@ -44,23 +52,17 @@ next:
 }
 
 func (r *rows) Scan(dest ...interface{}) error {
-	if r.row == 0 && r.row >= r.block.Rows() { // call without next when result is empty
+	if r.block == nil || (r.row == 0 && r.row >= r.block.Rows()) { // call without next when result is empty
 		return io.EOF
 	}
-	columns := r.block.Columns
-	if len(columns) != len(dest) {
-		return &UnexpectedScanDestination{
-			op:       "Scan",
-			got:      len(dest),
-			expected: len(columns),
-		}
+	return scan(r.block, r.row, dest...)
+}
+
+func (r *rows) Totals(dest ...interface{}) error {
+	if r.totals == nil {
+		return sql.ErrNoRows
 	}
-	for i, d := range dest {
-		if err := columns[i].ScanRow(d, r.row-1); err != nil {
-			return err
-		}
-	}
-	return nil
+	return scan(r.totals, 1, dest...)
 }
 
 func (r *rows) Columns() []string {
@@ -77,6 +79,23 @@ func (r *rows) Close() error {
 
 func (r *rows) Err() error {
 	return r.err
+}
+
+func scan(block *proto.Block, row int, dest ...interface{}) error {
+	columns := block.Columns
+	if len(columns) != len(dest) {
+		return &UnexpectedScanDestination{
+			op:       "Scan",
+			got:      len(dest),
+			expected: len(columns),
+		}
+	}
+	for i, d := range dest {
+		if err := columns[i].ScanRow(d, row-1); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type row struct {

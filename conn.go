@@ -147,7 +147,7 @@ func (c *connect) sendData(block *proto.Block, name string) error {
 	return block.Encode(c.encoder, c.revision)
 }
 
-func (c *connect) readData(compressible bool) (*proto.Block, error) {
+func (c *connect) readData(packet byte, compressible bool) (*proto.Block, error) {
 	if _, err := c.decoder.String(); err != nil {
 		return nil, err
 	}
@@ -159,6 +159,7 @@ func (c *connect) readData(compressible bool) (*proto.Block, error) {
 	if err := block.Decode(c.decoder, c.revision); err != nil {
 		return nil, err
 	}
+	block.Packet = packet
 	c.debugf("[read data] compression=%t. block: columns=%d, rows=%d", c.compression, len(block.Columns), block.Rows())
 	return &block, nil
 }

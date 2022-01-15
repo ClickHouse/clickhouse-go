@@ -200,6 +200,21 @@ func (r *stdRows) Next(dest []driver.Value) error {
 	return io.EOF
 }
 
+func (r *stdRows) HasNextResultSet() bool {
+	return r.rows.totals != nil
+}
+
+func (r *stdRows) NextResultSet() error {
+	switch {
+	case r.rows.totals != nil:
+		r.rows.block = r.rows.totals
+		r.rows.totals = nil
+	default:
+		return io.EOF
+	}
+	return nil
+}
+
 func (r *stdRows) Close() error {
 	return r.rows.Close()
 }
