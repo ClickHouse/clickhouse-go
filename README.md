@@ -64,7 +64,7 @@ clickhouse://username:password@host1:9000,host2:9000?&database=kinescope&dial_ti
 
 | [V1 (WRITE)](benchmark/v1/write/main.go) | [V2 (WRITE) std](benchmark/v2/write/main.go) | [V2 (WRITE) native](benchmark/v2/write-native/main.go) | [V2 (WRITE) by column](benchmark/v2/write-native-columnar/main.go) |
 | ---------------------------------------- | -------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------ |
-| 1.899s                                   | 1.177s                                       | 699.203ms                                              | 661.97382ms                                                        |
+| 1.899s                                   | 1.177s                                       | 699.203ms                                              | 661.973ms                                                          |
 
 
 
