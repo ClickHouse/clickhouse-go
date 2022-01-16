@@ -52,5 +52,13 @@ type AcquireConnTimeout struct {
 }
 
 func (e *AcquireConnTimeout) Error() string {
-	return "acquire conn timeout"
+	return "clickhouse: acquire conn timeout"
+}
+
+type ScanStructErr struct {
+	msg string
+}
+
+func (e *ScanStructErr) Error() string {
+	return "clickhouse: " + e.msg
 }

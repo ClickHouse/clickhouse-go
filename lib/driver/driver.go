@@ -27,8 +27,7 @@ type (
 type (
 	Conn interface {
 		ServerVersion() (*ServerVersion, error)
-		// Get(tx context.Context, dst interface{}, query string, args ...interface{}) error
-		// Select(tx context.Context, dst interface{}, query string, args ...interface{}) error
+		Select(ctx context.Context, dest interface{}, query string, args ...interface{}) error
 		Query(ctx context.Context, query string, args ...interface{}) (Rows, error)
 		QueryRow(ctx context.Context, query string, args ...interface{}) Row
 		PrepareBatch(ctx context.Context, query string) (Batch, error)
@@ -38,12 +37,14 @@ type (
 		Close() error
 	}
 	Row interface {
-		Scan(dest ...interface{}) error
 		Err() error
+		Scan(dest ...interface{}) error
+		ScanStruct(dest interface{}) error
 	}
 	Rows interface {
 		Next() bool
 		Scan(dest ...interface{}) error
+		ScanStruct(dest interface{}) error
 		Totals(dest ...interface{}) error
 		Columns() []string
 		Close() error

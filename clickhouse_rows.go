@@ -58,6 +58,14 @@ func (r *rows) Scan(dest ...interface{}) error {
 	return scan(r.block, r.row, dest...)
 }
 
+func (r *rows) ScanStruct(dest interface{}) error {
+	values, err := structToScannableValues(r.columns, dest)
+	if err != nil {
+		return err
+	}
+	return r.Scan(values...)
+}
+
 func (r *rows) Totals(dest ...interface{}) error {
 	if r.totals == nil {
 		return sql.ErrNoRows
@@ -81,23 +89,6 @@ func (r *rows) Err() error {
 	return r.err
 }
 
-func scan(block *proto.Block, row int, dest ...interface{}) error {
-	columns := block.Columns
-	if len(columns) != len(dest) {
-		return &UnexpectedScanDestination{
-			op:       "Scan",
-			got:      len(dest),
-			expected: len(columns),
-		}
-	}
-	for i, d := range dest {
-		if err := columns[i].ScanRow(d, row-1); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 type row struct {
 	err  error
 	rows *rows
@@ -105,6 +96,14 @@ type row struct {
 
 func (r *row) Err() error {
 	return r.err
+}
+
+func (r *row) ScanStruct(dest interface{}) error {
+	values, err := structToScannableValues(r.rows.columns, dest)
+	if err != nil {
+		return err
+	}
+	return r.Scan(values...)
 }
 
 func (r *row) Scan(dest ...interface{}) error {

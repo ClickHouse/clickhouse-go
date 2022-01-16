@@ -22,6 +22,23 @@ type App struct {
 	signal chan os.Signal
 }
 
+func (app *App) invalidPrepare() {
+	var i int
+	for range time.Tick(time.Minute) {
+		i++
+		switch {
+		case i%2 == 0:
+			app.conn.PrepareBatch(context.Background(), "INSERT INTO x")
+		default:
+			batch, err := app.conn.PrepareBatch(context.Background(), "INSERT INTO stress")
+			if err != nil {
+				log.Fatal(err)
+			}
+			batch.Append(1, 1, 1, 1, 1)
+		}
+	}
+}
+
 func (app *App) worker() {
 	for range time.Tick(time.Second) {
 		app.batch()
@@ -75,6 +92,8 @@ CREATE TABLE stress (
 ) Engine Null
 `
 
+// http://127.0.0.1:8080/debug/pprof/
+// http://127.0.0.1:8080/debug/charts/
 func main() {
 	go func() {
 		log.Fatal(http.ListenAndServe(":8080", nil))
@@ -87,12 +106,12 @@ func main() {
 			Password: "",
 		},
 		MaxOpenConns:    15,
-		MaxIdleConns:    10,
+		MaxIdleConns:    15,
 		ConnMaxLifetime: 3 * time.Minute,
 		Compression: &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
 		},
-		//Debug: true,
+		Debug: true,
 	})
 	if err != nil {
 		log.Fatal(err)
@@ -114,6 +133,7 @@ func main() {
 			syscall.SIGKILL,
 		}
 	)
+	go app.invalidPrepare()
 	for i := 0; i < 20; i++ {
 		go app.worker()
 	}
