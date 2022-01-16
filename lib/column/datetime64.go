@@ -76,6 +76,8 @@ func (dt *DateTime64) ScanRow(dest interface{}, row int) error {
 
 func (dt *DateTime64) AppendRow(v interface{}) error {
 	switch v := v.(type) {
+	case int64:
+		dt.values = append(dt.values, v)
 	case time.Time:
 		dt.values = append(dt.values, dt.timeToInt64(v))
 	case *time.Time:
@@ -99,6 +101,8 @@ func (dt *DateTime64) AppendRow(v interface{}) error {
 
 func (dt *DateTime64) Append(v interface{}) (nulls []uint8, err error) {
 	switch v := v.(type) {
+	case []int64:
+		dt.values, nulls = append(dt.values, v...), make([]uint8, len(v))
 	case []time.Time:
 		in := make([]int64, 0, len(v))
 		for _, t := range v {
