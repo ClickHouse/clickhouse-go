@@ -181,6 +181,19 @@ func (r *stdRows) ColumnTypeNullable(idx int) (nullable, ok bool) {
 	return ok, true
 }
 
+func (r *stdRows) ColumnTypePrecisionScale(idx int) (precision, scale int64, ok bool) {
+	switch col := r.rows.block.Columns[idx].(type) {
+	case *column.Decimal:
+		return col.Precision(), col.Scale(), true
+	case interface{ Base() column.Interface }:
+		switch col := col.Base().(type) {
+		case *column.Decimal:
+			return col.Precision(), col.Scale(), true
+		}
+	}
+	return 0, 0, false
+}
+
 func (r *stdRows) Next(dest []driver.Value) error {
 	if r.rows.Next() {
 		for i := range dest {

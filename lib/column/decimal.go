@@ -39,7 +39,6 @@ func (col *Decimal) parse(t Type) (_ *Decimal, err error) {
 	} else if col.scale < 0 || col.scale > col.precision {
 		return nil, errors.New("wrong scale of Decimal type")
 	}
-
 	switch {
 	case col.precision <= 9:
 		col.nobits = 32
@@ -175,6 +174,14 @@ func (col *Decimal) Encode(encoder *binary.Encoder) error {
 		return base.Encode(encoder)
 	}
 	return fmt.Errorf("unsupported %s", col.chType)
+}
+
+func (col *Decimal) Scale() int64 {
+	return int64(col.scale)
+}
+
+func (col *Decimal) Precision() int64 {
+	return int64(col.precision)
 }
 
 var _ Interface = (*Decimal)(nil)

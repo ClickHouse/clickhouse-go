@@ -58,6 +58,10 @@ parse:
 	}, nil
 }
 
+func (col *Array) Base() Interface {
+	return col.values
+}
+
 func (col *Array) Type() Type {
 	return col.chType
 }

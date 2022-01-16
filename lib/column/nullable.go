@@ -18,6 +18,10 @@ func (col *Nullable) parse(t Type) (_ *Nullable, err error) {
 	return col, nil
 }
 
+func (col *Nullable) Base() Interface {
+	return col.base
+}
+
 func (col *Nullable) Type() Type {
 	return "Nullable(" + col.base.Type() + ")"
 }
