@@ -13,13 +13,14 @@ import (
 
 type Decimal struct {
 	chType    Type
-	scratch   []byte
 	scale     int
 	nobits    int // its domain is {32, 64, 128, 256}
 	precision int
+	values    []decimal.Decimal
 }
 
 func (col *Decimal) parse(t Type) (_ *Decimal, err error) {
+	col.chType = t
 	params := strings.Split(t.params(), ",")
 	if len(params) != 2 {
 		return nil, fmt.Errorf("invalid Decimal format: '%s'", t)
@@ -44,8 +45,8 @@ func (col *Decimal) parse(t Type) (_ *Decimal, err error) {
 		col.nobits = 32
 	case col.precision <= 18:
 		col.nobits = 64
-	case col.precision <= 38:
-		col.nobits = 128
+		/*	case col.precision <= 38:
+			col.nobits = 128*/
 	default:
 		return nil, errors.New("precision of Decimal exceeds max bound")
 	}
@@ -62,20 +63,20 @@ func (col *Decimal) ScanType() reflect.Type {
 }
 
 func (col *Decimal) Rows() int {
-	return len(col.scratch) / (col.nobits / 8)
+	return len(col.values)
 }
 
 func (col *Decimal) Row(i int) interface{} {
-	return decimal.New(42, 0)
+	return col.values[i]
 }
 
 func (col *Decimal) ScanRow(dest interface{}, row int) error {
 	switch d := dest.(type) {
 	case *decimal.Decimal:
-		*d = decimal.New(42, 0)
+		*d = col.values[row]
 	case **decimal.Decimal:
 		*d = new(decimal.Decimal)
-		**d = decimal.New(42, 0)
+		**d = col.values[row]
 	default:
 		return &ColumnConverterErr{
 			op:   "ScanRow",
@@ -89,10 +90,15 @@ func (col *Decimal) ScanRow(dest interface{}, row int) error {
 func (col *Decimal) Append(v interface{}) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []decimal.Decimal:
+		col.values, nulls = append(col.values, v...), make([]uint8, len(v))
+	case []*decimal.Decimal:
 		nulls = make([]uint8, len(v))
-		for _, v := range v {
-			if err := col.AppendRow(v); err != nil {
-				return nil, err
+		for i, v := range v {
+			switch {
+			case v == nil:
+				col.values, nulls[i] = append(col.values, decimal.New(0, 0)), 0
+			default:
+				col.values = append(col.values, *v)
 			}
 		}
 	default:
@@ -106,16 +112,11 @@ func (col *Decimal) Append(v interface{}) (nulls []uint8, err error) {
 }
 
 func (col *Decimal) AppendRow(v interface{}) error {
-	return &ColumnConverterErr{
-		op:   "AppendRow",
-		to:   string(col.chType),
-		from: fmt.Sprintf("%T", v),
-	}
 	switch v := v.(type) {
 	case decimal.Decimal:
-
+		col.values = append(col.values, v)
 	case null:
-
+		col.values = append(col.values, decimal.New(0, 0))
 	default:
 		return &ColumnConverterErr{
 			op:   "AppendRow",
@@ -127,12 +128,53 @@ func (col *Decimal) AppendRow(v interface{}) error {
 }
 
 func (col *Decimal) Decode(decoder *binary.Decoder, rows int) error {
-	col.scratch = make([]byte, rows*col.nobits/8)
-	return decoder.Raw(col.scratch)
+	switch col.nobits {
+	case 32:
+		var base UInt32
+		if err := base.Decode(decoder, rows); err != nil {
+			return err
+		}
+		for _, v := range base {
+			col.values = append(col.values, decimal.New(int64(v), int32(-col.scale)))
+		}
+	case 64:
+		var base UInt64
+		if err := base.Decode(decoder, rows); err != nil {
+			return err
+		}
+		for _, v := range base {
+			col.values = append(col.values, decimal.New(int64(v), int32(-col.scale)))
+		}
+	default:
+		return fmt.Errorf("unsupported %s", col.chType)
+	}
+	return nil
 }
 
 func (col *Decimal) Encode(encoder *binary.Encoder) error {
-	return nil
+	switch col.nobits {
+	case 32:
+		var base UInt32
+		for _, v := range col.values {
+			int := v.IntPart()
+			if v.Exponent() != int32(col.scale) {
+				int = decimal.NewFromBigInt(v.Coefficient(), v.Exponent()+int32(col.scale)).IntPart()
+			}
+			base = append(base, uint32(int))
+		}
+		return base.Encode(encoder)
+	case 64:
+		var base UInt64
+		for _, v := range col.values {
+			int := v.IntPart()
+			if v.Exponent() != int32(col.scale) {
+				int = decimal.NewFromBigInt(v.Coefficient(), v.Exponent()+int32(col.scale)).IntPart()
+			}
+			base = append(base, uint64(int))
+		}
+		return base.Encode(encoder)
+	}
+	return fmt.Errorf("unsupported %s", col.chType)
 }
 
 var _ Interface = (*Decimal)(nil)

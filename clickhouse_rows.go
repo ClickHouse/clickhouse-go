@@ -80,7 +80,10 @@ func (r *rows) Columns() []string {
 func (r *rows) Close() error {
 	for range r.stream {
 	}
-	for range r.errors {
+	for err := range r.errors {
+		if err != nil {
+			r.err = err
+		}
 	}
 	return nil
 }
@@ -110,8 +113,8 @@ func (r *row) Scan(dest ...interface{}) error {
 	if r.err != nil {
 		return r.err
 	}
-	defer r.rows.Close()
 	if !r.rows.Next() {
+		r.rows.Close()
 		if err := r.rows.Err(); err != nil {
 			return err
 		}

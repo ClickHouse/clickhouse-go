@@ -44,7 +44,7 @@ func (c *connect) query(ctx context.Context, query string, args ...interface{}) 
 		}
 		err := c.process(onProcess)
 		if err != nil {
-			errors <- c.err
+			errors <- err
 		}
 		close(errors)
 		close(stream)

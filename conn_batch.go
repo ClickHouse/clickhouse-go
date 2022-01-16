@@ -83,9 +83,9 @@ func (b *batch) Column(idx int) driver.BatchColumn {
 }
 
 func (b *batch) Send() (err error) {
-	defer b.release(err)
 	defer func() {
 		b.sent = true
+		b.release(err)
 	}()
 	if b.sent {
 		return &BatchAlreadySent{}
