@@ -14,6 +14,8 @@ type (
 	DateTime time.Time
 )
 
+type Conn = driver.Conn
+
 type (
 	Progress      = proto.Progress
 	Exception     = proto.Exception

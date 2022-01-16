@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 )
 
 const query = `
@@ -19,7 +18,7 @@ SELECT
 FROM system.numbers LIMIT 1000000
 `
 
-func benchmark(conn driver.Conn) error {
+func benchmark(conn clickhouse.Conn) error {
 	rows, err := conn.Query(context.Background(), query)
 	if err != nil {
 		return err

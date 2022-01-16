@@ -7,7 +7,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
+	_ "github.com/ClickHouse/clickhouse-go/v2"
 )
 
 const query = `
@@ -38,7 +38,6 @@ func benchmark(conn *sql.DB) error {
 	return nil
 }
 func main() {
-	_ = clickhouse.Context(context.Background())
 	conn, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000")
 	if err != nil {
 		log.Fatal(err)
