@@ -74,7 +74,7 @@ func (col *Array) Rows() int {
 }
 
 func (col *Array) Row(i int) interface{} {
-	return col.make(uint64(i), 0)
+	return col.make(uint64(i), 0).Interface()
 }
 
 func (col *Array) ScanRow(dest interface{}, row int) error {
@@ -87,7 +87,7 @@ func (col *Array) ScanRow(dest interface{}, row int) error {
 		}
 	}
 	{
-		elem.Set(reflect.ValueOf(col.make(uint64(row), 0)))
+		elem.Set(col.make(uint64(row), 0))
 	}
 	return nil
 }
@@ -102,7 +102,7 @@ func (col *Array) Append(v interface{}) (nulls []uint8, err error) {
 		}
 	}
 	for i := 0; i < value.Len(); i++ {
-		if err := col.AppendRow(value.Index(i).Interface()); err != nil {
+		if err := col.AppendRow(value.Index(i)); err != nil {
 			return nil, err
 		}
 	}
@@ -110,7 +110,13 @@ func (col *Array) Append(v interface{}) (nulls []uint8, err error) {
 }
 
 func (col *Array) AppendRow(v interface{}) error {
-	elem := reflect.Indirect(reflect.ValueOf(v))
+	var elem reflect.Value
+	switch v := v.(type) {
+	case reflect.Value:
+		elem = reflect.Indirect(v)
+	default:
+		elem = reflect.Indirect(reflect.ValueOf(v))
+	}
 	if elem.Type() != col.scanType {
 		return &ColumnConverterErr{
 			op:   "AppendRow",
@@ -157,7 +163,7 @@ func (col *Array) Encode(encoder *binary.Encoder) error {
 	return col.values.Encode(encoder)
 }
 
-func (col *Array) make(row uint64, level int) interface{} {
+func (col *Array) make(row uint64, level int) reflect.Value {
 	offset := col.offsets[level]
 	var (
 		end   = offset.values[row]
@@ -168,16 +174,16 @@ func (col *Array) make(row uint64, level int) interface{} {
 	}
 	slice := reflect.MakeSlice(offset.scanType, 0, int(end-start))
 	for i := start; i < end; i++ {
-		var value interface{}
+		var value reflect.Value
 		switch {
 		case level == len(col.offsets)-1:
-			value = col.values.Row(int(i))
+			value = reflect.ValueOf(col.values.Row(int(i)))
 		default:
 			value = col.make(i, level+1)
 		}
-		slice = reflect.Append(slice, reflect.ValueOf(value))
+		slice = reflect.Append(slice, value)
 	}
-	return slice.Interface()
+	return slice
 }
 
 var _ Interface = (*Date)(nil)
