@@ -12,6 +12,9 @@ test:
 	go test -race -timeout 30s -v .
 	go test -race -timeout 30s -v ./tests/...
 
+staticcheck:
+	staticcheck ./...
+
 codegen:
 	@cd lib/column && go run codegen/main.go
 
