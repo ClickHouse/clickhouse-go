@@ -84,7 +84,6 @@ func (dt *Date) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case time.Time:
 		date = int16(v.Unix() / secInDay)
-
 	case *time.Time:
 		if v != nil {
 			date = int16(v.Unix() / secInDay)

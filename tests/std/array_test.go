@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestArray(t *testing.T) {
+func TestStdArray(t *testing.T) {
 	if conn, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000"); assert.NoError(t, err) {
 		const ddl = `
 		CREATE TABLE test_array (

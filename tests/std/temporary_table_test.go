@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func Test_Temporary_Table(t *testing.T) {
+func TestStdTemporaryTable(t *testing.T) {
 	const (
 		ddl = `
 			CREATE TEMPORARY TABLE clickhouse_test_temporary_table (

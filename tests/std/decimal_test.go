@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestDecimal(t *testing.T) {
+func TestStdDecimal(t *testing.T) {
 	if conn, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000"); assert.NoError(t, err) {
 		if err := checkMinServerVersion(conn, 21, 1); err != nil {
 			t.Skip(err.Error())

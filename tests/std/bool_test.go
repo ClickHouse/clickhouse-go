@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestBool(t *testing.T) {
+func TestStdBool(t *testing.T) {
 	if conn, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000"); assert.NoError(t, err) {
 		if err := checkMinServerVersion(conn, 21, 12); err != nil {
 			t.Skip(err.Error())
@@ -17,7 +17,9 @@ func TestBool(t *testing.T) {
 			CREATE TABLE test_bool (
 				    Col1 Bool
 				  , Col2 Bool
-				  , Col3 Nullable(Bool)
+				  , Col3 Array(Bool)
+				  , Col4 Nullable(Bool)
+				  , Col5 Array(Nullable(Bool))
 			) Engine Memory
 		`
 		if _, err := conn.Exec("DROP TABLE IF EXISTS test_bool"); assert.NoError(t, err) {
@@ -27,17 +29,23 @@ func TestBool(t *testing.T) {
 					return
 				}
 				if batch, err := scope.Prepare("INSERT INTO test_bool"); assert.NoError(t, err) {
-					if _, err := batch.Exec(true, false, true); assert.NoError(t, err) {
+					var val bool
+					if _, err := batch.Exec(true, false, []bool{true, false, true}, nil, []*bool{&val, nil, &val}); assert.NoError(t, err) {
 						if err := scope.Commit(); assert.NoError(t, err) {
 							var (
 								col1 bool
 								col2 bool
-								col3 *bool
+								col3 []bool
+								col4 *bool
+								col5 []*bool
 							)
-							if err := conn.QueryRow("SELECT * FROM test_bool").Scan(&col1, &col2, &col3); assert.NoError(t, err) {
+							if err := conn.QueryRow("SELECT * FROM test_bool").Scan(&col1, &col2, &col3, &col4, &col5); assert.NoError(t, err) {
 								assert.Equal(t, true, col1)
 								assert.Equal(t, false, col2)
-								assert.Equal(t, true, *col3)
+								assert.Equal(t, []bool{true, false, true}, col3)
+								if assert.Nil(t, col4) {
+									assert.Equal(t, []*bool{&val, nil, &val}, col5)
+								}
 							}
 						}
 					}

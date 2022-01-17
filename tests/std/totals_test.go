@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestWithTotals(t *testing.T) {
+func TestStdWithTotals(t *testing.T) {
 	const query = `
 	SELECT
 		number AS n

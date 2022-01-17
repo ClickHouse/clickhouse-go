@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func Test_Context_Timeout(t *testing.T) {
+func TestStdContextStdTimeout(t *testing.T) {
 	if connect, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000"); assert.NoError(t, err) && assert.NoError(t, connect.Ping()) {
 		{
 			ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*20)

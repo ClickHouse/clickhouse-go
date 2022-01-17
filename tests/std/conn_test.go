@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestConn(t *testing.T) {
+func TestStdConn(t *testing.T) {
 	if conn, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000"); assert.NoError(t, err) {
 		if assert.NoError(t, err) {
 			if err := conn.PingContext(context.Background()); assert.NoError(t, err) {
@@ -21,14 +21,14 @@ func TestConn(t *testing.T) {
 		}
 	}
 }
-func TestConnFailover(t *testing.T) {
+func TestStdConnFailover(t *testing.T) {
 	if conn, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9001,127.0.0.1:9002,127.0.0.1:9000"); assert.NoError(t, err) {
 		if err := conn.PingContext(context.Background()); assert.NoError(t, err) {
 			t.Log(conn.PingContext(context.Background()))
 		}
 	}
 }
-func TestPingDeadline(t *testing.T) {
+func TestStdPingDeadline(t *testing.T) {
 	if conn, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000"); assert.NoError(t, err) {
 		ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
 		defer cancel()
