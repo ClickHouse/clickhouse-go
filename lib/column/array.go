@@ -77,7 +77,7 @@ func (col *Array) Rows() int {
 	return 0
 }
 
-func (col *Array) Row(i int) interface{} {
+func (col *Array) Row(i int, ptr bool) interface{} {
 	return col.make(uint64(i), 0).Interface()
 }
 
@@ -145,6 +145,9 @@ func (col *Array) append(elem reflect.Value, level int) error {
 		}
 		return nil
 	}
+	if elem.Kind() == reflect.Ptr && elem.IsNil() {
+		return col.values.AppendRow(nil)
+	}
 	return col.values.AppendRow(elem.Interface())
 }
 
@@ -176,12 +179,21 @@ func (col *Array) make(row uint64, level int) reflect.Value {
 	if row > 0 {
 		start = offset.values[row-1]
 	}
-	slice := reflect.MakeSlice(offset.scanType, 0, int(end-start))
+	var (
+		base  = offset.scanType.Elem()
+		isPtr = base.Kind() == reflect.Ptr
+		slice = reflect.MakeSlice(offset.scanType, 0, int(end-start))
+	)
 	for i := start; i < end; i++ {
 		var value reflect.Value
 		switch {
 		case level == len(col.offsets)-1:
-			value = reflect.ValueOf(col.values.Row(int(i)))
+			switch v := col.values.Row(int(i), isPtr); {
+			case v == nil:
+				value = reflect.Zero(base)
+			default:
+				value = reflect.ValueOf(v)
+			}
 		default:
 			value = col.make(i, level+1)
 		}
@@ -190,4 +202,4 @@ func (col *Array) make(row uint64, level int) reflect.Value {
 	return slice
 }
 
-var _ Interface = (*Date)(nil)
+var _ Interface = (*Array)(nil)

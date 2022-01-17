@@ -26,8 +26,12 @@ func (col *UUID) Rows() int {
 	return len(col.data) / uuidSize
 }
 
-func (col *UUID) Row(i int) interface{} {
-	return col.row(i)
+func (col *UUID) Row(i int, ptr bool) interface{} {
+	value := col.row(i)
+	if ptr {
+		return &value
+	}
+	return value
 }
 
 func (col *UUID) ScanRow(dest interface{}, row int) error {
@@ -79,7 +83,14 @@ func (col *UUID) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case uuid.UUID:
 		col.data = append(col.data, v[:]...)
-	case null:
+	case *uuid.UUID:
+		switch {
+		case v != nil:
+			col.data = append(col.data, v[:]...)
+		default:
+			col.data = append(col.data, make([]byte, uuidSize)...)
+		}
+	case nil:
 		col.data = append(col.data, make([]byte, uuidSize)...)
 	default:
 		return &ColumnConverterErr{

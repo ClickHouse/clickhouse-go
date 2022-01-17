@@ -8,8 +8,6 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
 )
 
-const ipV4Size = 4
-
 type IPv4 struct {
 	data []byte
 }
@@ -23,11 +21,15 @@ func (col *IPv4) ScanType() reflect.Type {
 }
 
 func (col *IPv4) Rows() int {
-	return len(col.data) / ipV4Size
+	return len(col.data) / net.IPv4len
 }
 
-func (col *IPv4) Row(i int) interface{} {
-	return col.row(i)
+func (col *IPv4) Row(i int, ptr bool) interface{} {
+	value := col.row(i)
+	if ptr {
+		return &value
+	}
+	return value
 }
 
 func (col *IPv4) ScanRow(dest interface{}, row int) error {
@@ -60,7 +62,7 @@ func (col *IPv4) Append(v interface{}) (nulls []uint8, err error) {
 					from: "IPv6",
 				}
 			}
-			col.data = append(col.data, ip[:]...)
+			col.data = append(col.data, IPv4ToBytes(ip)[:]...)
 		}
 	case []*net.IP:
 		nulls = make([]uint8, len(v))
@@ -75,9 +77,9 @@ func (col *IPv4) Append(v interface{}) (nulls []uint8, err error) {
 						from: "IPv6",
 					}
 				}
-				col.data = append(col.data, ip[:]...)
+				col.data = append(col.data, IPv4ToBytes(ip)[:]...)
 			default:
-				col.data, nulls[i] = append(col.data, make([]byte, ipV4Size)...), 1
+				col.data, nulls[i] = append(col.data, make([]byte, net.IPv4len)...), 1
 			}
 		}
 	default:
@@ -91,19 +93,19 @@ func (col *IPv4) Append(v interface{}) (nulls []uint8, err error) {
 }
 
 func (col *IPv4) AppendRow(v interface{}) error {
+	var ip net.IP
 	switch v := v.(type) {
 	case net.IP:
-		ip := v.To4()
-		if ip == nil {
-			return &ColumnConverterErr{
-				op:   "AppendRow",
-				to:   "IPv4",
-				from: "IPv6",
-			}
+		ip = v
+	case *net.IP:
+		switch {
+		case v != nil:
+			ip = *v
+		default:
+			ip = make(net.IP, net.IPv4len)
 		}
-		col.data = append(col.data, ip[:]...)
-	case null:
-		col.data = append(col.data, make([]byte, ipV4Size)...)
+	case nil:
+		ip = make(net.IP, net.IPv4len)
 	default:
 		return &ColumnConverterErr{
 			op:   "AppendRow",
@@ -111,11 +113,20 @@ func (col *IPv4) AppendRow(v interface{}) error {
 			from: fmt.Sprintf("%T", v),
 		}
 	}
+	data := ip.To4()
+	if data == nil {
+		return &ColumnConverterErr{
+			op:   "AppendRow",
+			to:   "IPv4",
+			from: "IPv6",
+		}
+	}
+	col.data = append(col.data, IPv4ToBytes(data)[:]...)
 	return nil
 }
 
 func (col *IPv4) Decode(decoder *binary.Decoder, rows int) error {
-	col.data = make([]byte, ipV4Size*rows)
+	col.data = make([]byte, net.IPv4len*rows)
 	return decoder.Raw(col.data)
 }
 
@@ -124,7 +135,12 @@ func (col *IPv4) Encode(encoder *binary.Encoder) error {
 }
 
 func (col *IPv4) row(i int) net.IP {
-	return col.data[i*ipV4Size : (i+1)*ipV4Size]
+	src := col.data[i*net.IPv4len : (i+1)*net.IPv4len]
+	return net.IPv4(src[3], src[2], src[1], src[0]).To4()
+}
+
+func IPv4ToBytes(ip net.IP) []byte {
+	return []byte{ip[3], ip[2], ip[1], ip[0]}
 }
 
 var _ Interface = (*IPv4)(nil)

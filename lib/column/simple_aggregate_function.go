@@ -32,8 +32,8 @@ func (col *SimpleAggregateFunction) ScanType() reflect.Type {
 func (col *SimpleAggregateFunction) Rows() int {
 	return col.base.Rows()
 }
-func (col *SimpleAggregateFunction) Row(i int) interface{} {
-	return col.base.Row(i)
+func (col *SimpleAggregateFunction) Row(i int, ptr bool) interface{} {
+	return col.base.Row(i, ptr)
 }
 func (col *SimpleAggregateFunction) ScanRow(dest interface{}, rows int) error {
 	return col.base.ScanRow(dest, rows)

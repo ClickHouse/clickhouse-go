@@ -49,7 +49,7 @@ func (col *Map) Rows() int {
 	return len(col.offsets)
 }
 
-func (col *Map) Row(i int) interface{} {
+func (col *Map) Row(i int, ptr bool) interface{} {
 	return col.row(i).Interface()
 }
 
@@ -147,8 +147,8 @@ func (col *Map) row(n int) reflect.Value {
 	size := int(col.offsets[n] - prev)
 	for next := 0; next < size; next++ {
 		value.SetMapIndex(
-			reflect.ValueOf(col.keys.Row(n*size+next)),
-			reflect.ValueOf(col.values.Row(n*size+next)),
+			reflect.ValueOf(col.keys.Row(n*size+next, false)),
+			reflect.ValueOf(col.values.Row(n*size+next, false)),
 		)
 	}
 	return value

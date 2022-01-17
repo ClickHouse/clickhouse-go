@@ -77,10 +77,10 @@ func (col *Tuple) Rows() int {
 	return 0
 }
 
-func (col *Tuple) Row(i int) interface{} {
+func (col *Tuple) Row(i int, ptr bool) interface{} {
 	tuple := make([]interface{}, 0, len(col.columns))
 	for _, c := range col.columns {
-		tuple = append(tuple, c.Row(i))
+		tuple = append(tuple, c.Row(i, false))
 	}
 	return tuple
 }
@@ -90,7 +90,7 @@ func (col *Tuple) ScanRow(dest interface{}, row int) error {
 	case *[]interface{}:
 		tuple := make([]interface{}, 0, len(col.columns))
 		for _, c := range col.columns {
-			tuple = append(tuple, c.Row(row))
+			tuple = append(tuple, c.Row(row, false))
 		}
 		*d = tuple
 	default:

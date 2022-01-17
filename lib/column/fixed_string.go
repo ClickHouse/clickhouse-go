@@ -35,19 +35,21 @@ func (col *FixedString) Rows() int {
 	return len(col.data) / col.size
 }
 
-func (col *FixedString) Row(i int) interface{} {
-	return col.row(i)
+func (col *FixedString) Row(i int, ptr bool) interface{} {
+	value := col.row(i)
+	if ptr {
+		return &value
+	}
+	return value
 }
 
 func (col *FixedString) ScanRow(dest interface{}, row int) error {
 	switch d := dest.(type) {
-	case *[]byte:
-		*d = col.rowBytes(row)
-	case **[]byte:
-		*d = new([]byte)
-		**d = col.rowBytes(row)
 	case *string:
 		*d = col.row(row)
+	case **string:
+		*d = new(string)
+		**d = col.row(row)
 	case encoding.BinaryUnmarshaler:
 		return d.UnmarshalBinary(col.rowBytes(row))
 	default:
@@ -62,34 +64,21 @@ func (col *FixedString) ScanRow(dest interface{}, row int) error {
 
 func (col *FixedString) Append(v interface{}) (nulls []uint8, err error) {
 	switch v := v.(type) {
-	case []byte:
-		if len(v)%col.size != 0 {
-			return nil, &InvalidFixedSizeData{
-				op:       "Append",
-				got:      len(v),
-				expected: col.size,
-			}
-		}
-		col.data, nulls = append(col.data, v...), make([]uint8, len(v)/col.size)
-	case [][]byte:
+	case []string:
 		for _, v := range v {
-			if len(v) != col.size {
-				return nil, &InvalidFixedSizeData{
-					op:       "Append",
-					got:      len(v),
-					expected: col.size,
-				}
+			if err := col.AppendRow(v); err != nil {
+				return nil, err
 			}
-			col.data, nulls = append(col.data, v...), make([]uint8, len(v))
 		}
-	case []*[]byte:
+		nulls = make([]uint8, len(v))
+	case []*string:
 		nulls = make([]uint8, len(v))
 		for i, v := range v {
-			switch {
-			case v != nil:
-				col.data = append(col.data, *v...)
-			default:
-				col.data, nulls[i] = append(col.data, make([]byte, col.size)...), 1
+			if v == nil {
+				nulls[i] = 1
+			}
+			if err := col.AppendRow(v); err != nil {
+				return nil, err
 			}
 		}
 	case encoding.BinaryMarshaler:
@@ -115,42 +104,20 @@ func (col *FixedString) Append(v interface{}) (nulls []uint8, err error) {
 	return
 }
 
-func (col *FixedString) AppendRow(v interface{}) error {
+func (col *FixedString) AppendRow(v interface{}) (err error) {
+	data := make([]byte, col.size)
 	switch v := v.(type) {
-	case []byte:
-		if len(v) != col.size {
-			return &InvalidFixedSizeData{
-				op:       "AppendRow",
-				got:      len(v),
-				expected: col.size,
-			}
-		}
-		col.data = append(col.data, v...)
 	case string:
-		s := []byte(v)
-		if len(s) != col.size {
-			return &InvalidFixedSizeData{
-				op:       "AppendRow",
-				got:      len(s),
-				expected: col.size,
-			}
+		data = []byte(v)
+	case *string:
+		if v != nil {
+			data = []byte(*v)
 		}
-		col.data = append(col.data, s...)
+	case nil:
 	case encoding.BinaryMarshaler:
-		data, err := v.MarshalBinary()
-		if err != nil {
+		if data, err = v.MarshalBinary(); err != nil {
 			return err
 		}
-		if len(data) != col.size {
-			return &InvalidFixedSizeData{
-				op:       "AppendRow",
-				got:      len(data),
-				expected: col.size,
-			}
-		}
-		col.data = append(col.data, data...)
-	case null:
-		col.data = append(col.data, make([]byte, col.size)...)
 	default:
 		return &ColumnConverterErr{
 			op:   "AppendRow",
@@ -158,6 +125,14 @@ func (col *FixedString) AppendRow(v interface{}) error {
 			from: fmt.Sprintf("%T", v),
 		}
 	}
+	if len(data) != col.size {
+		return &InvalidFixedSizeData{
+			op:       "AppendRow",
+			got:      len(data),
+			expected: col.size,
+		}
+	}
+	col.data = append(col.data, data...)
 	return nil
 }
 

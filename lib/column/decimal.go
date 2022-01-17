@@ -66,8 +66,12 @@ func (col *Decimal) Rows() int {
 	return len(col.values)
 }
 
-func (col *Decimal) Row(i int) interface{} {
-	return col.values[i]
+func (col *Decimal) Row(i int, ptr bool) interface{} {
+	value := col.values[i]
+	if ptr {
+		return &value
+	}
+	return value
 }
 
 func (col *Decimal) ScanRow(dest interface{}, row int) error {
@@ -95,10 +99,10 @@ func (col *Decimal) Append(v interface{}) (nulls []uint8, err error) {
 		nulls = make([]uint8, len(v))
 		for i, v := range v {
 			switch {
-			case v == nil:
-				col.values, nulls[i] = append(col.values, decimal.New(0, 0)), 0
-			default:
+			case v != nil:
 				col.values = append(col.values, *v)
+			default:
+				col.values, nulls[i] = append(col.values, decimal.New(0, 0)), 1
 			}
 		}
 	default:
@@ -112,11 +116,15 @@ func (col *Decimal) Append(v interface{}) (nulls []uint8, err error) {
 }
 
 func (col *Decimal) AppendRow(v interface{}) error {
+	value := decimal.New(0, 0)
 	switch v := v.(type) {
 	case decimal.Decimal:
-		col.values = append(col.values, v)
-	case null:
-		col.values = append(col.values, decimal.New(0, 0))
+		value = v
+	case *decimal.Decimal:
+		if v != nil {
+			value = *v
+		}
+	case nil:
 	default:
 		return &ColumnConverterErr{
 			op:   "AppendRow",
@@ -124,6 +132,7 @@ func (col *Decimal) AppendRow(v interface{}) error {
 			from: fmt.Sprintf("%T", v),
 		}
 	}
+	col.values = append(col.values, value)
 	return nil
 }
 

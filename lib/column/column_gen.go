@@ -160,8 +160,11 @@ func (col *Float32) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (col *Float32) Row(i int) interface{} {
+func (col *Float32) Row(i int, ptr bool) interface{} {
 	value := *col
+	if ptr {
+		return &value[i]
+	}
 	return value[i]
 }
 
@@ -193,7 +196,14 @@ func (col *Float32) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case float32:
 		*col = append(*col, v)
-	case null:
+	case *float32:
+		switch {
+		case v != nil:
+			*col = append(*col, *v)
+		default:
+			*col = append(*col, 0)
+		}
+	case nil:
 		*col = append(*col, 0)
 	default:
 		return &ColumnConverterErr{
@@ -235,8 +245,11 @@ func (col *Float64) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (col *Float64) Row(i int) interface{} {
+func (col *Float64) Row(i int, ptr bool) interface{} {
 	value := *col
+	if ptr {
+		return &value[i]
+	}
 	return value[i]
 }
 
@@ -268,7 +281,14 @@ func (col *Float64) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case float64:
 		*col = append(*col, v)
-	case null:
+	case *float64:
+		switch {
+		case v != nil:
+			*col = append(*col, *v)
+		default:
+			*col = append(*col, 0)
+		}
+	case nil:
 		*col = append(*col, 0)
 	default:
 		return &ColumnConverterErr{
@@ -310,8 +330,11 @@ func (col *Int8) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (col *Int8) Row(i int) interface{} {
+func (col *Int8) Row(i int, ptr bool) interface{} {
 	value := *col
+	if ptr {
+		return &value[i]
+	}
 	return value[i]
 }
 
@@ -343,7 +366,14 @@ func (col *Int8) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case int8:
 		*col = append(*col, v)
-	case null:
+	case *int8:
+		switch {
+		case v != nil:
+			*col = append(*col, *v)
+		default:
+			*col = append(*col, 0)
+		}
+	case nil:
 		*col = append(*col, 0)
 	default:
 		return &ColumnConverterErr{
@@ -385,8 +415,11 @@ func (col *Int16) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (col *Int16) Row(i int) interface{} {
+func (col *Int16) Row(i int, ptr bool) interface{} {
 	value := *col
+	if ptr {
+		return &value[i]
+	}
 	return value[i]
 }
 
@@ -418,7 +451,14 @@ func (col *Int16) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case int16:
 		*col = append(*col, v)
-	case null:
+	case *int16:
+		switch {
+		case v != nil:
+			*col = append(*col, *v)
+		default:
+			*col = append(*col, 0)
+		}
+	case nil:
 		*col = append(*col, 0)
 	default:
 		return &ColumnConverterErr{
@@ -460,8 +500,11 @@ func (col *Int32) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (col *Int32) Row(i int) interface{} {
+func (col *Int32) Row(i int, ptr bool) interface{} {
 	value := *col
+	if ptr {
+		return &value[i]
+	}
 	return value[i]
 }
 
@@ -493,7 +536,14 @@ func (col *Int32) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case int32:
 		*col = append(*col, v)
-	case null:
+	case *int32:
+		switch {
+		case v != nil:
+			*col = append(*col, *v)
+		default:
+			*col = append(*col, 0)
+		}
+	case nil:
 		*col = append(*col, 0)
 	default:
 		return &ColumnConverterErr{
@@ -535,8 +585,11 @@ func (col *Int64) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (col *Int64) Row(i int) interface{} {
+func (col *Int64) Row(i int, ptr bool) interface{} {
 	value := *col
+	if ptr {
+		return &value[i]
+	}
 	return value[i]
 }
 
@@ -568,7 +621,14 @@ func (col *Int64) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case int64:
 		*col = append(*col, v)
-	case null:
+	case *int64:
+		switch {
+		case v != nil:
+			*col = append(*col, *v)
+		default:
+			*col = append(*col, 0)
+		}
+	case nil:
 		*col = append(*col, 0)
 	default:
 		return &ColumnConverterErr{
@@ -610,8 +670,11 @@ func (col *UInt8) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (col *UInt8) Row(i int) interface{} {
+func (col *UInt8) Row(i int, ptr bool) interface{} {
 	value := *col
+	if ptr {
+		return &value[i]
+	}
 	return value[i]
 }
 
@@ -643,7 +706,14 @@ func (col *UInt8) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case uint8:
 		*col = append(*col, v)
-	case null:
+	case *uint8:
+		switch {
+		case v != nil:
+			*col = append(*col, *v)
+		default:
+			*col = append(*col, 0)
+		}
+	case nil:
 		*col = append(*col, 0)
 	default:
 		return &ColumnConverterErr{
@@ -685,8 +755,11 @@ func (col *UInt16) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (col *UInt16) Row(i int) interface{} {
+func (col *UInt16) Row(i int, ptr bool) interface{} {
 	value := *col
+	if ptr {
+		return &value[i]
+	}
 	return value[i]
 }
 
@@ -718,7 +791,14 @@ func (col *UInt16) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case uint16:
 		*col = append(*col, v)
-	case null:
+	case *uint16:
+		switch {
+		case v != nil:
+			*col = append(*col, *v)
+		default:
+			*col = append(*col, 0)
+		}
+	case nil:
 		*col = append(*col, 0)
 	default:
 		return &ColumnConverterErr{
@@ -760,8 +840,11 @@ func (col *UInt32) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (col *UInt32) Row(i int) interface{} {
+func (col *UInt32) Row(i int, ptr bool) interface{} {
 	value := *col
+	if ptr {
+		return &value[i]
+	}
 	return value[i]
 }
 
@@ -793,7 +876,14 @@ func (col *UInt32) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case uint32:
 		*col = append(*col, v)
-	case null:
+	case *uint32:
+		switch {
+		case v != nil:
+			*col = append(*col, *v)
+		default:
+			*col = append(*col, 0)
+		}
+	case nil:
 		*col = append(*col, 0)
 	default:
 		return &ColumnConverterErr{
@@ -835,8 +925,11 @@ func (col *UInt64) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (col *UInt64) Row(i int) interface{} {
+func (col *UInt64) Row(i int, ptr bool) interface{} {
 	value := *col
+	if ptr {
+		return &value[i]
+	}
 	return value[i]
 }
 
@@ -868,7 +961,14 @@ func (col *UInt64) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case uint64:
 		*col = append(*col, v)
-	case null:
+	case *uint64:
+		switch {
+		case v != nil:
+			*col = append(*col, *v)
+		default:
+			*col = append(*col, 0)
+		}
+	case nil:
 		*col = append(*col, 0)
 	default:
 		return &ColumnConverterErr{

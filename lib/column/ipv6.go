@@ -8,8 +8,6 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
 )
 
-const ipV6Size = 16
-
 type IPv6 struct {
 	data []byte
 }
@@ -23,11 +21,15 @@ func (col *IPv6) ScanType() reflect.Type {
 }
 
 func (col *IPv6) Rows() int {
-	return len(col.data) / ipV6Size
+	return len(col.data) / net.IPv6len
 }
 
-func (col *IPv6) Row(i int) interface{} {
-	return col.row(i)
+func (col *IPv6) Row(i int, ptr bool) interface{} {
+	value := col.row(i)
+	if ptr {
+		return &value
+	}
+	return value
 }
 
 func (col *IPv6) ScanRow(dest interface{}, row int) error {
@@ -52,7 +54,7 @@ func (col *IPv6) Append(v interface{}) (nulls []uint8, err error) {
 	case []net.IP:
 		nulls = make([]uint8, len(v))
 		for _, v := range v {
-			if ip := v.To4(); ip != nil {
+			if len(v) != net.IPv6len {
 				return nil, &ColumnConverterErr{
 					op:   "Append",
 					to:   "IPv6",
@@ -66,7 +68,7 @@ func (col *IPv6) Append(v interface{}) (nulls []uint8, err error) {
 		for i, v := range v {
 			switch {
 			case v != nil:
-				if ip := v.To4(); ip != nil {
+				if len(*v) != net.IPv6len {
 					return nil, &ColumnConverterErr{
 						op:   "Append",
 						to:   "IPv6",
@@ -76,7 +78,7 @@ func (col *IPv6) Append(v interface{}) (nulls []uint8, err error) {
 				tmp := *v
 				col.data = append(col.data, tmp[:]...)
 			default:
-				col.data, nulls[i] = append(col.data, make([]byte, ipV6Size)...), 1
+				col.data, nulls[i] = append(col.data, make([]byte, net.IPv6len)...), 1
 			}
 		}
 	default:
@@ -90,18 +92,19 @@ func (col *IPv6) Append(v interface{}) (nulls []uint8, err error) {
 }
 
 func (col *IPv6) AppendRow(v interface{}) error {
+	var ip net.IP
 	switch v := v.(type) {
 	case net.IP:
-		if ip := v.To4(); ip != nil {
-			return &ColumnConverterErr{
-				op:   "AppendRow",
-				to:   "IPv6",
-				from: "IPv4",
-			}
+		ip = v
+	case *net.IP:
+		switch {
+		case v != nil:
+			ip = *v
+		default:
+			ip = make(net.IP, net.IPv6len)
 		}
-		col.data = append(col.data, v[:]...)
-	case null:
-		col.data = append(col.data, make([]byte, ipV6Size)...)
+	case nil:
+		ip = make(net.IP, net.IPv6len)
 	default:
 		return &ColumnConverterErr{
 			op:   "AppendRow",
@@ -109,11 +112,19 @@ func (col *IPv6) AppendRow(v interface{}) error {
 			from: fmt.Sprintf("%T", v),
 		}
 	}
+	if len(ip) != net.IPv6len {
+		return &ColumnConverterErr{
+			op:   "AppendRow",
+			to:   "IPv4",
+			from: "IPv6",
+		}
+	}
+	col.data = append(col.data, ip[:]...)
 	return nil
 }
 
 func (col *IPv6) Decode(decoder *binary.Decoder, rows int) error {
-	col.data = make([]byte, ipV6Size*rows)
+	col.data = make([]byte, net.IPv6len*rows)
 	return decoder.Raw(col.data)
 }
 
@@ -122,7 +133,7 @@ func (col *IPv6) Encode(encoder *binary.Encoder) error {
 }
 
 func (col *IPv6) row(i int) net.IP {
-	return col.data[i*ipV6Size : (i+1)*ipV6Size]
+	return col.data[i*net.IPv6len : (i+1)*net.IPv6len]
 }
 
 var _ Interface = (*IPv6)(nil)

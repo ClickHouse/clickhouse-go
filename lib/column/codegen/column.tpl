@@ -125,8 +125,11 @@ func (col *{{ .ChType }}) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (col *{{ .ChType }}) Row(i int) interface{} {
+func (col *{{ .ChType }}) Row(i int, ptr bool) interface{} {
 	value := *col
+	if ptr {
+		return &value[i]
+	}
 	return value[i]
 }
 
@@ -158,7 +161,14 @@ func (col *{{ .ChType }}) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case {{ .GoType }}:
 		*col = append(*col, v)
-	case null:
+	case *{{ .GoType }}:
+		switch {
+		case v != nil:
+			*col = append(*col, *v)
+		default:
+			*col = append(*col, 0)
+		}
+	case nil:
 		*col = append(*col, 0)
 	default:
 		return &ColumnConverterErr{

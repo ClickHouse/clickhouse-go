@@ -8,7 +8,7 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
 )
 
-type null struct{}
+//type null struct{}
 type Type string
 
 func (t Type) params() string {
@@ -23,7 +23,7 @@ func (t Type) params() string {
 type Interface interface {
 	Type() Type
 	Rows() int
-	Row(i int) interface{}
+	Row(i int, ptr bool) interface{}
 	ScanRow(dest interface{}, row int) error
 	Append(v interface{}) (nulls []uint8, err error)
 	AppendRow(v interface{}) error
@@ -38,7 +38,7 @@ type UnsupportedColumnType struct {
 
 func (u *UnsupportedColumnType) Type() Type                          { return u.t }
 func (UnsupportedColumnType) Rows() int                              { return 0 }
-func (u *UnsupportedColumnType) Row(int) interface{}                 { return nil }
+func (u *UnsupportedColumnType) Row(int, bool) interface{}           { return nil }
 func (u *UnsupportedColumnType) ScanRow(interface{}, int) error      { return u }
 func (u *UnsupportedColumnType) Append(interface{}) ([]uint8, error) { return nil, u }
 func (u *UnsupportedColumnType) AppendRow(interface{}) error         { return u }

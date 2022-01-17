@@ -7,13 +7,20 @@ import (
 )
 
 type Nullable struct {
-	base  Interface
-	nulls UInt8
+	base     Interface
+	nulls    UInt8
+	scanType reflect.Type
 }
 
 func (col *Nullable) parse(t Type) (_ *Nullable, err error) {
 	if col.base, err = Type(t.params()).Column(); err != nil {
 		return nil, err
+	}
+	switch base := col.base.ScanType(); base {
+	case nil:
+		col.scanType = reflect.TypeOf(nil)
+	default:
+		col.scanType = reflect.New(base).Type()
 	}
 	return col, nil
 }
@@ -27,18 +34,18 @@ func (col *Nullable) Type() Type {
 }
 
 func (col *Nullable) ScanType() reflect.Type {
-	return col.base.ScanType()
+	return col.scanType
 }
 
 func (col *Nullable) Rows() int {
 	return len(col.nulls)
 }
 
-func (col *Nullable) Row(i int) interface{} {
+func (col *Nullable) Row(i int, ptr bool) interface{} {
 	if col.nulls[i] == 1 {
 		return nil
 	}
-	return col.base.Row(i)
+	return col.base.Row(i, ptr)
 }
 
 func (col *Nullable) ScanRow(dest interface{}, row int) error {
@@ -58,14 +65,13 @@ func (col *Nullable) Append(v interface{}) ([]uint8, error) {
 }
 
 func (col *Nullable) AppendRow(v interface{}) error {
-	switch v := v.(type) {
-	case nil:
+	switch {
+	case v == nil:
 		col.nulls = append(col.nulls, 1)
-		return col.base.AppendRow(null{})
 	default:
 		col.nulls = append(col.nulls, 0)
-		return col.base.AppendRow(v)
 	}
+	return col.base.AppendRow(v)
 }
 
 func (col *Nullable) Decode(decoder *binary.Decoder, rows int) (err error) {

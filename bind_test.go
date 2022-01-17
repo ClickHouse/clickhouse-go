@@ -8,7 +8,7 @@ import (
 )
 
 func TestBindNumeric(t *testing.T) {
-	query, err := bind(time.Local, `
+	_, err := bind(time.Local, `
 	SELECT * FROM t WHERE col = $1
 		AND col2 = $2
 		AND col3 = $1
@@ -17,7 +17,6 @@ func TestBindNumeric(t *testing.T) {
 	)
 	`, 1, 2, "I'm a string param", nil)
 	if assert.NoError(t, err) {
-		t.Log(query)
 		assets := []struct {
 			query    string
 			params   []interface{}
@@ -49,7 +48,7 @@ func TestBindNumeric(t *testing.T) {
 }
 
 func TestBindNamed(t *testing.T) {
-	query, err := bind(time.Local, `
+	_, err := bind(time.Local, `
 	SELECT * FROM t WHERE col = @col1
 		AND col2 = @col2
 		AND col3 = @col1
@@ -64,7 +63,6 @@ func TestBindNamed(t *testing.T) {
 		Named("col4", nil),
 	)
 	if assert.NoError(t, err) {
-		t.Log(query)
 		assets := []struct {
 			query    string
 			params   []interface{}

@@ -21,8 +21,11 @@ func (col *String) Rows() int {
 	return len(*col)
 }
 
-func (s *String) Row(i int) interface{} {
+func (s *String) Row(i int, ptr bool) interface{} {
 	value := *s
+	if ptr {
+		return &value[i]
+	}
 	return value[i]
 }
 
@@ -73,8 +76,13 @@ func (s *String) AppendRow(v interface{}) error {
 	case string:
 		*s = append(*s, v)
 	case *string:
-		*s = append(*s, *v)
-	case null:
+		switch {
+		case v != nil:
+			*s = append(*s, *v)
+		default:
+			*s = append(*s, "")
+		}
+	case nil:
 		*s = append(*s, "")
 	default:
 		return &ColumnConverterErr{

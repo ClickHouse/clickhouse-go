@@ -41,11 +41,11 @@ func TestLow(t *testing.T) {
 				for i := 0; i < col.Rows(); i++ {
 					switch {
 					case i == 10:
-						assert.Equal(t, "HI2", col2.Row(i))
+						assert.Equal(t, "HI2", col2.Row(i, false))
 					case i == 11:
-						assert.Equal(t, "HI3", col2.Row(i))
+						assert.Equal(t, "HI3", col2.Row(i, false))
 					default:
-						assert.Equal(t, "HI", col2.Row(i))
+						assert.Equal(t, "HI", col2.Row(i, false))
 					}
 				}
 			}

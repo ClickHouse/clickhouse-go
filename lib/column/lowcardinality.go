@@ -70,8 +70,8 @@ func (col *LowCardinality) Rows() int {
 	return col.keys().Rows()
 }
 
-func (col *LowCardinality) Row(i int) interface{} {
-	return col.index.Row(col.indexRowNum(i))
+func (col *LowCardinality) Row(i int, ptr bool) interface{} {
+	return col.index.Row(col.indexRowNum(i), ptr)
 }
 
 func (col *LowCardinality) ScanRow(dest interface{}, row int) error {
@@ -101,6 +101,9 @@ func (col *LowCardinality) AppendRow(v interface{}) error {
 		v = x.Truncate(time.Second)
 	}
 	if _, found := col.tmpIdx[v]; !found {
+		if v == nil {
+			return fmt.Errorf("clickhouse: LowCardinality does not support NULL values")
+		}
 		if err := col.index.AppendRow(v); err != nil {
 			return err
 		}
@@ -227,7 +230,7 @@ func (col *LowCardinality) keys() Interface {
 }
 
 func (col *LowCardinality) indexRowNum(row int) int {
-	switch v := col.keys().Row(row).(type) {
+	switch v := col.keys().Row(row, false).(type) {
 	case uint8:
 		return int(v)
 	case uint16:

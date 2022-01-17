@@ -20,7 +20,6 @@ func TestOpenTelemetry(t *testing.T) {
 		Compression: &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
 		},
-		Debug: true,
 	})
 	if assert.NoError(t, err) {
 		var count uint64

@@ -36,8 +36,8 @@ func TestIPv4(t *testing.T) {
 			if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 				if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_ipv4"); assert.NoError(t, err) {
 					var (
-						col1Data = net.ParseIP("127.0.0.1").To4()
-						col2Data = net.ParseIP("8.8.8.8").To4()
+						col1Data = net.ParseIP("127.0.0.1")
+						col2Data = net.ParseIP("8.8.8.8")
 					)
 					if err := batch.Append(col1Data, col2Data); assert.NoError(t, err) {
 						if assert.NoError(t, batch.Send()) {
@@ -46,8 +46,8 @@ func TestIPv4(t *testing.T) {
 								col2 net.IP
 							)
 							if err := conn.QueryRow(ctx, "SELECT * FROM test_ipv4").Scan(&col1, &col2); assert.NoError(t, err) {
-								assert.Equal(t, col1Data, col1)
-								assert.Equal(t, col2Data, col2)
+								assert.Equal(t, col1Data.To4(), col1)
+								assert.Equal(t, col2Data.To4(), col2)
 							}
 						}
 					}

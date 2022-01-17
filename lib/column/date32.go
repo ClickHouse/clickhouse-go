@@ -27,8 +27,12 @@ func (dt *Date32) Rows() int {
 	return len(dt.values)
 }
 
-func (dt *Date32) Row(i int) interface{} {
-	return dt.row(i)
+func (dt *Date32) Row(i int, ptr bool) interface{} {
+	value := dt.row(i)
+	if ptr {
+		return &value
+	}
+	return value
 }
 
 func (dt *Date32) ScanRow(dest interface{}, row int) error {
@@ -43,29 +47,6 @@ func (dt *Date32) ScanRow(dest interface{}, row int) error {
 			op:   "ScanRow",
 			to:   fmt.Sprintf("%T", dest),
 			from: "Date32",
-		}
-	}
-	return nil
-}
-
-func (dt *Date32) AppendRow(v interface{}) error {
-	switch v := v.(type) {
-	case time.Time:
-		dt.values = append(dt.values, timeToInt32(v))
-	case *time.Time:
-		switch {
-		case v != nil:
-			dt.values = append(dt.values, timeToInt32(*v))
-		default:
-			dt.values = append(dt.values, 0)
-		}
-	case null:
-		dt.values = append(dt.values, 0)
-	default:
-		return &ColumnConverterErr{
-			op:   "AppendRow",
-			to:   "Date32",
-			from: fmt.Sprintf("%T", v),
 		}
 	}
 	return nil
@@ -97,6 +78,27 @@ func (dt *Date32) Append(v interface{}) (nulls []uint8, err error) {
 		}
 	}
 	return
+}
+
+func (dt *Date32) AppendRow(v interface{}) error {
+	var date int32
+	switch v := v.(type) {
+	case time.Time:
+		date = timeToInt32(v)
+	case *time.Time:
+		if v != nil {
+			date = timeToInt32(*v)
+		}
+	case nil:
+	default:
+		return &ColumnConverterErr{
+			op:   "AppendRow",
+			to:   "Date32",
+			from: fmt.Sprintf("%T", v),
+		}
+	}
+	dt.values = append(dt.values, date)
+	return nil
 }
 
 func (dt *Date32) Decode(decoder *binary.Decoder, rows int) error {

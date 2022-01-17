@@ -41,7 +41,7 @@ func TestFixedString(t *testing.T) {
 	if assert.NoError(t, err) {
 		const ddl = `
 		CREATE TABLE test_fixed_string (
-				  Col1 FixedString(5)
+				  Col1 FixedString(10)
 				, Col2 FixedString(10)
 		) Engine Memory
 	`
@@ -49,21 +49,19 @@ func TestFixedString(t *testing.T) {
 			if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 				if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_fixed_string"); assert.NoError(t, err) {
 					var (
-						col1Data = make([]byte, 5)
+						col1Data = "ClickHouse"
 						col2Data = &BinFixedString{}
 					)
-					if _, err := rand.Read(col1Data); assert.NoError(t, err) {
-						if _, err := rand.Read(col2Data.data[:]); assert.NoError(t, err) {
-							if err := batch.Append(col1Data, col2Data); assert.NoError(t, err) {
-								if assert.NoError(t, batch.Send()) {
-									var (
-										col1 []byte
-										col2 BinFixedString
-									)
-									if err := conn.QueryRow(ctx, "SELECT * FROM test_fixed_string").Scan(&col1, &col2); assert.NoError(t, err) {
-										assert.Equal(t, col1Data, col1)
-										assert.Equal(t, col2Data.data, col2.data)
-									}
+					if _, err := rand.Read(col2Data.data[:]); assert.NoError(t, err) {
+						if err := batch.Append(col1Data, col2Data); assert.NoError(t, err) {
+							if assert.NoError(t, batch.Send()) {
+								var (
+									col1 string
+									col2 BinFixedString
+								)
+								if err := conn.QueryRow(ctx, "SELECT * FROM test_fixed_string").Scan(&col1, &col2); assert.NoError(t, err) {
+									assert.Equal(t, col1Data, col1)
+									assert.Equal(t, col2Data.data, col2.data)
 								}
 							}
 						}
@@ -106,7 +104,7 @@ func TestNullableFixedString(t *testing.T) {
 	if assert.NoError(t, err) {
 		const ddl = `
 		CREATE TABLE test_fixed_string (
-				  Col1 Nullable(FixedString(5))
+				  Col1 Nullable(FixedString(10))
 				, Col2 Nullable(FixedString(10))
 		) Engine Memory
 	`
@@ -114,21 +112,19 @@ func TestNullableFixedString(t *testing.T) {
 			if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 				if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_fixed_string"); assert.NoError(t, err) {
 					var (
-						col1Data = make([]byte, 5)
+						col1Data = "ClickHouse"
 						col2Data = &BinFixedString{}
 					)
-					if _, err := rand.Read(col1Data); assert.NoError(t, err) {
-						if _, err := rand.Read(col2Data.data[:]); assert.NoError(t, err) {
-							if err := batch.Append(col1Data, col2Data); assert.NoError(t, err) {
-								if assert.NoError(t, batch.Send()) {
-									var (
-										col1 []byte
-										col2 BinFixedString
-									)
-									if err := conn.QueryRow(ctx, "SELECT * FROM test_fixed_string").Scan(&col1, &col2); assert.NoError(t, err) {
-										assert.Equal(t, col1Data, col1)
-										assert.Equal(t, col2Data.data, col2.data)
-									}
+					if _, err := rand.Read(col2Data.data[:]); assert.NoError(t, err) {
+						if err := batch.Append(col1Data, col2Data); assert.NoError(t, err) {
+							if assert.NoError(t, batch.Send()) {
+								var (
+									col1 string
+									col2 BinFixedString
+								)
+								if err := conn.QueryRow(ctx, "SELECT * FROM test_fixed_string").Scan(&col1, &col2); assert.NoError(t, err) {
+									assert.Equal(t, col1Data, col1)
+									assert.Equal(t, col2Data.data, col2.data)
 								}
 							}
 						}
@@ -138,20 +134,16 @@ func TestNullableFixedString(t *testing.T) {
 					return
 				}
 				if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_fixed_string"); assert.NoError(t, err) {
-					var col1Data = make([]byte, 5)
-
-					if _, err := rand.Read(col1Data); assert.NoError(t, err) {
-
-						if err := batch.Append(col1Data, nil); assert.NoError(t, err) {
-							if assert.NoError(t, batch.Send()) {
-								var (
-									col1 *[]byte
-									col2 *[]byte
-								)
-								if err := conn.QueryRow(ctx, "SELECT * FROM test_fixed_string").Scan(&col1, &col2); assert.NoError(t, err) {
-									if assert.Nil(t, col2) {
-										assert.Equal(t, col1Data, *col1)
-									}
+					var col1Data = "ClickHouse"
+					if err := batch.Append(col1Data, nil); assert.NoError(t, err) {
+						if assert.NoError(t, batch.Send()) {
+							var (
+								col1 *string
+								col2 *string
+							)
+							if err := conn.QueryRow(ctx, "SELECT * FROM test_fixed_string").Scan(&col1, &col2); assert.NoError(t, err) {
+								if assert.Nil(t, col2) {
+									assert.Equal(t, col1Data, *col1)
 								}
 							}
 						}

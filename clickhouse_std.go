@@ -197,7 +197,8 @@ func (r *stdRows) ColumnTypePrecisionScale(idx int) (precision, scale int64, ok 
 func (r *stdRows) Next(dest []driver.Value) error {
 	if r.rows.Next() {
 		for i := range dest {
-			switch value := r.rows.block.Columns[i].Row(r.rows.row - 1).(type) {
+			nullable, ok := r.ColumnTypeNullable(i)
+			switch value := r.rows.block.Columns[i].Row(r.rows.row-1, nullable && ok).(type) {
 			case driver.Valuer:
 				v, err := value.Value()
 				if err != nil {
