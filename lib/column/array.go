@@ -121,11 +121,15 @@ func (col *Array) AppendRow(v interface{}) error {
 	default:
 		elem = reflect.Indirect(reflect.ValueOf(v))
 	}
-	if elem.Type() != col.scanType {
+	if !elem.IsValid() || elem.Type() != col.scanType {
+		from := fmt.Sprintf("%T", v)
+		if !elem.IsValid() {
+			from = fmt.Sprintf("%v", v)
+		}
 		return &ColumnConverterErr{
 			op:   "AppendRow",
-			to:   fmt.Sprintf("%T", v),
-			from: string(col.chType),
+			to:   string(col.chType),
+			from: from,
 		}
 	}
 	return col.append(elem, 0)

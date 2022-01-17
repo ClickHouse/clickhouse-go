@@ -26,6 +26,10 @@ func TestDate32(t *testing.T) {
 		})
 	)
 	if assert.NoError(t, err) {
+		if err := checkMinServerVersion(conn, 21, 9); err != nil {
+			t.Skip(err.Error())
+			return
+		}
 		const ddl = `
 			CREATE TABLE test_date32 (
 				  ID   UInt8
@@ -101,6 +105,10 @@ func TestNullableDate32(t *testing.T) {
 		})
 	)
 	if assert.NoError(t, err) {
+		if err := checkMinServerVersion(conn, 21, 9); err != nil {
+			t.Skip(err.Error())
+			return
+		}
 		const ddl = `
 			CREATE TABLE test_date32 (
 				    Col1 Date32
@@ -171,6 +179,10 @@ func TestColumnarDate32(t *testing.T) {
 		})
 	)
 	if assert.NoError(t, err) {
+		if err := checkMinServerVersion(conn, 21, 9); err != nil {
+			t.Skip(err.Error())
+			return
+		}
 		const ddl = `
 		CREATE TABLE test_date32 (
 			  ID   UInt64
