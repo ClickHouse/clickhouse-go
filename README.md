@@ -54,7 +54,9 @@ clickhouse://username:password@host1:9000,host2:9000?&database=kinescope&dial_ti
 
 ## TODO
 
-* [ ] [Decimal128/256](https://github.com/ClickHouse/clickhouse-go/pull/442)
+* [ ] Bigint types
+* [ ] ZSTD
+* [ ] Geo
 
 ## Benchmark
 

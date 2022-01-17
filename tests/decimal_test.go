@@ -35,12 +35,13 @@ func TestDecimal(t *testing.T) {
 			  Col1 Decimal32(5)
 			, Col2 Decimal(18,5)
 			, Col3 Decimal(15,3)
+			, Col4 Decimal128(5)
 		) Engine Memory
 	`
 		if err := conn.Exec(ctx, "DROP TABLE IF EXISTS test_decimal"); assert.NoError(t, err) {
 			if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 				if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_decimal"); assert.NoError(t, err) {
-					if err := batch.Append(decimal.New(25, 0), decimal.New(30, 0), decimal.New(35, 0)); !assert.NoError(t, err) {
+					if err := batch.Append(decimal.New(25, 0), decimal.New(30, 0), decimal.New(35, 0), decimal.New(135, 0)); !assert.NoError(t, err) {
 						return
 					}
 					if assert.NoError(t, batch.Send()) {
@@ -48,11 +49,13 @@ func TestDecimal(t *testing.T) {
 							col1 decimal.Decimal
 							col2 decimal.Decimal
 							col3 decimal.Decimal
+							col4 decimal.Decimal
 						)
-						if err := conn.QueryRow(ctx, "SELECT * FROM test_decimal").Scan(&col1, &col2, &col3); assert.NoError(t, err) {
+						if err := conn.QueryRow(ctx, "SELECT * FROM test_decimal").Scan(&col1, &col2, &col3, &col4); assert.NoError(t, err) {
 							assert.True(t, decimal.New(25, 0).Equal(col1))
 							assert.True(t, decimal.New(30, 0).Equal(col2))
 							assert.True(t, decimal.New(35, 0).Equal(col3))
+							assert.True(t, decimal.New(135, 0).Equal(col4))
 						}
 					}
 				}
