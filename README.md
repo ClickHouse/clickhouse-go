@@ -54,6 +54,7 @@ clickhouse://username:password@host1:9000,host2:9000/database?dial_timeout=200ms
 
 ## TODO
 
+* [ ] LowCardinality
 * [ ] Bigint types
 * [ ] ZSTD
 * [ ] Geo
