@@ -14,6 +14,7 @@ type offset struct {
 }
 
 type Array struct {
+	depth    int
 	chType   Type
 	values   Interface
 	offsets  []*offset
@@ -22,27 +23,25 @@ type Array struct {
 
 func (col *Array) parse(t Type) (_ Interface, err error) {
 	col.chType = t
-	var (
-		depth   int
-		typeStr = string(t)
-	)
+	var typeStr = string(t)
+
 parse:
 	for _, str := range strings.Split(typeStr, "Array(") {
 		switch {
 		case len(str) == 0:
-			depth++
+			col.depth++
 		default:
-			typeStr = str[:len(str)-depth]
+			typeStr = str[:len(str)-col.depth]
 			break parse
 		}
 	}
-	if depth != 0 {
+	if col.depth != 0 {
 		if col.values, err = Type(typeStr).Column(); err != nil {
 			return nil, err
 		}
-		offsetScanTypes := make([]reflect.Type, 0, depth)
-		col.offsets, col.scanType = make([]*offset, 0, depth), col.values.ScanType()
-		for i := 0; i < depth; i++ {
+		offsetScanTypes := make([]reflect.Type, 0, col.depth)
+		col.offsets, col.scanType = make([]*offset, 0, col.depth), col.values.ScanType()
+		for i := 0; i < col.depth; i++ {
 			col.scanType = reflect.SliceOf(col.scanType)
 			offsetScanTypes = append(offsetScanTypes, col.scanType)
 		}
@@ -142,7 +141,7 @@ func (col *Array) append(elem reflect.Value, level int) error {
 	case scanTypeIP /*, scanTypeByte*/ :
 		isSlice = false
 	}
-	if isSlice {
+	if isSlice && level < col.depth {
 		offset := uint64(elem.Len())
 		if ln := len(col.offsets[level].values); ln != 0 {
 			offset += col.offsets[level].values[ln-1]
