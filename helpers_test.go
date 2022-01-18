@@ -61,7 +61,7 @@ func Test_Quote(t *testing.T) {
 		"1":             1,
 		"'a', 'b', 'c'": []string{"a", "b", "c"},
 		"1, 2, 3, 4, 5": []int{1, 2, 3, 4, 5},
-		`'toDateTime(\'2022-01-12 15:00:00\', \'UTC\')'`: datetime,
+		`toDateTime('2022-01-12 15:00:00', 'UTC')`: datetime,
 	} {
 		assert.Equal(t, expected, quote(value))
 	}
