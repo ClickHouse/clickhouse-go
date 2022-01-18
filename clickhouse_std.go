@@ -77,6 +77,16 @@ func (std *stdDriver) CheckNamedValue(nv *driver.NamedValue) error { return nil 
 
 func (std *stdDriver) Close() error { return std.conn.close() }
 
+func (std *stdDriver) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+	r, err := std.conn.query(ctx, query, rebind(args)...)
+	if err != nil {
+		return nil, err
+	}
+	return &stdRows{
+		rows: r,
+	}, nil
+}
+
 func (std *stdDriver) Prepare(query string) (driver.Stmt, error) {
 	return std.PrepareContext(context.Background(), query)
 }
