@@ -123,6 +123,7 @@ var (
 	scanTypeUInt64  = reflect.TypeOf(uint64(0))
 	scanTypeIP      = reflect.TypeOf(net.IP{})
 	scanTypeBool    = reflect.TypeOf(true)
+	scanTypeByte    = reflect.TypeOf([]byte{})
 	scanTypeUUID    = reflect.TypeOf(uuid.UUID{})
 	scanTypeTime    = reflect.TypeOf(time.Time{})
 	scanTypeSlice   = reflect.TypeOf([]interface{}{})

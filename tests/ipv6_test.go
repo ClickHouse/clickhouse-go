@@ -30,6 +30,9 @@ func TestIPv6(t *testing.T) {
 			CREATE TABLE test_ipv6 (
 				  Col1 IPv6
 				, Col2 IPv6
+				, Col3 Nullable(IPv6)
+				, Col4 Array(IPv6)
+				, Col5 Array(Nullable(IPv6))
 			) Engine Memory
 		`
 		if err := conn.Exec(ctx, "DROP TABLE IF EXISTS test_ipv6"); assert.NoError(t, err) {
@@ -38,16 +41,33 @@ func TestIPv6(t *testing.T) {
 					var (
 						col1Data = net.ParseIP("2001:44c8:129:2632:33:0:252:2")
 						col2Data = net.ParseIP("2a02:e980:1e::1")
+						col3Data = col1Data
+						col4Data = []net.IP{col1Data, col2Data}
+						col5Data = []*net.IP{&col1Data, nil, &col2Data}
 					)
-					if err := batch.Append(col1Data, col2Data); assert.NoError(t, err) {
+					if err := batch.Append(col1Data, col2Data, col3Data, col4Data, col5Data); assert.NoError(t, err) {
 						if assert.NoError(t, batch.Send()) {
 							var (
 								col1 net.IP
 								col2 net.IP
+								col3 *net.IP
+								col4 []net.IP
+								col5 []*net.IP
 							)
-							if err := conn.QueryRow(ctx, "SELECT * FROM test_ipv6").Scan(&col1, &col2); assert.NoError(t, err) {
+							if err := conn.QueryRow(ctx, "SELECT * FROM test_ipv6").Scan(&col1, &col2, &col3, &col4, &col5); assert.NoError(t, err) {
 								assert.Equal(t, col1Data, col1)
 								assert.Equal(t, col2Data, col2)
+								assert.Equal(t, col3Data, *col3)
+								if assert.Len(t, col4, 2) {
+									assert.Equal(t, col1Data, col4[0])
+									assert.Equal(t, col2Data, col4[1])
+								}
+								if assert.Len(t, col5, 3) {
+									if assert.Nil(t, col5[1]) {
+										assert.Equal(t, col1Data, *col5[0])
+										assert.Equal(t, col2Data, *col5[2])
+									}
+								}
 							}
 						}
 					}

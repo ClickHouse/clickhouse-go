@@ -35,7 +35,7 @@ func TestStdFixedString(t *testing.T) {
 				, Col4 Array(FixedString(10))
 				, Col5 Array(Nullable(FixedString(10)))
 		) Engine Memory
-	`
+		`
 		if _, err := conn.Exec("DROP TABLE IF EXISTS test_fixed_string"); assert.NoError(t, err) {
 			if _, err := conn.Exec(ddl); assert.NoError(t, err) {
 				scope, err := conn.Begin()
