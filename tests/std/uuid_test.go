@@ -46,7 +46,7 @@ func TestStdUUID(t *testing.T) {
 	}
 }
 
-func TestNullableUUID(t *testing.T) {
+func TestStdNullableUUID(t *testing.T) {
 	if conn, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000"); assert.NoError(t, err) {
 		const ddl = `
 			CREATE TABLE test_uuid (
@@ -103,6 +103,5 @@ func TestNullableUUID(t *testing.T) {
 				}
 			}
 		}
-
 	}
 }

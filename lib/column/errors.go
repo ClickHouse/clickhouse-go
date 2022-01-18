@@ -3,13 +3,18 @@ package column
 import "fmt"
 
 type ColumnConverterErr struct {
-	op   string
-	to   string
-	from string
+	op     string
+	to     string
+	from   string
+	advise string
 }
 
 func (e *ColumnConverterErr) Error() string {
-	return fmt.Sprintf("clickhouse: %s: converting %s to %s is unsupported", e.op, e.from, e.to)
+	msg := fmt.Sprintf("clickhouse: %s: converting %s to %s is unsupported", e.op, e.from, e.to)
+	if len(e.advise) != 0 {
+		msg += ". " + e.advise
+	}
+	return msg
 }
 
 type UnknownElementForEnum struct {

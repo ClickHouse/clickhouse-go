@@ -61,12 +61,11 @@ func (o *Options) fromDSN(in string) error {
 		params     = dsn.Query()
 		skipVerify bool
 	)
+	o.Auth.Database = strings.TrimPrefix(dsn.Path, "/")
 	for v := range params {
 		switch v {
 		case "debug":
 			o.Debug, _ = strconv.ParseBool(params.Get(v))
-		case "database":
-			o.Auth.Database = params.Get(v)
 		case "compress":
 			if on, _ := strconv.ParseBool(params.Get(v)); on {
 				o.Compression = &Compression{

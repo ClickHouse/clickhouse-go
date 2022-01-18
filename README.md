@@ -49,7 +49,7 @@ SSL/TLS parameters:
 Example:
 
 ```sh
-clickhouse://username:password@host1:9000,host2:9000?&database=kinescope&dial_timeout=200ms
+clickhouse://username:password@host1:9000,host2:9000/database?dial_timeout=200ms
 ```
 
 ## TODO

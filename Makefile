@@ -17,7 +17,3 @@ staticcheck:
 
 codegen:
 	@cd lib/column && go run codegen/main.go
-
-coverage:
-	go test -coverprofile=coverage.out -v .
-	go tool cover -html=coverage.out

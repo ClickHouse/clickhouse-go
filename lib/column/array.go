@@ -85,9 +85,10 @@ func (col *Array) ScanRow(dest interface{}, row int) error {
 	elem := reflect.Indirect(reflect.ValueOf(dest))
 	if elem.Type() != col.scanType {
 		return &ColumnConverterErr{
-			op:   "ScanRow",
-			to:   fmt.Sprintf("%T", dest),
-			from: string(col.chType),
+			op:     "ScanRow",
+			to:     fmt.Sprintf("%T", dest),
+			from:   string(col.chType),
+			advise: fmt.Sprintf("use *%s", col.scanType),
 		}
 	}
 	{

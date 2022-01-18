@@ -201,10 +201,6 @@ func TestColumnarDateTime(t *testing.T) {
 		})
 	)
 	if assert.NoError(t, err) {
-		if err := checkMinServerVersion(conn, 21, 9); err != nil {
-			t.Skip(err.Error())
-			return
-		}
 		const ddl = `
 		CREATE TABLE test_datetime (
 			  ID   UInt64
