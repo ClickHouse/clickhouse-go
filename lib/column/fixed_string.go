@@ -53,10 +53,10 @@ func (col *FixedString) ScanRow(dest interface{}, row int) error {
 	case encoding.BinaryUnmarshaler:
 		return d.UnmarshalBinary(col.rowBytes(row))
 	default:
-		return &ColumnConverterErr{
-			op:   "ScanRow",
-			to:   fmt.Sprintf("%T", dest),
-			from: "FixedString",
+		return &ColumnConverterError{
+			Op:   "ScanRow",
+			To:   fmt.Sprintf("%T", dest),
+			From: "FixedString",
 		}
 	}
 	return nil
@@ -87,18 +87,17 @@ func (col *FixedString) Append(v interface{}) (nulls []uint8, err error) {
 			return nil, err
 		}
 		if len(data)%col.size != 0 {
-			return nil, &InvalidFixedSizeData{
-				op:       "Append",
-				got:      len(data),
-				expected: col.size,
+			return nil, &Error{
+				ColumnType: string(col.Type()),
+				Err:        fmt.Errorf("invalid size. expected %d got %d", col.size, len(data)),
 			}
 		}
 		col.data, nulls = append(col.data, data...), make([]uint8, len(data)/col.size)
 	default:
-		return nil, &ColumnConverterErr{
-			op:   "Append",
-			to:   "FixedString",
-			from: fmt.Sprintf("%T", v),
+		return nil, &ColumnConverterError{
+			Op:   "Append",
+			To:   "FixedString",
+			From: fmt.Sprintf("%T", v),
 		}
 	}
 	return
@@ -119,17 +118,16 @@ func (col *FixedString) AppendRow(v interface{}) (err error) {
 			return err
 		}
 	default:
-		return &ColumnConverterErr{
-			op:   "AppendRow",
-			to:   "FixedString",
-			from: fmt.Sprintf("%T", v),
+		return &ColumnConverterError{
+			Op:   "AppendRow",
+			To:   "FixedString",
+			From: fmt.Sprintf("%T", v),
 		}
 	}
 	if len(data) != col.size {
-		return &InvalidFixedSizeData{
-			op:       "AppendRow",
-			got:      len(data),
-			expected: col.size,
+		return &Error{
+			ColumnType: string(col.Type()),
+			Err:        fmt.Errorf("invalid size. expected %d got %d", col.size, len(data)),
 		}
 	}
 	col.data = append(col.data, data...)

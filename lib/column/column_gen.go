@@ -152,10 +152,10 @@ func (col *Float32) ScanRow(dest interface{}, row int) error {
 		*d = new(float32)
 		**d = value[row]
 	default:
-		return &ColumnConverterErr{
-			op:   "ScanRow",
-			to:   fmt.Sprintf("%T", dest),
-			from: "Float32",
+		return &ColumnConverterError{
+			Op:   "ScanRow",
+			To:   fmt.Sprintf("%T", dest),
+			From: "Float32",
 		}
 	}
 	return nil
@@ -184,10 +184,10 @@ func (col *Float32) Append(v interface{}) (nulls []uint8, err error) {
 			}
 		}
 	default:
-		return nil, &ColumnConverterErr{
-			op:   "Append",
-			to:   "Float32",
-			from: fmt.Sprintf("%T", v),
+		return nil, &ColumnConverterError{
+			Op:   "Append",
+			To:   "Float32",
+			From: fmt.Sprintf("%T", v),
 		}
 	}
 	return
@@ -207,10 +207,10 @@ func (col *Float32) AppendRow(v interface{}) error {
 	case nil:
 		*col = append(*col, 0)
 	default:
-		return &ColumnConverterErr{
-			op:   "AppendRow",
-			to:   "Float32",
-			from: fmt.Sprintf("%T", v),
+		return &ColumnConverterError{
+			Op:   "AppendRow",
+			To:   "Float32",
+			From: fmt.Sprintf("%T", v),
 		}
 	}
 	return nil
@@ -237,10 +237,10 @@ func (col *Float64) ScanRow(dest interface{}, row int) error {
 		*d = new(float64)
 		**d = value[row]
 	default:
-		return &ColumnConverterErr{
-			op:   "ScanRow",
-			to:   fmt.Sprintf("%T", dest),
-			from: "Float64",
+		return &ColumnConverterError{
+			Op:   "ScanRow",
+			To:   fmt.Sprintf("%T", dest),
+			From: "Float64",
 		}
 	}
 	return nil
@@ -269,10 +269,10 @@ func (col *Float64) Append(v interface{}) (nulls []uint8, err error) {
 			}
 		}
 	default:
-		return nil, &ColumnConverterErr{
-			op:   "Append",
-			to:   "Float64",
-			from: fmt.Sprintf("%T", v),
+		return nil, &ColumnConverterError{
+			Op:   "Append",
+			To:   "Float64",
+			From: fmt.Sprintf("%T", v),
 		}
 	}
 	return
@@ -292,10 +292,10 @@ func (col *Float64) AppendRow(v interface{}) error {
 	case nil:
 		*col = append(*col, 0)
 	default:
-		return &ColumnConverterErr{
-			op:   "AppendRow",
-			to:   "Float64",
-			from: fmt.Sprintf("%T", v),
+		return &ColumnConverterError{
+			Op:   "AppendRow",
+			To:   "Float64",
+			From: fmt.Sprintf("%T", v),
 		}
 	}
 	return nil
@@ -322,10 +322,10 @@ func (col *Int8) ScanRow(dest interface{}, row int) error {
 		*d = new(int8)
 		**d = value[row]
 	default:
-		return &ColumnConverterErr{
-			op:   "ScanRow",
-			to:   fmt.Sprintf("%T", dest),
-			from: "Int8",
+		return &ColumnConverterError{
+			Op:   "ScanRow",
+			To:   fmt.Sprintf("%T", dest),
+			From: "Int8",
 		}
 	}
 	return nil
@@ -354,10 +354,10 @@ func (col *Int8) Append(v interface{}) (nulls []uint8, err error) {
 			}
 		}
 	default:
-		return nil, &ColumnConverterErr{
-			op:   "Append",
-			to:   "Int8",
-			from: fmt.Sprintf("%T", v),
+		return nil, &ColumnConverterError{
+			Op:   "Append",
+			To:   "Int8",
+			From: fmt.Sprintf("%T", v),
 		}
 	}
 	return
@@ -377,10 +377,10 @@ func (col *Int8) AppendRow(v interface{}) error {
 	case nil:
 		*col = append(*col, 0)
 	default:
-		return &ColumnConverterErr{
-			op:   "AppendRow",
-			to:   "Int8",
-			from: fmt.Sprintf("%T", v),
+		return &ColumnConverterError{
+			Op:   "AppendRow",
+			To:   "Int8",
+			From: fmt.Sprintf("%T", v),
 		}
 	}
 	return nil
@@ -407,10 +407,10 @@ func (col *Int16) ScanRow(dest interface{}, row int) error {
 		*d = new(int16)
 		**d = value[row]
 	default:
-		return &ColumnConverterErr{
-			op:   "ScanRow",
-			to:   fmt.Sprintf("%T", dest),
-			from: "Int16",
+		return &ColumnConverterError{
+			Op:   "ScanRow",
+			To:   fmt.Sprintf("%T", dest),
+			From: "Int16",
 		}
 	}
 	return nil
@@ -439,10 +439,10 @@ func (col *Int16) Append(v interface{}) (nulls []uint8, err error) {
 			}
 		}
 	default:
-		return nil, &ColumnConverterErr{
-			op:   "Append",
-			to:   "Int16",
-			from: fmt.Sprintf("%T", v),
+		return nil, &ColumnConverterError{
+			Op:   "Append",
+			To:   "Int16",
+			From: fmt.Sprintf("%T", v),
 		}
 	}
 	return
@@ -462,10 +462,10 @@ func (col *Int16) AppendRow(v interface{}) error {
 	case nil:
 		*col = append(*col, 0)
 	default:
-		return &ColumnConverterErr{
-			op:   "AppendRow",
-			to:   "Int16",
-			from: fmt.Sprintf("%T", v),
+		return &ColumnConverterError{
+			Op:   "AppendRow",
+			To:   "Int16",
+			From: fmt.Sprintf("%T", v),
 		}
 	}
 	return nil
@@ -492,10 +492,10 @@ func (col *Int32) ScanRow(dest interface{}, row int) error {
 		*d = new(int32)
 		**d = value[row]
 	default:
-		return &ColumnConverterErr{
-			op:   "ScanRow",
-			to:   fmt.Sprintf("%T", dest),
-			from: "Int32",
+		return &ColumnConverterError{
+			Op:   "ScanRow",
+			To:   fmt.Sprintf("%T", dest),
+			From: "Int32",
 		}
 	}
 	return nil
@@ -524,10 +524,10 @@ func (col *Int32) Append(v interface{}) (nulls []uint8, err error) {
 			}
 		}
 	default:
-		return nil, &ColumnConverterErr{
-			op:   "Append",
-			to:   "Int32",
-			from: fmt.Sprintf("%T", v),
+		return nil, &ColumnConverterError{
+			Op:   "Append",
+			To:   "Int32",
+			From: fmt.Sprintf("%T", v),
 		}
 	}
 	return
@@ -547,10 +547,10 @@ func (col *Int32) AppendRow(v interface{}) error {
 	case nil:
 		*col = append(*col, 0)
 	default:
-		return &ColumnConverterErr{
-			op:   "AppendRow",
-			to:   "Int32",
-			from: fmt.Sprintf("%T", v),
+		return &ColumnConverterError{
+			Op:   "AppendRow",
+			To:   "Int32",
+			From: fmt.Sprintf("%T", v),
 		}
 	}
 	return nil
@@ -577,10 +577,10 @@ func (col *Int64) ScanRow(dest interface{}, row int) error {
 		*d = new(int64)
 		**d = value[row]
 	default:
-		return &ColumnConverterErr{
-			op:   "ScanRow",
-			to:   fmt.Sprintf("%T", dest),
-			from: "Int64",
+		return &ColumnConverterError{
+			Op:   "ScanRow",
+			To:   fmt.Sprintf("%T", dest),
+			From: "Int64",
 		}
 	}
 	return nil
@@ -609,10 +609,10 @@ func (col *Int64) Append(v interface{}) (nulls []uint8, err error) {
 			}
 		}
 	default:
-		return nil, &ColumnConverterErr{
-			op:   "Append",
-			to:   "Int64",
-			from: fmt.Sprintf("%T", v),
+		return nil, &ColumnConverterError{
+			Op:   "Append",
+			To:   "Int64",
+			From: fmt.Sprintf("%T", v),
 		}
 	}
 	return
@@ -632,10 +632,10 @@ func (col *Int64) AppendRow(v interface{}) error {
 	case nil:
 		*col = append(*col, 0)
 	default:
-		return &ColumnConverterErr{
-			op:   "AppendRow",
-			to:   "Int64",
-			from: fmt.Sprintf("%T", v),
+		return &ColumnConverterError{
+			Op:   "AppendRow",
+			To:   "Int64",
+			From: fmt.Sprintf("%T", v),
 		}
 	}
 	return nil
@@ -662,10 +662,10 @@ func (col *UInt8) ScanRow(dest interface{}, row int) error {
 		*d = new(uint8)
 		**d = value[row]
 	default:
-		return &ColumnConverterErr{
-			op:   "ScanRow",
-			to:   fmt.Sprintf("%T", dest),
-			from: "UInt8",
+		return &ColumnConverterError{
+			Op:   "ScanRow",
+			To:   fmt.Sprintf("%T", dest),
+			From: "UInt8",
 		}
 	}
 	return nil
@@ -694,10 +694,10 @@ func (col *UInt8) Append(v interface{}) (nulls []uint8, err error) {
 			}
 		}
 	default:
-		return nil, &ColumnConverterErr{
-			op:   "Append",
-			to:   "UInt8",
-			from: fmt.Sprintf("%T", v),
+		return nil, &ColumnConverterError{
+			Op:   "Append",
+			To:   "UInt8",
+			From: fmt.Sprintf("%T", v),
 		}
 	}
 	return
@@ -717,10 +717,10 @@ func (col *UInt8) AppendRow(v interface{}) error {
 	case nil:
 		*col = append(*col, 0)
 	default:
-		return &ColumnConverterErr{
-			op:   "AppendRow",
-			to:   "UInt8",
-			from: fmt.Sprintf("%T", v),
+		return &ColumnConverterError{
+			Op:   "AppendRow",
+			To:   "UInt8",
+			From: fmt.Sprintf("%T", v),
 		}
 	}
 	return nil
@@ -747,10 +747,10 @@ func (col *UInt16) ScanRow(dest interface{}, row int) error {
 		*d = new(uint16)
 		**d = value[row]
 	default:
-		return &ColumnConverterErr{
-			op:   "ScanRow",
-			to:   fmt.Sprintf("%T", dest),
-			from: "UInt16",
+		return &ColumnConverterError{
+			Op:   "ScanRow",
+			To:   fmt.Sprintf("%T", dest),
+			From: "UInt16",
 		}
 	}
 	return nil
@@ -779,10 +779,10 @@ func (col *UInt16) Append(v interface{}) (nulls []uint8, err error) {
 			}
 		}
 	default:
-		return nil, &ColumnConverterErr{
-			op:   "Append",
-			to:   "UInt16",
-			from: fmt.Sprintf("%T", v),
+		return nil, &ColumnConverterError{
+			Op:   "Append",
+			To:   "UInt16",
+			From: fmt.Sprintf("%T", v),
 		}
 	}
 	return
@@ -802,10 +802,10 @@ func (col *UInt16) AppendRow(v interface{}) error {
 	case nil:
 		*col = append(*col, 0)
 	default:
-		return &ColumnConverterErr{
-			op:   "AppendRow",
-			to:   "UInt16",
-			from: fmt.Sprintf("%T", v),
+		return &ColumnConverterError{
+			Op:   "AppendRow",
+			To:   "UInt16",
+			From: fmt.Sprintf("%T", v),
 		}
 	}
 	return nil
@@ -832,10 +832,10 @@ func (col *UInt32) ScanRow(dest interface{}, row int) error {
 		*d = new(uint32)
 		**d = value[row]
 	default:
-		return &ColumnConverterErr{
-			op:   "ScanRow",
-			to:   fmt.Sprintf("%T", dest),
-			from: "UInt32",
+		return &ColumnConverterError{
+			Op:   "ScanRow",
+			To:   fmt.Sprintf("%T", dest),
+			From: "UInt32",
 		}
 	}
 	return nil
@@ -864,10 +864,10 @@ func (col *UInt32) Append(v interface{}) (nulls []uint8, err error) {
 			}
 		}
 	default:
-		return nil, &ColumnConverterErr{
-			op:   "Append",
-			to:   "UInt32",
-			from: fmt.Sprintf("%T", v),
+		return nil, &ColumnConverterError{
+			Op:   "Append",
+			To:   "UInt32",
+			From: fmt.Sprintf("%T", v),
 		}
 	}
 	return
@@ -887,10 +887,10 @@ func (col *UInt32) AppendRow(v interface{}) error {
 	case nil:
 		*col = append(*col, 0)
 	default:
-		return &ColumnConverterErr{
-			op:   "AppendRow",
-			to:   "UInt32",
-			from: fmt.Sprintf("%T", v),
+		return &ColumnConverterError{
+			Op:   "AppendRow",
+			To:   "UInt32",
+			From: fmt.Sprintf("%T", v),
 		}
 	}
 	return nil
@@ -917,10 +917,10 @@ func (col *UInt64) ScanRow(dest interface{}, row int) error {
 		*d = new(uint64)
 		**d = value[row]
 	default:
-		return &ColumnConverterErr{
-			op:   "ScanRow",
-			to:   fmt.Sprintf("%T", dest),
-			from: "UInt64",
+		return &ColumnConverterError{
+			Op:   "ScanRow",
+			To:   fmt.Sprintf("%T", dest),
+			From: "UInt64",
 		}
 	}
 	return nil
@@ -949,10 +949,10 @@ func (col *UInt64) Append(v interface{}) (nulls []uint8, err error) {
 			}
 		}
 	default:
-		return nil, &ColumnConverterErr{
-			op:   "Append",
-			to:   "UInt64",
-			from: fmt.Sprintf("%T", v),
+		return nil, &ColumnConverterError{
+			Op:   "Append",
+			To:   "UInt64",
+			From: fmt.Sprintf("%T", v),
 		}
 	}
 	return
@@ -972,10 +972,10 @@ func (col *UInt64) AppendRow(v interface{}) error {
 	case nil:
 		*col = append(*col, 0)
 	default:
-		return &ColumnConverterErr{
-			op:   "AppendRow",
-			to:   "UInt64",
-			from: fmt.Sprintf("%T", v),
+		return &ColumnConverterError{
+			Op:   "AppendRow",
+			To:   "UInt64",
+			From: fmt.Sprintf("%T", v),
 		}
 	}
 	return nil

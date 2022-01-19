@@ -117,10 +117,10 @@ func (col *{{ .ChType }}) ScanRow(dest interface{}, row int) error {
 		*d = new({{ .GoType }})
 		**d = value[row]
 	default:
-		return &ColumnConverterErr{
-			op:   "ScanRow",
-			to:   fmt.Sprintf("%T", dest),
-			from: "{{ .ChType }}",
+		return &ColumnConverterError{
+			Op:   "ScanRow",
+			To:   fmt.Sprintf("%T", dest),
+			From: "{{ .ChType }}",
 		}
 	}
 	return nil
@@ -149,10 +149,10 @@ func (col *{{ .ChType }}) Append(v interface{}) (nulls []uint8,err error) {
 			}
 		}
 	default:
-		return nil, &ColumnConverterErr{
-			op:   "Append",
-			to:   "{{ .ChType }}",
-			from: fmt.Sprintf("%T", v),
+		return nil, &ColumnConverterError{
+			Op:   "Append",
+			To:   "{{ .ChType }}",
+			From: fmt.Sprintf("%T", v),
 		}
 	}
 	return
@@ -172,10 +172,10 @@ func (col *{{ .ChType }}) AppendRow(v interface{}) error {
 	case nil:
 		*col = append(*col, 0)
 	default:
-		return &ColumnConverterErr{
-			op:   "AppendRow",
-			to:   "{{ .ChType }}",
-			from: fmt.Sprintf("%T", v),
+		return &ColumnConverterError{
+			Op:   "AppendRow",
+			To:   "{{ .ChType }}",
+			From: fmt.Sprintf("%T", v),
 		}
 	}
 	return nil

@@ -1,6 +1,7 @@
 package column
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -37,28 +38,39 @@ func (col *Interval) ScanRow(dest interface{}, row int) error {
 		*d = new(string)
 		**d = col.row(row)
 	default:
-		return &ColumnConverterErr{
-			op:   "ScanRow",
-			to:   fmt.Sprintf("%T", dest),
-			from: "Interval",
+		return &ColumnConverterError{
+			Op:   "ScanRow",
+			To:   fmt.Sprintf("%T", dest),
+			From: "Interval",
 		}
 	}
 	return nil
 }
 
 func (Interval) Append(interface{}) ([]uint8, error) {
-	return nil, &StoreSpecialDataType{"Interval"}
+	return nil, &Error{
+		ColumnType: "Interval",
+		Err:        errors.New("data type values can't be stored in tables"),
+	}
 }
 
 func (Interval) AppendRow(interface{}) error {
-	return &StoreSpecialDataType{"Interval"}
+	return &Error{
+		ColumnType: "Interval",
+		Err:        errors.New("data type values can't be stored in tables"),
+	}
 }
 
 func (col *Interval) Decode(decoder *binary.Decoder, rows int) error {
 	return col.values.Decode(decoder, rows)
 }
 
-func (Interval) Encode(*binary.Encoder) error { return &StoreSpecialDataType{"Interval"} }
+func (Interval) Encode(*binary.Encoder) error {
+	return &Error{
+		ColumnType: "Interval",
+		Err:        errors.New("data type values can't be stored in tables"),
+	}
+}
 
 func (col *Interval) row(i int) string {
 	v := fmt.Sprintf("%d %s", col.values[i], strings.TrimPrefix(string(col.chType), "Interval"))

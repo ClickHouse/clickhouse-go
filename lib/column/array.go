@@ -83,11 +83,11 @@ func (col *Array) Row(i int, ptr bool) interface{} {
 func (col *Array) ScanRow(dest interface{}, row int) error {
 	elem := reflect.Indirect(reflect.ValueOf(dest))
 	if elem.Type() != col.scanType {
-		return &ColumnConverterErr{
-			op:     "ScanRow",
-			to:     fmt.Sprintf("%T", dest),
-			from:   string(col.chType),
-			advise: fmt.Sprintf("use *%s", col.scanType),
+		return &ColumnConverterError{
+			Op:   "ScanRow",
+			To:   fmt.Sprintf("%T", dest),
+			From: string(col.chType),
+			Hint: fmt.Sprintf("try using *%s", col.scanType),
 		}
 	}
 	{
@@ -99,10 +99,11 @@ func (col *Array) ScanRow(dest interface{}, row int) error {
 func (col *Array) Append(v interface{}) (nulls []uint8, err error) {
 	value := reflect.Indirect(reflect.ValueOf(v))
 	if value.Kind() != reflect.Slice {
-		return nil, &ColumnConverterErr{
-			op:   "Append",
-			to:   string(col.chType),
-			from: fmt.Sprintf("%T", v),
+		return nil, &ColumnConverterError{
+			Op:   "Append",
+			To:   string(col.chType),
+			From: fmt.Sprintf("%T", v),
+			Hint: "value must be a slice",
 		}
 	}
 	for i := 0; i < value.Len(); i++ {
@@ -126,11 +127,11 @@ func (col *Array) AppendRow(v interface{}) error {
 		if !elem.IsValid() {
 			from = fmt.Sprintf("%v", v)
 		}
-		return &ColumnConverterErr{
-			op:     "AppendRow",
-			to:     string(col.chType),
-			from:   from,
-			advise: fmt.Sprintf("use %s", col.scanType),
+		return &ColumnConverterError{
+			Op:   "AppendRow",
+			To:   string(col.chType),
+			From: from,
+			Hint: fmt.Sprintf("try using %s", col.scanType),
 		}
 	}
 	return col.append(elem, 0)

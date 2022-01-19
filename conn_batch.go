@@ -2,6 +2,7 @@ package clickhouse
 
 import (
 	"context"
+	"fmt"
 	"regexp"
 	"strings"
 	"time"
@@ -69,9 +70,9 @@ func (b *batch) Column(idx int) driver.BatchColumn {
 	if len(b.block.Columns) <= idx {
 		b.release(nil)
 		return &batchColumn{
-			err: &InvalidColumnIndex{
-				op:  "batch.Column(idx)",
-				idx: idx,
+			err: &OpError{
+				Op:  "batch.Column",
+				Err: fmt.Errorf("invalid column index %d", idx),
 			},
 		}
 	}
@@ -90,7 +91,7 @@ func (b *batch) Send() (err error) {
 		b.release(err)
 	}()
 	if b.sent {
-		return &BatchAlreadySent{}
+		return ErrBatchAlreadySent
 	}
 	if b.err != nil {
 		return b.err

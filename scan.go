@@ -2,6 +2,7 @@ package clickhouse
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 
@@ -11,13 +12,15 @@ import (
 func (ch *clickhouse) Select(ctx context.Context, dest interface{}, query string, args ...interface{}) error {
 	value := reflect.ValueOf(dest)
 	if value.Kind() != reflect.Ptr {
-		return &ScanStructErr{
-			msg: "must pass a pointer, not a value, to Select destination",
+		return &OpError{
+			Op:  "Select",
+			Err: errors.New("must pass a pointer, not a value, to Select destination"),
 		}
 	}
 	if value.IsNil() {
-		return &ScanStructErr{
-			msg: "nil pointer passed to Select destination",
+		return &OpError{
+			Op:  "Select",
+			Err: errors.New("nil pointer passed to Select destination"),
 		}
 	}
 	direct := reflect.Indirect(value)
@@ -45,10 +48,9 @@ func (ch *clickhouse) Select(ctx context.Context, dest interface{}, query string
 func scan(block *proto.Block, row int, dest ...interface{}) error {
 	columns := block.Columns
 	if len(columns) != len(dest) {
-		return &UnexpectedScanDestination{
-			op:       "Scan",
-			got:      len(dest),
-			expected: len(columns),
+		return &OpError{
+			Op:  "Scan",
+			Err: fmt.Errorf("expected %d destination arguments in Scan, not %d", len(columns), len(dest)),
 		}
 	}
 	for i, d := range dest {
@@ -65,13 +67,15 @@ func structToScannableValues(columns []string, dest interface{}) ([]interface{},
 		t = reflect.TypeOf(dest)
 	)
 	if v.Kind() != reflect.Ptr {
-		return nil, &ScanStructErr{
-			msg: "must pass a pointer, not a value, to ScanStruct destination",
+		return nil, &OpError{
+			Op:  "ScanStruct",
+			Err: errors.New("must pass a pointer, not a value, to ScanStruct destination"),
 		}
 	}
 	if v.IsNil() {
-		return nil, &ScanStructErr{
-			msg: "nil pointer passed to ScanStruct destination",
+		return nil, &OpError{
+			Op:  "ScanStruct",
+			Err: errors.New("nil pointer passed to ScanStruct destination"),
 		}
 	}
 	if v = reflect.Indirect(v); t.Kind() == reflect.Ptr {
@@ -94,8 +98,9 @@ func structToScannableValues(columns []string, dest interface{}) ([]interface{},
 	for _, name := range columns {
 		v, found := names[name]
 		if !found {
-			return nil, &ScanStructErr{
-				msg: fmt.Sprintf("missing destination name %q in %T", name, dest),
+			return nil, &OpError{
+				Op:  "ScanStruct",
+				Err: fmt.Errorf("missing destination name %q in %T", name, dest),
 			}
 		}
 		values = append(values, v)

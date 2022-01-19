@@ -1,6 +1,7 @@
 package column
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"reflect"
@@ -91,10 +92,10 @@ func (col *LowCardinality) ScanRow(dest interface{}, row int) error {
 func (col *LowCardinality) Append(v interface{}) (nulls []uint8, err error) {
 	value := reflect.Indirect(reflect.ValueOf(v))
 	if value.Kind() != reflect.Slice {
-		return nil, &ColumnConverterErr{
-			op:   "Append",
-			to:   string(col.chType),
-			from: fmt.Sprintf("%T", v),
+		return nil, &ColumnConverterError{
+			Op:   "Append",
+			To:   string(col.chType),
+			From: fmt.Sprintf("%T", v),
 		}
 	}
 	for i := 0; i < value.Len(); i++ {
@@ -139,18 +140,21 @@ func (col *LowCardinality) Decode(decoder *binary.Decoder, _ int) error {
 	switch col.key {
 	case keyUInt8, keyUInt16, keyUInt32, keyUInt64:
 	default:
-		return &LowCardinalityDecode{
-			msg: "invalid index serialization version value",
+		return &Error{
+			ColumnType: "LowCardinality",
+			Err:        errors.New("invalid index serialization version value"),
 		}
 	}
 	switch {
 	case indexSerializationType&needGlobalDictionaryBit == 1:
-		return &LowCardinalityDecode{
-			msg: "global dictionary is not supported",
+		return &Error{
+			ColumnType: "LowCardinality",
+			Err:        errors.New("global dictionary is not supported"),
 		}
 	case indexSerializationType&hasAdditionalKeysBit == 0:
-		return &LowCardinalityDecode{
-			msg: "additional keys bit is missing",
+		return &Error{
+			ColumnType: "LowCardinality",
+			Err:        errors.New("additional keys bit is missing"),
 		}
 	}
 	indexRows, err := decoder.Int64()
@@ -173,21 +177,21 @@ func (col *LowCardinality) Encode(encoder *binary.Encoder) error {
 		col.tmpIdx, col.tmpKey = nil, nil
 	}()
 	switch {
-	case len(col.tmpKey) < math.MaxUint8:
+	case len(col.tmpIdx) < math.MaxUint8:
 		col.key = keyUInt8
 		for _, v := range col.tmpKey {
 			if err := col.keys8.AppendRow(uint8(v)); err != nil {
 				return err
 			}
 		}
-	case len(col.tmpKey) < math.MaxUint16:
+	case len(col.tmpIdx) < math.MaxUint16:
 		col.key = keyUInt16
 		for _, v := range col.tmpKey {
 			if err := col.keys16.AppendRow(uint16(v)); err != nil {
 				return err
 			}
 		}
-	case len(col.tmpKey) < math.MaxUint32:
+	case len(col.tmpIdx) < math.MaxUint32:
 		col.key = keyUInt32
 		for _, v := range col.tmpKey {
 			if err := col.keys32.AppendRow(uint32(v)); err != nil {
@@ -224,8 +228,9 @@ func (col *LowCardinality) ReadStatePrefix(decoder *binary.Decoder) error {
 		return err
 	}
 	if keyVersion != sharedDictionariesWithAdditionalKeys {
-		return &LowCardinalityDecode{
-			msg: "invalid key serialization version value",
+		return &Error{
+			ColumnType: "LowCardinality",
+			Err:        errors.New("invalid key serialization version value"),
 		}
 	}
 	return nil

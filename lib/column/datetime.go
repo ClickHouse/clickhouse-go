@@ -55,10 +55,10 @@ func (dt *DateTime) ScanRow(dest interface{}, row int) error {
 		*d = new(time.Time)
 		**d = dt.row(row)
 	default:
-		return &ColumnConverterErr{
-			op:   "ScanRow",
-			to:   fmt.Sprintf("%T", dest),
-			from: "DateTime",
+		return &ColumnConverterError{
+			Op:   "ScanRow",
+			To:   fmt.Sprintf("%T", dest),
+			From: "DateTime",
 		}
 	}
 	return nil
@@ -83,10 +83,10 @@ func (dt *DateTime) Append(v interface{}) (nulls []uint8, err error) {
 			}
 		}
 	default:
-		return nil, &ColumnConverterErr{
-			op:   "Append",
-			to:   "DateTime",
-			from: fmt.Sprintf("%T", v),
+		return nil, &ColumnConverterError{
+			Op:   "Append",
+			To:   "DateTime",
+			From: fmt.Sprintf("%T", v),
 		}
 	}
 	return
@@ -103,10 +103,10 @@ func (dt *DateTime) AppendRow(v interface{}) error {
 		}
 	case nil:
 	default:
-		return &ColumnConverterErr{
-			op:   "AppendRow",
-			to:   "DateTime",
-			from: fmt.Sprintf("%T", v),
+		return &ColumnConverterError{
+			Op:   "AppendRow",
+			To:   "DateTime",
+			From: fmt.Sprintf("%T", v),
 		}
 	}
 	dt.values = append(dt.values, datetime)

@@ -40,10 +40,10 @@ func (col *IPv4) ScanRow(dest interface{}, row int) error {
 		*d = new(net.IP)
 		**d = col.row(row)
 	default:
-		return &ColumnConverterErr{
-			op:   "ScanRow",
-			to:   fmt.Sprintf("%T", dest),
-			from: "IPv4",
+		return &ColumnConverterError{
+			Op:   "ScanRow",
+			To:   fmt.Sprintf("%T", dest),
+			From: "IPv4",
 		}
 	}
 	return nil
@@ -56,10 +56,11 @@ func (col *IPv4) Append(v interface{}) (nulls []uint8, err error) {
 		for _, v := range v {
 			ip := v.To4()
 			if ip == nil {
-				return nil, &ColumnConverterErr{
-					op:   "Append",
-					to:   "IPv4",
-					from: "IPv6",
+				return nil, &ColumnConverterError{
+					Op:   "Append",
+					To:   "IPv4",
+					From: "IPv6",
+					Hint: "invalid IP version",
 				}
 			}
 			col.data = append(col.data, IPv4ToBytes(ip)[:]...)
@@ -71,10 +72,11 @@ func (col *IPv4) Append(v interface{}) (nulls []uint8, err error) {
 			case v != nil:
 				ip := v.To4()
 				if ip == nil {
-					return nil, &ColumnConverterErr{
-						op:   "Append",
-						to:   "IPv4",
-						from: "IPv6",
+					return nil, &ColumnConverterError{
+						Op:   "Append",
+						To:   "IPv4",
+						From: "IPv6",
+						Hint: "invalid IP version",
 					}
 				}
 				col.data = append(col.data, IPv4ToBytes(ip)[:]...)
@@ -83,10 +85,10 @@ func (col *IPv4) Append(v interface{}) (nulls []uint8, err error) {
 			}
 		}
 	default:
-		return nil, &ColumnConverterErr{
-			op:   "Append",
-			to:   "IPv4",
-			from: fmt.Sprintf("%T", v),
+		return nil, &ColumnConverterError{
+			Op:   "Append",
+			To:   "IPv4",
+			From: fmt.Sprintf("%T", v),
 		}
 	}
 	return
@@ -107,18 +109,19 @@ func (col *IPv4) AppendRow(v interface{}) error {
 	case nil:
 		ip = make(net.IP, net.IPv4len)
 	default:
-		return &ColumnConverterErr{
-			op:   "AppendRow",
-			to:   "IPv4",
-			from: fmt.Sprintf("%T", v),
+		return &ColumnConverterError{
+			Op:   "AppendRow",
+			To:   "IPv4",
+			From: fmt.Sprintf("%T", v),
 		}
 	}
 	data := ip.To4()
 	if data == nil {
-		return &ColumnConverterErr{
-			op:   "AppendRow",
-			to:   "IPv4",
-			from: "IPv6",
+		return &ColumnConverterError{
+			Op:   "AppendRow",
+			To:   "IPv4",
+			From: "IPv6",
+			Hint: "invalid IP version",
 		}
 	}
 	col.data = append(col.data, IPv4ToBytes(data)[:]...)

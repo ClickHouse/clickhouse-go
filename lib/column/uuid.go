@@ -42,10 +42,10 @@ func (col *UUID) ScanRow(dest interface{}, row int) error {
 		*d = new(uuid.UUID)
 		**d = col.row(row)
 	default:
-		return &ColumnConverterErr{
-			op:   "ScanRow",
-			to:   fmt.Sprintf("%T", dest),
-			from: "UUID",
+		return &ColumnConverterError{
+			Op:   "ScanRow",
+			To:   fmt.Sprintf("%T", dest),
+			From: "UUID",
 		}
 	}
 	return nil
@@ -70,10 +70,10 @@ func (col *UUID) Append(v interface{}) (nulls []uint8, err error) {
 			}
 		}
 	default:
-		return nil, &ColumnConverterErr{
-			op:   "Append",
-			to:   "UUID",
-			from: fmt.Sprintf("%T", v),
+		return nil, &ColumnConverterError{
+			Op:   "Append",
+			To:   "UUID",
+			From: fmt.Sprintf("%T", v),
 		}
 	}
 	return
@@ -93,10 +93,10 @@ func (col *UUID) AppendRow(v interface{}) error {
 	case nil:
 		col.data = append(col.data, make([]byte, uuidSize)...)
 	default:
-		return &ColumnConverterErr{
-			op:   "AppendRow",
-			to:   "UUID",
-			from: fmt.Sprintf("%T", v),
+		return &ColumnConverterError{
+			Op:   "AppendRow",
+			To:   "UUID",
+			From: fmt.Sprintf("%T", v),
 		}
 	}
 	return nil

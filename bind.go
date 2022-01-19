@@ -34,7 +34,7 @@ func bind(tz *time.Location, query string, args ...interface{}) (string, error) 
 			haveNumeric = true
 		}
 		if haveNamed && haveNumeric {
-			return "", &BindMixedNamedAndNumericParams{}
+			return "", ErrBindMixedNamedAndNumericParams
 		}
 	}
 	if haveNamed {

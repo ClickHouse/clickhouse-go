@@ -82,10 +82,10 @@ func (col *Decimal) ScanRow(dest interface{}, row int) error {
 		*d = new(decimal.Decimal)
 		**d = col.values[row]
 	default:
-		return &ColumnConverterErr{
-			op:   "ScanRow",
-			to:   fmt.Sprintf("%T", dest),
-			from: "Decimal",
+		return &ColumnConverterError{
+			Op:   "ScanRow",
+			To:   fmt.Sprintf("%T", dest),
+			From: "Decimal",
 		}
 	}
 	return nil
@@ -106,10 +106,10 @@ func (col *Decimal) Append(v interface{}) (nulls []uint8, err error) {
 			}
 		}
 	default:
-		return nil, &ColumnConverterErr{
-			op:   "Append",
-			to:   string(col.chType),
-			from: fmt.Sprintf("%T", v),
+		return nil, &ColumnConverterError{
+			Op:   "Append",
+			To:   string(col.chType),
+			From: fmt.Sprintf("%T", v),
 		}
 	}
 	return
@@ -126,10 +126,10 @@ func (col *Decimal) AppendRow(v interface{}) error {
 		}
 	case nil:
 	default:
-		return &ColumnConverterErr{
-			op:   "AppendRow",
-			to:   string(col.chType),
-			from: fmt.Sprintf("%T", v),
+		return &ColumnConverterError{
+			Op:   "AppendRow",
+			To:   string(col.chType),
+			From: fmt.Sprintf("%T", v),
 		}
 	}
 	col.values = append(col.values, value)

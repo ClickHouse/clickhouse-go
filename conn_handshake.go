@@ -1,14 +1,11 @@
 package clickhouse
 
 import (
-	"errors"
 	"fmt"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
-
-var ErrUnsupportedServerRevision = errors.New("unsupported server revision")
 
 func (c *connect) handshake(database, username, password string) error {
 	c.debugf("[handshake] -> %s", proto.ClientHandshake{})

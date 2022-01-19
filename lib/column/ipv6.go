@@ -40,10 +40,10 @@ func (col *IPv6) ScanRow(dest interface{}, row int) error {
 		*d = new(net.IP)
 		**d = col.row(row)
 	default:
-		return &ColumnConverterErr{
-			op:   "ScanRow",
-			to:   fmt.Sprintf("%T", dest),
-			from: "IPv6",
+		return &ColumnConverterError{
+			Op:   "ScanRow",
+			To:   fmt.Sprintf("%T", dest),
+			From: "IPv6",
 		}
 	}
 	return nil
@@ -55,10 +55,9 @@ func (col *IPv6) Append(v interface{}) (nulls []uint8, err error) {
 		nulls = make([]uint8, len(v))
 		for _, v := range v {
 			if len(v) != net.IPv6len {
-				return nil, &ColumnConverterErr{
-					op:   "Append",
-					to:   "IPv6",
-					from: "IPv4",
+				return nil, &Error{
+					ColumnType: string(col.Type()),
+					Err:        fmt.Errorf("invalid size. expected %d got %d", net.IPv6len, len(v)),
 				}
 			}
 			col.data = append(col.data, v[:]...)
@@ -69,10 +68,9 @@ func (col *IPv6) Append(v interface{}) (nulls []uint8, err error) {
 			switch {
 			case v != nil:
 				if len(*v) != net.IPv6len {
-					return nil, &ColumnConverterErr{
-						op:   "Append",
-						to:   "IPv6",
-						from: "IPv4",
+					return nil, &Error{
+						ColumnType: string(col.Type()),
+						Err:        fmt.Errorf("invalid size. expected %d got %d", net.IPv6len, len(*v)),
 					}
 				}
 				tmp := *v
@@ -82,10 +80,10 @@ func (col *IPv6) Append(v interface{}) (nulls []uint8, err error) {
 			}
 		}
 	default:
-		return nil, &ColumnConverterErr{
-			op:   "Append",
-			to:   "IPv6",
-			from: fmt.Sprintf("%T", v),
+		return nil, &ColumnConverterError{
+			Op:   "Append",
+			To:   "IPv6",
+			From: fmt.Sprintf("%T", v),
 		}
 	}
 	return
@@ -106,17 +104,16 @@ func (col *IPv6) AppendRow(v interface{}) error {
 	case nil:
 		ip = make(net.IP, net.IPv6len)
 	default:
-		return &ColumnConverterErr{
-			op:   "AppendRow",
-			to:   "IPv6",
-			from: fmt.Sprintf("%T", v),
+		return &ColumnConverterError{
+			Op:   "AppendRow",
+			To:   "IPv6",
+			From: fmt.Sprintf("%T", v),
 		}
 	}
 	if len(ip) != net.IPv6len {
-		return &ColumnConverterErr{
-			op:   "AppendRow",
-			to:   "IPv4",
-			from: "IPv6",
+		return &Error{
+			ColumnType: string(col.Type()),
+			Err:        fmt.Errorf("invalid size. expected %d got %d", net.IPv6len, len(ip)),
 		}
 	}
 	col.data = append(col.data, ip[:]...)

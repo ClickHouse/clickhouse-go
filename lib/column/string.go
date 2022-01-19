@@ -38,10 +38,10 @@ func (s *String) ScanRow(dest interface{}, row int) error {
 		*d = new(string)
 		**d = v[row]
 	default:
-		return &ColumnConverterErr{
-			op:   "ScanRow",
-			to:   fmt.Sprintf("%T", dest),
-			from: "String",
+		return &ColumnConverterError{
+			Op:   "ScanRow",
+			To:   fmt.Sprintf("%T", dest),
+			From: "String",
 		}
 	}
 	return nil
@@ -62,10 +62,10 @@ func (s *String) Append(v interface{}) (nulls []uint8, err error) {
 			}
 		}
 	default:
-		return nil, &ColumnConverterErr{
-			op:   "Append",
-			to:   "String",
-			from: fmt.Sprintf("%T", v),
+		return nil, &ColumnConverterError{
+			Op:   "Append",
+			To:   "String",
+			From: fmt.Sprintf("%T", v),
 		}
 	}
 	return
@@ -85,10 +85,10 @@ func (s *String) AppendRow(v interface{}) error {
 	case nil:
 		*s = append(*s, "")
 	default:
-		return &ColumnConverterErr{
-			op:   "AppendRow",
-			to:   "String",
-			from: fmt.Sprintf("%T", v),
+		return &ColumnConverterError{
+			Op:   "AppendRow",
+			To:   "String",
+			From: fmt.Sprintf("%T", v),
 		}
 	}
 	return nil

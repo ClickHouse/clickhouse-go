@@ -2,6 +2,7 @@ package clickhouse
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"time"
 
@@ -109,9 +110,9 @@ func (c *connect) handle(packet byte, on *onProcess) error {
 		c.debugf("[progress] %s", progress)
 		on.progress(progress)
 	default:
-		return &UnexpectedPacket{
-			op:     "process",
-			packet: packet,
+		return &OpError{
+			Op:  "process",
+			Err: fmt.Errorf("unexpected packet %d", packet),
 		}
 	}
 	return nil

@@ -80,11 +80,19 @@ func (b *Block) Encode(encoder *binary.Encoder, revision uint64) error {
 		}
 		if serialize, ok := c.(column.CustomSerialization); ok {
 			if err := serialize.WriteStatePrefix(encoder); err != nil {
-				return err
+				return &BlockError{
+					Op:         "encode",
+					Err:        err,
+					ColumnName: b.names[i],
+				}
 			}
 		}
 		if err := c.Encode(encoder); err != nil {
-			return err
+			return &BlockError{
+				Op:         "encode",
+				Err:        err,
+				ColumnName: b.names[i],
+			}
 		}
 	}
 	return nil
@@ -128,11 +136,19 @@ func (b *Block) Decode(decoder *binary.Decoder, revision uint64) (err error) {
 		if numRows != 0 {
 			if serialize, ok := c.(column.CustomSerialization); ok {
 				if err := serialize.ReadStatePrefix(decoder); err != nil {
-					return err
+					return &BlockError{
+						Op:         "decode",
+						Err:        err,
+						ColumnName: columnName,
+					}
 				}
 			}
 			if err := c.Decode(decoder, int(numRows)); err != nil {
-				return err
+				return &BlockError{
+					Op:         "decode",
+					Err:        err,
+					ColumnName: columnName,
+				}
 			}
 		}
 		b.names, b.Columns = append(b.names, columnName), append(b.Columns, c)

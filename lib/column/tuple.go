@@ -94,10 +94,10 @@ func (col *Tuple) ScanRow(dest interface{}, row int) error {
 		}
 		*d = tuple
 	default:
-		return &ColumnConverterErr{
-			op:   "ScanRow",
-			to:   fmt.Sprintf("%T", dest),
-			from: string(col.chType),
+		return &ColumnConverterError{
+			Op:   "ScanRow",
+			To:   fmt.Sprintf("%T", dest),
+			From: string(col.chType),
 		}
 	}
 	return nil
@@ -113,10 +113,10 @@ func (col *Tuple) Append(v interface{}) (nulls []uint8, err error) {
 		}
 		return nil, nil
 	}
-	return nil, &ColumnConverterErr{
-		op:   "Append",
-		to:   string(col.chType),
-		from: fmt.Sprintf("%T", v),
+	return nil, &ColumnConverterError{
+		Op:   "Append",
+		To:   string(col.chType),
+		From: fmt.Sprintf("%T", v),
 	}
 }
 
@@ -124,10 +124,9 @@ func (col *Tuple) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case []interface{}:
 		if len(v) != len(col.columns) {
-			return &BadSizeOfTuple{
-				op:       "AppendRow",
-				got:      len(v),
-				expected: len(col.columns),
+			return &Error{
+				ColumnType: string(col.chType),
+				Err:        fmt.Errorf("invalid size. expected %d got %d", len(col.columns), len(v)),
 			}
 		}
 		for i, v := range v {
@@ -137,10 +136,10 @@ func (col *Tuple) AppendRow(v interface{}) error {
 		}
 		return nil
 	}
-	return &ColumnConverterErr{
-		op:   "AppendRow",
-		to:   string(col.chType),
-		from: fmt.Sprintf("%T", v),
+	return &ColumnConverterError{
+		Op:   "AppendRow",
+		To:   string(col.chType),
+		From: fmt.Sprintf("%T", v),
 	}
 }
 

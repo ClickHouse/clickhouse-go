@@ -2,6 +2,8 @@ package clickhouse
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"sync/atomic"
 	"time"
 
@@ -21,6 +23,22 @@ type (
 	Exception     = proto.Exception
 	ServerVersion = proto.ServerHandshake
 )
+
+var (
+	ErrBatchAlreadySent               = errors.New("clickhouse: batch has already been sent")
+	ErrAcquireConnTimeout             = errors.New("clickhouse: acquire conn timeout")
+	ErrUnsupportedServerRevision      = errors.New("clickhouse: unsupported server revision")
+	ErrBindMixedNamedAndNumericParams = errors.New("clickhouse [bind]: mixed named and numeric parameters")
+)
+
+type OpError struct {
+	Op  string
+	Err error
+}
+
+func (e *OpError) Error() string {
+	return fmt.Sprintf("clickhouse [%s]: %s", e.Op, e.Err)
+}
 
 func Open(opt *Options) (driver.Conn, error) {
 	opt.setDefaults()
@@ -129,12 +147,12 @@ func (ch *clickhouse) acquire(ctx context.Context) (conn *connect, err error) {
 	}
 	select {
 	case <-timer.C:
-		return nil, &AcquireConnTimeout{}
+		return nil, ErrAcquireConnTimeout
 	case ch.open <- struct{}{}:
 	}
 	select {
 	case <-timer.C:
-		return nil, &AcquireConnTimeout{}
+		return nil, ErrAcquireConnTimeout
 	case conn := <-ch.idle:
 		if conn.isBad() {
 			conn.close()

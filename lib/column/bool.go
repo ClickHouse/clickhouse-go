@@ -39,10 +39,10 @@ func (col *Bool) ScanRow(dest interface{}, row int) error {
 		*d = new(bool)
 		**d = col.row(row)
 	default:
-		return &ColumnConverterErr{
-			op:   "ScanRow",
-			to:   fmt.Sprintf("%T", dest),
-			from: "Bool",
+		return &ColumnConverterError{
+			Op:   "ScanRow",
+			To:   fmt.Sprintf("%T", dest),
+			From: "Bool",
 		}
 	}
 	return nil
@@ -78,10 +78,10 @@ func (col *Bool) Append(v interface{}) (nulls []uint8, err error) {
 		}
 		col.values = append(col.values, in...)
 	default:
-		return nil, &ColumnConverterErr{
-			op:   "Append",
-			to:   "Bool",
-			from: fmt.Sprintf("%T", v),
+		return nil, &ColumnConverterError{
+			Op:   "Append",
+			To:   "Bool",
+			From: fmt.Sprintf("%T", v),
 		}
 	}
 	return
@@ -98,10 +98,10 @@ func (col *Bool) AppendRow(v interface{}) error {
 		}
 	case nil:
 	default:
-		return &ColumnConverterErr{
-			op:   "AppendRow",
-			to:   "Bool",
-			from: fmt.Sprintf("%T", v),
+		return &ColumnConverterError{
+			Op:   "AppendRow",
+			To:   "Bool",
+			From: fmt.Sprintf("%T", v),
 		}
 	}
 	switch {

@@ -8,7 +8,6 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
 )
 
-//type null struct{}
 type Type string
 
 func (t Type) params() string {
@@ -18,6 +17,29 @@ func (t Type) params() string {
 	default:
 		return string(t[start+1 : end])
 	}
+}
+
+type Error struct {
+	ColumnType string
+	Err        error
+}
+
+func (e *Error) Error() string {
+	return fmt.Sprintf("%s: %s", e.ColumnType, e.Err)
+}
+
+type ColumnConverterError struct {
+	Op       string
+	Hint     string
+	From, To string
+}
+
+func (e *ColumnConverterError) Error() string {
+	var hint string
+	if len(e.Hint) != 0 {
+		hint += ". " + e.Hint
+	}
+	return fmt.Sprintf("clickhouse [%s]: converting %s to %s is unsupported%s", e.Op, e.From, e.To, hint)
 }
 
 type Interface interface {

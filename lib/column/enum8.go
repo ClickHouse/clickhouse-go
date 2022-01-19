@@ -42,10 +42,10 @@ func (e *Enum8) ScanRow(dest interface{}, row int) error {
 		*d = new(string)
 		**d = e.vi[e.values[row]]
 	default:
-		return &ColumnConverterErr{
-			op:   "ScanRow",
-			to:   fmt.Sprintf("%T", dest),
-			from: "Enum8",
+		return &ColumnConverterError{
+			Op:   "ScanRow",
+			To:   fmt.Sprintf("%T", dest),
+			From: "Enum8",
 		}
 	}
 	return nil
@@ -58,8 +58,9 @@ func (e *Enum8) Append(v interface{}) (nulls []uint8, err error) {
 		for _, elem := range v {
 			v, ok := e.iv[elem]
 			if !ok {
-				return nil, &UnknownElementForEnum{
-					element: elem,
+				return nil, &Error{
+					Err:        fmt.Errorf("unknown element %q", elem),
+					ColumnType: string(e.chType),
 				}
 			}
 			e.values = append(e.values, v)
@@ -71,8 +72,9 @@ func (e *Enum8) Append(v interface{}) (nulls []uint8, err error) {
 			case elem != nil:
 				v, ok := e.iv[*elem]
 				if !ok {
-					return nil, &UnknownElementForEnum{
-						element: *elem,
+					return nil, &Error{
+						Err:        fmt.Errorf("unknown element %q", *elem),
+						ColumnType: string(e.chType),
 					}
 				}
 				e.values = append(e.values, v)
@@ -81,10 +83,10 @@ func (e *Enum8) Append(v interface{}) (nulls []uint8, err error) {
 			}
 		}
 	default:
-		return nil, &ColumnConverterErr{
-			op:   "Append",
-			to:   "Enum8",
-			from: fmt.Sprintf("%T", v),
+		return nil, &ColumnConverterError{
+			Op:   "Append",
+			To:   "Enum8",
+			From: fmt.Sprintf("%T", v),
 		}
 	}
 	return
@@ -95,8 +97,9 @@ func (e *Enum8) AppendRow(elem interface{}) error {
 	case string:
 		v, ok := e.iv[elem]
 		if !ok {
-			return &UnknownElementForEnum{
-				element: elem,
+			return &Error{
+				Err:        fmt.Errorf("unknown element %q", elem),
+				ColumnType: string(e.chType),
 			}
 		}
 		e.values = append(e.values, v)
@@ -105,8 +108,9 @@ func (e *Enum8) AppendRow(elem interface{}) error {
 		case elem != nil:
 			v, ok := e.iv[*elem]
 			if !ok {
-				return &UnknownElementForEnum{
-					element: *elem,
+				return &Error{
+					Err:        fmt.Errorf("unknown element %q", *elem),
+					ColumnType: string(e.chType),
 				}
 			}
 			e.values = append(e.values, v)
@@ -116,10 +120,10 @@ func (e *Enum8) AppendRow(elem interface{}) error {
 	case nil:
 		e.values = append(e.values, 0)
 	default:
-		return &ColumnConverterErr{
-			op:   "AppendRow",
-			to:   "Enum8",
-			from: fmt.Sprintf("%T", elem),
+		return &ColumnConverterError{
+			Op:   "AppendRow",
+			To:   "Enum8",
+			From: fmt.Sprintf("%T", elem),
 		}
 	}
 	return nil
