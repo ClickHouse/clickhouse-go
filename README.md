@@ -54,7 +54,6 @@ clickhouse://username:password@host1:9000,host2:9000/database?dial_timeout=200ms
 
 ## TODO
 
-* [ ] LowCardinality
 * [ ] Bigint types
 * [ ] ZSTD
 * [ ] Geo
@@ -150,7 +149,7 @@ func example() error {
 		return err
 	}
 
-	rows, err := conn.Query(ctx, "SELECT Col1, Col2, Col3 FROM example")
+	rows, err := conn.Query(ctx, "SELECT Col1, Col2, Col3 FROM example WHERE Col1 >= $1 AND Col2 <> $2", 0, "xxx")
 	if err != nil {
 		return err
 	}
@@ -241,7 +240,7 @@ func example() error {
 	if err := scope.Commit(); err != nil {
 		return err
 	}
-	rows, err := conn.QueryContext(ctx, "SELECT Col1, Col2, Col3 FROM example")
+	rows, err := conn.QueryContext(ctx, "SELECT Col1, Col2, Col3 FROM example WHERE Col1 >= $1 AND Col2 <> $2", 0, "xxx")
 	if err != nil {
 		return err
 	}

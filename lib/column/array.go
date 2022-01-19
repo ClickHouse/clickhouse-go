@@ -127,9 +127,10 @@ func (col *Array) AppendRow(v interface{}) error {
 			from = fmt.Sprintf("%v", v)
 		}
 		return &ColumnConverterErr{
-			op:   "AppendRow",
-			to:   string(col.chType),
-			from: from,
+			op:     "AppendRow",
+			to:     string(col.chType),
+			from:   from,
+			advise: fmt.Sprintf("use %s", col.scanType),
 		}
 	}
 	return col.append(elem, 0)

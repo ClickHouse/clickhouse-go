@@ -42,8 +42,10 @@ type LowCardinality struct {
 	keys32 UInt32
 	keys64 UInt64
 
-	tmpIdx map[interface{}]int
-	tmpKey []int
+	tmpIdx   map[interface{}]int
+	tmpKey   []int
+	rows     int
+	nullable bool
 }
 
 func (col *LowCardinality) parse(t Type) (_ *LowCardinality, err error) {
@@ -51,6 +53,9 @@ func (col *LowCardinality) parse(t Type) (_ *LowCardinality, err error) {
 	col.tmpIdx = make(map[interface{}]int)
 	if col.index, err = Type(t.params()).Column(); err != nil {
 		return nil, err
+	}
+	if nullable, ok := col.index.(*Nullable); ok {
+		col.nullable, nullable.enable = true, false
 	}
 	return col, nil
 }
@@ -64,18 +69,23 @@ func (col *LowCardinality) ScanType() reflect.Type {
 }
 
 func (col *LowCardinality) Rows() int {
-	if len(col.tmpKey) != 0 {
-		return len(col.tmpKey)
-	}
-	return col.keys().Rows()
+	return col.rows
 }
 
 func (col *LowCardinality) Row(i int, ptr bool) interface{} {
-	return col.index.Row(col.indexRowNum(i), ptr)
+	idx := col.indexRowNum(i)
+	if idx == 0 && col.nullable {
+		return nil
+	}
+	return col.index.Row(idx, ptr)
 }
 
 func (col *LowCardinality) ScanRow(dest interface{}, row int) error {
-	return col.index.ScanRow(dest, col.indexRowNum(row))
+	idx := col.indexRowNum(row)
+	if idx == 0 && col.nullable {
+		return nil
+	}
+	return col.index.ScanRow(dest, idx)
 }
 
 func (col *LowCardinality) Append(v interface{}) (nulls []uint8, err error) {
@@ -96,21 +106,27 @@ func (col *LowCardinality) Append(v interface{}) (nulls []uint8, err error) {
 }
 
 func (col *LowCardinality) AppendRow(v interface{}) error {
+	col.rows++
+	if col.index.Rows() == 0 { //init
+		if col.index.AppendRow(nil); col.nullable {
+			col.index.AppendRow(nil)
+		}
+	}
+	if v == nil {
+		col.tmpKey = append(col.tmpKey, 0)
+		return nil
+	}
 	switch x := v.(type) {
 	case time.Time:
 		v = x.Truncate(time.Second)
 	}
 	if _, found := col.tmpIdx[v]; !found {
-		if v == nil {
-			return fmt.Errorf("clickhouse: LowCardinality does not support NULL values")
-		}
 		if err := col.index.AppendRow(v); err != nil {
 			return err
 		}
 		col.tmpIdx[v] = col.index.Rows() - 1
 	}
 	col.tmpKey = append(col.tmpKey, col.tmpIdx[v])
-
 	return nil
 }
 
@@ -148,10 +164,8 @@ func (col *LowCardinality) Decode(decoder *binary.Decoder, _ int) error {
 	if err != nil {
 		return err
 	}
-	if err := col.keys().Decode(decoder, int(keysRows)); err != nil {
-		return err
-	}
-	return nil
+	col.rows = int(keysRows)
+	return col.keys().Decode(decoder, col.rows)
 }
 
 func (col *LowCardinality) Encode(encoder *binary.Encoder) error {

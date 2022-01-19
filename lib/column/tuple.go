@@ -80,7 +80,7 @@ func (col *Tuple) Rows() int {
 func (col *Tuple) Row(i int, ptr bool) interface{} {
 	tuple := make([]interface{}, 0, len(col.columns))
 	for _, c := range col.columns {
-		tuple = append(tuple, c.Row(i, false))
+		tuple = append(tuple, c.Row(i, ptr))
 	}
 	return tuple
 }

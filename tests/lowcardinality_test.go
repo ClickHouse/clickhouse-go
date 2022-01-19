@@ -42,6 +42,8 @@ func TestLowCardinality(t *testing.T) {
 			, Col4 LowCardinality(Int32)
 			, Col5 Array(LowCardinality(String))
 			, Col6 Array(Array(LowCardinality(String)))
+			, Col7 LowCardinality(Nullable(String))
+			, Col8 Array(Array(LowCardinality(Nullable(String))))
 		) Engine Memory
 		`
 		if err := conn.Exec(ctx, "DROP TABLE IF EXISTS test_lowcardinality"); assert.NoError(t, err) {
@@ -62,9 +64,20 @@ func TestLowCardinality(t *testing.T) {
 								[]string{"Q", "W", "E"},
 								[]string{"R", "T", "Y"},
 							}
+							col7Data = &col2Data
+							col8Data = [][]*string{
+								[]*string{&col2Data, nil, &col2Data},
+								[]*string{nil, &col2Data, nil},
+							}
 						)
-						if err := batch.Append(col1Data, col2Data, col3Data, col4Data, col5Data, col6Data); !assert.NoError(t, err) {
-							return
+						if i%2 == 0 {
+							if err := batch.Append(col1Data, col2Data, col3Data, col4Data, col5Data, col6Data, col7Data, col8Data); !assert.NoError(t, err) {
+								return
+							}
+						} else {
+							if err := batch.Append(col1Data, col2Data, col3Data, col4Data, col5Data, col6Data, nil, col8Data); !assert.NoError(t, err) {
+								return
+							}
 						}
 					}
 					if assert.NoError(t, batch.Send()) {
@@ -72,24 +85,39 @@ func TestLowCardinality(t *testing.T) {
 						if err := conn.QueryRow(ctx, "SELECT COUNT() FROM test_lowcardinality").Scan(&count); assert.NoError(t, err) {
 							assert.Equal(t, uint64(10), count)
 						}
-						var (
-							col1 string
-							col2 string
-							col3 time.Time
-							col4 int32
-							col5 []string
-							col6 [][]string
-						)
-						if err := conn.QueryRow(ctx, "SELECT * FROM test_lowcardinality WHERE Col4 = $1", rnd+6).Scan(&col1, &col2, &col3, &col4, &col5, &col6); assert.NoError(t, err) {
-							assert.Equal(t, timestamp.String(), col1)
-							assert.Equal(t, "RU", col2)
-							assert.Equal(t, timestamp.Add(time.Duration(6)*time.Minute).Truncate(time.Second), col3)
-							assert.Equal(t, int32(rnd+6), col4)
-							assert.Equal(t, []string{"A", "B", "C"}, col5)
-							assert.Equal(t, [][]string{
-								[]string{"Q", "W", "E"},
-								[]string{"R", "T", "Y"},
-							}, col6)
+						for i := 0; i < 10; i++ {
+							var (
+								col1 string
+								col2 string
+								col3 time.Time
+								col4 int32
+								col5 []string
+								col6 [][]string
+								col7 *string
+								col8 [][]*string
+							)
+							if err := conn.QueryRow(ctx, "SELECT * FROM test_lowcardinality WHERE Col4 = $1", rnd+int32(i)).Scan(&col1, &col2, &col3, &col4, &col5, &col6, &col7, &col8); assert.NoError(t, err) {
+								assert.Equal(t, timestamp.String(), col1)
+								assert.Equal(t, "RU", col2)
+								assert.Equal(t, timestamp.Add(time.Duration(i)*time.Minute).Truncate(time.Second), col3)
+								assert.Equal(t, rnd+int32(i), col4)
+								assert.Equal(t, []string{"A", "B", "C"}, col5)
+								assert.Equal(t, [][]string{
+									[]string{"Q", "W", "E"},
+									[]string{"R", "T", "Y"},
+								}, col6)
+								switch {
+								case i%2 == 0:
+									assert.Equal(t, &col2, col7)
+								default:
+									assert.Nil(t, col7)
+								}
+								col2Data := "RU"
+								assert.Equal(t, [][]*string{
+									[]*string{&col2Data, nil, &col2Data},
+									[]*string{nil, &col2Data, nil},
+								}, col8)
+							}
 						}
 					}
 				}
@@ -98,7 +126,6 @@ func TestLowCardinality(t *testing.T) {
 	}
 }
 
-/*
 func TestNullableLowCardinality(t *testing.T) {
 	var (
 		ctx       = context.Background()
@@ -133,12 +160,14 @@ func TestNullableLowCardinality(t *testing.T) {
 			if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 				if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_lowcardinality"); assert.NoError(t, err) {
 					batch.Append("X")
+					batch.Append(nil)
+					batch.Append("X")
 					t.Log(batch.Send())
 				}
 			}
 		}
 	}
-}*/
+}
 func TestColmnarLowCardinality(t *testing.T) {
 	var (
 		ctx       = context.Background()
