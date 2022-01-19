@@ -31,7 +31,7 @@ func TestIssue406(t *testing.T) {
 		}
 		const ddl = `
 			CREATE TABLE issue_406 (
-				    Col1 Tuple(Array(Int32), Array(Int32))
+				Col1 Tuple(Array(Int32), Array(Int32))
 			) Engine Memory
 		`
 		if err := conn.Exec(ctx, "DROP TABLE IF EXISTS issue_406"); assert.NoError(t, err) {
