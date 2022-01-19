@@ -149,7 +149,7 @@ func example() error {
 		return err
 	}
 
-	rows, err := conn.Query(ctx, "SELECT Col1, Col2, Col3 FROM example WHERE Col1 >= $1 AND Col2 <> $2", 0, "xxx")
+	rows, err := conn.Query(ctx, "SELECT Col1, Col2, Col3 FROM example WHERE Col1 >= $1 AND Col2 <> $2 AND Col3 <= $3", 0, "xxx", time.Now())
 	if err != nil {
 		return err
 	}

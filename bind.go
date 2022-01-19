@@ -113,7 +113,10 @@ func format(tz *time.Location, v interface{}) string {
 	case string:
 		return quote(v)
 	case time.Time:
-		if v.Location().String() == tz.String() {
+		switch v.Location().String() {
+		case "Local":
+			return fmt.Sprintf("toDateTime(%d)", v.Unix())
+		case tz.String():
 			return v.Format("toDateTime('2006-01-02 15:04:05')")
 		}
 		return v.Format("toDateTime('2006-01-02 15:04:05', '" + v.Location().String() + "')")
