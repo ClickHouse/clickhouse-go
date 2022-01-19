@@ -128,6 +128,14 @@ func (s *stdBatch) Exec(args []driver.Value) (driver.Result, error) {
 	return driver.RowsAffected(0), nil
 }
 
+func (s *stdBatch) ExecContext(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
+	values := make([]driver.Value, 0, len(args))
+	for _, v := range args {
+		values = append(values, v.Value)
+	}
+	return s.Exec(values)
+}
+
 func (s *stdBatch) Query(args []driver.Value) (driver.Rows, error) {
 	return nil, errors.New("only Exec method supported in batch mode")
 }
