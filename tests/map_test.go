@@ -36,6 +36,7 @@ func TestMap(t *testing.T) {
 			, Col2 Map(String, UInt64)
 			, Col3 Map(String, UInt64)
 			, Col4 Array(Map(String, String))
+			, Col5 Map(LowCardinality(String), LowCardinality(UInt64))
 		) Engine Memory
 		`
 		if err := conn.Exec(ctx, "DROP TABLE IF EXISTS test_map"); assert.NoError(t, err) {
@@ -55,20 +56,26 @@ func TestMap(t *testing.T) {
 							map[string]string{"A": "B"},
 							map[string]string{"C": "D"},
 						}
+						col5Data = map[string]uint64{
+							"key_col_5_1": 100,
+							"key_col_5_2": 200,
+						}
 					)
-					if err := batch.Append(col1Data, col2Data, col3Data, col4Data); assert.NoError(t, err) {
+					if err := batch.Append(col1Data, col2Data, col3Data, col4Data, col5Data); assert.NoError(t, err) {
 						if assert.NoError(t, batch.Send()) {
 							var (
 								col1 map[string]uint64
 								col2 map[string]uint64
 								col3 map[string]uint64
 								col4 []map[string]string
+								col5 map[string]uint64
 							)
-							if err := conn.QueryRow(ctx, "SELECT * FROM test_map").Scan(&col1, &col2, &col3, &col4); assert.NoError(t, err) {
+							if err := conn.QueryRow(ctx, "SELECT * FROM test_map").Scan(&col1, &col2, &col3, &col4, &col5); assert.NoError(t, err) {
 								assert.Equal(t, col1Data, col1)
 								assert.Equal(t, col2Data, col2)
 								assert.Equal(t, col3Data, col3)
 								assert.Equal(t, col4Data, col4)
+								assert.Equal(t, col5Data, col5)
 							}
 						}
 					}
@@ -155,7 +162,6 @@ func TestColmnarMap(t *testing.T) {
 							assert.Equal(t, col3Data, col3)
 						}
 					}
-
 				}
 			}
 		}

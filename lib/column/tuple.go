@@ -162,4 +162,29 @@ func (col *Tuple) Encode(encoder *binary.Encoder) error {
 	return nil
 }
 
-var _ Interface = (*Tuple)(nil)
+func (col *Tuple) ReadStatePrefix(decoder *binary.Decoder) error {
+	for _, c := range col.columns {
+		if serialize, ok := c.(CustomSerialization); ok {
+			if err := serialize.ReadStatePrefix(decoder); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (col *Tuple) WriteStatePrefix(encoder *binary.Encoder) error {
+	for _, c := range col.columns {
+		if serialize, ok := c.(CustomSerialization); ok {
+			if err := serialize.WriteStatePrefix(encoder); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+var (
+	_ Interface           = (*Tuple)(nil)
+	_ CustomSerialization = (*Tuple)(nil)
+)

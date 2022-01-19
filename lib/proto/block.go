@@ -78,6 +78,11 @@ func (b *Block) Encode(encoder *binary.Encoder, revision uint64) error {
 		if err := encoder.String(string(c.Type())); err != nil {
 			return err
 		}
+		if serialize, ok := c.(column.CustomSerialization); ok {
+			if err := serialize.WriteStatePrefix(encoder); err != nil {
+				return err
+			}
+		}
 		if err := c.Encode(encoder); err != nil {
 			return err
 		}
@@ -116,16 +121,21 @@ func (b *Block) Decode(decoder *binary.Decoder, revision uint64) (err error) {
 		if columnType, err = decoder.String(); err != nil {
 			return err
 		}
-		column, err := column.Type(columnType).Column()
+		c, err := column.Type(columnType).Column()
 		if err != nil {
 			return err
 		}
 		if numRows != 0 {
-			if err := column.Decode(decoder, int(numRows)); err != nil {
+			if serialize, ok := c.(column.CustomSerialization); ok {
+				if err := serialize.ReadStatePrefix(decoder); err != nil {
+					return err
+				}
+			}
+			if err := c.Decode(decoder, int(numRows)); err != nil {
 				return err
 			}
 		}
-		b.names, b.Columns = append(b.names, columnName), append(b.Columns, column)
+		b.names, b.Columns = append(b.names, columnName), append(b.Columns, c)
 	}
 	return nil
 }

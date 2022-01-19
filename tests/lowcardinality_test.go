@@ -40,6 +40,8 @@ func TestLowCardinality(t *testing.T) {
 			, Col2 LowCardinality(FixedString(2))
 			, Col3 LowCardinality(DateTime)
 			, Col4 LowCardinality(Int32)
+			, Col5 Array(LowCardinality(String))
+			, Col6 Array(Array(LowCardinality(String)))
 		) Engine Memory
 		`
 		if err := conn.Exec(ctx, "DROP TABLE IF EXISTS test_lowcardinality"); assert.NoError(t, err) {
@@ -55,8 +57,13 @@ func TestLowCardinality(t *testing.T) {
 							col2Data = "RU"
 							col3Data = timestamp.Add(time.Duration(i) * time.Minute)
 							col4Data = rnd + int32(i)
+							col5Data = []string{"A", "B", "C"}
+							col6Data = [][]string{
+								[]string{"Q", "W", "E"},
+								[]string{"R", "T", "Y"},
+							}
 						)
-						if err := batch.Append(col1Data, col2Data, col3Data, col4Data); !assert.NoError(t, err) {
+						if err := batch.Append(col1Data, col2Data, col3Data, col4Data, col5Data, col6Data); !assert.NoError(t, err) {
 							return
 						}
 					}
@@ -70,12 +77,19 @@ func TestLowCardinality(t *testing.T) {
 							col2 string
 							col3 time.Time
 							col4 int32
+							col5 []string
+							col6 [][]string
 						)
-						if err := conn.QueryRow(ctx, "SELECT * FROM test_lowcardinality WHERE Col4 = $1", rnd+6).Scan(&col1, &col2, &col3, &col4); assert.NoError(t, err) {
+						if err := conn.QueryRow(ctx, "SELECT * FROM test_lowcardinality WHERE Col4 = $1", rnd+6).Scan(&col1, &col2, &col3, &col4, &col5, &col6); assert.NoError(t, err) {
 							assert.Equal(t, timestamp.String(), col1)
 							assert.Equal(t, "RU", col2)
 							assert.Equal(t, timestamp.Add(time.Duration(6)*time.Minute).Truncate(time.Second), col3)
 							assert.Equal(t, int32(rnd+6), col4)
+							assert.Equal(t, []string{"A", "B", "C"}, col5)
+							assert.Equal(t, [][]string{
+								[]string{"Q", "W", "E"},
+								[]string{"R", "T", "Y"},
+							}, col6)
 						}
 					}
 				}
@@ -83,6 +97,48 @@ func TestLowCardinality(t *testing.T) {
 		}
 	}
 }
+
+/*
+func TestNullableLowCardinality(t *testing.T) {
+	var (
+		ctx       = context.Background()
+		conn, err = clickhouse.Open(&clickhouse.Options{
+			Addr: []string{"127.0.0.1:9000"},
+			Auth: clickhouse.Auth{
+				Database: "default",
+				Username: "default",
+				Password: "",
+			},
+			Compression: &clickhouse.Compression{
+				Method: clickhouse.CompressionLZ4,
+			},
+			Settings: clickhouse.Settings{
+				"allow_suspicious_low_cardinality_types": 1,
+			},
+			//	Debug: true,
+		})
+	)
+	if assert.NoError(t, err) {
+		if err := checkMinServerVersion(conn, 19, 11); err != nil {
+			t.Skip(err.Error())
+			return
+		}
+		const ddl = `
+		CREATE TABLE test_lowcardinality (
+			  Col1 LowCardinality(Nullable(String))
+
+		) Engine Memory
+		`
+		if err := conn.Exec(ctx, "DROP TABLE IF EXISTS test_lowcardinality"); assert.NoError(t, err) {
+			if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
+				if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_lowcardinality"); assert.NoError(t, err) {
+					batch.Append("X")
+					t.Log(batch.Send())
+				}
+			}
+		}
+	}
+}*/
 func TestColmnarLowCardinality(t *testing.T) {
 	var (
 		ctx       = context.Background()

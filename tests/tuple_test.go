@@ -37,6 +37,7 @@ func TestTuple(t *testing.T) {
 			, Col2 Tuple(String, Int8, DateTime)
 			, Col3 Tuple(name1 DateTime, name2 FixedString(2), name3 Map(String, String))
 			, Col4 Array(Array( Tuple(String, Int64) ))
+			, Col5 Tuple(LowCardinality(String), Array(LowCardinality(String)))
 		) Engine Memory
 		`
 		if err := conn.Exec(ctx, "DROP TABLE IF EXISTS test_tuple"); assert.NoError(t, err) {
@@ -53,20 +54,26 @@ func TestTuple(t *testing.T) {
 								[]interface{}{"Hi", int64(42)},
 							},
 						}
+						col5Data = []interface{}{
+							"LCString",
+							[]string{"A", "B", "C"},
+						}
 					)
-					if err := batch.Append(col1Data, col2Data, col3Data, col4Data); assert.NoError(t, err) {
+					if err := batch.Append(col1Data, col2Data, col3Data, col4Data, col5Data); assert.NoError(t, err) {
 						if assert.NoError(t, batch.Send()) {
 							var (
 								col1 []interface{}
 								col2 []interface{}
 								col3 []interface{}
 								col4 [][][]interface{}
+								col5 []interface{}
 							)
-							if err := conn.QueryRow(ctx, "SELECT * FROM test_tuple").Scan(&col1, &col2, &col3, &col4); assert.NoError(t, err) {
+							if err := conn.QueryRow(ctx, "SELECT * FROM test_tuple").Scan(&col1, &col2, &col3, &col4, &col5); assert.NoError(t, err) {
 								assert.Equal(t, col1Data, col1)
 								assert.Equal(t, col2Data, col2)
 								assert.Equal(t, col3Data, col3)
 								assert.Equal(t, col4Data, col4)
+								assert.Equal(t, col5Data, col5)
 							}
 						}
 					}

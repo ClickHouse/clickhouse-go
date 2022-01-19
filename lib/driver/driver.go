@@ -9,9 +9,6 @@ import (
 type ServerVersion = proto.ServerHandshake
 
 type (
-	Block interface {
-		Rows() int
-	}
 	NamedValue struct {
 		Name  string
 		Value interface{}

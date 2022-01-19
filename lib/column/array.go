@@ -179,6 +179,24 @@ func (col *Array) Encode(encoder *binary.Encoder) error {
 	return col.values.Encode(encoder)
 }
 
+func (col *Array) ReadStatePrefix(decoder *binary.Decoder) error {
+	if serialize, ok := col.values.(CustomSerialization); ok {
+		if err := serialize.ReadStatePrefix(decoder); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (col *Array) WriteStatePrefix(encoder *binary.Encoder) error {
+	if serialize, ok := col.values.(CustomSerialization); ok {
+		if err := serialize.WriteStatePrefix(encoder); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (col *Array) make(row uint64, level int) reflect.Value {
 	offset := col.offsets[level]
 	var (
@@ -211,4 +229,7 @@ func (col *Array) make(row uint64, level int) reflect.Value {
 	return slice
 }
 
-var _ Interface = (*Array)(nil)
+var (
+	_ Interface           = (*Array)(nil)
+	_ CustomSerialization = (*Array)(nil)
+)

@@ -115,20 +115,10 @@ func (col *LowCardinality) AppendRow(v interface{}) error {
 }
 
 func (col *LowCardinality) Decode(decoder *binary.Decoder, _ int) error {
-	keyVersion, err := decoder.UInt64()
-	if err != nil {
-		return err
-	}
-	if keyVersion != sharedDictionariesWithAdditionalKeys {
-		return &LowCardinalityDecode{
-			msg: "invalid key serialization version value",
-		}
-	}
 	indexSerializationType, err := decoder.UInt64()
 	if err != nil {
 		return err
 	}
-
 	col.key = byte(indexSerializationType & indexTypeMask)
 	switch col.key {
 	case keyUInt8, keyUInt16, keyUInt32, keyUInt64:
@@ -198,9 +188,6 @@ func (col *LowCardinality) Encode(encoder *binary.Encoder) error {
 			}
 		}
 	}
-	if err := encoder.UInt64(sharedDictionariesWithAdditionalKeys); err != nil {
-		return err
-	}
 	if err := encoder.UInt64(updateAll | uint64(col.key)); err != nil {
 		return err
 	}
@@ -215,6 +202,23 @@ func (col *LowCardinality) Encode(encoder *binary.Encoder) error {
 		return err
 	}
 	return keys.Encode(encoder)
+}
+
+func (col *LowCardinality) ReadStatePrefix(decoder *binary.Decoder) error {
+	keyVersion, err := decoder.UInt64()
+	if err != nil {
+		return err
+	}
+	if keyVersion != sharedDictionariesWithAdditionalKeys {
+		return &LowCardinalityDecode{
+			msg: "invalid key serialization version value",
+		}
+	}
+	return nil
+}
+
+func (col *LowCardinality) WriteStatePrefix(encoder *binary.Encoder) error {
+	return encoder.UInt64(sharedDictionariesWithAdditionalKeys)
 }
 
 func (col *LowCardinality) keys() Interface {
@@ -243,4 +247,7 @@ func (col *LowCardinality) indexRowNum(row int) int {
 	return 0
 }
 
-var _ Interface = (*LowCardinality)(nil)
+var (
+	_ Interface           = (*LowCardinality)(nil)
+	_ CustomSerialization = (*LowCardinality)(nil)
+)

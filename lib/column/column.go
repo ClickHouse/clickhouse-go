@@ -32,6 +32,11 @@ type Interface interface {
 	ScanType() reflect.Type
 }
 
+type CustomSerialization interface {
+	ReadStatePrefix(*binary.Decoder) error
+	WriteStatePrefix(*binary.Encoder) error
+}
+
 type UnsupportedColumnType struct {
 	t Type
 }

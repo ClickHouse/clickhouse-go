@@ -136,6 +136,34 @@ func (col *Map) Encode(encoder *binary.Encoder) error {
 	return col.values.Encode(encoder)
 }
 
+func (col *Map) ReadStatePrefix(decoder *binary.Decoder) error {
+	if serialize, ok := col.keys.(CustomSerialization); ok {
+		if err := serialize.ReadStatePrefix(decoder); err != nil {
+			return err
+		}
+	}
+	if serialize, ok := col.values.(CustomSerialization); ok {
+		if err := serialize.ReadStatePrefix(decoder); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (col *Map) WriteStatePrefix(encoder *binary.Encoder) error {
+	if serialize, ok := col.keys.(CustomSerialization); ok {
+		if err := serialize.WriteStatePrefix(encoder); err != nil {
+			return err
+		}
+	}
+	if serialize, ok := col.values.(CustomSerialization); ok {
+		if err := serialize.WriteStatePrefix(encoder); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (col *Map) row(n int) reflect.Value {
 	var (
 		prev  int64
@@ -154,4 +182,7 @@ func (col *Map) row(n int) reflect.Value {
 	return value
 }
 
-var _ Interface = (*Map)(nil)
+var (
+	_ Interface           = (*Map)(nil)
+	_ CustomSerialization = (*Map)(nil)
+)
