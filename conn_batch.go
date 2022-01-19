@@ -29,13 +29,14 @@ func (c *connect) prepareBatch(ctx context.Context, query string, release func(*
 	}
 	var (
 		onProcess  = options.onProcess()
-		block, err = c.firstBlock(onProcess)
+		block, err = c.firstBlock(ctx, onProcess)
 	)
 	if err != nil {
 		release(c)
 		return nil, err
 	}
 	return &batch{
+		ctx:   ctx,
 		conn:  c,
 		block: block,
 		release: func(err error) {
@@ -48,6 +49,7 @@ func (c *connect) prepareBatch(ctx context.Context, query string, release func(*
 
 type batch struct {
 	err       error
+	ctx       context.Context
 	conn      *connect
 	sent      bool
 	block     *proto.Block
@@ -102,7 +104,7 @@ func (b *batch) Send() (err error) {
 	if err = b.conn.encoder.Flush(); err != nil {
 		return err
 	}
-	if err = b.conn.process(b.onProcess); err != nil {
+	if err = b.conn.process(b.ctx, b.onProcess); err != nil {
 		return err
 	}
 	return nil

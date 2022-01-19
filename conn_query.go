@@ -27,7 +27,7 @@ func (c *connect) query(ctx context.Context, query string, args ...interface{}) 
 		return nil, c.err
 	}
 
-	init, err := c.firstBlock(onProcess)
+	init, err := c.firstBlock(ctx, onProcess)
 
 	if err != nil {
 		return nil, err
@@ -42,7 +42,7 @@ func (c *connect) query(ctx context.Context, query string, args ...interface{}) 
 		onProcess.data = func(b *proto.Block) {
 			stream <- b
 		}
-		err := c.process(onProcess)
+		err := c.process(ctx, onProcess)
 		if err != nil {
 			errors <- err
 		}

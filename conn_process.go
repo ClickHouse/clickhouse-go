@@ -1,8 +1,11 @@
 package clickhouse
 
 import (
+	"context"
 	"io"
+	"time"
 
+	"github.com/ClickHouse/clickhouse-go/lib/protocol"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 
@@ -13,8 +16,14 @@ type onProcess struct {
 	profileEvents func([]ProfileEvent)
 }
 
-func (c *connect) firstBlock(on *onProcess) (*proto.Block, error) {
+func (c *connect) firstBlock(ctx context.Context, on *onProcess) (*proto.Block, error) {
 	for {
+		select {
+		case <-ctx.Done():
+			c.cancel()
+			return nil, ctx.Err()
+		default:
+		}
 		packet, err := c.decoder.ReadByte()
 		if err != nil {
 			return nil, err
@@ -33,8 +42,14 @@ func (c *connect) firstBlock(on *onProcess) (*proto.Block, error) {
 	}
 }
 
-func (c *connect) process(on *onProcess) error {
+func (c *connect) process(ctx context.Context, on *onProcess) error {
 	for {
+		select {
+		case <-ctx.Done():
+			c.cancel()
+			return ctx.Err()
+		default:
+		}
 		packet, err := c.decoder.ReadByte()
 		if err != nil {
 			return err
@@ -100,4 +115,14 @@ func (c *connect) handle(packet byte, on *onProcess) error {
 		}
 	}
 	return nil
+}
+
+func (c *connect) cancel() error {
+	c.conn.SetDeadline(time.Now().Add(2 * time.Second))
+	c.debugf("[cancel]")
+	c.closed = true
+	if err := c.encoder.Uvarint(protocol.ClientCancel); err == nil {
+		return err
+	}
+	return c.encoder.Flush()
 }

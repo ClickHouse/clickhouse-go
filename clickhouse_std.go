@@ -221,6 +221,9 @@ func (r *stdRows) Next(dest []driver.Value) error {
 		}
 		return nil
 	}
+	if err := r.rows.Err(); err != nil {
+		return err
+	}
 	return io.EOF
 }
 
