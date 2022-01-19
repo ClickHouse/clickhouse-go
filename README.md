@@ -11,7 +11,7 @@ Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/). 
 * Marshal rows into structs ([ScanStruct](tests/scan_struct_test.go), [Select](examples/native/scan_struct.go))
 * Connection pool
 * Failover and load balancing
-* Bulk write support (for `database/sql` use `begin->prepare->(in loop exec)->commit`)
+* [Bulk write support](examples/native/batch.go) (for `database/sql` [use](examples/std/batch.go) `begin->prepare->(in loop exec)->commit`)
 * Named and numeric placeholders support
 * LZ4 compression support
 * External data
