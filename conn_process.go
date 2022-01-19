@@ -44,6 +44,7 @@ func (c *connect) firstBlock(ctx context.Context, on *onProcess) (*proto.Block, 
 }
 
 func (c *connect) process(ctx context.Context, on *onProcess) error {
+	c.lastUsedIn = time.Now()
 	for {
 		select {
 		case <-ctx.Done():

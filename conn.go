@@ -1,6 +1,7 @@
 package clickhouse
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"log"
@@ -69,6 +70,7 @@ type connect struct {
 	released    bool
 	revision    uint64
 	compression bool
+	lastUsedIn  time.Time
 	connectedAt time.Time
 }
 
@@ -93,6 +95,13 @@ func (c *connect) isBad() bool {
 	switch {
 	case c.closed, c.err != nil:
 		return true
+	}
+	if time.Since(c.lastUsedIn) > time.Minute {
+		ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Second))
+		defer cancel()
+		if err := c.ping(ctx); err != nil {
+			return false
+		}
 	}
 	return false
 }
