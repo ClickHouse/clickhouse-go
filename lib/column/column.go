@@ -183,7 +183,7 @@ func Factory(name, chType string, timezone *time.Location) (Column, error) {
 	case strings.HasPrefix(chType, "Tuple"):
 		return parseTuple(name, chType, timezone)
 	}
-	return nil, fmt.Errorf("column: unhandled type %v", chType)
+	return nil, fmt.Errorf("column %s: unhandled type %v", name, chType)
 }
 
 func getNestedType(chType string, wrapType string) (string, error) {
