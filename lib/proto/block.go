@@ -1,6 +1,7 @@
 package proto
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
@@ -32,10 +33,9 @@ func (b *Block) AddColumn(name string, ct column.Type) error {
 func (b *Block) Append(v ...interface{}) (err error) {
 	columns := b.Columns
 	if len(columns) != len(v) {
-		return &UnexpectedArguments{
-			op:   "block append",
-			got:  len(v),
-			want: len(columns),
+		return &BlockError{
+			Op:  "Append",
+			Err: fmt.Errorf("clickhouse: expected %d arguments, got %d", len(columns), len(v)),
 		}
 	}
 	for i, v := range v {
@@ -59,8 +59,9 @@ func (b *Block) Encode(encoder *binary.Encoder, revision uint64) error {
 		rows = b.Columns[0].Rows()
 		for _, c := range b.Columns[1:] {
 			if rows != c.Rows() {
-				return &InvalidBlockData{
-					msg: "mismatched len of columns",
+				return &BlockError{
+					Op:  "Encode",
+					Err: errors.New("mismatched len of columns"),
 				}
 			}
 		}
@@ -113,8 +114,9 @@ func (b *Block) Decode(decoder *binary.Decoder, revision uint64) (err error) {
 		return err
 	}
 	if numRows > 1_000_000 {
-		return &InvalidBlockData{
-			msg: "more then 1 000 000 rows in block",
+		return &BlockError{
+			Op:  "Decode",
+			Err: errors.New("more then 1 000 000 rows in block"),
 		}
 	}
 	b.Columns = make([]column.Interface, 0, numCols)
@@ -195,25 +197,26 @@ func decodeBlockInfo(decoder *binary.Decoder) error {
 	return nil
 }
 
-type UnexpectedArguments struct {
-	op        string
-	got, want int
+type BlockError struct {
+	Op         string
+	Err        error
+	ColumnName string
 }
 
-func (e *UnexpectedArguments) Error() string {
-	if len(e.op) != 0 {
-		return fmt.Sprintf("clickhouse [%s]: expected %d arguments, got %d", e.op, e.want, e.got)
+func (e *BlockError) Error() string {
+	switch err := e.Err.(type) {
+	case *column.Error:
+		return fmt.Sprintf("clickhouse [%s]: (%s %s) %s", e.Op, e.ColumnName, err.ColumnType, err.Err)
+	case *column.ColumnConverterError:
+		var hint string
+		if len(err.Hint) != 0 {
+			hint += ". " + err.Hint
+		}
+		return fmt.Sprintf("clickhouse [%s]: (%s) converting %s to %s is unsupported%s",
+			err.Op, e.ColumnName,
+			err.From, err.To,
+			hint,
+		)
 	}
-	return fmt.Sprintf("clickhouse: expected %d arguments, got %d", e.want, e.got)
-}
-
-type InvalidBlockData struct {
-	msg string
-}
-
-func (e *InvalidBlockData) Error() string {
-	if len(e.msg) != 0 {
-		return "clickhouse: invalid block data. " + e.msg
-	}
-	return "clickhouse: invalid block data"
+	return fmt.Sprintf("clickhouse [%s]: %s %s", e.Op, e.ColumnName, e.Err)
 }
