@@ -100,7 +100,7 @@ func (c *connect) isBad() bool {
 		ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Second))
 		defer cancel()
 		if err := c.ping(ctx); err != nil {
-			return false
+			return true
 		}
 	}
 	return false
