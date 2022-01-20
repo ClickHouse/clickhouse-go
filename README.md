@@ -1,6 +1,5 @@
 # ClickHouse
 [![run-tests](https://github.com/ClickHouse/clickhouse-go/actions/workflows/run-tests.yml/badge.svg?branch=v2)](https://github.com/ClickHouse/clickhouse-go/actions/workflows/run-tests.yml)
-[![Go Report Card](https://goreportcard.com/badge/github.com/ClickHouse/clickhouse-go)](https://goreportcard.com/report/github.com/ClickHouse/clickhouse-go)
 
 Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/). Supported by [Kinescope](https://kinescope.io).
 
@@ -25,6 +24,7 @@ Support for the ClickHouse protocol advanced features using `Context`:
 * Execution events:
 	* Logs
 	* Progress
+	* Profile info
 	* Profile events
 
 # `database/sql` interface
@@ -107,6 +107,9 @@ func example() error {
 		ConnMaxLifetime: time.Hour,
 		Compression: &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
+		},
+		Settings: clickhouse.Settings{
+			"max_execution_time": 60,
 		},
 	})
 	if err != nil {

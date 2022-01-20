@@ -2,6 +2,7 @@ package clickhouse
 
 import (
 	"context"
+	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2/external"
 	"go.opentelemetry.io/otel/trace"
@@ -95,7 +96,9 @@ func WithExternalTable(t ...*external.Table) QueryOption {
 }
 
 func Context(parent context.Context, options ...QueryOption) context.Context {
-	var opt QueryOptions
+	opt := QueryOptions{
+		settings: make(Settings),
+	}
 	for _, f := range options {
 		f(&opt)
 	}
@@ -104,6 +107,11 @@ func Context(parent context.Context, options ...QueryOption) context.Context {
 
 func queryOptions(ctx context.Context) QueryOptions {
 	if o, ok := ctx.Value(_contextOptionKey).(QueryOptions); ok {
+		if deadline, ok := ctx.Deadline(); ok {
+			if sec := time.Until(deadline).Seconds(); sec > 1 {
+				o.settings["max_execution_time"] = int(sec + 5)
+			}
+		}
 		return o
 	}
 	return QueryOptions{}
