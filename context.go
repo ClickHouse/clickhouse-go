@@ -23,6 +23,7 @@ type (
 		events   struct {
 			logs          func(*Log)
 			progress      func(*Progress)
+			profileInfo   func(*ProfileInfo)
 			profileEvents func([]ProfileEvent)
 		}
 		settings Settings
@@ -72,6 +73,13 @@ func WithProgress(fn func(*Progress)) QueryOption {
 	}
 }
 
+func WithPofileInfo(fn func(*ProfileInfo)) QueryOption {
+	return func(o *QueryOptions) error {
+		o.events.profileInfo = fn
+		return nil
+	}
+}
+
 func WithProfileEvents(fn func([]ProfileEvent)) QueryOption {
 	return func(o *QueryOptions) error {
 		o.events.profileEvents = fn
@@ -113,6 +121,11 @@ func (q *QueryOptions) onProcess() *onProcess {
 		progress: func(p *Progress) {
 			if q.events.progress != nil {
 				q.events.progress(p)
+			}
+		},
+		profileInfo: func(p *ProfileInfo) {
+			if q.events.profileInfo != nil {
+				q.events.profileInfo(p)
 			}
 		},
 		profileEvents: func(events []ProfileEvent) {

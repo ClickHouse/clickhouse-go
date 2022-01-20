@@ -34,24 +34,26 @@ const sharedDictionariesWithAdditionalKeys = 1
 // https://github.com/ClickHouse/ClickHouse/blob/master/src/Columns/ColumnLowCardinality.cpp
 // https://github.com/ClickHouse/clickhouse-cpp/blob/master/clickhouse/columns/lowcardinality.cpp
 type LowCardinality struct {
-	key    byte
-	index  Interface
-	chType Type
+	key      byte
+	rows     int
+	index    Interface
+	chType   Type
+	nullable bool
 
 	keys8  UInt8
 	keys16 UInt16
 	keys32 UInt32
 	keys64 UInt64
 
-	tmpIdx   map[interface{}]int
-	tmpKey   []int
-	rows     int
-	nullable bool
+	append struct {
+		keys  []int
+		index map[interface{}]int
+	}
 }
 
 func (col *LowCardinality) parse(t Type) (_ *LowCardinality, err error) {
 	col.chType = t
-	col.tmpIdx = make(map[interface{}]int)
+	col.append.index = make(map[interface{}]int)
 	if col.index, err = Type(t.params()).Column(); err != nil {
 		return nil, err
 	}
@@ -114,20 +116,20 @@ func (col *LowCardinality) AppendRow(v interface{}) error {
 		}
 	}
 	if v == nil {
-		col.tmpKey = append(col.tmpKey, 0)
+		col.append.keys = append(col.append.keys, 0)
 		return nil
 	}
 	switch x := v.(type) {
 	case time.Time:
 		v = x.Truncate(time.Second)
 	}
-	if _, found := col.tmpIdx[v]; !found {
+	if _, found := col.append.index[v]; !found {
 		if err := col.index.AppendRow(v); err != nil {
 			return err
 		}
-		col.tmpIdx[v] = col.index.Rows() - 1
+		col.append.index[v] = col.index.Rows() - 1
 	}
-	col.tmpKey = append(col.tmpKey, col.tmpIdx[v])
+	col.append.keys = append(col.append.keys, col.append.index[v])
 	return nil
 }
 
@@ -174,33 +176,33 @@ func (col *LowCardinality) Decode(decoder *binary.Decoder, _ int) error {
 
 func (col *LowCardinality) Encode(encoder *binary.Encoder) error {
 	defer func() {
-		col.tmpIdx, col.tmpKey = nil, nil
+		col.append.keys, col.append.index = nil, nil
 	}()
 	switch {
-	case len(col.tmpIdx) < math.MaxUint8:
+	case len(col.append.index) < math.MaxUint8:
 		col.key = keyUInt8
-		for _, v := range col.tmpKey {
+		for _, v := range col.append.keys {
 			if err := col.keys8.AppendRow(uint8(v)); err != nil {
 				return err
 			}
 		}
-	case len(col.tmpIdx) < math.MaxUint16:
+	case len(col.append.index) < math.MaxUint16:
 		col.key = keyUInt16
-		for _, v := range col.tmpKey {
+		for _, v := range col.append.keys {
 			if err := col.keys16.AppendRow(uint16(v)); err != nil {
 				return err
 			}
 		}
-	case len(col.tmpIdx) < math.MaxUint32:
+	case len(col.append.index) < math.MaxUint32:
 		col.key = keyUInt32
-		for _, v := range col.tmpKey {
+		for _, v := range col.append.keys {
 			if err := col.keys32.AppendRow(uint32(v)); err != nil {
 				return err
 			}
 		}
 	default:
 		col.key = keyUInt64
-		for _, v := range col.tmpKey {
+		for _, v := range col.append.keys {
 			if err := col.keys64.AppendRow(uint64(v)); err != nil {
 				return err
 			}

@@ -22,6 +22,7 @@ type Conn = driver.Conn
 type (
 	Progress      = proto.Progress
 	Exception     = proto.Exception
+	ProfileInfo   = proto.ProfileInfo
 	ServerVersion = proto.ServerHandshake
 )
 

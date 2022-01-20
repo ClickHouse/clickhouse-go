@@ -15,8 +15,13 @@ func TestLow(t *testing.T) {
 		encoder = binary.NewEncoder(&buffer)
 	)
 	col := LowCardinality{
-		index:  &String{},
-		tmpIdx: make(map[interface{}]int),
+		index: &String{},
+		append: struct {
+			keys  []int
+			index map[interface{}]int
+		}{
+			index: make(map[interface{}]int),
+		},
 	}
 	for i := 0; i < 10; i++ {
 		if err := col.AppendRow("HI"); !assert.NoError(t, err) {
@@ -33,8 +38,13 @@ func TestLow(t *testing.T) {
 		encoder.Flush()
 		{
 			col2 := LowCardinality{
-				index:  &String{},
-				tmpIdx: make(map[interface{}]int),
+				index: &String{},
+				append: struct {
+					keys  []int
+					index map[interface{}]int
+				}{
+					index: make(map[interface{}]int),
+				},
 			}
 			if assert.NoError(t, col2.Decode(decoder, 0)) {
 				assert.Equal(t, 12, col2.Rows())

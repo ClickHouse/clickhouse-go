@@ -14,6 +14,7 @@ type onProcess struct {
 	data          func(*proto.Block)
 	logs          func([]Log)
 	progress      func(*Progress)
+	profileInfo   func(*ProfileInfo)
 	profileEvents func([]ProfileEvent)
 }
 
@@ -85,6 +86,7 @@ func (c *connect) handle(packet byte, on *onProcess) error {
 			return err
 		}
 		c.debugf("[profile info] %s", &info)
+		on.profileInfo(&info)
 	case proto.ServerTableColumns:
 		var info proto.TableColumns
 		if err := info.Decode(c.decoder, c.revision); err != nil {
