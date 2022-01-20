@@ -7,8 +7,6 @@ import (
 	"errors"
 	"io"
 	"reflect"
-	"regexp"
-	"strings"
 	"sync/atomic"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
@@ -75,7 +73,12 @@ func (std *stdDriver) Rollback() error {
 
 func (std *stdDriver) CheckNamedValue(nv *driver.NamedValue) error { return nil }
 
-func (std *stdDriver) Close() error { return std.conn.close() }
+func (std *stdDriver) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
+	if err := std.conn.exec(ctx, query, rebind(args)...); err != nil {
+		return nil, err
+	}
+	return driver.RowsAffected(0), nil
+}
 
 func (std *stdDriver) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
 	r, err := std.conn.query(ctx, query, rebind(args)...)
@@ -92,16 +95,6 @@ func (std *stdDriver) Prepare(query string) (driver.Stmt, error) {
 }
 
 func (std *stdDriver) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
-	if isInsert(query) {
-		return std.insert(ctx, query)
-	}
-	return &stmt{
-		conn:  std.conn,
-		query: query,
-	}, nil
-}
-
-func (std *stdDriver) insert(ctx context.Context, query string) (driver.Stmt, error) {
 	batch, err := std.conn.prepareBatch(ctx, query, func(c *connect) {})
 	if err != nil {
 		return nil, err
@@ -111,6 +104,8 @@ func (std *stdDriver) insert(ctx context.Context, query string) (driver.Stmt, er
 		batch: batch,
 	}, nil
 }
+
+func (std *stdDriver) Close() error { return std.conn.close() }
 
 type stdBatch struct {
 	batch *batch
@@ -141,42 +136,6 @@ func (s *stdBatch) Query(args []driver.Value) (driver.Rows, error) {
 }
 
 func (s *stdBatch) Close() error { return nil }
-
-type stmt struct {
-	conn  *connect
-	query string
-}
-
-func (s *stmt) NumInput() int { return -1 }
-
-func (s *stmt) Exec(args []driver.Value) (driver.Result, error) {
-	return s.ExecContext(context.Background(), driverValueToNamedValue(args))
-}
-
-func (s *stmt) ExecContext(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
-	if err := s.conn.exec(ctx, s.query, rebind(args)...); err != nil {
-		return nil, err
-	}
-	return driver.RowsAffected(0), nil
-}
-
-func (s *stmt) Query(args []driver.Value) (driver.Rows, error) {
-	return s.QueryContext(context.Background(), driverValueToNamedValue(args))
-}
-
-func (s *stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driver.Rows, error) {
-	r, err := s.conn.query(ctx, s.query, rebind(args)...)
-	if err != nil {
-		return nil, err
-	}
-	return &stdRows{
-		rows: r,
-	}, nil
-}
-
-func (s *stmt) Close() error {
-	return nil
-}
 
 type stdRows struct {
 	rows *rows
@@ -252,26 +211,4 @@ func (r *stdRows) NextResultSet() error {
 
 func (r *stdRows) Close() error {
 	return r.rows.Close()
-}
-
-var selectRe = regexp.MustCompile(`\s+SELECT\s+`)
-
-func isInsert(query string) bool {
-	if f := strings.Fields(query); len(f) > 2 {
-		return strings.EqualFold("INSERT", f[0]) &&
-			strings.EqualFold("INTO", f[1]) &&
-			!selectRe.MatchString(strings.ToUpper(query))
-	}
-	return false
-}
-
-func driverValueToNamedValue(args []driver.Value) []driver.NamedValue {
-	named := make([]driver.NamedValue, 0, len(args))
-	for i, v := range args {
-		named = append(named, driver.NamedValue{
-			Ordinal: i + 1,
-			Value:   v,
-		})
-	}
-	return named
 }
