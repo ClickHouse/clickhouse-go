@@ -8,9 +8,6 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
 )
 
-// unix time of 1925-01-01
-const date32Epoch = -1420070400
-
 type Date32 struct {
 	values Int32
 }
@@ -110,11 +107,11 @@ func (dt *Date32) Encode(encoder *binary.Encoder) error {
 }
 
 func (dt *Date32) row(i int) time.Time {
-	return time.Unix((int64(dt.values[i])*secInDay)+date32Epoch, 0).UTC()
+	return time.Unix((int64(dt.values[i]) * secInDay), 0).UTC()
 }
 
 func timeToInt32(t time.Time) int32 {
-	return int32((t.Unix() - date32Epoch) / secInDay)
+	return int32(t.Unix() / secInDay)
 }
 
 var _ Interface = (*Date32)(nil)
