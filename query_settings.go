@@ -196,6 +196,7 @@ var querySettingList = []querySettingInfo{
 	{"allow_experimental_data_skipping_indices", boolQS},
 	{"allow_hyperscan", boolQS},
 	{"allow_simdjson", boolQS},
+	{"joined_subquery_requires_alias", boolQS},
 
 	{"connect_timeout", timeQS},
 	{"connect_timeout_with_failover_ms", timeQS},
