@@ -8,7 +8,6 @@ cli:
 
 test:
 	go install -race -v
-	go test -i -v
 	go test -race -timeout 30s -v .
 	go test -race -timeout 30s -v ./tests/...
 

@@ -8,6 +8,11 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
 )
 
+var (
+	minDate32, _ = time.Parse("2006-01-02 15:04:05", "1925-01-01 00:00:00")
+	maxDate32, _ = time.Parse("2006-01-02 15:04:05", "2283-11-11 00:00:00")
+)
+
 type Date32 struct {
 	values Int32
 }
@@ -54,6 +59,9 @@ func (dt *Date32) Append(v interface{}) (nulls []uint8, err error) {
 	case []time.Time:
 		in := make([]int32, 0, len(v))
 		for _, t := range v {
+			if err := dateOverflow(minDate32, maxDate32, t, "2006-01-02"); err != nil {
+				return nil, err
+			}
 			in = append(in, timeToInt32(t))
 		}
 		dt.values, nulls = append(dt.values, in...), make([]uint8, len(v))
@@ -62,6 +70,9 @@ func (dt *Date32) Append(v interface{}) (nulls []uint8, err error) {
 		for i, v := range v {
 			switch {
 			case v != nil:
+				if err := dateOverflow(minDate32, maxDate32, *v, "2006-01-02"); err != nil {
+					return nil, err
+				}
 				dt.values = append(dt.values, timeToInt32(*v))
 			default:
 				dt.values, nulls[i] = append(dt.values, 0), 1
@@ -81,9 +92,15 @@ func (dt *Date32) AppendRow(v interface{}) error {
 	var date int32
 	switch v := v.(type) {
 	case time.Time:
+		if err := dateOverflow(minDate32, maxDate32, v, "2006-01-02"); err != nil {
+			return err
+		}
 		date = timeToInt32(v)
 	case *time.Time:
 		if v != nil {
+			if err := dateOverflow(minDate32, maxDate32, *v, "2006-01-02"); err != nil {
+				return err
+			}
 			date = timeToInt32(*v)
 		}
 	case nil:

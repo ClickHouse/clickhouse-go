@@ -126,48 +126,6 @@ func TestLowCardinality(t *testing.T) {
 	}
 }
 
-func TestNullableLowCardinality(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			Settings: clickhouse.Settings{
-				"allow_suspicious_low_cardinality_types": 1,
-			},
-			//	Debug: true,
-		})
-	)
-	if assert.NoError(t, err) {
-		if err := checkMinServerVersion(conn, 19, 11); err != nil {
-			t.Skip(err.Error())
-			return
-		}
-		const ddl = `
-		CREATE TABLE test_lowcardinality (
-			  Col1 LowCardinality(Nullable(String))
-
-		) Engine Memory
-		`
-		if err := conn.Exec(ctx, "DROP TABLE IF EXISTS test_lowcardinality"); assert.NoError(t, err) {
-			if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
-				if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_lowcardinality"); assert.NoError(t, err) {
-					batch.Append("X")
-					batch.Append(nil)
-					batch.Append("X")
-					t.Log(batch.Send())
-				}
-			}
-		}
-	}
-}
 func TestColmnarLowCardinality(t *testing.T) {
 	var (
 		ctx       = context.Background()

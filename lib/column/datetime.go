@@ -10,6 +10,11 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/timezone"
 )
 
+var (
+	minDateTime, _ = time.Parse("2006-01-02 15:04:05", "1970-01-01 00:00:00")
+	maxDateTime, _ = time.Parse("2006-01-02 15:04:05", "2105-12-31 23:59:59")
+)
+
 type DateTime struct {
 	chType   Type
 	values   Int32
@@ -69,6 +74,9 @@ func (dt *DateTime) Append(v interface{}) (nulls []uint8, err error) {
 	case []time.Time:
 		in := make([]int32, 0, len(v))
 		for _, t := range v {
+			if err := dateOverflow(minDateTime, maxDateTime, t, "2006-01-02 15:04:05"); err != nil {
+				return nil, err
+			}
 			in = append(in, int32(t.Unix()))
 		}
 		dt.values, nulls = append(dt.values, in...), make([]uint8, len(v))
@@ -77,6 +85,9 @@ func (dt *DateTime) Append(v interface{}) (nulls []uint8, err error) {
 		for i, v := range v {
 			switch {
 			case v != nil:
+				if err := dateOverflow(minDateTime, maxDateTime, *v, "2006-01-02 15:04:05"); err != nil {
+					return nil, err
+				}
 				dt.values = append(dt.values, int32(v.Unix()))
 			default:
 				dt.values, nulls[i] = append(dt.values, 0), 1
@@ -96,9 +107,15 @@ func (dt *DateTime) AppendRow(v interface{}) error {
 	var datetime int32
 	switch v := v.(type) {
 	case time.Time:
+		if err := dateOverflow(minDateTime, maxDateTime, v, "2006-01-02 15:04:05"); err != nil {
+			return err
+		}
 		datetime = int32(v.Unix())
 	case *time.Time:
 		if v != nil {
+			if err := dateOverflow(minDateTime, maxDateTime, *v, "2006-01-02 15:04:05"); err != nil {
+				return err
+			}
 			datetime = int32(v.Unix())
 		}
 	case nil:

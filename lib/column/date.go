@@ -8,7 +8,10 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
 )
 
-const secInDay = 24 * 60 * 60
+var (
+	minDate, _ = time.Parse("2006-01-02 15:04:05", "1970-01-01 00:00:00")
+	maxDate, _ = time.Parse("2006-01-02 15:04:05", "2106-01-01 00:00:00")
+)
 
 type Date struct {
 	values Int16
@@ -56,6 +59,9 @@ func (dt *Date) Append(v interface{}) (nulls []uint8, err error) {
 	case []time.Time:
 		in := make([]int16, 0, len(v))
 		for _, t := range v {
+			if err := dateOverflow(minDate, maxDate, t, "2006-01-02"); err != nil {
+				return nil, err
+			}
 			in = append(in, int16(t.Unix()/secInDay))
 		}
 		dt.values, nulls = append(dt.values, in...), make([]uint8, len(v))
@@ -64,6 +70,9 @@ func (dt *Date) Append(v interface{}) (nulls []uint8, err error) {
 		for i, v := range v {
 			switch {
 			case v != nil:
+				if err := dateOverflow(minDate, maxDate, *v, "2006-01-02"); err != nil {
+					return nil, err
+				}
 				dt.values = append(dt.values, int16(v.Unix()/secInDay))
 			default:
 				dt.values, nulls[i] = append(dt.values, 0), 1
@@ -83,9 +92,15 @@ func (dt *Date) AppendRow(v interface{}) error {
 	var date int16
 	switch v := v.(type) {
 	case time.Time:
+		if err := dateOverflow(minDate, maxDate, v, "2006-01-02"); err != nil {
+			return err
+		}
 		date = int16(v.Unix() / secInDay)
 	case *time.Time:
 		if v != nil {
+			if err := dateOverflow(minDate, maxDate, *v, "2006-01-02"); err != nil {
+				return err
+			}
 			date = int16(v.Unix() / secInDay)
 		}
 	case nil:

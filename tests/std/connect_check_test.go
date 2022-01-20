@@ -22,7 +22,7 @@ func TestStdConnCheck(t *testing.T) {
 		`
 	)
 
-	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) {
+	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=false"); assert.NoError(t, err) {
 		// We can only change the settings at the connection level.
 		// If we have only one connection, we change the settings specifically for that connection.
 		connect.SetMaxOpenConns(1)
