@@ -96,6 +96,9 @@ func (c *connect) isBad() bool {
 	case c.closed, c.err != nil:
 		return true
 	}
+	if err := c.connCheck(); err != nil {
+		return true
+	}
 	if time.Since(c.lastUsedIn) > time.Minute {
 		ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Second))
 		defer cancel()
