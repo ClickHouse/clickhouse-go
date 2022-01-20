@@ -73,7 +73,7 @@ func WithProgress(fn func(*Progress)) QueryOption {
 	}
 }
 
-func WithPofileInfo(fn func(*ProfileInfo)) QueryOption {
+func WithProfileInfo(fn func(*ProfileInfo)) QueryOption {
 	return func(o *QueryOptions) error {
 		o.events.profileInfo = fn
 		return nil

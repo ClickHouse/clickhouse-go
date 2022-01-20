@@ -33,7 +33,7 @@ func example() error {
 		"max_block_size": 10,
 	}), clickhouse.WithProgress(func(p *clickhouse.Progress) {
 		fmt.Println("progress: ", p)
-	}), clickhouse.WithPofileInfo(func(p *clickhouse.ProfileInfo) {
+	}), clickhouse.WithProfileInfo(func(p *clickhouse.ProfileInfo) {
 		fmt.Println("profile info: ", p)
 	}))
 	if err := conn.Ping(ctx); err != nil {
