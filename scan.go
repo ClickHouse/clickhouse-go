@@ -84,6 +84,12 @@ func structToScannableValues(columns []string, dest interface{}) ([]interface{},
 	if v = reflect.Indirect(v); t.Kind() == reflect.Ptr {
 		t = t.Elem()
 	}
+	if v.Kind() != reflect.Struct {
+		return nil, &OpError{
+			Op:  "ScanStruct",
+			Err: errors.New("ScanStruct expects a struct dest"),
+		}
+	}
 	var (
 		names  = make(map[string]interface{}, len(columns))
 		values = make([]interface{}, 0, len(columns))
