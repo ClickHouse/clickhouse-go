@@ -231,7 +231,7 @@ func decimal128ToBigInt(v []byte) (*big.Int, error) {
 	if len(v) != 16 {
 		return nil, errors.New("expected 16 bytes")
 	}
-	//LittleEndian to BigEndian
+	// LittleEndian to BigEndian
 	endianSwap(v, false)
 	var lt = new(big.Int)
 	if len(v) > 0 && v[0]&0x80 != 0 {

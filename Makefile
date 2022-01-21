@@ -11,6 +11,10 @@ test:
 	go test -race -timeout 30s -v .
 	go test -race -timeout 30s -v ./tests/...
 
+lint:
+	golangci-lint run || :
+	gocritic check -disable=singleCaseSwitch ./... || :
+
 staticcheck:
 	staticcheck ./...
 

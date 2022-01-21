@@ -63,7 +63,7 @@ func (col *IPv4) Append(v interface{}) (nulls []uint8, err error) {
 					Hint: "invalid IP version",
 				}
 			}
-			col.data = append(col.data, IPv4ToBytes(ip)[:]...)
+			col.data = append(col.data, IPv4ToBytes(ip)...)
 		}
 	case []*net.IP:
 		nulls = make([]uint8, len(v))
@@ -79,7 +79,7 @@ func (col *IPv4) Append(v interface{}) (nulls []uint8, err error) {
 						Hint: "invalid IP version",
 					}
 				}
-				col.data = append(col.data, IPv4ToBytes(ip)[:]...)
+				col.data = append(col.data, IPv4ToBytes(ip)...)
 			default:
 				col.data, nulls[i] = append(col.data, make([]byte, net.IPv4len)...), 1
 			}
@@ -124,7 +124,7 @@ func (col *IPv4) AppendRow(v interface{}) error {
 			Hint: "invalid IP version",
 		}
 	}
-	col.data = append(col.data, IPv4ToBytes(data)[:]...)
+	col.data = append(col.data, IPv4ToBytes(data)...)
 	return nil
 }
 

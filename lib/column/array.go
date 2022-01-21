@@ -138,12 +138,7 @@ func (col *Array) AppendRow(v interface{}) error {
 }
 
 func (col *Array) append(elem reflect.Value, level int) error {
-	isSlice := elem.Kind() == reflect.Slice
-	switch elem.Type() {
-	case scanTypeIP /*, scanTypeByte*/ :
-		isSlice = false
-	}
-	if isSlice && level < col.depth {
+	if level < col.depth {
 		offset := uint64(elem.Len())
 		if ln := len(col.offsets[level].values); ln != 0 {
 			offset += col.offsets[level].values[ln-1]

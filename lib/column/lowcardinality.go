@@ -110,7 +110,7 @@ func (col *LowCardinality) Append(v interface{}) (nulls []uint8, err error) {
 
 func (col *LowCardinality) AppendRow(v interface{}) error {
 	col.rows++
-	if col.index.Rows() == 0 { //init
+	if col.index.Rows() == 0 { // init
 		if col.index.AppendRow(nil); col.nullable {
 			col.index.AppendRow(nil)
 		}
