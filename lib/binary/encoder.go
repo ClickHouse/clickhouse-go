@@ -4,8 +4,6 @@ import (
 	"encoding/binary"
 	"io"
 	"math"
-	"reflect"
-	"unsafe"
 )
 
 func NewEncoder(w io.Writer) *Encoder {
@@ -120,7 +118,7 @@ func (enc *Encoder) Flush() error {
 }
 
 func (enc *Encoder) String(v string) error {
-	str := Str2Bytes(v)
+	str := str2Bytes(v)
 	if err := enc.Uvarint(uint64(len(str))); err != nil {
 		return err
 	}
@@ -128,34 +126,4 @@ func (enc *Encoder) String(v string) error {
 		return err
 	}
 	return nil
-}
-
-func Str2Bytes(str string) []byte {
-	// Copied from https://github.com/m3db/m3/blob/master/src/x/unsafe/string.go#L62
-	if len(str) == 0 {
-		return nil
-	}
-
-	// We need to declare a real byte slice so internally the compiler
-	// knows to use an unsafe.Pointer to keep track of the underlying memory so that
-	// once the slice's array pointer is updated with the pointer to the string's
-	// underlying bytes, the compiler won't prematurely GC the memory when the string
-	// goes out of scope.
-	var b []byte
-	byteHeader := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	// This makes sure that even if GC relocates the string's underlying
-	// memory after this assignment, the corresponding unsafe.Pointer in the internal
-	// slice struct will be updated accordingly to reflect the memory relocation.
-	byteHeader.Data = (*reflect.StringHeader)(unsafe.Pointer(&str)).Data
-
-	// It is important that we access str after we assign the Data
-	// pointer of the string header to the Data pointer of the slice header to
-	// make sure the string (and the underlying bytes backing the string) don't get
-	// GC'ed before the assignment happens.
-	l := len(str)
-	byteHeader.Len = l
-	byteHeader.Cap = l
-
-	return b
 }
