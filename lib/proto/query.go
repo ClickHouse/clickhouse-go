@@ -1,0 +1,142 @@
+package proto
+
+import (
+	"fmt"
+	"os"
+
+	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
+	"go.opentelemetry.io/otel/trace"
+)
+
+var (
+	osUser      = os.Getenv("USER")
+	hostname, _ = os.Hostname()
+)
+
+type Query struct {
+	ID             string
+	Span           trace.SpanContext
+	Body           string
+	QuotaKey       string
+	Settings       Settings
+	Compression    bool
+	InitialUser    string
+	InitialAddress string
+}
+
+func (q *Query) Encode(encoder *binary.Encoder, revision uint64) error {
+	if err := encoder.String(q.ID); err != nil {
+		return err
+	}
+	// client_info
+	if err := q.encodeClientInfo(encoder, revision); err != nil {
+		return err
+	}
+	// settings
+	if err := q.Settings.Encode(encoder, revision); err != nil {
+		return err
+	}
+	encoder.String("" /* empty string is a marker of the end of setting */)
+
+	if revision >= DBMS_MIN_REVISION_WITH_INTERSERVER_SECRET {
+		encoder.String("")
+	}
+	{
+		encoder.Byte(StateComplete)
+		encoder.Bool(q.Compression)
+	}
+	return encoder.String(q.Body)
+}
+
+func (q *Query) encodeClientInfo(encoder *binary.Encoder, revision uint64) error {
+	encoder.Byte(ClientQueryInitial)
+	encoder.String(q.InitialUser)    // initial_user
+	encoder.String("")               // initial_query_id
+	encoder.String(q.InitialAddress) // initial_address
+	if revision >= DBMS_MIN_PROTOCOL_VERSION_WITH_INITIAL_QUERY_START_TIME {
+		encoder.Int64(0) // initial_query_start_time_microseconds
+	}
+	encoder.Byte(1) // interface [tcp - 1, http - 2]
+	{
+		encoder.String(osUser)
+		encoder.String(hostname)
+		encoder.String(ClientName)
+		encoder.Uvarint(ClientVersionMajor)
+		encoder.Uvarint(ClientVersionMinor)
+		encoder.Uvarint(ClientTCPProtocolVersion)
+	}
+	if revision >= DBMS_MIN_REVISION_WITH_QUOTA_KEY_IN_CLIENT_INFO {
+		encoder.String(q.QuotaKey)
+	}
+	if revision >= DBMS_MIN_PROTOCOL_VERSION_WITH_DISTRIBUTED_DEPTH {
+		encoder.Uvarint(0)
+	}
+	if revision >= DBMS_MIN_REVISION_WITH_VERSION_PATCH {
+		encoder.Uvarint(0)
+	}
+	if revision >= DBMS_MIN_REVISION_WITH_OPENTELEMETRY {
+		switch {
+		case q.Span.IsValid():
+			encoder.Byte(1)
+			{
+				v := q.Span.TraceID()
+				encoder.Raw(v[:])
+			}
+			{
+				v := q.Span.SpanID()
+				encoder.Raw(v[:])
+			}
+			encoder.String(q.Span.TraceState().String())
+			encoder.Byte(byte(q.Span.TraceFlags()))
+
+		default:
+			encoder.Byte(0)
+		}
+	}
+	if revision >= DBMS_MIN_REVISION_WITH_PARALLEL_REPLICAS {
+		encoder.Uvarint(0) // collaborate_with_initiator
+		encoder.Uvarint(0) // count_participating_replicas
+		encoder.Uvarint(0) // number_of_current_replica
+	}
+	return nil
+}
+
+type Settings []Setting
+
+type Setting struct {
+	Key   string
+	Value interface{}
+}
+
+func (s Settings) Encode(encoder *binary.Encoder, revision uint64) error {
+	for _, s := range s {
+		if err := s.encode(encoder, revision); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Setting) encode(encoder *binary.Encoder, revision uint64) error {
+	if err := encoder.String(s.Key); err != nil {
+		return err
+	}
+	if revision <= DBMS_MIN_REVISION_WITH_SETTINGS_SERIALIZED_AS_STRINGS {
+		var value uint64
+		switch v := s.Value.(type) {
+		case int:
+			value = uint64(v)
+		case bool:
+			if value = 0; v {
+				value = 1
+			}
+		default:
+			return fmt.Errorf("query setting %s has unsupported data type", s.Key)
+		}
+		return encoder.Uvarint(value)
+	}
+	if err := encoder.Bool(true); err != nil { // is_important
+		return err
+	}
+	return encoder.String(fmt.Sprint(s.Value))
+}

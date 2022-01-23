@@ -6,35 +6,26 @@ import (
 	"math"
 )
 
-func NewDecoder(input io.Reader) *Decoder {
+func NewDecoder(r io.Reader) *Decoder {
 	return &Decoder{
-		input: input,
-	}
-}
-
-func NewDecoderWithCompress(input io.Reader) *Decoder {
-	return &Decoder{
-		input:         input,
-		compressInput: NewCompressReader(input),
+		input: r,
 	}
 }
 
 type Decoder struct {
-	compress      bool
-	input         io.Reader
-	compressInput io.Reader
-	scratch       [binary.MaxVarintLen64]byte
+	input   io.Reader
+	scratch [binary.MaxVarintLen64]byte
 }
 
-func (decoder *Decoder) SelectCompress(compress bool) {
-	decoder.compress = compress
-}
-
-func (decoder *Decoder) Get() io.Reader {
-	if decoder.compress && decoder.compressInput != nil {
-		return decoder.compressInput
+func (decoder *Decoder) Raw(b []byte) error {
+	n, err := decoder.input.Read(b)
+	if err != nil {
+		return nil
 	}
-	return decoder.input
+	if n != len(b) {
+		return io.EOF
+	}
+	return nil
 }
 
 func (decoder *Decoder) Bool() (bool, error) {
@@ -90,14 +81,14 @@ func (decoder *Decoder) UInt8() (uint8, error) {
 }
 
 func (decoder *Decoder) UInt16() (uint16, error) {
-	if _, err := decoder.Get().Read(decoder.scratch[:2]); err != nil {
+	if _, err := decoder.input.Read(decoder.scratch[:2]); err != nil {
 		return 0, err
 	}
 	return uint16(decoder.scratch[0]) | uint16(decoder.scratch[1])<<8, nil
 }
 
 func (decoder *Decoder) UInt32() (uint32, error) {
-	if _, err := decoder.Get().Read(decoder.scratch[:4]); err != nil {
+	if _, err := decoder.input.Read(decoder.scratch[:4]); err != nil {
 		return 0, err
 	}
 	return uint32(decoder.scratch[0]) |
@@ -107,7 +98,7 @@ func (decoder *Decoder) UInt32() (uint32, error) {
 }
 
 func (decoder *Decoder) UInt64() (uint64, error) {
-	if _, err := decoder.Get().Read(decoder.scratch[:8]); err != nil {
+	if _, err := decoder.input.Read(decoder.scratch[:8]); err != nil {
 		return 0, err
 	}
 	return uint64(decoder.scratch[0]) |
@@ -137,11 +128,11 @@ func (decoder *Decoder) Float64() (float64, error) {
 }
 
 func (decoder *Decoder) Fixed(ln int) ([]byte, error) {
-	if reader, ok := decoder.Get().(FixedReader); ok {
+	if reader, ok := decoder.input.(interface{ Fixed(ln int) ([]byte, error) }); ok {
 		return reader.Fixed(ln)
 	}
 	buf := make([]byte, ln)
-	if _, err := decoder.Get().Read(buf); err != nil {
+	if _, err := decoder.input.Read(buf); err != nil {
 		return nil, err
 	}
 	return buf, nil
@@ -159,19 +150,9 @@ func (decoder *Decoder) String() (string, error) {
 	return string(str), nil
 }
 
-func (decoder *Decoder) Decimal128() ([]byte, error) {
-	bytes := make([]byte, 16)
-	_, err := decoder.Get().Read(bytes)
-	return bytes, err
-}
-
 func (decoder *Decoder) ReadByte() (byte, error) {
-	if _, err := decoder.Get().Read(decoder.scratch[:1]); err != nil {
+	if _, err := decoder.input.Read(decoder.scratch[:1]); err != nil {
 		return 0x0, err
 	}
 	return decoder.scratch[0], nil
-}
-
-type FixedReader interface {
-	Fixed(ln int) ([]byte, error)
 }

@@ -1,96 +1,110 @@
 package column
 
 import (
-	"fmt"
 	"reflect"
-	"time"
 
-	"github.com/ClickHouse/clickhouse-go/lib/binary"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
 )
 
 type Nullable struct {
-	base
-	column Column
+	base     Interface
+	nulls    UInt8
+	enable   bool
+	scanType reflect.Type
 }
 
-func (null *Nullable) ScanType() reflect.Type {
-	return reflect.PtrTo(null.column.ScanType())
+func (col *Nullable) parse(t Type) (_ *Nullable, err error) {
+	col.enable = true
+	if col.base, err = Type(t.params()).Column(); err != nil {
+		return nil, err
+	}
+	switch base := col.base.ScanType(); base {
+	case nil:
+		col.scanType = reflect.TypeOf(nil)
+	default:
+		col.scanType = reflect.New(base).Type()
+	}
+	return col, nil
 }
 
-func (null *Nullable) Read(decoder *binary.Decoder, isNull bool) (interface{}, error) {
-	return null.column.Read(decoder, isNull)
+func (col *Nullable) Base() Interface {
+	return col.base
 }
 
-func (null *Nullable) Write(encoder *binary.Encoder, v interface{}) error {
+func (col *Nullable) Type() Type {
+	return "Nullable(" + col.base.Type() + ")"
+}
+
+func (col *Nullable) ScanType() reflect.Type {
+	return col.scanType
+}
+
+func (col *Nullable) Rows() int {
+	if !col.enable {
+		return col.base.Rows()
+	}
+	return len(col.nulls)
+}
+
+func (col *Nullable) Row(i int, ptr bool) interface{} {
+	if col.enable {
+		if col.nulls[i] == 1 {
+			return nil
+		}
+	}
+	return col.base.Row(i, true)
+}
+
+func (col *Nullable) ScanRow(dest interface{}, row int) error {
+	if col.enable {
+		if col.nulls[row] == 1 {
+			return nil
+		}
+	}
+	return col.base.ScanRow(dest, row)
+}
+
+func (col *Nullable) Append(v interface{}) ([]uint8, error) {
+	nulls, err := col.base.Append(v)
+	if err != nil {
+		return nil, err
+	}
+	col.nulls = append(col.nulls, nulls...)
+	return nulls, nil
+}
+
+func (col *Nullable) AppendRow(v interface{}) error {
+	switch {
+	case v == nil:
+		col.nulls = append(col.nulls, 1)
+	default:
+		col.nulls = append(col.nulls, 0)
+	}
+	return col.base.AppendRow(v)
+}
+
+func (col *Nullable) Decode(decoder *binary.Decoder, rows int) (err error) {
+	if col.enable {
+		if err := col.nulls.Decode(decoder, rows); err != nil {
+			return err
+		}
+	}
+	if err := col.base.Decode(decoder, rows); err != nil {
+		return err
+	}
 	return nil
 }
 
-func (null *Nullable) ReadNull(decoder *binary.Decoder, rows int) (_ []interface{}, err error) {
-	var (
-		isNull byte
-		value  interface{}
-		nulls  = make([]byte, rows)
-		values = make([]interface{}, rows)
-	)
-	for i := 0; i < rows; i++ {
-		if isNull, err = decoder.ReadByte(); err != nil {
-			return nil, err
-		}
-		nulls[i] = isNull
-	}
-	for i, isNull := range nulls {
-		switch value, err = null.column.Read(decoder, isNull != 0); true {
-		case err != nil:
-			return nil, err
-		case isNull == 0:
-			values[i] = value
-		default:
-			values[i] = nil
-		}
-	}
-	return values, nil
-}
-func (null *Nullable) WriteNull(nulls, encoder *binary.Encoder, v interface{}) error {
-	if isNil(v) {
-		if _, err := nulls.Write([]byte{1}); err != nil {
+func (col *Nullable) Encode(encoder *binary.Encoder) error {
+	if col.enable {
+		if err := col.nulls.Encode(encoder); err != nil {
 			return err
 		}
-		return null.column.Write(encoder, null.column.defaultValue())
 	}
-	if _, err := nulls.Write([]byte{0}); err != nil {
+	if err := col.base.Encode(encoder); err != nil {
 		return err
 	}
-	return null.column.Write(encoder, v)
+	return nil
 }
 
-func parseNullable(name, chType string, timezone *time.Location) (*Nullable, error) {
-	if len(chType) < 14 {
-		return nil, fmt.Errorf("invalid Nullable column type: %s", chType)
-	}
-	column, err := Factory(name, chType[9:][:len(chType)-10], timezone)
-	if err != nil {
-		return nil, fmt.Errorf("Nullable(T): %v", err)
-	}
-	return &Nullable{
-		base: base{
-			name:   name,
-			chType: chType,
-		},
-		column: column,
-	}, nil
-}
-
-func (null *Nullable) GetColumn() Column {
-	return null.column
-}
-
-func isNil(v interface{}) bool {
-	if v == nil {
-		return true
-	}
-	switch val := reflect.ValueOf(v); val.Type().Kind() {
-	case reflect.Array, reflect.Chan, reflect.Map, reflect.Ptr, reflect.Slice:
-		return val.IsNil()
-	}
-	return false
-}
+var _ Interface = (*Nullable)(nil)

@@ -1,0 +1,47 @@
+name: run-tests
+
+on:
+  push:
+    branches:
+      - v2
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        go:
+          - 1.16
+          - 1.17
+          - 1.18.0-beta1
+        clickhouse:
+          - 19.11.12.69
+          - 20.1.2.4
+          - 21.1.7.1
+          - 22.1.2.2
+          - latest
+
+    services:
+      clickhouse:
+        image: yandex/clickhouse-server:${{ matrix.clickhouse }}
+        ports:
+          - 9000:9000
+        options: --ulimit nofile=262144:262144
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install Go ${{ matrix.go }}
+        uses: actions/setup-go@v2.1.5
+        with:
+          stable: false
+          go-version: ${{ matrix.go }}
+
+      - name: Run tests
+        run: |
+          go test -v .
+          go test -v ./tests
+          go test -v ./lib/...

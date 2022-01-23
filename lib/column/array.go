@@ -1,270 +1,232 @@
 package column
 
 import (
-	"errors"
 	"fmt"
-	"net"
 	"reflect"
 	"strings"
-	"time"
 
-	"github.com/ClickHouse/clickhouse-go/lib/binary"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
 )
 
-type columnDecoder func() (interface{}, error)
+type offset struct {
+	values   UInt64
+	scanType reflect.Type
+}
 
-var unsupportedArrayTypeErrTemp = "unsupported Array type '%s'"
-
-// If you add Nullable type, that can be used in Array(Nullable(T)) add this type to ../codegen/nullable_appender/main.go in structure values.Types.
-// Run code generation.
-//go:generate go run ../codegen/nullable_appender -package $GOPACKAGE -file nullable_appender.go
 type Array struct {
-	base
 	depth    int
-	column   Column
-	nullable bool
+	chType   Type
+	values   Interface
+	offsets  []*offset
+	scanType reflect.Type
 }
 
-func (array *Array) Read(decoder *binary.Decoder, isNull bool) (interface{}, error) {
-	return nil, fmt.Errorf("do not use Read method for Array(T) column")
-}
+func (col *Array) parse(t Type) (_ Interface, err error) {
+	col.chType = t
+	var typeStr = string(t)
 
-func (array *Array) WriteNull(nulls, encoder *binary.Encoder, v interface{}) error {
-	if array.nullable {
-		column, ok := array.column.(*Nullable)
-		if !ok {
-			return fmt.Errorf("cannot convert to nullable type")
-		}
-		return column.WriteNull(nulls, encoder, v)
-	}
-	return fmt.Errorf("write null to not nullable array")
-}
-
-func (array *Array) Write(encoder *binary.Encoder, v interface{}) error {
-	return array.column.Write(encoder, v)
-}
-
-func (array *Array) ReadArray(decoder *binary.Decoder, rows int) (_ []interface{}, err error) {
-	var (
-		offsets = make([][]uint64, array.depth)
-		values  = make([]interface{}, rows)
-	)
-
-	// Read offsets
-	lastOffset := uint64(rows)
-	for i := 0; i < array.depth; i++ {
-		offset := make([]uint64, lastOffset)
-		for j := uint64(0); j < lastOffset; j++ {
-			if offset[j], err = decoder.UInt64(); err != nil {
-				return nil, err
-			}
-		}
-		offsets[i] = offset
-		lastOffset = 0
-		if len(offset) > 0 {
-			lastOffset = offset[len(offset)-1]
-		}
-	}
-
-	var cd columnDecoder
-
-	switch column := array.column.(type) {
-	case *Nullable:
-		nullRows, err := column.ReadNull(decoder, int(lastOffset))
-		if err != nil {
-			return nil, err
-		}
-		cd = func(rows []interface{}) columnDecoder {
-			i := 0
-			return func() (interface{}, error) {
-				if i > len(rows) {
-					return nil, errors.New("not enough rows to return while parsing Null column")
-				}
-				ret := rows[i]
-				i++
-				return ret, nil
-			}
-		}(nullRows)
-	case *Tuple:
-		tupleRows, err := column.ReadTuple(decoder, int(lastOffset))
-		if err != nil {
-			return nil, err
-		}
-		// closure to return fully assembled tuple values as if they
-		// were decoded one at a time
-		cd = func(rows []interface{}) columnDecoder {
-			i := 0
-			return func() (interface{}, error) {
-				if i > len(rows) {
-					return nil, errors.New("not enough rows to return while parsing Tuple column")
-				}
-				ret := rows[i]
-				i++
-				return ret, nil
-			}
-		}(tupleRows)
-	default:
-		cd = func(decoder *binary.Decoder) columnDecoder {
-			return func() (interface{}, error) { return array.column.Read(decoder, array.nullable) }
-		}(decoder)
-	}
-
-	// Read values
-	for i := 0; i < rows; i++ {
-		if values[i], err = array.read(cd, offsets, uint64(i), 0); err != nil {
-			return nil, err
-		}
-	}
-	return values, nil
-}
-
-func (array *Array) read(readColumn columnDecoder, offsets [][]uint64, index uint64, level int) (interface{}, error) {
-	end := offsets[level][index]
-	start := uint64(0)
-	if index > 0 {
-		start = offsets[level][index-1]
-	}
-
-	scanT := array.column.ScanType()
-	slice := reflect.MakeSlice(array.arrayType(level), 0, int(end-start))
-	for i := start; i < end; i++ {
-		var (
-			value interface{}
-			err   error
-		)
-		if level == array.depth-1 {
-			value, err = readColumn()
-		} else {
-			value, err = array.read(readColumn, offsets, i, level+1)
-		}
-		if err != nil {
-			return nil, err
-		}
-		if array.nullable && level == array.depth-1 {
-			f, ok := nullableAppender[scanT.String()]
-			if !ok {
-				return nil, fmt.Errorf(unsupportedArrayTypeErrTemp, scanT.String())
-			}
-
-			cSlice, err := f(value, slice)
-			if err != nil {
-				return nil, err
-			}
-
-			slice = cSlice
-		} else {
-			slice = reflect.Append(slice, reflect.ValueOf(value))
-		}
-
-	}
-	return slice.Interface(), nil
-}
-
-func (array *Array) arrayType(level int) reflect.Type {
-	t := array.column.ScanType()
-	for i := 0; i < array.depth-level; i++ {
-		t = reflect.SliceOf(t)
-	}
-	return t
-}
-
-func (array *Array) Depth() int {
-	return array.depth
-}
-
-func parseArray(name, chType string, timezone *time.Location) (*Array, error) {
-	if len(chType) < 11 {
-		return nil, fmt.Errorf("invalid Array column type: %s", chType)
-	}
-	var (
-		depth      int
-		columnType = chType
-	)
-
-loop:
-	for _, str := range strings.Split(chType, "Array(") {
+parse:
+	for _, str := range strings.Split(typeStr, "Array(") {
 		switch {
 		case len(str) == 0:
-			depth++
+			col.depth++
 		default:
-			chType = str[:len(str)-depth]
-			break loop
+			typeStr = str[:len(str)-col.depth]
+			break parse
 		}
 	}
-	column, err := Factory(name, chType, timezone)
-	if err != nil {
-		return nil, fmt.Errorf("Array(T): %v", err)
+	if col.depth != 0 {
+		if col.values, err = Type(typeStr).Column(); err != nil {
+			return nil, err
+		}
+		offsetScanTypes := make([]reflect.Type, 0, col.depth)
+		col.offsets, col.scanType = make([]*offset, 0, col.depth), col.values.ScanType()
+		for i := 0; i < col.depth; i++ {
+			col.scanType = reflect.SliceOf(col.scanType)
+			offsetScanTypes = append(offsetScanTypes, col.scanType)
+		}
+		for i := len(offsetScanTypes) - 1; i >= 0; i-- {
+			col.offsets = append(col.offsets, &offset{
+				scanType: offsetScanTypes[i],
+			})
+		}
+		return col, nil
 	}
-
-	var scanType interface{}
-	switch t := column.ScanType(); t {
-	case arrayBaseTypes[int8(0)]:
-		scanType = []int8{}
-	case arrayBaseTypes[int16(0)]:
-		scanType = []int16{}
-	case arrayBaseTypes[int32(0)]:
-		scanType = []int32{}
-	case arrayBaseTypes[int64(0)]:
-		scanType = []int64{}
-	case arrayBaseTypes[uint8(0)]:
-		scanType = []uint8{}
-	case arrayBaseTypes[uint16(0)]:
-		scanType = []uint16{}
-	case arrayBaseTypes[uint32(0)]:
-		scanType = []uint32{}
-	case arrayBaseTypes[uint64(0)]:
-		scanType = []uint64{}
-	case arrayBaseTypes[float32(0)]:
-		scanType = []float32{}
-	case arrayBaseTypes[float64(0)]:
-		scanType = []float64{}
-	case arrayBaseTypes[string("")]:
-		scanType = []string{}
-	case arrayBaseTypes[time.Time{}]:
-		scanType = []time.Time{}
-	case arrayBaseTypes[IPv4{}], arrayBaseTypes[IPv6{}]:
-		scanType = []net.IP{}
-	case reflect.ValueOf([]interface{}{}).Type():
-		scanType = [][]interface{}{}
-
-	//nullable
-	case arrayBaseTypes[ptrInt8T]:
-		scanType = []*int8{}
-	case arrayBaseTypes[ptrInt16T]:
-		scanType = []*int16{}
-	case arrayBaseTypes[ptrInt32T]:
-		scanType = []*int32{}
-	case arrayBaseTypes[ptrInt64T]:
-		scanType = []*int64{}
-	case arrayBaseTypes[ptrUInt8T]:
-		scanType = []*uint8{}
-	case arrayBaseTypes[ptrUInt16T]:
-		scanType = []*uint16{}
-	case arrayBaseTypes[ptrUInt32T]:
-		scanType = []*uint32{}
-	case arrayBaseTypes[ptrUInt64T]:
-		scanType = []*uint64{}
-	case arrayBaseTypes[ptrFloat32]:
-		scanType = []*float32{}
-	case arrayBaseTypes[ptrFloat64]:
-		scanType = []*float64{}
-	case arrayBaseTypes[ptrString]:
-		scanType = []*string{}
-	case arrayBaseTypes[ptrTime]:
-		scanType = []*time.Time{}
-	case arrayBaseTypes[ptrIPv4], arrayBaseTypes[ptrIPv6]:
-		scanType = []*net.IP{}
-	default:
-		return nil, fmt.Errorf(unsupportedArrayTypeErrTemp, column.ScanType().Name())
-	}
-	return &Array{
-		base: base{
-			name:    name,
-			chType:  columnType,
-			valueOf: reflect.ValueOf(scanType),
-		},
-		depth:    depth,
-		column:   column,
-		nullable: strings.HasPrefix(column.CHType(), "Nullable"),
+	return &UnsupportedColumnType{
+		t: t,
 	}, nil
 }
+
+func (col *Array) Base() Interface {
+	return col.values
+}
+
+func (col *Array) Type() Type {
+	return col.chType
+}
+
+func (col *Array) ScanType() reflect.Type {
+	return col.scanType
+}
+
+func (col *Array) Rows() int {
+	if len(col.offsets) != 0 {
+		return len(col.offsets[0].values)
+	}
+	return 0
+}
+
+func (col *Array) Row(i int, ptr bool) interface{} {
+	return col.make(uint64(i), 0).Interface()
+}
+
+func (col *Array) ScanRow(dest interface{}, row int) error {
+	elem := reflect.Indirect(reflect.ValueOf(dest))
+	if elem.Type() != col.scanType {
+		return &ColumnConverterError{
+			Op:   "ScanRow",
+			To:   fmt.Sprintf("%T", dest),
+			From: string(col.chType),
+			Hint: fmt.Sprintf("try using *%s", col.scanType),
+		}
+	}
+	{
+		elem.Set(col.make(uint64(row), 0))
+	}
+	return nil
+}
+
+func (col *Array) Append(v interface{}) (nulls []uint8, err error) {
+	value := reflect.Indirect(reflect.ValueOf(v))
+	if value.Kind() != reflect.Slice {
+		return nil, &ColumnConverterError{
+			Op:   "Append",
+			To:   string(col.chType),
+			From: fmt.Sprintf("%T", v),
+			Hint: "value must be a slice",
+		}
+	}
+	for i := 0; i < value.Len(); i++ {
+		if err := col.AppendRow(value.Index(i)); err != nil {
+			return nil, err
+		}
+	}
+	return
+}
+
+func (col *Array) AppendRow(v interface{}) error {
+	var elem reflect.Value
+	switch v := v.(type) {
+	case reflect.Value:
+		elem = reflect.Indirect(v)
+	default:
+		elem = reflect.Indirect(reflect.ValueOf(v))
+	}
+	if !elem.IsValid() || elem.Type() != col.scanType {
+		from := fmt.Sprintf("%T", v)
+		if !elem.IsValid() {
+			from = fmt.Sprintf("%v", v)
+		}
+		return &ColumnConverterError{
+			Op:   "AppendRow",
+			To:   string(col.chType),
+			From: from,
+			Hint: fmt.Sprintf("try using %s", col.scanType),
+		}
+	}
+	return col.append(elem, 0)
+}
+
+func (col *Array) append(elem reflect.Value, level int) error {
+	if level < col.depth {
+		offset := uint64(elem.Len())
+		if ln := len(col.offsets[level].values); ln != 0 {
+			offset += col.offsets[level].values[ln-1]
+		}
+		col.offsets[level].values = append(col.offsets[level].values, offset)
+		for i := 0; i < elem.Len(); i++ {
+			if err := col.append(elem.Index(i), level+1); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	if elem.Kind() == reflect.Ptr && elem.IsNil() {
+		return col.values.AppendRow(nil)
+	}
+	return col.values.AppendRow(elem.Interface())
+}
+
+func (col *Array) Decode(decoder *binary.Decoder, rows int) error {
+	for _, offset := range col.offsets {
+		if err := offset.values.Decode(decoder, rows); err != nil {
+			return err
+		}
+		rows = int(offset.values[len(offset.values)-1])
+	}
+	return col.values.Decode(decoder, rows)
+}
+
+func (col *Array) Encode(encoder *binary.Encoder) error {
+	for _, offset := range col.offsets {
+		if err := offset.values.Encode(encoder); err != nil {
+			return err
+		}
+	}
+	return col.values.Encode(encoder)
+}
+
+func (col *Array) ReadStatePrefix(decoder *binary.Decoder) error {
+	if serialize, ok := col.values.(CustomSerialization); ok {
+		if err := serialize.ReadStatePrefix(decoder); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (col *Array) WriteStatePrefix(encoder *binary.Encoder) error {
+	if serialize, ok := col.values.(CustomSerialization); ok {
+		if err := serialize.WriteStatePrefix(encoder); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (col *Array) make(row uint64, level int) reflect.Value {
+	offset := col.offsets[level]
+	var (
+		end   = offset.values[row]
+		start = uint64(0)
+	)
+	if row > 0 {
+		start = offset.values[row-1]
+	}
+	var (
+		base  = offset.scanType.Elem()
+		isPtr = base.Kind() == reflect.Ptr
+		slice = reflect.MakeSlice(offset.scanType, 0, int(end-start))
+	)
+	for i := start; i < end; i++ {
+		var value reflect.Value
+		switch {
+		case level == len(col.offsets)-1:
+			switch v := col.values.Row(int(i), isPtr); {
+			case v == nil:
+				value = reflect.Zero(base)
+			default:
+				value = reflect.ValueOf(v)
+			}
+		default:
+			value = col.make(i, level+1)
+		}
+		slice = reflect.Append(slice, value)
+	}
+	return slice
+}
+
+var (
+	_ Interface           = (*Array)(nil)
+	_ CustomSerialization = (*Array)(nil)
+)

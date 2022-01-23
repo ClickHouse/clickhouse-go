@@ -1,139 +1,119 @@
 package column
 
 import (
-	"encoding/hex"
-	"errors"
 	"fmt"
 	"reflect"
 
-	"github.com/ClickHouse/clickhouse-go/lib/binary"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
+	"github.com/google/uuid"
 )
 
-const (
-	UUIDLen  = 16
-	NullUUID = "00000000-0000-0000-0000-000000000000"
-)
-
-var ErrInvalidUUIDFormat = errors.New("invalid UUID format")
+const uuidSize = 16
 
 type UUID struct {
-	base
-	scanType reflect.Type
+	data []byte
 }
 
-func (*UUID) Read(decoder *binary.Decoder, isNull bool) (interface{}, error) {
-	src, err := decoder.Fixed(UUIDLen)
-	if err != nil {
-		return "", err
-	}
-
-	src = swap(src)
-
-	var uuid [36]byte
-	{
-		hex.Encode(uuid[:], src[:4])
-		uuid[8] = '-'
-		hex.Encode(uuid[9:13], src[4:6])
-		uuid[13] = '-'
-		hex.Encode(uuid[14:18], src[6:8])
-		uuid[18] = '-'
-		hex.Encode(uuid[19:23], src[8:10])
-		uuid[23] = '-'
-		hex.Encode(uuid[24:], src[10:])
-	}
-	return string(uuid[:]), nil
+func (col *UUID) Type() Type {
+	return "UUID"
 }
 
-func (u *UUID) Write(encoder *binary.Encoder, v interface{}) (err error) {
-	var uuid []byte
-	switch v := v.(type) {
-	case string:
-		if uuid, err = uuid2bytes(v); err != nil {
-			return err
-		}
-	case []byte:
-		if len(v) != UUIDLen {
-			return fmt.Errorf("invalid raw UUID len '%s' (expected %d, got %d)", uuid, UUIDLen, len(uuid))
-		}
-		uuid = make([]byte, 16)
-		copy(uuid, v)
+func (col *UUID) ScanType() reflect.Type {
+	return scanTypeUUID
+}
+
+func (col *UUID) Rows() int {
+	return len(col.data) / uuidSize
+}
+
+func (col *UUID) Row(i int, ptr bool) interface{} {
+	value := col.row(i)
+	if ptr {
+		return &value
+	}
+	return value
+}
+
+func (col *UUID) ScanRow(dest interface{}, row int) error {
+	switch d := dest.(type) {
+	case *uuid.UUID:
+		*d = col.row(row)
+	case **uuid.UUID:
+		*d = new(uuid.UUID)
+		**d = col.row(row)
 	default:
-		return &ErrUnexpectedType{
-			T:      v,
-			Column: u,
+		return &ColumnConverterError{
+			Op:   "ScanRow",
+			To:   fmt.Sprintf("%T", dest),
+			From: "UUID",
 		}
-	}
-
-	uuid = swap(uuid)
-
-	if _, err := encoder.Write(uuid); err != nil {
-		return err
 	}
 	return nil
 }
 
-func swap(src []byte) []byte {
-	_ = src[15]
-	src[0], src[7] = src[7], src[0]
-	src[1], src[6] = src[6], src[1]
-	src[2], src[5] = src[5], src[2]
-	src[3], src[4] = src[4], src[3]
-	src[8], src[15] = src[15], src[8]
-	src[9], src[14] = src[14], src[9]
-	src[10], src[13] = src[13], src[10]
-	src[11], src[12] = src[12], src[11]
-	return src
-}
-
-func uuid2bytes(str string) ([]byte, error) {
-	var uuid [16]byte
-	strLength := len(str)
-	if strLength == 0 {
-		str = NullUUID
-	} else if strLength != 36 {
-		return nil, ErrInvalidUUIDFormat
-	}
-	if str[8] != '-' || str[13] != '-' || str[18] != '-' || str[23] != '-' {
-		return nil, ErrInvalidUUIDFormat
-	}
-	for i, x := range [16]int{
-		0, 2, 4, 6,
-		9, 11, 14, 16,
-		19, 21, 24, 26,
-		28, 30, 32, 34,
-	} {
-		if v, ok := xtob(str[x], str[x+1]); !ok {
-			return nil, ErrInvalidUUIDFormat
-		} else {
-			uuid[i] = v
+func (col *UUID) Append(v interface{}) (nulls []uint8, err error) {
+	switch v := v.(type) {
+	case []uuid.UUID:
+		nulls = make([]uint8, len(v))
+		for _, v := range v {
+			col.data = append(col.data, v[:]...)
+		}
+	case []*uuid.UUID:
+		nulls = make([]uint8, len(v))
+		for i, v := range v {
+			switch {
+			case v != nil:
+				tmp := *v
+				col.data = append(col.data, tmp[:]...)
+			default:
+				col.data, nulls[i] = append(col.data, make([]byte, uuidSize)...), 1
+			}
+		}
+	default:
+		return nil, &ColumnConverterError{
+			Op:   "Append",
+			To:   "UUID",
+			From: fmt.Sprintf("%T", v),
 		}
 	}
-	return uuid[:], nil
+	return
 }
 
-// xvalues returns the value of a byte as a hexadecimal digit or 255.
-var xvalues = [256]byte{
-	255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-	255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-	255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-	0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 255, 255, 255, 255, 255, 255,
-	255, 10, 11, 12, 13, 14, 15, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-	255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-	255, 10, 11, 12, 13, 14, 15, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-	255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-	255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-	255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-	255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-	255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-	255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-	255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-	255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-	255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+func (col *UUID) AppendRow(v interface{}) error {
+	switch v := v.(type) {
+	case uuid.UUID:
+		col.data = append(col.data, v[:]...)
+	case *uuid.UUID:
+		switch {
+		case v != nil:
+			col.data = append(col.data, v[:]...)
+		default:
+			col.data = append(col.data, make([]byte, uuidSize)...)
+		}
+	case nil:
+		col.data = append(col.data, make([]byte, uuidSize)...)
+	default:
+		return &ColumnConverterError{
+			Op:   "AppendRow",
+			To:   "UUID",
+			From: fmt.Sprintf("%T", v),
+		}
+	}
+	return nil
 }
 
-// xtob converts hex characters x1 and x2 into a byte.
-func xtob(x1, x2 byte) (byte, bool) {
-	b1 := xvalues[x1]
-	b2 := xvalues[x2]
-	return (b1 << 4) | b2, b1 != 255 && b2 != 255
+func (col *UUID) Decode(decoder *binary.Decoder, rows int) error {
+	col.data = make([]byte, uuidSize*rows)
+	return decoder.Raw(col.data)
 }
+
+func (col *UUID) Encode(encoder *binary.Encoder) error {
+	return encoder.Raw(col.data)
+}
+
+func (col *UUID) row(i int) (uuid uuid.UUID) {
+	copy(uuid[:], col.data[i*uuidSize:(i+1)*uuidSize])
+	return
+}
+
+var _ Interface = (*UUID)(nil)

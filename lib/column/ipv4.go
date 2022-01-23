@@ -1,54 +1,149 @@
 package column
 
 import (
+	"fmt"
 	"net"
+	"reflect"
 
-	"github.com/ClickHouse/clickhouse-go/lib/binary"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
 )
 
 type IPv4 struct {
-	base
+	data []byte
 }
 
-func (*IPv4) Read(decoder *binary.Decoder, isNull bool) (interface{}, error) {
-	v, err := decoder.Fixed(4)
-	if err != nil {
-		return nil, err
+func (col *IPv4) Type() Type {
+	return "IPv4"
+}
+
+func (col *IPv4) ScanType() reflect.Type {
+	return scanTypeIP
+}
+
+func (col *IPv4) Rows() int {
+	return len(col.data) / net.IPv4len
+}
+
+func (col *IPv4) Row(i int, ptr bool) interface{} {
+	value := col.row(i)
+	if ptr {
+		return &value
 	}
-	return net.IPv4(v[3], v[2], v[1], v[0]), nil
+	return value
 }
 
-func (ip *IPv4) Write(encoder *binary.Encoder, v interface{}) error {
-	var netIP net.IP
-	switch v.(type) {
-	case string:
-		netIP = net.ParseIP(v.(string))
-	case net.IP:
-		netIP = v.(net.IP)
+func (col *IPv4) ScanRow(dest interface{}, row int) error {
+	switch d := dest.(type) {
 	case *net.IP:
-		netIP = *(v.(*net.IP))
+		*d = col.row(row)
+	case **net.IP:
+		*d = new(net.IP)
+		**d = col.row(row)
 	default:
-		return &ErrUnexpectedType{
-			T:      v,
-			Column: ip,
+		return &ColumnConverterError{
+			Op:   "ScanRow",
+			To:   fmt.Sprintf("%T", dest),
+			From: "IPv4",
 		}
-	}
-
-	if netIP == nil {
-		return &ErrUnexpectedType{
-			T:      v,
-			Column: ip,
-		}
-	}
-	ip4 := netIP.To4()
-	if ip4 == nil {
-		return &ErrUnexpectedType{
-			T:      v,
-			Column: ip,
-		}
-	}
-	if _, err := encoder.Write([]byte{ip4[3], ip4[2], ip4[1], ip4[0]}); err != nil {
-		return err
 	}
 	return nil
 }
+
+func (col *IPv4) Append(v interface{}) (nulls []uint8, err error) {
+	switch v := v.(type) {
+	case []net.IP:
+		nulls = make([]uint8, len(v))
+		for _, v := range v {
+			ip := v.To4()
+			if ip == nil {
+				return nil, &ColumnConverterError{
+					Op:   "Append",
+					To:   "IPv4",
+					From: "IPv6",
+					Hint: "invalid IP version",
+				}
+			}
+			col.data = append(col.data, IPv4ToBytes(ip)...)
+		}
+	case []*net.IP:
+		nulls = make([]uint8, len(v))
+		for i, v := range v {
+			switch {
+			case v != nil:
+				ip := v.To4()
+				if ip == nil {
+					return nil, &ColumnConverterError{
+						Op:   "Append",
+						To:   "IPv4",
+						From: "IPv6",
+						Hint: "invalid IP version",
+					}
+				}
+				col.data = append(col.data, IPv4ToBytes(ip)...)
+			default:
+				col.data, nulls[i] = append(col.data, make([]byte, net.IPv4len)...), 1
+			}
+		}
+	default:
+		return nil, &ColumnConverterError{
+			Op:   "Append",
+			To:   "IPv4",
+			From: fmt.Sprintf("%T", v),
+		}
+	}
+	return
+}
+
+func (col *IPv4) AppendRow(v interface{}) error {
+	var ip net.IP
+	switch v := v.(type) {
+	case net.IP:
+		ip = v
+	case *net.IP:
+		switch {
+		case v != nil:
+			ip = *v
+		default:
+			ip = make(net.IP, net.IPv4len)
+		}
+	case nil:
+		ip = make(net.IP, net.IPv4len)
+	default:
+		return &ColumnConverterError{
+			Op:   "AppendRow",
+			To:   "IPv4",
+			From: fmt.Sprintf("%T", v),
+		}
+	}
+	data := ip.To4()
+	if data == nil {
+		return &ColumnConverterError{
+			Op:   "AppendRow",
+			To:   "IPv4",
+			From: "IPv6",
+			Hint: "invalid IP version",
+		}
+	}
+	col.data = append(col.data, IPv4ToBytes(data)...)
+	return nil
+}
+
+func (col *IPv4) Decode(decoder *binary.Decoder, rows int) error {
+	col.data = make([]byte, net.IPv4len*rows)
+	return decoder.Raw(col.data)
+}
+
+func (col *IPv4) Encode(encoder *binary.Encoder) error {
+	return encoder.Raw(col.data)
+}
+
+func (col *IPv4) row(i int) net.IP {
+	src := col.data[i*net.IPv4len : (i+1)*net.IPv4len]
+	return net.IPv4(src[3], src[2], src[1], src[0]).To4()
+}
+
+func IPv4ToBytes(ip net.IP) []byte {
+	return []byte{ip[3], ip[2], ip[1], ip[0]}
+}
+
+var _ Interface = (*IPv4)(nil)
