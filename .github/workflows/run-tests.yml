@@ -3,6 +3,7 @@ name: run-tests
 on:
   push:
     branches:
+      - master
       - v2
   pull_request:
   workflow_dispatch:
