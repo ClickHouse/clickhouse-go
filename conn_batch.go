@@ -59,6 +59,9 @@ type batch struct {
 }
 
 func (b *batch) Append(v ...interface{}) error {
+	if b.sent {
+		return ErrBatchAlreadySent
+	}
 	if err := b.block.Append(v...); err != nil {
 		b.release(err)
 		return err
@@ -77,6 +80,7 @@ func (b *batch) Column(idx int) driver.BatchColumn {
 		}
 	}
 	return &batchColumn{
+		batch:  b,
 		column: b.block.Columns[idx],
 		release: func(err error) {
 			b.err = err
@@ -113,11 +117,15 @@ func (b *batch) Send() (err error) {
 
 type batchColumn struct {
 	err     error
+	batch   *batch
 	column  column.Interface
 	release func(error)
 }
 
 func (b *batchColumn) Append(v interface{}) (err error) {
+	if b.batch.sent {
+		return ErrBatchAlreadySent
+	}
 	if b.err != nil {
 		b.release(b.err)
 		return b.err
