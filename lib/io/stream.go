@@ -8,14 +8,14 @@ import (
 )
 
 const (
-	maxReadSize = 256 << 10
-	maxDataSize = 64 << 20
+	maxReaderSize = 1 << 20
+	maxWriterSize = 1 << 20
 )
 
 func NewStream(rw io.ReadWriter) *Stream {
 	stream := Stream{
-		r: bufio.NewReaderSize(rw, maxReadSize),
-		w: bufio.NewWriterSize(rw, maxDataSize),
+		r: bufio.NewReaderSize(rw, maxReaderSize),
+		w: bufio.NewWriterSize(rw, maxWriterSize),
 	}
 	stream.compress.r = compress.NewReader(stream.r)
 	stream.compress.w = compress.NewWriter(stream.w)

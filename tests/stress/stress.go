@@ -50,7 +50,7 @@ func (app *App) batch() {
 	if err != nil {
 		log.Fatal("PrepareBatch", err)
 	}
-	for i := 0; i < 15000; i++ {
+	for i := 0; i < 150_000; i++ {
 		err := batch.Append(
 			uint8(1),
 			uuid.New(),
@@ -70,7 +70,13 @@ func (app *App) batch() {
 				},
 			},
 			map[string]string{
-				"key": "value",
+				"key":  "value",
+				"key1": "value1",
+				"key2": "value2",
+				"key3": "value3",
+				"key4": "value4",
+				"key5": "value5",
+				"key6": "value6",
 			},
 		)
 		if err != nil {
@@ -105,7 +111,7 @@ func main() {
 			Username: "default",
 			Password: "",
 		},
-		MaxOpenConns:    15,
+		MaxOpenConns:    20,
 		MaxIdleConns:    15,
 		ConnMaxLifetime: 3 * time.Minute,
 		Compression: &clickhouse.Compression{

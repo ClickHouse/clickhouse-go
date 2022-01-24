@@ -155,7 +155,7 @@ func (ch *clickhouse) dial() (conn *connect, err error) {
 }
 
 func (ch *clickhouse) acquire(ctx context.Context) (conn *connect, err error) {
-	timer := time.NewTimer(time.Second)
+	timer := time.NewTimer(ch.opt.DialTimeout)
 	defer timer.Stop()
 	select {
 	case <-ctx.Done():
