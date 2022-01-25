@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"log"
 	"time"
@@ -11,14 +10,14 @@ import (
 )
 
 func example() error {
-	conn := sql.OpenDB(clickhouse.OpenDB(&clickhouse.Options{
+	conn := clickhouse.OpenDB(&clickhouse.Options{
 		Addr: []string{"127.0.0.1:9000"},
 		Auth: clickhouse.Auth{
 			Database: "default",
 			Username: "default",
 			Password: "",
 		},
-	}))
+	})
 	conn.SetMaxIdleConns(5)
 	conn.SetMaxOpenConns(10)
 	conn.SetConnMaxLifetime(time.Hour)

@@ -18,7 +18,7 @@ func init() {
 	sql.Register("clickhouse", &stdDriver{})
 }
 
-func OpenDB(opt *Options) driver.Connector {
+func OpenDB(opt *Options) *sql.DB {
 	var settings []string
 	if opt.MaxIdleConns > 0 {
 		settings = append(settings, "SetMaxIdleConns")
@@ -30,14 +30,14 @@ func OpenDB(opt *Options) driver.Connector {
 		settings = append(settings, "SetConnMaxLifetime")
 	}
 	if len(settings) != 0 {
-		return &stdDriver{
+		return sql.OpenDB(&stdDriver{
 			err: fmt.Errorf("can not connect. invalid setting. use %s (see https://pkg.go.dev/database/sql)", strings.Join(settings, ",")),
-		}
+		})
 	}
 	opt.setDefaults()
-	return &stdDriver{
+	return sql.OpenDB(&stdDriver{
 		opt: opt,
-	}
+	})
 }
 
 type stdDriver struct {
