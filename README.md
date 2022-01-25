@@ -42,7 +42,7 @@ conn := clickhouse.OpenDB(&clickhouse.Options{
 		InsecureSkipVerify: true,
 	},
 	Settings: clickhouse.Settings{
-		"max_block_size": 10,
+		"max_execution_time": 60,
 	},
 	DialTimeout: 5 * time.Second,
 	Compression: &clickhouse.Compression{

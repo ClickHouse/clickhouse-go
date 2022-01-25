@@ -17,6 +17,14 @@ func example() error {
 			Username: "default",
 			Password: "",
 		},
+		Settings: clickhouse.Settings{
+			"max_execution_time": 60,
+		},
+		DialTimeout: 5 * time.Second,
+		Compression: &clickhouse.Compression{
+			clickhouse.CompressionLZ4,
+		},
+		//Debug: true,
 	})
 	conn.SetMaxIdleConns(5)
 	conn.SetMaxOpenConns(10)
