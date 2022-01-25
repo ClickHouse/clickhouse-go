@@ -50,6 +50,9 @@ conn := clickhouse.OpenDB(&clickhouse.Options{
 	},
 	Debug: true,
 })
+conn.SetMaxIdleConns(5)
+conn.SetMaxOpenConns(10)
+conn.SetConnMaxLifetime(time.Hour)
 ```
 ## DSN
 

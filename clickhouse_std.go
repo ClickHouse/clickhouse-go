@@ -31,7 +31,7 @@ func OpenDB(opt *Options) *sql.DB {
 	}
 	if len(settings) != 0 {
 		return sql.OpenDB(&stdDriver{
-			err: fmt.Errorf("can not connect. invalid setting. use %s (see https://pkg.go.dev/database/sql)", strings.Join(settings, ",")),
+			err: fmt.Errorf("cannot connect. invalid settings. use %s (see https://pkg.go.dev/database/sql)", strings.Join(settings, ",")),
 		})
 	}
 	opt.setDefaults()
