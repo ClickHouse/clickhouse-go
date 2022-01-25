@@ -5,8 +5,10 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"errors"
+	"fmt"
 	"io"
 	"reflect"
+	"strings"
 	"sync/atomic"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
@@ -17,6 +19,21 @@ func init() {
 }
 
 func OpenDB(opt *Options) driver.Connector {
+	var settings []string
+	if opt.MaxIdleConns > 0 {
+		settings = append(settings, "SetMaxIdleConns")
+	}
+	if opt.MaxOpenConns > 0 {
+		settings = append(settings, "SetMaxOpenConns")
+	}
+	if opt.ConnMaxLifetime > 0 {
+		settings = append(settings, "SetConnMaxLifetime")
+	}
+	if len(settings) != 0 {
+		return &stdDriver{
+			err: fmt.Errorf("can not connect. invalid setting. use %s (see https://pkg.go.dev/database/sql)", strings.Join(settings, ",")),
+		}
+	}
 	opt.setDefaults()
 	return &stdDriver{
 		opt: opt,
@@ -24,6 +41,7 @@ func OpenDB(opt *Options) driver.Connector {
 }
 
 type stdDriver struct {
+	err    error
 	opt    *Options
 	conn   *connect
 	commit func() error
@@ -34,7 +52,10 @@ func (d *stdDriver) Driver() driver.Driver {
 	return d
 }
 
-func (d *stdDriver) Connect(context.Context) (_ driver.Conn, err error) {
+func (d *stdDriver) Connect(context.Context) (driver.Conn, error) {
+	if d.err != nil {
+		return nil, d.err
+	}
 	return d.Open("")
 }
 
