@@ -55,11 +55,12 @@ func (col *Map) Row(i int, ptr bool) interface{} {
 
 func (col *Map) ScanRow(dest interface{}, i int) error {
 	value := reflect.Indirect(reflect.ValueOf(dest))
-	if value.Kind() != reflect.Map {
+	if value.Type() != col.scanType {
 		return &ColumnConverterError{
 			Op:   "ScanRow",
 			To:   fmt.Sprintf("%T", dest),
 			From: string(col.chType),
+			Hint: fmt.Sprintf("try using %s", col.scanType),
 		}
 	}
 	{
@@ -75,6 +76,7 @@ func (col *Map) Append(v interface{}) (nulls []uint8, err error) {
 			Op:   "Append",
 			To:   string(col.chType),
 			From: fmt.Sprintf("%T", v),
+			Hint: fmt.Sprintf("try using %s", col.scanType),
 		}
 	}
 	for i := 0; i < value.Len(); i++ {
@@ -87,11 +89,12 @@ func (col *Map) Append(v interface{}) (nulls []uint8, err error) {
 
 func (col *Map) AppendRow(v interface{}) error {
 	value := reflect.Indirect(reflect.ValueOf(v))
-	if value.Kind() != reflect.Map {
+	if value.Type() != col.scanType {
 		return &ColumnConverterError{
 			Op:   "AppendRow",
 			To:   string(col.chType),
 			From: fmt.Sprintf("%T", v),
+			Hint: fmt.Sprintf("try using %s", col.scanType),
 		}
 	}
 	var (
