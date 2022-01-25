@@ -28,6 +28,29 @@ Support for the ClickHouse protocol advanced features using `Context`:
 
 # `database/sql` interface
 
+## OpenDB
+
+```go
+conn := clickhouse.OpenDB(&clickhouse.Options{
+	Addr: []string{"127.0.0.1:9999"},
+	Auth: clickhouse.Auth{
+		Database: "default",
+		Username: "default",
+		Password: "",
+	},
+	TLS: &tls.Config{
+		InsecureSkipVerify: true,
+	},
+	Settings: clickhouse.Settings{
+		"max_block_size": 10,
+	},
+	DialTimeout: 5 * time.Second,
+	Compression: &clickhouse.Compression{
+		clickhouse.CompressionLZ4,
+	},
+	Debug: true,
+})
+```
 ## DSN
 
 * hosts  - comma-separated list of single address hosts for load-balancing and failover
