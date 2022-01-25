@@ -91,7 +91,7 @@ func (o *Options) fromDSN(in string) error {
 			}
 		}
 	}
-	if secure {
+	if secure && o.TLS == nil {
 		o.TLS = &tls.Config{
 			InsecureSkipVerify: skipVerify,
 		}

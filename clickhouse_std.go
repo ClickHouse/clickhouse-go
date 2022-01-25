@@ -16,26 +16,44 @@ func init() {
 	sql.Register("clickhouse", &stdDriver{})
 }
 
+func OpenDB(opt *Options) driver.Connector {
+	opt.setDefaults()
+	return &stdDriver{
+		opt: opt,
+	}
+}
+
 type stdDriver struct {
+	opt    *Options
 	conn   *connect
 	commit func() error
 	connID int64
 }
 
+func (d *stdDriver) Driver() driver.Driver {
+	return d
+}
+
+func (d *stdDriver) Connect(context.Context) (_ driver.Conn, err error) {
+	return d.Open("")
+}
+
 func (d *stdDriver) Open(dsn string) (_ driver.Conn, err error) {
 	var (
-		opt    Options
 		conn   *connect
 		connID = int(atomic.AddInt64(&d.connID, 1))
 	)
-	if err = opt.fromDSN(dsn); err != nil {
-		return nil, err
-	}
-	for num := range opt.Addr {
-		if opt.ConnOpenStrategy == ConnOpenRoundRobin {
-			num = int(connID) % len(opt.Addr)
+	if d.opt == nil {
+		d.opt = &Options{}
+		if err = d.opt.fromDSN(dsn); err != nil {
+			return nil, err
 		}
-		if conn, err = dial(opt.Addr[num], connID, &opt); err == nil {
+	}
+	for num := range d.opt.Addr {
+		if d.opt.ConnOpenStrategy == ConnOpenRoundRobin {
+			num = int(connID) % len(d.opt.Addr)
+		}
+		if conn, err = dial(d.opt.Addr[num], connID, d.opt); err == nil {
 			return &stdDriver{
 				conn: conn,
 			}, nil
