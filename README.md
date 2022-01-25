@@ -74,7 +74,7 @@ SSL/TLS parameters:
 Example:
 
 ```sh
-clickhouse://username:password@host1:9000,host2:9000/database?dial_timeout=200ms
+clickhouse://username:password@host1:9000,host2:9000/database?dial_timeout=200ms&max_execution_time=60
 ```
 
 ## TODO
@@ -219,7 +219,7 @@ import (
 )
 
 func example() error {
-	conn, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000?dial_timeout=1s&compress=true")
+	conn, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000?dial_timeout=1s&compress=true&max_execution_time=60")
 	if err != nil {
 		return err
 	}

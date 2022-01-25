@@ -51,6 +51,9 @@ func (o *Options) fromDSN(in string) error {
 	if err != nil {
 		return err
 	}
+	if o.Settings == nil {
+		o.Settings = make(Settings)
+	}
 	if dsn.User != nil {
 		o.Auth.Username = dsn.User.Username()
 		o.Auth.Password, _ = dsn.User.Password()
@@ -83,15 +86,26 @@ func (o *Options) fromDSN(in string) error {
 		case "skip_verify":
 			skipVerify = true
 		case "connection_open_strategy":
-			switch params.Get("v") {
+			switch params.Get(v) {
 			case "in_order":
 				o.ConnOpenStrategy = ConnOpenInOrder
 			case "round_robin":
 				o.ConnOpenStrategy = ConnOpenRoundRobin
 			}
+		default:
+			switch p := strings.ToLower(params.Get(v)); p {
+			case "true":
+				o.Settings[v] = int(1)
+			case "false":
+				o.Settings[v] = int(0)
+			default:
+				if n, err := strconv.Atoi(p); err == nil {
+					o.Settings[v] = n
+				}
+			}
 		}
 	}
-	if secure && o.TLS == nil {
+	if secure {
 		o.TLS = &tls.Config{
 			InsecureSkipVerify: skipVerify,
 		}
