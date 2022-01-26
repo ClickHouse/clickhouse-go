@@ -32,6 +32,14 @@ const (
 	ConnOpenRoundRobin
 )
 
+func ParseDSN(dsn string) (*Options, error) {
+	opt := &Options{}
+	if err := opt.fromDSN(dsn); err != nil {
+		return nil, err
+	}
+	return opt, nil
+}
+
 type Options struct {
 	TLS              *tls.Config
 	Addr             []string
