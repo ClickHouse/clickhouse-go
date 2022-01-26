@@ -12,11 +12,6 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 
-type (
-	Date     time.Time
-	DateTime time.Time
-)
-
 type Conn = driver.Conn
 
 type (
@@ -28,7 +23,7 @@ type (
 
 var (
 	ErrBatchAlreadySent               = errors.New("clickhouse: batch has already been sent")
-	ErrAcquireConnTimeout             = errors.New("clickhouse: acquire conn timeout")
+	ErrAcquireConnTimeout             = errors.New("clickhouse: acquire conn timeout. you can increase the number of max open conn or the dial timeout")
 	ErrUnsupportedServerRevision      = errors.New("clickhouse: unsupported server revision")
 	ErrBindMixedNamedAndNumericParams = errors.New("clickhouse [bind]: mixed named and numeric parameters")
 )

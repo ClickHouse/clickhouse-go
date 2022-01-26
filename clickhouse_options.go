@@ -38,11 +38,11 @@ type Options struct {
 	Auth             Auth
 	Debug            bool
 	Settings         Settings
-	DialTimeout      time.Duration
 	Compression      *Compression
-	MaxOpenConns     int
-	MaxIdleConns     int
-	ConnMaxLifetime  time.Duration
+	DialTimeout      time.Duration // default 1 second
+	MaxOpenConns     int           // default MaxIdleConns + 5
+	MaxIdleConns     int           // default 5
+	ConnMaxLifetime  time.Duration // default 1 hour
 	ConnOpenStrategy ConnOpenStrategy
 }
 
