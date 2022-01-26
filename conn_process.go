@@ -6,7 +6,6 @@ import (
 	"io"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/lib/protocol"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 
@@ -125,7 +124,7 @@ func (c *connect) cancel() error {
 	c.conn.SetDeadline(time.Now().Add(2 * time.Second))
 	c.debugf("[cancel]")
 	c.closed = true
-	if err := c.encoder.Uvarint(protocol.ClientCancel); err == nil {
+	if err := c.encoder.Uvarint(proto.ClientCancel); err == nil {
 		return err
 	}
 	return c.encoder.Flush()
