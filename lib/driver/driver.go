@@ -49,6 +49,7 @@ type (
 	}
 	Batch interface {
 		Append(v ...interface{}) error
+		AppendStruct(v interface{}) error
 		Column(int) BatchColumn
 		Send() error
 	}

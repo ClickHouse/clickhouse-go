@@ -69,6 +69,14 @@ func (b *batch) Append(v ...interface{}) error {
 	return nil
 }
 
+func (b *batch) AppendStruct(v interface{}) error {
+	values, err := structToScannableValues(b.block.ColumnsNames(), v)
+	if err != nil {
+		return err
+	}
+	return b.Append(values...)
+}
+
 func (b *batch) Column(idx int) driver.BatchColumn {
 	if len(b.block.Columns) <= idx {
 		b.release(nil)
@@ -137,5 +145,7 @@ func (b *batchColumn) Append(v interface{}) (err error) {
 	return nil
 }
 
-var _ (driver.Batch) = (*batch)(nil)
-var _ (driver.BatchColumn) = (*batchColumn)(nil)
+var (
+	_ (driver.Batch)       = (*batch)(nil)
+	_ (driver.BatchColumn) = (*batchColumn)(nil)
+)
