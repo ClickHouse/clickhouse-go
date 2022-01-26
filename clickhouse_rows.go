@@ -48,7 +48,7 @@ next:
 		}
 	}
 	r.row++
-	return true
+	return r.row <= r.block.Rows()
 }
 
 func (r *rows) Scan(dest ...interface{}) error {

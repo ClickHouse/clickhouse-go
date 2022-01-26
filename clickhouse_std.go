@@ -211,6 +211,12 @@ func (r *stdRows) ColumnTypePrecisionScale(idx int) (precision, scale int64, ok 
 }
 
 func (r *stdRows) Next(dest []driver.Value) error {
+	if len(r.rows.block.Columns) != len(dest) {
+		return &OpError{
+			Op:  "Next",
+			Err: fmt.Errorf("expected %d destination arguments in Next, not %d", len(r.rows.block.Columns), len(dest)),
+		}
+	}
 	if r.rows.Next() {
 		for i := range dest {
 			nullable, ok := r.ColumnTypeNullable(i)

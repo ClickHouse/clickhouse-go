@@ -175,11 +175,14 @@ func (col *Map) row(n int) reflect.Value {
 	if n != 0 {
 		prev = col.offsets[n-1]
 	}
-	size := int(col.offsets[n] - prev)
+	var (
+		size = int(col.offsets[n] - prev)
+		from = int(prev)
+	)
 	for next := 0; next < size; next++ {
 		value.SetMapIndex(
-			reflect.ValueOf(col.keys.Row(n*size+next, false)),
-			reflect.ValueOf(col.values.Row(n*size+next, false)),
+			reflect.ValueOf(col.keys.Row(from+next, false)),
+			reflect.ValueOf(col.values.Row(from+next, false)),
 		)
 	}
 	return value
