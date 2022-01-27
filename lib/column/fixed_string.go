@@ -66,9 +66,7 @@ func (col *FixedString) Append(v interface{}) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []string:
 		for _, v := range v {
-			if err := col.AppendRow(v); err != nil {
-				return nil, err
-			}
+			col.data = append(col.data, binary.Str2Bytes(v)...)
 		}
 		nulls = make([]uint8, len(v))
 	case []*string:
@@ -77,20 +75,17 @@ func (col *FixedString) Append(v interface{}) (nulls []uint8, err error) {
 			if v == nil {
 				nulls[i] = 1
 			}
-			if err := col.AppendRow(v); err != nil {
-				return nil, err
+			switch {
+			case v == nil:
+				col.data = append(col.data, make([]byte, col.size)...)
+			default:
+				col.data = append(col.data, binary.Str2Bytes(*v)...)
 			}
 		}
 	case encoding.BinaryMarshaler:
 		data, err := v.MarshalBinary()
 		if err != nil {
 			return nil, err
-		}
-		if len(data)%col.size != 0 {
-			return nil, &Error{
-				ColumnType: string(col.Type()),
-				Err:        fmt.Errorf("invalid size. expected %d got %d", col.size, len(data)),
-			}
 		}
 		col.data, nulls = append(col.data, data...), make([]uint8, len(data)/col.size)
 	default:
@@ -100,6 +95,12 @@ func (col *FixedString) Append(v interface{}) (nulls []uint8, err error) {
 			From: fmt.Sprintf("%T", v),
 		}
 	}
+	if len(col.data)%col.size != 0 {
+		return nil, &Error{
+			ColumnType: string(col.Type()),
+			Err:        fmt.Errorf("invalid size. expected %d got %d", col.size, len(col.data)),
+		}
+	}
 	return
 }
 
@@ -107,10 +108,10 @@ func (col *FixedString) AppendRow(v interface{}) (err error) {
 	data := make([]byte, col.size)
 	switch v := v.(type) {
 	case string:
-		data = []byte(v)
+		data = binary.Str2Bytes(v)
 	case *string:
 		if v != nil {
-			data = []byte(*v)
+			data = binary.Str2Bytes(*v)
 		}
 	case nil:
 	case encoding.BinaryMarshaler:

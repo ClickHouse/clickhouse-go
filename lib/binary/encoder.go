@@ -118,7 +118,7 @@ func (enc *Encoder) Flush() error {
 }
 
 func (enc *Encoder) String(v string) error {
-	str := str2Bytes(v)
+	str := Str2Bytes(v)
 	if err := enc.Uvarint(uint64(len(str))); err != nil {
 		return err
 	}

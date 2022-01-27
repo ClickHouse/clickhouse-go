@@ -5,10 +5,6 @@ import (
 	"unsafe"
 )
 
-func safeStr2Bytes(str string) []byte {
-	return []byte(str)
-}
-
 func unsafeStr2Bytes(str string) []byte {
 	// Copied from https://github.com/m3db/m3/blob/master/src/x/unsafe/string.go#L62
 	if len(str) == 0 {

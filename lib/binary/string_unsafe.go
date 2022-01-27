@@ -3,6 +3,6 @@
 
 package binary
 
-func str2Bytes(str string) []byte {
+func Str2Bytes(str string) []byte {
 	return unsafeStr2Bytes(str)
 }
