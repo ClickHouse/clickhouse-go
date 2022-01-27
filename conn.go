@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"reflect"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
@@ -39,13 +40,16 @@ func dial(addr string, num int, opt *Options) (*connect, error) {
 	var (
 		stream  = io.NewStream(conn)
 		connect = &connect{
-			opt:         opt,
-			conn:        conn,
-			debugf:      debugf,
-			stream:      stream,
-			encoder:     binary.NewEncoder(stream),
-			decoder:     binary.NewDecoder(stream),
-			revision:    proto.ClientTCPProtocolVersion,
+			opt:      opt,
+			conn:     conn,
+			debugf:   debugf,
+			stream:   stream,
+			encoder:  binary.NewEncoder(stream),
+			decoder:  binary.NewDecoder(stream),
+			revision: proto.ClientTCPProtocolVersion,
+			structMap: structMap{
+				cache: make(map[reflect.Type]map[string][]int),
+			},
 			compression: compression,
 			connectedAt: time.Now(),
 		}
@@ -69,6 +73,7 @@ type connect struct {
 	decoder     *binary.Decoder
 	released    bool
 	revision    uint64
+	structMap   structMap
 	compression bool
 	lastUsedIn  time.Time
 	connectedAt time.Time
