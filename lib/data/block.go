@@ -144,6 +144,9 @@ func (block *Block) AppendRow(args []driver.Value) error {
 	for num, c := range block.Columns {
 		switch column := c.(type) {
 		case *column.Array:
+			if args[num] == nil {
+				return fmt.Errorf("unsupported [nil] value is passed in argument %d, column is not Nullable", num)
+			}
 			value := reflect.ValueOf(args[num])
 			if value.Kind() != reflect.Slice {
 				return fmt.Errorf("unsupported Array(T) type [%T]", value.Interface())
