@@ -121,6 +121,7 @@ func (col *{{ .ChType }}) ScanRow(dest interface{}, row int) error {
 			Op:   "ScanRow",
 			To:   fmt.Sprintf("%T", dest),
 			From: "{{ .ChType }}",
+			Hint: fmt.Sprintf("try using *%s", scanType{{ .ChType }}),
 		}
 	}
 	return nil

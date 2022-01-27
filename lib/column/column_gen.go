@@ -156,6 +156,7 @@ func (col *Float32) ScanRow(dest interface{}, row int) error {
 			Op:   "ScanRow",
 			To:   fmt.Sprintf("%T", dest),
 			From: "Float32",
+			Hint: fmt.Sprintf("try using *%s", scanTypeFloat32),
 		}
 	}
 	return nil
@@ -241,6 +242,7 @@ func (col *Float64) ScanRow(dest interface{}, row int) error {
 			Op:   "ScanRow",
 			To:   fmt.Sprintf("%T", dest),
 			From: "Float64",
+			Hint: fmt.Sprintf("try using *%s", scanTypeFloat64),
 		}
 	}
 	return nil
@@ -326,6 +328,7 @@ func (col *Int8) ScanRow(dest interface{}, row int) error {
 			Op:   "ScanRow",
 			To:   fmt.Sprintf("%T", dest),
 			From: "Int8",
+			Hint: fmt.Sprintf("try using *%s", scanTypeInt8),
 		}
 	}
 	return nil
@@ -411,6 +414,7 @@ func (col *Int16) ScanRow(dest interface{}, row int) error {
 			Op:   "ScanRow",
 			To:   fmt.Sprintf("%T", dest),
 			From: "Int16",
+			Hint: fmt.Sprintf("try using *%s", scanTypeInt16),
 		}
 	}
 	return nil
@@ -496,6 +500,7 @@ func (col *Int32) ScanRow(dest interface{}, row int) error {
 			Op:   "ScanRow",
 			To:   fmt.Sprintf("%T", dest),
 			From: "Int32",
+			Hint: fmt.Sprintf("try using *%s", scanTypeInt32),
 		}
 	}
 	return nil
@@ -581,6 +586,7 @@ func (col *Int64) ScanRow(dest interface{}, row int) error {
 			Op:   "ScanRow",
 			To:   fmt.Sprintf("%T", dest),
 			From: "Int64",
+			Hint: fmt.Sprintf("try using *%s", scanTypeInt64),
 		}
 	}
 	return nil
@@ -666,6 +672,7 @@ func (col *UInt8) ScanRow(dest interface{}, row int) error {
 			Op:   "ScanRow",
 			To:   fmt.Sprintf("%T", dest),
 			From: "UInt8",
+			Hint: fmt.Sprintf("try using *%s", scanTypeUInt8),
 		}
 	}
 	return nil
@@ -751,6 +758,7 @@ func (col *UInt16) ScanRow(dest interface{}, row int) error {
 			Op:   "ScanRow",
 			To:   fmt.Sprintf("%T", dest),
 			From: "UInt16",
+			Hint: fmt.Sprintf("try using *%s", scanTypeUInt16),
 		}
 	}
 	return nil
@@ -836,6 +844,7 @@ func (col *UInt32) ScanRow(dest interface{}, row int) error {
 			Op:   "ScanRow",
 			To:   fmt.Sprintf("%T", dest),
 			From: "UInt32",
+			Hint: fmt.Sprintf("try using *%s", scanTypeUInt32),
 		}
 	}
 	return nil
@@ -921,6 +930,7 @@ func (col *UInt64) ScanRow(dest interface{}, row int) error {
 			Op:   "ScanRow",
 			To:   fmt.Sprintf("%T", dest),
 			From: "UInt64",
+			Hint: fmt.Sprintf("try using *%s", scanTypeUInt64),
 		}
 	}
 	return nil
