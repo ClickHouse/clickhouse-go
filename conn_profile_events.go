@@ -1,6 +1,7 @@
 package clickhouse
 
 import (
+	"reflect"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
@@ -50,8 +51,17 @@ func (c *connect) profileEvents() ([]ProfileEvent, error) {
 					return nil, err
 				}
 			case "value":
-				if err := b.ScanRow(&event.Value, r); err != nil {
-					return nil, err
+				switch b.ScanType().Kind() {
+				case reflect.Uint64:
+					var v uint64
+					if err := b.ScanRow(&v, r); err != nil {
+						return nil, err
+					}
+					event.Value = int64(v)
+				default:
+					if err := b.ScanRow(&event.Value, r); err != nil {
+						return nil, err
+					}
 				}
 			}
 		}
