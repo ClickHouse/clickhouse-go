@@ -115,6 +115,7 @@ func (ch *clickhouse) PrepareBatch(ctx context.Context, query string) (driver.Ba
 	if err != nil {
 		return nil, err
 	}
+	defer ch.release(conn)
 	return conn.prepareBatch(ctx, query, ch.release)
 }
 
