@@ -95,12 +95,6 @@ func (col *FixedString) Append(v interface{}) (nulls []uint8, err error) {
 			From: fmt.Sprintf("%T", v),
 		}
 	}
-	if len(col.data)%col.size != 0 {
-		return nil, &Error{
-			ColumnType: string(col.Type()),
-			Err:        fmt.Errorf("invalid size. expected %d got %d", col.size, len(col.data)),
-		}
-	}
 	return
 }
 
@@ -125,12 +119,6 @@ func (col *FixedString) AppendRow(v interface{}) (err error) {
 			From: fmt.Sprintf("%T", v),
 		}
 	}
-	if len(data) != col.size {
-		return &Error{
-			ColumnType: string(col.Type()),
-			Err:        fmt.Errorf("invalid size. expected %d got %d", col.size, len(data)),
-		}
-	}
 	col.data = append(col.data, data...)
 	return nil
 }
@@ -141,6 +129,12 @@ func (col *FixedString) Decode(decoder *binary.Decoder, rows int) error {
 }
 
 func (col *FixedString) Encode(encoder *binary.Encoder) error {
+	if len(col.data)%col.size != 0 {
+		return &Error{
+			ColumnType: string(col.Type()),
+			Err:        fmt.Errorf("invalid column size. must be a multiple of %d bytes got %d bytes", col.size, len(col.data)),
+		}
+	}
 	return encoder.Raw(col.data)
 }
 

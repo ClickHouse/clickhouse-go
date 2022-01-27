@@ -248,3 +248,96 @@ func TestColumnarFixedString(t *testing.T) {
 		}
 	}
 }
+
+func BenchmarkFixedString(b *testing.B) {
+	var (
+		ctx       = context.Background()
+		conn, err = clickhouse.Open(&clickhouse.Options{
+			Addr: []string{"127.0.0.1:9000"},
+			Auth: clickhouse.Auth{
+				Database: "default",
+				Username: "default",
+				Password: "",
+			},
+		})
+	)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	if err = conn.Exec(ctx, `DROP TABLE IF EXISTS benchmark_fixed_string`); err != nil {
+		b.Fatal(err)
+	}
+	if err = conn.Exec(ctx, `CREATE TABLE benchmark_fixed_string (Col1 UInt64, Col2 FixedString(4)) ENGINE = Null`); err != nil {
+		b.Fatal(err)
+	}
+
+	const rowsInBlock = 10_000_000
+
+	for n := 0; n < b.N; n++ {
+		batch, err := conn.PrepareBatch(ctx, "INSERT INTO benchmark_fixed_string VALUES")
+		if err != nil {
+			b.Fatal(err)
+		}
+		for i := 0; i < rowsInBlock; i++ {
+			if err := batch.Append(uint64(1), "test"); err != nil {
+				b.Fatal(err)
+			}
+		}
+		if err = batch.Send(); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkColumnarFixedString(b *testing.B) {
+	var (
+		ctx       = context.Background()
+		conn, err = clickhouse.Open(&clickhouse.Options{
+			Addr: []string{"127.0.0.1:9000"},
+			Auth: clickhouse.Auth{
+				Database: "default",
+				Username: "default",
+				Password: "",
+			},
+		})
+	)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	if err = conn.Exec(ctx, `DROP TABLE IF EXISTS benchmark_fixed_string`); err != nil {
+		b.Fatal(err)
+	}
+	if err = conn.Exec(ctx, `CREATE TABLE benchmark_fixed_string (Col1 UInt64, Col2 FixedString(4)) ENGINE = Null`); err != nil {
+		b.Fatal(err)
+	}
+
+	const rowsInBlock = 10_000_000
+
+	var (
+		col1 []uint64
+		col2 []string
+	)
+	for n := 0; n < b.N; n++ {
+		batch, err := conn.PrepareBatch(ctx, "INSERT INTO benchmark_fixed_string VALUES")
+		if err != nil {
+			b.Fatal(err)
+		}
+		col1 = col1[:0]
+		col2 = col2[:0]
+		for i := 0; i < rowsInBlock; i++ {
+			col1 = append(col1, uint64(1))
+			col2 = append(col2, "test")
+		}
+		if err := batch.Column(0).Append(col1); err != nil {
+			b.Fatal(err)
+		}
+		if err := batch.Column(1).Append(col2); err != nil {
+			b.Fatal(err)
+		}
+		if err = batch.Send(); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
