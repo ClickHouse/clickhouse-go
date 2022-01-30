@@ -23,6 +23,7 @@ type (
 
 type (
 	Conn interface {
+		Contributors() []string
 		ServerVersion() (*ServerVersion, error)
 		Select(ctx context.Context, dest interface{}, query string, args ...interface{}) error
 		Query(ctx context.Context, query string, args ...interface{}) (Rows, error)

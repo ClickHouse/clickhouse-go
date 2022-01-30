@@ -15,8 +15,13 @@ lint:
 	golangci-lint run || :
 	gocritic check -disable=singleCaseSwitch ./... || :
 
+contributors:
+	@git log --all --format='%cN <%cE>' | sort -u > contributors/list
+
 staticcheck:
 	staticcheck ./...
 
 codegen:
 	@cd lib/column && go run codegen/main.go
+
+.PHONY: contributors

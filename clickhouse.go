@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/ClickHouse/clickhouse-go/v2/contributors"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
@@ -66,6 +67,10 @@ type clickhouse struct {
 	idle   chan *connect
 	open   chan struct{}
 	connID int64
+}
+
+func (clickhouse) Contributors() []string {
+	return contributors.List
 }
 
 func (ch *clickhouse) ServerVersion() (*driver.ServerVersion, error) {
