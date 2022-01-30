@@ -83,6 +83,22 @@ func TestAppendStruct(t *testing.T) {
 								}
 							}
 						}
+						var results []data
+						if err := conn.Select(ctx, &results, "SELECT * FROM test_append_struct ORDER BY HCol1"); assert.NoError(t, err) {
+							for i, result := range results {
+								str := fmt.Sprintf("Str_%d", i)
+								h := header{
+									Col1: uint8(i),
+									Col2: &str,
+									Col3: []*string{&str, nil, &str},
+								}
+								assert.Equal(t, h, result.header)
+								if assert.Empty(t, result.Col2) {
+									assert.Equal(t, uint8(i+1), result.Col1)
+									assert.Equal(t, []string{"A", "B", "C", fmt.Sprint(i)}, result.Col3)
+								}
+							}
+						}
 					}
 				}
 			}
