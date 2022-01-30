@@ -9,7 +9,7 @@ type structMap struct {
 	cache map[reflect.Type]map[string][]int
 }
 
-func (m *structMap) Map(op string, columns []string, s interface{}) ([]interface{}, error) {
+func (m *structMap) Map(op string, columns []string, s interface{}, ptr bool) ([]interface{}, error) {
 	var (
 		v = reflect.ValueOf(s)
 		t = reflect.TypeOf(s)
@@ -55,7 +55,12 @@ func (m *structMap) Map(op string, columns []string, s interface{}) ([]interface
 				Err: fmt.Errorf("missing destination name %q in %T", name, s),
 			}
 		}
-		values = append(values, v.FieldByIndex(idx).Addr().Interface())
+		switch field := v.FieldByIndex(idx); {
+		case ptr:
+			values = append(values, field.Addr().Interface())
+		default:
+			values = append(values, field.Interface())
+		}
 	}
 	return values, nil
 }

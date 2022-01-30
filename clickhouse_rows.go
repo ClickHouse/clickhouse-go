@@ -59,7 +59,7 @@ func (r *rows) Scan(dest ...interface{}) error {
 }
 
 func (r *rows) ScanStruct(dest interface{}) error {
-	values, err := r.conn.structMap.Map("ScanStruct", r.columns, dest)
+	values, err := r.conn.structMap.Map("ScanStruct", r.columns, dest, true)
 	if err != nil {
 		return err
 	}
@@ -102,7 +102,7 @@ func (r *row) Err() error {
 }
 
 func (r *row) ScanStruct(dest interface{}) error {
-	values, err := r.rows.conn.structMap.Map("ScanStruct", r.rows.columns, dest)
+	values, err := r.rows.conn.structMap.Map("ScanStruct", r.rows.columns, dest, true)
 	if err != nil {
 		return err
 	}

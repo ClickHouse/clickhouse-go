@@ -58,7 +58,7 @@ func TestMapper(t *testing.T) {
 		Embed: Embed{
 			Col4: "Named value",
 		},
-	})
+	}, false)
 
 	t.Log(values, err)
 }
@@ -92,7 +92,7 @@ func BenchmarkStructMap(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		if _, err := mapper.Map("", []string{"Col1", "named"}, data); err != nil {
+		if _, err := mapper.Map("", []string{"Col1", "named"}, data, false); err != nil {
 			b.Fatal(err)
 		}
 	}

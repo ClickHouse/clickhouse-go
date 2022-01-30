@@ -70,7 +70,7 @@ func (b *batch) Append(v ...interface{}) error {
 }
 
 func (b *batch) AppendStruct(v interface{}) error {
-	values, err := b.conn.structMap.Map("AppendStruct", b.block.ColumnsNames(), v)
+	values, err := b.conn.structMap.Map("AppendStruct", b.block.ColumnsNames(), v, false)
 	if err != nil {
 		return err
 	}
