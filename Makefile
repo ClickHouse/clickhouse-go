@@ -16,7 +16,7 @@ lint:
 	gocritic check -disable=singleCaseSwitch ./... || :
 
 contributors:
-	@git log --all --format='%cN <%cE>' | sort -u > contributors/list
+	@git log --pretty="%an <%ae>%n%cn <%ce>" | sort -u -t '<' -k 2,2 | sort > contributors/list
 
 staticcheck:
 	staticcheck ./...
