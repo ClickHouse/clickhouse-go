@@ -294,3 +294,7 @@ func main() {
 	}
 }
 ```
+
+## Acknowledgments
+
+This driver may contain ideas and engineering decisions that might be inspired by the work in [go-faster/ch](https://github.com/go-faster/ch) and [vahid-sohrabloo/chconn](https://github.com/vahid-sohrabloo/chconn). We recognize and admire them.
