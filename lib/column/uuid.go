@@ -46,6 +46,7 @@ func (col *UUID) ScanRow(dest interface{}, row int) error {
 			Op:   "ScanRow",
 			To:   fmt.Sprintf("%T", dest),
 			From: "UUID",
+			Hint: fmt.Sprintf("try using *%s", col.ScanType()),
 		}
 	}
 	return nil

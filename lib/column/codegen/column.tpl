@@ -10,6 +10,7 @@ import (
 	"time"
 	"net"
 	"github.com/google/uuid"
+	"github.com/paulmach/orb"
 	"github.com/shopspring/decimal"
 )
 
@@ -33,6 +34,8 @@ func (t Type) Column() (Interface, error) {
 		return &UUID{}, nil
 	case "Nothing":
 		return &Nothing{}, nil
+	case "Point":
+		return &Point{}, nil
 	case "String":
 		return &String{}, nil
 	}
@@ -89,6 +92,7 @@ var (
 		scanTypeByte    = reflect.TypeOf([]byte{})
 		scanTypeUUID    = reflect.TypeOf(uuid.UUID{})
 		scanTypeTime    = reflect.TypeOf(time.Time{})
+		scanTypePoint   = reflect.TypeOf(orb.Point{})
 		scanTypeSlice   = reflect.TypeOf([]interface{}{})
 		scanTypeString  = reflect.TypeOf("")
 		scanTypeDecimal = reflect.TypeOf(decimal.Decimal{})
