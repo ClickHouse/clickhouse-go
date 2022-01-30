@@ -14,38 +14,36 @@ func TestStdBool(t *testing.T) {
 			return
 		}
 		const ddl = `
-			CREATE TABLE test_bool (
+			CREATE TEMPORARY TABLE test_bool (
 				    Col1 Bool
 				  , Col2 Bool
 				  , Col3 Array(Bool)
 				  , Col4 Nullable(Bool)
 				  , Col5 Array(Nullable(Bool))
-			) Engine Memory
+			)
 		`
-		if _, err := conn.Exec("DROP TABLE IF EXISTS test_bool"); assert.NoError(t, err) {
-			if _, err := conn.Exec(ddl); assert.NoError(t, err) {
-				scope, err := conn.Begin()
-				if !assert.NoError(t, err) {
-					return
-				}
-				if batch, err := scope.Prepare("INSERT INTO test_bool"); assert.NoError(t, err) {
-					var val bool
-					if _, err := batch.Exec(true, false, []bool{true, false, true}, nil, []*bool{&val, nil, &val}); assert.NoError(t, err) {
-						if err := scope.Commit(); assert.NoError(t, err) {
-							var (
-								col1 bool
-								col2 bool
-								col3 []bool
-								col4 *bool
-								col5 []*bool
-							)
-							if err := conn.QueryRow("SELECT * FROM test_bool").Scan(&col1, &col2, &col3, &col4, &col5); assert.NoError(t, err) {
-								assert.Equal(t, true, col1)
-								assert.Equal(t, false, col2)
-								assert.Equal(t, []bool{true, false, true}, col3)
-								if assert.Nil(t, col4) {
-									assert.Equal(t, []*bool{&val, nil, &val}, col5)
-								}
+		if _, err := conn.Exec(ddl); assert.NoError(t, err) {
+			scope, err := conn.Begin()
+			if !assert.NoError(t, err) {
+				return
+			}
+			if batch, err := scope.Prepare("INSERT INTO test_bool"); assert.NoError(t, err) {
+				var val bool
+				if _, err := batch.Exec(true, false, []bool{true, false, true}, nil, []*bool{&val, nil, &val}); assert.NoError(t, err) {
+					if err := scope.Commit(); assert.NoError(t, err) {
+						var (
+							col1 bool
+							col2 bool
+							col3 []bool
+							col4 *bool
+							col5 []*bool
+						)
+						if err := conn.QueryRow("SELECT * FROM test_bool").Scan(&col1, &col2, &col3, &col4, &col5); assert.NoError(t, err) {
+							assert.Equal(t, true, col1)
+							assert.Equal(t, false, col2)
+							assert.Equal(t, []bool{true, false, true}, col3)
+							if assert.Nil(t, col4) {
+								assert.Equal(t, []*bool{&val, nil, &val}, col5)
 							}
 						}
 					}

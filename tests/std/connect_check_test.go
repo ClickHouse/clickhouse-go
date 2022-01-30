@@ -12,14 +12,11 @@ import (
 func TestStdConnCheck(t *testing.T) {
 	const (
 		ddl = `
-				CREATE TABLE clickhouse_test_conncheck (
-						Value String
-				) Engine = Memory
+		CREATE TABLE clickhouse_test_conncheck (
+			Value String
+		) Engine Memory
 		`
-		dml = `
-				INSERT INTO clickhouse_test_conncheck
-				VALUES (?)
-		`
+		dml = `INSERT INTO clickhouse_test_conncheck VALUES `
 	)
 
 	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=false"); assert.NoError(t, err) {
@@ -41,7 +38,9 @@ func TestStdConnCheck(t *testing.T) {
 
 				_, err = tx.PrepareContext(ctx, dml)
 				assert.NoError(t, err)
+				assert.NoError(t, tx.Commit())
 			}
 		}
+		connect.Exec("DROP TABLE IF EXISTS clickhouse_test_conncheck")
 	}
 }

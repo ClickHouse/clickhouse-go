@@ -31,22 +31,20 @@ func TestIssue412(t *testing.T) {
 			return
 		}
 		const ddl = `
-			CREATE TABLE issue_412 (
+			CREATE TEMPORARY TABLE issue_412 (
 				Col1 SimpleAggregateFunction(max, DateTime64(3, 'UTC'))
-			) Engine Memory
+			)
 		`
-		if err := conn.Exec(ctx, "DROP TABLE IF EXISTS issue_412"); assert.NoError(t, err) {
-			if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
-				if batch, err := conn.PrepareBatch(ctx, "INSERT INTO issue_412"); assert.NoError(t, err) {
-					datetime := time.Now().Truncate(time.Millisecond)
-					if err := batch.Append(datetime); !assert.NoError(t, err) {
-						return
-					}
-					if err := batch.Send(); assert.NoError(t, err) {
-						var col1 time.Time
-						if err := conn.QueryRow(ctx, "SELECT * FROM issue_412").Scan(&col1); assert.NoError(t, err) {
-							assert.Equal(t, datetime.UnixNano(), col1.UnixNano())
-						}
+		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
+			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO issue_412"); assert.NoError(t, err) {
+				datetime := time.Now().Truncate(time.Millisecond)
+				if err := batch.Append(datetime); !assert.NoError(t, err) {
+					return
+				}
+				if err := batch.Send(); assert.NoError(t, err) {
+					var col1 time.Time
+					if err := conn.QueryRow(ctx, "SELECT * FROM issue_412").Scan(&col1); assert.NoError(t, err) {
+						assert.Equal(t, datetime.UnixNano(), col1.UnixNano())
 					}
 				}
 			}

@@ -36,23 +36,22 @@ func TestIssue472(t *testing.T) {
 				, Timestamp          DateTime
 			)
 		`
-		if err := conn.Exec(ctx, "DROP TABLE IF EXISTS issue_472"); assert.NoError(t, err) {
-			if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
-				if batch, err := conn.PrepareBatch(ctx, "INSERT INTO issue_472"); assert.NoError(t, err) {
-					podUID := uuid.New()
-					if err := batch.Append(
-						podUID,
-						"Test",
-						uint8(1),
-						time.Now(),
-					); !assert.NoError(t, err) {
-						return
+		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
+			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO issue_472"); assert.NoError(t, err) {
+				podUID := uuid.New()
+				if err := batch.Append(
+					podUID,
+					"Test",
+					uint8(1),
+					time.Now(),
+				); !assert.NoError(t, err) {
+					return
+				}
+				if err := batch.Send(); assert.NoError(t, err) {
+					var records []struct {
+						Timestamp time.Time
 					}
-					if err := batch.Send(); assert.NoError(t, err) {
-						var records []struct {
-							Timestamp time.Time
-						}
-						const query = `
+					const query = `
 							SELECT
 								Timestamp
 							FROM issue_472
@@ -60,12 +59,11 @@ func TestIssue472(t *testing.T) {
 								AND (EventType = $2 or EventType = $3)
 								AND ControllerRevision = $4 LIMIT 1`
 
-						ctx := clickhouse.Context(context.Background(), clickhouse.WithSettings(clickhouse.Settings{
-							"max_block_size": 10,
-						}))
-						if err := conn.Select(ctx, &records, query, podUID, "Test", "", 1); assert.NoError(t, err) {
-							t.Log(records)
-						}
+					ctx := clickhouse.Context(context.Background(), clickhouse.WithSettings(clickhouse.Settings{
+						"max_block_size": 10,
+					}))
+					if err := conn.Select(ctx, &records, query, podUID, "Test", "", 1); assert.NoError(t, err) {
+						t.Log(records)
 					}
 				}
 			}

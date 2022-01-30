@@ -29,27 +29,26 @@ func TestString(t *testing.T) {
 			return
 		}
 		const ddl = `
-		CREATE TABLE test_string (
+		CREATE TEMPORARY TABLE test_string (
 			  Col1 String
 			, Col2 Array(String)
 			, Col3 Nullable(String)
-		) Engine Memory
+		)
 		`
-		if err := conn.Exec(ctx, "DROP TABLE IF EXISTS test_string"); assert.NoError(t, err) {
-			if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
-				if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_string"); assert.NoError(t, err) {
-					if err := batch.Append("A", []string{"A", "B", "C"}, nil); assert.NoError(t, err) {
-						if assert.NoError(t, batch.Send()) {
-							var (
-								col1 string
-								col2 []string
-								col3 *string
-							)
-							if err := conn.QueryRow(ctx, "SELECT * FROM test_string").Scan(&col1, &col2, &col3); assert.NoError(t, err) {
-								if assert.Nil(t, col3) {
-									assert.Equal(t, "A", col1)
-									assert.Equal(t, []string{"A", "B", "C"}, col2)
-								}
+
+		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
+			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_string"); assert.NoError(t, err) {
+				if err := batch.Append("A", []string{"A", "B", "C"}, nil); assert.NoError(t, err) {
+					if assert.NoError(t, batch.Send()) {
+						var (
+							col1 string
+							col2 []string
+							col3 *string
+						)
+						if err := conn.QueryRow(ctx, "SELECT * FROM test_string").Scan(&col1, &col2, &col3); assert.NoError(t, err) {
+							if assert.Nil(t, col3) {
+								assert.Equal(t, "A", col1)
+								assert.Equal(t, []string{"A", "B", "C"}, col2)
 							}
 						}
 					}
@@ -98,6 +97,7 @@ func BenchmarkString(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
+	conn.Exec(ctx, `DROP TABLE IF EXISTS benchmark_string`)
 }
 
 func BenchmarkColumnarString(b *testing.B) {
@@ -150,4 +150,5 @@ func BenchmarkColumnarString(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
+	conn.Exec(ctx, `DROP TABLE IF EXISTS benchmark_string`)
 }
