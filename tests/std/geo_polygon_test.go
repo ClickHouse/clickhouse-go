@@ -1,0 +1,83 @@
+package std
+
+import (
+	"context"
+	"database/sql"
+	"testing"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/paulmach/orb"
+	"github.com/stretchr/testify/assert"
+)
+
+func TestStdGeoPolygon(t *testing.T) {
+	ctx := clickhouse.Context(context.Background(), clickhouse.WithSettings(clickhouse.Settings{
+		"allow_experimental_geo_types": 1,
+	}))
+	if conn, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000"); assert.NoError(t, err) {
+		if err := checkMinServerVersion(conn, 21, 12); err != nil {
+			t.Skip(err.Error())
+			return
+		}
+		const ddl = `
+		CREATE TEMPORARY TABLE test_geo_polygon (
+			  Col1 Polygon
+			, Col2 Array(Polygon)
+		)
+		`
+		if _, err := conn.ExecContext(ctx, ddl); assert.NoError(t, err) {
+			scope, err := conn.Begin()
+			if !assert.NoError(t, err) {
+				return
+			}
+			if batch, err := scope.Prepare("INSERT INTO test_geo_polygon"); assert.NoError(t, err) {
+				var (
+					col1Data = orb.Polygon{
+						orb.Ring{
+							orb.Point{1, 2},
+							orb.Point{12, 2},
+						},
+						orb.Ring{
+							orb.Point{11, 2},
+							orb.Point{1, 12},
+						},
+					}
+					col2Data = []orb.Polygon{
+						[]orb.Ring{
+							orb.Ring{
+								orb.Point{1, 2},
+								orb.Point{1, 22},
+							},
+							orb.Ring{
+								orb.Point{1, 23},
+								orb.Point{12, 2},
+							},
+						},
+						[]orb.Ring{
+							orb.Ring{
+								orb.Point{21, 2},
+								orb.Point{1, 222},
+							},
+							orb.Ring{
+								orb.Point{21, 23},
+								orb.Point{12, 22},
+							},
+						},
+					}
+				)
+				if _, err := batch.Exec(col1Data, col2Data); assert.NoError(t, err) {
+					if assert.NoError(t, scope.Commit()) {
+						var (
+							col1 orb.Polygon
+							col2 []orb.Polygon
+						)
+						if err := conn.QueryRow("SELECT * FROM test_geo_polygon").Scan(&col1, &col2); assert.NoError(t, err) {
+							assert.Equal(t, col1Data, col1)
+							assert.Equal(t, col2Data, col2)
+						}
+					}
+				}
+			}
+		}
+	}
+}

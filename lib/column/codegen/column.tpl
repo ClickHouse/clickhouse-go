@@ -39,9 +39,19 @@ func (t Type) Column() (Interface, error) {
 		if err != nil{
 			return nil, err
 		}
-		set:=v.(*Array)
+		set := v.(*Array)
 		set.chType = "Ring"
 		return &Ring{
+			set: set,
+		}, nil
+	case "Polygon":
+		v, err := (&Array{}).parse("Array(Ring)")
+		if err != nil{
+			return nil, err
+		}
+		set := v.(*Array)
+		set.chType = "Polygon"
+		return &Polygon{
 			set: set,
 		}, nil
 	case "Point":
@@ -106,6 +116,7 @@ var (
 		scanTypePoint   = reflect.TypeOf(orb.Point{})
 		scanTypeSlice   = reflect.TypeOf([]interface{}{})
 		scanTypeString  = reflect.TypeOf("")
+		scanTypePolygon = reflect.TypeOf(orb.Polygon{})
 		scanTypeDecimal = reflect.TypeOf(decimal.Decimal{})
 	)
 
