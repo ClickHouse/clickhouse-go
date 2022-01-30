@@ -54,6 +54,16 @@ func (t Type) Column() (Interface, error) {
 		return &Polygon{
 			set: set,
 		}, nil
+	case "MultiPolygon":
+		v, err := (&Array{}).parse("Array(Polygon)")
+		if err != nil{
+			return nil, err
+		}
+		set := v.(*Array)
+		set.chType = "MultiPolygon"
+		return &MultiPolygon{
+			set: set,
+		}, nil
 	case "Point":
 		return &Point{}, nil
 	case "String":
@@ -118,6 +128,7 @@ var (
 		scanTypeString  = reflect.TypeOf("")
 		scanTypePolygon = reflect.TypeOf(orb.Polygon{})
 		scanTypeDecimal = reflect.TypeOf(decimal.Decimal{})
+		scanTypeMultiPolygon = reflect.TypeOf(orb.MultiPolygon{})
 	)
 
 {{- range . }}

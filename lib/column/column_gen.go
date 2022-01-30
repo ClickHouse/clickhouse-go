@@ -70,6 +70,16 @@ func (t Type) Column() (Interface, error) {
 		return &Polygon{
 			set: set,
 		}, nil
+	case "MultiPolygon":
+		v, err := (&Array{}).parse("Array(Polygon)")
+		if err != nil {
+			return nil, err
+		}
+		set := v.(*Array)
+		set.chType = "MultiPolygon"
+		return &MultiPolygon{
+			set: set,
+		}, nil
 	case "Point":
 		return &Point{}, nil
 	case "String":
@@ -134,27 +144,28 @@ var (
 )
 
 var (
-	scanTypeFloat32 = reflect.TypeOf(float32(0))
-	scanTypeFloat64 = reflect.TypeOf(float64(0))
-	scanTypeInt8    = reflect.TypeOf(int8(0))
-	scanTypeInt16   = reflect.TypeOf(int16(0))
-	scanTypeInt32   = reflect.TypeOf(int32(0))
-	scanTypeInt64   = reflect.TypeOf(int64(0))
-	scanTypeUInt8   = reflect.TypeOf(uint8(0))
-	scanTypeUInt16  = reflect.TypeOf(uint16(0))
-	scanTypeUInt32  = reflect.TypeOf(uint32(0))
-	scanTypeUInt64  = reflect.TypeOf(uint64(0))
-	scanTypeIP      = reflect.TypeOf(net.IP{})
-	scanTypeBool    = reflect.TypeOf(true)
-	scanTypeByte    = reflect.TypeOf([]byte{})
-	scanTypeUUID    = reflect.TypeOf(uuid.UUID{})
-	scanTypeTime    = reflect.TypeOf(time.Time{})
-	scanTypeRing    = reflect.TypeOf(orb.Ring{})
-	scanTypePoint   = reflect.TypeOf(orb.Point{})
-	scanTypeSlice   = reflect.TypeOf([]interface{}{})
-	scanTypeString  = reflect.TypeOf("")
-	scanTypePolygon = reflect.TypeOf(orb.Polygon{})
-	scanTypeDecimal = reflect.TypeOf(decimal.Decimal{})
+	scanTypeFloat32      = reflect.TypeOf(float32(0))
+	scanTypeFloat64      = reflect.TypeOf(float64(0))
+	scanTypeInt8         = reflect.TypeOf(int8(0))
+	scanTypeInt16        = reflect.TypeOf(int16(0))
+	scanTypeInt32        = reflect.TypeOf(int32(0))
+	scanTypeInt64        = reflect.TypeOf(int64(0))
+	scanTypeUInt8        = reflect.TypeOf(uint8(0))
+	scanTypeUInt16       = reflect.TypeOf(uint16(0))
+	scanTypeUInt32       = reflect.TypeOf(uint32(0))
+	scanTypeUInt64       = reflect.TypeOf(uint64(0))
+	scanTypeIP           = reflect.TypeOf(net.IP{})
+	scanTypeBool         = reflect.TypeOf(true)
+	scanTypeByte         = reflect.TypeOf([]byte{})
+	scanTypeUUID         = reflect.TypeOf(uuid.UUID{})
+	scanTypeTime         = reflect.TypeOf(time.Time{})
+	scanTypeRing         = reflect.TypeOf(orb.Ring{})
+	scanTypePoint        = reflect.TypeOf(orb.Point{})
+	scanTypeSlice        = reflect.TypeOf([]interface{}{})
+	scanTypeString       = reflect.TypeOf("")
+	scanTypePolygon      = reflect.TypeOf(orb.Polygon{})
+	scanTypeDecimal      = reflect.TypeOf(decimal.Decimal{})
+	scanTypeMultiPolygon = reflect.TypeOf(orb.MultiPolygon{})
 )
 
 func (col *Float32) Type() Type {
