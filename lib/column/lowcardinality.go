@@ -133,7 +133,10 @@ func (col *LowCardinality) AppendRow(v interface{}) error {
 	return nil
 }
 
-func (col *LowCardinality) Decode(decoder *binary.Decoder, _ int) error {
+func (col *LowCardinality) Decode(decoder *binary.Decoder, rows int) error {
+	if rows == 0 {
+		return nil
+	}
 	indexSerializationType, err := decoder.UInt64()
 	if err != nil {
 		return err
@@ -175,6 +178,9 @@ func (col *LowCardinality) Decode(decoder *binary.Decoder, _ int) error {
 }
 
 func (col *LowCardinality) Encode(encoder *binary.Encoder) error {
+	if col.rows == 0 {
+		return nil
+	}
 	defer func() {
 		col.append.keys, col.append.index = nil, nil
 	}()
