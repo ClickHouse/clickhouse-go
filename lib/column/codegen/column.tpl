@@ -4,6 +4,7 @@
 package column
 
 import (
+	"math/big"
 	"reflect"
 	"strings"
 	"fmt"
@@ -20,6 +21,21 @@ func (t Type) Column() (Interface, error) {
 	case "{{ .ChType }}":
 		return &{{ .ChType }}{}, nil
 {{- end }}
+	case "Int128":
+		return &BigInt{
+			size: 16,
+			chType: t,
+		}, nil
+	case "Int256":
+		return &BigInt{
+			size: 32,
+			chType: t,
+		}, nil
+	case "UInt256":
+		return &BigInt{
+			size: 32,
+			chType: t,
+		}, nil
 	case "IPv4":
 		return &IPv4{}, nil
 	case "IPv6":
@@ -125,6 +141,7 @@ var (
 		scanTypeRing    = reflect.TypeOf(orb.Ring{})
 		scanTypePoint   = reflect.TypeOf(orb.Point{})
 		scanTypeSlice   = reflect.TypeOf([]interface{}{})
+		scanTypeBigInt  = reflect.TypeOf(&big.Int{})
 		scanTypeString  = reflect.TypeOf("")
 		scanTypePolygon = reflect.TypeOf(orb.Polygon{})
 		scanTypeDecimal = reflect.TypeOf(decimal.Decimal{})
