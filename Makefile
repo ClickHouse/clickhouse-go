@@ -24,4 +24,7 @@ staticcheck:
 codegen:
 	@cd lib/column && go run codegen/main.go
 
+license:
+	@go-licenser -licensor "ClickHouse, Inc."
+
 .PHONY: contributors
