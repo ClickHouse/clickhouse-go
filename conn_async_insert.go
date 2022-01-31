@@ -16,5 +16,5 @@ func (c *connect) asyncInsert(ctx context.Context, query string, wait bool) erro
 	if c.err = c.sendQuery(query, &options); c.err != nil {
 		return c.err
 	}
-	return c.process(context.Background(), options.onProcess())
+	return c.process(ctx, options.onProcess())
 }
