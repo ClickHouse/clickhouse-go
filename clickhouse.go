@@ -199,13 +199,26 @@ func (ch *clickhouse) acquire(ctx context.Context) (conn *connect, err error) {
 	case conn := <-ch.idle:
 		if conn.isBad() {
 			conn.close()
-			return ch.dial()
+			if conn, err = ch.dial(); err != nil {
+				select {
+				case <-ch.open:
+				default:
+				}
+				return nil, err
+			}
 		}
 		conn.released = false
 		return conn, nil
 	default:
 	}
-	return ch.dial()
+	if conn, err = ch.dial(); err != nil {
+		select {
+		case <-ch.open:
+		default:
+		}
+		return nil, err
+	}
+	return conn, nil
 }
 
 func (ch *clickhouse) release(conn *connect) {

@@ -49,6 +49,26 @@ func TestConn(t *testing.T) {
 		}
 	}
 }
+
+func TestBadConn(t *testing.T) {
+	conn, err := clickhouse.Open(&clickhouse.Options{
+		Addr: []string{"127.0.0.1:9790"},
+		Auth: clickhouse.Auth{
+			Database: "default",
+			Username: "default",
+			Password: "",
+		},
+		MaxOpenConns: 2,
+		//Debug: true,
+	})
+	if assert.NoError(t, err) {
+		for i := 0; i < 20; i++ {
+			if err := conn.Ping(context.Background()); assert.Error(t, err) {
+				assert.Contains(t, err.Error(), "connect: connection refused")
+			}
+		}
+	}
+}
 func TestConnFailover(t *testing.T) {
 	conn, err := clickhouse.Open(&clickhouse.Options{
 		Addr: []string{
