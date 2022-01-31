@@ -149,6 +149,7 @@ func main() {
 		{
 			log.Println("got signal:", signal)
 		}
+		conn.Exec(context.Background(), "DROP TABLE IF EXISTS stress")
 		os.Exit(0)
 	}
 }

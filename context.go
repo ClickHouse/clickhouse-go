@@ -114,7 +114,9 @@ func queryOptions(ctx context.Context) QueryOptions {
 		}
 		return o
 	}
-	return QueryOptions{}
+	return QueryOptions{
+		settings: make(Settings),
+	}
 }
 
 func (q *QueryOptions) onProcess() *onProcess {
