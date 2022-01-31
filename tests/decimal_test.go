@@ -39,6 +39,9 @@ func TestDecimal(t *testing.T) {
 			Compression: &clickhouse.Compression{
 				Method: clickhouse.CompressionLZ4,
 			},
+			Settings: clickhouse.Settings{
+				"allow_experimental_bigint_types": 1,
+			},
 			//Debug: true,
 		})
 	)
