@@ -31,22 +31,21 @@ func TestBigInt(t *testing.T) {
 			return
 		}
 		const ddl = `
-		CREATE TABLE test_bigint (
+		CREATE TEMPORARY TABLE test_bigint (
 			  Col1 Int128
 			, Col2 Array(Int128)
 			, Col3 Int256
 			, Col4 Array(Int256)
 			, Col5 UInt256
 			, Col6 Array(UInt256)
-		) Engine Memory
+		)
 		`
-		conn.Exec(ctx, "DROP TABLE IF EXISTS test_bigint")
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_bigint"); assert.NoError(t, err) {
 				var (
 					col1Data = big.NewInt(128)
 					col2Data = []*big.Int{
-						big.NewInt(128),
+						big.NewInt(-128),
 						big.NewInt(128128),
 						big.NewInt(128128128),
 					}

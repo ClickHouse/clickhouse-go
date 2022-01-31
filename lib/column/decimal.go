@@ -65,9 +65,8 @@ func (col *Decimal) parse(t Type) (_ *Decimal, err error) {
 	case col.precision <= 38:
 		col.nobits = 128
 	default:
-		return nil, errors.New("precision of Decimal exceeds max bound")
+		col.nobits = 256
 	}
-
 	return col, nil
 }
 
@@ -171,17 +170,19 @@ func (col *Decimal) Decode(decoder *binary.Decoder, rows int) error {
 		for _, v := range base {
 			col.values = append(col.values, decimal.New(int64(v), int32(-col.scale)))
 		}
-	case 128:
-		scratch := make([]byte, rows*16)
+	case 128, 256:
+		var (
+			size    = col.nobits / 8
+			scratch = make([]byte, rows*size)
+		)
 		if err := decoder.Raw(scratch); err != nil {
 			return err
 		}
 		for i := 0; i < rows; i++ {
-			bi, err := decimal128ToBigInt(scratch[i*16 : (i+1)*16])
-			if err != nil {
-				return err
-			}
-			col.values = append(col.values, decimal.NewFromBigInt(bi, int32(-col.scale)))
+			col.values = append(col.values, decimal.NewFromBigInt(
+				rawToBigInt(scratch[i*size:(i+1)*size]),
+				int32(-col.scale),
+			))
 		}
 	default:
 		return fmt.Errorf("unsupported %s", col.chType)
@@ -217,8 +218,11 @@ func (col *Decimal) Encode(encoder *binary.Encoder) error {
 			base = append(base, part)
 		}
 		return base.Encode(encoder)
-	case 128:
-		scratch := make([]byte, col.Rows()*16)
+	case 128, 256:
+		var (
+			size    = col.nobits / 8
+			scratch = make([]byte, col.Rows()*size)
+		)
 		for i, v := range col.values {
 			var bi *big.Int
 			switch {
@@ -227,7 +231,7 @@ func (col *Decimal) Encode(encoder *binary.Encoder) error {
 			default:
 				bi = v.BigInt()
 			}
-			copyBigIntToRawDecimal128(scratch[i*16:(i+1)*16], bi)
+			bigIntToRaw(scratch[i*size:(i+1)*size], bi)
 		}
 		return encoder.Raw(scratch)
 	}
@@ -243,45 +247,3 @@ func (col *Decimal) Precision() int64 {
 }
 
 var _ Interface = (*Decimal)(nil)
-
-func decimal128ToBigInt(v []byte) (*big.Int, error) {
-	if len(v) != 16 {
-		return nil, errors.New("expected 16 bytes")
-	}
-	// LittleEndian to BigEndian
-	endianSwap(v, false)
-	var lt = new(big.Int)
-	if len(v) > 0 && v[0]&0x80 != 0 {
-		// [0] ^ will +1
-		for i := 0; i < len(v); i++ {
-			v[i] = ^v[i]
-		}
-		lt.SetBytes(v)
-		// neg ^ will -1
-		lt.Not(lt)
-	} else {
-		lt.SetBytes(v)
-	}
-	return lt, nil
-}
-
-func copyBigIntToRawDecimal128(dest []byte, v *big.Int) {
-	var sign int
-	if v.Sign() < 0 {
-		v.Not(v).FillBytes(dest)
-		sign = -1
-	} else {
-		v.FillBytes(dest)
-	}
-	endianSwap(dest, sign < 0)
-}
-
-func endianSwap(src []byte, not bool) {
-	for i := 0; i < len(src)/2; i++ {
-		if not {
-			src[i], src[len(src)-i-1] = ^src[len(src)-i-1], ^src[i]
-		} else {
-			src[i], src[len(src)-i-1] = src[len(src)-i-1], src[i]
-		}
-	}
-}

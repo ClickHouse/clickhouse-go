@@ -128,22 +128,50 @@ func (col *BigInt) Encode(encoder *binary.Encoder) error {
 }
 
 func (col *BigInt) row(i int) *big.Int {
-	data := col.data[i*col.size : (i+1)*col.size]
-	var buf []byte
-	for i := 0; i < col.size; i++ {
-		buf = append(buf, data[(col.size-1)-i])
-	}
-	return big.NewInt(0).SetBytes(buf)
+	return rawToBigInt(col.data[i*col.size : (i+1)*col.size])
 }
 
 func (col *BigInt) append(v *big.Int) {
-	bytes := v.Bytes()
-	bigNumberSize := len(bytes)
-	for i := 0; i < col.size; i++ {
-		if i < bigNumberSize {
-			col.data = append(col.data, bytes[(bigNumberSize-1)-i])
+	dest := make([]byte, col.size)
+	bigIntToRaw(dest, new(big.Int).Set(v))
+	col.data = append(col.data, dest...)
+}
+
+func bigIntToRaw(dest []byte, v *big.Int) {
+	var sign int
+	if v.Sign() < 0 {
+		v.Not(v).FillBytes(dest)
+		sign = -1
+	} else {
+		v.FillBytes(dest)
+	}
+	endianSwap(dest, sign < 0)
+}
+
+func rawToBigInt(v []byte) *big.Int {
+	// LittleEndian to BigEndian
+	endianSwap(v, false)
+	var lt = new(big.Int)
+	if len(v) > 0 && v[0]&0x80 != 0 {
+		// [0] ^ will +1
+		for i := 0; i < len(v); i++ {
+			v[i] = ^v[i]
+		}
+		lt.SetBytes(v)
+		// neg ^ will -1
+		lt.Not(lt)
+	} else {
+		lt.SetBytes(v)
+	}
+	return lt
+}
+
+func endianSwap(src []byte, not bool) {
+	for i := 0; i < len(src)/2; i++ {
+		if not {
+			src[i], src[len(src)-i-1] = ^src[len(src)-i-1], ^src[i]
 		} else {
-			col.data = append(col.data, 0)
+			src[i], src[len(src)-i-1] = src[len(src)-i-1], src[i]
 		}
 	}
 }
