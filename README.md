@@ -11,6 +11,7 @@ Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/). 
 * Connection pool
 * Failover and load balancing
 * [Bulk write support](examples/native/batch.go) (for `database/sql` [use](examples/std/batch.go) `begin->prepare->(in loop exec)->commit`)
+* [AsyncInsert](benchmark/v2/write-async/main.go)
 * Named and numeric placeholders support
 * LZ4 compression support
 * External data
