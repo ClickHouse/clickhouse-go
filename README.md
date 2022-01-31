@@ -79,11 +79,6 @@ Example:
 clickhouse://username:password@host1:9000,host2:9000/database?dial_timeout=200ms&max_execution_time=60
 ```
 
-## TODO
-
-* [ ] Bigint types
-* [ ] ZSTD
-
 ## Benchmark
 
 | [V1 (READ)](benchmark/v1/read/main.go) | [V2 (READ) std](benchmark/v2/read/main.go) | [V2 (READ) native](benchmark/v2/read-native/main.go) |
