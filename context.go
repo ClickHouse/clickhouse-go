@@ -35,7 +35,11 @@ type Settings map[string]interface{}
 type (
 	QueryOption  func(*QueryOptions) error
 	QueryOptions struct {
-		span     trace.SpanContext
+		span  trace.SpanContext
+		async struct {
+			ok   bool
+			wait bool
+		}
 		queryID  string
 		quotaKey string
 		events   struct {
@@ -108,6 +112,13 @@ func WithProfileEvents(fn func([]ProfileEvent)) QueryOption {
 func WithExternalTable(t ...*external.Table) QueryOption {
 	return func(o *QueryOptions) error {
 		o.external = append(o.external, t...)
+		return nil
+	}
+}
+
+func WithStdAsync(wait bool) QueryOption {
+	return func(o *QueryOptions) error {
+		o.async.ok, o.async.wait = true, wait
 		return nil
 	}
 }
