@@ -28,13 +28,12 @@ func unsafeStr2Bytes(str string) []byte {
 	if len(str) == 0 {
 		return nil
 	}
-	var b []byte
-	byteHeader := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-	byteHeader.Data = (*reflect.StringHeader)(unsafe.Pointer(&str)).Data
-
-	l := len(str)
-	byteHeader.Len = l
-	byteHeader.Cap = l
-
-	return b
+	var scratch []byte
+	{
+		slice := (*reflect.SliceHeader)(unsafe.Pointer(&scratch))
+		slice.Len = len(str)
+		slice.Cap = len(str)
+		slice.Data = (*reflect.StringHeader)(unsafe.Pointer(&str)).Data
+	}
+	return scratch
 }

@@ -35,9 +35,11 @@ func (col *Nullable) parse(t Type) (_ *Nullable, err error) {
 	if col.base, err = Type(t.params()).Column(); err != nil {
 		return nil, err
 	}
-	switch base := col.base.ScanType(); base {
-	case nil:
+	switch base := col.base.ScanType(); {
+	case base == nil:
 		col.scanType = reflect.TypeOf(nil)
+	case base.Kind() == reflect.Ptr:
+		col.scanType = base
 	default:
 		col.scanType = reflect.New(base).Type()
 	}
