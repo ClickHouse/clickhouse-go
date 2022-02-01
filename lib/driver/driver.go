@@ -19,6 +19,7 @@ package driver
 
 import (
 	"context"
+	"reflect"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
@@ -61,6 +62,7 @@ type (
 		Next() bool
 		Scan(dest ...interface{}) error
 		ScanStruct(dest interface{}) error
+		ColumnTypes() []ColumnType
 		Totals(dest ...interface{}) error
 		Columns() []string
 		Close() error
@@ -74,5 +76,11 @@ type (
 	}
 	BatchColumn interface {
 		Append(interface{}) error
+	}
+	ColumnType interface {
+		Name() string
+		Nullable() bool
+		ScanType() reflect.Type
+		DatabaseTypeName() string
 	}
 )
