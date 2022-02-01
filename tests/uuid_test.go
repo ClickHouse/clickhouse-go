@@ -234,3 +234,44 @@ func TestColumnarUUID(t *testing.T) {
 		}
 	}
 }
+func BenchmarkUUID(b *testing.B) {
+	var (
+		ctx       = context.Background()
+		conn, err = clickhouse.Open(&clickhouse.Options{
+			Addr: []string{"127.0.0.1:9000"},
+			Auth: clickhouse.Auth{
+				Database: "default",
+				Username: "default",
+				Password: "",
+			},
+		})
+	)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	if err = conn.Exec(ctx, `DROP TABLE IF EXISTS benchmark_uuid`); err != nil {
+		b.Fatal(err)
+	}
+	if err = conn.Exec(ctx, `CREATE TABLE benchmark_uuid (Col1 UInt64, Col2 UUID) ENGINE = Null`); err != nil {
+		b.Fatal(err)
+	}
+
+	const rowsInBlock = 10_000_000
+	value := uuid.New()
+	for n := 0; n < b.N; n++ {
+		batch, err := conn.PrepareBatch(ctx, "INSERT INTO benchmark_uuid VALUES")
+		if err != nil {
+			b.Fatal(err)
+		}
+		for i := 0; i < rowsInBlock; i++ {
+			if err := batch.Append(uint64(1), value); err != nil {
+				b.Fatal(err)
+			}
+		}
+		if err = batch.Send(); err != nil {
+			b.Fatal(err)
+		}
+	}
+	conn.Exec(ctx, `DROP TABLE IF EXISTS benchmark_uuid`)
+}

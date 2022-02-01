@@ -81,7 +81,7 @@ type UnsupportedColumnType struct {
 }
 
 func (u *UnsupportedColumnType) Type() Type                          { return u.t }
-func (UnsupportedColumnType) Rows() int                              { return 0 }
+func (u *UnsupportedColumnType) Rows() int                           { return 0 }
 func (u *UnsupportedColumnType) Row(int, bool) interface{}           { return nil }
 func (u *UnsupportedColumnType) ScanRow(interface{}, int) error      { return u }
 func (u *UnsupportedColumnType) Append(interface{}) ([]uint8, error) { return nil, u }
