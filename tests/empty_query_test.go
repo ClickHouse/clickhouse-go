@@ -24,7 +24,13 @@ func TestEmptyQuery(t *testing.T) {
 	if assert.NoError(t, err) {
 		const ddl = `
 		CREATE TEMPORARY TABLE test_empty_query (
-			Col1 UInt8
+			  Col1 UInt8
+			, Col2 Array(UInt8)
+			, Col3 LowCardinality(String)
+			, NestedCol  Nested (
+				  First  UInt32
+				, Second UInt32
+			)
 		)
 		`
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {

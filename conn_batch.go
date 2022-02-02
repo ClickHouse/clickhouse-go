@@ -125,6 +125,9 @@ func (b *batch) Send() (err error) {
 	if b.err != nil {
 		return b.err
 	}
+	if b.block.Rows() == 0 {
+		return nil
+	}
 	if err = b.conn.sendData(b.block, ""); err != nil {
 		return err
 	}
