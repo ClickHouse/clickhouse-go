@@ -36,6 +36,7 @@ func TestAppendStruct(t *testing.T) {
 				Username: "default",
 				Password: "",
 			},
+			MaxOpenConns: 1,
 			Compression: &clickhouse.Compression{
 				Method: clickhouse.CompressionLZ4,
 			},
