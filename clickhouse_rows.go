@@ -119,6 +119,9 @@ func (r *row) Err() error {
 }
 
 func (r *row) ScanStruct(dest interface{}) error {
+	if r.err != nil {
+		return r.err
+	}
 	values, err := r.rows.structMap.Map("ScanStruct", r.rows.columns, dest, true)
 	if err != nil {
 		return err
