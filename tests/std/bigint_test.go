@@ -15,34 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package tests
+package std
 
 import (
-	"context"
+	"database/sql"
 	"math/big"
 	"testing"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestBigInt(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			//Debug: true,
-		})
-	)
-	if assert.NoError(t, err) {
+func TestStdBigInt(t *testing.T) {
+	if conn, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000"); assert.NoError(t, err) {
 		if err := checkMinServerVersion(conn, 21, 12); err != nil {
 			t.Skip(err.Error())
 			return
@@ -57,8 +41,12 @@ func TestBigInt(t *testing.T) {
 			, Col6 Array(UInt256)
 		)
 		`
-		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
-			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_bigint"); assert.NoError(t, err) {
+		if _, err := conn.Exec(ddl); assert.NoError(t, err) {
+			scope, err := conn.Begin()
+			if !assert.NoError(t, err) {
+				return
+			}
+			if batch, err := scope.Prepare("INSERT INTO test_bigint"); assert.NoError(t, err) {
 				var (
 					col1Data = big.NewInt(128)
 					col2Data = []*big.Int{
@@ -79,8 +67,8 @@ func TestBigInt(t *testing.T) {
 						big.NewInt(256256256256),
 					}
 				)
-				if err := batch.Append(col1Data, col2Data, col3Data, col4Data, col5Data, col6Data); assert.NoError(t, err) {
-					if err := batch.Send(); assert.NoError(t, err) {
+				if _, err := batch.Exec(col1Data, col2Data, col3Data, col4Data, col5Data, col6Data); assert.NoError(t, err) {
+					if err := scope.Commit(); assert.NoError(t, err) {
 						var (
 							col1 big.Int
 							col2 []*big.Int
@@ -89,7 +77,7 @@ func TestBigInt(t *testing.T) {
 							col5 big.Int
 							col6 []*big.Int
 						)
-						if err := conn.QueryRow(ctx, "SELECT * FROM test_bigint").Scan(&col1, &col2, &col3, &col4, &col5, &col6); assert.NoError(t, err) {
+						if err := conn.QueryRow("SELECT * FROM test_bigint").Scan(&col1, &col2, &col3, &col4, &col5, &col6); assert.NoError(t, err) {
 							assert.Equal(t, *col1Data, col1)
 							assert.Equal(t, col2Data, col2)
 							assert.Equal(t, *col3Data, col3)
@@ -104,23 +92,8 @@ func TestBigInt(t *testing.T) {
 	}
 }
 
-func TestNullableBigInt(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			//Debug: true,
-		})
-	)
-	if assert.NoError(t, err) {
+func TestStdNullableBigInt(t *testing.T) {
+	if conn, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000"); assert.NoError(t, err) {
 		if err := checkMinServerVersion(conn, 21, 12); err != nil {
 			t.Skip(err.Error())
 			return
@@ -135,8 +108,12 @@ func TestNullableBigInt(t *testing.T) {
 			, Col6 Array(Nullable(UInt256))
 		)
 		`
-		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
-			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_nullable_bigint"); assert.NoError(t, err) {
+		if _, err := conn.Exec(ddl); assert.NoError(t, err) {
+			scope, err := conn.Begin()
+			if !assert.NoError(t, err) {
+				return
+			}
+			if batch, err := scope.Prepare("INSERT INTO test_nullable_bigint"); assert.NoError(t, err) {
 				var (
 					col1Data = big.NewInt(128)
 					col2Data = []*big.Int{
@@ -157,8 +134,8 @@ func TestNullableBigInt(t *testing.T) {
 						big.NewInt(256256256256),
 					}
 				)
-				if err := batch.Append(col1Data, col2Data, col3Data, col4Data, col5Data, col6Data); assert.NoError(t, err) {
-					if err := batch.Send(); assert.NoError(t, err) {
+				if _, err := batch.Exec(col1Data, col2Data, col3Data, col4Data, col5Data, col6Data); assert.NoError(t, err) {
+					if err := scope.Commit(); assert.NoError(t, err) {
 						var (
 							col1 *big.Int
 							col2 []*big.Int
@@ -167,7 +144,7 @@ func TestNullableBigInt(t *testing.T) {
 							col5 *big.Int
 							col6 []*big.Int
 						)
-						if err := conn.QueryRow(ctx, "SELECT * FROM test_nullable_bigint").Scan(&col1, &col2, &col3, &col4, &col5, &col6); assert.NoError(t, err) {
+						if err := conn.QueryRow("SELECT * FROM test_nullable_bigint").Scan(&col1, &col2, &col3, &col4, &col5, &col6); assert.NoError(t, err) {
 							assert.Equal(t, *col1Data, *col1)
 							assert.Equal(t, col2Data, col2)
 							assert.Equal(t, *col3Data, *col3)

@@ -26,16 +26,7 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2"
 )
 
-const ddl = `
-CREATE TEMPORARY TABLE example (
-	  Col1 UInt64
-	, Col2 String
-	, Col3 Array(UInt8)
-	, Col4 DateTime
-)
-`
-
-func main() {
+func example() error {
 	var (
 		ctx       = context.Background()
 		conn, err = clickhouse.Open(&clickhouse.Options{
@@ -45,25 +36,61 @@ func main() {
 				Username: "default",
 				Password: "",
 			},
-			//Debug:           true,
-			DialTimeout:     time.Second,
-			MaxOpenConns:    10,
-			MaxIdleConns:    5,
-			ConnMaxLifetime: time.Hour,
 		})
 	)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
+	const ddl = `
+	CREATE TEMPORARY TABLE example (
+		  Col1 UInt8
+		, Col2 String
+		, Col3 DateTime
+	)
+	`
 	if err := conn.Exec(ctx, ddl); err != nil {
-		log.Fatal(err)
+		return err
 	}
-	for i := 0; i < 100; i++ {
-		err := conn.AsyncInsert(ctx, fmt.Sprintf(`INSERT INTO example VALUES (
-			%d, '%s', [1, 2, 3, 4, 5, 6, 7, 8, 9], now()
-		)`, i, "Golang SQL database driver"), false)
+	datetime := time.Now()
+	{
+		batch, err := conn.PrepareBatch(ctx, "INSERT INTO example")
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
+		for i := 0; i < 10; i++ {
+			if err := batch.Append(uint8(i), "ClickHouse Inc.", datetime); err != nil {
+				return err
+			}
+		}
+		if err := batch.Send(); err != nil {
+			return err
+		}
+	}
+
+	var result struct {
+		Col1 uint8
+		Col2 string
+		Col3 time.Time
+	}
+	{
+		if err := conn.QueryRow(ctx, `SELECT * FROM example WHERE Col1 = $1 AND Col3 = $2`, 2, datetime).ScanStruct(&result); err != nil {
+			return err
+		}
+		fmt.Println(result)
+	}
+	{
+		if err := conn.QueryRow(ctx, `SELECT * FROM example WHERE Col1 = @Col1 AND Col3 = @Col2`,
+			clickhouse.Named("Col1", 4),
+			clickhouse.Named("Col2", datetime),
+		).ScanStruct(&result); err != nil {
+			return err
+		}
+		fmt.Println(result)
+	}
+	return nil
+}
+func main() {
+	if err := example(); err != nil {
+		log.Fatal(err)
 	}
 }
