@@ -25,14 +25,14 @@ import (
 )
 
 type rows struct {
-	err     error
-	row     int
-	conn    *connect
-	block   *proto.Block
-	totals  *proto.Block
-	errors  chan error
-	stream  chan *proto.Block
-	columns []string
+	err       error
+	row       int
+	block     *proto.Block
+	totals    *proto.Block
+	errors    chan error
+	stream    chan *proto.Block
+	columns   []string
+	structMap structMap
 }
 
 func (r *rows) Next() (result bool) {
@@ -76,7 +76,7 @@ func (r *rows) Scan(dest ...interface{}) error {
 }
 
 func (r *rows) ScanStruct(dest interface{}) error {
-	values, err := r.conn.structMap.Map("ScanStruct", r.columns, dest, true)
+	values, err := r.structMap.Map("ScanStruct", r.columns, dest, true)
 	if err != nil {
 		return err
 	}
@@ -119,7 +119,7 @@ func (r *row) Err() error {
 }
 
 func (r *row) ScanStruct(dest interface{}) error {
-	values, err := r.rows.conn.structMap.Map("ScanStruct", r.rows.columns, dest, true)
+	values, err := r.rows.structMap.Map("ScanStruct", r.rows.columns, dest, true)
 	if err != nil {
 		return err
 	}

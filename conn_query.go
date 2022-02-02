@@ -32,6 +32,7 @@ func (c *connect) query(ctx context.Context, release func(*connect, error), quer
 	)
 
 	if err != nil {
+		release(c, err)
 		return nil, err
 	}
 
@@ -41,12 +42,14 @@ func (c *connect) query(ctx context.Context, release func(*connect, error), quer
 	}
 
 	if err = c.sendQuery(body, &options); err != nil {
+		release(c, err)
 		return nil, err
 	}
 
 	init, err := c.firstBlock(ctx, onProcess)
 
 	if err != nil {
+		release(c, err)
 		return nil, err
 	}
 
@@ -69,11 +72,11 @@ func (c *connect) query(ctx context.Context, release func(*connect, error), quer
 	}()
 
 	return &rows{
-		conn:    c,
-		block:   init,
-		stream:  stream,
-		errors:  errors,
-		columns: init.ColumnsNames(),
+		block:     init,
+		stream:    stream,
+		errors:    errors,
+		columns:   init.ColumnsNames(),
+		structMap: c.structMap,
 	}, nil
 }
 
