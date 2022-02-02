@@ -6,10 +6,12 @@ Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/). 
 
 * Uses native ClickHouse TCP client-server protocol
 * Compatibility with [`database/sql`](#std-databasesql-interface) ([slower](#benchmark) than [native interface](#native-interface)!)
-* Marshal rows into structs ([ScanStruct](tests/scan_struct_test.go), [Select](examples/native/scan_struct.go))
+* Marshal rows into structs ([ScanStruct](tests/scan_struct_test.go), [Select](examples/native/scan_struct/main.go))
+* Unmarshal struct to row ([AppendStruct](benchmark/v2/write-native-struct/main.go))
 * Connection pool
 * Failover and load balancing
-* [Bulk write support](examples/native/batch.go) (for `database/sql` [use](examples/std/batch.go) `begin->prepare->(in loop exec)->commit`)
+* [Bulk write support](examples/native/batch/main.go) (for `database/sql` [use](examples/std/batch/main.go) `begin->prepare->(in loop exec)->commit`)
+* [AsyncInsert](benchmark/v2/write-async/main.go)
 * Named and numeric placeholders support
 * LZ4 compression support
 * External data
@@ -76,12 +78,6 @@ Example:
 ```sh
 clickhouse://username:password@host1:9000,host2:9000/database?dial_timeout=200ms&max_execution_time=60
 ```
-
-## TODO
-
-* [ ] Bigint types
-* [ ] ZSTD
-* [ ] Geo
 
 ## Benchmark
 

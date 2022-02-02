@@ -1,3 +1,20 @@
+// Licensed to ClickHouse, Inc. under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. ClickHouse, Inc. licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package column
 
 import (
@@ -46,6 +63,7 @@ func (col *UUID) ScanRow(dest interface{}, row int) error {
 			Op:   "ScanRow",
 			To:   fmt.Sprintf("%T", dest),
 			From: "UUID",
+			Hint: fmt.Sprintf("try using *%s", col.ScanType()),
 		}
 	}
 	return nil
@@ -56,7 +74,7 @@ func (col *UUID) Append(v interface{}) (nulls []uint8, err error) {
 	case []uuid.UUID:
 		nulls = make([]uint8, len(v))
 		for _, v := range v {
-			col.data = append(col.data, v[:]...)
+			col.data = append(col.data, swap(v[:])...)
 		}
 	case []*uuid.UUID:
 		nulls = make([]uint8, len(v))
@@ -64,7 +82,7 @@ func (col *UUID) Append(v interface{}) (nulls []uint8, err error) {
 			switch {
 			case v != nil:
 				tmp := *v
-				col.data = append(col.data, tmp[:]...)
+				col.data = append(col.data, swap(tmp[:])...)
 			default:
 				col.data, nulls[i] = append(col.data, make([]byte, uuidSize)...), 1
 			}
@@ -82,11 +100,12 @@ func (col *UUID) Append(v interface{}) (nulls []uint8, err error) {
 func (col *UUID) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case uuid.UUID:
-		col.data = append(col.data, v[:]...)
+		col.data = append(col.data, swap(v[:])...)
 	case *uuid.UUID:
 		switch {
 		case v != nil:
-			col.data = append(col.data, v[:]...)
+			tmp := *v
+			col.data = append(col.data, swap(tmp[:])...)
 		default:
 			col.data = append(col.data, make([]byte, uuidSize)...)
 		}
@@ -113,7 +132,21 @@ func (col *UUID) Encode(encoder *binary.Encoder) error {
 
 func (col *UUID) row(i int) (uuid uuid.UUID) {
 	copy(uuid[:], col.data[i*uuidSize:(i+1)*uuidSize])
+	swap(uuid[:])
 	return
 }
 
 var _ Interface = (*UUID)(nil)
+
+func swap(src []byte) []byte {
+	_ = src[15]
+	src[0], src[7] = src[7], src[0]
+	src[1], src[6] = src[6], src[1]
+	src[2], src[5] = src[5], src[2]
+	src[3], src[4] = src[4], src[3]
+	src[8], src[15] = src[15], src[8]
+	src[9], src[14] = src[14], src[9]
+	src[10], src[13] = src[13], src[10]
+	src[11], src[12] = src[12], src[11]
+	return src
+}

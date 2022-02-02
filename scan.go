@@ -1,3 +1,20 @@
+// Licensed to ClickHouse, Inc. under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. ClickHouse, Inc. licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package clickhouse
 
 import (
@@ -62,57 +79,4 @@ func scan(block *proto.Block, row int, dest ...interface{}) error {
 		}
 	}
 	return nil
-}
-
-func structToScannableValues(columns []string, dest interface{}) ([]interface{}, error) {
-	var (
-		v = reflect.ValueOf(dest)
-		t = reflect.TypeOf(dest)
-	)
-	if v.Kind() != reflect.Ptr {
-		return nil, &OpError{
-			Op:  "ScanStruct",
-			Err: errors.New("must pass a pointer, not a value, to ScanStruct destination"),
-		}
-	}
-	if v.IsNil() {
-		return nil, &OpError{
-			Op:  "ScanStruct",
-			Err: errors.New("nil pointer passed to ScanStruct destination"),
-		}
-	}
-	if v = reflect.Indirect(v); t.Kind() == reflect.Ptr {
-		t = t.Elem()
-	}
-	if v.Kind() != reflect.Struct {
-		return nil, &OpError{
-			Op:  "ScanStruct",
-			Err: errors.New("ScanStruct expects a struct dest"),
-		}
-	}
-	var (
-		names  = make(map[string]interface{}, len(columns))
-		values = make([]interface{}, 0, len(columns))
-	)
-	for i := 0; i < v.NumField(); i++ {
-		var (
-			f    = t.Field(i)
-			name = f.Name
-		)
-		if tn := f.Tag.Get("ch"); len(tn) != 0 {
-			name = tn
-		}
-		names[name] = v.Field(i).Addr().Interface()
-	}
-	for _, name := range columns {
-		v, found := names[name]
-		if !found {
-			return nil, &OpError{
-				Op:  "ScanStruct",
-				Err: fmt.Errorf("missing destination name %q in %T", name, dest),
-			}
-		}
-		values = append(values, v)
-	}
-	return values, nil
 }

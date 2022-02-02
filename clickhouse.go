@@ -1,3 +1,20 @@
+// Licensed to ClickHouse, Inc. under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. ClickHouse, Inc. licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package clickhouse
 
 import (
@@ -7,6 +24,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/ClickHouse/clickhouse-go/v2/contributors"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
@@ -68,6 +86,10 @@ type clickhouse struct {
 	connID int64
 }
 
+func (clickhouse) Contributors() []string {
+	return contributors.List
+}
+
 func (ch *clickhouse) ServerVersion() (*driver.ServerVersion, error) {
 	var (
 		ctx, cancel = context.WithTimeout(context.Background(), ch.opt.DialTimeout)
@@ -116,6 +138,15 @@ func (ch *clickhouse) PrepareBatch(ctx context.Context, query string) (driver.Ba
 		return nil, err
 	}
 	return conn.prepareBatch(ctx, query, ch.release)
+}
+
+func (ch *clickhouse) AsyncInsert(ctx context.Context, query string, wait bool) error {
+	conn, err := ch.acquire(ctx)
+	if err != nil {
+		return err
+	}
+	defer ch.release(conn)
+	return conn.asyncInsert(ctx, query, wait)
 }
 
 func (ch *clickhouse) Ping(ctx context.Context) error {
@@ -168,13 +199,26 @@ func (ch *clickhouse) acquire(ctx context.Context) (conn *connect, err error) {
 	case conn := <-ch.idle:
 		if conn.isBad() {
 			conn.close()
-			return ch.dial()
+			if conn, err = ch.dial(); err != nil {
+				select {
+				case <-ch.open:
+				default:
+				}
+				return nil, err
+			}
 		}
 		conn.released = false
 		return conn, nil
 	default:
 	}
-	return ch.dial()
+	if conn, err = ch.dial(); err != nil {
+		select {
+		case <-ch.open:
+		default:
+		}
+		return nil, err
+	}
+	return conn, nil
 }
 
 func (ch *clickhouse) release(conn *connect) {

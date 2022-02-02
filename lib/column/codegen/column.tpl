@@ -4,12 +4,14 @@
 package column
 
 import (
+	"math/big"
 	"reflect"
 	"strings"
 	"fmt"
 	"time"
 	"net"
 	"github.com/google/uuid"
+	"github.com/paulmach/orb"
 	"github.com/shopspring/decimal"
 )
 
@@ -19,6 +21,21 @@ func (t Type) Column() (Interface, error) {
 	case "{{ .ChType }}":
 		return &{{ .ChType }}{}, nil
 {{- end }}
+	case "Int128":
+		return &BigInt{
+			size: 16,
+			chType: t,
+		}, nil
+	case "Int256":
+		return &BigInt{
+			size: 32,
+			chType: t,
+		}, nil
+	case "UInt256":
+		return &BigInt{
+			size: 32,
+			chType: t,
+		}, nil
 	case "IPv4":
 		return &IPv4{}, nil
 	case "IPv6":
@@ -33,6 +50,38 @@ func (t Type) Column() (Interface, error) {
 		return &UUID{}, nil
 	case "Nothing":
 		return &Nothing{}, nil
+	case "Ring":
+		v, err := (&Array{}).parse("Array(Point)")
+		if err != nil{
+			return nil, err
+		}
+		set := v.(*Array)
+		set.chType = "Ring"
+		return &Ring{
+			set: set,
+		}, nil
+	case "Polygon":
+		v, err := (&Array{}).parse("Array(Ring)")
+		if err != nil{
+			return nil, err
+		}
+		set := v.(*Array)
+		set.chType = "Polygon"
+		return &Polygon{
+			set: set,
+		}, nil
+	case "MultiPolygon":
+		v, err := (&Array{}).parse("Array(Polygon)")
+		if err != nil{
+			return nil, err
+		}
+		set := v.(*Array)
+		set.chType = "MultiPolygon"
+		return &MultiPolygon{
+			set: set,
+		}, nil
+	case "Point":
+		return &Point{}, nil
 	case "String":
 		return &String{}, nil
 	}
@@ -89,9 +138,14 @@ var (
 		scanTypeByte    = reflect.TypeOf([]byte{})
 		scanTypeUUID    = reflect.TypeOf(uuid.UUID{})
 		scanTypeTime    = reflect.TypeOf(time.Time{})
+		scanTypeRing    = reflect.TypeOf(orb.Ring{})
+		scanTypePoint   = reflect.TypeOf(orb.Point{})
 		scanTypeSlice   = reflect.TypeOf([]interface{}{})
+		scanTypeBigInt  = reflect.TypeOf(&big.Int{})
 		scanTypeString  = reflect.TypeOf("")
+		scanTypePolygon = reflect.TypeOf(orb.Polygon{})
 		scanTypeDecimal = reflect.TypeOf(decimal.Decimal{})
+		scanTypeMultiPolygon = reflect.TypeOf(orb.MultiPolygon{})
 	)
 
 {{- range . }}
@@ -121,6 +175,7 @@ func (col *{{ .ChType }}) ScanRow(dest interface{}, row int) error {
 			Op:   "ScanRow",
 			To:   fmt.Sprintf("%T", dest),
 			From: "{{ .ChType }}",
+			Hint: fmt.Sprintf("try using *%s", scanType{{ .ChType }}),
 		}
 	}
 	return nil

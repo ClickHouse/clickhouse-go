@@ -1,3 +1,20 @@
+// Licensed to ClickHouse, Inc. under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. ClickHouse, Inc. licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package column
 
 import (
@@ -21,16 +38,16 @@ func (col *String) Rows() int {
 	return len(*col)
 }
 
-func (s *String) Row(i int, ptr bool) interface{} {
-	value := *s
+func (col *String) Row(i int, ptr bool) interface{} {
+	value := *col
 	if ptr {
 		return &value[i]
 	}
 	return value[i]
 }
 
-func (s *String) ScanRow(dest interface{}, row int) error {
-	v := *s
+func (col *String) ScanRow(dest interface{}, row int) error {
+	v := *col
 	switch d := dest.(type) {
 	case *string:
 		*d = v[row]
@@ -47,18 +64,18 @@ func (s *String) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (s *String) Append(v interface{}) (nulls []uint8, err error) {
+func (col *String) Append(v interface{}) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []string:
-		*s, nulls = append(*s, v...), make([]uint8, len(v))
+		*col, nulls = append(*col, v...), make([]uint8, len(v))
 	case []*string:
 		nulls = make([]uint8, len(v))
 		for i, v := range v {
 			switch {
 			case v != nil:
-				*s = append(*s, *v)
+				*col = append(*col, *v)
 			default:
-				*s, nulls[i] = append(*s, ""), 1
+				*col, nulls[i] = append(*col, ""), 1
 			}
 		}
 	default:
@@ -71,19 +88,19 @@ func (s *String) Append(v interface{}) (nulls []uint8, err error) {
 	return
 }
 
-func (s *String) AppendRow(v interface{}) error {
+func (col *String) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case string:
-		*s = append(*s, v)
+		*col = append(*col, v)
 	case *string:
 		switch {
 		case v != nil:
-			*s = append(*s, *v)
+			*col = append(*col, *v)
 		default:
-			*s = append(*s, "")
+			*col = append(*col, "")
 		}
 	case nil:
-		*s = append(*s, "")
+		*col = append(*col, "")
 	default:
 		return &ColumnConverterError{
 			Op:   "AppendRow",
@@ -94,19 +111,19 @@ func (s *String) AppendRow(v interface{}) error {
 	return nil
 }
 
-func (s *String) Decode(decoder *binary.Decoder, rows int) error {
+func (col *String) Decode(decoder *binary.Decoder, rows int) error {
 	for i := 0; i < int(rows); i++ {
 		v, err := decoder.String()
 		if err != nil {
 			return err
 		}
-		*s = append(*s, v)
+		*col = append(*col, v)
 	}
 	return nil
 }
 
-func (s *String) Encode(encoder *binary.Encoder) error {
-	for _, v := range *s {
+func (col *String) Encode(encoder *binary.Encoder) error {
+	for _, v := range *col {
 		if err := encoder.String(v); err != nil {
 			return err
 		}

@@ -1,3 +1,20 @@
+// Licensed to ClickHouse, Inc. under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. ClickHouse, Inc. licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package main
 
 import (
@@ -33,8 +50,6 @@ func example() error {
 		"max_block_size": 10,
 	}), clickhouse.WithProgress(func(p *clickhouse.Progress) {
 		fmt.Println("progress: ", p)
-	}), clickhouse.WithProfileInfo(func(p *clickhouse.ProfileInfo) {
-		fmt.Println("profile info: ", p)
 	}))
 	if err := conn.Ping(ctx); err != nil {
 		if exception, ok := err.(*clickhouse.Exception); ok {
@@ -68,23 +83,21 @@ func example() error {
 		return err
 	}
 
-	rows, err := conn.Query(ctx, "SELECT Col1, Col2, Col3 FROM example WHERE Col1 >= $1 AND Col2 <> $2 AND Col3 <= $3", 0, "xxx", time.Now())
-	if err != nil {
+	var result []struct {
+		Col1           uint8
+		Col2           string
+		ColumnWithName time.Time `ch:"Col3"`
+	}
+
+	if err = conn.Select(ctx, &result, "SELECT Col1, Col2, Col3 FROM example"); err != nil {
 		return err
 	}
-	for rows.Next() {
-		var (
-			col1 uint8
-			col2 string
-			col3 time.Time
-		)
-		if err := rows.Scan(&col1, &col2, &col3); err != nil {
-			return err
-		}
-		fmt.Printf("row: col1=%d, col2=%s, col3=%s\n", col1, col2, col3)
+
+	for _, v := range result {
+		fmt.Printf("row: col1=%d, col2=%s, col3=%s\n", v.Col1, v.Col2, v.ColumnWithName)
 	}
-	rows.Close()
-	return rows.Err()
+
+	return nil
 }
 
 func main() {

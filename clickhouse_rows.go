@@ -1,3 +1,20 @@
+// Licensed to ClickHouse, Inc. under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. ClickHouse, Inc. licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package clickhouse
 
 import (
@@ -48,7 +65,7 @@ next:
 		}
 	}
 	r.row++
-	return true
+	return r.row <= r.block.Rows()
 }
 
 func (r *rows) Scan(dest ...interface{}) error {
@@ -59,7 +76,7 @@ func (r *rows) Scan(dest ...interface{}) error {
 }
 
 func (r *rows) ScanStruct(dest interface{}) error {
-	values, err := structToScannableValues(r.columns, dest)
+	values, err := r.conn.structMap.Map("ScanStruct", r.columns, dest, true)
 	if err != nil {
 		return err
 	}
@@ -102,7 +119,7 @@ func (r *row) Err() error {
 }
 
 func (r *row) ScanStruct(dest interface{}) error {
-	values, err := structToScannableValues(r.rows.columns, dest)
+	values, err := r.rows.conn.structMap.Map("ScanStruct", r.rows.columns, dest, true)
 	if err != nil {
 		return err
 	}

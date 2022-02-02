@@ -1,3 +1,20 @@
+// Licensed to ClickHouse, Inc. under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. ClickHouse, Inc. licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package clickhouse
 
 import (
@@ -113,6 +130,12 @@ func (std *stdDriver) Rollback() error {
 func (std *stdDriver) CheckNamedValue(nv *driver.NamedValue) error { return nil }
 
 func (std *stdDriver) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
+	if options := queryOptions(ctx); options.async.ok {
+		if len(args) != 0 {
+			return nil, errors.New("clickhouse: you can't use parameters in an asynchronous insert")
+		}
+		return driver.RowsAffected(0), std.conn.asyncInsert(ctx, query, options.async.wait)
+	}
 	if err := std.conn.exec(ctx, query, rebind(args)...); err != nil {
 		return nil, err
 	}
@@ -211,6 +234,12 @@ func (r *stdRows) ColumnTypePrecisionScale(idx int) (precision, scale int64, ok 
 }
 
 func (r *stdRows) Next(dest []driver.Value) error {
+	if len(r.rows.block.Columns) != len(dest) {
+		return &OpError{
+			Op:  "Next",
+			Err: fmt.Errorf("expected %d destination arguments in Next, not %d", len(r.rows.block.Columns), len(dest)),
+		}
+	}
 	if r.rows.Next() {
 		for i := range dest {
 			nullable, ok := r.ColumnTypeNullable(i)

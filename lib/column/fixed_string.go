@@ -1,3 +1,20 @@
+// Licensed to ClickHouse, Inc. under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. ClickHouse, Inc. licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package column
 
 import (
@@ -66,9 +83,7 @@ func (col *FixedString) Append(v interface{}) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []string:
 		for _, v := range v {
-			if err := col.AppendRow(v); err != nil {
-				return nil, err
-			}
+			col.data = append(col.data, binary.Str2Bytes(v)...)
 		}
 		nulls = make([]uint8, len(v))
 	case []*string:
@@ -77,20 +92,17 @@ func (col *FixedString) Append(v interface{}) (nulls []uint8, err error) {
 			if v == nil {
 				nulls[i] = 1
 			}
-			if err := col.AppendRow(v); err != nil {
-				return nil, err
+			switch {
+			case v == nil:
+				col.data = append(col.data, make([]byte, col.size)...)
+			default:
+				col.data = append(col.data, binary.Str2Bytes(*v)...)
 			}
 		}
 	case encoding.BinaryMarshaler:
 		data, err := v.MarshalBinary()
 		if err != nil {
 			return nil, err
-		}
-		if len(data)%col.size != 0 {
-			return nil, &Error{
-				ColumnType: string(col.Type()),
-				Err:        fmt.Errorf("invalid size. expected %d got %d", col.size, len(data)),
-			}
 		}
 		col.data, nulls = append(col.data, data...), make([]uint8, len(data)/col.size)
 	default:
@@ -107,10 +119,10 @@ func (col *FixedString) AppendRow(v interface{}) (err error) {
 	data := make([]byte, col.size)
 	switch v := v.(type) {
 	case string:
-		data = []byte(v)
+		data = binary.Str2Bytes(v)
 	case *string:
 		if v != nil {
-			data = []byte(*v)
+			data = binary.Str2Bytes(*v)
 		}
 	case nil:
 	case encoding.BinaryMarshaler:
@@ -124,12 +136,6 @@ func (col *FixedString) AppendRow(v interface{}) (err error) {
 			From: fmt.Sprintf("%T", v),
 		}
 	}
-	if len(data) != col.size {
-		return &Error{
-			ColumnType: string(col.Type()),
-			Err:        fmt.Errorf("invalid size. expected %d got %d", col.size, len(data)),
-		}
-	}
 	col.data = append(col.data, data...)
 	return nil
 }
@@ -140,6 +146,12 @@ func (col *FixedString) Decode(decoder *binary.Decoder, rows int) error {
 }
 
 func (col *FixedString) Encode(encoder *binary.Encoder) error {
+	if len(col.data)%col.size != 0 {
+		return &Error{
+			ColumnType: string(col.Type()),
+			Err:        fmt.Errorf("invalid column size. must be a multiple of %d bytes got %d bytes", col.size, len(col.data)),
+		}
+	}
 	return encoder.Raw(col.data)
 }
 
