@@ -59,6 +59,9 @@ func (ch *clickhouse) Select(ctx context.Context, dest interface{}, query string
 		}
 		direct.Set(reflect.Append(direct, elem.Elem()))
 	}
+	if err := rows.Close(); err != nil {
+		return err
+	}
 	return rows.Err()
 }
 

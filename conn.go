@@ -79,7 +79,6 @@ func dial(addr string, num int, opt *Options) (*connect, error) {
 
 // https://github.com/ClickHouse/ClickHouse/blob/master/src/Client/Connection.cpp
 type connect struct {
-	err         error
 	opt         *Options
 	conn        net.Conn
 	debugf      func(format string, v ...interface{})
@@ -115,7 +114,7 @@ func (c *connect) settings(querySettings Settings) []proto.Setting {
 
 func (c *connect) isBad() bool {
 	switch {
-	case c.closed, c.err != nil:
+	case c.closed:
 		return true
 	}
 	if err := c.connCheck(); err != nil {

@@ -49,7 +49,7 @@ next:
 		select {
 		case err := <-r.errors:
 			if err != nil {
-				r.err, r.conn.err = err, err
+				r.err = err
 				return false
 			}
 			goto next
@@ -102,7 +102,7 @@ func (r *rows) Close() error {
 			r.err = err
 		}
 	}
-	return nil
+	return r.err
 }
 
 func (r *rows) Err() error {

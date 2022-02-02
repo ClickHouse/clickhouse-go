@@ -31,7 +31,7 @@ import (
 
 var splitInsertRe = regexp.MustCompile(`(?i)\sVALUES\s*\(`)
 
-func (c *connect) prepareBatch(ctx context.Context, query string, release func(*connect)) (*batch, error) {
+func (c *connect) prepareBatch(ctx context.Context, query string, release func(*connect, error)) (*batch, error) {
 	query = splitInsertRe.Split(query, -1)[0]
 	if !strings.HasSuffix(strings.TrimSpace(strings.ToUpper(query)), "VALUES") {
 		query += " VALUES"
@@ -41,16 +41,16 @@ func (c *connect) prepareBatch(ctx context.Context, query string, release func(*
 		c.conn.SetDeadline(deadline)
 		defer c.conn.SetDeadline(time.Time{})
 	}
-	if c.err = c.sendQuery(query, &options); c.err != nil {
-		release(c)
-		return nil, c.err
+	if err := c.sendQuery(query, &options); err != nil {
+		release(c, err)
+		return nil, err
 	}
 	var (
 		onProcess  = options.onProcess()
 		block, err = c.firstBlock(ctx, onProcess)
 	)
 	if err != nil {
-		release(c)
+		release(c, err)
 		return nil, err
 	}
 	return &batch{
@@ -58,8 +58,7 @@ func (c *connect) prepareBatch(ctx context.Context, query string, release func(*
 		conn:  c,
 		block: block,
 		release: func(err error) {
-			c.err = err
-			release(c)
+			release(c, err)
 		},
 		onProcess: onProcess,
 	}, nil

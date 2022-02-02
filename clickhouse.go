@@ -99,7 +99,7 @@ func (ch *clickhouse) ServerVersion() (*driver.ServerVersion, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer ch.release(conn)
+	ch.release(conn, nil)
 	return &conn.server, nil
 }
 
@@ -108,8 +108,7 @@ func (ch *clickhouse) Query(ctx context.Context, query string, args ...interface
 	if err != nil {
 		return nil, err
 	}
-	defer ch.release(conn)
-	return conn.query(ctx, query, args...)
+	return conn.query(ctx, ch.release, query, args...)
 }
 
 func (ch *clickhouse) QueryRow(ctx context.Context, query string, args ...interface{}) (rows driver.Row) {
@@ -119,8 +118,7 @@ func (ch *clickhouse) QueryRow(ctx context.Context, query string, args ...interf
 			err: err,
 		}
 	}
-	defer ch.release(conn)
-	return conn.queryRow(ctx, query, args...)
+	return conn.queryRow(ctx, ch.release, query, args...)
 }
 
 func (ch *clickhouse) Exec(ctx context.Context, query string, args ...interface{}) error {
@@ -128,8 +126,12 @@ func (ch *clickhouse) Exec(ctx context.Context, query string, args ...interface{
 	if err != nil {
 		return err
 	}
-	defer ch.release(conn)
-	return conn.exec(ctx, query, args...)
+	if err := conn.exec(ctx, query, args...); err != nil {
+		ch.release(conn, err)
+		return err
+	}
+	ch.release(conn, nil)
+	return nil
 }
 
 func (ch *clickhouse) PrepareBatch(ctx context.Context, query string) (driver.Batch, error) {
@@ -145,16 +147,24 @@ func (ch *clickhouse) AsyncInsert(ctx context.Context, query string, wait bool) 
 	if err != nil {
 		return err
 	}
-	defer ch.release(conn)
-	return conn.asyncInsert(ctx, query, wait)
+	if err := conn.asyncInsert(ctx, query, wait); err != nil {
+		ch.release(conn, err)
+		return err
+	}
+	ch.release(conn, nil)
+	return nil
 }
 
-func (ch *clickhouse) Ping(ctx context.Context) error {
+func (ch *clickhouse) Ping(ctx context.Context) (err error) {
 	conn, err := ch.acquire(ctx)
 	if err != nil {
 		return err
 	}
-	defer ch.release(conn)
+	if err := conn.ping(ctx); err != nil {
+		ch.release(conn, err)
+		return err
+	}
+	ch.release(conn, nil)
 	return nil
 }
 
@@ -221,7 +231,7 @@ func (ch *clickhouse) acquire(ctx context.Context) (conn *connect, err error) {
 	return conn, nil
 }
 
-func (ch *clickhouse) release(conn *connect) {
+func (ch *clickhouse) release(conn *connect, err error) {
 	if conn.released {
 		return
 	}
@@ -230,7 +240,7 @@ func (ch *clickhouse) release(conn *connect) {
 	case <-ch.open:
 	default:
 	}
-	if conn.err != nil || time.Since(conn.connectedAt) >= ch.opt.ConnMaxLifetime {
+	if err != nil || time.Since(conn.connectedAt) >= ch.opt.ConnMaxLifetime {
 		conn.close()
 		return
 	}

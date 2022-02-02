@@ -34,8 +34,8 @@ func (c *connect) exec(ctx context.Context, query string, args ...interface{}) e
 		c.conn.SetDeadline(deadline)
 		defer c.conn.SetDeadline(time.Time{})
 	}
-	if c.err = c.sendQuery(body, &options); c.err != nil {
-		return c.err
+	if err := c.sendQuery(body, &options); err != nil {
+		return err
 	}
 	return c.process(ctx, options.onProcess())
 }

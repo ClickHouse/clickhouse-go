@@ -143,7 +143,7 @@ func (std *stdDriver) ExecContext(ctx context.Context, query string, args []driv
 }
 
 func (std *stdDriver) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
-	r, err := std.conn.query(ctx, query, rebind(args)...)
+	r, err := std.conn.query(ctx, func(*connect, error) {}, query, rebind(args)...)
 	if err != nil {
 		return nil, err
 	}
@@ -157,7 +157,7 @@ func (std *stdDriver) Prepare(query string) (driver.Stmt, error) {
 }
 
 func (std *stdDriver) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
-	batch, err := std.conn.prepareBatch(ctx, query, func(c *connect) {})
+	batch, err := std.conn.prepareBatch(ctx, query, func(*connect, error) {})
 	if err != nil {
 		return nil, err
 	}
