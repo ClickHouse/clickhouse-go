@@ -46,13 +46,15 @@ func TestString(t *testing.T) {
 			return
 		}
 		const ddl = `
-		CREATE TEMPORARY TABLE test_string (
+		CREATE TABLE test_string (
 			  Col1 String
 			, Col2 Array(String)
 			, Col3 Nullable(String)
-		)
+		) Engine Memory
 		`
-
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_string")
+		}()
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_string"); assert.NoError(t, err) {
 				if err := batch.Append("A", []string{"A", "B", "C"}, nil); assert.NoError(t, err) {
@@ -90,10 +92,10 @@ func BenchmarkString(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE benchmark_string")
+	}()
 
-	if err = conn.Exec(ctx, `DROP TABLE IF EXISTS benchmark_string`); err != nil {
-		b.Fatal(err)
-	}
 	if err = conn.Exec(ctx, `CREATE TABLE benchmark_string (Col1 UInt64, Col2 String) ENGINE = Null`); err != nil {
 		b.Fatal(err)
 	}
@@ -114,7 +116,6 @@ func BenchmarkString(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
-	conn.Exec(ctx, `DROP TABLE IF EXISTS benchmark_string`)
 }
 
 func BenchmarkColumnarString(b *testing.B) {
@@ -133,9 +134,9 @@ func BenchmarkColumnarString(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	if err = conn.Exec(ctx, `DROP TABLE IF EXISTS benchmark_string`); err != nil {
-		b.Fatal(err)
-	}
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE benchmark_string")
+	}()
 	if err = conn.Exec(ctx, `CREATE TABLE benchmark_string (Col1 UInt64, Col2 String) ENGINE = Null`); err != nil {
 		b.Fatal(err)
 	}
@@ -167,5 +168,4 @@ func BenchmarkColumnarString(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
-	conn.Exec(ctx, `DROP TABLE IF EXISTS benchmark_string`)
 }

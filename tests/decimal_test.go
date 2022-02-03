@@ -51,14 +51,17 @@ func TestDecimal(t *testing.T) {
 			return
 		}
 		const ddl = `
-			CREATE TEMPORARY TABLE test_decimal (
-				Col1 Decimal32(5)
+			CREATE TABLE test_decimal (
+				  Col1 Decimal32(5)
 				, Col2 Decimal(18,5)
 				, Col3 Decimal(15,3)
 				, Col4 Decimal128(5)
 				, Col5 Decimal256(5)
-			)
+			) Engine Memory
 		`
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_decimal")
+		}()
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_decimal"); assert.NoError(t, err) {
 				if err := batch.Append(
@@ -116,13 +119,15 @@ func TestNullableDecimal(t *testing.T) {
 			return
 		}
 		const ddl = `
-		CREATE TEMPORARY TABLE test_decimal (
+		CREATE TABLE test_decimal (
 			  Col1 Nullable(Decimal32(5))
 			, Col2 Nullable(Decimal(18,5))
 			, Col3 Nullable(Decimal(15,3))
-		)
+		) Engine Memory
 		`
-
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_decimal")
+		}()
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_decimal"); assert.NoError(t, err) {
 				if err := batch.Append(decimal.New(25, 0), decimal.New(30, 0), decimal.New(35, 0)); !assert.NoError(t, err) {

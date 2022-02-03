@@ -45,16 +45,18 @@ func TestAppendStruct(t *testing.T) {
 	)
 	if assert.NoError(t, err) {
 		const ddl = `
-		CREATE TEMPORARY TABLE test_append_struct (
+		CREATE TABLE test_append_struct (
 			  HCol1 UInt8
 			, HCol2 String
 			, HCol3 Array(Nullable(String))
 			, Col1  UInt8
 			, Col2  String
 			, Col3  Array(String)
-		)
+		) Engine Memory
 		`
-
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_append_struct")
+		}()
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_append_struct"); assert.NoError(t, err) {
 				type header struct {

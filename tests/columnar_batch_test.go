@@ -40,18 +40,20 @@ func TestColumnarInterface(t *testing.T) {
 			Compression: &clickhouse.Compression{
 				Method: clickhouse.CompressionLZ4,
 			},
-			//Debug: true,
+			MaxOpenConns: 1,
 		})
 	)
 	if assert.NoError(t, err) {
 		const ddl = `
-			CREATE TEMPORARY TABLE test_column_interface (
+			CREATE TABLE test_column_interface (
 				    Col1 UInt8
 				  , Col2 String
 				  , Col3 DateTime
-			)
+			) Engine Memory
 		`
-
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_column_interface")
+		}()
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_column_interface"); assert.NoError(t, err) {
 				var (
@@ -129,13 +131,15 @@ func TestNullableColumnarInterface(t *testing.T) {
 	)
 	if assert.NoError(t, err) {
 		const ddl = `
-			CREATE TEMPORARY TABLE test_column_interface (
-				    Col1 Nullable(UInt8)
-				  , Col2 Nullable(String)
-				  , Col3 Nullable(DateTime)
-			)
+			CREATE TABLE test_column_interface (
+				  Col1 Nullable(UInt8)
+				, Col2 Nullable(String)
+				, Col3 Nullable(DateTime)
+			) Engine Memory
 		`
-
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_column_interface")
+		}()
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_column_interface"); assert.NoError(t, err) {
 				var (

@@ -31,9 +31,11 @@ func TestStdUUID(t *testing.T) {
 			CREATE TEMPORARY TABLE test_uuid (
 				  Col1 UUID
 				, Col2 UUID
-			)
+			) Engine Memory
 		`
-
+		defer func() {
+			conn.Exec("DROP TABLE test_uuid")
+		}()
 		if _, err := conn.Exec(ddl); assert.NoError(t, err) {
 			scope, err := conn.Begin()
 			if !assert.NoError(t, err) {

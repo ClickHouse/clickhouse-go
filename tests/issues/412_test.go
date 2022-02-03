@@ -48,10 +48,13 @@ func TestIssue412(t *testing.T) {
 			return
 		}
 		const ddl = `
-			CREATE TEMPORARY TABLE issue_412 (
+			CREATE TABLE issue_412 (
 				Col1 SimpleAggregateFunction(max, DateTime64(3, 'UTC'))
-			)
+			) Engine Memory
 		`
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE issue_412")
+		}()
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO issue_412"); assert.NoError(t, err) {
 				datetime := time.Now().Truncate(time.Millisecond)

@@ -32,15 +32,18 @@ func TestStdDateTime64(t *testing.T) {
 			return
 		}
 		const ddl = `
-			CREATE TEMPORARY TABLE test_datetime64 (
+			CREATE TABLE test_datetime64 (
 				  Col1 DateTime64(3)
 				, Col2 DateTime64(9, 'Europe/Moscow')
 				, Col3 DateTime64(0, 'Europe/London')
 				, Col4 Nullable(DateTime64(3, 'Europe/Moscow'))
 				, Col5 Array(DateTime64(3, 'Europe/Moscow'))
 				, Col6 Array(Nullable(DateTime64(3, 'Europe/Moscow')))
-			)
+			) Engine Memory
 		`
+		defer func() {
+			conn.Exec("DROP TABLE test_datetime64")
+		}()
 		if _, err := conn.Exec(ddl); assert.NoError(t, err) {
 			scope, err := conn.Begin()
 			if !assert.NoError(t, err) {

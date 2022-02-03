@@ -50,11 +50,14 @@ func TestGeoPolygon(t *testing.T) {
 			return
 		}
 		const ddl = `
-		CREATE TEMPORARY TABLE test_geo_polygon (
+		CREATE TABLE test_geo_polygon (
 			  Col1 Polygon
 			, Col2 Array(Polygon)
-		)
+		) Engine Memory
 		`
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_geo_polygon")
+		}()
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_geo_polygon"); assert.NoError(t, err) {
 				var (

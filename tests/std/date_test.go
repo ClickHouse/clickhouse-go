@@ -28,14 +28,17 @@ import (
 func TestStdDate(t *testing.T) {
 	if conn, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000"); assert.NoError(t, err) {
 		const ddl = `
-			CREATE TEMPORARY TABLE test_date (
+			CREATE TABLE test_date (
 				  ID   UInt8
 				, Col1 Date
 				, Col2 Nullable(Date)
 				, Col3 Array(Date)
 				, Col4 Array(Nullable(Date))
-			)
+			) Engine Memory
 		`
+		defer func() {
+			conn.Exec("DROP TABLE test_date")
+		}()
 		type result struct {
 			ColID uint8 `ch:"ID"`
 			Col1  time.Time

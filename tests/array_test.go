@@ -39,17 +39,20 @@ func TestArray(t *testing.T) {
 			Compression: &clickhouse.Compression{
 				Method: clickhouse.CompressionLZ4,
 			},
-			//Debug: true,
+			MaxOpenConns: 1,
 		})
 	)
 	if assert.NoError(t, err) {
 		const ddl = `
-		CREATE TEMPORARY TABLE test_array (
+		CREATE TABLE test_array (
 			  Col1 Array(String)
 			, Col2 Array(Array(UInt32))
 			, Col3 Array(Array(Array(DateTime)))
-		)
+		) Engine Memory
 		`
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_array")
+		}()
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_array"); assert.NoError(t, err) {
 				var (
@@ -124,17 +127,20 @@ func TestColumnarArray(t *testing.T) {
 			Compression: &clickhouse.Compression{
 				Method: clickhouse.CompressionLZ4,
 			},
-			//Debug: true,
+			MaxOpenConns: 1,
 		})
 	)
 	if assert.NoError(t, err) {
 		const ddl = `
-		CREATE TEMPORARY TABLE test_array (
+		CREATE TABLE test_array (
 			  Col1 Array(String)
 			, Col2 Array(Array(UInt32))
 			, Col3 Array(Array(Array(DateTime)))
-		)
+		) Engine Memory
 		`
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_array")
+		}()
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			var (
 				timestamp = time.Now().Truncate(time.Second)

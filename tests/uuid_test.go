@@ -44,15 +44,17 @@ func TestUUID(t *testing.T) {
 	)
 	if assert.NoError(t, err) {
 		const ddl = `
-			CREATE TEMPORARY TABLE test_uuid (
+			CREATE TABLE test_uuid (
 				  Col1 UUID
 				, Col2 UUID
 				, Col3 Array(UUID)
 				, Col4 Nullable(UUID)
 				, Col5 Array(Nullable(UUID))
-			)
+			) Engine Memory
 		`
-
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_uuid")
+		}()
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_uuid"); assert.NoError(t, err) {
 				var (
@@ -105,11 +107,14 @@ func TestNullableUUID(t *testing.T) {
 	)
 	if assert.NoError(t, err) {
 		const ddl = `
-			CREATE TEMPORARY TABLE test_uuid (
+			CREATE TABLE test_uuid (
 				  Col1 Nullable(UUID)
 				, Col2 Nullable(UUID)
-			)
+			) Engine Memory
 		`
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_uuid")
+		}()
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_uuid"); assert.NoError(t, err) {
 				var (
@@ -173,14 +178,17 @@ func TestColumnarUUID(t *testing.T) {
 	)
 	if assert.NoError(t, err) {
 		const ddl = `
-			CREATE TEMPORARY TABLE test_uuid (
+			CREATE TABLE test_uuid (
 				  Col1 UUID
 				, Col2 UUID
 				, Col3 Nullable(UUID)
 				, Col4 Array(UUID)
 				, Col5 Array(Nullable(UUID))
-			)
+			) Engine Memory
 		`
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_uuid")
+		}()
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_uuid"); assert.NoError(t, err) {
 				var (
@@ -250,9 +258,10 @@ func BenchmarkUUID(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	if err = conn.Exec(ctx, `DROP TABLE IF EXISTS benchmark_uuid`); err != nil {
-		b.Fatal(err)
-	}
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE benchmark_uuid")
+	}()
+
 	if err = conn.Exec(ctx, `CREATE TABLE benchmark_uuid (Col1 UInt64, Col2 UUID) ENGINE = Null`); err != nil {
 		b.Fatal(err)
 	}
@@ -273,5 +282,4 @@ func BenchmarkUUID(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
-	conn.Exec(ctx, `DROP TABLE IF EXISTS benchmark_uuid`)
 }

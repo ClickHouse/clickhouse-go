@@ -27,7 +27,7 @@ import (
 func TestStdEnum(t *testing.T) {
 	if conn, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000"); assert.NoError(t, err) {
 		const ddl = `
-			CREATE TEMPORARY TABLE test_enum (
+			CREATE TABLE test_enum (
 				  Col1 Enum  ('hello'   = 1,  'world' = 2)
 				, Col2 Enum8 ('click'   = 5,  'house' = 25)
 				, Col3 Enum16('house' = 10,   'value' = 50)
@@ -35,8 +35,11 @@ func TestStdEnum(t *testing.T) {
 				, Col5 Array(Enum16 ('click' = 1, 'house' = 2))
 				, Col6 Array(Nullable(Enum8  ('click' = 1, 'house' = 2)))
 				, Col7 Array(Nullable(Enum16 ('click' = 1, 'house' = 2)))
-			)
+			) Engine Memory
 		`
+		defer func() {
+			conn.Exec("DROP TABLE test_enum")
+		}()
 		if _, err := conn.Exec(ddl); assert.NoError(t, err) {
 			scope, err := conn.Begin()
 			if !assert.NoError(t, err) {

@@ -31,14 +31,17 @@ func TestStdBool(t *testing.T) {
 			return
 		}
 		const ddl = `
-			CREATE TEMPORARY TABLE test_bool (
+			CREATE TABLE test_bool (
 				    Col1 Bool
 				  , Col2 Bool
 				  , Col3 Array(Bool)
 				  , Col4 Nullable(Bool)
 				  , Col5 Array(Nullable(Bool))
-			)
+			) Engine Memory
 		`
+		defer func() {
+			conn.Exec("DROP TABLE test_bool")
+		}()
 		if _, err := conn.Exec(ddl); assert.NoError(t, err) {
 			scope, err := conn.Begin()
 			if !assert.NoError(t, err) {

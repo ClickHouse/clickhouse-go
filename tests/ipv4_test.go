@@ -44,15 +44,17 @@ func TestIPv4(t *testing.T) {
 	)
 	if assert.NoError(t, err) {
 		const ddl = `
-			CREATE TEMPORARY TABLE test_ipv4 (
+			CREATE TABLE test_ipv4 (
 				  Col1 IPv4
 				, Col2 IPv4
 				, Col3 Nullable(IPv4)
 				, Col4 Array(IPv4)
 				, Col5 Array(Nullable(IPv4))
-			)
+			) Engine Memory
 		`
-
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_ipv4")
+		}()
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_ipv4"); assert.NoError(t, err) {
 				var (
@@ -111,12 +113,14 @@ func TestNullableIPv4(t *testing.T) {
 	)
 	if assert.NoError(t, err) {
 		const ddl = `
-			CREATE TEMPORARY TABLE test_ipv4 (
+			CREATE TABLE test_ipv4 (
 				  Col1 Nullable(IPv4)
 				, Col2 Nullable(IPv4)
-			)
+			) Engine Memory
 		`
-
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_ipv4")
+		}()
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_ipv4"); assert.NoError(t, err) {
 				var (
@@ -178,13 +182,15 @@ func TestColumnarIPv4(t *testing.T) {
 	)
 	if assert.NoError(t, err) {
 		const ddl = `
-			CREATE TEMPORARY TABLE test_ipv4 (
+			CREATE TABLE test_ipv4 (
 				  Col1 IPv4
 				, Col2 IPv4
 				, Col3 Nullable(IPv4)
-			)
+			) Engine Memory
 		`
-
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_ipv4")
+		}()
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_ipv4"); assert.NoError(t, err) {
 				var (

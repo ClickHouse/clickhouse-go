@@ -57,15 +57,17 @@ func TestFixedString(t *testing.T) {
 	)
 	if assert.NoError(t, err) {
 		const ddl = `
-		CREATE TEMPORARY TABLE test_fixed_string (
-			  Col1 FixedString(10)
-			, Col2 FixedString(10)
-			, Col3 Nullable(FixedString(10))
-			, Col4 Array(FixedString(10))
-			, Col5 Array(Nullable(FixedString(10)))
-		)
-	`
-
+			CREATE TABLE test_fixed_string (
+				Col1 FixedString(10)
+				, Col2 FixedString(10)
+				, Col3 Nullable(FixedString(10))
+				, Col4 Array(FixedString(10))
+				, Col5 Array(Nullable(FixedString(10)))
+			) Engine Memory
+		`
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_fixed_string")
+		}()
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_fixed_string"); assert.NoError(t, err) {
 				var (
@@ -132,12 +134,14 @@ func TestNullableFixedString(t *testing.T) {
 	)
 	if assert.NoError(t, err) {
 		const ddl = `
-		CREATE TEMPORARY TABLE test_fixed_string (
+		CREATE TABLE test_fixed_string (
 			  Col1 Nullable(FixedString(10))
 			, Col2 Nullable(FixedString(10))
-		)
+		) Engine Memory
 		`
-
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_fixed_string")
+		}()
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_fixed_string"); assert.NoError(t, err) {
 				var (
@@ -200,14 +204,17 @@ func TestColumnarFixedString(t *testing.T) {
 	)
 	if assert.NoError(t, err) {
 		const ddl = `
-		CREATE TEMPORARY TABLE test_fixed_string (
+		CREATE TABLE test_fixed_string (
 			  Col1 FixedString(10)
 			, Col2 FixedString(10)
 			, Col3 Nullable(FixedString(10))
 			, Col4 Array(FixedString(10))
 			, Col5 Array(Nullable(FixedString(10)))
-		)`
-
+		) Engine Memory
+		`
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_fixed_string")
+		}()
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_fixed_string"); assert.NoError(t, err) {
 				var (
@@ -278,7 +285,9 @@ func BenchmarkFixedString(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE benchmark_fixed_string")
+	}()
 	if err = conn.Exec(ctx, `DROP TABLE IF EXISTS benchmark_fixed_string`); err != nil {
 		b.Fatal(err)
 	}
@@ -302,7 +311,6 @@ func BenchmarkFixedString(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
-	conn.Exec(ctx, `DROP TABLE IF EXISTS benchmark_fixed_string`)
 }
 
 func BenchmarkColumnarFixedString(b *testing.B) {
@@ -321,9 +329,9 @@ func BenchmarkColumnarFixedString(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	if err = conn.Exec(ctx, `DROP TABLE IF EXISTS benchmark_fixed_string`); err != nil {
-		b.Fatal(err)
-	}
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE benchmark_fixed_string")
+	}()
 	if err = conn.Exec(ctx, `CREATE TABLE benchmark_fixed_string (Col1 UInt64, Col2 FixedString(4)) ENGINE = Null`); err != nil {
 		b.Fatal(err)
 	}
@@ -355,5 +363,4 @@ func BenchmarkColumnarFixedString(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
-	conn.Exec(ctx, `DROP TABLE IF EXISTS benchmark_fixed_string`)
 }

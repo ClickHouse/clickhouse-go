@@ -47,13 +47,15 @@ func TestSimpleAggregateFunction(t *testing.T) {
 			return
 		}
 		const ddl = `
-		CREATE TEMPORARY TABLE test_simple_aggregate_function (
+		CREATE TABLE test_simple_aggregate_function (
 			  Col1 UInt64
 			, Col2 SimpleAggregateFunction(sum, Double)
 			, Col3 SimpleAggregateFunction(sumMap, Tuple(Array(Int16), Array(UInt64)))
-		)
+		) Engine Memory
 		`
-
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_simple_aggregate_function")
+		}()
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_simple_aggregate_function"); assert.NoError(t, err) {
 				var (

@@ -28,15 +28,18 @@ import (
 func TestStdDateTime(t *testing.T) {
 	if conn, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000"); assert.NoError(t, err) {
 		const ddl = `
-			CREATE TEMPORARY TABLE test_datetime (
+			CREATE TABLE test_datetime (
 				  Col1 DateTime
 				, Col2 DateTime('Europe/Moscow')
 				, Col3 DateTime('Europe/London')
 				, Col4 Nullable(DateTime('Europe/Moscow'))
 				, Col5 Array(DateTime('Europe/Moscow'))
 				, Col6 Array(Nullable(DateTime('Europe/Moscow')))
-			)
+			) Engine Memory
 		`
+		defer func() {
+			conn.Exec("DROP TABLE test_datetime")
+		}()
 		if _, err := conn.Exec(ddl); assert.NoError(t, err) {
 			scope, err := conn.Begin()
 			if !assert.NoError(t, err) {

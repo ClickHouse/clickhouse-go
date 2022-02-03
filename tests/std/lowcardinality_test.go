@@ -38,7 +38,7 @@ func TestStdLowCardinality(t *testing.T) {
 			return
 		}
 		const ddl = `
-		CREATE TEMPORARY TABLE test_lowcardinality (
+		CREATE TABLE test_lowcardinality (
 			  Col1 LowCardinality(String)
 			, Col2 LowCardinality(FixedString(2))
 			, Col3 LowCardinality(DateTime)
@@ -47,8 +47,11 @@ func TestStdLowCardinality(t *testing.T) {
 			, Col6 Array(Array(LowCardinality(String)))
 			, Col7 LowCardinality(Nullable(String))
 			, Col8 Array(Array(LowCardinality(Nullable(String))))
-		)
+		) Engine Memory
 		`
+		defer func() {
+			conn.Exec("DROP TABLE test_lowcardinality")
+		}()
 		if _, err := conn.ExecContext(ctx, ddl); assert.NoError(t, err) {
 			scope, err := conn.Begin()
 			if !assert.NoError(t, err) {

@@ -37,11 +37,14 @@ func TestStdGeoPoint(t *testing.T) {
 			return
 		}
 		const ddl = `
-		CREATE TEMPORARY TABLE test_geo_point (
+		CREATE TABLE test_geo_point (
 			Col1 Point
 			, Col2 Array(Point)
-		)
+		) Engine Memory
 		`
+		defer func() {
+			conn.Exec("DROP TABLE test_geo_point")
+		}()
 		if _, err := conn.ExecContext(ctx, ddl); assert.NoError(t, err) {
 			scope, err := conn.Begin()
 			if !assert.NoError(t, err) {

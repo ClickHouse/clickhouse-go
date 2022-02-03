@@ -46,13 +46,16 @@ func TestIssue472(t *testing.T) {
 	if assert.NoError(t, err) {
 
 		const ddl = `
-			CREATE TEMPORARY TABLE issue_472 (
+			CREATE TABLE issue_472 (
 				PodUID               UUID
 				, EventType          String
 				, ControllerRevision UInt8
 				, Timestamp          DateTime
-			)
+			) Engine Memory
 		`
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE issue_472")
+		}()
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO issue_472"); assert.NoError(t, err) {
 				podUID := uuid.New()

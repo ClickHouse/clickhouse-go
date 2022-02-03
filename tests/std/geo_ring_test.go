@@ -37,11 +37,14 @@ func TestStdGeoRing(t *testing.T) {
 			return
 		}
 		const ddl = `
-		CREATE TEMPORARY TABLE test_geo_ring (
+		CREATE TABLE test_geo_ring (
 			Col1 Ring
 			, Col2 Array(Ring)
-		)
+		) Engine Memory
 		`
+		defer func() {
+			conn.Exec("DROP TABLE test_geo_ring")
+		}()
 		if _, err := conn.ExecContext(ctx, ddl); assert.NoError(t, err) {
 			scope, err := conn.Begin()
 			if !assert.NoError(t, err) {

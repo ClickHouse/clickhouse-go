@@ -48,14 +48,17 @@ func TestDate32(t *testing.T) {
 			return
 		}
 		const ddl = `
-			CREATE TEMPORARY TABLE test_date32 (
+			CREATE TABLE test_date32 (
 				  ID   UInt8
 				, Col1 Date32
 				, Col2 Nullable(Date32)
 				, Col3 Array(Date32)
 				, Col4 Array(Nullable(Date32))
-			)
+			) Engine Memory
 		`
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_date32")
+		}()
 		type result struct {
 			ColID uint8 `ch:"ID"`
 			Col1  time.Time
@@ -63,7 +66,6 @@ func TestDate32(t *testing.T) {
 			Col3  []time.Time
 			Col4  []*time.Time
 		}
-
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_date32"); assert.NoError(t, err) {
 				var (
@@ -149,12 +151,14 @@ func TestNullableDate32(t *testing.T) {
 			return
 		}
 		const ddl = `
-			CREATE TEMPORARY TABLE test_date32 (
-				    Col1 Date32
-				  , Col2 Nullable(Date32)
-			)
+			CREATE TABLE test_date32 (
+				  Col1 Date32
+				, Col2 Nullable(Date32)
+			) Engine Memory
 		`
-
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_date32")
+		}()
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_date32"); assert.NoError(t, err) {
 				date, err := time.Parse("2006-01-02 15:04:05", "2283-11-11 00:00:00")
@@ -223,15 +227,17 @@ func TestColumnarDate32(t *testing.T) {
 			return
 		}
 		const ddl = `
-		CREATE TEMPORARY TABLE test_date32 (
+		CREATE TABLE test_date32 (
 			  ID   UInt64
 			, Col1 Date32
 			, Col2 Nullable(Date32)
 			, Col3 Array(Date32)
 			, Col4 Array(Nullable(Date32))
-		)
+		) Engine Memory
 		`
-
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_date32")
+		}()
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_date32"); assert.NoError(t, err) {
 				var (

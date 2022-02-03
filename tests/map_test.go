@@ -48,15 +48,17 @@ func TestMap(t *testing.T) {
 			return
 		}
 		const ddl = `
-		CREATE TEMPORARY TABLE test_map (
+		CREATE TABLE test_map (
 			  Col1 Map(String, UInt64)
 			, Col2 Map(String, UInt64)
 			, Col3 Map(String, UInt64)
 			, Col4 Array(Map(String, String))
 			, Col5 Map(LowCardinality(String), LowCardinality(UInt64))
-		)
+		) Engine Memory
 		`
-
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_map")
+		}()
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_map"); assert.NoError(t, err) {
 				var (
@@ -123,13 +125,15 @@ func TestColmnarMap(t *testing.T) {
 			return
 		}
 		const ddl = `
-		CREATE TEMPORARY TABLE test_map (
+		CREATE TABLE test_map (
 			  Col1 Map(String, UInt64)
 			, Col2 Map(String, UInt64)
 			, Col3 Map(String, UInt64)
-		)
+		) Engine Memory
 		`
-
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_map")
+		}()
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_map"); assert.NoError(t, err) {
 				var (

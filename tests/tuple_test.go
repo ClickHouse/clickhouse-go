@@ -49,16 +49,18 @@ func TestTuple(t *testing.T) {
 			return
 		}
 		const ddl = `
-		CREATE TEMPORARY TABLE test_tuple (
+		CREATE TABLE test_tuple (
 			  Col1 Tuple(String, Int64)
 			, Col2 Tuple(String, Int8, DateTime)
 			, Col3 Tuple(name1 DateTime, name2 FixedString(2), name3 Map(String, String))
 			, Col4 Array(Array( Tuple(String, Int64) ))
 			, Col5 Tuple(LowCardinality(String),           Array(LowCardinality(String)))
 			, Col6 Tuple(LowCardinality(Nullable(String)), Array(LowCardinality(Nullable(String))))
-		)
+		) Engine Memory
 		`
-
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_tuple")
+		}()
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_tuple"); assert.NoError(t, err) {
 				var (
@@ -128,14 +130,16 @@ func TestColumnarTuple(t *testing.T) {
 			return
 		}
 		const ddl = `
-		CREATE TEMPORARY TABLE test_tuple (
+		CREATE TABLE test_tuple (
 			  ID   UInt64
 			, Col1 Tuple(String, Int64)
 			, Col2 Tuple(String, Int8, DateTime)
 			, Col3 Tuple(DateTime, FixedString(2), Map(String, String))
-		)
+		) Engine Memory
 		`
-
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_tuple")
+		}()
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_tuple"); assert.NoError(t, err) {
 				var (

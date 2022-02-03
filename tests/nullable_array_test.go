@@ -46,7 +46,7 @@ func TestNullableArray(t *testing.T) {
 		})
 	)
 	const ddl = `
-	CREATE TEMPORARY TABLE test_nullable_array (
+	CREATE TABLE test_nullable_array (
 		  Col1  Array(Nullable(Bool))
 		, Col2  Array(Nullable(UInt8))
 		, Col3  Array(Nullable(Date))
@@ -61,8 +61,11 @@ func TestNullableArray(t *testing.T) {
 		, Col12 Array(Nullable(IPv6))
 		, Col13 Array(Nullable(String))
 		, Col14 Array(Nullable(UUID))
-	)
+	) Engine Memory
 	`
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE test_nullable_array")
+	}()
 	if assert.NoError(t, err) {
 		if err := checkMinServerVersion(conn, 21, 12); err != nil {
 			t.Skip(err.Error())

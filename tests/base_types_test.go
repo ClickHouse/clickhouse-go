@@ -38,19 +38,22 @@ func TestUInt8(t *testing.T) {
 			Compression: &clickhouse.Compression{
 				Method: clickhouse.CompressionLZ4,
 			},
-			//Debug: true,
+			MaxOpenConns: 1,
 		})
 	)
 	if assert.NoError(t, err) {
 		const ddl = `
-			CREATE TEMPORARY TABLE test_uint8 (
+			CREATE TABLE test_uint8 (
 				  ID   UInt8
 				, Col1 UInt8
 				, Col2 Nullable(UInt8)
 				, Col3 Array(UInt8)
 				, Col4 Array(Nullable(UInt8))
-			)
+			) Engine Memory
 		`
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_uint8")
+		}()
 		type result struct {
 			ColID uint8 `ch:"ID"`
 			Col1  uint8
@@ -58,7 +61,6 @@ func TestUInt8(t *testing.T) {
 			Col3  []uint8
 			Col4  []*uint8
 		}
-
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_uint8"); assert.NoError(t, err) {
 				data := uint8(42)
@@ -71,7 +73,6 @@ func TestUInt8(t *testing.T) {
 				if err := batch.Append(uint8(2), data, nil, []uint8{data}, []*uint8{nil, nil, &data}); !assert.NoError(t, err) {
 					return
 				}
-
 				if err := batch.Send(); assert.NoError(t, err) {
 					var (
 						result1 result
@@ -111,19 +112,22 @@ func TestColumnarUInt8(t *testing.T) {
 			Compression: &clickhouse.Compression{
 				Method: clickhouse.CompressionLZ4,
 			},
-			//Debug: true,
+			MaxOpenConns: 1,
 		})
 	)
 	if assert.NoError(t, err) {
 		const ddl = `
-		CREATE TEMPORARY TABLE test_uint8 (
+		CREATE TABLE test_uint8 (
 			  ID   UInt64
 			, Col1 UInt8
 			, Col2 Nullable(UInt8)
 			, Col3 Array(UInt8)
 			, Col4 Array(Nullable(UInt8))
-		)
+		) Engine Memory
 		`
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_uint8")
+		}()
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_uint8"); assert.NoError(t, err) {
 				var (
@@ -184,5 +188,4 @@ func TestColumnarUInt8(t *testing.T) {
 			}
 		}
 	}
-
 }

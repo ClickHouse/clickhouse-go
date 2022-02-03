@@ -53,7 +53,7 @@ func main() {
 	}
 	conn.Exec("DROP TABLE IF EXISTS example")
 	_, err = conn.Exec(`
-		CREATE TEMPORARY TABLE IF NOT EXISTS example (
+		CREATE EXISTS example (
 			country_code FixedString(2),
 			os_id        UInt8,
 			browser_id   UInt8,
@@ -62,7 +62,9 @@ func main() {
 			action_time  DateTime
 		) Engine Memory
 	`)
-
+	defer func() {
+		conn.Exec("DROP TABLE example")
+	}()
 	if err != nil {
 		log.Fatal(err)
 	}

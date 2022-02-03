@@ -44,14 +44,17 @@ func TestDate(t *testing.T) {
 	)
 	if assert.NoError(t, err) {
 		const ddl = `
-			CREATE TEMPORARY TABLE test_date (
+			CREATE TABLE test_date (
 				  ID   UInt8
 				, Col1 Date
 				, Col2 Nullable(Date)
 				, Col3 Array(Date)
 				, Col4 Array(Nullable(Date))
-			)
+			) Engine Memory
 		`
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_date")
+		}()
 		type result struct {
 			ColID uint8 `ch:"ID"`
 			Col1  time.Time
@@ -119,12 +122,14 @@ func TestNullableDate(t *testing.T) {
 	)
 	if assert.NoError(t, err) {
 		const ddl = `
-			CREATE TEMPORARY TABLE test_date (
-				    Col1 Date
-				  , Col2 Nullable(Date)
-			)
+			CREATE TABLE test_date (
+				  Col1 Date
+				, Col2 Nullable(Date)
+			) Engine Memory
 		`
-
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_date")
+		}()
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_date"); assert.NoError(t, err) {
 				date, err := time.Parse("2006-01-02 15:04:05", "2022-01-12 00:00:00")
@@ -189,15 +194,17 @@ func TestColumnarDate(t *testing.T) {
 	)
 	if assert.NoError(t, err) {
 		const ddl = `
-		CREATE TEMPORARY TABLE test_date (
+		CREATE TABLE test_date (
 			  ID   UInt64
 			, Col1 Date
 			, Col2 Nullable(Date)
 			, Col3 Array(Date)
 			, Col4 Array(Nullable(Date))
-		)
+		) Engine Memory
 		`
-
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_date")
+		}()
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_date"); assert.NoError(t, err) {
 				var (

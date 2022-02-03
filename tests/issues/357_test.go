@@ -33,6 +33,9 @@ func TestIssue357(t *testing.T) {
 			, Col2 DateTime
 		)
 		`
+		defer func() {
+			conn.Exec("DROP TABLE issue_357")
+		}()
 		if _, err := conn.Exec(ddl); assert.NoError(t, err) {
 			scope, err := conn.Begin()
 			if !assert.NoError(t, err) {

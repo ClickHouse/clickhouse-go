@@ -38,7 +38,7 @@ func TestBool(t *testing.T) {
 			Compression: &clickhouse.Compression{
 				Method: clickhouse.CompressionLZ4,
 			},
-			//Debug: true,
+			MaxOpenConns: 1,
 		})
 	)
 	if assert.NoError(t, err) {
@@ -47,15 +47,17 @@ func TestBool(t *testing.T) {
 			return
 		}
 		const ddl = `
-			CREATE TEMPORARY TABLE test_bool (
-				    Col1 Bool
-				  , Col2 Bool
-				  , Col3 Array(Bool)
-				  , Col4 Nullable(Bool)
-				  , Col5 Array(Nullable(Bool))
-			)
+			CREATE TABLE test_bool (
+				  Col1 Bool
+				, Col2 Bool
+				, Col3 Array(Bool)
+				, Col4 Nullable(Bool)
+				, Col5 Array(Nullable(Bool))
+			) Engine Memory
 		`
-
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_bool")
+		}()
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_bool"); assert.NoError(t, err) {
 				var val bool
@@ -96,7 +98,7 @@ func TestColumnarBool(t *testing.T) {
 			Compression: &clickhouse.Compression{
 				Method: clickhouse.CompressionLZ4,
 			},
-			//Debug: true,
+			MaxOpenConns: 1,
 		})
 	)
 	if assert.NoError(t, err) {
@@ -105,16 +107,18 @@ func TestColumnarBool(t *testing.T) {
 			return
 		}
 		const ddl = `
-			CREATE TEMPORARY TABLE test_bool (
-					ID   UInt64
-				  , Col1 Bool
-				  , Col2 Bool
-				  , Col3 Array(Bool)
-				  , Col4 Nullable(Bool)
-				  , Col5 Array(Nullable(Bool))
-			)
+			CREATE TABLE test_bool (
+				  ID   UInt64
+				, Col1 Bool
+				, Col2 Bool
+				, Col3 Array(Bool)
+				, Col4 Nullable(Bool)
+				, Col5 Array(Nullable(Bool))
+			) Engine Memory
 		`
-
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_bool")
+		}()
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			val := true
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_bool"); assert.NoError(t, err) {

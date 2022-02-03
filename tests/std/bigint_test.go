@@ -32,15 +32,18 @@ func TestStdBigInt(t *testing.T) {
 			return
 		}
 		const ddl = `
-		CREATE TEMPORARY TABLE test_bigint (
+		CREATE TABLE test_bigint (
 			  Col1 Int128
 			, Col2 Array(Int128)
 			, Col3 Int256
 			, Col4 Array(Int256)
 			, Col5 UInt256
 			, Col6 Array(UInt256)
-		)
+		) Engine Memory
 		`
+		defer func() {
+			conn.Exec("DROP TABLE test_bigint")
+		}()
 		if _, err := conn.Exec(ddl); assert.NoError(t, err) {
 			scope, err := conn.Begin()
 			if !assert.NoError(t, err) {
@@ -99,15 +102,18 @@ func TestStdNullableBigInt(t *testing.T) {
 			return
 		}
 		const ddl = `
-		CREATE TEMPORARY TABLE test_nullable_bigint (
+		CREATE TABLE test_nullable_bigint (
 			  Col1 Nullable(Int128)
 			, Col2 Array(Nullable(Int128))
 			, Col3 Nullable(Int256)
 			, Col4 Array(Nullable(Int256))
 			, Col5 Nullable(UInt256)
 			, Col6 Array(Nullable(UInt256))
-		)
+		) Engine Memory
 		`
+		defer func() {
+			conn.Exec("DROP TABLE test_nullable_bigint")
+		}()
 		if _, err := conn.Exec(ddl); assert.NoError(t, err) {
 			scope, err := conn.Begin()
 			if !assert.NoError(t, err) {

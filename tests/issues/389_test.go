@@ -52,6 +52,9 @@ func TestIssue389(t *testing.T) {
 				    Col1 DateTime64(3, 'America/New_York')
 			)
 		`
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE issue_389")
+		}()
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO issue_389"); assert.NoError(t, err) {
 				if err := batch.Append(int64(1625128291293)); assert.NoError(t, err) {

@@ -52,7 +52,7 @@ func TestLowCardinality(t *testing.T) {
 			return
 		}
 		const ddl = `
-		CREATE TEMPORARY TABLE test_lowcardinality (
+		CREATE TABLE test_lowcardinality (
 			  Col1 LowCardinality(String)
 			, Col2 LowCardinality(FixedString(2))
 			, Col3 LowCardinality(DateTime)
@@ -61,9 +61,11 @@ func TestLowCardinality(t *testing.T) {
 			, Col6 Array(Array(LowCardinality(String)))
 			, Col7 LowCardinality(Nullable(String))
 			, Col8 Array(Array(LowCardinality(Nullable(String))))
-		)
+		) Engine Memory
 		`
-
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_lowcardinality")
+		}()
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_lowcardinality"); assert.NoError(t, err) {
 				var (
@@ -167,14 +169,16 @@ func TestColmnarLowCardinality(t *testing.T) {
 			return
 		}
 		const ddl = `
-		CREATE TEMPORARY TABLE test_lowcardinality (
+		CREATE TABLE test_lowcardinality (
 			  Col1 LowCardinality(String)
 			, Col2 LowCardinality(FixedString(2))
 			, Col3 LowCardinality(DateTime)
 			, Col4 LowCardinality(Int32)
-		)
+		) Engine Memory
 		`
-
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_lowcardinality")
+		}()
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_lowcardinality"); assert.NoError(t, err) {
 				var (

@@ -37,11 +37,14 @@ func TestStdGeoMultiPolygon(t *testing.T) {
 			return
 		}
 		const ddl = `
-		CREATE TEMPORARY TABLE test_geo_multipolygon (
+		CREATE TABLE test_geo_multipolygon (
 			  Col1 MultiPolygon
 			, Col2 Array(MultiPolygon)
-		)
+		) Engine Memory
 		`
+		defer func() {
+			conn.Exec("DROP TABLE test_geo_multipolygon")
+		}()
 		if _, err := conn.ExecContext(ctx, ddl); assert.NoError(t, err) {
 			scope, err := conn.Begin()
 			if !assert.NoError(t, err) {

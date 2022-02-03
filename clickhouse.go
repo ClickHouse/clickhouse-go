@@ -87,7 +87,11 @@ type clickhouse struct {
 }
 
 func (clickhouse) Contributors() []string {
-	return contributors.List
+	list := contributors.List
+	if len(list[len(list)-1]) == 0 {
+		return list[:len(list)-1]
+	}
+	return list
 }
 
 func (ch *clickhouse) ServerVersion() (*driver.ServerVersion, error) {

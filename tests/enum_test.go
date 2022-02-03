@@ -43,7 +43,7 @@ func TestEnum(t *testing.T) {
 	)
 	if assert.NoError(t, err) {
 		const ddl = `
-			CREATE TEMPORARY TABLE test_enum (
+			CREATE TABLE test_enum (
 				  Col1 Enum  ('hello'   = 1,  'world' = 2)
 				, Col2 Enum8 ('click'   = 5,  'house' = 25)
 				, Col3 Enum16('house' = 10,   'value' = 50)
@@ -51,9 +51,11 @@ func TestEnum(t *testing.T) {
 				, Col5 Array(Enum16 ('click' = 1, 'house' = 2))
 				, Col6 Array(Nullable(Enum8  ('click' = 1, 'house' = 2)))
 				, Col7 Array(Nullable(Enum16 ('click' = 1, 'house' = 2)))
-			)
+			) Engine Memory
 		`
-
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_enum")
+		}()
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_enum"); assert.NoError(t, err) {
 				var (
@@ -121,13 +123,15 @@ func TestNullableEnum(t *testing.T) {
 	)
 	if assert.NoError(t, err) {
 		const ddl = `
-			CREATE TEMPORARY TABLE test_enum (
+			CREATE TABLE test_enum (
 				  Col1 Nullable(Enum  ('hello'   = 1,  'world' = 2))
 				, Col2 Nullable(Enum8 ('click'   = 5,  'house' = 25))
 				, Col3 Nullable(Enum16('default' = 10, 'value' = 50))
-			)
+			) Engine Memory
 		`
-
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_enum")
+		}()
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_enum"); assert.NoError(t, err) {
 				if err := batch.Append("hello", "click", "value"); assert.NoError(t, err) {
@@ -187,17 +191,19 @@ func TestColumnarEnum(t *testing.T) {
 	)
 	if assert.NoError(t, err) {
 		const ddl = `
-			CREATE TEMPORARY TABLE test_enum (
-				Col1 Enum  ('hello'   = 1,  'world' = 2)
+			CREATE TABLE test_enum (
+				  Col1 Enum  ('hello'   = 1,  'world' = 2)
 				, Col2 Enum8 ('click'   = 5,  'house' = 25)
 				, Col3 Enum16('house' = 10,   'value' = 50)
 				, Col4 Array(Enum8  ('click' = 1, 'house' = 2))
 				, Col5 Array(Enum16 ('click' = 1, 'house' = 2))
 				, Col6 Array(Nullable(Enum8  ('click' = 1, 'house' = 2)))
 				, Col7 Array(Nullable(Enum16 ('click' = 1, 'house' = 2)))
-			)
+			) Engine Memory
 		`
-
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_enum")
+		}()
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_enum"); assert.NoError(t, err) {
 				var (

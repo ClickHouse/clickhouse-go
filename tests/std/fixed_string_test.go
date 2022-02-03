@@ -45,14 +45,17 @@ func (bin *BinFixedString) Scan(src interface{}) error {
 func TestStdFixedString(t *testing.T) {
 	if conn, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000"); assert.NoError(t, err) {
 		const ddl = `
-		CREATE TEMPORARY TABLE test_fixed_string (
+		CREATE TABLE test_fixed_string (
 				Col1 FixedString(10)
 			, Col2 FixedString(10)
 			, Col3 Nullable(FixedString(10))
 			, Col4 Array(FixedString(10))
 			, Col5 Array(Nullable(FixedString(10)))
-		)
+		) Engine Memory
 		`
+		defer func() {
+			conn.Exec("DROP TABLE test_fixed_string")
+		}()
 		if _, err := conn.Exec(ddl); assert.NoError(t, err) {
 			scope, err := conn.Begin()
 			if !assert.NoError(t, err) {

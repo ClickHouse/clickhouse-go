@@ -44,16 +44,18 @@ func TestDateTime(t *testing.T) {
 	)
 	if assert.NoError(t, err) {
 		const ddl = `
-			CREATE TEMPORARY TABLE test_datetime (
+			CREATE TABLE test_datetime (
 				  Col1 DateTime
 				, Col2 DateTime('Europe/Moscow')
 				, Col3 DateTime('Europe/London')
 				, Col4 Nullable(DateTime('Europe/Moscow'))
 				, Col5 Array(DateTime('Europe/Moscow'))
 				, Col6 Array(Nullable(DateTime('Europe/Moscow')))
-			)
+			) Engine Memory
 		`
-
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_datetime")
+		}()
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_datetime"); assert.NoError(t, err) {
 				datetime := time.Now().Truncate(time.Second)
@@ -117,16 +119,18 @@ func TestNullableDateTime(t *testing.T) {
 	)
 	if assert.NoError(t, err) {
 		const ddl = `
-			CREATE TEMPORARY TABLE test_datetime (
-				    Col1      DateTime
-				  , Col1_Null Nullable(DateTime)
-				  , Col2      DateTime('Europe/Moscow')
-				  , Col2_Null Nullable(DateTime('Europe/Moscow'))
-				  , Col3      DateTime('Europe/London')
-				  , Col3_Null Nullable(DateTime('Europe/London'))
-			)
+			CREATE TABLE test_datetime (
+				  Col1      DateTime
+				, Col1_Null Nullable(DateTime)
+				, Col2      DateTime('Europe/Moscow')
+				, Col2_Null Nullable(DateTime('Europe/Moscow'))
+				, Col3      DateTime('Europe/London')
+				, Col3_Null Nullable(DateTime('Europe/London'))
+			) Engine Memory
 		`
-
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_datetime")
+		}()
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_datetime"); assert.NoError(t, err) {
 				datetime := time.Now().Truncate(time.Second)
@@ -218,14 +222,17 @@ func TestColumnarDateTime(t *testing.T) {
 	)
 	if assert.NoError(t, err) {
 		const ddl = `
-		CREATE TEMPORARY TABLE test_datetime (
+		CREATE TABLE test_datetime (
 			  ID   UInt64
 			, Col1 DateTime
 			, Col2 Nullable(DateTime)
 			, Col3 Array(DateTime)
 			, Col4 Array(Nullable(DateTime))
-		)
+		) Engine Memory
 		`
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_datetime")
+		}()
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_datetime"); assert.NoError(t, err) {
 				var (
