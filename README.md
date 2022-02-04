@@ -101,191 +101,24 @@ go get -u github.com/ClickHouse/clickhouse-go/v2
 ## Examples
 
 ### native interface
-```go
-package main
 
-import (
-	"context"
-	"fmt"
-	"log"
-	"time"
-
-	"github.com/ClickHouse/clickhouse-go/v2"
-)
-
-func example() error {
-	conn, err := clickhouse.Open(&clickhouse.Options{
-		Addr: []string{"127.0.0.1:9000"},
-		Auth: clickhouse.Auth{
-			Database: "default",
-			Username: "default",
-			Password: "",
-		},
-		//Debug:           true,
-		DialTimeout:     time.Second,
-		MaxOpenConns:    10,
-		MaxIdleConns:    5,
-		ConnMaxLifetime: time.Hour,
-		Compression: &clickhouse.Compression{
-			Method: clickhouse.CompressionLZ4,
-		},
-		Settings: clickhouse.Settings{
-			"max_execution_time": 60,
-		},
-	})
-	if err != nil {
-		return err
-	}
-	ctx := clickhouse.Context(context.Background(), clickhouse.WithSettings(clickhouse.Settings{
-		"max_block_size": 10,
-	}), clickhouse.WithProgress(func(p *clickhouse.Progress) {
-		fmt.Println("progress: ", p)
-	}))
-	if err := conn.Ping(ctx); err != nil {
-		if exception, ok := err.(*clickhouse.Exception); ok {
-			fmt.Printf("Catch exception [%d] %s \n%s\n", exception.Code, exception.Message, exception.StackTrace)
-		}
-		return err
-	}
-	if err := conn.Exec(ctx, `DROP TABLE IF EXISTS example`); err != nil {
-		return err
-	}
-	err = conn.Exec(ctx, `
-		CREATE TABLE IF NOT EXISTS example (
-			Col1 UInt8,
-			Col2 String,
-			Col3 DateTime
-		) engine=Memory
-	`)
-	if err != nil {
-		return err
-	}
-	batch, err := conn.PrepareBatch(ctx, "INSERT INTO example (Col1, Col2, Col3)")
-	if err != nil {
-		return err
-	}
-	for i := 0; i < 10; i++ {
-		if err := batch.Append(uint8(i), fmt.Sprintf("value_%d", i), time.Now()); err != nil {
-			return err
-		}
-	}
-	if err := batch.Send(); err != nil {
-		return err
-	}
-
-	rows, err := conn.Query(ctx, "SELECT Col1, Col2, Col3 FROM example WHERE Col1 >= $1 AND Col2 <> $2 AND Col3 <= $3", 0, "xxx", time.Now())
-	if err != nil {
-		return err
-	}
-	for rows.Next() {
-		var (
-			col1 uint8
-			col2 string
-			col3 time.Time
-		)
-		if err := rows.Scan(&col1, &col2, &col3); err != nil {
-			return err
-		}
-		fmt.Printf("row: col1=%d, col2=%s, col3=%s\n", col1, col2, col3)
-	}
-	rows.Close()
-	return rows.Err()
-}
-
-func main() {
-	if err := example(); err != nil {
-		log.Fatal(err)
-	}
-}
-```
+* [batch](examples/native/batch/main.go)
+* [async insert](examples/native/write-async)
+* [batch struct](examples/native/write-struct/main.go)
+* [columnar](examples/native/write-columnar/main.go)
+* [scan struct](examples/native/scan_struct/main.go)
+* [bind params](examples/native/bind/main.go)
 
 ### std `database/sql` interface
 
-```go
-package main
+* [batch](examples/std/batch/main.go)
+* [async insert](examples/std/write-async)
+* [open db](examples/std/open_db/main.go)
+* [bind params](examples/std/bind/main.go)
 
-import (
-	"context"
-	"database/sql"
-	"fmt"
-	"log"
-	"time"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
-)
+## Alternatives
 
-func example() error {
-	conn, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000?dial_timeout=1s&compress=true&max_execution_time=60")
-	if err != nil {
-		return err
-	}
-	conn.SetMaxIdleConns(5)
-	conn.SetMaxOpenConns(10)
-	conn.SetConnMaxLifetime(time.Hour)
-	ctx := clickhouse.Context(context.Background(), clickhouse.WithSettings(clickhouse.Settings{
-		"max_block_size": 10,
-	}), clickhouse.WithProgress(func(p *clickhouse.Progress) {
-		fmt.Println("progress: ", p)
-	}))
-	if err := conn.PingContext(ctx); err != nil {
-		if exception, ok := err.(*clickhouse.Exception); ok {
-			fmt.Printf("Catch exception [%d] %s \n%s\n", exception.Code, exception.Message, exception.StackTrace)
-		}
-		return err
-	}
-	if _, err := conn.ExecContext(ctx, `DROP TABLE IF EXISTS example`); err != nil {
-		return err
-	}
-	_, err = conn.ExecContext(ctx, `
-		CREATE TABLE IF NOT EXISTS example (
-			Col1 UInt8,
-			Col2 String,
-			Col3 DateTime
-		) engine=Memory
-	`)
-	if err != nil {
-		return err
-	}
-	scope, err := conn.Begin()
-	if err != nil {
-		return err
-	}
-	{
-		batch, err := scope.PrepareContext(ctx, "INSERT INTO example (Col1, Col2, Col3)")
-		if err != nil {
-			return err
-		}
-		for i := 0; i < 10; i++ {
-			if _, err := batch.Exec(uint8(i), fmt.Sprintf("value_%d", i), time.Now()); err != nil {
-				return err
-			}
-		}
-	}
-	if err := scope.Commit(); err != nil {
-		return err
-	}
-	rows, err := conn.QueryContext(ctx, "SELECT Col1, Col2, Col3 FROM example WHERE Col1 >= $1 AND Col2 <> $2", 0, "xxx")
-	if err != nil {
-		return err
-	}
-	for rows.Next() {
-		var (
-			col1 uint8
-			col2 string
-			col3 time.Time
-		)
-		if err := rows.Scan(&col1, &col2, &col3); err != nil {
-			return err
-		}
-		fmt.Printf("row: col1=%d, col2=%s, col3=%s\n", col1, col2, col3)
-	}
-	rows.Close()
-	return rows.Err()
-}
-
-func main() {
-	if err := example(); err != nil {
-		log.Fatal(err)
-	}
-}
-```
+* [mailru/go-clickhouse](https://github.com/mailru/go-clickhouse). Uses the HTTP protocol
+* Similar projects using the column interface [vahid-sohrabloo/chconn](https://github.com/vahid-sohrabloo/chconn) and [go-faster/ch](https://github.com/go-faster/ch)
+* [uptrace/go-clickhouse](https://github.com/uptrace/go-clickhouse). Uses the native TCP protocol with `database/sql`-like API
