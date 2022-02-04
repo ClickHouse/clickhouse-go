@@ -20,6 +20,7 @@ package clickhouse
 import (
 	"crypto/tls"
 	"fmt"
+	"net"
 	"net/url"
 	"strconv"
 	"strings"
@@ -61,6 +62,7 @@ type Options struct {
 	TLS              *tls.Config
 	Addr             []string
 	Auth             Auth
+	Dial             func(addr string, opt *Options) (net.Conn, error)
 	Debug            bool
 	Settings         Settings
 	Compression      *Compression

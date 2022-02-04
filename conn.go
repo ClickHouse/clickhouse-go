@@ -39,10 +39,15 @@ func dial(addr string, num int, opt *Options) (*connect, error) {
 		debugf = func(format string, v ...interface{}) {}
 	)
 	switch {
-	case opt.TLS != nil:
-		conn, err = tls.DialWithDialer(&net.Dialer{Timeout: opt.DialTimeout}, "tcp", addr, opt.TLS)
+	case opt.Dial != nil:
+		conn, err = opt.Dial(addr, opt)
 	default:
-		conn, err = net.DialTimeout("tcp", addr, opt.DialTimeout)
+		switch {
+		case opt.TLS != nil:
+			conn, err = tls.DialWithDialer(&net.Dialer{Timeout: opt.DialTimeout}, "tcp", addr, opt.TLS)
+		default:
+			conn, err = net.DialTimeout("tcp", addr, opt.DialTimeout)
+		}
 	}
 	if err != nil {
 		return nil, err
