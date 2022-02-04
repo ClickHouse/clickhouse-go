@@ -18,7 +18,7 @@ func TestStdCustomDial(t *testing.T) {
 				Username: "default",
 				Password: "",
 			},
-			Dial: func(addr string, opt *clickhouse.Options) (net.Conn, error) {
+			Dial: func(addr string) (net.Conn, error) {
 				dialCount++
 				return net.Dial("tcp", addr)
 			},

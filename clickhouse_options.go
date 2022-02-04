@@ -62,7 +62,7 @@ type Options struct {
 	TLS              *tls.Config
 	Addr             []string
 	Auth             Auth
-	Dial             func(addr string, opt *Options) (net.Conn, error)
+	Dial             func(addr string) (net.Conn, error)
 	Debug            bool
 	Settings         Settings
 	Compression      *Compression

@@ -40,7 +40,7 @@ func dial(addr string, num int, opt *Options) (*connect, error) {
 	)
 	switch {
 	case opt.Dial != nil:
-		conn, err = opt.Dial(addr, opt)
+		conn, err = opt.Dial(addr)
 	default:
 		switch {
 		case opt.TLS != nil:
