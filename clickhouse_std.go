@@ -31,8 +31,14 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 )
 
+type stdConnOpener struct{}
+
+func (stdConnOpener) Open(dsn string) (_ driver.Conn, err error) {
+	return (&stdDriver{}).Open(dsn)
+}
+
 func init() {
-	sql.Register("clickhouse", &stdDriver{})
+	sql.Register("clickhouse", &stdConnOpener{})
 }
 
 func OpenDB(opt *Options) *sql.DB {
