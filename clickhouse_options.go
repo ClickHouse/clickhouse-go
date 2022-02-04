@@ -92,6 +92,10 @@ func (o *Options) fromDSN(in string) error {
 	o.Auth.Database = strings.TrimPrefix(dsn.Path, "/")
 	for v := range params {
 		switch v {
+		case "database":
+			if len(o.Auth.Database) == 0 {
+				o.Auth.Database = v
+			}
 		case "debug":
 			o.Debug, _ = strconv.ParseBool(params.Get(v))
 		case "compress":
