@@ -119,6 +119,18 @@ go get -u github.com/ClickHouse/clickhouse-go/v2
 
 ## Alternatives
 
-* [mailru/go-clickhouse](https://github.com/mailru/go-clickhouse). Uses the HTTP protocol
-* Similar projects using the column interface [vahid-sohrabloo/chconn](https://github.com/vahid-sohrabloo/chconn) and [go-faster/ch](https://github.com/go-faster/ch)
-* [uptrace/go-clickhouse](https://github.com/uptrace/go-clickhouse). Uses the native TCP protocol with `database/sql`-like API
+* Database drivers
+	* [mailru/go-clickhouse](https://github.com/mailru/go-clickhouse) (uses the HTTP protocol)
+	* [uptrace/go-clickhouse](https://github.com/uptrace/go-clickhouse) (uses the native TCP protocol with `database/sql`-like API)
+	* drivers with columnar interface :
+		* [vahid-sohrabloo/chconn](https://github.com/vahid-sohrabloo/chconn)
+		* [go-faster/ch](https://github.com/go-faster/ch)
+
+* Insert collectors:
+	* [KittenHouse](https://github.com/YuriyNasretdinov/kittenhouse)
+	* [nikepan/clickhouse-bulk](https://github.com/nikepan/clickhouse-bulk)
+
+### Useful projects
+
+* [clickhouse-backup](https://github.com/AlexAkulov/clickhouse-backup)
+* [go-graphite](https://github.com/go-graphite)
