@@ -34,7 +34,7 @@ var (
 
 type DateTime struct {
 	chType   Type
-	values   Int32
+	values   UInt32
 	timezone *time.Location
 }
 
@@ -89,12 +89,12 @@ func (dt *DateTime) ScanRow(dest interface{}, row int) error {
 func (dt *DateTime) Append(v interface{}) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []time.Time:
-		in := make([]int32, 0, len(v))
+		in := make([]uint32, 0, len(v))
 		for _, t := range v {
 			if err := dateOverflow(minDateTime, maxDateTime, t, "2006-01-02 15:04:05"); err != nil {
 				return nil, err
 			}
-			in = append(in, int32(t.Unix()))
+			in = append(in, uint32(t.Unix()))
 		}
 		dt.values, nulls = append(dt.values, in...), make([]uint8, len(v))
 	case []*time.Time:
@@ -105,7 +105,7 @@ func (dt *DateTime) Append(v interface{}) (nulls []uint8, err error) {
 				if err := dateOverflow(minDateTime, maxDateTime, *v, "2006-01-02 15:04:05"); err != nil {
 					return nil, err
 				}
-				dt.values = append(dt.values, int32(v.Unix()))
+				dt.values = append(dt.values, uint32(v.Unix()))
 			default:
 				dt.values, nulls[i] = append(dt.values, 0), 1
 			}
@@ -121,19 +121,19 @@ func (dt *DateTime) Append(v interface{}) (nulls []uint8, err error) {
 }
 
 func (dt *DateTime) AppendRow(v interface{}) error {
-	var datetime int32
+	var datetime uint32
 	switch v := v.(type) {
 	case time.Time:
 		if err := dateOverflow(minDateTime, maxDateTime, v, "2006-01-02 15:04:05"); err != nil {
 			return err
 		}
-		datetime = int32(v.Unix())
+		datetime = uint32(v.Unix())
 	case *time.Time:
 		if v != nil {
 			if err := dateOverflow(minDateTime, maxDateTime, *v, "2006-01-02 15:04:05"); err != nil {
 				return err
 			}
-			datetime = int32(v.Unix())
+			datetime = uint32(v.Unix())
 		}
 	case nil:
 	default:
