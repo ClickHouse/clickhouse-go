@@ -26,30 +26,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCustomDial(t *testing.T) {
-	var (
-		dialCount int
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Dial: func(addr string) (net.Conn, error) {
-				dialCount++
-				return net.Dial("tcp", addr)
-			},
-		})
-	)
-	if !assert.NoError(t, err) {
-		return
-	}
-	if err := conn.Ping(context.Background()); assert.NoError(t, err) {
-		assert.Equal(t, 1, dialCount)
-	}
-}
-
 func TestCustomDialContext(t *testing.T) {
 	var (
 		dialCount int

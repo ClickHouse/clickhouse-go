@@ -41,8 +41,6 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 	switch {
 	case opt.DialContext != nil:
 		conn, err = opt.DialContext(ctx, addr)
-	case opt.Dial != nil:
-		conn, err = opt.Dial(addr)
 	default:
 		switch {
 		case opt.TLS != nil:

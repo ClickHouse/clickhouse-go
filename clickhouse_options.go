@@ -61,7 +61,6 @@ type Options struct {
 	TLS              *tls.Config
 	Addr             []string
 	Auth             Auth
-	Dial             func(addr string) (net.Conn, error)
 	DialContext      func(ctx context.Context, addr string) (net.Conn, error)
 	Debug            bool
 	Settings         Settings
