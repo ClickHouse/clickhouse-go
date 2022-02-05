@@ -42,7 +42,7 @@ func (o *stdConnOpener) Driver() driver.Driver {
 	return &stdDriver{}
 }
 
-func (o *stdConnOpener) Connect(context.Context) (_ driver.Conn, err error) {
+func (o *stdConnOpener) Connect(ctx context.Context) (_ driver.Conn, err error) {
 	if o.err != nil {
 		return nil, o.err
 	}
@@ -54,7 +54,7 @@ func (o *stdConnOpener) Connect(context.Context) (_ driver.Conn, err error) {
 		if o.opt.ConnOpenStrategy == ConnOpenRoundRobin {
 			num = int(connID) % len(o.opt.Addr)
 		}
-		if conn, err = dial(o.opt.Addr[num], connID, o.opt); err == nil {
+		if conn, err = dial(ctx, o.opt.Addr[num], connID, o.opt); err == nil {
 			return &stdDriver{
 				conn: conn,
 			}, nil

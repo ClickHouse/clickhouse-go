@@ -18,6 +18,7 @@
 package clickhouse
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"net"
@@ -29,9 +30,7 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/compress"
 )
 
-var (
-	CompressionLZ4 compress.Method = compress.LZ4
-)
+var CompressionLZ4 compress.Method = compress.LZ4
 
 type Auth struct { // has_control_character
 	Database string
@@ -63,6 +62,7 @@ type Options struct {
 	Addr             []string
 	Auth             Auth
 	Dial             func(addr string) (net.Conn, error)
+	DialContext      func(ctx context.Context, addr string) (net.Conn, error)
 	Debug            bool
 	Settings         Settings
 	Compression      *Compression

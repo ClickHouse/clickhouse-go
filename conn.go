@@ -32,13 +32,15 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 
-func dial(addr string, num int, opt *Options) (*connect, error) {
+func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, error) {
 	var (
 		err    error
 		conn   net.Conn
 		debugf = func(format string, v ...interface{}) {}
 	)
 	switch {
+	case opt.DialContext != nil:
+		conn, err = opt.DialContext(ctx, addr)
 	case opt.Dial != nil:
 		conn, err = opt.Dial(addr)
 	default:
