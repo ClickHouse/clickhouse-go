@@ -18,6 +18,7 @@
 package std
 
 import (
+	"context"
 	"net"
 	"testing"
 
@@ -35,7 +36,7 @@ func TestStdCustomDial(t *testing.T) {
 				Username: "default",
 				Password: "",
 			},
-			Dial: func(addr string) (net.Conn, error) {
+			DialContext: func(ctx context.Context, addr string) (net.Conn, error) {
 				dialCount++
 				return net.Dial("tcp", addr)
 			},
