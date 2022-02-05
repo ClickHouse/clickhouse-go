@@ -31,14 +31,40 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 )
 
-type stdConnOpener struct{}
+var globalConnID int64
 
-func (stdConnOpener) Open(dsn string) (_ driver.Conn, err error) {
-	return (&stdDriver{}).Open(dsn)
+type stdConnOpener struct {
+	err error
+	opt *Options
+}
+
+func (o *stdConnOpener) Driver() driver.Driver {
+	return &stdDriver{}
+}
+
+func (o *stdConnOpener) Connect(context.Context) (_ driver.Conn, err error) {
+	if o.err != nil {
+		return nil, o.err
+	}
+	var (
+		conn   *connect
+		connID = int(atomic.AddInt64(&globalConnID, 1))
+	)
+	for num := range o.opt.Addr {
+		if o.opt.ConnOpenStrategy == ConnOpenRoundRobin {
+			num = int(connID) % len(o.opt.Addr)
+		}
+		if conn, err = dial(o.opt.Addr[num], connID, o.opt); err == nil {
+			return &stdDriver{
+				conn: conn,
+			}, nil
+		}
+	}
+	return nil, err
 }
 
 func init() {
-	sql.Register("clickhouse", &stdConnOpener{})
+	sql.Register("clickhouse", &stdDriver{})
 }
 
 func OpenDB(opt *Options) *sql.DB {
@@ -53,57 +79,27 @@ func OpenDB(opt *Options) *sql.DB {
 		settings = append(settings, "SetConnMaxLifetime")
 	}
 	if len(settings) != 0 {
-		return sql.OpenDB(&stdDriver{
+		return sql.OpenDB(&stdConnOpener{
 			err: fmt.Errorf("cannot connect. invalid settings. use %s (see https://pkg.go.dev/database/sql)", strings.Join(settings, ",")),
 		})
 	}
 	opt.setDefaults()
-	return sql.OpenDB(&stdDriver{
+	return sql.OpenDB(&stdConnOpener{
 		opt: opt,
 	})
 }
 
 type stdDriver struct {
-	err    error
-	opt    *Options
 	conn   *connect
 	commit func() error
-	connID int64
-}
-
-func (d *stdDriver) Driver() driver.Driver {
-	return d
-}
-
-func (d *stdDriver) Connect(context.Context) (driver.Conn, error) {
-	if d.err != nil {
-		return nil, d.err
-	}
-	return d.Open("")
 }
 
 func (d *stdDriver) Open(dsn string) (_ driver.Conn, err error) {
-	var (
-		conn   *connect
-		connID = int(atomic.AddInt64(&d.connID, 1))
-	)
-	if d.opt == nil {
-		d.opt = &Options{}
-		if err = d.opt.fromDSN(dsn); err != nil {
-			return nil, err
-		}
+	var opt Options
+	if err := opt.fromDSN(dsn); err != nil {
+		return nil, err
 	}
-	for num := range d.opt.Addr {
-		if d.opt.ConnOpenStrategy == ConnOpenRoundRobin {
-			num = int(connID) % len(d.opt.Addr)
-		}
-		if conn, err = dial(d.opt.Addr[num], connID, d.opt); err == nil {
-			return &stdDriver{
-				conn: conn,
-			}, nil
-		}
-	}
-	return nil, err
+	return (&stdConnOpener{opt: &opt}).Connect(context.Background())
 }
 
 func (std *stdDriver) ResetSession(ctx context.Context) error {
