@@ -181,13 +181,13 @@ func (ch *clickhouse) Stats() driver.Stats {
 	}
 }
 
-func (ch *clickhouse) dial() (conn *connect, err error) {
+func (ch *clickhouse) dial(ctx context.Context) (conn *connect, err error) {
 	connID := int(atomic.AddInt64(&ch.connID, 1))
 	for num := range ch.opt.Addr {
 		if ch.opt.ConnOpenStrategy == ConnOpenRoundRobin {
 			num = int(connID) % len(ch.opt.Addr)
 		}
-		if conn, err = dial(ch.opt.Addr[num], connID, ch.opt); err == nil {
+		if conn, err = dial(ctx, ch.opt.Addr[num], connID, ch.opt); err == nil {
 			return conn, nil
 		}
 	}
@@ -213,7 +213,7 @@ func (ch *clickhouse) acquire(ctx context.Context) (conn *connect, err error) {
 	case conn := <-ch.idle:
 		if conn.isBad() {
 			conn.close()
-			if conn, err = ch.dial(); err != nil {
+			if conn, err = ch.dial(ctx); err != nil {
 				select {
 				case <-ch.open:
 				default:
@@ -225,7 +225,7 @@ func (ch *clickhouse) acquire(ctx context.Context) (conn *connect, err error) {
 		return conn, nil
 	default:
 	}
-	if conn, err = ch.dial(); err != nil {
+	if conn, err = ch.dial(ctx); err != nil {
 		select {
 		case <-ch.open:
 		default:

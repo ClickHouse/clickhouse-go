@@ -26,7 +26,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCustomDial(t *testing.T) {
+func TestCustomDialContext(t *testing.T) {
 	var (
 		dialCount int
 		conn, err = clickhouse.Open(&clickhouse.Options{
@@ -36,16 +36,39 @@ func TestCustomDial(t *testing.T) {
 				Username: "default",
 				Password: "",
 			},
-			Dial: func(addr string) (net.Conn, error) {
+			DialContext: func(ctx context.Context, addr string) (net.Conn, error) {
 				dialCount++
-				return net.Dial("tcp", addr)
+				var d net.Dialer
+				return d.DialContext(ctx, "tcp", addr)
 			},
 		})
 	)
 	if !assert.NoError(t, err) {
 		return
 	}
-	if err := conn.Ping(context.Background()); assert.NoError(t, err) {
+	ctx := context.Background()
+	if err := conn.Ping(ctx); assert.NoError(t, err) {
 		assert.Equal(t, 1, dialCount)
+	}
+
+	ctx1, cancel1 := context.WithCancel(ctx)
+	go func() {
+		cancel1()
+	}()
+
+	ctx2, cancel2 := context.WithCancel(ctx)
+	defer cancel2()
+
+	// query is cancelled with context
+	err = conn.QueryRow(ctx1, "SELECT sleep(3)").Scan()
+	if assert.Error(t, err, "context cancelled") {
+		assert.Equal(t, 1, dialCount)
+	}
+
+	// uncancelled context still works (new connection is acquired)
+	var i uint8
+	err = conn.QueryRow(ctx2, "SELECT 1").Scan(&i)
+	if assert.NoError(t, err) {
+		assert.Equal(t, 2, dialCount)
 	}
 }
