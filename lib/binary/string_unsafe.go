@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//go:build amd64
-// +build amd64
+//go:build amd64 || arm64
+// +build amd64 arm64
 
 package binary
 
