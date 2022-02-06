@@ -21,6 +21,7 @@ import (
 	"context"
 	"net"
 	"testing"
+	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
@@ -51,22 +52,15 @@ func TestCustomDialContext(t *testing.T) {
 		assert.Equal(t, 1, dialCount)
 	}
 
-	ctx1, cancel1 := context.WithCancel(ctx)
-	ctx2, cancel2 := context.WithCancel(ctx)
+	ctx1, cancel := context.WithCancel(ctx)
 
 	go func() {
-		// query is cancelled with context
-		err = conn.QueryRow(ctx1, "SELECT sleep(3)").Scan()
-		if assert.Error(t, err, "context cancelled") {
-			assert.Equal(t, 1, dialCount)
-		}
+		cancel()
 	}()
-	// uncancelled context still works (new connection is acquired)
-	var i uint8
-	err = conn.QueryRow(ctx2, "SELECT 1").Scan(&i)
-	if assert.NoError(t, err) {
-		assert.Equal(t, 2, dialCount)
+	start := time.Now()
+	// query is cancelled with context
+	if err = conn.QueryRow(ctx1, "SELECT sleep(10)").Scan(); assert.Error(t, err, "context cancelled") {
+		assert.Equal(t, 1, dialCount)
 	}
-	cancel1()
-	cancel2()
+	assert.True(t, time.Since(start) < time.Second)
 }
