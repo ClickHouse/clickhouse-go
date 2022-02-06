@@ -52,15 +52,10 @@ func TestCustomDialContext(t *testing.T) {
 	}
 
 	ctx1, cancel1 := context.WithCancel(ctx)
-	go func() {
-		cancel1()
-	}()
-
 	ctx2, cancel2 := context.WithCancel(ctx)
-	defer cancel2()
 
 	// query is cancelled with context
-	err = conn.QueryRow(ctx1, "SELECT sleep(3)").Scan()
+	err = conn.QueryRow(ctx1, "SELECT sleep(1)").Scan()
 	if assert.Error(t, err, "context cancelled") {
 		assert.Equal(t, 1, dialCount)
 	}
@@ -71,4 +66,6 @@ func TestCustomDialContext(t *testing.T) {
 	if assert.NoError(t, err) {
 		assert.Equal(t, 2, dialCount)
 	}
+	cancel1()
+	cancel2()
 }
