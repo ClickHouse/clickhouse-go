@@ -54,12 +54,13 @@ func TestCustomDialContext(t *testing.T) {
 	ctx1, cancel1 := context.WithCancel(ctx)
 	ctx2, cancel2 := context.WithCancel(ctx)
 
-	// query is cancelled with context
-	err = conn.QueryRow(ctx1, "SELECT sleep(1)").Scan()
-	if assert.Error(t, err, "context cancelled") {
-		assert.Equal(t, 1, dialCount)
-	}
-
+	go func() {
+		// query is cancelled with context
+		err = conn.QueryRow(ctx1, "SELECT sleep(3)").Scan()
+		if assert.Error(t, err, "context cancelled") {
+			assert.Equal(t, 1, dialCount)
+		}
+	}()
 	// uncancelled context still works (new connection is acquired)
 	var i uint8
 	err = conn.QueryRow(ctx2, "SELECT 1").Scan(&i)
