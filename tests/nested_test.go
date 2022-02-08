@@ -25,6 +25,10 @@ func TestNested(t *testing.T) {
 		})
 	)
 	if assert.NoError(t, err) {
+		if err := checkMinServerVersion(conn, 22, 1); err != nil {
+			t.Skip(err.Error())
+			return
+		}
 		const ddl = `
 			CREATE TABLE test_nested (
 				Col1 Nested(
