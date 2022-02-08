@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"database/sql/driver"
 	"net"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -39,6 +40,28 @@ type connOptions struct {
 	logf                                   func(string, ...interface{})
 }
 
+// DialFunc is a function which can be used to establish the network connection.
+// Custom dial functions must be registered with RegisterDial
+type DialFunc func(network, address string, timeout time.Duration, config *tls.Config) (net.Conn, error)
+
+var (
+	customDialLock sync.RWMutex
+	customDial     DialFunc
+)
+
+// RegisterDial registers a custom dial function.
+func RegisterDial(dial DialFunc) {
+	customDialLock.Lock()
+	customDial = dial
+	customDialLock.Unlock()
+}
+
+// DeregisterDial deregisters the custom dial function.
+func DeregisterDial() {
+	customDialLock.Lock()
+	customDial = nil
+	customDialLock.Unlock()
+}
 func dial(options connOptions) (*connect, error) {
 	var (
 		err error
@@ -74,18 +97,29 @@ func dial(options connOptions) (*connect, error) {
 			}
 			checkedHosts[num] = struct{}{}
 		}
+		customDialLock.RLock()
+		cd := customDial
+		customDialLock.RUnlock()
 		switch {
 		case options.secure:
-			conn, err = tls.DialWithDialer(
-				&net.Dialer{
-					Timeout: options.connTimeout,
-				},
-				"tcp",
-				options.hosts[num],
-				tlsConfig,
-			)
+			if cd != nil {
+				conn, err = cd("tcp", options.hosts[num], options.connTimeout, tlsConfig)
+			} else {
+				conn, err = tls.DialWithDialer(
+					&net.Dialer{
+						Timeout: options.connTimeout,
+					},
+					"tcp",
+					options.hosts[num],
+					tlsConfig,
+				)
+			}
 		default:
-			conn, err = net.DialTimeout("tcp", options.hosts[num], options.connTimeout)
+			if cd != nil {
+				conn, err = cd("tcp", options.hosts[num], options.connTimeout, nil)
+			} else {
+				conn, err = net.DialTimeout("tcp", options.hosts[num], options.connTimeout)
+			}
 		}
 		if err == nil {
 			options.logf(

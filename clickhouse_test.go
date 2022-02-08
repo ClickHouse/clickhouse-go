@@ -1774,7 +1774,7 @@ func Test_Tuple(t *testing.T) {
  			    ?,
  				?,
  				?,
- 				?,     
+ 				?,
  				?,
  				?,
  				?,
@@ -2061,7 +2061,7 @@ func Test_ReadHistogram(t *testing.T) {
  			    ?,
  				?,
  				?,
- 				?,     
+ 				?,
  				?,
  				?,
  				?,
@@ -2173,12 +2173,12 @@ func Test_ReadHistogram(t *testing.T) {
 func Test_ReadArrayArrayTuple(t *testing.T) {
 	const (
 		query = `
- 			select 
+ 			select
  			       [
- 			           [(1.0, 2.0, 3.0)], 
- 			           [(4.0, 5.0, 6.0), (7.0, 8.0, 9.0)], 
+ 			           [(1.0, 2.0, 3.0)],
+ 			           [(4.0, 5.0, 6.0), (7.0, 8.0, 9.0)],
  			           [(10.0, 11.0, 12.0), (13.0, 14.0, 15.0), (16.0, 17.0, 18.0), (19.0, 20.0, 21.0), (22.0, 23.0, 24.0)]
-				   ], 
+				   ],
  			       number
 			from numbers(2)
 			group by number;
@@ -2228,4 +2228,14 @@ func Test_ReadArrayArrayTuple(t *testing.T) {
 			}
 		}
 	}
+}
+
+func Test_RegisterDial(t *testing.T) {
+	clickhouse.RegisterDial(func(network, address string, timeout time.Duration, config *tls.Config) (net.Conn, error) {
+		return net.DialTimeout(network, address, timeout)
+	})
+	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=true"); assert.NoError(t, err) {
+		assert.NoError(t, connect.Ping())
+	}
+	clickhouse.DeregisterDial()
 }
