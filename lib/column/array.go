@@ -43,12 +43,13 @@ func (col *Array) parse(t Type) (_ Interface, err error) {
 	var typeStr = string(t)
 
 parse:
-	for _, str := range strings.Split(typeStr, "Array(") {
+	for {
 		switch {
-		case len(str) == 0:
+		case strings.HasPrefix(typeStr, "Array("):
 			col.depth++
+			typeStr = strings.TrimPrefix(typeStr, "Array(")
+			typeStr = strings.TrimSuffix(typeStr, ")")
 		default:
-			typeStr = str[:len(str)-col.depth]
 			break parse
 		}
 	}
@@ -179,7 +180,12 @@ func (col *Array) Decode(decoder *binary.Decoder, rows int) error {
 		if err := offset.values.Decode(decoder, rows); err != nil {
 			return err
 		}
-		rows = int(offset.values[len(offset.values)-1])
+		switch {
+		case len(offset.values) > 0:
+			rows = int(offset.values[len(offset.values)-1])
+		default:
+			rows = 0
+		}
 	}
 	return col.values.Decode(decoder, rows)
 }

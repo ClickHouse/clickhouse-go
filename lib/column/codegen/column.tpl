@@ -93,6 +93,8 @@ func (t Type) Column() (Interface, error) {
 		return (&Tuple{}).parse(t)
 	case strings.HasPrefix(string(t), "Decimal("):
 		return (&Decimal{}).parse(t)
+	case strings.HasPrefix(strType, "Nested("):
+		return (&Nested{}).parse(t)
 	case strings.HasPrefix(string(t), "Array("):
 		return (&Array{}).parse(t)
 	case strings.HasPrefix(string(t), "Interval"):
@@ -111,8 +113,6 @@ func (t Type) Column() (Interface, error) {
 		return (&DateTime64{}).parse(t)
 	case strings.HasPrefix(strType, "DateTime") && !strings.HasPrefix(strType, "DateTime64"):
 		return (&DateTime{}).parse(t)
-	case strings.HasPrefix(strType, "Nested"):
-		return nil, fmt.Errorf("Nested data type is not supported. You should pass all the component column arrays of a nested data structure separately")
 	}
 	return &UnsupportedColumnType{
 		t: t,

@@ -25,7 +25,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestIssue484(t *testing.T) {
+func TestIssue483(t *testing.T) {
 	var (
 		ctx       = context.Background()
 		conn, err = clickhouse.Open(&clickhouse.Options{
@@ -70,9 +70,14 @@ func TestIssue484(t *testing.T) {
 				if err := batch.Send(); assert.NoError(t, err) {
 					var (
 						col1 uint8
+						col2 []uint8           // steps.duration
+						col3 [][][]interface{} // steps.result
+						col4 []string          //  steps.keyword
+						col5 uint8
 					)
-					if err := conn.QueryRow(ctx, `SELECT * FROM issue_483`).Scan(&col1); assert.Error(t, err) {
-						assert.Contains(t, err.Error(), "Nested data type is not supported")
+					if err := conn.QueryRow(ctx, `SELECT * FROM issue_483`).Scan(&col1, &col2, &col3, &col4, &col5); assert.NoError(t, err) {
+						assert.Equal(t, uint8(1), col1)
+						assert.Equal(t, []uint8{}, col2)
 					}
 				}
 			}

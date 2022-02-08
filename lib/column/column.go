@@ -88,7 +88,7 @@ func (u *UnsupportedColumnType) Append(interface{}) ([]uint8, error) { return ni
 func (u *UnsupportedColumnType) AppendRow(interface{}) error         { return u }
 func (u *UnsupportedColumnType) Decode(*binary.Decoder, int) error   { return u }
 func (u *UnsupportedColumnType) Encode(*binary.Encoder) error        { return u }
-func (u *UnsupportedColumnType) ScanType() reflect.Type              { return reflect.TypeOf(nil) }
+func (u *UnsupportedColumnType) ScanType() reflect.Type              { return reflect.TypeOf(struct{}{}) }
 
 func (u *UnsupportedColumnType) Error() string {
 	return fmt.Sprintf("clickhouse: unsupported column type %q", u.t)
