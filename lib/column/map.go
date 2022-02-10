@@ -49,9 +49,9 @@ func (col *Map) parse(t Type) (_ Interface, err error) {
 		)
 		return col, nil
 	}
-	return &UnsupportedColumnType{
+	return nil, &UnsupportedColumnTypeError{
 		t: t,
-	}, nil
+	}
 }
 
 func (col *Map) Type() Type {

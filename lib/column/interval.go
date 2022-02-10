@@ -36,9 +36,9 @@ func (col *Interval) parse(t Type) (Interface, error) {
 	case "IntervalSecond", "IntervalMinute", "IntervalHour", "IntervalDay", "IntervalWeek", "IntervalMonth", "IntervalYear":
 		return col, nil
 	}
-	return &UnsupportedColumnType{
+	return nil, &UnsupportedColumnTypeError{
 		t: t,
-	}, nil
+	}
 }
 
 func (col *Interval) Type() Type             { return col.chType }

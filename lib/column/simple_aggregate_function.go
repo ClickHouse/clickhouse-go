@@ -35,9 +35,9 @@ func (col *SimpleAggregateFunction) parse(t Type) (_ Interface, err error) {
 	if col.base, err = Type(base).Column(); err == nil {
 		return col, nil
 	}
-	return &UnsupportedColumnType{
+	return nil, &UnsupportedColumnTypeError{
 		t: t,
-	}, nil
+	}
 }
 
 func (col *SimpleAggregateFunction) Type() Type {

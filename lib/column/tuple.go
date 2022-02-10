@@ -74,9 +74,9 @@ func (col *Tuple) parse(t Type) (_ Interface, err error) {
 	if len(col.columns) != 0 {
 		return col, nil
 	}
-	return &UnsupportedColumnType{
+	return nil, &UnsupportedColumnTypeError{
 		t: t,
-	}, nil
+	}
 }
 
 func (col *Tuple) Type() Type {

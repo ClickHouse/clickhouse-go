@@ -70,9 +70,9 @@ parse:
 		}
 		return col, nil
 	}
-	return &UnsupportedColumnType{
+	return nil, &UnsupportedColumnTypeError{
 		t: t,
-	}, nil
+	}
 }
 
 func (col *Array) Base() Interface {

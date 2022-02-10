@@ -24,11 +24,9 @@ import (
 
 type Nested struct {
 	Interface
-	chType Type
 }
 
 func (col *Nested) parse(t Type) (_ Interface, err error) {
-	col.chType = t
 	columns := fmt.Sprintf("Array(Tuple(%s))", strings.Join(nestedColumns(t.params()), ", "))
 	if col.Interface, err = (&Array{}).parse(Type(columns)); err != nil {
 		return nil, err
@@ -53,8 +51,7 @@ func nestedColumns(raw string) (columns []string) {
 			}
 		case ',':
 			if brackets == 0 {
-				columns = append(columns, raw[begin:i])
-				begin = i + 1
+				columns, begin = append(columns, raw[begin:i]), i+1
 				continue
 			}
 		}

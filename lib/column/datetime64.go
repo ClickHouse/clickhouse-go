@@ -56,9 +56,9 @@ func (dt *DateTime64) parse(t Type) (_ Interface, err error) {
 			return nil, err
 		}
 	default:
-		return &UnsupportedColumnType{
+		return nil, &UnsupportedColumnTypeError{
 			t: t,
-		}, nil
+		}
 	}
 	return dt, nil
 }

@@ -59,6 +59,14 @@ func (e *ColumnConverterError) Error() string {
 	return fmt.Sprintf("clickhouse [%s]: converting %s to %s is unsupported%s", e.Op, e.From, e.To, hint)
 }
 
+type UnsupportedColumnTypeError struct {
+	t Type
+}
+
+func (e *UnsupportedColumnTypeError) Error() string {
+	return fmt.Sprintf("clickhouse: unsupported column type %q", e.t)
+}
+
 type Interface interface {
 	Type() Type
 	Rows() int
@@ -75,26 +83,3 @@ type CustomSerialization interface {
 	ReadStatePrefix(*binary.Decoder) error
 	WriteStatePrefix(*binary.Encoder) error
 }
-
-type UnsupportedColumnType struct {
-	t Type
-}
-
-func (u *UnsupportedColumnType) Type() Type                          { return u.t }
-func (u *UnsupportedColumnType) Rows() int                           { return 0 }
-func (u *UnsupportedColumnType) Row(int, bool) interface{}           { return nil }
-func (u *UnsupportedColumnType) ScanRow(interface{}, int) error      { return u }
-func (u *UnsupportedColumnType) Append(interface{}) ([]uint8, error) { return nil, u }
-func (u *UnsupportedColumnType) AppendRow(interface{}) error         { return u }
-func (u *UnsupportedColumnType) Decode(*binary.Decoder, int) error   { return u }
-func (u *UnsupportedColumnType) Encode(*binary.Encoder) error        { return u }
-func (u *UnsupportedColumnType) ScanType() reflect.Type              { return reflect.TypeOf(struct{}{}) }
-
-func (u *UnsupportedColumnType) Error() string {
-	return fmt.Sprintf("clickhouse: unsupported column type %q", u.t)
-}
-
-var (
-	_ error     = (*UnsupportedColumnType)(nil)
-	_ Interface = (*UnsupportedColumnType)(nil)
-)
