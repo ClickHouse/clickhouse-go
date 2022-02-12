@@ -69,6 +69,7 @@ type (
 		Err() error
 	}
 	Batch interface {
+		Abort() error
 		Append(v ...interface{}) error
 		AppendStruct(v interface{}) error
 		Column(int) BatchColumn

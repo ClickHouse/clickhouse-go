@@ -20,6 +20,7 @@ package clickhouse
 import (
 	"context"
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -72,6 +73,17 @@ type batch struct {
 	block     *proto.Block
 	release   func(error)
 	onProcess *onProcess
+}
+
+func (b *batch) Abort() error {
+	defer func() {
+		b.sent = true
+		b.release(os.ErrProcessDone)
+	}()
+	if b.sent {
+		return ErrBatchAlreadySent
+	}
+	return nil
 }
 
 func (b *batch) Append(v ...interface{}) error {
