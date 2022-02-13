@@ -5,8 +5,8 @@ on:
     branches:
       - master
       - v2
-  pull_request:
-  workflow_dispatch:
+  schedule:
+    - cron: "0 9 1 * *"
 
 jobs:
   run:
