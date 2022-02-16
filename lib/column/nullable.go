@@ -93,10 +93,9 @@ func (col *Nullable) Append(v interface{}) ([]uint8, error) {
 }
 
 func (col *Nullable) AppendRow(v interface{}) error {
-	switch {
-	case v == nil:
+	if v == nil || (reflect.ValueOf(v).Kind() == reflect.Ptr && reflect.ValueOf(v).IsNil()) {
 		col.nulls = append(col.nulls, 1)
-	default:
+	} else {
 		col.nulls = append(col.nulls, 0)
 	}
 	return col.base.AppendRow(v)
