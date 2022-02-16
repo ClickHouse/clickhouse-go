@@ -10,6 +10,10 @@ import (
 	"time"
 )
 
+type ToSqlArgumenter interface {
+	ToSQLArgument() string
+}
+
 func numInput(query string) int {
 
 	var (
@@ -120,6 +124,9 @@ func isInsert(query string) bool {
 }
 
 func quote(v driver.Value) string {
+	if v, ok := v.(ToSqlArgumenter); ok {
+		return v.ToSQLArgument()
+	}
 	switch v := reflect.ValueOf(v); v.Kind() {
 	case reflect.Slice:
 		values := make([]string, 0, v.Len())
