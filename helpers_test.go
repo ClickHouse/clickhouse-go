@@ -54,6 +54,10 @@ func Benchmark_NumInput(b *testing.B) {
 	}
 }
 
+type SupperString string
+
+type SupperSupperString string
+
 func Test_Quote(t *testing.T) {
 	datetime, _ := time.Parse("2006-01-02 15:04:05", "2022-01-12 15:00:00")
 	for expected, value := range map[string]interface{}{
@@ -62,6 +66,9 @@ func Test_Quote(t *testing.T) {
 		"'a', 'b', 'c'": []string{"a", "b", "c"},
 		"1, 2, 3, 4, 5": []int{1, 2, 3, 4, 5},
 		`toDateTime('2022-01-12 15:00:00', 'UTC')`: datetime,
+		`'1\'', '2', '3'`:                          []SupperString{"1'", "2", "3"},
+		`'1'`:                                      SupperString("1"),
+		`'2'`:                                      SupperSupperString("2"),
 	} {
 		assert.Equal(t, expected, quote(value))
 	}
