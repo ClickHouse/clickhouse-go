@@ -141,6 +141,8 @@ func format(tz *time.Location, v interface{}) string {
 		return quote(v.String())
 	}
 	switch v := reflect.ValueOf(v); v.Kind() {
+	case reflect.String:
+		return quote(v.String())
 	case reflect.Slice:
 		values := make([]string, 0, v.Len())
 		for i := 0; i < v.Len(); i++ {

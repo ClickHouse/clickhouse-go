@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestBindNumeric(t *testing.T) {
@@ -129,6 +130,17 @@ func TestFormatTime(t *testing.T) {
 			assert.Equal(t, "toDateTime('2022-01-12 15:00:00', 'UTC')", format(tz, t1))
 		}
 	}
+}
+
+type SupperString string
+type SupperSupperString string
+
+func TestStringBasedType(t *testing.T) {
+	var tz, err = time.LoadLocation("Europe/London")
+	require.NoError(t, err)
+	require.Equal(t, "'a'", format(tz, SupperString("a")))
+	require.Equal(t, "'a'", format(tz, SupperSupperString("a")))
+	require.Equal(t, "'a', 'b', 'c'", format(tz, []SupperSupperString{"a", "b", "c"}))
 }
 
 func BenchmarkBindNumeric(b *testing.B) {
