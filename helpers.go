@@ -127,6 +127,8 @@ func quote(v driver.Value) string {
 			values = append(values, quote(v.Index(i).Interface()))
 		}
 		return strings.Join(values, ", ")
+	case reflect.String:
+		return "'" + strings.NewReplacer(`\`, `\\`, `'`, `\'`).Replace(v.String()) + "'"
 	}
 	switch v := v.(type) {
 	case string:
