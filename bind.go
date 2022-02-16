@@ -28,6 +28,10 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 )
 
+type ToSqlArgumenter interface {
+	ToSQLArgument() string
+}
+
 func Named(name string, value interface{}) driver.NamedValue {
 	return driver.NamedValue{
 		Name:  name,
@@ -121,6 +125,10 @@ func bindNamed(tz *time.Location, query string, args ...interface{}) (_ string, 
 }
 
 func format(tz *time.Location, v interface{}) string {
+	if v, ok := v.(ToSqlArgumenter); ok {
+		return v.ToSQLArgument()
+	}
+
 	quote := func(v string) string {
 		return "'" + strings.NewReplacer(`\`, `\\`, `'`, `\'`).Replace(v) + "'"
 	}

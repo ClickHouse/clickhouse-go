@@ -18,10 +18,12 @@
 package clickhouse
 
 import (
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestBindNumeric(t *testing.T) {
@@ -129,6 +131,21 @@ func TestFormatTime(t *testing.T) {
 			assert.Equal(t, "toDateTime('2022-01-12 15:00:00', 'UTC')", format(tz, t1))
 		}
 	}
+}
+
+type SupperSliceOfStrings []string
+
+func (s SupperSliceOfStrings) ToSQLArgument() string {
+	return strings.Join(s, "|")
+}
+
+func TestFormatWithToSqlArgumenter(t *testing.T) {
+	var (
+		tz, err = time.LoadLocation("Europe/London")
+	)
+	require.NoError(t, err)
+	require.Equal(t, "1|2|3", format(tz, SupperSliceOfStrings{"1", "2", "3"}))
+	require.Equal(t, "b|d|e|a", format(tz, SupperSliceOfStrings{"b", "d", "e", "a"}))
 }
 
 func BenchmarkBindNumeric(b *testing.B) {
