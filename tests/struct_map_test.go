@@ -49,11 +49,9 @@ func TestAppendStruct(t *testing.T) {
 			  HCol1 UInt8
 			, HCol2 String
 			, HCol3 Array(Nullable(String))
-			, HCol4 Nullable(UInt8)
 			, Col1  UInt8
 			, Col2  String
 			, Col3  Array(String)
-			, Col4  Nullable(UInt8)
 		) Engine Memory
 		`
 		defer func() {
@@ -65,14 +63,12 @@ func TestAppendStruct(t *testing.T) {
 					Col1 uint8     `ch:"HCol1"`
 					Col2 *string   `ch:"HCol2"`
 					Col3 []*string `ch:"HCol3"`
-					Col4 *uint8    `ch:"HCol4"`
 				}
 				type data struct {
 					header
 					Col1 uint8
 					Col2 string
 					Col3 []string
-					Col4 *uint8
 				}
 				for i := 0; i < 100; i++ {
 					str := fmt.Sprintf("Str_%d", i)
@@ -81,7 +77,6 @@ func TestAppendStruct(t *testing.T) {
 							Col1: uint8(i),
 							Col2: &str,
 							Col3: []*string{&str, nil, &str},
-							Col4: nil,
 						},
 						Col1: uint8(i + 1),
 						Col3: []string{"A", "B", "C", fmt.Sprint(i)},
@@ -100,13 +95,11 @@ func TestAppendStruct(t *testing.T) {
 								Col1: uint8(i),
 								Col2: &str,
 								Col3: []*string{&str, nil, &str},
-								Col4: nil,
 							}
 							assert.Equal(t, h, result.header)
 							if assert.Empty(t, result.Col2) {
 								assert.Equal(t, uint8(i+1), result.Col1)
 								assert.Equal(t, []string{"A", "B", "C", fmt.Sprint(i)}, result.Col3)
-								assert.Nil(t, result.Col4)
 							}
 						}
 					}
