@@ -54,7 +54,7 @@ next:
 			}
 			goto next
 		case block := <-r.stream:
-			if block == nil || block.Rows() == 0 {
+			if block == nil {
 				return false
 			}
 			if block.Packet == proto.ServerTotals {

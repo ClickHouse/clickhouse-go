@@ -91,7 +91,7 @@ func (c *connect) handle(packet byte, on *onProcess) error {
 		if err != nil {
 			return err
 		}
-		if on.data != nil {
+		if block.Rows() != 0 && on.data != nil {
 			on.data(block)
 		}
 	case proto.ServerException:
