@@ -96,7 +96,7 @@ type connect struct {
 	revision    uint64
 	structMap   structMap
 	compression bool
-	lastUsedIn  time.Time
+	//lastUsedIn  time.Time
 	connectedAt time.Time
 }
 
@@ -124,13 +124,6 @@ func (c *connect) isBad() bool {
 	}
 	if err := c.connCheck(); err != nil {
 		return true
-	}
-	if time.Since(c.lastUsedIn) > time.Minute {
-		ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Second))
-		defer cancel()
-		if err := c.ping(ctx); err != nil {
-			return true
-		}
 	}
 	return false
 }
