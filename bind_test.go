@@ -132,15 +132,22 @@ func TestFormatTime(t *testing.T) {
 	}
 }
 
-type SupperString string
-type SupperSupperString string
-
 func TestStringBasedType(t *testing.T) {
-	var tz, err = time.LoadLocation("Europe/London")
-	require.NoError(t, err)
-	require.Equal(t, "'a'", format(tz, SupperString("a")))
-	require.Equal(t, "'a'", format(tz, SupperSupperString("a")))
-	require.Equal(t, "'a', 'b', 'c'", format(tz, []SupperSupperString{"a", "b", "c"}))
+	type (
+		SupperString       string
+		SupperSupperString string
+	)
+	require.Equal(t, "'a'", format(time.UTC, SupperString("a")))
+	require.Equal(t, "'a'", format(time.UTC, SupperSupperString("a")))
+	require.Equal(t, "'a', 'b', 'c'", format(time.UTC, []SupperSupperString{"a", "b", "c"}))
+}
+
+func TestFormatTuple(t *testing.T) {
+	tuple := [][]interface{}{
+		[]interface{}{"A", 1},
+		[]interface{}{"B", 2},
+	}
+	assert.Equal(t, "('A', 1), ('B', 2)", format(time.UTC, tuple))
 }
 
 func BenchmarkBindNumeric(b *testing.B) {

@@ -137,6 +137,16 @@ func format(tz *time.Location, v interface{}) string {
 			return v.Format("toDateTime('2006-01-02 15:04:05')")
 		}
 		return v.Format("toDateTime('2006-01-02 15:04:05', '" + v.Location().String() + "')")
+	case [][]interface{}: // tuple
+		items := make([]string, 0, len(v))
+		for _, t := range v {
+			elements := make([]string, 0, len(t))
+			for _, e := range t {
+				elements = append(elements, format(tz, e))
+			}
+			items = append(items, "("+strings.Join(elements, ", ")+")")
+		}
+		return strings.Join(items, ", ")
 	case fmt.Stringer:
 		return quote(v.String())
 	}
