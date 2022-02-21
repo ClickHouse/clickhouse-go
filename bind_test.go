@@ -143,11 +143,14 @@ func TestStringBasedType(t *testing.T) {
 }
 
 func TestFormatTuple(t *testing.T) {
-	tuple := [][]interface{}{
-		[]interface{}{"A", 1},
-		[]interface{}{"B", 2},
+	assert.Equal(t, "('A', 1)", format(time.UTC, []interface{}{"A", 1}))
+	{
+		tuples := [][]interface{}{
+			[]interface{}{"A", 1},
+			[]interface{}{"B", 2},
+		}
+		assert.Equal(t, "('A', 1), ('B', 2)", format(time.UTC, tuples))
 	}
-	assert.Equal(t, "('A', 1), ('B', 2)", format(time.UTC, tuple))
 }
 
 func BenchmarkBindNumeric(b *testing.B) {
