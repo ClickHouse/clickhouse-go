@@ -18,6 +18,7 @@
 package column
 
 import (
+	"encoding"
 	"fmt"
 	"reflect"
 
@@ -52,8 +53,14 @@ func (col *String) ScanRow(dest interface{}, row int) error {
 	case *string:
 		*d = v[row]
 	case **string:
-		*d = new(string)
-		**d = v[row]
+		*d = &v[row]
+	case *[]uint8:
+		*d = []uint8(v[row])
+	case **[]uint8:
+		data := []uint8(v[row])
+		*d = &data
+	case encoding.BinaryUnmarshaler:
+		return d.UnmarshalBinary([]uint8(v[row]))
 	default:
 		return &ColumnConverterError{
 			Op:   "ScanRow",
@@ -78,6 +85,22 @@ func (col *String) Append(v interface{}) (nulls []uint8, err error) {
 				*col, nulls[i] = append(*col, ""), 1
 			}
 		}
+	case [][]uint8:
+		nulls = make([]uint8, len(v))
+		for i, v := range v {
+			switch {
+			case v != nil:
+				*col = append(*col, string(v))
+			default:
+				*col, nulls[i] = append(*col, ""), 1
+			}
+		}
+	case encoding.BinaryMarshaler:
+		data, err := v.MarshalBinary()
+		if err != nil {
+			return nil, err
+		}
+		*col, nulls = append(*col, string(data)), make([]uint8, 1)
 	default:
 		return nil, &ColumnConverterError{
 			Op:   "Append",
@@ -101,6 +124,26 @@ func (col *String) AppendRow(v interface{}) error {
 		}
 	case nil:
 		*col = append(*col, "")
+	case []uint8:
+		switch {
+		case v != nil:
+			*col = append(*col, string(v))
+		default:
+			*col = append(*col, "")
+		}
+	case *[]uint8:
+		switch {
+		case v != nil:
+			*col = append(*col, string(*v))
+		default:
+			*col = append(*col, "")
+		}
+	case encoding.BinaryMarshaler:
+		data, err := v.MarshalBinary()
+		if err != nil {
+			return err
+		}
+		*col = append(*col, string(data))
 	default:
 		return &ColumnConverterError{
 			Op:   "AppendRow",

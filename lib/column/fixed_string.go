@@ -65,8 +65,13 @@ func (col *FixedString) ScanRow(dest interface{}, row int) error {
 	case *string:
 		*d = col.row(row)
 	case **string:
-		*d = new(string)
-		**d = col.row(row)
+		data := col.row(row)
+		*d = &data
+	case *[]uint8:
+		*d = []uint8(col.row(row))
+	case **[]uint8:
+		data := []uint8(col.row(row))
+		*d = &data
 	case encoding.BinaryUnmarshaler:
 		return d.UnmarshalBinary(col.rowBytes(row))
 	default:
@@ -89,14 +94,21 @@ func (col *FixedString) Append(v interface{}) (nulls []uint8, err error) {
 	case []*string:
 		nulls = make([]uint8, len(v))
 		for i, v := range v {
-			if v == nil {
-				nulls[i] = 1
-			}
 			switch {
-			case v == nil:
-				col.data = append(col.data, make([]byte, col.size)...)
-			default:
+			case v != nil:
 				col.data = append(col.data, binary.Str2Bytes(*v)...)
+			default:
+				col.data, nulls[i] = append(col.data, make([]byte, col.size)...), 1
+			}
+		}
+	case [][]uint8:
+		nulls = make([]uint8, len(v))
+		for i, v := range v {
+			switch {
+			case v != nil:
+				col.data = append(col.data, v...)
+			default:
+				col.data, nulls[i] = append(col.data, make([]byte, col.size)...), 1
 			}
 		}
 	case encoding.BinaryMarshaler:
@@ -125,6 +137,14 @@ func (col *FixedString) AppendRow(v interface{}) (err error) {
 			data = binary.Str2Bytes(*v)
 		}
 	case nil:
+	case []uint8:
+		if v != nil {
+			data = v
+		}
+	case *[]uint8:
+		if v != nil {
+			data = *v
+		}
 	case encoding.BinaryMarshaler:
 		if data, err = v.MarshalBinary(); err != nil {
 			return err

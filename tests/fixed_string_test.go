@@ -60,9 +60,11 @@ func TestFixedString(t *testing.T) {
 			CREATE TABLE test_fixed_string (
 				Col1 FixedString(10)
 				, Col2 FixedString(10)
-				, Col3 Nullable(FixedString(10))
-				, Col4 Array(FixedString(10))
-				, Col5 Array(Nullable(FixedString(10)))
+				, Col3 FixedString(10)
+				, Col4 FixedString(10)
+				, Col5 Nullable(FixedString(10))
+				, Col6 Array(FixedString(10))
+				, Col7 Array(Nullable(FixedString(10)))
 			) Engine Memory
 		`
 		defer func() {
@@ -73,26 +75,32 @@ func TestFixedString(t *testing.T) {
 				var (
 					col1Data = "ClickHouse"
 					col2Data = &BinFixedString{}
-					col3Data = &col1Data
-					col4Data = []string{"ClickHouse", "ClickHouse", "ClickHouse"}
-					col5Data = []*string{&col1Data, nil, &col1Data}
+					col3Data = []byte("ClickHouse")
+					col4Data = &col3Data
+					col5Data = &col1Data
+					col6Data = []string{"ClickHouse", "ClickHouse", "ClickHouse"}
+					col7Data = []*string{&col1Data, nil, &col1Data}
 				)
 				if _, err := rand.Read(col2Data.data[:]); assert.NoError(t, err) {
-					if err := batch.Append(col1Data, col2Data, col3Data, col4Data, col5Data); assert.NoError(t, err) {
+					if err := batch.Append(col1Data, col2Data, col3Data, col4Data, col5Data, col6Data, col7Data); assert.NoError(t, err) {
 						if assert.NoError(t, batch.Send()) {
 							var (
 								col1 string
 								col2 BinFixedString
-								col3 *string
-								col4 []string
-								col5 []*string
+								col3 []byte
+								col4 *[]byte
+								col5 *string
+								col6 []string
+								col7 []*string
 							)
-							if err := conn.QueryRow(ctx, "SELECT * FROM test_fixed_string").Scan(&col1, &col2, &col3, &col4, &col5); assert.NoError(t, err) {
+							if err := conn.QueryRow(ctx, "SELECT * FROM test_fixed_string").Scan(&col1, &col2, &col3, &col4, &col5, &col6, &col7); assert.NoError(t, err) {
 								assert.Equal(t, col1Data, col1)
 								assert.Equal(t, col2Data.data, col2.data)
 								assert.Equal(t, col3Data, col3)
 								assert.Equal(t, col4Data, col4)
 								assert.Equal(t, col5Data, col5)
+								assert.Equal(t, col6Data, col6)
+								assert.Equal(t, col7Data, col7)
 							}
 						}
 					}

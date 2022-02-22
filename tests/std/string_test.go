@@ -25,48 +25,48 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type BinFixedString struct {
-	data [10]byte
+type BinString struct {
+	data []byte
 }
 
-func (bin *BinFixedString) MarshalBinary() ([]byte, error) {
+func (bin *BinString) MarshalBinary() ([]byte, error) {
 	return bin.data[:], nil
 }
 
-func (bin *BinFixedString) UnmarshalBinary(b []byte) error {
+func (bin *BinString) UnmarshalBinary(b []byte) error {
 	copy(bin.data[:], b)
 	return nil
 }
 
-func (bin *BinFixedString) Scan(src interface{}) error {
+func (bin *BinString) Scan(src interface{}) error {
 	return bin.UnmarshalBinary([]byte(src.(string)))
 }
 
-func TestStdFixedString(t *testing.T) {
+func TestStdString(t *testing.T) {
 	if conn, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000"); assert.NoError(t, err) {
 		const ddl = `
-			CREATE TABLE test_fixed_string (
-				Col1 FixedString(10)
-				, Col2 FixedString(10)
-				, Col3 FixedString(10)
-				, Col4 FixedString(10)
-				, Col5 Nullable(FixedString(10))
-				, Col6 Array(FixedString(10))
-				, Col7 Array(Nullable(FixedString(10)))
-			) Engine Memory
+		CREATE TABLE test_string (
+				Col1 String
+			, Col2 String
+		    , Col3 String
+		    , Col4 String
+			, Col5 Nullable(String)
+			, Col6 Array(String)
+			, Col7 Array(Nullable(String))
+		) Engine Memory
 		`
 		defer func() {
-			conn.Exec("DROP TABLE test_fixed_string")
+			conn.Exec("DROP TABLE test_string")
 		}()
 		if _, err := conn.Exec(ddl); assert.NoError(t, err) {
 			scope, err := conn.Begin()
 			if !assert.NoError(t, err) {
 				return
 			}
-			if batch, err := scope.Prepare("INSERT INTO test_fixed_string"); assert.NoError(t, err) {
+			if batch, err := scope.Prepare("INSERT INTO test_string"); assert.NoError(t, err) {
 				var (
 					col1Data = "ClickHouse"
-					col2Data = &BinFixedString{}
+					col2Data = &BinString{}
 					col3Data = []byte("ClickHouse")
 					col4Data = &col3Data
 					col5Data = &col1Data
@@ -78,21 +78,21 @@ func TestStdFixedString(t *testing.T) {
 						if assert.NoError(t, scope.Commit()) {
 							var (
 								col1 string
-								col2 BinFixedString
+								col2 BinString
 								col3 []byte
 								col4 *[]byte
 								col5 *string
 								col6 []string
 								col7 []*string
 							)
-							if err := conn.QueryRow("SELECT * FROM test_fixed_string").Scan(&col1, &col2, &col3, &col4, &col5, &col6, &col7); assert.NoError(t, err) {
+							if err := conn.QueryRow("SELECT * FROM test_string").Scan(&col1, &col2, &col3, &col4, &col5, &col6, &col7); assert.NoError(t, err) {
 								assert.Equal(t, col1Data, col1)
 								assert.Equal(t, col2Data.data, col2.data)
 								assert.Equal(t, col3Data, col3)
 								assert.Equal(t, col4Data, col4)
 								assert.Equal(t, col5Data, col5)
-								assert.Equal(t, col5Data, col6)
-								assert.Equal(t, col5Data, col7)
+								assert.Equal(t, col6Data, col6)
+								assert.Equal(t, col7Data, col7)
 							}
 						}
 					}
