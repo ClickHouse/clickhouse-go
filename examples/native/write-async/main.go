@@ -27,12 +27,12 @@ import (
 )
 
 const ddl = `
-CREATE TEMPORARY TABLE example (
-	  Col1 UInt64
-	, Col2 String
-	, Col3 Array(UInt8)
-	, Col4 DateTime
-)
+	CREATE TABLE example (
+		  Col1 UInt64
+		, Col2 String
+		, Col3 Array(UInt8)
+		, Col4 DateTime
+	) Engine=Memory(); 
 `
 
 func main() {
@@ -55,14 +55,15 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err := conn.Exec(ctx, ddl); err != nil {
-		log.Fatal(err)
-	}
+
+
 	for i := 0; i < 100; i++ {
-		err := conn.AsyncInsert(ctx, fmt.Sprintf(`INSERT INTO example VALUES (
-			%d, '%s', [1, 2, 3, 4, 5, 6, 7, 8, 9], now()
-		)`, i, "Golang SQL database driver"), false)
+		fmt.Println(i)
+		err := conn.AsyncInsert(ctx, `INSERT INTO example VALUES (
+			$1, $2, [1, 2, 3, 4, 5, 6, 7, 8, 9], now()
+		)`, false, i, "Golang SQL database driver")
 		if err != nil {
+			fmt.Println(err)
 			log.Fatal(err)
 		}
 	}

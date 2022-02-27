@@ -146,12 +146,12 @@ func (ch *clickhouse) PrepareBatch(ctx context.Context, query string) (driver.Ba
 	return conn.prepareBatch(ctx, query, ch.release)
 }
 
-func (ch *clickhouse) AsyncInsert(ctx context.Context, query string, wait bool) error {
+func (ch *clickhouse) AsyncInsert(ctx context.Context, query string, wait bool, args ...interface{}) error {
 	conn, err := ch.acquire(ctx)
 	if err != nil {
 		return err
 	}
-	if err := conn.asyncInsert(ctx, query, wait); err != nil {
+	if err := conn.asyncInsert(ctx, query, wait, args...); err != nil {
 		ch.release(conn, err)
 		return err
 	}
