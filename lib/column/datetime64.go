@@ -142,7 +142,9 @@ func (dt *DateTime64) AppendRow(v interface{}) error {
 	case int64:
 		datetime = v
 	case *int64:
-		datetime = *v
+		if v != nil {
+			datetime = *v
+		}
 	case time.Time:
 		if err := dateOverflow(minDateTime64, maxDateTime64, v, "2006-01-02 15:04:05"); err != nil {
 			return err
