@@ -36,22 +36,26 @@ type Map struct {
 
 func (col *Map) parse(t Type) (_ Interface, err error) {
 	col.chType = t
-	if types := strings.Split(t.params(), ","); len(types) == 2 {
-		if col.keys, err = Type(strings.TrimSpace(types[0])).Column(); err != nil {
-			return nil, err
+	pos := strings.Index(t.params(), ",")
+	if 0 > pos {
+		return nil, &UnsupportedColumnTypeError{
+			t: t,
 		}
-		if col.values, err = Type(strings.TrimSpace(types[1])).Column(); err != nil {
-			return nil, err
-		}
-		col.scanType = reflect.MapOf(
-			col.keys.ScanType(),
-			col.values.ScanType(),
-		)
-		return col, nil
 	}
-	return nil, &UnsupportedColumnTypeError{
-		t: t,
+
+	key := t.params()[:pos]
+	val := t.params()[pos+1:]
+	if col.keys, err = Type(strings.TrimSpace(key)).Column(); err != nil {
+		return nil, err
 	}
+	if col.values, err = Type(strings.TrimSpace(val)).Column(); err != nil {
+		return nil, err
+	}
+	col.scanType = reflect.MapOf(
+		col.keys.ScanType(),
+		col.values.ScanType(),
+	)
+	return col, nil
 }
 
 func (col *Map) Type() Type {
