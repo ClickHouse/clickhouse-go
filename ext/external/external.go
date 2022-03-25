@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package external
+package ext
 
 import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
