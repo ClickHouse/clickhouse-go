@@ -140,5 +140,9 @@ func quote(v driver.Value) string {
 }
 
 func formatTime(v time.Time) string {
+	switch v.Location().String() {
+	case "Local":
+		return fmt.Sprintf("toDateTime(%d)", v.Unix())
+	}
 	return v.Format("toDateTime('2006-01-02 15:04:05', '" + v.Location().String() + "')")
 }
