@@ -22,11 +22,11 @@ func (col *{{ .ChType }}) Decode(decoder *binary.Decoder, rows int) error {
 
 	*col = append(*col, make([]{{ .GoType }}, rows)...)
 
-	slice := *(*reflect.SliceHeader)(unsafe.Pointer(col))
-	slice.Len *= size
-	slice.Cap *= size
-
-	dst := *(*[]byte)(unsafe.Pointer(&slice))
+	var dst []byte
+	slice := (*reflect.SliceHeader)(unsafe.Pointer(&dst))
+	slice.Data = (*reflect.SliceHeader)(unsafe.Pointer(col)).Data
+	slice.Len = len(*col) * size
+	slice.Cap = cap(*col) * size
 
 	if err := decoder.Raw(dst); err != nil {
 		return err
@@ -41,10 +41,11 @@ func (col *{{ .ChType }}) Encode(encoder *binary.Encoder) error {
 	const size = {{ .Size }} / 8
 	scratch := make([]byte, size*len(*col))
 	{
-		slice := *(*reflect.SliceHeader)(unsafe.Pointer(col))
-		slice.Len *= size
-		slice.Cap *= size
-		src := *(*[]byte)(unsafe.Pointer(&slice))
+	    var src []byte
+	    slice := (*reflect.SliceHeader)(unsafe.Pointer(&src))
+	    slice.Data = (*reflect.SliceHeader)(unsafe.Pointer(col)).Data
+	    slice.Len = len(*col) * size
+        slice.Cap = cap(*col) * size
 
 		copy(scratch, src)
 	}
