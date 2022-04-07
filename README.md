@@ -1,6 +1,6 @@
 # ClickHouse [![run-tests](https://github.com/ClickHouse/clickhouse-go/actions/workflows/run-tests.yml/badge.svg?branch=v2)](https://github.com/ClickHouse/clickhouse-go/actions/workflows/run-tests.yml) [![Go Reference](https://pkg.go.dev/badge/github.com/ClickHouse/clickhouse-go/v2.svg)](https://pkg.go.dev/github.com/ClickHouse/clickhouse-go/v2)
 
-Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/).
+Golang SQL database driver for [ClickHouse](https://clickhouse.com/).
 
 ## Key features
 
