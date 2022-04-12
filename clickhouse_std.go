@@ -23,6 +23,7 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
 	"io"
 	"reflect"
 	"strings"
@@ -252,6 +253,10 @@ func (r *stdRows) Next(dest []driver.Value) error {
 					return err
 				}
 				dest[i] = v
+			case *string:
+				dest[i] = binary.Str2Bytes(*value)
+			case string:
+				dest[i] = binary.Str2Bytes(value)
 			default:
 				dest[i] = value
 			}

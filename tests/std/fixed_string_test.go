@@ -39,7 +39,7 @@ func (bin *BinFixedString) UnmarshalBinary(b []byte) error {
 }
 
 func (bin *BinFixedString) Scan(src interface{}) error {
-	return bin.UnmarshalBinary([]byte(src.(string)))
+	return bin.UnmarshalBinary(src.([]byte))
 }
 
 func TestStdFixedString(t *testing.T) {
