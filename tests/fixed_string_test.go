@@ -116,6 +116,55 @@ func TestFixedString(t *testing.T) {
 	}
 }
 
+func TestEmptyFixedString(t *testing.T) {
+	var (
+		ctx       = context.Background()
+		conn, err = clickhouse.Open(&clickhouse.Options{
+			Addr: []string{"127.0.0.1:9000"},
+			Auth: clickhouse.Auth{
+				Database: "default",
+				Username: "default",
+				Password: "",
+			},
+			Compression: &clickhouse.Compression{
+				Method: clickhouse.CompressionLZ4,
+			},
+			//Debug: true,
+		})
+	)
+	if assert.NoError(t, err) {
+		const ddl = `
+			CREATE TABLE test_fixed_string_empty (
+				Col1 FixedString(2),
+				Col2 FixedString(2)
+			) Engine Memory
+		`
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_fixed_string_empty")
+		}()
+		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
+			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_fixed_string_empty"); assert.NoError(t, err) {
+				var (
+					col1Data = ""
+					col2Data = "US"
+				)
+				if err := batch.Append(col1Data, col2Data); assert.NoError(t, err) {
+					if assert.NoError(t, batch.Send()) {
+						var (
+							col1 string
+							col2 string
+						)
+						if err := conn.QueryRow(ctx, "SELECT * FROM test_fixed_string_empty").Scan(&col1, &col2); assert.NoError(t, err) {
+							assert.Equal(t, string([]byte{0x00, 0x00}), col1)
+							assert.Equal(t, col2Data, col2)
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 func TestNullableFixedString(t *testing.T) {
 	var (
 		ctx       = context.Background()
