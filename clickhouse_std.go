@@ -24,12 +24,12 @@ import (
 	"errors"
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	"io"
 	"reflect"
 	"strings"
 	"sync/atomic"
-
-	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
+	"time"
 )
 
 var globalConnID int64
@@ -257,6 +257,8 @@ func (r *stdRows) Next(dest []driver.Value) error {
 				dest[i] = binary.Str2Bytes(*value)
 			case string:
 				dest[i] = binary.Str2Bytes(value)
+			case *time.Time:
+				dest[i] = *value
 			default:
 				dest[i] = value
 			}
