@@ -66,8 +66,8 @@ func (c *connect) query(ctx context.Context, release func(*connect, error), quer
 		if err != nil {
 			errors <- err
 		}
-		close(errors)
 		close(stream)
+		close(errors)
 		release(c, err)
 	}()
 
