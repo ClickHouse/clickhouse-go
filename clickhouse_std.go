@@ -260,6 +260,13 @@ func (r *stdRows) Next(dest []driver.Value) error {
 			case *time.Time:
 				dest[i] = *value
 			default:
+				vi := reflect.ValueOf(value)
+				if vi.Kind() == reflect.Ptr {
+					if !vi.IsNil() {
+						dest[i] = vi.Elem().Interface()
+						continue
+					}
+				}
 				dest[i] = value
 			}
 		}
