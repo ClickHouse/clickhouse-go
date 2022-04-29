@@ -32,7 +32,7 @@ func example() error {
 		Auth: clickhouse.Auth{
 			Database: "default",
 			Username: "default",
-			Password: "clickhouse_admin",
+			Password: "",
 		},
 		//Debug:           true,
 		DialTimeout:     time.Second,
