@@ -109,6 +109,61 @@ func TestDateTime64(t *testing.T) {
 	}
 }
 
+func TestDateTime64AsReference(t *testing.T) {
+	var (
+		ctx       = context.Background()
+		conn, err = clickhouse.Open(&clickhouse.Options{
+			Addr: []string{"127.0.0.1:9000"},
+			Auth: clickhouse.Auth{
+				Database: "default",
+				Username: "default",
+				Password: "",
+			},
+			Compression: &clickhouse.Compression{
+				Method: clickhouse.CompressionLZ4,
+			},
+			//Debug: true,
+		})
+	)
+
+	if assert.NoError(t, err) {
+		if err := checkMinServerVersion(conn, 20, 3); err != nil {
+			t.Skip(err.Error())
+			return
+		}
+		const ddl = `
+			CREATE TABLE test_datetime64 (
+				Col1      DateTime64(3)
+			) Engine Memory
+		`
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_datetime64")
+		}()
+
+		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
+			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_datetime64"); assert.NoError(t, err) {
+				now := time.Now().Unix()
+				err := batch.Append(&now)
+				assert.NoError(t, err)
+				assert.NoError(t, batch.Send())
+
+			}
+			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_datetime64"); assert.NoError(t, err) {
+				// batch column
+				var col1Data []*int64
+				var datetime1 = time.Now().Unix()
+				for i := 0; i < 1000; i++ {
+					col1Data = append(col1Data, &datetime1)
+				}
+				if err := batch.Column(0).Append(col1Data); !assert.NoError(t, err) {
+					return
+				}
+				assert.NoError(t, batch.Send())
+			}
+		}
+	}
+}
+
 func TestNullableDateTime64(t *testing.T) {
 	var (
 		ctx       = context.Background()
