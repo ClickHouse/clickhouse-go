@@ -104,6 +104,16 @@ func (dt *DateTime64) Append(v interface{}) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []int64:
 		dt.values, nulls = append(dt.values, v...), make([]uint8, len(v))
+	case []*int64:
+		nulls = make([]uint8, len(v))
+		for i, v := range v {
+			switch {
+			case v != nil:
+				dt.values = append(dt.values, *v)
+			default:
+				dt.values, nulls[i] = append(dt.values, 0), 1
+			}
+		}
 	case []time.Time:
 		in := make([]int64, 0, len(v))
 		for _, t := range v {
@@ -141,6 +151,10 @@ func (dt *DateTime64) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case int64:
 		datetime = v
+	case *int64:
+		if v != nil {
+			datetime = *v
+		}
 	case time.Time:
 		if err := dateOverflow(minDateTime64, maxDateTime64, v, "2006-01-02 15:04:05"); err != nil {
 			return err
