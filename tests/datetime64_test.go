@@ -122,7 +122,6 @@ func TestDateTime64AsReference(t *testing.T) {
 			Compression: &clickhouse.Compression{
 				Method: clickhouse.CompressionLZ4,
 			},
-			//Debug: true,
 		})
 	)
 
