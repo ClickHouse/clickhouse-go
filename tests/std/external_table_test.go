@@ -25,25 +25,25 @@ import (
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
-	"github.com/ClickHouse/clickhouse-go/v2/external"
+	"github.com/ClickHouse/clickhouse-go/v2/ext"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestStdExternalTable(t *testing.T) {
-	table1, err := external.NewTable("external_table_1",
-		external.Column("col1", "UInt8"),
-		external.Column("col2", "String"),
-		external.Column("col3", "DateTime"),
+	table1, err := ext.NewTable("external_table_1",
+		ext.Column("col1", "UInt8"),
+		ext.Column("col2", "String"),
+		ext.Column("col3", "DateTime"),
 	)
 	if assert.NoError(t, err) {
 		for i := 0; i < 10; i++ {
 			assert.NoError(t, table1.Append(uint8(i), fmt.Sprintf("value_%d", i), time.Now()))
 		}
 	}
-	table2, err := external.NewTable("external_table_2",
-		external.Column("col1", "UInt8"),
-		external.Column("col2", "String"),
-		external.Column("col3", "DateTime"),
+	table2, err := ext.NewTable("external_table_2",
+		ext.Column("col1", "UInt8"),
+		ext.Column("col2", "String"),
+		ext.Column("col3", "DateTime"),
 	)
 	if assert.NoError(t, err) {
 		for i := 0; i < 10; i++ {
