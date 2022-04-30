@@ -45,6 +45,8 @@ func (c *connect) ping(ctx context.Context) (err error) {
 			return err
 		}
 		switch packet {
+		case proto.ServerException:
+			return c.exception()
 		case proto.ServerProgress:
 			if _, err = c.progress(); err != nil {
 				return err
