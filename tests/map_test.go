@@ -54,6 +54,7 @@ func TestMap(t *testing.T) {
 			, Col3 Map(String, UInt64)
 			, Col4 Array(Map(String, String))
 			, Col5 Map(LowCardinality(String), LowCardinality(UInt64))
+			, Col6 Map(String, Map(String,UInt64))
 		) Engine Memory
 		`
 		defer func() {
@@ -79,8 +80,18 @@ func TestMap(t *testing.T) {
 						"key_col_5_1": 100,
 						"key_col_5_2": 200,
 					}
+					col6Data = map[string]map[string]uint64{
+						"key_col_6_1": {
+							"key_col_6_1_1": 100,
+							"key_col_6_1_2": 200,
+						},
+						"key_col_6_2": {
+							"key_col_6_2_1": 100,
+							"key_col_6_2_2": 200,
+						},
+					}
 				)
-				if err := batch.Append(col1Data, col2Data, col3Data, col4Data, col5Data); assert.NoError(t, err) {
+				if err := batch.Append(col1Data, col2Data, col3Data, col4Data, col5Data, col6Data); assert.NoError(t, err) {
 					if assert.NoError(t, batch.Send()) {
 						var (
 							col1 map[string]uint64
@@ -88,13 +99,15 @@ func TestMap(t *testing.T) {
 							col3 map[string]uint64
 							col4 []map[string]string
 							col5 map[string]uint64
+							col6 map[string]map[string]uint64
 						)
-						if err := conn.QueryRow(ctx, "SELECT * FROM test_map").Scan(&col1, &col2, &col3, &col4, &col5); assert.NoError(t, err) {
+						if err := conn.QueryRow(ctx, "SELECT * FROM test_map").Scan(&col1, &col2, &col3, &col4, &col5, &col6); assert.NoError(t, err) {
 							assert.Equal(t, col1Data, col1)
 							assert.Equal(t, col2Data, col2)
 							assert.Equal(t, col3Data, col3)
 							assert.Equal(t, col4Data, col4)
 							assert.Equal(t, col5Data, col5)
+							assert.Equal(t, col6Data, col6)
 						}
 					}
 				}
