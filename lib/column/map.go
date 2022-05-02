@@ -36,7 +36,7 @@ type Map struct {
 
 func (col *Map) parse(t Type) (_ Interface, err error) {
 	col.chType = t
-	if types := strings.Split(t.params(), ","); len(types) == 2 {
+	if types := strings.SplitN(t.params(), ",", 2); len(types) == 2 {
 		if col.keys, err = Type(strings.TrimSpace(types[0])).Column(); err != nil {
 			return nil, err
 		}
