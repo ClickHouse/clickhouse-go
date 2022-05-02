@@ -3,6 +3,7 @@ module github.com/ClickHouse/clickhouse-go/v2
 go 1.16
 
 require (
+	github.com/ClickHouse/clickhouse-go v1.5.4
 	github.com/google/uuid v1.3.0
 	github.com/mkevac/debugcharts v0.0.0-20191222103121-ae1c48aa8615
 	github.com/paulmach/orb v0.5.0
