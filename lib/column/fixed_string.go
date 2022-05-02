@@ -83,7 +83,11 @@ func (col *FixedString) Append(v interface{}) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []string:
 		for _, v := range v {
-			col.data = append(col.data, binary.Str2Bytes(v)...)
+			if v == "" {
+				col.data = append(col.data, make([]byte, col.size)...)
+			} else {
+				col.data = append(col.data, binary.Str2Bytes(v)...)
+			}
 		}
 		nulls = make([]uint8, len(v))
 	case []*string:
@@ -96,7 +100,11 @@ func (col *FixedString) Append(v interface{}) (nulls []uint8, err error) {
 			case v == nil:
 				col.data = append(col.data, make([]byte, col.size)...)
 			default:
-				col.data = append(col.data, binary.Str2Bytes(*v)...)
+				if *v == "" {
+					col.data = append(col.data, make([]byte, col.size)...)
+				} else {
+					col.data = append(col.data, binary.Str2Bytes(*v)...)
+				}
 			}
 		}
 	case encoding.BinaryMarshaler:
@@ -119,10 +127,14 @@ func (col *FixedString) AppendRow(v interface{}) (err error) {
 	data := make([]byte, col.size)
 	switch v := v.(type) {
 	case string:
-		data = binary.Str2Bytes(v)
+		if v != "" {
+			data = binary.Str2Bytes(v)
+		}
 	case *string:
 		if v != nil {
-			data = binary.Str2Bytes(*v)
+			if *v != "" {
+				data = binary.Str2Bytes(*v)
+			}
 		}
 	case nil:
 	case encoding.BinaryMarshaler:

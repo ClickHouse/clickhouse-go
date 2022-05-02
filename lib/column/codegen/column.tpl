@@ -228,6 +228,14 @@ func (col *{{ .ChType }}) AppendRow(v interface{}) error {
 		}
 	case nil:
 		*col = append(*col, 0)
+	{{- if eq .ChType "UInt8" }}
+	case bool:
+		var t uint8
+		if v {
+			t = 1
+		}
+		*col = append(*col, t)
+	{{- end }}
 	default:
 		return &ColumnConverterError{
 			Op:   "AppendRow",

@@ -21,7 +21,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/v2/external"
+	"github.com/ClickHouse/clickhouse-go/v2/ext"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -49,7 +49,7 @@ type (
 			profileEvents func([]ProfileEvent)
 		}
 		settings Settings
-		external []*external.Table
+		external []*ext.Table
 	}
 )
 
@@ -109,7 +109,7 @@ func WithProfileEvents(fn func([]ProfileEvent)) QueryOption {
 	}
 }
 
-func WithExternalTable(t ...*external.Table) QueryOption {
+func WithExternalTable(t ...*ext.Table) QueryOption {
 	return func(o *QueryOptions) error {
 		o.external = append(o.external, t...)
 		return nil
