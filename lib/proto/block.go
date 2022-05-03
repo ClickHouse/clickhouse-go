@@ -138,10 +138,10 @@ func (b *Block) Decode(decoder *binary.Decoder, revision uint64) (err error) {
 	if numRows, err = decoder.Uvarint(); err != nil {
 		return err
 	}
-	if numRows > 1_000_000 {
+	if numRows > 1_000_000_000 {
 		return &BlockError{
 			Op:  "Decode",
-			Err: errors.New("more then 1 000 000 rows in block"),
+			Err: errors.New("more then 1 billion rows in block"),
 		}
 	}
 	b.Columns = make([]column.Interface, 0, numCols)
