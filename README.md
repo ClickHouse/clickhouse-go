@@ -2,6 +2,14 @@
 
 Golang SQL database driver for [ClickHouse](https://clickhouse.com/).
 
+## Versions
+
+There are two version of this driver, v1 and v2, available as separate branches. 
+
+**v1 is now in a state of a maintenance - we will only accept PRs for bug and security fixes.**
+
+Users should use v2 which is production ready and [significantly faster than v1](#benchmark).
+
 ## Key features
 
 * Uses native ClickHouse TCP client-server protocol
