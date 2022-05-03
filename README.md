@@ -125,6 +125,25 @@ go get -u github.com/ClickHouse/clickhouse-go/v2
 * [bind params](examples/std/bind/main.go)
 
 
+#### A Note on TLS/SSL
+
+At a low level all driver connect methods (DSN/OpenDB/Open) will use the [Go tls package](https://pkg.go.dev/crypto/tls) to establish a secure connection. The driver knows to use TLS if the Options struct contains a non-nil tls.Config pointer.
+
+Setting secure in the DSN creates a minimal tls.Config struct with only the InsecureSkipVerify field set (either true or false).  It is equivalent to this code:
+
+```go
+conn := clickhouse.OpenDB(&clickhouse.Options{
+	...
+    TLS: &tls.Config{
+            InsecureSkipVerify: false
+	}
+	...
+    })
+```
+This minimal tls.Config is normally all that is necessary to connect to the secure native port (normally 9440) on a ClickHouse server. If the ClickHouse server does not have a valid certificate (expired, wrong host name, not signed by a publicly recognized root Certificate Authority), InsecureSkipVerify can be to `true`, but that is strongly discouraged.
+
+If additional TLS parameters are necessary the application code should set the desired fields in the tls.Config struct. That can include specific cipher suites, forcing a particular TLS version (like 1.2 or 1.3), adding an internal CA certificate chain, adding a client certificate (and private key) if required by the ClickHouse server, and most of the other options that come with a more specialized security setup.
+
 ## Alternatives
 
 * Database drivers
