@@ -26,12 +26,12 @@ import (
 )
 
 const ddl = `
-CREATE TEMPORARY TABLE example (
+CREATE TABLE example (
 	  Col1 UInt64
 	, Col2 String
 	, Col3 Array(UInt8)
 	, Col4 DateTime
-)
+) Engine = Memory
 `
 
 type row struct {
@@ -78,6 +78,9 @@ func main() {
 		})
 	)
 	if err != nil {
+		log.Fatal(err)
+	}
+	if err := conn.Exec(ctx, `DROP TABLE IF EXISTS example`); err != nil {
 		log.Fatal(err)
 	}
 	if err := conn.Exec(ctx, ddl); err != nil {

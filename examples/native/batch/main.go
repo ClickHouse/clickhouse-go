@@ -60,7 +60,7 @@ func example() error {
 			, Col6 Array(String)
 			, Col7 Tuple(String, UInt8, Array(Map(String, String)))
 			, Col8 DateTime
-		) Engine = Null
+		) Engine = Memory
 	`)
 	if err != nil {
 		return err
