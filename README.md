@@ -2,6 +2,8 @@
 
 Golang SQL database driver for [Yandex ClickHouse](https://clickhouse.yandex/)
 
+**This version of the driver is deprecated and will only receive bug fixes and security patches moving forward. Use [v2](https://github.com/ClickHouse/clickhouse-go/tree/v2)**
+
 ## Key features
 
 * Uses native ClickHouse TCP client-server protocol
