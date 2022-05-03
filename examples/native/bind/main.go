@@ -41,12 +41,16 @@ func example() error {
 	if err != nil {
 		return err
 	}
+
+	if err := conn.Exec(ctx, `DROP TABLE IF EXISTS example`); err != nil {
+		return err
+	}
 	const ddl = `
-	CREATE TEMPORARY TABLE example (
+	CREATE TABLE example (
 		  Col1 UInt8
 		, Col2 String
 		, Col3 DateTime
-	)
+	) ENGINE = Memory
 	`
 	if err := conn.Exec(ctx, ddl); err != nil {
 		return err

@@ -32,12 +32,15 @@ func example() error {
 		return err
 	}
 	const ddl = `
-	CREATE TEMPORARY TABLE example (
+	CREATE TABLE example (
 		  Col1 UInt8
 		, Col2 String
 		, Col3 DateTime
-	)
+	) ENGINE = Memory
 	`
+	if _, err := conn.Exec(`DROP TABLE IF EXISTS example`); err != nil {
+		return err
+	}
 	if _, err := conn.Exec(ddl); err != nil {
 		return err
 	}
