@@ -20,17 +20,15 @@ package clickhouse
 import (
 	"fmt"
 	"reflect"
+	"sync"
 )
 
 type structMap struct {
-	cache map[reflect.Type]map[string][]int
+	cache sync.Map
 }
 
 func (m *structMap) Map(op string, columns []string, s interface{}, ptr bool) ([]interface{}, error) {
-	var (
-		v = reflect.ValueOf(s)
-		t = reflect.TypeOf(s)
-	)
+	v := reflect.ValueOf(s)
 	if v.Kind() != reflect.Ptr {
 		return nil, &OpError{
 			Op:  op,
@@ -43,6 +41,7 @@ func (m *structMap) Map(op string, columns []string, s interface{}, ptr bool) ([
 			Err: fmt.Errorf("nil pointer passed to %s destination", op),
 		}
 	}
+	t := reflect.TypeOf(s)
 	if v = reflect.Indirect(v); t.Kind() == reflect.Ptr {
 		t = t.Elem()
 	}
@@ -52,17 +51,18 @@ func (m *structMap) Map(op string, columns []string, s interface{}, ptr bool) ([
 			Err: fmt.Errorf("%s expects a struct dest", op),
 		}
 	}
+
 	var (
 		index  map[string][]int
 		values = make([]interface{}, 0, len(columns))
 	)
 
-	switch idx, found := m.cache[t]; {
+	switch idx, found := m.cache.Load(t); {
 	case found:
-		index = idx
+		index = idx.(map[string][]int)
 	default:
 		index = structIdx(t)
-		m.cache[t] = index
+		m.cache.Store(t, index)
 	}
 	for _, name := range columns {
 		idx, found := index[name]
