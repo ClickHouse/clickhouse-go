@@ -68,7 +68,7 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 			encoder:     binary.NewEncoder(stream),
 			decoder:     binary.NewDecoder(stream),
 			revision:    proto.ClientTCPProtocolVersion,
-			structMap:   structMap{},
+			structMap:   &structMap{},
 			compression: compression,
 			connectedAt: time.Now(),
 		}
@@ -91,7 +91,7 @@ type connect struct {
 	decoder     *binary.Decoder
 	released    bool
 	revision    uint64
-	structMap   structMap
+	structMap   *structMap
 	compression bool
 	//lastUsedIn  time.Time
 	connectedAt time.Time

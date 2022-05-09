@@ -32,7 +32,7 @@ type rows struct {
 	errors    chan error
 	stream    chan *proto.Block
 	columns   []string
-	structMap structMap
+	structMap *structMap
 }
 
 func (r *rows) Next() (result bool) {
@@ -117,7 +117,6 @@ func (r *rows) Close() error {
 			}
 		}
 	}
-	return r.err
 }
 
 func (r *rows) Err() error {
