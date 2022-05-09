@@ -35,6 +35,7 @@ const (
 	keyUInt32 = 2
 	keyUInt64 = 3
 )
+
 const (
 	/// Need to read dictionary if it wasn't.
 	needGlobalDictionaryBit = 1 << 8
@@ -201,22 +202,23 @@ func (col *LowCardinality) Encode(encoder *binary.Encoder) error {
 	defer func() {
 		col.append.keys, col.append.index = nil, nil
 	}()
+	ixLen := uint64(len(col.append.index))
 	switch {
-	case len(col.append.index) < math.MaxUint8:
+	case ixLen < math.MaxUint8:
 		col.key = keyUInt8
 		for _, v := range col.append.keys {
 			if err := col.keys8.AppendRow(uint8(v)); err != nil {
 				return err
 			}
 		}
-	case len(col.append.index) < math.MaxUint16:
+	case ixLen < math.MaxUint16:
 		col.key = keyUInt16
 		for _, v := range col.append.keys {
 			if err := col.keys16.AppendRow(uint16(v)); err != nil {
 				return err
 			}
 		}
-	case len(col.append.index) < math.MaxUint32:
+	case ixLen < math.MaxUint32:
 		col.key = keyUInt32
 		for _, v := range col.append.keys {
 			if err := col.keys32.AppendRow(uint32(v)); err != nil {
