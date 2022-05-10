@@ -59,6 +59,11 @@ func (t Type) Column() (Interface, error) {
 			size:   16,
 			chType: t,
 		}, nil
+	case "UInt128":
+		return &BigInt{
+			size:   16,
+			chType: t,
+		}, nil
 	case "Int256":
 		return &BigInt{
 			size:   32,
