@@ -50,11 +50,12 @@ func TestBigInt(t *testing.T) {
 		const ddl = `
 		CREATE TABLE test_bigint (
 			  Col1 Int128
-			, Col2 Array(Int128)
-			, Col3 Int256
-			, Col4 Array(Int256)
-			, Col5 UInt256
-			, Col6 Array(UInt256)
+			, Col2 UInt128
+			, Col3 Array(Int128)
+			, Col4 Int256
+			, Col5 Array(Int256)
+			, Col6 UInt256
+			, Col7 Array(UInt256)
 		) Engine Memory
 		`
 		defer func() {
@@ -64,41 +65,44 @@ func TestBigInt(t *testing.T) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_bigint"); assert.NoError(t, err) {
 				var (
 					col1Data = big.NewInt(128)
-					col2Data = []*big.Int{
+					col2Data = big.NewInt(128)
+					col3Data = []*big.Int{
 						big.NewInt(-128),
 						big.NewInt(128128),
 						big.NewInt(128128128),
 					}
-					col3Data = big.NewInt(256)
-					col4Data = []*big.Int{
+					col4Data = big.NewInt(256)
+					col5Data = []*big.Int{
 						big.NewInt(256),
 						big.NewInt(256256),
 						big.NewInt(256256256256),
 					}
-					col5Data = big.NewInt(256)
-					col6Data = []*big.Int{
+					col6Data = big.NewInt(256)
+					col7Data = []*big.Int{
 						big.NewInt(256),
 						big.NewInt(256256),
 						big.NewInt(256256256256),
 					}
 				)
-				if err := batch.Append(col1Data, col2Data, col3Data, col4Data, col5Data, col6Data); assert.NoError(t, err) {
+				if err := batch.Append(col1Data, col2Data, col3Data, col4Data, col5Data, col6Data, col7Data); assert.NoError(t, err) {
 					if err := batch.Send(); assert.NoError(t, err) {
 						var (
 							col1 big.Int
-							col2 []*big.Int
-							col3 big.Int
-							col4 []*big.Int
-							col5 big.Int
-							col6 []*big.Int
+							col2 big.Int
+							col3 []*big.Int
+							col4 big.Int
+							col5 []*big.Int
+							col6 big.Int
+							col7 []*big.Int
 						)
-						if err := conn.QueryRow(ctx, "SELECT * FROM test_bigint").Scan(&col1, &col2, &col3, &col4, &col5, &col6); assert.NoError(t, err) {
+						if err := conn.QueryRow(ctx, "SELECT * FROM test_bigint").Scan(&col1, &col2, &col3, &col4, &col5, &col6, &col7); assert.NoError(t, err) {
 							assert.Equal(t, *col1Data, col1)
-							assert.Equal(t, col2Data, col2)
-							assert.Equal(t, *col3Data, col3)
-							assert.Equal(t, col4Data, col4)
-							assert.Equal(t, *col5Data, col5)
-							assert.Equal(t, col6Data, col6)
+							assert.Equal(t, *col2Data, col2)
+							assert.Equal(t, col3Data, col3)
+							assert.Equal(t, *col4Data, col4)
+							assert.Equal(t, col5Data, col5)
+							assert.Equal(t, *col6Data, col6)
+							assert.Equal(t, col7Data, col7)
 						}
 					}
 				}
