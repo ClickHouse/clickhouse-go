@@ -136,6 +136,16 @@ func (dt *DateTime64) Append(v interface{}) (nulls []uint8, err error) {
 				dt.values, nulls[i] = append(dt.values, 0), 1
 			}
 		}
+	case []string:
+		in := make([]int64, 0, len(v))
+		for _, t := range v {
+			value, err := dt.parseString(t)
+			if err != nil {
+				return nil, err
+			}
+			in = append(in, value)
+		}
+		dt.values, nulls = append(dt.values, in...), make([]uint8, len(v))
 	default:
 		return nil, &ColumnConverterError{
 			Op:   "Append",
@@ -166,6 +176,12 @@ func (dt *DateTime64) AppendRow(v interface{}) error {
 				return err
 			}
 			datetime = dt.timeToInt64(*v)
+		}
+	case string:
+		var err error
+		datetime, err = dt.parseString(v)
+		if err != nil {
+			return err
 		}
 	case nil:
 	default:
@@ -209,6 +225,16 @@ func (dt *DateTime64) timeToInt64(t time.Time) int64 {
 		timestamp = t.UnixNano()
 	}
 	return timestamp / int64(math.Pow10(9-dt.precision))
+}
+
+func (dt *DateTime64) parseString(value string) (int64, error) {
+	tv, err := time.Parse("2006-01-02 15:04:05.999", value)
+	if err != nil {
+		return 0, err
+	}
+	// scale to the appropriate units based on the precision
+	val := tv.UnixMilli() * int64(math.Pow10(dt.precision-3))
+	return val, nil
 }
 
 var _ Interface = (*DateTime64)(nil)
