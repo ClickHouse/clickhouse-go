@@ -52,7 +52,11 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 		return nil, err
 	}
 	if opt.Debug {
-		debugf = log.New(os.Stdout, fmt.Sprintf("[clickhouse][conn=%d][%s]", num, conn.RemoteAddr()), 0).Printf
+		if opt.Debugf != nil {
+			debugf = opt.Debugf
+		} else {
+			debugf = log.New(os.Stdout, fmt.Sprintf("[clickhouse][conn=%d][%s]", num, conn.RemoteAddr()), 0).Printf
+		}
 	}
 	var compression bool
 	if opt.Compression != nil {
@@ -93,7 +97,7 @@ type connect struct {
 	revision    uint64
 	structMap   *structMap
 	compression bool
-	//lastUsedIn  time.Time
+	// lastUsedIn  time.Time
 	connectedAt time.Time
 }
 
