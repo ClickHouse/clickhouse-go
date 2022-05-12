@@ -36,7 +36,7 @@ func Named(name string, value interface{}) driver.NamedValue {
 }
 
 var bindNumericRe = regexp.MustCompile(`\$[0-9]+`)
-var bindPositionalRe = regexp.MustCompile(`[?]`)
+var bindPositionalRe = regexp.MustCompile(`[^\\][?]`)
 
 func bind(tz *time.Location, query string, args ...interface{}) (string, error) {
 	if len(args) == 0 {
@@ -71,6 +71,8 @@ func bind(tz *time.Location, query string, args ...interface{}) (string, error) 
 	return bindPositional(tz, query, args...)
 }
 
+var bindPositionCharRe = regexp.MustCompile(`[?]`)
+
 func bindPositional(tz *time.Location, query string, args ...interface{}) (_ string, err error) {
 	var (
 		unbind = make(map[int]struct{})
@@ -92,12 +94,15 @@ func bindPositional(tz *time.Location, query string, args ...interface{}) (_ str
 		}
 		val := params[i]
 		i++
-		return val
+		return bindPositionCharRe.ReplaceAllStringFunc(n, func(m string) string {
+			return val
+		})
 	})
 	for param := range unbind {
 		return "", fmt.Errorf("have no arg for param ? at position %d", param)
 	}
-	return query, nil
+	// replace \? escape sequence
+	return strings.ReplaceAll(query, "\\?", "?"), nil
 }
 
 func bindNumeric(tz *time.Location, query string, args ...interface{}) (_ string, err error) {

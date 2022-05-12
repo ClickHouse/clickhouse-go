@@ -150,6 +150,16 @@ func TestBindPositional(t *testing.T) {
 				params:   []interface{}{"a", "b", "c"},
 				expected: "SELECT 'a' 'b' 'c'",
 			},
+			{
+				query:    "SELECT ? ? '\\?'",
+				params:   []interface{}{"a", "b"},
+				expected: "SELECT 'a' 'b' '?'",
+			},
+			{
+				query:    "SELECT x where col = 'blah\\?' AND col2 = ?",
+				params:   []interface{}{"a"},
+				expected: "SELECT x where col = 'blah?' AND col2 = 'a'",
+			},
 		}
 
 		for _, asset := range assets {
