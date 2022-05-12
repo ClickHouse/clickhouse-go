@@ -120,6 +120,56 @@ func TestBindNamed(t *testing.T) {
 	}
 }
 
+func TestBindPositional(t *testing.T) {
+	_, err := bind(time.Local, `
+	SELECT * FROM t WHERE col = ?
+		AND col2 = ?
+		AND col3 = ?
+		ANS col4 = ?
+		AND null_coll = ?
+	)
+	`, 1, 2, 1, "I'm a string param", nil)
+	if assert.NoError(t, err) {
+		assets := []struct {
+			query    string
+			params   []interface{}
+			expected string
+		}{
+			{
+				query:    "SELECT ?",
+				params:   []interface{}{1},
+				expected: "SELECT 1",
+			},
+			{
+				query:    "SELECT ? ? ?",
+				params:   []interface{}{1, 2, 3},
+				expected: "SELECT 1 2 3",
+			},
+			{
+				query:    "SELECT ? ? ?",
+				params:   []interface{}{"a", "b", "c"},
+				expected: "SELECT 'a' 'b' 'c'",
+			},
+		}
+
+		for _, asset := range assets {
+			if actual, err := bind(time.Local, asset.query, asset.params...); assert.NoError(t, err) {
+				assert.Equal(t, asset.expected, actual)
+			}
+		}
+	}
+
+	_, err = bind(time.Local, `
+	SELECT * FROM t WHERE col = ?
+		AND col2 = ?
+		AND col3 = ?
+		ANS col4 = ?
+		AND null_coll = ?
+	)
+	`, 1, 2, "I'm a string param", nil)
+	assert.Error(t, err)
+}
+
 func TestFormatTime(t *testing.T) {
 	var (
 		t1, _   = time.Parse("2006-01-02 15:04:05", "2022-01-12 15:00:00")
@@ -164,6 +214,23 @@ func BenchmarkBindNumeric(b *testing.B) {
 			AND null_coll = $4
 		)
 		`, 1, 2, "I'm a string param", nil)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkBindPositional(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		_, err := bind(time.Local, `
+		SELECT * FROM t WHERE col = ?
+			AND col2 = ?
+			AND col3 = ?
+			ANS col4 = ?
+			AND null_coll = ?
+		)
+		`, 1, 2, 1, "I'm a string param", nil)
 		if err != nil {
 			b.Fatal(err)
 		}
