@@ -136,7 +136,6 @@ func (o *Options) fromDSN(in string) error {
 			InsecureSkipVerify: skipVerify,
 		}
 	}
-	o.setDefaults()
 	return nil
 }
 
