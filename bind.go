@@ -35,32 +35,75 @@ func Named(name string, value interface{}) driver.NamedValue {
 	}
 }
 
+var bindNumericRe = regexp.MustCompile(`\$[0-9]+`)
+var bindPositionalRe = regexp.MustCompile(`[^\\][?]`)
+
 func bind(tz *time.Location, query string, args ...interface{}) (string, error) {
 	if len(args) == 0 {
 		return query, nil
 	}
 	var (
-		haveNamed   bool
-		haveNumeric bool
+		haveNamed      bool
+		haveNumeric    bool
+		havePositional bool
 	)
+	haveNumeric = bindNumericRe.MatchString(query)
+	havePositional = bindPositionalRe.MatchString(query)
+	if haveNumeric && havePositional {
+		return "", ErrBindMixedParamsFormats
+	}
 	for _, v := range args {
 		switch v.(type) {
 		case driver.NamedValue:
 			haveNamed = true
 		default:
-			haveNumeric = true
 		}
-		if haveNamed && haveNumeric {
-			return "", ErrBindMixedNamedAndNumericParams
+		if haveNamed && (haveNumeric || havePositional) {
+			return "", ErrBindMixedParamsFormats
 		}
 	}
 	if haveNamed {
 		return bindNamed(tz, query, args...)
 	}
-	return bindNumeric(tz, query, args...)
+	if haveNumeric {
+		return bindNumeric(tz, query, args...)
+	}
+	return bindPositional(tz, query, args...)
 }
 
-var bindNumericRe = regexp.MustCompile(`\$[0-9]+`)
+var bindPositionCharRe = regexp.MustCompile(`[?]`)
+
+func bindPositional(tz *time.Location, query string, args ...interface{}) (_ string, err error) {
+	var (
+		unbind = make(map[int]struct{})
+		params = make([]string, len(args))
+	)
+	for i, v := range args {
+		if fn, ok := v.(std_driver.Valuer); ok {
+			if v, err = fn.Value(); err != nil {
+				return "", nil
+			}
+		}
+		params[i] = format(tz, v)
+	}
+	i := 0
+	query = bindPositionalRe.ReplaceAllStringFunc(query, func(n string) string {
+		if i >= len(params) {
+			unbind[i] = struct{}{}
+			return ""
+		}
+		val := params[i]
+		i++
+		return bindPositionCharRe.ReplaceAllStringFunc(n, func(m string) string {
+			return val
+		})
+	})
+	for param := range unbind {
+		return "", fmt.Errorf("have no arg for param ? at position %d", param)
+	}
+	// replace \? escape sequence
+	return strings.ReplaceAll(query, "\\?", "?"), nil
+}
 
 func bindNumeric(tz *time.Location, query string, args ...interface{}) (_ string, err error) {
 	var (
