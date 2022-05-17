@@ -146,5 +146,5 @@ func formatTime(v time.Time) string {
 	case "Local":
 		return fmt.Sprintf("toDateTime(%d)", v.Unix())
 	}
-	return v.Format("toDateTime('2006-01-02 15:04:05', '" + v.Location().String() + "')")
+	return fmt.Sprintf("toDateTime('%s', '%s')", v.Format("2006-01-02 15:04:05"), v.Location().String())
 }
