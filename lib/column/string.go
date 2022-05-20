@@ -18,6 +18,7 @@
 package column
 
 import (
+	"encoding"
 	"fmt"
 	"reflect"
 
@@ -54,6 +55,8 @@ func (col *String) ScanRow(dest interface{}, row int) error {
 	case **string:
 		*d = new(string)
 		**d = v[row]
+	case encoding.BinaryUnmarshaler:
+		return d.UnmarshalBinary(binary.Str2Bytes(v[row]))
 	default:
 		return &ColumnConverterError{
 			Op:   "ScanRow",
