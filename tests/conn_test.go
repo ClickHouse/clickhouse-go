@@ -93,6 +93,31 @@ func TestConnFailover(t *testing.T) {
 		}
 	}
 }
+func TestConnFailoverConnOpenRoundRobin(t *testing.T) {
+	conn, err := clickhouse.Open(&clickhouse.Options{
+		Addr: []string{
+			"127.0.0.1:9001",
+			"127.0.0.1:9002",
+			"127.0.0.1:9000",
+		},
+		Auth: clickhouse.Auth{
+			Database: "default",
+			Username: "default",
+			Password: "",
+		},
+		Compression: &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		},
+		ConnOpenStrategy: clickhouse.ConnOpenRoundRobin,
+		//	Debug: true,
+	})
+	if assert.NoError(t, err) {
+		if err := conn.Ping(context.Background()); assert.NoError(t, err) {
+			t.Log(conn.ServerVersion())
+			t.Log(conn.Ping(context.Background()))
+		}
+	}
+}
 func TestPingDeadline(t *testing.T) {
 	conn, err := clickhouse.Open(&clickhouse.Options{
 		Addr: []string{"127.0.0.1:9000"},
