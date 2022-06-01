@@ -146,10 +146,10 @@ If additional TLS parameters are necessary the application code should set the d
 
 ## Third-party alternatives
 
-* Database drivers
+* Database drivers:
 	* [mailru/go-clickhouse](https://github.com/mailru/go-clickhouse) (uses the HTTP protocol)
 	* [uptrace/go-clickhouse](https://github.com/uptrace/go-clickhouse) (uses the native TCP protocol with `database/sql`-like API)
-	* drivers with columnar interface :
+	* Drivers with columnar interface:
 		* [vahid-sohrabloo/chconn](https://github.com/vahid-sohrabloo/chconn)
 		* [go-faster/ch](https://github.com/go-faster/ch)
 
