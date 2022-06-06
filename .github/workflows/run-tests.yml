@@ -22,15 +22,15 @@ jobs:
           - 1.17
           - 1.18
         clickhouse:
-          - 19.11
-          - 20.1
-          - 21.11
-          - 22.1
+          - 21.8
+          - 22.3
+          - 22.4
+          - 22.5
           - latest
 
     services:
       clickhouse:
-        image: yandex/clickhouse-server:${{ matrix.clickhouse }}
+        image: clickhouse/clickhouse-server:${{ matrix.clickhouse }}
         ports:
           - 9000:9000
         options: --ulimit nofile=262144:262144
