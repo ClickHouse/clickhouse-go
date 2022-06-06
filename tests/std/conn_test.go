@@ -45,6 +45,13 @@ func TestStdConnFailover(t *testing.T) {
 		}
 	}
 }
+func TestStdConnFailoverConnOpenRoundRobin(t *testing.T) {
+	if conn, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9001,127.0.0.1:9002,127.0.0.1:9003,127.0.0.1:9004,127.0.0.1:9005,127.0.0.1:9006,127.0.0.1:9000/?connection_open_strategy=round_robin"); assert.NoError(t, err) {
+		if err := conn.PingContext(context.Background()); assert.NoError(t, err) {
+			t.Log(conn.PingContext(context.Background()))
+		}
+	}
+}
 func TestStdPingDeadline(t *testing.T) {
 	if conn, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000"); assert.NoError(t, err) {
 		ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))

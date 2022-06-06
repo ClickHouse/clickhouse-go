@@ -187,9 +187,13 @@ func (ch *clickhouse) Stats() driver.Stats {
 
 func (ch *clickhouse) dial(ctx context.Context) (conn *connect, err error) {
 	connID := int(atomic.AddInt64(&ch.connID, 1))
-	for num := range ch.opt.Addr {
-		if ch.opt.ConnOpenStrategy == ConnOpenRoundRobin {
-			num = int(connID) % len(ch.opt.Addr)
+	for i := range ch.opt.Addr {
+		var num int
+		switch ch.opt.ConnOpenStrategy {
+		case ConnOpenInOrder:
+			num = i
+		case ConnOpenRoundRobin:
+			num = (int(connID) + i) % len(ch.opt.Addr)
 		}
 		if conn, err = dial(ctx, ch.opt.Addr[num], connID, ch.opt); err == nil {
 			return conn, nil
