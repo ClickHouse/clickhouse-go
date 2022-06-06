@@ -1935,7 +1935,7 @@ func TestJSONNilMapFields(t *testing.T) {
 	event := make(map[string]interface{})
 	i := 0
 	for rows.Next() {
-		require.NoError(t, rows.Scan(event))
+		require.NoError(t, rows.Scan(&event))
 		if i == 0 {
 			// clickhouse fills in empty values and nil slices to []
 			require.JSONEq(t, `{"assignee":{"id":1233,"name":"Dale","organizations":[],"repositories":[]},"contributors":[{"Id":2244,"Name":"Dale","Repositories":[{"Releases":[{"Version":"2.0.0"},{"Version":"2.1.0"}],"url":"https://github.com/ClickHouse/clickhouse-go"},{"Releases":[],"url":"https://github.com/grafana/clickhouse"}],"orgs":["Support Engineer","Consulting","PM","Integrations"]}],"labels":[],"title":"Document JSON support","type":"Issue"}`, toJson(event))
@@ -2251,4 +2251,22 @@ func TestMixedBatch(t *testing.T) {
 		"title": "doc 0",
 	}))
 	require.Error(t, batch.Append(`{"id": 1, "title": "doc_1"}`))
+}
+
+func TestQueryMapByReference(t *testing.T) {
+	conn, teardown := setupTest(t)
+	defer teardown(t)
+	ctx := context.Background()
+	batch := prepareBatch(t, conn, ctx)
+	row1 := Repository{URL: "https://github.com/ClickHouse/clickhouse-python", Releases: []Releases{{Version: "1.0.0"}, {Version: "1.1.0"}}}
+	require.NoError(t, batch.Append(row1))
+	require.NoError(t, batch.Send())
+	var event map[string]interface{}
+	//if passing an uninitialized map, ensure it is passed by pointer
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event))
+	require.JSONEq(t, toJson(row1), toJson(event))
+	// an init map can be passed by ref or by value
+	event = make(map[string]interface{})
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event))
+	require.JSONEq(t, toJson(row1), toJson(event))
 }

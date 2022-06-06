@@ -395,7 +395,18 @@ func (col *Tuple) ScanRow(dest interface{}, row int) error {
 			jType.Set(rStruct)
 			return nil
 		} else if kind == reflect.Map {
-			return col.scanJSONMap(reflect.ValueOf(dest), row)
+			//check if pointer
+			mapVal := reflect.Indirect(reflect.ValueOf(dest))
+			if mapVal.IsNil() {
+				//if not initialized
+				newMap := reflect.MakeMap(mapVal.Type())
+				if err := col.scanJSONMap(newMap, row); err != nil {
+					return err
+				}
+				mapVal.Set(newMap)
+				return nil
+			}
+			return col.scanJSONMap(mapVal, row)
 		}
 		return &ColumnConverterError{
 			Op:   "ScanRow",
