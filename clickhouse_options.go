@@ -63,6 +63,7 @@ type Options struct {
 	Auth             Auth
 	DialContext      func(ctx context.Context, addr string) (net.Conn, error)
 	Debug            bool
+	Debugf           func(format string, v ...interface{}) // only works when Debug is true
 	Settings         Settings
 	Compression      *Compression
 	DialTimeout      time.Duration // default 1 second
@@ -136,7 +137,6 @@ func (o *Options) fromDSN(in string) error {
 			InsecureSkipVerify: skipVerify,
 		}
 	}
-	o.setDefaults()
 	return nil
 }
 

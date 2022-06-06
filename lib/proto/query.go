@@ -18,6 +18,7 @@
 package proto
 
 import (
+	stdbin "encoding/binary"
 	"fmt"
 	"os"
 
@@ -65,6 +66,13 @@ func (q *Query) Encode(encoder *binary.Encoder, revision uint64) error {
 	return encoder.String(q.Body)
 }
 
+func swap64(b []byte) {
+	for i := 0; i < len(b); i += 8 {
+		u := stdbin.BigEndian.Uint64(b[i:])
+		stdbin.LittleEndian.PutUint64(b[i:], u)
+	}
+}
+
 func (q *Query) encodeClientInfo(encoder *binary.Encoder, revision uint64) error {
 	encoder.Byte(ClientQueryInitial)
 	encoder.String(q.InitialUser)    // initial_user
@@ -97,10 +105,12 @@ func (q *Query) encodeClientInfo(encoder *binary.Encoder, revision uint64) error
 			encoder.Byte(1)
 			{
 				v := q.Span.TraceID()
+				swap64(v[:]) // https://github.com/ClickHouse/ClickHouse/issues/34369
 				encoder.Raw(v[:])
 			}
 			{
 				v := q.Span.SpanID()
+				swap64(v[:]) // https://github.com/ClickHouse/ClickHouse/issues/34369
 				encoder.Raw(v[:])
 			}
 			encoder.String(q.Span.TraceState().String())

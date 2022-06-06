@@ -18,6 +18,7 @@
 package column
 
 import (
+	"encoding"
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
 	"reflect"
@@ -60,6 +61,8 @@ func (col *String) ScanRow(dest interface{}, row int) error {
 	case **string:
 		*d = new(string)
 		**d = v.data[row]
+	case encoding.BinaryUnmarshaler:
+		return d.UnmarshalBinary(binary.Str2Bytes(v.data[row]))
 	default:
 		return &ColumnConverterError{
 			Op:   "ScanRow",

@@ -143,7 +143,11 @@ func (ch *clickhouse) PrepareBatch(ctx context.Context, query string) (driver.Ba
 	if err != nil {
 		return nil, err
 	}
-	return conn.prepareBatch(ctx, query, ch.release)
+	batch, err := conn.prepareBatch(ctx, query, ch.release)
+	if err != nil {
+		return nil, err
+	}
+	return batch, nil
 }
 
 func (ch *clickhouse) AsyncInsert(ctx context.Context, query string, wait bool) error {

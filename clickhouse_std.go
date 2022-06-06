@@ -99,6 +99,7 @@ func (d *stdDriver) Open(dsn string) (_ driver.Conn, err error) {
 	if err := opt.fromDSN(dsn); err != nil {
 		return nil, err
 	}
+	opt.setDefaults()
 	return (&stdConnOpener{opt: &opt}).Connect(context.Background())
 }
 

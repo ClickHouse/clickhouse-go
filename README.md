@@ -144,20 +144,15 @@ This minimal tls.Config is normally all that is necessary to connect to the secu
 
 If additional TLS parameters are necessary the application code should set the desired fields in the tls.Config struct. That can include specific cipher suites, forcing a particular TLS version (like 1.2 or 1.3), adding an internal CA certificate chain, adding a client certificate (and private key) if required by the ClickHouse server, and most of the other options that come with a more specialized security setup.
 
-## Alternatives
+## Third-party alternatives
 
-* Database drivers
+* Database drivers:
 	* [mailru/go-clickhouse](https://github.com/mailru/go-clickhouse) (uses the HTTP protocol)
 	* [uptrace/go-clickhouse](https://github.com/uptrace/go-clickhouse) (uses the native TCP protocol with `database/sql`-like API)
-	* drivers with columnar interface :
+	* Drivers with columnar interface:
 		* [vahid-sohrabloo/chconn](https://github.com/vahid-sohrabloo/chconn)
 		* [go-faster/ch](https://github.com/go-faster/ch)
 
 * Insert collectors:
 	* [KittenHouse](https://github.com/YuriyNasretdinov/kittenhouse)
 	* [nikepan/clickhouse-bulk](https://github.com/nikepan/clickhouse-bulk)
-
-### Useful projects
-
-* [clickhouse-backup](https://github.com/AlexAkulov/clickhouse-backup)
-* [go-graphite](https://github.com/go-graphite)
