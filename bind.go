@@ -217,7 +217,7 @@ func format(tz *time.Location, v interface{}) (string, error) {
 	switch v := reflect.ValueOf(v); v.Kind() {
 	case reflect.String:
 		return quote(v.String()), nil
-	case reflect.Slice: // array
+	case reflect.Slice:
 		values := make([]string, 0, v.Len())
 		for i := 0; i < v.Len(); i++ {
 			val, err := format(tz, v.Index(i).Interface())
@@ -226,7 +226,7 @@ func format(tz *time.Location, v interface{}) (string, error) {
 			}
 			values = append(values, val)
 		}
-		return "[" + strings.Join(values, ", ") + "]", nil
+		return strings.Join(values, ", "), nil
 	case reflect.Map: // map
 		values := make([]string, 0, len(v.MapKeys()))
 		for _, key := range v.MapKeys() {
@@ -234,6 +234,10 @@ func format(tz *time.Location, v interface{}) (string, error) {
 			val, err := format(tz, v.MapIndex(key).Interface())
 			if err != nil {
 				return "", err
+			}
+			if v.MapIndex(key).Kind() == reflect.Slice {
+				// assume slices in maps are arrays
+				val = fmt.Sprintf("[%s]", val)
 			}
 			values = append(values, fmt.Sprintf("'%s': %s", name, val))
 		}
