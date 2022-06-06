@@ -230,7 +230,10 @@ func format(tz *time.Location, v interface{}) (string, error) {
 	case reflect.Map: // map
 		values := make([]string, 0, len(v.MapKeys()))
 		for _, key := range v.MapKeys() {
-			name := key.Interface().(string)
+			name := fmt.Sprint(key.Interface())
+			if key.Kind() == reflect.String {
+				name = fmt.Sprintf("'%s'", name)
+			}
 			val, err := format(tz, v.MapIndex(key).Interface())
 			if err != nil {
 				return "", err
@@ -239,7 +242,7 @@ func format(tz *time.Location, v interface{}) (string, error) {
 				// assume slices in maps are arrays
 				val = fmt.Sprintf("[%s]", val)
 			}
-			values = append(values, fmt.Sprintf("'%s': %s", name, val))
+			values = append(values, fmt.Sprintf("%s: %s", name, val))
 		}
 		return "{" + strings.Join(values, ", ") + "}", nil
 
