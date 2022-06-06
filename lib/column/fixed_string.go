@@ -28,6 +28,11 @@ import (
 type FixedString struct {
 	data []byte
 	size int
+	name string
+}
+
+func (col *FixedString) Name() string {
+	return col.name
 }
 
 func (col *FixedString) parse(t Type) (*FixedString, error) {

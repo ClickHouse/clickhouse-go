@@ -29,6 +29,11 @@ type BigInt struct {
 	size   int
 	data   []byte
 	chType Type
+	name   string
+}
+
+func (col *BigInt) Name() string {
+	return col.name
 }
 
 func (col *BigInt) Type() Type {

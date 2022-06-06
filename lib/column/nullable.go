@@ -28,11 +28,16 @@ type Nullable struct {
 	nulls    UInt8
 	enable   bool
 	scanType reflect.Type
+	name     string
+}
+
+func (col *Nullable) Name() string {
+	return col.name
 }
 
 func (col *Nullable) parse(t Type) (_ *Nullable, err error) {
 	col.enable = true
-	if col.base, err = Type(t.params()).Column(); err != nil {
+	if col.base, err = Type(t.params()).Column(col.name); err != nil {
 		return nil, err
 	}
 	switch base := col.base.ScanType(); {
@@ -62,12 +67,12 @@ func (col *Nullable) Rows() int {
 	if !col.enable {
 		return col.base.Rows()
 	}
-	return len(col.nulls)
+	return len(col.nulls.data)
 }
 
 func (col *Nullable) Row(i int, ptr bool) interface{} {
 	if col.enable {
-		if col.nulls[i] == 1 {
+		if col.nulls.data[i] == 1 {
 			return nil
 		}
 	}
@@ -76,7 +81,7 @@ func (col *Nullable) Row(i int, ptr bool) interface{} {
 
 func (col *Nullable) ScanRow(dest interface{}, row int) error {
 	if col.enable {
-		if col.nulls[row] == 1 {
+		if col.nulls.data[row] == 1 {
 			return nil
 		}
 	}
@@ -88,15 +93,15 @@ func (col *Nullable) Append(v interface{}) ([]uint8, error) {
 	if err != nil {
 		return nil, err
 	}
-	col.nulls = append(col.nulls, nulls...)
+	col.nulls.data = append(col.nulls.data, nulls...)
 	return nulls, nil
 }
 
 func (col *Nullable) AppendRow(v interface{}) error {
 	if v == nil || (reflect.ValueOf(v).Kind() == reflect.Ptr && reflect.ValueOf(v).IsNil()) {
-		col.nulls = append(col.nulls, 1)
+		col.nulls.data = append(col.nulls.data, 1)
 	} else {
-		col.nulls = append(col.nulls, 0)
+		col.nulls.data = append(col.nulls.data, 0)
 	}
 	return col.base.AppendRow(v)
 }

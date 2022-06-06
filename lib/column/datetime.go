@@ -36,46 +36,51 @@ type DateTime struct {
 	chType   Type
 	values   UInt32
 	timezone *time.Location
+	name     string
 }
 
-func (dt *DateTime) parse(t Type) (_ *DateTime, err error) {
-	if dt.chType = t; dt.chType == "DateTime" {
-		return dt, nil
+func (col *DateTime) Name() string {
+	return col.name
+}
+
+func (col *DateTime) parse(t Type) (_ *DateTime, err error) {
+	if col.chType = t; col.chType == "DateTime" {
+		return col, nil
 	}
 	var name = strings.TrimSuffix(strings.TrimPrefix(string(t), "DateTime('"), "')")
-	if dt.timezone, err = timezone.Load(name); err != nil {
+	if col.timezone, err = timezone.Load(name); err != nil {
 		return nil, err
 	}
-	return dt, nil
+	return col, nil
 }
 
-func (dt *DateTime) Type() Type {
-	return dt.chType
+func (col *DateTime) Type() Type {
+	return col.chType
 }
 
 func (col *DateTime) ScanType() reflect.Type {
 	return scanTypeTime
 }
 
-func (dt *DateTime) Rows() int {
-	return len(dt.values)
+func (col *DateTime) Rows() int {
+	return len(col.values.data)
 }
 
-func (dt *DateTime) Row(i int, ptr bool) interface{} {
-	value := dt.row(i)
+func (col *DateTime) Row(i int, ptr bool) interface{} {
+	value := col.row(i)
 	if ptr {
 		return &value
 	}
 	return value
 }
 
-func (dt *DateTime) ScanRow(dest interface{}, row int) error {
+func (col *DateTime) ScanRow(dest interface{}, row int) error {
 	switch d := dest.(type) {
 	case *time.Time:
-		*d = dt.row(row)
+		*d = col.row(row)
 	case **time.Time:
 		*d = new(time.Time)
-		**d = dt.row(row)
+		**d = col.row(row)
 	default:
 		return &ColumnConverterError{
 			Op:   "ScanRow",
@@ -86,7 +91,7 @@ func (dt *DateTime) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (dt *DateTime) Append(v interface{}) (nulls []uint8, err error) {
+func (col *DateTime) Append(v interface{}) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []time.Time:
 		in := make([]uint32, 0, len(v))
@@ -96,7 +101,7 @@ func (dt *DateTime) Append(v interface{}) (nulls []uint8, err error) {
 			}
 			in = append(in, uint32(t.Unix()))
 		}
-		dt.values, nulls = append(dt.values, in...), make([]uint8, len(v))
+		col.values.data, nulls = append(col.values.data, in...), make([]uint8, len(v))
 	case []*time.Time:
 		nulls = make([]uint8, len(v))
 		for i, v := range v {
@@ -105,9 +110,9 @@ func (dt *DateTime) Append(v interface{}) (nulls []uint8, err error) {
 				if err := dateOverflow(minDateTime, maxDateTime, *v, "2006-01-02 15:04:05"); err != nil {
 					return nil, err
 				}
-				dt.values = append(dt.values, uint32(v.Unix()))
+				col.values.data = append(col.values.data, uint32(v.Unix()))
 			default:
-				dt.values, nulls[i] = append(dt.values, 0), 1
+				col.values.data, nulls[i] = append(col.values.data, 0), 1
 			}
 		}
 	default:
@@ -120,7 +125,7 @@ func (dt *DateTime) Append(v interface{}) (nulls []uint8, err error) {
 	return
 }
 
-func (dt *DateTime) AppendRow(v interface{}) error {
+func (col *DateTime) AppendRow(v interface{}) error {
 	var datetime uint32
 	switch v := v.(type) {
 	case time.Time:
@@ -143,22 +148,22 @@ func (dt *DateTime) AppendRow(v interface{}) error {
 			From: fmt.Sprintf("%T", v),
 		}
 	}
-	dt.values = append(dt.values, datetime)
+	col.values.data = append(col.values.data, datetime)
 	return nil
 }
 
-func (dt *DateTime) Decode(decoder *binary.Decoder, rows int) error {
-	return dt.values.Decode(decoder, rows)
+func (col *DateTime) Decode(decoder *binary.Decoder, rows int) error {
+	return col.values.Decode(decoder, rows)
 }
 
-func (dt *DateTime) Encode(encoder *binary.Encoder) error {
-	return dt.values.Encode(encoder)
+func (col *DateTime) Encode(encoder *binary.Encoder) error {
+	return col.values.Encode(encoder)
 }
 
-func (dt *DateTime) row(i int) time.Time {
-	v := time.Unix(int64(dt.values[i]), 0)
-	if dt.timezone != nil {
-		v = v.In(dt.timezone)
+func (col *DateTime) row(i int) time.Time {
+	v := time.Unix(int64(col.values.data[i]), 0)
+	if col.timezone != nil {
+		v = v.In(col.timezone)
 	}
 	return v
 }

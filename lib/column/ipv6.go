@@ -27,6 +27,11 @@ import (
 
 type IPv6 struct {
 	data []byte
+	name string
+}
+
+func (col *IPv6) Name() string {
+	return col.name
 }
 
 func (col *IPv6) Type() Type {

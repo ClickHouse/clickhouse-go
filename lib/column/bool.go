@@ -26,6 +26,11 @@ import (
 
 type Bool struct {
 	values UInt8
+	name   string
+}
+
+func (col *Bool) Name() string {
+	return col.name
 }
 
 func (col *Bool) Type() Type {
@@ -37,7 +42,7 @@ func (col *Bool) ScanType() reflect.Type {
 }
 
 func (col *Bool) Rows() int {
-	return len(col.values)
+	return len(col.values.data)
 }
 
 func (col *Bool) Row(i int, ptr bool) interface{} {
@@ -77,7 +82,7 @@ func (col *Bool) Append(v interface{}) (nulls []uint8, err error) {
 				in = append(in, 0)
 			}
 		}
-		col.values, nulls = append(col.values, in...), make([]uint8, len(v))
+		col.values.data, nulls = append(col.values.data, in...), make([]uint8, len(v))
 	case []*bool:
 		nulls = make([]uint8, len(v))
 		in := make([]uint8, 0, len(v))
@@ -93,7 +98,7 @@ func (col *Bool) Append(v interface{}) (nulls []uint8, err error) {
 			}
 			in = append(in, value)
 		}
-		col.values = append(col.values, in...)
+		col.values.data = append(col.values.data, in...)
 	default:
 		return nil, &ColumnConverterError{
 			Op:   "Append",
@@ -123,9 +128,9 @@ func (col *Bool) AppendRow(v interface{}) error {
 	}
 	switch {
 	case value:
-		col.values = append(col.values, 1)
+		col.values.data = append(col.values.data, 1)
 	default:
-		col.values = append(col.values, 0)
+		col.values.data = append(col.values.data, 0)
 	}
 	return nil
 }
@@ -139,7 +144,7 @@ func (col *Bool) Encode(encoder *binary.Encoder) error {
 }
 
 func (col *Bool) row(i int) bool {
-	return col.values[i] == 1
+	return col.values.data[i] == 1
 }
 
 var _ Interface = (*Bool)(nil)

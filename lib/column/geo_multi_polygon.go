@@ -26,7 +26,12 @@ import (
 )
 
 type MultiPolygon struct {
-	set *Array
+	set  *Array
+	name string
+}
+
+func (col *MultiPolygon) Name() string {
+	return col.name
 }
 
 func (col *MultiPolygon) Type() Type {

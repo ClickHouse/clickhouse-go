@@ -26,7 +26,12 @@ import (
 )
 
 type Ring struct {
-	set *Array
+	set  *Array
+	name string
+}
+
+func (col *Ring) Name() string {
+	return col.name
 }
 
 func (col *Ring) Type() Type {
