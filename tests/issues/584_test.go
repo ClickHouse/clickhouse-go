@@ -19,7 +19,9 @@ func Test584(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
-	defer require.NoError(t, conn.Exec(context.Background(), "DROP TABLE issue_584"))
+	defer func() {
+		require.NoError(t, conn.Exec(context.Background(), "DROP TABLE issue_584_complex"))
+	}()
 
 	const ddl = `
 	CREATE TABLE issue_584 (
@@ -49,14 +51,16 @@ func Test584Complex(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
-	defer require.NoError(t, conn.Exec(context.Background(), "DROP TABLE issue_584"))
+	defer func() {
+		require.NoError(t, conn.Exec(context.Background(), "DROP TABLE issue_584_complex"))
+	}()
 
 	const ddl = `
-	CREATE TABLE issue_584 (
+	CREATE TABLE issue_584_complex (
 		Col1 Map(String, Map(String, Array(UInt8)))
 	) Engine Memory
 	`
-	require.NoError(t, conn.Exec(context.Background(), "DROP TABLE IF EXISTS issue_584"))
+	require.NoError(t, conn.Exec(context.Background(), "DROP TABLE IF EXISTS issue_584_complex"))
 	require.NoError(t, conn.Exec(context.Background(), ddl))
 	col1 := map[string]map[string][]uint8{
 		"a": {
@@ -67,9 +71,9 @@ func Test584Complex(t *testing.T) {
 			"e": []uint8{10, 11, 12, 13},
 		},
 	}
-	require.NoError(t, conn.Exec(context.Background(), "INSERT INTO issue_584 values($1)", col1))
+	require.NoError(t, conn.Exec(context.Background(), "INSERT INTO issue_584_complex values($1)", col1))
 	var event map[string]map[string][]uint8
-	require.NoError(t, conn.QueryRow(context.Background(), "SELECT * FROM issue_584").Scan(&event))
+	require.NoError(t, conn.QueryRow(context.Background(), "SELECT * FROM issue_584_complex").Scan(&event))
 	assert.Equal(t, col1, event)
 
 }

@@ -10,8 +10,7 @@ import (
 func Test578(t *testing.T) {
 	ctx := context.Background()
 	conn, err := clickhouse.Open(&clickhouse.Options{
-		Addr:  []string{"127.0.0.1:9000"},
-		Debug: true,
+		Addr: []string{"127.0.0.1:9000"},
 	})
 	assert.NoError(t, err)
 
