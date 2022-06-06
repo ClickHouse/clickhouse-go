@@ -70,6 +70,9 @@ func setupConnection(t *testing.T) driver.Conn {
 func setupTest(t *testing.T) (driver.Conn, func(t *testing.T)) {
 	ctx := context.Background()
 	conn := setupConnection(t)
+	if err := checkMinServerVersion(conn, 22, 6, 1); err != nil {
+		t.Skip(err.Error())
+	}
 	conn.Exec(ctx, "DROP TABLE json_test")
 	ddl := `CREATE table json_test(event JSON) ENGINE=Memory;`
 	require.NoError(t, conn.Exec(ctx, ddl))

@@ -46,7 +46,7 @@ func TestDecimal(t *testing.T) {
 		})
 	)
 	if assert.NoError(t, err) {
-		if err := checkMinServerVersion(conn, 21, 1); err != nil {
+		if err := checkMinServerVersion(conn, 21, 1, 0); err != nil {
 			t.Skip(err.Error())
 			return
 		}
@@ -114,7 +114,7 @@ func TestNullableDecimal(t *testing.T) {
 		})
 	)
 	if assert.NoError(t, err) {
-		if err := checkMinServerVersion(conn, 21, 1); err != nil {
+		if err := checkMinServerVersion(conn, 21, 1, 0); err != nil {
 			t.Skip(err.Error())
 			return
 		}
