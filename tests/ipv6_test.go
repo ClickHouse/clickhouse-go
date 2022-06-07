@@ -19,6 +19,7 @@ package tests
 
 import (
 	"context"
+	"github.com/stretchr/testify/require"
 	"net"
 	"testing"
 
@@ -93,6 +94,52 @@ func TestIPv6(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestIPv4InIPv6(t *testing.T) {
+	var (
+		ctx       = context.Background()
+		conn, err = clickhouse.Open(&clickhouse.Options{
+			Addr: []string{"127.0.0.1:9000"},
+			Auth: clickhouse.Auth{
+				Database: "default",
+				Username: "default",
+				Password: "",
+			},
+			Compression: &clickhouse.Compression{
+				Method: clickhouse.CompressionLZ4,
+			},
+			//Debug: true,
+		})
+	)
+	if assert.NoError(t, err) {
+		const ddl = `
+			CREATE TABLE test_ipv6 (
+				  Col1 IPv6
+				, Col2 IPv6
+			) Engine Memory
+		`
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_ipv6")
+		}()
+		require.NoError(t, conn.Exec(ctx, ddl))
+		batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_ipv6")
+		require.NoError(t, err)
+		var (
+			col1Data = net.ParseIP("127.0.0.1").To4()
+			col2Data = net.ParseIP("85.242.48.167").To4()
+		)
+		require.NoError(t, batch.Append(col1Data, col2Data))
+		require.NoError(t, batch.Send())
+		var (
+			col1 net.IP
+			col2 net.IP
+		)
+		require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_ipv6").Scan(&col1, &col2))
+		assert.Equal(t, col1Data.To16(), col1)
+		assert.Equal(t, col2Data.To16(), col2)
+	}
+
 }
 
 func TestNullableIPv6(t *testing.T) {
@@ -191,36 +238,33 @@ func TestColumnarIPv6(t *testing.T) {
 		defer func() {
 			conn.Exec(ctx, "DROP TABLE test_ipv6")
 		}()
-		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
-			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_ipv6"); assert.NoError(t, err) {
-				var (
-					col1Data []*net.IP
-					col2Data []*net.IP
-					col3Data []*net.IP
-					v1, v2   = net.ParseIP("2001:44c8:129:2632:33:0:252:2"), net.ParseIP("2a02:e980:1e::1")
-				)
-				col1Data = append(col1Data, &v1)
-				col2Data = append(col2Data, &v2)
-				col3Data = append(col3Data, nil)
-				{
-					batch.Column(0).Append(col1Data)
-					batch.Column(1).Append(col2Data)
-					batch.Column(2).Append(col3Data)
-				}
-				if assert.NoError(t, batch.Send()) {
-					var (
-						col1 *net.IP
-						col2 *net.IP
-						col3 *net.IP
-					)
-					if err := conn.QueryRow(ctx, "SELECT * FROM test_ipv6").Scan(&col1, &col2, &col3); assert.NoError(t, err) {
-						if assert.Nil(t, col3) {
-							assert.Equal(t, v1, *col1)
-							assert.Equal(t, v2, *col2)
-						}
-					}
-				}
-			}
+
+		require.NoError(t, conn.Exec(ctx, ddl))
+		batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_ipv6")
+		require.NoError(t, err)
+		var (
+			col1Data []*net.IP
+			col2Data []*net.IP
+			col3Data []*net.IP
+			v1, v2   = net.ParseIP("2001:44c8:129:2632:33:0:252:2"), net.ParseIP("192.168.1.1").To4()
+		)
+		col1Data = append(col1Data, &v1)
+		col2Data = append(col2Data, &v2)
+		col3Data = append(col3Data, nil)
+		{
+			batch.Column(0).Append(col1Data)
+			batch.Column(1).Append(col2Data)
+			batch.Column(2).Append(col3Data)
 		}
+		require.NoError(t, batch.Send())
+		var (
+			col1 *net.IP
+			col2 *net.IP
+			col3 *net.IP
+		)
+		require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_ipv6").Scan(&col1, &col2, &col3))
+		require.Nil(t, col3)
+		require.Equal(t, v1, *col1)
+		require.Equal(t, v2.To16(), *col2)
 	}
 }
