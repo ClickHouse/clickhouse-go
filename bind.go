@@ -242,7 +242,7 @@ func format(tz *time.Location, v interface{}) (string, error) {
 				// assume slices in maps are arrays
 				val = fmt.Sprintf("[%s]", val)
 			}
-			values = append(values, fmt.Sprintf("%s: %s", name, val))
+			values = append(values, fmt.Sprintf("%s : %s", name, val))
 		}
 		return "{" + strings.Join(values, ", ") + "}", nil
 
