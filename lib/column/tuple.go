@@ -129,6 +129,13 @@ func (col *Tuple) Append(v interface{}) (nulls []uint8, err error) {
 			}
 		}
 		return nil, nil
+	case []*[]interface{}:
+		for _, v := range v {
+			if err := col.AppendRow(v); err != nil {
+				return nil, err
+			}
+		}
+		return nil, nil
 	}
 	return nil, &ColumnConverterError{
 		Op:   "Append",
@@ -147,6 +154,27 @@ func (col *Tuple) AppendRow(v interface{}) error {
 			}
 		}
 		for i, v := range v {
+			if err := col.columns[i].AppendRow(v); err != nil {
+				return err
+			}
+		}
+		return nil
+	case *[]interface{}:
+		if v == nil {
+			return &ColumnConverterError{
+				Op:   "AppendRow",
+				To:   string(col.chType),
+				From: fmt.Sprintf("%T", v),
+				Hint: "invalid (nil) pointer value",
+			}
+		}
+		if len(*v) != len(col.columns) {
+			return &Error{
+				ColumnType: string(col.chType),
+				Err:        fmt.Errorf("invalid size. expected %d got %d", len(col.columns), len(*v)),
+			}
+		}
+		for i, v := range *v {
 			if err := col.columns[i].AppendRow(v); err != nil {
 				return err
 			}
