@@ -48,6 +48,7 @@ func TestArray(t *testing.T) {
 			  Col1 Array(String)
 			, Col2 Array(Array(UInt32))
 			, Col3 Array(Array(Array(DateTime)))
+			, Col4 Array(String)
 		) Engine Memory
 		`
 		defer func() {
@@ -84,9 +85,10 @@ func TestArray(t *testing.T) {
 							},
 						},
 					}
+					col4Data = &[]string{"M", "D"}
 				)
 				for i := 0; i < 10; i++ {
-					if err := batch.Append(col1Data, col2Data, col3Data); !assert.NoError(t, err) {
+					if err := batch.Append(col1Data, col2Data, col3Data, col4Data); !assert.NoError(t, err) {
 						return
 					}
 				}
@@ -97,11 +99,13 @@ func TestArray(t *testing.T) {
 								col1 []string
 								col2 [][]uint32
 								col3 [][][]time.Time
+								col4 []string
 							)
-							if err := rows.Scan(&col1, &col2, &col3); assert.NoError(t, err) {
+							if err := rows.Scan(&col1, &col2, &col3, &col4); assert.NoError(t, err) {
 								assert.Equal(t, col1Data, col1)
 								assert.Equal(t, col2Data, col2)
 								assert.Equal(t, col3Data, col3)
+								assert.Equal(t, col4Data, &col4)
 							}
 						}
 						if assert.NoError(t, rows.Close()) {
@@ -136,6 +140,7 @@ func TestColumnarArray(t *testing.T) {
 			  Col1 Array(String)
 			, Col2 Array(Array(UInt32))
 			, Col3 Array(Array(Array(DateTime)))
+			, Col4 Array(String)
 		) Engine Memory
 		`
 		defer func() {
@@ -171,16 +176,19 @@ func TestColumnarArray(t *testing.T) {
 						},
 					},
 				}
+				col4Data = &[]string{"M", "D"}
 
 				col1DataColArr [][]string
 				col2DataColArr [][][]uint32
 				col3DataColArr [][][][]time.Time
+				col4DataColArr []*[]string
 			)
 
 			for i := 0; i < 10; i++ {
 				col1DataColArr = append(col1DataColArr, col1Data)
 				col2DataColArr = append(col2DataColArr, col2Data)
 				col3DataColArr = append(col3DataColArr, col3Data)
+				col4DataColArr = append(col4DataColArr, col4Data)
 			}
 
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_array"); assert.NoError(t, err) {
@@ -193,6 +201,9 @@ func TestColumnarArray(t *testing.T) {
 				if err := batch.Column(2).Append(col3DataColArr); !assert.NoError(t, err) {
 					return
 				}
+				if err := batch.Column(3).Append(col4DataColArr); !assert.NoError(t, err) {
+					return
+				}
 				if assert.NoError(t, batch.Send()) {
 					if rows, err := conn.Query(ctx, "SELECT * FROM test_array"); assert.NoError(t, err) {
 						for rows.Next() {
@@ -200,11 +211,13 @@ func TestColumnarArray(t *testing.T) {
 								col1 []string
 								col2 [][]uint32
 								col3 [][][]time.Time
+								col4 []string
 							)
-							if err := rows.Scan(&col1, &col2, &col3); assert.NoError(t, err) {
+							if err := rows.Scan(&col1, &col2, &col3, &col4); assert.NoError(t, err) {
 								assert.Equal(t, col1Data, col1)
 								assert.Equal(t, col2Data, col2)
 								assert.Equal(t, col3Data, col3)
+								assert.Equal(t, col4Data, &col4)
 							}
 						}
 						if assert.NoError(t, rows.Close()) {
