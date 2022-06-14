@@ -343,12 +343,44 @@ func TestJSONSlicedInterface(t *testing.T) {
 	ctx := context.Background()
 	batch := prepareBatch(t, conn, ctx)
 	login := Login{Random: []interface{}{"gingerwizard", "geoff"}}
-	// This will error - currently not permitted as requires inference
 	require.NoError(t, batch.Append(login))
 	require.NoError(t, batch.Send())
 	var event Login
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event))
 	require.JSONEq(t, toJson(&event), toJson(login))
+}
+
+func TestJSONSlicedNilInterfaceStart(t *testing.T) {
+	type Login struct {
+		Random []interface{}
+	}
+	conn, teardown := setupTest(t)
+	defer teardown(t)
+	ctx := context.Background()
+	batch := prepareBatch(t, conn, ctx)
+	login := Login{Random: []interface{}{nil, "gingerwizard", nil, "geoff"}}
+	require.NoError(t, batch.Append(login))
+	require.NoError(t, batch.Send())
+	var event Login
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event))
+	require.JSONEq(t, `{"Random":["", "gingerwizard", "", "geoff"]}`, toJson(event))
+}
+
+func TestJSONSlicedAllNils(t *testing.T) {
+	type Login struct {
+		Random  []interface{}
+		SomeStr string
+	}
+	conn, _ := setupTest(t)
+	// defer teardown(t)
+	ctx := context.Background()
+	batch := prepareBatch(t, conn, ctx)
+	login := Login{Random: []interface{}{nil, nil, nil}, SomeStr: "Astring"}
+	require.NoError(t, batch.Append(login))
+	require.NoError(t, batch.Send())
+	var event Login
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event))
+	require.JSONEq(t, `{"Random": null, "SomeStr": "Astring"}`, toJson(event))
 }
 
 func TestJSONSlicedInterfaceFloat(t *testing.T) {

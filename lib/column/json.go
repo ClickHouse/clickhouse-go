@@ -153,16 +153,22 @@ func convertSlice(values interface{}) (interface{}, error) {
 	if rValues.Len() == 0 || rValues.Index(0).Kind() != reflect.Interface {
 		return values, nil
 	}
-	fType := rValues.Index(0).Elem().Type()
+	var fType reflect.Type
+	for i := 0; i < rValues.Len(); i++ {
+		elem := rValues.Index(i).Elem()
+		if elem.IsValid() {
+			fType = elem.Type()
+			break
+		}
+	}
+	if fType == nil {
+		return []interface{}{}, nil
+	}
 	typedSlice := reflect.MakeSlice(reflect.SliceOf(fType), 0, rValues.Len())
 	for i := 0; i < rValues.Len(); i++ {
 		value := rValues.Index(i)
 		if value.IsNil() {
-			if fType.Kind() == reflect.String {
-				typedSlice = reflect.Append(typedSlice, reflect.ValueOf(""))
-			} else {
-				typedSlice = reflect.Append(typedSlice, reflect.ValueOf(0).Convert(fType))
-			}
+			typedSlice = reflect.Append(typedSlice, reflect.Zero(fType))
 			continue
 		}
 		if rValues.Index(i).Elem().Type() != fType {
@@ -212,7 +218,16 @@ func parseSlice(name string, values interface{}, jCol JSONParent, preFill int) e
 		if rValues.Len() == 0 {
 			return nil
 		}
-		value := rValues.Index(0).Elem()
+		var value reflect.Value
+		for i := 0; i < rValues.Len(); i++ {
+			value = rValues.Index(i).Elem()
+			if value.IsValid() {
+				break
+			}
+		}
+		if !value.IsValid() {
+			return nil
+		}
 		fType = value.Type()
 		sKind = value.Kind()
 	}
