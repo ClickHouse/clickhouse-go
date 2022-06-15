@@ -32,6 +32,7 @@ jobs:
       clickhouse:
         image: clickhouse/clickhouse-server:${{ matrix.clickhouse }}
         ports:
+          - 8123:8123
           - 9000:9000
         options: --ulimit nofile=262144:262144
 
