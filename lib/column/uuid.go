@@ -53,6 +53,11 @@ func (col *UUID) Row(i int, ptr bool) interface{} {
 
 func (col *UUID) ScanRow(dest interface{}, row int) error {
 	switch d := dest.(type) {
+	case *string:
+		*d = col.row(row).String()
+	case **string:
+		*d = new(string)
+		**d = col.row(row).String()
 	case *uuid.UUID:
 		*d = col.row(row)
 	case **uuid.UUID:
