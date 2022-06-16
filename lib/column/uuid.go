@@ -76,6 +76,31 @@ func (col *UUID) ScanRow(dest interface{}, row int) error {
 
 func (col *UUID) Append(v interface{}) (nulls []uint8, err error) {
 	switch v := v.(type) {
+	case []string:
+		nulls = make([]uint8, len(v))
+		for _, v := range v {
+			var u uuid.UUID
+			u, err = uuid.Parse(v)
+			if err != nil {
+				return
+			}
+			col.data = append(col.data, swap(u[:])...)
+		}
+	case []*string:
+		nulls = make([]uint8, len(v))
+		for i, v := range v {
+			switch {
+			case v != nil:
+				var tmp uuid.UUID
+				tmp, err = uuid.Parse(*v)
+				if err != nil {
+					return
+				}
+				col.data = append(col.data, swap(tmp[:])...)
+			default:
+				col.data, nulls[i] = append(col.data, make([]byte, uuidSize)...), 1
+			}
+		}
 	case []uuid.UUID:
 		nulls = make([]uint8, len(v))
 		for _, v := range v {
@@ -104,6 +129,23 @@ func (col *UUID) Append(v interface{}) (nulls []uint8, err error) {
 
 func (col *UUID) AppendRow(v interface{}) error {
 	switch v := v.(type) {
+	case string:
+		u, err := uuid.Parse(v)
+		if err != nil {
+			return err
+		}
+		col.data = append(col.data, swap(u[:])...)
+	case *string:
+		switch {
+		case v != nil:
+			tmp, err := uuid.Parse(*v)
+			if err != nil {
+				return err
+			}
+			col.data = append(col.data, swap(tmp[:])...)
+		default:
+			col.data = append(col.data, make([]byte, uuidSize)...)
+		}
 	case uuid.UUID:
 		col.data = append(col.data, swap(v[:])...)
 	case *uuid.UUID:
