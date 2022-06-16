@@ -44,6 +44,11 @@ func (ch *clickhouse) Select(ctx context.Context, dest interface{}, query string
 	if direct.Kind() != reflect.Slice {
 		return fmt.Errorf("must pass a slice to Select destination")
 	}
+	if direct.Len() != 0 {
+		// dest should point to empty slice
+		// to make select result correct
+		direct.Set(reflect.MakeSlice(direct.Type(), 0, direct.Cap()))
+	}
 	var (
 		base      = direct.Type().Elem()
 		rows, err = ch.Query(ctx, query, args...)
