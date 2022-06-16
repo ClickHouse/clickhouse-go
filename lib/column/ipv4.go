@@ -51,6 +51,11 @@ func (col *IPv4) Row(i int, ptr bool) interface{} {
 
 func (col *IPv4) ScanRow(dest interface{}, row int) error {
 	switch d := dest.(type) {
+	case *string:
+		*d = col.row(row).String()
+	case **string:
+		*d = new(string)
+		**d = col.row(row).String()
 	case *net.IP:
 		*d = col.row(row)
 	case **net.IP:
@@ -66,37 +71,49 @@ func (col *IPv4) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
+func (col *IPv4) append(v net.IP) error {
+	ip := v.To4()
+	if ip == nil {
+		return &ColumnConverterError{
+			Op:   "Append",
+			To:   "IPv4",
+			From: "IPv6",
+			Hint: "invalid IP version",
+		}
+	}
+	col.data = append(col.data, IPv4ToBytes(ip)...)
+	return nil
+}
+
 func (col *IPv4) Append(v interface{}) (nulls []uint8, err error) {
 	switch v := v.(type) {
+	case []string:
+		nulls = make([]uint8, len(v))
+		for _, v := range v {
+			err = col.append(net.ParseIP(v))
+			if err != nil {
+				return
+			}
+		}
+	case []*string:
+		nulls = make([]uint8, len(v))
 	case []net.IP:
 		nulls = make([]uint8, len(v))
 		for _, v := range v {
-			ip := v.To4()
-			if ip == nil {
-				return nil, &ColumnConverterError{
-					Op:   "Append",
-					To:   "IPv4",
-					From: "IPv6",
-					Hint: "invalid IP version",
-				}
+			err = col.append(v)
+			if err != nil {
+				return
 			}
-			col.data = append(col.data, IPv4ToBytes(ip)...)
 		}
 	case []*net.IP:
 		nulls = make([]uint8, len(v))
 		for i, v := range v {
 			switch {
 			case v != nil:
-				ip := v.To4()
-				if ip == nil {
-					return nil, &ColumnConverterError{
-						Op:   "Append",
-						To:   "IPv4",
-						From: "IPv6",
-						Hint: "invalid IP version",
-					}
+				err = col.append(*v)
+				if err != nil {
+					return
 				}
-				col.data = append(col.data, IPv4ToBytes(ip)...)
 			default:
 				col.data, nulls[i] = append(col.data, make([]byte, net.IPv4len)...), 1
 			}
@@ -114,6 +131,15 @@ func (col *IPv4) Append(v interface{}) (nulls []uint8, err error) {
 func (col *IPv4) AppendRow(v interface{}) error {
 	var ip net.IP
 	switch v := v.(type) {
+	case string:
+		ip = net.ParseIP(v)
+	case *string:
+		switch {
+		case v != nil:
+			ip = net.ParseIP(*v)
+		default:
+			ip = make(net.IP, net.IPv4len)
+		}
 	case net.IP:
 		ip = v
 	case *net.IP:
