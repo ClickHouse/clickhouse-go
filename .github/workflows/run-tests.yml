@@ -31,7 +31,7 @@ jobs:
 
     services:
       clickhouse:
-        image: yandex/clickhouse-server:${{ matrix.clickhouse }}
+        image: clickhouse/clickhouse-server:${{ matrix.clickhouse }}
         ports:
           - 9000:9000
         options: --ulimit nofile=262144:262144
@@ -48,5 +48,5 @@ jobs:
       - name: Run tests
         run: |
           go test -v .
-          go test -v ./tests
+          go test -v ./tests/...
           go test -v ./lib/...

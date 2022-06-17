@@ -18,7 +18,6 @@ func Test546(t *testing.T) {
 			Username: "default",
 			Password: "",
 		},
-		Debug:           true,
 		DialTimeout:     time.Second,
 		MaxOpenConns:    10,
 		MaxIdleConns:    5,

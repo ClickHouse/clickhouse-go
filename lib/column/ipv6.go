@@ -77,10 +77,7 @@ func (col *IPv6) Append(v interface{}) (nulls []uint8, err error) {
 		nulls = make([]uint8, len(v))
 		for _, v := range v {
 			if len(v) != net.IPv6len {
-				return nil, &Error{
-					ColumnType: string(col.Type()),
-					Err:        fmt.Errorf("invalid size. expected %d got %d", net.IPv6len, len(v)),
-				}
+				v = v.To16()
 			}
 			col.data = append(col.data, v[:]...)
 		}
@@ -89,13 +86,11 @@ func (col *IPv6) Append(v interface{}) (nulls []uint8, err error) {
 		for i, v := range v {
 			switch {
 			case v != nil:
-				if len(*v) != net.IPv6len {
-					return nil, &Error{
-						ColumnType: string(col.Type()),
-						Err:        fmt.Errorf("invalid size. expected %d got %d", net.IPv6len, len(*v)),
-					}
-				}
+				//copy so we don't modify original value
 				tmp := *v
+				if len(tmp) != net.IPv6len {
+					tmp = tmp.To16()
+				}
 				col.data = append(col.data, tmp[:]...)
 			default:
 				col.data, nulls[i] = append(col.data, make([]byte, net.IPv6len)...), 1
@@ -133,10 +128,7 @@ func (col *IPv6) AppendRow(v interface{}) error {
 		}
 	}
 	if len(ip) != net.IPv6len {
-		return &Error{
-			ColumnType: string(col.Type()),
-			Err:        fmt.Errorf("invalid size. expected %d got %d", net.IPv6len, len(ip)),
-		}
+		ip = ip.To16()
 	}
 	col.data = append(col.data, ip[:]...)
 	return nil

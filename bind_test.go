@@ -186,8 +186,10 @@ func TestFormatTime(t *testing.T) {
 		tz, err = time.LoadLocation("Europe/London")
 	)
 	if assert.NoError(t, err) {
-		if assert.Equal(t, "toDateTime('2022-01-12 15:00:00')", format(t1.Location(), t1)) {
-			assert.Equal(t, "toDateTime('2022-01-12 15:00:00', 'UTC')", format(tz, t1))
+		val, _ := format(t1.Location(), t1)
+		if assert.Equal(t, "toDateTime('2022-01-12 15:00:00')", val) {
+			val, _ = format(tz, t1)
+			assert.Equal(t, "toDateTime('2022-01-12 15:00:00', 'UTC')", val)
 		}
 	}
 }
@@ -197,19 +199,24 @@ func TestStringBasedType(t *testing.T) {
 		SupperString       string
 		SupperSupperString string
 	)
-	require.Equal(t, "'a'", format(time.UTC, SupperString("a")))
-	require.Equal(t, "'a'", format(time.UTC, SupperSupperString("a")))
-	require.Equal(t, "'a', 'b', 'c'", format(time.UTC, []SupperSupperString{"a", "b", "c"}))
+	val, _ := format(time.UTC, SupperString("a"))
+	require.Equal(t, "'a'", val)
+	val, _ = format(time.UTC, SupperSupperString("a"))
+	require.Equal(t, "'a'", val)
+	val, _ = format(time.UTC, []SupperSupperString{"a", "b", "c"})
+	require.Equal(t, "'a', 'b', 'c'", val)
 }
 
 func TestFormatTuple(t *testing.T) {
-	assert.Equal(t, "('A', 1)", format(time.UTC, []interface{}{"A", 1}))
+	val, _ := format(time.UTC, []interface{}{"A", 1})
+	assert.Equal(t, "('A', 1)", val)
 	{
 		tuples := [][]interface{}{
 			[]interface{}{"A", 1},
 			[]interface{}{"B", 2},
 		}
-		assert.Equal(t, "('A', 1), ('B', 2)", format(time.UTC, tuples))
+		val, _ = format(time.UTC, tuples)
+		assert.Equal(t, "('A', 1), ('B', 2)", val)
 	}
 }
 

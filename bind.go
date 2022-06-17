@@ -84,7 +84,10 @@ func bindPositional(tz *time.Location, query string, args ...interface{}) (_ str
 				return "", nil
 			}
 		}
-		params[i] = format(tz, v)
+		params[i], err = format(tz, v)
+		if err != nil {
+			return "", err
+		}
 	}
 	i := 0
 	query = bindPositionalRe.ReplaceAllStringFunc(query, func(n string) string {
@@ -116,7 +119,11 @@ func bindNumeric(tz *time.Location, query string, args ...interface{}) (_ string
 				return "", nil
 			}
 		}
-		params[fmt.Sprintf("$%d", i+1)] = format(tz, v)
+		val, err := format(tz, v)
+		if err != nil {
+			return "", err
+		}
+		params[fmt.Sprintf("$%d", i+1)] = val
 	}
 	query = bindNumericRe.ReplaceAllStringFunc(query, func(n string) string {
 		if _, found := params[n]; !found {
@@ -147,7 +154,11 @@ func bindNamed(tz *time.Location, query string, args ...interface{}) (_ string, 
 					return "", err
 				}
 			}
-			params["@"+v.Name] = format(tz, value)
+			val, err := format(tz, value)
+			if err != nil {
+				return "", err
+			}
+			params["@"+v.Name] = val
 		}
 	}
 	query = bindNamedRe.ReplaceAllStringFunc(query, func(n string) string {
@@ -163,49 +174,80 @@ func bindNamed(tz *time.Location, query string, args ...interface{}) (_ string, 
 	return query, nil
 }
 
-func format(tz *time.Location, v interface{}) string {
+func format(tz *time.Location, v interface{}) (string, error) {
 	quote := func(v string) string {
 		return "'" + strings.NewReplacer(`\`, `\\`, `'`, `\'`).Replace(v) + "'"
 	}
 	switch v := v.(type) {
 	case nil:
-		return "NULL"
+		return "NULL", nil
 	case string:
-		return quote(v)
+		return quote(v), nil
 	case time.Time:
 		switch v.Location().String() {
 		case "Local":
-			return fmt.Sprintf("toDateTime(%d)", v.Unix())
+			return fmt.Sprintf("toDateTime(%d)", v.Unix()), nil
 		case tz.String():
-			return v.Format("toDateTime('2006-01-02 15:04:05')")
+			return v.Format("toDateTime('2006-01-02 15:04:05')"), nil
 		}
-		return v.Format("toDateTime('2006-01-02 15:04:05', '" + v.Location().String() + "')")
+		return v.Format("toDateTime('2006-01-02 15:04:05', '" + v.Location().String() + "')"), nil
 	case []interface{}: // tuple
 		elements := make([]string, 0, len(v))
 		for _, e := range v {
-			elements = append(elements, format(tz, e))
+			val, err := format(tz, e)
+			if err != nil {
+				return "", err
+			}
+			elements = append(elements, val)
 		}
-		return "(" + strings.Join(elements, ", ") + ")"
+		return "(" + strings.Join(elements, ", ") + ")", nil
 	case [][]interface{}:
 		items := make([]string, 0, len(v))
 		for _, t := range v {
-			items = append(items, format(tz, t))
+			val, err := format(tz, t)
+			if err != nil {
+				return "", err
+			}
+			items = append(items, val)
 		}
-		return strings.Join(items, ", ")
+		return strings.Join(items, ", "), nil
 	case fmt.Stringer:
-		return quote(v.String())
+		return quote(v.String()), nil
 	}
 	switch v := reflect.ValueOf(v); v.Kind() {
 	case reflect.String:
-		return quote(v.String())
+		return quote(v.String()), nil
 	case reflect.Slice:
 		values := make([]string, 0, v.Len())
 		for i := 0; i < v.Len(); i++ {
-			values = append(values, format(tz, v.Index(i).Interface()))
+			val, err := format(tz, v.Index(i).Interface())
+			if err != nil {
+				return "", err
+			}
+			values = append(values, val)
 		}
-		return strings.Join(values, ", ")
+		return strings.Join(values, ", "), nil
+	case reflect.Map: // map
+		values := make([]string, 0, len(v.MapKeys()))
+		for _, key := range v.MapKeys() {
+			name := fmt.Sprint(key.Interface())
+			if key.Kind() == reflect.String {
+				name = fmt.Sprintf("'%s'", name)
+			}
+			val, err := format(tz, v.MapIndex(key).Interface())
+			if err != nil {
+				return "", err
+			}
+			if v.MapIndex(key).Kind() == reflect.Slice {
+				// assume slices in maps are arrays
+				val = fmt.Sprintf("[%s]", val)
+			}
+			values = append(values, fmt.Sprintf("%s : %s", name, val))
+		}
+		return "{" + strings.Join(values, ", ") + "}", nil
+
 	}
-	return fmt.Sprint(v)
+	return fmt.Sprint(v), nil
 }
 
 func rebind(in []std_driver.NamedValue) []interface{} {

@@ -160,7 +160,7 @@ func (col *Decimal) AppendRow(v interface{}) error {
 func (col *Decimal) Decode(decoder *binary.Decoder, rows int) error {
 	switch col.nobits {
 	case 32:
-		var base UInt32
+		var base Int32
 		if err := base.Decode(decoder, rows); err != nil {
 			return err
 		}
@@ -168,7 +168,7 @@ func (col *Decimal) Decode(decoder *binary.Decoder, rows int) error {
 			col.values = append(col.values, decimal.New(int64(v), int32(-col.scale)))
 		}
 	case 64:
-		var base UInt64
+		var base Int64
 		if err := base.Decode(decoder, rows); err != nil {
 			return err
 		}
