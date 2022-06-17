@@ -81,20 +81,20 @@ func TestStdJson(t *testing.T) {
 			"allow_experimental_object_type": 1,
 		},
 	})
-	conn.Exec("DROP TABLE json_test")
+	conn.Exec("DROP TABLE json_std_test")
 	const ddl = `
-		CREATE TABLE json_test (
+		CREATE TABLE json_std_test (
 			  event JSON
 		) Engine Memory
 		`
 	defer func() {
-		conn.Exec("DROP TABLE json_test")
+		conn.Exec("DROP TABLE json_std_test")
 	}()
 	_, err := conn.Exec(ddl)
 	require.NoError(t, err)
 	scope, err := conn.Begin()
 	require.NoError(t, err)
-	batch, err := scope.Prepare("INSERT INTO json_test")
+	batch, err := scope.Prepare("INSERT INTO json_std_test")
 	require.NoError(t, err)
 	col1Data := GithubEvent{
 		Title: "Document JSON support",
@@ -117,7 +117,7 @@ func TestStdJson(t *testing.T) {
 	require.NoError(t, err)
 	// std. interface requires we read with slices as JSON is a tuple. Avoid and use native which is more natural.
 	var event []interface{}
-	err = conn.QueryRow("SELECT * FROM json_test").Scan(&event)
+	err = conn.QueryRow("SELECT * FROM json_std_test").Scan(&event)
 	require.NoError(t, err)
 	require.JSONEq(t, `[[[["2022-05-04 21:20:57 +0100 WEST","Adding JSON to go driver"],2244,"Dale",[[[["2.0.0"],["2.1.0"]],"https://github.com/ClickHouse/clickhouse-go"],[[["1.2.0"],["1.3.0"]],"https://github.com/grafana/clickhouse"]],["Support Engineer","Consulting","PM","Integrations"]],[["2022-04-26 13:20:57 +0100 WEST","Managing S3 buckets"],2344,"Melyvn",[[[["1.0.0"],["2.3.0"],["2.4.0"]],"https://github.com/ClickHouse/support"]],["Support Engineer","Consulting"]]],"Document JSON support","Issue",[["2022-05-25 17:20:57 +0100 WEST","Mars Star"],1244,"Geoff",[[[["1.0.0"],["1.1.0"]],"https://github.com/ClickHouse/clickhouse-python"],[[["2.0.0"],["2.1.0"]],"https://github.com/ClickHouse/clickhouse-go"]],["Support Engineer","Integrations"]],["Help wanted"]]`, toJson(event))
 }
