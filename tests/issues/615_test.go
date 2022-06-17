@@ -54,9 +54,36 @@ func Test615(t *testing.T) {
 			ts time.Time
 		)
 		require.NoError(t, rows.Scan(&id, &ts))
+		i += 1
+	}
+	// loss of precision - should only get 1 result
+	assert.Equal(t, 2, i)
+	rows, err = conn.Query(context.Background(), "SELECT id, ts from issue_615 where ts > @TS ORDER BY ts ASC", clickhouse.DateNamed("TS", ts2, clickhouse.NanoSeconds))
+	require.NoError(t, err)
+	i = 0
+	for rows.Next() {
+		var (
+			id string
+			ts time.Time
+		)
+		require.NoError(t, rows.Scan(&id, &ts))
 		require.Equal(t, ts, ts3)
 		i += 1
 	}
 	assert.Equal(t, 1, i)
-
+	// test with timezone
+	loc, _ := time.LoadLocation("Asia/Shanghai")
+	rows, err = conn.Query(context.Background(), "SELECT id, ts from issue_615 where ts > @TS ORDER BY ts ASC", clickhouse.DateNamed("TS", ts2.In(loc), clickhouse.MilliSeconds))
+	require.NoError(t, err)
+	i = 0
+	for rows.Next() {
+		var (
+			id string
+			ts time.Time
+		)
+		require.NoError(t, rows.Scan(&id, &ts))
+		require.Equal(t, ts, ts3)
+		i += 1
+	}
+	assert.Equal(t, 1, i)
 }
