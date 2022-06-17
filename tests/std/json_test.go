@@ -69,14 +69,18 @@ func toJson(obj interface{}) string {
 func TestStdJson(t *testing.T) {
 	conn := clickhouse.OpenDB(&clickhouse.Options{
 		Addr: []string{"127.0.0.1:9000"},
-		Settings: clickhouse.Settings{
-			"allow_experimental_object_type": 1,
-		},
 	})
 	if err := checkMinServerVersion(conn, 22, 6, 1); err != nil {
 		t.Skip(err.Error())
 		return
 	}
+	conn.Close()
+	conn = clickhouse.OpenDB(&clickhouse.Options{
+		Addr: []string{"127.0.0.1:9000"},
+		Settings: clickhouse.Settings{
+			"allow_experimental_object_type": 1,
+		},
+	})
 	conn.Exec("DROP TABLE json_test")
 	const ddl = `
 		CREATE TABLE json_test (
