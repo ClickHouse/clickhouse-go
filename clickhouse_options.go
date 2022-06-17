@@ -49,6 +49,13 @@ const (
 	ConnOpenRoundRobin
 )
 
+type InterfaceType int
+
+const (
+	NativeInterface InterfaceType = iota
+	HttpInterface
+)
+
 func ParseDSN(dsn string) (*Options, error) {
 	opt := &Options{}
 	if err := opt.fromDSN(dsn); err != nil {
@@ -58,6 +65,8 @@ func ParseDSN(dsn string) (*Options, error) {
 }
 
 type Options struct {
+	Interface InterfaceType
+
 	TLS              *tls.Config
 	Addr             []string
 	Auth             Auth
@@ -71,6 +80,8 @@ type Options struct {
 	MaxIdleConns     int           // default 5
 	ConnMaxLifetime  time.Duration // default 1 hour
 	ConnOpenStrategy ConnOpenStrategy
+
+	ReadTimeout time.Duration
 }
 
 func (o *Options) fromDSN(in string) error {
@@ -108,6 +119,12 @@ func (o *Options) fromDSN(in string) error {
 				return fmt.Errorf("clickhouse [dsn parse]: dial timeout: %s", err)
 			}
 			o.DialTimeout = duration
+		case "read_timeout":
+			duration, err := time.ParseDuration(params.Get(v))
+			if err != nil {
+				return fmt.Errorf("clickhouse [dsn parse]: http timeout: %s", err)
+			}
+			o.ReadTimeout = duration
 		case "secure":
 			secure = true
 		case "skip_verify":
@@ -119,6 +136,7 @@ func (o *Options) fromDSN(in string) error {
 			case "round_robin":
 				o.ConnOpenStrategy = ConnOpenRoundRobin
 			}
+
 		default:
 			switch p := strings.ToLower(params.Get(v)); p {
 			case "true":
@@ -136,6 +154,20 @@ func (o *Options) fromDSN(in string) error {
 		o.TLS = &tls.Config{
 			InsecureSkipVerify: skipVerify,
 		}
+	}
+	switch dsn.Scheme {
+	case "http":
+		if secure {
+			o.TLS = nil
+		}
+		o.Interface = HttpInterface
+	case "https":
+		if !secure {
+			return fmt.Errorf("clickhouse [dsn parse]: https without TLS specify")
+		}
+		o.Interface = HttpInterface
+	default:
+		o.Interface = NativeInterface
 	}
 	return nil
 }

@@ -28,36 +28,54 @@ import (
 )
 
 func TestStdConn(t *testing.T) {
-	if conn, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000"); assert.NoError(t, err) {
-		if assert.NoError(t, err) {
-			if err := conn.PingContext(context.Background()); assert.NoError(t, err) {
-				if assert.NoError(t, conn.Close()) {
-					t.Log(conn.Stats())
+	dsns := []string{"clickhouse://127.0.0.1:9000", "http://127.0.0.1:8123"}
+
+	for _, dsn := range dsns {
+		if conn, err := sql.Open("clickhouse", dsn); assert.NoError(t, err) {
+			if assert.NoError(t, err) {
+				if err := conn.PingContext(context.Background()); assert.NoError(t, err) {
+					if assert.NoError(t, conn.Close()) {
+						t.Log(conn.Stats())
+					}
 				}
 			}
 		}
 	}
 }
 func TestStdConnFailover(t *testing.T) {
-	if conn, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9001,127.0.0.1:9002,127.0.0.1:9000"); assert.NoError(t, err) {
-		if err := conn.PingContext(context.Background()); assert.NoError(t, err) {
-			t.Log(conn.PingContext(context.Background()))
+	dsns := []string{"clickhouse://127.0.0.1:9001,127.0.0.1:9002,127.0.0.1:9000",
+		"http://127.0.0.1:8124,127.0.0.1:8125,127.0.0.1:8123"}
+
+	for _, dsn := range dsns {
+		if conn, err := sql.Open("clickhouse", dsn); assert.NoError(t, err) {
+			if err := conn.PingContext(context.Background()); assert.NoError(t, err) {
+				t.Log(conn.PingContext(context.Background()))
+			}
 		}
 	}
 }
 func TestStdConnFailoverConnOpenRoundRobin(t *testing.T) {
-	if conn, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9001,127.0.0.1:9002,127.0.0.1:9003,127.0.0.1:9004,127.0.0.1:9005,127.0.0.1:9006,127.0.0.1:9000/?connection_open_strategy=round_robin"); assert.NoError(t, err) {
-		if err := conn.PingContext(context.Background()); assert.NoError(t, err) {
-			t.Log(conn.PingContext(context.Background()))
+	dsns := []string{"clickhouse://127.0.0.1:9001,127.0.0.1:9002,127.0.0.1:9003,127.0.0.1:9004,127.0.0.1:9005,127.0.0.1:9006,127.0.0.1:9000/?connection_open_strategy=round_robin",
+		"http://127.0.0.1:8124,127.0.0.1:8125,127.0.0.1:8126,127.0.0.1:8127,127.0.0.1:8128,127.0.0.1:8129,127.0.0.1:8123/?connection_open_strategy=round_robin"}
+
+	for _, dsn := range dsns {
+		if conn, err := sql.Open("clickhouse", dsn); assert.NoError(t, err) {
+			if err := conn.PingContext(context.Background()); assert.NoError(t, err) {
+				t.Log(conn.PingContext(context.Background()))
+			}
 		}
 	}
 }
 func TestStdPingDeadline(t *testing.T) {
-	if conn, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000"); assert.NoError(t, err) {
-		ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
-		defer cancel()
-		if err := conn.PingContext(ctx); assert.Error(t, err) {
-			assert.Equal(t, err, context.DeadlineExceeded)
+	dsns := []string{"clickhouse://127.0.0.1:9000", "http://127.0.0.1:8123"}
+
+	for _, dsn := range dsns {
+		if conn, err := sql.Open("clickhouse", dsn); assert.NoError(t, err) {
+			ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+			defer cancel()
+			if err := conn.PingContext(ctx); assert.Error(t, err) {
+				assert.Equal(t, err, context.DeadlineExceeded)
+			}
 		}
 	}
 }
