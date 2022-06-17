@@ -266,3 +266,21 @@ func rebind(in []std_driver.NamedValue) []interface{} {
 	}
 	return args
 }
+
+func formatArgs(tz *time.Location, args ...interface{}) ([]string, error) {
+	var err error
+	params := make([]string, len(args))
+	for i, v := range args {
+		if fn, ok := v.(std_driver.Valuer); ok {
+			if v, err = fn.Value(); err != nil {
+				return nil, nil
+			}
+		}
+		params[i], err = format(tz, v)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return params, nil
+}
