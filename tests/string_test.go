@@ -25,6 +25,45 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestSimpleString(t *testing.T) {
+	var (
+		ctx       = context.Background()
+		conn, err = clickhouse.Open(&clickhouse.Options{
+			Addr: []string{"127.0.0.1:9000"},
+			Auth: clickhouse.Auth{
+				Database: "default",
+				Username: "default",
+				Password: "",
+			},
+			Compression: &clickhouse.Compression{
+				Method: clickhouse.CompressionLZ4,
+			},
+		})
+	)
+	if assert.NoError(t, err) {
+		if err := checkMinServerVersion(conn, 21, 9, 0); err != nil {
+			t.Skip(err.Error())
+			return
+		}
+		const ddl = `
+		CREATE TABLE test_string (
+			  Col1 String
+		) Engine Memory
+		`
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_string")
+		}()
+		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
+			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_string"); assert.NoError(t, err) {
+				if err := batch.Append("A"); assert.NoError(t, err) {
+					if assert.NoError(t, batch.Send()) {
+					}
+				}
+			}
+		}
+	}
+}
+
 func TestString(t *testing.T) {
 	var (
 		ctx       = context.Background()
@@ -41,7 +80,7 @@ func TestString(t *testing.T) {
 		})
 	)
 	if assert.NoError(t, err) {
-		if err := checkMinServerVersion(conn, 21, 9); err != nil {
+		if err := checkMinServerVersion(conn, 21, 9, 0); err != nil {
 			t.Skip(err.Error())
 			return
 		}

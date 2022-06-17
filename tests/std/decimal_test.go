@@ -27,7 +27,7 @@ import (
 
 func TestStdDecimal(t *testing.T) {
 	if conn, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000"); assert.NoError(t, err) {
-		if err := checkMinServerVersion(conn, 21, 1); err != nil {
+		if err := checkMinServerVersion(conn, 21, 1, 0); err != nil {
 			t.Skip(err.Error())
 			return
 		}

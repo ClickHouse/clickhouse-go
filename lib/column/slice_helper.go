@@ -15,26 +15,19 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package tests
+package column
 
-import (
-	"fmt"
-	"math/rand"
-	"time"
-
-	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
-)
-
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
-func checkMinServerVersion(conn driver.Conn, major, minor, patch uint64) error {
-	v, err := conn.ServerVersion()
-	if err != nil {
-		panic(err)
+// difference returns the elements in `a` that aren't in `b`.
+func difference(a, b []string) []string {
+	mb := make(map[string]struct{}, len(b))
+	for _, x := range b {
+		mb[x] = struct{}{}
 	}
-	if v.Version.Major < major || (v.Version.Major == major && v.Version.Minor < minor) || (v.Version.Major == major && v.Version.Minor == minor && v.Version.Patch < patch) {
-		return fmt.Errorf("unsupported server version %d.%d < %d.%d", v.Version.Major, v.Version.Minor, major, minor)
+	var diff []string
+	for _, x := range a {
+		if _, found := mb[x]; !found {
+			diff = append(diff, x)
+		}
 	}
-	return nil
+	return diff
 }

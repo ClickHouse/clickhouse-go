@@ -24,18 +24,29 @@ import (
 
 type Nested struct {
 	Interface
+	name string
+}
+
+func asDDL(cols []namedCol) string {
+	sCols := make([]string, len(cols), len(cols))
+	for i := range cols {
+		sCols[i] = fmt.Sprintf("%s %s", cols[i].name, cols[i].colType)
+	}
+	return strings.Join(sCols, ", ")
 }
 
 func (col *Nested) parse(t Type) (_ Interface, err error) {
-	columns := fmt.Sprintf("Array(Tuple(%s))", strings.Join(nestedColumns(t.params()), ", "))
-	if col.Interface, err = (&Array{}).parse(Type(columns)); err != nil {
+	columns := fmt.Sprintf("Array(Tuple(%s))", asDDL(nestedColumns(t.params())))
+	if col.Interface, err = (&Array{name: col.name}).parse(Type(columns)); err != nil {
 		return nil, err
 	}
 	return col, nil
 }
 
-func nestedColumns(raw string) (columns []string) {
+//Address Nested(City String, Devices Nested(Id String)), Friend Tuple(Id Int16), Id Int16, Name String
+func nestedColumns(raw string) (columns []namedCol) {
 	var (
+		nBegin   int
 		begin    int
 		brackets int
 	)
@@ -51,14 +62,21 @@ func nestedColumns(raw string) (columns []string) {
 			}
 		case ',':
 			if brackets == 0 {
-				columns, begin = append(columns, raw[begin:i]), i+1
+				columns, begin = append(columns, namedCol{
+					name:    strings.TrimSpace(raw[nBegin:begin]),
+					colType: Type(raw[begin:i]),
+				}), i+1
+				nBegin = i + 1
 				continue
 			}
 		}
 	}
 	for i, column := range columns {
-		if strings.HasPrefix(column, "Nested(") {
-			columns[i] = fmt.Sprintf("Array(Tuple(%s))", strings.Join(nestedColumns(Type(column).params()), ", "))
+		if strings.HasPrefix(string(column.colType), "Nested(") {
+			columns[i] = namedCol{
+				colType: Type(fmt.Sprintf("Array(Tuple(%s))", asDDL(nestedColumns(column.colType.params())))),
+				name:    column.name,
+			}
 		}
 	}
 	return

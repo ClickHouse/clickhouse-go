@@ -39,7 +39,7 @@ func (b *Block) Rows() int {
 }
 
 func (b *Block) AddColumn(name string, ct column.Type) error {
-	column, err := ct.Column()
+	column, err := ct.Column(name)
 	if err != nil {
 		return err
 	}
@@ -60,7 +60,7 @@ func (b *Block) Append(v ...interface{}) (err error) {
 			return &BlockError{
 				Op:         "AppendRow",
 				Err:        err,
-				ColumnName: b.names[i],
+				ColumnName: columns[i].Name(),
 			}
 		}
 	}
@@ -95,8 +95,8 @@ func (b *Block) Encode(encoder *binary.Encoder, revision uint64) error {
 	if err := encoder.Uvarint(uint64(rows)); err != nil {
 		return err
 	}
-	for i, c := range b.Columns {
-		if err := encoder.String(b.names[i]); err != nil {
+	for _, c := range b.Columns {
+		if err := encoder.String(c.Name()); err != nil {
 			return err
 		}
 		if err := encoder.String(string(c.Type())); err != nil {
@@ -107,7 +107,7 @@ func (b *Block) Encode(encoder *binary.Encoder, revision uint64) error {
 				return &BlockError{
 					Op:         "Encode",
 					Err:        err,
-					ColumnName: b.names[i],
+					ColumnName: c.Name(),
 				}
 			}
 		}
@@ -115,7 +115,7 @@ func (b *Block) Encode(encoder *binary.Encoder, revision uint64) error {
 			return &BlockError{
 				Op:         "Encode",
 				Err:        err,
-				ColumnName: b.names[i],
+				ColumnName: c.Name(),
 			}
 		}
 	}
@@ -156,7 +156,7 @@ func (b *Block) Decode(decoder *binary.Decoder, revision uint64) (err error) {
 		if columnType, err = decoder.String(); err != nil {
 			return err
 		}
-		c, err := column.Type(columnType).Column()
+		c, err := column.Type(columnType).Column(columnName)
 		if err != nil {
 			return err
 		}

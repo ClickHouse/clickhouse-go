@@ -29,6 +29,11 @@ const uuidSize = 16
 
 type UUID struct {
 	data []byte
+	name string
+}
+
+func (col *UUID) Name() string {
+	return col.name
 }
 
 func (col *UUID) Type() Type {

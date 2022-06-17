@@ -24,7 +24,7 @@ import (
 	"strings"
 )
 
-func Enum(chType Type) (Interface, error) {
+func Enum(chType Type, name string) (Interface, error) {
 	var (
 		payload    string
 		columnType = string(chType)
@@ -76,6 +76,7 @@ func Enum(chType Type) (Interface, error) {
 			iv:     make(map[string]uint8, len(idents)),
 			vi:     make(map[uint8]string, len(idents)),
 			chType: chType,
+			name:   name,
 		}
 		for i := range idents {
 			if indexes[i] > math.MaxUint8 {
@@ -93,6 +94,7 @@ func Enum(chType Type) (Interface, error) {
 		iv:     make(map[string]uint16, len(idents)),
 		vi:     make(map[uint16]string, len(idents)),
 		chType: chType,
+		name:   name,
 	}
 	for i := range idents {
 		enum.iv[idents[i]] = uint16(indexes[i])
