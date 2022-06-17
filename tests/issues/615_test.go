@@ -19,6 +19,9 @@ func Test615(t *testing.T) {
 			"max_execution_time": 60,
 		},
 	})
+	if err := checkMinServerVersion(conn, 22, 0); err != nil {
+		t.Skip(err.Error())
+	}
 	if err != nil {
 		panic(err)
 	}
@@ -33,9 +36,9 @@ func Test615(t *testing.T) {
 	); err != nil {
 		require.NoError(t, err)
 	}
-	defer func() {
-		require.NoError(t, conn.Exec(context.Background(), "DROP TABLE issue_615"))
-	}()
+	//defer func() {
+	//	require.NoError(t, conn.Exec(context.Background(), "DROP TABLE issue_615"))
+	//}()
 	ts1 := time.Now().Round(time.Second)
 	ts2 := ts1.Add(time.Millisecond)
 	ts3 := ts1.Add(time.Second + time.Millisecond)
@@ -58,6 +61,7 @@ func Test615(t *testing.T) {
 	}
 	// loss of precision - should only get 1 result
 	assert.Equal(t, 2, i)
+	// use DateNamed to guarantee precision
 	rows, err = conn.Query(context.Background(), "SELECT id, ts from issue_615 where ts > @TS ORDER BY ts ASC", clickhouse.DateNamed("TS", ts2, clickhouse.NanoSeconds))
 	require.NoError(t, err)
 	i = 0
@@ -67,6 +71,7 @@ func Test615(t *testing.T) {
 			ts time.Time
 		)
 		require.NoError(t, rows.Scan(&id, &ts))
+		require.Equal(t, id, "third")
 		require.Equal(t, ts, ts3)
 		i += 1
 	}
