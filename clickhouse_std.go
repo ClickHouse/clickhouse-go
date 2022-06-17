@@ -47,27 +47,27 @@ func (o *stdConnOpener) Connect(ctx context.Context) (_ driver.Conn, err error) 
 		return nil, o.err
 	}
 	var (
-		runtimeLayer layer
-		connID       = int(atomic.AddInt64(&globalConnID, 1))
-		dialFunc     func(ctx context.Context, addr string, num int, opt *Options) (layer, error)
+		runtimeTransport transport
+		connID           = int(atomic.AddInt64(&globalConnID, 1))
+		dialFunc         func(ctx context.Context, addr string, num int, opt *Options) (transport, error)
 	)
 
 	switch o.opt.Interface {
 	case HttpInterface:
-		dialFunc = func(ctx context.Context, addr string, num int, opt *Options) (layer, error) {
+		dialFunc = func(ctx context.Context, addr string, num int, opt *Options) (transport, error) {
 			var conn *httpConnect
 			if conn, err = dialHttp(ctx, addr, num, o.opt); err == nil {
-				return &httpLayer{
+				return &httpTransport{
 					conn: conn,
 				}, nil
 			}
 			return nil, err
 		}
 	default:
-		dialFunc = func(ctx context.Context, addr string, num int, opt *Options) (layer, error) {
+		dialFunc = func(ctx context.Context, addr string, num int, opt *Options) (transport, error) {
 			var conn *connect
 			if conn, err = dial(ctx, addr, num, o.opt); err == nil {
-				return &nativeLayer{
+				return &nativeTransport{
 					conn: conn,
 				}, nil
 			}
@@ -83,9 +83,9 @@ func (o *stdConnOpener) Connect(ctx context.Context) (_ driver.Conn, err error) 
 		case ConnOpenRoundRobin:
 			num = (int(connID) + i) % len(o.opt.Addr)
 		}
-		if runtimeLayer, err = dialFunc(ctx, o.opt.Addr[num], connID, o.opt); err == nil {
+		if runtimeTransport, err = dialFunc(ctx, o.opt.Addr[num], connID, o.opt); err == nil {
 			return &stdDriver{
-				layer: runtimeLayer,
+				transport: runtimeTransport,
 			}, nil
 		}
 	}
@@ -118,7 +118,7 @@ func OpenDB(opt *Options) *sql.DB {
 	})
 }
 
-type layer interface {
+type transport interface {
 	ResetSession(ctx context.Context) error
 	Ping(ctx context.Context) error
 	Begin() (driver.Tx, error)
@@ -132,7 +132,7 @@ type layer interface {
 }
 
 type stdDriver struct {
-	layer
+	transport
 }
 
 func (d *stdDriver) Open(dsn string) (_ driver.Conn, err error) {
@@ -146,75 +146,75 @@ func (d *stdDriver) Open(dsn string) (_ driver.Conn, err error) {
 
 var ErrHttpNotSupported = errors.New("HTTP: not supported")
 
-type httpLayer struct {
+type httpTransport struct {
 	conn *httpConnect
 }
 
-func (h httpLayer) ResetSession(ctx context.Context) error {
+func (h httpTransport) ResetSession(ctx context.Context) error {
 	//TODO implement me
 	return ErrHttpNotSupported
 }
 
-func (h httpLayer) Ping(ctx context.Context) error {
+func (h httpTransport) Ping(ctx context.Context) error {
 	return h.conn.ping(ctx)
 }
 
-func (h httpLayer) Begin() (driver.Tx, error) {
+func (h httpTransport) Begin() (driver.Tx, error) {
 	//TODO implement me
 	return nil, ErrHttpNotSupported
 }
 
-func (h httpLayer) Commit() error {
+func (h httpTransport) Commit() error {
 	//TODO implement me
 	return ErrHttpNotSupported
 }
 
-func (h httpLayer) Rollback() error {
+func (h httpTransport) Rollback() error {
 	//TODO implement me
 	return ErrHttpNotSupported
 }
 
-func (h httpLayer) CheckNamedValue(nv *driver.NamedValue) error {
+func (h httpTransport) CheckNamedValue(nv *driver.NamedValue) error {
 	//TODO implement me
 	return ErrHttpNotSupported
 }
 
-func (h httpLayer) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
+func (h httpTransport) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
 	//TODO implement me
 	return nil, ErrHttpNotSupported
 }
 
-func (h httpLayer) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+func (h httpTransport) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
 	//TODO implement me
 	return nil, ErrHttpNotSupported
 }
 
-func (h httpLayer) Prepare(query string) (driver.Stmt, error) {
+func (h httpTransport) Prepare(query string) (driver.Stmt, error) {
 	//TODO implement me
 	return nil, ErrHttpNotSupported
 }
 
-func (h httpLayer) Close() error {
+func (h httpTransport) Close() error {
 	return h.conn.close()
 }
 
-type nativeLayer struct {
+type nativeTransport struct {
 	conn   *connect
 	commit func() error
 }
 
-func (std *nativeLayer) ResetSession(ctx context.Context) error {
+func (std *nativeTransport) ResetSession(ctx context.Context) error {
 	if std.conn.isBad() {
 		return driver.ErrBadConn
 	}
 	return nil
 }
 
-func (std *nativeLayer) Ping(ctx context.Context) error { return std.conn.ping(ctx) }
+func (std *nativeTransport) Ping(ctx context.Context) error { return std.conn.ping(ctx) }
 
-func (std *nativeLayer) Begin() (driver.Tx, error) { return std, nil }
+func (std *nativeTransport) Begin() (driver.Tx, error) { return std, nil }
 
-func (std *nativeLayer) Commit() error {
+func (std *nativeTransport) Commit() error {
 	if std.commit == nil {
 		return nil
 	}
@@ -224,15 +224,15 @@ func (std *nativeLayer) Commit() error {
 	return std.commit()
 }
 
-func (std *nativeLayer) Rollback() error {
+func (std *nativeTransport) Rollback() error {
 	std.commit = nil
 	std.conn.close()
 	return nil
 }
 
-func (std *nativeLayer) CheckNamedValue(nv *driver.NamedValue) error { return nil }
+func (std *nativeTransport) CheckNamedValue(nv *driver.NamedValue) error { return nil }
 
-func (std *nativeLayer) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
+func (std *nativeTransport) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
 	if options := queryOptions(ctx); options.async.ok {
 		if len(args) != 0 {
 			return nil, errors.New("clickhouse: you can't use parameters in an asynchronous insert")
@@ -245,7 +245,7 @@ func (std *nativeLayer) ExecContext(ctx context.Context, query string, args []dr
 	return driver.RowsAffected(0), nil
 }
 
-func (std *nativeLayer) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+func (std *nativeTransport) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
 	r, err := std.conn.query(ctx, func(*connect, error) {}, query, rebind(args)...)
 	if err != nil {
 		return nil, err
@@ -255,11 +255,11 @@ func (std *nativeLayer) QueryContext(ctx context.Context, query string, args []d
 	}, nil
 }
 
-func (std *nativeLayer) Prepare(query string) (driver.Stmt, error) {
+func (std *nativeTransport) Prepare(query string) (driver.Stmt, error) {
 	return std.PrepareContext(context.Background(), query)
 }
 
-func (std *nativeLayer) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
+func (std *nativeTransport) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
 	batch, err := std.conn.prepareBatch(ctx, query, func(*connect, error) {})
 	if err != nil {
 		return nil, err
@@ -270,7 +270,7 @@ func (std *nativeLayer) PrepareContext(ctx context.Context, query string) (drive
 	}, nil
 }
 
-func (std *nativeLayer) Close() error { return std.conn.close() }
+func (std *nativeTransport) Close() error { return std.conn.close() }
 
 type stdBatch struct {
 	batch *batch
