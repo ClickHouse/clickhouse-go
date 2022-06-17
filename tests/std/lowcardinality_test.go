@@ -33,7 +33,7 @@ func TestStdLowCardinality(t *testing.T) {
 		"allow_suspicious_low_cardinality_types": 1,
 	}))
 	if conn, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000"); assert.NoError(t, err) {
-		if err := checkMinServerVersion(conn, 19, 11); err != nil {
+		if err := checkMinServerVersion(conn, 19, 11, 0); err != nil {
 			t.Skip(err.Error())
 			return
 		}

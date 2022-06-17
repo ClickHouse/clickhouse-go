@@ -73,7 +73,7 @@ func TestStdJson(t *testing.T) {
 			"allow_experimental_object_type": 1,
 		},
 	})
-	if err := checkMinServerVersion(conn, 21, 9); err != nil {
+	if err := checkMinServerVersion(conn, 22, 6, 1); err != nil {
 		t.Skip(err.Error())
 		return
 	}
