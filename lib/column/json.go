@@ -475,7 +475,8 @@ func appendStructOrMap(jCol *JSONObject, data interface{}) error {
 	kind := vData.Kind()
 	if kind == reflect.Struct {
 		return iterateStruct(vData, jCol, 0)
-	} else if kind == reflect.Map {
+	}
+	if kind == reflect.Map {
 		if reflect.TypeOf(data).Key().Kind() != reflect.String {
 			return &Error{
 				ColumnType: fmt.Sprint(reflect.TypeOf(data).Key().Kind()),

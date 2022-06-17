@@ -179,7 +179,8 @@ func setJSONFieldValue(field reflect.Value, value reflect.Value) error {
 	if field.Kind() == reflect.String {
 		field.Set(reflect.ValueOf(fmt.Sprint(value.Interface())))
 		return nil
-	} else if value.CanConvert(field.Type()) {
+	}
+	if value.CanConvert(field.Type()) {
 		field.Set(value.Convert(field.Type()))
 		return nil
 	}
@@ -394,7 +395,8 @@ func (col *Tuple) ScanRow(dest interface{}, row int) error {
 			}
 			jType.Set(rStruct)
 			return nil
-		} else if kind == reflect.Map {
+		}
+		if kind == reflect.Map {
 			//check if pointer
 			mapVal := reflect.Indirect(reflect.ValueOf(dest))
 			if mapVal.IsNil() {
