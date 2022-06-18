@@ -128,6 +128,7 @@ type transport interface {
 	ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error)
 	QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error)
 	Prepare(query string) (driver.Stmt, error)
+	PrepareContext(ctx context.Context, query string) (driver.Stmt, error)
 	Close() error
 }
 
@@ -175,22 +176,31 @@ func (h httpTransport) Rollback() error {
 }
 
 func (h httpTransport) CheckNamedValue(nv *driver.NamedValue) error {
-	//TODO implement me
-	return ErrHttpNotSupported
+	return nil
 }
 
 func (h httpTransport) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
-	//TODO implement me
-	return nil, ErrHttpNotSupported
+	if err := h.conn.exec(ctx, query, rebind(args)); err != nil {
+		return nil, err
+	}
+	return driver.RowsAffected(0), nil
 }
 
 func (h httpTransport) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
-	//TODO implement me
-	return nil, ErrHttpNotSupported
+	rows, err := h.conn.query(ctx, query, rebind(args)...)
+	if err != nil {
+		return nil, err
+	}
+	return &stdRows{
+		rows: rows,
+	}, nil
 }
 
 func (h httpTransport) Prepare(query string) (driver.Stmt, error) {
-	//TODO implement me
+	return h.PrepareContext(context.Background(), query)
+}
+
+func (h httpTransport) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
 	return nil, ErrHttpNotSupported
 }
 

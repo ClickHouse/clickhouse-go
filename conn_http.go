@@ -20,8 +20,12 @@ package clickhouse
 import (
 	"context"
 	"database/sql/driver"
+	"errors"
 	"fmt"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -30,13 +34,17 @@ import (
 )
 
 func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpConnect, error) {
-	url := &url.URL{
+	u := &url.URL{
 		Scheme: "http",
 		Host:   addr,
 	}
 
+	query := u.Query()
+	query.Set("default_format", "Native")
+	u.RawQuery = query.Encode()
+
 	if opt.TLS != nil {
-		url.Scheme = "https"
+		u.Scheme = "https"
 	}
 
 	connect := &httpConnect{
@@ -51,8 +59,8 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 			ResponseHeaderTimeout: opt.ReadTimeout,
 			TLSClientConfig:       opt.TLS,
 		},
-		url:      url,
-		location: time.UTC, // TODO: make configurable
+		url:      u,
+		location: time.UTC, // TODO: make configurables
 	}
 
 	if err := connect.ping(ctx); err != nil {
@@ -69,13 +77,15 @@ type httpConnect struct {
 	location  *time.Location
 }
 
-func (h *httpConnect) prepareRequest(ctx context.Context, query string, args ...interface{}) (*http.Request, error) {
-	query, err := bind(h.location, query, args)
-	if err != nil {
+func (h *httpConnect) readData(decoder *binary.Decoder) (*proto.Block, error) {
+	var block proto.Block
+	if err := block.Decode(decoder, 0); err != nil {
 		return nil, err
 	}
+	return &block, nil
+}
 
-	reader := strings.NewReader(query)
+func (h *httpConnect) prepareRequest(ctx context.Context, reader io.Reader) (*http.Request, error) {
 
 	req, err := http.NewRequest(http.MethodPost, h.url.String(), reader)
 
@@ -99,26 +109,91 @@ func (h *httpConnect) executeRequest(ctx context.Context, req *http.Request) (io
 	return resp.Body, nil
 }
 
-func (h *httpConnect) ping(ctx context.Context) error {
-	req, err := h.prepareRequest(ctx, "SELECT 1")
+func (h *httpConnect) exec(ctx context.Context, query string, args ...interface{}) error {
+	query, err := bind(h.location, query, args...)
+	if err != nil {
+		return err
+	}
+
+	req, err := h.prepareRequest(ctx, strings.NewReader(query))
 	if err != nil {
 		return err
 	}
 
 	res, err := h.executeRequest(ctx, req)
+	if res != nil {
+		defer res.Close()
+		// we don't care about result, so just discard it to reuse connection
+		_, _ = io.Copy(ioutil.Discard, res)
+	}
+
+	return err
+}
+
+func (h *httpConnect) query(ctx context.Context, query string, args ...interface{}) (*rows, error) {
+
+	query, err := bind(h.location, query, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := h.prepareRequest(ctx, strings.NewReader(query))
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := h.executeRequest(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	decoder := binary.NewDecoder(res)
+	block, err := h.readData(decoder)
+	if err != nil {
+		return nil, err
+	}
+
+	var (
+		errCh  = make(chan error)
+		stream = make(chan *proto.Block, 2)
+	)
+
+	go func() {
+		for {
+			block, err := h.readData(decoder)
+			if err != nil {
+				if err != io.EOF {
+					errCh <- err
+				}
+				close(stream)
+				close(errCh)
+				return
+			}
+			stream <- block
+		}
+	}()
+
+	return &rows{
+		block:     block,
+		stream:    stream,
+		errors:    errCh,
+		columns:   block.ColumnsNames(),
+		structMap: &structMap{},
+	}, nil
+}
+
+func (h *httpConnect) ping(ctx context.Context) error {
+	rows, err := h.query(ctx, "SELECT 1")
 	if err != nil {
 		return err
 	}
-	s, err := io.ReadAll(res)
-	if err != nil {
-		return err
+	column := rows.Columns()
+	// check that we got column 1
+	if len(column) == 1 && column[0] == "1" {
+		return nil
 	}
 
-	if strings.TrimSpace(string(s)) != "1" {
-		return fmt.Errorf("clickhouse [ping]:: expected result (1), got '%s' instead", string(s))
-	}
-
-	return nil
+	return errors.New("clickhouse [ping]:: cannot ping clickhouse")
 }
 
 func (h *httpConnect) close() error {
