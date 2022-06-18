@@ -78,6 +78,7 @@ func (col *UUID) Append(v interface{}) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []string:
 		nulls = make([]uint8, len(v))
+		var data []byte
 		for _, v := range v {
 			var u uuid.UUID
 			u, err = uuid.Parse(v)
@@ -86,8 +87,10 @@ func (col *UUID) Append(v interface{}) (nulls []uint8, err error) {
 			}
 			col.data = append(col.data, swap(u[:])...)
 		}
+		col.data = append(col.data, data...)
 	case []*string:
 		nulls = make([]uint8, len(v))
+		var data []byte
 		for i, v := range v {
 			switch {
 			case v != nil:
@@ -96,11 +99,12 @@ func (col *UUID) Append(v interface{}) (nulls []uint8, err error) {
 				if err != nil {
 					return
 				}
-				col.data = append(col.data, swap(tmp[:])...)
+				data = append(data, swap(tmp[:])...)
 			default:
-				col.data, nulls[i] = append(col.data, make([]byte, uuidSize)...), 1
+				data, nulls[i] = append(data, make([]byte, uuidSize)...), 1
 			}
 		}
+		col.data = append(col.data, data...)
 	case []uuid.UUID:
 		nulls = make([]uint8, len(v))
 		for _, v := range v {

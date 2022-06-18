@@ -71,36 +71,78 @@ func (col *IPv4) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (col *IPv4) append(v net.IP) error {
-	ip := v.To4()
+// appendIPv4Str appends bytes of the IPv4-formatted string to result byte array.
+// If IP is not valid V4 error will be returned.
+func appendIPv4Str(data []byte, strIp string) ([]byte, error) {
+	ip := net.ParseIP(strIp)
 	if ip == nil {
-		return &ColumnConverterError{
+		return nil, &ColumnConverterError{
+			Op:   "Append",
+			To:   "IPv4",
+			Hint: "invalid IP format",
+		}
+	}
+	return appendIPv4(data, ip)
+}
+
+// appendIPv4 appends bytes of IPv4 to result byte array.
+// If IP is not valid V4 error will be returned.
+func appendIPv4(data []byte, ip net.IP) ([]byte, error) {
+	ip = ip.To4()
+	if ip == nil {
+		return nil, &ColumnConverterError{
 			Op:   "Append",
 			To:   "IPv4",
 			From: "IPv6",
 			Hint: "invalid IP version",
 		}
 	}
-	col.data = append(col.data, IPv4ToBytes(ip)...)
-	return nil
+	return append(data, IPv4ToBytes(ip)...), nil
+}
+
+func (col *IPv4) appendIPv4(ip net.IP) (err error) {
+	col.data, err = appendIPv4(col.data, ip)
+	return
+}
+
+func (col *IPv4) appendIPv4Str(strIp string) (err error) {
+	col.data, err = appendIPv4Str(col.data, strIp)
+	return
+}
+
+func (col *IPv4) appendEmptyIPv4() error {
+	return col.appendIPv4(make(net.IP, net.IPv4len))
 }
 
 func (col *IPv4) Append(v interface{}) (nulls []uint8, err error) {
+	var data []byte
+
 	switch v := v.(type) {
 	case []string:
 		nulls = make([]uint8, len(v))
 		for _, v := range v {
-			err = col.append(net.ParseIP(v))
+			data, err = appendIPv4Str(data, v)
 			if err != nil {
 				return
 			}
 		}
 	case []*string:
 		nulls = make([]uint8, len(v))
+		for i, v := range v {
+			switch {
+			case v != nil:
+				data, err = appendIPv4Str(data, *v)
+				if err != nil {
+					return
+				}
+			default:
+				data, nulls[i] = append(data, make([]byte, net.IPv4len)...), 1
+			}
+		}
 	case []net.IP:
 		nulls = make([]uint8, len(v))
 		for _, v := range v {
-			err = col.append(v)
+			data, err = appendIPv4(data, v)
 			if err != nil {
 				return
 			}
@@ -110,12 +152,12 @@ func (col *IPv4) Append(v interface{}) (nulls []uint8, err error) {
 		for i, v := range v {
 			switch {
 			case v != nil:
-				err = col.append(*v)
+				data, err = appendIPv4(data, *v)
 				if err != nil {
 					return
 				}
 			default:
-				col.data, nulls[i] = append(col.data, make([]byte, net.IPv4len)...), 1
+				data, nulls[i] = append(data, make([]byte, net.IPv4len)...), 1
 			}
 		}
 	default:
@@ -125,32 +167,34 @@ func (col *IPv4) Append(v interface{}) (nulls []uint8, err error) {
 			From: fmt.Sprintf("%T", v),
 		}
 	}
+
+	col.data = append(col.data, data...)
 	return
 }
 
-func (col *IPv4) AppendRow(v interface{}) error {
-	var ip net.IP
+func (col *IPv4) AppendRow(v interface{}) (err error) {
 	switch v := v.(type) {
 	case string:
-		ip = net.ParseIP(v)
+		err = col.appendIPv4Str(v)
 	case *string:
 		switch {
 		case v != nil:
-			ip = net.ParseIP(*v)
+			err = col.appendIPv4Str(*v)
 		default:
-			ip = make(net.IP, net.IPv4len)
+			err = col.appendEmptyIPv4()
 		}
 	case net.IP:
-		ip = v
+		err = col.appendIPv4(v)
 	case *net.IP:
 		switch {
 		case v != nil:
-			ip = *v
+			err = col.appendIPv4(*v)
 		default:
-			ip = make(net.IP, net.IPv4len)
+			err = col.appendEmptyIPv4()
 		}
+
 	case nil:
-		ip = make(net.IP, net.IPv4len)
+		err = col.appendEmptyIPv4()
 	default:
 		return &ColumnConverterError{
 			Op:   "AppendRow",
@@ -158,17 +202,8 @@ func (col *IPv4) AppendRow(v interface{}) error {
 			From: fmt.Sprintf("%T", v),
 		}
 	}
-	data := ip.To4()
-	if data == nil {
-		return &ColumnConverterError{
-			Op:   "AppendRow",
-			To:   "IPv4",
-			From: "IPv6",
-			Hint: "invalid IP version",
-		}
-	}
-	col.data = append(col.data, IPv4ToBytes(data)...)
-	return nil
+
+	return
 }
 
 func (col *IPv4) Decode(decoder *binary.Decoder, rows int) error {
