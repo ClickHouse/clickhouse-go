@@ -35,6 +35,27 @@ func Named(name string, value interface{}) driver.NamedValue {
 	}
 }
 
+type TimeUnit uint8
+
+const (
+	Seconds TimeUnit = iota
+	MilliSeconds
+	MicroSeconds
+	NanoSeconds
+)
+
+type GroupSet struct {
+	Value []interface{}
+}
+
+func DateNamed(name string, value time.Time, scale TimeUnit) driver.NamedDateValue {
+	return driver.NamedDateValue{
+		Name:  name,
+		Value: value,
+		Scale: uint8(scale),
+	}
+}
+
 var bindNumericRe = regexp.MustCompile(`\$[0-9]+`)
 var bindPositionalRe = regexp.MustCompile(`[^\\][?]`)
 
@@ -54,7 +75,7 @@ func bind(tz *time.Location, query string, args ...interface{}) (string, error) 
 	}
 	for _, v := range args {
 		switch v.(type) {
-		case driver.NamedValue:
+		case driver.NamedValue, driver.NamedDateValue:
 			haveNamed = true
 		default:
 		}
@@ -84,7 +105,7 @@ func bindPositional(tz *time.Location, query string, args ...interface{}) (_ str
 				return "", nil
 			}
 		}
-		params[i], err = format(tz, v)
+		params[i], err = format(tz, Seconds, v)
 		if err != nil {
 			return "", err
 		}
@@ -119,7 +140,7 @@ func bindNumeric(tz *time.Location, query string, args ...interface{}) (_ string
 				return "", nil
 			}
 		}
-		val, err := format(tz, v)
+		val, err := format(tz, Seconds, v)
 		if err != nil {
 			return "", err
 		}
@@ -154,7 +175,13 @@ func bindNamed(tz *time.Location, query string, args ...interface{}) (_ string, 
 					return "", err
 				}
 			}
-			val, err := format(tz, value)
+			val, err := format(tz, Seconds, value)
+			if err != nil {
+				return "", err
+			}
+			params["@"+v.Name] = val
+		case driver.NamedDateValue:
+			val, err := format(tz, TimeUnit(v.Scale), v.Value)
 			if err != nil {
 				return "", err
 			}
@@ -174,7 +201,32 @@ func bindNamed(tz *time.Location, query string, args ...interface{}) (_ string, 
 	return query, nil
 }
 
-func format(tz *time.Location, v interface{}) (string, error) {
+func formatTime(tz *time.Location, scale TimeUnit, value time.Time) (string, error) {
+	switch value.Location().String() {
+	case "Local":
+		switch scale {
+		case Seconds:
+			return fmt.Sprintf("toDateTime('%d')", value.Unix()), nil
+		case MilliSeconds:
+			return fmt.Sprintf("toDateTime64('%d', 3)", value.UnixMilli()), nil
+		case MicroSeconds:
+			return fmt.Sprintf("toDateTime64('%d', 6)", value.UnixMicro()), nil
+		case NanoSeconds:
+			return fmt.Sprintf("toDateTime64('%d', 9)", value.UnixNano()), nil
+		}
+	case tz.String():
+		if scale == Seconds {
+			return value.Format("toDateTime('2006-01-02 15:04:05')"), nil
+		}
+		return fmt.Sprintf("toDateTime64('%s', %d)", value.Format(fmt.Sprintf("2006-01-02 15:04:05.%0*d", int(scale*3), 0)), int(scale*3)), nil
+	}
+	if scale == Seconds {
+		return value.Format(fmt.Sprintf("toDateTime('2006-01-02 15:04:05', '%s')", value.Location().String())), nil
+	}
+	return fmt.Sprintf("toDateTime64('%s', %d, '%s')", value.Format(fmt.Sprintf("2006-01-02 15:04:05.%0*d", int(scale*3), 0)), int(scale*3), value.Location().String()), nil
+}
+
+func format(tz *time.Location, scale TimeUnit, v interface{}) (string, error) {
 	quote := func(v string) string {
 		return "'" + strings.NewReplacer(`\`, `\\`, `'`, `\'`).Replace(v) + "'"
 	}
@@ -184,31 +236,25 @@ func format(tz *time.Location, v interface{}) (string, error) {
 	case string:
 		return quote(v), nil
 	case time.Time:
-		switch v.Location().String() {
-		case "Local":
-			return fmt.Sprintf("toDateTime(%d)", v.Unix()), nil
-		case tz.String():
-			return v.Format("toDateTime('2006-01-02 15:04:05')"), nil
-		}
-		return v.Format("toDateTime('2006-01-02 15:04:05', '" + v.Location().String() + "')"), nil
-	case []interface{}: // tuple
-		elements := make([]string, 0, len(v))
-		for _, e := range v {
-			val, err := format(tz, e)
+		return formatTime(tz, scale, v)
+	case GroupSet:
+		elements := make([]string, 0, len(v.Value))
+		for _, e := range v.Value {
+			val, err := format(tz, scale, e)
 			if err != nil {
 				return "", err
 			}
 			elements = append(elements, val)
 		}
-		return "(" + strings.Join(elements, ", ") + ")", nil
-	case [][]interface{}:
+		return fmt.Sprintf("(%s)", strings.Join(elements, ", ")), nil
+	case []GroupSet:
 		items := make([]string, 0, len(v))
 		for _, t := range v {
-			val, err := format(tz, t)
+			val, err := format(tz, scale, t)
 			if err != nil {
 				return "", err
 			}
-			items = append(items, val)
+			items = append(items, fmt.Sprintf("%s", val))
 		}
 		return strings.Join(items, ", "), nil
 	case fmt.Stringer:
@@ -220,7 +266,7 @@ func format(tz *time.Location, v interface{}) (string, error) {
 	case reflect.Slice:
 		values := make([]string, 0, v.Len())
 		for i := 0; i < v.Len(); i++ {
-			val, err := format(tz, v.Index(i).Interface())
+			val, err := format(tz, scale, v.Index(i).Interface())
 			if err != nil {
 				return "", err
 			}
@@ -234,7 +280,7 @@ func format(tz *time.Location, v interface{}) (string, error) {
 			if key.Kind() == reflect.String {
 				name = fmt.Sprintf("'%s'", name)
 			}
-			val, err := format(tz, v.MapIndex(key).Interface())
+			val, err := format(tz, scale, v.MapIndex(key).Interface())
 			if err != nil {
 				return "", err
 			}

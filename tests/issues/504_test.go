@@ -43,12 +43,12 @@ func Test504(t *testing.T) {
 				LIMIT 5
 			)
 		)
-		WHERE (Col1, Col2) IN ($1)
+		WHERE (Col1, Col2) IN (@GS)
 		`
-		err := conn.Select(ctx, &result, query, [][]interface{}{
-			[]interface{}{"A", 2},
-			[]interface{}{"A", 4},
-		})
+		err := conn.Select(ctx, &result, query, clickhouse.Named("GS", []clickhouse.GroupSet{
+			{Value: []interface{}{"A", 2}},
+			{Value: []interface{}{"A", 4}},
+		}))
 
 		if assert.NoError(t, err) {
 			assert.Equal(t, []struct {
