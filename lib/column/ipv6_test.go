@@ -23,56 +23,56 @@ import (
 	"testing"
 )
 
-const invalidIPv4Str = "44.489.38.222"
+const invalidIPv6Str = "0:0:0:piyiy:0:0:0:1"
 
-func getTestIPv4() []net.IP {
+func getTestIPv6() []net.IP {
 	return []net.IP{
-		net.ParseIP("43.58.38.33"),
-		net.ParseIP("127.0.0.1"),
-		net.ParseIP("192.168.18.38"),
+		net.ParseIP("2001:db8:85a3:8d3:1319:8a2e:370:7348"),
+		net.ParseIP("0:0:0:0:0:0:0:1"),
+		net.ParseIP("::ffff:c000:0280"),
 	}
 }
 
-func TestIPv4_AppendRow_InvalidIP(t *testing.T) {
-	col := IPv4{}
+func TestIPv6_AppendRow_InvalidIP(t *testing.T) {
+	col := IPv6{}
 
 	// appending string
-	err := col.AppendRow(invalidIPv4Str)
+	err := col.AppendRow(invalidIPv6Str)
 
 	require.EqualError(t, err, (&ColumnConverterError{
 		Op:   "Append",
-		To:   "IPv4",
+		To:   "IPv6",
 		Hint: "invalid IP format",
 	}).Error())
 }
 
-func TestIPv4_Append_InvalidIP(t *testing.T) {
+func TestIPv6_Append_InvalidIP(t *testing.T) {
 	strIps := []string{
-		getTestIPv4()[0].String(),
-		invalidIPv4Str,
+		getTestIPv6()[0].String(),
+		invalidIPv6Str,
 	}
 
 	// appending strings
-	col := IPv4{}
-	err := col.AppendRow(getTestIPv4()[1].String()) // add 1 valid IP
+	col := IPv6{}
+	err := col.AppendRow(getTestIPv6()[1].String()) // add 1 valid IP
 
 	require.NoError(t, err)
 
 	_, err = col.Append(strIps)
 	require.EqualError(t, err, (&ColumnConverterError{
 		Op:   "Append",
-		To:   "IPv4",
+		To:   "IPv6",
 		Hint: "invalid IP format",
 	}).Error())
 
 	require.Equal(t, 1, col.Rows(), "Append must preserve initial state if error happened")
 }
 
-func TestIPv4_AppendRow(t *testing.T) {
-	ip := getTestIPv4()[0]
+func TestIPv6_AppendRow(t *testing.T) {
+	ip := getTestIPv6()[0]
 	strIp := ip.String()
 
-	col := IPv4{}
+	col := IPv6{}
 
 	// appending string
 	err := col.AppendRow(strIp)
@@ -111,8 +111,8 @@ func TestIPv4_AppendRow(t *testing.T) {
 	}
 }
 
-func TestIPv4_Append(t *testing.T) {
-	ips := getTestIPv4()
+func TestIPv6_Append(t *testing.T) {
+	ips := getTestIPv6()
 
 	var strIps []string
 
@@ -121,7 +121,7 @@ func TestIPv4_Append(t *testing.T) {
 	}
 
 	// appending strings
-	col := IPv4{}
+	col := IPv6{}
 	_, err := col.Append(strIps)
 
 	require.NoError(t, err)
@@ -140,7 +140,7 @@ func TestIPv4_Append(t *testing.T) {
 		strPtrIps = append(strPtrIps, &str)
 	}
 
-	col = IPv4{}
+	col = IPv6{}
 	_, err = col.Append(strPtrIps)
 
 	require.NoError(t, err)
@@ -152,10 +152,10 @@ func TestIPv4_Append(t *testing.T) {
 	}
 }
 
-func TestIPv4_ScanRow(t *testing.T) {
-	ips := getTestIPv4()
+func TestIPv6_ScanRow(t *testing.T) {
+	ips := getTestIPv6()
 
-	col := IPv4{}
+	col := IPv6{}
 	_, err := col.Append(ips)
 	if err != nil {
 		t.Fatal(err)

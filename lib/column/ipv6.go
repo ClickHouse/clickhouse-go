@@ -82,7 +82,7 @@ func appendIPv6Str(data []byte, strIp string) ([]byte, error) {
 			Hint: "invalid IP format",
 		}
 	}
-	return appendIPv4(data, ip)
+	return appendIPv6(data, ip)
 }
 
 // appendIPv6 appends bytes of IPv6 to result byte array.
@@ -135,7 +135,7 @@ func (col *IPv6) Append(v interface{}) (nulls []uint8, err error) {
 					return
 				}
 			default:
-				data, nulls[i] = append(data, make([]byte, net.IPv4len)...), 1
+				data, nulls[i] = append(data, make([]byte, net.IPv6len)...), 1
 			}
 		}
 	case []net.IP:
