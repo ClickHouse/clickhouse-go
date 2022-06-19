@@ -148,45 +148,49 @@ func (d *stdDriver) Open(dsn string) (_ driver.Conn, err error) {
 var ErrHttpNotSupported = errors.New("HTTP: not supported")
 
 type httpTransport struct {
-	conn *httpConnect
+	conn   *httpConnect
+	commit func() error
 }
 
-func (h httpTransport) ResetSession(ctx context.Context) error {
-	//TODO implement me
-	return ErrHttpNotSupported
-}
-
-func (h httpTransport) Ping(ctx context.Context) error {
-	return h.conn.ping(ctx)
-}
-
-func (h httpTransport) Begin() (driver.Tx, error) {
-	//TODO implement me
-	return nil, ErrHttpNotSupported
-}
-
-func (h httpTransport) Commit() error {
-	//TODO implement me
-	return ErrHttpNotSupported
-}
-
-func (h httpTransport) Rollback() error {
-	//TODO implement me
-	return ErrHttpNotSupported
-}
-
-func (h httpTransport) CheckNamedValue(nv *driver.NamedValue) error {
+func (h *httpTransport) ResetSession(ctx context.Context) error {
 	return nil
 }
 
-func (h httpTransport) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
+func (h *httpTransport) Ping(ctx context.Context) error {
+	return h.conn.ping(ctx)
+}
+
+func (h *httpTransport) Begin() (driver.Tx, error) {
+	return h, nil
+}
+
+func (h *httpTransport) Commit() error {
+	if h.commit == nil {
+		return nil
+	}
+	defer func() {
+		h.commit = nil
+	}()
+	return h.commit()
+}
+
+func (h *httpTransport) Rollback() error {
+	h.commit = nil
+	return h.conn.close()
+}
+
+func (h *httpTransport) CheckNamedValue(nv *driver.NamedValue) error {
+	return nil
+}
+
+func (h *httpTransport) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
 	if err := h.conn.exec(ctx, query, rebind(args)); err != nil {
 		return nil, err
 	}
 	return driver.RowsAffected(0), nil
 }
 
-func (h httpTransport) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+func (h *httpTransport) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
 	rows, err := h.conn.query(ctx, query, rebind(args)...)
 	if err != nil {
 		return nil, err
@@ -196,12 +200,19 @@ func (h httpTransport) QueryContext(ctx context.Context, query string, args []dr
 	}, nil
 }
 
-func (h httpTransport) Prepare(query string) (driver.Stmt, error) {
+func (h *httpTransport) Prepare(query string) (driver.Stmt, error) {
 	return h.PrepareContext(context.Background(), query)
 }
 
-func (h httpTransport) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
-	return nil, ErrHttpNotSupported
+func (h *httpTransport) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
+	batch, err := h.conn.prepareBatch(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	h.commit = batch.Send
+	return &stdBatch{
+		batch: batch,
+	}, nil
 }
 
 func (h httpTransport) Close() error {
@@ -282,8 +293,12 @@ func (std *nativeTransport) PrepareContext(ctx context.Context, query string) (d
 
 func (std *nativeTransport) Close() error { return std.conn.close() }
 
+type IBatch interface {
+	Append(v ...interface{}) error
+}
+
 type stdBatch struct {
-	batch *batch
+	batch IBatch
 }
 
 func (s *stdBatch) NumInput() int { return -1 }

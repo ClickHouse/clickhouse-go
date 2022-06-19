@@ -18,6 +18,8 @@
 package clickhouse
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"database/sql/driver"
 	"errors"
@@ -77,7 +79,11 @@ type httpConnect struct {
 	location  *time.Location
 }
 
-func (h *httpConnect) readData(decoder *binary.Decoder) (*proto.Block, error) {
+func writeData(encoder *binary.Encoder, block *proto.Block, name string) error {
+	return block.Encode(encoder, 0)
+}
+
+func readData(decoder *binary.Decoder) (*proto.Block, error) {
 	var block proto.Block
 	if err := block.Decode(decoder, 0); err != nil {
 		return nil, err
@@ -85,9 +91,35 @@ func (h *httpConnect) readData(decoder *binary.Decoder) (*proto.Block, error) {
 	return &block, nil
 }
 
-func (h *httpConnect) prepareRequest(ctx context.Context, reader io.Reader) (*http.Request, error) {
+func readResponse(response *http.Response) ([]byte, error) {
+	var result []byte
+	if response.ContentLength > 0 {
+		result = make([]byte, 0, response.ContentLength)
+	}
+	buf := bytes.NewBuffer(result)
+	defer response.Body.Close()
+	_, err := buf.ReadFrom(response.Body)
 
-	req, err := http.NewRequest(http.MethodPost, h.url.String(), reader)
+	if err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
+}
+
+func (h *httpConnect) prepareRequest(ctx context.Context, reader io.Reader, extra map[string]string) (*http.Request, error) {
+
+	u := *h.url
+
+	if len(extra) != 0 {
+		query := u.Query()
+		for key, value := range extra {
+			query.Set(key, value)
+		}
+		u.RawQuery = query.Encode()
+	}
+
+	req, err := http.NewRequest(http.MethodPost, u.String(), reader)
 
 	return req, err
 }
@@ -103,7 +135,14 @@ func (h *httpConnect) executeRequest(ctx context.Context, req *http.Request) (io
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("clickhouse [execute]:: got no 200 code('%d')", resp.StatusCode)
+
+		msg, err := readResponse(resp)
+
+		if err != nil {
+			return nil, fmt.Errorf("clickhouse [execute]:: failed to read the response (status code %d): %w", resp.StatusCode, err)
+		}
+
+		return nil, fmt.Errorf("clickhouse [execute]:: %d code: %s", resp.StatusCode, string(msg))
 	}
 
 	return resp.Body, nil
@@ -115,7 +154,7 @@ func (h *httpConnect) exec(ctx context.Context, query string, args ...interface{
 		return err
 	}
 
-	req, err := h.prepareRequest(ctx, strings.NewReader(query))
+	req, err := h.prepareRequest(ctx, strings.NewReader(query), nil)
 	if err != nil {
 		return err
 	}
@@ -131,13 +170,12 @@ func (h *httpConnect) exec(ctx context.Context, query string, args ...interface{
 }
 
 func (h *httpConnect) query(ctx context.Context, query string, args ...interface{}) (*rows, error) {
-
 	query, err := bind(h.location, query, args...)
 	if err != nil {
 		return nil, err
 	}
 
-	req, err := h.prepareRequest(ctx, strings.NewReader(query))
+	req, err := h.prepareRequest(ctx, strings.NewReader(query), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -147,8 +185,8 @@ func (h *httpConnect) query(ctx context.Context, query string, args ...interface
 		return nil, err
 	}
 
-	decoder := binary.NewDecoder(res)
-	block, err := h.readData(decoder)
+	decoder := binary.NewDecoder(bufio.NewReader(res))
+	block, err := readData(decoder)
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +198,7 @@ func (h *httpConnect) query(ctx context.Context, query string, args ...interface
 
 	go func() {
 		for {
-			block, err := h.readData(decoder)
+			block, err := readData(decoder)
 			if err != nil {
 				if err != io.EOF {
 					errCh <- err
