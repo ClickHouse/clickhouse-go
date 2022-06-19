@@ -2,6 +2,7 @@ package column
 
 import (
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
 	"testing"
 )
 
@@ -36,10 +37,10 @@ func TestUuid_ScanRow(t *testing.T) {
 		var u uuid.UUID
 		err := col.ScanRow(&u, i)
 		if err != nil {
-			t.Fatalf("unexpected ScanRow error: %v", err)
+			require.Error(t, err, "unexpected ScanRow error")
 		}
 		if u != uuids[i] {
-			t.Fatalf("ScanRow resulted in %q instead of %q", u, uuids[i])
+			require.Failf(t, "Invalid result of ScanRow", "ScanRow resulted in %q instead of %q", u, uuids[i])
 		}
 	}
 
@@ -48,10 +49,10 @@ func TestUuid_ScanRow(t *testing.T) {
 		var u string
 		err := col.ScanRow(&u, i)
 		if err != nil {
-			t.Fatalf("unexpected ScanRow error: %v", err)
+			require.Error(t, err, "unexpected ScanRow error")
 		}
 		if u != uuids[i].String() {
-			t.Fatalf("ScanRow resulted in %q instead of %q", u, uuids[i])
+			require.Failf(t, "Invalid result of ScanRow", "ScanRow resulted in %q instead of %q", u, uuids[i])
 		}
 	}
 }

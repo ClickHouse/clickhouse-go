@@ -1,6 +1,7 @@
 package column
 
 import (
+	"github.com/stretchr/testify/require"
 	"net"
 	"testing"
 )
@@ -13,15 +14,14 @@ func TestIPv4_AppendRow_InvalidIP(t *testing.T) {
 	// appending string
 	err := col.AppendRow(invalidIPv4Str)
 	if err == nil {
-		t.Fatalf("AppendRow didn't IP")
+		require.Fail(t, "AppendRow must return error if invalid IP provided")
 	}
+
 	switch e := err.(type) {
 	case *ColumnConverterError:
-		if e.Hint != "invalid IP format" {
-			t.Fatalf("expected error hint %s, got %s", "AppendRow didn't IP", e.Hint)
-		}
+		require.Equal(t, "invalid IP format", e.Hint)
 	default:
-		t.Fatalf("AppendRow didn't IP")
+		require.Error(t, err, "AppendRow returned unexpected error")
 	}
 }
 
@@ -35,15 +35,16 @@ func TestIPv4_Append_InvalidIP(t *testing.T) {
 	col := IPv4{}
 	err := col.AppendRow("127.0.0.1") // add 1 valid IP
 	if err != nil {
-		t.Fatal(err)
+		require.Error(t, err)
 	}
 
 	_, err = col.Append(strIps)
 	if err == nil {
-		t.Fatal("Append must return error if invalid IP provided")
+		require.Fail(t, "Append must return error if invalid IP provided")
+
 	}
 	if col.Rows() != 1 {
-		t.Fatal("Append must preserve initial state if error happened")
+		require.Fail(t, "Append must preserve initial state if error happened")
 	}
 }
 
@@ -56,13 +57,14 @@ func TestIPv4_AppendRow(t *testing.T) {
 	// appending string
 	err := col.AppendRow(strIp)
 	if err != nil {
-		t.Fatal(err)
+		require.Error(t, err)
 	}
 	if col.Rows() != 1 {
-		t.Fatalf("AppendRow didn't IP")
+		require.Fail(t, "AppendRow didn't add IP")
 	}
+
 	if !col.row(0).Equal(ip) {
-		t.Fatalf("AppendRow resulted in %q instead of %q", col.row(0), ip)
+		require.Failf(t, "Invalid result of AppendRow", "Added %q instead of %q", col.row(0), ip)
 	}
 
 	// appending IP pointer
@@ -71,22 +73,22 @@ func TestIPv4_AppendRow(t *testing.T) {
 		t.Fatal(err)
 	}
 	if col.Rows() != 2 {
-		t.Fatalf("AppendRow didn't IP")
+		require.Fail(t, "AppendRow didn't add IP")
 	}
 	if !col.row(1).Equal(ip) {
-		t.Fatalf("AppendRow resulted in %q instead of %q", col.row(1), ip)
+		require.Failf(t, "Invalid result of AppendRow", "Added %q instead of %q", col.row(1), ip)
 	}
 
 	// appending IP
 	err = col.AppendRow(ip)
 	if err != nil {
-		t.Fatal(err)
+		require.Error(t, err)
 	}
 	if col.Rows() != 3 {
-		t.Fatalf("AppendRow didn't IP")
+		require.Fail(t, "AppendRow didn't add IP")
 	}
 	if !col.row(2).Equal(ip) {
-		t.Fatalf("AppendRow resulted in %q instead of %q", col.row(3), ip)
+		require.Failf(t, "Invalid result of AppendRow", "Added %q instead of %q", col.row(2), ip)
 	}
 
 	// appending string pointer
@@ -95,10 +97,10 @@ func TestIPv4_AppendRow(t *testing.T) {
 		t.Fatal(err)
 	}
 	if col.Rows() != 4 {
-		t.Fatalf("AppendRow didn't IP")
+		require.Fail(t, "AppendRow didn't add IP")
 	}
 	if !col.row(3).Equal(ip) {
-		t.Fatalf("AppendRow resulted in %q instead of %q", col.row(3), ip)
+		require.Failf(t, "Invalid result of AppendRow", "Added %q instead of %q", col.row(3), ip)
 	}
 }
 
@@ -123,12 +125,12 @@ func TestIPv4_Append(t *testing.T) {
 	}
 
 	if col.Rows() != len(strIps) {
-		t.Fatalf("Append added %d rows instead of %d", col.Rows(), len(strIps))
+		require.Failf(t, "Invalid result of Append", "Added %d rows instead of %d", col.Rows(), len(strIps))
 	}
 
 	for i, ip := range ips {
 		if !col.row(i).Equal(ip) {
-			t.Fatalf("Append resulted in %q instead of %q", col.row(i), ip)
+			require.Failf(t, "Invalid result of Append", "Added %q instead of %q", col.row(i), ip)
 		}
 	}
 
@@ -147,12 +149,12 @@ func TestIPv4_Append(t *testing.T) {
 	}
 
 	if col.Rows() != len(strPtrIps) {
-		t.Fatalf("Append added %d rows instead of %d", col.Rows(), len(strPtrIps))
+		require.Failf(t, "Invalid result of Append", "Added %d rows instead of %d", col.Rows(), len(strPtrIps))
 	}
 
 	for i, ip := range ips {
 		if !col.row(i).Equal(ip) {
-			t.Fatalf("ScanRow resulted in %q instead of %q", col.row(i), ip)
+			require.Failf(t, "Invalid result of Append", "Added %q instead of %q", col.row(i), ip)
 		}
 	}
 }
@@ -175,10 +177,10 @@ func TestIp4_ScanRow(t *testing.T) {
 		var u net.IP
 		err := col.ScanRow(&u, i)
 		if err != nil {
-			t.Fatalf("unexpected ScanRow error: %v", err)
+			require.Error(t, err, "unexpected ScanRow error")
 		}
 		if !u.Equal(ips[i]) {
-			t.Fatalf("ScanRow resulted in %q instead of %q", u, ips[i])
+			require.Failf(t, "Invalid result of ScanRow", "ScanRow resulted in %q instead of %q", u, ips[i])
 		}
 	}
 
@@ -187,10 +189,10 @@ func TestIp4_ScanRow(t *testing.T) {
 		var u string
 		err := col.ScanRow(&u, i)
 		if err != nil {
-			t.Fatalf("unexpected ScanRow error: %v", err)
+			require.Error(t, err, "unexpected ScanRow error")
 		}
 		if u != ips[i].String() {
-			t.Fatalf("ScanRow resulted in %q instead of %q", u, ips[i])
+			require.Failf(t, "Invalid result of ScanRow", "ScanRow resulted in %q instead of %q", u, ips[i])
 		}
 	}
 
@@ -199,13 +201,13 @@ func TestIp4_ScanRow(t *testing.T) {
 		var u *string
 		err := col.ScanRow(&u, i)
 		if err != nil {
-			t.Fatalf("unexpected ScanRow error: %v", err)
+			require.Error(t, err, "unexpected ScanRow error")
 		}
 		if u == nil {
-			t.Fatal("ScanRow resulted nil")
+			require.Fail(t, "ScanRow resulted nil")
 		}
 		if *u != ips[i].String() {
-			t.Fatalf("ScanRow resulted in %q instead of %q", *u, ips[i])
+			require.Failf(t, "Invalid result of ScanRow", "ScanRow resulted in %q instead of %q", *u, ips[i])
 		}
 	}
 }
