@@ -29,6 +29,7 @@ import (
 	"sync/atomic"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
+	ldriver "github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 )
 
 var globalConnID int64
@@ -293,12 +294,8 @@ func (std *nativeTransport) PrepareContext(ctx context.Context, query string) (d
 
 func (std *nativeTransport) Close() error { return std.conn.close() }
 
-type IBatch interface {
-	Append(v ...interface{}) error
-}
-
 type stdBatch struct {
-	batch driver.Batch
+	batch ldriver.Batch
 }
 
 func (s *stdBatch) NumInput() int { return -1 }
