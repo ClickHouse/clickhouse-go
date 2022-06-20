@@ -32,7 +32,7 @@ func TestStdGeoPolygon(t *testing.T) {
 		"allow_experimental_geo_types": 1,
 	}))
 	if conn, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000"); assert.NoError(t, err) {
-		if err := checkMinServerVersion(conn, 21, 12); err != nil {
+		if err := checkMinServerVersion(conn, 21, 12, 0); err != nil {
 			t.Skip(err.Error())
 			return
 		}

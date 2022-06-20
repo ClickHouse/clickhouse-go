@@ -35,6 +35,11 @@ type Decimal struct {
 	nobits    int // its domain is {32, 64, 128, 256}
 	precision int
 	values    []decimal.Decimal
+	name      string
+}
+
+func (col *Decimal) Name() string {
+	return col.name
 }
 
 func (col *Decimal) parse(t Type) (_ *Decimal, err error) {
@@ -159,7 +164,7 @@ func (col *Decimal) Decode(decoder *binary.Decoder, rows int) error {
 		if err := base.Decode(decoder, rows); err != nil {
 			return err
 		}
-		for _, v := range base {
+		for _, v := range base.data {
 			col.values = append(col.values, decimal.New(int64(v), int32(-col.scale)))
 		}
 	case 64:
@@ -167,7 +172,7 @@ func (col *Decimal) Decode(decoder *binary.Decoder, rows int) error {
 		if err := base.Decode(decoder, rows); err != nil {
 			return err
 		}
-		for _, v := range base {
+		for _, v := range base.data {
 			col.values = append(col.values, decimal.New(int64(v), int32(-col.scale)))
 		}
 	case 128, 256:
@@ -202,7 +207,7 @@ func (col *Decimal) Encode(encoder *binary.Encoder) error {
 			default:
 				part = uint32(v.IntPart())
 			}
-			base = append(base, part)
+			base.data = append(base.data, part)
 		}
 		return base.Encode(encoder)
 	case 64:
@@ -215,7 +220,7 @@ func (col *Decimal) Encode(encoder *binary.Encoder) error {
 			default:
 				part = uint64(v.IntPart())
 			}
-			base = append(base, part)
+			base.data = append(base.data, part)
 		}
 		return base.Encode(encoder)
 	case 128, 256:

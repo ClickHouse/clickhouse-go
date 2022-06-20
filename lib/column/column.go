@@ -68,6 +68,7 @@ func (e *UnsupportedColumnTypeError) Error() string {
 }
 
 type Interface interface {
+	Name() string
 	Type() Type
 	Rows() int
 	Row(i int, ptr bool) interface{}

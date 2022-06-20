@@ -31,7 +31,7 @@ func TestStdMap(t *testing.T) {
 	for name, dsn := range dsns {
 		t.Run(fmt.Sprintf("%s Interface", name), func(t *testing.T) {
 			if conn, err := sql.Open("clickhouse", dsn); assert.NoError(t, err) {
-				if err := checkMinServerVersion(conn, 21, 9); err != nil {
+				if err := checkMinServerVersion(conn, 21, 9, 0); err != nil {
 					t.Skip(err.Error())
 					return
 				}

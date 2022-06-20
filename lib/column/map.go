@@ -32,15 +32,20 @@ type Map struct {
 	chType   Type
 	offsets  Int64
 	scanType reflect.Type
+	name     string
+}
+
+func (col *Map) Name() string {
+	return col.name
 }
 
 func (col *Map) parse(t Type) (_ Interface, err error) {
 	col.chType = t
 	if types := strings.SplitN(t.params(), ",", 2); len(types) == 2 {
-		if col.keys, err = Type(strings.TrimSpace(types[0])).Column(); err != nil {
+		if col.keys, err = Type(strings.TrimSpace(types[0])).Column(col.name); err != nil {
 			return nil, err
 		}
-		if col.values, err = Type(strings.TrimSpace(types[1])).Column(); err != nil {
+		if col.values, err = Type(strings.TrimSpace(types[1])).Column(col.name); err != nil {
 			return nil, err
 		}
 		col.scanType = reflect.MapOf(
@@ -63,7 +68,7 @@ func (col *Map) ScanType() reflect.Type {
 }
 
 func (col *Map) Rows() int {
-	return len(col.offsets)
+	return len(col.offsets.data)
 }
 
 func (col *Map) Row(i int, ptr bool) interface{} {
@@ -128,10 +133,10 @@ func (col *Map) AppendRow(v interface{}) error {
 		}
 	}
 	var prev int64
-	if n := len(col.offsets); n != 0 {
-		prev = col.offsets[n-1]
+	if n := len(col.offsets.data); n != 0 {
+		prev = col.offsets.data[n-1]
 	}
-	col.offsets = append(col.offsets, prev+size)
+	col.offsets.data = append(col.offsets.data, prev+size)
 	return nil
 }
 
@@ -139,7 +144,7 @@ func (col *Map) Decode(decoder *binary.Decoder, rows int) error {
 	if err := col.offsets.Decode(decoder, rows); err != nil {
 		return err
 	}
-	size := int(col.offsets[len(col.offsets)-1])
+	size := int(col.offsets.data[len(col.offsets.data)-1])
 	if err := col.keys.Decode(decoder, size); err != nil {
 		return err
 	}
@@ -190,10 +195,10 @@ func (col *Map) row(n int) reflect.Value {
 		value = reflect.MakeMap(col.scanType)
 	)
 	if n != 0 {
-		prev = col.offsets[n-1]
+		prev = col.offsets.data[n-1]
 	}
 	var (
-		size = int(col.offsets[n] - prev)
+		size = int(col.offsets.data[n] - prev)
 		from = int(prev)
 	)
 	for next := 0; next < size; next++ {

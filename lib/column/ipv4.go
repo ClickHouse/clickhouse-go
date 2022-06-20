@@ -27,6 +27,11 @@ import (
 
 type IPv4 struct {
 	data []byte
+	name string
+}
+
+func (col *IPv4) Name() string {
+	return col.name
 }
 
 func (col *IPv4) Type() Type {

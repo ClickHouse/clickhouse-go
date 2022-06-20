@@ -25,6 +25,59 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestSimpleNested(t *testing.T) {
+
+	var (
+		ctx       = context.Background()
+		conn, err = clickhouse.Open(&clickhouse.Options{
+			Addr: []string{"127.0.0.1:9000"},
+			Auth: clickhouse.Auth{
+				Database: "default",
+				Username: "default",
+				Password: "",
+			},
+			Compression: &clickhouse.Compression{
+				Method: clickhouse.CompressionLZ4,
+			},
+			//	Debug: true,
+		})
+	)
+	if assert.NoError(t, err) {
+		if err := checkMinServerVersion(conn, 22, 1, 0); err != nil {
+			t.Skip(err.Error())
+			return
+		}
+		const ddl = `
+			CREATE TABLE test_nested (
+				Col1 Nested(
+					  Col1_N1 String
+				)
+			) Engine Memory
+		`
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_nested")
+		}()
+		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
+			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_nested"); assert.NoError(t, err) {
+				var (
+					col1Data = []string{"1", "2", "3"}
+				)
+				if err := batch.Append(col1Data); assert.NoError(t, err) {
+					if assert.NoError(t, batch.Send()) {
+						var (
+							col1 []string
+						)
+						if err := conn.QueryRow(ctx, "SELECT * FROM test_nested").Scan(&col1); assert.NoError(t, err) {
+							assert.Equal(t, col1Data, col1)
+						}
+					}
+				}
+			}
+		}
+	}
+
+}
+
 func TestNested(t *testing.T) {
 	var (
 		ctx       = context.Background()
@@ -42,7 +95,7 @@ func TestNested(t *testing.T) {
 		})
 	)
 	if assert.NoError(t, err) {
-		if err := checkMinServerVersion(conn, 22, 1); err != nil {
+		if err := checkMinServerVersion(conn, 22, 1, 0); err != nil {
 			t.Skip(err.Error())
 			return
 		}

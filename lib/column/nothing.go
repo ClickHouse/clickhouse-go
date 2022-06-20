@@ -24,7 +24,13 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
 )
 
-type Nothing struct{}
+type Nothing struct {
+	name string
+}
+
+func (n Nothing) Name() string {
+	return n.name
+}
 
 func (Nothing) Type() Type                     { return "Nothing" }
 func (Nothing) ScanType() reflect.Type         { return reflect.TypeOf(nil) }

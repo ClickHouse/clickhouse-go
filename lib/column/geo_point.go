@@ -26,8 +26,13 @@ import (
 )
 
 type Point struct {
-	lon Float64
-	lat Float64
+	lon  Float64
+	lat  Float64
+	name string
+}
+
+func (col *Point) Name() string {
+	return col.name
 }
 
 func (col *Point) Type() Type {
@@ -73,8 +78,8 @@ func (col *Point) Append(v interface{}) (nulls []uint8, err error) {
 	case []orb.Point:
 		nulls = make([]uint8, len(v))
 		for _, v := range v {
-			col.lon = append(col.lon, v.Lon())
-			col.lat = append(col.lat, v.Lat())
+			col.lon.data = append(col.lon.data, v.Lon())
+			col.lat.data = append(col.lat.data, v.Lat())
 		}
 	default:
 		return nil, &ColumnConverterError{
@@ -88,8 +93,8 @@ func (col *Point) Append(v interface{}) (nulls []uint8, err error) {
 func (col *Point) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case orb.Point:
-		col.lon = append(col.lon, v.Lon())
-		col.lat = append(col.lat, v.Lat())
+		col.lon.data = append(col.lon.data, v.Lon())
+		col.lat.data = append(col.lat.data, v.Lat())
 	default:
 		return &ColumnConverterError{
 			Op:   "AppendRow",
@@ -119,8 +124,8 @@ func (col *Point) Encode(encoder *binary.Encoder) error {
 
 func (col *Point) row(i int) orb.Point {
 	return orb.Point{
-		col.lon[i],
-		col.lat[i],
+		col.lon.data[i],
+		col.lat.data[i],
 	}
 }
 

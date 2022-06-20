@@ -26,7 +26,12 @@ import (
 )
 
 type Polygon struct {
-	set *Array
+	set  *Array
+	name string
+}
+
+func (col *Polygon) Name() string {
+	return col.name
 }
 
 func (col *Polygon) Type() Type {

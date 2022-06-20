@@ -29,6 +29,11 @@ import (
 type Interval struct {
 	chType Type
 	values Int64
+	name   string
+}
+
+func (col *Interval) Name() string {
+	return col.name
 }
 
 func (col *Interval) parse(t Type) (Interface, error) {
@@ -43,7 +48,7 @@ func (col *Interval) parse(t Type) (Interface, error) {
 
 func (col *Interval) Type() Type             { return col.chType }
 func (col *Interval) ScanType() reflect.Type { return scanTypeString }
-func (col *Interval) Rows() int              { return len(col.values) }
+func (col *Interval) Rows() int              { return len(col.values.data) }
 func (col *Interval) Row(i int, ptr bool) interface{} {
 	return col.row(i)
 }
@@ -90,8 +95,8 @@ func (Interval) Encode(*binary.Encoder) error {
 }
 
 func (col *Interval) row(i int) string {
-	v := fmt.Sprintf("%d %s", col.values[i], strings.TrimPrefix(string(col.chType), "Interval"))
-	if col.values[i] > 1 {
+	v := fmt.Sprintf("%d %s", col.values.data[i], strings.TrimPrefix(string(col.chType), "Interval"))
+	if col.values.data[i] > 1 {
 		v += "s"
 	}
 	return v

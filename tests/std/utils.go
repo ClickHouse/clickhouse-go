@@ -29,10 +29,11 @@ import (
 func init() {
 	rand.Seed(time.Now().UnixNano())
 }
-func checkMinServerVersion(conn *sql.DB, major, minor uint64) error {
+func checkMinServerVersion(conn *sql.DB, major, minor, patch uint64) error {
 	var version struct {
 		Major uint64
 		Minor uint64
+		Patch uint64
 	}
 	var res string
 	if err := conn.QueryRow("SELECT version()").Scan(&res); err != nil {
@@ -44,10 +45,12 @@ func checkMinServerVersion(conn *sql.DB, major, minor uint64) error {
 			version.Major, _ = strconv.ParseUint(v, 10, 64)
 		case 1:
 			version.Minor, _ = strconv.ParseUint(v, 10, 64)
+		case 2:
+			version.Patch, _ = strconv.ParseUint(v, 10, 64)
 		}
 	}
-	if version.Major < major || (version.Major == major && version.Minor < minor) {
-		return fmt.Errorf("unsupported server version %d.%d < %d.%d", version.Major, version.Minor, major, minor)
+	if version.Major < major || (version.Major == major && version.Minor < minor) || (version.Major == major && version.Minor == minor && version.Patch < patch) {
+		return fmt.Errorf("unsupported server version %d.%d.%d < %d.%d.%d", version.Major, version.Minor, version.Patch, major, minor, patch)
 	}
 	return nil
 }

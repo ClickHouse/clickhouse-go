@@ -15,18 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package tests
+package issues
 
 import (
 	"context"
-	"testing"
-
 	"github.com/ClickHouse/clickhouse-go/v2"
-	"github.com/paulmach/orb"
 	"github.com/stretchr/testify/assert"
+	"testing"
 )
 
-func TestGeoPoint(t *testing.T) {
+func TestSelectTwoInRow(t *testing.T) {
 	var (
 		ctx       = context.Background()
 		conn, err = clickhouse.Open(&clickhouse.Options{
@@ -39,47 +37,19 @@ func TestGeoPoint(t *testing.T) {
 			Compression: &clickhouse.Compression{
 				Method: clickhouse.CompressionLZ4,
 			},
-			Settings: clickhouse.Settings{
-				"allow_experimental_geo_types": 1,
-			},
+			//Debug: true,
 		})
 	)
 	if assert.NoError(t, err) {
-		if err := checkMinServerVersion(conn, 21, 12, 0); err != nil {
-			t.Skip(err.Error())
-			return
+		var result []struct {
+			Col1 uint64 `ch:"number"`
 		}
-		const ddl = `
-		CREATE TABLE test_geo_point (
-			Col1 Point
-			, Col2 Array(Point)
-		) Engine Memory
-		`
-		defer func() {
-			conn.Exec(ctx, "DROP TABLE test_geo_point")
-		}()
-		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
-			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_geo_point"); assert.NoError(t, err) {
-				if err := batch.Append(
-					orb.Point{11, 22},
-					[]orb.Point{
-						{1, 2},
-						{3, 4},
-					},
-				); assert.NoError(t, err) {
-					if assert.NoError(t, batch.Send()) {
-						var (
-							col1 orb.Point
-							col2 []orb.Point
-						)
-						if err := conn.QueryRow(ctx, "SELECT * FROM test_geo_point").Scan(&col1, &col2); assert.NoError(t, err) {
-							assert.Equal(t, orb.Point{11, 22}, col1)
-							assert.Equal(t, []orb.Point{
-								{1, 2},
-								{3, 4},
-							}, col2)
-						}
-					}
+		err := conn.Select(ctx, &result, "SELECT number FROM system.numbers LIMIT 10")
+		if assert.NoError(t, err) && assert.Len(t, result, 10) {
+			err = conn.Select(ctx, &result, "SELECT number FROM system.numbers LIMIT 5")
+			if assert.NoError(t, err) && assert.Len(t, result, 5) {
+				for i, v := range result {
+					assert.Equal(t, uint64(i), v.Col1)
 				}
 			}
 		}
