@@ -61,12 +61,22 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 			ResponseHeaderTimeout: opt.ReadTimeout,
 			TLSClientConfig:       opt.TLS,
 		},
-		url:      u,
-		location: time.UTC, // TODO: make configurables
+		url: u,
 	}
 
-	if err := connect.ping(ctx); err != nil {
+	rows, err := connect.query(ctx, "SELECT timeZone()")
+	if err != nil {
 		return nil, err
+	}
+
+	for rows.Next() {
+		var serverLocation string
+		rows.Scan(&serverLocation)
+		location, err := time.LoadLocation(serverLocation)
+		if err != nil {
+			return nil, err
+		}
+		connect.location = location
 	}
 
 	return connect, nil
