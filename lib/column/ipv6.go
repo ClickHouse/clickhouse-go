@@ -99,20 +99,6 @@ func appendIPv6(data []byte, ip net.IP) ([]byte, error) {
 	return append(data, ip[:]...), nil
 }
 
-func (col *IPv6) appendIPv6(ip net.IP) (err error) {
-	col.data, err = appendIPv6(col.data, ip)
-	return
-}
-
-func (col *IPv6) appendIPv6Str(strIp string) (err error) {
-	col.data, err = appendIPv6Str(col.data, strIp)
-	return
-}
-
-func (col *IPv6) appendEmptyIPv6() error {
-	return col.appendIPv6(make(net.IP, net.IPv6len))
-}
-
 func (col *IPv6) Append(v interface{}) (nulls []uint8, err error) {
 	var data []byte
 
@@ -174,26 +160,25 @@ func (col *IPv6) Append(v interface{}) (nulls []uint8, err error) {
 func (col *IPv6) AppendRow(v interface{}) (err error) {
 	switch v := v.(type) {
 	case string:
-		err = col.appendIPv6Str(v)
+		col.data, err = appendIPv6Str(col.data, v)
 	case *string:
 		switch {
 		case v != nil:
-			err = col.appendIPv6Str(*v)
+			col.data, err = appendIPv6Str(col.data, *v)
 		default:
-			err = col.appendEmptyIPv6()
+			col.data, err = appendIPv6(col.data, make(net.IP, net.IPv6len))
 		}
 	case net.IP:
-		err = col.appendIPv6(v)
+		col.data, err = appendIPv6(col.data, v)
 	case *net.IP:
 		switch {
 		case v != nil:
-			err = col.appendIPv6(*v)
+			col.data, err = appendIPv6(col.data, *v)
 		default:
-			err = col.appendEmptyIPv6()
+			col.data, err = appendIPv6(col.data, make(net.IP, net.IPv6len))
 		}
-
 	case nil:
-		err = col.appendEmptyIPv6()
+		col.data, err = appendIPv6(col.data, make(net.IP, net.IPv6len))
 	default:
 		return &ColumnConverterError{
 			Op:   "AppendRow",
