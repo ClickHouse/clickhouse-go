@@ -298,7 +298,7 @@ type IBatch interface {
 }
 
 type stdBatch struct {
-	batch IBatch
+	batch driver.Batch
 }
 
 func (s *stdBatch) NumInput() int { return -1 }
