@@ -33,7 +33,6 @@ import (
 )
 
 var splitHttpInsertRe = regexp.MustCompile(`(?i)INSERT INTO\s([\w.]+)(\s\((.*?)\))?`)
-var queryTableSchema = "SELECT name, type FROM system.columns WHERE table = $1 ORDER BY position"
 
 func (h *httpConnect) prepareBatch(ctx context.Context, query string) (*httpBatch, error) {
 	index := splitHttpInsertRe.FindStringSubmatchIndex(strings.ToUpper(query))
@@ -44,8 +43,8 @@ func (h *httpConnect) prepareBatch(ctx context.Context, query string) (*httpBatc
 
 	tableName := query[index[2]:index[3]]
 	query = "INSERT INTO " + tableName + " FORMAT Native"
-
-	r, err := h.query(ctx, queryTableSchema, tableName)
+	queryTableSchema := "DESCRIBE TABLE " + tableName
+	r, err := h.query(ctx, queryTableSchema)
 	if err != nil {
 		return nil, err
 	}
@@ -57,9 +56,10 @@ func (h *httpConnect) prepareBatch(ctx context.Context, query string) (*httpBatc
 		var (
 			colName string
 			colType string
+			ignore  string
 		)
 
-		err = r.Scan(&colName, &colType)
+		err = r.Scan(&colName, &colType, &ignore, &ignore, &ignore, &ignore, &ignore)
 		if err != nil {
 			return nil, err
 		}
@@ -155,35 +155,43 @@ func (b *httpBatch) Send() (err error) {
 		return err
 	}
 
+	errCh := make(chan error)
+
 	go func() {
+		defer close(errCh)
 		defer w.Close()
 		encoder := binary.NewEncoder(w)
 		if b.block.Rows() != 0 {
-			if err = writeData(encoder, b.block, ""); err != nil {
-				fmt.Println(err)
+			if err = writeData(encoder, b.block); err != nil {
+				errCh <- err
 				return
 			}
 		}
-		if err = writeData(encoder, &proto.Block{}, ""); err != nil {
-			fmt.Println(err)
+		if err = writeData(encoder, &proto.Block{}); err != nil {
+			errCh <- err
 			return
 		}
 		if err = encoder.Flush(); err != nil {
-			fmt.Println(err)
+			errCh <- err
 			return
 		}
 	}()
 
-	req, err := b.conn.prepareRequest(context.Background(), r, map[string]string{"query": b.query})
+	req, err := b.conn.prepareRequest(b.ctx, r, map[string]string{"query": b.query})
 
 	req.Header.Add("Content-Type", "application/octet-stream")
 
-	res, err := b.conn.executeRequest(context.Background(), req)
+	res, err := b.conn.executeRequest(b.ctx, req)
 
 	if res != nil {
 		defer res.Close()
 		// we don't care about result, so just discard it to reuse connection
 		_, _ = io.Copy(ioutil.Discard, res)
+	}
+
+	// if error was during encode
+	if err, ok := <-errCh; ok {
+		return err
 	}
 
 	return err

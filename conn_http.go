@@ -18,14 +18,13 @@
 package clickhouse
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"database/sql/driver"
-	"errors"
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
+	"github.com/pkg/errors"
 	"io"
 	"io/ioutil"
 	"net"
@@ -37,7 +36,7 @@ import (
 
 func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpConnect, error) {
 	u := &url.URL{
-		Scheme: "http",
+		Scheme: opt.Scheme,
 		Host:   addr,
 	}
 
@@ -45,21 +44,21 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 	query.Set("default_format", "Native")
 	u.RawQuery = query.Encode()
 
-	if opt.TLS != nil {
-		u.Scheme = "https"
+	t := &http.Transport{
+		DialContext: (&net.Dialer{
+			Timeout:   opt.DialTimeout,
+			KeepAlive: opt.ConnMaxLifetime,
+		}).DialContext,
+		MaxIdleConns:          1,
+		IdleConnTimeout:       opt.ConnMaxLifetime,
+		ResponseHeaderTimeout: opt.ReadTimeout,
+		TLSClientConfig:       opt.TLS,
 	}
 
 	connect := &httpConnect{
 		opt: opt,
-		transport: &http.Transport{
-			DialContext: (&net.Dialer{
-				Timeout:   opt.DialTimeout,
-				KeepAlive: opt.ConnMaxLifetime,
-			}).DialContext,
-			MaxIdleConns:          1,
-			IdleConnTimeout:       opt.ConnMaxLifetime,
-			ResponseHeaderTimeout: opt.ReadTimeout,
-			TLSClientConfig:       opt.TLS,
+		client: &http.Client{
+			Transport: t,
 		},
 		url: u,
 	}
@@ -83,13 +82,13 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 }
 
 type httpConnect struct {
-	opt       *Options
-	url       *url.URL
-	transport *http.Transport
-	location  *time.Location
+	opt      *Options
+	url      *url.URL
+	client   *http.Client
+	location *time.Location
 }
 
-func writeData(encoder *binary.Encoder, block *proto.Block, name string) error {
+func writeData(encoder *binary.Encoder, block *proto.Block) error {
 	return block.Encode(encoder, 0)
 }
 
@@ -129,27 +128,26 @@ func (h *httpConnect) prepareRequest(ctx context.Context, reader io.Reader, extr
 		u.RawQuery = query.Encode()
 	}
 
-	req, err := http.NewRequest(http.MethodPost, u.String(), reader)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), reader)
 
 	return req, err
 }
 
 func (h *httpConnect) executeRequest(ctx context.Context, req *http.Request) (io.ReadCloser, error) {
 
-	if h.transport == nil {
+	if h.client == nil {
 		return nil, driver.ErrBadConn
 	}
 
-	resp, err := h.transport.RoundTrip(req)
+	resp, err := h.client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-
 		msg, err := readResponse(resp)
 
 		if err != nil {
-			return nil, fmt.Errorf("clickhouse [execute]:: failed to read the response (status code %d): %w", resp.StatusCode, err)
+			return nil, errors.Wrap(err, "clickhouse [execute]:: failed to read the response")
 		}
 
 		return nil, fmt.Errorf("clickhouse [execute]:: %d code: %s", resp.StatusCode, string(msg))
@@ -179,57 +177,6 @@ func (h *httpConnect) exec(ctx context.Context, query string, args ...interface{
 	return err
 }
 
-func (h *httpConnect) query(ctx context.Context, query string, args ...interface{}) (*rows, error) {
-	query, err := bind(h.location, query, args...)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := h.prepareRequest(ctx, strings.NewReader(query), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	res, err := h.executeRequest(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-
-	decoder := binary.NewDecoder(bufio.NewReader(res))
-	block, err := readData(decoder)
-	if err != nil {
-		return nil, err
-	}
-
-	var (
-		errCh  = make(chan error)
-		stream = make(chan *proto.Block, 2)
-	)
-
-	go func() {
-		for {
-			block, err := readData(decoder)
-			if err != nil {
-				if err != io.EOF {
-					errCh <- err
-				}
-				close(stream)
-				close(errCh)
-				return
-			}
-			stream <- block
-		}
-	}()
-
-	return &rows{
-		block:     block,
-		stream:    stream,
-		errors:    errCh,
-		columns:   block.ColumnsNames(),
-		structMap: &structMap{},
-	}, nil
-}
-
 func (h *httpConnect) ping(ctx context.Context) error {
 	rows, err := h.query(ctx, "SELECT 1")
 	if err != nil {
@@ -245,10 +192,10 @@ func (h *httpConnect) ping(ctx context.Context) error {
 }
 
 func (h *httpConnect) close() error {
-	if h.transport == nil {
+	if h.client == nil {
 		return nil
 	}
-	h.transport.CloseIdleConnections()
-	h.transport = nil
+	h.client.CloseIdleConnections()
+	h.client = nil
 	return nil
 }
