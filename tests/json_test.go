@@ -2327,11 +2327,9 @@ func TestQueryNestedSubColumn(t *testing.T) {
 	}
 	require.NoError(t, batch.Append(row1))
 	require.NoError(t, batch.Send())
-	var event []map[string][]int
+	var event []map[string]interface{}
 	require.NoError(t, conn.QueryRow(ctx, "SELECT event.assignee.repositories FROM json_test").Scan(&event))
-	assert.JSONEq(t, toJson(repositories), toJson(event))
-	//var event map[string]interface{}
-	//require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event))
+	assert.JSONEq(t, `[{"Releases":[{"Version":"2.0.0"},{"Version":"2.1.0"}],"url":"https://github.com/ClickHouse/clickhouse-go"},{"Releases":[],"url":"https://github.com/grafana/clickhouse"}]`, toJson(event))
 }
 
 func TestQueryTupleSubColumn(t *testing.T) {
@@ -2350,5 +2348,6 @@ func TestJSONTypedSlice(t *testing.T) {
 	require.NoError(t, batch.Send())
 	var event map[string][]int64
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event))
+
 	assert.JSONEq(t, toJson(row1), toJson(event))
 }
