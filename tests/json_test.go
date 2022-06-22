@@ -2333,7 +2333,27 @@ func TestQueryNestedSubColumn(t *testing.T) {
 }
 
 func TestQueryTupleSubColumn(t *testing.T) {
-
+	conn, teardown := setupTest(t)
+	defer teardown(t)
+	ctx := context.Background()
+	batch := prepareBatch(t, conn, ctx)
+	assignee := map[string]interface{}{
+		"id":           int16(0),
+		"name":         "Dale",
+		"orgs":         []string{"clickhouse"},
+		"repositories": []map[string]interface{}{{"url": "https://github.com/ClickHouse/clickhouse-go", "Releases": []map[string]interface{}{{"Version": "2.0.0"}, {"Version": "2.1.0"}}}, {"url": "https://github.com/grafana/clickhouse"}},
+	}
+	row1 := map[string]interface{}{
+		"title":    "Document JSON support",
+		"type":     "Issue",
+		"assignee": assignee,
+	}
+	require.NoError(t, batch.Append(row1))
+	require.NoError(t, batch.Send())
+	var event map[string]interface{}
+	require.NoError(t, conn.QueryRow(ctx, "SELECT event.assignee FROM json_test").Scan(&event))
+	fmt.Println(toJson(event))
+	assert.JSONEq(t, `{"id":0,"name":"Dale","orgs":["clickhouse"],"repositories":[{"Releases":[{"Version":"2.0.0"},{"Version":"2.1.0"}],"url":"https://github.com/ClickHouse/clickhouse-go"},{"Releases":[],"url":"https://github.com/grafana/clickhouse"}]}`, toJson(event))
 }
 
 func TestJSONTypedSlice(t *testing.T) {
