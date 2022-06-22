@@ -243,45 +243,18 @@ func (col *Tuple) scanJSONMap(json reflect.Value, row int) error {
 			}
 		case *Nested:
 			aCol := dCol.Interface.(*Array)
-			subSlice, err := aCol.parseJSONSliceOfObjects(json.Type().Elem(), row)
+			subSlice, err := aCol.scanSliceOfObjects(json.Type().Elem(), row)
 			if err != nil {
 				return err
 			}
 			// this wont work if json is a map[string][]interface{} and we try to set a typed slice
 			json.SetMapIndex(reflect.ValueOf(c.Name()), subSlice)
 		case *Array:
-			switch dCol.values.(type) {
-			case *Tuple:
-				// eqv. of nested
-				subSlice, err := dCol.parseJSONSliceOfObjects(json.Type().Elem(), row)
-				if err != nil {
-					return err
-				}
-				json.SetMapIndex(reflect.ValueOf(c.Name()), subSlice)
-			default:
-				// this will include nested Arrays which if primitive types can be nested deep
-				switch json.Type().Elem().Kind() {
-				case reflect.Slice:
-					subSlice, err := dCol.scanJSONSlice(json.Type().Elem(), row, 0)
-					if err != nil {
-						return err
-					}
-					json.SetMapIndex(reflect.ValueOf(c.Name()), subSlice)
-				case reflect.Interface:
-					// we assume interface{} - any other custom interfaces will fail
-					field := reflect.New(reflect.TypeOf(c.Row(0, false))).Elem()
-					value := reflect.ValueOf(c.Row(row, false))
-					if err := setJSONFieldValue(field, value); err != nil {
-						return err
-					}
-					json.SetMapIndex(reflect.ValueOf(c.Name()), field)
-				default:
-					return &Error{
-						ColumnType: fmt.Sprint(json.Type().Elem().Kind()),
-						Err:        fmt.Errorf("column %s - needs a slice or interface{}", col.Name()),
-					}
-				}
+			subSlice, err := dCol.scan(json.Type().Elem(), row)
+			if err != nil {
+				return err
 			}
+			json.SetMapIndex(reflect.ValueOf(c.Name()), subSlice)
 		default:
 			field := reflect.New(reflect.TypeOf(c.Row(0, false))).Elem()
 			value := reflect.ValueOf(c.Row(row, false))
@@ -330,42 +303,17 @@ func (col *Tuple) scanJSONStruct(json reflect.Value, row int) error {
 			}
 		case *Nested:
 			aCol := dCol.Interface.(*Array)
-			subSlice, err := aCol.parseJSONSliceOfObjects(sField.Type(), row)
+			subSlice, err := aCol.scanSliceOfObjects(sField.Type(), row)
 			if err != nil {
 				return err
 			}
 			sField.Set(subSlice)
 		case *Array:
-			switch dCol.values.(type) {
-			case *Tuple:
-				//eqv of nested
-				subSlice, err := dCol.parseJSONSliceOfObjects(sField.Type(), row)
-				if err != nil {
-					return err
-				}
-				sField.Set(subSlice)
-			default:
-				// slice of primitives
-				switch sField.Kind() {
-				case reflect.Slice:
-					subSlice, err := dCol.scanJSONSlice(sField.Type(), row, 0)
-					if err != nil {
-						return err
-					}
-					sField.Set(subSlice)
-				case reflect.Interface:
-					value := reflect.ValueOf(c.Row(row, false))
-					if err := setJSONFieldValue(sField, value); err != nil {
-						return err
-					}
-				default:
-					return &Error{
-						ColumnType: fmt.Sprint(json.Type().Elem().Kind()),
-						Err:        fmt.Errorf("column %s - needs a slice or interface{}", col.Name()),
-					}
-				}
-
+			subSlice, err := dCol.scan(sField.Type(), row)
+			if err != nil {
+				return err
 			}
+			sField.Set(subSlice)
 		default:
 			value := reflect.ValueOf(c.Row(row, false))
 			if err := setJSONFieldValue(sField, value); err != nil {
