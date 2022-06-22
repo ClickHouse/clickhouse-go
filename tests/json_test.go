@@ -107,7 +107,7 @@ func TestSimpleJSON(t *testing.T) {
 		event Repository
 	)
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event))
-	require.JSONEq(t, toJson(row1), toJson(event))
+	assert.JSONEq(t, toJson(row1), toJson(event))
 }
 
 func TestComplexJSON(t *testing.T) {
@@ -137,7 +137,7 @@ func TestComplexJSON(t *testing.T) {
 		event GithubEvent
 	)
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event))
-	require.JSONEq(t, toJson(row1), toJson(event))
+	assert.JSONEq(t, toJson(row1), toJson(event))
 }
 
 // note decimal currently can't distinguish between null and 0 due to underlying lib - see https://github.com/shopspring/decimal/issues/219
@@ -188,9 +188,9 @@ func TestJSONIP(t *testing.T) {
 	for rows.Next() {
 		require.NoError(t, rows.Scan(&event))
 		if i == 0 {
-			require.JSONEq(t, toJson(row1), toJson(event))
+			assert.JSONEq(t, toJson(row1), toJson(event))
 		} else {
-			require.JSONEq(t, toJson(row2), toJson(event))
+			assert.JSONEq(t, toJson(row2), toJson(event))
 		}
 		i++
 	}
@@ -220,9 +220,9 @@ func TestJSONUUID(t *testing.T) {
 	for rows.Next() {
 		require.NoError(t, rows.Scan(event))
 		if i == 0 {
-			require.JSONEq(t, toJson(row1), toJson(event))
+			assert.JSONEq(t, toJson(row1), toJson(event))
 		} else {
-			require.JSONEq(t, toJson(row2), toJson(event))
+			assert.JSONEq(t, toJson(row2), toJson(event))
 		}
 		i++
 	}
@@ -281,9 +281,9 @@ func TestMultipleJSONRows(t *testing.T) {
 	for rows.Next() {
 		require.NoError(t, rows.Scan(&event))
 		if i == 0 {
-			require.JSONEq(t, toJson(row1), toJson(event))
+			assert.JSONEq(t, toJson(row1), toJson(event))
 		} else {
-			require.JSONEq(t, toJson(row2), toJson(event))
+			assert.JSONEq(t, toJson(row2), toJson(event))
 		}
 		i++
 	}
@@ -318,7 +318,7 @@ func TestJSONStructWithStructInterface(t *testing.T) {
 	require.NoError(t, batch.Send())
 	event := make(map[string]Login)
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(event))
-	require.JSONEq(t, toJson(nLogin), toJson(event))
+	assert.JSONEq(t, toJson(nLogin), toJson(event))
 }
 
 func TestJSONSlicedInterfaceInconsistent(t *testing.T) {
@@ -347,7 +347,7 @@ func TestJSONSlicedInterface(t *testing.T) {
 	require.NoError(t, batch.Send())
 	var event Login
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event))
-	require.JSONEq(t, toJson(&event), toJson(login))
+	assert.JSONEq(t, toJson(&event), toJson(login))
 }
 
 func TestJSONSlicedNilInterfaceStart(t *testing.T) {
@@ -363,7 +363,7 @@ func TestJSONSlicedNilInterfaceStart(t *testing.T) {
 	require.NoError(t, batch.Send())
 	var event Login
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event))
-	require.JSONEq(t, `{"Random":["", "gingerwizard", "", "geoff"]}`, toJson(event))
+	assert.JSONEq(t, `{"Random":["", "gingerwizard", "", "geoff"]}`, toJson(event))
 }
 
 func TestJSONSlicedAllNils(t *testing.T) {
@@ -380,7 +380,7 @@ func TestJSONSlicedAllNils(t *testing.T) {
 	require.NoError(t, batch.Send())
 	var event Login
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event))
-	require.JSONEq(t, `{"Random": null, "SomeStr": "Astring"}`, toJson(event))
+	assert.JSONEq(t, `{"Random": null, "SomeStr": "Astring"}`, toJson(event))
 }
 
 func TestJSONSlicedInterfaceFloat(t *testing.T) {
@@ -396,7 +396,7 @@ func TestJSONSlicedInterfaceFloat(t *testing.T) {
 	require.NoError(t, batch.Send())
 	var event Login
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event))
-	require.JSONEq(t, toJson(&event), toJson(login))
+	assert.JSONEq(t, toJson(&event), toJson(login))
 }
 
 func TestJSONSlicedInterfaceInt(t *testing.T) {
@@ -413,7 +413,7 @@ func TestJSONSlicedInterfaceInt(t *testing.T) {
 	require.NoError(t, batch.Send())
 	var event Login
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event))
-	require.JSONEq(t, toJson(&event), toJson(login))
+	assert.JSONEq(t, toJson(&event), toJson(login))
 }
 
 func TestJSONSlicedInterfaceMixed(t *testing.T) {
@@ -509,7 +509,7 @@ func TestJSONSlicedInterfaceConsistentMapStruct(t *testing.T) {
 	require.NoError(t, batch.Send())
 	event := make(map[string]interface{})
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(event))
-	require.JSONEq(t, toJson(event), toJson(logins))
+	assert.JSONEq(t, toJson(event), toJson(logins))
 }
 
 func TestJSONSlicedInterfaceInConsistentMapStruct(t *testing.T) {
@@ -560,7 +560,7 @@ func TestJSONSlicedInterfaceCompatibleObjects(t *testing.T) {
 	require.NoError(t, batch.Send())
 	event := make(map[string]interface{})
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(event))
-	require.JSONEq(t, `{"Values":[{"Random":[],"Values":[2.4,2.1,5.6]},{"Random":[3,65],"Values":[]}]}`, toJson(event))
+	assert.JSONEq(t, `{"Values":[{"Random":[],"Values":[2.4,2.1,5.6]},{"Random":[3,65],"Values":[]}]}`, toJson(event))
 }
 
 func TestJSONSlicedInterfaceInConsistentObjects(t *testing.T) {
@@ -654,7 +654,7 @@ func TestJSONSlicedInterfaceSlice(t *testing.T) {
 	require.NoError(t, batch.Send())
 	event := make(map[string]interface{})
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(event))
-	require.JSONEq(t, toJson(event), toJson(logins))
+	assert.JSONEq(t, toJson(event), toJson(logins))
 }
 
 func TestJSONString(t *testing.T) {
@@ -679,9 +679,9 @@ func TestJSONString(t *testing.T) {
 	)
 	i := 0
 	for rows.Next() {
-		require.NoError(t, rows.Scan(&event))
+		assert.NoError(t, rows.Scan(&event))
 		expectedRow := Repository{URL: "https://github.com/ClickHouse/clickhouse-python", Releases: []Releases{{Version: "1.0.0"}, {Version: "1.1.0"}}, Row: uint8(i)}
-		require.Equal(t, expectedRow, event)
+		assert.Equal(t, expectedRow, event)
 		i++
 	}
 }
@@ -730,8 +730,8 @@ func TestJSONTypedMapInsert(t *testing.T) {
 	require.NoError(t, batch.Append(logins))
 	require.NoError(t, batch.Send())
 	event := make(map[string]map[string]Login)
-	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(event))
-	require.JSONEq(t, toJson(event), toJson(logins))
+	assert.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(event))
+	assert.JSONEq(t, toJson(event), toJson(logins))
 }
 
 func TestJSONUnTypedMapInsert(t *testing.T) {
@@ -756,8 +756,8 @@ func TestJSONUnTypedMapInsert(t *testing.T) {
 	require.NoError(t, batch.Append(logins))
 	require.NoError(t, batch.Send())
 	event := make(map[string]Login)
-	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(event))
-	require.JSONEq(t, toJson(logins), toJson(event))
+	assert.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(event))
+	assert.JSONEq(t, toJson(logins), toJson(event))
 }
 
 func TestJSONMapInconsistentMap(t *testing.T) {
@@ -817,7 +817,7 @@ func TestJSONMapInconsistentMap(t *testing.T) {
 		Row: 1,
 	}}}
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event))
-	require.JSONEq(t, `{
+	assert.JSONEq(t, `{
 							  "session": {
 								"user": {
 								  "ip_address": "85.242.48.167",
@@ -885,7 +885,7 @@ func TestJSONMapInconsistentMapWithInterface(t *testing.T) {
 	require.NoError(t, batch.Send())
 	event := make(map[string]map[string][]Login)
 	if err := conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(event); assert.NoError(t, err) {
-		require.JSONEq(t, `{
+		assert.JSONEq(t, `{
 							  "session": {
 								"user": [{
 								  "Details": [
@@ -1127,7 +1127,7 @@ func TestJSONNestedStruct(t *testing.T) {
 		row1 l1
 	)
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&row1))
-	require.JSONEq(t, `{
+	assert.JSONEq(t, `{
 							  "Server": [
 								{
 								  "A": "b",
@@ -1233,9 +1233,9 @@ func TestJSONMapSimpleInconsistentRows(t *testing.T) {
 		require.NoError(t, rows.Scan(event))
 		if i == 0 {
 			// clickhouse fills in emptys
-			require.JSONEq(t, `{"a":{"d":"test"},"c":{"e":"test"},"d":{"e":""},"g":{"h":{"IP":"","Row":0}},"i":{"row":0},"k":{"h":{"IP":"127.0.0.1","Row":0}},"z":{"c":[]}}`, toJson(event))
+			assert.JSONEq(t, `{"a":{"d":"test"},"c":{"e":"test"},"d":{"e":""},"g":{"h":{"IP":"","Row":0}},"i":{"row":0},"k":{"h":{"IP":"127.0.0.1","Row":0}},"z":{"c":[]}}`, toJson(event))
 		} else {
-			require.JSONEq(t, `{"a":{"d":"test"},"c":{"e":""},"d":{"e":"test"},"g":{"h":{"IP":"127.0.0.1","Row":0}},"i":{"row":1},"k":{"h":{"IP":"","Row":0}},"z":{"c":[{"f":{"IP":"127.2.0.1","Row":0},"g":{"IP":"127.3.0.1","Row":1}}]}}`, toJson(event))
+			assert.JSONEq(t, `{"a":{"d":"test"},"c":{"e":""},"d":{"e":"test"},"g":{"h":{"IP":"127.0.0.1","Row":0}},"i":{"row":1},"k":{"h":{"IP":"","Row":0}},"z":{"c":[{"f":{"IP":"127.2.0.1","Row":0},"g":{"IP":"127.3.0.1","Row":1}}]}}`, toJson(event))
 		}
 		i++
 	}
@@ -1300,10 +1300,10 @@ func TestJSONMapInconsistentRowsOfSlices(t *testing.T) {
 		require.NoError(t, rows.Scan(event))
 		if i == 0 {
 			// clickhouse fills in empty values
-			require.JSONEq(t, `{"a":[{"a":[],"d":["z","f"],"f":["x","f"],"g":[],"n":[],"z":[]},{"a":[],"d":["e","f"],"f":[],"g":["x","f"],"n":[],"z":[]}],"b":[],"i":[{"row":0}]}`, toJson(event))
+			assert.JSONEq(t, `{"a":[{"a":[],"d":["z","f"],"f":["x","f"],"g":[],"n":[],"z":[]},{"a":[],"d":["e","f"],"f":[],"g":["x","f"],"n":[],"z":[]}],"b":[],"i":[{"row":0}]}`, toJson(event))
 		} else {
 			// clickhouse fills in empty values
-			require.JSONEq(t, `{"a":[{"a":[],"d":[],"f":["z","f"],"g":[],"n":[],"z":["x","f"]},{"a":["e","f"],"d":[],"f":[],"g":[],"n":["x","f"],"z":[]}],"b":[{"a":["c","d"],"d":[]},{"a":[],"d":["e","f"]}],"i":[{"row":1}]}`, toJson(event))
+			assert.JSONEq(t, `{"a":[{"a":[],"d":[],"f":["z","f"],"g":[],"n":[],"z":["x","f"]},{"a":["e","f"],"d":[],"f":[],"g":[],"n":["x","f"],"z":[]}],"b":[{"a":["c","d"],"d":[]},{"a":[],"d":["e","f"]}],"i":[{"row":1}]}`, toJson(event))
 		}
 		i++
 	}
@@ -1368,10 +1368,10 @@ func TestJSONInconsistentStruct(t *testing.T) {
 		require.NoError(t, rows.Scan(&event))
 		if i == 0 {
 			// clickhouse fills in empty values
-			require.JSONEq(t, `{"I":0,"C":{"E":[{"D":"test"}],"G":["test1","test2"],"M":"test"},"A":{"D":"test"},"E":{"D":""},"F":{"D":""}}`, toJson(event))
+			assert.JSONEq(t, `{"I":0,"C":{"E":[{"D":"test"}],"G":["test1","test2"],"M":"test"},"A":{"D":"test"},"E":{"D":""},"F":{"D":""}}`, toJson(event))
 		} else {
 			// clickhouse fills in empty values
-			require.JSONEq(t, `{"I":1,"C":{"E":[],"G":[],"M":""},"A":{"D":"test"},"E":{"D":"test"},"F":{"D":"interface_test"}}`, toJson(event))
+			assert.JSONEq(t, `{"I":1,"C":{"E":[],"G":[],"M":""},"A":{"D":"test"},"E":{"D":"test"},"F":{"D":"interface_test"}}`, toJson(event))
 		}
 		i++
 	}
@@ -1457,11 +1457,11 @@ func TestJSONMapInconsistentRows(t *testing.T) {
 		require.NoError(t, rows.Scan(event))
 		switch i {
 		case 0:
-			require.JSONEq(t, `{"a":{"d":"test"},"c":{"e":[{"f":122.1}]},"d":{"now":"0001-01-01 00:00:00 +0000 UTC"},"f":{"k":[["a","b","c"],["d","e","f"]]},"i":{"row":0},"l":{"m":[]},"n":{"dates":[]},"t":{"uuid":"00000000-0000-0000-0000-000000000000"},"x":{"uuids":["61224334-0422-4864-830f-87b2bf2eedb0","21988fd4-0620-41ea-9202-729343ba9e88"]},"z":{"uuid":"71224334-0422-4864-830f-87b2bf2eedb0"}}`, toJson(event))
+			assert.JSONEq(t, `{"a":{"d":"test"},"c":{"e":[{"f":122.1}]},"d":{"now":"0001-01-01 00:00:00 +0000 UTC"},"f":{"k":[["a","b","c"],["d","e","f"]]},"i":{"row":0},"l":{"m":[]},"n":{"dates":[]},"t":{"uuid":"00000000-0000-0000-0000-000000000000"},"x":{"uuids":["61224334-0422-4864-830f-87b2bf2eedb0","21988fd4-0620-41ea-9202-729343ba9e88"]},"z":{"uuid":"71224334-0422-4864-830f-87b2bf2eedb0"}}`, toJson(event))
 		case 1:
-			require.JSONEq(t, `{"a":{"d":"test"},"c":{"e":[]},"d":{"now":"2022-05-25 17:20:57 +0100 WEST"},"f":{"k":[]},"i":{"row":1},"l":{"m":[["d","e","f"]]},"n":{"dates":["2022-05-25 17:20:57 +0100 WEST","2022-05-25 17:20:57 +0100 WEST"]},"t":{"uuid":"00d6d7e3-f960-42d4-a4db-f95513762841"},"x":{"uuids":[]},"z":{"uuid":"00000000-0000-0000-0000-000000000000"}}`, toJson(event))
+			assert.JSONEq(t, `{"a":{"d":"test"},"c":{"e":[]},"d":{"now":"2022-05-25 17:20:57 +0100 WEST"},"f":{"k":[]},"i":{"row":1},"l":{"m":[["d","e","f"]]},"n":{"dates":["2022-05-25 17:20:57 +0100 WEST","2022-05-25 17:20:57 +0100 WEST"]},"t":{"uuid":"00d6d7e3-f960-42d4-a4db-f95513762841"},"x":{"uuids":[]},"z":{"uuid":"00000000-0000-0000-0000-000000000000"}}`, toJson(event))
 		case 2:
-			require.JSONEq(t, `{"a":{"d":""},"c":{"e":[]},"d":{"now":"0001-01-01 00:00:00 +0000 UTC"},"f":{"k":[]},"i":{"row":2},"l":{"m":[]},"n":{"dates":[]},"t":{"uuid":"00000000-0000-0000-0000-000000000000"},"x":{"uuids":[]},"z":{"uuid":"00000000-0000-0000-0000-000000000000"}}`, toJson(event))
+			assert.JSONEq(t, `{"a":{"d":""},"c":{"e":[]},"d":{"now":"0001-01-01 00:00:00 +0000 UTC"},"f":{"k":[]},"i":{"row":2},"l":{"m":[]},"n":{"dates":[]},"t":{"uuid":"00000000-0000-0000-0000-000000000000"},"x":{"uuids":[]},"z":{"uuid":"00000000-0000-0000-0000-000000000000"}}`, toJson(event))
 		}
 		i++
 	}
@@ -1700,9 +1700,9 @@ func TestInsertMarshaledJSON(t *testing.T) {
 		require.NoError(t, rows.Scan(event))
 		if i == 0 {
 			// clickhouse fills in empty values
-			require.JSONEq(t, `{"a":{"d":"test"},"c":{"e":"test"},"d":{"e":""},"g":{"h":{"IP":"","Row":0}},"i":{"row":0},"k":{"h":{"IP":"127.0.0.1","Row":0}},"z":{"c":0}}`, toJson(event))
+			assert.JSONEq(t, `{"a":{"d":"test"},"c":{"e":"test"},"d":{"e":""},"g":{"h":{"IP":"","Row":0}},"i":{"row":0},"k":{"h":{"IP":"127.0.0.1","Row":0}},"z":{"c":0}}`, toJson(event))
 		} else {
-			require.JSONEq(t, `{"a":{"d":"test"},"c":{"e":""},"d":{"e":"test"},"g":{"h":{"IP":"127.0.0.1","Row":0}},"i":{"row":1},"k":{"h":{"IP":"","Row":0}},"z":{"c":2}}`, toJson(event))
+			assert.JSONEq(t, `{"a":{"d":"test"},"c":{"e":""},"d":{"e":"test"},"g":{"h":{"IP":"127.0.0.1","Row":0}},"i":{"row":1},"k":{"h":{"IP":"","Row":0}},"z":{"c":2}}`, toJson(event))
 		}
 		i++
 	}
@@ -1777,7 +1777,7 @@ func TestJSONMissingStructFieldAtQueryTime(t *testing.T) {
 	var event InconsistentGithubEvent
 	// just ignore fields in the struct we can't restore
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event))
-	require.JSONEq(t, `{
+	assert.JSONEq(t, `{
 	  "Title": "Document JSON support",
 	  "EventType": "",
 	  "assignee": {
@@ -1919,9 +1919,9 @@ func TestJSONNilStructFields(t *testing.T) {
 		require.NoError(t, rows.Scan(&event))
 		if i == 0 {
 			// clickhouse fills in empty values
-			require.JSONEq(t, `{"Title":"Document JSON support","Type":"Issue","assignee":{"Id":1233,"Name":"Geoff","orgs":["Support Engineer","Integrations"],"Repositories":[{"url":"https://github.com/ClickHouse/clickhouse-python","Releases":[{"Version":"1.0.0"},{"Version":"1.1.0"}]},{"url":"https://github.com/ClickHouse/clickhouse-go","Releases":[{"Version":"2.0.0"},{"Version":"2.1.0"}]}],"Achievement":{"Name":"Mars Star","AwardedDate":"2022-05-25T17:20:57+01:00"}},"labels":[],"Contributors":[]}`, toJson(event))
+			assert.JSONEq(t, `{"Title":"Document JSON support","Type":"Issue","assignee":{"Id":1233,"Name":"Geoff","orgs":["Support Engineer","Integrations"],"Repositories":[{"url":"https://github.com/ClickHouse/clickhouse-python","Releases":[{"Version":"1.0.0"},{"Version":"1.1.0"}]},{"url":"https://github.com/ClickHouse/clickhouse-go","Releases":[{"Version":"2.0.0"},{"Version":"2.1.0"}]}],"Achievement":{"Name":"Mars Star","AwardedDate":"2022-05-25T17:20:57+01:00"}},"labels":[],"Contributors":[]}`, toJson(event))
 		} else {
-			require.JSONEq(t, `{"Title":"Document JSON issues","Type":"Issue","assignee":{"Id":1244,"Name":"Dale","orgs":[],"Repositories":[],"Achievement":{"Name":"","AwardedDate":"0001-01-01T00:00:00Z"}},"labels":["Help wanted"],"Contributors":[{"Id":2244,"Name":"Dale","orgs":["Support Engineer","Consulting","PM","Integrations"],"Repositories":[{"url":"https://github.com/ClickHouse/clickhouse-go","Releases":[{"Version":"2.0.0"},{"Version":"2.1.0"}]},{"url":"https://github.com/grafana/clickhouse","Releases":[{"Version":"1.2.0"},{"Version":"1.3.0"}]}],"Achievement":{"Name":"Adding JSON to go driver","AwardedDate":"2022-05-04T21:20:57+01:00"}}]}`, toJson(event))
+			assert.JSONEq(t, `{"Title":"Document JSON issues","Type":"Issue","assignee":{"Id":1244,"Name":"Dale","orgs":[],"Repositories":[],"Achievement":{"Name":"","AwardedDate":"0001-01-01T00:00:00Z"}},"labels":["Help wanted"],"Contributors":[{"Id":2244,"Name":"Dale","orgs":["Support Engineer","Consulting","PM","Integrations"],"Repositories":[{"url":"https://github.com/ClickHouse/clickhouse-go","Releases":[{"Version":"2.0.0"},{"Version":"2.1.0"}]},{"url":"https://github.com/grafana/clickhouse","Releases":[{"Version":"1.2.0"},{"Version":"1.3.0"}]}],"Achievement":{"Name":"Adding JSON to go driver","AwardedDate":"2022-05-04T21:20:57+01:00"}}]}`, toJson(event))
 		}
 		i++
 	}
@@ -1973,9 +1973,9 @@ func TestJSONNilMapFields(t *testing.T) {
 		require.NoError(t, rows.Scan(&event))
 		if i == 0 {
 			// clickhouse fills in empty values and nil slices to []
-			require.JSONEq(t, `{"assignee":{"id":1233,"name":"Dale","organizations":[],"repositories":[]},"contributors":[{"Id":2244,"Name":"Dale","Repositories":[{"Releases":[{"Version":"2.0.0"},{"Version":"2.1.0"}],"url":"https://github.com/ClickHouse/clickhouse-go"},{"Releases":[],"url":"https://github.com/grafana/clickhouse"}],"orgs":["Support Engineer","Consulting","PM","Integrations"]}],"labels":[],"title":"Document JSON support","type":"Issue"}`, toJson(event))
+			assert.JSONEq(t, `{"assignee":{"id":1233,"name":"Dale","organizations":[],"repositories":[]},"contributors":[{"Id":2244,"Name":"Dale","Repositories":[{"Releases":[{"Version":"2.0.0"},{"Version":"2.1.0"}],"url":"https://github.com/ClickHouse/clickhouse-go"},{"Releases":[],"url":"https://github.com/grafana/clickhouse"}],"orgs":["Support Engineer","Consulting","PM","Integrations"]}],"labels":[],"title":"Document JSON support","type":"Issue"}`, toJson(event))
 		} else {
-			require.JSONEq(t, `{"assignee":{"id":1244,"name":"Geoff","organizations":["Support Engineer","Integrations"],"repositories":[{"Releases":[{"Version":"2.0.0"},{"Version":"2.1.0"}],"url":"https://github.com/ClickHouse/clickhouse-python"},{"Releases":[],"url":"https://github.com/ClickHouse/clickhouse-go"}]},"contributors":[],"labels":[],"title":"Document JSON issues","type":"Issue"}`, toJson(event))
+			assert.JSONEq(t, `{"assignee":{"id":1244,"name":"Geoff","organizations":["Support Engineer","Integrations"],"repositories":[{"Releases":[{"Version":"2.0.0"},{"Version":"2.1.0"}],"url":"https://github.com/ClickHouse/clickhouse-python"},{"Releases":[],"url":"https://github.com/ClickHouse/clickhouse-go"}]},"contributors":[],"labels":[],"title":"Document JSON issues","type":"Issue"}`, toJson(event))
 		}
 		i++
 	}
@@ -2003,8 +2003,8 @@ func TestJSONManyColumns(t *testing.T) {
 		sCol   string
 	)
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event1, &event2, &sCol))
-	require.JSONEq(t, toJson(col1), toJson(event1))
-	require.JSONEq(t, toJson(col2), toJson(event2))
+	assert.JSONEq(t, toJson(col1), toJson(event1))
+	assert.JSONEq(t, toJson(col2), toJson(event2))
 	require.Equal(t, sCol, "Test")
 }
 
@@ -2021,7 +2021,7 @@ func TestIPInInterfaceSlice(t *testing.T) {
 	require.NoError(t, batch.Send())
 	var event Login
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event))
-	require.JSONEq(t, toJson(login), toJson(event))
+	assert.JSONEq(t, toJson(login), toJson(event))
 }
 
 func TestNilStringInInterfaceSlice(t *testing.T) {
@@ -2037,7 +2037,7 @@ func TestNilStringInInterfaceSlice(t *testing.T) {
 	require.NoError(t, batch.Send())
 	var event Login
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event))
-	require.JSONEq(t, `{"IPs":["dale","geoff",""]}`, toJson(event))
+	assert.JSONEq(t, `{"IPs":["dale","geoff",""]}`, toJson(event))
 }
 
 func TestNilInNumericInterfaceSlice(t *testing.T) {
@@ -2053,7 +2053,7 @@ func TestNilInNumericInterfaceSlice(t *testing.T) {
 	require.NoError(t, batch.Send())
 	var event Login
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event))
-	require.JSONEq(t, `{"IPs":[1,2,0]}`, toJson(event))
+	assert.JSONEq(t, `{"IPs":[1,2,0]}`, toJson(event))
 }
 
 func TestJSONNonStringMap(t *testing.T) {
@@ -2115,9 +2115,9 @@ func TestInconsistentCompatibleTypesInBatch(t *testing.T) {
 		require.NoError(t, rows.Scan(event))
 		if i == 0 {
 			// clickhouse fills in empty values and nil slices to []
-			require.JSONEq(t, `{"assignee":{"id":0,"name":"Dale","organizations":[],"repositories":[]},"contributors":[{"Id":2244,"Name":"Dale","Repositories":[{"Releases":[{"Version":"2.0.0"},{"Version":"2.1.0"}],"url":"https://github.com/ClickHouse/clickhouse-go"},{"Releases":[],"url":"https://github.com/grafana/clickhouse"}],"orgs":["Support Engineer","Consulting","PM","Integrations"]}],"labels":[],"title":"Document JSON support","type":"Issue"}`, toJson(event))
+			assert.JSONEq(t, `{"assignee":{"id":0,"name":"Dale","organizations":[],"repositories":[]},"contributors":[{"Id":2244,"Name":"Dale","Repositories":[{"Releases":[{"Version":"2.0.0"},{"Version":"2.1.0"}],"url":"https://github.com/ClickHouse/clickhouse-go"},{"Releases":[],"url":"https://github.com/grafana/clickhouse"}],"orgs":["Support Engineer","Consulting","PM","Integrations"]}],"labels":[],"title":"Document JSON support","type":"Issue"}`, toJson(event))
 		} else {
-			require.JSONEq(t, `{"assignee":{"id":1,"name":"Geoff","organizations":["Support Engineer","Integrations"],"repositories":[{"Releases":[{"Version":"2.0.0"},{"Version":"2.1.0"}],"url":"https://github.com/ClickHouse/clickhouse-python"},{"Releases":[],"url":"https://github.com/ClickHouse/clickhouse-go"}]},"contributors":[],"labels":[],"title":"Document JSON issues","type":"Issue"}`, toJson(event))
+			assert.JSONEq(t, `{"assignee":{"id":1,"name":"Geoff","organizations":["Support Engineer","Integrations"],"repositories":[{"Releases":[{"Version":"2.0.0"},{"Version":"2.1.0"}],"url":"https://github.com/ClickHouse/clickhouse-python"},{"Releases":[],"url":"https://github.com/ClickHouse/clickhouse-go"}]},"contributors":[],"labels":[],"title":"Document JSON issues","type":"Issue"}`, toJson(event))
 		}
 		i++
 	}
@@ -2302,9 +2302,71 @@ func TestQueryMapByReference(t *testing.T) {
 	var event map[string]interface{}
 	//if passing an uninitialized map, ensure it is passed by pointer
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event))
-	require.JSONEq(t, toJson(row1), toJson(event))
+	assert.JSONEq(t, toJson(row1), toJson(event))
 	// an init map can be passed by ref or by value
 	event = make(map[string]interface{})
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event))
-	require.JSONEq(t, toJson(row1), toJson(event))
+	assert.JSONEq(t, toJson(row1), toJson(event))
+}
+
+func TestQueryNestedSubColumn(t *testing.T) {
+	conn, teardown := setupTest(t)
+	defer teardown(t)
+	ctx := context.Background()
+	batch := prepareBatch(t, conn, ctx)
+	repositories := []map[string]interface{}{{"url": "https://github.com/ClickHouse/clickhouse-go", "Releases": []map[string]interface{}{{"Version": "2.0.0"}, {"Version": "2.1.0"}}}, {"url": "https://github.com/grafana/clickhouse"}}
+	row1 := map[string]interface{}{
+		"title": "Document JSON support",
+		"type":  "Issue",
+		"assignee": map[string]interface{}{
+			"id":           int16(0),
+			"name":         "Dale",
+			"orgs":         []string{"clickhouse"},
+			"repositories": repositories,
+		},
+	}
+	require.NoError(t, batch.Append(row1))
+	require.NoError(t, batch.Send())
+	var event []map[string]interface{}
+	require.NoError(t, conn.QueryRow(ctx, "SELECT event.assignee.repositories FROM json_test").Scan(&event))
+	assert.JSONEq(t, `[{"Releases":[{"Version":"2.0.0"},{"Version":"2.1.0"}],"url":"https://github.com/ClickHouse/clickhouse-go"},{"Releases":[],"url":"https://github.com/grafana/clickhouse"}]`, toJson(event))
+}
+
+func TestQueryTupleSubColumn(t *testing.T) {
+	conn, teardown := setupTest(t)
+	defer teardown(t)
+	ctx := context.Background()
+	batch := prepareBatch(t, conn, ctx)
+	assignee := map[string]interface{}{
+		"id":           int16(0),
+		"name":         "Dale",
+		"orgs":         []string{"clickhouse"},
+		"repositories": []map[string]interface{}{{"url": "https://github.com/ClickHouse/clickhouse-go", "Releases": []map[string]interface{}{{"Version": "2.0.0"}, {"Version": "2.1.0"}}}, {"url": "https://github.com/grafana/clickhouse"}},
+	}
+	row1 := map[string]interface{}{
+		"title":    "Document JSON support",
+		"type":     "Issue",
+		"assignee": assignee,
+	}
+	require.NoError(t, batch.Append(row1))
+	require.NoError(t, batch.Send())
+	var event map[string]interface{}
+	require.NoError(t, conn.QueryRow(ctx, "SELECT event.assignee FROM json_test").Scan(&event))
+	assert.JSONEq(t, `{"id":0,"name":"Dale","orgs":["clickhouse"],"repositories":[{"Releases":[{"Version":"2.0.0"},{"Version":"2.1.0"}],"url":"https://github.com/ClickHouse/clickhouse-go"},{"Releases":[],"url":"https://github.com/grafana/clickhouse"}]}`, toJson(event))
+}
+
+func TestJSONTypedSlice(t *testing.T) {
+	conn, teardown := setupTest(t)
+	defer teardown(t)
+	ctx := context.Background()
+	batch := prepareBatch(t, conn, ctx)
+	row1 := map[string][]int64{
+		"random": {2, 3, 5},
+	}
+	require.NoError(t, batch.Append(row1))
+	require.NoError(t, batch.Send())
+	var event map[string][]int64
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event))
+
+	assert.JSONEq(t, toJson(row1), toJson(event))
 }

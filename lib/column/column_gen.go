@@ -93,33 +93,30 @@ func (t Type) Column(name string) (Interface, error) {
 	case "Nothing":
 		return &Nothing{name: name}, nil
 	case "Ring":
-		v, err := (&Array{name: name}).parse("Array(Point)")
+		set, err := (&Array{name: name}).parse("Array(Point)")
 		if err != nil {
 			return nil, err
 		}
-		set := v.(*Array)
 		set.chType = "Ring"
 		return &Ring{
 			set:  set,
 			name: name,
 		}, nil
 	case "Polygon":
-		v, err := (&Array{name: name}).parse("Array(Ring)")
+		set, err := (&Array{name: name}).parse("Array(Ring)")
 		if err != nil {
 			return nil, err
 		}
-		set := v.(*Array)
 		set.chType = "Polygon"
 		return &Polygon{
 			set:  set,
 			name: name,
 		}, nil
 	case "MultiPolygon":
-		v, err := (&Array{name: name}).parse("Array(Polygon)")
+		set, err := (&Array{name: name}).parse("Array(Polygon)")
 		if err != nil {
 			return nil, err
 		}
-		set := v.(*Array)
 		set.chType = "MultiPolygon"
 		return &MultiPolygon{
 			set:  set,
