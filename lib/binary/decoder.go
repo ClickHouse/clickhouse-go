@@ -160,6 +160,9 @@ func (decoder *Decoder) String() (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if int(strlen) == 0 {
+		return "", nil
+	}
 	str, err := decoder.Fixed(int(strlen))
 	if err != nil {
 		return "", err

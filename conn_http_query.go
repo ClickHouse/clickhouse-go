@@ -18,11 +18,12 @@
 package clickhouse
 
 import (
-	"bufio"
+	"bytes"
 	"context"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 	"io"
+	"io/ioutil"
 	"strings"
 )
 
@@ -41,8 +42,14 @@ func (h *httpConnect) query(ctx context.Context, query string, args ...interface
 	if err != nil {
 		return nil, err
 	}
+	defer res.Close()
 
-	decoder := binary.NewDecoder(bufio.NewReader(res))
+	body, err := ioutil.ReadAll(res)
+	if err != nil {
+		return nil, err
+	}
+
+	decoder := binary.NewDecoder(bytes.NewReader(body))
 	block, err := readData(decoder)
 	if err != nil {
 		return nil, err
