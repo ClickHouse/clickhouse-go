@@ -105,7 +105,6 @@ func (col *Array) Row(i int, ptr bool) interface{} {
 		fmt.Println(err)
 	}
 	return value.Interface()
-	//return col.make(uint64(i), 0).Interface()
 }
 
 func (col *Array) Append(v interface{}) (nulls []uint8, err error) {
