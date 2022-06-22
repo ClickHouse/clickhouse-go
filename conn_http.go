@@ -55,7 +55,7 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		TLSClientConfig:       opt.TLS,
 	}
 
-	connect := &httpConnect{
+	conn := &httpConnect{
 		opt: opt,
 		client: &http.Client{
 			Transport: t,
@@ -63,7 +63,7 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		url: u,
 	}
 
-	rows, err := connect.query(ctx, "SELECT timeZone()")
+	rows, err := conn.query(ctx, func(*connect, error) {}, "SELECT timeZone()")
 	if err != nil {
 		return nil, err
 	}
@@ -75,10 +75,10 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		if err != nil {
 			return nil, err
 		}
-		connect.location = location
+		conn.location = location
 	}
 
-	return connect, nil
+	return conn, nil
 }
 
 type httpConnect struct {
@@ -86,6 +86,13 @@ type httpConnect struct {
 	url      *url.URL
 	client   *http.Client
 	location *time.Location
+}
+
+func (h *httpConnect) isBad() bool {
+	if h.client == nil {
+		return true
+	}
+	return false
 }
 
 func writeData(encoder *binary.Encoder, block *proto.Block) error {
@@ -98,6 +105,10 @@ func readData(decoder *binary.Decoder) (*proto.Block, error) {
 		return nil, err
 	}
 	return &block, nil
+}
+
+func (h *httpConnect) asyncInsert(ctx context.Context, query string, wait bool) error {
+	return errors.New("HTTP: not supported")
 }
 
 func readResponse(response *http.Response) ([]byte, error) {
@@ -178,7 +189,7 @@ func (h *httpConnect) exec(ctx context.Context, query string, args ...interface{
 }
 
 func (h *httpConnect) ping(ctx context.Context) error {
-	rows, err := h.query(ctx, "SELECT 1")
+	rows, err := h.query(ctx, nil, "SELECT 1")
 	if err != nil {
 		return err
 	}

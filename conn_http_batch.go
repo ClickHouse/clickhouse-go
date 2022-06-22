@@ -34,7 +34,8 @@ import (
 
 var splitHttpInsertRe = regexp.MustCompile(`(?i)INSERT INTO\s([\w.]+)(\s\((.*?)\))?`)
 
-func (h *httpConnect) prepareBatch(ctx context.Context, query string) (*httpBatch, error) {
+// release is ignored, because http used by std with empty release function
+func (h *httpConnect) prepareBatch(ctx context.Context, query string, release func(*connect, error)) (driver.Batch, error) {
 	index := splitHttpInsertRe.FindStringSubmatchIndex(strings.ToUpper(query))
 
 	if len(index) < 3 {
@@ -44,7 +45,7 @@ func (h *httpConnect) prepareBatch(ctx context.Context, query string) (*httpBatc
 	tableName := query[index[2]:index[3]]
 	query = "INSERT INTO " + tableName + " FORMAT Native"
 	queryTableSchema := "DESCRIBE TABLE " + tableName
-	r, err := h.query(ctx, queryTableSchema)
+	r, err := h.query(ctx, release, queryTableSchema)
 	if err != nil {
 		return nil, err
 	}

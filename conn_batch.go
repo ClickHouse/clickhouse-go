@@ -32,7 +32,7 @@ import (
 
 var splitInsertRe = regexp.MustCompile(`(?i)\sVALUES\s*\(`)
 
-func (c *connect) prepareBatch(ctx context.Context, query string, release func(*connect, error)) (*batch, error) {
+func (c *connect) prepareBatch(ctx context.Context, query string, release func(*connect, error)) (driver.Batch, error) {
 	query = splitInsertRe.Split(query, -1)[0]
 	if !strings.HasSuffix(strings.TrimSpace(strings.ToUpper(query)), "VALUES") {
 		query += " VALUES"
