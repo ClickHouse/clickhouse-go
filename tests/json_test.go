@@ -2352,7 +2352,6 @@ func TestQueryTupleSubColumn(t *testing.T) {
 	require.NoError(t, batch.Send())
 	var event map[string]interface{}
 	require.NoError(t, conn.QueryRow(ctx, "SELECT event.assignee FROM json_test").Scan(&event))
-	fmt.Println(toJson(event))
 	assert.JSONEq(t, `{"id":0,"name":"Dale","orgs":["clickhouse"],"repositories":[{"Releases":[{"Version":"2.0.0"},{"Version":"2.1.0"}],"url":"https://github.com/ClickHouse/clickhouse-go"},{"Releases":[],"url":"https://github.com/grafana/clickhouse"}]}`, toJson(event))
 }
 
