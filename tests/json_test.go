@@ -218,7 +218,7 @@ func TestJSONUUID(t *testing.T) {
 	defer rows.Close()
 	require.NoError(t, err)
 	for rows.Next() {
-		require.NoError(t, rows.Scan(event))
+		assert.NoError(t, rows.Scan(&event))
 		if i == 0 {
 			assert.JSONEq(t, toJson(row1), toJson(event))
 		} else {
@@ -301,7 +301,7 @@ func TestJSONStructWithInterface(t *testing.T) {
 	require.NoError(t, batch.Append(login))
 	require.NoError(t, batch.Send())
 	event := make(map[string]string)
-	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(event))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event))
 	assert.JSONEq(t, toJson(login), toJson(event))
 }
 
@@ -317,7 +317,7 @@ func TestJSONStructWithStructInterface(t *testing.T) {
 	require.NoError(t, batch.Append(nLogin))
 	require.NoError(t, batch.Send())
 	event := make(map[string]Login)
-	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(event))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event))
 	assert.JSONEq(t, toJson(nLogin), toJson(event))
 }
 
@@ -508,7 +508,7 @@ func TestJSONSlicedInterfaceConsistentMapStruct(t *testing.T) {
 	require.NoError(t, batch.Append(logins))
 	require.NoError(t, batch.Send())
 	event := make(map[string]interface{})
-	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(event))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event))
 	assert.JSONEq(t, toJson(event), toJson(logins))
 }
 
@@ -559,7 +559,7 @@ func TestJSONSlicedInterfaceCompatibleObjects(t *testing.T) {
 	require.NoError(t, batch.Append(logins))
 	require.NoError(t, batch.Send())
 	event := make(map[string]interface{})
-	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(event))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event))
 	assert.JSONEq(t, `{"Values":[{"Random":[],"Values":[2.4,2.1,5.6]},{"Random":[3,65],"Values":[]}]}`, toJson(event))
 }
 
@@ -653,7 +653,7 @@ func TestJSONSlicedInterfaceSlice(t *testing.T) {
 	require.NoError(t, batch.Append(logins))
 	require.NoError(t, batch.Send())
 	event := make(map[string]interface{})
-	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(event))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event))
 	assert.JSONEq(t, toJson(event), toJson(logins))
 }
 
@@ -730,7 +730,7 @@ func TestJSONTypedMapInsert(t *testing.T) {
 	require.NoError(t, batch.Append(logins))
 	require.NoError(t, batch.Send())
 	event := make(map[string]map[string]Login)
-	assert.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(event))
+	assert.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event))
 	assert.JSONEq(t, toJson(event), toJson(logins))
 }
 
@@ -756,7 +756,7 @@ func TestJSONUnTypedMapInsert(t *testing.T) {
 	require.NoError(t, batch.Append(logins))
 	require.NoError(t, batch.Send())
 	event := make(map[string]Login)
-	assert.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(event))
+	assert.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event))
 	assert.JSONEq(t, toJson(logins), toJson(event))
 }
 
@@ -884,7 +884,7 @@ func TestJSONMapInconsistentMapWithInterface(t *testing.T) {
 	require.NoError(t, batch.Append(logins))
 	require.NoError(t, batch.Send())
 	event := make(map[string]map[string][]Login)
-	if err := conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(event); assert.NoError(t, err) {
+	if err := conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event); assert.NoError(t, err) {
 		assert.JSONEq(t, `{
 							  "session": {
 								"user": [{
@@ -1230,7 +1230,7 @@ func TestJSONMapSimpleInconsistentRows(t *testing.T) {
 	require.NoError(t, err)
 	i := 0
 	for rows.Next() {
-		require.NoError(t, rows.Scan(event))
+		require.NoError(t, rows.Scan(&event))
 		if i == 0 {
 			// clickhouse fills in emptys
 			assert.JSONEq(t, `{"a":{"d":"test"},"c":{"e":"test"},"d":{"e":""},"g":{"h":{"IP":"","Row":0}},"i":{"row":0},"k":{"h":{"IP":"127.0.0.1","Row":0}},"z":{"c":[]}}`, toJson(event))
@@ -1297,7 +1297,7 @@ func TestJSONMapInconsistentRowsOfSlices(t *testing.T) {
 	i := 0
 	event := make(map[string][]map[string]interface{})
 	for rows.Next() {
-		require.NoError(t, rows.Scan(event))
+		require.NoError(t, rows.Scan(&event))
 		if i == 0 {
 			// clickhouse fills in empty values
 			assert.JSONEq(t, `{"a":[{"a":[],"d":["z","f"],"f":["x","f"],"g":[],"n":[],"z":[]},{"a":[],"d":["e","f"],"f":[],"g":["x","f"],"n":[],"z":[]}],"b":[],"i":[{"row":0}]}`, toJson(event))
@@ -1454,7 +1454,7 @@ func TestJSONMapInconsistentRows(t *testing.T) {
 	i := 0
 	event := make(map[string]map[string]interface{})
 	for rows.Next() {
-		require.NoError(t, rows.Scan(event))
+		require.NoError(t, rows.Scan(&event))
 		switch i {
 		case 0:
 			assert.JSONEq(t, `{"a":{"d":"test"},"c":{"e":[{"f":122.1}]},"d":{"now":"0001-01-01 00:00:00 +0000 UTC"},"f":{"k":[["a","b","c"],["d","e","f"]]},"i":{"row":0},"l":{"m":[]},"n":{"dates":[]},"t":{"uuid":"00000000-0000-0000-0000-000000000000"},"x":{"uuids":["61224334-0422-4864-830f-87b2bf2eedb0","21988fd4-0620-41ea-9202-729343ba9e88"]},"z":{"uuid":"71224334-0422-4864-830f-87b2bf2eedb0"}}`, toJson(event))
@@ -1485,17 +1485,17 @@ func TestJSONMapSliceOfSlices(t *testing.T) {
 	require.NoError(t, batch.Send())
 	//read into a typed map
 	event := make(map[string][][]uuid.UUID)
-	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(event))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event))
 	assert.JSONEq(t, toJson(row1), toJson(event))
 
 	//read into a generic map
 	genEvent := make(map[string]interface{})
-	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(genEvent))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&genEvent))
 	assert.JSONEq(t, toJson(row1), toJson(genEvent))
 
 	//read into a slice of interface{}
 	genSliceEvent := make(map[string][]interface{})
-	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(genSliceEvent))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&genSliceEvent))
 	assert.JSONEq(t, toJson(row1), toJson(genSliceEvent))
 
 	///read into a struct
@@ -1552,11 +1552,11 @@ func TestJSONMapSliceOfSlicesWithStruct(t *testing.T) {
 	require.NoError(t, batch.Append(row1))
 	require.NoError(t, batch.Send())
 	event := make(map[string][][]Login)
-	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(event))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event))
 	assert.JSONEq(t, toJson(row1), toJson(event))
 
 	mEvent := make(map[string][][]map[string]interface{})
-	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(mEvent))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&mEvent))
 	assert.JSONEq(t, toJson(row1), toJson(mEvent))
 
 }
@@ -1590,14 +1590,14 @@ func TestJSONMapSliceOfSlicesWithMap(t *testing.T) {
 	require.NoError(t, batch.Send())
 	//read into a typed map
 	event := make(map[string][][]map[string]interface{})
-	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(event))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event))
 	assert.JSONEq(t, toJson(row1), toJson(event))
 	type Login struct {
 		IP  net.IP `json:"ip"`
 		Row uint8  `json:"row"`
 	}
 	sEvent := make(map[string][][]Login)
-	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(sEvent))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&sEvent))
 	assert.JSONEq(t, toJson(row1), toJson(sEvent))
 }
 
@@ -1619,7 +1619,7 @@ func TestMapSliceOfInterface(t *testing.T) {
 	require.NoError(t, batch.Send())
 	event := make(map[string][]interface{})
 	// currently this fails cannot set []map[string][]string into []interface{} - maybe we can handle in future
-	require.Panics(t, func() { conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(event) })
+	require.Panics(t, func() { conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event) })
 }
 
 func TestStructSliceOfInterface(t *testing.T) {
@@ -1658,7 +1658,7 @@ func TestStructSliceOfInterface(t *testing.T) {
 	require.NoError(t, batch.Send())
 	event := make(map[string][]interface{})
 	// currently this fails cannot set []map[string][]string into []interface{} - maybe we can handle in future
-	require.Panics(t, func() { conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(event) })
+	require.Panics(t, func() { conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event) })
 }
 
 func TestStructSliceInInterface(t *testing.T) {
@@ -1674,7 +1674,7 @@ func TestStructSliceInInterface(t *testing.T) {
 	require.NoError(t, batch.Append(row1))
 	require.NoError(t, batch.Send())
 	event := make(map[string][]interface{})
-	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(event))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event))
 	assert.JSONEq(t, toJson(row1), toJson(event))
 }
 
@@ -1697,7 +1697,7 @@ func TestInsertMarshaledJSON(t *testing.T) {
 	require.NoError(t, err)
 	i := 0
 	for rows.Next() {
-		require.NoError(t, rows.Scan(event))
+		require.NoError(t, rows.Scan(&event))
 		if i == 0 {
 			// clickhouse fills in empty values
 			assert.JSONEq(t, `{"a":{"d":"test"},"c":{"e":"test"},"d":{"e":""},"g":{"h":{"IP":"","Row":0}},"i":{"row":0},"k":{"h":{"IP":"127.0.0.1","Row":0}},"z":{"c":0}}`, toJson(event))
@@ -1731,7 +1731,7 @@ func TestJSONEmbeddedStruct(t *testing.T) {
 	require.NoError(t, batch.Append(row1))
 	require.NoError(t, batch.Send())
 	event := make(map[string]interface{})
-	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(event))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event))
 	assert.JSONEq(t, toJson(row1), toJson(row1))
 
 }
@@ -2112,7 +2112,7 @@ func TestInconsistentCompatibleTypesInBatch(t *testing.T) {
 	event := make(map[string]interface{})
 	i := 0
 	for rows.Next() {
-		require.NoError(t, rows.Scan(event))
+		require.NoError(t, rows.Scan(&event))
 		if i == 0 {
 			// clickhouse fills in empty values and nil slices to []
 			assert.JSONEq(t, `{"assignee":{"id":0,"name":"Dale","organizations":[],"repositories":[]},"contributors":[{"Id":2244,"Name":"Dale","Repositories":[{"Releases":[{"Version":"2.0.0"},{"Version":"2.1.0"}],"url":"https://github.com/ClickHouse/clickhouse-go"},{"Releases":[],"url":"https://github.com/grafana/clickhouse"}],"orgs":["Support Engineer","Consulting","PM","Integrations"]}],"labels":[],"title":"Document JSON support","type":"Issue"}`, toJson(event))

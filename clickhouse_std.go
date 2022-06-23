@@ -346,7 +346,6 @@ func (r *stdRows) Next(dest []driver.Value) error {
 	if r.rows.Next() {
 		for i := range dest {
 			nullable, ok := r.ColumnTypeNullable(i)
-			// maybe call ScanRow
 			switch value := r.rows.block.Columns[i].Row(r.rows.row-1, nullable && ok).(type) {
 			case driver.Valuer:
 				v, err := value.Value()

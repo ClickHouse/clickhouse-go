@@ -546,7 +546,7 @@ func createJSONList(name string) (jCol *JSONList) {
 	lCol.values = &JSONObject{}
 	// depth should always be one as nested arrays aren't possible
 	lCol.depth = 1
-	lCol.scanType = reflect.SliceOf(lCol.values.ScanType())
+	lCol.scanType = scanTypeSlice
 	offsetScanTypes := []reflect.Type{lCol.scanType}
 	lCol.offsets = []*offset{{
 		scanType: offsetScanTypes[0],
@@ -802,7 +802,7 @@ func (jCol *JSONObject) FullType() Type {
 }
 
 func (jCol *JSONObject) ScanType() reflect.Type {
-	return scanTypeSlice
+	return scanTypeMap
 }
 
 func (jCol *JSONObject) Rows() int {

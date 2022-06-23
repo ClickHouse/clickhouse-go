@@ -238,6 +238,7 @@ var (
 	scanTypeRing         = reflect.TypeOf(orb.Ring{})
 	scanTypePoint        = reflect.TypeOf(orb.Point{})
 	scanTypeSlice        = reflect.TypeOf([]interface{}{})
+	scanTypeMap          = reflect.TypeOf(map[string]interface{}{})
 	scanTypeBigInt       = reflect.TypeOf(&big.Int{})
 	scanTypeString       = reflect.TypeOf("")
 	scanTypePolygon      = reflect.TypeOf(orb.Polygon{})

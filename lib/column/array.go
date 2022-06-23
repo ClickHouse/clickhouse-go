@@ -133,7 +133,7 @@ func (col *Array) AppendRow(v interface{}) error {
 	default:
 		elem = reflect.Indirect(reflect.ValueOf(v))
 	}
-	if !elem.IsValid() || elem.Type() != col.scanType {
+	if !elem.IsValid() {
 		from := fmt.Sprintf("%T", v)
 		if !elem.IsValid() {
 			from = fmt.Sprintf("%v", v)
@@ -254,13 +254,13 @@ func (col *Array) scanSlice(sliceType reflect.Type, row int, level int) (reflect
 	base := offset.scanType.Elem()
 	isPtr := base.Kind() == reflect.Ptr
 
-	var jsonSlice reflect.Value
+	var rSlice reflect.Value
 	switch sliceType.Kind() {
 	case reflect.Interface:
 		sliceType = offset.scanType
-		jsonSlice = reflect.MakeSlice(sliceType, 0, int(end-start))
+		rSlice = reflect.MakeSlice(sliceType, 0, int(end-start))
 	case reflect.Slice:
-		jsonSlice = reflect.MakeSlice(sliceType, 0, int(end-start))
+		rSlice = reflect.MakeSlice(sliceType, 0, int(end-start))
 	default:
 		return reflect.Value{}, &Error{
 			ColumnType: fmt.Sprint(sliceType.Kind()),
@@ -284,6 +284,12 @@ func (col *Array) scanSlice(sliceType reflect.Type, row int, level int) (reflect
 			case *Array:
 				//Array(Array
 				value, err = dcol.scanSlice(sliceType.Elem(), int(i), 0)
+				if err != nil {
+					return reflect.Value{}, err
+				}
+			case *Tuple:
+				// Array(Tuple possible outside JSON object cases e.g. if the user defines a  Array(Array( Tuple(String, Int64) ))
+				value, err = dcol.scan(sliceType.Elem(), int(i))
 				if err != nil {
 					return reflect.Value{}, err
 				}
@@ -311,9 +317,9 @@ func (col *Array) scanSlice(sliceType reflect.Type, row int, level int) (reflect
 				return reflect.Value{}, err
 			}
 		}
-		jsonSlice = reflect.Append(jsonSlice, value)
+		rSlice = reflect.Append(rSlice, value)
 	}
-	return jsonSlice, nil
+	return rSlice, nil
 }
 
 func (col *Array) scanSliceOfObjects(sliceType reflect.Type, row int) (reflect.Value, error) {
@@ -375,15 +381,15 @@ func (col *Array) scanSliceOfMaps(sliceType reflect.Type, row int) (reflect.Valu
 		start = offset.values.data[row-1]
 	}
 	if end-start > 0 {
-		jsonSlice := reflect.MakeSlice(sliceType, 0, int(end-start))
+		rSlice := reflect.MakeSlice(sliceType, 0, int(end-start))
 		for i := start; i < end; i++ {
 			sMap := reflect.MakeMap(sliceType.Elem())
-			if err := tCol.scanJSONMap(sMap, int(i)); err != nil {
+			if err := tCol.scanMap(sMap, int(i)); err != nil {
 				return reflect.Value{}, err
 			}
-			jsonSlice = reflect.Append(jsonSlice, sMap)
+			rSlice = reflect.Append(rSlice, sMap)
 		}
-		return jsonSlice, nil
+		return rSlice, nil
 	}
 	return reflect.MakeSlice(sliceType, 0, 0), nil
 }
@@ -413,16 +419,16 @@ func (col *Array) scanSliceOfStructs(sliceType reflect.Type, row int) (reflect.V
 		start = offset.values.data[row-1]
 	}
 	if end-start > 0 {
-		// create a slice of the type from the jsonSlice - if this might be interface{} as its driven by the target datastructure
-		jsonSlice := reflect.MakeSlice(sliceType, 0, int(end-start))
+		// create a slice of the type from the sliceType - if this might be interface{} as its driven by the target datastructure
+		rSlice := reflect.MakeSlice(sliceType, 0, int(end-start))
 		for i := start; i < end; i++ {
 			sStruct := reflect.New(sliceType.Elem()).Elem()
-			if err := tCol.scanJSONStruct(sStruct, int(i)); err != nil {
+			if err := tCol.scanStruct(sStruct, int(i)); err != nil {
 				return reflect.Value{}, err
 			}
-			jsonSlice = reflect.Append(jsonSlice, sStruct)
+			rSlice = reflect.Append(rSlice, sStruct)
 		}
-		return jsonSlice, nil
+		return rSlice, nil
 	}
 	return reflect.MakeSlice(sliceType, 0, 0), nil
 }
