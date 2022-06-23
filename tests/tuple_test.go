@@ -66,10 +66,18 @@ func TestTuple(t *testing.T) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_tuple"); assert.NoError(t, err) {
 				var (
 					col1Data = []interface{}{"A", int64(42)}
-					col2Data = []interface{}{"B", int8(1), time.Now().Truncate(time.Second)}
-					col3Data = []interface{}{time.Now().Truncate(time.Second), "CH", map[string]string{
-						"key": "value",
-					}}
+					col2Data = []interface{}{"B", int8(1), testDate.Truncate(time.Second)}
+					//col3Data = []interface{}{testDate.Truncate(time.Second), "CH", map[string]string{
+					//	"key": "value",
+					//}}
+					//TODO :  maps - not currently supported for named tuples
+					col3Data = map[string]interface{}{
+						"name1": testDate.Truncate(time.Second),
+						"name2": "CH",
+						"name3": map[string]string{
+							"key": "value",
+						},
+					}
 					col4Data = [][][]interface{}{
 						[][]interface{}{
 							[]interface{}{"Hi", int64(42)},
@@ -91,7 +99,8 @@ func TestTuple(t *testing.T) {
 						var (
 							col1 []interface{}
 							col2 []interface{}
-							col3 []interface{}
+							// col3 is a named tuple - we can use map
+							col3 map[string]interface{}
 							col4 [][][]interface{}
 							col5 []interface{}
 							col6 []interface{}
@@ -100,7 +109,7 @@ func TestTuple(t *testing.T) {
 						if err := conn.QueryRow(ctx, "SELECT * FROM test_tuple").Scan(&col1, &col2, &col3, &col4, &col5, &col6, &col7); assert.NoError(t, err) {
 							assert.Equal(t, col1Data, col1)
 							assert.Equal(t, col2Data, col2)
-							assert.Equal(t, col3Data, col3)
+							assert.JSONEq(t, `{"name1":"2022-05-25T17:20:57+01:00","name2":"CH","name3":{"key":"value"}}`, toJson(col3))
 							assert.Equal(t, col4Data, col4)
 							assert.Equal(t, col5Data, col5)
 							assert.Equal(t, col6Data, col6)

@@ -133,7 +133,7 @@ func (col *Array) AppendRow(v interface{}) error {
 	default:
 		elem = reflect.Indirect(reflect.ValueOf(v))
 	}
-	if !elem.IsValid() || elem.Type() != col.scanType {
+	if !elem.IsValid() {
 		from := fmt.Sprintf("%T", v)
 		if !elem.IsValid() {
 			from = fmt.Sprintf("%v", v)

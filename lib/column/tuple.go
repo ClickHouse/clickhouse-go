@@ -33,7 +33,8 @@ type Tuple struct {
 	chType  Type
 	columns []Interface
 	name    string
-	isNamed bool // true if all columns are named
+	isNamed bool           // true if all columns are named
+	index   map[string]int // map from col name to off set in columns
 }
 
 func (col *Tuple) Name() string {
@@ -85,7 +86,8 @@ func (col *Tuple) parse(t Type) (_ Interface, err error) {
 	}
 	appendElement()
 	isNamed := true
-	for _, ct := range elements {
+	col.index = make(map[string]int)
+	for i, ct := range elements {
 		if ct.name == "" {
 			isNamed = false
 		}
@@ -94,6 +96,7 @@ func (col *Tuple) parse(t Type) (_ Interface, err error) {
 			return nil, err
 		}
 		col.columns = append(col.columns, column)
+		col.index[ct.name] = i
 	}
 	col.isNamed = isNamed
 	if len(col.columns) != 0 {
@@ -414,12 +417,6 @@ func (col *Tuple) ScanRow(dest interface{}, row int) error {
 	}
 	value.Set(tuple)
 	return nil
-	//case *[]interface{}:
-	//	tuple := make([]interface{}, 0, len(col.columns))
-	//	for _, c := range col.columns {
-	//		tuple = append(tuple, c.Row(row, false))
-	//	}
-	//	*d = tuple
 }
 
 func (col *Tuple) Append(v interface{}) (nulls []uint8, err error) {
@@ -478,6 +475,13 @@ func (col *Tuple) AppendRow(v interface{}) error {
 		}
 		for i, v := range *v {
 			if err := col.columns[i].AppendRow(v); err != nil {
+				return err
+			}
+		}
+		return nil
+	case map[string]interface{}:
+		for name, v := range v {
+			if err := col.columns[col.index[name]].AppendRow(v); err != nil {
 				return err
 			}
 		}
