@@ -105,7 +105,7 @@ func TestTuple(t *testing.T) {
 						if err := conn.QueryRow(ctx, "SELECT * FROM test_tuple").Scan(&col1, &col2, &col3, &col4, &col5, &col6, &col7); assert.NoError(t, err) {
 							assert.Equal(t, col1Data, col1)
 							assert.Equal(t, col2Data, col2)
-							assert.JSONEq(t, `{"name1":"2022-05-25T17:20:57+01:00","name2":"CH","name3":{"key":"value"}}`, toJson(col3))
+							assert.JSONEq(t, toJson(col3Data), toJson(col3))
 							assert.Equal(t, col4Data, col4)
 							assert.Equal(t, col5Data, col5)
 							assert.Equal(t, col6Data, col6)
