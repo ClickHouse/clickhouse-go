@@ -67,10 +67,6 @@ func TestTuple(t *testing.T) {
 				var (
 					col1Data = []interface{}{"A", int64(42)}
 					col2Data = []interface{}{"B", int8(1), testDate.Truncate(time.Second)}
-					//col3Data = []interface{}{testDate.Truncate(time.Second), "CH", map[string]string{
-					//	"key": "value",
-					//}}
-					//TODO :  maps - not currently supported for named tuples
 					col3Data = map[string]interface{}{
 						"name1": testDate.Truncate(time.Second),
 						"name2": "CH",

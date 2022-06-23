@@ -144,18 +144,18 @@ func TestNestedUnFlattened(t *testing.T) {
 				)
 				require.NoError(t, batch.Append(col1Data, col2Data, col3Data, col4Data))
 				require.NoError(t, batch.Send())
-				//var (
-				//	col1 []uint8
-				//	col2 []uint8
-				//	col3 []uint8
-				//	col4 [][][]interface{}
-				//)
-				//rows := conn.QueryRow(ctx, "SELECT * FROM test_nested")
-				//require.NoError(t, rows.Scan(&col1, &col2, &col3, &col4))
-				//assert.Equal(t, col1Data, col1)
-				//assert.Equal(t, col2Data, col2)
-				//assert.Equal(t, col3Data, col3)
-				//assert.Equal(t, col4Data, col4)
+				var (
+					col1 []uint8
+					col2 []uint8
+					col3 []uint8
+					col4 [][][]interface{}
+				)
+				rows := conn.QueryRow(ctx, "SELECT * FROM test_nested")
+				require.NoError(t, rows.Scan(&col1, &col2, &col3, &col4))
+				assert.Equal(t, col1Data, col1)
+				assert.Equal(t, col2Data, col2)
+				assert.Equal(t, col3Data, col3)
+				assert.Equal(t, col4Data, col4)
 			}
 		}
 	}
