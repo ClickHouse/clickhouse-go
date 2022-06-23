@@ -59,24 +59,28 @@ func (t Type) Column(name string) (Interface, error) {
 			size:   16,
 			chType: t,
 			name:   name,
+			signed: true,
 		}, nil
 	case "UInt128":
 		return &BigInt{
 			size:   16,
 			chType: t,
 			name:   name,
+			signed: false,
 		}, nil
 	case "Int256":
 		return &BigInt{
 			size:   32,
 			chType: t,
 			name:   name,
+			signed: true,
 		}, nil
 	case "UInt256":
 		return &BigInt{
 			size:   32,
 			chType: t,
 			name:   name,
+			signed: false,
 		}, nil
 	case "IPv4":
 		return &IPv4{name: name}, nil
