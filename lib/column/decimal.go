@@ -185,7 +185,7 @@ func (col *Decimal) Decode(decoder *binary.Decoder, rows int) error {
 		}
 		for i := 0; i < rows; i++ {
 			col.values = append(col.values, decimal.NewFromBigInt(
-				rawToBigInt(scratch[i*size:(i+1)*size]),
+				rawToBigInt(scratch[i*size:(i+1)*size], true),
 				int32(-col.scale),
 			))
 		}
