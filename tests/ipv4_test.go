@@ -19,6 +19,8 @@ package tests
 
 import (
 	"context"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
+	"github.com/stretchr/testify/require"
 	"net"
 	"testing"
 
@@ -222,5 +224,171 @@ func TestColumnarIPv4(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+const invalidIPv4Str = "44.489.38.222"
+
+func getTestIPv4() []net.IP {
+	return []net.IP{
+		net.ParseIP("43.58.38.33"),
+		net.ParseIP("127.0.0.1"),
+		net.ParseIP("192.168.18.38"),
+	}
+}
+
+func TestIPv4_AppendRow_InvalidIP(t *testing.T) {
+	col := column.IPv4{}
+
+	// appending string
+	err := col.AppendRow(invalidIPv4Str)
+
+	require.EqualError(t, err, (&column.ColumnConverterError{
+		Op:   "Append",
+		To:   "IPv4",
+		Hint: "invalid IP format",
+	}).Error())
+}
+
+func TestIPv4_Append_InvalidIP(t *testing.T) {
+	strIps := []string{
+		getTestIPv4()[0].String(),
+		invalidIPv4Str,
+	}
+
+	// appending strings
+	col := column.IPv4{}
+	err := col.AppendRow(getTestIPv4()[1].String()) // add 1 valid IP
+
+	require.NoError(t, err)
+
+	_, err = col.Append(strIps)
+	require.EqualError(t, err, (&column.ColumnConverterError{
+		Op:   "Append",
+		To:   "IPv4",
+		Hint: "invalid IP format",
+	}).Error())
+
+	require.Equal(t, 1, col.Rows(), "Append must preserve initial state if error happened")
+}
+
+func TestIPv4_AppendRow(t *testing.T) {
+	ip := getTestIPv4()[0]
+	strIp := ip.String()
+
+	col := column.IPv4{}
+
+	// appending string
+	err := col.AppendRow(strIp)
+
+	require.NoError(t, err)
+	require.Equal(t, 1, col.Rows(), "AppendRow didn't add IP")
+	if !col.Row(0, false).(net.IP).Equal(ip) {
+		require.Failf(t, "Invalid result of AppendRow", "Added %q instead of %q", col.Row(0, false), ip)
+	}
+
+	// appending IP pointer
+	err = col.AppendRow(&ip)
+
+	require.NoError(t, err)
+	require.Equal(t, 2, col.Rows(), "AppendRow didn't add IP")
+	if !col.Row(1, false).(net.IP).Equal(ip) {
+		require.Failf(t, "Invalid result of AppendRow", "Added %q instead of %q", col.Row(1, false), ip)
+	}
+
+	// appending IP
+	err = col.AppendRow(ip)
+
+	require.NoError(t, err)
+	require.Equal(t, 3, col.Rows(), "AppendRow didn't add IP")
+	if !col.Row(2, false).(net.IP).Equal(ip) {
+		require.Failf(t, "Invalid result of AppendRow", "Added %q instead of %q", col.Row(2, false), ip)
+	}
+
+	// appending string pointer
+	err = col.AppendRow(&strIp)
+
+	require.NoError(t, err)
+	require.Equal(t, 4, col.Rows(), "AppendRow didn't add IP")
+	if !col.Row(3, false).(net.IP).Equal(ip) {
+		require.Failf(t, "Invalid result of AppendRow", "Added %q instead of %q", col.Row(3, false), ip)
+	}
+}
+
+func TestIPv4_Append(t *testing.T) {
+	ips := getTestIPv4()
+
+	var strIps []string
+
+	for _, ip := range ips {
+		strIps = append(strIps, ip.String())
+	}
+
+	// appending strings
+	col := column.IPv4{}
+	_, err := col.Append(strIps)
+
+	require.NoError(t, err)
+	require.Equalf(t, col.Rows(), len(strIps), "AppendRow didn't add IP", "Added %d rows instead of %d", col.Rows(), len(strIps))
+	for i, ip := range ips {
+		if !col.Row(i, false).(net.IP).Equal(ip) {
+			require.Failf(t, "Invalid result of Append", "Added %q instead of %q", col.Row(i, false), ip)
+		}
+	}
+
+	// appending string pointers
+	var strPtrIps []*string
+
+	for _, ip := range ips {
+		str := ip.String()
+		strPtrIps = append(strPtrIps, &str)
+	}
+
+	col = column.IPv4{}
+	_, err = col.Append(strPtrIps)
+
+	require.NoError(t, err)
+	require.Equalf(t, col.Rows(), len(strPtrIps), "Added %d rows instead of %d", col.Rows(), len(strPtrIps))
+	for i, ip := range ips {
+		if !col.Row(i, false).(net.IP).Equal(ip) {
+			require.Failf(t, "Invalid result of Append", "Added %q instead of %q", col.Row(i, false), ip)
+		}
+	}
+}
+
+func TestIPv4_ScanRow(t *testing.T) {
+	ips := getTestIPv4()
+
+	col := column.IPv4{}
+	_, err := col.Append(ips)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// scanning ips
+	for i := range ips {
+		var u net.IP
+		err := col.ScanRow(&u, i)
+		require.NoError(t, err)
+		if !u.Equal(ips[i]) {
+			require.Failf(t, "Invalid result of ScanRow", "ScanRow resulted in %q instead of %q", u, ips[i])
+		}
+	}
+
+	// scanning strings
+	for i := range ips {
+		var u string
+		err := col.ScanRow(&u, i)
+		require.NoError(t, err)
+		require.Equal(t, ips[i].String(), u)
+	}
+
+	// scanning string pointers
+	for i := range ips {
+		var u *string
+		err := col.ScanRow(&u, i)
+		require.NoError(t, err)
+		require.NotNilf(t, u, "ScanRow resulted nil")
+		require.Equal(t, *u, ips[i].String(), "ScanRow resulted in %q instead of %q", *u, ips[i])
 	}
 }
