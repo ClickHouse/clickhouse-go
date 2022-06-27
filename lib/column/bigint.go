@@ -30,6 +30,7 @@ type BigInt struct {
 	data   []byte
 	chType Type
 	name   string
+	signed bool
 }
 
 func (col *BigInt) Name() string {
@@ -133,7 +134,7 @@ func (col *BigInt) Encode(encoder *binary.Encoder) error {
 }
 
 func (col *BigInt) row(i int) *big.Int {
-	return rawToBigInt(col.data[i*col.size : (i+1)*col.size])
+	return rawToBigInt(col.data[i*col.size:(i+1)*col.size], col.signed)
 }
 
 func (col *BigInt) append(v *big.Int) {
@@ -153,11 +154,11 @@ func bigIntToRaw(dest []byte, v *big.Int) {
 	endianSwap(dest, sign < 0)
 }
 
-func rawToBigInt(v []byte) *big.Int {
+func rawToBigInt(v []byte, signed bool) *big.Int {
 	// LittleEndian to BigEndian
 	endianSwap(v, false)
 	var lt = new(big.Int)
-	if len(v) > 0 && v[0]&0x80 != 0 {
+	if signed && len(v) > 0 && v[0]&0x80 != 0 {
 		// [0] ^ will +1
 		for i := 0; i < len(v); i++ {
 			v[i] = ^v[i]
