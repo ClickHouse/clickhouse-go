@@ -113,8 +113,8 @@ func TestStdJson(t *testing.T) {
 		},
 	}
 	_, err = batch.Exec(col1Data)
-	require.NoError(t, scope.Commit())
 	require.NoError(t, err)
+	require.NoError(t, scope.Commit())
 	// must pass interface{} - maps must be strongly typed so map[string]interface{} wont work - it wont convert
 	var event interface{}
 	rows := conn.QueryRow("SELECT * FROM json_std_test")

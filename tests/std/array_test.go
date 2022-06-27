@@ -82,7 +82,7 @@ func TestStdArray(t *testing.T) {
 					if rows, err := conn.Query("SELECT * FROM test_array"); assert.NoError(t, err) {
 						for rows.Next() {
 							var (
-								col1 []string
+								col1 interface{}
 								col2 [][]uint32
 								col3 [][][]time.Time
 							)
