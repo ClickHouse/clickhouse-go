@@ -29,14 +29,13 @@ import (
 	"io/ioutil"
 	"os"
 	"regexp"
-	"strings"
 )
 
-var splitHttpInsertRe = regexp.MustCompile(`(?i)INSERT INTO\s([\w.]+)(\s\((.*?)\))?`)
+var splitHttpInsertRe = regexp.MustCompile(`(?i)^INSERT INTO\s([\w.]+)`)
 
 // release is ignored, because http used by std with empty release function
 func (h *httpConnect) prepareBatch(ctx context.Context, query string, release func(*connect, error)) (driver.Batch, error) {
-	index := splitHttpInsertRe.FindStringSubmatchIndex(strings.ToUpper(query))
+	index := splitHttpInsertRe.FindStringSubmatchIndex(query)
 
 	if len(index) < 3 {
 		return nil, errors.New("cannot get table name from query")
