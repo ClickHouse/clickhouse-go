@@ -212,6 +212,10 @@ func (col *{{ .ChType }}) ScanRow(dest interface{}, row int) error {
 	case **{{ .GoType }}:
 		*d = new({{ .GoType }})
 		**d = value.data[row]
+	{{- if eq .ChType "Int64" }}
+	case *time.Duration:
+		*d = time.Duration(value.data[row])
+	{{- end }}
 	default:
 		return &ColumnConverterError{
 			Op:   "ScanRow",
@@ -275,6 +279,12 @@ func (col *{{ .ChType }}) AppendRow(v interface{}) error {
 			t = 1
 		}
 		col.data = append(col.data, t)
+	{{- end }}
+	{{- if eq .ChType "Int64" }}
+    case time.Duration:
+        col.data = append(col.data, int64(v))
+    case *time.Duration:
+        col.data = append(col.data, int64(*v))
 	{{- end }}
 	default:
 		return &ColumnConverterError{
