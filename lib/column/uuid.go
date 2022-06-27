@@ -58,6 +58,11 @@ func (col *UUID) Row(i int, ptr bool) interface{} {
 
 func (col *UUID) ScanRow(dest interface{}, row int) error {
 	switch d := dest.(type) {
+	case *string:
+		*d = col.row(row).String()
+	case **string:
+		*d = new(string)
+		**d = col.row(row).String()
 	case *uuid.UUID:
 		*d = col.row(row)
 	case **uuid.UUID:
@@ -76,6 +81,35 @@ func (col *UUID) ScanRow(dest interface{}, row int) error {
 
 func (col *UUID) Append(v interface{}) (nulls []uint8, err error) {
 	switch v := v.(type) {
+	case []string:
+		nulls = make([]uint8, len(v))
+		var data []byte
+		for _, v := range v {
+			var u uuid.UUID
+			u, err = uuid.Parse(v)
+			if err != nil {
+				return
+			}
+			col.data = append(col.data, swap(u[:])...)
+		}
+		col.data = append(col.data, data...)
+	case []*string:
+		nulls = make([]uint8, len(v))
+		var data []byte
+		for i, v := range v {
+			switch {
+			case v != nil:
+				var tmp uuid.UUID
+				tmp, err = uuid.Parse(*v)
+				if err != nil {
+					return
+				}
+				data = append(data, swap(tmp[:])...)
+			default:
+				data, nulls[i] = append(data, make([]byte, uuidSize)...), 1
+			}
+		}
+		col.data = append(col.data, data...)
 	case []uuid.UUID:
 		nulls = make([]uint8, len(v))
 		for _, v := range v {
@@ -104,6 +138,23 @@ func (col *UUID) Append(v interface{}) (nulls []uint8, err error) {
 
 func (col *UUID) AppendRow(v interface{}) error {
 	switch v := v.(type) {
+	case string:
+		u, err := uuid.Parse(v)
+		if err != nil {
+			return err
+		}
+		col.data = append(col.data, swap(u[:])...)
+	case *string:
+		switch {
+		case v != nil:
+			tmp, err := uuid.Parse(*v)
+			if err != nil {
+				return err
+			}
+			col.data = append(col.data, swap(tmp[:])...)
+		default:
+			col.data = append(col.data, make([]byte, uuidSize)...)
+		}
 	case uuid.UUID:
 		col.data = append(col.data, swap(v[:])...)
 	case *uuid.UUID:

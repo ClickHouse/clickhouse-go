@@ -20,6 +20,7 @@ package std
 import (
 	"encoding/json"
 	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
@@ -35,8 +36,7 @@ type Repository struct {
 }
 
 type Achievement struct {
-	Name        string
-	AwardedDate time.Time
+	Name string
 }
 type Account struct {
 	Id            uint32
@@ -102,22 +102,31 @@ func TestStdJson(t *testing.T) {
 		Assignee: Account{
 			Id:            1244,
 			Name:          "Geoff",
-			Achievement:   Achievement{Name: "Mars Star", AwardedDate: testDate.Truncate(time.Second)},
+			Achievement:   Achievement{Name: "Mars Star"},
 			Repositories:  []Repository{{URL: "https://github.com/ClickHouse/clickhouse-python", Releases: []Releases{{Version: "1.0.0"}, {Version: "1.1.0"}}}, {URL: "https://github.com/ClickHouse/clickhouse-go", Releases: []Releases{{Version: "2.0.0"}, {Version: "2.1.0"}}}},
 			Organizations: []string{"Support Engineer", "Integrations"},
 		},
 		Labels: []string{"Help wanted"},
 		Contributors: []Account{
-			{Id: 2244, Achievement: Achievement{Name: "Adding JSON to go driver", AwardedDate: testDate.Truncate(time.Second).Add(time.Hour * -500)}, Organizations: []string{"Support Engineer", "Consulting", "PM", "Integrations"}, Name: "Dale", Repositories: []Repository{{URL: "https://github.com/ClickHouse/clickhouse-go", Releases: []Releases{{Version: "2.0.0"}, {Version: "2.1.0"}}}, {URL: "https://github.com/grafana/clickhouse", Releases: []Releases{{Version: "1.2.0"}, {Version: "1.3.0"}}}}},
-			{Id: 2344, Achievement: Achievement{Name: "Managing S3 buckets", AwardedDate: testDate.Truncate(time.Second).Add(time.Hour * -700)}, Organizations: []string{"Support Engineer", "Consulting"}, Name: "Melyvn", Repositories: []Repository{{URL: "https://github.com/ClickHouse/support", Releases: []Releases{{Version: "1.0.0"}, {Version: "2.3.0"}, {Version: "2.4.0"}}}}},
+			{Id: 2244, Achievement: Achievement{Name: "Adding JSON to go driver"}, Organizations: []string{"Support Engineer", "Consulting", "PM", "Integrations"}, Name: "Dale", Repositories: []Repository{{URL: "https://github.com/ClickHouse/clickhouse-go", Releases: []Releases{{Version: "2.0.0"}, {Version: "2.1.0"}}}, {URL: "https://github.com/grafana/clickhouse", Releases: []Releases{{Version: "1.2.0"}, {Version: "1.3.0"}}}}},
+			{Id: 2344, Achievement: Achievement{Name: "Managing S3 buckets"}, Organizations: []string{"Support Engineer", "Consulting"}, Name: "Melyvn", Repositories: []Repository{{URL: "https://github.com/ClickHouse/support", Releases: []Releases{{Version: "1.0.0"}, {Version: "2.3.0"}, {Version: "2.4.0"}}}}},
 		},
 	}
 	_, err = batch.Exec(col1Data)
+	require.NoError(t, err)
 	require.NoError(t, scope.Commit())
-	require.NoError(t, err)
-	// std. interface requires we read with slices as JSON is a tuple. Avoid and use native which is more natural.
-	var event []interface{}
-	err = conn.QueryRow("SELECT * FROM json_std_test").Scan(&event)
-	require.NoError(t, err)
-	require.JSONEq(t, `[[[["2022-05-04 21:20:57 +0100 WEST","Adding JSON to go driver"],2244,"Dale",[[[["2.0.0"],["2.1.0"]],"https://github.com/ClickHouse/clickhouse-go"],[[["1.2.0"],["1.3.0"]],"https://github.com/grafana/clickhouse"]],["Support Engineer","Consulting","PM","Integrations"]],[["2022-04-26 13:20:57 +0100 WEST","Managing S3 buckets"],2344,"Melyvn",[[[["1.0.0"],["2.3.0"],["2.4.0"]],"https://github.com/ClickHouse/support"]],["Support Engineer","Consulting"]]],"Document JSON support","Issue",[["2022-05-25 17:20:57 +0100 WEST","Mars Star"],1244,"Geoff",[[[["1.0.0"],["1.1.0"]],"https://github.com/ClickHouse/clickhouse-python"],[[["2.0.0"],["2.1.0"]],"https://github.com/ClickHouse/clickhouse-go"]],["Support Engineer","Integrations"]],["Help wanted"]]`, toJson(event))
+	// must pass interface{} - maps must be strongly typed so map[string]interface{} wont work - it wont convert
+	var event interface{}
+	rows := conn.QueryRow("SELECT * FROM json_std_test")
+	require.NoError(t, rows.Scan(&event))
+	assert.JSONEq(t, toJson(col1Data), toJson(event))
+	// again pass interface{} for anthing other than primitives
+	rows = conn.QueryRow("SELECT event.assignee.Achievement FROM json_std_test")
+	var achievement interface{}
+	require.NoError(t, rows.Scan(&achievement))
+	assert.JSONEq(t, toJson(col1Data.Assignee.Achievement), toJson(achievement))
+	rows = conn.QueryRow("SELECT event.assignee.Repositories FROM json_std_test")
+	var repositories interface{}
+	require.NoError(t, rows.Scan(&repositories))
+	assert.JSONEq(t, toJson(col1Data.Assignee.Repositories), toJson(repositories))
 }

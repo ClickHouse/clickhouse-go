@@ -75,7 +75,7 @@ func TestStdMap(t *testing.T) {
 						if _, err := batch.Exec(col1Data, col2Data, col3Data, col4Data, col5Data); assert.NoError(t, err) {
 							if assert.NoError(t, scope.Commit()) {
 								var (
-									col1 map[string]uint64
+									col1 interface{}
 									col2 map[string]uint64
 									col3 map[string]uint64
 									col4 []map[string]string

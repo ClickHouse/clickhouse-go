@@ -43,7 +43,6 @@ func (col *Nested) parse(t Type) (_ Interface, err error) {
 	return col, nil
 }
 
-//Address Nested(City String, Devices Nested(Id String)), Friend Tuple(Id Int16), Id Int16, Name String
 func nestedColumns(raw string) (columns []namedCol) {
 	var (
 		nBegin   int

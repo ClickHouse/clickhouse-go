@@ -11,7 +11,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
 	github.com/shopspring/decimal v1.3.1
-	github.com/stretchr/testify v1.7.2
+	github.com/stretchr/testify v1.7.5
 	github.com/tklauser/go-sysconf v0.3.10 // indirect
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect
 	go.opentelemetry.io/otel/trace v1.7.0

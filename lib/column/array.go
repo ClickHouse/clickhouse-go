@@ -43,7 +43,7 @@ func (col *Array) Name() string {
 	return col.name
 }
 
-func (col *Array) parse(t Type) (_ Interface, err error) {
+func (col *Array) parse(t Type) (_ *Array, err error) {
 	col.chType = t
 	var typeStr = string(t)
 
@@ -100,23 +100,11 @@ func (col *Array) Rows() int {
 }
 
 func (col *Array) Row(i int, ptr bool) interface{} {
-	return col.make(uint64(i), 0).Interface()
-}
-
-func (col *Array) ScanRow(dest interface{}, row int) error {
-	elem := reflect.Indirect(reflect.ValueOf(dest))
-	if elem.Type() != col.scanType {
-		return &ColumnConverterError{
-			Op:   "ScanRow",
-			To:   fmt.Sprintf("%T", dest),
-			From: string(col.chType),
-			Hint: fmt.Sprintf("try using *%s", col.scanType),
-		}
+	value, err := col.scan(col.ScanType(), i)
+	if err != nil {
+		fmt.Println(err)
 	}
-	{
-		elem.Set(col.make(uint64(row), 0))
-	}
-	return nil
+	return value.Interface()
 }
 
 func (col *Array) Append(v interface{}) (nulls []uint8, err error) {
@@ -145,7 +133,7 @@ func (col *Array) AppendRow(v interface{}) error {
 	default:
 		elem = reflect.Indirect(reflect.ValueOf(v))
 	}
-	if !elem.IsValid() || elem.Type() != col.scanType {
+	if !elem.IsValid() {
 		from := fmt.Sprintf("%T", v)
 		if !elem.IsValid() {
 			from = fmt.Sprintf("%v", v)
@@ -222,39 +210,38 @@ func (col *Array) WriteStatePrefix(encoder *binary.Encoder) error {
 	return nil
 }
 
-func (col *Array) make(row uint64, level int) reflect.Value {
-	offset := col.offsets[level]
-	var (
-		end   = offset.values.data[row]
-		start = uint64(0)
-	)
-	if row > 0 {
-		start = offset.values.data[row-1]
+func (col *Array) ScanRow(dest interface{}, row int) error {
+	elem := reflect.Indirect(reflect.ValueOf(dest))
+	value, err := col.scan(elem.Type(), row)
+	if err != nil {
+		return err
 	}
-	var (
-		base  = offset.scanType.Elem()
-		isPtr = base.Kind() == reflect.Ptr
-		slice = reflect.MakeSlice(offset.scanType, 0, int(end-start))
-	)
-	for i := start; i < end; i++ {
-		var value reflect.Value
-		switch {
-		case level == len(col.offsets)-1:
-			switch v := col.values.Row(int(i), isPtr); {
-			case v == nil:
-				value = reflect.Zero(base)
-			default:
-				value = reflect.ValueOf(v)
-			}
-		default:
-			value = col.make(i, level+1)
-		}
-		slice = reflect.Append(slice, value)
-	}
-	return slice
+	elem.Set(value)
+	return nil
 }
 
-func (col *Array) scanJSONSlice(sliceType reflect.Type, row int, level int) (reflect.Value, error) {
+func (col *Array) scan(sliceType reflect.Type, row int) (reflect.Value, error) {
+	switch col.values.(type) {
+	case *Tuple:
+		subSlice, err := col.scanSliceOfObjects(sliceType, row)
+		if err != nil {
+			return reflect.Value{}, err
+		}
+		return subSlice, nil
+	default:
+		subSlice, err := col.scanSlice(sliceType, row, 0)
+		if err != nil {
+			return reflect.Value{}, err
+		}
+		return subSlice, nil
+	}
+	return reflect.Value{}, &Error{
+		ColumnType: fmt.Sprint(sliceType.Kind()),
+		Err:        fmt.Errorf("column %s - needs a slice or interface{}", col.Name()),
+	}
+}
+
+func (col *Array) scanSlice(sliceType reflect.Type, row int, level int) (reflect.Value, error) {
 	// We could try and set - if it exceeds just return immediately
 	offset := col.offsets[level]
 	var (
@@ -264,12 +251,16 @@ func (col *Array) scanJSONSlice(sliceType reflect.Type, row int, level int) (ref
 	if row > 0 {
 		start = offset.values.data[row-1]
 	}
-	var jsonSlice reflect.Value
+	base := offset.scanType.Elem()
+	isPtr := base.Kind() == reflect.Ptr
+
+	var rSlice reflect.Value
 	switch sliceType.Kind() {
 	case reflect.Interface:
-		jsonSlice = reflect.ValueOf(make([]interface{}, 0, int(end-start)))
+		sliceType = offset.scanType
+		rSlice = reflect.MakeSlice(sliceType, 0, int(end-start))
 	case reflect.Slice:
-		jsonSlice = reflect.MakeSlice(sliceType, 0, int(end-start))
+		rSlice = reflect.MakeSlice(sliceType, 0, int(end-start))
 	default:
 		return reflect.Value{}, &Error{
 			ColumnType: fmt.Sprint(sliceType.Kind()),
@@ -284,58 +275,72 @@ func (col *Array) scanJSONSlice(sliceType reflect.Type, row int, level int) (ref
 		case level == len(col.offsets)-1:
 			switch dcol := col.values.(type) {
 			case *Nested:
+				//Array(Nested
 				aCol := dcol.Interface.(*Array)
-				value, err = aCol.parseJSONSliceOfObjects(sliceType.Elem(), int(i))
+				value, err = aCol.scanSliceOfObjects(sliceType.Elem(), int(i))
 				if err != nil {
 					return reflect.Value{}, err
 				}
 			case *Array:
-				value, err = dcol.scanJSONSlice(sliceType.Elem(), int(i), 0)
+				//Array(Array
+				value, err = dcol.scanSlice(sliceType.Elem(), int(i), 0)
+				if err != nil {
+					return reflect.Value{}, err
+				}
+			case *Tuple:
+				// Array(Tuple possible outside JSON object cases e.g. if the user defines a  Array(Array( Tuple(String, Int64) ))
+				value, err = dcol.scan(sliceType.Elem(), int(i))
 				if err != nil {
 					return reflect.Value{}, err
 				}
 			default:
-				v := col.values.Row(int(i), false)
+				v := col.values.Row(int(i), isPtr)
+				val := reflect.ValueOf(v)
+				if v == nil {
+					val = reflect.Zero(base)
+				}
 				if sliceType.Kind() == reflect.Interface {
 					value = reflect.New(sliceType).Elem()
-					if err := setJSONFieldValue(value, reflect.ValueOf(v)); err != nil {
+					if err := setJSONFieldValue(value, val); err != nil {
 						return reflect.Value{}, err
 					}
 				} else {
 					value = reflect.New(sliceType.Elem()).Elem()
-					if err := setJSONFieldValue(value, reflect.ValueOf(v)); err != nil {
+					if err := setJSONFieldValue(value, val); err != nil {
 						return reflect.Value{}, err
 					}
 				}
 			}
 		default:
-			value, err = col.scanJSONSlice(sliceType.Elem(), int(i), level+1)
+			value, err = col.scanSlice(sliceType.Elem(), int(i), level+1)
 			if err != nil {
 				return reflect.Value{}, err
 			}
 		}
-		jsonSlice = reflect.Append(jsonSlice, value)
+		rSlice = reflect.Append(rSlice, value)
 	}
-	return jsonSlice, nil
+	return rSlice, nil
 }
 
-func (col *Array) parseJSONSliceOfObjects(sliceType reflect.Type, row int) (reflect.Value, error) {
+func (col *Array) scanSliceOfObjects(sliceType reflect.Type, row int) (reflect.Value, error) {
 	if sliceType.Kind() == reflect.Interface {
 		// catches interface{} - Note this swallows custom interfaces to which maps couldn't conform
 		subMap := make(map[string]interface{})
-		return col.scanJSONSliceOfMaps(reflect.SliceOf(reflect.TypeOf(subMap)), row)
+		return col.scanSliceOfMaps(reflect.SliceOf(reflect.TypeOf(subMap)), row)
 	} else if sliceType.Kind() == reflect.Slice {
 		// make a slice of the right type - we need this to be a slice of a type capable of taking an object as nested
 		switch sliceType.Elem().Kind() {
 		case reflect.Struct:
-			return col.scanJSONSliceOfStructs(sliceType, row)
+			return col.scanSliceOfStructs(sliceType, row)
 		case reflect.Map:
-			return col.scanJSONSliceOfMaps(sliceType, row)
+			return col.scanSliceOfMaps(sliceType, row)
+		case reflect.Slice:
+			// tuples can be read as arrays
+			return col.scanSlice(sliceType, row, 0)
 		case reflect.Interface:
-			// catches []interface{} - Note this swallows custom interfaces to which maps couldn't conform
-			// might lead to fail
+			// catches []interface{} - Note this swallows custom interfaces to which maps could never conform
 			subMap := make(map[string]interface{})
-			return col.scanJSONSliceOfMaps(reflect.SliceOf(reflect.TypeOf(subMap)), row)
+			return col.scanSliceOfMaps(reflect.SliceOf(reflect.TypeOf(subMap)), row)
 		default:
 			return reflect.Value{}, &Error{
 				ColumnType: fmt.Sprint(sliceType.Elem().Kind()),
@@ -351,7 +356,7 @@ func (col *Array) parseJSONSliceOfObjects(sliceType reflect.Type, row int) (refl
 }
 
 // the following 2 functions can probably be refactored - the share alot of common code for structs and maps
-func (col *Array) scanJSONSliceOfMaps(sliceType reflect.Type, row int) (reflect.Value, error) {
+func (col *Array) scanSliceOfMaps(sliceType reflect.Type, row int) (reflect.Value, error) {
 	if sliceType.Kind() != reflect.Slice {
 		return reflect.Value{}, &ColumnConverterError{
 			Op:   "ScanRow",
@@ -376,20 +381,20 @@ func (col *Array) scanJSONSliceOfMaps(sliceType reflect.Type, row int) (reflect.
 		start = offset.values.data[row-1]
 	}
 	if end-start > 0 {
-		jsonSlice := reflect.MakeSlice(sliceType, 0, int(end-start))
+		rSlice := reflect.MakeSlice(sliceType, 0, int(end-start))
 		for i := start; i < end; i++ {
 			sMap := reflect.MakeMap(sliceType.Elem())
-			if err := tCol.scanJSONMap(sMap, int(i)); err != nil {
+			if err := tCol.scanMap(sMap, int(i)); err != nil {
 				return reflect.Value{}, err
 			}
-			jsonSlice = reflect.Append(jsonSlice, sMap)
+			rSlice = reflect.Append(rSlice, sMap)
 		}
-		return jsonSlice, nil
+		return rSlice, nil
 	}
 	return reflect.MakeSlice(sliceType, 0, 0), nil
 }
 
-func (col *Array) scanJSONSliceOfStructs(sliceType reflect.Type, row int) (reflect.Value, error) {
+func (col *Array) scanSliceOfStructs(sliceType reflect.Type, row int) (reflect.Value, error) {
 	if sliceType.Kind() != reflect.Slice {
 		return reflect.Value{}, &ColumnConverterError{
 			Op:   "ScanRow",
@@ -414,16 +419,16 @@ func (col *Array) scanJSONSliceOfStructs(sliceType reflect.Type, row int) (refle
 		start = offset.values.data[row-1]
 	}
 	if end-start > 0 {
-		// create a slice of the type from the jsonSlice - if this might be interface{} as its driven by the target datastructure
-		jsonSlice := reflect.MakeSlice(sliceType, 0, int(end-start))
+		// create a slice of the type from the sliceType - if this might be interface{} as its driven by the target datastructure
+		rSlice := reflect.MakeSlice(sliceType, 0, int(end-start))
 		for i := start; i < end; i++ {
 			sStruct := reflect.New(sliceType.Elem()).Elem()
-			if err := tCol.scanJSONStruct(sStruct, int(i)); err != nil {
+			if err := tCol.scanStruct(sStruct, int(i)); err != nil {
 				return reflect.Value{}, err
 			}
-			jsonSlice = reflect.Append(jsonSlice, sStruct)
+			rSlice = reflect.Append(rSlice, sStruct)
 		}
-		return jsonSlice, nil
+		return rSlice, nil
 	}
 	return reflect.MakeSlice(sliceType, 0, 0), nil
 }
