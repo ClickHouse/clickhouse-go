@@ -724,6 +724,8 @@ func (col *Int64) ScanRow(dest interface{}, row int) error {
 	case **int64:
 		*d = new(int64)
 		**d = value.data[row]
+	case *time.Duration:
+		*d = time.Duration(value.data[row])
 	default:
 		return &ColumnConverterError{
 			Op:   "ScanRow",
@@ -780,6 +782,10 @@ func (col *Int64) AppendRow(v interface{}) error {
 		}
 	case nil:
 		col.data = append(col.data, 0)
+	case time.Duration:
+		col.data = append(col.data, int64(v))
+	case *time.Duration:
+		col.data = append(col.data, int64(*v))
 	default:
 		return &ColumnConverterError{
 			Op:   "AppendRow",
