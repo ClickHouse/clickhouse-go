@@ -21,7 +21,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
@@ -160,18 +159,18 @@ func (b *httpBatch) Send() (err error) {
 	go func() {
 		defer close(errCh)
 		defer w.Close()
-		encoder := binary.NewEncoder(w)
+		b.conn.encoder.Reset(w)
 		if b.block.Rows() != 0 {
-			if err = writeData(encoder, b.block); err != nil {
+			if err = b.conn.writeData(b.block); err != nil {
 				errCh <- err
 				return
 			}
 		}
-		if err = writeData(encoder, &proto.Block{}); err != nil {
+		if err = b.conn.writeData(&proto.Block{}); err != nil {
 			errCh <- err
 			return
 		}
-		if err = encoder.Flush(); err != nil {
+		if err = b.conn.encoder.Flush(); err != nil {
 			errCh <- err
 			return
 		}

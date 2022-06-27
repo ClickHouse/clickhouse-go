@@ -60,7 +60,9 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		client: &http.Client{
 			Transport: t,
 		},
-		url: u,
+		url:     u,
+		encoder: &binary.Encoder{},
+		decoder: &binary.Decoder{},
 	}
 
 	rows, err := conn.query(ctx, func(*connect, error) {}, "SELECT timeZone()")
@@ -86,6 +88,8 @@ type httpConnect struct {
 	url      *url.URL
 	client   *http.Client
 	location *time.Location
+	encoder  *binary.Encoder
+	decoder  *binary.Decoder
 }
 
 func (h *httpConnect) isBad() bool {
@@ -95,13 +99,13 @@ func (h *httpConnect) isBad() bool {
 	return false
 }
 
-func writeData(encoder *binary.Encoder, block *proto.Block) error {
-	return block.Encode(encoder, 0)
+func (h *httpConnect) writeData(block *proto.Block) error {
+	return block.Encode(h.encoder, 0)
 }
 
-func readData(decoder *binary.Decoder) (*proto.Block, error) {
+func (h *httpConnect) readData() (*proto.Block, error) {
 	var block proto.Block
-	if err := block.Decode(decoder, 0); err != nil {
+	if err := block.Decode(h.decoder, 0); err != nil {
 		return nil, err
 	}
 	return &block, nil

@@ -34,6 +34,10 @@ type Encoder struct {
 	scratch [binary.MaxVarintLen64]byte
 }
 
+func (enc *Encoder) Reset(w io.Writer) {
+	enc.output = w
+}
+
 func (enc *Encoder) Raw(b []byte) error {
 	if _, err := enc.output.Write(b); err != nil {
 		return err
