@@ -148,7 +148,7 @@ func (h *httpConnect) prepareRequest(ctx context.Context, reader io.Reader, extr
 	return req, err
 }
 
-func (h *httpConnect) executeRequest(ctx context.Context, req *http.Request) (io.ReadCloser, error) {
+func (h *httpConnect) executeRequest(req *http.Request) (io.ReadCloser, error) {
 
 	if h.client == nil {
 		return nil, driver.ErrBadConn
@@ -182,7 +182,7 @@ func (h *httpConnect) exec(ctx context.Context, query string, args ...interface{
 		return err
 	}
 
-	res, err := h.executeRequest(ctx, req)
+	res, err := h.executeRequest(req)
 	if res != nil {
 		defer res.Close()
 		// we don't care about result, so just discard it to reuse connection

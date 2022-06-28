@@ -180,7 +180,7 @@ func (b *httpBatch) Send() (err error) {
 
 	req.Header.Add("Content-Type", "application/octet-stream")
 
-	res, err := b.conn.executeRequest(b.ctx, req)
+	res, err := b.conn.executeRequest(req)
 
 	if res != nil {
 		defer res.Close()

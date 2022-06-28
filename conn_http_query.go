@@ -38,7 +38,7 @@ func (h *httpConnect) query(ctx context.Context, release func(*connect, error), 
 		return nil, err
 	}
 
-	res, err := h.executeRequest(ctx, req)
+	res, err := h.executeRequest(req)
 	if err != nil {
 		return nil, err
 	}
