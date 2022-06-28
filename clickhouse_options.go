@@ -159,6 +159,9 @@ func (o *Options) fromDSN(in string) error {
 	o.Scheme = dsn.Scheme
 	switch dsn.Scheme {
 	case "http":
+		if secure {
+			o.Scheme = "https"
+		}
 		o.Interface = HttpInterface
 	case "https":
 		if !secure {
