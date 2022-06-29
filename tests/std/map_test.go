@@ -19,18 +19,23 @@ package std
 
 import (
 	"database/sql"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestStdMap(t *testing.T) {
-	if conn, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000"); assert.NoError(t, err) {
-		if err := checkMinServerVersion(conn, 21, 9, 0); err != nil {
-			t.Skip(err.Error())
-			return
-		}
-		const ddl = `
+	dsns := map[string]string{"Native": "clickhouse://127.0.0.1:9000", "Http": "http://127.0.0.1:8123"}
+
+	for name, dsn := range dsns {
+		t.Run(fmt.Sprintf("%s Interface", name), func(t *testing.T) {
+			if conn, err := sql.Open("clickhouse", dsn); assert.NoError(t, err) {
+				if err := checkMinServerVersion(conn, 21, 9, 0); err != nil {
+					t.Skip(err.Error())
+					return
+				}
+				const ddl = `
 		CREATE TABLE test_map (
 			  Col1 Map(String, UInt64)
 			, Col2 Map(String, UInt64)
@@ -39,53 +44,55 @@ func TestStdMap(t *testing.T) {
 			, Col5 Map(LowCardinality(String), LowCardinality(UInt64))
 		) Engine Memory
 		`
-		defer func() {
-			conn.Exec("DROP TABLE test_map")
-		}()
-		if _, err := conn.Exec(ddl); assert.NoError(t, err) {
-			scope, err := conn.Begin()
-			if !assert.NoError(t, err) {
-				return
-			}
-			if batch, err := scope.Prepare("INSERT INTO test_map"); assert.NoError(t, err) {
-				var (
-					col1Data = map[string]uint64{
-						"key_col_1_1": 1,
-						"key_col_1_2": 2,
+				defer func() {
+					conn.Exec("DROP TABLE test_map")
+				}()
+				if _, err := conn.Exec(ddl); assert.NoError(t, err) {
+					scope, err := conn.Begin()
+					if !assert.NoError(t, err) {
+						return
 					}
-					col2Data = map[string]uint64{
-						"key_col_2_1": 10,
-						"key_col_2_2": 20,
-					}
-					col3Data = map[string]uint64{}
-					col4Data = []map[string]string{
-						map[string]string{"A": "B"},
-						map[string]string{"C": "D"},
-					}
-					col5Data = map[string]uint64{
-						"key_col_5_1": 100,
-						"key_col_5_2": 200,
-					}
-				)
-				if _, err := batch.Exec(col1Data, col2Data, col3Data, col4Data, col5Data); assert.NoError(t, err) {
-					if assert.NoError(t, scope.Commit()) {
+					if batch, err := scope.Prepare("INSERT INTO test_map"); assert.NoError(t, err) {
 						var (
-							col1 interface{}
-							col2 map[string]uint64
-							col3 map[string]uint64
-							col4 []map[string]string
-							col5 map[string]uint64
+							col1Data = map[string]uint64{
+								"key_col_1_1": 1,
+								"key_col_1_2": 2,
+							}
+							col2Data = map[string]uint64{
+								"key_col_2_1": 10,
+								"key_col_2_2": 20,
+							}
+							col3Data = map[string]uint64{}
+							col4Data = []map[string]string{
+								map[string]string{"A": "B"},
+								map[string]string{"C": "D"},
+							}
+							col5Data = map[string]uint64{
+								"key_col_5_1": 100,
+								"key_col_5_2": 200,
+							}
 						)
-						if err := conn.QueryRow("SELECT * FROM test_map").Scan(&col1, &col2, &col3, &col4, &col5); assert.NoError(t, err) {
-							assert.Equal(t, col1Data, col1)
-							assert.Equal(t, col2Data, col2)
-							assert.Equal(t, col3Data, col3)
-							assert.Equal(t, col4Data, col4)
-							assert.Equal(t, col5Data, col5)
+						if _, err := batch.Exec(col1Data, col2Data, col3Data, col4Data, col5Data); assert.NoError(t, err) {
+							if assert.NoError(t, scope.Commit()) {
+								var (
+									col1 interface{}
+									col2 map[string]uint64
+									col3 map[string]uint64
+									col4 []map[string]string
+									col5 map[string]uint64
+								)
+								if err := conn.QueryRow("SELECT * FROM test_map").Scan(&col1, &col2, &col3, &col4, &col5); assert.NoError(t, err) {
+									assert.Equal(t, col1Data, col1)
+									assert.Equal(t, col2Data, col2)
+									assert.Equal(t, col3Data, col3)
+									assert.Equal(t, col4Data, col4)
+									assert.Equal(t, col5Data, col5)
+								}
+							}
 						}
 					}
 				}
 			}
-		}
+		})
 	}
 }

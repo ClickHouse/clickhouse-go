@@ -34,6 +34,10 @@ type Decoder struct {
 	scratch [binary.MaxVarintLen64]byte
 }
 
+func (decoder *Decoder) Reset(r io.Reader) {
+	decoder.input = r
+}
+
 func (decoder *Decoder) Raw(b []byte) error {
 	n, err := decoder.input.Read(b)
 	if err != nil {
@@ -159,6 +163,9 @@ func (decoder *Decoder) String() (string, error) {
 	strlen, err := decoder.Uvarint()
 	if err != nil {
 		return "", err
+	}
+	if int(strlen) == 0 {
+		return "", nil
 	}
 	str, err := decoder.Fixed(int(strlen))
 	if err != nil {

@@ -82,6 +82,7 @@ type (
 		AppendStruct(v interface{}) error
 		Column(int) BatchColumn
 		Send() error
+		IsSent() bool
 	}
 	BatchColumn interface {
 		Append(interface{}) error

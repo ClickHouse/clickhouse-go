@@ -81,6 +81,7 @@ type Options struct {
 	ConnMaxLifetime  time.Duration // default 1 hour
 	ConnOpenStrategy ConnOpenStrategy
 
+	Scheme      string
 	ReadTimeout time.Duration
 }
 
@@ -155,10 +156,11 @@ func (o *Options) fromDSN(in string) error {
 			InsecureSkipVerify: skipVerify,
 		}
 	}
+	o.Scheme = dsn.Scheme
 	switch dsn.Scheme {
 	case "http":
 		if secure {
-			o.TLS = nil
+			return fmt.Errorf("clickhouse [dsn parse]: http with TLS specify")
 		}
 		o.Interface = HttpInterface
 	case "https":

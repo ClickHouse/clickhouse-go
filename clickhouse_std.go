@@ -29,6 +29,7 @@ import (
 	"sync/atomic"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
+	ldriver "github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 )
 
 var globalConnID int64
@@ -47,31 +48,19 @@ func (o *stdConnOpener) Connect(ctx context.Context) (_ driver.Conn, err error) 
 		return nil, o.err
 	}
 	var (
-		runtimeTransport transport
-		connID           = int(atomic.AddInt64(&globalConnID, 1))
-		dialFunc         func(ctx context.Context, addr string, num int, opt *Options) (transport, error)
+		conn     stdConnect
+		connID   = int(atomic.AddInt64(&globalConnID, 1))
+		dialFunc func(ctx context.Context, addr string, num int, opt *Options) (stdConnect, error)
 	)
 
 	switch o.opt.Interface {
 	case HttpInterface:
-		dialFunc = func(ctx context.Context, addr string, num int, opt *Options) (transport, error) {
-			var conn *httpConnect
-			if conn, err = dialHttp(ctx, addr, num, o.opt); err == nil {
-				return &httpTransport{
-					conn: conn,
-				}, nil
-			}
-			return nil, err
+		dialFunc = func(ctx context.Context, addr string, num int, opt *Options) (stdConnect, error) {
+			return dialHttp(ctx, addr, num, o.opt)
 		}
 	default:
-		dialFunc = func(ctx context.Context, addr string, num int, opt *Options) (transport, error) {
-			var conn *connect
-			if conn, err = dial(ctx, addr, num, o.opt); err == nil {
-				return &nativeTransport{
-					conn: conn,
-				}, nil
-			}
-			return nil, err
+		dialFunc = func(ctx context.Context, addr string, num int, opt *Options) (stdConnect, error) {
+			return dial(ctx, addr, num, o.opt)
 		}
 	}
 
@@ -83,9 +72,9 @@ func (o *stdConnOpener) Connect(ctx context.Context) (_ driver.Conn, err error) 
 		case ConnOpenRoundRobin:
 			num = (int(connID) + i) % len(o.opt.Addr)
 		}
-		if runtimeTransport, err = dialFunc(ctx, o.opt.Addr[num], connID, o.opt); err == nil {
+		if conn, err = dialFunc(ctx, o.opt.Addr[num], connID, o.opt); err == nil {
 			return &stdDriver{
-				transport: runtimeTransport,
+				conn: conn,
 			}, nil
 		}
 	}
@@ -118,24 +107,22 @@ func OpenDB(opt *Options) *sql.DB {
 	})
 }
 
-type transport interface {
-	ResetSession(ctx context.Context) error
-	Ping(ctx context.Context) error
-	Begin() (driver.Tx, error)
-	Commit() error
-	Rollback() error
-	CheckNamedValue(nv *driver.NamedValue) error
-	ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error)
-	QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error)
-	Prepare(query string) (driver.Stmt, error)
-	Close() error
+type stdConnect interface {
+	isBad() bool
+	close() error
+	query(ctx context.Context, release func(*connect, error), query string, args ...interface{}) (*rows, error)
+	exec(ctx context.Context, query string, args ...interface{}) error
+	ping(ctx context.Context) (err error)
+	prepareBatch(ctx context.Context, query string, release func(*connect, error)) (ldriver.Batch, error)
+	asyncInsert(ctx context.Context, query string, wait bool) error
 }
 
 type stdDriver struct {
-	transport
+	conn   stdConnect
+	commit func() error
 }
 
-func (d *stdDriver) Open(dsn string) (_ driver.Conn, err error) {
+func (std *stdDriver) Open(dsn string) (_ driver.Conn, err error) {
 	var opt Options
 	if err := opt.fromDSN(dsn); err != nil {
 		return nil, err
@@ -144,77 +131,18 @@ func (d *stdDriver) Open(dsn string) (_ driver.Conn, err error) {
 	return (&stdConnOpener{opt: &opt}).Connect(context.Background())
 }
 
-var ErrHttpNotSupported = errors.New("HTTP: not supported")
-
-type httpTransport struct {
-	conn *httpConnect
-}
-
-func (h httpTransport) ResetSession(ctx context.Context) error {
-	//TODO implement me
-	return ErrHttpNotSupported
-}
-
-func (h httpTransport) Ping(ctx context.Context) error {
-	return h.conn.ping(ctx)
-}
-
-func (h httpTransport) Begin() (driver.Tx, error) {
-	//TODO implement me
-	return nil, ErrHttpNotSupported
-}
-
-func (h httpTransport) Commit() error {
-	//TODO implement me
-	return ErrHttpNotSupported
-}
-
-func (h httpTransport) Rollback() error {
-	//TODO implement me
-	return ErrHttpNotSupported
-}
-
-func (h httpTransport) CheckNamedValue(nv *driver.NamedValue) error {
-	//TODO implement me
-	return ErrHttpNotSupported
-}
-
-func (h httpTransport) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
-	//TODO implement me
-	return nil, ErrHttpNotSupported
-}
-
-func (h httpTransport) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
-	//TODO implement me
-	return nil, ErrHttpNotSupported
-}
-
-func (h httpTransport) Prepare(query string) (driver.Stmt, error) {
-	//TODO implement me
-	return nil, ErrHttpNotSupported
-}
-
-func (h httpTransport) Close() error {
-	return h.conn.close()
-}
-
-type nativeTransport struct {
-	conn   *connect
-	commit func() error
-}
-
-func (std *nativeTransport) ResetSession(ctx context.Context) error {
+func (std *stdDriver) ResetSession(ctx context.Context) error {
 	if std.conn.isBad() {
 		return driver.ErrBadConn
 	}
 	return nil
 }
 
-func (std *nativeTransport) Ping(ctx context.Context) error { return std.conn.ping(ctx) }
+func (std *stdDriver) Ping(ctx context.Context) error { return std.conn.ping(ctx) }
 
-func (std *nativeTransport) Begin() (driver.Tx, error) { return std, nil }
+func (std *stdDriver) Begin() (driver.Tx, error) { return std, nil }
 
-func (std *nativeTransport) Commit() error {
+func (std *stdDriver) Commit() error {
 	if std.commit == nil {
 		return nil
 	}
@@ -224,15 +152,15 @@ func (std *nativeTransport) Commit() error {
 	return std.commit()
 }
 
-func (std *nativeTransport) Rollback() error {
+func (std *stdDriver) Rollback() error {
 	std.commit = nil
 	std.conn.close()
 	return nil
 }
 
-func (std *nativeTransport) CheckNamedValue(nv *driver.NamedValue) error { return nil }
+func (std *stdDriver) CheckNamedValue(nv *driver.NamedValue) error { return nil }
 
-func (std *nativeTransport) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
+func (std *stdDriver) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
 	if options := queryOptions(ctx); options.async.ok {
 		if len(args) != 0 {
 			return nil, errors.New("clickhouse: you can't use parameters in an asynchronous insert")
@@ -245,7 +173,7 @@ func (std *nativeTransport) ExecContext(ctx context.Context, query string, args 
 	return driver.RowsAffected(0), nil
 }
 
-func (std *nativeTransport) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+func (std *stdDriver) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
 	r, err := std.conn.query(ctx, func(*connect, error) {}, query, rebind(args)...)
 	if err != nil {
 		return nil, err
@@ -255,11 +183,11 @@ func (std *nativeTransport) QueryContext(ctx context.Context, query string, args
 	}, nil
 }
 
-func (std *nativeTransport) Prepare(query string) (driver.Stmt, error) {
+func (std *stdDriver) Prepare(query string) (driver.Stmt, error) {
 	return std.PrepareContext(context.Background(), query)
 }
 
-func (std *nativeTransport) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
+func (std *stdDriver) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
 	batch, err := std.conn.prepareBatch(ctx, query, func(*connect, error) {})
 	if err != nil {
 		return nil, err
@@ -270,10 +198,10 @@ func (std *nativeTransport) PrepareContext(ctx context.Context, query string) (d
 	}, nil
 }
 
-func (std *nativeTransport) Close() error { return std.conn.close() }
+func (std *stdDriver) Close() error { return std.conn.close() }
 
 type stdBatch struct {
-	batch *batch
+	batch ldriver.Batch
 }
 
 func (s *stdBatch) NumInput() int { return -1 }
