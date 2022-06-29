@@ -160,7 +160,7 @@ func (o *Options) fromDSN(in string) error {
 	switch dsn.Scheme {
 	case "http":
 		if secure {
-			o.Scheme = "https"
+			return fmt.Errorf("clickhouse [dsn parse]: http with TLS specify")
 		}
 		o.Interface = HttpInterface
 	case "https":
