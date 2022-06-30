@@ -115,8 +115,18 @@ func (h *httpConnect) readData() (*proto.Block, error) {
 	return &block, nil
 }
 
-func (h *httpConnect) asyncInsert(ctx context.Context, query string, wait bool) error {
-	return errors.New("HTTP: not supported")
+func (h *httpConnect) sendQuery(ctx context.Context, r io.Reader, options *QueryOptions, headers map[string]string) (io.ReadCloser, error) {
+	req, err := h.prepareRequest(ctx, r, options, headers)
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := h.executeRequest(req)
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
 }
 
 func readResponse(response *http.Response) ([]byte, error) {
@@ -135,9 +145,16 @@ func readResponse(response *http.Response) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (h *httpConnect) prepareRequest(ctx context.Context, reader io.Reader, options *QueryOptions) (*http.Request, error) {
+func (h *httpConnect) prepareRequest(ctx context.Context, reader io.Reader, options *QueryOptions, headers map[string]string) (*http.Request, error) {
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, h.url.String(), reader)
+	if err != nil {
+		return nil, err
+	}
+
+	for k, v := range headers {
+		req.Header.Add(k, v)
+	}
 
 	var query url.Values
 	if options != nil {
@@ -158,7 +175,7 @@ func (h *httpConnect) prepareRequest(ctx context.Context, reader io.Reader, opti
 		req.URL.RawQuery = query.Encode()
 	}
 
-	return req, err
+	return req, nil
 }
 
 func (h *httpConnect) executeRequest(req *http.Request) (io.ReadCloser, error) {

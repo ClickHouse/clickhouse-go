@@ -34,12 +34,7 @@ func (h *httpConnect) query(ctx context.Context, release func(*connect, error), 
 	}
 
 	options := queryOptions(ctx)
-	req, err := h.prepareRequest(ctx, strings.NewReader(query), &options)
-	if err != nil {
-		return nil, err
-	}
-
-	res, err := h.executeRequest(req)
+	res, err := h.sendQuery(ctx, strings.NewReader(query), &options, nil)
 	if err != nil {
 		return nil, err
 	}

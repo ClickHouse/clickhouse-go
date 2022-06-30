@@ -24,14 +24,14 @@ import (
 	"strings"
 )
 
-func (h *httpConnect) exec(ctx context.Context, query string, args ...interface{}) error {
-	query, err := bind(h.location, query, args...)
-	if err != nil {
-		return err
-	}
+func (h *httpConnect) asyncInsert(ctx context.Context, query string, wait bool) error {
 
 	options := queryOptions(ctx)
-
+	options.settings["async_insert"] = 1
+	options.settings["wait_for_async_insert"] = 0
+	if wait {
+		options.settings["wait_for_async_insert"] = 1
+	}
 	res, err := h.sendQuery(ctx, strings.NewReader(query), &options, nil)
 	if res != nil {
 		defer res.Close()

@@ -178,11 +178,9 @@ func (b *httpBatch) Send() (err error) {
 
 	options := queryOptions(b.ctx)
 	options.settings["query"] = b.query
-	req, err := b.conn.prepareRequest(b.ctx, r, &options)
-
-	req.Header.Add("Content-Type", "application/octet-stream")
-
-	res, err := b.conn.executeRequest(req)
+	res, err := b.conn.sendQuery(b.ctx, r, &options, map[string]string{
+		"Content-Type": "application/octet-stream",
+	})
 
 	if res != nil {
 		defer res.Close()
