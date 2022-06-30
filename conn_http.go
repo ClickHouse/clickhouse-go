@@ -43,7 +43,18 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		Host:   addr,
 	}
 
+	if len(opt.Auth.Username) > 0 {
+		if len(opt.Auth.Password) > 0 {
+			u.User = url.UserPassword(opt.Auth.Username, opt.Auth.Password)
+		} else {
+			u.User = url.User(opt.Auth.Username)
+		}
+	}
+
 	query := u.Query()
+	if len(opt.Auth.Database) > 0 {
+		query.Set("database", opt.Auth.Database)
+	}
 	for k, v := range opt.Settings {
 		query.Set(k, fmt.Sprint(v))
 	}
