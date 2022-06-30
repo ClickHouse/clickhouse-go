@@ -18,7 +18,9 @@
 package std
 
 import (
+	"context"
 	"database/sql"
+	"fmt"
 	"testing"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
@@ -26,41 +28,57 @@ import (
 )
 
 func TestStdTemporaryTable(t *testing.T) {
-	const (
-		ddl = `
-			CREATE TEMPORARY TABLE clickhouse_test_temporary_table (
-				ID UInt64
-			);
-		`
-	)
-	if connect, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000"); assert.NoError(t, err) {
-		if tx, err := connect.Begin(); assert.NoError(t, err) {
-			if _, err := tx.Exec(ddl); assert.NoError(t, err) {
-				if _, err := tx.Exec("INSERT INTO clickhouse_test_temporary_table (ID) SELECT number AS ID FROM system.numbers LIMIT 10"); assert.NoError(t, err) {
-					if rows, err := tx.Query("SELECT ID AS ID FROM clickhouse_test_temporary_table"); assert.NoError(t, err) {
-						var count int
-						for rows.Next() {
-							var num int
-							if err := rows.Scan(&num); !assert.NoError(t, err) {
-								return
-							}
-							count++
-						}
-						if _, err = tx.Query("SELECT ID AS ID1 FROM clickhouse_test_temporary_table"); assert.NoError(t, err) {
-							if _, err = connect.Query("SELECT ID AS ID2 FROM clickhouse_test_temporary_table"); assert.Error(t, err) {
-								if exception, ok := err.(*clickhouse.Exception); assert.True(t, ok) {
-									assert.Equal(t, int32(60), exception.Code)
+	dsns := map[string]string{"Native": "clickhouse://127.0.0.1:9000", "Http": "http://127.0.0.1:8123"}
+
+	for name, dsn := range dsns {
+		t.Run(fmt.Sprintf("%s Interface", name), func(t *testing.T) {
+			ctx := context.Background()
+			if name == "Http" {
+				ctx = clickhouse.Context(ctx, clickhouse.WithSettings(clickhouse.Settings{
+					"session_id": "test_session",
+				}))
+			}
+
+			if connect, err := sql.Open("clickhouse", dsn); assert.NoError(t, err) {
+				const ddl = `
+						CREATE TEMPORARY TABLE test_temporary_table (
+							ID UInt64
+						);
+					`
+				if tx, err := connect.Begin(); assert.NoError(t, err) {
+					connect.ExecContext(ctx, "DROP TABLE IF EXISTS test_temporary_table")
+					if _, err := tx.ExecContext(ctx, ddl); assert.NoError(t, err) {
+						if _, err := tx.ExecContext(ctx, "INSERT INTO test_temporary_table (ID) SELECT number AS ID FROM system.numbers LIMIT 10"); assert.NoError(t, err) {
+							if rows, err := tx.QueryContext(ctx, "SELECT ID AS ID FROM test_temporary_table"); assert.NoError(t, err) {
+								var count int
+								for rows.Next() {
+									var num int
+									if err := rows.Scan(&num); !assert.NoError(t, err) {
+										return
+									}
+									count++
 								}
-							}
-						}
-						if assert.Equal(t, int(10), count) {
-							if assert.NoError(t, tx.Commit()) {
-								assert.NoError(t, connect.Close())
+								if _, err = tx.QueryContext(ctx, "SELECT ID AS ID1 FROM test_temporary_table"); assert.NoError(t, err) {
+									if _, err = connect.Query("SELECT ID AS ID2 FROM test_temporary_table"); assert.Error(t, err) {
+										if name == "Http" {
+											assert.Contains(t, err.Error(), "Code: 60")
+										} else {
+											if exception, ok := err.(*clickhouse.Exception); assert.True(t, ok) {
+												assert.Equal(t, int32(60), exception.Code)
+											}
+										}
+									}
+								}
+								if assert.Equal(t, int(10), count) {
+									if assert.NoError(t, tx.Commit()) {
+										assert.NoError(t, connect.Close())
+									}
+								}
 							}
 						}
 					}
 				}
 			}
-		}
+		})
 	}
 }

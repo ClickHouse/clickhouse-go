@@ -18,74 +18,30 @@
 package clickhouse
 
 import (
-	"bytes"
 	"context"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 	"io"
 	"io/ioutil"
 	"strings"
 )
 
-// release is ignored, because http used by std with empty release function
-func (h *httpConnect) query(ctx context.Context, release func(*connect, error), query string, args ...interface{}) (*rows, error) {
+func (h *httpConnect) exec(ctx context.Context, query string, args ...interface{}) error {
 	query, err := bind(h.location, query, args...)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	options := queryOptions(ctx)
 	req, err := h.prepareRequest(ctx, strings.NewReader(query), &options)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	res, err := h.executeRequest(req)
-	if err != nil {
-		return nil, err
-	}
-	defer res.Close()
-
-	body, err := ioutil.ReadAll(res)
-	if err != nil {
-		return nil, err
+	if res != nil {
+		defer res.Close()
+		// we don't care about result, so just discard it to reuse connection
+		_, _ = io.Copy(ioutil.Discard, res)
 	}
 
-	h.decoder.Reset(bytes.NewReader(body))
-	block, err := h.readData()
-	if err != nil {
-		return nil, err
-	}
-
-	var (
-		errCh  = make(chan error)
-		stream = make(chan *proto.Block, 2)
-	)
-
-	go func() {
-		for {
-			block, err := h.readData()
-			if err != nil {
-				if err != io.EOF {
-					errCh <- err
-				}
-				break
-			}
-			select {
-			case <-ctx.Done():
-				errCh <- ctx.Err()
-				break
-			case stream <- block:
-			}
-		}
-		close(stream)
-		close(errCh)
-	}()
-
-	return &rows{
-		block:     block,
-		stream:    stream,
-		errors:    errCh,
-		columns:   block.ColumnsNames(),
-		structMap: &structMap{},
-	}, nil
+	return err
 }

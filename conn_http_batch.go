@@ -176,7 +176,9 @@ func (b *httpBatch) Send() (err error) {
 		}
 	}()
 
-	req, err := b.conn.prepareRequest(b.ctx, r, map[string]string{"query": b.query})
+	options := queryOptions(b.ctx)
+	options.settings["query"] = b.query
+	req, err := b.conn.prepareRequest(b.ctx, r, &options)
 
 	req.Header.Add("Content-Type", "application/octet-stream")
 

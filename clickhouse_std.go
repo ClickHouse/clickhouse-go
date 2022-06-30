@@ -56,11 +56,11 @@ func (o *stdConnOpener) Connect(ctx context.Context) (_ driver.Conn, err error) 
 	switch o.opt.Interface {
 	case HttpInterface:
 		dialFunc = func(ctx context.Context, addr string, num int, opt *Options) (stdConnect, error) {
-			return dialHttp(ctx, addr, num, o.opt)
+			return dialHttp(ctx, addr, num, opt)
 		}
 	default:
 		dialFunc = func(ctx context.Context, addr string, num int, opt *Options) (stdConnect, error) {
-			return dial(ctx, addr, num, o.opt)
+			return dial(ctx, addr, num, opt)
 		}
 	}
 

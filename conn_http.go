@@ -26,12 +26,15 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 	"github.com/pkg/errors"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
-	"strings"
 	"time"
+)
+
+const (
+	quotaKeyParamName = "quota_key"
+	queryIDParamName  = "query_id"
 )
 
 func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpConnect, error) {
@@ -41,6 +44,9 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 	}
 
 	query := u.Query()
+	for k, v := range opt.Settings {
+		query.Set(k, fmt.Sprint(v))
+	}
 	query.Set("default_format", "Native")
 	u.RawQuery = query.Encode()
 
@@ -56,7 +62,6 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 	}
 
 	conn := &httpConnect{
-		opt: opt,
 		client: &http.Client{
 			Transport: t,
 		},
@@ -84,7 +89,6 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 }
 
 type httpConnect struct {
-	opt      *Options
 	url      *url.URL
 	client   *http.Client
 	location *time.Location
@@ -131,19 +135,28 @@ func readResponse(response *http.Response) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (h *httpConnect) prepareRequest(ctx context.Context, reader io.Reader, extra map[string]string) (*http.Request, error) {
+func (h *httpConnect) prepareRequest(ctx context.Context, reader io.Reader, options *QueryOptions) (*http.Request, error) {
 
-	u := *h.url
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, h.url.String(), reader)
 
-	if len(extra) != 0 {
-		query := u.Query()
-		for key, value := range extra {
-			query.Set(key, value)
+	var query url.Values
+	if options != nil {
+		query = req.URL.Query()
+		if options.queryID != "" {
+			query.Set(queryIDParamName, options.queryID)
 		}
-		u.RawQuery = query.Encode()
+		if options.quotaKey != "" {
+			query.Set(quotaKeyParamName, options.quotaKey)
+		}
+		for key, value := range options.settings {
+			// check that query doesn't change format
+			if key == "default_format" {
+				continue
+			}
+			query.Set(key, fmt.Sprint(value))
+		}
+		req.URL.RawQuery = query.Encode()
 	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), reader)
 
 	return req, err
 }
@@ -169,27 +182,6 @@ func (h *httpConnect) executeRequest(req *http.Request) (io.ReadCloser, error) {
 	}
 
 	return resp.Body, nil
-}
-
-func (h *httpConnect) exec(ctx context.Context, query string, args ...interface{}) error {
-	query, err := bind(h.location, query, args...)
-	if err != nil {
-		return err
-	}
-
-	req, err := h.prepareRequest(ctx, strings.NewReader(query), nil)
-	if err != nil {
-		return err
-	}
-
-	res, err := h.executeRequest(req)
-	if res != nil {
-		defer res.Close()
-		// we don't care about result, so just discard it to reuse connection
-		_, _ = io.Copy(ioutil.Discard, res)
-	}
-
-	return err
 }
 
 func (h *httpConnect) ping(ctx context.Context) error {
