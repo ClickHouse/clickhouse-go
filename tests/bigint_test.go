@@ -19,6 +19,7 @@ package tests
 
 import (
 	"context"
+	"github.com/stretchr/testify/require"
 	"math/big"
 	"testing"
 
@@ -61,10 +62,12 @@ func TestBigInt(t *testing.T) {
 		defer func() {
 			conn.Exec(ctx, "DROP TABLE test_bigint")
 		}()
+
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_bigint"); assert.NoError(t, err) {
+				col1Data, ok := new(big.Int).SetString("170141183460469231731687303715884105727", 10)
+				require.True(t, ok)
 				var (
-					col1Data = big.NewInt(128)
 					col2Data = big.NewInt(128)
 					col3Data = []*big.Int{
 						big.NewInt(-128),

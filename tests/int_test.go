@@ -2,6 +2,8 @@ package tests
 
 import (
 	"context"
+	"fmt"
+	"math/big"
 	"testing"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
@@ -42,4 +44,11 @@ func TestSimpleInt(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestInt(t *testing.T) {
+	col1Data, ok := new(big.Int).SetString("170141183460469231731687303715884105727", 10)
+	assert.True(t, ok)
+	f := new(big.Float).SetInt(col1Data)
+	fmt.Println(f.Float64())
 }
