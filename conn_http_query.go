@@ -20,6 +20,7 @@ package clickhouse
 import (
 	"bytes"
 	"context"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 	"io"
 	"io/ioutil"
@@ -45,8 +46,8 @@ func (h *httpConnect) query(ctx context.Context, release func(*connect, error), 
 		return nil, err
 	}
 
-	h.decoder.Reset(bytes.NewReader(body))
-	block, err := h.readData()
+	decoder := binary.NewDecoder(bytes.NewReader(body))
+	block, err := readData(decoder)
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +59,7 @@ func (h *httpConnect) query(ctx context.Context, release func(*connect, error), 
 
 	go func() {
 		for {
-			block, err := h.readData()
+			block, err := readData(decoder)
 			if err != nil {
 				if err != io.EOF {
 					errCh <- err

@@ -26,7 +26,6 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 	"io"
 	"io/ioutil"
-	"os"
 	"regexp"
 )
 
@@ -149,29 +148,21 @@ func (b *httpBatch) Send() (err error) {
 		return b.err
 	}
 
-	r, w, err := os.Pipe()
-	if err != nil {
-		return err
-	}
-
-	errCh := make(chan error)
+	r, w := io.Pipe()
 
 	go func() {
-		defer close(errCh)
-		defer w.Close()
+		var err error = nil
+		defer w.CloseWithError(err)
 		b.conn.encoder.Reset(w)
 		if b.block.Rows() != 0 {
 			if err = b.conn.writeData(b.block); err != nil {
-				errCh <- err
 				return
 			}
 		}
 		if err = b.conn.writeData(&proto.Block{}); err != nil {
-			errCh <- err
 			return
 		}
 		if err = b.conn.encoder.Flush(); err != nil {
-			errCh <- err
 			return
 		}
 	}()
@@ -186,11 +177,6 @@ func (b *httpBatch) Send() (err error) {
 		defer res.Close()
 		// we don't care about result, so just discard it to reuse connection
 		_, _ = io.Copy(ioutil.Discard, res)
-	}
-
-	// if error was during encode
-	if err, ok := <-errCh; ok {
-		return err
 	}
 
 	return err
