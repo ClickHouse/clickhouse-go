@@ -22,6 +22,7 @@ package column
 
 import (
 	"fmt"
+	"github.com/ClickHouse/ch-go/proto"
 	"github.com/google/uuid"
 	"github.com/paulmach/orb"
 	"github.com/shopspring/decimal"
@@ -60,6 +61,7 @@ func (t Type) Column(name string) (Interface, error) {
 			chType: t,
 			name:   name,
 			signed: true,
+			col:    &proto.ColInt128{},
 		}, nil
 	case "UInt128":
 		return &BigInt{
@@ -67,6 +69,7 @@ func (t Type) Column(name string) (Interface, error) {
 			chType: t,
 			name:   name,
 			signed: false,
+			col:    &proto.ColUInt128{},
 		}, nil
 	case "Int256":
 		return &BigInt{
@@ -74,6 +77,7 @@ func (t Type) Column(name string) (Interface, error) {
 			chType: t,
 			name:   name,
 			signed: true,
+			col:    &proto.ColInt256{},
 		}, nil
 	case "UInt256":
 		return &BigInt{
@@ -81,6 +85,7 @@ func (t Type) Column(name string) (Interface, error) {
 			chType: t,
 			name:   name,
 			signed: false,
+			col:    &proto.ColUInt256{},
 		}, nil
 	case "IPv4":
 		return &IPv4{name: name}, nil
@@ -169,44 +174,44 @@ func (t Type) Column(name string) (Interface, error) {
 
 type (
 	Float32 struct {
-		data []float32
 		name string
+		col  proto.ColFloat32
 	}
 	Float64 struct {
-		data []float64
 		name string
+		col  proto.ColFloat64
 	}
 	Int8 struct {
-		data []int8
 		name string
+		col  proto.ColInt8
 	}
 	Int16 struct {
-		data []int16
 		name string
+		col  proto.ColInt16
 	}
 	Int32 struct {
-		data []int32
 		name string
+		col  proto.ColInt32
 	}
 	Int64 struct {
-		data []int64
 		name string
+		col  proto.ColInt64
 	}
 	UInt8 struct {
-		data []uint8
 		name string
+		col  proto.ColUInt8
 	}
 	UInt16 struct {
-		data []uint16
 		name string
+		col  proto.ColUInt16
 	}
 	UInt32 struct {
-		data []uint32
 		name string
+		col  proto.ColUInt32
 	}
 	UInt64 struct {
-		data []uint64
 		name string
+		col  proto.ColUInt64
 	}
 )
 
@@ -263,17 +268,17 @@ func (col *Float32) ScanType() reflect.Type {
 }
 
 func (col *Float32) Rows() int {
-	return len(col.data)
+	return col.col.Rows()
 }
 
 func (col *Float32) ScanRow(dest interface{}, row int) error {
-	value := *col
+	value := col.col.Row(row)
 	switch d := dest.(type) {
 	case *float32:
-		*d = value.data[row]
+		*d = value
 	case **float32:
 		*d = new(float32)
-		**d = value.data[row]
+		**d = value
 	default:
 		return &ColumnConverterError{
 			Op:   "ScanRow",
@@ -286,25 +291,29 @@ func (col *Float32) ScanRow(dest interface{}, row int) error {
 }
 
 func (col *Float32) Row(i int, ptr bool) interface{} {
-	value := *col
+	value := col.col.Row(i)
 	if ptr {
-		return &value.data[i]
+		return &value
 	}
-	return value.data[i]
+	return value
 }
 
 func (col *Float32) Append(v interface{}) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []float32:
-		col.data, nulls = append(col.data, v...), make([]uint8, len(v))
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			col.col.Append(v[i])
+		}
 	case []*float32:
 		nulls = make([]uint8, len(v))
-		for i, v := range v {
+		for i := range v {
 			switch {
-			case v != nil:
-				col.data = append(col.data, *v)
+			case v[i] != nil:
+				col.col.Append(*v[i])
 			default:
-				col.data, nulls[i] = append(col.data, 0), 1
+				col.col.Append(0)
+				nulls[i] = 1
 			}
 		}
 	default:
@@ -320,16 +329,16 @@ func (col *Float32) Append(v interface{}) (nulls []uint8, err error) {
 func (col *Float32) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case float32:
-		col.data = append(col.data, v)
+		col.col.Append(v)
 	case *float32:
 		switch {
 		case v != nil:
-			col.data = append(col.data, *v)
+			col.col.Append(*v)
 		default:
-			col.data = append(col.data, 0)
+			col.col.Append(0)
 		}
 	case nil:
-		col.data = append(col.data, 0)
+		col.col.Append(0)
 	default:
 		return &ColumnConverterError{
 			Op:   "AppendRow",
@@ -338,6 +347,14 @@ func (col *Float32) AppendRow(v interface{}) error {
 		}
 	}
 	return nil
+}
+
+func (col *Float32) Decode(reader *proto.Reader, rows int) error {
+	return col.col.DecodeColumn(reader, rows)
+}
+
+func (col *Float32) Encode(buffer *proto.Buffer) {
+	col.col.EncodeColumn(buffer)
 }
 
 func (col *Float64) Name() string {
@@ -353,17 +370,17 @@ func (col *Float64) ScanType() reflect.Type {
 }
 
 func (col *Float64) Rows() int {
-	return len(col.data)
+	return col.col.Rows()
 }
 
 func (col *Float64) ScanRow(dest interface{}, row int) error {
-	value := *col
+	value := col.col.Row(row)
 	switch d := dest.(type) {
 	case *float64:
-		*d = value.data[row]
+		*d = value
 	case **float64:
 		*d = new(float64)
-		**d = value.data[row]
+		**d = value
 	default:
 		return &ColumnConverterError{
 			Op:   "ScanRow",
@@ -376,25 +393,29 @@ func (col *Float64) ScanRow(dest interface{}, row int) error {
 }
 
 func (col *Float64) Row(i int, ptr bool) interface{} {
-	value := *col
+	value := col.col.Row(i)
 	if ptr {
-		return &value.data[i]
+		return &value
 	}
-	return value.data[i]
+	return value
 }
 
 func (col *Float64) Append(v interface{}) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []float64:
-		col.data, nulls = append(col.data, v...), make([]uint8, len(v))
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			col.col.Append(v[i])
+		}
 	case []*float64:
 		nulls = make([]uint8, len(v))
-		for i, v := range v {
+		for i := range v {
 			switch {
-			case v != nil:
-				col.data = append(col.data, *v)
+			case v[i] != nil:
+				col.col.Append(*v[i])
 			default:
-				col.data, nulls[i] = append(col.data, 0), 1
+				col.col.Append(0)
+				nulls[i] = 1
 			}
 		}
 	default:
@@ -410,16 +431,16 @@ func (col *Float64) Append(v interface{}) (nulls []uint8, err error) {
 func (col *Float64) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case float64:
-		col.data = append(col.data, v)
+		col.col.Append(v)
 	case *float64:
 		switch {
 		case v != nil:
-			col.data = append(col.data, *v)
+			col.col.Append(*v)
 		default:
-			col.data = append(col.data, 0)
+			col.col.Append(0)
 		}
 	case nil:
-		col.data = append(col.data, 0)
+		col.col.Append(0)
 	default:
 		return &ColumnConverterError{
 			Op:   "AppendRow",
@@ -428,6 +449,14 @@ func (col *Float64) AppendRow(v interface{}) error {
 		}
 	}
 	return nil
+}
+
+func (col *Float64) Decode(reader *proto.Reader, rows int) error {
+	return col.col.DecodeColumn(reader, rows)
+}
+
+func (col *Float64) Encode(buffer *proto.Buffer) {
+	col.col.EncodeColumn(buffer)
 }
 
 func (col *Int8) Name() string {
@@ -443,17 +472,17 @@ func (col *Int8) ScanType() reflect.Type {
 }
 
 func (col *Int8) Rows() int {
-	return len(col.data)
+	return col.col.Rows()
 }
 
 func (col *Int8) ScanRow(dest interface{}, row int) error {
-	value := *col
+	value := col.col.Row(row)
 	switch d := dest.(type) {
 	case *int8:
-		*d = value.data[row]
+		*d = value
 	case **int8:
 		*d = new(int8)
-		**d = value.data[row]
+		**d = value
 	default:
 		return &ColumnConverterError{
 			Op:   "ScanRow",
@@ -466,25 +495,29 @@ func (col *Int8) ScanRow(dest interface{}, row int) error {
 }
 
 func (col *Int8) Row(i int, ptr bool) interface{} {
-	value := *col
+	value := col.col.Row(i)
 	if ptr {
-		return &value.data[i]
+		return &value
 	}
-	return value.data[i]
+	return value
 }
 
 func (col *Int8) Append(v interface{}) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []int8:
-		col.data, nulls = append(col.data, v...), make([]uint8, len(v))
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			col.col.Append(v[i])
+		}
 	case []*int8:
 		nulls = make([]uint8, len(v))
-		for i, v := range v {
+		for i := range v {
 			switch {
-			case v != nil:
-				col.data = append(col.data, *v)
+			case v[i] != nil:
+				col.col.Append(*v[i])
 			default:
-				col.data, nulls[i] = append(col.data, 0), 1
+				col.col.Append(0)
+				nulls[i] = 1
 			}
 		}
 	default:
@@ -500,16 +533,16 @@ func (col *Int8) Append(v interface{}) (nulls []uint8, err error) {
 func (col *Int8) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case int8:
-		col.data = append(col.data, v)
+		col.col.Append(v)
 	case *int8:
 		switch {
 		case v != nil:
-			col.data = append(col.data, *v)
+			col.col.Append(*v)
 		default:
-			col.data = append(col.data, 0)
+			col.col.Append(0)
 		}
 	case nil:
-		col.data = append(col.data, 0)
+		col.col.Append(0)
 	default:
 		return &ColumnConverterError{
 			Op:   "AppendRow",
@@ -518,6 +551,14 @@ func (col *Int8) AppendRow(v interface{}) error {
 		}
 	}
 	return nil
+}
+
+func (col *Int8) Decode(reader *proto.Reader, rows int) error {
+	return col.col.DecodeColumn(reader, rows)
+}
+
+func (col *Int8) Encode(buffer *proto.Buffer) {
+	col.col.EncodeColumn(buffer)
 }
 
 func (col *Int16) Name() string {
@@ -533,17 +574,17 @@ func (col *Int16) ScanType() reflect.Type {
 }
 
 func (col *Int16) Rows() int {
-	return len(col.data)
+	return col.col.Rows()
 }
 
 func (col *Int16) ScanRow(dest interface{}, row int) error {
-	value := *col
+	value := col.col.Row(row)
 	switch d := dest.(type) {
 	case *int16:
-		*d = value.data[row]
+		*d = value
 	case **int16:
 		*d = new(int16)
-		**d = value.data[row]
+		**d = value
 	default:
 		return &ColumnConverterError{
 			Op:   "ScanRow",
@@ -556,25 +597,29 @@ func (col *Int16) ScanRow(dest interface{}, row int) error {
 }
 
 func (col *Int16) Row(i int, ptr bool) interface{} {
-	value := *col
+	value := col.col.Row(i)
 	if ptr {
-		return &value.data[i]
+		return &value
 	}
-	return value.data[i]
+	return value
 }
 
 func (col *Int16) Append(v interface{}) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []int16:
-		col.data, nulls = append(col.data, v...), make([]uint8, len(v))
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			col.col.Append(v[i])
+		}
 	case []*int16:
 		nulls = make([]uint8, len(v))
-		for i, v := range v {
+		for i := range v {
 			switch {
-			case v != nil:
-				col.data = append(col.data, *v)
+			case v[i] != nil:
+				col.col.Append(*v[i])
 			default:
-				col.data, nulls[i] = append(col.data, 0), 1
+				col.col.Append(0)
+				nulls[i] = 1
 			}
 		}
 	default:
@@ -590,16 +635,16 @@ func (col *Int16) Append(v interface{}) (nulls []uint8, err error) {
 func (col *Int16) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case int16:
-		col.data = append(col.data, v)
+		col.col.Append(v)
 	case *int16:
 		switch {
 		case v != nil:
-			col.data = append(col.data, *v)
+			col.col.Append(*v)
 		default:
-			col.data = append(col.data, 0)
+			col.col.Append(0)
 		}
 	case nil:
-		col.data = append(col.data, 0)
+		col.col.Append(0)
 	default:
 		return &ColumnConverterError{
 			Op:   "AppendRow",
@@ -608,6 +653,14 @@ func (col *Int16) AppendRow(v interface{}) error {
 		}
 	}
 	return nil
+}
+
+func (col *Int16) Decode(reader *proto.Reader, rows int) error {
+	return col.col.DecodeColumn(reader, rows)
+}
+
+func (col *Int16) Encode(buffer *proto.Buffer) {
+	col.col.EncodeColumn(buffer)
 }
 
 func (col *Int32) Name() string {
@@ -623,17 +676,17 @@ func (col *Int32) ScanType() reflect.Type {
 }
 
 func (col *Int32) Rows() int {
-	return len(col.data)
+	return col.col.Rows()
 }
 
 func (col *Int32) ScanRow(dest interface{}, row int) error {
-	value := *col
+	value := col.col.Row(row)
 	switch d := dest.(type) {
 	case *int32:
-		*d = value.data[row]
+		*d = value
 	case **int32:
 		*d = new(int32)
-		**d = value.data[row]
+		**d = value
 	default:
 		return &ColumnConverterError{
 			Op:   "ScanRow",
@@ -646,25 +699,29 @@ func (col *Int32) ScanRow(dest interface{}, row int) error {
 }
 
 func (col *Int32) Row(i int, ptr bool) interface{} {
-	value := *col
+	value := col.col.Row(i)
 	if ptr {
-		return &value.data[i]
+		return &value
 	}
-	return value.data[i]
+	return value
 }
 
 func (col *Int32) Append(v interface{}) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []int32:
-		col.data, nulls = append(col.data, v...), make([]uint8, len(v))
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			col.col.Append(v[i])
+		}
 	case []*int32:
 		nulls = make([]uint8, len(v))
-		for i, v := range v {
+		for i := range v {
 			switch {
-			case v != nil:
-				col.data = append(col.data, *v)
+			case v[i] != nil:
+				col.col.Append(*v[i])
 			default:
-				col.data, nulls[i] = append(col.data, 0), 1
+				col.col.Append(0)
+				nulls[i] = 1
 			}
 		}
 	default:
@@ -680,16 +737,16 @@ func (col *Int32) Append(v interface{}) (nulls []uint8, err error) {
 func (col *Int32) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case int32:
-		col.data = append(col.data, v)
+		col.col.Append(v)
 	case *int32:
 		switch {
 		case v != nil:
-			col.data = append(col.data, *v)
+			col.col.Append(*v)
 		default:
-			col.data = append(col.data, 0)
+			col.col.Append(0)
 		}
 	case nil:
-		col.data = append(col.data, 0)
+		col.col.Append(0)
 	default:
 		return &ColumnConverterError{
 			Op:   "AppendRow",
@@ -698,6 +755,14 @@ func (col *Int32) AppendRow(v interface{}) error {
 		}
 	}
 	return nil
+}
+
+func (col *Int32) Decode(reader *proto.Reader, rows int) error {
+	return col.col.DecodeColumn(reader, rows)
+}
+
+func (col *Int32) Encode(buffer *proto.Buffer) {
+	col.col.EncodeColumn(buffer)
 }
 
 func (col *Int64) Name() string {
@@ -713,19 +778,19 @@ func (col *Int64) ScanType() reflect.Type {
 }
 
 func (col *Int64) Rows() int {
-	return len(col.data)
+	return col.col.Rows()
 }
 
 func (col *Int64) ScanRow(dest interface{}, row int) error {
-	value := *col
+	value := col.col.Row(row)
 	switch d := dest.(type) {
 	case *int64:
-		*d = value.data[row]
+		*d = value
 	case **int64:
 		*d = new(int64)
-		**d = value.data[row]
+		**d = value
 	case *time.Duration:
-		*d = time.Duration(value.data[row])
+		*d = time.Duration(value)
 	default:
 		return &ColumnConverterError{
 			Op:   "ScanRow",
@@ -738,25 +803,29 @@ func (col *Int64) ScanRow(dest interface{}, row int) error {
 }
 
 func (col *Int64) Row(i int, ptr bool) interface{} {
-	value := *col
+	value := col.col.Row(i)
 	if ptr {
-		return &value.data[i]
+		return &value
 	}
-	return value.data[i]
+	return value
 }
 
 func (col *Int64) Append(v interface{}) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []int64:
-		col.data, nulls = append(col.data, v...), make([]uint8, len(v))
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			col.col.Append(v[i])
+		}
 	case []*int64:
 		nulls = make([]uint8, len(v))
-		for i, v := range v {
+		for i := range v {
 			switch {
-			case v != nil:
-				col.data = append(col.data, *v)
+			case v[i] != nil:
+				col.col.Append(*v[i])
 			default:
-				col.data, nulls[i] = append(col.data, 0), 1
+				col.col.Append(0)
+				nulls[i] = 1
 			}
 		}
 	default:
@@ -772,20 +841,20 @@ func (col *Int64) Append(v interface{}) (nulls []uint8, err error) {
 func (col *Int64) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case int64:
-		col.data = append(col.data, v)
+		col.col.Append(v)
 	case *int64:
 		switch {
 		case v != nil:
-			col.data = append(col.data, *v)
+			col.col.Append(*v)
 		default:
-			col.data = append(col.data, 0)
+			col.col.Append(0)
 		}
 	case nil:
-		col.data = append(col.data, 0)
+		col.col.Append(0)
 	case time.Duration:
-		col.data = append(col.data, int64(v))
+		col.col.Append(int64(v))
 	case *time.Duration:
-		col.data = append(col.data, int64(*v))
+		col.col.Append(int64(*v))
 	default:
 		return &ColumnConverterError{
 			Op:   "AppendRow",
@@ -794,6 +863,14 @@ func (col *Int64) AppendRow(v interface{}) error {
 		}
 	}
 	return nil
+}
+
+func (col *Int64) Decode(reader *proto.Reader, rows int) error {
+	return col.col.DecodeColumn(reader, rows)
+}
+
+func (col *Int64) Encode(buffer *proto.Buffer) {
+	col.col.EncodeColumn(buffer)
 }
 
 func (col *UInt8) Name() string {
@@ -809,17 +886,17 @@ func (col *UInt8) ScanType() reflect.Type {
 }
 
 func (col *UInt8) Rows() int {
-	return len(col.data)
+	return col.col.Rows()
 }
 
 func (col *UInt8) ScanRow(dest interface{}, row int) error {
-	value := *col
+	value := col.col.Row(row)
 	switch d := dest.(type) {
 	case *uint8:
-		*d = value.data[row]
+		*d = value
 	case **uint8:
 		*d = new(uint8)
-		**d = value.data[row]
+		**d = value
 	default:
 		return &ColumnConverterError{
 			Op:   "ScanRow",
@@ -832,25 +909,29 @@ func (col *UInt8) ScanRow(dest interface{}, row int) error {
 }
 
 func (col *UInt8) Row(i int, ptr bool) interface{} {
-	value := *col
+	value := col.col.Row(i)
 	if ptr {
-		return &value.data[i]
+		return &value
 	}
-	return value.data[i]
+	return value
 }
 
 func (col *UInt8) Append(v interface{}) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []uint8:
-		col.data, nulls = append(col.data, v...), make([]uint8, len(v))
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			col.col.Append(v[i])
+		}
 	case []*uint8:
 		nulls = make([]uint8, len(v))
-		for i, v := range v {
+		for i := range v {
 			switch {
-			case v != nil:
-				col.data = append(col.data, *v)
+			case v[i] != nil:
+				col.col.Append(*v[i])
 			default:
-				col.data, nulls[i] = append(col.data, 0), 1
+				col.col.Append(0)
+				nulls[i] = 1
 			}
 		}
 	default:
@@ -866,22 +947,22 @@ func (col *UInt8) Append(v interface{}) (nulls []uint8, err error) {
 func (col *UInt8) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case uint8:
-		col.data = append(col.data, v)
+		col.col.Append(v)
 	case *uint8:
 		switch {
 		case v != nil:
-			col.data = append(col.data, *v)
+			col.col.Append(*v)
 		default:
-			col.data = append(col.data, 0)
+			col.col.Append(0)
 		}
 	case nil:
-		col.data = append(col.data, 0)
+		col.col.Append(0)
 	case bool:
 		var t uint8
 		if v {
 			t = 1
 		}
-		col.data = append(col.data, t)
+		col.col.Append(t)
 	default:
 		return &ColumnConverterError{
 			Op:   "AppendRow",
@@ -890,6 +971,14 @@ func (col *UInt8) AppendRow(v interface{}) error {
 		}
 	}
 	return nil
+}
+
+func (col *UInt8) Decode(reader *proto.Reader, rows int) error {
+	return col.col.DecodeColumn(reader, rows)
+}
+
+func (col *UInt8) Encode(buffer *proto.Buffer) {
+	col.col.EncodeColumn(buffer)
 }
 
 func (col *UInt16) Name() string {
@@ -905,17 +994,17 @@ func (col *UInt16) ScanType() reflect.Type {
 }
 
 func (col *UInt16) Rows() int {
-	return len(col.data)
+	return col.col.Rows()
 }
 
 func (col *UInt16) ScanRow(dest interface{}, row int) error {
-	value := *col
+	value := col.col.Row(row)
 	switch d := dest.(type) {
 	case *uint16:
-		*d = value.data[row]
+		*d = value
 	case **uint16:
 		*d = new(uint16)
-		**d = value.data[row]
+		**d = value
 	default:
 		return &ColumnConverterError{
 			Op:   "ScanRow",
@@ -928,25 +1017,29 @@ func (col *UInt16) ScanRow(dest interface{}, row int) error {
 }
 
 func (col *UInt16) Row(i int, ptr bool) interface{} {
-	value := *col
+	value := col.col.Row(i)
 	if ptr {
-		return &value.data[i]
+		return &value
 	}
-	return value.data[i]
+	return value
 }
 
 func (col *UInt16) Append(v interface{}) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []uint16:
-		col.data, nulls = append(col.data, v...), make([]uint8, len(v))
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			col.col.Append(v[i])
+		}
 	case []*uint16:
 		nulls = make([]uint8, len(v))
-		for i, v := range v {
+		for i := range v {
 			switch {
-			case v != nil:
-				col.data = append(col.data, *v)
+			case v[i] != nil:
+				col.col.Append(*v[i])
 			default:
-				col.data, nulls[i] = append(col.data, 0), 1
+				col.col.Append(0)
+				nulls[i] = 1
 			}
 		}
 	default:
@@ -962,16 +1055,16 @@ func (col *UInt16) Append(v interface{}) (nulls []uint8, err error) {
 func (col *UInt16) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case uint16:
-		col.data = append(col.data, v)
+		col.col.Append(v)
 	case *uint16:
 		switch {
 		case v != nil:
-			col.data = append(col.data, *v)
+			col.col.Append(*v)
 		default:
-			col.data = append(col.data, 0)
+			col.col.Append(0)
 		}
 	case nil:
-		col.data = append(col.data, 0)
+		col.col.Append(0)
 	default:
 		return &ColumnConverterError{
 			Op:   "AppendRow",
@@ -980,6 +1073,14 @@ func (col *UInt16) AppendRow(v interface{}) error {
 		}
 	}
 	return nil
+}
+
+func (col *UInt16) Decode(reader *proto.Reader, rows int) error {
+	return col.col.DecodeColumn(reader, rows)
+}
+
+func (col *UInt16) Encode(buffer *proto.Buffer) {
+	col.col.EncodeColumn(buffer)
 }
 
 func (col *UInt32) Name() string {
@@ -995,17 +1096,17 @@ func (col *UInt32) ScanType() reflect.Type {
 }
 
 func (col *UInt32) Rows() int {
-	return len(col.data)
+	return col.col.Rows()
 }
 
 func (col *UInt32) ScanRow(dest interface{}, row int) error {
-	value := *col
+	value := col.col.Row(row)
 	switch d := dest.(type) {
 	case *uint32:
-		*d = value.data[row]
+		*d = value
 	case **uint32:
 		*d = new(uint32)
-		**d = value.data[row]
+		**d = value
 	default:
 		return &ColumnConverterError{
 			Op:   "ScanRow",
@@ -1018,25 +1119,29 @@ func (col *UInt32) ScanRow(dest interface{}, row int) error {
 }
 
 func (col *UInt32) Row(i int, ptr bool) interface{} {
-	value := *col
+	value := col.col.Row(i)
 	if ptr {
-		return &value.data[i]
+		return &value
 	}
-	return value.data[i]
+	return value
 }
 
 func (col *UInt32) Append(v interface{}) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []uint32:
-		col.data, nulls = append(col.data, v...), make([]uint8, len(v))
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			col.col.Append(v[i])
+		}
 	case []*uint32:
 		nulls = make([]uint8, len(v))
-		for i, v := range v {
+		for i := range v {
 			switch {
-			case v != nil:
-				col.data = append(col.data, *v)
+			case v[i] != nil:
+				col.col.Append(*v[i])
 			default:
-				col.data, nulls[i] = append(col.data, 0), 1
+				col.col.Append(0)
+				nulls[i] = 1
 			}
 		}
 	default:
@@ -1052,16 +1157,16 @@ func (col *UInt32) Append(v interface{}) (nulls []uint8, err error) {
 func (col *UInt32) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case uint32:
-		col.data = append(col.data, v)
+		col.col.Append(v)
 	case *uint32:
 		switch {
 		case v != nil:
-			col.data = append(col.data, *v)
+			col.col.Append(*v)
 		default:
-			col.data = append(col.data, 0)
+			col.col.Append(0)
 		}
 	case nil:
-		col.data = append(col.data, 0)
+		col.col.Append(0)
 	default:
 		return &ColumnConverterError{
 			Op:   "AppendRow",
@@ -1070,6 +1175,14 @@ func (col *UInt32) AppendRow(v interface{}) error {
 		}
 	}
 	return nil
+}
+
+func (col *UInt32) Decode(reader *proto.Reader, rows int) error {
+	return col.col.DecodeColumn(reader, rows)
+}
+
+func (col *UInt32) Encode(buffer *proto.Buffer) {
+	col.col.EncodeColumn(buffer)
 }
 
 func (col *UInt64) Name() string {
@@ -1085,17 +1198,17 @@ func (col *UInt64) ScanType() reflect.Type {
 }
 
 func (col *UInt64) Rows() int {
-	return len(col.data)
+	return col.col.Rows()
 }
 
 func (col *UInt64) ScanRow(dest interface{}, row int) error {
-	value := *col
+	value := col.col.Row(row)
 	switch d := dest.(type) {
 	case *uint64:
-		*d = value.data[row]
+		*d = value
 	case **uint64:
 		*d = new(uint64)
-		**d = value.data[row]
+		**d = value
 	default:
 		return &ColumnConverterError{
 			Op:   "ScanRow",
@@ -1108,25 +1221,29 @@ func (col *UInt64) ScanRow(dest interface{}, row int) error {
 }
 
 func (col *UInt64) Row(i int, ptr bool) interface{} {
-	value := *col
+	value := col.col.Row(i)
 	if ptr {
-		return &value.data[i]
+		return &value
 	}
-	return value.data[i]
+	return value
 }
 
 func (col *UInt64) Append(v interface{}) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []uint64:
-		col.data, nulls = append(col.data, v...), make([]uint8, len(v))
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			col.col.Append(v[i])
+		}
 	case []*uint64:
 		nulls = make([]uint8, len(v))
-		for i, v := range v {
+		for i := range v {
 			switch {
-			case v != nil:
-				col.data = append(col.data, *v)
+			case v[i] != nil:
+				col.col.Append(*v[i])
 			default:
-				col.data, nulls[i] = append(col.data, 0), 1
+				col.col.Append(0)
+				nulls[i] = 1
 			}
 		}
 	default:
@@ -1142,16 +1259,16 @@ func (col *UInt64) Append(v interface{}) (nulls []uint8, err error) {
 func (col *UInt64) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case uint64:
-		col.data = append(col.data, v)
+		col.col.Append(v)
 	case *uint64:
 		switch {
 		case v != nil:
-			col.data = append(col.data, *v)
+			col.col.Append(*v)
 		default:
-			col.data = append(col.data, 0)
+			col.col.Append(0)
 		}
 	case nil:
-		col.data = append(col.data, 0)
+		col.col.Append(0)
 	default:
 		return &ColumnConverterError{
 			Op:   "AppendRow",
@@ -1160,4 +1277,12 @@ func (col *UInt64) AppendRow(v interface{}) error {
 		}
 	}
 	return nil
+}
+
+func (col *UInt64) Decode(reader *proto.Reader, rows int) error {
+	return col.col.DecodeColumn(reader, rows)
+}
+
+func (col *UInt64) Encode(buffer *proto.Buffer) {
+	col.col.EncodeColumn(buffer)
 }

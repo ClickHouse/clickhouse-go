@@ -33,15 +33,14 @@ func (c *connect) ping(ctx context.Context) (err error) {
 		defer c.conn.SetDeadline(time.Time{})
 	}
 	c.debugf("[ping] -> ping")
-	if err := c.encoder.Byte(proto.ClientPing); err != nil {
+	c.buffer.PutByte(proto.ClientPing)
+	if err := c.flush(); err != nil {
 		return err
 	}
-	if err := c.encoder.Flush(); err != nil {
-		return err
-	}
+
 	var packet byte
 	for {
-		if packet, err = c.decoder.ReadByte(); err != nil {
+		if packet, err = c.reader.ReadByte(); err != nil {
 			return err
 		}
 		switch packet {

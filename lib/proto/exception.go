@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
+	"github.com/ClickHouse/ch-go/proto"
 )
 
 type Exception struct {
@@ -37,11 +37,11 @@ func (e *Exception) Error() string {
 	return fmt.Sprintf("code: %d, message: %s", e.Code, e.Message)
 }
 
-func (e *Exception) Decode(decoder *binary.Decoder) (err error) {
+func (e *Exception) Decode(reader *proto.Reader) (err error) {
 	var exceptions []Exception
 	for {
 		var ex Exception
-		if err := ex.decode(decoder); err != nil {
+		if err := ex.decode(reader); err != nil {
 			return err
 		}
 		if exceptions = append(exceptions, ex); !ex.nested {
@@ -60,21 +60,21 @@ func (e *Exception) Decode(decoder *binary.Decoder) (err error) {
 	return nil
 }
 
-func (e *Exception) decode(decoder *binary.Decoder) (err error) {
-	if e.Code, err = decoder.Int32(); err != nil {
+func (e *Exception) decode(reader *proto.Reader) (err error) {
+	if e.Code, err = reader.Int32(); err != nil {
 		return err
 	}
-	if e.Name, err = decoder.String(); err != nil {
+	if e.Name, err = reader.Str(); err != nil {
 		return err
 	}
-	if e.Message, err = decoder.String(); err != nil {
+	if e.Message, err = reader.Str(); err != nil {
 		return err
 	}
 	e.Message = strings.TrimSpace(strings.TrimPrefix(e.Message, e.Name+":"))
-	if e.StackTrace, err = decoder.String(); err != nil {
+	if e.StackTrace, err = reader.Str(); err != nil {
 		return err
 	}
-	if e.nested, err = decoder.Bool(); err != nil {
+	if e.nested, err = reader.Bool(); err != nil {
 		return err
 	}
 	return nil

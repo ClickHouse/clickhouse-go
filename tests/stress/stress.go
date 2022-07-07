@@ -134,7 +134,7 @@ func main() {
 		Compression: &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
 		},
-		Debug: true,
+		// Debug: true,
 	})
 	if err != nil {
 		log.Fatal(err)

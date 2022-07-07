@@ -20,16 +20,15 @@ package column
 import (
 	"errors"
 	"fmt"
+	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
 	"strings"
-
-	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
 )
 
 type Interval struct {
 	chType Type
-	values Int64
 	name   string
+	col    proto.ColInt64
 }
 
 func (col *Interval) Name() string {
@@ -48,9 +47,13 @@ func (col *Interval) parse(t Type) (Interface, error) {
 
 func (col *Interval) Type() Type             { return col.chType }
 func (col *Interval) ScanType() reflect.Type { return scanTypeString }
-func (col *Interval) Rows() int              { return len(col.values.data) }
+func (col *Interval) Rows() int              { return col.col.Rows() }
 func (col *Interval) Row(i int, ptr bool) interface{} {
-	return col.row(i)
+	val := col.row(i)
+	if ptr {
+		return &val
+	}
+	return val
 }
 func (col *Interval) ScanRow(dest interface{}, row int) error {
 	switch d := dest.(type) {
@@ -83,20 +86,17 @@ func (Interval) AppendRow(interface{}) error {
 	}
 }
 
-func (col *Interval) Decode(decoder *binary.Decoder, rows int) error {
-	return col.values.Decode(decoder, rows)
+func (col *Interval) Decode(reader *proto.Reader, rows int) error {
+	return col.col.DecodeColumn(reader, rows)
 }
 
-func (Interval) Encode(*binary.Encoder) error {
-	return &Error{
-		ColumnType: "Interval",
-		Err:        errors.New("data type values can't be stored in tables"),
-	}
+func (Interval) Encode(buffer *proto.Buffer) {
 }
 
 func (col *Interval) row(i int) string {
-	v := fmt.Sprintf("%d %s", col.values.data[i], strings.TrimPrefix(string(col.chType), "Interval"))
-	if col.values.data[i] > 1 {
+	val := col.col.Row(i)
+	v := fmt.Sprintf("%d %s", val, strings.TrimPrefix(string(col.chType), "Interval"))
+	if val > 1 {
 		v += "s"
 	}
 	return v

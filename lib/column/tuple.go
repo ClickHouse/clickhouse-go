@@ -19,14 +19,13 @@ package column
 
 import (
 	"fmt"
+	"github.com/ClickHouse/ch-go/proto"
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 	"net"
 	"reflect"
 	"strings"
 	"time"
-
-	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
 )
 
 type Tuple struct {
@@ -494,28 +493,25 @@ func (col *Tuple) AppendRow(v interface{}) error {
 	}
 }
 
-func (col *Tuple) Decode(decoder *binary.Decoder, rows int) error {
+func (col *Tuple) Decode(reader *proto.Reader, rows int) error {
 	for _, c := range col.columns {
-		if err := c.Decode(decoder, rows); err != nil {
+		if err := c.Decode(reader, rows); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (col *Tuple) Encode(encoder *binary.Encoder) error {
+func (col *Tuple) Encode(buffer *proto.Buffer) {
 	for _, c := range col.columns {
-		if err := c.Encode(encoder); err != nil {
-			return err
-		}
+		c.Encode(buffer)
 	}
-	return nil
 }
 
-func (col *Tuple) ReadStatePrefix(decoder *binary.Decoder) error {
+func (col *Tuple) ReadStatePrefix(reader *proto.Reader) error {
 	for _, c := range col.columns {
 		if serialize, ok := c.(CustomSerialization); ok {
-			if err := serialize.ReadStatePrefix(decoder); err != nil {
+			if err := serialize.ReadStatePrefix(reader); err != nil {
 				return err
 			}
 		}
@@ -523,10 +519,10 @@ func (col *Tuple) ReadStatePrefix(decoder *binary.Decoder) error {
 	return nil
 }
 
-func (col *Tuple) WriteStatePrefix(encoder *binary.Encoder) error {
+func (col *Tuple) WriteStatePrefix(buffer *proto.Buffer) error {
 	for _, c := range col.columns {
 		if serialize, ok := c.(CustomSerialization); ok {
-			if err := serialize.WriteStatePrefix(encoder); err != nil {
+			if err := serialize.WriteStatePrefix(buffer); err != nil {
 				return err
 			}
 		}

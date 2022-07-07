@@ -19,10 +19,9 @@ package column
 
 import (
 	"fmt"
+	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
 	"strings"
-
-	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
 )
 
 // https://github.com/ClickHouse/ClickHouse/blob/master/src/Columns/ColumnMap.cpp
@@ -68,7 +67,7 @@ func (col *Map) ScanType() reflect.Type {
 }
 
 func (col *Map) Rows() int {
-	return len(col.offsets.data)
+	return col.offsets.col.Rows()
 }
 
 func (col *Map) Row(i int, ptr bool) interface{} {
@@ -133,49 +132,46 @@ func (col *Map) AppendRow(v interface{}) error {
 		}
 	}
 	var prev int64
-	if n := len(col.offsets.data); n != 0 {
-		prev = col.offsets.data[n-1]
+	if n := col.offsets.Rows(); n != 0 {
+		prev = col.offsets.col.Row(n - 1)
 	}
-	col.offsets.data = append(col.offsets.data, prev+size)
+	col.offsets.col.Append(prev + size)
 	return nil
 }
 
-func (col *Map) Decode(decoder *binary.Decoder, rows int) error {
-	if err := col.offsets.Decode(decoder, rows); err != nil {
+func (col *Map) Decode(reader *proto.Reader, rows int) error {
+	if err := col.offsets.col.DecodeColumn(reader, rows); err != nil {
 		return err
 	}
-	size := int(col.offsets.data[len(col.offsets.data)-1])
-	if err := col.keys.Decode(decoder, size); err != nil {
+
+	size := int(col.offsets.col.Row(col.offsets.Rows() - 1))
+	if err := col.keys.Decode(reader, size); err != nil {
 		return err
 	}
-	return col.values.Decode(decoder, size)
+	return col.values.Decode(reader, size)
 }
 
-func (col *Map) Encode(encoder *binary.Encoder) error {
-	if err := col.offsets.Encode(encoder); err != nil {
-		return err
-	}
-	if err := col.keys.Encode(encoder); err != nil {
-		return err
-	}
-	return col.values.Encode(encoder)
+func (col *Map) Encode(buffer *proto.Buffer) {
+	col.offsets.col.EncodeColumn(buffer)
+	col.keys.Encode(buffer)
+	col.values.Encode(buffer)
 }
 
-func (col *Map) ReadStatePrefix(decoder *binary.Decoder) error {
+func (col *Map) ReadStatePrefix(reader *proto.Reader) error {
 	if serialize, ok := col.keys.(CustomSerialization); ok {
-		if err := serialize.ReadStatePrefix(decoder); err != nil {
+		if err := serialize.ReadStatePrefix(reader); err != nil {
 			return err
 		}
 	}
 	if serialize, ok := col.values.(CustomSerialization); ok {
-		if err := serialize.ReadStatePrefix(decoder); err != nil {
+		if err := serialize.ReadStatePrefix(reader); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (col *Map) WriteStatePrefix(encoder *binary.Encoder) error {
+func (col *Map) WriteStatePrefix(encoder *proto.Buffer) error {
 	if serialize, ok := col.keys.(CustomSerialization); ok {
 		if err := serialize.WriteStatePrefix(encoder); err != nil {
 			return err
@@ -195,10 +191,10 @@ func (col *Map) row(n int) reflect.Value {
 		value = reflect.MakeMap(col.scanType)
 	)
 	if n != 0 {
-		prev = col.offsets.data[n-1]
+		prev = col.offsets.col.Row(n - 1)
 	}
 	var (
-		size = int(col.offsets.data[n] - prev)
+		size = int(col.offsets.col.Row(n) - prev)
 		from = int(prev)
 	)
 	for next := 0; next < size; next++ {

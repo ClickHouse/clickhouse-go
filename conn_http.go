@@ -22,7 +22,7 @@ import (
 	"context"
 	"database/sql/driver"
 	"fmt"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
+	chproto "github.com/ClickHouse/ch-go/proto"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 	"github.com/pkg/errors"
 	"io"
@@ -60,9 +60,9 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		client: &http.Client{
 			Transport: t,
 		},
-		url:     u,
-		encoder: &binary.Encoder{},
-		decoder: &binary.Decoder{},
+		url:    u,
+		buffer: new(chproto.Buffer),
+		reader: &chproto.Reader{},
 	}
 
 	rows, err := conn.query(ctx, func(*connect, error) {}, "SELECT timeZone()")
@@ -88,8 +88,8 @@ type httpConnect struct {
 	url      *url.URL
 	client   *http.Client
 	location *time.Location
-	encoder  *binary.Encoder
-	decoder  *binary.Decoder
+	buffer   *chproto.Buffer
+	reader   *chproto.Reader
 }
 
 func (h *httpConnect) isBad() bool {
@@ -100,12 +100,12 @@ func (h *httpConnect) isBad() bool {
 }
 
 func (h *httpConnect) writeData(block *proto.Block) error {
-	return block.Encode(h.encoder, 0)
+	return block.Encode(h.buffer, 0)
 }
 
 func (h *httpConnect) readData() (*proto.Block, error) {
 	var block proto.Block
-	if err := block.Decode(h.decoder, 0); err != nil {
+	if err := block.Decode(h.reader, 0); err != nil {
 		return nil, err
 	}
 	return &block, nil

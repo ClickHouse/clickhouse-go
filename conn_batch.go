@@ -148,9 +148,6 @@ func (b *batch) Send() (err error) {
 	if err = b.conn.sendData(&proto.Block{}, ""); err != nil {
 		return err
 	}
-	if err = b.conn.encoder.Flush(); err != nil {
-		return err
-	}
 	if err = b.conn.process(b.ctx, b.onProcess); err != nil {
 		return err
 	}

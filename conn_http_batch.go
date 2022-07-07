@@ -159,7 +159,7 @@ func (b *httpBatch) Send() (err error) {
 	go func() {
 		defer close(errCh)
 		defer w.Close()
-		b.conn.encoder.Reset(w)
+		b.conn.buffer.Reset()
 		if b.block.Rows() != 0 {
 			if err = b.conn.writeData(b.block); err != nil {
 				errCh <- err
@@ -170,7 +170,8 @@ func (b *httpBatch) Send() (err error) {
 			errCh <- err
 			return
 		}
-		if err = b.conn.encoder.Flush(); err != nil {
+		w.Write(b.conn.buffer.Buf)
+		if _, err = w.Write(b.conn.buffer.Buf); err != nil {
 			errCh <- err
 			return
 		}

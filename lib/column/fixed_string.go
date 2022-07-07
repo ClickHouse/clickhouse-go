@@ -20,15 +20,15 @@ package column
 import (
 	"encoding"
 	"fmt"
+	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
 )
 
 type FixedString struct {
-	data []byte
-	size int
 	name string
+	col  proto.ColFixedStr
 }
 
 func (col *FixedString) Name() string {
@@ -36,14 +36,14 @@ func (col *FixedString) Name() string {
 }
 
 func (col *FixedString) parse(t Type) (*FixedString, error) {
-	if _, err := fmt.Sscanf(string(t), "FixedString(%d)", &col.size); err != nil {
+	if _, err := fmt.Sscanf(string(t), "FixedString(%d)", &col.col.Size); err != nil {
 		return nil, err
 	}
 	return col, nil
 }
 
 func (col *FixedString) Type() Type {
-	return Type(fmt.Sprintf("FixedString(%d)", col.size))
+	return Type(fmt.Sprintf("FixedString(%d)", col.col.Size))
 }
 
 func (col *FixedString) ScanType() reflect.Type {
@@ -51,10 +51,7 @@ func (col *FixedString) ScanType() reflect.Type {
 }
 
 func (col *FixedString) Rows() int {
-	if col.size == 0 {
-		return 0
-	}
-	return len(col.data) / col.size
+	return col.col.Rows()
 }
 
 func (col *FixedString) Row(i int, ptr bool) interface{} {
@@ -87,14 +84,14 @@ func (col *FixedString) ScanRow(dest interface{}, row int) error {
 func (col *FixedString) Append(v interface{}) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []string:
+		nulls = make([]uint8, len(v))
 		for _, v := range v {
 			if v == "" {
-				col.data = append(col.data, make([]byte, col.size)...)
+				col.col.Append(make([]byte, col.col.Size))
 			} else {
-				col.data = append(col.data, binary.Str2Bytes(v)...)
+				col.col.Append(binary.Str2Bytes(v))
 			}
 		}
-		nulls = make([]uint8, len(v))
 	case []*string:
 		nulls = make([]uint8, len(v))
 		for i, v := range v {
@@ -103,12 +100,12 @@ func (col *FixedString) Append(v interface{}) (nulls []uint8, err error) {
 			}
 			switch {
 			case v == nil:
-				col.data = append(col.data, make([]byte, col.size)...)
+				col.col.Append(make([]byte, col.col.Size))
 			default:
 				if *v == "" {
-					col.data = append(col.data, make([]byte, col.size)...)
+					col.col.Append(make([]byte, col.col.Size))
 				} else {
-					col.data = append(col.data, binary.Str2Bytes(*v)...)
+					col.col.Append(binary.Str2Bytes(*v))
 				}
 			}
 		}
@@ -117,7 +114,8 @@ func (col *FixedString) Append(v interface{}) (nulls []uint8, err error) {
 		if err != nil {
 			return nil, err
 		}
-		col.data, nulls = append(col.data, data...), make([]uint8, len(data)/col.size)
+		col.col.Append(data)
+		nulls = make([]uint8, len(data)/col.col.Size)
 	default:
 		return nil, &ColumnConverterError{
 			Op:   "Append",
@@ -129,7 +127,7 @@ func (col *FixedString) Append(v interface{}) (nulls []uint8, err error) {
 }
 
 func (col *FixedString) AppendRow(v interface{}) (err error) {
-	data := make([]byte, col.size)
+	data := make([]byte, col.col.Size)
 	switch v := v.(type) {
 	case string:
 		if v != "" {
@@ -153,31 +151,25 @@ func (col *FixedString) AppendRow(v interface{}) (err error) {
 			From: fmt.Sprintf("%T", v),
 		}
 	}
-	col.data = append(col.data, data...)
+	col.col.Append(data)
 	return nil
 }
 
-func (col *FixedString) Decode(decoder *binary.Decoder, rows int) error {
-	col.data = make([]byte, col.size*rows)
-	return decoder.Raw(col.data)
+func (col *FixedString) Decode(reader *proto.Reader, rows int) error {
+	return col.col.DecodeColumn(reader, rows)
 }
 
-func (col *FixedString) Encode(encoder *binary.Encoder) error {
-	if len(col.data)%col.size != 0 {
-		return &Error{
-			ColumnType: string(col.Type()),
-			Err:        fmt.Errorf("invalid column size. must be a multiple of %d bytes got %d bytes", col.size, len(col.data)),
-		}
-	}
-	return encoder.Raw(col.data)
+func (col *FixedString) Encode(buffer *proto.Buffer) {
+	col.col.EncodeColumn(buffer)
 }
 
 func (col *FixedString) row(i int) string {
-	return string(col.data[i*col.size : (i+1)*col.size])
+	v := col.col.Row(i)
+	return string(v)
 }
 
 func (col *FixedString) rowBytes(i int) []byte {
-	return col.data[i*col.size : (i+1)*col.size]
+	return col.col.Row(i)
 }
 
 var _ Interface = (*FixedString)(nil)

@@ -18,19 +18,19 @@
 package column
 
 import (
+	"encoding/binary"
 	"fmt"
+	"github.com/ClickHouse/ch-go/proto"
 	"math/big"
 	"reflect"
-
-	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
 )
 
 type BigInt struct {
 	size   int
-	data   []byte
 	chType Type
 	name   string
 	signed bool
+	col    proto.Column
 }
 
 func (col *BigInt) Name() string {
@@ -46,7 +46,7 @@ func (col *BigInt) ScanType() reflect.Type {
 }
 
 func (col *BigInt) Rows() int {
-	return len(col.data) / col.size
+	return col.col.Rows()
 }
 
 func (col *BigInt) Row(i int, ptr bool) interface{} {
@@ -78,17 +78,18 @@ func (col *BigInt) Append(v interface{}) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []big.Int:
 		nulls = make([]uint8, len(v))
-		for _, v := range v {
-			col.append(&v)
+		for i := range v {
+			col.append(&v[i])
 		}
 	case []*big.Int:
 		nulls = make([]uint8, len(v))
-		for i, v := range v {
+		for i := range v {
 			switch {
 			case v != nil:
-				col.append(v)
+				col.append(v[i])
 			default:
-				col.data, nulls[i] = append(col.data, make([]byte, col.size)...), 1
+				nulls[i] = 1
+				col.append(big.NewInt(0))
 			}
 		}
 	default:
@@ -110,10 +111,10 @@ func (col *BigInt) AppendRow(v interface{}) error {
 		case v != nil:
 			col.append(v)
 		default:
-			col.data = append(col.data, make([]byte, col.size)...)
+			col.append(big.NewInt(0))
 		}
 	case nil:
-		col.data = append(col.data, make([]byte, col.size)...)
+		col.append(big.NewInt(0))
 	default:
 		return &ColumnConverterError{
 			Op:   "AppendRow",
@@ -124,23 +125,82 @@ func (col *BigInt) AppendRow(v interface{}) error {
 	return nil
 }
 
-func (col *BigInt) Decode(decoder *binary.Decoder, rows int) error {
-	col.data = make([]byte, rows*col.size)
-	return decoder.Raw(col.data)
+func (col *BigInt) Decode(reader *proto.Reader, rows int) error {
+	return col.col.DecodeColumn(reader, rows)
 }
 
-func (col *BigInt) Encode(encoder *binary.Encoder) error {
-	return encoder.Raw(col.data)
+func (col *BigInt) Encode(buffer *proto.Buffer) {
+	col.col.EncodeColumn(buffer)
 }
 
 func (col *BigInt) row(i int) *big.Int {
-	return rawToBigInt(col.data[i*col.size:(i+1)*col.size], col.signed)
+	b := make([]byte, col.size)
+	switch vCol := col.col.(type) {
+	case *proto.ColInt128:
+		v := vCol.Row(i)
+		binary.LittleEndian.PutUint64(b[0:64/8], v.Low)
+		binary.LittleEndian.PutUint64(b[64/8:128/8], v.High)
+		return rawToBigInt(b, true)
+	case *proto.ColUInt128:
+		v := vCol.Row(i)
+		binary.LittleEndian.PutUint64(b[0:64/8], v.Low)
+		binary.LittleEndian.PutUint64(b[64/8:128/8], v.High)
+		return rawToBigInt(b, false)
+	case *proto.ColInt256:
+		v := vCol.Row(i)
+		binary.LittleEndian.PutUint64(b[0:64/8], v.Low.Low)
+		binary.LittleEndian.PutUint64(b[64/8:128/8], v.Low.High)
+		binary.LittleEndian.PutUint64(b[128/8:192/8], v.High.Low)
+		binary.LittleEndian.PutUint64(b[192/8:256/8], v.High.High)
+		return rawToBigInt(b, true)
+	case *proto.ColUInt256:
+		v := vCol.Row(i)
+		binary.LittleEndian.PutUint64(b[0:64/8], v.Low.Low)
+		binary.LittleEndian.PutUint64(b[64/8:128/8], v.Low.High)
+		binary.LittleEndian.PutUint64(b[128/8:192/8], v.High.Low)
+		binary.LittleEndian.PutUint64(b[192/8:256/8], v.High.High)
+		return rawToBigInt(b, false)
+	}
+	return big.NewInt(0)
 }
 
 func (col *BigInt) append(v *big.Int) {
 	dest := make([]byte, col.size)
 	bigIntToRaw(dest, new(big.Int).Set(v))
-	col.data = append(col.data, dest...)
+	switch v := col.col.(type) {
+	case *proto.ColInt128:
+		v.Append(proto.Int128{
+			Low:  binary.LittleEndian.Uint64(dest[0 : 64/8]),
+			High: binary.LittleEndian.Uint64(dest[64/8 : 128/8]),
+		})
+	case *proto.ColUInt128:
+		v.Append(proto.UInt128{
+			Low:  binary.LittleEndian.Uint64(dest[0 : 64/8]),
+			High: binary.LittleEndian.Uint64(dest[64/8 : 128/8]),
+		})
+	case *proto.ColInt256:
+		v.Append(proto.Int256{
+			Low: proto.UInt128{
+				Low:  binary.LittleEndian.Uint64(dest[0 : 64/8]),
+				High: binary.LittleEndian.Uint64(dest[64/8 : 128/8]),
+			},
+			High: proto.UInt128{
+				Low:  binary.LittleEndian.Uint64(dest[128/8 : 192/8]),
+				High: binary.LittleEndian.Uint64(dest[192/8 : 256/8]),
+			},
+		})
+	case *proto.ColUInt256:
+		v.Append(proto.UInt256{
+			Low: proto.UInt128{
+				Low:  binary.LittleEndian.Uint64(dest[0 : 64/8]),
+				High: binary.LittleEndian.Uint64(dest[64/8 : 128/8]),
+			},
+			High: proto.UInt128{
+				Low:  binary.LittleEndian.Uint64(dest[128/8 : 192/8]),
+				High: binary.LittleEndian.Uint64(dest[192/8 : 256/8]),
+			},
+		})
+	}
 }
 
 func bigIntToRaw(dest []byte, v *big.Int) {

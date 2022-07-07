@@ -19,10 +19,9 @@ package column
 
 import (
 	"fmt"
+	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
 	"strings"
-
-	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
 )
 
 type Type string
@@ -75,12 +74,12 @@ type Interface interface {
 	ScanRow(dest interface{}, row int) error
 	Append(v interface{}) (nulls []uint8, err error)
 	AppendRow(v interface{}) error
-	Decode(decoder *binary.Decoder, rows int) error
-	Encode(*binary.Encoder) error
+	Decode(reader *proto.Reader, rows int) error
+	Encode(buffer *proto.Buffer)
 	ScanType() reflect.Type
 }
 
 type CustomSerialization interface {
-	ReadStatePrefix(*binary.Decoder) error
-	WriteStatePrefix(*binary.Encoder) error
+	ReadStatePrefix(*proto.Reader) error
+	WriteStatePrefix(*proto.Buffer) error
 }

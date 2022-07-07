@@ -20,7 +20,7 @@ package proto
 import (
 	"fmt"
 
-	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
+	chproto "github.com/ClickHouse/ch-go/proto"
 )
 
 type Progress struct {
@@ -32,22 +32,22 @@ type Progress struct {
 	withClient bool
 }
 
-func (p *Progress) Decode(decoder *binary.Decoder, revision uint64) (err error) {
-	if p.Rows, err = decoder.Uvarint(); err != nil {
+func (p *Progress) Decode(reader *chproto.Reader, revision uint64) (err error) {
+	if p.Rows, err = reader.UVarInt(); err != nil {
 		return err
 	}
-	if p.Bytes, err = decoder.Uvarint(); err != nil {
+	if p.Bytes, err = reader.UVarInt(); err != nil {
 		return err
 	}
-	if p.TotalRows, err = decoder.Uvarint(); err != nil {
+	if p.TotalRows, err = reader.UVarInt(); err != nil {
 		return err
 	}
 	if revision >= DBMS_MIN_REVISION_WITH_CLIENT_WRITE_INFO {
 		p.withClient = true
-		if p.WroteRows, err = decoder.Uvarint(); err != nil {
+		if p.WroteRows, err = reader.UVarInt(); err != nil {
 			return err
 		}
-		if p.WroteBytes, err = decoder.Uvarint(); err != nil {
+		if p.WroteBytes, err = reader.UVarInt(); err != nil {
 			return err
 		}
 	}
