@@ -131,47 +131,47 @@ func TestStdJson(t *testing.T) {
 	assert.JSONEq(t, toJson(col1Data.Assignee.Repositories), toJson(repositories))
 }
 
-func TestStdJsonWithMap(t *testing.T) {
-	conn := clickhouse.OpenDB(&clickhouse.Options{
-		Addr: []string{"127.0.0.1:9000"},
-	})
-	if err := checkMinServerVersion(conn, 22, 6, 1); err != nil {
-		t.Skip(err.Error())
-		return
-	}
-	conn.Close()
-	conn = clickhouse.OpenDB(&clickhouse.Options{
-		Addr: []string{"127.0.0.1:9000"},
-		Settings: clickhouse.Settings{
-			"allow_experimental_object_type": 1,
-		},
-	})
-	conn.Exec("DROP TABLE json_std_test")
-	const ddl = `
-		CREATE TABLE json_std_test (
-			  event JSON
-		) Engine Memory
-		`
-	defer func() {
-		conn.Exec("DROP TABLE json_std_test")
-	}()
-	_, err := conn.Exec(ddl)
-	require.NoError(t, err)
-	scope, err := conn.Begin()
-	require.NoError(t, err)
-	batch, err := scope.Prepare("INSERT INTO json_std_test")
-	require.NoError(t, err)
-	col1Data := map[string]interface{}{
-		"58": map[string]interface{}{
-			"test": []string{"2", "3"},
-		},
-	}
-	_, err = batch.Exec(col1Data)
-	require.NoError(t, err)
-	require.NoError(t, scope.Commit())
-	// must pass interface{} - maps must be strongly typed so map[string]interface{} wont work - it wont convert
-	var event interface{}
-	rows := conn.QueryRow("SELECT * FROM json_std_test")
-	require.NoError(t, rows.Scan(&event))
-	assert.JSONEq(t, toJson(col1Data), toJson(event))
-}
+//func TestStdJsonWithMap(t *testing.T) {
+//	conn := clickhouse.OpenDB(&clickhouse.Options{
+//		Addr: []string{"127.0.0.1:9000"},
+//	})
+//	if err := checkMinServerVersion(conn, 22, 6, 1); err != nil {
+//		t.Skip(err.Error())
+//		return
+//	}
+//	conn.Close()
+//	conn = clickhouse.OpenDB(&clickhouse.Options{
+//		Addr: []string{"127.0.0.1:9000"},
+//		Settings: clickhouse.Settings{
+//			"allow_experimental_object_type": 1,
+//		},
+//	})
+//	conn.Exec("DROP TABLE json_std_test")
+//	const ddl = `
+//		CREATE TABLE json_std_test (
+//			  event JSON
+//		) Engine Memory
+//		`
+//	defer func() {
+//		conn.Exec("DROP TABLE json_std_test")
+//	}()
+//	_, err := conn.Exec(ddl)
+//	require.NoError(t, err)
+//	scope, err := conn.Begin()
+//	require.NoError(t, err)
+//	batch, err := scope.Prepare("INSERT INTO json_std_test")
+//	require.NoError(t, err)
+//	col1Data := map[string]interface{}{
+//		"58": map[string]interface{}{
+//			"test": []string{"2", "3"},
+//		},
+//	}
+//	_, err = batch.Exec(col1Data)
+//	require.NoError(t, err)
+//	require.NoError(t, scope.Commit())
+//	// must pass interface{} - maps must be strongly typed so map[string]interface{} wont work - it wont convert
+//	var event interface{}
+//	rows := conn.QueryRow("SELECT * FROM json_std_test")
+//	require.NoError(t, rows.Scan(&event))
+//	assert.JSONEq(t, toJson(col1Data), toJson(event))
+//}
