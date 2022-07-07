@@ -20,56 +20,11 @@ package std
 import (
 	"database/sql"
 	"fmt"
-	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 )
-
-func TestSimpleHttpStdArray(t *testing.T) {
-	dsns := map[string]string{"Http": "http://127.0.0.1:8123"}
-
-	for name, dsn := range dsns {
-		t.Run(fmt.Sprintf("%s Interface", name), func(t *testing.T) {
-			if conn, err := sql.Open("clickhouse", dsn); assert.NoError(t, err) {
-				const ddl = `
-		CREATE TABLE test_array (
-			  Col1 String
-		) Engine Memory
-		`
-				defer func() {
-					conn.Exec("DROP TABLE test_array")
-				}()
-				_, err := conn.Exec(ddl)
-				require.NoError(t, err)
-				scope, err := conn.Begin()
-				require.NoError(t, err)
-				batch, err := scope.Prepare("INSERT INTO test_array")
-				require.NoError(t, err)
-				var (
-					col1Data = "A"
-				)
-				for i := 0; i < 10; i++ {
-					_, err := batch.Exec(col1Data)
-					require.NoError(t, err)
-				}
-				require.NoError(t, scope.Commit())
-				rows, err := conn.Query("SELECT * FROM test_array")
-				require.NoError(t, err)
-				for rows.Next() {
-					var (
-						col1 interface{}
-					)
-					require.NoError(t, rows.Scan(&col1))
-					assert.Equal(t, col1Data, col1)
-				}
-				require.NoError(t, rows.Close())
-				require.NoError(t, rows.Err())
-			}
-		})
-	}
-}
 
 func TestStdArray(t *testing.T) {
 	dsns := map[string]string{"Native": "clickhouse://127.0.0.1:9000", "Http": "http://127.0.0.1:8123"}
