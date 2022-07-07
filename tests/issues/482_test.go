@@ -66,6 +66,7 @@ func TestIssue482(t *testing.T) {
 			&int32OverDate,
 		)
 		if assert.NoError(t, err) {
+			assert.Equal(t, "2020-02-01 00:00:00", notIssueDate.UTC().Format("2006-01-02 15:04:05"))
 			assert.Equal(t, "2061-02-01 00:00:00", myIssueDate.UTC().Format("2006-01-02 15:04:05"))
 			assert.Equal(t, "2064-01-01 00:00:00", myIssueDateTo64.UTC().Format("2006-01-02 15:04:05"))
 			assert.Equal(t, "2038-01-19 03:14:07", int32MaxDate.UTC().Format("2006-01-02 15:04:05"))

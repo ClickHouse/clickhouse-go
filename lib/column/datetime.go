@@ -33,10 +33,9 @@ var (
 )
 
 type DateTime struct {
-	chType   Type
-	timezone *time.Location
-	name     string
-	col      proto.ColDateTime
+	chType Type
+	name   string
+	col    proto.ColDateTime
 }
 
 func (col *DateTime) Name() string {
@@ -48,9 +47,11 @@ func (col *DateTime) parse(t Type) (_ *DateTime, err error) {
 		return col, nil
 	}
 	var name = strings.TrimSuffix(strings.TrimPrefix(string(t), "DateTime('"), "')")
-	if col.timezone, err = timezone.Load(name); err != nil {
+	timezone, err := timezone.Load(name)
+	if err != nil {
 		return nil, err
 	}
+	col.col.Location = timezone
 	return col, nil
 }
 
@@ -165,9 +166,6 @@ func (col *DateTime) Encode(buffer *proto.Buffer) {
 
 func (col *DateTime) row(i int) time.Time {
 	v := col.col.Row(i)
-	if col.timezone != nil {
-		v = v.In(col.timezone)
-	}
 	return v
 }
 
