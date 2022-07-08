@@ -110,6 +110,77 @@ This can be achieved by modifying the DSN to specify the http protocol.
 http://host1:9000,host2:9000/database?dial_timeout=200ms&max_execution_time=60
 ```
 
+Alternatively, use `OpenDB` and specify the interface type.
+
+```go
+conn := clickhouse.OpenDB(&clickhouse.Options{
+	Addr: []string{"127.0.0.1:8123")},
+	Auth: clickhouse.Auth{
+		Database: "default",
+		Username: "default",
+		Password: "",
+	},
+	Settings: clickhouse.Settings{
+		"max_execution_time": 60,
+	},
+	DialTimeout: 5 * time.Second,
+	Compression: &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	},
+	Interface: clickhouse.HttpInterface,
+})
+```
+
+## Compression
+
+Compression is supported over http and native. This is performed at a block level and is only used for inserts.
+
+Other compression methods will be added in future PRs.
+
+## TLS/SSL
+
+At a low level all driver connect methods (DSN/OpenDB/Open) will use the [Go tls package](https://pkg.go.dev/crypto/tls) to establish a secure connection. The driver knows to use TLS if the Options struct contains a non-nil tls.Config pointer.
+
+Setting secure in the DSN creates a minimal tls.Config struct with only the InsecureSkipVerify field set (either true or false).  It is equivalent to this code:
+
+```go
+conn := clickhouse.OpenDB(&clickhouse.Options{
+	...
+    TLS: &tls.Config{
+            InsecureSkipVerify: false
+	}
+	...
+    })
+```
+This minimal tls.Config is normally all that is necessary to connect to the secure native port (normally 9440) on a ClickHouse server. If the ClickHouse server does not have a valid certificate (expired, wrong host name, not signed by a publicly recognized root Certificate Authority), InsecureSkipVerify can be to `true`, but that is strongly discouraged.
+
+If additional TLS parameters are necessary the application code should set the desired fields in the tls.Config struct. That can include specific cipher suites, forcing a particular TLS version (like 1.2 or 1.3), adding an internal CA certificate chain, adding a client certificate (and private key) if required by the ClickHouse server, and most of the other options that come with a more specialized security setup.
+
+### HTTPS (Experimental)
+
+To connect using HTTPS either:
+
+- Use `https` in your dsn string e.g.
+
+    ```sh
+    https://host1:9000,host2:9000/database?dial_timeout=200ms&max_execution_time=60
+    ```
+
+- Specify the interface type as `HttpsInterface` e.g.
+
+```go
+conn := clickhouse.OpenDB(&clickhouse.Options{
+	Addr: []string{"127.0.0.1:8443")},
+	Auth: clickhouse.Auth{
+		Database: "default",
+		Username: "default",
+		Password: "",
+	},
+	Interface: clickhouse.HttpsInterface,
+})
+```
+
+
 ## Benchmark
 
 | [V1 (READ)](benchmark/v1/read/main.go) | [V2 (READ) std](benchmark/v2/read/main.go) | [V2 (READ) native](benchmark/v2/read-native/main.go) |
@@ -146,26 +217,6 @@ go get -u github.com/ClickHouse/clickhouse-go/v2
 * [async insert](examples/std/write-async)
 * [open db](examples/std/open_db/main.go)
 * [bind params](examples/std/bind/main.go)
-
-
-#### A Note on TLS/SSL
-
-At a low level all driver connect methods (DSN/OpenDB/Open) will use the [Go tls package](https://pkg.go.dev/crypto/tls) to establish a secure connection. The driver knows to use TLS if the Options struct contains a non-nil tls.Config pointer.
-
-Setting secure in the DSN creates a minimal tls.Config struct with only the InsecureSkipVerify field set (either true or false).  It is equivalent to this code:
-
-```go
-conn := clickhouse.OpenDB(&clickhouse.Options{
-	...
-    TLS: &tls.Config{
-            InsecureSkipVerify: false
-	}
-	...
-    })
-```
-This minimal tls.Config is normally all that is necessary to connect to the secure native port (normally 9440) on a ClickHouse server. If the ClickHouse server does not have a valid certificate (expired, wrong host name, not signed by a publicly recognized root Certificate Authority), InsecureSkipVerify can be to `true`, but that is strongly discouraged.
-
-If additional TLS parameters are necessary the application code should set the desired fields in the tls.Config struct. That can include specific cipher suites, forcing a particular TLS version (like 1.2 or 1.3), adding an internal CA certificate chain, adding a client certificate (and private key) if required by the ClickHouse server, and most of the other options that come with a more specialized security setup.
 
 ## ClickHouse alternatives
 

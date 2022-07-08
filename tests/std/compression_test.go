@@ -1,6 +1,7 @@
 package std
 
 import (
+	"database/sql"
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
@@ -28,20 +29,20 @@ func TestCompressionHttpStd(t *testing.T) {
 			},
 			Interface: interfaceType,
 		})
-		conn.Exec("DROP TABLE test_array")
+		conn.Exec("DROP TABLE IF EXISTS test_array_compress")
 		const ddl = `
-		CREATE TABLE test_array (
+		CREATE TABLE test_array_compress (
 			  Col1 Array(String)
 		) Engine Memory
 		`
 		defer func() {
-			conn.Exec("DROP TABLE test_array")
+			conn.Exec("DROP TABLE test_array_compress")
 		}()
 		_, err := conn.Exec(ddl)
 		require.NoError(t, err)
 		scope, err := conn.Begin()
 		require.NoError(t, err)
-		batch, err := scope.Prepare("INSERT INTO test_array")
+		batch, err := scope.Prepare("INSERT INTO test_array_compress")
 		require.NoError(t, err)
 		var (
 			col1Data = []string{"A", "b", "c"}
@@ -51,7 +52,7 @@ func TestCompressionHttpStd(t *testing.T) {
 			require.NoError(t, err)
 		}
 		require.NoError(t, scope.Commit())
-		rows, err := conn.Query("SELECT * FROM test_array")
+		rows, err := conn.Query("SELECT * FROM test_array_compress")
 		require.NoError(t, err)
 		for rows.Next() {
 			var (
@@ -66,3 +67,49 @@ func TestCompressionHttpStd(t *testing.T) {
 }
 
 //test compression over std with dsn and compress
+
+func TestCompressionHttpStdDSN(t *testing.T) {
+	dsns := map[string]string{"Native": "clickhouse://127.0.0.1:9000?compress=true", "Http": "http://127.0.0.1:8123?compress=true"}
+
+	for name, dsn := range dsns {
+		t.Run(fmt.Sprintf("%s Interface", name), func(t *testing.T) {
+			conn, err := sql.Open("clickhouse", dsn)
+			require.NoError(t, err)
+			conn.Exec("DROP TABLE IF EXISTS  test_array_compress")
+			const ddl = `
+				CREATE TABLE test_array_compress (
+					  Col1 Array(String)
+				) Engine Memory
+				`
+			defer func() {
+				conn.Exec("DROP TABLE test_array_compress")
+			}()
+			_, err = conn.Exec(ddl)
+			require.NoError(t, err)
+			scope, err := conn.Begin()
+			require.NoError(t, err)
+			batch, err := scope.Prepare("INSERT INTO test_array_compress")
+			require.NoError(t, err)
+			var (
+				col1Data = []string{"A", "b", "c"}
+			)
+			for i := 0; i < 100; i++ {
+				_, err := batch.Exec(col1Data)
+				require.NoError(t, err)
+			}
+			require.NoError(t, scope.Commit())
+			rows, err := conn.Query("SELECT * FROM test_array_compress")
+			require.NoError(t, err)
+			for rows.Next() {
+				var (
+					col1 interface{}
+				)
+				require.NoError(t, rows.Scan(&col1))
+				assert.Equal(t, col1Data, col1)
+			}
+			require.NoError(t, rows.Close())
+			require.NoError(t, rows.Err())
+		})
+	}
+
+}
