@@ -47,6 +47,4 @@ jobs:
 
       - name: Run tests
         run: |
-          go test -v .
-          go test -v ./tests/...
-          go test -v ./lib/...
+          make test

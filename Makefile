@@ -8,8 +8,7 @@ cli:
 
 test:
 	@go install -race -v
-	@go test -race -timeout 30s -count=1 -v .
-	@go test -race -timeout 30s -count=1 -v ./tests/...
+	@go test -race -timeout 30s -count=1 -v ./...
 
 lint:
 	golangci-lint run || :
