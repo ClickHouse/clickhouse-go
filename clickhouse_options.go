@@ -147,6 +147,8 @@ func (o *Options) fromDSN(in string) error {
 			default:
 				if n, err := strconv.Atoi(p); err == nil {
 					o.Settings[v] = n
+				} else {
+					o.Settings[v] = p
 				}
 			}
 		}

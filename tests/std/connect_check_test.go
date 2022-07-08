@@ -20,6 +20,7 @@ package std
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"testing"
 	"time"
 
@@ -36,28 +37,36 @@ func TestStdConnCheck(t *testing.T) {
 		dml = `INSERT INTO clickhouse_test_conncheck VALUES `
 	)
 
-	if connect, err := sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=false"); assert.NoError(t, err) {
-		// We can only change the settings at the connection level.
-		// If we have only one connection, we change the settings specifically for that connection.
-		connect.SetMaxOpenConns(1)
-		if _, err := connect.Exec("DROP TABLE IF EXISTS clickhouse_test_conncheck"); assert.NoError(t, err) {
-			if _, err := connect.Exec(ddl); assert.NoError(t, err) {
-				_, err = connect.Exec("set idle_connection_timeout=1")
-				assert.NoError(t, err)
+	dsns := map[string]string{"Native": "clickhouse://127.0.0.1:9000", "Http": "http://127.0.0.1:8123?session_id=session"}
 
-				_, err = connect.Exec("set tcp_keep_alive_timeout=0")
-				assert.NoError(t, err)
+	for name, dsn := range dsns {
+		t.Run(fmt.Sprintf("%s Interface", name), func(t *testing.T) {
 
-				time.Sleep(1100 * time.Millisecond)
-				ctx := context.Background()
-				tx, err := connect.BeginTx(ctx, nil)
-				assert.NoError(t, err)
+			if connect, err := sql.Open("clickhouse", dsn); assert.NoError(t, err) {
+				// We can only change the settings at the connection level.
+				// If we have only one connection, we change the settings specifically for that connection.
+				connect.SetMaxOpenConns(1)
+				if _, err := connect.Exec("DROP TABLE IF EXISTS clickhouse_test_conncheck"); assert.NoError(t, err) {
+					if _, err := connect.Exec(ddl); assert.NoError(t, err) {
+						_, err = connect.Exec("set idle_connection_timeout=1")
+						assert.NoError(t, err)
 
-				_, err = tx.PrepareContext(ctx, dml)
-				assert.NoError(t, err)
-				assert.NoError(t, tx.Commit())
+						_, err = connect.Exec("set tcp_keep_alive_timeout=0")
+						assert.NoError(t, err)
+
+						time.Sleep(1100 * time.Millisecond)
+						ctx := context.Background()
+						tx, err := connect.BeginTx(ctx, nil)
+						assert.NoError(t, err)
+
+						_, err = tx.PrepareContext(ctx, dml)
+						assert.NoError(t, err)
+						assert.NoError(t, tx.Commit())
+					}
+				}
+				connect.Exec("DROP TABLE IF EXISTS clickhouse_test_conncheck")
 			}
-		}
-		connect.Exec("DROP TABLE IF EXISTS clickhouse_test_conncheck")
+		},
+		)
 	}
 }
