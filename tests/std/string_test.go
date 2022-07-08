@@ -26,7 +26,7 @@ import (
 )
 
 func TestSimpleHttpStdArray(t *testing.T) {
-	dsns := map[string]string{"Http": "http://127.0.0.1:8123"}
+	dsns := map[string]string{"Http": "http://127.0.0.1:8123,127.0.0.1:8123/default?dial_timeout=200ms&max_execution_time=60"}
 	for name, dsn := range dsns {
 		t.Run(fmt.Sprintf("%s Interface", name), func(t *testing.T) {
 			if conn, err := sql.Open("clickhouse", dsn); assert.NoError(t, err) {

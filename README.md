@@ -14,10 +14,19 @@ Users should use v2 which is production ready and [significantly faster than v1]
 
 The driver is tested against the currently [supported versions](https://github.com/ClickHouse/ClickHouse/blob/master/SECURITY.md) of ClickHouse
 
+## Supported Golang Versions
+
+| Driver Version | Golang Versions |
+|----------------|-----------------|
+| => 2.0 <= 2.2  | 1.17, 1.18      |
+| >= 2.3         | 1.18            |
+
 ## Key features
 
-* Uses native ClickHouse TCP client-server protocol
+* Uses ClickHouse native format for optimal performance. Utilises low level [ch-go](https://github.com/ClickHouse/ch-go) driver for encoding/decoding and compression (versions >= 2.3.0).
+* Supports native ClickHouse TCP client-server protocol
 * Compatibility with [`database/sql`](#std-databasesql-interface) ([slower](#benchmark) than [native interface](#native-interface)!)
+* [`database/sql`](#std-databasesql-interface) supports http protocol for transport. (Experimental)
 * Marshal rows into structs ([ScanStruct](tests/scan_struct_test.go), [Select](examples/native/scan_struct/main.go))
 * Unmarshal struct to row ([AppendStruct](benchmark/v2/write-native-struct/main.go))
 * Connection pool
@@ -91,6 +100,16 @@ Example:
 clickhouse://username:password@host1:9000,host2:9000/database?dial_timeout=200ms&max_execution_time=60
 ```
 
+### HTTP Support (Experimental)
+
+The native format can be used over the HTTP protocol. This is useful in scenarios where users need to proxy traffic e.g. using [ChProxy](https://www.chproxy.org/) or via load balancers.
+
+This can be achieved by modifying the DSN to specify the http protocol.
+
+```sh
+http://host1:9000,host2:9000/database?dial_timeout=200ms&max_execution_time=60
+```
+
 ## Benchmark
 
 | [V1 (READ)](benchmark/v1/read/main.go) | [V2 (READ) std](benchmark/v2/read/main.go) | [V2 (READ) native](benchmark/v2/read-native/main.go) |
@@ -148,6 +167,12 @@ This minimal tls.Config is normally all that is necessary to connect to the secu
 
 If additional TLS parameters are necessary the application code should set the desired fields in the tls.Config struct. That can include specific cipher suites, forcing a particular TLS version (like 1.2 or 1.3), adding an internal CA certificate chain, adding a client certificate (and private key) if required by the ClickHouse server, and most of the other options that come with a more specialized security setup.
 
+## ClickHouse alternatives
+
+Versions of this driver >=2.3.x utilise [ch-go](https://github.com/ClickHouse/ch-go) for their low level encoding/decoding. This low lever driver provides a high performance columnar interface and should be used in performance critical use cases. This driver provides more familar row orientated and `database/sql` semantics at the cost of some performance.
+
+Both drivers are supported by ClickHouse.
+
 ## Third-party alternatives
 
 * Database drivers:
@@ -155,7 +180,6 @@ If additional TLS parameters are necessary the application code should set the d
 	* [uptrace/go-clickhouse](https://github.com/uptrace/go-clickhouse) (uses the native TCP protocol with `database/sql`-like API)
 	* Drivers with columnar interface:
 		* [vahid-sohrabloo/chconn](https://github.com/vahid-sohrabloo/chconn)
-		* [go-faster/ch](https://github.com/go-faster/ch)
 
 * Insert collectors:
 	* [KittenHouse](https://github.com/YuriyNasretdinov/kittenhouse)
