@@ -65,7 +65,7 @@ func (h *httpConnect) query(ctx context.Context, release func(*connect, error), 
 		for {
 			block, err := h.readData(reader)
 			if err != nil {
-				// ch-go wraps EOF files
+				// ch-go wraps EOF errors
 				if !errors.Is(err, io.EOF) {
 					errCh <- err
 				}
