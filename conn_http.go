@@ -22,6 +22,7 @@ import (
 	"context"
 	"database/sql/driver"
 	"fmt"
+	"github.com/ClickHouse/ch-go/compress"
 	chproto "github.com/ClickHouse/ch-go/proto"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 	"github.com/pkg/errors"
@@ -38,8 +39,18 @@ const (
 )
 
 func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpConnect, error) {
+	if opt.scheme == "" {
+		switch opt.Interface {
+		case HttpInterface:
+			opt.scheme = "http"
+		case HttpsInterface:
+			opt.scheme = "https"
+		default:
+			return nil, errors.New("invalid interface type for http")
+		}
+	}
 	u := &url.URL{
-		Scheme: opt.Scheme,
+		Scheme: opt.scheme,
 		Host:   addr,
 	}
 
@@ -59,6 +70,10 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		query.Set(k, fmt.Sprint(v))
 	}
 	query.Set("default_format", "Native")
+	var compression bool
+	if opt.Compression != nil {
+		compression = opt.Compression.Method == CompressionLZ4
+	}
 	u.RawQuery = query.Encode()
 
 	t := &http.Transport{
@@ -76,8 +91,10 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		client: &http.Client{
 			Transport: t,
 		},
-		url:    u,
-		buffer: new(chproto.Buffer),
+		url:         u,
+		buffer:      new(chproto.Buffer),
+		compression: compression,
+		compressor:  compress.NewWriter(),
 	}
 
 	rows, err := conn.query(ctx, func(*connect, error) {}, "SELECT timeZone()")
@@ -99,10 +116,12 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 }
 
 type httpConnect struct {
-	url      *url.URL
-	client   *http.Client
-	location *time.Location
-	buffer   *chproto.Buffer
+	url         *url.URL
+	client      *http.Client
+	location    *time.Location
+	buffer      *chproto.Buffer
+	compression bool
+	compressor  *compress.Writer
 }
 
 func (h *httpConnect) isBad() bool {
@@ -113,7 +132,20 @@ func (h *httpConnect) isBad() bool {
 }
 
 func (h *httpConnect) writeData(block *proto.Block) error {
-	return block.Encode(h.buffer, 0)
+	// Saving offset of compressible data
+	start := len(h.buffer.Buf)
+	if err := block.Encode(h.buffer, 0); err != nil {
+		return err
+	}
+	if h.compression {
+		// Performing compression. Supported and requires
+		data := h.buffer.Buf[start:]
+		if err := h.compressor.Compress(compress.LZ4, data); err != nil {
+			return errors.Wrap(err, "compress")
+		}
+		h.buffer.Buf = append(h.buffer.Buf[:start], h.compressor.Data...)
+	}
+	return nil
 }
 
 func (h *httpConnect) readData(reader *chproto.Reader) (*proto.Block, error) {

@@ -54,6 +54,7 @@ type InterfaceType int
 const (
 	NativeInterface InterfaceType = iota
 	HttpInterface
+	HttpsInterface
 )
 
 func ParseDSN(dsn string) (*Options, error) {
@@ -81,7 +82,7 @@ type Options struct {
 	ConnMaxLifetime  time.Duration // default 1 hour
 	ConnOpenStrategy ConnOpenStrategy
 
-	Scheme      string
+	scheme      string
 	ReadTimeout time.Duration
 }
 
@@ -158,7 +159,7 @@ func (o *Options) fromDSN(in string) error {
 			InsecureSkipVerify: skipVerify,
 		}
 	}
-	o.Scheme = dsn.Scheme
+	o.scheme = dsn.Scheme
 	switch dsn.Scheme {
 	case "http":
 		if secure {
@@ -169,7 +170,7 @@ func (o *Options) fromDSN(in string) error {
 		if !secure {
 			return fmt.Errorf("clickhouse [dsn parse]: https without TLS specify")
 		}
-		o.Interface = HttpInterface
+		o.Interface = HttpsInterface
 	default:
 		o.Interface = NativeInterface
 	}

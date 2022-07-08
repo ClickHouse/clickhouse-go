@@ -169,6 +169,10 @@ func (b *httpBatch) Send() (err error) {
 	}()
 
 	options := queryOptions(b.ctx)
+	// only compress blocks
+	if b.conn.compression {
+		options.settings["decompress"] = "1"
+	}
 	options.settings["query"] = b.query
 	res, err := b.conn.sendQuery(b.ctx, r, &options, map[string]string{
 		"Content-Type": "application/octet-stream",

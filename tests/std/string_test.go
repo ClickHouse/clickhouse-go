@@ -25,8 +25,8 @@ import (
 	"testing"
 )
 
-func TestSimpleHttpStdArray(t *testing.T) {
-	dsns := map[string]string{"Http": "http://127.0.0.1:8123"}
+func TestSimpleHttpStdString(t *testing.T) {
+	dsns := map[string]string{"Native": "clickhouse://127.0.0.1:9000", "Http": "http://127.0.0.1:8123"}
 	for name, dsn := range dsns {
 		t.Run(fmt.Sprintf("%s Interface", name), func(t *testing.T) {
 			if conn, err := sql.Open("clickhouse", dsn); assert.NoError(t, err) {
