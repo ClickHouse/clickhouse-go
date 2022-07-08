@@ -25,9 +25,7 @@ import (
 // https://github.com/ClickHouse/ClickHouse/blob/master/src/Client/Connection.cpp
 func (c *connect) sendQuery(body string, o *QueryOptions) error {
 	c.debugf("[send query] compression=%t %s", c.compression, body)
-	if err := c.encoder.Byte(proto.ClientQuery); err != nil {
-		return err
-	}
+	c.buffer.PutByte(proto.ClientQuery)
 	q := proto.Query{
 		ID:             o.queryID,
 		Body:           body,
@@ -37,7 +35,7 @@ func (c *connect) sendQuery(body string, o *QueryOptions) error {
 		InitialAddress: c.conn.LocalAddr().String(),
 		Settings:       c.settings(o.settings),
 	}
-	if err := q.Encode(c.encoder, c.revision); err != nil {
+	if err := q.Encode(c.buffer, c.revision); err != nil {
 		return err
 	}
 	for _, table := range o.external {
@@ -48,5 +46,5 @@ func (c *connect) sendQuery(body string, o *QueryOptions) error {
 	if err := c.sendData(&proto.Block{}, ""); err != nil {
 		return err
 	}
-	return c.encoder.Flush()
+	return c.flush()
 }

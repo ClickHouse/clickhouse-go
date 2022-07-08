@@ -19,8 +19,7 @@ package proto
 
 import (
 	"fmt"
-
-	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
+	chproto "github.com/ClickHouse/ch-go/proto"
 )
 
 type ProfileInfo struct {
@@ -32,23 +31,23 @@ type ProfileInfo struct {
 	CalculatedRowsBeforeLimit bool
 }
 
-func (p *ProfileInfo) Decode(decoder *binary.Decoder, revision uint64) (err error) {
-	if p.Rows, err = decoder.Uvarint(); err != nil {
+func (p *ProfileInfo) Decode(reader *chproto.Reader, revision uint64) (err error) {
+	if p.Rows, err = reader.UVarInt(); err != nil {
 		return err
 	}
-	if p.Blocks, err = decoder.Uvarint(); err != nil {
+	if p.Blocks, err = reader.UVarInt(); err != nil {
 		return err
 	}
-	if p.Bytes, err = decoder.Uvarint(); err != nil {
+	if p.Bytes, err = reader.UVarInt(); err != nil {
 		return err
 	}
-	if p.AppliedLimit, err = decoder.Bool(); err != nil {
+	if p.AppliedLimit, err = reader.Bool(); err != nil {
 		return err
 	}
-	if p.RowsBeforeLimit, err = decoder.Uvarint(); err != nil {
+	if p.RowsBeforeLimit, err = reader.UVarInt(); err != nil {
 		return err
 	}
-	if p.CalculatedRowsBeforeLimit, err = decoder.Bool(); err != nil {
+	if p.CalculatedRowsBeforeLimit, err = reader.Bool(); err != nil {
 		return err
 	}
 	return nil

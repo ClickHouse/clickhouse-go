@@ -19,7 +19,6 @@ jobs:
       fail-fast: true
       matrix:
         go:
-          - 1.17
           - 1.18
         clickhouse:
           - 21.8

@@ -19,7 +19,7 @@ package column
 
 import (
 	"fmt"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
+	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
 	"strings"
 )
@@ -185,12 +185,12 @@ func convertSlice(values interface{}) (interface{}, error) {
 func (jCol *JSONList) createNewOffsets(num int) {
 	for i := 0; i < num; i++ {
 		//single depth so can take 1st
-		if len(jCol.offsets[0].values.data) == 0 {
+		if jCol.offsets[0].values.col.Rows() == 0 {
 			// first entry in the column
-			jCol.offsets[0].values.data = []uint64{0}
+			jCol.offsets[0].values.col.Append(0)
 		} else {
 			// entry for this object to see offset from last - offsets are cumulative
-			jCol.offsets[0].values.data = append(jCol.offsets[0].values.data, jCol.offsets[0].values.data[len(jCol.offsets[0].values.data)-1])
+			jCol.offsets[0].values.col.Append(jCol.offsets[0].values.col.Row(jCol.offsets[0].values.col.Rows() - 1))
 		}
 	}
 }
@@ -245,7 +245,7 @@ func parseSlice(name string, values interface{}, jCol JSONParent, preFill int) e
 		col.createNewOffsets(preFill + 1)
 		for i := 0; i < rValues.Len(); i++ {
 			// increment offset
-			col.offsets[0].values.data[len(col.offsets[0].values.data)-1] += 1
+			col.offsets[0].values.col[col.offsets[0].values.col.Rows()-1] += 1
 			value := rValues.Index(i)
 			sKind = value.Kind()
 			if sKind == reflect.Interface {
@@ -871,31 +871,27 @@ func (jCol *JSONObject) AppendRow(v interface{}) error {
 	return nil
 }
 
-func (jCol *JSONObject) Decode(decoder *binary.Decoder, rows int) error {
+func (jCol *JSONObject) Decode(reader *proto.Reader, rows int) error {
 	panic("Not implemented")
 }
 
-func (jCol *JSONObject) Encode(encoder *binary.Encoder) error {
+func (jCol *JSONObject) Encode(buffer *proto.Buffer) {
 	if jCol.root && jCol.encoding == 0 {
-		if err := encoder.String(string(jCol.FullType())); err != nil {
-			return err
-		}
+		buffer.PutString(string(jCol.FullType()))
 	}
 	for _, c := range jCol.columns {
-		if err := c.Encode(encoder); err != nil {
-			return err
-		}
+		c.Encode(buffer)
 	}
-	return nil
 }
 
-func (jCol *JSONObject) ReadStatePrefix(decoder *binary.Decoder) error {
-	_, err := decoder.UInt8()
+func (jCol *JSONObject) ReadStatePrefix(reader *proto.Reader) error {
+	_, err := reader.UInt8()
 	return err
 }
 
-func (jCol *JSONObject) WriteStatePrefix(encoder *binary.Encoder) error {
-	return encoder.UInt8(jCol.encoding)
+func (jCol *JSONObject) WriteStatePrefix(buffer *proto.Buffer) error {
+	buffer.PutUInt8(jCol.encoding)
+	return nil
 }
 
 var (

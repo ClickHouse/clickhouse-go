@@ -22,7 +22,7 @@ import (
 	"context"
 	"database/sql/driver"
 	"fmt"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
+	chproto "github.com/ClickHouse/ch-go/proto"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 	"github.com/pkg/errors"
 	"io"
@@ -60,9 +60,8 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		client: &http.Client{
 			Transport: t,
 		},
-		url:     u,
-		encoder: &binary.Encoder{},
-		decoder: &binary.Decoder{},
+		url:    u,
+		buffer: new(chproto.Buffer),
 	}
 
 	rows, err := conn.query(ctx, func(*connect, error) {}, "SELECT timeZone()")
@@ -88,8 +87,7 @@ type httpConnect struct {
 	url      *url.URL
 	client   *http.Client
 	location *time.Location
-	encoder  *binary.Encoder
-	decoder  *binary.Decoder
+	buffer   *chproto.Buffer
 }
 
 func (h *httpConnect) isBad() bool {
@@ -100,12 +98,12 @@ func (h *httpConnect) isBad() bool {
 }
 
 func (h *httpConnect) writeData(block *proto.Block) error {
-	return block.Encode(h.encoder, 0)
+	return block.Encode(h.buffer, 0)
 }
 
-func (h *httpConnect) readData() (*proto.Block, error) {
+func (h *httpConnect) readData(reader *chproto.Reader) (*proto.Block, error) {
 	var block proto.Block
-	if err := block.Decode(h.decoder, 0); err != nil {
+	if err := block.Decode(reader, 0); err != nil {
 		return nil, err
 	}
 	return &block, nil
@@ -123,18 +121,14 @@ func readResponse(response *http.Response) ([]byte, error) {
 	buf := bytes.NewBuffer(result)
 	defer response.Body.Close()
 	_, err := buf.ReadFrom(response.Body)
-
 	if err != nil {
 		return nil, err
 	}
-
 	return buf.Bytes(), nil
 }
 
 func (h *httpConnect) prepareRequest(ctx context.Context, reader io.Reader, extra map[string]string) (*http.Request, error) {
-
 	u := *h.url
-
 	if len(extra) != 0 {
 		query := u.Query()
 		for key, value := range extra {
@@ -142,18 +136,14 @@ func (h *httpConnect) prepareRequest(ctx context.Context, reader io.Reader, extr
 		}
 		u.RawQuery = query.Encode()
 	}
-
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), reader)
-
 	return req, err
 }
 
 func (h *httpConnect) executeRequest(req *http.Request) (io.ReadCloser, error) {
-
 	if h.client == nil {
 		return nil, driver.ErrBadConn
 	}
-
 	resp, err := h.client.Do(req)
 	if err != nil {
 		return nil, err
@@ -167,7 +157,6 @@ func (h *httpConnect) executeRequest(req *http.Request) (io.ReadCloser, error) {
 
 		return nil, fmt.Errorf("clickhouse [execute]:: %d code: %s", resp.StatusCode, string(msg))
 	}
-
 	return resp.Body, nil
 }
 
@@ -176,19 +165,16 @@ func (h *httpConnect) exec(ctx context.Context, query string, args ...interface{
 	if err != nil {
 		return err
 	}
-
 	req, err := h.prepareRequest(ctx, strings.NewReader(query), nil)
 	if err != nil {
 		return err
 	}
-
 	res, err := h.executeRequest(req)
 	if res != nil {
 		defer res.Close()
 		// we don't care about result, so just discard it to reuse connection
 		_, _ = io.Copy(ioutil.Discard, res)
 	}
-
 	return err
 }
 
@@ -202,7 +188,6 @@ func (h *httpConnect) ping(ctx context.Context) error {
 	if len(column) == 1 && column[0] == "1" {
 		return nil
 	}
-
 	return errors.New("clickhouse [ping]:: cannot ping clickhouse")
 }
 

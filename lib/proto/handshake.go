@@ -19,9 +19,9 @@ package proto
 
 import (
 	"fmt"
+	chproto "github.com/ClickHouse/ch-go/proto"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/timezone"
 )
 
@@ -35,17 +35,11 @@ const (
 
 type ClientHandshake struct{}
 
-func (ClientHandshake) Encode(encoder *binary.Encoder) error {
-	if err := encoder.String(ClientName); err != nil {
-		return err
-	}
-	if err := encoder.Uvarint(ClientVersionMajor); err != nil {
-		return err
-	}
-	if err := encoder.Uvarint(ClientVersionMinor); err != nil {
-		return err
-	}
-	return encoder.Uvarint(ClientTCPProtocolVersion)
+func (ClientHandshake) Encode(buffer *chproto.Buffer) {
+	buffer.PutString(ClientName)
+	buffer.PutUVarInt(ClientVersionMajor)
+	buffer.PutUVarInt(ClientVersionMinor)
+	buffer.PutUVarInt(ClientTCPProtocolVersion)
 }
 
 func (ClientHandshake) String() string {
@@ -64,21 +58,21 @@ type ServerHandshake struct {
 	Timezone *time.Location
 }
 
-func (srv *ServerHandshake) Decode(decoder *binary.Decoder) (err error) {
-	if srv.Name, err = decoder.String(); err != nil {
+func (srv *ServerHandshake) Decode(reader *chproto.Reader) (err error) {
+	if srv.Name, err = reader.Str(); err != nil {
 		return fmt.Errorf("could not read server name: %v", err)
 	}
-	if srv.Version.Major, err = decoder.Uvarint(); err != nil {
+	if srv.Version.Major, err = reader.UVarInt(); err != nil {
 		return fmt.Errorf("could not read server major version: %v", err)
 	}
-	if srv.Version.Minor, err = decoder.Uvarint(); err != nil {
+	if srv.Version.Minor, err = reader.UVarInt(); err != nil {
 		return fmt.Errorf("could not read server minor version: %v", err)
 	}
-	if srv.Revision, err = decoder.Uvarint(); err != nil {
+	if srv.Revision, err = reader.UVarInt(); err != nil {
 		return fmt.Errorf("could not read server revision: %v", err)
 	}
 	if srv.Revision >= DBMS_MIN_REVISION_WITH_SERVER_TIMEZONE {
-		name, err := decoder.String()
+		name, err := reader.Str()
 		if err != nil {
 			return fmt.Errorf("could not read server timezone: %v", err)
 		}
@@ -87,12 +81,12 @@ func (srv *ServerHandshake) Decode(decoder *binary.Decoder) (err error) {
 		}
 	}
 	if srv.Revision >= DBMS_MIN_REVISION_WITH_SERVER_DISPLAY_NAME {
-		if srv.DisplayName, err = decoder.String(); err != nil {
+		if srv.DisplayName, err = reader.Str(); err != nil {
 			return fmt.Errorf("could not read server display name: %v", err)
 		}
 	}
 	if srv.Revision >= DBMS_MIN_REVISION_WITH_VERSION_PATCH {
-		if srv.Version.Patch, err = decoder.Uvarint(); err != nil {
+		if srv.Version.Patch, err = reader.UVarInt(); err != nil {
 			return fmt.Errorf("could not read server patch: %v", err)
 		}
 	} else {

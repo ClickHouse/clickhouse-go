@@ -19,8 +19,7 @@ package proto
 
 import (
 	"fmt"
-
-	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
+	chproto "github.com/ClickHouse/ch-go/proto"
 )
 
 type TableColumns struct {
@@ -28,11 +27,11 @@ type TableColumns struct {
 	Second string
 }
 
-func (t *TableColumns) Decode(decoder *binary.Decoder, revision uint64) (err error) {
-	if t.First, err = decoder.String(); err != nil {
+func (t *TableColumns) Decode(reader *chproto.Reader, revision uint64) (err error) {
+	if t.First, err = reader.Str(); err != nil {
 		return err
 	}
-	if t.Second, err = decoder.String(); err != nil {
+	if t.Second, err = reader.Str(); err != nil {
 		return err
 	}
 	return nil

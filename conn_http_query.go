@@ -20,6 +20,8 @@ package clickhouse
 import (
 	"bytes"
 	"context"
+	"errors"
+	chproto "github.com/ClickHouse/ch-go/proto"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 	"io"
 	"io/ioutil"
@@ -48,9 +50,8 @@ func (h *httpConnect) query(ctx context.Context, release func(*connect, error), 
 	if err != nil {
 		return nil, err
 	}
-
-	h.decoder.Reset(bytes.NewReader(body))
-	block, err := h.readData()
+	reader := chproto.NewReader(bytes.NewReader(body))
+	block, err := h.readData(reader)
 	if err != nil {
 		return nil, err
 	}
@@ -62,9 +63,10 @@ func (h *httpConnect) query(ctx context.Context, release func(*connect, error), 
 
 	go func() {
 		for {
-			block, err := h.readData()
+			block, err := h.readData(reader)
 			if err != nil {
-				if err != io.EOF {
+				// ch-go wraps EOF errors
+				if !errors.Is(err, io.EOF) {
 					errCh <- err
 				}
 				break

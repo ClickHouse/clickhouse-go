@@ -28,6 +28,48 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestSimpleIPv4(t *testing.T) {
+	var (
+		ctx       = context.Background()
+		conn, err = clickhouse.Open(&clickhouse.Options{
+			Addr: []string{"127.0.0.1:9000"},
+			Auth: clickhouse.Auth{
+				Database: "default",
+				Username: "default",
+				Password: "",
+			},
+			Compression: &clickhouse.Compression{
+				Method: clickhouse.CompressionLZ4,
+			},
+			//	Debug: true,
+		})
+	)
+	require.NoError(t, err)
+	const ddl = `
+			CREATE TABLE test_ipv4 (
+				  Col1 IPv4
+			) Engine Memory
+		`
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE test_ipv4")
+	}()
+
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_ipv4")
+	require.NoError(t, err)
+
+	var (
+		col1Data = net.ParseIP("127.0.0.1")
+	)
+	require.NoError(t, batch.Append(col1Data))
+	require.NoError(t, batch.Send())
+	var (
+		col1 net.IP
+	)
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_ipv4").Scan(&col1))
+	assert.Equal(t, col1Data.To4(), col1)
+}
+
 func TestIPv4(t *testing.T) {
 	var (
 		ctx       = context.Background()

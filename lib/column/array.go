@@ -19,10 +19,9 @@ package column
 
 import (
 	"fmt"
+	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
 	"strings"
-
-	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
 )
 
 type offset struct {
@@ -94,7 +93,7 @@ func (col *Array) ScanType() reflect.Type {
 
 func (col *Array) Rows() int {
 	if len(col.offsets) != 0 {
-		return len(col.offsets[0].values.data)
+		return col.offsets[0].values.Rows()
 	}
 	return 0
 }
@@ -151,10 +150,10 @@ func (col *Array) AppendRow(v interface{}) error {
 func (col *Array) append(elem reflect.Value, level int) error {
 	if level < col.depth {
 		offset := uint64(elem.Len())
-		if ln := len(col.offsets[level].values.data); ln != 0 {
-			offset += col.offsets[level].values.data[ln-1]
+		if ln := col.offsets[level].values.Rows(); ln != 0 {
+			offset += col.offsets[level].values.col.Row(ln - 1)
 		}
-		col.offsets[level].values.data = append(col.offsets[level].values.data, offset)
+		col.offsets[level].values.col.Append(offset)
 		for i := 0; i < elem.Len(); i++ {
 			if err := col.append(elem.Index(i), level+1); err != nil {
 				return err
@@ -168,42 +167,40 @@ func (col *Array) append(elem reflect.Value, level int) error {
 	return col.values.AppendRow(elem.Interface())
 }
 
-func (col *Array) Decode(decoder *binary.Decoder, rows int) error {
+func (col *Array) Decode(reader *proto.Reader, rows int) error {
 	for _, offset := range col.offsets {
-		if err := offset.values.Decode(decoder, rows); err != nil {
+		if err := offset.values.col.DecodeColumn(reader, rows); err != nil {
 			return err
 		}
 		switch {
-		case len(offset.values.data) > 0:
-			rows = int(offset.values.data[len(offset.values.data)-1])
+		case offset.values.Rows() > 0:
+			rows = int(offset.values.col.Row(offset.values.col.Rows() - 1))
 		default:
 			rows = 0
 		}
 	}
-	return col.values.Decode(decoder, rows)
+	return col.values.Decode(reader, rows)
 }
 
-func (col *Array) Encode(encoder *binary.Encoder) error {
+func (col *Array) Encode(buffer *proto.Buffer) {
 	for _, offset := range col.offsets {
-		if err := offset.values.Encode(encoder); err != nil {
-			return err
-		}
+		offset.values.col.EncodeColumn(buffer)
 	}
-	return col.values.Encode(encoder)
+	col.values.Encode(buffer)
 }
 
-func (col *Array) ReadStatePrefix(decoder *binary.Decoder) error {
+func (col *Array) ReadStatePrefix(reader *proto.Reader) error {
 	if serialize, ok := col.values.(CustomSerialization); ok {
-		if err := serialize.ReadStatePrefix(decoder); err != nil {
+		if err := serialize.ReadStatePrefix(reader); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (col *Array) WriteStatePrefix(encoder *binary.Encoder) error {
+func (col *Array) WriteStatePrefix(buffer *proto.Buffer) error {
 	if serialize, ok := col.values.(CustomSerialization); ok {
-		if err := serialize.WriteStatePrefix(encoder); err != nil {
+		if err := serialize.WriteStatePrefix(buffer); err != nil {
 			return err
 		}
 	}
@@ -245,11 +242,11 @@ func (col *Array) scanSlice(sliceType reflect.Type, row int, level int) (reflect
 	// We could try and set - if it exceeds just return immediately
 	offset := col.offsets[level]
 	var (
-		end   = offset.values.data[row]
+		end   = offset.values.col.Row(row)
 		start = uint64(0)
 	)
 	if row > 0 {
-		start = offset.values.data[row-1]
+		start = offset.values.col.Row(row - 1)
 	}
 	base := offset.scanType.Elem()
 	isPtr := base.Kind() == reflect.Ptr
@@ -374,11 +371,11 @@ func (col *Array) scanSliceOfMaps(sliceType reflect.Type, row int) (reflect.Valu
 	// Array(Tuple so depth 1 for JSON
 	offset := col.offsets[0]
 	var (
-		end   = offset.values.data[row]
+		end   = offset.values.col.Row(row)
 		start = uint64(0)
 	)
 	if row > 0 {
-		start = offset.values.data[row-1]
+		start = offset.values.col.Row(row - 1)
 	}
 	if end-start > 0 {
 		rSlice := reflect.MakeSlice(sliceType, 0, int(end-start))
@@ -412,11 +409,11 @@ func (col *Array) scanSliceOfStructs(sliceType reflect.Type, row int) (reflect.V
 	// Array(Tuple so depth 1 for JSON
 	offset := col.offsets[0]
 	var (
-		end   = offset.values.data[row]
+		end   = offset.values.col.Row(row)
 		start = uint64(0)
 	)
 	if row > 0 {
-		start = offset.values.data[row-1]
+		start = offset.values.col.Row(row - 1)
 	}
 	if end-start > 0 {
 		// create a slice of the type from the sliceType - if this might be interface{} as its driven by the target datastructure

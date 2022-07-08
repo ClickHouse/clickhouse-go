@@ -19,9 +19,9 @@ package column
 
 import (
 	"fmt"
+	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
 
-	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
 	"github.com/paulmach/orb"
 )
 
@@ -103,12 +103,12 @@ func (col *Polygon) AppendRow(v interface{}) error {
 	}
 }
 
-func (col *Polygon) Decode(decoder *binary.Decoder, rows int) error {
-	return col.set.Decode(decoder, rows)
+func (col *Polygon) Decode(reader *proto.Reader, rows int) error {
+	return col.set.Decode(reader, rows)
 }
 
-func (col *Polygon) Encode(encoder *binary.Encoder) error {
-	return col.set.Encode(encoder)
+func (col *Polygon) Encode(buffer *proto.Buffer) {
+	col.set.Encode(buffer)
 }
 
 func (col *Polygon) row(i int) orb.Polygon {
