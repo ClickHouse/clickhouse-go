@@ -24,6 +24,7 @@ import (
 	"go/format"
 	"log"
 	"os"
+	"path"
 	"sort"
 	"text/template"
 )
@@ -31,10 +32,6 @@ import (
 var (
 	//go:embed column.tpl
 	columnSrc string
-	//go:embed column_safe.tpl
-	columnSafeSrc string
-	//go:embed column_unsafe.tpl
-	columnUnsafeSrc string
 )
 var (
 	types []_type
@@ -79,7 +76,11 @@ func write(name string, v interface{}, t *template.Template) error {
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(name+".go", data, 0o600); err != nil {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(path.Join(cwd, fmt.Sprintf("lib/column/%s.go", name)), data, 0o600); err != nil {
 		return err
 	}
 	return nil
@@ -87,9 +88,7 @@ func write(name string, v interface{}, t *template.Template) error {
 
 func main() {
 	for name, tpl := range map[string]*template.Template{
-		"column_gen":        template.Must(template.New("column").Parse(columnSrc)),
-		"column_safe_gen":   template.Must(template.New("column").Parse(columnSafeSrc)),
-		"column_unsafe_gen": template.Must(template.New("column").Parse(columnUnsafeSrc)),
+		"column_gen": template.Must(template.New("column").Parse(columnSrc)),
 	} {
 		if err := write(name, types, tpl); err != nil {
 			log.Fatal(err)

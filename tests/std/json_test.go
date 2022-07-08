@@ -131,6 +131,7 @@ func TestStdJson(t *testing.T) {
 	assert.JSONEq(t, toJson(col1Data.Assignee.Repositories), toJson(repositories))
 }
 
+// https://github.com/ClickHouse/clickhouse-go/issues/645
 //func TestStdJsonWithMap(t *testing.T) {
 //	conn := clickhouse.OpenDB(&clickhouse.Options{
 //		Addr: []string{"127.0.0.1:9000"},

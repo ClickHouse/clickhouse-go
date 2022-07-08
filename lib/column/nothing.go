@@ -19,17 +19,17 @@ package column
 
 import (
 	"errors"
+	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
-
-	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
 )
 
 type Nothing struct {
 	name string
+	col  proto.ColNothing
 }
 
-func (n Nothing) Name() string {
-	return n.name
+func (col Nothing) Name() string {
+	return col.name
 }
 
 func (Nothing) Type() Type                     { return "Nothing" }
@@ -43,24 +43,18 @@ func (Nothing) Append(interface{}) ([]uint8, error) {
 		Err:        errors.New("data type values can't be stored in tables"),
 	}
 }
-func (Nothing) AppendRow(interface{}) error {
+func (col Nothing) AppendRow(interface{}) error {
 	return &Error{
 		ColumnType: "Nothing",
 		Err:        errors.New("data type values can't be stored in tables"),
 	}
 }
-func (Nothing) Decode(decoder *binary.Decoder, rows int) error {
-	scratch := make([]byte, rows)
-	if err := decoder.Raw(scratch); err != nil {
-		return err
-	}
-	return nil
+
+func (col Nothing) Decode(reader *proto.Reader, rows int) error {
+	return col.col.DecodeColumn(reader, rows)
 }
-func (Nothing) Encode(*binary.Encoder) error {
-	return &Error{
-		ColumnType: "Nothing",
-		Err:        errors.New("data type values can't be stored in tables"),
-	}
+
+func (Nothing) Encode(buffer *proto.Buffer) {
 }
 
 var _ Interface = (*Nothing)(nil)

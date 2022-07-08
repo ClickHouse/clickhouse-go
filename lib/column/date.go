@@ -19,10 +19,9 @@ package column
 
 import (
 	"fmt"
+	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
 	"time"
-
-	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
 )
 
 var (
@@ -31,8 +30,8 @@ var (
 )
 
 type Date struct {
-	values Int16
-	name   string
+	col  proto.ColDate
+	name string
 }
 
 func (col *Date) Name() string {
@@ -48,7 +47,7 @@ func (col *Date) ScanType() reflect.Type {
 }
 
 func (col *Date) Rows() int {
-	return len(col.values.data)
+	return col.col.Rows()
 }
 
 func (col *Date) Row(i int, ptr bool) interface{} {
@@ -79,14 +78,12 @@ func (col *Date) ScanRow(dest interface{}, row int) error {
 func (col *Date) Append(v interface{}) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []time.Time:
-		in := make([]int16, 0, len(v))
 		for _, t := range v {
 			if err := dateOverflow(minDate, maxDate, t, "2006-01-02"); err != nil {
 				return nil, err
 			}
-			in = append(in, int16(t.Unix()/secInDay))
+			col.col.Append(t)
 		}
-		col.values.data, nulls = append(col.values.data, in...), make([]uint8, len(v))
 	case []*time.Time:
 		nulls = make([]uint8, len(v))
 		for i, v := range v {
@@ -95,9 +92,10 @@ func (col *Date) Append(v interface{}) (nulls []uint8, err error) {
 				if err := dateOverflow(minDate, maxDate, *v, "2006-01-02"); err != nil {
 					return nil, err
 				}
-				col.values.data = append(col.values.data, int16(v.Unix()/secInDay))
+				col.col.Append(*v)
 			default:
-				col.values.data, nulls[i] = append(col.values.data, 0), 1
+				nulls[i] = 1
+				col.col.Append(time.Time{})
 			}
 		}
 	default:
@@ -111,21 +109,24 @@ func (col *Date) Append(v interface{}) (nulls []uint8, err error) {
 }
 
 func (col *Date) AppendRow(v interface{}) error {
-	var date int16
 	switch v := v.(type) {
 	case time.Time:
 		if err := dateOverflow(minDate, maxDate, v, "2006-01-02"); err != nil {
 			return err
 		}
-		date = int16(v.Unix() / secInDay)
+		col.col.Append(v)
 	case *time.Time:
-		if v != nil {
+		switch {
+		case v != nil:
 			if err := dateOverflow(minDate, maxDate, *v, "2006-01-02"); err != nil {
 				return err
 			}
-			date = int16(v.Unix() / secInDay)
+			col.col.Append(*v)
+		default:
+			col.col.Append(time.Time{})
 		}
 	case nil:
+		col.col.Append(time.Time{})
 	default:
 		return &ColumnConverterError{
 			Op:   "AppendRow",
@@ -133,20 +134,19 @@ func (col *Date) AppendRow(v interface{}) error {
 			From: fmt.Sprintf("%T", v),
 		}
 	}
-	col.values.data = append(col.values.data, date)
 	return nil
 }
 
-func (col *Date) Decode(decoder *binary.Decoder, rows int) error {
-	return col.values.Decode(decoder, rows)
+func (col *Date) Decode(reader *proto.Reader, rows int) error {
+	return col.col.DecodeColumn(reader, rows)
 }
 
-func (col *Date) Encode(encoder *binary.Encoder) error {
-	return col.values.Encode(encoder)
+func (col *Date) Encode(buffer *proto.Buffer) {
+	col.col.EncodeColumn(buffer)
 }
 
 func (col *Date) row(i int) time.Time {
-	return time.Unix(int64(col.values.data[i])*secInDay, 0).UTC()
+	return col.col.Row(i)
 }
 
 var _ Interface = (*Date)(nil)

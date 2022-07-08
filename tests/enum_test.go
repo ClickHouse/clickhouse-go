@@ -19,11 +19,54 @@ package tests
 
 import (
 	"context"
+	"github.com/stretchr/testify/require"
 	"testing"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
 )
+
+func TestSimpleEnum(t *testing.T) {
+	var (
+		ctx       = context.Background()
+		conn, err = clickhouse.Open(&clickhouse.Options{
+			Addr: []string{"127.0.0.1:9000"},
+			Auth: clickhouse.Auth{
+				Database: "default",
+				Username: "default",
+				Password: "",
+			},
+			Compression: &clickhouse.Compression{
+				Method: clickhouse.CompressionLZ4,
+			},
+			//Debug: true,
+		})
+	)
+	require.NoError(t, err)
+	const ddl = `
+			CREATE TABLE test_enum (
+				  Col1 Enum  ('hello'   = 1,  'world' = 2)
+			) Engine Memory
+		`
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE test_enum")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_enum")
+	require.NoError(t, err)
+	var (
+		col1Data = "hello"
+	)
+	require.NoError(t, batch.Append(
+		col1Data,
+	))
+	require.NoError(t, batch.Send())
+	var (
+		col1 string
+	)
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_enum").Scan(&col1))
+	assert.Equal(t, col1Data, col1)
+}
 
 func TestEnum(t *testing.T) {
 	var (

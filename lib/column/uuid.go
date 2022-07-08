@@ -19,16 +19,14 @@ package column
 
 import (
 	"fmt"
+	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
 
-	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
 	"github.com/google/uuid"
 )
 
-const uuidSize = 16
-
 type UUID struct {
-	data []byte
+	col  proto.ColUUID
 	name string
 }
 
@@ -45,7 +43,7 @@ func (col *UUID) ScanType() reflect.Type {
 }
 
 func (col *UUID) Rows() int {
-	return len(col.data) / uuidSize
+	return col.col.Rows()
 }
 
 func (col *UUID) Row(i int, ptr bool) interface{} {
@@ -83,47 +81,44 @@ func (col *UUID) Append(v interface{}) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []string:
 		nulls = make([]uint8, len(v))
-		var data []byte
 		for _, v := range v {
 			var u uuid.UUID
 			u, err = uuid.Parse(v)
 			if err != nil {
 				return
 			}
-			col.data = append(col.data, swap(u[:])...)
+			col.col.Append(u)
 		}
-		col.data = append(col.data, data...)
 	case []*string:
 		nulls = make([]uint8, len(v))
-		var data []byte
 		for i, v := range v {
 			switch {
 			case v != nil:
-				var tmp uuid.UUID
-				tmp, err = uuid.Parse(*v)
+				var value uuid.UUID
+				value, err = uuid.Parse(*v)
 				if err != nil {
 					return
 				}
-				data = append(data, swap(tmp[:])...)
+				col.col.Append(value)
 			default:
-				data, nulls[i] = append(data, make([]byte, uuidSize)...), 1
+				nulls[i] = 1
+				col.col.Append(uuid.UUID{})
 			}
 		}
-		col.data = append(col.data, data...)
 	case []uuid.UUID:
 		nulls = make([]uint8, len(v))
 		for _, v := range v {
-			col.data = append(col.data, swap(v[:])...)
+			col.col.Append(v)
 		}
 	case []*uuid.UUID:
 		nulls = make([]uint8, len(v))
 		for i, v := range v {
 			switch {
 			case v != nil:
-				tmp := *v
-				col.data = append(col.data, swap(tmp[:])...)
+				col.col.Append(*v)
 			default:
-				col.data, nulls[i] = append(col.data, make([]byte, uuidSize)...), 1
+				nulls[i] = 1
+				col.col.Append(uuid.UUID{})
 			}
 		}
 	default:
@@ -143,30 +138,29 @@ func (col *UUID) AppendRow(v interface{}) error {
 		if err != nil {
 			return err
 		}
-		col.data = append(col.data, swap(u[:])...)
+		col.col.Append(u)
 	case *string:
 		switch {
 		case v != nil:
-			tmp, err := uuid.Parse(*v)
+			value, err := uuid.Parse(*v)
 			if err != nil {
 				return err
 			}
-			col.data = append(col.data, swap(tmp[:])...)
+			col.col.Append(value)
 		default:
-			col.data = append(col.data, make([]byte, uuidSize)...)
+			col.col.Append(uuid.UUID{})
 		}
 	case uuid.UUID:
-		col.data = append(col.data, swap(v[:])...)
+		col.col.Append(v)
 	case *uuid.UUID:
 		switch {
 		case v != nil:
-			tmp := *v
-			col.data = append(col.data, swap(tmp[:])...)
+			col.col.Append(*v)
 		default:
-			col.data = append(col.data, make([]byte, uuidSize)...)
+			col.col.Append(uuid.UUID{})
 		}
 	case nil:
-		col.data = append(col.data, make([]byte, uuidSize)...)
+		col.col.Append(uuid.UUID{})
 	default:
 		return &ColumnConverterError{
 			Op:   "AppendRow",
@@ -177,32 +171,16 @@ func (col *UUID) AppendRow(v interface{}) error {
 	return nil
 }
 
-func (col *UUID) Decode(decoder *binary.Decoder, rows int) error {
-	col.data = make([]byte, uuidSize*rows)
-	return decoder.Raw(col.data)
+func (col *UUID) Decode(reader *proto.Reader, rows int) error {
+	return col.col.DecodeColumn(reader, rows)
 }
 
-func (col *UUID) Encode(encoder *binary.Encoder) error {
-	return encoder.Raw(col.data)
+func (col *UUID) Encode(buffer *proto.Buffer) {
+	col.col.EncodeColumn(buffer)
 }
 
 func (col *UUID) row(i int) (uuid uuid.UUID) {
-	copy(uuid[:], col.data[i*uuidSize:(i+1)*uuidSize])
-	swap(uuid[:])
-	return
+	return col.col.Row(i)
 }
 
 var _ Interface = (*UUID)(nil)
-
-func swap(src []byte) []byte {
-	_ = src[15]
-	src[0], src[7] = src[7], src[0]
-	src[1], src[6] = src[6], src[1]
-	src[2], src[5] = src[5], src[2]
-	src[3], src[4] = src[4], src[3]
-	src[8], src[15] = src[15], src[8]
-	src[9], src[14] = src[14], src[9]
-	src[10], src[13] = src[13], src[10]
-	src[11], src[12] = src[12], src[11]
-	return src
-}

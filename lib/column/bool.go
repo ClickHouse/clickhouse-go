@@ -19,14 +19,13 @@ package column
 
 import (
 	"fmt"
+	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
-
-	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
 )
 
 type Bool struct {
-	values UInt8
-	name   string
+	col  proto.ColBool
+	name string
 }
 
 func (col *Bool) Name() string {
@@ -42,7 +41,7 @@ func (col *Bool) ScanType() reflect.Type {
 }
 
 func (col *Bool) Rows() int {
-	return len(col.values.data)
+	return col.col.Rows()
 }
 
 func (col *Bool) Row(i int, ptr bool) interface{} {
@@ -73,32 +72,23 @@ func (col *Bool) ScanRow(dest interface{}, row int) error {
 func (col *Bool) Append(v interface{}) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []bool:
-		in := make([]uint8, 0, len(v))
 		for _, v := range v {
-			switch {
-			case v:
-				in = append(in, 1)
-			default:
-				in = append(in, 0)
-			}
+			col.col.Append(v)
 		}
-		col.values.data, nulls = append(col.values.data, in...), make([]uint8, len(v))
 	case []*bool:
 		nulls = make([]uint8, len(v))
-		in := make([]uint8, 0, len(v))
 		for i, v := range v {
-			var value uint8
+			var value bool
 			switch {
 			case v != nil:
 				if *v {
-					value = 1
+					value = true
 				}
 			default:
 				nulls[i] = 1
 			}
-			in = append(in, value)
+			col.col.Append(value)
 		}
-		col.values.data = append(col.values.data, in...)
 	default:
 		return nil, &ColumnConverterError{
 			Op:   "Append",
@@ -126,25 +116,20 @@ func (col *Bool) AppendRow(v interface{}) error {
 			From: fmt.Sprintf("%T", v),
 		}
 	}
-	switch {
-	case value:
-		col.values.data = append(col.values.data, 1)
-	default:
-		col.values.data = append(col.values.data, 0)
-	}
+	col.col.Append(value)
 	return nil
 }
 
-func (col *Bool) Decode(decoder *binary.Decoder, rows int) error {
-	return col.values.Decode(decoder, rows)
+func (col *Bool) Decode(reader *proto.Reader, rows int) error {
+	return col.col.DecodeColumn(reader, rows)
 }
 
-func (col *Bool) Encode(encoder *binary.Encoder) error {
-	return col.values.Encode(encoder)
+func (col *Bool) Encode(buffer *proto.Buffer) {
+	col.col.EncodeColumn(buffer)
 }
 
 func (col *Bool) row(i int) bool {
-	return col.values.data[i] == 1
+	return col.col.Row(i)
 }
 
 var _ Interface = (*Bool)(nil)

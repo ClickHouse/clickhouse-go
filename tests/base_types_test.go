@@ -117,7 +117,7 @@ func TestColumnarUInt8(t *testing.T) {
 	)
 	if assert.NoError(t, err) {
 		const ddl = `
-		CREATE TABLE test_uint8 (
+		CREATE TABLE test_uint8_c (
 			  ID   UInt64
 			, Col1 UInt8
 			, Col2 Nullable(UInt8)
@@ -126,10 +126,10 @@ func TestColumnarUInt8(t *testing.T) {
 		) Engine Memory
 		`
 		defer func() {
-			conn.Exec(ctx, "DROP TABLE test_uint8")
+			conn.Exec(ctx, "DROP TABLE test_uint8_c")
 		}()
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
-			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_uint8"); assert.NoError(t, err) {
+			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_uint8_c"); assert.NoError(t, err) {
 				var (
 					id       []uint64
 					col1Data []uint8
@@ -177,7 +177,7 @@ func TestColumnarUInt8(t *testing.T) {
 						Col3 []uint8
 						Col4 []*uint8
 					}
-					if err := conn.QueryRow(ctx, "SELECT Col1, Col2, Col3, Col4 FROM test_uint8 WHERE ID = $1", 11).ScanStruct(&result); assert.NoError(t, err) {
+					if err := conn.QueryRow(ctx, "SELECT Col1, Col2, Col3, Col4 FROM test_uint8_c WHERE ID = $1", 11).ScanStruct(&result); assert.NoError(t, err) {
 						if assert.Nil(t, result.Col2) {
 							assert.Equal(t, data, result.Col1)
 							assert.Equal(t, []uint8{data, data, data}, result.Col3)

@@ -19,6 +19,7 @@ package column
 
 import (
 	"errors"
+	"github.com/ClickHouse/ch-go/proto"
 	"math"
 	"strconv"
 	"strings"
@@ -73,8 +74,8 @@ func Enum(chType Type, name string) (Interface, error) {
 	}
 	if strings.HasPrefix(columnType, "Enum8") {
 		enum := Enum8{
-			iv:     make(map[string]uint8, len(idents)),
-			vi:     make(map[uint8]string, len(idents)),
+			iv:     make(map[string]proto.Enum8, len(idents)),
+			vi:     make(map[proto.Enum8]string, len(idents)),
 			chType: chType,
 			name:   name,
 		}
@@ -85,20 +86,21 @@ func Enum(chType Type, name string) (Interface, error) {
 					Err:        errors.New("invalid Enum"),
 				}
 			}
-			enum.iv[idents[i]] = uint8(indexes[i])
-			enum.vi[uint8(indexes[i])] = idents[i]
+			v := int8(indexes[i])
+			enum.iv[idents[i]] = proto.Enum8(v)
+			enum.vi[proto.Enum8(v)] = idents[i]
 		}
 		return &enum, nil
 	}
 	enum := Enum16{
-		iv:     make(map[string]uint16, len(idents)),
-		vi:     make(map[uint16]string, len(idents)),
+		iv:     make(map[string]proto.Enum16, len(idents)),
+		vi:     make(map[proto.Enum16]string, len(idents)),
 		chType: chType,
 		name:   name,
 	}
 	for i := range idents {
-		enum.iv[idents[i]] = uint16(indexes[i])
-		enum.vi[uint16(indexes[i])] = idents[i]
+		enum.iv[idents[i]] = proto.Enum16(indexes[i])
+		enum.vi[proto.Enum16(indexes[i])] = idents[i]
 	}
 	return &enum, nil
 }

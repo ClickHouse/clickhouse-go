@@ -19,7 +19,9 @@ package tests
 
 import (
 	"context"
+	"github.com/stretchr/testify/require"
 	"testing"
+	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
@@ -38,30 +40,29 @@ func TestSimpleString(t *testing.T) {
 			Compression: &clickhouse.Compression{
 				Method: clickhouse.CompressionLZ4,
 			},
+			DialTimeout: time.Second * 120,
+			// Debug:       true,
 		})
 	)
-	if assert.NoError(t, err) {
-		if err := checkMinServerVersion(conn, 21, 9, 0); err != nil {
-			t.Skip(err.Error())
-			return
-		}
-		const ddl = `
+	require.NoError(t, err)
+	require.NoError(t, conn.Ping(ctx))
+	if err := checkMinServerVersion(conn, 21, 9, 0); err != nil {
+		t.Skip(err.Error())
+		return
+	}
+	const ddl = `
 		CREATE TABLE test_string (
 			  Col1 String
 		) Engine Memory
 		`
-		defer func() {
-			conn.Exec(ctx, "DROP TABLE test_string")
-		}()
-		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
-			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_string"); assert.NoError(t, err) {
-				if err := batch.Append("A"); assert.NoError(t, err) {
-					if assert.NoError(t, batch.Send()) {
-					}
-				}
-			}
-		}
-	}
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE test_string")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_string")
+	require.NoError(t, err)
+	require.NoError(t, batch.Append("A"))
+	require.NoError(t, batch.Send())
 }
 
 func TestString(t *testing.T) {

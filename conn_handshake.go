@@ -25,31 +25,24 @@ import (
 )
 
 func (c *connect) handshake(database, username, password string) error {
+	defer c.buffer.Reset()
 	c.debugf("[handshake] -> %s", proto.ClientHandshake{})
 	c.conn.SetDeadline(time.Now().Add(c.opt.DialTimeout))
 	defer c.conn.SetDeadline(time.Time{})
 	{
-		c.encoder.Byte(proto.ClientHello)
-		if err := (&proto.ClientHandshake{}).Encode(c.encoder); err != nil {
-			return err
-		}
+		c.buffer.PutByte(proto.ClientHello)
+		(&proto.ClientHandshake{}).Encode(c.buffer)
 		{
-			if err := c.encoder.String(database); err != nil {
-				return err
-			}
-			if err := c.encoder.String(username); err != nil {
-				return err
-			}
-			if err := c.encoder.String(password); err != nil {
-				return err
-			}
+			c.buffer.PutString(database)
+			c.buffer.PutString(username)
+			c.buffer.PutString(password)
 		}
-		if err := c.encoder.Flush(); err != nil {
+		if err := c.flush(); err != nil {
 			return err
 		}
 	}
 	{
-		packet, err := c.decoder.ReadByte()
+		packet, err := c.reader.ReadByte()
 		if err != nil {
 			return err
 		}
@@ -57,7 +50,7 @@ func (c *connect) handshake(database, username, password string) error {
 		case proto.ServerException:
 			return c.exception()
 		case proto.ServerHello:
-			if err := c.server.Decode(c.decoder); err != nil {
+			if err := c.server.Decode(c.reader); err != nil {
 				return err
 			}
 		case proto.ServerEndOfStream:

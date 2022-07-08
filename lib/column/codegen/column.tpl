@@ -40,31 +40,35 @@ func (t Type) Column(name string) (Interface, error) {
 {{- end }}
 	case "Int128":
 		return &BigInt{
-			size: 16,
+			size:   16,
 			chType: t,
-			name: name,
+			name:   name,
 			signed: true,
+			col: &proto.ColInt128{},
 		}, nil
 	case "UInt128":
 		return &BigInt{
-			size: 16,
+			size:   16,
 			chType: t,
-			name: name,
+			name:   name,
 			signed: false,
+			col: &proto.ColUInt128{},
 		}, nil
 	case "Int256":
 		return &BigInt{
-			size: 32,
+			size:   32,
 			chType: t,
-			name: name,
+			name:   name,
 			signed: true,
+			col: &proto.ColInt256{},
 		}, nil
 	case "UInt256":
 		return &BigInt{
-			size: 32,
+			size:   32,
 			chType: t,
-			name: name,
+			name:   name,
 			signed: false,
+			col: &proto.ColUInt256{},
 		}, nil
 	case "IPv4":
 		return &IPv4{name: name}, nil
@@ -154,8 +158,8 @@ func (t Type) Column(name string) (Interface, error) {
 type (
 {{- range . }}
 	{{ .ChType }} struct {
-	    data []{{ .GoType }}
 	    name string
+	    col proto.Col{{ .ChType }}
 	}
 {{- end }}
 )
@@ -201,20 +205,20 @@ func (col *{{ .ChType }}) ScanType() reflect.Type {
 }
 
 func (col *{{ .ChType }}) Rows() int {
-	return len(col.data)
+	return col.col.Rows()
 }
 
 func (col *{{ .ChType }}) ScanRow(dest interface{}, row int) error {
-	value := *col
+	value := col.col.Row(row)
 	switch d := dest.(type) {
 	case *{{ .GoType }}:
-		*d = value.data[row]
+		*d = value
 	case **{{ .GoType }}:
 		*d = new({{ .GoType }})
-		**d = value.data[row]
+		**d = value
 	{{- if eq .ChType "Int64" }}
 	case *time.Duration:
-		*d = time.Duration(value.data[row])
+		*d = time.Duration(value)
 	{{- end }}
 	default:
 		return &ColumnConverterError{
@@ -228,25 +232,29 @@ func (col *{{ .ChType }}) ScanRow(dest interface{}, row int) error {
 }
 
 func (col *{{ .ChType }}) Row(i int, ptr bool) interface{} {
-	value := *col
+	value := col.col.Row(i)
 	if ptr {
-		return &value.data[i]
+		return &value
 	}
-	return value.data[i]
+	return value
 }
 
 func (col *{{ .ChType }}) Append(v interface{}) (nulls []uint8,err error) {
 	switch v := v.(type) {
 	case []{{ .GoType }}:
-		col.data, nulls = append(col.data, v...), make([]uint8, len(v))
+		nulls =  make([]uint8, len(v))
+		for i := range v {
+			col.col.Append(v[i])
+		}
 	case []*{{ .GoType }}:
 		nulls = make([]uint8, len(v))
-		for i, v:= range v {
+		for i := range v {
 			switch {
-			case v != nil:
-				col.data = append(col.data, *v)
+			case v[i] != nil:
+				col.col.Append(*v[i])
 			default:
-				col.data, nulls[i] = append(col.data, 0), 1
+				col.col.Append(0)
+				nulls[i] = 1
 			}
 		}
 	default:
@@ -262,29 +270,29 @@ func (col *{{ .ChType }}) Append(v interface{}) (nulls []uint8,err error) {
 func (col *{{ .ChType }}) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case {{ .GoType }}:
-		col.data = append(col.data, v)
+		col.col.Append(v)
 	case *{{ .GoType }}:
 		switch {
-		case v != nil:
-			col.data = append(col.data, *v)
-		default:
-			col.data = append(col.data, 0)
-		}
+        case v != nil:
+            col.col.Append(*v)
+        default:
+            col.col.Append(0)
+        }
 	case nil:
-		col.data = append(col.data, 0)
+		col.col.Append(0)
 	{{- if eq .ChType "UInt8" }}
 	case bool:
 		var t uint8
 		if v {
 			t = 1
 		}
-		col.data = append(col.data, t)
+		col.col.Append(t)
 	{{- end }}
 	{{- if eq .ChType "Int64" }}
     case time.Duration:
-        col.data = append(col.data, int64(v))
+        col.col.Append(int64(v))
     case *time.Duration:
-        col.data = append(col.data, int64(*v))
+        col.col.Append(int64(*v))
 	{{- end }}
 	default:
 		return &ColumnConverterError{
@@ -294,6 +302,14 @@ func (col *{{ .ChType }}) AppendRow(v interface{}) error {
 		}
 	}
 	return nil
+}
+
+func (col *{{ .ChType }}) Decode(reader *proto.Reader, rows int) error {
+	return col.col.DecodeColumn(reader, rows)
+}
+
+func (col *{{ .ChType }}) Encode(buffer *proto.Buffer) {
+	col.col.EncodeColumn(buffer)
 }
 
 {{- end }}

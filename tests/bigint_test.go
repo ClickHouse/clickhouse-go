@@ -27,6 +27,50 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestSimpleBigInt(t *testing.T) {
+	var (
+		ctx       = context.Background()
+		conn, err = clickhouse.Open(&clickhouse.Options{
+			Addr: []string{"127.0.0.1:9000"},
+			Auth: clickhouse.Auth{
+				Database: "default",
+				Username: "default",
+				Password: "",
+			},
+			Compression: &clickhouse.Compression{
+				Method: clickhouse.CompressionLZ4,
+			},
+			MaxOpenConns: 1,
+		})
+	)
+	if assert.NoError(t, err) {
+		if err := checkMinServerVersion(conn, 21, 12, 0); err != nil {
+			t.Skip(err.Error())
+			return
+		}
+		const ddl = `
+		CREATE TABLE test_bigint (
+			  Col1 Int128
+		) Engine Memory
+		`
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_bigint")
+		}()
+		require.NoError(t, conn.Exec(ctx, ddl))
+		batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_bigint")
+		require.NoError(t, err)
+		col1Data, ok := new(big.Int).SetString("170141183460469231731687303715884105727", 10)
+		require.True(t, ok)
+		require.NoError(t, batch.Append(col1Data))
+		require.NoError(t, batch.Send())
+		var (
+			col1 big.Int
+		)
+		require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_bigint").Scan(&col1))
+		assert.Equal(t, *col1Data, col1)
+	}
+}
+
 func TestBigInt(t *testing.T) {
 	var (
 		ctx       = context.Background()

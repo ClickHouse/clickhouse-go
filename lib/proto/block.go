@@ -21,7 +21,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
+	"github.com/ClickHouse/ch-go/proto"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 )
 
@@ -71,11 +71,9 @@ func (b *Block) ColumnsNames() []string {
 	return b.names
 }
 
-func (b *Block) Encode(encoder *binary.Encoder, revision uint64) error {
+func (b *Block) Encode(buffer *proto.Buffer, revision uint64) error {
 	if revision > 0 {
-		if err := encodeBlockInfo(encoder); err != nil {
-			return err
-		}
+		encodeBlockInfo(buffer)
 	}
 	var rows int
 	if len(b.Columns) != 0 {
@@ -89,21 +87,13 @@ func (b *Block) Encode(encoder *binary.Encoder, revision uint64) error {
 			}
 		}
 	}
-	if err := encoder.Uvarint(uint64(len(b.Columns))); err != nil {
-		return err
-	}
-	if err := encoder.Uvarint(uint64(rows)); err != nil {
-		return err
-	}
+	buffer.PutUVarInt(uint64(len(b.Columns)))
+	buffer.PutUVarInt(uint64(rows))
 	for _, c := range b.Columns {
-		if err := encoder.String(c.Name()); err != nil {
-			return err
-		}
-		if err := encoder.String(string(c.Type())); err != nil {
-			return err
-		}
+		buffer.PutString(c.Name())
+		buffer.PutString(string(c.Type()))
 		if serialize, ok := c.(column.CustomSerialization); ok {
-			if err := serialize.WriteStatePrefix(encoder); err != nil {
+			if err := serialize.WriteStatePrefix(buffer); err != nil {
 				return &BlockError{
 					Op:         "Encode",
 					Err:        err,
@@ -111,20 +101,14 @@ func (b *Block) Encode(encoder *binary.Encoder, revision uint64) error {
 				}
 			}
 		}
-		if err := c.Encode(encoder); err != nil {
-			return &BlockError{
-				Op:         "Encode",
-				Err:        err,
-				ColumnName: c.Name(),
-			}
-		}
+		c.Encode(buffer)
 	}
 	return nil
 }
 
-func (b *Block) Decode(decoder *binary.Decoder, revision uint64) (err error) {
+func (b *Block) Decode(reader *proto.Reader, revision uint64) (err error) {
 	if revision > 0 {
-		if err := decodeBlockInfo(decoder); err != nil {
+		if err := decodeBlockInfo(reader); err != nil {
 			return err
 		}
 	}
@@ -132,10 +116,10 @@ func (b *Block) Decode(decoder *binary.Decoder, revision uint64) (err error) {
 		numRows uint64
 		numCols uint64
 	)
-	if numCols, err = decoder.Uvarint(); err != nil {
+	if numCols, err = reader.UVarInt(); err != nil {
 		return err
 	}
-	if numRows, err = decoder.Uvarint(); err != nil {
+	if numRows, err = reader.UVarInt(); err != nil {
 		return err
 	}
 	if numRows > 1_000_000_000 {
@@ -150,10 +134,10 @@ func (b *Block) Decode(decoder *binary.Decoder, revision uint64) (err error) {
 			columnName string
 			columnType string
 		)
-		if columnName, err = decoder.String(); err != nil {
+		if columnName, err = reader.Str(); err != nil {
 			return err
 		}
-		if columnType, err = decoder.String(); err != nil {
+		if columnType, err = reader.Str(); err != nil {
 			return err
 		}
 		c, err := column.Type(columnType).Column(columnName)
@@ -162,7 +146,7 @@ func (b *Block) Decode(decoder *binary.Decoder, revision uint64) (err error) {
 		}
 		if numRows != 0 {
 			if serialize, ok := c.(column.CustomSerialization); ok {
-				if err := serialize.ReadStatePrefix(decoder); err != nil {
+				if err := serialize.ReadStatePrefix(reader); err != nil {
 					return &BlockError{
 						Op:         "Decode",
 						Err:        err,
@@ -170,7 +154,7 @@ func (b *Block) Decode(decoder *binary.Decoder, revision uint64) (err error) {
 					}
 				}
 			}
-			if err := c.Decode(decoder, int(numRows)); err != nil {
+			if err := c.Decode(reader, int(numRows)); err != nil {
 				return &BlockError{
 					Op:         "Decode",
 					Err:        err,
@@ -183,40 +167,30 @@ func (b *Block) Decode(decoder *binary.Decoder, revision uint64) (err error) {
 	return nil
 }
 
-func encodeBlockInfo(encoder *binary.Encoder) error {
-	{
-		if err := encoder.Uvarint(1); err != nil {
-			return err
-		}
-		if err := encoder.Bool(false); err != nil {
-			return err
-		}
-		if err := encoder.Uvarint(2); err != nil {
-			return err
-		}
-		if err := encoder.Int32(-1); err != nil {
-			return err
-		}
-	}
-	return encoder.Uvarint(0)
+func encodeBlockInfo(buffer *proto.Buffer) {
+	buffer.PutUVarInt(1)
+	buffer.PutBool(false)
+	buffer.PutUVarInt(2)
+	buffer.PutInt32(-1)
+	buffer.PutUVarInt(0)
 }
 
-func decodeBlockInfo(decoder *binary.Decoder) error {
+func decodeBlockInfo(reader *proto.Reader) error {
 	{
-		if _, err := decoder.Uvarint(); err != nil {
+		if _, err := reader.UVarInt(); err != nil {
 			return err
 		}
-		if _, err := decoder.Bool(); err != nil {
+		if _, err := reader.Bool(); err != nil {
 			return err
 		}
-		if _, err := decoder.Uvarint(); err != nil {
+		if _, err := reader.UVarInt(); err != nil {
 			return err
 		}
-		if _, err := decoder.Int32(); err != nil {
+		if _, err := reader.Int32(); err != nil {
 			return err
 		}
 	}
-	if _, err := decoder.Uvarint(); err != nil {
+	if _, err := reader.UVarInt(); err != nil {
 		return err
 	}
 	return nil

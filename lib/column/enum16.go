@@ -19,16 +19,15 @@ package column
 
 import (
 	"fmt"
+	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
-
-	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
 )
 
 type Enum16 struct {
-	iv     map[string]uint16
-	vi     map[uint16]string
+	iv     map[string]proto.Enum16
+	vi     map[proto.Enum16]string
 	chType Type
-	values UInt16
+	col    proto.ColEnum16
 	name   string
 }
 
@@ -45,11 +44,11 @@ func (col *Enum16) ScanType() reflect.Type {
 }
 
 func (col *Enum16) Rows() int {
-	return len(col.values.data)
+	return col.col.Rows()
 }
 
 func (col *Enum16) Row(i int, ptr bool) interface{} {
-	value := col.vi[col.values.data[i]]
+	value := col.vi[col.col.Row(i)]
 	if ptr {
 		return &value
 	}
@@ -57,12 +56,13 @@ func (col *Enum16) Row(i int, ptr bool) interface{} {
 }
 
 func (col *Enum16) ScanRow(dest interface{}, row int) error {
+	value := col.col.Row(row)
 	switch d := dest.(type) {
 	case *string:
-		*d = col.vi[col.values.data[row]]
+		*d = col.vi[value]
 	case **string:
 		*d = new(string)
-		**d = col.vi[col.values.data[row]]
+		**d = col.vi[value]
 	default:
 		return &ColumnConverterError{
 			Op:   "ScanRow",
@@ -85,7 +85,7 @@ func (col *Enum16) Append(v interface{}) (nulls []uint8, err error) {
 					ColumnType: string(col.chType),
 				}
 			}
-			col.values.data = append(col.values.data, v)
+			col.col.Append(v)
 		}
 	case []*string:
 		nulls = make([]uint8, len(v))
@@ -99,9 +99,10 @@ func (col *Enum16) Append(v interface{}) (nulls []uint8, err error) {
 						ColumnType: string(col.chType),
 					}
 				}
-				col.values.data = append(col.values.data, v)
+				col.col.Append(v)
 			default:
-				col.values.data, nulls[i] = append(col.values.data, 0), 1
+				col.col.Append(0)
+				nulls[i] = 1
 			}
 		}
 	}
@@ -118,7 +119,7 @@ func (col *Enum16) AppendRow(elem interface{}) error {
 				ColumnType: string(col.chType),
 			}
 		}
-		col.values.data = append(col.values.data, v)
+		col.col.Append(v)
 	case *string:
 		switch {
 		case elem != nil:
@@ -129,12 +130,12 @@ func (col *Enum16) AppendRow(elem interface{}) error {
 					ColumnType: string(col.chType),
 				}
 			}
-			col.values.data = append(col.values.data, v)
+			col.col.Append(v)
 		default:
-			col.values.data = append(col.values.data, 0)
+			col.col.Append(0)
 		}
 	case nil:
-		col.values.data = append(col.values.data, 0)
+		col.col.Append(0)
 	default:
 		return &ColumnConverterError{
 			Op:   "AppendRow",
@@ -145,12 +146,12 @@ func (col *Enum16) AppendRow(elem interface{}) error {
 	return nil
 }
 
-func (col *Enum16) Decode(decoder *binary.Decoder, rows int) error {
-	return col.values.Decode(decoder, rows)
+func (col *Enum16) Decode(reader *proto.Reader, rows int) error {
+	return col.col.DecodeColumn(reader, rows)
 }
 
-func (col *Enum16) Encode(encoder *binary.Encoder) error {
-	return col.values.Encode(encoder)
+func (col *Enum16) Encode(buffer *proto.Buffer) {
+	col.col.EncodeColumn(buffer)
 }
 
 var _ Interface = (*Enum16)(nil)

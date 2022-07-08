@@ -26,17 +26,15 @@ import (
 	_ "github.com/ClickHouse/clickhouse-go/v2"
 )
 
-const query = `
+func benchmarkRead(conn *sql.DB) error {
+	rows, err := conn.Query(`
 SELECT
 	number
 	, randomString(25)
 	, array(1, 2, 3, 4, 5)
 	, now()
 FROM system.numbers LIMIT 1000000
-`
-
-func benchmark(conn *sql.DB) error {
-	rows, err := conn.Query(query)
+`)
 	if err != nil {
 		return err
 	}
@@ -53,14 +51,36 @@ func benchmark(conn *sql.DB) error {
 	}
 	return nil
 }
+
+func benchmarkString(conn *sql.DB) error {
+	rows, err := conn.Query(`SELECT toString(number) FROM numbers(500000000)`)
+	if err != nil {
+		return err
+	}
+	for rows.Next() {
+		var (
+			col1 string
+		)
+		if err := rows.Scan(&col1); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func main() {
 	conn, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000")
 	if err != nil {
 		log.Fatal(err)
 	}
 	start := time.Now()
-	if err := benchmark(conn); err != nil {
+	if err := benchmarkRead(conn); err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(time.Since(start))
+	fmt.Printf("benchmarkRead: %v\n", time.Since(start))
+	start = time.Now()
+	if err := benchmarkString(conn); err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("benchmarkString: %v\n", time.Since(start))
 }
