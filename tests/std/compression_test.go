@@ -11,8 +11,8 @@ import (
 )
 
 func TestCompressionHttpStd(t *testing.T) {
-	interfaces := map[clickhouse.InterfaceType]int{clickhouse.HttpInterface: 8123, clickhouse.NativeInterface: 9000}
-	for interfaceType, port := range interfaces {
+	protocols := map[clickhouse.Protocol]int{clickhouse.Http: 8123, clickhouse.Native: 9000}
+	for protocol, port := range protocols {
 		conn := clickhouse.OpenDB(&clickhouse.Options{
 			Addr: []string{fmt.Sprintf("127.0.0.1:%d", port)},
 			Auth: clickhouse.Auth{
@@ -27,7 +27,7 @@ func TestCompressionHttpStd(t *testing.T) {
 			Compression: &clickhouse.Compression{
 				Method: clickhouse.CompressionLZ4,
 			},
-			Interface: interfaceType,
+			Protocol: protocol,
 		})
 		conn.Exec("DROP TABLE IF EXISTS test_array_compress")
 		const ddl = `
@@ -72,7 +72,7 @@ func TestCompressionHttpStdDSN(t *testing.T) {
 	dsns := map[string]string{"Native": "clickhouse://127.0.0.1:9000?compress=true", "Http": "http://127.0.0.1:8123?compress=true"}
 
 	for name, dsn := range dsns {
-		t.Run(fmt.Sprintf("%s Interface", name), func(t *testing.T) {
+		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
 			conn, err := sql.Open("clickhouse", dsn)
 			require.NoError(t, err)
 			conn.Exec("DROP TABLE IF EXISTS  test_array_compress")

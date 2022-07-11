@@ -49,12 +49,12 @@ const (
 	ConnOpenRoundRobin
 )
 
-type InterfaceType int
+type Protocol int
 
 const (
-	NativeInterface InterfaceType = iota
-	HttpInterface
-	HttpsInterface
+	Native Protocol = iota
+	Http
+	Https
 )
 
 func ParseDSN(dsn string) (*Options, error) {
@@ -66,7 +66,7 @@ func ParseDSN(dsn string) (*Options, error) {
 }
 
 type Options struct {
-	Interface InterfaceType
+	Protocol Protocol
 
 	TLS              *tls.Config
 	Addr             []string
@@ -165,14 +165,14 @@ func (o *Options) fromDSN(in string) error {
 		if secure {
 			return fmt.Errorf("clickhouse [dsn parse]: http with TLS specify")
 		}
-		o.Interface = HttpInterface
+		o.Protocol = Http
 	case "https":
 		if !secure {
 			return fmt.Errorf("clickhouse [dsn parse]: https without TLS specify")
 		}
-		o.Interface = HttpsInterface
+		o.Protocol = Https
 	default:
-		o.Interface = NativeInterface
+		o.Protocol = Native
 	}
 	return nil
 }

@@ -31,7 +31,7 @@ func TestStdTemporaryTable(t *testing.T) {
 	dsns := map[string]string{"Native": "clickhouse://127.0.0.1:9000", "Http": "http://127.0.0.1:8123"}
 
 	for name, dsn := range dsns {
-		t.Run(fmt.Sprintf("%s Interface", name), func(t *testing.T) {
+		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
 			ctx := context.Background()
 			if name == "Http" {
 				ctx = clickhouse.Context(ctx, clickhouse.WithSettings(clickhouse.Settings{
