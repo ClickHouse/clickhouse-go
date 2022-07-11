@@ -53,8 +53,8 @@ type Protocol int
 
 const (
 	Native Protocol = iota
-	Http
-	Https
+	HTTP
+	HTTPS
 )
 
 func ParseDSN(dsn string) (*Options, error) {
@@ -165,12 +165,12 @@ func (o *Options) fromDSN(in string) error {
 		if secure {
 			return fmt.Errorf("clickhouse [dsn parse]: http with TLS specify")
 		}
-		o.Protocol = Http
+		o.Protocol = HTTP
 	case "https":
 		if !secure {
 			return fmt.Errorf("clickhouse [dsn parse]: https without TLS specify")
 		}
-		o.Protocol = Https
+		o.Protocol = HTTPS
 	default:
 		o.Protocol = Native
 	}

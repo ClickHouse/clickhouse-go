@@ -41,9 +41,9 @@ const (
 func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpConnect, error) {
 	if opt.scheme == "" {
 		switch opt.Protocol {
-		case Http:
+		case HTTP:
 			opt.scheme = "http"
-		case Https:
+		case HTTPS:
 			opt.scheme = "https"
 		default:
 			return nil, errors.New("invalid interface type for http")

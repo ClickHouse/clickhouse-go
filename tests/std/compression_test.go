@@ -11,7 +11,7 @@ import (
 )
 
 func TestCompressionHttpStd(t *testing.T) {
-	protocols := map[clickhouse.Protocol]int{clickhouse.Http: 8123, clickhouse.Native: 9000}
+	protocols := map[clickhouse.Protocol]int{clickhouse.HTTP: 8123, clickhouse.Native: 9000}
 	for protocol, port := range protocols {
 		conn := clickhouse.OpenDB(&clickhouse.Options{
 			Addr: []string{fmt.Sprintf("127.0.0.1:%d", port)},

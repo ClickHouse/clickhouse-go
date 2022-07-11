@@ -54,7 +54,7 @@ func (o *stdConnOpener) Connect(ctx context.Context) (_ driver.Conn, err error) 
 	)
 
 	switch o.opt.Protocol {
-	case Http, Https:
+	case HTTP, HTTPS:
 		dialFunc = func(ctx context.Context, addr string, num int, opt *Options) (stdConnect, error) {
 			return dialHttp(ctx, addr, num, opt)
 		}
