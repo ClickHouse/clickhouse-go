@@ -150,6 +150,10 @@ func (h *httpConnect) writeData(block *proto.Block) error {
 
 func (h *httpConnect) readData(reader *chproto.Reader) (*proto.Block, error) {
 	var block proto.Block
+	if h.compression != NONE {
+		reader.EnableCompression()
+		defer reader.DisableCompression()
+	}
 	if err := block.Decode(reader, 0); err != nil {
 		return nil, err
 	}
