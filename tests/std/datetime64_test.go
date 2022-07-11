@@ -30,7 +30,7 @@ func TestStdDateTime64(t *testing.T) {
 	dsns := map[string]string{"Native": "clickhouse://127.0.0.1:9000", "Http": "http://127.0.0.1:8123"}
 
 	for name, dsn := range dsns {
-		t.Run(fmt.Sprintf("%s Interface", name), func(t *testing.T) {
+		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
 			if conn, err := sql.Open("clickhouse", dsn); assert.NoError(t, err) {
 				if err := checkMinServerVersion(conn, 20, 3, 0); err != nil {
 					t.Skip(err.Error())

@@ -30,7 +30,7 @@ func TestStdUUID(t *testing.T) {
 	dsns := map[string]string{"Native": "clickhouse://127.0.0.1:9000", "Http": "http://127.0.0.1:8123?session_id=test_session"}
 
 	for name, dsn := range dsns {
-		t.Run(fmt.Sprintf("%s Interface", name), func(t *testing.T) {
+		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
 			if conn, err := sql.Open("clickhouse", dsn); assert.NoError(t, err) {
 				const ddl = `
 			CREATE TEMPORARY TABLE test_uuid (
@@ -75,7 +75,7 @@ func TestStdNullableUUID(t *testing.T) {
 	dsns := map[string]string{"Native": "clickhouse://127.0.0.1:9000", "Http": "http://127.0.0.1:8123?session_id=test_session"}
 
 	for name, dsn := range dsns {
-		t.Run(fmt.Sprintf("%s Interface", name), func(t *testing.T) {
+		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
 			if conn, err := sql.Open("clickhouse", dsn); assert.NoError(t, err) {
 				const ddl = `
 					CREATE TEMPORARY TABLE test_uuid (

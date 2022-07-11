@@ -49,11 +49,12 @@ const (
 	ConnOpenRoundRobin
 )
 
-type InterfaceType int
+type Protocol int
 
 const (
-	NativeInterface InterfaceType = iota
-	HttpInterface
+	Native Protocol = iota
+	HTTP
+	HTTPS
 )
 
 func ParseDSN(dsn string) (*Options, error) {
@@ -65,7 +66,7 @@ func ParseDSN(dsn string) (*Options, error) {
 }
 
 type Options struct {
-	Interface InterfaceType
+	Protocol Protocol
 
 	TLS              *tls.Config
 	Addr             []string
@@ -81,7 +82,7 @@ type Options struct {
 	ConnMaxLifetime  time.Duration // default 1 hour
 	ConnOpenStrategy ConnOpenStrategy
 
-	Scheme      string
+	scheme      string
 	ReadTimeout time.Duration
 }
 
@@ -158,20 +159,20 @@ func (o *Options) fromDSN(in string) error {
 			InsecureSkipVerify: skipVerify,
 		}
 	}
-	o.Scheme = dsn.Scheme
+	o.scheme = dsn.Scheme
 	switch dsn.Scheme {
 	case "http":
 		if secure {
 			return fmt.Errorf("clickhouse [dsn parse]: http with TLS specify")
 		}
-		o.Interface = HttpInterface
+		o.Protocol = HTTP
 	case "https":
 		if !secure {
 			return fmt.Errorf("clickhouse [dsn parse]: https without TLS specify")
 		}
-		o.Interface = HttpInterface
+		o.Protocol = HTTPS
 	default:
-		o.Interface = NativeInterface
+		o.Protocol = Native
 	}
 	return nil
 }
