@@ -38,7 +38,7 @@ func TestStdConnClose(t *testing.T) {
 		},
 		DialTimeout: 5 * time.Second,
 		Compression: &clickhouse.Compression{
-			clickhouse.CompressionLZ4,
+			Method: clickhouse.CompressionLZ4,
 		},
 		//	Debug: true,
 	})

@@ -34,8 +34,10 @@ func (h *httpConnect) query(ctx context.Context, release func(*connect, error), 
 	if err != nil {
 		return nil, err
 	}
-
 	options := queryOptions(ctx)
+	if h.compression != CompressionNone {
+		options.settings["compress"] = "1"
+	}
 	res, err := h.sendQuery(ctx, strings.NewReader(query), &options, nil)
 	if err != nil {
 		return nil, err

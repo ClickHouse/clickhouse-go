@@ -59,9 +59,9 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 			debugf = log.New(os.Stdout, fmt.Sprintf("[clickhouse][conn=%d][%s]", num, conn.RemoteAddr()), 0).Printf
 		}
 	}
-	var compression bool
+	compression := CompressionNone
 	if opt.Compression != nil {
-		compression = opt.Compression.Method == CompressionLZ4
+		compression = opt.Compression.Method
 	}
 	var (
 		connect = &connect{
@@ -95,7 +95,7 @@ type connect struct {
 	released    bool
 	revision    uint64
 	structMap   *structMap
-	compression bool
+	compression CompressionMethod
 	// lastUsedIn  time.Time
 	connectedAt time.Time
 	compressor  *compress.Writer
@@ -169,12 +169,10 @@ func (c *connect) sendData(block *proto.Block, name string) error {
 	if err := block.Encode(c.buffer, c.revision); err != nil {
 		return err
 	}
-	if c.compression {
-		// Performing compression.
-		//
-		// Note: only blocks are compressed.
+	if c.compression != CompressionNone {
+		// Performing compression. Note: only blocks are compressed.
 		data := c.buffer.Buf[start:]
-		if err := c.compressor.Compress(compress.LZ4, data); err != nil {
+		if err := c.compressor.Compress(compress.Method(c.compression), data); err != nil {
 			return errors.Wrap(err, "compress")
 		}
 		c.buffer.Buf = append(c.buffer.Buf[:start], c.compressor.Data...)
@@ -193,7 +191,7 @@ func (c *connect) readData(packet byte, compressible bool) (*proto.Block, error)
 	if _, err := c.reader.Str(); err != nil {
 		return nil, err
 	}
-	if compressible && c.compression {
+	if compressible && c.compression != CompressionNone {
 		c.reader.EnableCompression()
 		defer c.reader.DisableCompression()
 	}

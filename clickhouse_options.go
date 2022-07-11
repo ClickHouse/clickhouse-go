@@ -21,16 +21,21 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"github.com/ClickHouse/ch-go/compress"
 	"net"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/ClickHouse/clickhouse-go/v2/lib/compress"
 )
 
-var CompressionLZ4 compress.Method = compress.LZ4
+type CompressionMethod compress.Method
+
+const (
+	CompressionNone = CompressionMethod(compress.None)
+	CompressionLZ4  = CompressionMethod(compress.LZ4)
+	CompressionZSTD = CompressionMethod(compress.ZSTD)
+)
 
 type Auth struct { // has_control_character
 	Database string
@@ -39,7 +44,7 @@ type Auth struct { // has_control_character
 }
 
 type Compression struct {
-	Method compress.Method
+	Method CompressionMethod
 }
 
 type ConnOpenStrategy uint8
