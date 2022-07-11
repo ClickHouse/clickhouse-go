@@ -170,7 +170,7 @@ func (b *httpBatch) Send() (err error) {
 
 	options := queryOptions(b.ctx)
 	// only compress blocks
-	if b.conn.compression != NONE {
+	if b.conn.compression != CompressionNone {
 		options.settings["decompress"] = "1"
 	}
 	options.settings["query"] = b.query

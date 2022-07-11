@@ -32,7 +32,7 @@ import (
 type CompressionMethod compress.Method
 
 const (
-	NONE            = CompressionMethod(compress.None)
+	CompressionNone = CompressionMethod(compress.None)
 	CompressionLZ4  = CompressionMethod(compress.LZ4)
 	CompressionZSTD = CompressionMethod(compress.ZSTD)
 )

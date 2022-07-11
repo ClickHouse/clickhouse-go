@@ -31,7 +31,7 @@ func (c *connect) sendQuery(body string, o *QueryOptions) error {
 		Body:           body,
 		Span:           o.span,
 		QuotaKey:       o.quotaKey,
-		Compression:    c.compression != NONE,
+		Compression:    c.compression != CompressionNone,
 		InitialAddress: c.conn.LocalAddr().String(),
 		Settings:       c.settings(o.settings),
 	}

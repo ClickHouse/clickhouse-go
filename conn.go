@@ -59,7 +59,7 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 			debugf = log.New(os.Stdout, fmt.Sprintf("[clickhouse][conn=%d][%s]", num, conn.RemoteAddr()), 0).Printf
 		}
 	}
-	compression := NONE
+	compression := CompressionNone
 	if opt.Compression != nil {
 		compression = opt.Compression.Method
 	}
@@ -169,7 +169,7 @@ func (c *connect) sendData(block *proto.Block, name string) error {
 	if err := block.Encode(c.buffer, c.revision); err != nil {
 		return err
 	}
-	if c.compression != NONE {
+	if c.compression != CompressionNone {
 		// Performing compression. Note: only blocks are compressed.
 		data := c.buffer.Buf[start:]
 		if err := c.compressor.Compress(compress.Method(c.compression), data); err != nil {
@@ -191,7 +191,7 @@ func (c *connect) readData(packet byte, compressible bool) (*proto.Block, error)
 	if _, err := c.reader.Str(); err != nil {
 		return nil, err
 	}
-	if compressible && c.compression != NONE {
+	if compressible && c.compression != CompressionNone {
 		c.reader.EnableCompression()
 		defer c.reader.DisableCompression()
 	}

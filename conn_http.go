@@ -70,7 +70,7 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		query.Set(k, fmt.Sprint(v))
 	}
 	query.Set("default_format", "Native")
-	compression := NONE
+	compression := CompressionNone
 	if opt.Compression != nil {
 		compression = opt.Compression.Method
 	}
@@ -137,7 +137,7 @@ func (h *httpConnect) writeData(block *proto.Block) error {
 	if err := block.Encode(h.buffer, 0); err != nil {
 		return err
 	}
-	if h.compression != NONE {
+	if h.compression != CompressionNone {
 		// Performing compression. Supported and requires
 		data := h.buffer.Buf[start:]
 		if err := h.compressor.Compress(compress.Method(h.compression), data); err != nil {
@@ -150,7 +150,7 @@ func (h *httpConnect) writeData(block *proto.Block) error {
 
 func (h *httpConnect) readData(reader *chproto.Reader) (*proto.Block, error) {
 	var block proto.Block
-	if h.compression != NONE {
+	if h.compression != CompressionNone {
 		reader.EnableCompression()
 		defer reader.DisableCompression()
 	}

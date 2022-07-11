@@ -1,10 +1,10 @@
 # ClickHouse [![run-tests](https://github.com/ClickHouse/clickhouse-go/actions/workflows/run-tests.yml/badge.svg?branch=v2)](https://github.com/ClickHouse/clickhouse-go/actions/workflows/run-tests.yml) [![Go Reference](https://pkg.go.dev/badge/github.com/ClickHouse/clickhouse-go/v2.svg)](https://pkg.go.dev/github.com/ClickHouse/clickhouse-go/v2)
 
-Golang SQL database driver for [ClickHouse](https://clickhouse.com/).
+Golang SQL database client for [ClickHouse](https://clickhouse.com/).
 
 ## Versions
 
-There are two version of this driver, v1 and v2, available as separate branches. 
+There are two version of this client, v1 and v2, available as separate branches. 
 
 **v1 is now in a state of a maintenance - we will only accept PRs for bug and security fixes.**
 
@@ -12,18 +12,18 @@ Users should use v2 which is production ready and [significantly faster than v1]
 
 ## Supported ClickHouse Versions
 
-The driver is tested against the currently [supported versions](https://github.com/ClickHouse/ClickHouse/blob/master/SECURITY.md) of ClickHouse
+The client is tested against the currently [supported versions](https://github.com/ClickHouse/ClickHouse/blob/master/SECURITY.md) of ClickHouse
 
 ## Supported Golang Versions
 
-| Driver Version | Golang Versions |
+| Client Version | Golang Versions |
 |----------------|-----------------|
 | => 2.0 <= 2.2  | 1.17, 1.18      |
 | >= 2.3         | 1.18            |
 
 ## Key features
 
-* Uses ClickHouse native format for optimal performance. Utilises low level [ch-go](https://github.com/ClickHouse/ch-go) driver for encoding/decoding and compression (versions >= 2.3.0).
+* Uses ClickHouse native format for optimal performance. Utilises low level [ch-go](https://github.com/ClickHouse/ch-go) client for encoding/decoding and compression (versions >= 2.3.0).
 * Supports native ClickHouse TCP client-server protocol
 * Compatibility with [`database/sql`](#std-databasesql-interface) ([slower](#benchmark) than [native interface](#native-interface)!)
 * [`database/sql`](#std-databasesql-interface) supports http protocol for transport. (Experimental)
@@ -141,7 +141,7 @@ Other compression methods will be added in future PRs.
 
 ## TLS/SSL
 
-At a low level all driver connect methods (DSN/OpenDB/Open) will use the [Go tls package](https://pkg.go.dev/crypto/tls) to establish a secure connection. The driver knows to use TLS if the Options struct contains a non-nil tls.Config pointer.
+At a low level all client connect methods (DSN/OpenDB/Open) will use the [Go tls package](https://pkg.go.dev/crypto/tls) to establish a secure connection. The client knows to use TLS if the Options struct contains a non-nil tls.Config pointer.
 
 Setting secure in the DSN creates a minimal tls.Config struct with only the InsecureSkipVerify field set (either true or false).  It is equivalent to this code:
 
@@ -222,13 +222,13 @@ go get -u github.com/ClickHouse/clickhouse-go/v2
 
 ## ClickHouse alternatives
 
-Versions of this driver >=2.3.x utilise [ch-go](https://github.com/ClickHouse/ch-go) for their low level encoding/decoding. This low lever driver provides a high performance columnar interface and should be used in performance critical use cases. This driver provides more familar row orientated and `database/sql` semantics at the cost of some performance.
+Versions of this client >=2.3.x utilise [ch-go](https://github.com/ClickHouse/ch-go) for their low level encoding/decoding. This low lever client provides a high performance columnar interface and should be used in performance critical use cases. This client provides more familar row orientated and `database/sql` semantics at the cost of some performance.
 
-Both drivers are supported by ClickHouse.
+Both clients are supported by ClickHouse.
 
 ## Third-party alternatives
 
-* Database drivers:
+* Database client/clients:
 	* [mailru/go-clickhouse](https://github.com/mailru/go-clickhouse) (uses the HTTP protocol)
 	* [uptrace/go-clickhouse](https://github.com/uptrace/go-clickhouse) (uses the native TCP protocol with `database/sql`-like API)
 	* Drivers with columnar interface:
