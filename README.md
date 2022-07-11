@@ -34,7 +34,7 @@ The driver is tested against the currently [supported versions](https://github.c
 * [Bulk write support](examples/native/batch/main.go) (for `database/sql` [use](examples/std/batch/main.go) `begin->prepare->(in loop exec)->commit`)
 * [AsyncInsert](benchmark/v2/write-async/main.go)
 * Named and numeric placeholders support
-* LZ4 compression support
+* LZ4/ZSTD compression support
 * External data
 
 Support for the ClickHouse protocol advanced features using `Context`:
@@ -133,7 +133,9 @@ conn := clickhouse.OpenDB(&clickhouse.Options{
 
 ## Compression
 
-Compression is supported over http and native. This is performed at a block level and is only used for inserts.
+ZSTD/LZ4 compression is supported over native and http. This is performed at a block level and is only used for inserts.
+
+If using `Open` via the std interface and specifying a DSN, compression can be enabled via the `compress` flag. Currently, this is a boolean flag which enables `LZ4` compression.
 
 Other compression methods will be added in future PRs.
 
