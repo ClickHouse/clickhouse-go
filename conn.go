@@ -172,7 +172,7 @@ func (c *connect) sendData(block *proto.Block, name string) error {
 	if c.compression != NONE {
 		// Performing compression. Note: only blocks are compressed.
 		data := c.buffer.Buf[start:]
-		if err := c.compressor.Compress(compress.LZ4, data); err != nil {
+		if err := c.compressor.Compress(compress.Method(c.compression), data); err != nil {
 			return errors.Wrap(err, "compress")
 		}
 		c.buffer.Buf = append(c.buffer.Buf[:start], c.compressor.Data...)

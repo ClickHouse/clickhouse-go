@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-func TestCompressionHttpStd(t *testing.T) {
+func TestCompressionStd(t *testing.T) {
 	protocols := map[clickhouse.Protocol]int{clickhouse.HTTP: 8123, clickhouse.Native: 9000}
 	for protocol, port := range protocols {
 		conn := clickhouse.OpenDB(&clickhouse.Options{
@@ -66,7 +66,7 @@ func TestCompressionHttpStd(t *testing.T) {
 	}
 }
 
-func TestZSTDCompressionHttpStd(t *testing.T) {
+func TestZSTDCompressionStd(t *testing.T) {
 	protocols := map[clickhouse.Protocol]int{clickhouse.HTTP: 8123, clickhouse.Native: 9000}
 	for protocol, port := range protocols {
 		conn := clickhouse.OpenDB(&clickhouse.Options{
@@ -124,7 +124,7 @@ func TestZSTDCompressionHttpStd(t *testing.T) {
 
 //test compression over std with dsn and compress
 
-func TestCompressionHttpStdDSN(t *testing.T) {
+func TestCompressionStdDSN(t *testing.T) {
 	dsns := map[string]string{"Native": "clickhouse://127.0.0.1:9000?compress=true", "Http": "http://127.0.0.1:8123?compress=true"}
 
 	for name, dsn := range dsns {

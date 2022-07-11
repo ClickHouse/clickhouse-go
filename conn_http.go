@@ -70,9 +70,9 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		query.Set(k, fmt.Sprint(v))
 	}
 	query.Set("default_format", "Native")
-	var compression bool
+	compression := NONE
 	if opt.Compression != nil {
-		compression = opt.Compression.Method == CompressionLZ4
+		compression = opt.Compression.Method
 	}
 	u.RawQuery = query.Encode()
 
@@ -120,7 +120,7 @@ type httpConnect struct {
 	client      *http.Client
 	location    *time.Location
 	buffer      *chproto.Buffer
-	compression bool
+	compression CompressionMethod
 	compressor  *compress.Writer
 }
 
@@ -137,10 +137,10 @@ func (h *httpConnect) writeData(block *proto.Block) error {
 	if err := block.Encode(h.buffer, 0); err != nil {
 		return err
 	}
-	if h.compression {
+	if h.compression != NONE {
 		// Performing compression. Supported and requires
 		data := h.buffer.Buf[start:]
-		if err := h.compressor.Compress(compress.LZ4, data); err != nil {
+		if err := h.compressor.Compress(compress.Method(h.compression), data); err != nil {
 			return errors.Wrap(err, "compress")
 		}
 		h.buffer.Buf = append(h.buffer.Buf[:start], h.compressor.Data...)
