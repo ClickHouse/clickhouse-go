@@ -22,9 +22,7 @@ func Test615(t *testing.T) {
 	if err := checkMinServerVersion(conn, 22, 0); err != nil {
 		t.Skip(err.Error())
 	}
-	if err != nil {
-		panic(err)
-	}
+	require.NoError(t, err)
 	if err := conn.Exec(
 		context.Background(),
 		`
@@ -36,9 +34,9 @@ func Test615(t *testing.T) {
 	); err != nil {
 		require.NoError(t, err)
 	}
-	//defer func() {
-	//	require.NoError(t, conn.Exec(context.Background(), "DROP TABLE issue_615"))
-	//}()
+	defer func() {
+		require.NoError(t, conn.Exec(context.Background(), "DROP TABLE issue_615"))
+	}()
 	ts1 := time.Now().Round(time.Second)
 	ts2 := ts1.Add(time.Millisecond)
 	ts3 := ts1.Add(time.Second + time.Millisecond)
