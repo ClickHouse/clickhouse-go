@@ -2,9 +2,11 @@ package issues
 
 import (
 	"context"
+	"database/sql"
+	"testing"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func Test647(t *testing.T) {
@@ -36,4 +38,18 @@ func Test647_OpenDB(t *testing.T) {
 	// allow nil to be parsed
 	conn3 := clickhouse.OpenDB(nil)
 	require.NoError(t, conn3.Ping())
+}
+
+func Test647_Connector(t *testing.T) {
+	options := &clickhouse.Options{
+		Addr: []string{"127.0.0.1:9000"},
+	}
+	conn := clickhouse.Connector(options)
+	require.NoError(t, sql.OpenDB(conn).Ping())
+	// reuse options
+	conn2 := clickhouse.Connector(options)
+	require.NoError(t, sql.OpenDB(conn2).Ping())
+	// allow nil to be parsed
+	conn3 := clickhouse.Connector(nil)
+	require.NoError(t, sql.OpenDB(conn3).Ping())
 }

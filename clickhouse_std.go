@@ -89,6 +89,17 @@ func init() {
 	sql.Register("clickhouse", &stdDriver{})
 }
 
+func Connector(opt *Options) driver.Connector {
+	if opt == nil {
+		opt = &Options{}
+	}
+
+	o := opt.setDefaults()
+	return &stdConnOpener{
+		opt: o,
+	}
+}
+
 func OpenDB(opt *Options) *sql.DB {
 	if opt == nil {
 		opt = &Options{}
