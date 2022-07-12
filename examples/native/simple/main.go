@@ -26,6 +26,27 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2"
 )
 
+func version() (string, error) {
+	var (
+		conn, err = clickhouse.Open(&clickhouse.Options{
+			Addr: []string{"127.0.0.1:9000"},
+			Auth: clickhouse.Auth{
+				Database: "default",
+				Username: "default",
+				Password: "",
+			},
+		})
+	)
+	if err != nil {
+		return "", err
+	}
+	v, err := conn.ServerVersion()
+	if err != nil {
+		return "", err
+	}
+	return v.String(), nil
+}
+
 func example() error {
 	conn, err := clickhouse.Open(&clickhouse.Options{
 		Addr: []string{"127.0.0.1:9000"},
@@ -105,7 +126,9 @@ func example() error {
 }
 
 func main() {
-	if err := example(); err != nil {
+	version, err := version()
+	if err != nil {
 		log.Fatal(err)
 	}
+	fmt.Println(version)
 }

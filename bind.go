@@ -48,6 +48,8 @@ type GroupSet struct {
 	Value []interface{}
 }
 
+type ArraySet []interface{}
+
 func DateNamed(name string, value time.Time, scale TimeUnit) driver.NamedDateValue {
 	return driver.NamedDateValue{
 		Name:  name,
@@ -238,32 +240,30 @@ func format(tz *time.Location, scale TimeUnit, v interface{}) (string, error) {
 	case time.Time:
 		return formatTime(tz, scale, v)
 	case GroupSet:
-		elements := make([]string, 0, len(v.Value))
-		for _, e := range v.Value {
-			val, err := format(tz, scale, e)
-			if err != nil {
-				return "", err
-			}
-			elements = append(elements, val)
+		val, err := join(tz, scale, v.Value)
+		if err != nil {
+			return "", err
 		}
-		return fmt.Sprintf("(%s)", strings.Join(elements, ", ")), nil
+		return fmt.Sprintf("(%s)", val), nil
 	case []GroupSet:
-		items := make([]string, 0, len(v))
-		for _, t := range v {
-			val, err := format(tz, scale, t)
-			if err != nil {
-				return "", err
-			}
-			items = append(items, fmt.Sprintf("%s", val))
+		val, err := join(tz, scale, v)
+		if err != nil {
+			return "", err
 		}
-		return strings.Join(items, ", "), nil
+		return val, err
+	case ArraySet:
+		val, err := join(tz, scale, v)
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("[%s]", val), nil
 	case fmt.Stringer:
 		return quote(v.String()), nil
 	}
 	switch v := reflect.ValueOf(v); v.Kind() {
 	case reflect.String:
 		return quote(v.String()), nil
-	case reflect.Slice:
+	case reflect.Slice, reflect.Array:
 		values := make([]string, 0, v.Len())
 		for i := 0; i < v.Len(); i++ {
 			val, err := format(tz, scale, v.Index(i).Interface())
@@ -284,16 +284,28 @@ func format(tz *time.Location, scale TimeUnit, v interface{}) (string, error) {
 			if err != nil {
 				return "", err
 			}
-			if v.MapIndex(key).Kind() == reflect.Slice {
+			if v.MapIndex(key).Kind() == reflect.Slice || v.MapIndex(key).Kind() == reflect.Array {
 				// assume slices in maps are arrays
 				val = fmt.Sprintf("[%s]", val)
 			}
-			values = append(values, fmt.Sprintf("%s : %s", name, val))
+			values = append(values, fmt.Sprintf("%s, %s", name, val))
 		}
-		return "{" + strings.Join(values, ", ") + "}", nil
+		return "map(" + strings.Join(values, ", ") + ")", nil
 
 	}
 	return fmt.Sprint(v), nil
+}
+
+func join[E any](tz *time.Location, scale TimeUnit, values []E) (string, error) {
+	items := make([]string, len(values), len(values))
+	for i := range values {
+		val, err := format(tz, scale, values[i])
+		if err != nil {
+			return "", err
+		}
+		items[i] = val
+	}
+	return strings.Join(items, ", "), nil
 }
 
 func rebind(in []std_driver.NamedValue) []interface{} {
