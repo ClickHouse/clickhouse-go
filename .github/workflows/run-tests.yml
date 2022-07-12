@@ -4,11 +4,11 @@ on:
   push:
     branches:
       - v1
-      - v2
+      - main
   pull_request:
     branches:
       - v1
-      - v2    
+      - main
   schedule:
     - cron: "0 9 1 * *"
 
@@ -37,7 +37,7 @@ jobs:
         options: --ulimit nofile=262144:262144
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@main
 
       - name: Install Go ${{ matrix.go }}
         uses: actions/setup-go@v2.1.5
