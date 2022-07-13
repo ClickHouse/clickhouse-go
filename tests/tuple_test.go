@@ -139,7 +139,8 @@ func TestNamedTuple(t *testing.T) {
 		})
 	)
 	require.NoError(t, err)
-	if err := checkMinServerVersion(conn, 21, 9, 0); err != nil {
+	// https://github.com/ClickHouse/ClickHouse/pull/36544
+	if err := checkMinServerVersion(conn, 22, 5, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
