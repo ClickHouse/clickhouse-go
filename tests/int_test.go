@@ -2,10 +2,10 @@ package tests
 
 import (
 	"context"
+	"github.com/stretchr/testify/require"
 	"testing"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestSimpleInt(t *testing.T) {
@@ -23,23 +23,17 @@ func TestSimpleInt(t *testing.T) {
 			},
 		})
 	)
-	if assert.NoError(t, err) {
-		if err := checkMinServerVersion(conn, 21, 9, 0); err != nil {
-			t.Skip(err.Error())
-			return
-		}
-		const ddl = `
-		CREATE TABLE test_int (
-			  Col1 Int64
-		) Engine Memory
-		`
-		defer func() {
-			conn.Exec(ctx, "DROP TABLE test_int")
-		}()
-		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
-			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_int"); assert.NoError(t, err) {
-				assert.Error(t, batch.Append(222))
-			}
-		}
+	require.NoError(t, err)
+	if err := checkMinServerVersion(conn, 21, 9, 0); err != nil {
+		t.Skip(err.Error())
+		return
 	}
+	const ddl = "CREATE TABLE test_int (`1` Int64) Engine Memory"
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE test_int")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_int")
+	require.NoError(t, err)
+	require.Error(t, batch.Append(222))
 }

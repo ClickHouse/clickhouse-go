@@ -195,7 +195,7 @@ func (jCol *JSONList) createNewOffsets(num int) {
 	}
 }
 
-func getFieldName(field reflect.StructField) (string, bool) {
+func getStructFieldName(field reflect.StructField) (string, bool) {
 	name := field.Name
 	jsonTag := field.Tag.Get("json")
 	if jsonTag == "" {
@@ -206,6 +206,15 @@ func getFieldName(field reflect.StructField) (string, bool) {
 		return name, true
 	}
 	return jsonTag, false
+}
+
+// ensures numeric keys and ` are escaped properly
+func getMapFieldName(key reflect.Value) string {
+	name := key.Interface().(string)
+	if !escapeColRegex.MatchString(name) {
+		return fmt.Sprintf("`%s`", colEscape.Replace(name))
+	}
+	return colEscape.Replace(name)
 }
 
 func parseSlice(name string, values interface{}, jCol JSONParent, preFill int) error {
@@ -305,7 +314,7 @@ func iterateStruct(structVal reflect.Value, col JSONParent, preFill int) error {
 	newColumn := false
 
 	for i := 0; i < structVal.NumField(); i++ {
-		fName, omit := getFieldName(structVal.Type().Field(i))
+		fName, omit := getStructFieldName(structVal.Type().Field(i))
 		if omit {
 			continue
 		}
@@ -410,7 +419,7 @@ func iterateMap(mapVal reflect.Value, col JSONParent, preFill int) error {
 	addedColumns := make([]string, len(mapVal.MapKeys()), len(mapVal.MapKeys()))
 	newColumn := false
 	for i, key := range mapVal.MapKeys() {
-		name := key.Interface().(string)
+		name := getMapFieldName(key)
 		if _, ok := columnLookup[name]; !ok && len(currentColumns) > 0 {
 			// new column - need to handle
 			preFill = numRows
@@ -811,6 +820,8 @@ func (jCol *JSONObject) Rows() int {
 	}
 	return 0
 }
+
+// ClickHouse returns JSON as a tuple i.e. these will never be invoked
 
 func (jCol *JSONObject) Row(i int, ptr bool) interface{} {
 	panic("Not implemented")
