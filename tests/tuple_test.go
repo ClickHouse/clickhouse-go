@@ -120,8 +120,49 @@ func TestTuple(t *testing.T) {
 			}
 		}
 	}
-
 }
+
+func TestNamedTuple(t *testing.T) {
+	var (
+		ctx       = context.Background()
+		conn, err = clickhouse.Open(&clickhouse.Options{
+			Addr: []string{"127.0.0.1:9000"},
+			Auth: clickhouse.Auth{
+				Database: "default",
+				Username: "default",
+				Password: "",
+			},
+			Compression: &clickhouse.Compression{
+				Method: clickhouse.CompressionLZ4,
+			},
+			//Debug: true,
+		})
+	)
+	require.NoError(t, err)
+	if err := checkMinServerVersion(conn, 21, 9, 0); err != nil {
+		t.Skip(err.Error())
+		return
+	}
+	const ddl = "CREATE TABLE test_tuple (Col1 Tuple(name String, `1` Int64)) Engine Memory"
+
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE test_tuple")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_tuple")
+	require.NoError(t, err)
+	var (
+		col1Data = []interface{}{"A", int64(42)}
+	)
+	require.NoError(t, batch.Append(col1Data))
+	require.NoError(t, batch.Send())
+	var (
+		col1 []interface{}
+	)
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_tuple").Scan(&col1))
+	assert.Equal(t, col1Data, col1)
+}
+
 func TestColumnarTuple(t *testing.T) {
 	var (
 		ctx       = context.Background()

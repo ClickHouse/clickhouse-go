@@ -217,6 +217,14 @@ func getStructFieldValue(field reflect.Value, name string) (reflect.Value, bool)
 	return sField, sField.IsValid()
 }
 
+func unescapeColName(colName string) string {
+	s := []rune(colName)
+	if s[0:1][0] == '`' && s[len(s)-1:][0] == '`' {
+		return colUnEscape.Replace(string(s[1 : len(s)-1]))
+	}
+	return colUnEscape.Replace(colName)
+}
+
 func (col *Tuple) scanMap(targetMap reflect.Value, row int) error {
 	if targetMap.Type().Key().Kind() != reflect.String {
 		return &Error{
@@ -225,6 +233,7 @@ func (col *Tuple) scanMap(targetMap reflect.Value, row int) error {
 		}
 	}
 	for _, c := range col.columns {
+		colName := unescapeColName(c.Name())
 		switch dCol := c.(type) {
 		case *Tuple:
 			switch targetMap.Type().Elem().Kind() {
@@ -233,21 +242,21 @@ func (col *Tuple) scanMap(targetMap reflect.Value, row int) error {
 				if err := dCol.scanStruct(rStruct, row); err != nil {
 					return err
 				}
-				targetMap.SetMapIndex(reflect.ValueOf(c.Name()), rStruct)
+				targetMap.SetMapIndex(reflect.ValueOf(colName), rStruct)
 			case reflect.Map:
 				// get a typed map
 				newMap := reflect.MakeMap(targetMap.Type().Elem())
 				if err := dCol.scanMap(newMap, row); err != nil {
 					return err
 				}
-				targetMap.SetMapIndex(reflect.ValueOf(c.Name()), newMap)
+				targetMap.SetMapIndex(reflect.ValueOf(colName), newMap)
 			case reflect.Interface:
 				// catches interface{} - Note this swallows custom interfaces to which maps couldn't conform
 				newMap := reflect.ValueOf(make(map[string]interface{}))
 				if err := dCol.scanMap(newMap, row); err != nil {
 					return err
 				}
-				targetMap.SetMapIndex(reflect.ValueOf(c.Name()), newMap)
+				targetMap.SetMapIndex(reflect.ValueOf(colName), newMap)
 			default:
 				return &Error{
 					ColumnType: fmt.Sprint(targetMap.Type().Elem().Kind()),
@@ -261,20 +270,20 @@ func (col *Tuple) scanMap(targetMap reflect.Value, row int) error {
 				return err
 			}
 			// this wont work if targetMap is a map[string][]interface{} and we try to set a typed slice
-			targetMap.SetMapIndex(reflect.ValueOf(c.Name()), subSlice)
+			targetMap.SetMapIndex(reflect.ValueOf(colName), subSlice)
 		case *Array:
 			subSlice, err := dCol.scan(targetMap.Type().Elem(), row)
 			if err != nil {
 				return err
 			}
-			targetMap.SetMapIndex(reflect.ValueOf(c.Name()), subSlice)
+			targetMap.SetMapIndex(reflect.ValueOf(colName), subSlice)
 		default:
 			field := reflect.New(reflect.TypeOf(c.Row(0, false))).Elem()
 			value := reflect.ValueOf(c.Row(row, false))
 			if err := setJSONFieldValue(field, value); err != nil {
 				return err
 			}
-			targetMap.SetMapIndex(reflect.ValueOf(c.Name()), field)
+			targetMap.SetMapIndex(reflect.ValueOf(colName), field)
 		}
 	}
 	return nil
