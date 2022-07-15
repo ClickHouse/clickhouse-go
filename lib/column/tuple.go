@@ -391,6 +391,14 @@ func (col *Tuple) scan(targetType reflect.Type, row int) (reflect.Value, error) 
 		}
 		return rStruct, nil
 	case reflect.Map:
+		if !col.isNamed {
+			return reflect.Value{}, &ColumnConverterError{
+				Op:   "ScanRow",
+				To:   fmt.Sprintf("%s", targetType),
+				From: string(col.chType),
+				Hint: "cannot use maps for unnamed tuples, use slice",
+			}
+		}
 		rMap := reflect.MakeMap(targetType)
 		if err := col.scanMap(rMap, row); err != nil {
 			return reflect.Value{}, nil
@@ -488,6 +496,12 @@ func (col *Tuple) AppendRow(v interface{}) error {
 		}
 		return nil
 	case map[string]interface{}:
+		if !col.isNamed {
+			return &Error{
+				ColumnType: string(col.chType),
+				Err:        fmt.Errorf("converting from %T is not supported for unnamed tuples - use a slice", v),
+			}
+		}
 		for name, v := range v {
 			if err := col.columns[col.index[name]].AppendRow(v); err != nil {
 				return err
