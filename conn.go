@@ -61,7 +61,12 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 	}
 	compression := CompressionNone
 	if opt.Compression != nil {
-		compression = opt.Compression.Method
+		switch opt.Compression.Method {
+		case CompressionLZ4, CompressionZSTD:
+			compression = opt.Compression.Method
+		default:
+			return nil, fmt.Errorf("unsupported compression method for native protocol")
+		}
 	}
 	var (
 		connect = &connect{

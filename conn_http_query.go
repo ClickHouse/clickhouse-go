@@ -19,6 +19,7 @@ package clickhouse
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"errors"
 	chproto "github.com/ClickHouse/ch-go/proto"
@@ -35,18 +36,43 @@ func (h *httpConnect) query(ctx context.Context, release func(*connect, error), 
 		return nil, err
 	}
 	options := queryOptions(ctx)
-	if h.compression != CompressionNone {
+	headers := make(map[string]string)
+	switch h.compression {
+	case CompressionZSTD, CompressionLZ4:
 		options.settings["compress"] = "1"
+	case CompressionGZIP:
+		// request encoding
+		headers["Accept-Encoding"] = h.compression.String()
 	}
-	res, err := h.sendQuery(ctx, strings.NewReader(query), &options, nil)
-	if err != nil {
-		return nil, err
-	}
-	defer res.Close()
 
-	body, err := ioutil.ReadAll(res)
+	res, err := h.sendQuery(ctx, strings.NewReader(query), &options, headers)
 	if err != nil {
 		return nil, err
+	}
+	defer res.Body.Close()
+	// detect compression from http Content-Encoding header - note user will need to have set enable_http_compression
+	// for CH to respond with compressed data - we don't set this automatically as they might not have permissions
+	var body []byte
+	//adding Accept-Encoding:gzip on your request means response won’t be automatically decompressed per https://github.com/golang/go/blob/master/src/net/http/transport.go#L182-L190
+	switch res.Header.Get("Content-Encoding") {
+	case CompressionGZIP.String():
+		//decompress block first
+		if !res.Uncompressed {
+			gReader := h.compressionPool.Get().reader.(*gzip.Reader)
+			defer gReader.Close()
+			if err = gReader.Reset(res.Body); err != nil {
+				return nil, err
+			}
+			body, err = ioutil.ReadAll(gReader)
+			if err != nil {
+				return nil, err
+			}
+		}
+	default:
+		body, err = ioutil.ReadAll(res.Body)
+		if err != nil {
+			return nil, err
+		}
 	}
 	reader := chproto.NewReader(bytes.NewReader(body))
 	block, err := h.readData(reader)

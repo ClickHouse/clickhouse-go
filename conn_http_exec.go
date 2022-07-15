@@ -34,9 +34,9 @@ func (h *httpConnect) exec(ctx context.Context, query string, args ...interface{
 
 	res, err := h.sendQuery(ctx, strings.NewReader(query), &options, nil)
 	if res != nil {
-		defer res.Close()
+		defer res.Body.Close()
 		// we don't care about result, so just discard it to reuse connection
-		_, _ = io.Copy(ioutil.Discard, res)
+		_, _ = io.Copy(ioutil.Discard, res.Body)
 	}
 
 	return err
