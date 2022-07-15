@@ -192,9 +192,14 @@ func (o *Options) fromDSN(in string) error {
 	}
 	o.scheme = dsn.Scheme
 	switch dsn.Scheme {
-	case "http", "https":
+	case "http":
 		if secure {
 			return fmt.Errorf("clickhouse [dsn parse]: http with TLS specify")
+		}
+		o.Protocol = HTTP
+	case "https":
+		if !secure {
+			return fmt.Errorf("clickhouse [dsn parse]: https without TLS")
 		}
 		o.Protocol = HTTP
 	default:
