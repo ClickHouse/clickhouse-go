@@ -20,6 +20,7 @@ package std
 import (
 	"database/sql"
 	"fmt"
+	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
 
@@ -83,25 +84,24 @@ func TestStdArray(t *testing.T) {
 								return
 							}
 						}
-						if assert.NoError(t, scope.Commit()) {
-							if rows, err := conn.Query("SELECT * FROM test_array"); assert.NoError(t, err) {
-								for rows.Next() {
-									var (
-										col1 interface{}
-										col2 [][]uint32
-										col3 [][][]time.Time
-									)
-									if err := rows.Scan(&col1, &col2, &col3); assert.NoError(t, err) {
-										assert.Equal(t, col1Data, col1)
-										assert.Equal(t, col2Data, col2)
-										assert.Equal(t, col3Data, col3)
-									}
-								}
-								if assert.NoError(t, rows.Close()) {
-									assert.NoError(t, rows.Err())
+						require.NoError(t, scope.Commit())
+						if rows, err := conn.Query("SELECT * FROM test_array"); assert.NoError(t, err) {
+							for rows.Next() {
+								var (
+									col1 interface{}
+									col2 [][]uint32
+									col3 [][][]time.Time
+								)
+								if err := rows.Scan(&col1, &col2, &col3); assert.NoError(t, err) {
+									assert.Equal(t, col1Data, col1)
+									assert.Equal(t, col2Data, col2)
+									assert.Equal(t, col3Data, col3)
 								}
 							}
+							require.NoError(t, rows.Close())
+							require.NoError(t, rows.Err())
 						}
+
 					}
 				}
 			}

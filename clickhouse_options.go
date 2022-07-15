@@ -29,12 +29,28 @@ import (
 	"time"
 )
 
-type CompressionMethod compress.Method
+type CompressionMethod byte
+
+func (c CompressionMethod) String() string {
+	switch c {
+	case CompressionNone:
+		return "None"
+	case CompressionZSTD:
+		return "zstd"
+	case CompressionLZ4:
+		return "lz4"
+	case CompressionGZIP:
+		return "gzip"
+	default:
+		return ""
+	}
+}
 
 const (
 	CompressionNone = CompressionMethod(compress.None)
 	CompressionLZ4  = CompressionMethod(compress.LZ4)
 	CompressionZSTD = CompressionMethod(compress.ZSTD)
+	CompressionGZIP = CompressionMethod(0x99)
 )
 
 type Auth struct { // has_control_character
@@ -61,6 +77,19 @@ const (
 	HTTP
 	HTTPS
 )
+
+func (p Protocol) String() string {
+	switch p {
+	case Native:
+		return "native"
+	case HTTP:
+		return "http"
+	case HTTPS:
+		return "https"
+	default:
+		return ""
+	}
+}
 
 func ParseDSN(dsn string) (*Options, error) {
 	opt := &Options{}
@@ -166,12 +195,12 @@ func (o *Options) fromDSN(in string) error {
 	}
 	o.scheme = dsn.Scheme
 	switch dsn.Scheme {
-	case "http":
+	case HTTP.String():
 		if secure {
 			return fmt.Errorf("clickhouse [dsn parse]: http with TLS specify")
 		}
 		o.Protocol = HTTP
-	case "https":
+	case HTTPS.String():
 		if !secure {
 			return fmt.Errorf("clickhouse [dsn parse]: https without TLS specify")
 		}

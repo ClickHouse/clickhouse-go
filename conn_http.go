@@ -19,6 +19,7 @@ package clickhouse
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"database/sql/driver"
 	"fmt"
@@ -30,6 +31,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"sync"
 	"time"
 )
 
@@ -38,13 +40,34 @@ const (
 	queryIDParamName  = "query_id"
 )
 
+type Pool[T any] struct {
+	pool sync.Pool
+}
+
+func NewPool[T any](fn func() T) Pool[T] {
+	return Pool[T]{
+		pool: sync.Pool{New: func() interface{} { return fn() }},
+	}
+}
+
+func (p *Pool[T]) Get() T {
+	return p.pool.Get().(T)
+}
+
+func (p *Pool[T]) Put(x T) {
+	p.pool.Put(x)
+}
+
+type HTTPReaderWriter struct {
+	reader io.Reader
+	writer io.Writer
+}
+
 func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpConnect, error) {
 	if opt.scheme == "" {
 		switch opt.Protocol {
-		case HTTP:
-			opt.scheme = "http"
-		case HTTPS:
-			opt.scheme = "https"
+		case HTTP, HTTPS:
+			opt.scheme = opt.Protocol.String()
 		default:
 			return nil, errors.New("invalid interface type for http")
 		}
@@ -66,14 +89,32 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 	if len(opt.Auth.Database) > 0 {
 		query.Set("database", opt.Auth.Database)
 	}
-	for k, v := range opt.Settings {
-		query.Set(k, fmt.Sprint(v))
-	}
-	query.Set("default_format", "Native")
+
 	compression := CompressionNone
 	if opt.Compression != nil {
 		compression = opt.Compression.Method
 	}
+
+	compressionPool := NewPool(func() HTTPReaderWriter {
+		switch compression {
+		case CompressionGZIP:
+			// trick so we can init the reader to something to Reset when we reuse
+			writer := gzip.NewWriter(io.Discard)
+			b := new(bytes.Buffer)
+			writer.Reset(b)
+			writer.Flush()
+			writer.Close()
+			reader, _ := gzip.NewReader(bytes.NewReader(b.Bytes()))
+			return HTTPReaderWriter{writer: writer, reader: reader}
+		default:
+			return HTTPReaderWriter{}
+		}
+	})
+
+	for k, v := range opt.Settings {
+		query.Set(k, fmt.Sprint(v))
+	}
+	query.Set("default_format", "Native")
 	u.RawQuery = query.Encode()
 
 	t := &http.Transport{
@@ -91,10 +132,11 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		client: &http.Client{
 			Transport: t,
 		},
-		url:         u,
-		buffer:      new(chproto.Buffer),
-		compression: compression,
-		compressor:  compress.NewWriter(),
+		url:             u,
+		buffer:          new(chproto.Buffer),
+		compression:     compression,
+		blockCompressor: compress.NewWriter(),
+		compressionPool: compressionPool,
 	}
 
 	rows, err := conn.query(ctx, func(*connect, error) {}, "SELECT timeZone()")
@@ -116,12 +158,13 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 }
 
 type httpConnect struct {
-	url         *url.URL
-	client      *http.Client
-	location    *time.Location
-	buffer      *chproto.Buffer
-	compression CompressionMethod
-	compressor  *compress.Writer
+	url             *url.URL
+	client          *http.Client
+	location        *time.Location
+	buffer          *chproto.Buffer
+	compression     CompressionMethod
+	blockCompressor *compress.Writer
+	compressionPool Pool[HTTPReaderWriter]
 }
 
 func (h *httpConnect) isBad() bool {
@@ -137,20 +180,20 @@ func (h *httpConnect) writeData(block *proto.Block) error {
 	if err := block.Encode(h.buffer, 0); err != nil {
 		return err
 	}
-	if h.compression != CompressionNone {
+	if h.compression == CompressionLZ4 || h.compression == CompressionZSTD {
 		// Performing compression. Supported and requires
 		data := h.buffer.Buf[start:]
-		if err := h.compressor.Compress(compress.Method(h.compression), data); err != nil {
+		if err := h.blockCompressor.Compress(compress.Method(h.compression), data); err != nil {
 			return errors.Wrap(err, "compress")
 		}
-		h.buffer.Buf = append(h.buffer.Buf[:start], h.compressor.Data...)
+		h.buffer.Buf = append(h.buffer.Buf[:start], h.blockCompressor.Data...)
 	}
 	return nil
 }
 
 func (h *httpConnect) readData(reader *chproto.Reader) (*proto.Block, error) {
 	var block proto.Block
-	if h.compression != CompressionNone {
+	if h.compression == CompressionLZ4 || h.compression == CompressionZSTD {
 		reader.EnableCompression()
 		defer reader.DisableCompression()
 	}
@@ -160,7 +203,7 @@ func (h *httpConnect) readData(reader *chproto.Reader) (*proto.Block, error) {
 	return &block, nil
 }
 
-func (h *httpConnect) sendQuery(ctx context.Context, r io.Reader, options *QueryOptions, headers map[string]string) (io.ReadCloser, error) {
+func (h *httpConnect) sendQuery(ctx context.Context, r io.Reader, options *QueryOptions, headers map[string]string) (*http.Response, error) {
 	req, err := h.prepareRequest(ctx, r, options, headers)
 	if err != nil {
 		return nil, err
@@ -189,7 +232,6 @@ func readResponse(response *http.Response) ([]byte, error) {
 }
 
 func (h *httpConnect) prepareRequest(ctx context.Context, reader io.Reader, options *QueryOptions, headers map[string]string) (*http.Request, error) {
-
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, h.url.String(), reader)
 	if err != nil {
 		return nil, err
@@ -221,7 +263,7 @@ func (h *httpConnect) prepareRequest(ctx context.Context, reader io.Reader, opti
 	return req, nil
 }
 
-func (h *httpConnect) executeRequest(req *http.Request) (io.ReadCloser, error) {
+func (h *httpConnect) executeRequest(req *http.Request) (*http.Response, error) {
 	if h.client == nil {
 		return nil, driver.ErrBadConn
 	}
@@ -238,7 +280,7 @@ func (h *httpConnect) executeRequest(req *http.Request) (io.ReadCloser, error) {
 
 		return nil, fmt.Errorf("clickhouse [execute]:: %d code: %s", resp.StatusCode, string(msg))
 	}
-	return resp.Body, nil
+	return resp, nil
 }
 
 func (h *httpConnect) ping(ctx context.Context) error {
