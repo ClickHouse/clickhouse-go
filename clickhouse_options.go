@@ -75,7 +75,6 @@ type Protocol int
 const (
 	Native Protocol = iota
 	HTTP
-	HTTPS
 )
 
 func (p Protocol) String() string {
@@ -84,8 +83,6 @@ func (p Protocol) String() string {
 		return "native"
 	case HTTP:
 		return "http"
-	case HTTPS:
-		return "https"
 	default:
 		return ""
 	}
@@ -195,16 +192,11 @@ func (o *Options) fromDSN(in string) error {
 	}
 	o.scheme = dsn.Scheme
 	switch dsn.Scheme {
-	case HTTP.String():
+	case "http", "https":
 		if secure {
 			return fmt.Errorf("clickhouse [dsn parse]: http with TLS specify")
 		}
 		o.Protocol = HTTP
-	case HTTPS.String():
-		if !secure {
-			return fmt.Errorf("clickhouse [dsn parse]: https without TLS specify")
-		}
-		o.Protocol = HTTPS
 	default:
 		o.Protocol = Native
 	}

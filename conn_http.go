@@ -66,8 +66,11 @@ type HTTPReaderWriter struct {
 func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpConnect, error) {
 	if opt.scheme == "" {
 		switch opt.Protocol {
-		case HTTP, HTTPS:
+		case HTTP:
 			opt.scheme = opt.Protocol.String()
+			if opt.TLS != nil {
+				opt.scheme = fmt.Sprintf("%ss", opt.scheme)
+			}
 		default:
 			return nil, errors.New("invalid interface type for http")
 		}
