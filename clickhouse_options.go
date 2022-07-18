@@ -171,7 +171,7 @@ func (o *Options) fromDSN(in string) error {
 				}
 			}
 		case "compress_level":
-			if level, err := strconv.ParseInt(params.Get(v), 10, 8); err != nil {
+			if level, err := strconv.ParseInt(params.Get(v), 10, 8); err == nil {
 				if o.Compression == nil {
 					o.Compression = &Compression{
 						// a level alone doesn't enable compression
