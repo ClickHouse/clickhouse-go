@@ -151,7 +151,7 @@ func TestCompressionStdDSN(t *testing.T) {
 }
 
 func TestCompressionStdDSNWithLevel(t *testing.T) {
-	dsns := map[string]string{"Native": "clickhouse://127.0.0.1:9000?compress=deflate", "Http": "http://127.0.0.1:8123?compress=gzip"}
+	dsns := map[string]string{"Native": "clickhouse://127.0.0.1:9000?compress=lz4", "Http": "http://127.0.0.1:8123?compress=gzip&compress_level=9"}
 
 	for name, dsn := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
@@ -192,5 +192,26 @@ func TestCompressionStdDSNWithLevel(t *testing.T) {
 			require.NoError(t, rows.Close())
 			require.NoError(t, rows.Err())
 		})
+	}
+}
+
+func TestCompressionStdDSNInvalid(t *testing.T) {
+	// these should all fail
+	config := map[string][]string{"Native": {"clickhouse://127.0.0.1:9000?compress=gzip"},
+		"Http": {"http://127.0.0.1:8123?compress=gzip&compress_level=10",
+			"http://127.0.0.1:8123?compress=gzip&compress_level=-3"}}
+	for name, dsns := range config {
+		for _, dsn := range dsns {
+			t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
+				conn, err := sql.Open("clickhouse", dsn)
+				const ddl = `
+				CREATE TABLE test_array_compress (
+					  Col1 Array(String)
+				) Engine Memory
+				`
+				_, err = conn.Exec(ddl)
+				require.Error(t, err)
+			})
+		}
 	}
 }

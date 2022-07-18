@@ -230,7 +230,10 @@ func createCompressionPool(compression *Compression) (Pool[HTTPReaderWriter], er
 		switch compression.Method {
 		case CompressionGZIP:
 			// trick so we can init the reader to something to Reset when we reuse
-			writer := gzip.NewWriter(io.Discard)
+			writer, err := gzip.NewWriterLevel(io.Discard, compression.Level)
+			if err != nil {
+				return HTTPReaderWriter{err: err}
+			}
 			b := new(bytes.Buffer)
 			writer.Reset(b)
 			writer.Flush()
