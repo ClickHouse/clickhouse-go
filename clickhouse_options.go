@@ -56,6 +56,14 @@ const (
 	CompressionDeflate = CompressionMethod(0x96)
 )
 
+var compressionMap = map[string]CompressionMethod{
+	"none":    CompressionNone,
+	"zstd":    CompressionZSTD,
+	"lz4":     CompressionLZ4,
+	"gzip":    CompressionGZIP,
+	"deflate": CompressionDeflate,
+}
+
 type Auth struct { // has_control_character
 	Database string
 	Username string
@@ -149,8 +157,29 @@ func (o *Options) fromDSN(in string) error {
 			if on, _ := strconv.ParseBool(params.Get(v)); on {
 				o.Compression = &Compression{
 					Method: CompressionLZ4,
-					// default for now same as Clickhouse - https://clickhouse.com/docs/en/operations/settings/settings#settings-http_zlib_compression_level
-					Level: 3,
+				}
+			}
+			if compressMethod, ok := compressionMap[params.Get(v)]; ok {
+				if o.Compression == nil {
+					o.Compression = &Compression{
+						Method: compressMethod,
+						// default for now same as Clickhouse - https://clickhouse.com/docs/en/operations/settings/settings#settings-http_zlib_compression_level
+						Level: 3,
+					}
+				} else {
+					o.Compression.Method = compressMethod
+				}
+			}
+		case "compress_level":
+			if level, err := strconv.ParseInt(params.Get(v), 10, 8); err != nil {
+				if o.Compression == nil {
+					o.Compression = &Compression{
+						// a level alone doesn't enable compression
+						Method: CompressionNone,
+						Level:  int(level),
+					}
+				} else {
+					o.Compression.Level = int(level)
 				}
 			}
 		case "dial_timeout":
