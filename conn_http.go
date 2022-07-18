@@ -19,7 +19,9 @@ package clickhouse
 
 import (
 	"bytes"
+	"compress/flate"
 	"compress/gzip"
+	"compress/zlib"
 	"context"
 	"database/sql/driver"
 	"fmt"
@@ -28,6 +30,7 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 	"github.com/pkg/errors"
 	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -60,7 +63,57 @@ func (p *Pool[T]) Put(x T) {
 
 type HTTPReaderWriter struct {
 	reader io.Reader
-	writer io.Writer
+	writer io.WriteCloser
+	err    error
+	method CompressionMethod
+}
+
+func (rw HTTPReaderWriter) read(res *http.Response) ([]byte, error) {
+	enc := res.Header.Get("Content-Encoding")
+	if !res.Uncompressed && rw.method.String() == enc {
+		switch rw.method {
+		case CompressionGZIP:
+			reader := rw.reader.(*gzip.Reader)
+			defer reader.Close()
+			if err := reader.Reset(res.Body); err != nil {
+				return nil, err
+			}
+			body, err := ioutil.ReadAll(reader)
+			if err != nil {
+				return nil, err
+			}
+			return body, nil
+		case CompressionDeflate:
+			reader := rw.reader.(io.ReadCloser)
+			defer reader.Close()
+			if err := rw.reader.(flate.Resetter).Reset(res.Body, nil); err != nil {
+				return nil, err
+			}
+			body, err := ioutil.ReadAll(reader)
+			if err != nil {
+				return nil, err
+			}
+			return body, nil
+		}
+	}
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
+	}
+	return body, nil
+}
+
+func (rw *HTTPReaderWriter) reset(pw *io.PipeWriter) io.WriteCloser {
+	switch rw.method {
+	case CompressionGZIP:
+		rw.writer.(*gzip.Writer).Reset(pw)
+		return rw.writer
+	case CompressionDeflate:
+		rw.writer.(*zlib.Writer).Reset(pw)
+		return rw.writer
+	default:
+		return pw
+	}
 }
 
 func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpConnect, error) {
@@ -93,26 +146,16 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		query.Set("database", opt.Auth.Database)
 	}
 
-	compression := CompressionNone
-	if opt.Compression != nil {
-		compression = opt.Compression.Method
+	if opt.Compression == nil {
+		opt.Compression = &Compression{
+			Method: CompressionNone,
+		}
 	}
 
-	compressionPool := NewPool(func() HTTPReaderWriter {
-		switch compression {
-		case CompressionGZIP:
-			// trick so we can init the reader to something to Reset when we reuse
-			writer := gzip.NewWriter(io.Discard)
-			b := new(bytes.Buffer)
-			writer.Reset(b)
-			writer.Flush()
-			writer.Close()
-			reader, _ := gzip.NewReader(bytes.NewReader(b.Bytes()))
-			return HTTPReaderWriter{writer: writer, reader: reader}
-		default:
-			return HTTPReaderWriter{}
-		}
-	})
+	compressionPool, err := createCompressionPool(opt.Compression)
+	if err != nil {
+		return nil, err
+	}
 
 	for k, v := range opt.Settings {
 		query.Set(k, fmt.Sprint(v))
@@ -137,7 +180,7 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		},
 		url:             u,
 		buffer:          new(chproto.Buffer),
-		compression:     compression,
+		compression:     opt.Compression.Method,
 		blockCompressor: compress.NewWriter(),
 		compressionPool: compressionPool,
 	}
@@ -175,6 +218,48 @@ func (h *httpConnect) isBad() bool {
 		return true
 	}
 	return false
+}
+
+func createCompressionPool(compression *Compression) (Pool[HTTPReaderWriter], error) {
+	pool := NewPool(func() HTTPReaderWriter {
+		// 0 means no compression - the default value if the user doesn't set.
+		if compression.Level == 0 {
+			// set to the ClickHouse default https://clickhouse.com/docs/en/operations/settings/settings#settings-http_zlib_compression_level
+			compression.Level = 3
+		}
+		switch compression.Method {
+		case CompressionGZIP:
+			// trick so we can init the reader to something to Reset when we reuse
+			writer := gzip.NewWriter(io.Discard)
+			b := new(bytes.Buffer)
+			writer.Reset(b)
+			writer.Flush()
+			writer.Close()
+			reader, err := gzip.NewReader(bytes.NewReader(b.Bytes()))
+			return HTTPReaderWriter{writer: writer, reader: reader, err: err, method: compression.Method}
+		case CompressionDeflate:
+			writer, err := zlib.NewWriterLevel(io.Discard, compression.Level)
+			if err != nil {
+				return HTTPReaderWriter{err: err}
+			}
+			b := new(bytes.Buffer)
+			writer.Reset(b)
+			writer.Flush()
+			writer.Close()
+			reader, err := zlib.NewReader(bytes.NewReader(b.Bytes()))
+			if err != nil {
+				return HTTPReaderWriter{err: err}
+			}
+			return HTTPReaderWriter{writer: writer, reader: reader, method: compression.Method}
+		default:
+			return HTTPReaderWriter{method: CompressionNone}
+		}
+	})
+	err := pool.Get().err
+	if err != nil {
+		return pool, err
+	}
+	return pool, nil
 }
 
 func (h *httpConnect) writeData(block *proto.Block) error {
