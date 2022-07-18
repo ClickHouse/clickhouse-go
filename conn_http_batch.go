@@ -18,7 +18,6 @@
 package clickhouse
 
 import (
-	"compress/gzip"
 	"context"
 	"errors"
 	"fmt"
@@ -152,28 +151,23 @@ func (b *httpBatch) Send() (err error) {
 
 	headers := make(map[string]string)
 
-	var w io.Writer
 	r, pw := io.Pipe()
+	crw := b.conn.compressionPool.Get()
+	w := crw.reset(pw)
+
+	defer b.conn.compressionPool.Put(crw)
+
 	switch b.conn.compression {
-	case CompressionGZIP:
-		crw := b.conn.compressionPool.Get()
-		crw.writer.(*gzip.Writer).Reset(pw)
-		w = crw.writer
+	case CompressionGZIP, CompressionDeflate:
 		headers["Content-Encoding"] = b.conn.compression.String()
-		defer b.conn.compressionPool.Put(crw)
 	case CompressionZSTD, CompressionLZ4:
 		options.settings["decompress"] = "1"
-		w = pw
-	default:
-		w = pw
 	}
 
 	go func() {
 		var err error = nil
 		defer pw.CloseWithError(err)
-		if gw, ok := w.(*gzip.Writer); ok {
-			defer gw.Close()
-		}
+		defer w.Close()
 		b.conn.buffer.Reset()
 		if b.block.Rows() != 0 {
 			if err = b.conn.writeData(b.block); err != nil {

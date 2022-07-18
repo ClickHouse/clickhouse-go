@@ -18,7 +18,7 @@ func TestCompressionStd(t *testing.T) {
 
 	protocols := map[clickhouse.Protocol]compressionTest{clickhouse.HTTP: {
 		port:               8123,
-		compressionMethods: []clickhouse.CompressionMethod{clickhouse.CompressionLZ4, clickhouse.CompressionZSTD, clickhouse.CompressionGZIP},
+		compressionMethods: []clickhouse.CompressionMethod{clickhouse.CompressionLZ4, clickhouse.CompressionZSTD, clickhouse.CompressionGZIP, clickhouse.CompressionDeflate},
 	}, clickhouse.Native: {
 		port:               9000,
 		compressionMethods: []clickhouse.CompressionMethod{clickhouse.CompressionLZ4, clickhouse.CompressionZSTD},
