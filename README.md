@@ -220,7 +220,7 @@ go get -u github.com/ClickHouse/clickhouse-go/v2
 * [open db](examples/std/open_db/main.go)
 * [bind params](examples/std/bind/main.go)
 
-## ClickHouse alternatives
+## ClickHouse alternatives - ch-go
 
 Versions of this client >=2.3.x utilise [ch-go](https://github.com/ClickHouse/ch-go) for their low level encoding/decoding. This low lever client provides a high performance columnar interface and should be used in performance critical use cases. This client provides more familar row orientated and `database/sql` semantics at the cost of some performance.
 
