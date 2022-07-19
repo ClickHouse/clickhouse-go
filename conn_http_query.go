@@ -38,7 +38,7 @@ func (h *httpConnect) query(ctx context.Context, release func(*connect, error), 
 	switch h.compression {
 	case CompressionZSTD, CompressionLZ4:
 		options.settings["compress"] = "1"
-	case CompressionGZIP, CompressionDeflate:
+	case CompressionGZIP, CompressionDeflate, CompressionBrotli:
 		// request encoding
 		headers["Accept-Encoding"] = h.compression.String()
 	}

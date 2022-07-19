@@ -28,6 +28,7 @@ import (
 	"github.com/ClickHouse/ch-go/compress"
 	chproto "github.com/ClickHouse/ch-go/proto"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
+	"github.com/andybalholm/brotli"
 	"github.com/pkg/errors"
 	"io"
 	"io/ioutil"
@@ -94,6 +95,16 @@ func (rw HTTPReaderWriter) read(res *http.Response) ([]byte, error) {
 				return nil, err
 			}
 			return body, nil
+		case CompressionBrotli:
+			reader := rw.reader.(*brotli.Reader)
+			if err := reader.Reset(res.Body); err != nil {
+				return nil, err
+			}
+			body, err := ioutil.ReadAll(reader)
+			if err != nil {
+				return nil, err
+			}
+			return body, nil
 		}
 	}
 	body, err := ioutil.ReadAll(res.Body)
@@ -110,6 +121,9 @@ func (rw *HTTPReaderWriter) reset(pw *io.PipeWriter) io.WriteCloser {
 		return rw.writer
 	case CompressionDeflate:
 		rw.writer.(*zlib.Writer).Reset(pw)
+		return rw.writer
+	case CompressionBrotli:
+		rw.writer.(*brotli.Writer).Reset(pw)
 		return rw.writer
 	default:
 		return pw
@@ -222,15 +236,13 @@ func (h *httpConnect) isBad() bool {
 
 func createCompressionPool(compression *Compression) (Pool[HTTPReaderWriter], error) {
 	pool := NewPool(func() HTTPReaderWriter {
-		// 0 means no compression - the default value if the user doesn't set.
-		if compression.Level == 0 {
-			// set to the ClickHouse default https://clickhouse.com/docs/en/operations/settings/settings#settings-http_zlib_compression_level
-			compression.Level = 3
-		}
 		switch compression.Method {
 		case CompressionGZIP:
 			// trick so we can init the reader to something to Reset when we reuse
-			writer := gzip.NewWriter(io.Discard)
+			writer, err := gzip.NewWriterLevel(io.Discard, compression.Level)
+			if err != nil {
+				return HTTPReaderWriter{err: err}
+			}
 			b := new(bytes.Buffer)
 			writer.Reset(b)
 			writer.Flush()
@@ -250,6 +262,14 @@ func createCompressionPool(compression *Compression) (Pool[HTTPReaderWriter], er
 			if err != nil {
 				return HTTPReaderWriter{err: err}
 			}
+			return HTTPReaderWriter{writer: writer, reader: reader, method: compression.Method}
+		case CompressionBrotli:
+			writer := brotli.NewWriterLevel(io.Discard, compression.Level)
+			b := new(bytes.Buffer)
+			writer.Reset(b)
+			writer.Flush()
+			writer.Close()
+			reader := brotli.NewReader(bytes.NewReader(b.Bytes()))
 			return HTTPReaderWriter{writer: writer, reader: reader, method: compression.Method}
 		default:
 			return HTTPReaderWriter{method: CompressionNone}

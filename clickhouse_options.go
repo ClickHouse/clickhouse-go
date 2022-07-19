@@ -43,6 +43,8 @@ func (c CompressionMethod) String() string {
 		return "gzip"
 	case CompressionDeflate:
 		return "deflate"
+	case CompressionBrotli:
+		return "br"
 	default:
 		return ""
 	}
@@ -54,6 +56,7 @@ const (
 	CompressionZSTD    = CompressionMethod(compress.ZSTD)
 	CompressionGZIP    = CompressionMethod(0x95)
 	CompressionDeflate = CompressionMethod(0x96)
+	CompressionBrotli  = CompressionMethod(0x97)
 )
 
 type Auth struct { // has_control_character
@@ -64,7 +67,7 @@ type Auth struct { // has_control_character
 
 type Compression struct {
 	Method CompressionMethod
-	// this only applies to zlib based compression algorithms
+	// this only applies to zlib and brotli compression algorithms
 	Level int
 }
 
