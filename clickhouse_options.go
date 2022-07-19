@@ -65,6 +65,7 @@ var compressionMap = map[string]CompressionMethod{
 	"lz4":     CompressionLZ4,
 	"gzip":    CompressionGZIP,
 	"deflate": CompressionDeflate,
+	"br":      CompressionBrotli,
 }
 
 type Auth struct { // has_control_character
