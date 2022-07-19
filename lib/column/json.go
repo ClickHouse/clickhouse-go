@@ -197,15 +197,23 @@ func (jCol *JSONList) createNewOffsets(num int) {
 
 func getStructFieldName(field reflect.StructField) (string, bool) {
 	name := field.Name
-	jsonTag := field.Tag.Get("json")
-	if jsonTag == "" {
-		return name, false
-	}
+	tag := field.Tag.Get("json")
 	// not a standard but we allow - to omit fields
-	if jsonTag == "-" {
+	if tag == "-" {
 		return name, true
 	}
-	return jsonTag, false
+	if tag != "" {
+		return tag, false
+	}
+	// support ch tag as well as this is used elsewhere
+	tag = field.Tag.Get("ch")
+	if tag == "-" {
+		return name, true
+	}
+	if tag != "" {
+		return tag, false
+	}
+	return name, false
 }
 
 // ensures numeric keys and ` are escaped properly

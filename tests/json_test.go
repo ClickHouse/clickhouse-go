@@ -2393,3 +2393,42 @@ func TestJSONEscapeKeys(t *testing.T) {
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event))
 	assert.JSONEq(t, toJson(row1), toJson(event))
 }
+
+func TestJSONChTags(t *testing.T) {
+	type Event struct {
+		Title        string `ch:"title"`
+		Type         string
+		Assignee     Account   `ch:"assignee"`
+		Labels       []string  `ch:"labels"`
+		Contributors []Account `ch:"-"`
+		// should not be exported
+		createdAt string
+	}
+	conn, teardown := setupTest(t)
+	defer teardown(t)
+	ctx := context.Background()
+	batch := prepareBatch(t, conn, ctx)
+	row1 := Event{
+		Title: "sample event",
+		Type:  "event_a",
+		Assignee: Account{
+			Id:            1244,
+			Name:          "Geoff",
+			Achievement:   Achievement{Name: "Mars Star", AwardedDate: testDate.Truncate(time.Second)},
+			Repositories:  []Repository{{URL: "https://github.com/ClickHouse/clickhouse-python", Releases: []Releases{{Version: "1.0.0"}, {Version: "1.1.0"}}}, {URL: "https://github.com/ClickHouse/clickhouse-go", Releases: []Releases{{Version: "2.0.0"}, {Version: "2.1.0"}}}},
+			Organizations: []string{"Support Engineer", "Integrations"},
+		},
+		Labels: []string{"Help wanted"},
+		Contributors: []Account{
+			{Id: 1244, Name: "Geoff", Achievement: Achievement{Name: "Mars Star", AwardedDate: testDate.Truncate(time.Second).Add(time.Hour * -3000)}, Repositories: []Repository{{URL: "https://github.com/ClickHouse/clickhouse-python", Releases: []Releases{{Version: "1.0.0"}, {Version: "1.1.0"}}}, {URL: "https://github.com/ClickHouse/clickhouse-go", Releases: []Releases{{Version: "2.0.0"}, {Version: "2.1.0"}}}}, Organizations: []string{"Support Engineer", "Integrations"}},
+			{Id: 2244, Achievement: Achievement{Name: "Managing S3 buckets", AwardedDate: testDate.Truncate(time.Second).Add(time.Hour * -500)}, Organizations: []string{"ClickHouse", "Consulting"}, Name: "Melyvn", Repositories: []Repository{{URL: "https://github.com/ClickHouse/support", Releases: []Releases{{Version: "1.0.0"}, {Version: "2.3.0"}, {Version: "2.3.0"}}}}},
+		},
+		createdAt: "2022-05-25 17:20:57 +0100 WEST",
+	}
+	require.NoError(t, batch.Append(row1))
+	require.NoError(t, batch.Send())
+	var event Event
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event))
+	fmt.Println(toJson(event))
+	assert.JSONEq(t, `{"Title":"sample event","Type":"event_a","Assignee":{"Id":1244,"Name":"Geoff","orgs":["Support Engineer","Integrations"],"Repositories":[{"url":"https://github.com/ClickHouse/clickhouse-python","Releases":[{"Version":"1.0.0"},{"Version":"1.1.0"}]},{"url":"https://github.com/ClickHouse/clickhouse-go","Releases":[{"Version":"2.0.0"},{"Version":"2.1.0"}]}],"Achievement":{"Name":"Mars Star","AwardedDate":"2022-05-25T17:20:57+01:00"}},"Labels":["Help wanted"],"Contributors":null}`, toJson(event))
+}

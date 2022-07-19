@@ -209,7 +209,10 @@ func setJSONFieldValue(field reflect.Value, value reflect.Value) error {
 func getStructFieldValue(field reflect.Value, name string) (reflect.Value, bool) {
 	tField := field.Type()
 	for i := 0; i < tField.NumField(); i++ {
-		if jsonTag := tField.Field(i).Tag.Get("json"); jsonTag == name {
+		if tag := tField.Field(i).Tag.Get("json"); tag == name {
+			return field.Field(i), true
+		}
+		if tag := tField.Field(i).Tag.Get("ch"); tag == name {
 			return field.Field(i), true
 		}
 	}
