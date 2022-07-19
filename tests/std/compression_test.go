@@ -113,7 +113,7 @@ func TestCompressionStdDSN(t *testing.T) {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
 			conn, err := sql.Open("clickhouse", dsn)
 			require.NoError(t, err)
-			conn.Exec("DROP TABLE IF EXISTS  test_array_compress")
+			conn.Exec("DROP TABLE IF EXISTS test_array_compress")
 			const ddl = `
 				CREATE TABLE test_array_compress (
 					  Col1 Array(String)
@@ -148,5 +148,71 @@ func TestCompressionStdDSN(t *testing.T) {
 			require.NoError(t, rows.Close())
 			require.NoError(t, rows.Err())
 		})
+	}
+}
+
+func TestCompressionStdDSNWithLevel(t *testing.T) {
+	dsns := map[string]string{"Native": "clickhouse://127.0.0.1:9000?compress=lz4", "Http": "http://127.0.0.1:8123?compress=gzip&compress_level=9"}
+
+	for name, dsn := range dsns {
+		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
+			conn, err := sql.Open("clickhouse", dsn)
+			require.NoError(t, err)
+			conn.Exec("DROP TABLE IF EXISTS test_array_compress")
+			const ddl = `
+				CREATE TABLE test_array_compress (
+					  Col1 Array(String)
+				) Engine Memory
+				`
+			defer func() {
+				conn.Exec("DROP TABLE test_array_compress")
+			}()
+			_, err = conn.Exec(ddl)
+			require.NoError(t, err)
+			scope, err := conn.Begin()
+			require.NoError(t, err)
+			batch, err := scope.Prepare("INSERT INTO test_array_compress")
+			require.NoError(t, err)
+			var (
+				col1Data = []string{"A", "b", "c"}
+			)
+			for i := 0; i < 100; i++ {
+				_, err := batch.Exec(col1Data)
+				require.NoError(t, err)
+			}
+			require.NoError(t, scope.Commit())
+			rows, err := conn.Query("SELECT * FROM test_array_compress")
+			require.NoError(t, err)
+			for rows.Next() {
+				var (
+					col1 interface{}
+				)
+				require.NoError(t, rows.Scan(&col1))
+				assert.Equal(t, col1Data, col1)
+			}
+			require.NoError(t, rows.Close())
+			require.NoError(t, rows.Err())
+		})
+	}
+}
+
+func TestCompressionStdDSNInvalid(t *testing.T) {
+	// these should all fail
+	config := map[string][]string{"Native": {"clickhouse://127.0.0.1:9000?compress=gzip"},
+		"Http": {"http://127.0.0.1:8123?compress=gzip&compress_level=10",
+			"http://127.0.0.1:8123?compress=gzip&compress_level=-3"}}
+	for name, dsns := range config {
+		for _, dsn := range dsns {
+			t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
+				conn, err := sql.Open("clickhouse", dsn)
+				const ddl = `
+				CREATE TABLE test_array_compress (
+					  Col1 Array(String)
+				) Engine Memory
+				`
+				_, err = conn.Exec(ddl)
+				require.Error(t, err)
+			})
+		}
 	}
 }
