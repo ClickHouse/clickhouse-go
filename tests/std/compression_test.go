@@ -18,7 +18,7 @@ func TestCompressionStd(t *testing.T) {
 
 	protocols := map[clickhouse.Protocol]compressionTest{clickhouse.HTTP: {
 		port:               8123,
-		compressionMethods: []clickhouse.CompressionMethod{clickhouse.CompressionLZ4, clickhouse.CompressionZSTD, clickhouse.CompressionGZIP, clickhouse.CompressionDeflate},
+		compressionMethods: []clickhouse.CompressionMethod{clickhouse.CompressionLZ4, clickhouse.CompressionZSTD, clickhouse.CompressionGZIP, clickhouse.CompressionDeflate, clickhouse.CompressionBrotli},
 	}, clickhouse.Native: {
 		port:               9000,
 		compressionMethods: []clickhouse.CompressionMethod{clickhouse.CompressionLZ4, clickhouse.CompressionZSTD},
@@ -40,6 +40,7 @@ func TestCompressionStd(t *testing.T) {
 					DialTimeout: 5 * time.Second,
 					Compression: &clickhouse.Compression{
 						Method: method,
+						Level:  3,
 					},
 					Protocol: protocol,
 				})

@@ -17,6 +17,7 @@ require (
 require go.opentelemetry.io/otel v1.8.0 // indirect
 
 require (
+	github.com/andybalholm/brotli v1.0.4 // indirect
 	github.com/cloudflare/golz4 v0.0.0-20150217214814-ef862a3cdc58 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/go-faster/city v1.0.1 // indirect
