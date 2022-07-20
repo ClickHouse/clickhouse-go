@@ -248,7 +248,8 @@ func (o *Options) fromDSN(in string) error {
 	return nil
 }
 
-func (o *Options) setDefaults() {
+// receive copy of Options so we don't modify original - so its reusable
+func (o Options) setDefaults() *Options {
 	if len(o.Auth.Database) == 0 {
 		o.Auth.Database = "default"
 	}
@@ -267,4 +268,5 @@ func (o *Options) setDefaults() {
 	if o.ConnMaxLifetime == 0 {
 		o.ConnMaxLifetime = time.Hour
 	}
+	return &o
 }
