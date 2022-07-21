@@ -19,6 +19,9 @@ func Test647(t *testing.T) {
 	conn2, err := clickhouse.Open(options)
 	require.NoError(t, err)
 	require.NoError(t, conn2.Ping(ctx))
+	conn3, err := clickhouse.Open(nil)
+	require.NoError(t, err)
+	require.ErrorIs(t, conn3.Ping(ctx), clickhouse.ErrAcquireConnNoAddress)
 }
 
 func Test647_OpenDB(t *testing.T) {
@@ -30,4 +33,7 @@ func Test647_OpenDB(t *testing.T) {
 	//reuse options
 	conn2 := clickhouse.OpenDB(options)
 	require.NoError(t, conn2.Ping())
+	// allow nil to be parsed
+	conn3 := clickhouse.OpenDB(nil)
+	require.ErrorIs(t, conn3.Ping(), clickhouse.ErrAcquireConnNoAddress)
 }

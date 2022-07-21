@@ -72,6 +72,9 @@ func (e *OpError) Error() string {
 }
 
 func Open(opt *Options) (driver.Conn, error) {
+	if opt == nil {
+		opt = &Options{}
+	}
 	o := opt.setDefaults()
 	return &clickhouse{
 		opt:  o,
