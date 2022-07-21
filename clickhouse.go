@@ -72,11 +72,14 @@ func (e *OpError) Error() string {
 }
 
 func Open(opt *Options) (driver.Conn, error) {
-	opt.setDefaults()
+	if opt == nil {
+		opt = &Options{}
+	}
+	o := opt.setDefaults()
 	return &clickhouse{
-		opt:  opt,
-		idle: make(chan *connect, opt.MaxIdleConns),
-		open: make(chan struct{}, opt.MaxOpenConns),
+		opt:  o,
+		idle: make(chan *connect, o.MaxIdleConns),
+		open: make(chan struct{}, o.MaxOpenConns),
 	}, nil
 }
 

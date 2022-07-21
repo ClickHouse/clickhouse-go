@@ -64,6 +64,10 @@ func (o *stdConnOpener) Connect(ctx context.Context) (_ driver.Conn, err error) 
 		}
 	}
 
+	if o.opt.Addr == nil || len(o.opt.Addr) == 0 {
+		return nil, ErrAcquireConnNoAddress
+	}
+
 	for i := range o.opt.Addr {
 		var num int
 		switch o.opt.ConnOpenStrategy {
@@ -86,6 +90,9 @@ func init() {
 }
 
 func OpenDB(opt *Options) *sql.DB {
+	if opt == nil {
+		opt = &Options{}
+	}
 	var settings []string
 	if opt.MaxIdleConns > 0 {
 		settings = append(settings, "SetMaxIdleConns")
@@ -101,9 +108,9 @@ func OpenDB(opt *Options) *sql.DB {
 			err: fmt.Errorf("cannot connect. invalid settings. use %s (see https://pkg.go.dev/database/sql)", strings.Join(settings, ",")),
 		})
 	}
-	opt.setDefaults()
+	o := opt.setDefaults()
 	return sql.OpenDB(&stdConnOpener{
-		opt: opt,
+		opt: o,
 	})
 }
 
@@ -127,8 +134,8 @@ func (std *stdDriver) Open(dsn string) (_ driver.Conn, err error) {
 	if err := opt.fromDSN(dsn); err != nil {
 		return nil, err
 	}
-	opt.setDefaults()
-	return (&stdConnOpener{opt: &opt}).Connect(context.Background())
+	o := opt.setDefaults()
+	return (&stdConnOpener{opt: o}).Connect(context.Background())
 }
 
 func (std *stdDriver) ResetSession(ctx context.Context) error {
