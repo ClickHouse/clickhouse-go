@@ -268,5 +268,13 @@ func (o Options) setDefaults() *Options {
 	if o.ConnMaxLifetime == 0 {
 		o.ConnMaxLifetime = time.Hour
 	}
+	if o.Addr == nil || len(o.Addr) == 0 {
+		switch o.Protocol {
+		case Native:
+			o.Addr = []string{"localhost:9000"}
+		case HTTP:
+			o.Addr = []string{"localhost:8123"}
+		}
+	}
 	return &o
 }
