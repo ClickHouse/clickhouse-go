@@ -439,17 +439,10 @@ func (col *Tuple) ScanRow(dest interface{}, row int) error {
 }
 
 func (col *Tuple) Append(v interface{}) (nulls []uint8, err error) {
-	switch v := v.(type) {
-	case [][]interface{}:
-		for _, v := range v {
-			if err := col.AppendRow(v); err != nil {
-				return nil, err
-			}
-		}
-		return nil, nil
-	case []*[]interface{}:
-		for _, v := range v {
-			if err := col.AppendRow(v); err != nil {
+	value := reflect.ValueOf(v)
+	if value.Kind() == reflect.Slice {
+		for i := 0; i < value.Len(); i++ {
+			if err := col.AppendRow(value.Index(i).Interface()); err != nil {
 				return nil, err
 			}
 		}
