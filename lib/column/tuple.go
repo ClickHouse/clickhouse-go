@@ -463,55 +463,60 @@ func (col *Tuple) Append(v interface{}) (nulls []uint8, err error) {
 }
 
 func (col *Tuple) AppendRow(v interface{}) error {
-	switch v := v.(type) {
-	case []interface{}:
-		if len(v) != len(col.columns) {
-			return &Error{
-				ColumnType: string(col.chType),
-				Err:        fmt.Errorf("invalid size. expected %d got %d", len(col.columns), len(v)),
-			}
-		}
-		for i, v := range v {
-			if err := col.columns[i].AppendRow(v); err != nil {
-				return err
-			}
-		}
-		return nil
-	case *[]interface{}:
-		if v == nil {
-			return &ColumnConverterError{
-				Op:   "AppendRow",
-				To:   string(col.chType),
-				From: fmt.Sprintf("%T", v),
-				Hint: "invalid (nil) pointer value",
-			}
-		}
-		if len(*v) != len(col.columns) {
-			return &Error{
-				ColumnType: string(col.chType),
-				Err:        fmt.Errorf("invalid size. expected %d got %d", len(col.columns), len(*v)),
-			}
-		}
-		for i, v := range *v {
-			if err := col.columns[i].AppendRow(v); err != nil {
-				return err
-			}
-		}
-		return nil
-	case map[string]interface{}:
+	// allows support of tuples where map or slice is typed and NOT interface{}. Will fail if tuple isn't consistent
+	value := reflect.ValueOf(v)
+	if value.Kind() == reflect.Pointer {
+		value = value.Elem()
+	}
+	switch value.Kind() {
+	case reflect.Map:
 		if !col.isNamed {
 			return &Error{
 				ColumnType: string(col.chType),
 				Err:        fmt.Errorf("converting from %T is not supported for unnamed tuples - use a slice", v),
 			}
 		}
-		for name, v := range v {
-			if err := col.columns[col.index[name]].AppendRow(v); err != nil {
+		if value.Type().Key().Kind() != reflect.String {
+			return &Error{
+				ColumnType: fmt.Sprint(value.Type().Key().Kind()),
+				Err:        fmt.Errorf("map keys must be string for column %s", col.Name()),
+			}
+		}
+		if value.Len() != len(col.columns) {
+			return &Error{
+				ColumnType: string(col.chType),
+				Err:        fmt.Errorf("invalid size. expected %d got %d", len(col.columns), value.Len()),
+			}
+		}
+		for _, key := range value.MapKeys() {
+			name := getMapFieldName(key.Interface().(string))
+			if _, ok := col.index[name]; !ok {
+				return &Error{
+					ColumnType: string(col.chType),
+					Err:        fmt.Errorf("sub column '%s' does not exist in %s", name, col.Name()),
+				}
+			}
+			if err := col.columns[col.index[name]].AppendRow(value.MapIndex(key).Interface()); err != nil {
+				return err
+			}
+		}
+		return nil
+	case reflect.Slice:
+		if value.Len() != len(col.columns) {
+			return &Error{
+				ColumnType: string(col.chType),
+				Err:        fmt.Errorf("invalid size. expected %d got %d", len(col.columns), value.Len()),
+			}
+		}
+		for i := 0; i < value.Len(); i++ {
+			elem := value.Index(i)
+			if err := col.columns[i].AppendRow(elem.Interface()); err != nil {
 				return err
 			}
 		}
 		return nil
 	}
+
 	return &ColumnConverterError{
 		Op:   "AppendRow",
 		To:   string(col.chType),
