@@ -146,7 +146,30 @@ func (col *DateTime) AppendRow(v interface{}) error {
 		}
 	case nil:
 		col.col.Append(time.Time{})
+	case string:
+		dateTime, err := timezone.StrToTime(v)
+		if err != nil {
+			return err
+		}
+		col.col.Append(*dateTime)
+	case *string:
+		switch {
+		case v == nil:
+			col.col.Append(time.Time{})
+			return nil
+		case v != nil:
+			dateTime, err := timezone.StrToTime(*v)
+			if err != nil {
+				return err
+			}
+			col.col.Append(*dateTime)
+		}
 	default:
+		timestamp := timezone.ConvToInt64(v)
+		if timestamp != 0 {
+			col.col.Append(time.UnixMilli(timestamp))
+			return nil
+		}
 		return &ColumnConverterError{
 			Op:   "AppendRow",
 			To:   "DateTime",
