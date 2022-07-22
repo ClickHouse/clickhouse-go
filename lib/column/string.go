@@ -18,6 +18,7 @@
 package column
 
 import (
+	"database/sql"
 	"encoding"
 	"fmt"
 	"github.com/ClickHouse/ch-go/proto"
@@ -62,6 +63,8 @@ func (col *String) ScanRow(dest interface{}, row int) error {
 	case **string:
 		*d = new(string)
 		**d = val
+	case *sql.NullString:
+		d.Scan(val)
 	case encoding.BinaryUnmarshaler:
 		return d.UnmarshalBinary(binary.Str2Bytes(val))
 	default:
@@ -82,6 +85,20 @@ func (col *String) AppendRow(v interface{}) error {
 		switch {
 		case v != nil:
 			col.col.Append(*v)
+		default:
+			col.col.Append("")
+		}
+	case sql.NullString:
+		switch v.Valid {
+		case true:
+			col.col.Append(v.String)
+		default:
+			col.col.Append("")
+		}
+	case *sql.NullString:
+		switch v.Valid {
+		case true:
+			col.col.Append(v.String)
 		default:
 			col.col.Append("")
 		}
@@ -112,6 +129,19 @@ func (col *String) Append(v interface{}) (nulls []uint8, err error) {
 				col.col.Append("")
 				nulls[i] = 1
 			}
+		}
+	case []sql.NullString:
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			col.Append(v[i])
+		}
+	case []*sql.NullString:
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			if v[i] == nil {
+				nulls[i] = 1
+			}
+			col.Append(v[i])
 		}
 	default:
 		return nil, &ColumnConverterError{

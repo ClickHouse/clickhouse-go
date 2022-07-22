@@ -19,6 +19,7 @@ package tests
 
 import (
 	"context"
+	"database/sql"
 	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
@@ -80,41 +81,41 @@ func TestString(t *testing.T) {
 			},
 		})
 	)
-	if assert.NoError(t, err) {
-		if err := checkMinServerVersion(conn, 21, 9, 0); err != nil {
-			t.Skip(err.Error())
-			return
-		}
-		const ddl = `
+	require.NoError(t, err)
+	if err := checkMinServerVersion(conn, 21, 9, 0); err != nil {
+		t.Skip(err.Error())
+		return
+	}
+	const ddl = `
 		CREATE TABLE test_string (
 			  Col1 String
 			, Col2 Array(String)
 			, Col3 Nullable(String)
+			, Col4 String
+			, Col5 Nullable(String)
 		) Engine Memory
-		`
-		defer func() {
-			conn.Exec(ctx, "DROP TABLE test_string")
-		}()
-		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
-			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_string"); assert.NoError(t, err) {
-				if err := batch.Append("A", []string{"A", "B", "C"}, nil); assert.NoError(t, err) {
-					if assert.NoError(t, batch.Send()) {
-						var (
-							col1 string
-							col2 []string
-							col3 *string
-						)
-						if err := conn.QueryRow(ctx, "SELECT * FROM test_string").Scan(&col1, &col2, &col3); assert.NoError(t, err) {
-							if assert.Nil(t, col3) {
-								assert.Equal(t, "A", col1)
-								assert.Equal(t, []string{"A", "B", "C"}, col2)
-							}
-						}
-					}
-				}
-			}
-		}
-	}
+	`
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE test_string")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_string")
+	require.NoError(t, err)
+	require.NoError(t, batch.Append("A", []string{"A", "B", "C"}, nil, sql.NullString{String: "D", Valid: true}, sql.NullString{Valid: false}))
+	require.NoError(t, batch.Send())
+	var (
+		col1 string
+		col2 []string
+		col3 *string
+		col4 sql.NullString
+		col5 sql.NullString
+	)
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_string").Scan(&col1, &col2, &col3, &col4, &col5))
+	require.Nil(t, col3)
+	assert.Equal(t, "A", col1)
+	assert.Equal(t, []string{"A", "B", "C"}, col2)
+	assert.Equal(t, sql.NullString{String: "D", Valid: true}, col4)
+	assert.Equal(t, sql.NullString{Valid: false}, col5)
 }
 
 func BenchmarkString(b *testing.B) {
