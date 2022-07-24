@@ -85,6 +85,8 @@ func (col *String) AppendRow(v interface{}) error {
 		default:
 			col.col.Append("")
 		}
+	case []byte:
+		col.col.Append(string(v))
 	case nil:
 		col.col.Append("")
 	default:
