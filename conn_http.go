@@ -35,7 +35,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"strings"
 	"sync"
 	"time"
 )
@@ -173,12 +172,9 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 	}
 
 	for k, v := range opt.Settings {
-		// skip auth settings if already set - can't be set in both places
-		if (strings.ToLower(k) == "username" || strings.ToLower(k) == "password") && (u.User != nil) {
-			continue
-		}
 		query.Set(k, fmt.Sprint(v))
 	}
+
 	query.Set("default_format", "Native")
 	u.RawQuery = query.Encode()
 
