@@ -209,6 +209,10 @@ func (o *Options) fromDSN(in string) error {
 			case "round_robin":
 				o.ConnOpenStrategy = ConnOpenRoundRobin
 			}
+		case "username":
+			o.Auth.Username = params.Get(v)
+		case "password":
+			o.Auth.Password = params.Get(v)
 
 		default:
 			switch p := strings.ToLower(params.Get(v)); p {
