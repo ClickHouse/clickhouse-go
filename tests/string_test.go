@@ -52,7 +52,7 @@ func TestSimpleString(t *testing.T) {
 	}
 	const ddl = `
 		CREATE TABLE test_string (
-			  Col1 String
+			  	Col1 String
 		) Engine Memory
 		`
 	defer func() {
@@ -90,30 +90,29 @@ func TestString(t *testing.T) {
 			  Col1 String
 			, Col2 Array(String)
 			, Col3 Nullable(String)
+			, Col4 String
 		) Engine Memory
 		`
 		defer func() {
 			conn.Exec(ctx, "DROP TABLE test_string")
 		}()
-		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
-			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_string"); assert.NoError(t, err) {
-				if err := batch.Append("A", []string{"A", "B", "C"}, nil); assert.NoError(t, err) {
-					if assert.NoError(t, batch.Send()) {
-						var (
-							col1 string
-							col2 []string
-							col3 *string
-						)
-						if err := conn.QueryRow(ctx, "SELECT * FROM test_string").Scan(&col1, &col2, &col3); assert.NoError(t, err) {
-							if assert.Nil(t, col3) {
-								assert.Equal(t, "A", col1)
-								assert.Equal(t, []string{"A", "B", "C"}, col2)
-							}
-						}
-					}
-				}
-			}
-		}
+		require.NoError(t, conn.Exec(ctx, ddl))
+		batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_string")
+		require.NoError(t, err)
+		col4Data := "D"
+		require.NoError(t, batch.Append("A", []string{"A", "B", "C"}, nil, []byte(col4Data)))
+		require.NoError(t, batch.Send())
+		var (
+			col1 string
+			col2 []string
+			col3 *string
+			col4 string
+		)
+		require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_string").Scan(&col1, &col2, &col3, &col4))
+		require.Nil(t, col3)
+		assert.Equal(t, "A", col1)
+		assert.Equal(t, []string{"A", "B", "C"}, col2)
+		assert.Equal(t, col4Data, col4)
 	}
 }
 
