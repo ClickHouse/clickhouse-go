@@ -209,6 +209,10 @@ func (o *Options) fromDSN(in string) error {
 			case "round_robin":
 				o.ConnOpenStrategy = ConnOpenRoundRobin
 			}
+		case "username":
+			o.Auth.Username = params.Get(v)
+		case "password":
+			o.Auth.Password = params.Get(v)
 
 		default:
 			switch p := strings.ToLower(params.Get(v)); p {
@@ -267,6 +271,14 @@ func (o Options) setDefaults() *Options {
 	}
 	if o.ConnMaxLifetime == 0 {
 		o.ConnMaxLifetime = time.Hour
+	}
+	if o.Addr == nil || len(o.Addr) == 0 {
+		switch o.Protocol {
+		case Native:
+			o.Addr = []string{"localhost:9000"}
+		case HTTP:
+			o.Addr = []string{"localhost:8123"}
+		}
 	}
 	return &o
 }
