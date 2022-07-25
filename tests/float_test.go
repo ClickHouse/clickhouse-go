@@ -2,6 +2,8 @@ package tests
 
 import (
 	"context"
+	"database/sql"
+	"github.com/stretchr/testify/require"
 	"testing"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
@@ -23,27 +25,47 @@ func TestSimpleFloat(t *testing.T) {
 			},
 		})
 	)
-	if assert.NoError(t, err) {
-		if err := checkMinServerVersion(conn, 21, 9, 0); err != nil {
-			t.Skip(err.Error())
-			return
-		}
-		const ddl = `
+	require.NoError(t, err)
+	if err := checkMinServerVersion(conn, 21, 9, 0); err != nil {
+		t.Skip(err.Error())
+		return
+	}
+	const ddl = `
 		CREATE TABLE test_float (
-			  Col1 Float32
+			  Col1 Float32,
+			  Col2 Float64,
+			  Col3 Nullable(Float64)
 		) Engine Memory
 		`
-		defer func() {
-			conn.Exec(ctx, "DROP TABLE test_float")
-		}()
-		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
-			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_float"); assert.NoError(t, err) {
-				if err := batch.Append(float32(33.1221)); assert.NoError(t, err) {
-					assert.NoError(t, batch.Send())
-				}
-			}
-		}
-	}
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE test_float")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_float")
+	require.NoError(t, err)
+	require.NoError(t, batch.Append(float32(33.1221), sql.NullFloat64{
+		Float64: 34.222,
+		Valid:   true,
+	}, sql.NullFloat64{
+		Float64: 0,
+		Valid:   false,
+	}))
+	assert.NoError(t, batch.Send())
+	var (
+		col1 float32
+		col2 sql.NullFloat64
+		col3 sql.NullFloat64
+	)
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_float").Scan(&col1, &col2, &col3))
+	require.Equal(t, float32(33.1221), col1)
+	require.Equal(t, sql.NullFloat64{
+		Float64: 34.222,
+		Valid:   true,
+	}, col2)
+	require.Equal(t, sql.NullFloat64{
+		Float64: 0,
+		Valid:   false,
+	}, col3)
 }
 
 func BenchmarkFloat(b *testing.B) {

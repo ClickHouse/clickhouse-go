@@ -30,6 +30,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/paulmach/orb"
 	"github.com/shopspring/decimal"
+	"database/sql"
 )
 
 func (t Type) Column(name string) (Interface, error) {
@@ -220,6 +221,10 @@ func (col *{{ .ChType }}) ScanRow(dest interface{}, row int) error {
 	case *time.Duration:
 		*d = time.Duration(value)
 	{{- end }}
+	{{- if or (eq .ChType "Int64") (eq .ChType "Int32") (eq .ChType "Int16") (eq .ChType "Float64") }}
+	case *sql.Null{{ .ChType }}:
+		d.Scan(value)
+	{{- end }}
 	default:
 		return &ColumnConverterError{
 			Op:   "ScanRow",
@@ -257,6 +262,21 @@ func (col *{{ .ChType }}) Append(v interface{}) (nulls []uint8,err error) {
 				nulls[i] = 1
 			}
 		}
+	{{- if or (eq .ChType "Int64") (eq .ChType "Int32") (eq .ChType "Int16") (eq .ChType "Float64") }}
+    case []sql.Null{{ .ChType }}:
+        nulls = make([]uint8, len(v))
+        for i := range v {
+            col.Append(v[i])
+        }
+    case []*sql.Null{{ .ChType }}:
+        nulls = make([]uint8, len(v))
+        for i := range v {
+            if v[i] == nil {
+                nulls[i] = 1
+            }
+            col.Append(v[i])
+        }
+	{{- end }}
 	default:
 		return nil, &ColumnConverterError{
 			Op:   "Append",
@@ -288,6 +308,22 @@ func (col *{{ .ChType }}) AppendRow(v interface{}) error {
 		}
 		col.col.Append(t)
 	{{- end }}
+    {{- if or (eq .ChType "Int64") (eq .ChType "Int32") (eq .ChType "Int16") (eq .ChType "Float64") }}
+    case sql.Null{{ .ChType }}:
+        switch v.Valid {
+        case true:
+            col.col.Append(v.{{ .ChType }})
+        default:
+            col.col.Append(0)
+        }
+    case *sql.Null{{ .ChType }}:
+        switch v.Valid {
+        case true:
+            col.col.Append(v.{{ .ChType }})
+        default:
+            col.col.Append(0)
+        }
+    {{- end }}
 	{{- if eq .ChType "Int64" }}
     case time.Duration:
         col.col.Append(int64(v))
