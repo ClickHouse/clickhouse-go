@@ -135,7 +135,7 @@ func (col *String) Append(v interface{}) (nulls []uint8, err error) {
 	case []sql.NullString:
 		nulls = make([]uint8, len(v))
 		for i := range v {
-			col.Append(v[i])
+			col.AppendRow(v[i])
 		}
 	case []*sql.NullString:
 		nulls = make([]uint8, len(v))
@@ -143,7 +143,7 @@ func (col *String) Append(v interface{}) (nulls []uint8, err error) {
 			if v[i] == nil {
 				nulls[i] = 1
 			}
-			col.Append(v[i])
+			col.AppendRow(v[i])
 		}
 	case [][]byte:
 		nulls = make([]uint8, len(v))

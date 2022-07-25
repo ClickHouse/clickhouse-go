@@ -256,9 +256,9 @@ func (col *{{ .ChType }}) Append(v interface{}) (nulls []uint8,err error) {
 		for i := range v {
 			switch {
 			case v[i] != nil:
-				col.col.Append(*v[i])
+				col.col.AppendRow(*v[i])
 			default:
-				col.col.Append(0)
+				col.col.AppendRow(0)
 				nulls[i] = 1
 			}
 		}
