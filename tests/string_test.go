@@ -102,7 +102,7 @@ func TestString(t *testing.T) {
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_string")
 	require.NoError(t, err)
-  col6Data := "D"
+	col6Data := "D"
 	require.NoError(t, batch.Append("A", []string{"A", "B", "C"}, nil, sql.NullString{String: "D", Valid: true}, sql.NullString{Valid: false}, []byte(col6Data)))
 	require.NoError(t, batch.Send())
 	var (
@@ -111,7 +111,7 @@ func TestString(t *testing.T) {
 		col3 *string
 		col4 sql.NullString
 		col5 sql.NullString
-    col6 String
+		col6 string
 	)
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_string").Scan(&col1, &col2, &col3, &col4, &col5, &col6))
 	require.Nil(t, col3)
@@ -119,7 +119,7 @@ func TestString(t *testing.T) {
 	assert.Equal(t, []string{"A", "B", "C"}, col2)
 	assert.Equal(t, sql.NullString{String: "D", Valid: true}, col4)
 	assert.Equal(t, sql.NullString{Valid: false}, col5)
-  assert.Equal(t, col6Data, col6)
+	assert.Equal(t, col6Data, col6)
 }
 
 func BenchmarkString(b *testing.B) {

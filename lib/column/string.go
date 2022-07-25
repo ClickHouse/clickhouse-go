@@ -144,6 +144,7 @@ func (col *String) Append(v interface{}) (nulls []uint8, err error) {
 				nulls[i] = 1
 			}
 			col.Append(v[i])
+		}
 	case [][]byte:
 		nulls = make([]uint8, len(v))
 		for i := range v {
