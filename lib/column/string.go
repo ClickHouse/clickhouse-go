@@ -85,6 +85,8 @@ func (col *String) AppendRow(v interface{}) error {
 		default:
 			col.col.Append("")
 		}
+	case []byte:
+		col.col.Append(string(v))
 	case nil:
 		col.col.Append("")
 	default:
@@ -112,6 +114,11 @@ func (col *String) Append(v interface{}) (nulls []uint8, err error) {
 				col.col.Append("")
 				nulls[i] = 1
 			}
+		}
+	case [][]byte:
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			col.col.Append(string(v[i]))
 		}
 	default:
 		return nil, &ColumnConverterError{
