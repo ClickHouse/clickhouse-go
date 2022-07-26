@@ -424,7 +424,7 @@ func (col *Float64) Append(v interface{}) (nulls []uint8, err error) {
 	case []sql.NullFloat64:
 		nulls = make([]uint8, len(v))
 		for i := range v {
-			col.Append(v[i])
+			col.AppendRow(v[i])
 		}
 	case []*sql.NullFloat64:
 		nulls = make([]uint8, len(v))
@@ -432,7 +432,7 @@ func (col *Float64) Append(v interface{}) (nulls []uint8, err error) {
 			if v[i] == nil {
 				nulls[i] = 1
 			}
-			col.Append(v[i])
+			col.AppendRow(v[i])
 		}
 	default:
 		return nil, &ColumnConverterError{
@@ -657,7 +657,7 @@ func (col *Int16) Append(v interface{}) (nulls []uint8, err error) {
 	case []sql.NullInt16:
 		nulls = make([]uint8, len(v))
 		for i := range v {
-			col.Append(v[i])
+			col.AppendRow(v[i])
 		}
 	case []*sql.NullInt16:
 		nulls = make([]uint8, len(v))
@@ -665,7 +665,7 @@ func (col *Int16) Append(v interface{}) (nulls []uint8, err error) {
 			if v[i] == nil {
 				nulls[i] = 1
 			}
-			col.Append(v[i])
+			col.AppendRow(v[i])
 		}
 	default:
 		return nil, &ColumnConverterError{
@@ -788,7 +788,7 @@ func (col *Int32) Append(v interface{}) (nulls []uint8, err error) {
 	case []sql.NullInt32:
 		nulls = make([]uint8, len(v))
 		for i := range v {
-			col.Append(v[i])
+			col.AppendRow(v[i])
 		}
 	case []*sql.NullInt32:
 		nulls = make([]uint8, len(v))
@@ -796,7 +796,7 @@ func (col *Int32) Append(v interface{}) (nulls []uint8, err error) {
 			if v[i] == nil {
 				nulls[i] = 1
 			}
-			col.Append(v[i])
+			col.AppendRow(v[i])
 		}
 	default:
 		return nil, &ColumnConverterError{
@@ -921,7 +921,7 @@ func (col *Int64) Append(v interface{}) (nulls []uint8, err error) {
 	case []sql.NullInt64:
 		nulls = make([]uint8, len(v))
 		for i := range v {
-			col.Append(v[i])
+			col.AppendRow(v[i])
 		}
 	case []*sql.NullInt64:
 		nulls = make([]uint8, len(v))
@@ -929,7 +929,7 @@ func (col *Int64) Append(v interface{}) (nulls []uint8, err error) {
 			if v[i] == nil {
 				nulls[i] = 1
 			}
-			col.Append(v[i])
+			col.AppendRow(v[i])
 		}
 	default:
 		return nil, &ColumnConverterError{

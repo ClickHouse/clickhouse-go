@@ -256,9 +256,9 @@ func (col *{{ .ChType }}) Append(v interface{}) (nulls []uint8,err error) {
 		for i := range v {
 			switch {
 			case v[i] != nil:
-				col.col.AppendRow(*v[i])
+				col.col.Append(*v[i])
 			default:
-				col.col.AppendRow(0)
+				col.col.Append(0)
 				nulls[i] = 1
 			}
 		}
@@ -266,7 +266,7 @@ func (col *{{ .ChType }}) Append(v interface{}) (nulls []uint8,err error) {
     case []sql.Null{{ .ChType }}:
         nulls = make([]uint8, len(v))
         for i := range v {
-            col.Append(v[i])
+            col.AppendRow(v[i])
         }
     case []*sql.Null{{ .ChType }}:
         nulls = make([]uint8, len(v))
@@ -274,7 +274,7 @@ func (col *{{ .ChType }}) Append(v interface{}) (nulls []uint8,err error) {
             if v[i] == nil {
                 nulls[i] = 1
             }
-            col.Append(v[i])
+            col.AppendRow(v[i])
         }
 	{{- end }}
 	default:
