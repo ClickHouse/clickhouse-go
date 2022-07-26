@@ -32,7 +32,7 @@ func TestStdDecimal(t *testing.T) {
 	for name, dsn := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
 			if conn, err := sql.Open("clickhouse", dsn); assert.NoError(t, err) {
-				if err := checkMinServerVersion(conn, 21, 1, 0); err != nil {
+				if err := CheckMinServerVersion(conn, 21, 1, 0); err != nil {
 					t.Skip(err.Error())
 					return
 				}

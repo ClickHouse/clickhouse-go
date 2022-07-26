@@ -34,7 +34,7 @@ func TestStdDateTime64(t *testing.T) {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
 			conn, err := sql.Open("clickhouse", dsn)
 			require.NoError(t, err)
-			if err := checkMinServerVersion(conn, 20, 3, 0); err != nil {
+			if err := CheckMinServerVersion(conn, 20, 3, 0); err != nil {
 				t.Skip(err.Error())
 				return
 			}

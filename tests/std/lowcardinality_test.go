@@ -39,7 +39,7 @@ func TestStdLowCardinality(t *testing.T) {
 	for name, dsn := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
 			if conn, err := sql.Open("clickhouse", dsn); assert.NoError(t, err) {
-				if err := checkMinServerVersion(conn, 19, 11, 0); err != nil {
+				if err := CheckMinServerVersion(conn, 19, 11, 0); err != nil {
 					t.Skip(err.Error())
 					return
 				}

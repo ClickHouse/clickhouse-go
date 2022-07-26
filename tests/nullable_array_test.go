@@ -67,7 +67,7 @@ func TestNullableArray(t *testing.T) {
 		conn.Exec(ctx, "DROP TABLE test_nullable_array")
 	}()
 	if assert.NoError(t, err) {
-		if err := checkMinServerVersion(conn, 21, 12, 0); err != nil {
+		if err := CheckMinServerVersion(conn, 21, 12, 0); err != nil {
 			t.Skip(err.Error())
 			return
 		}
