@@ -44,7 +44,7 @@ func TestSimpleBigInt(t *testing.T) {
 		})
 	)
 	if assert.NoError(t, err) {
-		if err := checkMinServerVersion(conn, 21, 12, 0); err != nil {
+		if err := CheckMinServerVersion(conn, 21, 12, 0); err != nil {
 			t.Skip(err.Error())
 			return
 		}
@@ -88,7 +88,7 @@ func TestBigInt(t *testing.T) {
 		})
 	)
 	if assert.NoError(t, err) {
-		if err := checkMinServerVersion(conn, 21, 12, 0); err != nil {
+		if err := CheckMinServerVersion(conn, 21, 12, 0); err != nil {
 			t.Skip(err.Error())
 			return
 		}
@@ -175,7 +175,7 @@ func TestNullableBigInt(t *testing.T) {
 		})
 	)
 	if assert.NoError(t, err) {
-		if err := checkMinServerVersion(conn, 21, 12, 0); err != nil {
+		if err := CheckMinServerVersion(conn, 21, 12, 0); err != nil {
 			t.Skip(err.Error())
 			return
 		}

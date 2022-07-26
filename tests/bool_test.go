@@ -42,7 +42,7 @@ func TestBool(t *testing.T) {
 		})
 	)
 	if assert.NoError(t, err) {
-		if err := checkMinServerVersion(conn, 21, 12, 0); err != nil {
+		if err := CheckMinServerVersion(conn, 21, 12, 0); err != nil {
 			t.Skip(err.Error())
 			return
 		}
@@ -102,7 +102,7 @@ func TestColumnarBool(t *testing.T) {
 		})
 	)
 	if assert.NoError(t, err) {
-		if err := checkMinServerVersion(conn, 21, 12, 0); err != nil {
+		if err := CheckMinServerVersion(conn, 21, 12, 0); err != nil {
 			t.Skip(err.Error())
 			return
 		}

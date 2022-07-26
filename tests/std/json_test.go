@@ -71,7 +71,7 @@ func TestStdJson(t *testing.T) {
 	conn := clickhouse.OpenDB(&clickhouse.Options{
 		Addr: []string{"127.0.0.1:9000"},
 	})
-	if err := checkMinServerVersion(conn, 22, 6, 1); err != nil {
+	if err := CheckMinServerVersion(conn, 22, 6, 1); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -137,7 +137,7 @@ func TestStdJsonWithMap(t *testing.T) {
 	conn := clickhouse.OpenDB(&clickhouse.Options{
 		Addr: []string{"127.0.0.1:9000"},
 	})
-	if err := checkMinServerVersion(conn, 22, 6, 1); err != nil {
+	if err := CheckMinServerVersion(conn, 22, 6, 1); err != nil {
 		t.Skip(err.Error())
 		return
 	}
