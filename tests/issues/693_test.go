@@ -15,17 +15,11 @@ func Test693(t *testing.T) {
 			CREATE TABLE test_date (
 				  ID   UInt8
 				, Col1 Date
-				, Col2 Nullable(Date)
-				, Col3 Array(Date)
-				, Col4 Array(Nullable(Date))
 			) Engine Memory
 		`
 	type result struct {
 		ColID uint8 `ch:"ID"`
 		Col1  time.Time
-		Col2  *time.Time
-		Col3  []time.Time
-		Col4  []*time.Time
 	}
 	conn.Exec("DROP TABLE test_date")
 	defer func() {
@@ -53,25 +47,13 @@ func Test693(t *testing.T) {
 	require.NoError(t, conn.QueryRow("SELECT * FROM test_date WHERE ID = $1", 1).Scan(
 		&result1.ColID,
 		&result1.Col1,
-		&result1.Col2,
-		&result1.Col3,
-		&result1.Col4,
 	))
 	require.Equal(t, date, result1.Col1)
 	assert.Equal(t, "UTC", result1.Col1.Location().String())
-	assert.Equal(t, date, *result1.Col2)
-	assert.Equal(t, []time.Time{date}, result1.Col3)
-	assert.Equal(t, []*time.Time{&date, nil, &date}, result1.Col4)
 	require.NoError(t, conn.QueryRow("SELECT * FROM test_date WHERE ID = $1", 2).Scan(
 		&result2.ColID,
 		&result2.Col1,
-		&result2.Col2,
-		&result2.Col3,
-		&result2.Col4,
 	))
 	require.Equal(t, date, result2.Col1)
 	assert.Equal(t, "UTC", result2.Col1.Location().String())
-	require.Nil(t, result2.Col2)
-	assert.Equal(t, []time.Time{date}, result2.Col3)
-	assert.Equal(t, []*time.Time{nil, nil, &date}, result2.Col4)
 }
