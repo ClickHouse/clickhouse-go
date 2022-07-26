@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func TestStdMap(t *testing.T) {
+func Test692(t *testing.T) {
 	conn, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000")
 	require.NoError(t, err)
 	if err := std.CheckMinServerVersion(conn, 21, 9, 0); err != nil {
