@@ -37,12 +37,9 @@ func Test693(t *testing.T) {
 	require.NoError(t, err)
 	_, err = batch.Exec(uint8(1), date)
 	require.NoError(t, err)
-	_, err = batch.Exec(uint8(2), date)
-	require.NoError(t, err)
 	require.NoError(t, scope.Commit())
 	var (
 		result1 result
-		result2 result
 	)
 	require.NoError(t, conn.QueryRow("SELECT * FROM test_date WHERE ID = $1", 1).Scan(
 		&result1.ColID,
@@ -50,10 +47,4 @@ func Test693(t *testing.T) {
 	))
 	require.Equal(t, date, result1.Col1)
 	assert.Equal(t, "UTC", result1.Col1.Location().String())
-	require.NoError(t, conn.QueryRow("SELECT * FROM test_date WHERE ID = $1", 2).Scan(
-		&result2.ColID,
-		&result2.Col1,
-	))
-	require.Equal(t, date, result2.Col1)
-	assert.Equal(t, "UTC", result2.Col1.Location().String())
 }
