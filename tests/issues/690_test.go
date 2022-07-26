@@ -15,14 +15,32 @@ func Test690(t *testing.T) {
 		return
 	}
 	const ddl = `
-		CREATE TABLE test_map (
-			  Col1 Map(String, UInt64)
-			, Col2 Map(String, UInt64)
-			, Col3 Map(String, UInt64)
-			, Col4 Array(Map(String, String))
-			, Col5 Map(LowCardinality(String), LowCardinality(UInt64))
-			, Col6 Map(String, Map(String, Int64))
+		CREATE TABLE test_date (
+			Id Int64,
+			Col3 Nullable(DateTime64(3)),
+			Col4 Nullable(DateTime64(3))
 		) Engine Memory
 		`
-
+	conn.Exec("DROP TABLE test_date")
+	//defer func() {
+	//	conn.Exec("DROP TABLE test_date")
+	//}()
+	_, err = conn.Exec(ddl)
+	require.NoError(t, err)
+	scope, err := conn.Begin()
+	require.NoError(t, err)
+	batch, err := scope.Prepare("INSERT INTO test_date")
+	require.NoError(t, err)
+	_, err = batch.Exec(
+		int64(23),
+		"2022-07-20 17:42:48.129",
+		"2022-07-20 17:42:48.129",
+	)
+	require.NoError(t, err)
+	require.NoError(t, scope.Commit())
+	//var (
+	//	col1 int64
+	//
+	//)
+	//require.NoError(t, conn.QueryRow("SELECT * FROM test_map").Scan(&col1, &col2, &col3, &col4, &col5, &col6))
 }
