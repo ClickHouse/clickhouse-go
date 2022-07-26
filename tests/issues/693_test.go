@@ -35,9 +35,9 @@ func Test693(t *testing.T) {
 	CurrentLoc, _ := time.LoadLocation("Asia/Shanghai")
 	date, err := time.ParseInLocation("2006-01-02 15:04:05", "2022-01-12 00:00:00", CurrentLoc)
 	require.NoError(t, err)
-	_, err = batch.Exec(uint8(1), date, &date, []time.Time{date}, []*time.Time{&date, nil, &date})
+	_, err = batch.Exec(uint8(1), date)
 	require.NoError(t, err)
-	_, err = batch.Exec(uint8(2), date, nil, []time.Time{date}, []*time.Time{nil, nil, &date})
+	_, err = batch.Exec(uint8(2), date)
 	require.NoError(t, err)
 	require.NoError(t, scope.Commit())
 	var (
