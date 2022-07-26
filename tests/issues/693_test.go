@@ -45,6 +45,6 @@ func Test693(t *testing.T) {
 		&result1.ColID,
 		&result1.Col1,
 	))
-	require.Equal(t, date.Format("2006-01-02 15:04:05"), result1.Col1.Format("2006-01-02 15:04:05"))
+	require.Equal(t, date.Format("2006-01-02"), result1.Col1.Format("2006-01-02"))
 	assert.Equal(t, "UTC", result1.Col1.Location().String())
 }
