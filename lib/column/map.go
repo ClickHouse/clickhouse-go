@@ -143,12 +143,14 @@ func (col *Map) Decode(reader *proto.Reader, rows int) error {
 	if err := col.offsets.col.DecodeColumn(reader, rows); err != nil {
 		return err
 	}
-
-	size := int(col.offsets.col.Row(col.offsets.Rows() - 1))
-	if err := col.keys.Decode(reader, size); err != nil {
-		return err
+	if i := col.offsets.Rows(); i != 0 {
+		size := int(col.offsets.col.Row(i - 1))
+		if err := col.keys.Decode(reader, size); err != nil {
+			return err
+		}
+		return col.values.Decode(reader, size)
 	}
-	return col.values.Decode(reader, size)
+	return nil
 }
 
 func (col *Map) Encode(buffer *proto.Buffer) {
