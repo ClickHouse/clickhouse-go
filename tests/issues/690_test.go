@@ -18,7 +18,7 @@ func Test690(t *testing.T) {
 		CREATE TABLE test_date (
 			Id Int64,
 			Col3 Nullable(DateTime64(3)),
-			Col4 Nullable(DateTime64(3))
+			Col4 Nullable(DateTime64(3, 'UTC'))
 		) Engine Memory
 		`
 	conn.Exec("DROP TABLE test_date")
