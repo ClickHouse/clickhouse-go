@@ -5,6 +5,7 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/tests/std"
 	"github.com/stretchr/testify/require"
 	"testing"
+	"time"
 )
 
 func Test690(t *testing.T) {
@@ -17,30 +18,25 @@ func Test690(t *testing.T) {
 	const ddl = `
 		CREATE TABLE test_date (
 			Id Int64,
-			Col3 Nullable(DateTime64(3)),
-			Col4 Nullable(DateTime64(3, 'UTC'))
+			Col3 DateTime64(3),
+		    Col4 DateTime64(3, 'UTC')
 		) Engine Memory
 		`
 	conn.Exec("DROP TABLE test_date")
-	//defer func() {
-	//	conn.Exec("DROP TABLE test_date")
-	//}()
 	_, err = conn.Exec(ddl)
 	require.NoError(t, err)
 	scope, err := conn.Begin()
 	require.NoError(t, err)
 	batch, err := scope.Prepare("INSERT INTO test_date")
 	require.NoError(t, err)
+	loc, _ := time.LoadLocation("Asia/Shanghai")
+	tv, err := time.Parse("2006-01-02 15:04:05.999", "2022-07-20 17:42:48.129")
+	at := tv.In(loc)
 	_, err = batch.Exec(
 		int64(23),
-		"2022-07-20 17:42:48.129",
-		"2022-07-20 17:42:48.129",
+		at,
+		at,
 	)
 	require.NoError(t, err)
 	require.NoError(t, scope.Commit())
-	//var (
-	//	col1 int64
-	//
-	//)
-	//require.NoError(t, conn.QueryRow("SELECT * FROM test_map").Scan(&col1, &col2, &col3, &col4, &col5, &col6))
 }
