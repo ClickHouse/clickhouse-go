@@ -10,6 +10,9 @@ There are two version of this client, v1 and v2, available as separate branches.
 
 Users should use v2 which is production ready and [significantly faster than v1](#benchmark).
 
+v2 has breaking changes for users migrating from v1. These were not properly tracked prior to this client being officially supported. We endeavour to resolve issues and track 
+known differences [here]().
+
 ## Supported ClickHouse Versions
 
 The client is tested against the currently [supported versions](https://github.com/ClickHouse/ClickHouse/blob/master/SECURITY.md) of ClickHouse
