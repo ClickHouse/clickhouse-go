@@ -195,7 +195,7 @@ func (o *Options) fromDSN(in string) error {
 		case "read_timeout":
 			duration, err := time.ParseDuration(params.Get(v))
 			if err != nil {
-				return fmt.Errorf("clickhouse [dsn parse]: http timeout: %s", err)
+				return fmt.Errorf("clickhouse [dsn parse]:read timeout: %s", err)
 			}
 			o.ReadTimeout = duration
 		case "secure":
@@ -262,6 +262,9 @@ func (o Options) setDefaults() *Options {
 	}
 	if o.DialTimeout == 0 {
 		o.DialTimeout = time.Second
+	}
+	if o.ReadTimeout == 0 {
+		o.ReadTimeout = time.Second * time.Duration(300)
 	}
 	if o.MaxIdleConns <= 0 {
 		o.MaxIdleConns = 5
