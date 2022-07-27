@@ -150,6 +150,10 @@ func TestReadDeadline(t *testing.T) {
 	err = conn.Ping(context.Background())
 	require.Error(t, err)
 	assert.ErrorIs(t, err, os.ErrDeadlineExceeded)
+	// check we can override with context
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Second*time.Duration(10)))
+	defer cancel()
+	require.NoError(t, conn.Ping(ctx))
 }
 
 func TestQueryDeadline(t *testing.T) {
