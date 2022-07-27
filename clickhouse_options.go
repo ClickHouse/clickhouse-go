@@ -264,7 +264,7 @@ func (o Options) setDefaults() *Options {
 		o.DialTimeout = time.Second
 	}
 	if o.ReadTimeout == 0 {
-		o.ReadTimeout = time.Minute * time.Duration(5)
+		o.ReadTimeout = time.Second * time.Duration(300)
 	}
 	if o.MaxIdleConns <= 0 {
 		o.MaxIdleConns = 5
