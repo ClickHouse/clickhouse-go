@@ -85,8 +85,8 @@ conn.SetConnMaxLifetime(time.Hour)
 * username/password - auth credentials
 * database - select the current default database
 * dial_timeout -  a duration string is a possibly signed sequence of decimal numbers, each with optional fraction and a unit suffix such as "300ms", "1s". Valid time units are "ms", "s", "m".
-* connection_open_strategy - random/in_order (default random).
-    * round-robin      - choose a round-robin server from the set
+* connection_open_strategy - random/in_order (default in_order).
+    * round_robin      - choose a round-robin server from the set
     * in_order    - first live server is chosen in specified order
 * debug - enable debug output (boolean value)
 * compress - enable lz4 compression (boolean value)
