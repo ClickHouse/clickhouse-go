@@ -36,7 +36,7 @@ func TestStdNested(t *testing.T) {
 		},
 	})
 	conn.Exec("DROP TABLE std_nested_test")
-	if err := checkMinServerVersion(conn, 22, 1, 0); err != nil {
+	if err := CheckMinServerVersion(conn, 22, 1, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}

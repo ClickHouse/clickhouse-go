@@ -44,7 +44,7 @@ func TestSimpleNested(t *testing.T) {
 		})
 	)
 	require.NoError(t, err)
-	if err := checkMinServerVersion(conn, 22, 1, 0); err != nil {
+	if err := CheckMinServerVersion(conn, 22, 1, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -94,7 +94,7 @@ func TestNestedFlattened(t *testing.T) {
 		})
 	)
 	require.NoError(t, err)
-	if err := checkMinServerVersion(conn, 22, 1, 0); err != nil {
+	if err := CheckMinServerVersion(conn, 22, 1, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -174,7 +174,7 @@ func TestFlattenedSimpleNested(t *testing.T) {
 		})
 	)
 	require.NoError(t, err)
-	if err := checkMinServerVersion(conn, 22, 1, 0); err != nil {
+	if err := CheckMinServerVersion(conn, 22, 1, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -234,7 +234,7 @@ func TestNestedUnFlattened(t *testing.T) {
 		})
 	)
 	if assert.NoError(t, err) {
-		if err := checkMinServerVersion(conn, 22, 1, 0); err != nil {
+		if err := CheckMinServerVersion(conn, 22, 1, 0); err != nil {
 			t.Skip(err.Error())
 			return
 		}

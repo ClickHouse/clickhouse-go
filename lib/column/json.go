@@ -217,8 +217,7 @@ func getStructFieldName(field reflect.StructField) (string, bool) {
 }
 
 // ensures numeric keys and ` are escaped properly
-func getMapFieldName(key reflect.Value) string {
-	name := key.Interface().(string)
+func getMapFieldName(name string) string {
 	if !escapeColRegex.MatchString(name) {
 		return fmt.Sprintf("`%s`", colEscape.Replace(name))
 	}
@@ -427,7 +426,7 @@ func iterateMap(mapVal reflect.Value, col JSONParent, preFill int) error {
 	addedColumns := make([]string, len(mapVal.MapKeys()), len(mapVal.MapKeys()))
 	newColumn := false
 	for i, key := range mapVal.MapKeys() {
-		name := getMapFieldName(key)
+		name := getMapFieldName(key.Interface().(string))
 		if _, ok := columnLookup[name]; !ok && len(currentColumns) > 0 {
 			// new column - need to handle
 			preFill = numRows

@@ -174,6 +174,7 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 	for k, v := range opt.Settings {
 		query.Set(k, fmt.Sprint(v))
 	}
+
 	query.Set("default_format", "Native")
 	u.RawQuery = query.Encode()
 

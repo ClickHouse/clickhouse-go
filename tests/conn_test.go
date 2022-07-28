@@ -19,6 +19,8 @@ package tests
 
 import (
 	"context"
+	"github.com/stretchr/testify/require"
+	"os"
 	"testing"
 	"time"
 
@@ -37,17 +39,13 @@ func TestConn(t *testing.T) {
 		Compression: &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
 		},
-		//Debug: true,
 	})
-	if assert.NoError(t, err) {
-		if err := conn.Ping(context.Background()); assert.NoError(t, err) {
-			if assert.NoError(t, conn.Close()) {
-				t.Log(conn.Stats())
-				t.Log(conn.ServerVersion())
-				t.Log(conn.Ping(context.Background()))
-			}
-		}
-	}
+	require.NoError(t, err)
+	require.NoError(t, conn.Ping(context.Background()))
+	require.NoError(t, conn.Close())
+	t.Log(conn.Stats())
+	t.Log(conn.ServerVersion())
+	t.Log(conn.Ping(context.Background()))
 }
 
 func TestBadConn(t *testing.T) {
@@ -59,16 +57,15 @@ func TestBadConn(t *testing.T) {
 			Password: "",
 		},
 		MaxOpenConns: 2,
-		//Debug: true,
 	})
-	if assert.NoError(t, err) {
-		for i := 0; i < 20; i++ {
-			if err := conn.Ping(context.Background()); assert.Error(t, err) {
-				assert.Contains(t, err.Error(), "connect: connection refused")
-			}
+	require.NoError(t, err)
+	for i := 0; i < 20; i++ {
+		if err := conn.Ping(context.Background()); assert.Error(t, err) {
+			assert.Contains(t, err.Error(), "connect: connection refused")
 		}
 	}
 }
+
 func TestConnFailover(t *testing.T) {
 	conn, err := clickhouse.Open(&clickhouse.Options{
 		Addr: []string{
@@ -86,13 +83,12 @@ func TestConnFailover(t *testing.T) {
 		},
 		//	Debug: true,
 	})
-	if assert.NoError(t, err) {
-		if err := conn.Ping(context.Background()); assert.NoError(t, err) {
-			t.Log(conn.ServerVersion())
-			t.Log(conn.Ping(context.Background()))
-		}
-	}
+	require.NoError(t, err)
+	require.NoError(t, conn.Ping(context.Background()))
+	t.Log(conn.ServerVersion())
+	t.Log(conn.Ping(context.Background()))
 }
+
 func TestConnFailoverConnOpenRoundRobin(t *testing.T) {
 	conn, err := clickhouse.Open(&clickhouse.Options{
 		Addr: []string{
@@ -111,13 +107,12 @@ func TestConnFailoverConnOpenRoundRobin(t *testing.T) {
 		ConnOpenStrategy: clickhouse.ConnOpenRoundRobin,
 		//	Debug: true,
 	})
-	if assert.NoError(t, err) {
-		if err := conn.Ping(context.Background()); assert.NoError(t, err) {
-			t.Log(conn.ServerVersion())
-			t.Log(conn.Ping(context.Background()))
-		}
-	}
+	require.NoError(t, err)
+	require.NoError(t, conn.Ping(context.Background()))
+	t.Log(conn.ServerVersion())
+	t.Log(conn.Ping(context.Background()))
 }
+
 func TestPingDeadline(t *testing.T) {
 	conn, err := clickhouse.Open(&clickhouse.Options{
 		Addr: []string{"127.0.0.1:9000"},
@@ -129,13 +124,54 @@ func TestPingDeadline(t *testing.T) {
 		Compression: &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
 		},
-		//Debug: true,
 	})
-	if assert.NoError(t, err) {
-		ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
-		defer cancel()
-		if err := conn.Ping(ctx); assert.Error(t, err) {
-			assert.Equal(t, err, context.DeadlineExceeded)
-		}
-	}
+	require.NoError(t, err)
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+	defer cancel()
+	err = conn.Ping(ctx)
+	require.Error(t, err)
+	assert.Equal(t, context.DeadlineExceeded, err)
+}
+
+func TestReadDeadline(t *testing.T) {
+	conn, err := clickhouse.Open(&clickhouse.Options{
+		Addr: []string{"127.0.0.1:9000"},
+		Auth: clickhouse.Auth{
+			Database: "default",
+			Username: "default",
+			Password: "",
+		},
+		Compression: &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		},
+		ReadTimeout: time.Duration(-1) * time.Second,
+	})
+	require.NoError(t, err)
+	err = conn.Ping(context.Background())
+	require.Error(t, err)
+	assert.ErrorIs(t, err, os.ErrDeadlineExceeded)
+	// check we can override with context
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Second*time.Duration(10)))
+	defer cancel()
+	require.NoError(t, conn.Ping(ctx))
+}
+
+func TestQueryDeadline(t *testing.T) {
+	conn, err := clickhouse.Open(&clickhouse.Options{
+		Addr: []string{"127.0.0.1:9000"},
+		Auth: clickhouse.Auth{
+			Database: "default",
+			Username: "default",
+			Password: "",
+		},
+		Compression: &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		},
+		ReadTimeout: time.Duration(-1) * time.Second,
+	})
+	require.NoError(t, err)
+	var count uint64
+	err = conn.QueryRow(context.Background(), "SELECT count() FROM numbers(10000000)").Scan(&count)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, os.ErrDeadlineExceeded)
 }

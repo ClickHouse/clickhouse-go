@@ -43,7 +43,7 @@ func TestDateTime64(t *testing.T) {
 		})
 	)
 	if assert.NoError(t, err) {
-		if err := checkMinServerVersion(conn, 20, 3, 0); err != nil {
+		if err := CheckMinServerVersion(conn, 20, 3, 0); err != nil {
 			t.Skip(err.Error())
 			return
 		}
@@ -138,7 +138,7 @@ func TestDateTime64AsReference(t *testing.T) {
 	)
 
 	if assert.NoError(t, err) {
-		if err := checkMinServerVersion(conn, 20, 3, 0); err != nil {
+		if err := CheckMinServerVersion(conn, 20, 3, 0); err != nil {
 			t.Skip(err.Error())
 			return
 		}
@@ -192,7 +192,7 @@ func TestNullableDateTime64(t *testing.T) {
 		})
 	)
 	if assert.NoError(t, err) {
-		if err := checkMinServerVersion(conn, 20, 3, 0); err != nil {
+		if err := CheckMinServerVersion(conn, 20, 3, 0); err != nil {
 			t.Skip(err.Error())
 			return
 		}
@@ -304,7 +304,7 @@ func TestColumnarDateTime64(t *testing.T) {
 		})
 	)
 	if assert.NoError(t, err) {
-		if err := checkMinServerVersion(conn, 20, 3, 0); err != nil {
+		if err := CheckMinServerVersion(conn, 20, 3, 0); err != nil {
 			t.Skip(err.Error())
 			return
 		}
