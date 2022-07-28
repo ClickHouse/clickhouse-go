@@ -85,6 +85,7 @@ type Interface interface {
 	Decode(reader *proto.Reader, rows int) error
 	Encode(buffer *proto.Buffer)
 	ScanType() reflect.Type
+	Reset()
 }
 
 type CustomSerialization interface {

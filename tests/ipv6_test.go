@@ -435,3 +435,46 @@ func TestIPv6_ScanRow(t *testing.T) {
 		require.Equal(t, *u, ips[i].String(), "ScanRow resulted in %q instead of %q", *u, ips[i])
 	}
 }
+
+func TestIPv6Flush(t *testing.T) {
+	var (
+		ctx       = context.Background()
+		conn, err = clickhouse.Open(&clickhouse.Options{
+			Addr: []string{"127.0.0.1:9000"},
+			Auth: clickhouse.Auth{
+				Database: "default",
+				Username: "default",
+				Password: "",
+			},
+		})
+	)
+	require.NoError(t, err)
+	const ddl = `
+		CREATE TABLE test_ipv6_ring_flush (
+			  Col1 IPv6
+		) Engine Memory
+		`
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE test_ipv6_ring_flush")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_ipv6_ring_flush")
+	require.NoError(t, err)
+	vals := [1000]net.IP{}
+	for i := 0; i < 1000; i++ {
+		vals[i] = RandIPv6()
+		require.NoError(t, batch.Append(vals[i]))
+		require.NoError(t, batch.Flush())
+	}
+	require.NoError(t, batch.Send())
+	rows, err := conn.Query(ctx, "SELECT * FROM test_ipv6_ring_flush")
+	require.NoError(t, err)
+	i := 0
+	for rows.Next() {
+		var col1 net.IP
+		require.NoError(t, rows.Scan(&col1))
+		require.Equal(t, vals[i], col1)
+		i += 1
+	}
+	require.Equal(t, 1000, i)
+}

@@ -81,6 +81,7 @@ type (
 		Append(v ...interface{}) error
 		AppendStruct(v interface{}) error
 		Column(int) BatchColumn
+		Flush() error
 		Send() error
 		IsSent() bool
 	}

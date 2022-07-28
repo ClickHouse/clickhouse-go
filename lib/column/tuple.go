@@ -33,7 +33,13 @@ type Tuple struct {
 	columns []Interface
 	name    string
 	isNamed bool           // true if all columns are named
-	index   map[string]int // map from col name to off set in columns
+	index   map[string]int // map from col name to offset in columns
+}
+
+func (col *Tuple) Reset() {
+	for i := range col.columns {
+		col.columns[i].Reset()
+	}
 }
 
 func (col *Tuple) Name() string {

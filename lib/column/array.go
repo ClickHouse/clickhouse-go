@@ -38,6 +38,13 @@ type Array struct {
 	name     string
 }
 
+func (col *Array) Reset() {
+	col.values.Reset()
+	for i := range col.offsets {
+		col.offsets[i].values.Reset()
+	}
+}
+
 func (col *Array) Name() string {
 	return col.name
 }

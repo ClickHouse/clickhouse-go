@@ -20,11 +20,12 @@ package tests
 import (
 	"context"
 	"database/sql"
-	"github.com/stretchr/testify/require"
-	"testing"
-
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"math/rand"
+	"testing"
+	"time"
 )
 
 func TestBool(t *testing.T) {
@@ -192,5 +193,54 @@ func TestColumnarBool(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+func TestBoolFlush(t *testing.T) {
+	var (
+		ctx       = context.Background()
+		conn, err = clickhouse.Open(&clickhouse.Options{
+			Addr: []string{"127.0.0.1:9000"},
+			Auth: clickhouse.Auth{
+				Database: "default",
+				Username: "default",
+				Password: "",
+			},
+			Compression: &clickhouse.Compression{
+				Method: clickhouse.CompressionLZ4,
+			},
+			MaxOpenConns: 1,
+		})
+	)
+	require.NoError(t, err)
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE bool_flush")
+	}()
+	const ddl = `
+		CREATE TABLE bool_flush (
+			  Col1 Bool
+		) Engine Memory
+		`
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO bool_flush")
+	require.NoError(t, err)
+	vals := [1000]bool{}
+	var src = rand.NewSource(time.Now().UnixNano())
+	var r = rand.New(src)
+
+	for i := 0; i < 1000; i++ {
+		vals[i] = r.Intn(2) != 0
+		require.NoError(t, batch.Append(vals[i]))
+		require.NoError(t, batch.Flush())
+	}
+	batch.Send()
+	rows, err := conn.Query(ctx, "SELECT * FROM bool_flush")
+	require.NoError(t, err)
+	i := 0
+	for rows.Next() {
+		var col1 bool
+		require.NoError(t, rows.Scan(&col1))
+		assert.Equal(t, vals[i], col1)
+		i += 1
 	}
 }

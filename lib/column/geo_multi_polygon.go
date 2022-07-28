@@ -30,6 +30,10 @@ type MultiPolygon struct {
 	name string
 }
 
+func (col *MultiPolygon) Reset() {
+	col.set.Reset()
+}
+
 func (col *MultiPolygon) Name() string {
 	return col.name
 }

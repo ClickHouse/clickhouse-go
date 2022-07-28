@@ -30,6 +30,10 @@ type Ring struct {
 	name string
 }
 
+func (col *Ring) Reset() {
+	col.set.Reset()
+}
+
 func (col *Ring) Name() string {
 	return col.name
 }

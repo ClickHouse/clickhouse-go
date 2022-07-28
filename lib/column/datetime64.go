@@ -42,6 +42,10 @@ type DateTime64 struct {
 	col      proto.ColDateTime64
 }
 
+func (col *DateTime64) Reset() {
+	col.col.Reset()
+}
+
 func (col *DateTime64) Name() string {
 	return col.name
 }

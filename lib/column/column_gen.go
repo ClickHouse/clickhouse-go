@@ -272,6 +272,10 @@ func (col *Float32) Rows() int {
 	return col.col.Rows()
 }
 
+func (col *Float32) Reset() {
+	col.col.Reset()
+}
+
 func (col *Float32) ScanRow(dest interface{}, row int) error {
 	value := col.col.Row(row)
 	switch d := dest.(type) {
@@ -372,6 +376,10 @@ func (col *Float64) ScanType() reflect.Type {
 
 func (col *Float64) Rows() int {
 	return col.col.Rows()
+}
+
+func (col *Float64) Reset() {
+	col.col.Reset()
 }
 
 func (col *Float64) ScanRow(dest interface{}, row int) error {
@@ -505,6 +513,10 @@ func (col *Int8) Rows() int {
 	return col.col.Rows()
 }
 
+func (col *Int8) Reset() {
+	col.col.Reset()
+}
+
 func (col *Int8) ScanRow(dest interface{}, row int) error {
 	value := col.col.Row(row)
 	switch d := dest.(type) {
@@ -513,6 +525,13 @@ func (col *Int8) ScanRow(dest interface{}, row int) error {
 	case **int8:
 		*d = new(int8)
 		**d = value
+	case *bool:
+		switch value {
+		case 0:
+			*d = false
+		default:
+			*d = true
+		}
 	default:
 		return &ColumnConverterError{
 			Op:   "ScanRow",
@@ -550,6 +569,24 @@ func (col *Int8) Append(v interface{}) (nulls []uint8, err error) {
 				nulls[i] = 1
 			}
 		}
+	case []bool:
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			val := int8(0)
+			if v[i] {
+				val = 1
+			}
+			col.col.Append(val)
+		}
+	case []*bool:
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			val := int8(0)
+			if *v[i] {
+				val = 1
+			}
+			col.col.Append(val)
+		}
 	default:
 		return nil, &ColumnConverterError{
 			Op:   "Append",
@@ -573,6 +610,18 @@ func (col *Int8) AppendRow(v interface{}) error {
 		}
 	case nil:
 		col.col.Append(0)
+	case bool:
+		val := int8(0)
+		if v {
+			val = 1
+		}
+		col.col.Append(val)
+	case *bool:
+		val := int8(0)
+		if *v {
+			val = 1
+		}
+		col.col.Append(val)
 	default:
 		return &ColumnConverterError{
 			Op:   "AppendRow",
@@ -605,6 +654,10 @@ func (col *Int16) ScanType() reflect.Type {
 
 func (col *Int16) Rows() int {
 	return col.col.Rows()
+}
+
+func (col *Int16) Reset() {
+	col.col.Reset()
 }
 
 func (col *Int16) ScanRow(dest interface{}, row int) error {
@@ -738,6 +791,10 @@ func (col *Int32) Rows() int {
 	return col.col.Rows()
 }
 
+func (col *Int32) Reset() {
+	col.col.Reset()
+}
+
 func (col *Int32) ScanRow(dest interface{}, row int) error {
 	value := col.col.Row(row)
 	switch d := dest.(type) {
@@ -867,6 +924,10 @@ func (col *Int64) ScanType() reflect.Type {
 
 func (col *Int64) Rows() int {
 	return col.col.Rows()
+}
+
+func (col *Int64) Reset() {
+	col.col.Reset()
 }
 
 func (col *Int64) ScanRow(dest interface{}, row int) error {
@@ -1006,6 +1067,10 @@ func (col *UInt8) Rows() int {
 	return col.col.Rows()
 }
 
+func (col *UInt8) Reset() {
+	col.col.Reset()
+}
+
 func (col *UInt8) ScanRow(dest interface{}, row int) error {
 	value := col.col.Row(row)
 	switch d := dest.(type) {
@@ -1114,6 +1179,10 @@ func (col *UInt16) Rows() int {
 	return col.col.Rows()
 }
 
+func (col *UInt16) Reset() {
+	col.col.Reset()
+}
+
 func (col *UInt16) ScanRow(dest interface{}, row int) error {
 	value := col.col.Row(row)
 	switch d := dest.(type) {
@@ -1216,6 +1285,10 @@ func (col *UInt32) Rows() int {
 	return col.col.Rows()
 }
 
+func (col *UInt32) Reset() {
+	col.col.Reset()
+}
+
 func (col *UInt32) ScanRow(dest interface{}, row int) error {
 	value := col.col.Row(row)
 	switch d := dest.(type) {
@@ -1316,6 +1389,10 @@ func (col *UInt64) ScanType() reflect.Type {
 
 func (col *UInt64) Rows() int {
 	return col.col.Rows()
+}
+
+func (col *UInt64) Reset() {
+	col.col.Reset()
 }
 
 func (col *UInt64) ScanRow(dest interface{}, row int) error {

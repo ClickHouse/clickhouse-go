@@ -209,6 +209,10 @@ func (col *{{ .ChType }}) Rows() int {
 	return col.col.Rows()
 }
 
+func (col *{{ .ChType }}) Reset() {
+    col.col.Reset()
+}
+
 func (col *{{ .ChType }}) ScanRow(dest interface{}, row int) error {
 	value := col.col.Row(row)
 	switch d := dest.(type) {
@@ -225,6 +229,15 @@ func (col *{{ .ChType }}) ScanRow(dest interface{}, row int) error {
 	case *sql.Null{{ .ChType }}:
 		d.Scan(value)
 	{{- end }}
+    {{- if eq .ChType "Int8" }}
+	case *bool:
+		switch value {
+		case 0:
+			*d = false
+		default:
+			*d = true
+		}
+    {{- end }}
 	default:
 		return &ColumnConverterError{
 			Op:   "ScanRow",
@@ -276,6 +289,26 @@ func (col *{{ .ChType }}) Append(v interface{}) (nulls []uint8,err error) {
             }
             col.AppendRow(v[i])
         }
+	{{- end }}
+	{{- if eq .ChType "Int8" }}
+	case []bool:
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			val := int8(0)
+			if v[i] {
+				val = 1
+			}
+			col.col.Append(val)
+		}
+	case []*bool:
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			val := int8(0)
+			if *v[i] {
+				val = 1
+			}
+			col.col.Append(val)
+		}
 	{{- end }}
 	default:
 		return nil, &ColumnConverterError{
@@ -329,6 +362,20 @@ func (col *{{ .ChType }}) AppendRow(v interface{}) error {
         col.col.Append(int64(v))
     case *time.Duration:
         col.col.Append(int64(*v))
+	{{- end }}
+	{{- if eq .ChType "Int8" }}
+    case bool:
+        val := int8(0)
+        if v {
+            val = 1
+        }
+        col.col.Append(val)
+    case *bool:
+        val := int8(0)
+        if *v {
+            val = 1
+        }
+        col.col.Append(val)
 	{{- end }}
 	default:
 		return &ColumnConverterError{

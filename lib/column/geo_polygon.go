@@ -30,6 +30,10 @@ type Polygon struct {
 	name string
 }
 
+func (col *Polygon) Reset() {
+	col.set.Reset()
+}
+
 func (col *Polygon) Name() string {
 	return col.name
 }

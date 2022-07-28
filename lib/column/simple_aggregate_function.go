@@ -29,6 +29,10 @@ type SimpleAggregateFunction struct {
 	name   string
 }
 
+func (col *SimpleAggregateFunction) Reset() {
+	col.base.Reset()
+}
+
 func (col *SimpleAggregateFunction) Name() string {
 	return col.name
 }
