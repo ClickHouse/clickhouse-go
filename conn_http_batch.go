@@ -87,6 +87,11 @@ type httpBatch struct {
 	block     *proto.Block
 }
 
+// Flush TODO: noop on http currently - requires streaming
+func (b *httpBatch) Flush() error {
+	return nil
+}
+
 func (b *httpBatch) Abort() error {
 	defer func() {
 		b.sent = true
@@ -193,10 +198,6 @@ func (b *httpBatch) Send() (err error) {
 	}
 
 	return err
-}
-
-func (b *httpBatch) Flush() error {
-	return nil
 }
 
 var _ driver.Batch = (*httpBatch)(nil)
