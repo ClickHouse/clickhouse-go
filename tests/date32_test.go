@@ -282,6 +282,10 @@ func TestDate32Flush(t *testing.T) {
 			MaxOpenConns: 1,
 		})
 	)
+	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
+		t.Skip(err.Error())
+		return
+	}
 	require.NoError(t, err)
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE date_32_flush")

@@ -429,7 +429,7 @@ func TestDateTime64Flush(t *testing.T) {
 	)
 	require.NoError(t, err)
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE date_64_flush")
+		conn.Exec(ctx, "DROP TABLE datetime_64_flush")
 	}()
 	const ddl = `
 		CREATE TABLE datetime_64_flush (

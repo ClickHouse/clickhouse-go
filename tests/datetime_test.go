@@ -19,6 +19,7 @@ package tests
 
 import (
 	"context"
+	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
 
@@ -220,8 +221,8 @@ func TestColumnarDateTime(t *testing.T) {
 			//Debug: true,
 		})
 	)
-	if assert.NoError(t, err) {
-		const ddl = `
+	require.NoError(t, err)
+	const ddl = `
 		CREATE TABLE test_datetime (
 			  ID   UInt64
 			, Col1 DateTime
@@ -230,70 +231,112 @@ func TestColumnarDateTime(t *testing.T) {
 			, Col4 Array(Nullable(DateTime))
 		) Engine Memory
 		`
-		defer func() {
-			conn.Exec(ctx, "DROP TABLE test_datetime")
-		}()
-		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
-			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_datetime"); assert.NoError(t, err) {
-				var (
-					id       []uint64
-					col1Data []time.Time
-					col2Data []*time.Time
-					col3Data [][]time.Time
-					col4Data [][]*time.Time
-				)
-				var (
-					datetime1 = time.Now().Truncate(time.Second)
-					datetime2 = time.Now().Truncate(time.Second)
-				)
-				for i := 0; i < 1000; i++ {
-					id = append(id, uint64(i))
-					col1Data = append(col1Data, datetime1)
-					if i%2 == 0 {
-						col2Data = append(col2Data, &datetime2)
-					} else {
-						col2Data = append(col2Data, nil)
-					}
-					col3Data = append(col3Data, []time.Time{
-						datetime1, datetime2, datetime1,
-					})
-					col4Data = append(col4Data, []*time.Time{
-						&datetime2, nil, &datetime1,
-					})
-				}
-				{
-					if err := batch.Column(0).Append(id); !assert.NoError(t, err) {
-						return
-					}
-					if err := batch.Column(1).Append(col1Data); !assert.NoError(t, err) {
-						return
-					}
-					if err := batch.Column(2).Append(col2Data); !assert.NoError(t, err) {
-						return
-					}
-					if err := batch.Column(3).Append(col3Data); !assert.NoError(t, err) {
-						return
-					}
-					if err := batch.Column(4).Append(col4Data); !assert.NoError(t, err) {
-						return
-					}
-				}
-				if assert.NoError(t, batch.Send()) {
-					var result struct {
-						Col1 time.Time
-						Col2 *time.Time
-						Col3 []time.Time
-						Col4 []*time.Time
-					}
-					if err := conn.QueryRow(ctx, "SELECT Col1, Col2, Col3, Col4 FROM test_datetime WHERE ID = $1", 11).ScanStruct(&result); assert.NoError(t, err) {
-						if assert.Nil(t, result.Col2) {
-							assert.Equal(t, datetime1, result.Col1)
-							assert.Equal(t, []time.Time{datetime1, datetime2, datetime1}, result.Col3)
-							assert.Equal(t, []*time.Time{&datetime2, nil, &datetime1}, result.Col4)
-						}
-					}
-				}
-			}
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE test_datetime")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_datetime")
+	require.NoError(t, err)
+	var (
+		id       []uint64
+		col1Data []time.Time
+		col2Data []*time.Time
+		col3Data [][]time.Time
+		col4Data [][]*time.Time
+	)
+	var (
+		datetime1 = time.Now().Truncate(time.Second)
+		datetime2 = time.Now().Truncate(time.Second)
+	)
+	for i := 0; i < 1000; i++ {
+		id = append(id, uint64(i))
+		col1Data = append(col1Data, datetime1)
+		if i%2 == 0 {
+			col2Data = append(col2Data, &datetime2)
+		} else {
+			col2Data = append(col2Data, nil)
 		}
+		col3Data = append(col3Data, []time.Time{
+			datetime1, datetime2, datetime1,
+		})
+		col4Data = append(col4Data, []*time.Time{
+			&datetime2, nil, &datetime1,
+		})
+	}
+	{
+		if err := batch.Column(0).Append(id); !assert.NoError(t, err) {
+			return
+		}
+		if err := batch.Column(1).Append(col1Data); !assert.NoError(t, err) {
+			return
+		}
+		if err := batch.Column(2).Append(col2Data); !assert.NoError(t, err) {
+			return
+		}
+		if err := batch.Column(3).Append(col3Data); !assert.NoError(t, err) {
+			return
+		}
+		if err := batch.Column(4).Append(col4Data); !assert.NoError(t, err) {
+			return
+		}
+	}
+	require.NoError(t, batch.Send())
+	var result struct {
+		Col1 time.Time
+		Col2 *time.Time
+		Col3 []time.Time
+		Col4 []*time.Time
+	}
+	require.NoError(t, conn.QueryRow(ctx, "SELECT Col1, Col2, Col3, Col4 FROM test_datetime WHERE ID = $1", 11).ScanStruct(&result))
+	require.Nil(t, result.Col2)
+	assert.Equal(t, datetime1, result.Col1)
+	assert.Equal(t, []time.Time{datetime1, datetime2, datetime1}, result.Col3)
+	assert.Equal(t, []*time.Time{&datetime2, nil, &datetime1}, result.Col4)
+}
+
+func TestDateTimeFlush(t *testing.T) {
+	var (
+		ctx       = context.Background()
+		conn, err = clickhouse.Open(&clickhouse.Options{
+			Addr: []string{"127.0.0.1:9000"},
+			Auth: clickhouse.Auth{
+				Database: "default",
+				Username: "default",
+				Password: "",
+			},
+			Compression: &clickhouse.Compression{
+				Method: clickhouse.CompressionLZ4,
+			},
+			MaxOpenConns: 1,
+		})
+	)
+	require.NoError(t, err)
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE datetime_flush")
+	}()
+	const ddl = `
+		CREATE TABLE datetime_flush (
+			  Col1 DateTime
+		) Engine Memory
+		`
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO datetime_flush")
+	require.NoError(t, err)
+	vals := [1000]time.Time{}
+	var now = time.Now()
+	for i := 0; i < 1000; i++ {
+		vals[i] = now.Add(time.Duration(i) * time.Hour).Truncate(time.Second)
+		batch.Append(vals[i])
+		batch.Flush()
+	}
+	batch.Send()
+	rows, err := conn.Query(ctx, "SELECT * FROM datetime_flush")
+	require.NoError(t, err)
+	i := 0
+	for rows.Next() {
+		var col1 time.Time
+		require.NoError(t, rows.Scan(&col1))
+		assert.Equal(t, vals[i], col1)
+		i += 1
 	}
 }
