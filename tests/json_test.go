@@ -2431,3 +2431,30 @@ func TestJSONChTags(t *testing.T) {
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event))
 	assert.JSONEq(t, `{"Title":"sample event","Type":"event_a","Assignee":{"Id":1244,"Name":"Geoff","orgs":["Support Engineer","Integrations"],"Repositories":[{"url":"https://github.com/ClickHouse/clickhouse-python","Releases":[{"Version":"1.0.0"},{"Version":"1.1.0"}]},{"url":"https://github.com/ClickHouse/clickhouse-go","Releases":[{"Version":"2.0.0"},{"Version":"2.1.0"}]}],"Achievement":{"Name":"Mars Star","AwardedDate":"2022-05-25T17:20:57+01:00"}},"Labels":["Help wanted"],"Contributors":null}`, toJson(event))
 }
+
+func TestJSONFlush(t *testing.T) {
+	conn, teardown := setupTest(t)
+	defer teardown(t)
+	ctx := context.Background()
+	batch := prepareBatch(t, conn, ctx)
+	vals := [1000]map[string]interface{}{}
+	for i := 0; i < 1000; i++ {
+		vals[i] = map[string]interface{}{
+			"i": uint64(i),
+			"s": RandIntString(10),
+		}
+		require.NoError(t, batch.Append(vals[i]))
+		require.NoError(t, batch.Flush())
+	}
+	require.NoError(t, batch.Send())
+	rows, err := conn.Query(ctx, "SELECT * FROM json_test")
+	require.NoError(t, err)
+	i := 0
+	for rows.Next() {
+		var col1 map[string]interface{}
+		require.NoError(t, rows.Scan(&col1))
+		require.Equal(t, vals[i], col1)
+		i += 1
+	}
+	require.Equal(t, 1000, i)
+}
