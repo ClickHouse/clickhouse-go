@@ -19,6 +19,8 @@ package tests
 
 import (
 	"context"
+	"github.com/stretchr/testify/require"
+	"math/rand"
 	"testing"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
@@ -44,44 +46,92 @@ func TestGeoPoint(t *testing.T) {
 			},
 		})
 	)
-	if assert.NoError(t, err) {
-		if err := CheckMinServerVersion(conn, 21, 12, 0); err != nil {
-			t.Skip(err.Error())
-			return
-		}
-		const ddl = `
+	require.NoError(t, err)
+	if err := CheckMinServerVersion(conn, 21, 12, 0); err != nil {
+		t.Skip(err.Error())
+		return
+	}
+	const ddl = `
 		CREATE TABLE test_geo_point (
 			Col1 Point
 			, Col2 Array(Point)
 		) Engine Memory
 		`
-		defer func() {
-			conn.Exec(ctx, "DROP TABLE test_geo_point")
-		}()
-		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
-			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_geo_point"); assert.NoError(t, err) {
-				if err := batch.Append(
-					orb.Point{11, 22},
-					[]orb.Point{
-						{1, 2},
-						{3, 4},
-					},
-				); assert.NoError(t, err) {
-					if assert.NoError(t, batch.Send()) {
-						var (
-							col1 orb.Point
-							col2 []orb.Point
-						)
-						if err := conn.QueryRow(ctx, "SELECT * FROM test_geo_point").Scan(&col1, &col2); assert.NoError(t, err) {
-							assert.Equal(t, orb.Point{11, 22}, col1)
-							assert.Equal(t, []orb.Point{
-								{1, 2},
-								{3, 4},
-							}, col2)
-						}
-					}
-				}
-			}
-		}
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE test_geo_point")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_geo_point")
+	require.NoError(t, err)
+	require.NoError(t, batch.Append(
+		orb.Point{11, 22},
+		[]orb.Point{
+			{1, 2},
+			{3, 4},
+		},
+	))
+	require.NoError(t, batch.Send())
+	var (
+		col1 orb.Point
+		col2 []orb.Point
+	)
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_geo_point").Scan(&col1, &col2))
+	assert.Equal(t, orb.Point{11, 22}, col1)
+	assert.Equal(t, []orb.Point{
+		{1, 2},
+		{3, 4},
+	}, col2)
+}
+
+func TestGeoPointFlush(t *testing.T) {
+	var (
+		ctx       = context.Background()
+		conn, err = clickhouse.Open(&clickhouse.Options{
+			Addr: []string{"127.0.0.1:9000"},
+			Auth: clickhouse.Auth{
+				Database: "default",
+				Username: "default",
+				Password: "",
+			},
+			Compression: &clickhouse.Compression{
+				Method: clickhouse.CompressionLZ4,
+			},
+			Settings: clickhouse.Settings{
+				"allow_experimental_geo_types": 1,
+			},
+		})
+	)
+	require.NoError(t, err)
+	if err := CheckMinServerVersion(conn, 21, 12, 0); err != nil {
+		t.Skip(err.Error())
+		return
 	}
+	const ddl = `
+		CREATE TABLE test_geo_point_flush (
+			  Col1 Point
+		) Engine Memory
+		`
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE test_geo_point_flush")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_geo_point_flush")
+	require.NoError(t, err)
+	vals := [1000]orb.Point{}
+	for i := 0; i < 1000; i++ {
+		vals[i] = orb.Point{rand.Float64(), rand.Float64()}
+		require.NoError(t, batch.Append(vals[i]))
+		require.NoError(t, batch.Flush())
+	}
+	require.NoError(t, batch.Send())
+	rows, err := conn.Query(ctx, "SELECT * FROM test_geo_point_flush")
+	require.NoError(t, err)
+	i := 0
+	for rows.Next() {
+		var col1 orb.Point
+		require.NoError(t, rows.Scan(&col1))
+		require.Equal(t, vals[i], col1)
+		i += 1
+	}
+	require.Equal(t, 1000, i)
 }
