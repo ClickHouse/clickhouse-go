@@ -230,8 +230,8 @@ func TestBoolFlush(t *testing.T) {
 
 	for i := 0; i < 1000; i++ {
 		vals[i] = r.Intn(2) != 0
-		batch.Append(vals[i])
-		batch.Flush()
+		require.NoError(t, batch.Append(vals[i]))
+		require.NoError(t, batch.Flush())
 	}
 	batch.Send()
 	rows, err := conn.Query(ctx, "SELECT * FROM bool_flush")

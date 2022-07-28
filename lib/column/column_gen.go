@@ -525,6 +525,13 @@ func (col *Int8) ScanRow(dest interface{}, row int) error {
 	case **int8:
 		*d = new(int8)
 		**d = value
+	case *bool:
+		switch value {
+		case 0:
+			*d = false
+		default:
+			*d = true
+		}
 	default:
 		return &ColumnConverterError{
 			Op:   "ScanRow",
@@ -562,6 +569,24 @@ func (col *Int8) Append(v interface{}) (nulls []uint8, err error) {
 				nulls[i] = 1
 			}
 		}
+	case []bool:
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			val := int8(0)
+			if v[i] {
+				val = 1
+			}
+			col.col.Append(val)
+		}
+	case []*bool:
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			val := int8(0)
+			if *v[i] {
+				val = 1
+			}
+			col.col.Append(val)
+		}
 	default:
 		return nil, &ColumnConverterError{
 			Op:   "Append",
@@ -585,6 +610,18 @@ func (col *Int8) AppendRow(v interface{}) error {
 		}
 	case nil:
 		col.col.Append(0)
+	case bool:
+		val := int8(0)
+		if v {
+			val = 1
+		}
+		col.col.Append(val)
+	case *bool:
+		val := int8(0)
+		if *v {
+			val = 1
+		}
+		col.col.Append(val)
 	default:
 		return &ColumnConverterError{
 			Op:   "AppendRow",
