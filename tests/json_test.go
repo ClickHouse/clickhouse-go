@@ -2441,7 +2441,7 @@ func TestJSONFlush(t *testing.T) {
 	for i := 0; i < 1000; i++ {
 		vals[i] = map[string]interface{}{
 			"i": uint64(i),
-			"s": RandIntString(10),
+			"s": RandAsciiString(10),
 		}
 		require.NoError(t, batch.Append(vals[i]))
 		require.NoError(t, batch.Flush())
