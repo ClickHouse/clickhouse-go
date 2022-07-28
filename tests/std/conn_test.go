@@ -60,6 +60,7 @@ func TestStdConnFailover(t *testing.T) {
 		})
 	}
 }
+
 func TestStdConnFailoverConnOpenRoundRobin(t *testing.T) {
 	dsns := map[string]string{
 		"Native": "clickhouse://127.0.0.1:9001,127.0.0.1:9002,127.0.0.1:9003,127.0.0.1:9004,127.0.0.1:9005,127.0.0.1:9006,127.0.0.1:9000/?connection_open_strategy=round_robin",
@@ -76,6 +77,7 @@ func TestStdConnFailoverConnOpenRoundRobin(t *testing.T) {
 		})
 	}
 }
+
 func TestStdPingDeadline(t *testing.T) {
 	dsns := map[string]string{
 		"Native": "clickhouse://127.0.0.1:9000",
@@ -89,6 +91,24 @@ func TestStdPingDeadline(t *testing.T) {
 				defer cancel()
 				if err := conn.PingContext(ctx); assert.Error(t, err) {
 					assert.Equal(t, err, context.DeadlineExceeded)
+				}
+			}
+		})
+	}
+}
+
+func TestStdConnAuth(t *testing.T) {
+	dsns := map[string]string{"Native": "clickhouse://127.0.0.1:9000?username=default&password=", "Http": "http://127.0.0.1:8123?username=default&password="}
+
+	for name, dsn := range dsns {
+		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
+			if conn, err := sql.Open("clickhouse", dsn); assert.NoError(t, err) {
+				if assert.NoError(t, err) {
+					if err := conn.PingContext(context.Background()); assert.NoError(t, err) {
+						if assert.NoError(t, conn.Close()) {
+							t.Log(conn.Stats())
+						}
+					}
 				}
 			}
 		})

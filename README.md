@@ -10,6 +10,8 @@ There are two version of this client, v1 and v2, available as separate branches.
 
 Users should use v2 which is production ready and [significantly faster than v1](#benchmark).
 
+v2 has breaking changes for users migrating from v1. These were not properly tracked prior to this client being officially supported. We endeavour to track known differences [here](https://github.com/ClickHouse/clickhouse-go/blob/main/v1_v2_CHANGES.md) and resolve where possible.
+
 ## Supported ClickHouse Versions
 
 The client is tested against the currently [supported versions](https://github.com/ClickHouse/ClickHouse/blob/master/SECURITY.md) of ClickHouse
@@ -83,8 +85,8 @@ conn.SetConnMaxLifetime(time.Hour)
 * username/password - auth credentials
 * database - select the current default database
 * dial_timeout -  a duration string is a possibly signed sequence of decimal numbers, each with optional fraction and a unit suffix such as "300ms", "1s". Valid time units are "ms", "s", "m".
-* connection_open_strategy - random/in_order (default random).
-    * round-robin      - choose a round-robin server from the set
+* connection_open_strategy - round_robin/in_order (default in_order).
+    * round_robin      - choose a round-robin server from the set
     * in_order    - first live server is chosen in specified order
 * debug - enable debug output (boolean value)
 * compress - enable lz4 compression (boolean value)

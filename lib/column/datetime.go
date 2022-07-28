@@ -18,6 +18,7 @@
 package column
 
 import (
+	"database/sql"
 	"fmt"
 	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
@@ -87,6 +88,8 @@ func (col *DateTime) ScanRow(dest interface{}, row int) error {
 	case **time.Time:
 		*d = new(time.Time)
 		**d = col.row(row)
+	case *sql.NullTime:
+		d.Scan(col.row(row))
 	default:
 		return &ColumnConverterError{
 			Op:   "ScanRow",
@@ -122,6 +125,19 @@ func (col *DateTime) Append(v interface{}) (nulls []uint8, err error) {
 				col.col.Append(time.Time{})
 			}
 		}
+	case []sql.NullTime:
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			col.AppendRow(v[i])
+		}
+	case []*sql.NullTime:
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			if v[i] == nil {
+				nulls[i] = 1
+			}
+			col.AppendRow(v[i])
+		}
 	default:
 		return nil, &ColumnConverterError{
 			Op:   "Append",
@@ -146,6 +162,20 @@ func (col *DateTime) AppendRow(v interface{}) error {
 				return err
 			}
 			col.col.Append(*v)
+		default:
+			col.col.Append(time.Time{})
+		}
+	case sql.NullTime:
+		switch v.Valid {
+		case true:
+			col.col.Append(v.Time)
+		default:
+			col.col.Append(time.Time{})
+		}
+	case *sql.NullTime:
+		switch v.Valid {
+		case true:
+			col.col.Append(v.Time)
 		default:
 			col.col.Append(time.Time{})
 		}
