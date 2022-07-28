@@ -20,6 +20,7 @@ package tests
 import (
 	"fmt"
 	"math/rand"
+	"net"
 	"runtime"
 	"strings"
 	"time"
@@ -28,7 +29,9 @@ import (
 )
 
 func init() {
-	rand.Seed(time.Now().UnixNano())
+	seed := time.Now().UnixNano()
+	fmt.Printf("using random seed %d for native tests\n", seed)
+	rand.Seed(seed)
 }
 func CheckMinServerVersion(conn driver.Conn, major, minor, patch uint64) error {
 	v, err := conn.ServerVersion()
@@ -57,6 +60,19 @@ func RandAsciiString(n int) string {
 
 func RandIntString(n int) string {
 	return randString(n, numberBytes)
+}
+
+func RandIPv4() net.IP {
+	return net.IPv4(uint8(rand.Int()), uint8(rand.Int()), uint8(rand.Int()), uint8(rand.Int())).To4()
+}
+
+func RandIPv6() net.IP {
+	size := 16
+	ip := make([]byte, size)
+	for i := 0; i < size; i++ {
+		ip[i] = byte(rand.Intn(256))
+	}
+	return net.IP(ip).To16()
 }
 
 func randString(n int, bytes string) string {
