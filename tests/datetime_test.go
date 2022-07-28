@@ -51,6 +51,10 @@ func TestDateTime(t *testing.T) {
 				, Col4 Nullable(DateTime('Europe/Moscow'))
 				, Col5 Array(DateTime('Europe/Moscow'))
 				, Col6 Array(Nullable(DateTime('Europe/Moscow')))
+				, Col7 DateTime
+				, Col8 DateTime('Asia/Shanghai')
+				, Col9 Nullable(DateTime('Asia/Shanghai'))
+				, Col10 Array(DateTime('Asia/Shanghai'))
 			) Engine Memory
 		`
 		defer func() {
@@ -59,6 +63,7 @@ func TestDateTime(t *testing.T) {
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_datetime"); assert.NoError(t, err) {
 				datetime := time.Now().Truncate(time.Second)
+				dateTimeStr := datetime.Format("2006-01-02 15:04:05")
 				if err := batch.Append(
 					datetime,
 					datetime,
@@ -66,15 +71,23 @@ func TestDateTime(t *testing.T) {
 					&datetime,
 					[]time.Time{datetime, datetime},
 					[]*time.Time{&datetime, nil, &datetime},
+					dateTimeStr,
+					dateTimeStr,
+					datetime.Unix(),
+					[]string{dateTimeStr, dateTimeStr},
 				); assert.NoError(t, err) {
 					if err := batch.Send(); assert.NoError(t, err) {
 						var (
-							col1 time.Time
-							col2 time.Time
-							col3 time.Time
-							col4 *time.Time
-							col5 []time.Time
-							col6 []*time.Time
+							col1  time.Time
+							col2  time.Time
+							col3  time.Time
+							col4  *time.Time
+							col5  []time.Time
+							col6  []*time.Time
+							col7  time.Time
+							col8  time.Time
+							col9  *time.Time
+							col10 []time.Time
 						)
 						if err := conn.QueryRow(ctx, "SELECT * FROM test_datetime").Scan(&col1, &col2, &col3, &col4, &col5, &col6); assert.NoError(t, err) {
 							assert.Equal(t, datetime, col1)
@@ -92,6 +105,13 @@ func TestDateTime(t *testing.T) {
 								assert.Nil(t, col6[1])
 								assert.NotNil(t, col6[0])
 								assert.NotNil(t, col6[2])
+							}
+							assert.Equal(t, datetime, col7)
+							assert.Equal(t, datetime.Unix(), col8.Unix())
+							assert.Equal(t, datetime.Unix(), col9.Unix())
+							if assert.Len(t, col10, 2) {
+								assert.Equal(t, "Asia/Shanghai", col10[0].Location().String())
+								assert.Equal(t, "Asia/Shanghai", col10[1].Location().String())
 							}
 						}
 					}
