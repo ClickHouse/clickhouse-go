@@ -106,13 +106,13 @@ func insertWithFlush(t *testing.T, conn driver.Conn, flush bool) {
 	for i := 0; i < 100_000; i++ {
 		require.NoError(t, batch.Append(
 			uint64(i),
-			RandString(5),
-			RandString(3),
+			RandAsciiString(5),
+			RandAsciiString(3),
 			uuid.New(),
 			map[string]uint64{"key": uint64(i)}, // Map(String, UInt64)
-			[]string{RandString(1), RandString(1), RandString(1), RandString(1), RandString(1), RandString(1)}, // Array(String)
+			[]string{RandAsciiString(1), RandAsciiString(1), RandAsciiString(1), RandAsciiString(1), RandAsciiString(1), RandAsciiString(1)}, // Array(String)
 			[]interface{}{ // Tuple(String, UInt64, Array(Map(String, UInt64)))
-				RandString(10), uint64(i), []map[string]uint64{
+				RandAsciiString(10), uint64(i), []map[string]uint64{
 					{"key": uint64(i)},
 					{"key": uint64(i + 1)},
 					{"key": uint64(i) + 2},

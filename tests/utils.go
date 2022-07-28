@@ -44,13 +44,22 @@ func CheckMinServerVersion(conn driver.Conn, major, minor, patch uint64) error {
 var src = rand.NewSource(time.Now().UnixNano())
 
 const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+const numberBytes = "123456789"
 const (
 	letterIdxBits = 6                    // 6 bits to represent a letter index
 	letterIdxMask = 1<<letterIdxBits - 1 // All 1-bits, as many as letterIdxBits
 	letterIdxMax  = 63 / letterIdxBits   // # of letter indices fitting in 63 bits
 )
 
-func RandString(n int) string {
+func RandAsciiString(n int) string {
+	return randString(n, letterBytes)
+}
+
+func RandIntString(n int) string {
+	return randString(n, numberBytes)
+}
+
+func randString(n int, bytes string) string {
 	sb := strings.Builder{}
 	sb.Grow(n)
 	// A src.Int63() generates 63 random bits, enough for letterIdxMax characters!
@@ -58,8 +67,8 @@ func RandString(n int) string {
 		if remain == 0 {
 			cache, remain = src.Int63(), letterIdxMax
 		}
-		if idx := int(cache & letterIdxMask); idx < len(letterBytes) {
-			sb.WriteByte(letterBytes[idx])
+		if idx := int(cache & letterIdxMask); idx < len(bytes) {
+			sb.WriteByte(bytes[idx])
 			i--
 		}
 		cache >>= letterIdxBits

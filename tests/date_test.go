@@ -19,6 +19,7 @@ package tests
 
 import (
 	"context"
+	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
 
@@ -267,5 +268,53 @@ func TestColumnarDate(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+func TestDateFlush(t *testing.T) {
+	var (
+		ctx       = context.Background()
+		conn, err = clickhouse.Open(&clickhouse.Options{
+			Addr: []string{"127.0.0.1:9000"},
+			Auth: clickhouse.Auth{
+				Database: "default",
+				Username: "default",
+				Password: "",
+			},
+			Compression: &clickhouse.Compression{
+				Method: clickhouse.CompressionLZ4,
+			},
+			MaxOpenConns: 1,
+		})
+	)
+	require.NoError(t, err)
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE date_flush")
+	}()
+	const ddl = `
+		CREATE TABLE date_flush (
+			  Col1 Date
+		) Engine Memory
+		`
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO date_flush")
+	require.NoError(t, err)
+	vals := [1000]time.Time{}
+	var now = time.Now()
+
+	for i := 0; i < 1000; i++ {
+		vals[i] = now.Add(time.Duration(i) * time.Hour)
+		batch.Append(vals[i])
+		batch.Flush()
+	}
+	batch.Send()
+	rows, err := conn.Query(ctx, "SELECT * FROM date_flush")
+	require.NoError(t, err)
+	i := 0
+	for rows.Next() {
+		var col1 time.Time
+		require.NoError(t, rows.Scan(&col1))
+		assert.Equal(t, vals[i].Format("2016-02-01"), col1.Format("2016-02-01"))
+		i += 1
 	}
 }
