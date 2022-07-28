@@ -193,3 +193,56 @@ func TestColmnarMap(t *testing.T) {
 		assert.Equal(t, col3Data, col3)
 	}
 }
+
+func TestMapFlush(t *testing.T) {
+	var (
+		ctx       = context.Background()
+		conn, err = clickhouse.Open(&clickhouse.Options{
+			Addr: []string{"127.0.0.1:9000"},
+			Auth: clickhouse.Auth{
+				Database: "default",
+				Username: "default",
+				Password: "",
+			},
+			Compression: &clickhouse.Compression{
+				Method: clickhouse.CompressionLZ4,
+			},
+			//Debug: true,
+		})
+	)
+	require.NoError(t, err)
+	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
+		t.Skip(err.Error())
+		return
+	}
+	const ddl = `
+		CREATE TABLE test_map_flush (
+			  Col1 Map(String, UInt64)
+		) Engine Memory
+		`
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE test_map_flush")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_map_flush")
+	require.NoError(t, err)
+	vals := [1000]map[string]uint64{}
+	for i := 0; i < 1000; i++ {
+		vals[i] = map[string]uint64{
+			"i": uint64(i),
+		}
+		require.NoError(t, batch.Append(vals[i]))
+		require.NoError(t, batch.Flush())
+	}
+	require.NoError(t, batch.Send())
+	rows, err := conn.Query(ctx, "SELECT * FROM test_map_flush")
+	require.NoError(t, err)
+	i := 0
+	for rows.Next() {
+		var col1 map[string]uint64
+		require.NoError(t, rows.Scan(&col1))
+		require.Equal(t, vals[i], col1)
+		i += 1
+	}
+	require.Equal(t, 1000, i)
+}

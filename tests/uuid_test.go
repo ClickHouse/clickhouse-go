@@ -336,3 +336,50 @@ func TestUuid_ScanRow(t *testing.T) {
 		}
 	}
 }
+
+func TestUUIDFlush(t *testing.T) {
+	var (
+		ctx       = context.Background()
+		conn, err = clickhouse.Open(&clickhouse.Options{
+			Addr: []string{"127.0.0.1:9000"},
+			Auth: clickhouse.Auth{
+				Database: "default",
+				Username: "default",
+				Password: "",
+			},
+			Compression: &clickhouse.Compression{
+				Method: clickhouse.CompressionLZ4,
+			},
+			MaxOpenConns: 1,
+		})
+	)
+	require.NoError(t, err)
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE uuid_flush")
+	}()
+	const ddl = `
+		CREATE TABLE uuid_flush (
+			  Col1 UUID
+		) Engine Memory
+		`
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO uuid_flush")
+	require.NoError(t, err)
+	vals := [1000]uuid.UUID{}
+	for i := 0; i < 1000; i++ {
+		vals[i] = uuid.New()
+		batch.Append(vals[i])
+		batch.Flush()
+	}
+	batch.Send()
+	rows, err := conn.Query(ctx, "SELECT * FROM uuid_flush")
+	require.NoError(t, err)
+	i := 0
+	for rows.Next() {
+		var col1 uuid.UUID
+		require.NoError(t, rows.Scan(&col1))
+		require.Equal(t, vals[i], col1)
+		i += 1
+	}
+	require.Equal(t, 1000, i)
+}

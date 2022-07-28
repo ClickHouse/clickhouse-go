@@ -402,12 +402,12 @@ func TestColumnarTuple(t *testing.T) {
 			},
 		})
 	)
-	if assert.NoError(t, err) {
-		if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
-			t.Skip(err.Error())
-			return
-		}
-		const ddl = `
+	require.NoError(t, err)
+	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
+		t.Skip(err.Error())
+		return
+	}
+	const ddl = `
 		CREATE TABLE test_tuple (
 			  ID   UInt64
 			, Col1 Tuple(String, Int64)
@@ -416,70 +416,120 @@ func TestColumnarTuple(t *testing.T) {
 			, Col4 Tuple(String, Int64)
 		) Engine Memory
 		`
-		defer func() {
-			conn.Exec(ctx, "DROP TABLE test_tuple")
-		}()
-		require.NoError(t, conn.Exec(ctx, ddl))
-		batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_tuple")
-		require.NoError(t, err)
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE test_tuple")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_tuple")
+	require.NoError(t, err)
+	var (
+		id        []uint64
+		col1Data  = [][]interface{}{}
+		col2Data  = [][]interface{}{}
+		col3Data  = [][]interface{}{}
+		col4Data  = []*[]interface{}{}
+		timestamp = time.Now().Truncate(time.Second)
+	)
+	for i := 0; i < 1000; i++ {
+		id = append(id, uint64(i))
+		col1Data = append(col1Data, []interface{}{
+			fmt.Sprintf("A_%d", i), int64(i),
+		})
+		col2Data = append(col2Data, []interface{}{
+			fmt.Sprintf("B_%d", i), int8(1), timestamp,
+		})
+		col3Data = append(col3Data, []interface{}{
+			timestamp, "CH", map[string]string{
+				"key": "value",
+			},
+		})
+		col4Data = append(col4Data, &[]interface{}{
+			fmt.Sprintf("C_%d", i), int64(i),
+		})
+	}
+	require.NoError(t, batch.Column(0).Append(id))
+	require.NoError(t, batch.Column(1).Append(col1Data))
+	require.NoError(t, batch.Column(2).Append(col2Data))
+	require.NoError(t, batch.Column(3).Append(col3Data))
+	require.NoError(t, batch.Column(4).Append(col4Data))
+	require.NoError(t, batch.Send())
+	{
 		var (
-			id        []uint64
-			col1Data  = [][]interface{}{}
-			col2Data  = [][]interface{}{}
-			col3Data  = [][]interface{}{}
-			col4Data  = []*[]interface{}{}
-			timestamp = time.Now().Truncate(time.Second)
-		)
-		for i := 0; i < 1000; i++ {
-			id = append(id, uint64(i))
-			col1Data = append(col1Data, []interface{}{
-				fmt.Sprintf("A_%d", i), int64(i),
-			})
-			col2Data = append(col2Data, []interface{}{
-				fmt.Sprintf("B_%d", i), int8(1), timestamp,
-			})
-			col3Data = append(col3Data, []interface{}{
+			id       uint64
+			col1     []interface{}
+			col2     []interface{}
+			col3     []interface{}
+			col4     []interface{}
+			col1Data = []interface{}{
+				"A_542", int64(542),
+			}
+			col2Data = []interface{}{
+				"B_542", int8(1), timestamp,
+			}
+			col3Data = []interface{}{
 				timestamp, "CH", map[string]string{
 					"key": "value",
 				},
-			})
-			col4Data = append(col4Data, &[]interface{}{
-				fmt.Sprintf("C_%d", i), int64(i),
-			})
-		}
-		require.NoError(t, batch.Column(0).Append(id))
-		require.NoError(t, batch.Column(1).Append(col1Data))
-		require.NoError(t, batch.Column(2).Append(col2Data))
-		require.NoError(t, batch.Column(3).Append(col3Data))
-		require.NoError(t, batch.Column(4).Append(col4Data))
-		require.NoError(t, batch.Send())
-		{
-			var (
-				id       uint64
-				col1     []interface{}
-				col2     []interface{}
-				col3     []interface{}
-				col4     []interface{}
-				col1Data = []interface{}{
-					"A_542", int64(542),
-				}
-				col2Data = []interface{}{
-					"B_542", int8(1), timestamp,
-				}
-				col3Data = []interface{}{
-					timestamp, "CH", map[string]string{
-						"key": "value",
-					},
-				}
-				col4Data = &[]interface{}{
-					"C_542", int64(542),
-				}
-			)
-			require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_tuple WHERE ID = $1", 542).Scan(&id, &col1, &col2, &col3, &col4))
-			assert.Equal(t, col1Data, col1)
-			assert.Equal(t, col2Data, col2)
-			assert.Equal(t, col3Data, col3)
-			assert.Equal(t, col4Data, &col4)
-		}
+			}
+			col4Data = &[]interface{}{
+				"C_542", int64(542),
+			}
+		)
+		require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_tuple WHERE ID = $1", 542).Scan(&id, &col1, &col2, &col3, &col4))
+		assert.Equal(t, col1Data, col1)
+		assert.Equal(t, col2Data, col2)
+		assert.Equal(t, col3Data, col3)
+		assert.Equal(t, col4Data, &col4)
 	}
+}
+
+func TestTupleFlush(t *testing.T) {
+	var (
+		ctx       = context.Background()
+		conn, err = clickhouse.Open(&clickhouse.Options{
+			Addr: []string{"127.0.0.1:9000"},
+			Auth: clickhouse.Auth{
+				Database: "default",
+				Username: "default",
+				Password: "",
+			},
+		})
+	)
+	require.NoError(t, err)
+	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
+		t.Skip(err.Error())
+		return
+	}
+	const ddl = `
+		CREATE TABLE test_tuple_flush (
+			Col1 Tuple(name String, id Int64)
+		) Engine Memory
+		`
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE test_tuple_flush")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_tuple_flush")
+	require.NoError(t, err)
+	vals := [1000]map[string]interface{}{}
+	for i := 0; i < 1000; i++ {
+		vals[i] = map[string]interface{}{
+			"id":   int64(i),
+			"name": RandAsciiString(10),
+		}
+		require.NoError(t, batch.Append(vals[i]))
+		require.NoError(t, batch.Flush())
+	}
+	require.NoError(t, batch.Send())
+	rows, err := conn.Query(ctx, "SELECT * FROM test_tuple_flush")
+	require.NoError(t, err)
+	i := 0
+	for rows.Next() {
+		var col1 map[string]interface{}
+		require.NoError(t, rows.Scan(&col1))
+		require.Equal(t, vals[i], col1)
+		i += 1
+	}
+	require.Equal(t, 1000, i)
+
 }
