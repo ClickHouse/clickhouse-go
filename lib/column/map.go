@@ -34,6 +34,12 @@ type Map struct {
 	name     string
 }
 
+func (col *Map) Reset() {
+	col.keys.Reset()
+	col.values.Reset()
+	col.offsets.Reset()
+}
+
 func (col *Map) Name() string {
 	return col.name
 }

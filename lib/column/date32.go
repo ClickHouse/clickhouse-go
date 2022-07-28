@@ -35,6 +35,10 @@ type Date32 struct {
 	name string
 }
 
+func (col *Date32) Reset() {
+	col.col.Reset()
+}
+
 func (col *Date32) Name() string {
 	return col.name
 }

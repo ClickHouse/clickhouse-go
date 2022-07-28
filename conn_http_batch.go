@@ -195,4 +195,8 @@ func (b *httpBatch) Send() (err error) {
 	return err
 }
 
+func (b *httpBatch) Flush() error {
+	return nil
+}
+
 var _ driver.Batch = (*httpBatch)(nil)

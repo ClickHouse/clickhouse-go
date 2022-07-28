@@ -42,6 +42,10 @@ func (col *Decimal) Name() string {
 	return col.name
 }
 
+func (col *Decimal) Reset() {
+	col.col.Reset()
+}
+
 func (col *Decimal) parse(t Type) (_ *Decimal, err error) {
 	col.chType = t
 	params := strings.Split(t.params(), ",")

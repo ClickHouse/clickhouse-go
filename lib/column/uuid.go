@@ -30,6 +30,10 @@ type UUID struct {
 	name string
 }
 
+func (col *UUID) Reset() {
+	col.col.Reset()
+}
+
 func (col *UUID) Name() string {
 	return col.name
 }

@@ -512,6 +512,10 @@ type JSONValue struct {
 	origType reflect.Type
 }
 
+func (jCol *JSONValue) Reset() {
+	jCol.Interface.Reset()
+}
+
 func (jCol *JSONValue) appendEmptyValue() error {
 	switch jCol.Interface.(type) {
 	case *Array:
@@ -681,6 +685,12 @@ type JSONObject struct {
 	name     string
 	root     bool
 	encoding uint8
+}
+
+func (jCol *JSONObject) Reset() {
+	for i := range jCol.columns {
+		jCol.columns[i].Reset()
+	}
 }
 
 func (jCol *JSONObject) Name() string {

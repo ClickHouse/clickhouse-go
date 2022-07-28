@@ -30,6 +30,10 @@ type Point struct {
 	col  proto.ColPoint
 }
 
+func (col *Point) Reset() {
+	col.col.Reset()
+}
+
 func (col *Point) Name() string {
 	return col.name
 }

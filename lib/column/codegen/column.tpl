@@ -209,6 +209,10 @@ func (col *{{ .ChType }}) Rows() int {
 	return col.col.Rows()
 }
 
+func (col *{{ .ChType }}) Reset() {
+    col.col.Reset()
+}
+
 func (col *{{ .ChType }}) ScanRow(dest interface{}, row int) error {
 	value := col.col.Row(row)
 	switch d := dest.(type) {

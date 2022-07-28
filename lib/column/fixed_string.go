@@ -31,6 +31,10 @@ type FixedString struct {
 	col  proto.ColFixedStr
 }
 
+func (col *FixedString) Reset() {
+	col.col.Reset()
+}
+
 func (col *FixedString) Name() string {
 	return col.name
 }

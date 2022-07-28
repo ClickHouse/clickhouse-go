@@ -70,6 +70,7 @@ type batch struct {
 	ctx       context.Context
 	conn      *connect
 	sent      bool
+	flushed   bool
 	block     *proto.Block
 	release   func(error)
 	onProcess *onProcess
@@ -151,6 +152,25 @@ func (b *batch) Send() (err error) {
 	if err = b.conn.process(b.ctx, b.onProcess); err != nil {
 		return err
 	}
+	return nil
+}
+
+func (b *batch) Flush() error {
+	defer func() {
+		b.flushed = true
+	}()
+	if b.sent {
+		return ErrBatchAlreadySent
+	}
+	if b.err != nil {
+		return b.err
+	}
+	if b.block.Rows() != 0 {
+		if err := b.conn.sendData(b.block, ""); err != nil {
+			return err
+		}
+	}
+	b.block.Reset()
 	return nil
 }
 

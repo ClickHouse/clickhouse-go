@@ -28,6 +28,10 @@ type Nothing struct {
 	col  proto.ColNothing
 }
 
+func (col *Nothing) Reset() {
+	col.col.Reset()
+}
+
 func (col Nothing) Name() string {
 	return col.name
 }
