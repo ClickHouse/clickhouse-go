@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
@@ -30,6 +31,10 @@ import (
 var (
 	minDateTime, _ = time.Parse("2006-01-02 15:04:05", "1970-01-01 00:00:00")
 	maxDateTime, _ = time.Parse("2006-01-02 15:04:05", "2105-12-31 23:59:59")
+)
+
+const (
+	dateTimeFormat = "2006-01-02 15:04:05"
 )
 
 type DateTime struct {
@@ -147,27 +152,35 @@ func (col *DateTime) AppendRow(v interface{}) error {
 	case nil:
 		col.col.Append(time.Time{})
 	case string:
-		dateTime, err := timezone.StrToTime(v)
+		dateTime, err := col.parseTime(v)
 		if err != nil {
 			return err
 		}
-		col.col.Append(*dateTime)
+		err = dateOverflow(minDateTime, maxDateTime, dateTime, "2006-01-02 15:04:05")
+		if err != nil {
+			return err
+		}
+		col.col.Append(dateTime)
 	case *string:
 		switch {
 		case v == nil:
 			col.col.Append(time.Time{})
 			return nil
 		case v != nil:
-			dateTime, err := timezone.StrToTime(*v)
+			dateTime, err := col.parseTime(*v)
 			if err != nil {
 				return err
 			}
-			col.col.Append(*dateTime)
+			err = dateOverflow(minDateTime, maxDateTime, dateTime, "2006-01-02 15:04:05")
+			if err != nil {
+				return err
+			}
+			col.col.Append(dateTime)
 		}
 	default:
-		timestamp := timezone.ConvToInt64(v)
+		timestamp := col.convToInt64(v)
 		if timestamp != 0 {
-			col.col.Append(time.UnixMilli(timestamp))
+			col.col.Append(time.Unix(timestamp, 0))
 			return nil
 		}
 		return &ColumnConverterError{
@@ -190,6 +203,55 @@ func (col *DateTime) Encode(buffer *proto.Buffer) {
 func (col *DateTime) row(i int) time.Time {
 	v := col.col.Row(i)
 	return v
+}
+
+func (col *DateTime) parseTime(str string) (time.Time, error) {
+	// try if you can convert to numbers first
+	timestamp := col.convToInt64(str)
+	if timestamp != 0 {
+		return time.Unix(timestamp, 0), nil
+	}
+	dateTime, err := time.Parse(dateTimeFormat, str)
+	if err != nil {
+		return time.Time{}, err
+	}
+	return dateTime, nil
+}
+
+func (col *DateTime) convToInt64(v interface{}) int64 {
+	switch s := v.(type) {
+	case int:
+		return int64(s)
+	case int8:
+		return int64(s)
+	case int16:
+		return int64(s)
+	case int32:
+		return int64(s)
+	case int64:
+		return s
+	case uint:
+		return int64(s)
+	case uint8:
+		return int64(s)
+	case uint16:
+		return int64(s)
+	case uint32:
+		return int64(s)
+	case uint64:
+		return int64(s)
+	case string:
+		timestamp, _ := strconv.ParseInt(s, 10, 64)
+		return timestamp
+	case *string:
+		if s == nil {
+			return 0
+		}
+		timestamp, _ := strconv.ParseInt(*s, 10, 64)
+		return timestamp
+	default:
+		return 0
+	}
 }
 
 var _ Interface = (*DateTime)(nil)

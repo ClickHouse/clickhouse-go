@@ -5,6 +5,7 @@ go 1.18
 require (
 	github.com/ClickHouse/ch-go v0.47.1
 	github.com/ClickHouse/clickhouse-go v1.5.4
+	github.com/andybalholm/brotli v1.0.4
 	github.com/google/uuid v1.3.0
 	github.com/mkevac/debugcharts v0.0.0-20191222103121-ae1c48aa8615
 	github.com/paulmach/orb v0.7.1
@@ -17,7 +18,6 @@ require (
 require go.opentelemetry.io/otel v1.8.0 // indirect
 
 require (
-	github.com/andybalholm/brotli v1.0.4 // indirect
 	github.com/cloudflare/golz4 v0.0.0-20150217214814-ef862a3cdc58 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/go-faster/city v1.0.1 // indirect
