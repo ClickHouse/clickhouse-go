@@ -21,6 +21,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
 
@@ -102,15 +103,50 @@ func TestStdConnAuth(t *testing.T) {
 
 	for name, dsn := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
-			if conn, err := sql.Open("clickhouse", dsn); assert.NoError(t, err) {
-				if assert.NoError(t, err) {
-					if err := conn.PingContext(context.Background()); assert.NoError(t, err) {
-						if assert.NoError(t, conn.Close()) {
-							t.Log(conn.Stats())
-						}
-					}
-				}
-			}
+			conn, err := sql.Open("clickhouse", dsn)
+			require.NoError(t, err)
+			require.NoError(t, conn.PingContext(context.Background()))
+			require.NoError(t, conn.Close())
+			t.Log(conn.Stats())
 		})
+	}
+}
+
+func TestStdHTTPEmptyResponse(t *testing.T) {
+	dsns := map[string]string{"Native": "clickhouse://127.0.0.1:9000?username=default&password=", "Http": "http://127.0.0.1:8123?username=default&password="}
+	for name, dsn := range dsns {
+		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
+			conn, err := sql.Open("clickhouse", dsn)
+			defer func() {
+				conn.Exec("DROP TABLE empty_example")
+			}()
+			conn.Exec("DROP TABLE IF EXISTS empty_example")
+			_, err = conn.Exec(`
+				CREATE TABLE IF NOT EXISTS empty_example (
+					  Col1 UInt64
+					, Col2 String
+					, Col3 FixedString(3)
+					, Col4 UUID
+					, Col5 Map(String, UInt64)
+					, Col6 Array(String)
+					, Col7 Tuple(String, UInt64, Array(Map(String, UInt64)))
+					, Col8 DateTime
+				) Engine = Memory
+			`)
+			require.NoError(t, err)
+			rows, err := conn.Query("SELECT Col1 FROM empty_example")
+			require.NoError(t, err)
+			count := 0
+			for rows.Next() {
+				count++
+			}
+			assert.Equal(t, 0, count)
+			var col1 uint64
+			// will return with no rows in result set
+			err = conn.QueryRow("SELECT * FROM empty_example").Scan(&col1)
+			require.Error(t, err)
+			assert.Equal(t, "sql: no rows in result set", err.Error())
+		})
+
 	}
 }

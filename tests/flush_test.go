@@ -81,9 +81,9 @@ func TestFlush(t *testing.T) {
 }
 
 func insertWithFlush(t *testing.T, conn driver.Conn, flush bool) {
-	//defer func() {
-	//	conn.Exec(ctx, "DROP TABLE flush_example")
-	//}()
+	defer func() {
+		conn.Exec(context.Background(), "DROP TABLE flush_example")
+	}()
 	conn.Exec(context.Background(), "DROP TABLE IF EXISTS flush_example")
 	ctx := context.Background()
 	err := conn.Exec(ctx, `
