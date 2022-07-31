@@ -31,6 +31,10 @@ type String struct {
 	col  proto.ColStr
 }
 
+func (col *String) Reset() {
+	col.col.Reset()
+}
+
 func (col String) Name() string {
 	return col.name
 }

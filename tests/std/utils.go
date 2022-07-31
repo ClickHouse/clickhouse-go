@@ -27,7 +27,9 @@ import (
 )
 
 func init() {
-	rand.Seed(time.Now().UnixNano())
+	seed := time.Now().UnixNano()
+	fmt.Printf("using random seed %d for std tests\n", seed)
+	rand.Seed(seed)
 }
 func CheckMinServerVersion(conn *sql.DB, major, minor, patch uint64) error {
 	var version struct {

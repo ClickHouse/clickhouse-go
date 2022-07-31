@@ -19,12 +19,12 @@ package tests
 
 import (
 	"context"
-	"github.com/stretchr/testify/require"
-	"testing"
-
+	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"testing"
 )
 
 func TestDecimal(t *testing.T) {
@@ -228,4 +228,51 @@ func TestNullableDecimal(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestDecimalFlush(t *testing.T) {
+	var (
+		ctx       = context.Background()
+		conn, err = clickhouse.Open(&clickhouse.Options{
+			Addr: []string{"127.0.0.1:9000"},
+			Auth: clickhouse.Auth{
+				Database: "default",
+				Username: "default",
+				Password: "",
+			},
+			Compression: &clickhouse.Compression{
+				Method: clickhouse.CompressionLZ4,
+			},
+			MaxOpenConns: 1,
+		})
+	)
+	require.NoError(t, err)
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE decimal_flush")
+	}()
+	const ddl = `
+		CREATE TABLE decimal_flush (
+			  Col1 Decimal(76,29)
+		) Engine Memory
+		`
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO decimal_flush")
+	require.NoError(t, err)
+	vals := [1000]decimal.Decimal{}
+	for i := 0; i < 1000; i++ {
+		vals[i] = decimal.RequireFromString(fmt.Sprintf("1.%s", RandIntString(5)))
+		batch.Append(vals[i])
+		batch.Flush()
+	}
+	batch.Send()
+	rows, err := conn.Query(ctx, "SELECT * FROM decimal_flush")
+	require.NoError(t, err)
+	i := 0
+	for rows.Next() {
+		var col1 decimal.Decimal
+		require.NoError(t, rows.Scan(&col1))
+		require.True(t, vals[i].Equal(col1))
+		i += 1
+	}
+	require.Equal(t, 1000, i)
 }

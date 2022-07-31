@@ -32,6 +32,11 @@ type Nullable struct {
 	name     string
 }
 
+func (col *Nullable) Reset() {
+	col.base.Reset()
+	col.nulls.Reset()
+}
+
 func (col *Nullable) Name() string {
 	return col.name
 }

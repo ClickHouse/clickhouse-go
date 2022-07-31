@@ -9,6 +9,18 @@ import (
 )
 
 func TestZSTDCompression(t *testing.T) {
+	CompressionTest(t, clickhouse.CompressionZSTD)
+}
+
+func TestLZ4Compression(t *testing.T) {
+	CompressionTest(t, clickhouse.CompressionLZ4)
+}
+
+func TestNoCompression(t *testing.T) {
+	CompressionTest(t, clickhouse.CompressionNone)
+}
+
+func CompressionTest(t *testing.T, method clickhouse.CompressionMethod) {
 	var (
 		ctx       = context.Background()
 		conn, err = clickhouse.Open(&clickhouse.Options{
@@ -19,7 +31,7 @@ func TestZSTDCompression(t *testing.T) {
 				Password: "",
 			},
 			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionZSTD,
+				Method: method,
 			},
 			MaxOpenConns: 1,
 		})

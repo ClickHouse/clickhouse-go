@@ -55,6 +55,27 @@ func (h *httpConnect) query(ctx context.Context, release func(*connect, error), 
 
 	rw := h.compressionPool.Get()
 	body, err = rw.read(res)
+
+	var (
+		errCh  = make(chan error)
+		stream = make(chan *proto.Block, 2)
+	)
+
+	if len(body) == 0 {
+		// queries with no results can get an empty body
+		go func() {
+			close(stream)
+			close(errCh)
+		}()
+		return &rows{
+			err:       nil,
+			stream:    stream,
+			errors:    errCh,
+			block:     &proto.Block{},
+			columns:   []string{},
+			structMap: &structMap{},
+		}, nil
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -64,11 +85,6 @@ func (h *httpConnect) query(ctx context.Context, release func(*connect, error), 
 	if err != nil {
 		return nil, err
 	}
-
-	var (
-		errCh  = make(chan error)
-		stream = make(chan *proto.Block, 2)
-	)
 
 	go func() {
 		for {

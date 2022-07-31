@@ -27,6 +27,10 @@ type Nested struct {
 	name string
 }
 
+func (col *Nested) Reset() {
+	col.Interface.Reset()
+}
+
 func asDDL(cols []namedCol) string {
 	sCols := make([]string, len(cols), len(cols))
 	for i := range cols {

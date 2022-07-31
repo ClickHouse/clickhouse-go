@@ -224,48 +224,45 @@ func TestColumnarIPv4(t *testing.T) {
 			//Debug: true,
 		})
 	)
-	if assert.NoError(t, err) {
-		const ddl = `
+	require.NoError(t, err)
+	const ddl = `
 			CREATE TABLE test_ipv4 (
 				  Col1 IPv4
 				, Col2 IPv4
 				, Col3 Nullable(IPv4)
 			) Engine Memory
 		`
-		defer func() {
-			conn.Exec(ctx, "DROP TABLE test_ipv4")
-		}()
-		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
-			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_ipv4"); assert.NoError(t, err) {
-				var (
-					col1Data []*net.IP
-					col2Data []*net.IP
-					col3Data []*net.IP
-					v1, v2   = net.ParseIP("1.1.1.1"), net.ParseIP("8.8.8.8")
-				)
-				col1Data = append(col1Data, &v1)
-				col2Data = append(col2Data, &v2)
-				col3Data = append(col3Data, nil)
-				{
-					batch.Column(0).Append(col1Data)
-					batch.Column(1).Append(col2Data)
-					batch.Column(2).Append(col3Data)
-				}
-				if assert.NoError(t, batch.Send()) {
-					var (
-						col1 *net.IP
-						col2 *net.IP
-						col3 *net.IP
-					)
-					if err := conn.QueryRow(ctx, "SELECT * FROM test_ipv4").Scan(&col1, &col2, &col3); assert.NoError(t, err) {
-						if assert.Nil(t, col3) {
-							assert.Equal(t, v1.To4(), *col1)
-							assert.Equal(t, v2.To4(), *col2)
-						}
-					}
-				}
-			}
-		}
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE test_ipv4")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_ipv4")
+
+	require.NoError(t, err)
+	var (
+		col1Data []*net.IP
+		col2Data []*net.IP
+		col3Data []*net.IP
+		v1, v2   = net.ParseIP("1.1.1.1"), net.ParseIP("8.8.8.8")
+	)
+	col1Data = append(col1Data, &v1)
+	col2Data = append(col2Data, &v2)
+	col3Data = append(col3Data, nil)
+	{
+		batch.Column(0).Append(col1Data)
+		batch.Column(1).Append(col2Data)
+		batch.Column(2).Append(col3Data)
+	}
+	require.NoError(t, batch.Send())
+	var (
+		col1 *net.IP
+		col2 *net.IP
+		col3 *net.IP
+	)
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_ipv4").Scan(&col1, &col2, &col3))
+	if assert.Nil(t, col3) {
+		assert.Equal(t, v1.To4(), *col1)
+		assert.Equal(t, v2.To4(), *col2)
 	}
 }
 
@@ -433,4 +430,47 @@ func TestIPv4_ScanRow(t *testing.T) {
 		require.NotNilf(t, u, "ScanRow resulted nil")
 		require.Equal(t, *u, ips[i].String(), "ScanRow resulted in %q instead of %q", *u, ips[i])
 	}
+}
+
+func TestIPv4Flush(t *testing.T) {
+	var (
+		ctx       = context.Background()
+		conn, err = clickhouse.Open(&clickhouse.Options{
+			Addr: []string{"127.0.0.1:9000"},
+			Auth: clickhouse.Auth{
+				Database: "default",
+				Username: "default",
+				Password: "",
+			},
+		})
+	)
+	require.NoError(t, err)
+	const ddl = `
+		CREATE TABLE test_ipv4_ring_flush (
+			  Col1 IPv4
+		) Engine Memory
+		`
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE test_ipv4_ring_flush")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_ipv4_ring_flush")
+	require.NoError(t, err)
+	vals := [1000]net.IP{}
+	for i := 0; i < 1000; i++ {
+		vals[i] = RandIPv4()
+		require.NoError(t, batch.Append(vals[i]))
+		require.NoError(t, batch.Flush())
+	}
+	require.NoError(t, batch.Send())
+	rows, err := conn.Query(ctx, "SELECT * FROM test_ipv4_ring_flush")
+	require.NoError(t, err)
+	i := 0
+	for rows.Next() {
+		var col1 net.IP
+		require.NoError(t, rows.Scan(&col1))
+		require.Equal(t, vals[i], col1.To4())
+		i += 1
+	}
+	require.Equal(t, 1000, i)
 }
