@@ -162,6 +162,10 @@ func (col *Date32) AppendRow(v interface{}) error {
 	case nil:
 		col.col.Append(time.Time{})
 	default:
+		s, ok := v.(iString)
+		if ok {
+			return col.AppendRow(s.String())
+		}
 		return &ColumnConverterError{
 			Op:   "AppendRow",
 			To:   "Date32",

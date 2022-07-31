@@ -23,8 +23,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
 )
 
 func TestDate(t *testing.T) {
@@ -51,6 +52,8 @@ func TestDate(t *testing.T) {
 				, Col2 Nullable(Date)
 				, Col3 Array(Date)
 				, Col4 Array(Nullable(Date))
+				, Col5 Date
+			    , Col6 Nullable(Date)
 			) Engine Memory
 		`
 		defer func() {
@@ -62,18 +65,21 @@ func TestDate(t *testing.T) {
 			Col2  *time.Time
 			Col3  []time.Time
 			Col4  []*time.Time
+			Col5  time.Time
+			Col6  *time.Time
 		}
 
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_date"); assert.NoError(t, err) {
-				date, err := time.Parse("2006-01-02 15:04:05", "2022-01-12 00:00:00")
+				dateStr := "2022-01-12 00:00:00"
+				date, err := time.Parse("2006-01-02 15:04:05", dateStr)
 				if !assert.NoError(t, err) {
 					return
 				}
-				if err := batch.Append(uint8(1), date, &date, []time.Time{date}, []*time.Time{&date, nil, &date}); !assert.NoError(t, err) {
+				if err := batch.Append(uint8(1), date, &date, []time.Time{date}, []*time.Time{&date, nil, &date}, dateStr, dateStr); !assert.NoError(t, err) {
 					return
 				}
-				if err := batch.Append(uint8(2), date, nil, []time.Time{date}, []*time.Time{nil, nil, &date}); !assert.NoError(t, err) {
+				if err := batch.Append(uint8(2), date, nil, []time.Time{date}, []*time.Time{nil, nil, &date}, dateStr, dateStr); !assert.NoError(t, err) {
 					return
 				}
 
@@ -88,6 +94,8 @@ func TestDate(t *testing.T) {
 							assert.Equal(t, date, *result1.Col2)
 							assert.Equal(t, []time.Time{date}, result1.Col3)
 							assert.Equal(t, []*time.Time{&date, nil, &date}, result1.Col4)
+							assert.Equal(t, date, result1.Col5)
+							assert.Equal(t, date, *result1.Col6)
 						}
 					}
 					if err := conn.QueryRow(ctx, "SELECT * FROM test_date WHERE ID = $1", 2).ScanStruct(&result2); assert.NoError(t, err) {
@@ -126,6 +134,7 @@ func TestNullableDate(t *testing.T) {
 			CREATE TABLE test_date (
 				  Col1 Date
 				, Col2 Nullable(Date)
+			    , Col3 Nullable(Date)
 			) Engine Memory
 		`
 		defer func() {
@@ -134,18 +143,21 @@ func TestNullableDate(t *testing.T) {
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_date"); assert.NoError(t, err) {
 				date, err := time.Parse("2006-01-02 15:04:05", "2022-01-12 00:00:00")
+				var dateNilStr *string = nil
 				if !assert.NoError(t, err) {
 					return
 				}
-				if err := batch.Append(date, date); assert.NoError(t, err) {
+				if err := batch.Append(date, date, dateNilStr); assert.NoError(t, err) {
 					if err := batch.Send(); assert.NoError(t, err) {
 						var (
 							col1 *time.Time
 							col2 *time.Time
+							col3 *time.Time
 						)
-						if err := conn.QueryRow(ctx, "SELECT * FROM test_date").Scan(&col1, &col2); assert.NoError(t, err) {
+						if err := conn.QueryRow(ctx, "SELECT * FROM test_date").Scan(&col1, &col2, &col3); assert.NoError(t, err) {
 							assert.Equal(t, date, *col1)
 							assert.Equal(t, date, *col2)
+							assert.Nil(t, col3)
 						}
 					}
 				}
@@ -158,16 +170,18 @@ func TestNullableDate(t *testing.T) {
 				if !assert.NoError(t, err) {
 					return
 				}
-				if err := batch.Append(date, nil); assert.NoError(t, err) {
+				if err := batch.Append(date, nil, nil); assert.NoError(t, err) {
 					if err := batch.Send(); assert.NoError(t, err) {
 						var (
 							col1 *time.Time
 							col2 *time.Time
+							col3 *time.Time
 						)
-						if err := conn.QueryRow(ctx, "SELECT * FROM test_date").Scan(&col1, &col2); assert.NoError(t, err) {
+						if err = conn.QueryRow(ctx, "SELECT * FROM test_date").Scan(&col1, &col2, &col3); assert.NoError(t, err) {
 							if assert.Nil(t, col2) {
 								assert.Equal(t, date, *col1)
 								assert.Equal(t, date.Unix(), col1.Unix())
+								assert.Nil(t, col3)
 							}
 						}
 					}
@@ -201,6 +215,8 @@ func TestColumnarDate(t *testing.T) {
 			, Col2 Nullable(Date)
 			, Col3 Array(Date)
 			, Col4 Array(Nullable(Date))
+		    , Col5 Array(Date)
+			, Col6 Array(Nullable(Date))
 		) Engine Memory
 		`
 		defer func() {
@@ -214,8 +230,11 @@ func TestColumnarDate(t *testing.T) {
 					col2Data []*time.Time
 					col3Data [][]time.Time
 					col4Data [][]*time.Time
+					col5Data [][]string
+					col6Data [][]*string
 				)
-				date, err := time.Parse("2006-01-02 15:04:05", "2022-01-12 00:00:00")
+				dateStr := "2022-01-12 00:00:00"
+				date, err := time.Parse("2006-01-02 15:04:05", dateStr)
 				if !assert.NoError(t, err) {
 					return
 				}
@@ -232,6 +251,12 @@ func TestColumnarDate(t *testing.T) {
 					})
 					col4Data = append(col4Data, []*time.Time{
 						&date, nil, &date,
+					})
+					col5Data = append(col5Data, []string{
+						dateStr, dateStr, dateStr,
+					})
+					col6Data = append(col6Data, []*string{
+						&dateStr, nil, nil,
 					})
 				}
 				{
@@ -250,6 +275,12 @@ func TestColumnarDate(t *testing.T) {
 					if err := batch.Column(4).Append(col4Data); !assert.NoError(t, err) {
 						return
 					}
+					if err := batch.Column(5).Append(col5Data); !assert.NoError(t, err) {
+						return
+					}
+					if err := batch.Column(6).Append(col6Data); !assert.NoError(t, err) {
+						return
+					}
 				}
 				if assert.NoError(t, batch.Send()) {
 					var result struct {
@@ -257,12 +288,16 @@ func TestColumnarDate(t *testing.T) {
 						Col2 *time.Time
 						Col3 []time.Time
 						Col4 []*time.Time
+						Col5 []time.Time
+						Col6 []*time.Time
 					}
-					if err := conn.QueryRow(ctx, "SELECT Col1, Col2, Col3, Col4 FROM test_date WHERE ID = $1", 11).ScanStruct(&result); assert.NoError(t, err) {
+					if err := conn.QueryRow(ctx, "SELECT Col1, Col2, Col3, Col4, Col5, Col6 FROM test_date WHERE ID = $1", 11).ScanStruct(&result); assert.NoError(t, err) {
 						if assert.Nil(t, result.Col2) {
 							assert.Equal(t, date, result.Col1)
 							assert.Equal(t, []time.Time{date, date, date}, result.Col3)
 							assert.Equal(t, []*time.Time{&date, nil, &date}, result.Col4)
+							assert.Equal(t, []time.Time{date, date, date}, result.Col5)
+							assert.Equal(t, []*time.Time{&date, nil, nil}, result.Col6)
 						}
 					}
 				}
