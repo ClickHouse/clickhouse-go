@@ -64,11 +64,12 @@ func Test_Quote(t *testing.T) {
 	datetimeInEtc := datetime.In(tzGmtPlus2)
 
 	for expected, value := range map[string]interface{}{
-		"'a'":                    "a",
-		"1":                      1,
-		"'a', 'b', 'c'":          []string{"a", "b", "c"},
-		"('a', 'b'), ('c', 'd')": [][]string{{"a", "b"}, {"c", "d"}},
-		"1, 2, 3, 4, 5":          []int{1, 2, 3, 4, 5},
+		"'a'":                          "a",
+		"1":                            1,
+		"'a', 'b', 'c'":                []string{"a", "b", "c"},
+		"'a', 'b', 'c', 'd', 'f', 's'": [][]interface{}{{"a", "b"}, {"c", "d"}, {"f", "s"}},
+		"('a', 'b'), ('c', 'd')":       []GroupSet{{"a", "b"}, {"c", "d"}},
+		"1, 2, 3, 4, 5":                []int{1, 2, 3, 4, 5},
 		`toDateTime('2022-01-12 15:00:00', 'UTC')`:       datetime,
 		`toDateTime('2022-01-12 13:00:00', 'Etc/GMT+2')`: datetimeInEtc,
 		`'1\'', '2', '3'`: []SupperString{"1'", "2", "3"},
