@@ -124,7 +124,11 @@ func quote(v driver.Value) string {
 	case reflect.Slice:
 		values := make([]string, 0, v.Len())
 		for i := 0; i < v.Len(); i++ {
-			values = append(values, quote(v.Index(i).Interface()))
+			value := quote(v.Index(i).Interface())
+			if reflect.ValueOf(v.Index(i).Interface()).Kind() == reflect.Slice {
+				value = "(" + value + ")"
+			}
+			values = append(values, value)
 		}
 		return strings.Join(values, ", ")
 	case reflect.String:
