@@ -19,10 +19,12 @@ package column
 
 import (
 	"fmt"
-	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
 
+	"github.com/ClickHouse/ch-go/proto"
+
 	"github.com/google/uuid"
+	satoriUUID "github.com/satori/go.uuid"
 )
 
 type UUID struct {
@@ -70,6 +72,11 @@ func (col *UUID) ScanRow(dest interface{}, row int) error {
 	case **uuid.UUID:
 		*d = new(uuid.UUID)
 		**d = col.row(row)
+	case *satoriUUID.UUID:
+		*d = satoriUUID.UUID(col.row(row))
+	case **satoriUUID.UUID:
+		*d = new(satoriUUID.UUID)
+		**d = satoriUUID.UUID(col.row(row))
 	default:
 		return &ColumnConverterError{
 			Op:   "ScanRow",
@@ -125,6 +132,22 @@ func (col *UUID) Append(v interface{}) (nulls []uint8, err error) {
 				col.col.Append(uuid.UUID{})
 			}
 		}
+	case []satoriUUID.UUID:
+		nulls = make([]uint8, len(v))
+		for _, v := range v {
+			col.col.Append(uuid.MustParse(v.String()))
+		}
+	case []*satoriUUID.UUID:
+		nulls = make([]uint8, len(v))
+		for i, v := range v {
+			switch {
+			case v != nil:
+				col.col.Append(uuid.MustParse(v.String()))
+			default:
+				nulls[i] = 1
+				col.col.Append(uuid.UUID{})
+			}
+		}
 	default:
 		return nil, &ColumnConverterError{
 			Op:   "Append",
@@ -160,6 +183,15 @@ func (col *UUID) AppendRow(v interface{}) error {
 		switch {
 		case v != nil:
 			col.col.Append(*v)
+		default:
+			col.col.Append(uuid.UUID{})
+		}
+	case satoriUUID.UUID:
+		col.col.Append(uuid.MustParse(v.String()))
+	case *satoriUUID.UUID:
+		switch {
+		case v != nil:
+			col.col.Append(uuid.MustParse(v.String()))
 		default:
 			col.col.Append(uuid.UUID{})
 		}
