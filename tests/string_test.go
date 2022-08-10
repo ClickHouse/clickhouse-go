@@ -120,7 +120,7 @@ func TestString(t *testing.T) {
 	col7Data := time.Now()
 	col8Data := &time.Time{}
 	col9Data := &testStr{"E"}
-	var col10Data *testStr
+	var col10Data testStr
 	require.NoError(t, batch.Append(
 		"A",
 		[]string{"A", "B", "C"},
@@ -131,7 +131,7 @@ func TestString(t *testing.T) {
 		col7Data,
 		col8Data,
 		col9Data,
-		col10Data,
+		&col10Data,
 	))
 	require.NoError(t, batch.Send())
 	var (
