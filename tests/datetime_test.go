@@ -56,6 +56,7 @@ func TestDateTime(t *testing.T) {
 				, Col8 DateTime('Asia/Shanghai')
 				, Col9 Nullable(DateTime('Asia/Shanghai'))
 				, Col10 Array(DateTime('Asia/Shanghai'))
+			    , Col11 DateTime
 			) Engine Memory
 		`
 		defer func() {
@@ -76,6 +77,7 @@ func TestDateTime(t *testing.T) {
 					dateTimeStr,
 					&dateTimeStr,
 					[]string{dateTimeStr, dateTimeStr},
+					&testStr{Col1: dateTimeStr},
 				); assert.NoError(t, err) {
 					if err := batch.Send(); assert.NoError(t, err) {
 						var (
@@ -89,9 +91,10 @@ func TestDateTime(t *testing.T) {
 							col8  time.Time
 							col9  *time.Time
 							col10 []time.Time
+							col11 time.Time
 						)
 						if err := conn.QueryRow(ctx, "SELECT * FROM test_datetime").
-							Scan(&col1, &col2, &col3, &col4, &col5, &col6, &col7, &col8, &col9, &col10); assert.NoError(t, err) {
+							Scan(&col1, &col2, &col3, &col4, &col5, &col6, &col7, &col8, &col9, &col10, &col11); assert.NoError(t, err) {
 							assert.Equal(t, datetime, col1)
 							assert.Equal(t, datetime.Unix(), col2.Unix())
 							assert.Equal(t, datetime.Unix(), col3.Unix())
@@ -116,6 +119,7 @@ func TestDateTime(t *testing.T) {
 								assert.Equal(t, "Asia/Shanghai", col10[0].Location().String())
 								assert.Equal(t, "Asia/Shanghai", col10[1].Location().String())
 							}
+							assert.Equal(t, datetime, col11)
 						}
 					}
 				}

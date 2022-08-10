@@ -118,6 +118,29 @@ func (col *Date32) Append(v interface{}) (nulls []uint8, err error) {
 			}
 			col.AppendRow(v[i])
 		}
+	case []string:
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			value, err := col.parseDate(v[i])
+			if err != nil {
+				return nil, err
+			}
+			col.col.Append(value)
+		}
+	case []*string:
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			if v[i] == nil || *v[i] == "" {
+				nulls[i] = 1
+				col.col.Append(time.Time{})
+			} else {
+				value, err := col.parseDate(*v[i])
+				if err != nil {
+					return nil, err
+				}
+				col.col.Append(value)
+			}
+		}
 	default:
 		return nil, &ColumnConverterError{
 			Op:   "Append",
@@ -161,8 +184,24 @@ func (col *Date32) AppendRow(v interface{}) error {
 		}
 	case nil:
 		col.col.Append(time.Time{})
+	case string:
+		value, err := col.parseDate(v)
+		if err != nil {
+			return err
+		}
+		col.col.Append(value)
+	case *string:
+		if v == nil || *v == "" {
+			col.col.Append(time.Time{})
+		} else {
+			value, err := col.parseDate(*v)
+			if err != nil {
+				return err
+			}
+			col.col.Append(value)
+		}
 	default:
-		s, ok := v.(iString)
+		s, ok := v.(fmt.Stringer)
 		if ok {
 			return col.AppendRow(s.String())
 		}
@@ -173,6 +212,19 @@ func (col *Date32) AppendRow(v interface{}) error {
 		}
 	}
 	return nil
+}
+
+func (col *Date32) parseDate(str string) (datetime time.Time, err error) {
+	defer func() {
+		if err == nil {
+			err = dateOverflow(minDate32, maxDate32, datetime, defaultDateFormat)
+		}
+	}()
+	datetime, err = time.Parse(defaultDateFormat, str)
+	if err == nil {
+		return datetime, nil
+	}
+	return time.Parse(defaultDateTimeFormat, str)
 }
 
 func (col *Date32) Decode(reader *proto.Reader, rows int) error {

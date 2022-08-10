@@ -112,7 +112,7 @@ func (col *String) AppendRow(v interface{}) error {
 	case nil:
 		col.col.Append("")
 	default:
-		if s, ok := v.(iString); ok {
+		if s, ok := v.(fmt.Stringer); ok {
 			return col.AppendRow(s.String())
 		} else {
 			return &ColumnConverterError{

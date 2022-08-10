@@ -242,7 +242,7 @@ func (col *DateTime64) AppendRow(v interface{}) error {
 	case nil:
 		col.col.Append(time.Time{})
 	default:
-		s, ok := v.(iString)
+		s, ok := v.(fmt.Stringer)
 		if ok {
 			return col.AppendRow(s.String())
 		}

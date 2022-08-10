@@ -225,7 +225,7 @@ func (col *DateTime) AppendRow(v interface{}) error {
 			col.col.Append(dateTime)
 		}
 	default:
-		s, ok := v.(iString)
+		s, ok := v.(fmt.Stringer)
 		if ok {
 			return col.AppendRow(s.String())
 		}
@@ -253,7 +253,9 @@ func (col *DateTime) row(i int) time.Time {
 
 func (col *DateTime) parseDateTime(str string) (datetime time.Time, err error) {
 	defer func() {
-		err = dateOverflow(minDate, maxDate, datetime, defaultDateFormat)
+		if err == nil {
+			err = dateOverflow(minDateTime, maxDateTime, datetime, defaultDateFormat)
+		}
 	}()
 	return time.Parse(defaultDateTimeFormat, str)
 }

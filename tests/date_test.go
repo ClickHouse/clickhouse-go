@@ -54,6 +54,8 @@ func TestDate(t *testing.T) {
 				, Col4 Array(Nullable(Date))
 				, Col5 Date
 			    , Col6 Nullable(Date)
+				, Col7 Date
+			    , Col8 Nullable(Date)
 			) Engine Memory
 		`
 		defer func() {
@@ -67,19 +69,24 @@ func TestDate(t *testing.T) {
 			Col4  []*time.Time
 			Col5  time.Time
 			Col6  *time.Time
+			Col7  time.Time
+			Col8  *time.Time
 		}
 
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_date"); assert.NoError(t, err) {
 				dateStr := "2022-01-12 00:00:00"
+				testStuStr := testStr{
+					Col1: dateStr,
+				}
 				date, err := time.Parse("2006-01-02 15:04:05", dateStr)
 				if !assert.NoError(t, err) {
 					return
 				}
-				if err := batch.Append(uint8(1), date, &date, []time.Time{date}, []*time.Time{&date, nil, &date}, dateStr, dateStr); !assert.NoError(t, err) {
+				if err := batch.Append(uint8(1), date, &date, []time.Time{date}, []*time.Time{&date, nil, &date}, dateStr, dateStr, testStuStr, &testStuStr); !assert.NoError(t, err) {
 					return
 				}
-				if err := batch.Append(uint8(2), date, nil, []time.Time{date}, []*time.Time{nil, nil, &date}, dateStr, dateStr); !assert.NoError(t, err) {
+				if err := batch.Append(uint8(2), date, nil, []time.Time{date}, []*time.Time{nil, nil, &date}, dateStr, dateStr, testStuStr, &testStuStr); !assert.NoError(t, err) {
 					return
 				}
 
@@ -96,6 +103,8 @@ func TestDate(t *testing.T) {
 							assert.Equal(t, []*time.Time{&date, nil, &date}, result1.Col4)
 							assert.Equal(t, date, result1.Col5)
 							assert.Equal(t, date, *result1.Col6)
+							assert.Equal(t, date, result1.Col7)
+							assert.Equal(t, date, *result1.Col8)
 						}
 					}
 					if err := conn.QueryRow(ctx, "SELECT * FROM test_date WHERE ID = $1", 2).ScanStruct(&result2); assert.NoError(t, err) {

@@ -92,7 +92,3 @@ type CustomSerialization interface {
 	ReadStatePrefix(*proto.Reader) error
 	WriteStatePrefix(*proto.Buffer) error
 }
-
-type iString interface {
-	String() string
-}

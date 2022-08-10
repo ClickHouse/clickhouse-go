@@ -33,10 +33,7 @@ type testStr struct {
 	Col1 string
 }
 
-func (t *testStr) String() string {
-	if t == nil {
-		return ""
-	}
+func (t testStr) String() string {
 	return t.Col1
 }
 
