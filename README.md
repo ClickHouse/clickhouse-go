@@ -21,7 +21,7 @@ The client is tested against the currently [supported versions](https://github.c
 | Client Version | Golang Versions |
 |----------------|-----------------|
 | => 2.0 <= 2.2  | 1.17, 1.18      |
-| >= 2.3         | 1.18            |
+| >= 2.3         | 1.18.4+, 1.19   |
 
 ## Key features
 
