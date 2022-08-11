@@ -52,6 +52,11 @@ func TestDateTime(t *testing.T) {
 				, Col4 Nullable(DateTime('Europe/Moscow'))
 				, Col5 Array(DateTime('Europe/Moscow'))
 				, Col6 Array(Nullable(DateTime('Europe/Moscow')))
+				, Col7 DateTime
+				, Col8 DateTime('Asia/Shanghai')
+				, Col9 Nullable(DateTime('Asia/Shanghai'))
+				, Col10 Array(DateTime('Asia/Shanghai'))
+			    , Col11 DateTime
 			) Engine Memory
 		`
 		defer func() {
@@ -60,6 +65,7 @@ func TestDateTime(t *testing.T) {
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_datetime"); assert.NoError(t, err) {
 				datetime := time.Now().Truncate(time.Second)
+				dateTimeStr := datetime.UTC().Format("2006-01-02 15:04:05")
 				if err := batch.Append(
 					datetime,
 					datetime,
@@ -67,17 +73,28 @@ func TestDateTime(t *testing.T) {
 					&datetime,
 					[]time.Time{datetime, datetime},
 					[]*time.Time{&datetime, nil, &datetime},
+					dateTimeStr,
+					dateTimeStr,
+					&dateTimeStr,
+					[]string{dateTimeStr, dateTimeStr},
+					&testStr{Col1: dateTimeStr},
 				); assert.NoError(t, err) {
 					if err := batch.Send(); assert.NoError(t, err) {
 						var (
-							col1 time.Time
-							col2 time.Time
-							col3 time.Time
-							col4 *time.Time
-							col5 []time.Time
-							col6 []*time.Time
+							col1  time.Time
+							col2  time.Time
+							col3  time.Time
+							col4  *time.Time
+							col5  []time.Time
+							col6  []*time.Time
+							col7  time.Time
+							col8  time.Time
+							col9  *time.Time
+							col10 []time.Time
+							col11 time.Time
 						)
-						if err := conn.QueryRow(ctx, "SELECT * FROM test_datetime").Scan(&col1, &col2, &col3, &col4, &col5, &col6); assert.NoError(t, err) {
+						if err := conn.QueryRow(ctx, "SELECT * FROM test_datetime").
+							Scan(&col1, &col2, &col3, &col4, &col5, &col6, &col7, &col8, &col9, &col10, &col11); assert.NoError(t, err) {
 							assert.Equal(t, datetime, col1)
 							assert.Equal(t, datetime.Unix(), col2.Unix())
 							assert.Equal(t, datetime.Unix(), col3.Unix())
@@ -94,6 +111,15 @@ func TestDateTime(t *testing.T) {
 								assert.NotNil(t, col6[0])
 								assert.NotNil(t, col6[2])
 							}
+							assert.Equal(t, datetime, col7)
+							assert.Equal(t, datetime.Unix(), col8.Unix())
+							assert.Equal(t, datetime.Unix(), col9.Unix())
+							assert.Equal(t, "Asia/Shanghai", col8.Location().String())
+							if assert.Len(t, col10, 2) {
+								assert.Equal(t, "Asia/Shanghai", col10[0].Location().String())
+								assert.Equal(t, "Asia/Shanghai", col10[1].Location().String())
+							}
+							assert.Equal(t, datetime, col11)
 						}
 					}
 				}
@@ -127,6 +153,10 @@ func TestNullableDateTime(t *testing.T) {
 				, Col2_Null Nullable(DateTime('Europe/Moscow'))
 				, Col3      DateTime('Europe/London')
 				, Col3_Null Nullable(DateTime('Europe/London'))
+			    , Col4      DateTime
+			    , Col4_Null Nullable(DateTime)
+			    , Col5		DateTime('Asia/Shanghai')
+			    , Col5_Null Nullable(DateTime('Asia/Shanghai'))
 			) Engine Memory
 		`
 		defer func() {
@@ -135,7 +165,7 @@ func TestNullableDateTime(t *testing.T) {
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_datetime"); assert.NoError(t, err) {
 				datetime := time.Now().Truncate(time.Second)
-				if err := batch.Append(datetime, datetime, datetime, datetime, datetime, datetime); assert.NoError(t, err) {
+				if err := batch.Append(datetime, datetime, datetime, datetime, datetime, datetime, datetime, datetime, datetime, datetime); assert.NoError(t, err) {
 					if err := batch.Send(); assert.NoError(t, err) {
 						var (
 							col1     time.Time
@@ -144,11 +174,17 @@ func TestNullableDateTime(t *testing.T) {
 							col2Null *time.Time
 							col3     time.Time
 							col3Null *time.Time
+							col4     time.Time
+							col4Null *time.Time
+							col5     time.Time
+							col5Null *time.Time
 						)
 						if err := conn.QueryRow(ctx, "SELECT * FROM test_datetime").Scan(
 							&col1, &col1Null,
 							&col2, &col2Null,
 							&col3, &col3Null,
+							&col4, &col4Null,
+							&col5, &col5Null,
 						); assert.NoError(t, err) {
 							assert.Equal(t, datetime, col1)
 							assert.Equal(t, datetime, *col1Null)
@@ -156,6 +192,10 @@ func TestNullableDateTime(t *testing.T) {
 							assert.Equal(t, datetime.Unix(), col2Null.Unix())
 							assert.Equal(t, datetime.Unix(), col3.Unix())
 							assert.Equal(t, datetime.Unix(), col3Null.Unix())
+							assert.Equal(t, datetime.Unix(), col4.Unix())
+							assert.Equal(t, datetime.Unix(), col4Null.Unix())
+							assert.Equal(t, datetime.Unix(), col5.Unix())
+							assert.Equal(t, datetime.Unix(), col5Null.Unix())
 						}
 					}
 				}
@@ -164,8 +204,12 @@ func TestNullableDateTime(t *testing.T) {
 					return
 				}
 				if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_datetime"); assert.NoError(t, err) {
-					datetime := time.Now().Truncate(time.Second)
-					if err := batch.Append(datetime, nil, datetime, nil, datetime, nil); assert.NoError(t, err) {
+					var (
+						datetime               = time.Now().Truncate(time.Second)
+						datetimeStr            = datetime.UTC().Format("2006-01-02 15:04:05")
+						datetimeNilStr *string = nil
+					)
+					if err := batch.Append(datetime, nil, datetime, nil, datetime, nil, datetimeStr, nil, datetimeStr, datetimeNilStr); assert.NoError(t, err) {
 						if err := batch.Send(); assert.NoError(t, err) {
 							var (
 								col1     time.Time
@@ -174,11 +218,17 @@ func TestNullableDateTime(t *testing.T) {
 								col2Null *time.Time
 								col3     time.Time
 								col3Null *time.Time
+								col4     time.Time
+								col4Null *time.Time
+								col5     time.Time
+								col5Null *time.Time
 							)
 							if err := conn.QueryRow(ctx, "SELECT * FROM test_datetime").Scan(
 								&col1, &col1Null,
 								&col2, &col2Null,
 								&col3, &col3Null,
+								&col4, &col4Null,
+								&col5, &col5Null,
 							); assert.NoError(t, err) {
 								if assert.Nil(t, col1Null) {
 									assert.Equal(t, datetime, col1)
@@ -194,6 +244,16 @@ func TestNullableDateTime(t *testing.T) {
 									if assert.Equal(t, "Europe/London", col3.Location().String()) {
 										assert.Equal(t, datetime.Unix(), col3.Unix())
 										assert.Equal(t, datetime.Unix(), col3.Unix())
+									}
+								}
+								if assert.Nil(t, col4Null) {
+									assert.Equal(t, datetime, col4)
+									assert.Equal(t, datetime.Unix(), col4.Unix())
+								}
+								if assert.Nil(t, col5Null) {
+									if assert.Equal(t, "Asia/Shanghai", col5.Location().String()) {
+										assert.Equal(t, datetime.Unix(), col5.Unix())
+										assert.Equal(t, datetime.Unix(), col5.Unix())
 									}
 								}
 							}
@@ -229,6 +289,8 @@ func TestColumnarDateTime(t *testing.T) {
 			, Col2 Nullable(DateTime)
 			, Col3 Array(DateTime)
 			, Col4 Array(Nullable(DateTime))
+		    , Col5 Array(DateTime)
+		    , Col6 Array(Nullable(DateTime))
 		) Engine Memory
 		`
 	defer func() {
@@ -243,10 +305,14 @@ func TestColumnarDateTime(t *testing.T) {
 		col2Data []*time.Time
 		col3Data [][]time.Time
 		col4Data [][]*time.Time
+		col5Data [][]string
+		col6Data [][]*string
 	)
 	var (
-		datetime1 = time.Now().Truncate(time.Second)
-		datetime2 = time.Now().Truncate(time.Second)
+		datetime1              = time.Now().Truncate(time.Second)
+		datetime2              = time.Now().Truncate(time.Second)
+		datetimeStr            = datetime2.UTC().Format("2006-01-02 15:04:05")
+		datetimeNilStr *string = nil
 	)
 	for i := 0; i < 1000; i++ {
 		id = append(id, uint64(i))
@@ -261,6 +327,12 @@ func TestColumnarDateTime(t *testing.T) {
 		})
 		col4Data = append(col4Data, []*time.Time{
 			&datetime2, nil, &datetime1,
+		})
+		col5Data = append(col5Data, []string{
+			datetimeStr, datetimeStr, datetimeStr,
+		})
+		col6Data = append(col6Data, []*string{
+			datetimeNilStr, datetimeNilStr, datetimeNilStr,
 		})
 	}
 	{
@@ -279,6 +351,12 @@ func TestColumnarDateTime(t *testing.T) {
 		if err := batch.Column(4).Append(col4Data); !assert.NoError(t, err) {
 			return
 		}
+		if err := batch.Column(5).Append(col5Data); !assert.NoError(t, err) {
+			return
+		}
+		if err := batch.Column(6).Append(col6Data); !assert.NoError(t, err) {
+			return
+		}
 	}
 	require.NoError(t, batch.Send())
 	var result struct {
@@ -286,12 +364,16 @@ func TestColumnarDateTime(t *testing.T) {
 		Col2 *time.Time
 		Col3 []time.Time
 		Col4 []*time.Time
+		Col5 []time.Time
+		Col6 []*time.Time
 	}
-	require.NoError(t, conn.QueryRow(ctx, "SELECT Col1, Col2, Col3, Col4 FROM test_datetime WHERE ID = $1", 11).ScanStruct(&result))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT Col1, Col2, Col3, Col4, Col5, Col6 FROM test_datetime WHERE ID = $1", 11).ScanStruct(&result))
 	require.Nil(t, result.Col2)
 	assert.Equal(t, datetime1, result.Col1)
 	assert.Equal(t, []time.Time{datetime1, datetime2, datetime1}, result.Col3)
 	assert.Equal(t, []*time.Time{&datetime2, nil, &datetime1}, result.Col4)
+	assert.Equal(t, []time.Time{datetime2, datetime2, datetime2}, result.Col5)
+	assert.Equal(t, []*time.Time{nil, nil, nil}, result.Col6)
 }
 
 func TestDateTimeFlush(t *testing.T) {

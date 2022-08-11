@@ -33,6 +33,10 @@ var (
 	maxDateTime, _ = time.Parse("2006-01-02 15:04:05", "2105-12-31 23:59:59")
 )
 
+const (
+	defaultDateTimeFormat = "2006-01-02 15:04:05"
+)
+
 type DateTime struct {
 	chType Type
 	name   string
@@ -104,7 +108,7 @@ func (col *DateTime) Append(v interface{}) (nulls []uint8, err error) {
 	case []time.Time:
 		nulls = make([]uint8, len(v))
 		for i := range v {
-			if err := dateOverflow(minDateTime, maxDateTime, v[i], "2006-01-02 15:04:05"); err != nil {
+			if err := dateOverflow(minDateTime, maxDateTime, v[i], defaultDateTimeFormat); err != nil {
 				return nil, err
 			}
 			col.col.Append(v[i])
@@ -115,7 +119,7 @@ func (col *DateTime) Append(v interface{}) (nulls []uint8, err error) {
 		for i := range v {
 			switch {
 			case v[i] != nil:
-				if err := dateOverflow(minDateTime, maxDateTime, *v[i], "2006-01-02 15:04:05"); err != nil {
+				if err := dateOverflow(minDateTime, maxDateTime, *v[i], defaultDateTimeFormat); err != nil {
 					return nil, err
 				}
 				col.col.Append(*v[i])
@@ -137,6 +141,30 @@ func (col *DateTime) Append(v interface{}) (nulls []uint8, err error) {
 			}
 			col.AppendRow(v[i])
 		}
+	case []string:
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			value, err := col.parseDateTime(v[i])
+			if err != nil {
+				return nil, err
+			}
+			col.col.Append(value)
+		}
+	case []*string:
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			switch {
+			case v[i] == nil || *v[i] == "":
+				nulls[i] = 1
+				col.col.Append(time.Time{})
+			default:
+				value, err := col.parseDateTime(*v[i])
+				if err != nil {
+					return nil, err
+				}
+				col.col.Append(value)
+			}
+		}
 	default:
 		return nil, &ColumnConverterError{
 			Op:   "Append",
@@ -150,14 +178,14 @@ func (col *DateTime) Append(v interface{}) (nulls []uint8, err error) {
 func (col *DateTime) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case time.Time:
-		if err := dateOverflow(minDateTime, maxDateTime, v, "2006-01-02 15:04:05"); err != nil {
+		if err := dateOverflow(minDateTime, maxDateTime, v, defaultDateTimeFormat); err != nil {
 			return err
 		}
 		col.col.Append(v)
 	case *time.Time:
 		switch {
 		case v != nil:
-			if err := dateOverflow(minDateTime, maxDateTime, *v, "2006-01-02 15:04:05"); err != nil {
+			if err := dateOverflow(minDateTime, maxDateTime, *v, defaultDateTimeFormat); err != nil {
 				return err
 			}
 			col.col.Append(*v)
@@ -180,7 +208,27 @@ func (col *DateTime) AppendRow(v interface{}) error {
 		}
 	case nil:
 		col.col.Append(time.Time{})
+	case string:
+		dateTime, err := col.parseDateTime(v)
+		if err != nil {
+			return err
+		}
+		col.col.Append(dateTime)
+	case *string:
+		if v == nil || *v == "" {
+			col.col.Append(time.Time{})
+		} else {
+			dateTime, err := col.parseDateTime(*v)
+			if err != nil {
+				return err
+			}
+			col.col.Append(dateTime)
+		}
 	default:
+		s, ok := v.(fmt.Stringer)
+		if ok {
+			return col.AppendRow(s.String())
+		}
 		return &ColumnConverterError{
 			Op:   "AppendRow",
 			To:   "DateTime",
@@ -201,6 +249,15 @@ func (col *DateTime) Encode(buffer *proto.Buffer) {
 func (col *DateTime) row(i int) time.Time {
 	v := col.col.Row(i)
 	return v
+}
+
+func (col *DateTime) parseDateTime(str string) (datetime time.Time, err error) {
+	defer func() {
+		if err == nil {
+			err = dateOverflow(minDateTime, maxDateTime, datetime, defaultDateFormat)
+		}
+	}()
+	return time.Parse(defaultDateTimeFormat, str)
 }
 
 var _ Interface = (*DateTime)(nil)

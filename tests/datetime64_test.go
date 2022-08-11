@@ -59,6 +59,7 @@ func TestDateTime64(t *testing.T) {
 				, Col7 DateTime64(3) 
 				, Col8 DateTime64(6) 
 				, Col9 DateTime64(9)
+			    , Col10 DateTime64(9)
 			) Engine Memory
 		`
 		defer func() {
@@ -67,9 +68,12 @@ func TestDateTime64(t *testing.T) {
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_datetime64"); assert.NoError(t, err) {
 				var (
-					datetime1 = time.Now().Truncate(time.Millisecond)
-					datetime2 = time.Now().Truncate(time.Nanosecond)
-					datetime3 = time.Now().Truncate(time.Second)
+					datetime1   = time.Now().Truncate(time.Millisecond)
+					datetime2   = time.Now().Truncate(time.Nanosecond)
+					datetime3   = time.Now().Truncate(time.Second)
+					datetimeStu = &testStr{
+						Col1: datetime1.UTC().Format("2006-01-02 15:04:05.999"),
+					}
 				)
 				if err := batch.Append(
 					datetime1,
@@ -81,20 +85,22 @@ func TestDateTime64(t *testing.T) {
 					datetime1.UTC().Format("2006-01-02 15:04:05.999"),
 					datetime1.UTC().Format("2006-01-02 15:04:05.999"),
 					datetime1.UTC().Format("2006-01-02 15:04:05.999"),
+					datetimeStu,
 				); assert.NoError(t, err) {
 					if err := batch.Send(); assert.NoError(t, err) {
 						var (
-							col1 time.Time
-							col2 time.Time
-							col3 time.Time
-							col4 *time.Time
-							col5 []time.Time
-							col6 []*time.Time
-							col7 time.Time
-							col8 time.Time
-							col9 time.Time
+							col1  time.Time
+							col2  time.Time
+							col3  time.Time
+							col4  *time.Time
+							col5  []time.Time
+							col6  []*time.Time
+							col7  time.Time
+							col8  time.Time
+							col9  time.Time
+							col10 time.Time
 						)
-						if err := conn.QueryRow(ctx, "SELECT * FROM test_datetime64").Scan(&col1, &col2, &col3, &col4, &col5, &col6, &col7, &col8, &col9); assert.NoError(t, err) {
+						if err := conn.QueryRow(ctx, "SELECT * FROM test_datetime64").Scan(&col1, &col2, &col3, &col4, &col5, &col6, &col7, &col8, &col9, &col10); assert.NoError(t, err) {
 							assert.Equal(t, datetime1, col1)
 							assert.Equal(t, datetime2.UnixNano(), col2.UnixNano())
 							assert.Equal(t, datetime3.UnixNano(), col3.UnixNano())
@@ -114,6 +120,7 @@ func TestDateTime64(t *testing.T) {
 							assert.Equal(t, datetime1, col7)
 							assert.Equal(t, datetime1, col8)
 							assert.Equal(t, datetime1, col9)
+							assert.Equal(t, datetime1, col10)
 						}
 					}
 				}

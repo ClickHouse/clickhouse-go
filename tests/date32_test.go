@@ -23,8 +23,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
 )
 
 func TestDate32(t *testing.T) {
@@ -55,6 +56,10 @@ func TestDate32(t *testing.T) {
 				, Col2 Nullable(Date32)
 				, Col3 Array(Date32)
 				, Col4 Array(Nullable(Date32))
+			    , Col5 Date32
+			    , Col6 Nullable(Date32)
+			    , Col7 Array(Date32)
+			    , Col8 Array(Nullable(Date32))
 			) Engine Memory
 		`
 	defer func() {
@@ -66,18 +71,26 @@ func TestDate32(t *testing.T) {
 		Col2  *time.Time
 		Col3  []time.Time
 		Col4  []*time.Time
+		Col5  time.Time
+		Col6  *time.Time
+		Col7  []time.Time
+		Col8  []*time.Time
 	}
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_date32")
 	require.NoError(t, err)
 	var (
-		date1, _ = time.Parse("2006-01-02 15:04:05", "2100-01-01 00:00:00")
-		date2, _ = time.Parse("2006-01-02 15:04:05", "1925-01-01 00:00:00")
-		date3, _ = time.Parse("2006-01-02 15:04:05", "2283-11-11 00:00:00")
+		date1, _   = time.Parse("2006-01-02 15:04:05", "2100-01-01 00:00:00")
+		date2, _   = time.Parse("2006-01-02 15:04:05", "1925-01-01 00:00:00")
+		date3, _   = time.Parse("2006-01-02 15:04:05", "2283-11-11 00:00:00")
+		dateStr1   = "2100-01-01"
+		dateStr2   = "1925-01-01"
+		dateStr3   = "2283-11-11"
+		dateStrNil *string
 	)
-	require.NoError(t, batch.Append(uint8(1), date1, &date2, []time.Time{date2}, []*time.Time{&date2, nil, &date1}))
-	require.NoError(t, batch.Append(uint8(2), date2, nil, []time.Time{date1}, []*time.Time{nil, nil, &date2}))
-	require.NoError(t, batch.Append(uint8(3), date3, nil, []time.Time{date3}, []*time.Time{nil, nil, &date3}))
+	require.NoError(t, batch.Append(uint8(1), date1, &date2, []time.Time{date2}, []*time.Time{&date2, nil, &date1}, dateStr1, dateStrNil, []string{dateStr1, dateStr2, dateStr3}, []*string{dateStrNil, &dateStr1, dateStrNil}))
+	require.NoError(t, batch.Append(uint8(2), date2, nil, []time.Time{date1}, []*time.Time{nil, nil, &date2}, &testStr{Col1: dateStr1}, nil, []string{dateStr1, dateStr2, dateStr3}, []*string{nil, &dateStr1, dateStrNil}))
+	require.NoError(t, batch.Append(uint8(3), date3, nil, []time.Time{date3}, []*time.Time{nil, nil, &date3}, &testStr{Col1: dateStr1}, &dateStr1, []string{dateStr1, dateStr2, dateStr3}, []*string{nil, nil, dateStrNil}))
 	require.NoError(t, batch.Send())
 	var (
 		result1 result
@@ -93,6 +106,10 @@ func TestDate32(t *testing.T) {
 	assert.Equal(t, date2, *result1.Col2)
 	assert.Equal(t, []time.Time{date2}, result1.Col3)
 	assert.Equal(t, []*time.Time{&date2, nil, &date1}, result1.Col4)
+	assert.Equal(t, dateStr1, result1.Col5.UTC().Format("2006-01-02"))
+	assert.Nil(t, result1.Col6)
+	assert.Equal(t, []time.Time{date1, date2, date3}, result1.Col7)
+	assert.Equal(t, []*time.Time{nil, &date1, nil}, result1.Col8)
 
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_date32 WHERE ID = $1", 2).ScanStruct(&result2))
 	require.Equal(t, date2, result2.Col1)
@@ -103,6 +120,10 @@ func TestDate32(t *testing.T) {
 	assert.Equal(t, 1, date2.Day())
 	assert.Equal(t, []time.Time{date1}, result2.Col3)
 	assert.Equal(t, []*time.Time{nil, nil, &date2}, result2.Col4)
+	assert.Equal(t, dateStr1, result2.Col5.UTC().Format("2006-01-02"))
+	assert.Nil(t, result2.Col6)
+	assert.Equal(t, []time.Time{date1, date2, date3}, result2.Col7)
+	assert.Equal(t, []*time.Time{nil, &date1, nil}, result2.Col8)
 
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_date32 WHERE ID = $1", 3).ScanStruct(&result3))
 	require.Equal(t, date3, result3.Col1)
@@ -113,7 +134,10 @@ func TestDate32(t *testing.T) {
 	assert.Equal(t, 11, date3.Day())
 	assert.Equal(t, []time.Time{date3}, result3.Col3)
 	assert.Equal(t, []*time.Time{nil, nil, &date3}, result3.Col4)
-
+	assert.Equal(t, dateStr1, result3.Col5.UTC().Format("2006-01-02"))
+	assert.Equal(t, dateStr1, result3.Col6.UTC().Format("2006-01-02"))
+	assert.Equal(t, []time.Time{date1, date2, date3}, result3.Col7)
+	assert.Equal(t, []*time.Time{nil, nil, nil}, result3.Col8)
 }
 
 func TestNullableDate32(t *testing.T) {
@@ -141,6 +165,8 @@ func TestNullableDate32(t *testing.T) {
 			CREATE TABLE test_date32 (
 				  Col1 Date32
 				, Col2 Nullable(Date32)
+				, Col3 Date32
+			    , Col4 Nullable(Date32)
 			) Engine Memory
 		`
 	defer func() {
@@ -151,27 +177,35 @@ func TestNullableDate32(t *testing.T) {
 	require.NoError(t, err)
 	date, err := time.Parse("2006-01-02 15:04:05", "2283-11-11 00:00:00")
 	require.NoError(t, err)
-	require.NoError(t, batch.Append(date, date))
+	dateStr := "2283-11-11"
+	require.NoError(t, batch.Append(date, date, dateStr, &dateStr))
 	require.NoError(t, batch.Send())
 	var (
 		col1 *time.Time
 		col2 *time.Time
+		col3 *time.Time
+		col4 *time.Time
 	)
-	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_date32").Scan(&col1, &col2))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_date32").Scan(&col1, &col2, &col3, &col4))
 	assert.Equal(t, date, *col1)
 	assert.Equal(t, date, *col2)
+	assert.Equal(t, date, *col3)
+	assert.Equal(t, date, *col4)
 	require.NoError(t, conn.Exec(ctx, "TRUNCATE TABLE test_date32"))
 	batch, err = conn.PrepareBatch(ctx, "INSERT INTO test_date32")
 	require.NoError(t, err)
 	date, err = time.Parse("2006-01-02 15:04:05", "1925-01-01 00:00:00")
 	require.NoError(t, err)
-	require.NoError(t, batch.Append(date, nil))
+	require.NoError(t, batch.Append(date, nil, &date, nil))
 	require.NoError(t, batch.Send())
 	col2 = nil
-	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_date32").Scan(&col1, &col2))
+	col4 = nil
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_date32").Scan(&col1, &col2, &col3, &col4))
 	require.Nil(t, col2)
 	assert.Equal(t, date, *col1)
 	assert.Equal(t, date.Unix(), col1.Unix())
+	assert.Equal(t, date, *col3)
+	assert.Nil(t, col4)
 }
 
 func TestColumnarDate32(t *testing.T) {
