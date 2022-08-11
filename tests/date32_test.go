@@ -23,8 +23,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
 )
 
 func TestDate32(t *testing.T) {
@@ -82,9 +83,9 @@ func TestDate32(t *testing.T) {
 		date1, _   = time.Parse("2006-01-02 15:04:05", "2100-01-01 00:00:00")
 		date2, _   = time.Parse("2006-01-02 15:04:05", "1925-01-01 00:00:00")
 		date3, _   = time.Parse("2006-01-02 15:04:05", "2283-11-11 00:00:00")
-		dateStr1   = "2100-01-01 00:00:00"
-		dateStr2   = "1925-01-01 00:00:00"
-		dateStr3   = "2283-11-11 00:00:00"
+		dateStr1   = "2100-01-01"
+		dateStr2   = "1925-01-01"
+		dateStr3   = "2283-11-11"
 		dateStrNil *string
 	)
 	require.NoError(t, batch.Append(uint8(1), date1, &date2, []time.Time{date2}, []*time.Time{&date2, nil, &date1}, dateStr1, dateStrNil, []string{dateStr1, dateStr2, dateStr3}, []*string{dateStrNil, &dateStr1, dateStrNil}))
@@ -105,7 +106,7 @@ func TestDate32(t *testing.T) {
 	assert.Equal(t, date2, *result1.Col2)
 	assert.Equal(t, []time.Time{date2}, result1.Col3)
 	assert.Equal(t, []*time.Time{&date2, nil, &date1}, result1.Col4)
-	assert.Equal(t, dateStr1, result1.Col5.UTC().Format("2006-01-02 15:04:05"))
+	assert.Equal(t, dateStr1, result1.Col5.UTC().Format("2006-01-02"))
 	assert.Nil(t, result1.Col6)
 	assert.Equal(t, []time.Time{date1, date2, date3}, result1.Col7)
 	assert.Equal(t, []*time.Time{nil, &date1, nil}, result1.Col8)
@@ -119,7 +120,7 @@ func TestDate32(t *testing.T) {
 	assert.Equal(t, 1, date2.Day())
 	assert.Equal(t, []time.Time{date1}, result2.Col3)
 	assert.Equal(t, []*time.Time{nil, nil, &date2}, result2.Col4)
-	assert.Equal(t, dateStr1, result2.Col5.UTC().Format("2006-01-02 15:04:05"))
+	assert.Equal(t, dateStr1, result2.Col5.UTC().Format("2006-01-02"))
 	assert.Nil(t, result2.Col6)
 	assert.Equal(t, []time.Time{date1, date2, date3}, result2.Col7)
 	assert.Equal(t, []*time.Time{nil, &date1, nil}, result2.Col8)
@@ -133,8 +134,8 @@ func TestDate32(t *testing.T) {
 	assert.Equal(t, 11, date3.Day())
 	assert.Equal(t, []time.Time{date3}, result3.Col3)
 	assert.Equal(t, []*time.Time{nil, nil, &date3}, result3.Col4)
-	assert.Equal(t, dateStr1, result3.Col5.UTC().Format("2006-01-02 15:04:05"))
-	assert.Equal(t, dateStr1, result3.Col6.UTC().Format("2006-01-02 15:04:05"))
+	assert.Equal(t, dateStr1, result3.Col5.UTC().Format("2006-01-02"))
+	assert.Equal(t, dateStr1, result3.Col6.UTC().Format("2006-01-02"))
 	assert.Equal(t, []time.Time{date1, date2, date3}, result3.Col7)
 	assert.Equal(t, []*time.Time{nil, nil, nil}, result3.Col8)
 }
@@ -176,7 +177,7 @@ func TestNullableDate32(t *testing.T) {
 	require.NoError(t, err)
 	date, err := time.Parse("2006-01-02 15:04:05", "2283-11-11 00:00:00")
 	require.NoError(t, err)
-	dateStr := "2283-11-11 00:00:00"
+	dateStr := "2283-11-11"
 	require.NoError(t, batch.Append(date, date, dateStr, &dateStr))
 	require.NoError(t, batch.Send())
 	var (

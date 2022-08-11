@@ -224,11 +224,7 @@ func (col *Date) parseDate(str string) (datetime time.Time, err error) {
 			err = dateOverflow(minDate, maxDate, datetime, defaultDateFormat)
 		}
 	}()
-	datetime, err = time.Parse(defaultDateFormat, str)
-	if err == nil {
-		return datetime, nil
-	}
-	return time.Parse(defaultDateTimeFormat, str)
+	return time.Parse(defaultDateFormat, str)
 }
 
 func (col *Date) Decode(reader *proto.Reader, rows int) error {

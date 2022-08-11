@@ -75,11 +75,11 @@ func TestDate(t *testing.T) {
 
 		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
 			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_date"); assert.NoError(t, err) {
-				dateStr := "2022-01-12 00:00:00"
+				dateStr := "2022-01-12"
 				testStuStr := testStr{
 					Col1: dateStr,
 				}
-				date, err := time.Parse("2006-01-02 15:04:05", dateStr)
+				date, err := time.Parse("2006-01-02 15:04:05", "2022-01-12 00:00:00")
 				if !assert.NoError(t, err) {
 					return
 				}
@@ -242,8 +242,8 @@ func TestColumnarDate(t *testing.T) {
 					col5Data [][]string
 					col6Data [][]*string
 				)
-				dateStr := "2022-01-12 00:00:00"
-				date, err := time.Parse("2006-01-02 15:04:05", dateStr)
+				dateStr := "2022-01-12"
+				date, err := time.Parse("2006-01-02 15:04:05", "2022-01-12 00:00:00")
 				if !assert.NoError(t, err) {
 					return
 				}
