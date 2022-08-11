@@ -21,10 +21,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
 	_ "github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
 )
@@ -149,4 +151,25 @@ func TestStdHTTPEmptyResponse(t *testing.T) {
 		})
 
 	}
+}
+
+func TestStdConnector(t *testing.T) {
+	connector := clickhouse.Connector(&clickhouse.Options{
+		Addr: []string{"127.0.0.1:9000"},
+		Auth: clickhouse.Auth{
+			Database: "default",
+			Username: "default",
+			Password: "",
+		},
+		Compression: &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		},
+	})
+	require.NotNil(t, connector)
+	conn, err := connector.Connect(context.Background())
+	require.NoError(t, err)
+	require.NotNil(t, conn)
+	db := sql.OpenDB(connector)
+	err = db.Ping()
+	require.NoError(t, err)
 }
