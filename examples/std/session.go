@@ -79,7 +79,7 @@ func Sessions() error {
 		if err := rows.Scan(&col1); err != nil {
 			return err
 		}
-		fmt.Printf("row: col1=%\n", col1)
+		fmt.Printf("row: col1=%d\n", col1)
 	}
 
 	return nil

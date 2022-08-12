@@ -44,7 +44,6 @@ func TestBool(t *testing.T) {
 			MaxOpenConns: 1,
 		})
 	)
-
 	require.NoError(t, err)
 	if err := CheckMinServerVersion(conn, 21, 12, 0); err != nil {
 		t.Skip(err.Error())

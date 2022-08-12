@@ -26,7 +26,6 @@ func TestSimpleFloat(t *testing.T) {
 			},
 		})
 	)
-
 	require.NoError(t, err)
 	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
 		t.Skip(err.Error())
