@@ -18,7 +18,6 @@
 package std
 
 import (
-	"encoding/json"
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -38,6 +37,7 @@ type Repository struct {
 type Achievement struct {
 	Name string
 }
+
 type Account struct {
 	Id            uint32
 	Name          string
@@ -58,19 +58,11 @@ type GithubEvent struct {
 
 var testDate, _ = time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", "2022-05-25 17:20:57 +0100 WEST")
 
-func toJson(obj interface{}) string {
-	bytes, err := json.Marshal(obj)
-	if err != nil {
-		return "unable to marshal"
-	}
-	return string(bytes)
-}
-
 func TestStdJson(t *testing.T) {
 	conn := clickhouse.OpenDB(&clickhouse.Options{
 		Addr: []string{"127.0.0.1:9000"},
 	})
-	if err := checkMinServerVersion(conn, 22, 6, 1); err != nil {
+	if err := CheckMinServerVersion(conn, 22, 6, 1); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -119,60 +111,60 @@ func TestStdJson(t *testing.T) {
 	var event interface{}
 	rows := conn.QueryRow("SELECT * FROM json_std_test")
 	require.NoError(t, rows.Scan(&event))
-	assert.JSONEq(t, toJson(col1Data), toJson(event))
+	assert.JSONEq(t, ToJson(col1Data), ToJson(event))
 	// again pass interface{} for anthing other than primitives
 	rows = conn.QueryRow("SELECT event.assignee.Achievement FROM json_std_test")
 	var achievement interface{}
 	require.NoError(t, rows.Scan(&achievement))
-	assert.JSONEq(t, toJson(col1Data.Assignee.Achievement), toJson(achievement))
+	assert.JSONEq(t, ToJson(col1Data.Assignee.Achievement), ToJson(achievement))
 	rows = conn.QueryRow("SELECT event.assignee.Repositories FROM json_std_test")
 	var repositories interface{}
 	require.NoError(t, rows.Scan(&repositories))
-	assert.JSONEq(t, toJson(col1Data.Assignee.Repositories), toJson(repositories))
+	assert.JSONEq(t, ToJson(col1Data.Assignee.Repositories), ToJson(repositories))
 }
 
-// https://github.com/ClickHouse/clickhouse-go/issues/645
-//func TestStdJsonWithMap(t *testing.T) {
-//	conn := clickhouse.OpenDB(&clickhouse.Options{
-//		Addr: []string{"127.0.0.1:9000"},
-//	})
-//	if err := checkMinServerVersion(conn, 22, 6, 1); err != nil {
-//		t.Skip(err.Error())
-//		return
-//	}
-//	conn.Close()
-//	conn = clickhouse.OpenDB(&clickhouse.Options{
-//		Addr: []string{"127.0.0.1:9000"},
-//		Settings: clickhouse.Settings{
-//			"allow_experimental_object_type": 1,
-//		},
-//	})
-//	conn.Exec("DROP TABLE json_std_test")
-//	const ddl = `
-//		CREATE TABLE json_std_test (
-//			  event JSON
-//		) Engine Memory
-//		`
-//	defer func() {
-//		conn.Exec("DROP TABLE json_std_test")
-//	}()
-//	_, err := conn.Exec(ddl)
-//	require.NoError(t, err)
-//	scope, err := conn.Begin()
-//	require.NoError(t, err)
-//	batch, err := scope.Prepare("INSERT INTO json_std_test")
-//	require.NoError(t, err)
-//	col1Data := map[string]interface{}{
-//		"58": map[string]interface{}{
-//			"test": []string{"2", "3"},
-//		},
-//	}
-//	_, err = batch.Exec(col1Data)
-//	require.NoError(t, err)
-//	require.NoError(t, scope.Commit())
-//	// must pass interface{} - maps must be strongly typed so map[string]interface{} wont work - it wont convert
-//	var event interface{}
-//	rows := conn.QueryRow("SELECT * FROM json_std_test")
-//	require.NoError(t, rows.Scan(&event))
-//	assert.JSONEq(t, toJson(col1Data), toJson(event))
-//}
+//https://github.com/ClickHouse/clickhouse-go/issues/645
+func TestStdJsonWithMap(t *testing.T) {
+	conn := clickhouse.OpenDB(&clickhouse.Options{
+		Addr: []string{"127.0.0.1:9000"},
+	})
+	if err := CheckMinServerVersion(conn, 22, 6, 1); err != nil {
+		t.Skip(err.Error())
+		return
+	}
+	conn.Close()
+	conn = clickhouse.OpenDB(&clickhouse.Options{
+		Addr: []string{"127.0.0.1:9000"},
+		Settings: clickhouse.Settings{
+			"allow_experimental_object_type": 1,
+		},
+	})
+	conn.Exec("DROP TABLE json_std_test")
+	const ddl = `
+		CREATE TABLE json_std_test (
+			  event JSON
+		) Engine Memory
+		`
+	defer func() {
+		conn.Exec("DROP TABLE json_std_test")
+	}()
+	_, err := conn.Exec(ddl)
+	require.NoError(t, err)
+	scope, err := conn.Begin()
+	require.NoError(t, err)
+	batch, err := scope.Prepare("INSERT INTO json_std_test")
+	require.NoError(t, err)
+	col1Data := map[string]interface{}{
+		"58": map[string]interface{}{
+			"test": []string{"2", "3"},
+		},
+	}
+	_, err = batch.Exec(col1Data)
+	require.NoError(t, err)
+	require.NoError(t, scope.Commit())
+	// must pass interface{} - maps must be strongly typed so map[string]interface{} wont work - it wont convert
+	var event interface{}
+	rows := conn.QueryRow("SELECT * FROM json_std_test")
+	require.NoError(t, rows.Scan(&event))
+	assert.JSONEq(t, ToJson(col1Data), ToJson(event))
+}

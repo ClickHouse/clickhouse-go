@@ -18,16 +18,22 @@
 package column
 
 import (
+	"database/sql"
 	"encoding"
 	"fmt"
 	"github.com/ClickHouse/ch-go/proto"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
 	"reflect"
+
+	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
 )
 
 type String struct {
 	name string
 	col  proto.ColStr
+}
+
+func (col *String) Reset() {
+	col.col.Reset()
 }
 
 func (col String) Name() string {
@@ -62,6 +68,8 @@ func (col *String) ScanRow(dest interface{}, row int) error {
 	case **string:
 		*d = new(string)
 		**d = val
+	case *sql.NullString:
+		d.Scan(val)
 	case encoding.BinaryUnmarshaler:
 		return d.UnmarshalBinary(binary.Str2Bytes(val))
 	default:
@@ -85,13 +93,33 @@ func (col *String) AppendRow(v interface{}) error {
 		default:
 			col.col.Append("")
 		}
+	case sql.NullString:
+		switch v.Valid {
+		case true:
+			col.col.Append(v.String)
+		default:
+			col.col.Append("")
+		}
+	case *sql.NullString:
+		switch v.Valid {
+		case true:
+			col.col.Append(v.String)
+		default:
+			col.col.Append("")
+		}
+	case []byte:
+		col.col.Append(string(v))
 	case nil:
 		col.col.Append("")
 	default:
-		return &ColumnConverterError{
-			Op:   "AppendRow",
-			To:   "String",
-			From: fmt.Sprintf("%T", v),
+		if s, ok := v.(fmt.Stringer); ok {
+			return col.AppendRow(s.String())
+		} else {
+			return &ColumnConverterError{
+				Op:   "AppendRow",
+				To:   "String",
+				From: fmt.Sprintf("%T", v),
+			}
 		}
 	}
 	return nil
@@ -112,6 +140,24 @@ func (col *String) Append(v interface{}) (nulls []uint8, err error) {
 				col.col.Append("")
 				nulls[i] = 1
 			}
+		}
+	case []sql.NullString:
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			col.AppendRow(v[i])
+		}
+	case []*sql.NullString:
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			if v[i] == nil {
+				nulls[i] = 1
+			}
+			col.AppendRow(v[i])
+		}
+	case [][]byte:
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			col.col.Append(string(v[i]))
 		}
 	default:
 		return nil, &ColumnConverterError{

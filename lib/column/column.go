@@ -21,8 +21,16 @@ import (
 	"fmt"
 	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
+	"regexp"
 	"strings"
 )
+
+// column names which match this must be escaped - see https://clickhouse.com/docs/en/sql-reference/syntax/#identifiers
+var escapeColRegex, _ = regexp.Compile("^[a-zA-Z_][0-9a-zA-Z_]*$")
+
+// to escape and unescape special chars
+var colEscape = strings.NewReplacer("`", "\\`", "\\", "\\\\")
+var colUnEscape = strings.NewReplacer("\\`", "`", "\\\\", "\\")
 
 type Type string
 
@@ -77,6 +85,7 @@ type Interface interface {
 	Decode(reader *proto.Reader, rows int) error
 	Encode(buffer *proto.Buffer)
 	ScanType() reflect.Type
+	Reset()
 }
 
 type CustomSerialization interface {

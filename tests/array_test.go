@@ -43,43 +43,38 @@ func TestSimpleArray(t *testing.T) {
 			MaxOpenConns: 1,
 		})
 	)
-	if assert.NoError(t, err) {
-		const ddl = `
+	require.NoError(t, err)
+	const ddl = `
 		CREATE TABLE test_array (
 			  Col1 Array(String)
 		) Engine Memory
 		`
-		defer func() {
-			conn.Exec(ctx, "DROP TABLE test_array")
-		}()
-		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
-			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_array"); assert.NoError(t, err) {
-				var (
-					col1Data = []string{"A", "b", "c"}
-				)
-				for i := 0; i < 10; i++ {
-					if err := batch.Append(col1Data); !assert.NoError(t, err) {
-						return
-					}
-				}
-				if assert.NoError(t, batch.Send()) {
-					if rows, err := conn.Query(ctx, "SELECT * FROM test_array"); assert.NoError(t, err) {
-						for rows.Next() {
-							var (
-								col1 []string
-							)
-							if err := rows.Scan(&col1); assert.NoError(t, err) {
-								assert.Equal(t, col1Data, col1)
-							}
-						}
-						if assert.NoError(t, rows.Close()) {
-							assert.NoError(t, rows.Err())
-						}
-					}
-				}
-			}
-		}
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE test_array")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_array")
+	require.NoError(t, err)
+	var (
+		col1Data = []string{"A", "b", "c"}
+	)
+	for i := 0; i < 10; i++ {
+		require.NoError(t, batch.Append(col1Data))
+		batch.Flush()
 	}
+	require.NoError(t, batch.Send())
+	rows, err := conn.Query(ctx, "SELECT * FROM test_array")
+	require.NoError(t, err)
+	for rows.Next() {
+		var (
+			col1 []string
+		)
+		require.NoError(t, rows.Scan(&col1))
+		assert.Equal(t, col1Data, col1)
+
+	}
+	require.NoError(t, rows.Close())
+	require.NoError(t, rows.Err())
 }
 
 func TestInterfaceArray(t *testing.T) {
@@ -193,34 +188,74 @@ func TestArray(t *testing.T) {
 					col4Data = &[]string{"M", "D"}
 				)
 				for i := 0; i < 10; i++ {
-					if err := batch.Append(col1Data, col2Data, col3Data, col4Data); !assert.NoError(t, err) {
-						return
-					}
+					require.NoError(t, batch.Append(col1Data, col2Data, col3Data, col4Data))
+					batch.Flush()
 				}
-				if assert.NoError(t, batch.Send()) {
-					if rows, err := conn.Query(ctx, "SELECT * FROM test_array"); assert.NoError(t, err) {
-						for rows.Next() {
-							var (
-								col1 []string
-								col2 [][]uint32
-								col3 [][][]time.Time
-								col4 []string
-							)
-							if err := rows.Scan(&col1, &col2, &col3, &col4); assert.NoError(t, err) {
-								assert.Equal(t, col1Data, col1)
-								assert.Equal(t, col2Data, col2)
-								assert.Equal(t, col3Data, col3)
-								assert.Equal(t, col4Data, &col4)
-							}
-						}
-						if assert.NoError(t, rows.Close()) {
-							assert.NoError(t, rows.Err())
-						}
-					}
+				require.NoError(t, batch.Send())
+				rows, err := conn.Query(ctx, "SELECT * FROM test_array")
+				require.NoError(t, err)
+				for rows.Next() {
+					var (
+						col1 []string
+						col2 [][]uint32
+						col3 [][][]time.Time
+						col4 []string
+					)
+					require.NoError(t, rows.Scan(&col1, &col2, &col3, &col4))
+					assert.Equal(t, col1Data, col1)
+					assert.Equal(t, col2Data, col2)
+					assert.Equal(t, col3Data, col3)
+					assert.Equal(t, col4Data, &col4)
+
 				}
+				require.NoError(t, rows.Close())
+				require.NoError(t, rows.Err())
 			}
 		}
 	}
+}
+
+func TestTypeConvertArray(t *testing.T) {
+	var (
+		ctx       = context.Background()
+		conn, err = clickhouse.Open(&clickhouse.Options{
+			Addr: []string{"127.0.0.1:9000"},
+			Auth: clickhouse.Auth{
+				Database: "default",
+				Username: "default",
+				Password: "",
+			},
+		})
+	)
+	require.NoError(t, err)
+	const ddl = `
+		CREATE TABLE test_array (
+			  Col1 Array(DateTime64(3))
+		) Engine Memory
+		`
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE test_array")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_array")
+	require.NoError(t, err)
+	var (
+		datetime = time.Now().Truncate(time.Millisecond)
+	)
+	for i := 0; i < 10; i++ {
+		require.NoError(t, batch.Append([]string{datetime.Add(time.Duration(i) * time.Hour).Format("2006-01-02 15:04:05.999")}))
+	}
+	require.NoError(t, batch.Send())
+	rows, err := conn.Query(ctx, "SELECT * FROM test_array")
+	require.NoError(t, err)
+	for rows.Next() {
+		var (
+			col1 []time.Time
+		)
+		require.NoError(t, rows.Scan(&col1))
+	}
+	require.NoError(t, rows.Close())
+	require.NoError(t, rows.Err())
 }
 
 func TestColumnarArray(t *testing.T) {

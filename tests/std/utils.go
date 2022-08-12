@@ -19,6 +19,7 @@ package std
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"strconv"
@@ -27,9 +28,12 @@ import (
 )
 
 func init() {
-	rand.Seed(time.Now().UnixNano())
+	seed := time.Now().UnixNano()
+	fmt.Printf("using random seed %d for std tests\n", seed)
+	rand.Seed(seed)
 }
-func checkMinServerVersion(conn *sql.DB, major, minor, patch uint64) error {
+
+func CheckMinServerVersion(conn *sql.DB, major, minor, patch uint64) error {
 	var version struct {
 		Major uint64
 		Minor uint64
@@ -53,4 +57,12 @@ func checkMinServerVersion(conn *sql.DB, major, minor, patch uint64) error {
 		return fmt.Errorf("unsupported server version %d.%d.%d < %d.%d.%d", version.Major, version.Minor, version.Patch, major, minor, patch)
 	}
 	return nil
+}
+
+func ToJson(obj interface{}) string {
+	bytes, err := json.Marshal(obj)
+	if err != nil {
+		return "unable to marshal"
+	}
+	return string(bytes)
 }

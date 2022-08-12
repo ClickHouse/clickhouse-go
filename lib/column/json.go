@@ -195,17 +195,33 @@ func (jCol *JSONList) createNewOffsets(num int) {
 	}
 }
 
-func getFieldName(field reflect.StructField) (string, bool) {
+func getStructFieldName(field reflect.StructField) (string, bool) {
 	name := field.Name
-	jsonTag := field.Tag.Get("json")
-	if jsonTag == "" {
-		return name, false
-	}
+	tag := field.Tag.Get("json")
 	// not a standard but we allow - to omit fields
-	if jsonTag == "-" {
+	if tag == "-" {
 		return name, true
 	}
-	return jsonTag, false
+	if tag != "" {
+		return tag, false
+	}
+	// support ch tag as well as this is used elsewhere
+	tag = field.Tag.Get("ch")
+	if tag == "-" {
+		return name, true
+	}
+	if tag != "" {
+		return tag, false
+	}
+	return name, false
+}
+
+// ensures numeric keys and ` are escaped properly
+func getMapFieldName(name string) string {
+	if !escapeColRegex.MatchString(name) {
+		return fmt.Sprintf("`%s`", colEscape.Replace(name))
+	}
+	return colEscape.Replace(name)
 }
 
 func parseSlice(name string, values interface{}, jCol JSONParent, preFill int) error {
@@ -305,7 +321,7 @@ func iterateStruct(structVal reflect.Value, col JSONParent, preFill int) error {
 	newColumn := false
 
 	for i := 0; i < structVal.NumField(); i++ {
-		fName, omit := getFieldName(structVal.Type().Field(i))
+		fName, omit := getStructFieldName(structVal.Type().Field(i))
 		if omit {
 			continue
 		}
@@ -410,7 +426,7 @@ func iterateMap(mapVal reflect.Value, col JSONParent, preFill int) error {
 	addedColumns := make([]string, len(mapVal.MapKeys()), len(mapVal.MapKeys()))
 	newColumn := false
 	for i, key := range mapVal.MapKeys() {
-		name := key.Interface().(string)
+		name := getMapFieldName(key.Interface().(string))
 		if _, ok := columnLookup[name]; !ok && len(currentColumns) > 0 {
 			// new column - need to handle
 			preFill = numRows
@@ -494,6 +510,10 @@ type JSONValue struct {
 	Interface
 	// represents the type e.g. uuid - these may have been mapped to a Column type support by JSON e.g. String
 	origType reflect.Type
+}
+
+func (jCol *JSONValue) Reset() {
+	jCol.Interface.Reset()
 }
 
 func (jCol *JSONValue) appendEmptyValue() error {
@@ -667,6 +687,12 @@ type JSONObject struct {
 	encoding uint8
 }
 
+func (jCol *JSONObject) Reset() {
+	for i := range jCol.columns {
+		jCol.columns[i].Reset()
+	}
+}
+
 func (jCol *JSONObject) Name() string {
 	return jCol.name
 }
@@ -811,6 +837,8 @@ func (jCol *JSONObject) Rows() int {
 	}
 	return 0
 }
+
+// ClickHouse returns JSON as a tuple i.e. these will never be invoked
 
 func (jCol *JSONObject) Row(i int, ptr bool) interface{} {
 	panic("Not implemented")

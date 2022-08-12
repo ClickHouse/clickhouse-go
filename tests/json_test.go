@@ -70,7 +70,7 @@ func setupConnection(t *testing.T) driver.Conn {
 func setupTest(t *testing.T) (driver.Conn, func(t *testing.T)) {
 	ctx := context.Background()
 	conn := setupConnection(t)
-	if err := checkMinServerVersion(conn, 22, 6, 1); err != nil {
+	if err := CheckMinServerVersion(conn, 22, 6, 1); err != nil {
 		t.Skip(err.Error())
 	}
 	conn.Exec(ctx, "DROP TABLE json_test")
@@ -1986,7 +1986,7 @@ func TestJSONManyColumns(t *testing.T) {
 	ctx := context.Background()
 	conn := setupConnection(t)
 	conn.Exec(ctx, "DROP TABLE json_test")
-	if err := checkMinServerVersion(conn, 22, 6, 1); err != nil {
+	if err := CheckMinServerVersion(conn, 22, 6, 1); err != nil {
 		t.Skip(err.Error())
 	}
 	ddl := `CREATE table json_test(event JSON, event2 JSON, col1 String) ENGINE=Memory;`
@@ -2367,6 +2367,94 @@ func TestJSONTypedSlice(t *testing.T) {
 	require.NoError(t, batch.Send())
 	var event map[string][]int64
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event))
-
 	assert.JSONEq(t, toJson(row1), toJson(event))
+}
+
+func TestJSONEscapeKeys(t *testing.T) {
+	conn, teardown := setupTest(t)
+	defer teardown(t)
+	ctx := context.Background()
+	batch := prepareBatch(t, conn, ctx)
+	row1 := map[string][]int64{
+		"56":      {1, 2, 3},
+		"1.1":     {4, 5, 6},
+		"世界世界世界":  {7, 8, 9},
+		"1.1a":    {10, 11, 12},
+		"a22.2":   {13, 14, 15},
+		"a22`":    {16, 17, 18},
+		"22.2`":   {19, 20, 21},
+		"22.2\\`": {22, 23, 24},
+		"s'":      {22, 23, 24},
+		"a`a\\\\": {22, 23, 24},
+	}
+	require.NoError(t, batch.Append(row1))
+	require.NoError(t, batch.Send())
+	var event map[string][]int64
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event))
+	assert.JSONEq(t, toJson(row1), toJson(event))
+}
+
+func TestJSONChTags(t *testing.T) {
+	type Event struct {
+		Title        string `ch:"title"`
+		Type         string
+		Assignee     Account   `ch:"assignee"`
+		Labels       []string  `ch:"labels"`
+		Contributors []Account `ch:"-"`
+		// should not be exported
+		createdAt string
+	}
+	conn, teardown := setupTest(t)
+	defer teardown(t)
+	ctx := context.Background()
+	batch := prepareBatch(t, conn, ctx)
+	row1 := Event{
+		Title: "sample event",
+		Type:  "event_a",
+		Assignee: Account{
+			Id:            1244,
+			Name:          "Geoff",
+			Achievement:   Achievement{Name: "Mars Star", AwardedDate: testDate.Truncate(time.Second)},
+			Repositories:  []Repository{{URL: "https://github.com/ClickHouse/clickhouse-python", Releases: []Releases{{Version: "1.0.0"}, {Version: "1.1.0"}}}, {URL: "https://github.com/ClickHouse/clickhouse-go", Releases: []Releases{{Version: "2.0.0"}, {Version: "2.1.0"}}}},
+			Organizations: []string{"Support Engineer", "Integrations"},
+		},
+		Labels: []string{"Help wanted"},
+		Contributors: []Account{
+			{Id: 1244, Name: "Geoff", Achievement: Achievement{Name: "Mars Star", AwardedDate: testDate.Truncate(time.Second).Add(time.Hour * -3000)}, Repositories: []Repository{{URL: "https://github.com/ClickHouse/clickhouse-python", Releases: []Releases{{Version: "1.0.0"}, {Version: "1.1.0"}}}, {URL: "https://github.com/ClickHouse/clickhouse-go", Releases: []Releases{{Version: "2.0.0"}, {Version: "2.1.0"}}}}, Organizations: []string{"Support Engineer", "Integrations"}},
+			{Id: 2244, Achievement: Achievement{Name: "Managing S3 buckets", AwardedDate: testDate.Truncate(time.Second).Add(time.Hour * -500)}, Organizations: []string{"ClickHouse", "Consulting"}, Name: "Melyvn", Repositories: []Repository{{URL: "https://github.com/ClickHouse/support", Releases: []Releases{{Version: "1.0.0"}, {Version: "2.3.0"}, {Version: "2.3.0"}}}}},
+		},
+		createdAt: "2022-05-25 17:20:57 +0100 WEST",
+	}
+	require.NoError(t, batch.Append(row1))
+	require.NoError(t, batch.Send())
+	var event Event
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event))
+	assert.JSONEq(t, `{"Title":"sample event","Type":"event_a","Assignee":{"Id":1244,"Name":"Geoff","orgs":["Support Engineer","Integrations"],"Repositories":[{"url":"https://github.com/ClickHouse/clickhouse-python","Releases":[{"Version":"1.0.0"},{"Version":"1.1.0"}]},{"url":"https://github.com/ClickHouse/clickhouse-go","Releases":[{"Version":"2.0.0"},{"Version":"2.1.0"}]}],"Achievement":{"Name":"Mars Star","AwardedDate":"2022-05-25T17:20:57+01:00"}},"Labels":["Help wanted"],"Contributors":null}`, toJson(event))
+}
+
+func TestJSONFlush(t *testing.T) {
+	conn, teardown := setupTest(t)
+	defer teardown(t)
+	ctx := context.Background()
+	batch := prepareBatch(t, conn, ctx)
+	vals := [1000]map[string]interface{}{}
+	for i := 0; i < 1000; i++ {
+		vals[i] = map[string]interface{}{
+			"i": uint64(i),
+			"s": RandAsciiString(10),
+		}
+		require.NoError(t, batch.Append(vals[i]))
+		require.NoError(t, batch.Flush())
+	}
+	require.NoError(t, batch.Send())
+	rows, err := conn.Query(ctx, "SELECT * FROM json_test")
+	require.NoError(t, err)
+	i := 0
+	for rows.Next() {
+		var col1 map[string]interface{}
+		require.NoError(t, rows.Scan(&col1))
+		require.Equal(t, vals[i], col1)
+		i += 1
+	}
+	require.Equal(t, 1000, i)
 }

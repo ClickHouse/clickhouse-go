@@ -19,6 +19,7 @@ package tests
 
 import (
 	"context"
+	"github.com/stretchr/testify/require"
 	"math/rand"
 	"testing"
 	"time"
@@ -47,7 +48,7 @@ func TestLowCardinality(t *testing.T) {
 		})
 	)
 	if assert.NoError(t, err) {
-		if err := checkMinServerVersion(conn, 19, 11, 0); err != nil {
+		if err := CheckMinServerVersion(conn, 19, 11, 0); err != nil {
 			t.Skip(err.Error())
 			return
 		}
@@ -144,7 +145,7 @@ func TestLowCardinality(t *testing.T) {
 	}
 }
 
-func TestColmnarLowCardinality(t *testing.T) {
+func TestColmunarLowCardinality(t *testing.T) {
 	var (
 		ctx       = context.Background()
 		conn, err = clickhouse.Open(&clickhouse.Options{
@@ -160,15 +161,14 @@ func TestColmnarLowCardinality(t *testing.T) {
 			Settings: clickhouse.Settings{
 				"allow_suspicious_low_cardinality_types": 1,
 			},
-			//	Debug: true,
 		})
 	)
-	if assert.NoError(t, err) {
-		if err := checkMinServerVersion(conn, 20, 1, 0); err != nil {
-			t.Skip(err.Error())
-			return
-		}
-		const ddl = `
+	require.NoError(t, err)
+	if err := CheckMinServerVersion(conn, 20, 1, 0); err != nil {
+		t.Skip(err.Error())
+		return
+	}
+	const ddl = `
 		CREATE TABLE test_lowcardinality (
 			  Col1 LowCardinality(String)
 			, Col2 LowCardinality(FixedString(2))
@@ -176,56 +176,97 @@ func TestColmnarLowCardinality(t *testing.T) {
 			, Col4 LowCardinality(Int32)
 		) Engine Memory
 		`
-		defer func() {
-			conn.Exec(ctx, "DROP TABLE test_lowcardinality")
-		}()
-		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
-			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_lowcardinality"); assert.NoError(t, err) {
-				var (
-					rnd       = rand.Int31()
-					timestamp = time.Now()
-					col1Data  []string
-					col2Data  []string
-					col3Data  []time.Time
-					col4Data  []int32
-				)
-				for i := 0; i < 10; i++ {
-					col1Data = append(col1Data, timestamp.String())
-					col2Data = append(col2Data, "RU")
-					col3Data = append(col3Data, timestamp.Add(time.Duration(i)*time.Minute))
-					col4Data = append(col4Data, rnd+int32(i))
-				}
-				if err := batch.Column(0).Append(col1Data); !assert.NoError(t, err) {
-					return
-				}
-				if err := batch.Column(1).Append(col2Data); !assert.NoError(t, err) {
-					return
-				}
-				if err := batch.Column(2).Append(col3Data); !assert.NoError(t, err) {
-					return
-				}
-				if err := batch.Column(3).Append(col4Data); !assert.NoError(t, err) {
-					return
-				}
-				if assert.NoError(t, batch.Send()) {
-					var count uint64
-					if err := conn.QueryRow(ctx, "SELECT COUNT() FROM test_lowcardinality").Scan(&count); assert.NoError(t, err) {
-						assert.Equal(t, uint64(10), count)
-					}
-					var (
-						col1 string
-						col2 string
-						col3 time.Time
-						col4 int32
-					)
-					if err := conn.QueryRow(ctx, "SELECT * FROM test_lowcardinality WHERE Col4 = $1", rnd+6).Scan(&col1, &col2, &col3, &col4); assert.NoError(t, err) {
-						assert.Equal(t, timestamp.String(), col1)
-						assert.Equal(t, "RU", col2)
-						assert.Equal(t, timestamp.Add(time.Duration(6)*time.Minute).Truncate(time.Second), col3)
-						assert.Equal(t, int32(rnd+6), col4)
-					}
-				}
-			}
-		}
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE test_lowcardinality")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_lowcardinality")
+	require.NoError(t, err)
+	var (
+		rnd       = rand.Int31()
+		timestamp = time.Now()
+		col1Data  []string
+		col2Data  []string
+		col3Data  []time.Time
+		col4Data  []int32
+	)
+	for i := 0; i < 10; i++ {
+		col1Data = append(col1Data, timestamp.String())
+		col2Data = append(col2Data, "RU")
+		col3Data = append(col3Data, timestamp.Add(time.Duration(i)*time.Minute))
+		col4Data = append(col4Data, rnd+int32(i))
 	}
+	require.NoError(t, batch.Column(0).Append(col1Data))
+	require.NoError(t, batch.Column(1).Append(col2Data))
+	require.NoError(t, batch.Column(2).Append(col3Data))
+	require.NoError(t, batch.Column(3).Append(col4Data))
+	require.NoError(t, batch.Send())
+	var count uint64
+	if err := conn.QueryRow(ctx, "SELECT COUNT() FROM test_lowcardinality").Scan(&count); assert.NoError(t, err) {
+		assert.Equal(t, uint64(10), count)
+	}
+	var (
+		col1 string
+		col2 string
+		col3 time.Time
+		col4 int32
+	)
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_lowcardinality WHERE Col4 = $1", rnd+6).Scan(&col1, &col2, &col3, &col4))
+	assert.Equal(t, timestamp.String(), col1)
+	assert.Equal(t, "RU", col2)
+	assert.Equal(t, timestamp.Add(time.Duration(6)*time.Minute).Truncate(time.Second), col3)
+	assert.Equal(t, int32(rnd+6), col4)
+}
+
+func TestLowCardinalityFlush(t *testing.T) {
+	var (
+		ctx       = context.Background()
+		conn, err = clickhouse.Open(&clickhouse.Options{
+			Addr: []string{"127.0.0.1:9000"},
+			Auth: clickhouse.Auth{
+				Database: "default",
+				Username: "default",
+				Password: "",
+			},
+			Compression: &clickhouse.Compression{
+				Method: clickhouse.CompressionLZ4,
+			},
+			Settings: clickhouse.Settings{
+				"allow_suspicious_low_cardinality_types": 1,
+			},
+		})
+	)
+	require.NoError(t, err)
+	if err := CheckMinServerVersion(conn, 20, 1, 0); err != nil {
+		t.Skip(err.Error())
+		return
+	}
+	const ddl = `
+		CREATE TABLE test_lowcardinality_flush (
+			  Col1 LowCardinality(String)
+		) Engine Memory
+		`
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE test_lowcardinality_flush")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_lowcardinality_flush")
+	require.NoError(t, err)
+	vals := [100]string{}
+	for i := 0; i < 100; i++ {
+		vals[i] = RandAsciiString(10)
+		require.NoError(t, batch.Append(vals[i]))
+		require.NoError(t, batch.Flush())
+	}
+	require.NoError(t, batch.Send())
+	rows, err := conn.Query(ctx, "SELECT * FROM test_lowcardinality_flush")
+	require.NoError(t, err)
+	i := 0
+	for rows.Next() {
+		var col1 string
+		require.NoError(t, rows.Scan(&col1))
+		require.Equal(t, vals[i], col1)
+		i += 1
+	}
+	require.Equal(t, 100, i)
 }

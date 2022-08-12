@@ -19,6 +19,7 @@ package tests
 
 import (
 	"context"
+	"github.com/stretchr/testify/require"
 	"reflect"
 	"testing"
 
@@ -39,7 +40,6 @@ func TestColumnTypes(t *testing.T) {
 			Compression: &clickhouse.Compression{
 				Method: clickhouse.CompressionLZ4,
 			},
-			//Debug: true,
 		})
 	)
 	const query = `
@@ -47,27 +47,28 @@ func TestColumnTypes(t *testing.T) {
 			  CAST(1   AS UInt8)  AS Col1
 			, CAST('X' AS String) AS Col2
 	`
-	if assert.NoError(t, err) {
-		if rows, err := conn.Query(ctx, query); assert.NoError(t, err) {
-			if types := rows.ColumnTypes(); assert.Len(t, types, 2) {
-				for i, v := range types {
-					switch i {
-					case 0:
-						if assert.False(t, v.Nullable()) {
-							assert.Equal(t, "Col1", v.Name())
-							assert.Equal(t, reflect.TypeOf(uint8(0)), v.ScanType())
-							assert.Equal(t, "UInt8", v.DatabaseTypeName())
-						}
-					case 1:
-						if assert.False(t, v.Nullable()) {
-							assert.Equal(t, "Col2", v.Name())
-							assert.Equal(t, reflect.TypeOf(""), v.ScanType())
-							assert.Equal(t, "String", v.DatabaseTypeName())
-						}
 
-					}
+	require.NoError(t, err)
+	rows, err := conn.Query(ctx, query)
+	require.NoError(t, err)
+	if types := rows.ColumnTypes(); assert.Len(t, types, 2) {
+		for i, v := range types {
+			switch i {
+			case 0:
+				if assert.False(t, v.Nullable()) {
+					assert.Equal(t, "Col1", v.Name())
+					assert.Equal(t, reflect.TypeOf(uint8(0)), v.ScanType())
+					assert.Equal(t, "UInt8", v.DatabaseTypeName())
 				}
+			case 1:
+				if assert.False(t, v.Nullable()) {
+					assert.Equal(t, "Col2", v.Name())
+					assert.Equal(t, reflect.TypeOf(""), v.ScanType())
+					assert.Equal(t, "String", v.DatabaseTypeName())
+				}
+
 			}
 		}
 	}
+
 }

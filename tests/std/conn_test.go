@@ -24,6 +24,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
 	_ "github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
 )
@@ -60,6 +63,7 @@ func TestStdConnFailover(t *testing.T) {
 		})
 	}
 }
+
 func TestStdConnFailoverConnOpenRoundRobin(t *testing.T) {
 	dsns := map[string]string{
 		"Native": "clickhouse://127.0.0.1:9001,127.0.0.1:9002,127.0.0.1:9003,127.0.0.1:9004,127.0.0.1:9005,127.0.0.1:9006,127.0.0.1:9000/?connection_open_strategy=round_robin",
@@ -76,6 +80,7 @@ func TestStdConnFailoverConnOpenRoundRobin(t *testing.T) {
 		})
 	}
 }
+
 func TestStdPingDeadline(t *testing.T) {
 	dsns := map[string]string{
 		"Native": "clickhouse://127.0.0.1:9000",
@@ -93,4 +98,78 @@ func TestStdPingDeadline(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestStdConnAuth(t *testing.T) {
+	dsns := map[string]string{"Native": "clickhouse://127.0.0.1:9000?username=default&password=", "Http": "http://127.0.0.1:8123?username=default&password="}
+
+	for name, dsn := range dsns {
+		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
+			conn, err := sql.Open("clickhouse", dsn)
+			require.NoError(t, err)
+			require.NoError(t, conn.PingContext(context.Background()))
+			require.NoError(t, conn.Close())
+			t.Log(conn.Stats())
+		})
+	}
+}
+
+func TestStdHTTPEmptyResponse(t *testing.T) {
+	dsns := map[string]string{"Native": "clickhouse://127.0.0.1:9000?username=default&password=", "Http": "http://127.0.0.1:8123?username=default&password="}
+	for name, dsn := range dsns {
+		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
+			conn, err := sql.Open("clickhouse", dsn)
+			defer func() {
+				conn.Exec("DROP TABLE empty_example")
+			}()
+			conn.Exec("DROP TABLE IF EXISTS empty_example")
+			_, err = conn.Exec(`
+				CREATE TABLE IF NOT EXISTS empty_example (
+					  Col1 UInt64
+					, Col2 String
+					, Col3 FixedString(3)
+					, Col4 UUID
+					, Col5 Map(String, UInt64)
+					, Col6 Array(String)
+					, Col7 Tuple(String, UInt64, Array(Map(String, UInt64)))
+					, Col8 DateTime
+				) Engine = Memory
+			`)
+			require.NoError(t, err)
+			rows, err := conn.Query("SELECT Col1 FROM empty_example")
+			require.NoError(t, err)
+			count := 0
+			for rows.Next() {
+				count++
+			}
+			assert.Equal(t, 0, count)
+			var col1 uint64
+			// will return with no rows in result set
+			err = conn.QueryRow("SELECT * FROM empty_example").Scan(&col1)
+			require.Error(t, err)
+			assert.Equal(t, "sql: no rows in result set", err.Error())
+		})
+
+	}
+}
+
+func TestStdConnector(t *testing.T) {
+	connector := clickhouse.Connector(&clickhouse.Options{
+		Addr: []string{"127.0.0.1:9000"},
+		Auth: clickhouse.Auth{
+			Database: "default",
+			Username: "default",
+			Password: "",
+		},
+		Compression: &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		},
+	})
+	require.NotNil(t, connector)
+	conn, err := connector.Connect(context.Background())
+	require.NoError(t, err)
+	require.NotNil(t, conn)
+	db := sql.OpenDB(connector)
+	err = db.Ping()
+	require.NoError(t, err)
 }

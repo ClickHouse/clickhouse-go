@@ -18,6 +18,7 @@
 package column
 
 import (
+	"database/sql"
 	"fmt"
 	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
@@ -28,6 +29,10 @@ import (
 type UUID struct {
 	col  proto.ColUUID
 	name string
+}
+
+func (col *UUID) Reset() {
+	col.col.Reset()
 }
 
 func (col *UUID) Name() string {
@@ -67,6 +72,9 @@ func (col *UUID) ScanRow(dest interface{}, row int) error {
 		*d = new(uuid.UUID)
 		**d = col.row(row)
 	default:
+		if scan, ok := dest.(sql.Scanner); ok {
+			return scan.Scan(col.row(row).String())
+		}
 		return &ColumnConverterError{
 			Op:   "ScanRow",
 			To:   fmt.Sprintf("%T", dest),
@@ -162,10 +170,14 @@ func (col *UUID) AppendRow(v interface{}) error {
 	case nil:
 		col.col.Append(uuid.UUID{})
 	default:
-		return &ColumnConverterError{
-			Op:   "AppendRow",
-			To:   "UUID",
-			From: fmt.Sprintf("%T", v),
+		if s, ok := v.(fmt.Stringer); ok {
+			return col.AppendRow(s.String())
+		} else {
+			return &ColumnConverterError{
+				Op:   "AppendRow",
+				To:   "UUID",
+				From: fmt.Sprintf("%T", v),
+			}
 		}
 	}
 	return nil

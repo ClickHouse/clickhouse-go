@@ -31,6 +31,10 @@ type Enum8 struct {
 	col    proto.ColEnum8
 }
 
+func (col *Enum8) Reset() {
+	col.col.Reset()
+}
+
 func (col *Enum8) Name() string {
 	return col.name
 }

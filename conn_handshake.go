@@ -27,6 +27,10 @@ import (
 func (c *connect) handshake(database, username, password string) error {
 	defer c.buffer.Reset()
 	c.debugf("[handshake] -> %s", proto.ClientHandshake{})
+	// set a read deadline - alternative to context.Read operation will fail if no data is received after deadline.
+	c.conn.SetReadDeadline(time.Now().Add(c.readTimeout))
+	defer c.conn.SetReadDeadline(time.Time{})
+	// context level deadlines override any read deadline
 	c.conn.SetDeadline(time.Now().Add(c.opt.DialTimeout))
 	defer c.conn.SetDeadline(time.Time{})
 	{

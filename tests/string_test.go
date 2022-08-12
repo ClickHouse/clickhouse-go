@@ -19,13 +19,23 @@ package tests
 
 import (
 	"context"
+	"database/sql"
 	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
 )
+
+type testStr struct {
+	Col1 string
+}
+
+func (t testStr) String() string {
+	return t.Col1
+}
 
 func TestSimpleString(t *testing.T) {
 	var (
@@ -46,13 +56,14 @@ func TestSimpleString(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.NoError(t, conn.Ping(ctx))
-	if err := checkMinServerVersion(conn, 21, 9, 0); err != nil {
+	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
 	const ddl = `
 		CREATE TABLE test_string (
-			  Col1 String
+			  	  Col1 String
+		        , Col2 String
 		) Engine Memory
 		`
 	defer func() {
@@ -61,7 +72,7 @@ func TestSimpleString(t *testing.T) {
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_string")
 	require.NoError(t, err)
-	require.NoError(t, batch.Append("A"))
+	require.NoError(t, batch.Append("A", &testStr{"B"}))
 	require.NoError(t, batch.Send())
 }
 
@@ -80,41 +91,72 @@ func TestString(t *testing.T) {
 			},
 		})
 	)
-	if assert.NoError(t, err) {
-		if err := checkMinServerVersion(conn, 21, 9, 0); err != nil {
-			t.Skip(err.Error())
-			return
-		}
-		const ddl = `
+	require.NoError(t, err)
+	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
+		t.Skip(err.Error())
+		return
+	}
+	const ddl = `
 		CREATE TABLE test_string (
 			  Col1 String
 			, Col2 Array(String)
 			, Col3 Nullable(String)
+			, Col4 String
+			, Col5 Nullable(String)
+      		, Col6 String
+		    , Col7 String
+		    , Col8 Nullable(String)
+		    , Col9 String
+		    , Col10 Nullable(String)
 		) Engine Memory
-		`
-		defer func() {
-			conn.Exec(ctx, "DROP TABLE test_string")
-		}()
-		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
-			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_string"); assert.NoError(t, err) {
-				if err := batch.Append("A", []string{"A", "B", "C"}, nil); assert.NoError(t, err) {
-					if assert.NoError(t, batch.Send()) {
-						var (
-							col1 string
-							col2 []string
-							col3 *string
-						)
-						if err := conn.QueryRow(ctx, "SELECT * FROM test_string").Scan(&col1, &col2, &col3); assert.NoError(t, err) {
-							if assert.Nil(t, col3) {
-								assert.Equal(t, "A", col1)
-								assert.Equal(t, []string{"A", "B", "C"}, col2)
-							}
-						}
-					}
-				}
-			}
-		}
-	}
+	`
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE test_string")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_string")
+	require.NoError(t, err)
+	col6Data := "D"
+	col7Data := time.Now()
+	col8Data := &time.Time{}
+	col9Data := &testStr{"E"}
+	var col10Data testStr
+	require.NoError(t, batch.Append(
+		"A",
+		[]string{"A", "B", "C"},
+		nil,
+		sql.NullString{String: "D", Valid: true},
+		sql.NullString{Valid: false},
+		[]byte(col6Data),
+		col7Data,
+		col8Data,
+		col9Data,
+		&col10Data,
+	))
+	require.NoError(t, batch.Send())
+	var (
+		col1  string
+		col2  []string
+		col3  *string
+		col4  sql.NullString
+		col5  sql.NullString
+		col6  string
+		col7  string
+		col8  string
+		col9  string
+		col10 string
+	)
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_string").Scan(&col1, &col2, &col3, &col4, &col5, &col6, &col7, &col8, &col9, &col10))
+	require.Nil(t, col3)
+	assert.Equal(t, "A", col1)
+	assert.Equal(t, []string{"A", "B", "C"}, col2)
+	assert.Equal(t, sql.NullString{String: "D", Valid: true}, col4)
+	assert.Equal(t, sql.NullString{Valid: false}, col5)
+	assert.Equal(t, col6Data, col6)
+	assert.Equal(t, col7, col7Data.String())
+	assert.Equal(t, col8, col8Data.String())
+	assert.Equal(t, col9, col9Data.String())
+	assert.Equal(t, col10, col10Data.String())
 }
 
 func BenchmarkString(b *testing.B) {
@@ -208,4 +250,51 @@ func BenchmarkColumnarString(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
+}
+
+func TestStringFlush(t *testing.T) {
+	var (
+		ctx       = context.Background()
+		conn, err = clickhouse.Open(&clickhouse.Options{
+			Addr: []string{"127.0.0.1:9000"},
+			Auth: clickhouse.Auth{
+				Database: "default",
+				Username: "default",
+				Password: "",
+			},
+			Compression: &clickhouse.Compression{
+				Method: clickhouse.CompressionLZ4,
+			},
+			MaxOpenConns: 1,
+		})
+	)
+	require.NoError(t, err)
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE string_flush")
+	}()
+	const ddl = `
+		CREATE TABLE string_flush (
+			  Col1 FixedString(10)
+		) Engine Memory
+		`
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO string_flush")
+	require.NoError(t, err)
+	vals := [1000]string{}
+	for i := 0; i < 1000; i++ {
+		vals[i] = RandAsciiString(10)
+		batch.Append(vals[i])
+		batch.Flush()
+	}
+	batch.Send()
+	rows, err := conn.Query(ctx, "SELECT * FROM string_flush")
+	require.NoError(t, err)
+	i := 0
+	for rows.Next() {
+		var col1 string
+		require.NoError(t, rows.Scan(&col1))
+		require.Equal(t, vals[i], col1)
+		i += 1
+	}
+	require.Equal(t, 1000, i)
 }

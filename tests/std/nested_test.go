@@ -36,7 +36,7 @@ func TestStdNested(t *testing.T) {
 		},
 	})
 	conn.Exec("DROP TABLE std_nested_test")
-	if err := checkMinServerVersion(conn, 22, 1, 0); err != nil {
+	if err := CheckMinServerVersion(conn, 22, 1, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -110,6 +110,6 @@ func TestStdNested(t *testing.T) {
 	)
 	rows := conn.QueryRow("SELECT * FROM std_nested_test")
 	require.NoError(t, rows.Scan(&col1, &col2))
-	assert.JSONEq(t, toJson(col1Data), toJson(col1))
-	assert.JSONEq(t, toJson(col2Data), toJson(col2))
+	assert.JSONEq(t, ToJson(col1Data), ToJson(col1))
+	assert.JSONEq(t, ToJson(col2Data), ToJson(col2))
 }

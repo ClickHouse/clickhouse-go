@@ -30,6 +30,10 @@ type Ring struct {
 	name string
 }
 
+func (col *Ring) Reset() {
+	col.set.Reset()
+}
+
 func (col *Ring) Name() string {
 	return col.name
 }
@@ -80,7 +84,12 @@ func (col *Ring) Append(v interface{}) (nulls []uint8, err error) {
 			values = append(values, v)
 		}
 		return col.set.Append(values)
-
+	case []*orb.Ring:
+		values := make([][]orb.Point, 0, len(v))
+		for _, v := range v {
+			values = append(values, *v)
+		}
+		return col.set.Append(values)
 	default:
 		return nil, &ColumnConverterError{
 			Op:   "Append",
@@ -94,6 +103,8 @@ func (col *Ring) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case orb.Ring:
 		return col.set.AppendRow([]orb.Point(v))
+	case *orb.Ring:
+		return col.set.AppendRow([]orb.Point(*v))
 	default:
 		return &ColumnConverterError{
 			Op:   "AppendRow",

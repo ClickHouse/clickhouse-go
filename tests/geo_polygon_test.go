@@ -19,6 +19,8 @@ package tests
 
 import (
 	"context"
+	"github.com/stretchr/testify/require"
+	"math/rand"
 	"testing"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
@@ -44,69 +46,126 @@ func TestGeoPolygon(t *testing.T) {
 			},
 		})
 	)
-	if assert.NoError(t, err) {
-		if err := checkMinServerVersion(conn, 21, 12, 0); err != nil {
-			t.Skip(err.Error())
-			return
-		}
-		const ddl = `
+	require.NoError(t, err)
+	if err := CheckMinServerVersion(conn, 21, 12, 0); err != nil {
+		t.Skip(err.Error())
+		return
+	}
+	const ddl = `
 		CREATE TABLE test_geo_polygon (
 			  Col1 Polygon
 			, Col2 Array(Polygon)
 		) Engine Memory
 		`
-		defer func() {
-			conn.Exec(ctx, "DROP TABLE test_geo_polygon")
-		}()
-		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
-			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_geo_polygon"); assert.NoError(t, err) {
-				var (
-					col1Data = orb.Polygon{
-						orb.Ring{
-							orb.Point{1, 2},
-							orb.Point{12, 2},
-						},
-						orb.Ring{
-							orb.Point{11, 2},
-							orb.Point{1, 12},
-						},
-					}
-					col2Data = []orb.Polygon{
-						[]orb.Ring{
-							orb.Ring{
-								orb.Point{1, 2},
-								orb.Point{1, 22},
-							},
-							orb.Ring{
-								orb.Point{1, 23},
-								orb.Point{12, 2},
-							},
-						},
-						[]orb.Ring{
-							orb.Ring{
-								orb.Point{21, 2},
-								orb.Point{1, 222},
-							},
-							orb.Ring{
-								orb.Point{21, 23},
-								orb.Point{12, 22},
-							},
-						},
-					}
-				)
-				if err := batch.Append(col1Data, col2Data); assert.NoError(t, err) {
-					if assert.NoError(t, batch.Send()) {
-						var (
-							col1 orb.Polygon
-							col2 []orb.Polygon
-						)
-						if err := conn.QueryRow(ctx, "SELECT * FROM test_geo_polygon").Scan(&col1, &col2); assert.NoError(t, err) {
-							assert.Equal(t, col1Data, col1)
-							assert.Equal(t, col2Data, col2)
-						}
-					}
-				}
-			}
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE test_geo_polygon")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_geo_polygon")
+	require.NoError(t, err)
+	var (
+		col1Data = orb.Polygon{
+			orb.Ring{
+				orb.Point{1, 2},
+				orb.Point{12, 2},
+			},
+			orb.Ring{
+				orb.Point{11, 2},
+				orb.Point{1, 12},
+			},
 		}
+		col2Data = []orb.Polygon{
+			[]orb.Ring{
+				orb.Ring{
+					orb.Point{1, 2},
+					orb.Point{1, 22},
+				},
+				orb.Ring{
+					orb.Point{1, 23},
+					orb.Point{12, 2},
+				},
+			},
+			[]orb.Ring{
+				orb.Ring{
+					orb.Point{21, 2},
+					orb.Point{1, 222},
+				},
+				orb.Ring{
+					orb.Point{21, 23},
+					orb.Point{12, 22},
+				},
+			},
+		}
+	)
+	require.NoError(t, batch.Append(col1Data, col2Data))
+	require.NoError(t, batch.Send())
+	var (
+		col1 orb.Polygon
+		col2 []orb.Polygon
+	)
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_geo_polygon").Scan(&col1, &col2))
+	assert.Equal(t, col1Data, col1)
+	assert.Equal(t, col2Data, col2)
+}
+
+func TestGeoPolygonFlush(t *testing.T) {
+	var (
+		ctx       = context.Background()
+		conn, err = clickhouse.Open(&clickhouse.Options{
+			Addr: []string{"127.0.0.1:9000"},
+			Auth: clickhouse.Auth{
+				Database: "default",
+				Username: "default",
+				Password: "",
+			},
+			Compression: &clickhouse.Compression{
+				Method: clickhouse.CompressionLZ4,
+			},
+			Settings: clickhouse.Settings{
+				"allow_experimental_geo_types": 1,
+			},
+		})
+	)
+	require.NoError(t, err)
+	if err := CheckMinServerVersion(conn, 21, 12, 0); err != nil {
+		t.Skip(err.Error())
+		return
 	}
+	const ddl = `
+		CREATE TABLE test_geo_polygon_flush (
+			  Col1 Polygon
+		) Engine Memory
+		`
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE test_geo_polygon_flush")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_geo_polygon_flush")
+	require.NoError(t, err)
+	vals := [1000]orb.Polygon{}
+	for i := 0; i < 1000; i++ {
+		vals[i] = orb.Polygon{
+			orb.Ring{
+				orb.Point{rand.Float64(), rand.Float64()},
+				orb.Point{rand.Float64(), rand.Float64()},
+			},
+			orb.Ring{
+				orb.Point{rand.Float64(), rand.Float64()},
+				orb.Point{rand.Float64(), rand.Float64()},
+			},
+		}
+		require.NoError(t, batch.Append(vals[i]))
+		require.NoError(t, batch.Flush())
+	}
+	require.NoError(t, batch.Send())
+	rows, err := conn.Query(ctx, "SELECT * FROM test_geo_polygon_flush")
+	require.NoError(t, err)
+	i := 0
+	for rows.Next() {
+		var col1 orb.Polygon
+		require.NoError(t, rows.Scan(&col1))
+		require.Equal(t, vals[i], col1)
+		i += 1
+	}
+	require.Equal(t, 1000, i)
 }

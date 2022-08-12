@@ -33,7 +33,13 @@ type Tuple struct {
 	columns []Interface
 	name    string
 	isNamed bool           // true if all columns are named
-	index   map[string]int // map from col name to off set in columns
+	index   map[string]int // map from col name to offset in columns
+}
+
+func (col *Tuple) Reset() {
+	for i := range col.columns {
+		col.columns[i].Reset()
+	}
 }
 
 func (col *Tuple) Name() string {
@@ -209,12 +215,23 @@ func setJSONFieldValue(field reflect.Value, value reflect.Value) error {
 func getStructFieldValue(field reflect.Value, name string) (reflect.Value, bool) {
 	tField := field.Type()
 	for i := 0; i < tField.NumField(); i++ {
-		if jsonTag := tField.Field(i).Tag.Get("json"); jsonTag == name {
+		if tag := tField.Field(i).Tag.Get("json"); tag == name {
+			return field.Field(i), true
+		}
+		if tag := tField.Field(i).Tag.Get("ch"); tag == name {
 			return field.Field(i), true
 		}
 	}
 	sField := field.FieldByName(name)
 	return sField, sField.IsValid()
+}
+
+func unescapeColName(colName string) string {
+	s := []rune(colName)
+	if s[0:1][0] == '`' && s[len(s)-1:][0] == '`' {
+		return colUnEscape.Replace(string(s[1 : len(s)-1]))
+	}
+	return colUnEscape.Replace(colName)
 }
 
 func (col *Tuple) scanMap(targetMap reflect.Value, row int) error {
@@ -225,6 +242,7 @@ func (col *Tuple) scanMap(targetMap reflect.Value, row int) error {
 		}
 	}
 	for _, c := range col.columns {
+		colName := unescapeColName(c.Name())
 		switch dCol := c.(type) {
 		case *Tuple:
 			switch targetMap.Type().Elem().Kind() {
@@ -233,21 +251,21 @@ func (col *Tuple) scanMap(targetMap reflect.Value, row int) error {
 				if err := dCol.scanStruct(rStruct, row); err != nil {
 					return err
 				}
-				targetMap.SetMapIndex(reflect.ValueOf(c.Name()), rStruct)
+				targetMap.SetMapIndex(reflect.ValueOf(colName), rStruct)
 			case reflect.Map:
 				// get a typed map
 				newMap := reflect.MakeMap(targetMap.Type().Elem())
 				if err := dCol.scanMap(newMap, row); err != nil {
 					return err
 				}
-				targetMap.SetMapIndex(reflect.ValueOf(c.Name()), newMap)
+				targetMap.SetMapIndex(reflect.ValueOf(colName), newMap)
 			case reflect.Interface:
 				// catches interface{} - Note this swallows custom interfaces to which maps couldn't conform
 				newMap := reflect.ValueOf(make(map[string]interface{}))
 				if err := dCol.scanMap(newMap, row); err != nil {
 					return err
 				}
-				targetMap.SetMapIndex(reflect.ValueOf(c.Name()), newMap)
+				targetMap.SetMapIndex(reflect.ValueOf(colName), newMap)
 			default:
 				return &Error{
 					ColumnType: fmt.Sprint(targetMap.Type().Elem().Kind()),
@@ -261,20 +279,20 @@ func (col *Tuple) scanMap(targetMap reflect.Value, row int) error {
 				return err
 			}
 			// this wont work if targetMap is a map[string][]interface{} and we try to set a typed slice
-			targetMap.SetMapIndex(reflect.ValueOf(c.Name()), subSlice)
+			targetMap.SetMapIndex(reflect.ValueOf(colName), subSlice)
 		case *Array:
 			subSlice, err := dCol.scan(targetMap.Type().Elem(), row)
 			if err != nil {
 				return err
 			}
-			targetMap.SetMapIndex(reflect.ValueOf(c.Name()), subSlice)
+			targetMap.SetMapIndex(reflect.ValueOf(colName), subSlice)
 		default:
 			field := reflect.New(reflect.TypeOf(c.Row(0, false))).Elem()
 			value := reflect.ValueOf(c.Row(row, false))
 			if err := setJSONFieldValue(field, value); err != nil {
 				return err
 			}
-			targetMap.SetMapIndex(reflect.ValueOf(c.Name()), field)
+			targetMap.SetMapIndex(reflect.ValueOf(colName), field)
 		}
 	}
 	return nil
@@ -382,6 +400,14 @@ func (col *Tuple) scan(targetType reflect.Type, row int) (reflect.Value, error) 
 		}
 		return rStruct, nil
 	case reflect.Map:
+		if !col.isNamed {
+			return reflect.Value{}, &ColumnConverterError{
+				Op:   "ScanRow",
+				To:   fmt.Sprintf("%s", targetType),
+				From: string(col.chType),
+				Hint: "cannot use maps for unnamed tuples, use slice",
+			}
+		}
 		rMap := reflect.MakeMap(targetType)
 		if err := col.scanMap(rMap, row); err != nil {
 			return reflect.Value{}, nil
@@ -419,17 +445,10 @@ func (col *Tuple) ScanRow(dest interface{}, row int) error {
 }
 
 func (col *Tuple) Append(v interface{}) (nulls []uint8, err error) {
-	switch v := v.(type) {
-	case [][]interface{}:
-		for _, v := range v {
-			if err := col.AppendRow(v); err != nil {
-				return nil, err
-			}
-		}
-		return nil, nil
-	case []*[]interface{}:
-		for _, v := range v {
-			if err := col.AppendRow(v); err != nil {
+	value := reflect.ValueOf(v)
+	if value.Kind() == reflect.Slice {
+		for i := 0; i < value.Len(); i++ {
+			if err := col.AppendRow(value.Index(i).Interface()); err != nil {
 				return nil, err
 			}
 		}
@@ -443,49 +462,60 @@ func (col *Tuple) Append(v interface{}) (nulls []uint8, err error) {
 }
 
 func (col *Tuple) AppendRow(v interface{}) error {
-	switch v := v.(type) {
-	case []interface{}:
-		if len(v) != len(col.columns) {
+	// allows support of tuples where map or slice is typed and NOT interface{}. Will fail if tuple isn't consistent
+	value := reflect.ValueOf(v)
+	if value.Kind() == reflect.Pointer {
+		value = value.Elem()
+	}
+	switch value.Kind() {
+	case reflect.Map:
+		if !col.isNamed {
 			return &Error{
 				ColumnType: string(col.chType),
-				Err:        fmt.Errorf("invalid size. expected %d got %d", len(col.columns), len(v)),
+				Err:        fmt.Errorf("converting from %T is not supported for unnamed tuples - use a slice", v),
 			}
 		}
-		for i, v := range v {
-			if err := col.columns[i].AppendRow(v); err != nil {
+		if value.Type().Key().Kind() != reflect.String {
+			return &Error{
+				ColumnType: fmt.Sprint(value.Type().Key().Kind()),
+				Err:        fmt.Errorf("map keys must be string for column %s", col.Name()),
+			}
+		}
+		if value.Len() != len(col.columns) {
+			return &Error{
+				ColumnType: string(col.chType),
+				Err:        fmt.Errorf("invalid size. expected %d got %d", len(col.columns), value.Len()),
+			}
+		}
+		for _, key := range value.MapKeys() {
+			name := getMapFieldName(key.Interface().(string))
+			if _, ok := col.index[name]; !ok {
+				return &Error{
+					ColumnType: string(col.chType),
+					Err:        fmt.Errorf("sub column '%s' does not exist in %s", name, col.Name()),
+				}
+			}
+			if err := col.columns[col.index[name]].AppendRow(value.MapIndex(key).Interface()); err != nil {
 				return err
 			}
 		}
 		return nil
-	case *[]interface{}:
-		if v == nil {
-			return &ColumnConverterError{
-				Op:   "AppendRow",
-				To:   string(col.chType),
-				From: fmt.Sprintf("%T", v),
-				Hint: "invalid (nil) pointer value",
-			}
-		}
-		if len(*v) != len(col.columns) {
+	case reflect.Slice:
+		if value.Len() != len(col.columns) {
 			return &Error{
 				ColumnType: string(col.chType),
-				Err:        fmt.Errorf("invalid size. expected %d got %d", len(col.columns), len(*v)),
+				Err:        fmt.Errorf("invalid size. expected %d got %d", len(col.columns), value.Len()),
 			}
 		}
-		for i, v := range *v {
-			if err := col.columns[i].AppendRow(v); err != nil {
-				return err
-			}
-		}
-		return nil
-	case map[string]interface{}:
-		for name, v := range v {
-			if err := col.columns[col.index[name]].AppendRow(v); err != nil {
+		for i := 0; i < value.Len(); i++ {
+			elem := value.Index(i)
+			if err := col.columns[i].AppendRow(elem.Interface()); err != nil {
 				return err
 			}
 		}
 		return nil
 	}
+
 	return &ColumnConverterError{
 		Op:   "AppendRow",
 		To:   string(col.chType),

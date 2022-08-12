@@ -33,6 +33,10 @@ type BigInt struct {
 	col    proto.Column
 }
 
+func (col *BigInt) Reset() {
+	col.col.Reset()
+}
+
 func (col *BigInt) Name() string {
 	return col.name
 }

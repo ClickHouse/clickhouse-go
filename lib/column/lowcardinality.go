@@ -69,6 +69,17 @@ type LowCardinality struct {
 	name string
 }
 
+func (col *LowCardinality) Reset() {
+	col.rows = 0
+	col.index.Reset()
+	col.keys8.Reset()
+	col.keys16.Reset()
+	col.keys32.Reset()
+	col.keys64.Reset()
+	col.append.index = make(map[interface{}]int)
+	col.append.keys = col.append.keys[:0]
+}
+
 func (col *LowCardinality) Name() string {
 	return col.name
 }

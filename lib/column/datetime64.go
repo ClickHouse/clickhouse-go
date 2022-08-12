@@ -18,6 +18,7 @@
 package column
 
 import (
+	"database/sql"
 	"fmt"
 	"github.com/ClickHouse/ch-go/proto"
 	"math"
@@ -39,6 +40,10 @@ type DateTime64 struct {
 	timezone *time.Location
 	name     string
 	col      proto.ColDateTime64
+}
+
+func (col *DateTime64) Reset() {
+	col.col.Reset()
 }
 
 func (col *DateTime64) Name() string {
@@ -102,6 +107,8 @@ func (col *DateTime64) ScanRow(dest interface{}, row int) error {
 	case **time.Time:
 		*d = new(time.Time)
 		**d = col.row(row)
+	case *sql.NullTime:
+		d.Scan(col.row(row))
 	default:
 		return &ColumnConverterError{
 			Op:   "ScanRow",
@@ -163,6 +170,19 @@ func (col *DateTime64) Append(v interface{}) (nulls []uint8, err error) {
 			}
 			col.col.Append(value)
 		}
+	case []sql.NullTime:
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			col.AppendRow(v[i])
+		}
+	case []*sql.NullTime:
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			if v[i] == nil {
+				nulls[i] = 1
+			}
+			col.AppendRow(v[i])
+		}
 	default:
 		return nil, &ColumnConverterError{
 			Op:   "Append",
@@ -199,6 +219,20 @@ func (col *DateTime64) AppendRow(v interface{}) error {
 		default:
 			col.col.Append(time.Time{})
 		}
+	case sql.NullTime:
+		switch v.Valid {
+		case true:
+			col.col.Append(v.Time)
+		default:
+			col.col.Append(time.Time{})
+		}
+	case *sql.NullTime:
+		switch v.Valid {
+		case true:
+			col.col.Append(v.Time)
+		default:
+			col.col.Append(time.Time{})
+		}
 	case string:
 		datetime, err := col.parseDateTime(v)
 		if err != nil {
@@ -208,6 +242,10 @@ func (col *DateTime64) AppendRow(v interface{}) error {
 	case nil:
 		col.col.Append(time.Time{})
 	default:
+		s, ok := v.(fmt.Stringer)
+		if ok {
+			return col.AppendRow(s.String())
+		}
 		return &ColumnConverterError{
 			Op:   "AppendRow",
 			To:   "Datetime64",

@@ -18,6 +18,7 @@
 package column
 
 import (
+	"database/sql"
 	"fmt"
 	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
@@ -26,6 +27,10 @@ import (
 type Bool struct {
 	col  proto.ColBool
 	name string
+}
+
+func (col *Bool) Reset() {
+	col.col.Reset()
 }
 
 func (col *Bool) Name() string {
@@ -59,6 +64,8 @@ func (col *Bool) ScanRow(dest interface{}, row int) error {
 	case **bool:
 		*d = new(bool)
 		**d = col.row(row)
+	case *sql.NullBool:
+		d.Scan(col.row(row))
 	default:
 		return &ColumnConverterError{
 			Op:   "ScanRow",
@@ -89,6 +96,19 @@ func (col *Bool) Append(v interface{}) (nulls []uint8, err error) {
 			}
 			col.col.Append(value)
 		}
+	case []sql.NullBool:
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			col.Append(v[i])
+		}
+	case []*sql.NullBool:
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			if v[i] == nil {
+				nulls[i] = 1
+			}
+			col.Append(v[i])
+		}
 	default:
 		return nil, &ColumnConverterError{
 			Op:   "Append",
@@ -107,6 +127,16 @@ func (col *Bool) AppendRow(v interface{}) error {
 	case *bool:
 		if v != nil {
 			value = *v
+		}
+	case sql.NullBool:
+		switch v.Valid {
+		case true:
+			value = v.Bool
+		}
+	case *sql.NullBool:
+		switch v.Valid {
+		case true:
+			value = v.Bool
 		}
 	case nil:
 	default:

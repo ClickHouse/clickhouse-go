@@ -20,6 +20,7 @@ package tests
 import (
 	"context"
 	"crypto/rand"
+	"github.com/stretchr/testify/require"
 	"testing"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
@@ -412,4 +413,51 @@ func BenchmarkColumnarFixedString(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
+}
+
+func TestFixedStringFlush(t *testing.T) {
+	var (
+		ctx       = context.Background()
+		conn, err = clickhouse.Open(&clickhouse.Options{
+			Addr: []string{"127.0.0.1:9000"},
+			Auth: clickhouse.Auth{
+				Database: "default",
+				Username: "default",
+				Password: "",
+			},
+			Compression: &clickhouse.Compression{
+				Method: clickhouse.CompressionLZ4,
+			},
+			MaxOpenConns: 1,
+		})
+	)
+	require.NoError(t, err)
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE fixed_string_flush")
+	}()
+	const ddl = `
+		CREATE TABLE fixed_string_flush (
+			  Col1 FixedString(10)
+		) Engine Memory
+		`
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO fixed_string_flush")
+	require.NoError(t, err)
+	vals := [1000]string{}
+	for i := 0; i < 1000; i++ {
+		vals[i] = RandIntString(10)
+		batch.Append(vals[i])
+		batch.Flush()
+	}
+	batch.Send()
+	rows, err := conn.Query(ctx, "SELECT * FROM fixed_string_flush")
+	require.NoError(t, err)
+	i := 0
+	for rows.Next() {
+		var col1 string
+		require.NoError(t, rows.Scan(&col1))
+		require.Equal(t, vals[i], col1)
+		i += 1
+	}
+	require.Equal(t, 1000, i)
 }

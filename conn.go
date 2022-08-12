@@ -61,7 +61,12 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 	}
 	compression := CompressionNone
 	if opt.Compression != nil {
-		compression = opt.Compression.Method
+		switch opt.Compression.Method {
+		case CompressionLZ4, CompressionZSTD, CompressionNone:
+			compression = opt.Compression.Method
+		default:
+			return nil, fmt.Errorf("unsupported compression method for native protocol")
+		}
 	}
 	var (
 		connect = &connect{
@@ -75,6 +80,7 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 			compression: compression,
 			connectedAt: time.Now(),
 			compressor:  compress.NewWriter(),
+			readTimeout: opt.ReadTimeout,
 		}
 	)
 	if err := connect.handshake(opt.Auth.Database, opt.Auth.Username, opt.Auth.Password); err != nil {
@@ -96,9 +102,9 @@ type connect struct {
 	revision    uint64
 	structMap   *structMap
 	compression CompressionMethod
-	// lastUsedIn  time.Time
 	connectedAt time.Time
 	compressor  *compress.Writer
+	readTimeout time.Duration
 }
 
 func (c *connect) settings(querySettings Settings) []proto.Setting {

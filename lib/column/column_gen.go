@@ -21,6 +21,7 @@
 package column
 
 import (
+	"database/sql"
 	"fmt"
 	"github.com/ClickHouse/ch-go/proto"
 	"github.com/google/uuid"
@@ -271,6 +272,10 @@ func (col *Float32) Rows() int {
 	return col.col.Rows()
 }
 
+func (col *Float32) Reset() {
+	col.col.Reset()
+}
+
 func (col *Float32) ScanRow(dest interface{}, row int) error {
 	value := col.col.Row(row)
 	switch d := dest.(type) {
@@ -373,6 +378,10 @@ func (col *Float64) Rows() int {
 	return col.col.Rows()
 }
 
+func (col *Float64) Reset() {
+	col.col.Reset()
+}
+
 func (col *Float64) ScanRow(dest interface{}, row int) error {
 	value := col.col.Row(row)
 	switch d := dest.(type) {
@@ -381,6 +390,8 @@ func (col *Float64) ScanRow(dest interface{}, row int) error {
 	case **float64:
 		*d = new(float64)
 		**d = value
+	case *sql.NullFloat64:
+		d.Scan(value)
 	default:
 		return &ColumnConverterError{
 			Op:   "ScanRow",
@@ -418,6 +429,19 @@ func (col *Float64) Append(v interface{}) (nulls []uint8, err error) {
 				nulls[i] = 1
 			}
 		}
+	case []sql.NullFloat64:
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			col.AppendRow(v[i])
+		}
+	case []*sql.NullFloat64:
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			if v[i] == nil {
+				nulls[i] = 1
+			}
+			col.AppendRow(v[i])
+		}
 	default:
 		return nil, &ColumnConverterError{
 			Op:   "Append",
@@ -441,6 +465,20 @@ func (col *Float64) AppendRow(v interface{}) error {
 		}
 	case nil:
 		col.col.Append(0)
+	case sql.NullFloat64:
+		switch v.Valid {
+		case true:
+			col.col.Append(v.Float64)
+		default:
+			col.col.Append(0)
+		}
+	case *sql.NullFloat64:
+		switch v.Valid {
+		case true:
+			col.col.Append(v.Float64)
+		default:
+			col.col.Append(0)
+		}
 	default:
 		return &ColumnConverterError{
 			Op:   "AppendRow",
@@ -475,6 +513,10 @@ func (col *Int8) Rows() int {
 	return col.col.Rows()
 }
 
+func (col *Int8) Reset() {
+	col.col.Reset()
+}
+
 func (col *Int8) ScanRow(dest interface{}, row int) error {
 	value := col.col.Row(row)
 	switch d := dest.(type) {
@@ -483,6 +525,13 @@ func (col *Int8) ScanRow(dest interface{}, row int) error {
 	case **int8:
 		*d = new(int8)
 		**d = value
+	case *bool:
+		switch value {
+		case 0:
+			*d = false
+		default:
+			*d = true
+		}
 	default:
 		return &ColumnConverterError{
 			Op:   "ScanRow",
@@ -520,6 +569,24 @@ func (col *Int8) Append(v interface{}) (nulls []uint8, err error) {
 				nulls[i] = 1
 			}
 		}
+	case []bool:
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			val := int8(0)
+			if v[i] {
+				val = 1
+			}
+			col.col.Append(val)
+		}
+	case []*bool:
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			val := int8(0)
+			if *v[i] {
+				val = 1
+			}
+			col.col.Append(val)
+		}
 	default:
 		return nil, &ColumnConverterError{
 			Op:   "Append",
@@ -543,6 +610,18 @@ func (col *Int8) AppendRow(v interface{}) error {
 		}
 	case nil:
 		col.col.Append(0)
+	case bool:
+		val := int8(0)
+		if v {
+			val = 1
+		}
+		col.col.Append(val)
+	case *bool:
+		val := int8(0)
+		if *v {
+			val = 1
+		}
+		col.col.Append(val)
 	default:
 		return &ColumnConverterError{
 			Op:   "AppendRow",
@@ -577,6 +656,10 @@ func (col *Int16) Rows() int {
 	return col.col.Rows()
 }
 
+func (col *Int16) Reset() {
+	col.col.Reset()
+}
+
 func (col *Int16) ScanRow(dest interface{}, row int) error {
 	value := col.col.Row(row)
 	switch d := dest.(type) {
@@ -585,6 +668,8 @@ func (col *Int16) ScanRow(dest interface{}, row int) error {
 	case **int16:
 		*d = new(int16)
 		**d = value
+	case *sql.NullInt16:
+		d.Scan(value)
 	default:
 		return &ColumnConverterError{
 			Op:   "ScanRow",
@@ -622,6 +707,19 @@ func (col *Int16) Append(v interface{}) (nulls []uint8, err error) {
 				nulls[i] = 1
 			}
 		}
+	case []sql.NullInt16:
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			col.AppendRow(v[i])
+		}
+	case []*sql.NullInt16:
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			if v[i] == nil {
+				nulls[i] = 1
+			}
+			col.AppendRow(v[i])
+		}
 	default:
 		return nil, &ColumnConverterError{
 			Op:   "Append",
@@ -645,6 +743,20 @@ func (col *Int16) AppendRow(v interface{}) error {
 		}
 	case nil:
 		col.col.Append(0)
+	case sql.NullInt16:
+		switch v.Valid {
+		case true:
+			col.col.Append(v.Int16)
+		default:
+			col.col.Append(0)
+		}
+	case *sql.NullInt16:
+		switch v.Valid {
+		case true:
+			col.col.Append(v.Int16)
+		default:
+			col.col.Append(0)
+		}
 	default:
 		return &ColumnConverterError{
 			Op:   "AppendRow",
@@ -679,6 +791,10 @@ func (col *Int32) Rows() int {
 	return col.col.Rows()
 }
 
+func (col *Int32) Reset() {
+	col.col.Reset()
+}
+
 func (col *Int32) ScanRow(dest interface{}, row int) error {
 	value := col.col.Row(row)
 	switch d := dest.(type) {
@@ -687,6 +803,8 @@ func (col *Int32) ScanRow(dest interface{}, row int) error {
 	case **int32:
 		*d = new(int32)
 		**d = value
+	case *sql.NullInt32:
+		d.Scan(value)
 	default:
 		return &ColumnConverterError{
 			Op:   "ScanRow",
@@ -724,6 +842,19 @@ func (col *Int32) Append(v interface{}) (nulls []uint8, err error) {
 				nulls[i] = 1
 			}
 		}
+	case []sql.NullInt32:
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			col.AppendRow(v[i])
+		}
+	case []*sql.NullInt32:
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			if v[i] == nil {
+				nulls[i] = 1
+			}
+			col.AppendRow(v[i])
+		}
 	default:
 		return nil, &ColumnConverterError{
 			Op:   "Append",
@@ -747,6 +878,20 @@ func (col *Int32) AppendRow(v interface{}) error {
 		}
 	case nil:
 		col.col.Append(0)
+	case sql.NullInt32:
+		switch v.Valid {
+		case true:
+			col.col.Append(v.Int32)
+		default:
+			col.col.Append(0)
+		}
+	case *sql.NullInt32:
+		switch v.Valid {
+		case true:
+			col.col.Append(v.Int32)
+		default:
+			col.col.Append(0)
+		}
 	default:
 		return &ColumnConverterError{
 			Op:   "AppendRow",
@@ -781,6 +926,10 @@ func (col *Int64) Rows() int {
 	return col.col.Rows()
 }
 
+func (col *Int64) Reset() {
+	col.col.Reset()
+}
+
 func (col *Int64) ScanRow(dest interface{}, row int) error {
 	value := col.col.Row(row)
 	switch d := dest.(type) {
@@ -791,6 +940,8 @@ func (col *Int64) ScanRow(dest interface{}, row int) error {
 		**d = value
 	case *time.Duration:
 		*d = time.Duration(value)
+	case *sql.NullInt64:
+		d.Scan(value)
 	default:
 		return &ColumnConverterError{
 			Op:   "ScanRow",
@@ -828,6 +979,19 @@ func (col *Int64) Append(v interface{}) (nulls []uint8, err error) {
 				nulls[i] = 1
 			}
 		}
+	case []sql.NullInt64:
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			col.AppendRow(v[i])
+		}
+	case []*sql.NullInt64:
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			if v[i] == nil {
+				nulls[i] = 1
+			}
+			col.AppendRow(v[i])
+		}
 	default:
 		return nil, &ColumnConverterError{
 			Op:   "Append",
@@ -851,6 +1015,20 @@ func (col *Int64) AppendRow(v interface{}) error {
 		}
 	case nil:
 		col.col.Append(0)
+	case sql.NullInt64:
+		switch v.Valid {
+		case true:
+			col.col.Append(v.Int64)
+		default:
+			col.col.Append(0)
+		}
+	case *sql.NullInt64:
+		switch v.Valid {
+		case true:
+			col.col.Append(v.Int64)
+		default:
+			col.col.Append(0)
+		}
 	case time.Duration:
 		col.col.Append(int64(v))
 	case *time.Duration:
@@ -887,6 +1065,10 @@ func (col *UInt8) ScanType() reflect.Type {
 
 func (col *UInt8) Rows() int {
 	return col.col.Rows()
+}
+
+func (col *UInt8) Reset() {
+	col.col.Reset()
 }
 
 func (col *UInt8) ScanRow(dest interface{}, row int) error {
@@ -997,6 +1179,10 @@ func (col *UInt16) Rows() int {
 	return col.col.Rows()
 }
 
+func (col *UInt16) Reset() {
+	col.col.Reset()
+}
+
 func (col *UInt16) ScanRow(dest interface{}, row int) error {
 	value := col.col.Row(row)
 	switch d := dest.(type) {
@@ -1099,6 +1285,10 @@ func (col *UInt32) Rows() int {
 	return col.col.Rows()
 }
 
+func (col *UInt32) Reset() {
+	col.col.Reset()
+}
+
 func (col *UInt32) ScanRow(dest interface{}, row int) error {
 	value := col.col.Row(row)
 	switch d := dest.(type) {
@@ -1199,6 +1389,10 @@ func (col *UInt64) ScanType() reflect.Type {
 
 func (col *UInt64) Rows() int {
 	return col.col.Rows()
+}
+
+func (col *UInt64) Reset() {
+	col.col.Reset()
 }
 
 func (col *UInt64) ScanRow(dest interface{}, row int) error {

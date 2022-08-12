@@ -26,8 +26,11 @@ import (
 )
 
 func init() {
-	rand.Seed(time.Now().UnixNano())
+	seed := time.Now().UnixNano()
+	fmt.Printf("using random seed %d for issues\n", seed)
+	rand.Seed(seed)
 }
+
 func checkMinServerVersion(conn driver.Conn, major, minor uint64) error {
 	v, err := conn.ServerVersion()
 	if err != nil {

@@ -79,10 +79,11 @@ func (b *Block) Encode(buffer *proto.Buffer, revision uint64) error {
 	if len(b.Columns) != 0 {
 		rows = b.Columns[0].Rows()
 		for _, c := range b.Columns[1:] {
-			if rows != c.Rows() {
+			cRows := c.Rows()
+			if rows != cRows {
 				return &BlockError{
 					Op:  "Encode",
-					Err: errors.New("mismatched len of columns"),
+					Err: fmt.Errorf("mismatched len of columns - expected %d, recieved %d for col %s", rows, cRows, c.Name()),
 				}
 			}
 		}
@@ -165,6 +166,12 @@ func (b *Block) Decode(reader *proto.Reader, revision uint64) (err error) {
 		b.names, b.Columns = append(b.names, columnName), append(b.Columns, c)
 	}
 	return nil
+}
+
+func (b *Block) Reset() {
+	for i := range b.Columns {
+		b.Columns[i].Reset()
+	}
 }
 
 func encodeBlockInfo(buffer *proto.Buffer) {

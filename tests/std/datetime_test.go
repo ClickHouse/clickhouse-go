@@ -20,6 +20,7 @@ package std
 import (
 	"database/sql"
 	"fmt"
+	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
 
@@ -31,8 +32,9 @@ func TestStdDateTime(t *testing.T) {
 
 	for name, dsn := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
-			if conn, err := sql.Open("clickhouse", dsn); assert.NoError(t, err) {
-				const ddl = `
+			conn, err := sql.Open("clickhouse", dsn)
+			require.NoError(t, err)
+			const ddl = `
 			CREATE TABLE test_datetime (
 				  Col1 DateTime
 				, Col2 DateTime('Europe/Moscow')
@@ -40,67 +42,80 @@ func TestStdDateTime(t *testing.T) {
 				, Col4 Nullable(DateTime('Europe/Moscow'))
 				, Col5 Array(DateTime('Europe/Moscow'))
 				, Col6 Array(Nullable(DateTime('Europe/Moscow')))
-			) Engine Memory
-		`
-				defer func() {
-					conn.Exec("DROP TABLE test_datetime")
-				}()
-				if _, err := conn.Exec(ddl); assert.NoError(t, err) {
-					scope, err := conn.Begin()
-					if !assert.NoError(t, err) {
-						return
-					}
-					if batch, err := scope.Prepare("INSERT INTO test_datetime"); assert.NoError(t, err) {
-						datetime := time.Now().Truncate(time.Second)
-						if _, err := batch.Exec(
-							datetime,
-							datetime,
-							datetime,
-							&datetime,
-							[]time.Time{datetime, datetime},
-							[]*time.Time{&datetime, nil, &datetime},
-						); assert.NoError(t, err) {
-							if err := scope.Commit(); assert.NoError(t, err) {
-								var (
-									col1 time.Time
-									col2 time.Time
-									col3 time.Time
-									col4 *time.Time
-									col5 []time.Time
-									col6 []*time.Time
-								)
-								if err := conn.QueryRow("SELECT * FROM test_datetime").Scan(&col1, &col2, &col3, &col4, &col5, &col6); assert.NoError(t, err) {
-									assert.Equal(t, datetime, col1)
-									assert.Equal(t, datetime.Unix(), col2.Unix())
-									assert.Equal(t, datetime.Unix(), col3.Unix())
-									if name == "Http" {
-										// Native Format over HTTP works with revision 0
-										// Clickhouse before 54337 revision don't support Time Zone
-										// So, it removes Time Zone if revision less than 54337
-										if assert.Equal(t, "Local", col2.Location().String()) {
-											assert.Equal(t, "Local", col3.Location().String())
-										}
-									} else {
-										if assert.Equal(t, "Europe/Moscow", col2.Location().String()) {
-											assert.Equal(t, "Europe/London", col3.Location().String())
-										}
-									}
-									assert.Equal(t, datetime.Unix(), col4.Unix())
-									if assert.Len(t, col5, 2) {
-										assert.Equal(t, "Europe/Moscow", col5[0].Location().String())
-										assert.Equal(t, "Europe/Moscow", col5[1].Location().String())
-									}
-									if assert.Len(t, col6, 3) {
-										assert.Nil(t, col6[1])
-										assert.NotNil(t, col6[0])
-										assert.NotNil(t, col6[2])
-									}
-								}
-							}
-						}
-					}
+			    , Col7 DateTime
+			    , Col8 Nullable(DateTime)
+			) Engine Memory`
+			defer func() {
+				conn.Exec("DROP TABLE test_datetime")
+			}()
+			_, err = conn.Exec(ddl)
+			require.NoError(t, err)
+			scope, err := conn.Begin()
+			require.NoError(t, err)
+			batch, err := scope.Prepare("INSERT INTO test_datetime")
+			require.NoError(t, err)
+			datetime := time.Now().Truncate(time.Second)
+			_, err = batch.Exec(
+				datetime,
+				datetime,
+				datetime,
+				&datetime,
+				[]time.Time{datetime, datetime},
+				[]*time.Time{&datetime, nil, &datetime},
+				sql.NullTime{
+					Time:  datetime,
+					Valid: true,
+				},
+				sql.NullTime{
+					Time:  time.Time{},
+					Valid: false,
+				},
+			)
+			require.NoError(t, err)
+			require.NoError(t, scope.Commit())
+			var (
+				col1 time.Time
+				col2 time.Time
+				col3 time.Time
+				col4 *time.Time
+				col5 []time.Time
+				col6 []*time.Time
+				col7 sql.NullTime
+				col8 sql.NullTime
+			)
+			require.NoError(t, conn.QueryRow("SELECT * FROM test_datetime").Scan(&col1, &col2, &col3, &col4, &col5, &col6, &col7, &col8))
+			assert.Equal(t, datetime, col1)
+			assert.Equal(t, datetime.Unix(), col2.Unix())
+			assert.Equal(t, datetime.Unix(), col3.Unix())
+			if name == "Http" {
+				// Native Format over HTTP works with revision 0
+				// Clickhouse before 54337 revision don't support Time Zone
+				// So, it removes Time Zone if revision less than 54337
+				if assert.Equal(t, "Local", col2.Location().String()) {
+					assert.Equal(t, "Local", col3.Location().String())
+				}
+			} else {
+				if assert.Equal(t, "Europe/Moscow", col2.Location().String()) {
+					assert.Equal(t, "Europe/London", col3.Location().String())
 				}
 			}
+			assert.Equal(t, datetime.Unix(), col4.Unix())
+			require.Len(t, col5, 2)
+			assert.Equal(t, "Europe/Moscow", col5[0].Location().String())
+			assert.Equal(t, "Europe/Moscow", col5[1].Location().String())
+			require.Len(t, col6, 3)
+			assert.Nil(t, col6[1])
+			assert.NotNil(t, col6[0])
+			assert.NotNil(t, col6[2])
+			assert.Equal(t, sql.NullTime{
+				Time:  datetime,
+				Valid: true,
+			}, col7)
+			assert.Equal(t, sql.NullTime{
+				Time:  time.Time{},
+				Valid: false,
+			}, col8)
+
 		})
 	}
 }

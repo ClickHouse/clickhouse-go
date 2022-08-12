@@ -18,6 +18,7 @@
 package column
 
 import (
+	"database/sql"
 	"fmt"
 	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
@@ -32,6 +33,10 @@ var (
 type Date32 struct {
 	col  proto.ColDate32
 	name string
+}
+
+func (col *Date32) Reset() {
+	col.col.Reset()
 }
 
 func (col *Date32) Name() string {
@@ -65,6 +70,8 @@ func (col *Date32) ScanRow(dest interface{}, row int) error {
 	case **time.Time:
 		*d = new(time.Time)
 		**d = col.row(row)
+	case *sql.NullTime:
+		d.Scan(col.row(row))
 	default:
 		return &ColumnConverterError{
 			Op:   "ScanRow",
@@ -98,6 +105,42 @@ func (col *Date32) Append(v interface{}) (nulls []uint8, err error) {
 				col.col.Append(time.Time{})
 			}
 		}
+	case []sql.NullTime:
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			col.AppendRow(v[i])
+		}
+	case []*sql.NullTime:
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			if v[i] == nil {
+				nulls[i] = 1
+			}
+			col.AppendRow(v[i])
+		}
+	case []string:
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			value, err := col.parseDate(v[i])
+			if err != nil {
+				return nil, err
+			}
+			col.col.Append(value)
+		}
+	case []*string:
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			if v[i] == nil || *v[i] == "" {
+				nulls[i] = 1
+				col.col.Append(time.Time{})
+			} else {
+				value, err := col.parseDate(*v[i])
+				if err != nil {
+					return nil, err
+				}
+				col.col.Append(value)
+			}
+		}
 	default:
 		return nil, &ColumnConverterError{
 			Op:   "Append",
@@ -125,9 +168,43 @@ func (col *Date32) AppendRow(v interface{}) error {
 		default:
 			col.col.Append(time.Time{})
 		}
+	case sql.NullTime:
+		switch v.Valid {
+		case true:
+			col.col.Append(v.Time)
+		default:
+			col.col.Append(time.Time{})
+		}
+	case *sql.NullTime:
+		switch v.Valid {
+		case true:
+			col.col.Append(v.Time)
+		default:
+			col.col.Append(time.Time{})
+		}
 	case nil:
 		col.col.Append(time.Time{})
+	case string:
+		value, err := col.parseDate(v)
+		if err != nil {
+			return err
+		}
+		col.col.Append(value)
+	case *string:
+		if v == nil || *v == "" {
+			col.col.Append(time.Time{})
+		} else {
+			value, err := col.parseDate(*v)
+			if err != nil {
+				return err
+			}
+			col.col.Append(value)
+		}
 	default:
+		s, ok := v.(fmt.Stringer)
+		if ok {
+			return col.AppendRow(s.String())
+		}
 		return &ColumnConverterError{
 			Op:   "AppendRow",
 			To:   "Date32",
@@ -135,6 +212,15 @@ func (col *Date32) AppendRow(v interface{}) error {
 		}
 	}
 	return nil
+}
+
+func (col *Date32) parseDate(str string) (datetime time.Time, err error) {
+	defer func() {
+		if err == nil {
+			err = dateOverflow(minDate32, maxDate32, datetime, defaultDateFormat)
+		}
+	}()
+	return time.Parse(defaultDateFormat, str)
 }
 
 func (col *Date32) Decode(reader *proto.Reader, rows int) error {

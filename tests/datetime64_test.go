@@ -19,6 +19,7 @@ package tests
 
 import (
 	"context"
+	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
 
@@ -42,12 +43,12 @@ func TestDateTime64(t *testing.T) {
 			//Debug: true,
 		})
 	)
-	if assert.NoError(t, err) {
-		if err := checkMinServerVersion(conn, 20, 3, 0); err != nil {
-			t.Skip(err.Error())
-			return
-		}
-		const ddl = `
+	require.NoError(t, err)
+	if err := CheckMinServerVersion(conn, 20, 3, 0); err != nil {
+		t.Skip(err.Error())
+		return
+	}
+	const ddl = `
 			CREATE TABLE test_datetime64 (
 				  Col1 DateTime64(3)
 				, Col2 DateTime64(9, 'Europe/Moscow')
@@ -58,67 +59,66 @@ func TestDateTime64(t *testing.T) {
 				, Col7 DateTime64(3) 
 				, Col8 DateTime64(6) 
 				, Col9 DateTime64(9)
+			    , Col10 DateTime64(9)
 			) Engine Memory
 		`
-		defer func() {
-			conn.Exec(ctx, "DROP TABLE test_datetime64")
-		}()
-		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
-			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_datetime64"); assert.NoError(t, err) {
-				var (
-					datetime1 = time.Now().Truncate(time.Millisecond)
-					datetime2 = time.Now().Truncate(time.Nanosecond)
-					datetime3 = time.Now().Truncate(time.Second)
-				)
-				if err := batch.Append(
-					datetime1,
-					datetime2,
-					datetime3,
-					&datetime1,
-					[]time.Time{datetime1, datetime1},
-					[]*time.Time{&datetime3, nil, &datetime3},
-					datetime1.UTC().Format("2006-01-02 15:04:05.999"),
-					datetime1.UTC().Format("2006-01-02 15:04:05.999"),
-					datetime1.UTC().Format("2006-01-02 15:04:05.999"),
-				); assert.NoError(t, err) {
-					if err := batch.Send(); assert.NoError(t, err) {
-						var (
-							col1 time.Time
-							col2 time.Time
-							col3 time.Time
-							col4 *time.Time
-							col5 []time.Time
-							col6 []*time.Time
-							col7 time.Time
-							col8 time.Time
-							col9 time.Time
-						)
-						if err := conn.QueryRow(ctx, "SELECT * FROM test_datetime64").Scan(&col1, &col2, &col3, &col4, &col5, &col6, &col7, &col8, &col9); assert.NoError(t, err) {
-							assert.Equal(t, datetime1, col1)
-							assert.Equal(t, datetime2.UnixNano(), col2.UnixNano())
-							assert.Equal(t, datetime3.UnixNano(), col3.UnixNano())
-							if assert.Equal(t, "Europe/Moscow", col2.Location().String()) {
-								assert.Equal(t, "Europe/London", col3.Location().String())
-							}
-							assert.Equal(t, datetime1.UnixNano(), col4.UnixNano())
-							if assert.Len(t, col5, 2) {
-								assert.Equal(t, "Europe/Moscow", col5[0].Location().String())
-								assert.Equal(t, "Europe/Moscow", col5[1].Location().String())
-							}
-							if assert.Len(t, col6, 3) {
-								assert.Nil(t, col6[1])
-								assert.NotNil(t, col6[0])
-								assert.NotNil(t, col6[2])
-							}
-							assert.Equal(t, datetime1, col7)
-							assert.Equal(t, datetime1, col8)
-							assert.Equal(t, datetime1, col9)
-						}
-					}
-				}
-			}
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE test_datetime64")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_datetime64")
+	require.NoError(t, err)
+	var (
+		datetime1   = time.Now().Truncate(time.Millisecond)
+		datetime2   = time.Now().Truncate(time.Nanosecond)
+		datetime3   = time.Now().Truncate(time.Second)
+		datetimeStu = &testStr{
+			Col1: datetime1.UTC().Format("2006-01-02 15:04:05.999"),
 		}
+	)
+	require.NoError(t, batch.Append(
+		datetime1,
+		datetime2,
+		datetime3,
+		&datetime1,
+		[]time.Time{datetime1, datetime1},
+		[]*time.Time{&datetime3, nil, &datetime3},
+		datetime1.UTC().Format("2006-01-02 15:04:05.999"),
+		datetime1.UTC().Format("2006-01-02 15:04:05.999"),
+		datetime1.UTC().Format("2006-01-02 15:04:05.999"),
+		datetimeStu,
+	))
+	require.NoError(t, batch.Send())
+	var (
+		col1  time.Time
+		col2  time.Time
+		col3  time.Time
+		col4  *time.Time
+		col5  []time.Time
+		col6  []*time.Time
+		col7  time.Time
+		col8  time.Time
+		col9  time.Time
+		col10 time.Time
+	)
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_datetime64").Scan(&col1, &col2, &col3, &col4, &col5, &col6, &col7, &col8, &col9, &col10))
+	assert.Equal(t, datetime1, col1)
+	assert.Equal(t, datetime2.UnixNano(), col2.UnixNano())
+	assert.Equal(t, datetime3.UnixNano(), col3.UnixNano())
+	if assert.Equal(t, "Europe/Moscow", col2.Location().String()) {
+		assert.Equal(t, "Europe/London", col3.Location().String())
 	}
+	assert.Equal(t, datetime1.UnixNano(), col4.UnixNano())
+	require.Len(t, col5, 2)
+	assert.Equal(t, "Europe/Moscow", col5[0].Location().String())
+	assert.Equal(t, "Europe/Moscow", col5[1].Location().String())
+	require.Len(t, col6, 3)
+	assert.Nil(t, col6[1])
+	assert.NotNil(t, col6[0])
+	assert.NotNil(t, col6[2])
+	assert.Equal(t, datetime1, col7)
+	assert.Equal(t, datetime1, col8)
+	assert.Equal(t, datetime1, col9)
 }
 
 func TestDateTime64AsReference(t *testing.T) {
@@ -136,43 +136,75 @@ func TestDateTime64AsReference(t *testing.T) {
 			},
 		})
 	)
-
-	if assert.NoError(t, err) {
-		if err := checkMinServerVersion(conn, 20, 3, 0); err != nil {
-			t.Skip(err.Error())
-			return
-		}
-		const ddl = `
+	require.NoError(t, err)
+	if err := CheckMinServerVersion(conn, 20, 3, 0); err != nil {
+		t.Skip(err.Error())
+		return
+	}
+	const ddl = `
 			CREATE TABLE test_datetime64 (
 				Col1      DateTime64(3)
 			) Engine Memory
 		`
-		defer func() {
-			conn.Exec(ctx, "DROP TABLE test_datetime64")
-		}()
-
-		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
-			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_datetime64"); assert.NoError(t, err) {
-				now := time.Now().Unix()
-				err := batch.Append(&now)
-				assert.NoError(t, err)
-				assert.NoError(t, batch.Send())
-
-			}
-			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_datetime64"); assert.NoError(t, err) {
-				// batch column
-				var col1Data []*int64
-				var datetime1 = time.Now().Unix()
-				for i := 0; i < 1000; i++ {
-					col1Data = append(col1Data, &datetime1)
-				}
-				if err := batch.Column(0).Append(col1Data); !assert.NoError(t, err) {
-					return
-				}
-				assert.NoError(t, batch.Send())
-			}
-		}
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE test_datetime64")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_datetime64")
+	require.NoError(t, err)
+	now := time.Now().Unix()
+	require.NoError(t, batch.Append(&now))
+	require.NoError(t, batch.Send())
+	batch, err = conn.PrepareBatch(ctx, "INSERT INTO test_datetime64")
+	require.NoError(t, err)
+	// batch column
+	var col1Data []*int64
+	var datetime1 = time.Now().Unix()
+	for i := 0; i < 1000; i++ {
+		col1Data = append(col1Data, &datetime1)
 	}
+	require.NoError(t, batch.Column(0).Append(col1Data))
+	require.NoError(t, batch.Send())
+}
+
+// this behaviour is subject to change - we currently don't consider server tz but may in the future
+func TestServerDateTime(t *testing.T) {
+	var (
+		ctx       = context.Background()
+		conn, err = clickhouse.Open(&clickhouse.Options{
+			Addr: []string{"127.0.0.1:9000"},
+			Auth: clickhouse.Auth{
+				Database: "default",
+				Username: "default",
+				Password: "",
+			},
+			Compression: &clickhouse.Compression{
+				Method: clickhouse.CompressionLZ4,
+			},
+		})
+	)
+	require.NoError(t, err)
+	if err := CheckMinServerVersion(conn, 20, 3, 0); err != nil {
+		t.Skip(err.Error())
+		return
+	}
+	const ddl = `
+			CREATE TABLE test_datetime64 (
+				Col1      DateTime64(3)
+			) Engine Memory
+		`
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE test_datetime64")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_datetime64")
+	require.NoError(t, err)
+	now := time.Now().Truncate(time.Second)
+	require.NoError(t, batch.Append(&now))
+	require.NoError(t, batch.Send())
+	var col1 time.Time
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_datetime64").Scan(&col1))
+	assert.Equal(t, now, col1)
 }
 
 func TestNullableDateTime64(t *testing.T) {
@@ -192,7 +224,7 @@ func TestNullableDateTime64(t *testing.T) {
 		})
 	)
 	if assert.NoError(t, err) {
-		if err := checkMinServerVersion(conn, 20, 3, 0); err != nil {
+		if err := CheckMinServerVersion(conn, 20, 3, 0); err != nil {
 			t.Skip(err.Error())
 			return
 		}
@@ -304,7 +336,7 @@ func TestColumnarDateTime64(t *testing.T) {
 		})
 	)
 	if assert.NoError(t, err) {
-		if err := checkMinServerVersion(conn, 20, 3, 0); err != nil {
+		if err := CheckMinServerVersion(conn, 20, 3, 0); err != nil {
 			t.Skip(err.Error())
 			return
 		}
@@ -407,5 +439,52 @@ func TestColumnarDateTime64(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+func TestDateTime64Flush(t *testing.T) {
+	var (
+		ctx       = context.Background()
+		conn, err = clickhouse.Open(&clickhouse.Options{
+			Addr: []string{"127.0.0.1:9000"},
+			Auth: clickhouse.Auth{
+				Database: "default",
+				Username: "default",
+				Password: "",
+			},
+			Compression: &clickhouse.Compression{
+				Method: clickhouse.CompressionLZ4,
+			},
+			MaxOpenConns: 1,
+		})
+	)
+	require.NoError(t, err)
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE datetime_64_flush")
+	}()
+	const ddl = `
+		CREATE TABLE datetime_64_flush (
+			  Col1 DateTime64(3)
+		) Engine Memory
+		`
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO datetime_64_flush")
+	require.NoError(t, err)
+	vals := [1000]time.Time{}
+	var now = time.Now()
+	for i := 0; i < 1000; i++ {
+		vals[i] = now.Add(time.Duration(i) * time.Hour).Truncate(time.Millisecond)
+		batch.Append(vals[i])
+		batch.Flush()
+	}
+	batch.Send()
+	rows, err := conn.Query(ctx, "SELECT * FROM datetime_64_flush")
+	require.NoError(t, err)
+	i := 0
+	for rows.Next() {
+		var col1 time.Time
+		require.NoError(t, rows.Scan(&col1))
+		assert.Equal(t, vals[i], col1)
+		i += 1
 	}
 }

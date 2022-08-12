@@ -30,6 +30,10 @@ type IPv6 struct {
 	name string
 }
 
+func (col *IPv6) Reset() {
+	col.col.Reset()
+}
+
 func (col *IPv6) Name() string {
 	return col.name
 }

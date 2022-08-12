@@ -257,6 +257,17 @@ func TestFormatGroup(t *testing.T) {
 	}
 }
 
+func TestFormatArray(t *testing.T) {
+	arraySet := ArraySet{"A", 1}
+	val, _ := format(time.UTC, Seconds, arraySet)
+	assert.Equal(t, "['A', 1]", val)
+}
+
+func TestFormatMap(t *testing.T) {
+	val, _ := format(time.UTC, Seconds, map[string]uint8{"a": 1})
+	assert.Equal(t, "map('a', 1)", val)
+}
+
 func BenchmarkBindNumeric(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {

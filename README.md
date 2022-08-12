@@ -10,6 +10,8 @@ There are two version of this client, v1 and v2, available as separate branches.
 
 Users should use v2 which is production ready and [significantly faster than v1](#benchmark).
 
+v2 has breaking changes for users migrating from v1. These were not properly tracked prior to this client being officially supported. We endeavour to track known differences [here](https://github.com/ClickHouse/clickhouse-go/blob/main/v1_v2_CHANGES.md) and resolve where possible.
+
 ## Supported ClickHouse Versions
 
 The client is tested against the currently [supported versions](https://github.com/ClickHouse/ClickHouse/blob/master/SECURITY.md) of ClickHouse
@@ -19,7 +21,7 @@ The client is tested against the currently [supported versions](https://github.c
 | Client Version | Golang Versions |
 |----------------|-----------------|
 | => 2.0 <= 2.2  | 1.17, 1.18      |
-| >= 2.3         | 1.18            |
+| >= 2.3         | 1.18.4+, 1.19   |
 
 ## Key features
 
@@ -83,11 +85,16 @@ conn.SetConnMaxLifetime(time.Hour)
 * username/password - auth credentials
 * database - select the current default database
 * dial_timeout -  a duration string is a possibly signed sequence of decimal numbers, each with optional fraction and a unit suffix such as "300ms", "1s". Valid time units are "ms", "s", "m".
-* connection_open_strategy - random/in_order (default random).
-    * round-robin      - choose a round-robin server from the set
+* connection_open_strategy - round_robin/in_order (default in_order).
+    * round_robin      - choose a round-robin server from the set
     * in_order    - first live server is chosen in specified order
 * debug - enable debug output (boolean value)
-* compress - enable lz4 compression (boolean value)
+* compress - compress - specify the compression algorithm - “none” (default), `zstd`, `lz4`, `gzip`, `deflate`, `br`. If set to `true`, `lz4` will be used.
+* compress_level - Level of compression (default is 0). This is algorithm specific:
+  - `gzip` - `-2` (Best Speed) to `9` (Best Compression)
+  - `deflate` - `-2` (Best Speed) to `9` (Best Compression)
+  - `br` - `0` (Best Speed) to `11` (Best Compression)
+  - `zstd`, `lz4` - ignored
 
 SSL/TLS parameters:
 
@@ -220,7 +227,7 @@ go get -u github.com/ClickHouse/clickhouse-go/v2
 * [open db](examples/std/open_db/main.go)
 * [bind params](examples/std/bind/main.go)
 
-## ClickHouse alternatives
+## ClickHouse alternatives - ch-go
 
 Versions of this client >=2.3.x utilise [ch-go](https://github.com/ClickHouse/ch-go) for their low level encoding/decoding. This low lever client provides a high performance columnar interface and should be used in performance critical use cases. This client provides more familar row orientated and `database/sql` semantics at the cost of some performance.
 

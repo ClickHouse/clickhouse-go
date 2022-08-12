@@ -29,7 +29,7 @@ import (
 	"regexp"
 )
 
-var splitHttpInsertRe = regexp.MustCompile(`(?i)^INSERT INTO\s([\w.]+)`)
+var splitHttpInsertRe = regexp.MustCompile("(?i)^INSERT INTO\\s+`?([\\w.]+)`?")
 
 // release is ignored, because http used by std with empty release function
 func (h *httpConnect) prepareBatch(ctx context.Context, query string, release func(*connect, error)) (driver.Batch, error) {
@@ -85,6 +85,11 @@ type httpBatch struct {
 	structMap *structMap
 	sent      bool
 	block     *proto.Block
+}
+
+// Flush TODO: noop on http currently - requires streaming to be implemented
+func (b *httpBatch) Flush() error {
+	return nil
 }
 
 func (b *httpBatch) Abort() error {
@@ -147,12 +152,27 @@ func (b *httpBatch) Send() (err error) {
 	if b.err != nil {
 		return b.err
 	}
+	options := queryOptions(b.ctx)
 
-	r, w := io.Pipe()
+	headers := make(map[string]string)
+
+	r, pw := io.Pipe()
+	crw := b.conn.compressionPool.Get()
+	w := crw.reset(pw)
+
+	defer b.conn.compressionPool.Put(crw)
+
+	switch b.conn.compression {
+	case CompressionGZIP, CompressionDeflate, CompressionBrotli:
+		headers["Content-Encoding"] = b.conn.compression.String()
+	case CompressionZSTD, CompressionLZ4:
+		options.settings["decompress"] = "1"
+	}
 
 	go func() {
 		var err error = nil
-		defer w.CloseWithError(err)
+		defer pw.CloseWithError(err)
+		defer w.Close()
 		b.conn.buffer.Reset()
 		if b.block.Rows() != 0 {
 			if err = b.conn.writeData(b.block); err != nil {
@@ -162,26 +182,19 @@ func (b *httpBatch) Send() (err error) {
 		if err = b.conn.writeData(&proto.Block{}); err != nil {
 			return
 		}
-		w.Write(b.conn.buffer.Buf)
 		if _, err = w.Write(b.conn.buffer.Buf); err != nil {
 			return
 		}
 	}()
 
-	options := queryOptions(b.ctx)
-	// only compress blocks
-	if b.conn.compression != CompressionNone {
-		options.settings["decompress"] = "1"
-	}
 	options.settings["query"] = b.query
-	res, err := b.conn.sendQuery(b.ctx, r, &options, map[string]string{
-		"Content-Type": "application/octet-stream",
-	})
+	headers["Content-Type"] = "application/octet-stream"
+	res, err := b.conn.sendQuery(b.ctx, r, &options, headers)
 
 	if res != nil {
-		defer res.Close()
+		defer res.Body.Close()
 		// we don't care about result, so just discard it to reuse connection
-		_, _ = io.Copy(ioutil.Discard, res)
+		_, _ = io.Copy(ioutil.Discard, res.Body)
 	}
 
 	return err
