@@ -327,6 +327,10 @@ func TestStdExternalTable(t *testing.T) {
 	require.NoError(t, std.ExternalData())
 }
 
+func TestStdOpenTelemetry(t *testing.T) {
+	require.NoError(t, std.OpenTelemetry())
+}
+
 // TODO:
 // println
 // README
