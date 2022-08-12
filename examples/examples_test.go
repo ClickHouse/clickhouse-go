@@ -323,6 +323,10 @@ func TestStdDynamicScan(t *testing.T) {
 	require.NoError(t, std.DynamicScan())
 }
 
+func TestStdExternalTable(t *testing.T) {
+	require.NoError(t, std.ExternalData())
+}
+
 // TODO:
 // println
 // README
