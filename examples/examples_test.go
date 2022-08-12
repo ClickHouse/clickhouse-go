@@ -315,8 +315,12 @@ func TestStdProgress(t *testing.T) {
 	require.NoError(t, std.ProgressProfileLogs())
 }
 
-func TestSession(t *testing.T) {
+func TestStdSession(t *testing.T) {
 	require.NoError(t, std.Sessions())
+}
+
+func TestStdDynamicScan(t *testing.T) {
+	require.NoError(t, std.DynamicScan())
 }
 
 // TODO:
