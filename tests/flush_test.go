@@ -28,54 +28,27 @@ import (
 )
 
 func TestNoFlushWithCompression(t *testing.T) {
-	var (
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-		})
-	)
+	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
 	require.NoError(t, err)
 	require.NoError(t, err)
 	insertWithFlush(t, conn, false)
 }
 
 func TestFlushWithCompression(t *testing.T) {
-	var (
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-		})
-	)
+	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
 	require.NoError(t, err)
 	require.NoError(t, err)
 	insertWithFlush(t, conn, true)
 }
 
 func TestFlush(t *testing.T) {
-	var (
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-		})
-	)
+	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
 	require.NoError(t, err)
 	insertWithFlush(t, conn, true)
 }

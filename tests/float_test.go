@@ -12,20 +12,10 @@ import (
 )
 
 func TestSimpleFloat(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-		})
-	)
+	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	require.NoError(t, err)
 	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
 		t.Skip(err.Error())
@@ -70,17 +60,10 @@ func TestSimpleFloat(t *testing.T) {
 }
 
 func BenchmarkFloat(b *testing.B) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-		})
-	)
+	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -111,21 +94,10 @@ func BenchmarkFloat(b *testing.B) {
 }
 
 func TestFixedFloatFlush(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			MaxOpenConns: 1,
-		})
-	)
+	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	require.NoError(t, err)
 
 	defer func() {
@@ -148,7 +120,7 @@ func TestFixedFloatFlush(t *testing.T) {
 		batch.Append(val32s[i], val64s[i])
 		batch.Flush()
 	}
-	batch.Send()
+	require.NoError(t, batch.Send())
 	rows, err := conn.Query(ctx, "SELECT * FROM fixed_float_flush")
 	require.NoError(t, err)
 	i := 0

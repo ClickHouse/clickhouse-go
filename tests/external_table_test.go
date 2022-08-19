@@ -20,6 +20,7 @@ package tests
 import (
 	"context"
 	"fmt"
+	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
 
@@ -49,44 +50,32 @@ func TestExternalTable(t *testing.T) {
 			assert.NoError(t, table2.Append(uint8(i), fmt.Sprintf("value_%d", i), time.Now()))
 		}
 	}
-	conn, err := clickhouse.Open(&clickhouse.Options{
-		Addr: []string{"127.0.0.1:9000"},
-		Auth: clickhouse.Auth{
-			Database: "default",
-			Username: "default",
-			Password: "",
-		},
-		Compression: &clickhouse.Compression{
-			Method: clickhouse.CompressionLZ4,
-		},
-		//	Debug: true,
+	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
 	})
-	if assert.NoError(t, err) {
-		ctx := clickhouse.Context(context.Background(),
-			clickhouse.WithExternalTable(table1, table2),
+	require.NoError(t, err)
+	ctx := clickhouse.Context(context.Background(),
+		clickhouse.WithExternalTable(table1, table2),
+	)
+	rows, err := conn.Query(ctx, "SELECT * FROM external_table_1")
+	require.NoError(t, err)
+	for rows.Next() {
+		var (
+			col1 uint8
+			col2 string
+			col3 time.Time
 		)
-		if rows, err := conn.Query(ctx, "SELECT * FROM external_table_1"); assert.NoError(t, err) {
-			for rows.Next() {
-				var (
-					col1 uint8
-					col2 string
-					col3 time.Time
-				)
-				if err := rows.Scan(&col1, &col2, &col3); assert.NoError(t, err) {
-					t.Logf("row: col1=%d, col2=%s, col3=%s\n", col1, col2, col3)
-				}
-			}
-			rows.Close()
-		}
-		var count uint64
-		if err := conn.QueryRow(ctx, "SELECT COUNT(*) FROM external_table_1").Scan(&count); assert.NoError(t, err) {
-			assert.Equal(t, uint64(10), count)
-		}
-		if err := conn.QueryRow(ctx, "SELECT COUNT(*) FROM external_table_2").Scan(&count); assert.NoError(t, err) {
-			assert.Equal(t, uint64(10), count)
-		}
-		if err := conn.QueryRow(ctx, "SELECT COUNT(*) FROM (SELECT * FROM external_table_1 UNION ALL SELECT * FROM external_table_2)").Scan(&count); assert.NoError(t, err) {
-			assert.Equal(t, uint64(20), count)
+		if err := rows.Scan(&col1, &col2, &col3); assert.NoError(t, err) {
+			t.Logf("row: col1=%d, col2=%s, col3=%s\n", col1, col2, col3)
 		}
 	}
+	rows.Close()
+
+	var count uint64
+	require.NoError(t, conn.QueryRow(ctx, "SELECT COUNT(*) FROM external_table_1").Scan(&count))
+	assert.Equal(t, uint64(10), count)
+	require.NoError(t, conn.QueryRow(ctx, "SELECT COUNT(*) FROM external_table_2").Scan(&count))
+	assert.Equal(t, uint64(10), count)
+	require.NoError(t, conn.QueryRow(ctx, "SELECT COUNT(*) FROM (SELECT * FROM external_table_1 UNION ALL SELECT * FROM external_table_2)").Scan(&count))
+	assert.Equal(t, uint64(20), count)
 }
