@@ -50,19 +50,9 @@ type GithubEvent struct {
 var testDate, _ = time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", "2022-05-25 17:20:57 +0100 WEST")
 
 func setupConnection(t *testing.T) driver.Conn {
-	var (
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr:        []string{"127.0.0.1:9000"},
-			DialTimeout: time.Hour,
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			}, Settings: clickhouse.Settings{
-				"allow_experimental_object_type": 1,
-			},
-		})
-	)
+	conn, err := GetConnection(clickhouse.Settings{
+		"allow_experimental_object_type": 1,
+	}, nil, nil)
 	require.NoError(t, err)
 	return conn
 }

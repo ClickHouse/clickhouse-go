@@ -10,19 +10,13 @@ import (
 )
 
 func TestDurationInt64(t *testing.T) {
-	conn, err := clickhouse.Open(&clickhouse.Options{
-		Addr: []string{"127.0.0.1:9000"},
-		Compression: &clickhouse.Compression{
-			Method: clickhouse.CompressionLZ4,
-		},
-		Settings: clickhouse.Settings{
-			"max_execution_time": 60,
-		},
+	conn, err := GetConnection(clickhouse.Settings{
+		"max_execution_time": 60,
+	}, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
 	})
-	if err != nil {
-		panic(err)
-	}
-	if err := conn.Exec(
+	require.NoError(t, err)
+	require.NoError(t, conn.Exec(
 		context.Background(),
 		`
 			CREATE TABLE IF NOT EXISTS issue_631
@@ -30,9 +24,7 @@ func TestDurationInt64(t *testing.T) {
 			ENGINE = MergeTree
 			ORDER BY (timeDuration)
 			`,
-	); err != nil {
-		require.NoError(t, err)
-	}
+	))
 	defer func() {
 		require.NoError(t, conn.Exec(context.Background(), "DROP TABLE issue_631"))
 	}()

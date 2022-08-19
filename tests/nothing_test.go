@@ -19,6 +19,7 @@ package tests
 
 import (
 	"context"
+	"github.com/stretchr/testify/require"
 	"testing"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
@@ -26,32 +27,21 @@ import (
 )
 
 func TestNothing(t *testing.T) {
-	conn, err := clickhouse.Open(&clickhouse.Options{
-		Addr: []string{"127.0.0.1:9000"},
-		Auth: clickhouse.Auth{
-			Database: "default",
-			Username: "default",
-			Password: "",
-		},
-		Compression: &clickhouse.Compression{
-			Method: clickhouse.CompressionLZ4,
-		},
-		//Debug: true,
+	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
 	})
-	if assert.NoError(t, err) {
-		if rows, err := conn.Query(context.Background(), "SELECT NULL FROM system.numbers_mt LIMIT 10"); assert.NoError(t, err) {
-			var count int
-			for rows.Next() {
-				var nothing []struct{}
-				if !assert.NoError(t, rows.Scan(&nothing)) {
-					return
-				}
-				count++
-			}
-			rows.Close()
-			if assert.NoError(t, rows.Err()) {
-				assert.Equal(t, 10, count)
-			}
+	require.NoError(t, err)
+	rows, err := conn.Query(context.Background(), "SELECT NULL FROM system.numbers_mt LIMIT 10")
+	require.NoError(t, err)
+	var count int
+	for rows.Next() {
+		var nothing []struct{}
+		if !assert.NoError(t, rows.Scan(&nothing)) {
+			return
 		}
+		count++
 	}
+	rows.Close()
+	require.NoError(t, rows.Err())
+	assert.Equal(t, 10, count)
 }

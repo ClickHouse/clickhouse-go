@@ -29,24 +29,12 @@ import (
 )
 
 func TestLowCardinality(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			Settings: clickhouse.Settings{
-				"allow_suspicious_low_cardinality_types": 1,
-			},
-			//	Debug: true,
-		})
-	)
+	conn, err := GetConnection(clickhouse.Settings{
+		"allow_suspicious_low_cardinality_types": 1,
+	}, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	require.NoError(t, err)
 	if err := CheckMinServerVersion(conn, 19, 11, 0); err != nil {
 		t.Skip(err.Error())
@@ -92,13 +80,9 @@ func TestLowCardinality(t *testing.T) {
 			}
 		)
 		if i%2 == 0 {
-			if err := batch.Append(col1Data, col2Data, col3Data, col4Data, col5Data, col6Data, col7Data, col8Data); !assert.NoError(t, err) {
-				return
-			}
+			require.NoError(t, batch.Append(col1Data, col2Data, col3Data, col4Data, col5Data, col6Data, col7Data, col8Data))
 		} else {
-			if err := batch.Append(col1Data, col2Data, col3Data, col4Data, col5Data, col6Data, nil, col8Data); !assert.NoError(t, err) {
-				return
-			}
+			require.NoError(t, batch.Append(col1Data, col2Data, col3Data, col4Data, col5Data, col6Data, nil, col8Data))
 		}
 	}
 	require.NoError(t, batch.Send())
@@ -141,23 +125,12 @@ func TestLowCardinality(t *testing.T) {
 }
 
 func TestColmunarLowCardinality(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			Settings: clickhouse.Settings{
-				"allow_suspicious_low_cardinality_types": 1,
-			},
-		})
-	)
+	conn, err := GetConnection(clickhouse.Settings{
+		"allow_suspicious_low_cardinality_types": 1,
+	}, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	require.NoError(t, err)
 	if err := CheckMinServerVersion(conn, 20, 1, 0); err != nil {
 		t.Skip(err.Error())
@@ -214,23 +187,12 @@ func TestColmunarLowCardinality(t *testing.T) {
 }
 
 func TestLowCardinalityFlush(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			Settings: clickhouse.Settings{
-				"allow_suspicious_low_cardinality_types": 1,
-			},
-		})
-	)
+	conn, err := GetConnection(clickhouse.Settings{
+		"allow_suspicious_low_cardinality_types": 1,
+	}, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	require.NoError(t, err)
 	if err := CheckMinServerVersion(conn, 20, 1, 0); err != nil {
 		t.Skip(err.Error())

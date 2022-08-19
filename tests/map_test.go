@@ -28,21 +28,10 @@ import (
 )
 
 func TestMap(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			//Debug: true,
-		})
-	)
+	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	require.NoError(t, err)
 	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
 		t.Skip(err.Error())
@@ -112,22 +101,11 @@ func TestMap(t *testing.T) {
 	assert.Equal(t, col6Data, col6)
 }
 
-func TestColmnarMap(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			//Debug: true,
-		})
-	)
+func TestColumnarMap(t *testing.T) {
+	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	require.NoError(t, err)
 	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
 		t.Skip(err.Error())
@@ -162,15 +140,9 @@ func TestColmnarMap(t *testing.T) {
 		})
 		col3Data = append(col3Data, map[string]uint64{})
 	}
-	if err := batch.Column(0).Append(col1Data); !assert.NoError(t, err) {
-		return
-	}
-	if err := batch.Column(1).Append(col2Data); !assert.NoError(t, err) {
-		return
-	}
-	if err := batch.Column(2).Append(col3Data); !assert.NoError(t, err) {
-		return
-	}
+	require.NoError(t, batch.Column(0).Append(col1Data))
+	require.NoError(t, batch.Column(1).Append(col2Data))
+	require.NoError(t, batch.Column(2).Append(col3Data))
 	require.NoError(t, batch.Send())
 	{
 		var (
@@ -195,21 +167,10 @@ func TestColmnarMap(t *testing.T) {
 }
 
 func TestMapFlush(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			//Debug: true,
-		})
-	)
+	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	require.NoError(t, err)
 	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
 		t.Skip(err.Error())

@@ -19,7 +19,6 @@ package tests
 
 import (
 	"context"
-	"fmt"
 	"github.com/stretchr/testify/require"
 	"testing"
 
@@ -28,21 +27,10 @@ import (
 )
 
 func TestSimpleNested(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			//	Debug: true,
-		})
-	)
+	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	require.NoError(t, err)
 	if err := CheckMinServerVersion(conn, 22, 1, 0); err != nil {
 		t.Skip(err.Error())
@@ -69,30 +57,18 @@ func TestSimpleNested(t *testing.T) {
 	var (
 		col1 []string
 	)
-	if err := conn.QueryRow(ctx, "SELECT * FROM test_nested").Scan(&col1); assert.NoError(t, err) {
-		assert.Equal(t, col1Data, col1)
-	}
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_nested").Scan(&col1))
+	assert.Equal(t, col1Data, col1)
 }
 
 // this isn't documented behaviour in ClickHouse - i.e. flatten_nested=1 with multiple Nested. Following does work however.
 func TestNestedFlattened(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			Settings: clickhouse.Settings{
-				"flatten_nested": 1,
-			},
-		})
-	)
+	conn, err := GetConnection(clickhouse.Settings{
+		"flatten_nested": 1,
+	}, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	require.NoError(t, err)
 	if err := CheckMinServerVersion(conn, 22, 1, 0); err != nil {
 		t.Skip(err.Error())
@@ -116,63 +92,49 @@ func TestNestedFlattened(t *testing.T) {
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_nested")
 	}()
-	if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
-		if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_nested"); assert.NoError(t, err) {
-			fmt.Println(batch)
-			var (
-				col1Data = []uint8{1, 2, 3}
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_nested")
+	require.NoError(t, err)
+	var (
+		col1Data = []uint8{1, 2, 3}
 
-				col2Data = []uint8{10, 20, 30}
-				col3Data = []uint8{101, 201, 230} // Col2.Col1_N2
-				col4Data = [][][]interface{}{
-					[][]interface{}{
-						[]interface{}{uint8(1), uint8(2)},
-					},
-					[][]interface{}{
-						[]interface{}{uint8(1), uint8(2)},
-					},
-					[][]interface{}{
-						[]interface{}{uint8(1), uint8(2)},
-					},
-				}
-			)
-			require.NoError(t, batch.Append(col1Data, col2Data, col3Data, col4Data))
-			require.NoError(t, batch.Send())
-			var (
-				col1 []uint8
-				col2 []uint8
-				col3 []uint8
-				col4 [][][]interface{}
-			)
-			rows := conn.QueryRow(ctx, "SELECT * FROM test_nested")
-			require.NoError(t, rows.Scan(&col1, &col2, &col3, &col4))
-			assert.Equal(t, col1Data, col1)
-			assert.Equal(t, col2Data, col2)
-			assert.Equal(t, col3Data, col3)
-			assert.Equal(t, col4Data, col4)
+		col2Data = []uint8{10, 20, 30}
+		col3Data = []uint8{101, 201, 230} // Col2.Col1_N2
+		col4Data = [][][]interface{}{
+			[][]interface{}{
+				[]interface{}{uint8(1), uint8(2)},
+			},
+			[][]interface{}{
+				[]interface{}{uint8(1), uint8(2)},
+			},
+			[][]interface{}{
+				[]interface{}{uint8(1), uint8(2)},
+			},
 		}
-	}
-
+	)
+	require.NoError(t, batch.Append(col1Data, col2Data, col3Data, col4Data))
+	require.NoError(t, batch.Send())
+	var (
+		col1 []uint8
+		col2 []uint8
+		col3 []uint8
+		col4 [][][]interface{}
+	)
+	rows := conn.QueryRow(ctx, "SELECT * FROM test_nested")
+	require.NoError(t, rows.Scan(&col1, &col2, &col3, &col4))
+	assert.Equal(t, col1Data, col1)
+	assert.Equal(t, col2Data, col2)
+	assert.Equal(t, col3Data, col3)
+	assert.Equal(t, col4Data, col4)
 }
 
 func TestFlattenedSimpleNested(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			Settings: clickhouse.Settings{
-				"flatten_nested": 0,
-			},
-		})
-	)
+	conn, err := GetConnection(clickhouse.Settings{
+		"flatten_nested": 0,
+	}, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	require.NoError(t, err)
 	if err := CheckMinServerVersion(conn, 22, 1, 0); err != nil {
 		t.Skip(err.Error())
@@ -209,30 +171,18 @@ func TestFlattenedSimpleNested(t *testing.T) {
 	var (
 		col1 []map[string]interface{}
 	)
-	if err := conn.QueryRow(ctx, "SELECT * FROM test_nested").Scan(&col1); assert.NoError(t, err) {
-		assert.Equal(t, col1Data, col1)
-	}
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_nested").Scan(&col1))
+	assert.Equal(t, col1Data, col1)
 }
 
 // nested with flatten_nested = 0
 func TestNestedUnFlattened(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			Settings: clickhouse.Settings{
-				"flatten_nested": 0,
-			},
-		})
-	)
+	conn, err := GetConnection(clickhouse.Settings{
+		"flatten_nested": 0,
+	}, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	require.NoError(t, err)
 	if err := CheckMinServerVersion(conn, 22, 1, 0); err != nil {
 		t.Skip(err.Error())
@@ -308,23 +258,12 @@ func TestNestedUnFlattened(t *testing.T) {
 }
 
 func TestNestedFlush(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			Settings: clickhouse.Settings{
-				"flatten_nested": 0,
-			},
-		})
-	)
+	conn, err := GetConnection(clickhouse.Settings{
+		"flatten_nested": 0,
+	}, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	require.NoError(t, err)
 	if err := CheckMinServerVersion(conn, 22, 1, 0); err != nil {
 		t.Skip(err.Error())

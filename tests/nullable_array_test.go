@@ -31,21 +31,10 @@ import (
 )
 
 func TestNullableArray(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			//Debug: true,
-		})
-	)
+	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	const ddl = `
 	CREATE TABLE test_nullable_array (
 		  Col1  Array(Nullable(Bool))
@@ -108,51 +97,47 @@ func TestNullableArray(t *testing.T) {
 		[]*string{&strVal, nil, &strVal},
 		[]*uuid.UUID{&uuidVal, nil, &uuidVal},
 	)
-	if !assert.NoError(t, err) {
-		return
+	require.NoError(t, err)
+	require.NoError(t, batch.Send())
+	var result struct {
+		Col1  []*bool
+		Col2  []*uint8
+		Col3  []*time.Time
+		Col4  []*time.Time
+		Col5  []*time.Time
+		Col6  []*time.Time
+		Col7  []*decimal.Decimal
+		Col8  []*string
+		Col9  []*string
+		Col10 []*string
+		Col11 []*net.IP
+		Col12 []*net.IP
+		Col13 []*string
+		Col14 []*uuid.UUID
 	}
-	if assert.NoError(t, batch.Send()) {
-		var result struct {
-			Col1  []*bool
-			Col2  []*uint8
-			Col3  []*time.Time
-			Col4  []*time.Time
-			Col5  []*time.Time
-			Col6  []*time.Time
-			Col7  []*decimal.Decimal
-			Col8  []*string
-			Col9  []*string
-			Col10 []*string
-			Col11 []*net.IP
-			Col12 []*net.IP
-			Col13 []*string
-			Col14 []*uuid.UUID
-		}
-		if err := conn.QueryRow(ctx, "SELECT * FROM test_nullable_array").ScanStruct(&result); assert.NoError(t, err) {
-			assert.Equal(t, []*bool{&boolTrue, nil, &boolFalse}, result.Col1)
-			assert.Equal(t, []*uint8{&uint8Val, nil, &uint8Val}, result.Col2)
-			assert.Equal(t, []*time.Time{&dateVal, nil, &dateVal}, result.Col3)
-			assert.Equal(t, []*time.Time{&dateVal, nil, &dateVal}, result.Col4)
-			utcDateTime := datetime.In(time.UTC)
-			assert.Equal(t, []*time.Time{&utcDateTime, nil, &utcDateTime}, result.Col5)
-			assert.Equal(t, []*time.Time{&utcDateTime, nil, &utcDateTime}, result.Col6)
-			if assert.Nil(t, result.Col7[1]) {
-				assert.True(t, decimalVal.Equal(*result.Col7[0]))
-				assert.True(t, decimalVal.Equal(*result.Col7[2]))
-			}
-			assert.Equal(t, []*string{&enum1Val, nil, &enum2Val}, result.Col8)
-			assert.Equal(t, []*string{&enum1Val, nil, &enum2Val}, result.Col9)
-			assert.Equal(t, []*string{&fixed1Val, nil, &fixed2Val}, result.Col10)
-			if assert.Nil(t, result.Col11[1]) {
-				assert.Equal(t, IPv4Val.To4(), *result.Col11[0])
-				assert.Equal(t, IPv4Val.To4(), *result.Col11[2])
-			}
-			if assert.Nil(t, result.Col12[1]) {
-				assert.Equal(t, IPv6Val1, *result.Col12[0])
-				assert.Equal(t, IPv6Val2, *result.Col12[2])
-			}
-			assert.Equal(t, []*string{&strVal, nil, &strVal}, result.Col13)
-			assert.Equal(t, []*uuid.UUID{&uuidVal, nil, &uuidVal}, result.Col14)
-		}
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_nullable_array").ScanStruct(&result))
+	assert.Equal(t, []*bool{&boolTrue, nil, &boolFalse}, result.Col1)
+	assert.Equal(t, []*uint8{&uint8Val, nil, &uint8Val}, result.Col2)
+	assert.Equal(t, []*time.Time{&dateVal, nil, &dateVal}, result.Col3)
+	assert.Equal(t, []*time.Time{&dateVal, nil, &dateVal}, result.Col4)
+	utcDateTime := datetime.In(time.UTC)
+	assert.Equal(t, []*time.Time{&utcDateTime, nil, &utcDateTime}, result.Col5)
+	assert.Equal(t, []*time.Time{&utcDateTime, nil, &utcDateTime}, result.Col6)
+	if assert.Nil(t, result.Col7[1]) {
+		assert.True(t, decimalVal.Equal(*result.Col7[0]))
+		assert.True(t, decimalVal.Equal(*result.Col7[2]))
 	}
+	assert.Equal(t, []*string{&enum1Val, nil, &enum2Val}, result.Col8)
+	assert.Equal(t, []*string{&enum1Val, nil, &enum2Val}, result.Col9)
+	assert.Equal(t, []*string{&fixed1Val, nil, &fixed2Val}, result.Col10)
+	if assert.Nil(t, result.Col11[1]) {
+		assert.Equal(t, IPv4Val.To4(), *result.Col11[0])
+		assert.Equal(t, IPv4Val.To4(), *result.Col11[2])
+	}
+	if assert.Nil(t, result.Col12[1]) {
+		assert.Equal(t, IPv6Val1, *result.Col12[0])
+		assert.Equal(t, IPv6Val2, *result.Col12[2])
+	}
+	assert.Equal(t, []*string{&strVal, nil, &strVal}, result.Col13)
+	assert.Equal(t, []*uuid.UUID{&uuidVal, nil, &uuidVal}, result.Col14)
 }
