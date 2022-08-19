@@ -1,0 +1,15 @@
+<clickhouse>
+    <!-- Profiles of settings. -->
+    <profiles>
+        <!-- Default settings. -->
+        <default>
+
+        </default>
+    </profiles>
+    <users>
+        <default>
+            <password>ClickHouse</password>
+            <access_management>1</access_management>
+        </default>
+    </users>
+</clickhouse>

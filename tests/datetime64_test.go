@@ -28,21 +28,10 @@ import (
 )
 
 func TestDateTime64(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			//Debug: true,
-		})
-	)
+	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	require.NoError(t, err)
 	if err := CheckMinServerVersion(conn, 20, 3, 0); err != nil {
 		t.Skip(err.Error())
@@ -105,19 +94,16 @@ func TestDateTime64(t *testing.T) {
 	assert.Equal(t, datetime1.In(time.UTC), col1)
 	assert.Equal(t, datetime2.UnixNano(), col2.UnixNano())
 	assert.Equal(t, datetime3.UnixNano(), col3.UnixNano())
-	if assert.Equal(t, "Europe/Moscow", col2.Location().String()) {
-		assert.Equal(t, "Europe/London", col3.Location().String())
-	}
+	require.Equal(t, "Europe/Moscow", col2.Location().String())
+	assert.Equal(t, "Europe/London", col3.Location().String())
 	assert.Equal(t, datetime1.UnixNano(), col4.UnixNano())
-	if assert.Len(t, col5, 2) {
-		assert.Equal(t, "Europe/Moscow", col5[0].Location().String())
-		assert.Equal(t, "Europe/Moscow", col5[1].Location().String())
-	}
-	if assert.Len(t, col6, 3) {
-		assert.Nil(t, col6[1])
-		assert.NotNil(t, col6[0])
-		assert.NotNil(t, col6[2])
-	}
+	require.Len(t, col5, 2)
+	assert.Equal(t, "Europe/Moscow", col5[0].Location().String())
+	assert.Equal(t, "Europe/Moscow", col5[1].Location().String())
+	require.Len(t, col6, 3)
+	assert.Nil(t, col6[1])
+	assert.NotNil(t, col6[0])
+	assert.NotNil(t, col6[2])
 	assert.Equal(t, datetime1.In(time.UTC), col7)
 	assert.Equal(t, datetime1.In(time.UTC), col8)
 	assert.Equal(t, datetime1.In(time.UTC), col9)
@@ -125,75 +111,49 @@ func TestDateTime64(t *testing.T) {
 }
 
 func TestDateTime64AsReference(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-		})
-	)
-
-	if assert.NoError(t, err) {
-		if err := CheckMinServerVersion(conn, 20, 3, 0); err != nil {
-			t.Skip(err.Error())
-			return
-		}
-		const ddl = `
+	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+	require.NoError(t, err)
+	if err := CheckMinServerVersion(conn, 20, 3, 0); err != nil {
+		t.Skip(err.Error())
+		return
+	}
+	const ddl = `
 			CREATE TABLE test_datetime64 (
 				Col1      DateTime64(3)
 			) Engine Memory
 		`
-		defer func() {
-			conn.Exec(ctx, "DROP TABLE test_datetime64")
-		}()
-
-		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
-			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_datetime64"); assert.NoError(t, err) {
-				now := time.Now().Unix()
-				err := batch.Append(&now)
-				assert.NoError(t, err)
-				assert.NoError(t, batch.Send())
-
-			}
-			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_datetime64"); assert.NoError(t, err) {
-				// batch column
-				var col1Data []*int64
-				var datetime1 = time.Now().Unix()
-				for i := 0; i < 1000; i++ {
-					col1Data = append(col1Data, &datetime1)
-				}
-				if err := batch.Column(0).Append(col1Data); !assert.NoError(t, err) {
-					return
-				}
-				assert.NoError(t, batch.Send())
-			}
-		}
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE test_datetime64")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_datetime64")
+	require.NoError(t, err)
+	now := time.Now().Unix()
+	err = batch.Append(&now)
+	assert.NoError(t, err)
+	assert.NoError(t, batch.Send())
+	batch, err = conn.PrepareBatch(ctx, "INSERT INTO test_datetime64")
+	require.NoError(t, err)
+	// batch column
+	var col1Data []*int64
+	var datetime1 = time.Now().Unix()
+	for i := 0; i < 1000; i++ {
+		col1Data = append(col1Data, &datetime1)
 	}
+	if err := batch.Column(0).Append(col1Data); !assert.NoError(t, err) {
+		return
+	}
+	assert.NoError(t, batch.Send())
 }
 
 func TestNullableDateTime64(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			//Debug: true,
-		})
-	)
+	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	require.NoError(t, err)
 	if err := CheckMinServerVersion(conn, 20, 3, 0); err != nil {
 		t.Skip(err.Error())
@@ -277,21 +237,10 @@ func TestNullableDateTime64(t *testing.T) {
 }
 
 func TestColumnarDateTime64(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			//Debug: true,
-		})
-	)
+	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	require.NoError(t, err)
 	if err := CheckMinServerVersion(conn, 20, 3, 0); err != nil {
 		t.Skip(err.Error())
@@ -381,21 +330,10 @@ func TestColumnarDateTime64(t *testing.T) {
 }
 
 func TestDateTime64Flush(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			MaxOpenConns: 1,
-		})
-	)
+	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	require.NoError(t, err)
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE datetime_64_flush")

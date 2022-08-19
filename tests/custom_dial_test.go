@@ -19,6 +19,8 @@ package tests
 
 import (
 	"context"
+	"fmt"
+	"github.com/stretchr/testify/require"
 	"net"
 	"testing"
 	"time"
@@ -28,14 +30,19 @@ import (
 )
 
 func TestCustomDialContext(t *testing.T) {
+	port := GetEnv("CLICKHOUSE_PORT", "9000")
+	host := GetEnv("CLICKHOUSE_HOST", "localhost")
+	username := GetEnv("CLICKHOUSE_USERNAME", "default")
+	password := GetEnv("CLICKHOUSE_PASSWORD", "")
+
 	var (
 		dialCount int
 		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
+			Addr: []string{fmt.Sprintf("%s:%s", host, port)},
 			Auth: clickhouse.Auth{
 				Database: "default",
-				Username: "default",
-				Password: "",
+				Username: username,
+				Password: password,
 			},
 			DialContext: func(ctx context.Context, addr string) (net.Conn, error) {
 				dialCount++
@@ -44,14 +51,10 @@ func TestCustomDialContext(t *testing.T) {
 			},
 		})
 	)
-	if !assert.NoError(t, err) {
-		return
-	}
+	require.NoError(t, err)
 	ctx := context.Background()
-	if err := conn.Ping(ctx); assert.NoError(t, err) {
-		assert.Equal(t, 1, dialCount)
-	}
-
+	require.NoError(t, conn.Ping(ctx))
+	assert.Equal(t, 1, dialCount)
 	ctx1, cancel := context.WithCancel(ctx)
 
 	go func() {
@@ -59,8 +62,8 @@ func TestCustomDialContext(t *testing.T) {
 	}()
 	start := time.Now()
 	// query is cancelled with context
-	if err = conn.QueryRow(ctx1, "SELECT sleep(10)").Scan(); assert.Error(t, err, "context cancelled") {
-		assert.Equal(t, 1, dialCount)
-	}
+	err = conn.QueryRow(ctx1, "SELECT sleep(10)").Scan()
+	require.Error(t, err, "context cancelled")
+	assert.Equal(t, 1, dialCount)
 	assert.True(t, time.Since(start) < time.Second)
 }

@@ -18,14 +18,16 @@
 package tests
 
 import (
+	"crypto/tls"
 	"fmt"
+	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"math/rand"
 	"net"
+	"os"
 	"runtime"
 	"strings"
 	"time"
-
-	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 )
 
 func init() {
@@ -33,6 +35,7 @@ func init() {
 	fmt.Printf("using random seed %d for native tests\n", seed)
 	rand.Seed(seed)
 }
+
 func CheckMinServerVersion(conn driver.Conn, major, minor, patch uint64) error {
 	v, err := conn.ServerVersion()
 	if err != nil {
@@ -42,6 +45,37 @@ func CheckMinServerVersion(conn driver.Conn, major, minor, patch uint64) error {
 		return fmt.Errorf("unsupported server version %d.%d < %d.%d", v.Version.Major, v.Version.Minor, major, minor)
 	}
 	return nil
+}
+
+func GetConnection(settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (driver.Conn, error) {
+	port := GetEnv("CLICKHOUSE_PORT", "9000")
+	host := GetEnv("CLICKHOUSE_HOST", "localhost")
+	username := GetEnv("CLICKHOUSE_USERNAME", "default")
+	password := GetEnv("CLICKHOUSE_PASSWORD", "")
+	conn, err := clickhouse.Open(&clickhouse.Options{
+		Addr:     []string{fmt.Sprintf("%s:%s", host, port)},
+		Settings: settings,
+		Auth: clickhouse.Auth{
+			Database: "default",
+			Username: username,
+			Password: password,
+		},
+		TLS:         tlsConfig,
+		Compression: compression,
+	})
+	return conn, err
+}
+
+func GetEnv(key, fallback string) string {
+	if value, ok := os.LookupEnv(key); ok {
+		return value
+	}
+	return fallback
+}
+
+func IsSetInEnv(key string) bool {
+	_, ok := os.LookupEnv(key)
+	return ok
 }
 
 var src = rand.NewSource(time.Now().UnixNano())

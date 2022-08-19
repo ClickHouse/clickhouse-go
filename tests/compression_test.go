@@ -21,21 +21,10 @@ func TestNoCompression(t *testing.T) {
 }
 
 func CompressionTest(t *testing.T, method clickhouse.CompressionMethod) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: method,
-			},
-			MaxOpenConns: 1,
-		})
-	)
+	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+		Method: method,
+	})
+	ctx := context.Background()
 	require.NoError(t, err)
 	const ddl = `
 		CREATE TABLE test_array (
@@ -66,5 +55,4 @@ func CompressionTest(t *testing.T, method clickhouse.CompressionMethod) {
 	}
 	require.NoError(t, rows.Close())
 	require.NoError(t, rows.Err())
-
 }

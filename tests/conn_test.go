@@ -19,6 +19,7 @@ package tests
 
 import (
 	"context"
+	"fmt"
 	"github.com/stretchr/testify/require"
 	"os"
 	"testing"
@@ -29,16 +30,8 @@ import (
 )
 
 func TestConn(t *testing.T) {
-	conn, err := clickhouse.Open(&clickhouse.Options{
-		Addr: []string{"127.0.0.1:9000"},
-		Auth: clickhouse.Auth{
-			Database: "default",
-			Username: "default",
-			Password: "",
-		},
-		Compression: &clickhouse.Compression{
-			Method: clickhouse.CompressionLZ4,
-		},
+	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
 	})
 	require.NoError(t, err)
 	require.NoError(t, conn.Ping(context.Background()))
@@ -67,21 +60,23 @@ func TestBadConn(t *testing.T) {
 }
 
 func TestConnFailover(t *testing.T) {
+	port := GetEnv("CLICKHOUSE_PORT", "9000")
+	username := GetEnv("CLICKHOUSE_USERNAME", "default")
+	password := GetEnv("CLICKHOUSE_PASSWORD", "")
 	conn, err := clickhouse.Open(&clickhouse.Options{
 		Addr: []string{
 			"127.0.0.1:9001",
 			"127.0.0.1:9002",
-			"127.0.0.1:9000",
+			fmt.Sprintf("127.0.0.1:%s", port),
 		},
 		Auth: clickhouse.Auth{
 			Database: "default",
-			Username: "default",
-			Password: "",
+			Username: username,
+			Password: password,
 		},
 		Compression: &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
 		},
-		//	Debug: true,
 	})
 	require.NoError(t, err)
 	require.NoError(t, conn.Ping(context.Background()))
@@ -90,16 +85,19 @@ func TestConnFailover(t *testing.T) {
 }
 
 func TestConnFailoverConnOpenRoundRobin(t *testing.T) {
+	port := GetEnv("CLICKHOUSE_PORT", "9000")
+	username := GetEnv("CLICKHOUSE_USERNAME", "default")
+	password := GetEnv("CLICKHOUSE_PASSWORD", "")
 	conn, err := clickhouse.Open(&clickhouse.Options{
 		Addr: []string{
 			"127.0.0.1:9001",
 			"127.0.0.1:9002",
-			"127.0.0.1:9000",
+			fmt.Sprintf("127.0.0.1:%s", port),
 		},
 		Auth: clickhouse.Auth{
 			Database: "default",
-			Username: "default",
-			Password: "",
+			Username: username,
+			Password: password,
 		},
 		Compression: &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
@@ -114,16 +112,8 @@ func TestConnFailoverConnOpenRoundRobin(t *testing.T) {
 }
 
 func TestPingDeadline(t *testing.T) {
-	conn, err := clickhouse.Open(&clickhouse.Options{
-		Addr: []string{"127.0.0.1:9000"},
-		Auth: clickhouse.Auth{
-			Database: "default",
-			Username: "default",
-			Password: "",
-		},
-		Compression: &clickhouse.Compression{
-			Method: clickhouse.CompressionLZ4,
-		},
+	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
 	})
 	require.NoError(t, err)
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
@@ -134,12 +124,16 @@ func TestPingDeadline(t *testing.T) {
 }
 
 func TestReadDeadline(t *testing.T) {
+	port := GetEnv("CLICKHOUSE_PORT", "9000")
+	host := GetEnv("CLICKHOUSE_HOST", "localhost")
+	username := GetEnv("CLICKHOUSE_USERNAME", "default")
+	password := GetEnv("CLICKHOUSE_PASSWORD", "")
 	conn, err := clickhouse.Open(&clickhouse.Options{
-		Addr: []string{"127.0.0.1:9000"},
+		Addr: []string{fmt.Sprintf("%s:%s", host, port)},
 		Auth: clickhouse.Auth{
 			Database: "default",
-			Username: "default",
-			Password: "",
+			Username: username,
+			Password: password,
 		},
 		Compression: &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
@@ -157,12 +151,16 @@ func TestReadDeadline(t *testing.T) {
 }
 
 func TestQueryDeadline(t *testing.T) {
+	port := GetEnv("CLICKHOUSE_PORT", "9000")
+	host := GetEnv("CLICKHOUSE_HOST", "localhost")
+	username := GetEnv("CLICKHOUSE_USERNAME", "default")
+	password := GetEnv("CLICKHOUSE_PASSWORD", "")
 	conn, err := clickhouse.Open(&clickhouse.Options{
-		Addr: []string{"127.0.0.1:9000"},
+		Addr: []string{fmt.Sprintf("%s:%s", host, port)},
 		Auth: clickhouse.Auth{
 			Database: "default",
-			Username: "default",
-			Password: "",
+			Username: username,
+			Password: password,
 		},
 		Compression: &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
