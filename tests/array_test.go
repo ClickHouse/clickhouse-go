@@ -142,8 +142,8 @@ func TestArray(t *testing.T) {
 			MaxOpenConns: 1,
 		})
 	)
-	if assert.NoError(t, err) {
-		const ddl = `
+	require.NoError(t, err)
+	const ddl = `
 		CREATE TABLE test_array (
 			  Col1 Array(String)
 			, Col2 Array(Array(UInt32))
@@ -151,68 +151,66 @@ func TestArray(t *testing.T) {
 			, Col4 Array(String)
 		) Engine Memory
 		`
-		defer func() {
-			conn.Exec(ctx, "DROP TABLE test_array")
-		}()
-		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
-			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_array"); assert.NoError(t, err) {
-				var (
-					timestamp = time.Now().Truncate(time.Second)
-					col1Data  = []string{"A", "b", "c"}
-					col2Data  = [][]uint32{
-						[]uint32{1, 2},
-						[]uint32{3, 87},
-						[]uint32{33, 3, 847},
-					}
-					col3Data = [][][]time.Time{
-						[][]time.Time{
-							[]time.Time{
-								timestamp,
-								timestamp,
-								timestamp,
-								timestamp,
-							},
-						},
-						[][]time.Time{
-							[]time.Time{
-								timestamp,
-								timestamp,
-								timestamp,
-							},
-							[]time.Time{
-								timestamp,
-								timestamp,
-							},
-						},
-					}
-					col4Data = &[]string{"M", "D"}
-				)
-				for i := 0; i < 10; i++ {
-					require.NoError(t, batch.Append(col1Data, col2Data, col3Data, col4Data))
-					batch.Flush()
-				}
-				require.NoError(t, batch.Send())
-				rows, err := conn.Query(ctx, "SELECT * FROM test_array")
-				require.NoError(t, err)
-				for rows.Next() {
-					var (
-						col1 []string
-						col2 [][]uint32
-						col3 [][][]time.Time
-						col4 []string
-					)
-					require.NoError(t, rows.Scan(&col1, &col2, &col3, &col4))
-					assert.Equal(t, col1Data, col1)
-					assert.Equal(t, col2Data, col2)
-					assert.Equal(t, col3Data, col3)
-					assert.Equal(t, col4Data, &col4)
-
-				}
-				require.NoError(t, rows.Close())
-				require.NoError(t, rows.Err())
-			}
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE test_array")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_array")
+	require.NoError(t, err)
+	var (
+		timestamp = time.Now().Truncate(time.Second).In(time.UTC)
+		col1Data  = []string{"A", "b", "c"}
+		col2Data  = [][]uint32{
+			[]uint32{1, 2},
+			[]uint32{3, 87},
+			[]uint32{33, 3, 847},
 		}
+		col3Data = [][][]time.Time{
+			[][]time.Time{
+				[]time.Time{
+					timestamp,
+					timestamp,
+					timestamp,
+					timestamp,
+				},
+			},
+			[][]time.Time{
+				[]time.Time{
+					timestamp,
+					timestamp,
+					timestamp,
+				},
+				[]time.Time{
+					timestamp,
+					timestamp,
+				},
+			},
+		}
+		col4Data = &[]string{"M", "D"}
+	)
+	for i := 0; i < 10; i++ {
+		require.NoError(t, batch.Append(col1Data, col2Data, col3Data, col4Data))
+		batch.Flush()
 	}
+	require.NoError(t, batch.Send())
+	rows, err := conn.Query(ctx, "SELECT * FROM test_array")
+	require.NoError(t, err)
+	for rows.Next() {
+		var (
+			col1 []string
+			col2 [][]uint32
+			col3 [][][]time.Time
+			col4 []string
+		)
+		require.NoError(t, rows.Scan(&col1, &col2, &col3, &col4))
+		assert.Equal(t, col1Data, col1)
+		assert.Equal(t, col2Data, col2)
+		assert.Equal(t, col3Data, col3)
+		assert.Equal(t, col4Data, &col4)
+
+	}
+	require.NoError(t, rows.Close())
+	require.NoError(t, rows.Err())
 }
 
 func TestColumnarArray(t *testing.T) {
@@ -231,8 +229,8 @@ func TestColumnarArray(t *testing.T) {
 			MaxOpenConns: 1,
 		})
 	)
-	if assert.NoError(t, err) {
-		const ddl = `
+	require.NoError(t, err)
+	const ddl = `
 		CREATE TABLE test_array (
 			  Col1 Array(String)
 			, Col2 Array(Array(UInt32))
@@ -240,89 +238,75 @@ func TestColumnarArray(t *testing.T) {
 			, Col4 Array(String)
 		) Engine Memory
 		`
-		defer func() {
-			conn.Exec(ctx, "DROP TABLE test_array")
-		}()
-		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
-			var (
-				timestamp = time.Now().Truncate(time.Second)
-				col1Data  = []string{"A", "b", "c"}
-				col2Data  = [][]uint32{
-					[]uint32{1, 2},
-					[]uint32{3, 87},
-					[]uint32{33, 3, 847},
-				}
-				col3Data = [][][]time.Time{
-					[][]time.Time{
-						[]time.Time{
-							timestamp,
-							timestamp,
-							timestamp,
-							timestamp,
-						},
-					},
-					[][]time.Time{
-						[]time.Time{
-							timestamp,
-							timestamp,
-							timestamp,
-						},
-						[]time.Time{
-							timestamp,
-							timestamp,
-						},
-					},
-				}
-				col4Data = &[]string{"M", "D"}
-
-				col1DataColArr [][]string
-				col2DataColArr [][][]uint32
-				col3DataColArr [][][][]time.Time
-				col4DataColArr []*[]string
-			)
-
-			for i := 0; i < 10; i++ {
-				col1DataColArr = append(col1DataColArr, col1Data)
-				col2DataColArr = append(col2DataColArr, col2Data)
-				col3DataColArr = append(col3DataColArr, col3Data)
-				col4DataColArr = append(col4DataColArr, col4Data)
-			}
-
-			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_array"); assert.NoError(t, err) {
-				if err := batch.Column(0).Append(col1DataColArr); !assert.NoError(t, err) {
-					return
-				}
-				if err := batch.Column(1).Append(col2DataColArr); !assert.NoError(t, err) {
-					return
-				}
-				if err := batch.Column(2).Append(col3DataColArr); !assert.NoError(t, err) {
-					return
-				}
-				if err := batch.Column(3).Append(col4DataColArr); !assert.NoError(t, err) {
-					return
-				}
-				if assert.NoError(t, batch.Send()) {
-					if rows, err := conn.Query(ctx, "SELECT * FROM test_array"); assert.NoError(t, err) {
-						for rows.Next() {
-							var (
-								col1 []string
-								col2 [][]uint32
-								col3 [][][]time.Time
-								col4 []string
-							)
-							if err := rows.Scan(&col1, &col2, &col3, &col4); assert.NoError(t, err) {
-								assert.Equal(t, col1Data, col1)
-								assert.Equal(t, col2Data, col2)
-								assert.Equal(t, col3Data, col3)
-								assert.Equal(t, col4Data, &col4)
-							}
-						}
-						if assert.NoError(t, rows.Close()) {
-							assert.NoError(t, rows.Err())
-						}
-					}
-				}
-			}
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE test_array")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	var (
+		timestamp = time.Now().Truncate(time.Second).In(time.UTC)
+		col1Data  = []string{"A", "b", "c"}
+		col2Data  = [][]uint32{
+			[]uint32{1, 2},
+			[]uint32{3, 87},
+			[]uint32{33, 3, 847},
 		}
+		col3Data = [][][]time.Time{
+			[][]time.Time{
+				[]time.Time{
+					timestamp,
+					timestamp,
+					timestamp,
+					timestamp,
+				},
+			},
+			[][]time.Time{
+				[]time.Time{
+					timestamp,
+					timestamp,
+					timestamp,
+				},
+				[]time.Time{
+					timestamp,
+					timestamp,
+				},
+			},
+		}
+		col4Data = &[]string{"M", "D"}
+
+		col1DataColArr [][]string
+		col2DataColArr [][][]uint32
+		col3DataColArr [][][][]time.Time
+		col4DataColArr []*[]string
+	)
+
+	for i := 0; i < 10; i++ {
+		col1DataColArr = append(col1DataColArr, col1Data)
+		col2DataColArr = append(col2DataColArr, col2Data)
+		col3DataColArr = append(col3DataColArr, col3Data)
+		col4DataColArr = append(col4DataColArr, col4Data)
 	}
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_array")
+	require.NoError(t, err)
+	require.NoError(t, batch.Column(0).Append(col1DataColArr))
+	require.NoError(t, batch.Column(1).Append(col2DataColArr))
+	require.NoError(t, batch.Column(2).Append(col3DataColArr))
+	require.NoError(t, batch.Column(3).Append(col4DataColArr))
+	require.NoError(t, batch.Send())
+	rows, err := conn.Query(ctx, "SELECT * FROM test_array")
+	require.NoError(t, err)
+	for rows.Next() {
+		var (
+			col1 []string
+			col2 [][]uint32
+			col3 [][][]time.Time
+			col4 []string
+		)
+		require.NoError(t, rows.Scan(&col1, &col2, &col3, &col4))
+		assert.Equal(t, col1Data, col1)
+		assert.Equal(t, col2Data, col2)
+		assert.Equal(t, col3Data, col3)
+		assert.Equal(t, col4Data, &col4)
+	}
+	require.NoError(t, rows.Close())
+	assert.NoError(t, rows.Err())
 }

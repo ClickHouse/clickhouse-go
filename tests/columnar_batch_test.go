@@ -109,7 +109,7 @@ func TestColumnarInterface(t *testing.T) {
 		assert.Equal(t, fmt.Sprintf("value_%d", row), col2)
 		assert.Equal(t, currentTime.Unix(), col3.Unix())
 		assert.Equal(t, fmt.Sprintf("value_%d", row), col4.String)
-		assert.Equal(t, currentTime, col5.Time)
+		assert.Equal(t, currentTime.In(time.UTC), col5.Time)
 		assert.Equal(t, int64(row), col6.Int64)
 		row++
 		iCount++

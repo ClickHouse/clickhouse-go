@@ -301,7 +301,7 @@ func (h *httpConnect) writeData(block *proto.Block) error {
 }
 
 func (h *httpConnect) readData(reader *chproto.Reader) (*proto.Block, error) {
-	var block proto.Block
+	block := proto.Block{Timezone: h.location}
 	if h.compression == CompressionLZ4 || h.compression == CompressionZSTD {
 		reader.EnableCompression()
 		defer reader.DisableCompression()

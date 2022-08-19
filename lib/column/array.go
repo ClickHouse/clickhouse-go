@@ -22,6 +22,7 @@ import (
 	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
 	"strings"
+	"time"
 )
 
 type offset struct {
@@ -49,7 +50,7 @@ func (col *Array) Name() string {
 	return col.name
 }
 
-func (col *Array) parse(t Type) (_ *Array, err error) {
+func (col *Array) parse(t Type, tz *time.Location) (_ *Array, err error) {
 	col.chType = t
 	var typeStr = string(t)
 
@@ -65,7 +66,7 @@ parse:
 		}
 	}
 	if col.depth != 0 {
-		if col.values, err = Type(typeStr).Column(col.name); err != nil {
+		if col.values, err = Type(typeStr).Column(col.name, tz); err != nil {
 			return nil, err
 		}
 		offsetScanTypes := make([]reflect.Type, 0, col.depth)

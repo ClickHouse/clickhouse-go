@@ -35,6 +35,7 @@ func TestSimpleStdString(t *testing.T) {
 			  Col1 String
 		) Engine Memory
 		`
+				conn.Exec("DROP TABLE test_array")
 				defer func() {
 					conn.Exec("DROP TABLE test_array")
 				}()

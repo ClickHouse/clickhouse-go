@@ -464,10 +464,10 @@ func TestColumnarTuple(t *testing.T) {
 				"A_542", int64(542),
 			}
 			col2Data = []interface{}{
-				"B_542", int8(1), timestamp,
+				"B_542", int8(1), timestamp.In(time.UTC),
 			}
 			col3Data = []interface{}{
-				timestamp, "CH", map[string]string{
+				timestamp.In(time.UTC), "CH", map[string]string{
 					"key": "value",
 				},
 			}

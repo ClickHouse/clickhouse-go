@@ -22,6 +22,7 @@ import (
 	"database/sql/driver"
 	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
+	"time"
 )
 
 type Nullable struct {
@@ -41,9 +42,9 @@ func (col *Nullable) Name() string {
 	return col.name
 }
 
-func (col *Nullable) parse(t Type) (_ *Nullable, err error) {
+func (col *Nullable) parse(t Type, tz *time.Location) (_ *Nullable, err error) {
 	col.enable = true
-	if col.base, err = Type(t.params()).Column(col.name); err != nil {
+	if col.base, err = Type(t.params()).Column(col.name, tz); err != nil {
 		return nil, err
 	}
 	switch base := col.base.ScanType(); {

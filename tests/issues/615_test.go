@@ -70,7 +70,7 @@ func Test615(t *testing.T) {
 		)
 		require.NoError(t, rows.Scan(&id, &ts))
 		require.Equal(t, id, "third")
-		require.Equal(t, ts, ts3)
+		require.Equal(t, ts3.In(time.UTC), ts)
 		i += 1
 	}
 	assert.Equal(t, 1, i)
@@ -85,7 +85,7 @@ func Test615(t *testing.T) {
 			ts time.Time
 		)
 		require.NoError(t, rows.Scan(&id, &ts))
-		require.Equal(t, ts, ts3)
+		require.Equal(t, ts3.In(time.UTC), ts)
 		i += 1
 	}
 	assert.Equal(t, 1, i)

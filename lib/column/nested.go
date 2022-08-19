@@ -20,6 +20,7 @@ package column
 import (
 	"fmt"
 	"strings"
+	"time"
 )
 
 type Nested struct {
@@ -39,9 +40,9 @@ func asDDL(cols []namedCol) string {
 	return strings.Join(sCols, ", ")
 }
 
-func (col *Nested) parse(t Type) (_ Interface, err error) {
+func (col *Nested) parse(t Type, tz *time.Location) (_ Interface, err error) {
 	columns := fmt.Sprintf("Array(Tuple(%s))", asDDL(nestedColumns(t.params())))
-	if col.Interface, err = (&Array{name: col.name}).parse(Type(columns)); err != nil {
+	if col.Interface, err = (&Array{name: col.name}).parse(Type(columns), tz); err != nil {
 		return nil, err
 	}
 	return col, nil

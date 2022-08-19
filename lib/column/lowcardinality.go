@@ -84,10 +84,10 @@ func (col *LowCardinality) Name() string {
 	return col.name
 }
 
-func (col *LowCardinality) parse(t Type) (_ *LowCardinality, err error) {
+func (col *LowCardinality) parse(t Type, tz *time.Location) (_ *LowCardinality, err error) {
 	col.chType = t
 	col.append.index = make(map[interface{}]int)
-	if col.index, err = Type(t.params()).Column(col.name); err != nil {
+	if col.index, err = Type(t.params()).Column(col.name, tz); err != nil {
 		return nil, err
 	}
 	if nullable, ok := col.index.(*Nullable); ok {

@@ -127,17 +127,18 @@ func TestFixedFloatFlush(t *testing.T) {
 		})
 	)
 	require.NoError(t, err)
+
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE fixed_string_flush")
+		conn.Exec(ctx, "DROP TABLE fixed_float_flush")
 	}()
 	const ddl = `
-		CREATE TABLE float_flush (
+		CREATE TABLE fixed_float_flush (
 			  Col1 Float32,
 			  Col2 Float64	
 		) Engine Memory
 		`
 	require.NoError(t, conn.Exec(ctx, ddl))
-	batch, err := conn.PrepareBatch(ctx, "INSERT INTO float_flush")
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO fixed_float_flush")
 	require.NoError(t, err)
 	val32s := [1000]float32{}
 	val64s := [1000]float64{}
@@ -148,7 +149,7 @@ func TestFixedFloatFlush(t *testing.T) {
 		batch.Flush()
 	}
 	batch.Send()
-	rows, err := conn.Query(ctx, "SELECT * FROM float_flush")
+	rows, err := conn.Query(ctx, "SELECT * FROM fixed_float_flush")
 	require.NoError(t, err)
 	i := 0
 	for rows.Next() {

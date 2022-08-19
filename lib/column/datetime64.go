@@ -50,7 +50,7 @@ func (col *DateTime64) Name() string {
 	return col.name
 }
 
-func (col *DateTime64) parse(t Type) (_ Interface, err error) {
+func (col *DateTime64) parse(t Type, tz *time.Location) (_ Interface, err error) {
 	col.chType = t
 	switch params := strings.Split(t.params(), ","); len(params) {
 	case 2:
@@ -72,6 +72,7 @@ func (col *DateTime64) parse(t Type) (_ Interface, err error) {
 		}
 		p := byte(precision)
 		col.col.WithPrecision(proto.Precision(p))
+		col.col.WithLocation(tz)
 	default:
 		return nil, &UnsupportedColumnTypeError{
 			t: t,

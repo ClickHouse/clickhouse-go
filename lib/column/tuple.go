@@ -51,7 +51,7 @@ type namedCol struct {
 	colType Type
 }
 
-func (col *Tuple) parse(t Type) (_ Interface, err error) {
+func (col *Tuple) parse(t Type, tz *time.Location) (_ Interface, err error) {
 	col.chType = t
 	var (
 		element       []rune
@@ -96,7 +96,7 @@ func (col *Tuple) parse(t Type) (_ Interface, err error) {
 		if ct.name == "" {
 			isNamed = false
 		}
-		column, err := ct.colType.Column(ct.name)
+		column, err := ct.colType.Column(ct.name, tz)
 		if err != nil {
 			return nil, err
 		}

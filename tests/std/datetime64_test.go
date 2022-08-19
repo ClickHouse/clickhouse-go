@@ -87,7 +87,7 @@ func TestStdDateTime64(t *testing.T) {
 				col8 sql.NullTime
 			)
 			require.NoError(t, conn.QueryRow("SELECT * FROM test_datetime64").Scan(&col1, &col2, &col3, &col4, &col5, &col6, &col7, &col8))
-			assert.Equal(t, datetime1, col1)
+			assert.Equal(t, datetime1.In(time.UTC), col1)
 			assert.Equal(t, datetime2.UnixNano(), col2.UnixNano())
 			assert.Equal(t, datetime3.UnixNano(), col3.UnixNano())
 			require.Equal(t, "Europe/Moscow", col2.Location().String())
