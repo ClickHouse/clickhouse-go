@@ -25,11 +25,6 @@ import (
 	"context"
 	"database/sql/driver"
 	"fmt"
-	"github.com/ClickHouse/ch-go/compress"
-	chproto "github.com/ClickHouse/ch-go/proto"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
-	"github.com/andybalholm/brotli"
-	"github.com/pkg/errors"
 	"io"
 	"io/ioutil"
 	"net"
@@ -37,6 +32,12 @@ import (
 	"net/url"
 	"sync"
 	"time"
+
+	"github.com/ClickHouse/ch-go/compress"
+	chproto "github.com/ClickHouse/ch-go/proto"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
+	"github.com/andybalholm/brotli"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -45,12 +46,12 @@ const (
 )
 
 type Pool[T any] struct {
-	pool sync.Pool
+	pool *sync.Pool
 }
 
 func NewPool[T any](fn func() T) Pool[T] {
 	return Pool[T]{
-		pool: sync.Pool{New: func() interface{} { return fn() }},
+		pool: &sync.Pool{New: func() interface{} { return fn() }},
 	}
 }
 
