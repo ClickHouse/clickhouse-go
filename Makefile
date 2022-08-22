@@ -10,7 +10,7 @@ cli:
 
 test:
 	@go install -race -v
-	@CLICKHOUSE_VERSION=$(CLICKHOUSE_VERSION) go test -race -timeout 30s -count=1 -v ./...
+	@CLICKHOUSE_VERSION=$(CLICKHOUSE_VERSION) go test -race -timeout 60s -count=1 -v ./...
 
 lint:
 	golangci-lint run || :
