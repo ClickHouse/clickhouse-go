@@ -35,7 +35,7 @@ func TestStdWithTotals(t *testing.T) {
 	) GROUP BY n WITH TOTALS
 	`
 
-	conn, err := GetDSNConnection(clickhouse.Native, false, "false")
+	conn, err := GetStdDSNConnection(clickhouse.Native, false, "false")
 	require.NoError(t, err)
 	rows, err := conn.Query(query)
 	require.NoError(t, err)

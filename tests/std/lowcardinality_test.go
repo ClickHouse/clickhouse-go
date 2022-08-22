@@ -37,7 +37,7 @@ func TestStdLowCardinality(t *testing.T) {
 
 	for name, protocol := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
-			conn, err := GetDSNConnection(protocol, false, "false")
+			conn, err := GetStdDSNConnection(protocol, false, "false")
 			require.NoError(t, err)
 			if err := CheckMinServerVersion(conn, 19, 11, 0); err != nil {
 				t.Skip(err.Error())

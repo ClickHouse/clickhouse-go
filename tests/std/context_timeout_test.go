@@ -35,7 +35,7 @@ func TestStdContextStdTimeout(t *testing.T) {
 
 	for name, protocol := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
-			connect, err := GetDSNConnection(protocol, false, "false")
+			connect, err := GetStdDSNConnection(protocol, false, "false")
 			require.NoError(t, err)
 			{
 				ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*20)

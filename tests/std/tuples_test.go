@@ -26,7 +26,7 @@ import (
 )
 
 func TestTuple(t *testing.T) {
-	conn, err := GetOpenDBConnection(clickhouse.Native, nil, nil, nil)
+	conn, err := GetStdOpenDBConnection(clickhouse.Native, nil, nil, nil)
 	require.NoError(t, err)
 	loc, err := time.LoadLocation("Europe/Lisbon")
 	require.NoError(t, err)

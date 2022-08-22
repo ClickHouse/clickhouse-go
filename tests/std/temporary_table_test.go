@@ -38,7 +38,7 @@ func TestStdTemporaryTable(t *testing.T) {
 					"session_id": "test_session",
 				}))
 			}
-			conn, err := GetDSNConnection(protocol, false, "false")
+			conn, err := GetStdDSNConnection(protocol, false, "false")
 			require.NoError(t, err)
 			defer func() {
 				conn.Exec("DROP TABLE test_temporary_table")

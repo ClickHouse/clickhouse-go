@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -43,7 +44,7 @@ func TestIssue412(t *testing.T) {
 		})
 	)
 	if assert.NoError(t, err) {
-		if err := checkMinServerVersion(conn, 21, 9); err != nil {
+		if err := clickhouse_tests.CheckMinServerVersion(conn, 21, 9, 0); err != nil {
 			t.Skip(err.Error())
 			return
 		}

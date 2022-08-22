@@ -25,7 +25,7 @@ import (
 )
 
 func TestStdNested(t *testing.T) {
-	conn, err := GetOpenDBConnection(clickhouse.Native, clickhouse.Settings{
+	conn, err := GetStdOpenDBConnection(clickhouse.Native, clickhouse.Settings{
 		"flatten_nested": 0,
 	}, nil, nil)
 	require.NoError(t, err)

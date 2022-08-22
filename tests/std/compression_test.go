@@ -39,7 +39,7 @@ func TestCompressionStd(t *testing.T) {
 	for protocol, compressionTest := range protocols {
 		for _, method := range compressionTest.compressionMethods {
 			t.Run(fmt.Sprintf("%s with %s", protocol, method), func(t *testing.T) {
-				conn, err := GetOpenDBConnection(protocol, clickhouse.Settings{
+				conn, err := GetStdOpenDBConnection(protocol, clickhouse.Settings{
 					"max_execution_time":      60,
 					"enable_http_compression": 1, // needed for http compression e.g. gzip
 				}, nil, &clickhouse.Compression{
@@ -114,7 +114,7 @@ func TestCompressionStdDSN(t *testing.T) {
 
 	for name, protocol := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
-			conn, err := GetDSNConnection(protocol, false, "true")
+			conn, err := GetStdDSNConnection(protocol, false, "true")
 			require.NoError(t, err)
 			conn.Exec("DROP TABLE IF EXISTS test_array_compress")
 			const ddl = `
@@ -169,7 +169,7 @@ func TestCompressionStdDSNWithLevel(t *testing.T) {
 	}}
 	for name, protocol := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
-			conn, err := GetDSNConnection(protocol.protocol, false, protocol.compress)
+			conn, err := GetStdDSNConnection(protocol.protocol, false, protocol.compress)
 			require.NoError(t, err)
 			conn.Exec("DROP TABLE IF EXISTS test_array_compress")
 			const ddl = `
@@ -224,7 +224,7 @@ func TestCompressionStdDSNInvalid(t *testing.T) {
 	for name, dsns := range configs {
 		for _, dsn := range dsns {
 			t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
-				conn, err := GetDSNConnection(dsn.protocol, false, dsn.compress)
+				conn, err := GetStdDSNConnection(dsn.protocol, false, dsn.compress)
 				const ddl = `
 				CREATE TABLE test_array_compress (
 					  Col1 Array(String)

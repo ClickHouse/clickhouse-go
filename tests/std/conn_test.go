@@ -36,7 +36,7 @@ func TestStdConn(t *testing.T) {
 	dsns := map[string]clickhouse.Protocol{"Native": clickhouse.Native, "Http": clickhouse.HTTP}
 	for name, protocol := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
-			conn, err := GetDSNConnection(protocol, false, "false")
+			conn, err := GetStdDSNConnection(protocol, false, "false")
 			require.NoError(t, err)
 			require.NoError(t, conn.PingContext(context.Background()))
 			require.NoError(t, conn.Close())

@@ -68,14 +68,14 @@ func toJson(obj interface{}) string {
 }
 
 func TestStdJson(t *testing.T) {
-	conn, err := GetDSNConnection(clickhouse.Native, false, "false")
+	conn, err := GetStdDSNConnection(clickhouse.Native, false, "false")
 	require.NoError(t, err)
 	if err := CheckMinServerVersion(conn, 22, 6, 1); err != nil {
 		t.Skip(err.Error())
 		return
 	}
 	conn.Close()
-	conn, err = GetOpenDBConnection(clickhouse.Native, clickhouse.Settings{
+	conn, err = GetStdOpenDBConnection(clickhouse.Native, clickhouse.Settings{
 		"allow_experimental_object_type": 1,
 	}, nil, nil)
 	require.NoError(t, err)
@@ -131,14 +131,14 @@ func TestStdJson(t *testing.T) {
 
 //https://github.com/ClickHouse/clickhouse-go/issues/645
 func TestStdJsonWithMap(t *testing.T) {
-	conn, err := GetDSNConnection(clickhouse.Native, false, "false")
+	conn, err := GetStdDSNConnection(clickhouse.Native, false, "false")
 	require.NoError(t, err)
 	if err := CheckMinServerVersion(conn, 22, 6, 1); err != nil {
 		t.Skip(err.Error())
 		return
 	}
 	conn.Close()
-	conn, err = GetOpenDBConnection(clickhouse.Native, clickhouse.Settings{
+	conn, err = GetStdOpenDBConnection(clickhouse.Native, clickhouse.Settings{
 		"allow_experimental_object_type": 1,
 	}, nil, nil)
 	require.NoError(t, err)

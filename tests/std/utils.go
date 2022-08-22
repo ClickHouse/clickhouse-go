@@ -61,8 +61,12 @@ func CheckMinServerVersion(conn *sql.DB, major, minor, patch uint64) error {
 	return nil
 }
 
-func GetDSNConnection(protocol clickhouse.Protocol, secure bool, compress string) (*sql.DB, error) {
-	env, err := clickhouse_tests.GetTestEnvironment("std")
+func GetStdDSNConnection(protocol clickhouse.Protocol, secure bool, compress string) (*sql.DB, error) {
+	return GetDSNConnection("std", protocol, secure, compress)
+}
+
+func GetDSNConnection(environment string, protocol clickhouse.Protocol, secure bool, compress string) (*sql.DB, error) {
+	env, err := clickhouse_tests.GetTestEnvironment(environment)
 	if err != nil {
 		return nil, err
 	}
@@ -85,8 +89,12 @@ func GetDSNConnection(protocol clickhouse.Protocol, secure bool, compress string
 	return nil, fmt.Errorf("unsupport protocol - %s", protocol.String())
 }
 
-func GetOpenDBConnection(protocol clickhouse.Protocol, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (*sql.DB, error) {
-	env, err := clickhouse_tests.GetTestEnvironment("std")
+func GetStdOpenDBConnection(protocol clickhouse.Protocol, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (*sql.DB, error) {
+	return GetOpenDBConnection("std", protocol, settings, tlsConfig, compression)
+}
+
+func GetOpenDBConnection(environment string, protocol clickhouse.Protocol, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (*sql.DB, error) {
+	env, err := clickhouse_tests.GetTestEnvironment(environment)
 	if err != nil {
 		return nil, err
 	}

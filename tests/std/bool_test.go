@@ -30,7 +30,7 @@ func TestStdBool(t *testing.T) {
 	dsns := map[string]clickhouse.Protocol{"Native": clickhouse.Native, "Http": clickhouse.HTTP}
 	for name, protocol := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
-			if conn, err := GetDSNConnection(protocol, false, "false"); assert.NoError(t, err) {
+			if conn, err := GetStdDSNConnection(protocol, false, "false"); assert.NoError(t, err) {
 				if err := CheckMinServerVersion(conn, 21, 12, 0); err != nil {
 					t.Skip(err.Error())
 					return

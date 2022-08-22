@@ -48,7 +48,7 @@ func TestStdExternalTable(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		assert.NoError(t, table2.Append(uint8(i), fmt.Sprintf("value_%d", i), time.Now()))
 	}
-	conn, err := GetDSNConnection(clickhouse.Native, false, "false")
+	conn, err := GetStdDSNConnection(clickhouse.Native, false, "false")
 	require.NoError(t, err)
 	ctx := clickhouse.Context(context.Background(),
 		clickhouse.WithExternalTable(table1, table2),

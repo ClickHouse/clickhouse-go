@@ -32,7 +32,7 @@ func TestStdIPv4(t *testing.T) {
 
 	for name, protocol := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
-			conn, err := GetDSNConnection(protocol, false, "false")
+			conn, err := GetStdDSNConnection(protocol, false, "false")
 			require.NoError(t, err)
 
 			const ddl = `
