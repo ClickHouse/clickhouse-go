@@ -170,6 +170,7 @@ func GetConnection(environment string, settings clickhouse.Settings, tlsConfig *
 		},
 		TLS:         tlsConfig,
 		Compression: compression,
+		DialTimeout: time.Duration(10) * time.Second,
 	})
 	return conn, err
 }
