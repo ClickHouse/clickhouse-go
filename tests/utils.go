@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/go-units"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 	"math/rand"
@@ -92,6 +94,15 @@ func CreateClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment,
 		// can't test without Container
 		panic(err)
 	}
+
+	expected := []*units.Ulimit{
+		{
+			Name: "nofile",
+			Hard: 262144,
+			Soft: 262144,
+		},
+	}
+
 	req := testcontainers.ContainerRequest{
 		Image:        fmt.Sprintf("clickhouse/clickhouse-server:%s", GetClickHouseTestVersion()),
 		Name:         fmt.Sprintf("clickhouse-go-%s-%d", strings.ToLower(testSet), time.Now().UnixNano()),
@@ -103,6 +114,9 @@ func CreateClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment,
 			testcontainers.BindMount(path.Join(basePath, "./resources/clickhouse.crt"), "/etc/clickhouse-server/certs/clickhouse.crt"),
 			testcontainers.BindMount(path.Join(basePath, "./resources/clickhouse.key"), "/etc/clickhouse-server/certs/clickhouse.key"),
 			testcontainers.BindMount(path.Join(basePath, "./resources/CAroot.crt"), "/etc/clickhouse-server/certs/CAroot.crt"),
+		},
+		Resources: container.Resources{
+			Ulimits: expected,
 		},
 	}
 	clickhouseContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
