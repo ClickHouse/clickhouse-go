@@ -20,11 +20,13 @@ package tests
 import (
 	"context"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
+	suuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/require"
 	"testing"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/google/uuid"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -74,6 +76,35 @@ func TestUUID(t *testing.T) {
 	}, col5)
 }
 
+func TestStringerUUID(t *testing.T) {
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+	require.NoError(t, err)
+	const ddl = `
+			CREATE TABLE test_uuid (
+				  Col1 UUID
+			) Engine Memory
+		`
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE test_uuid")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_uuid")
+	require.NoError(t, err)
+	var (
+		col1Data = suuid.NewV4()
+	)
+	require.NoError(t, batch.Append(col1Data))
+	require.NoError(t, batch.Send())
+	var (
+		col1 suuid.UUID
+	)
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_uuid").Scan(&col1))
+	assert.Equal(t, col1Data.String(), col1.String())
+}
+
 func TestNullableUUID(t *testing.T) {
 	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
@@ -108,10 +139,10 @@ func TestNullableUUID(t *testing.T) {
 	require.NoError(t, conn.Exec(ctx, "TRUNCATE TABLE test_uuid"))
 	batch, err = conn.PrepareBatch(ctx, "INSERT INTO test_uuid")
 	require.NoError(t, err)
-	col1Data = uuid.New()
-	require.NoError(t, batch.Append(col1Data, nil))
-	require.NoError(t, batch.Send())
 	{
+		var col1Data = uuid.New()
+		require.NoError(t, batch.Append(col1Data, nil))
+		require.NoError(t, batch.Send())
 		var (
 			col1 *uuid.UUID
 			col2 *uuid.UUID
@@ -174,14 +205,17 @@ func TestColumnarUUID(t *testing.T) {
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_uuid LIMIT $1", 1).Scan(&col1, &col2, &col3, &col4, &col5))
 	assert.Equal(t, v1, col1)
 	assert.Equal(t, v2, col2)
-	require.Nil(t, col3)
-	assert.Equal(t, []uuid.UUID{v1, v2}, col4)
-	assert.Equal(t, []*uuid.UUID{&v1, nil, &v2}, col5)
+	if assert.Nil(t, col3) {
+		assert.Equal(t, []uuid.UUID{v1, v2}, col4)
+		assert.Equal(t, []*uuid.UUID{&v1, nil, &v2}, col5)
+	}
 }
 
 func BenchmarkUUID(b *testing.B) {
-	conn, err := GetNativeConnection(nil, nil, nil)
 	ctx := context.Background()
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
 	if err != nil {
 		b.Fatal(err)
 	}
