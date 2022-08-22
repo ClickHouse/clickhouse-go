@@ -42,12 +42,14 @@ func TestConn(t *testing.T) {
 }
 
 func TestBadConn(t *testing.T) {
+	env, err := GetTestEnvironment("native")
+	require.NoError(t, err)
 	conn, err := clickhouse.Open(&clickhouse.Options{
 		Addr: []string{"127.0.0.1:9790"},
 		Auth: clickhouse.Auth{
 			Database: "default",
-			Username: "default",
-			Password: "",
+			Username: env.Username,
+			Password: env.Password,
 		},
 		MaxOpenConns: 2,
 	})
@@ -60,19 +62,18 @@ func TestBadConn(t *testing.T) {
 }
 
 func TestConnFailover(t *testing.T) {
-	port := GetEnv("CLICKHOUSE_PORT", "9000")
-	username := GetEnv("CLICKHOUSE_USERNAME", "default")
-	password := GetEnv("CLICKHOUSE_PASSWORD", "")
+	env, err := GetTestEnvironment("native")
+	require.NoError(t, err)
 	conn, err := clickhouse.Open(&clickhouse.Options{
 		Addr: []string{
 			"127.0.0.1:9001",
 			"127.0.0.1:9002",
-			fmt.Sprintf("127.0.0.1:%s", port),
+			fmt.Sprintf("%s:%d", env.Host, env.Port),
 		},
 		Auth: clickhouse.Auth{
 			Database: "default",
-			Username: username,
-			Password: password,
+			Username: env.Username,
+			Password: env.Password,
 		},
 		Compression: &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
@@ -85,25 +86,23 @@ func TestConnFailover(t *testing.T) {
 }
 
 func TestConnFailoverConnOpenRoundRobin(t *testing.T) {
-	port := GetEnv("CLICKHOUSE_PORT", "9000")
-	username := GetEnv("CLICKHOUSE_USERNAME", "default")
-	password := GetEnv("CLICKHOUSE_PASSWORD", "")
+	env, err := GetTestEnvironment("native")
+	require.NoError(t, err)
 	conn, err := clickhouse.Open(&clickhouse.Options{
 		Addr: []string{
 			"127.0.0.1:9001",
 			"127.0.0.1:9002",
-			fmt.Sprintf("127.0.0.1:%s", port),
+			fmt.Sprintf("%s:%d", env.Host, env.Port),
 		},
 		Auth: clickhouse.Auth{
 			Database: "default",
-			Username: username,
-			Password: password,
+			Username: env.Username,
+			Password: env.Password,
 		},
 		Compression: &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
 		},
 		ConnOpenStrategy: clickhouse.ConnOpenRoundRobin,
-		//	Debug: true,
 	})
 	require.NoError(t, err)
 	require.NoError(t, conn.Ping(context.Background()))
