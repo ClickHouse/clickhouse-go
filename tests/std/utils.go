@@ -18,6 +18,7 @@
 package std
 
 import (
+	"crypto/tls"
 	"database/sql"
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
@@ -60,7 +61,7 @@ func CheckMinServerVersion(conn *sql.DB, major, minor, patch uint64) error {
 	return nil
 }
 
-func GetDSNConnection(protocol clickhouse.Protocol, secure bool) (*sql.DB, error) {
+func GetDSNConnection(protocol clickhouse.Protocol, secure bool, compress string) (*sql.DB, error) {
 	env, err := clickhouse_tests.GetTestEnvironment("std")
 	if err != nil {
 		return nil, err
@@ -69,17 +70,51 @@ func GetDSNConnection(protocol clickhouse.Protocol, secure bool) (*sql.DB, error
 	case clickhouse.HTTP:
 		switch secure {
 		case true:
-			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("https://%s:%s@%s:%d?secure=true", env.Username, env.Password, env.Host, env.HttpsPort)))
+			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("https://%s:%s@%s:%d?secure=true&compress=%s", env.Username, env.Password, env.Host, env.HttpsPort, compress)))
 		case false:
-			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("http://%s:%s@%s:%d", env.Username, env.Password, env.Host, env.HttpPort)))
+			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("http://%s:%s@%s:%d?compress=%s", env.Username, env.Password, env.Host, env.HttpPort, compress)))
 		}
 	case clickhouse.Native:
 		switch secure {
 		case true:
-			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("clickhouse://%s:%s@%s:%d?secure=true", env.Username, env.Password, env.Host, env.SslPort)))
+			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("clickhouse://%s:%s@%s:%d?secure=true&compress=%s", env.Username, env.Password, env.Host, env.SslPort, compress)))
 		case false:
-			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("clickhouse://%s:%s@%s:%d", env.Username, env.Password, env.Host, env.Port)))
+			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("clickhouse://%s:%s@%s:%d?compress=%s", env.Username, env.Password, env.Host, env.Port, compress)))
 		}
 	}
 	return nil, fmt.Errorf("unsupport protocol - %s", protocol.String())
+}
+
+func GetOpenDBConnection(protocol clickhouse.Protocol, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (*sql.DB, error) {
+	env, err := clickhouse_tests.GetTestEnvironment("std")
+	if err != nil {
+		return nil, err
+	}
+	var port int
+	switch protocol {
+	case clickhouse.HTTP:
+		port = env.HttpPort
+		if tlsConfig != nil {
+			port = env.HttpsPort
+		}
+	case clickhouse.Native:
+		port = env.Port
+		if tlsConfig != nil {
+			port = env.SslPort
+		}
+	}
+	return clickhouse.OpenDB(&clickhouse.Options{
+		Addr: []string{fmt.Sprintf("%s:%d", env.Host, port)},
+		Auth: clickhouse.Auth{
+			Database: "default",
+			Username: env.Username,
+			Password: env.Password,
+		},
+		Settings:    settings,
+		DialTimeout: 5 * time.Second,
+		Compression: compression,
+		TLS:         tlsConfig,
+		Protocol:    protocol,
+		//	Debug: true,
+	}), nil
 }
