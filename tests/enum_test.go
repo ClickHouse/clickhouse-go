@@ -27,7 +27,7 @@ import (
 )
 
 func TestSimpleEnum(t *testing.T) {
-	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	ctx := context.Background()
@@ -58,7 +58,7 @@ func TestSimpleEnum(t *testing.T) {
 }
 
 func TestEnum(t *testing.T) {
-	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	ctx := context.Background()
@@ -122,7 +122,7 @@ func TestEnum(t *testing.T) {
 }
 
 func TestNullableEnum(t *testing.T) {
-	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	ctx := context.Background()
@@ -170,7 +170,7 @@ func TestNullableEnum(t *testing.T) {
 }
 
 func TestColumnarEnum(t *testing.T) {
-	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	ctx := context.Background()

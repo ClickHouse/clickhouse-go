@@ -28,7 +28,7 @@ import (
 )
 
 func TestMap(t *testing.T) {
-	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	ctx := context.Background()
@@ -102,7 +102,7 @@ func TestMap(t *testing.T) {
 }
 
 func TestColumnarMap(t *testing.T) {
-	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	ctx := context.Background()
@@ -167,7 +167,7 @@ func TestColumnarMap(t *testing.T) {
 }
 
 func TestMapFlush(t *testing.T) {
-	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	ctx := context.Background()

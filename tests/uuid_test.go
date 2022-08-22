@@ -29,7 +29,7 @@ import (
 )
 
 func TestUUID(t *testing.T) {
-	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	ctx := context.Background()
@@ -75,7 +75,7 @@ func TestUUID(t *testing.T) {
 }
 
 func TestNullableUUID(t *testing.T) {
-	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	ctx := context.Background()
@@ -123,7 +123,7 @@ func TestNullableUUID(t *testing.T) {
 }
 
 func TestColumnarUUID(t *testing.T) {
-	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	ctx := context.Background()
@@ -180,7 +180,7 @@ func TestColumnarUUID(t *testing.T) {
 }
 
 func BenchmarkUUID(b *testing.B) {
-	conn, err := GetConnection(nil, nil, nil)
+	conn, err := GetNativeConnection(nil, nil, nil)
 	ctx := context.Background()
 	if err != nil {
 		b.Fatal(err)
@@ -264,7 +264,7 @@ func TestUuid_ScanRow(t *testing.T) {
 }
 
 func TestUUIDFlush(t *testing.T) {
-	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	ctx := context.Background()

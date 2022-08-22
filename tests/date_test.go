@@ -29,7 +29,7 @@ import (
 )
 
 func TestDate(t *testing.T) {
-	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	ctx := context.Background()
@@ -96,7 +96,7 @@ func TestDate(t *testing.T) {
 }
 
 func TestNullableDate(t *testing.T) {
-	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	ctx := context.Background()
@@ -151,7 +151,7 @@ func TestNullableDate(t *testing.T) {
 }
 
 func TestColumnarDate(t *testing.T) {
-	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	ctx := context.Background()
@@ -236,7 +236,7 @@ func TestColumnarDate(t *testing.T) {
 }
 
 func TestDateFlush(t *testing.T) {
-	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	ctx := context.Background()

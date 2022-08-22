@@ -28,7 +28,7 @@ import (
 )
 
 func TestSimpleBigInt(t *testing.T) {
-	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	ctx := context.Background()
@@ -61,7 +61,7 @@ func TestSimpleBigInt(t *testing.T) {
 }
 
 func TestBigInt(t *testing.T) {
-	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	ctx := context.Background()
@@ -131,7 +131,7 @@ func TestBigInt(t *testing.T) {
 }
 
 func TestNullableBigInt(t *testing.T) {
-	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	ctx := context.Background()
@@ -196,7 +196,7 @@ func TestNullableBigInt(t *testing.T) {
 }
 
 func TestBigIntUIntOverflow(t *testing.T) {
-	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	ctx := context.Background()
@@ -264,7 +264,7 @@ func TestBigIntUIntOverflow(t *testing.T) {
 }
 
 func TestBigIntFlush(t *testing.T) {
-	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	ctx := context.Background()

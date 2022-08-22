@@ -19,6 +19,8 @@ package issues
 
 import (
 	"context"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
+	"github.com/stretchr/testify/require"
 	"testing"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
@@ -28,49 +30,34 @@ import (
 func TestIssue476(t *testing.T) {
 	var (
 		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			//Debug: true,
+		conn, err = clickhouse_tests.GetConnection("issues", nil, nil, &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
 		})
 	)
-	if assert.NoError(t, err) {
+	require.NoError(t, err)
 
-		const ddl = `
+	const ddl = `
 			CREATE TABLE issue_476 (
 				  Col1 Array(LowCardinality(String))
 				, Col2 Array(LowCardinality(String))
 			) Engine Memory
 		`
-		defer func() {
-			conn.Exec(ctx, "DROP TABLE issue_476")
-		}()
-		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
-			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO issue_476"); assert.NoError(t, err) {
-				if err := batch.Append(
-					[]string{"A", "B", "C"},
-					[]string{},
-				); !assert.NoError(t, err) {
-					return
-				}
-				if err := batch.Send(); assert.NoError(t, err) {
-					var (
-						col1 []string
-						col2 []string
-					)
-					if err := conn.QueryRow(ctx, `SELECT * FROM issue_476`).Scan(&col1, &col2); assert.NoError(t, err) {
-						assert.Equal(t, []string{"A", "B", "C"}, col1)
-						assert.Equal(t, []string{}, col2)
-					}
-				}
-			}
-		}
-	}
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE issue_476")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO issue_476")
+	require.NoError(t, err)
+	require.NoError(t, batch.Append(
+		[]string{"A", "B", "C"},
+		[]string{},
+	))
+	require.NoError(t, batch.Send())
+	var (
+		col1 []string
+		col2 []string
+	)
+	require.NoError(t, conn.QueryRow(ctx, `SELECT * FROM issue_476`).Scan(&col1, &col2))
+	assert.Equal(t, []string{"A", "B", "C"}, col1)
+	assert.Equal(t, []string{}, col2)
 }

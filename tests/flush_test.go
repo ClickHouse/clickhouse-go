@@ -28,7 +28,7 @@ import (
 )
 
 func TestNoFlushWithCompression(t *testing.T) {
-	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	require.NoError(t, err)
@@ -37,7 +37,7 @@ func TestNoFlushWithCompression(t *testing.T) {
 }
 
 func TestFlushWithCompression(t *testing.T) {
-	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	require.NoError(t, err)
@@ -46,7 +46,7 @@ func TestFlushWithCompression(t *testing.T) {
 }
 
 func TestFlush(t *testing.T) {
-	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	require.NoError(t, err)

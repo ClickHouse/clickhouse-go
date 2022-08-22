@@ -10,7 +10,7 @@ import (
 )
 
 func TestDurationInt64(t *testing.T) {
-	conn, err := GetConnection(clickhouse.Settings{
+	conn, err := GetNativeConnection(clickhouse.Settings{
 		"max_execution_time": 60,
 	}, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,

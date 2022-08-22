@@ -28,7 +28,7 @@ import (
 )
 
 func TestTuple(t *testing.T) {
-	conn, err := GetConnection(nil, nil, nil)
+	conn, err := GetNativeConnection(nil, nil, nil)
 	ctx := context.Background()
 	require.NoError(t, err)
 	loc, err := time.LoadLocation("Europe/Lisbon")
@@ -106,7 +106,7 @@ func TestTuple(t *testing.T) {
 }
 
 func TestNamedTupleWithSlice(t *testing.T) {
-	conn, err := GetConnection(nil, nil, nil)
+	conn, err := GetNativeConnection(nil, nil, nil)
 	ctx := context.Background()
 	require.NoError(t, err)
 	// https://github.com/ClickHouse/ClickHouse/pull/36544
@@ -138,7 +138,7 @@ func TestNamedTupleWithSlice(t *testing.T) {
 }
 
 func TestNamedTupleWithTypedSlice(t *testing.T) {
-	conn, err := GetConnection(nil, nil, nil)
+	conn, err := GetNativeConnection(nil, nil, nil)
 	ctx := context.Background()
 	require.NoError(t, err)
 	// https://github.com/ClickHouse/ClickHouse/pull/36544
@@ -172,7 +172,7 @@ func TestNamedTupleWithTypedSlice(t *testing.T) {
 
 // named tuples work with maps
 func TestNamedTupleWithMap(t *testing.T) {
-	conn, err := GetConnection(nil, nil, nil)
+	conn, err := GetNativeConnection(nil, nil, nil)
 	ctx := context.Background()
 	require.NoError(t, err)
 	// https://github.com/ClickHouse/ClickHouse/pull/36544
@@ -203,7 +203,7 @@ func TestNamedTupleWithMap(t *testing.T) {
 
 // named tuples work with typed maps
 func TestNamedTupleWithTypedMap(t *testing.T) {
-	conn, err := GetConnection(nil, nil, nil)
+	conn, err := GetNativeConnection(nil, nil, nil)
 	ctx := context.Background()
 	require.NoError(t, err)
 	// https://github.com/ClickHouse/ClickHouse/pull/36544
@@ -234,7 +234,7 @@ func TestNamedTupleWithTypedMap(t *testing.T) {
 
 // test column names which need escaping
 func TestNamedTupleWithEscapedColumns(t *testing.T) {
-	conn, err := GetConnection(nil, nil, nil)
+	conn, err := GetNativeConnection(nil, nil, nil)
 	ctx := context.Background()
 	require.NoError(t, err)
 	// https://github.com/ClickHouse/ClickHouse/pull/36544
@@ -260,7 +260,7 @@ func TestNamedTupleWithEscapedColumns(t *testing.T) {
 }
 
 func TestNamedTupleIncomplete(t *testing.T) {
-	conn, err := GetConnection(nil, nil, nil)
+	conn, err := GetNativeConnection(nil, nil, nil)
 	ctx := context.Background()
 	require.NoError(t, err)
 	// https://github.com/ClickHouse/ClickHouse/pull/36544
@@ -282,7 +282,7 @@ func TestNamedTupleIncomplete(t *testing.T) {
 
 // unnamed tuples will not work with maps - keys cannot be attributed to fields
 func TestUnNamedTupleWithMap(t *testing.T) {
-	conn, err := GetConnection(nil, nil, nil)
+	conn, err := GetNativeConnection(nil, nil, nil)
 	ctx := context.Background()
 	require.NoError(t, err)
 	// https://github.com/ClickHouse/ClickHouse/pull/36544
@@ -317,7 +317,7 @@ func TestUnNamedTupleWithMap(t *testing.T) {
 }
 
 func TestColumnarTuple(t *testing.T) {
-	conn, err := GetConnection(nil, nil, nil)
+	conn, err := GetNativeConnection(nil, nil, nil)
 	ctx := context.Background()
 	require.NoError(t, err)
 	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
@@ -401,7 +401,7 @@ func TestColumnarTuple(t *testing.T) {
 }
 
 func TestTupleFlush(t *testing.T) {
-	conn, err := GetConnection(nil, nil, nil)
+	conn, err := GetNativeConnection(nil, nil, nil)
 	ctx := context.Background()
 	require.NoError(t, err)
 	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {

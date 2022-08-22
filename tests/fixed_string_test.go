@@ -41,7 +41,7 @@ func (bin *BinFixedString) UnmarshalBinary(b []byte) error {
 }
 
 func TestFixedString(t *testing.T) {
-	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	ctx := context.Background()
@@ -101,7 +101,7 @@ func TestFixedString(t *testing.T) {
 }
 
 func TestEmptyFixedString(t *testing.T) {
-	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	ctx := context.Background()
@@ -134,7 +134,7 @@ func TestEmptyFixedString(t *testing.T) {
 }
 
 func TestNullableFixedString(t *testing.T) {
-	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	ctx := context.Background()
@@ -184,7 +184,7 @@ func TestNullableFixedString(t *testing.T) {
 }
 
 func TestColumnarFixedString(t *testing.T) {
-	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	ctx := context.Background()
@@ -243,7 +243,7 @@ func TestColumnarFixedString(t *testing.T) {
 }
 
 func BenchmarkFixedString(b *testing.B) {
-	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	ctx := context.Background()
@@ -279,7 +279,7 @@ func BenchmarkFixedString(b *testing.B) {
 }
 
 func BenchmarkColumnarFixedString(b *testing.B) {
-	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	ctx := context.Background()
@@ -324,7 +324,7 @@ func BenchmarkColumnarFixedString(b *testing.B) {
 }
 
 func TestFixedStringFlush(t *testing.T) {
-	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	ctx := context.Background()

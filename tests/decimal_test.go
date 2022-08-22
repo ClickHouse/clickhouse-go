@@ -28,7 +28,7 @@ import (
 )
 
 func TestDecimal(t *testing.T) {
-	conn, err := GetConnection(clickhouse.Settings{
+	conn, err := GetNativeConnection(clickhouse.Settings{
 		"allow_experimental_bigint_types": 1,
 	}, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
@@ -78,7 +78,7 @@ func TestDecimal(t *testing.T) {
 }
 
 func TestNegativeDecimal(t *testing.T) {
-	conn, err := GetConnection(clickhouse.Settings{
+	conn, err := GetNativeConnection(clickhouse.Settings{
 		"allow_experimental_bigint_types": 1,
 	}, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
@@ -123,7 +123,7 @@ func TestNegativeDecimal(t *testing.T) {
 }
 
 func TestNullableDecimal(t *testing.T) {
-	conn, err := GetConnection(clickhouse.Settings{
+	conn, err := GetNativeConnection(clickhouse.Settings{
 		"allow_experimental_bigint_types": 1,
 	}, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
@@ -177,7 +177,7 @@ func TestNullableDecimal(t *testing.T) {
 }
 
 func TestDecimalFlush(t *testing.T) {
-	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	ctx := context.Background()

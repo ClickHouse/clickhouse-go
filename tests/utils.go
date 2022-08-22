@@ -151,8 +151,12 @@ func GetTestEnvironment(testSet string) (ClickHouseTestEnvironment, error) {
 	return env, nil
 }
 
-func GetConnection(settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (driver.Conn, error) {
-	env, err := GetTestEnvironment("native")
+func GetNativeConnection(settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (driver.Conn, error) {
+	return GetConnection("native", settings, tlsConfig, compression)
+}
+
+func GetConnection(environment string, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (driver.Conn, error) {
+	env, err := GetTestEnvironment(environment)
 	if err != nil {
 		panic(err)
 	}

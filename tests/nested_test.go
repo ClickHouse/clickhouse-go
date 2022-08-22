@@ -27,7 +27,7 @@ import (
 )
 
 func TestSimpleNested(t *testing.T) {
-	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	ctx := context.Background()
@@ -63,7 +63,7 @@ func TestSimpleNested(t *testing.T) {
 
 // this isn't documented behaviour in ClickHouse - i.e. flatten_nested=1 with multiple Nested. Following does work however.
 func TestNestedFlattened(t *testing.T) {
-	conn, err := GetConnection(clickhouse.Settings{
+	conn, err := GetNativeConnection(clickhouse.Settings{
 		"flatten_nested": 1,
 	}, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
@@ -129,7 +129,7 @@ func TestNestedFlattened(t *testing.T) {
 }
 
 func TestFlattenedSimpleNested(t *testing.T) {
-	conn, err := GetConnection(clickhouse.Settings{
+	conn, err := GetNativeConnection(clickhouse.Settings{
 		"flatten_nested": 0,
 	}, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
@@ -177,7 +177,7 @@ func TestFlattenedSimpleNested(t *testing.T) {
 
 // nested with flatten_nested = 0
 func TestNestedUnFlattened(t *testing.T) {
-	conn, err := GetConnection(clickhouse.Settings{
+	conn, err := GetNativeConnection(clickhouse.Settings{
 		"flatten_nested": 0,
 	}, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
@@ -258,7 +258,7 @@ func TestNestedUnFlattened(t *testing.T) {
 }
 
 func TestNestedFlush(t *testing.T) {
-	conn, err := GetConnection(clickhouse.Settings{
+	conn, err := GetNativeConnection(clickhouse.Settings{
 		"flatten_nested": 0,
 	}, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,

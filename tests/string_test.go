@@ -78,7 +78,7 @@ func TestSimpleString(t *testing.T) {
 }
 
 func TestString(t *testing.T) {
-	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	ctx := context.Background()
@@ -151,7 +151,7 @@ func TestString(t *testing.T) {
 }
 
 func BenchmarkString(b *testing.B) {
-	conn, err := GetConnection(nil, nil, nil)
+	conn, err := GetNativeConnection(nil, nil, nil)
 	ctx := context.Background()
 	if err != nil {
 		b.Fatal(err)
@@ -183,7 +183,7 @@ func BenchmarkString(b *testing.B) {
 }
 
 func BenchmarkColumnarString(b *testing.B) {
-	conn, err := GetConnection(nil, nil, nil)
+	conn, err := GetNativeConnection(nil, nil, nil)
 	ctx := context.Background()
 	if err != nil {
 		b.Fatal(err)
@@ -226,7 +226,7 @@ func BenchmarkColumnarString(b *testing.B) {
 }
 
 func TestStringFlush(t *testing.T) {
-	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	ctx := context.Background()

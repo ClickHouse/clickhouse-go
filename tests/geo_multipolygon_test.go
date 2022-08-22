@@ -29,7 +29,7 @@ import (
 )
 
 func TestGeoMultiPolygon(t *testing.T) {
-	conn, err := GetConnection(clickhouse.Settings{
+	conn, err := GetNativeConnection(clickhouse.Settings{
 		"allow_experimental_geo_types": 1,
 	}, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
@@ -134,7 +134,7 @@ func TestGeoMultiPolygon(t *testing.T) {
 }
 
 func TestGeoMultiPolygonFlush(t *testing.T) {
-	conn, err := GetConnection(clickhouse.Settings{
+	conn, err := GetNativeConnection(clickhouse.Settings{
 		"allow_experimental_geo_types": 1,
 	}, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,

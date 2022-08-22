@@ -29,7 +29,7 @@ import (
 )
 
 func TestQueryRowScanStruct(t *testing.T) {
-	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	ctx := context.Background()
@@ -47,7 +47,7 @@ func TestQueryRowScanStruct(t *testing.T) {
 	assert.Equal(t, uint8(5), *result.Col3)
 }
 func TestQueryScanStruct(t *testing.T) {
-	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	ctx := context.Background()
@@ -72,7 +72,7 @@ func TestQueryScanStruct(t *testing.T) {
 }
 
 func TestSelectScanStruct(t *testing.T) {
-	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	ctx := context.Background()

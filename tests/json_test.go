@@ -50,7 +50,7 @@ type GithubEvent struct {
 var testDate, _ = time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", "2022-05-25 17:20:57 +0100 WEST")
 
 func setupConnection(t *testing.T) driver.Conn {
-	conn, err := GetConnection(clickhouse.Settings{
+	conn, err := GetNativeConnection(clickhouse.Settings{
 		"allow_experimental_object_type": 1,
 	}, nil, nil)
 	require.NoError(t, err)

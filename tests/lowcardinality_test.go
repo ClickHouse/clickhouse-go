@@ -29,7 +29,7 @@ import (
 )
 
 func TestLowCardinality(t *testing.T) {
-	conn, err := GetConnection(clickhouse.Settings{
+	conn, err := GetNativeConnection(clickhouse.Settings{
 		"allow_suspicious_low_cardinality_types": 1,
 	}, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
@@ -125,7 +125,7 @@ func TestLowCardinality(t *testing.T) {
 }
 
 func TestColmunarLowCardinality(t *testing.T) {
-	conn, err := GetConnection(clickhouse.Settings{
+	conn, err := GetNativeConnection(clickhouse.Settings{
 		"allow_suspicious_low_cardinality_types": 1,
 	}, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
@@ -187,7 +187,7 @@ func TestColmunarLowCardinality(t *testing.T) {
 }
 
 func TestLowCardinalityFlush(t *testing.T) {
-	conn, err := GetConnection(clickhouse.Settings{
+	conn, err := GetNativeConnection(clickhouse.Settings{
 		"allow_suspicious_low_cardinality_types": 1,
 	}, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,

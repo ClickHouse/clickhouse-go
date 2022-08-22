@@ -29,7 +29,7 @@ import (
 )
 
 func TestSimpleIPv4(t *testing.T) {
-	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	ctx := context.Background()
@@ -60,7 +60,7 @@ func TestSimpleIPv4(t *testing.T) {
 }
 
 func TestIPv4(t *testing.T) {
-	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	ctx := context.Background()
@@ -110,7 +110,7 @@ func TestIPv4(t *testing.T) {
 }
 
 func TestNullableIPv4(t *testing.T) {
-	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	ctx := context.Background()
@@ -158,7 +158,7 @@ func TestNullableIPv4(t *testing.T) {
 }
 
 func TestColumnarIPv4(t *testing.T) {
-	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	ctx := context.Background()
@@ -365,7 +365,7 @@ func TestIPv4_ScanRow(t *testing.T) {
 }
 
 func TestIPv4Flush(t *testing.T) {
-	conn, err := GetConnection(nil, nil, nil)
+	conn, err := GetNativeConnection(nil, nil, nil)
 	ctx := context.Background()
 	require.NoError(t, err)
 	const ddl = `

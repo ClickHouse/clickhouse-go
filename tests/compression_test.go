@@ -21,7 +21,7 @@ func TestNoCompression(t *testing.T) {
 }
 
 func CompressionTest(t *testing.T, method clickhouse.CompressionMethod) {
-	conn, err := GetConnection(nil, nil, &clickhouse.Compression{
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: method,
 	})
 	ctx := context.Background()
