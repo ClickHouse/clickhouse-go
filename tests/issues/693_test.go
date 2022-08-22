@@ -1,7 +1,8 @@
 package issues
 
 import (
-	"database/sql"
+	"github.com/ClickHouse/clickhouse-go/v2"
+	clickhouse_std_tests "github.com/ClickHouse/clickhouse-go/v2/tests/std"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"testing"
@@ -9,7 +10,7 @@ import (
 )
 
 func Test693(t *testing.T) {
-	conn, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000")
+	conn, err := clickhouse_std_tests.GetDSNConnection("issues", clickhouse.Native, false, "false")
 	require.NoError(t, err)
 	const ddl = `
 			CREATE TABLE test_date (

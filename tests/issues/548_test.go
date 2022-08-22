@@ -2,6 +2,9 @@ package issues
 
 import (
 	"context"
+	"fmt"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
+	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
 
@@ -10,22 +13,22 @@ import (
 )
 
 func Test548(t *testing.T) {
-	var (
-		ctx, cancel = context.WithTimeout(context.Background(), time.Second)
-		conn, err   = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			DialTimeout: time.Second,
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			//Debug: true,
-		})
-	)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	env, err := clickhouse_tests.GetTestEnvironment("issues")
+	require.NoError(t, err)
+	conn, err := clickhouse.Open(&clickhouse.Options{
+		Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},
+		Auth: clickhouse.Auth{
+			Database: "default",
+			Username: env.Username,
+			Password: env.Password,
+		},
+		Compression: &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		},
+		DialTimeout: time.Second,
+	})
+
 	defer cancel()
 	assert.NoError(t, err)
 	// give it plenty of time before we conclusively assume deadlock

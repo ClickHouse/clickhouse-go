@@ -11,15 +11,14 @@ import (
 )
 
 func Test615(t *testing.T) {
-	conn, err := clickhouse.Open(&clickhouse.Options{
-		Addr: []string{"127.0.0.1:9000"},
-		Compression: &clickhouse.Compression{
-			Method: clickhouse.CompressionLZ4,
-		},
-		Settings: clickhouse.Settings{
+	var (
+		conn, err = clickhouse_tests.GetConnection("issues", clickhouse.Settings{
 			"max_execution_time": 60,
-		},
-	})
+		}, nil, &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		})
+	)
+	require.NoError(t, err)
 	if err := clickhouse_tests.CheckMinServerVersion(conn, 22, 0, 0); err != nil {
 		t.Skip(err.Error())
 	}
