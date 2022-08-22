@@ -18,7 +18,8 @@
 package std
 
 import (
-	"database/sql"
+	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/stretchr/testify/require"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -33,35 +34,31 @@ func TestStdWithTotals(t *testing.T) {
 		SELECT number FROM system.numbers LIMIT 100
 	) GROUP BY n WITH TOTALS
 	`
-	if conn, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000"); assert.NoError(t, err) {
-		if rows, err := conn.Query(query); assert.NoError(t, err) {
-			var count int
-			for rows.Next() {
-				count++
-				var (
-					n uint64
-					c uint64
-				)
-				if !assert.NoError(t, rows.Scan(&n, &c)) {
-					return
-				}
-			}
-			if assert.Equal(t, 100, count) {
-				if assert.True(t, rows.NextResultSet()) {
-					var count int
-					for rows.Next() {
-						count++
-						var (
-							n, totals uint64
-						)
-						if assert.NoError(t, rows.Scan(&n, &totals)) {
-							assert.Equal(t, uint64(0), n)
-							assert.Equal(t, uint64(100), totals)
-						}
-					}
-					assert.Equal(t, 1, count)
-				}
-			}
-		}
+
+	conn, err := GetDSNConnection(clickhouse.Native, false, "false")
+	require.NoError(t, err)
+	rows, err := conn.Query(query)
+	require.NoError(t, err)
+	var count int
+	for rows.Next() {
+		count++
+		var (
+			n uint64
+			c uint64
+		)
+		require.NoError(t, rows.Scan(&n, &c))
 	}
+	require.Equal(t, 100, count)
+	require.True(t, rows.NextResultSet())
+	count = 0
+	for rows.Next() {
+		count++
+		var (
+			n, totals uint64
+		)
+		require.NoError(t, rows.Scan(&n, &totals))
+		assert.Equal(t, uint64(0), n)
+		assert.Equal(t, uint64(100), totals)
+	}
+	assert.Equal(t, 1, count)
 }

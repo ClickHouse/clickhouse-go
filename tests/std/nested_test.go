@@ -25,16 +25,10 @@ import (
 )
 
 func TestStdNested(t *testing.T) {
-	conn := clickhouse.OpenDB(&clickhouse.Options{
-		Addr: []string{"127.0.0.1:9000"},
-	})
-	conn.Close()
-	conn = clickhouse.OpenDB(&clickhouse.Options{
-		Addr: []string{"127.0.0.1:9000"},
-		Settings: clickhouse.Settings{
-			"flatten_nested": 0,
-		},
-	})
+	conn, err := GetOpenDBConnection(clickhouse.Native, clickhouse.Settings{
+		"flatten_nested": 0,
+	}, nil, nil)
+	require.NoError(t, err)
 	conn.Exec("DROP TABLE std_nested_test")
 	if err := CheckMinServerVersion(conn, 22, 1, 0); err != nil {
 		t.Skip(err.Error())
@@ -57,7 +51,7 @@ func TestStdNested(t *testing.T) {
 	defer func() {
 		conn.Exec("DROP TABLE std_nested_test")
 	}()
-	_, err := conn.Exec(ddl)
+	_, err = conn.Exec(ddl)
 	require.NoError(t, err)
 	require.NoError(t, err)
 	scope, err := conn.Begin()
