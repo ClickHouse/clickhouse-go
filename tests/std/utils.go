@@ -20,6 +20,8 @@ package std
 import (
 	"database/sql"
 	"fmt"
+	"github.com/ClickHouse/clickhouse-go/v2"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"math/rand"
 	"strconv"
 	"strings"
@@ -56,4 +58,28 @@ func CheckMinServerVersion(conn *sql.DB, major, minor, patch uint64) error {
 		return fmt.Errorf("unsupported server version %d.%d.%d < %d.%d.%d", version.Major, version.Minor, version.Patch, major, minor, patch)
 	}
 	return nil
+}
+
+func GetDSNConnection(protocol clickhouse.Protocol, secure bool) (*sql.DB, error) {
+	env, err := clickhouse_tests.GetTestEnvironment("std")
+	if err != nil {
+		return nil, err
+	}
+	switch protocol {
+	case clickhouse.HTTP:
+		switch secure {
+		case true:
+			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("https://%s:%s@%s:%d?secure=true", env.Username, env.Password, env.Host, env.HttpsPort)))
+		case false:
+			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("http://%s:%s@%s:%d", env.Username, env.Password, env.Host, env.HttpPort)))
+		}
+	case clickhouse.Native:
+		switch secure {
+		case true:
+			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("clickhouse://%s:%s@%s:%d?secure=true", env.Username, env.Password, env.Host, env.SslPort)))
+		case false:
+			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("clickhouse://%s:%s@%s:%d", env.Username, env.Password, env.Host, env.Port)))
+		}
+	}
+	return nil, fmt.Errorf("unsupport protocol - %s", protocol.String())
 }

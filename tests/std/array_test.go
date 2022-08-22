@@ -18,8 +18,8 @@
 package std
 
 import (
-	"database/sql"
 	"fmt"
+	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
@@ -28,11 +28,11 @@ import (
 )
 
 func TestStdArray(t *testing.T) {
-	dsns := map[string]string{"Native": "clickhouse://127.0.0.1:9000", "Http": "http://127.0.0.1:8123"}
+	dsns := map[string]clickhouse.Protocol{"Native": clickhouse.Native, "Http": clickhouse.HTTP}
 
-	for name, dsn := range dsns {
+	for name, protocol := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
-			if conn, err := sql.Open("clickhouse", dsn); assert.NoError(t, err) {
+			if conn, err := GetDSNConnection(protocol, false); assert.NoError(t, err) {
 				const ddl = `
 		CREATE TABLE test_array (
 			  Col1 Array(String)

@@ -31,6 +31,7 @@ import (
 	"net"
 	"os"
 	"path"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -67,11 +68,11 @@ type ClickHouseTestEnvironment struct {
 	Host      string
 	Username  string
 	Password  string
-	container testcontainers.Container `json:"-"`
+	Container testcontainers.Container `json:"-"`
 }
 
-func GetClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment, error) {
-	// create a ClickHouse container
+func CreateClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment, error) {
+	// create a ClickHouse Container
 	ctx := context.Background()
 	// attempt use docker for CI
 	provider, err := testcontainers.ProviderDocker.GetProvider()
@@ -85,9 +86,10 @@ func GetClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment, er
 		os.Exit(0)
 	}
 	fmt.Printf("Using Docker for IT tests\n")
-	cwd, err := os.Getwd()
+	_, b, _, _ := runtime.Caller(0)
+	basePath := filepath.Dir(b)
 	if err != nil {
-		// can't test without container
+		// can't test without Container
 		panic(err)
 	}
 	req := testcontainers.ContainerRequest{
@@ -96,11 +98,11 @@ func GetClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment, er
 		ExposedPorts: []string{"9000/tcp", "8123/tcp", "9440/tcp", "8443/tcp"},
 		WaitingFor:   wait.ForLog("Ready for connections"),
 		Mounts: []testcontainers.ContainerMount{
-			testcontainers.BindMount(path.Join(cwd, "./resources/custom.xml"), "/etc/clickhouse-server/config.d/custom.xml"),
-			testcontainers.BindMount(path.Join(cwd, "./resources/admin.xml"), "/etc/clickhouse-server/users.d/admin.xml"),
-			testcontainers.BindMount(path.Join(cwd, "./resources/clickhouse.crt"), "/etc/clickhouse-server/certs/clickhouse.crt"),
-			testcontainers.BindMount(path.Join(cwd, "./resources/clickhouse.key"), "/etc/clickhouse-server/certs/clickhouse.key"),
-			testcontainers.BindMount(path.Join(cwd, "./resources/CAroot.crt"), "/etc/clickhouse-server/certs/CAroot.crt"),
+			testcontainers.BindMount(path.Join(basePath, "./resources/custom.xml"), "/etc/clickhouse-server/config.d/custom.xml"),
+			testcontainers.BindMount(path.Join(basePath, "./resources/admin.xml"), "/etc/clickhouse-server/users.d/admin.xml"),
+			testcontainers.BindMount(path.Join(basePath, "./resources/clickhouse.crt"), "/etc/clickhouse-server/certs/clickhouse.crt"),
+			testcontainers.BindMount(path.Join(basePath, "./resources/clickhouse.key"), "/etc/clickhouse-server/certs/clickhouse.key"),
+			testcontainers.BindMount(path.Join(basePath, "./resources/CAroot.crt"), "/etc/clickhouse-server/certs/CAroot.crt"),
 		},
 	}
 	clickhouseContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
@@ -123,7 +125,7 @@ func GetClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment, er
 		// we set this explicitly - note its also set in the /etc/clickhouse-server/users.d/admin.xml
 		Username:  "default",
 		Password:  "ClickHouse",
-		container: clickhouseContainer,
+		Container: clickhouseContainer,
 	}
 	SetTestEnvironment(testSet, testEnv)
 	return testEnv, nil

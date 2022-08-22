@@ -14,12 +14,14 @@ func TestMain(m *testing.M) {
 		fmt.Printf("Using external ClickHouse for IT tests -  %s:%s\n",
 			GetEnv("CLICKHOUSE_PORT", "9000"),
 			GetEnv("CLICKHOUSE_HOST", "localhost"))
+		// TODO: Set environment
+
 		os.Exit(m.Run())
 	}
-	testEnv, err := GetClickHouseTestEnvironment("native")
+	testEnv, err := CreateClickHouseTestEnvironment("native")
 	if err != nil {
 		panic(err)
 	}
-	defer testEnv.container.Terminate(context.Background()) //nolint
+	defer testEnv.Container.Terminate(context.Background()) //nolint
 	os.Exit(m.Run())
 }
