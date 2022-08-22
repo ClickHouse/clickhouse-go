@@ -22,21 +22,12 @@ jobs:
           - 1.18
           - 1.19
         clickhouse:
-          - 21.8
           - 22.3
           - 22.5
           - 22.6
           - 22.7
+          - 22.8
           - latest
-
-    services:
-      clickhouse:
-        image: clickhouse/clickhouse-server:${{ matrix.clickhouse }}
-        ports:
-          - 8123:8123
-          - 9000:9000
-        options: --ulimit nofile=262144:262144
-
     steps:
       - uses: actions/checkout@main
 
@@ -48,4 +39,4 @@ jobs:
 
       - name: Run tests
         run: |
-          make test
+          CLICKHOUSE_SERVER=${{ matrix.clickhouse }} make test

@@ -199,23 +199,22 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		blockCompressor: compress.NewWriter(),
 		compressionPool: compressionPool,
 	}
-
-	rows, err := conn.query(ctx, func(*connect, error) {}, "SELECT timeZone()")
+	location, err := conn.readTimeZone(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	for rows.Next() {
-		var serverLocation string
-		rows.Scan(&serverLocation)
-		location, err := time.LoadLocation(serverLocation)
-		if err != nil {
-			return nil, err
-		}
-		conn.location = location
-	}
-
-	return conn, nil
+	return &httpConnect{
+		client: &http.Client{
+			Transport: t,
+		},
+		url:             u,
+		buffer:          new(chproto.Buffer),
+		compression:     opt.Compression.Method,
+		blockCompressor: compress.NewWriter(),
+		compressionPool: compressionPool,
+		location:        location,
+	}, nil
 }
 
 type httpConnect struct {
@@ -233,6 +232,24 @@ func (h *httpConnect) isBad() bool {
 		return true
 	}
 	return false
+}
+
+func (h *httpConnect) readTimeZone(ctx context.Context) (*time.Location, error) {
+	rows, err := h.query(ctx, func(*connect, error) {}, "SELECT timeZone()")
+	if err != nil {
+		return nil, err
+	}
+
+	for rows.Next() {
+		var serverLocation string
+		rows.Scan(&serverLocation)
+		location, err := time.LoadLocation(serverLocation)
+		if err != nil {
+			return nil, err
+		}
+		return location, nil
+	}
+	return nil, errors.New("unable to determine server timezone")
 }
 
 func createCompressionPool(compression *Compression) (Pool[HTTPReaderWriter], error) {
