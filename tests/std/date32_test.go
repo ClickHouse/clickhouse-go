@@ -20,6 +20,7 @@ package std
 import (
 	"database/sql"
 	"fmt"
+	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
@@ -28,11 +29,11 @@ import (
 )
 
 func TestStdDate32(t *testing.T) {
-	dsns := map[string]string{"Native": "clickhouse://127.0.0.1:9000", "Http": "http://127.0.0.1:8123"}
+	dsns := map[string]clickhouse.Protocol{"Native": clickhouse.Native, "Http": clickhouse.HTTP}
 
-	for name, dsn := range dsns {
+	for name, protocol := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
-			conn, err := sql.Open("clickhouse", dsn)
+			conn, err := GetDSNConnection(protocol, false, "false")
 			require.NoError(t, err)
 			if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
 				t.Skip(err.Error())
