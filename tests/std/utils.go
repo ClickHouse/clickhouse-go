@@ -31,6 +31,7 @@ func init() {
 	fmt.Printf("using random seed %d for std tests\n", seed)
 	rand.Seed(seed)
 }
+
 func CheckMinServerVersion(conn *sql.DB, major, minor, patch uint64) error {
 	var version struct {
 		Major uint64

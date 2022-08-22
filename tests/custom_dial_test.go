@@ -30,27 +30,24 @@ import (
 )
 
 func TestCustomDialContext(t *testing.T) {
-	port := GetEnv("CLICKHOUSE_PORT", "9000")
-	host := GetEnv("CLICKHOUSE_HOST", "localhost")
-	username := GetEnv("CLICKHOUSE_USERNAME", "default")
-	password := GetEnv("CLICKHOUSE_PASSWORD", "")
-
+	env, err := GetTestEnvironment("native")
+	require.NoError(t, err)
 	var (
 		dialCount int
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{fmt.Sprintf("%s:%s", host, port)},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: username,
-				Password: password,
-			},
-			DialContext: func(ctx context.Context, addr string) (net.Conn, error) {
-				dialCount++
-				var d net.Dialer
-				return d.DialContext(ctx, "tcp", addr)
-			},
-		})
 	)
+	conn, err := clickhouse.Open(&clickhouse.Options{
+		Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},
+		Auth: clickhouse.Auth{
+			Database: "default",
+			Username: env.Username,
+			Password: env.Password,
+		},
+		DialContext: func(ctx context.Context, addr string) (net.Conn, error) {
+			dialCount++
+			var d net.Dialer
+			return d.DialContext(ctx, "tcp", addr)
+		},
+	})
 	require.NoError(t, err)
 	ctx := context.Background()
 	require.NoError(t, conn.Ping(ctx))

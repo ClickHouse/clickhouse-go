@@ -18,13 +18,19 @@
 package tests
 
 import (
+	"context"
 	"crypto/tls"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"github.com/testcontainers/testcontainers-go"
+	"github.com/testcontainers/testcontainers-go/wait"
 	"math/rand"
 	"net"
 	"os"
+	"path"
 	"runtime"
 	"strings"
 	"time"
@@ -47,18 +53,114 @@ func CheckMinServerVersion(conn driver.Conn, major, minor, patch uint64) error {
 	return nil
 }
 
+const defaultClickHouseVersion = "latest"
+
+func GetClickHouseTestVersion() string {
+	return GetEnv("CLICKHOUSE_VERSION", defaultClickHouseVersion)
+}
+
+type ClickHouseTestEnvironment struct {
+	Port      int
+	HttpPort  int
+	SslPort   int
+	HttpsPort int
+	Host      string
+	Username  string
+	Password  string
+	container testcontainers.Container `json:"-"`
+}
+
+func GetClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment, error) {
+	// create a ClickHouse container
+	ctx := context.Background()
+	// attempt use docker for CI
+	provider, err := testcontainers.ProviderDocker.GetProvider()
+	if err != nil {
+		fmt.Printf("Docker is not running and no clickhouse connections details were provided. Skipping tests: %s\n", err)
+		os.Exit(0)
+	}
+	err = provider.Health(ctx)
+	if err != nil {
+		fmt.Printf("Docker is not running and no clickhouse connections details were provided. Skipping IT tests: %s\n", err)
+		os.Exit(0)
+	}
+	fmt.Printf("Using Docker for IT tests\n")
+	cwd, err := os.Getwd()
+	if err != nil {
+		// can't test without container
+		panic(err)
+	}
+	req := testcontainers.ContainerRequest{
+		Image:        fmt.Sprintf("clickhouse/clickhouse-server:%s", GetClickHouseTestVersion()),
+		Name:         fmt.Sprintf("clickhouse-go-%s", strings.ToLower(testSet)),
+		ExposedPorts: []string{"9000/tcp", "8123/tcp", "9440/tcp", "8443/tcp"},
+		WaitingFor:   wait.ForLog("Ready for connections"),
+		Mounts: []testcontainers.ContainerMount{
+			testcontainers.BindMount(path.Join(cwd, "./resources/custom.xml"), "/etc/clickhouse-server/config.d/custom.xml"),
+			testcontainers.BindMount(path.Join(cwd, "./resources/admin.xml"), "/etc/clickhouse-server/users.d/admin.xml"),
+			testcontainers.BindMount(path.Join(cwd, "./resources/clickhouse.crt"), "/etc/clickhouse-server/certs/clickhouse.crt"),
+			testcontainers.BindMount(path.Join(cwd, "./resources/clickhouse.key"), "/etc/clickhouse-server/certs/clickhouse.key"),
+			testcontainers.BindMount(path.Join(cwd, "./resources/CAroot.crt"), "/etc/clickhouse-server/certs/CAroot.crt"),
+		},
+	}
+	clickhouseContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: req,
+		Started:          true,
+	})
+	if err != nil {
+		return ClickHouseTestEnvironment{}, err
+	}
+	p, _ := clickhouseContainer.MappedPort(ctx, "9000")
+	hp, _ := clickhouseContainer.MappedPort(ctx, "8123")
+	sslPort, _ := clickhouseContainer.MappedPort(ctx, "9440")
+	hps, _ := clickhouseContainer.MappedPort(ctx, "8443")
+	testEnv := ClickHouseTestEnvironment{
+		Port:      p.Int(),
+		HttpPort:  hp.Int(),
+		SslPort:   sslPort.Int(),
+		HttpsPort: hps.Int(),
+		Host:      "localhost",
+		// we set this explicitly - note its also set in the /etc/clickhouse-server/users.d/admin.xml
+		Username:  "default",
+		Password:  "ClickHouse",
+		container: clickhouseContainer,
+	}
+	SetTestEnvironment(testSet, testEnv)
+	return testEnv, nil
+}
+
+func SetTestEnvironment(testSet string, environment ClickHouseTestEnvironment) {
+	bytes, err := json.Marshal(environment)
+	if err != nil {
+		panic(err)
+	}
+	os.Setenv(fmt.Sprintf("CLICKHOUSE_%s_ENV", strings.ToUpper(testSet)), string(bytes))
+}
+
+func GetTestEnvironment(testSet string) (ClickHouseTestEnvironment, error) {
+	sEnv := os.Getenv(fmt.Sprintf("CLICKHOUSE_%s_ENV", strings.ToUpper(testSet)))
+	if sEnv == "" {
+		return ClickHouseTestEnvironment{}, errors.New("unable to find environment")
+	}
+	var env ClickHouseTestEnvironment
+	if err := json.Unmarshal([]byte(sEnv), &env); err != nil {
+		return ClickHouseTestEnvironment{}, err
+	}
+	return env, nil
+}
+
 func GetConnection(settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (driver.Conn, error) {
-	port := GetEnv("CLICKHOUSE_PORT", "9000")
-	host := GetEnv("CLICKHOUSE_HOST", "localhost")
-	username := GetEnv("CLICKHOUSE_USERNAME", "default")
-	password := GetEnv("CLICKHOUSE_PASSWORD", "")
+	env, err := GetTestEnvironment("native")
+	if err != nil {
+		panic(err)
+	}
 	conn, err := clickhouse.Open(&clickhouse.Options{
-		Addr:     []string{fmt.Sprintf("%s:%s", host, port)},
+		Addr:     []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},
 		Settings: settings,
 		Auth: clickhouse.Auth{
 			Database: "default",
-			Username: username,
-			Password: password,
+			Username: env.Username,
+			Password: env.Password,
 		},
 		TLS:         tlsConfig,
 		Compression: compression,

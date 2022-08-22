@@ -124,16 +124,14 @@ func TestPingDeadline(t *testing.T) {
 }
 
 func TestReadDeadline(t *testing.T) {
-	port := GetEnv("CLICKHOUSE_PORT", "9000")
-	host := GetEnv("CLICKHOUSE_HOST", "localhost")
-	username := GetEnv("CLICKHOUSE_USERNAME", "default")
-	password := GetEnv("CLICKHOUSE_PASSWORD", "")
+	env, err := GetTestEnvironment("native")
+	require.NoError(t, err)
 	conn, err := clickhouse.Open(&clickhouse.Options{
-		Addr: []string{fmt.Sprintf("%s:%s", host, port)},
+		Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},
 		Auth: clickhouse.Auth{
 			Database: "default",
-			Username: username,
-			Password: password,
+			Username: env.Username,
+			Password: env.Password,
 		},
 		Compression: &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
@@ -151,16 +149,14 @@ func TestReadDeadline(t *testing.T) {
 }
 
 func TestQueryDeadline(t *testing.T) {
-	port := GetEnv("CLICKHOUSE_PORT", "9000")
-	host := GetEnv("CLICKHOUSE_HOST", "localhost")
-	username := GetEnv("CLICKHOUSE_USERNAME", "default")
-	password := GetEnv("CLICKHOUSE_PASSWORD", "")
+	env, err := GetTestEnvironment("native")
+	require.NoError(t, err)
 	conn, err := clickhouse.Open(&clickhouse.Options{
-		Addr: []string{fmt.Sprintf("%s:%s", host, port)},
+		Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},
 		Auth: clickhouse.Auth{
 			Database: "default",
-			Username: username,
-			Password: password,
+			Username: env.Username,
+			Password: env.Password,
 		},
 		Compression: &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
