@@ -20,6 +20,7 @@ package tests
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
@@ -38,22 +39,22 @@ func (t testStr) String() string {
 }
 
 func TestSimpleString(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			DialTimeout: time.Second * 120,
-			// Debug:       true,
-		})
-	)
+	env, err := GetTestEnvironment("native")
+	require.NoError(t, err)
+	conn, err := clickhouse.Open(&clickhouse.Options{
+		Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},
+		Auth: clickhouse.Auth{
+			Database: "default",
+			Username: env.Username,
+			Password: env.Password,
+		},
+		Compression: &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		},
+		DialTimeout: time.Second * 120,
+	})
+	ctx := context.Background()
+
 	require.NoError(t, err)
 	require.NoError(t, conn.Ping(ctx))
 	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
@@ -77,20 +78,10 @@ func TestSimpleString(t *testing.T) {
 }
 
 func TestString(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	require.NoError(t, err)
 	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
 		t.Skip(err.Error())
@@ -160,17 +151,8 @@ func TestString(t *testing.T) {
 }
 
 func BenchmarkString(b *testing.B) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, nil)
+	ctx := context.Background()
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -201,17 +183,8 @@ func BenchmarkString(b *testing.B) {
 }
 
 func BenchmarkColumnarString(b *testing.B) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, nil)
+	ctx := context.Background()
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -253,21 +226,10 @@ func BenchmarkColumnarString(b *testing.B) {
 }
 
 func TestStringFlush(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			MaxOpenConns: 1,
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	require.NoError(t, err)
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE string_flush")

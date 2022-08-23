@@ -24,23 +24,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestTuple(t *testing.T) {
-
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, nil)
+	ctx := context.Background()
 	require.NoError(t, err)
 	loc, err := time.LoadLocation("Europe/Lisbon")
 	require.NoError(t, err)
@@ -117,17 +106,8 @@ func TestTuple(t *testing.T) {
 }
 
 func TestNamedTupleWithSlice(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, nil)
+	ctx := context.Background()
 	require.NoError(t, err)
 	// https://github.com/ClickHouse/ClickHouse/pull/36544
 	if err := CheckMinServerVersion(conn, 22, 5, 0); err != nil {
@@ -158,17 +138,8 @@ func TestNamedTupleWithSlice(t *testing.T) {
 }
 
 func TestNamedTupleWithTypedSlice(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, nil)
+	ctx := context.Background()
 	require.NoError(t, err)
 	// https://github.com/ClickHouse/ClickHouse/pull/36544
 	if err := CheckMinServerVersion(conn, 22, 5, 0); err != nil {
@@ -201,17 +172,8 @@ func TestNamedTupleWithTypedSlice(t *testing.T) {
 
 // named tuples work with maps
 func TestNamedTupleWithMap(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, nil)
+	ctx := context.Background()
 	require.NoError(t, err)
 	// https://github.com/ClickHouse/ClickHouse/pull/36544
 	if err := CheckMinServerVersion(conn, 22, 5, 0); err != nil {
@@ -241,17 +203,8 @@ func TestNamedTupleWithMap(t *testing.T) {
 
 // named tuples work with typed maps
 func TestNamedTupleWithTypedMap(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, nil)
+	ctx := context.Background()
 	require.NoError(t, err)
 	// https://github.com/ClickHouse/ClickHouse/pull/36544
 	if err := CheckMinServerVersion(conn, 22, 5, 0); err != nil {
@@ -281,17 +234,8 @@ func TestNamedTupleWithTypedMap(t *testing.T) {
 
 // test column names which need escaping
 func TestNamedTupleWithEscapedColumns(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, nil)
+	ctx := context.Background()
 	require.NoError(t, err)
 	// https://github.com/ClickHouse/ClickHouse/pull/36544
 	if err := CheckMinServerVersion(conn, 22, 5, 0); err != nil {
@@ -316,17 +260,8 @@ func TestNamedTupleWithEscapedColumns(t *testing.T) {
 }
 
 func TestNamedTupleIncomplete(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, nil)
+	ctx := context.Background()
 	require.NoError(t, err)
 	// https://github.com/ClickHouse/ClickHouse/pull/36544
 	if err := CheckMinServerVersion(conn, 22, 5, 0); err != nil {
@@ -347,17 +282,8 @@ func TestNamedTupleIncomplete(t *testing.T) {
 
 // unnamed tuples will not work with maps - keys cannot be attributed to fields
 func TestUnNamedTupleWithMap(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, nil)
+	ctx := context.Background()
 	require.NoError(t, err)
 	// https://github.com/ClickHouse/ClickHouse/pull/36544
 	if err := CheckMinServerVersion(conn, 22, 5, 0); err != nil {
@@ -391,17 +317,8 @@ func TestUnNamedTupleWithMap(t *testing.T) {
 }
 
 func TestColumnarTuple(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, nil)
+	ctx := context.Background()
 	require.NoError(t, err)
 	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
 		t.Skip(err.Error())
@@ -464,10 +381,10 @@ func TestColumnarTuple(t *testing.T) {
 				"A_542", int64(542),
 			}
 			col2Data = []interface{}{
-				"B_542", int8(1), timestamp,
+				"B_542", int8(1), timestamp.In(time.UTC),
 			}
 			col3Data = []interface{}{
-				timestamp, "CH", map[string]string{
+				timestamp.In(time.UTC), "CH", map[string]string{
 					"key": "value",
 				},
 			}
@@ -484,17 +401,8 @@ func TestColumnarTuple(t *testing.T) {
 }
 
 func TestTupleFlush(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, nil)
+	ctx := context.Background()
 	require.NoError(t, err)
 	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
 		t.Skip(err.Error())
@@ -531,5 +439,4 @@ func TestTupleFlush(t *testing.T) {
 		i += 1
 	}
 	require.Equal(t, 1000, i)
-
 }

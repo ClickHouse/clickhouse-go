@@ -19,6 +19,7 @@ package tests
 
 import (
 	"context"
+	"fmt"
 	"github.com/stretchr/testify/require"
 	"os"
 	"testing"
@@ -29,16 +30,8 @@ import (
 )
 
 func TestConn(t *testing.T) {
-	conn, err := clickhouse.Open(&clickhouse.Options{
-		Addr: []string{"127.0.0.1:9000"},
-		Auth: clickhouse.Auth{
-			Database: "default",
-			Username: "default",
-			Password: "",
-		},
-		Compression: &clickhouse.Compression{
-			Method: clickhouse.CompressionLZ4,
-		},
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
 	})
 	require.NoError(t, err)
 	require.NoError(t, conn.Ping(context.Background()))
@@ -49,12 +42,14 @@ func TestConn(t *testing.T) {
 }
 
 func TestBadConn(t *testing.T) {
+	env, err := GetTestEnvironment("native")
+	require.NoError(t, err)
 	conn, err := clickhouse.Open(&clickhouse.Options{
 		Addr: []string{"127.0.0.1:9790"},
 		Auth: clickhouse.Auth{
 			Database: "default",
-			Username: "default",
-			Password: "",
+			Username: env.Username,
+			Password: env.Password,
 		},
 		MaxOpenConns: 2,
 	})
@@ -67,21 +62,22 @@ func TestBadConn(t *testing.T) {
 }
 
 func TestConnFailover(t *testing.T) {
+	env, err := GetTestEnvironment("native")
+	require.NoError(t, err)
 	conn, err := clickhouse.Open(&clickhouse.Options{
 		Addr: []string{
 			"127.0.0.1:9001",
 			"127.0.0.1:9002",
-			"127.0.0.1:9000",
+			fmt.Sprintf("%s:%d", env.Host, env.Port),
 		},
 		Auth: clickhouse.Auth{
 			Database: "default",
-			Username: "default",
-			Password: "",
+			Username: env.Username,
+			Password: env.Password,
 		},
 		Compression: &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
 		},
-		//	Debug: true,
 	})
 	require.NoError(t, err)
 	require.NoError(t, conn.Ping(context.Background()))
@@ -90,22 +86,23 @@ func TestConnFailover(t *testing.T) {
 }
 
 func TestConnFailoverConnOpenRoundRobin(t *testing.T) {
+	env, err := GetTestEnvironment("native")
+	require.NoError(t, err)
 	conn, err := clickhouse.Open(&clickhouse.Options{
 		Addr: []string{
 			"127.0.0.1:9001",
 			"127.0.0.1:9002",
-			"127.0.0.1:9000",
+			fmt.Sprintf("%s:%d", env.Host, env.Port),
 		},
 		Auth: clickhouse.Auth{
 			Database: "default",
-			Username: "default",
-			Password: "",
+			Username: env.Username,
+			Password: env.Password,
 		},
 		Compression: &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
 		},
 		ConnOpenStrategy: clickhouse.ConnOpenRoundRobin,
-		//	Debug: true,
 	})
 	require.NoError(t, err)
 	require.NoError(t, conn.Ping(context.Background()))
@@ -114,16 +111,8 @@ func TestConnFailoverConnOpenRoundRobin(t *testing.T) {
 }
 
 func TestPingDeadline(t *testing.T) {
-	conn, err := clickhouse.Open(&clickhouse.Options{
-		Addr: []string{"127.0.0.1:9000"},
-		Auth: clickhouse.Auth{
-			Database: "default",
-			Username: "default",
-			Password: "",
-		},
-		Compression: &clickhouse.Compression{
-			Method: clickhouse.CompressionLZ4,
-		},
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
 	})
 	require.NoError(t, err)
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
@@ -134,12 +123,14 @@ func TestPingDeadline(t *testing.T) {
 }
 
 func TestReadDeadline(t *testing.T) {
+	env, err := GetTestEnvironment("native")
+	require.NoError(t, err)
 	conn, err := clickhouse.Open(&clickhouse.Options{
-		Addr: []string{"127.0.0.1:9000"},
+		Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},
 		Auth: clickhouse.Auth{
 			Database: "default",
-			Username: "default",
-			Password: "",
+			Username: env.Username,
+			Password: env.Password,
 		},
 		Compression: &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
@@ -157,12 +148,14 @@ func TestReadDeadline(t *testing.T) {
 }
 
 func TestQueryDeadline(t *testing.T) {
+	env, err := GetTestEnvironment("native")
+	require.NoError(t, err)
 	conn, err := clickhouse.Open(&clickhouse.Options{
-		Addr: []string{"127.0.0.1:9000"},
+		Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},
 		Auth: clickhouse.Auth{
 			Database: "default",
-			Username: "default",
-			Password: "",
+			Username: env.Username,
+			Password: env.Password,
 		},
 		Compression: &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,

@@ -19,8 +19,8 @@ package std
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
+	"github.com/stretchr/testify/require"
 	"testing"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
@@ -33,80 +33,75 @@ func TestStdGeoPolygon(t *testing.T) {
 		"allow_experimental_geo_types": 1,
 	}))
 
-	dsns := map[string]string{"Native": "clickhouse://127.0.0.1:9000", "Http": "http://127.0.0.1:8123"}
+	dsns := map[string]clickhouse.Protocol{"Native": clickhouse.Native, "Http": clickhouse.HTTP}
 
-	for name, dsn := range dsns {
+	for name, protocol := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
-			if conn, err := sql.Open("clickhouse", dsn); assert.NoError(t, err) {
-				if err := CheckMinServerVersion(conn, 21, 12, 0); err != nil {
-					t.Skip(err.Error())
-					return
-				}
-				const ddl = `
+			conn, err := GetStdDSNConnection(protocol, false, "false")
+			require.NoError(t, err)
+			if err := CheckMinServerVersion(conn, 21, 12, 0); err != nil {
+				t.Skip(err.Error())
+				return
+			}
+			const ddl = `
 				CREATE TABLE test_geo_polygon (
 					  Col1 Polygon
 					, Col2 Array(Polygon)
 				) Engine Memory
 				`
-				defer func() {
-					conn.Exec("DROP TABLE test_geo_polygon")
-				}()
-				if _, err := conn.ExecContext(ctx, ddl); assert.NoError(t, err) {
-					scope, err := conn.Begin()
-					if !assert.NoError(t, err) {
-						return
-					}
-					if batch, err := scope.Prepare("INSERT INTO test_geo_polygon"); assert.NoError(t, err) {
-						var (
-							col1Data = orb.Polygon{
-								orb.Ring{
-									orb.Point{1, 2},
-									orb.Point{12, 2},
-								},
-								orb.Ring{
-									orb.Point{11, 2},
-									orb.Point{1, 12},
-								},
-							}
-							col2Data = []orb.Polygon{
-								[]orb.Ring{
-									orb.Ring{
-										orb.Point{1, 2},
-										orb.Point{1, 22},
-									},
-									orb.Ring{
-										orb.Point{1, 23},
-										orb.Point{12, 2},
-									},
-								},
-								[]orb.Ring{
-									orb.Ring{
-										orb.Point{21, 2},
-										orb.Point{1, 222},
-									},
-									orb.Ring{
-										orb.Point{21, 23},
-										orb.Point{12, 22},
-									},
-								},
-							}
-						)
-						if _, err := batch.Exec(col1Data, col2Data); assert.NoError(t, err) {
-							if assert.NoError(t, scope.Commit()) {
-								var (
-									col1 orb.Polygon
-									col2 []orb.Polygon
-								)
-								if err := conn.QueryRow("SELECT * FROM test_geo_polygon").Scan(&col1, &col2); assert.NoError(t, err) {
-									assert.Equal(t, col1Data, col1)
-									assert.Equal(t, col2Data, col2)
-								}
-							}
-						}
-					}
+			defer func() {
+				conn.Exec("DROP TABLE test_geo_polygon")
+			}()
+			_, err = conn.ExecContext(ctx, ddl)
+			require.NoError(t, err)
+			scope, err := conn.Begin()
+			require.NoError(t, err)
+			batch, err := scope.Prepare("INSERT INTO test_geo_polygon")
+			require.NoError(t, err)
+			var (
+				col1Data = orb.Polygon{
+					orb.Ring{
+						orb.Point{1, 2},
+						orb.Point{12, 2},
+					},
+					orb.Ring{
+						orb.Point{11, 2},
+						orb.Point{1, 12},
+					},
 				}
-			}
-		},
-		)
+				col2Data = []orb.Polygon{
+					[]orb.Ring{
+						orb.Ring{
+							orb.Point{1, 2},
+							orb.Point{1, 22},
+						},
+						orb.Ring{
+							orb.Point{1, 23},
+							orb.Point{12, 2},
+						},
+					},
+					[]orb.Ring{
+						orb.Ring{
+							orb.Point{21, 2},
+							orb.Point{1, 222},
+						},
+						orb.Ring{
+							orb.Point{21, 23},
+							orb.Point{12, 22},
+						},
+					},
+				}
+			)
+			_, err = batch.Exec(col1Data, col2Data)
+			require.NoError(t, err)
+			require.NoError(t, scope.Commit())
+			var (
+				col1 orb.Polygon
+				col2 []orb.Polygon
+			)
+			require.NoError(t, conn.QueryRow("SELECT * FROM test_geo_polygon").Scan(&col1, &col2))
+			assert.Equal(t, col1Data, col1)
+			assert.Equal(t, col2Data, col2)
+		})
 	}
 }

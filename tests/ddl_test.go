@@ -19,6 +19,7 @@ package tests
 
 import (
 	"context"
+	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/require"
 	"testing"
@@ -26,21 +27,21 @@ import (
 )
 
 func TestQuotedDDL(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			DialTimeout: time.Second * 120,
-		})
-	)
+	env, err := GetTestEnvironment("native")
+	require.NoError(t, err)
+	conn, err := clickhouse.Open(&clickhouse.Options{
+		Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},
+		Auth: clickhouse.Auth{
+			Database: "default",
+			Username: env.Username,
+			Password: env.Password,
+		},
+		Compression: &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		},
+		DialTimeout: time.Second * 120,
+	})
+	ctx := context.Background()
 	require.NoError(t, err)
 	require.NoError(t, conn.Ping(ctx))
 	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {

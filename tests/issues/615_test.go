@@ -3,6 +3,7 @@ package issues
 import (
 	"context"
 	"github.com/ClickHouse/clickhouse-go/v2"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"testing"
@@ -10,16 +11,15 @@ import (
 )
 
 func Test615(t *testing.T) {
-	conn, err := clickhouse.Open(&clickhouse.Options{
-		Addr: []string{"127.0.0.1:9000"},
-		Compression: &clickhouse.Compression{
-			Method: clickhouse.CompressionLZ4,
-		},
-		Settings: clickhouse.Settings{
+	var (
+		conn, err = clickhouse_tests.GetConnection("issues", clickhouse.Settings{
 			"max_execution_time": 60,
-		},
-	})
-	if err := checkMinServerVersion(conn, 22, 0); err != nil {
+		}, nil, &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		})
+	)
+	require.NoError(t, err)
+	if err := clickhouse_tests.CheckMinServerVersion(conn, 22, 0, 0); err != nil {
 		t.Skip(err.Error())
 	}
 	require.NoError(t, err)
@@ -70,7 +70,7 @@ func Test615(t *testing.T) {
 		)
 		require.NoError(t, rows.Scan(&id, &ts))
 		require.Equal(t, id, "third")
-		require.Equal(t, ts, ts3)
+		require.Equal(t, ts3.In(time.UTC), ts)
 		i += 1
 	}
 	assert.Equal(t, 1, i)
@@ -85,7 +85,7 @@ func Test615(t *testing.T) {
 			ts time.Time
 		)
 		require.NoError(t, rows.Scan(&id, &ts))
-		require.Equal(t, ts, ts3)
+		require.Equal(t, ts3.In(time.UTC), ts)
 		i += 1
 	}
 	assert.Equal(t, 1, i)

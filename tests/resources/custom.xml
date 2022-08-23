@@ -1,0 +1,35 @@
+<?xml version="1.0" ?>
+<clickhouse>
+    <listen_host>::</listen_host>
+    <listen_host>0.0.0.0</listen_host>
+    <listen_try>1</listen_try>
+    <logger>
+        <console>1</console>
+    </logger>
+    <openSSL>
+        <server>
+            <certificateFile>/etc/clickhouse-server/certs/clickhouse.crt</certificateFile>
+            <privateKeyFile>/etc/clickhouse-server/certs/clickhouse.key</privateKeyFile>
+            <verificationMode>relaxed</verificationMode>
+            <caConfig>/etc/clickhouse-server/certs/CAroot.crt</caConfig>
+            <cacheSessions>true</cacheSessions>
+            <disableProtocols>sslv2,sslv3</disableProtocols>
+            <preferServerCiphers>true</preferServerCiphers>
+        </server>
+        <client>
+            <loadDefaultCAFile>false</loadDefaultCAFile>
+            <caConfig>/etc/clickhouse-server/certs/CAroot.crt</caConfig>
+            <cacheSessions>true</cacheSessions>
+            <disableProtocols>sslv2,sslv3</disableProtocols>
+            <preferServerCiphers>true</preferServerCiphers>
+            <verificationMode>relaxed</verificationMode>
+            <invalidCertificateHandler>
+                <name>RejectCertificateHandler</name>
+            </invalidCertificateHandler>
+        </client>
+    </openSSL>
+    <display_name>clickhouse</display_name>
+    <listen_host>0.0.0.0</listen_host>
+    <https_port>8443</https_port>
+    <tcp_port_secure>9440</tcp_port_secure>
+</clickhouse>

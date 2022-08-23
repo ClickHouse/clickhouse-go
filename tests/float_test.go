@@ -12,20 +12,10 @@ import (
 )
 
 func TestSimpleFloat(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	require.NoError(t, err)
 	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
 		t.Skip(err.Error())
@@ -70,17 +60,10 @@ func TestSimpleFloat(t *testing.T) {
 }
 
 func BenchmarkFloat(b *testing.B) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -111,33 +94,23 @@ func BenchmarkFloat(b *testing.B) {
 }
 
 func TestFixedFloatFlush(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			MaxOpenConns: 1,
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	require.NoError(t, err)
+
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE fixed_string_flush")
+		conn.Exec(ctx, "DROP TABLE fixed_float_flush")
 	}()
 	const ddl = `
-		CREATE TABLE float_flush (
+		CREATE TABLE fixed_float_flush (
 			  Col1 Float32,
 			  Col2 Float64	
 		) Engine Memory
 		`
 	require.NoError(t, conn.Exec(ctx, ddl))
-	batch, err := conn.PrepareBatch(ctx, "INSERT INTO float_flush")
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO fixed_float_flush")
 	require.NoError(t, err)
 	val32s := [1000]float32{}
 	val64s := [1000]float64{}
@@ -147,8 +120,8 @@ func TestFixedFloatFlush(t *testing.T) {
 		batch.Append(val32s[i], val64s[i])
 		batch.Flush()
 	}
-	batch.Send()
-	rows, err := conn.Query(ctx, "SELECT * FROM float_flush")
+	require.NoError(t, batch.Send())
+	rows, err := conn.Query(ctx, "SELECT * FROM fixed_float_flush")
 	require.NoError(t, err)
 	i := 0
 	for rows.Next() {

@@ -26,17 +26,8 @@ import (
 )
 
 func TestTuple(t *testing.T) {
-
-	var (
-		conn = clickhouse.OpenDB(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-		})
-	)
+	conn, err := GetStdOpenDBConnection(clickhouse.Native, nil, nil, nil)
+	require.NoError(t, err)
 	loc, err := time.LoadLocation("Europe/Lisbon")
 	require.NoError(t, err)
 	localTime := testDate.In(loc)

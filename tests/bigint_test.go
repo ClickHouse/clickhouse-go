@@ -28,21 +28,10 @@ import (
 )
 
 func TestSimpleBigInt(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			MaxOpenConns: 1,
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	require.NoError(t, err)
 	if err := CheckMinServerVersion(conn, 21, 12, 0); err != nil {
 		t.Skip(err.Error())
@@ -72,21 +61,10 @@ func TestSimpleBigInt(t *testing.T) {
 }
 
 func TestBigInt(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			MaxOpenConns: 1,
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	require.NoError(t, err)
 	if err := CheckMinServerVersion(conn, 21, 12, 0); err != nil {
 		t.Skip(err.Error())
@@ -153,21 +131,10 @@ func TestBigInt(t *testing.T) {
 }
 
 func TestNullableBigInt(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			MaxOpenConns: 1,
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	require.NoError(t, err)
 	if err := CheckMinServerVersion(conn, 21, 12, 0); err != nil {
 		t.Skip(err.Error())
@@ -229,21 +196,10 @@ func TestNullableBigInt(t *testing.T) {
 }
 
 func TestBigIntUIntOverflow(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			MaxOpenConns: 1,
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	require.NoError(t, err)
 	const ddl = `
 		CREATE TABLE test_bigint_uint_overflow (
@@ -308,21 +264,10 @@ func TestBigIntUIntOverflow(t *testing.T) {
 }
 
 func TestBigIntFlush(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			MaxOpenConns: 1,
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	require.NoError(t, err)
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE big_int_flush")

@@ -20,30 +20,21 @@ package tests
 import (
 	"context"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
+	suuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/require"
 	"testing"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/google/uuid"
-	suuid "github.com/satori/go.uuid"
+
 	"github.com/stretchr/testify/assert"
 )
 
 func TestUUID(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	require.NoError(t, err)
 	const ddl = `
 			CREATE TABLE test_uuid (
@@ -86,20 +77,10 @@ func TestUUID(t *testing.T) {
 }
 
 func TestStringerUUID(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	require.NoError(t, err)
 	const ddl = `
 			CREATE TABLE test_uuid (
@@ -125,21 +106,10 @@ func TestStringerUUID(t *testing.T) {
 }
 
 func TestNullableUUID(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			//Debug: true,
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	require.NoError(t, err)
 	const ddl = `
 			CREATE TABLE test_uuid (
@@ -184,21 +154,10 @@ func TestNullableUUID(t *testing.T) {
 }
 
 func TestColumnarUUID(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			//Debug: true,
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	require.NoError(t, err)
 	const ddl = `
 			CREATE TABLE test_uuid (
@@ -229,21 +188,11 @@ func TestColumnarUUID(t *testing.T) {
 	col4Data = append(col4Data, []uuid.UUID{v1, v2})
 	col5Data = append(col5Data, []*uuid.UUID{&v1, nil, &v2})
 	for i := 0; i < 1000; i++ {
-		if err := batch.Column(0).Append(col1Data); !assert.NoError(t, err) {
-			return
-		}
-		if err := batch.Column(1).Append(col2Data); !assert.NoError(t, err) {
-			return
-		}
-		if err := batch.Column(2).Append(col3Data); !assert.NoError(t, err) {
-			return
-		}
-		if err := batch.Column(3).Append(col4Data); !assert.NoError(t, err) {
-			return
-		}
-		if err := batch.Column(4).Append(col5Data); !assert.NoError(t, err) {
-			return
-		}
+		require.NoError(t, batch.Column(0).Append(col1Data))
+		require.NoError(t, batch.Column(1).Append(col2Data))
+		require.NoError(t, batch.Column(2).Append(col3Data))
+		require.NoError(t, batch.Column(3).Append(col4Data))
+		require.NoError(t, batch.Column(4).Append(col5Data))
 	}
 	require.NoError(t, batch.Send())
 	var (
@@ -263,17 +212,10 @@ func TestColumnarUUID(t *testing.T) {
 }
 
 func BenchmarkUUID(b *testing.B) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-		})
-	)
+	ctx := context.Background()
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -356,21 +298,10 @@ func TestUuid_ScanRow(t *testing.T) {
 }
 
 func TestUUIDFlush(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			MaxOpenConns: 1,
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	require.NoError(t, err)
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE uuid_flush")

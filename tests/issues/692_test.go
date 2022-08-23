@@ -1,15 +1,16 @@
 package issues
 
 import (
-	"database/sql"
+	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/tests/std"
+	clickhouse_std_tests "github.com/ClickHouse/clickhouse-go/v2/tests/std"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"testing"
 )
 
 func Test692(t *testing.T) {
-	conn, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000")
+	conn, err := clickhouse_std_tests.GetDSNConnection("issues", clickhouse.Native, false, "false")
 	require.NoError(t, err)
 	if err := std.CheckMinServerVersion(conn, 21, 9, 0); err != nil {
 		t.Skip(err.Error())

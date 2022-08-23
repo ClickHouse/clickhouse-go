@@ -4,30 +4,20 @@ import (
 	"context"
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"testing"
 )
 
 func Test506(t *testing.T) {
 	var (
 		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			MaxOpenConns: 1,
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			//Debug: true,
+		conn, err = clickhouse_tests.GetConnection("issues", nil, nil, &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
 		})
 	)
-	if err != nil {
-		assert.NoError(t, err)
-	}
+	require.NoError(t, err)
 
 	const ddlA = `
 		CREATE TABLE test_append_struct_a (

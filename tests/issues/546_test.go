@@ -3,6 +3,8 @@ package issues
 import (
 	"context"
 	"fmt"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
+	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
 
@@ -11,24 +13,24 @@ import (
 )
 
 func Test546(t *testing.T) {
+	env, err := clickhouse_tests.GetTestEnvironment("issues")
+	require.NoError(t, err)
 	conn, err := clickhouse.Open(&clickhouse.Options{
-		Addr: []string{"127.0.0.1:9000"},
+		Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},
 		Auth: clickhouse.Auth{
 			Database: "default",
-			Username: "default",
-			Password: "",
+			Username: env.Username,
+			Password: env.Password,
+		},
+		Compression: &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
 		},
 		DialTimeout:     time.Second,
 		MaxOpenConns:    10,
 		MaxIdleConns:    5,
 		ConnMaxLifetime: time.Hour,
-		Compression: &clickhouse.Compression{
-			Method: clickhouse.CompressionLZ4,
-		},
 	})
-	if err != nil {
-		assert.NoError(t, err)
-	}
+	require.NoError(t, err)
 	ctx := clickhouse.Context(context.Background(), clickhouse.WithSettings(clickhouse.Settings{
 		"max_block_size": 2000000,
 	}),
@@ -37,12 +39,11 @@ func Test546(t *testing.T) {
 		}), clickhouse.WithProfileInfo(func(p *clickhouse.ProfileInfo) {
 			fmt.Println("profile info: ", p)
 		}))
-	if err := conn.Ping(ctx); err != nil {
-		if exception, ok := err.(*clickhouse.Exception); ok {
-			fmt.Printf("Catch exception [%d] %s \n%s\n", exception.Code, exception.Message, exception.StackTrace)
-		}
-		assert.NoError(t, err)
+	require.NoError(t, conn.Ping(ctx))
+	if exception, ok := err.(*clickhouse.Exception); ok {
+		fmt.Printf("Catch exception [%d] %s \n%s\n", exception.Code, exception.Message, exception.StackTrace)
 	}
+	assert.NoError(t, err)
 
 	rows, err := conn.Query(ctx, "SELECT * FROM system.numbers LIMIT 2000000", time.Now())
 	assert.NoError(t, err)

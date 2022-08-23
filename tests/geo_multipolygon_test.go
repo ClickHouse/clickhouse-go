@@ -29,23 +29,12 @@ import (
 )
 
 func TestGeoMultiPolygon(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			Settings: clickhouse.Settings{
-				"allow_experimental_geo_types": 1,
-			},
-		})
-	)
+	conn, err := GetNativeConnection(clickhouse.Settings{
+		"allow_experimental_geo_types": 1,
+	}, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	require.NoError(t, err)
 	if err := CheckMinServerVersion(conn, 21, 12, 0); err != nil {
 		t.Skip(err.Error())
@@ -145,23 +134,12 @@ func TestGeoMultiPolygon(t *testing.T) {
 }
 
 func TestGeoMultiPolygonFlush(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			Settings: clickhouse.Settings{
-				"allow_experimental_geo_types": 1,
-			},
-		})
-	)
+	conn, err := GetNativeConnection(clickhouse.Settings{
+		"allow_experimental_geo_types": 1,
+	}, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	require.NoError(t, err)
 	if err := CheckMinServerVersion(conn, 21, 12, 0); err != nil {
 		t.Skip(err.Error())

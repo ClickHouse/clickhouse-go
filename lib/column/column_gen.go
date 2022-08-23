@@ -34,7 +34,7 @@ import (
 	"time"
 )
 
-func (t Type) Column(name string) (Interface, error) {
+func (t Type) Column(name string, tz *time.Location) (Interface, error) {
 	switch t {
 	case "Float32":
 		return &Float32{name: name}, nil
@@ -103,7 +103,7 @@ func (t Type) Column(name string) (Interface, error) {
 	case "Nothing":
 		return &Nothing{name: name}, nil
 	case "Ring":
-		set, err := (&Array{name: name}).parse("Array(Point)")
+		set, err := (&Array{name: name}).parse("Array(Point)", tz)
 		if err != nil {
 			return nil, err
 		}
@@ -113,7 +113,7 @@ func (t Type) Column(name string) (Interface, error) {
 			name: name,
 		}, nil
 	case "Polygon":
-		set, err := (&Array{name: name}).parse("Array(Ring)")
+		set, err := (&Array{name: name}).parse("Array(Ring)", tz)
 		if err != nil {
 			return nil, err
 		}
@@ -123,7 +123,7 @@ func (t Type) Column(name string) (Interface, error) {
 			name: name,
 		}, nil
 	case "MultiPolygon":
-		set, err := (&Array{name: name}).parse("Array(Polygon)")
+		set, err := (&Array{name: name}).parse("Array(Polygon)", tz)
 		if err != nil {
 			return nil, err
 		}
@@ -137,36 +137,36 @@ func (t Type) Column(name string) (Interface, error) {
 	case "String":
 		return &String{name: name}, nil
 	case "Object('json')":
-		return &JSONObject{name: name, root: true}, nil
+		return &JSONObject{name: name, root: true, tz: tz}, nil
 	}
 
 	switch strType := string(t); {
 	case strings.HasPrefix(string(t), "Map("):
-		return (&Map{name: name}).parse(t)
+		return (&Map{name: name}).parse(t, tz)
 	case strings.HasPrefix(string(t), "Tuple("):
-		return (&Tuple{name: name}).parse(t)
+		return (&Tuple{name: name}).parse(t, tz)
 	case strings.HasPrefix(string(t), "Decimal("):
 		return (&Decimal{name: name}).parse(t)
 	case strings.HasPrefix(strType, "Nested("):
-		return (&Nested{name: name}).parse(t)
+		return (&Nested{name: name}).parse(t, tz)
 	case strings.HasPrefix(string(t), "Array("):
-		return (&Array{name: name}).parse(t)
+		return (&Array{name: name}).parse(t, tz)
 	case strings.HasPrefix(string(t), "Interval"):
 		return (&Interval{name: name}).parse(t)
 	case strings.HasPrefix(string(t), "Nullable"):
-		return (&Nullable{name: name}).parse(t)
+		return (&Nullable{name: name}).parse(t, tz)
 	case strings.HasPrefix(string(t), "FixedString"):
 		return (&FixedString{name: name}).parse(t)
 	case strings.HasPrefix(string(t), "LowCardinality"):
-		return (&LowCardinality{name: name}).parse(t)
+		return (&LowCardinality{name: name}).parse(t, tz)
 	case strings.HasPrefix(string(t), "SimpleAggregateFunction"):
-		return (&SimpleAggregateFunction{name: name}).parse(t)
+		return (&SimpleAggregateFunction{name: name}).parse(t, tz)
 	case strings.HasPrefix(string(t), "Enum8") || strings.HasPrefix(string(t), "Enum16"):
 		return Enum(t, name)
 	case strings.HasPrefix(string(t), "DateTime64"):
-		return (&DateTime64{name: name}).parse(t)
+		return (&DateTime64{name: name}).parse(t, tz)
 	case strings.HasPrefix(strType, "DateTime") && !strings.HasPrefix(strType, "DateTime64"):
-		return (&DateTime{name: name}).parse(t)
+		return (&DateTime{name: name}).parse(t, tz)
 	}
 	return nil, &UnsupportedColumnTypeError{
 		t: t,

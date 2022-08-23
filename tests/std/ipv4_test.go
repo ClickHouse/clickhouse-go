@@ -18,8 +18,9 @@
 package std
 
 import (
-	"database/sql"
 	"fmt"
+	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/stretchr/testify/require"
 	"net"
 	"testing"
 
@@ -27,12 +28,14 @@ import (
 )
 
 func TestStdIPv4(t *testing.T) {
-	dsns := map[string]string{"Native": "clickhouse://127.0.0.1:9000", "Http": "http://127.0.0.1:8123"}
+	dsns := map[string]clickhouse.Protocol{"Native": clickhouse.Native, "Http": clickhouse.HTTP}
 
-	for name, dsn := range dsns {
+	for name, protocol := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
-			if conn, err := sql.Open("clickhouse", dsn); assert.NoError(t, err) {
-				const ddl = `
+			conn, err := GetStdDSNConnection(protocol, false, "false")
+			require.NoError(t, err)
+
+			const ddl = `
 			CREATE TABLE test_ipv4 (
 				  Col1 IPv4
 				, Col2 IPv4
@@ -41,51 +44,43 @@ func TestStdIPv4(t *testing.T) {
 				, Col5 Array(Nullable(IPv4))
 			) Engine Memory
 		`
-				defer func() {
-					conn.Exec("DROP TABLE test_ipv4")
-				}()
-				if _, err := conn.Exec(ddl); assert.NoError(t, err) {
-					scope, err := conn.Begin()
-					if !assert.NoError(t, err) {
-						return
-					}
-					if batch, err := scope.Prepare("INSERT INTO test_ipv4"); assert.NoError(t, err) {
-						var (
-							col1Data = net.ParseIP("127.0.0.1")
-							col2Data = net.ParseIP("8.8.8.8")
-							col3Data = col1Data
-							col4Data = []net.IP{col1Data, col2Data}
-							col5Data = []*net.IP{&col1Data, nil, &col2Data}
-						)
-						if _, err := batch.Exec(col1Data, col2Data, &col3Data, &col4Data, &col5Data); assert.NoError(t, err) {
-							if assert.NoError(t, scope.Commit()) {
-								var (
-									col1 net.IP
-									col2 net.IP
-									col3 *net.IP
-									col4 []net.IP
-									col5 []*net.IP
-								)
-								if err := conn.QueryRow("SELECT * FROM test_ipv4").Scan(&col1, &col2, &col3, &col4, &col5); assert.NoError(t, err) {
-									assert.Equal(t, col1Data.To4(), col1)
-									assert.Equal(t, col2Data.To4(), col2)
-									assert.Equal(t, col3Data.To4(), *col3)
-									if assert.Len(t, col4, 2) {
-										assert.Equal(t, col1Data.To4(), col4[0])
-										assert.Equal(t, col2Data.To4(), col4[1])
-									}
-									if assert.Len(t, col5, 3) {
-										if assert.Nil(t, col5[1]) {
-											assert.Equal(t, col1Data.To4(), *col5[0])
-											assert.Equal(t, col2Data.To4(), *col5[2])
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-			}
+			defer func() {
+				conn.Exec("DROP TABLE test_ipv4")
+			}()
+			_, err = conn.Exec(ddl)
+			require.NoError(t, err)
+			scope, err := conn.Begin()
+			require.NoError(t, err)
+			batch, err := scope.Prepare("INSERT INTO test_ipv4")
+			require.NoError(t, err)
+			var (
+				col1Data = net.ParseIP("127.0.0.1")
+				col2Data = net.ParseIP("8.8.8.8")
+				col3Data = col1Data
+				col4Data = []net.IP{col1Data, col2Data}
+				col5Data = []*net.IP{&col1Data, nil, &col2Data}
+			)
+			_, err = batch.Exec(col1Data, col2Data, &col3Data, &col4Data, &col5Data)
+			require.NoError(t, err)
+			require.NoError(t, scope.Commit())
+			var (
+				col1 net.IP
+				col2 net.IP
+				col3 *net.IP
+				col4 []net.IP
+				col5 []*net.IP
+			)
+			require.NoError(t, conn.QueryRow("SELECT * FROM test_ipv4").Scan(&col1, &col2, &col3, &col4, &col5))
+			assert.Equal(t, col1Data.To4(), col1)
+			assert.Equal(t, col2Data.To4(), col2)
+			assert.Equal(t, col3Data.To4(), *col3)
+			require.Len(t, col4, 2)
+			assert.Equal(t, col1Data.To4(), col4[0])
+			assert.Equal(t, col2Data.To4(), col4[1])
+			require.Len(t, col5, 3)
+			require.Nil(t, col5[1])
+			assert.Equal(t, col1Data.To4(), *col5[0])
+			assert.Equal(t, col2Data.To4(), *col5[2])
 		})
 	}
 }

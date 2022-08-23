@@ -19,22 +19,35 @@ package std
 
 import (
 	"context"
+	"fmt"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
+	"github.com/stretchr/testify/require"
 	"net"
 	"testing"
+	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestStdCustomDial(t *testing.T) {
+	env, err := clickhouse_tests.GetTestEnvironment("std")
+	require.NoError(t, err)
 	var (
 		dialCount int
 		conn      = clickhouse.OpenDB(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
+			Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},
 			Auth: clickhouse.Auth{
 				Database: "default",
-				Username: "default",
-				Password: "",
+				Username: env.Username,
+				Password: env.Password,
+			},
+			Settings: clickhouse.Settings{
+				"max_execution_time": 60,
+			},
+			DialTimeout: 5 * time.Second,
+			Compression: &clickhouse.Compression{
+				Method: clickhouse.CompressionLZ4,
 			},
 			DialContext: func(ctx context.Context, addr string) (net.Conn, error) {
 				dialCount++
@@ -42,7 +55,6 @@ func TestStdCustomDial(t *testing.T) {
 			},
 		})
 	)
-	if err := conn.Ping(); assert.NoError(t, err) {
-		assert.Equal(t, 1, dialCount)
-	}
+	require.NoError(t, conn.Ping())
+	assert.Equal(t, 1, dialCount)
 }

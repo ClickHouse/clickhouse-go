@@ -29,21 +29,10 @@ import (
 )
 
 func TestDate32(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			//Debug: true,
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	require.NoError(t, err)
 	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
 		t.Skip(err.Error())
@@ -141,21 +130,10 @@ func TestDate32(t *testing.T) {
 }
 
 func TestNullableDate32(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			//Debug: true,
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	require.NoError(t, err)
 	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
 		t.Skip(err.Error())
@@ -209,20 +187,10 @@ func TestNullableDate32(t *testing.T) {
 }
 
 func TestColumnarDate32(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	require.NoError(t, err)
 	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
 		t.Skip(err.Error())
@@ -270,21 +238,11 @@ func TestColumnarDate32(t *testing.T) {
 		})
 	}
 	{
-		if err := batch.Column(0).Append(id); !assert.NoError(t, err) {
-			return
-		}
-		if err := batch.Column(1).Append(col1Data); !assert.NoError(t, err) {
-			return
-		}
-		if err := batch.Column(2).Append(col2Data); !assert.NoError(t, err) {
-			return
-		}
-		if err := batch.Column(3).Append(col3Data); !assert.NoError(t, err) {
-			return
-		}
-		if err := batch.Column(4).Append(col4Data); !assert.NoError(t, err) {
-			return
-		}
+		require.NoError(t, batch.Column(0).Append(id))
+		require.NoError(t, batch.Column(1).Append(col1Data))
+		require.NoError(t, batch.Column(2).Append(col2Data))
+		require.NoError(t, batch.Column(3).Append(col3Data))
+		require.NoError(t, batch.Column(4).Append(col4Data))
 	}
 	require.NoError(t, batch.Send())
 	var result struct {
@@ -301,21 +259,10 @@ func TestColumnarDate32(t *testing.T) {
 }
 
 func TestDate32Flush(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			MaxOpenConns: 1,
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
 		t.Skip(err.Error())
 		return

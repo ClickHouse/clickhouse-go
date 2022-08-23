@@ -68,20 +68,17 @@ func toJson(obj interface{}) string {
 }
 
 func TestStdJson(t *testing.T) {
-	conn := clickhouse.OpenDB(&clickhouse.Options{
-		Addr: []string{"127.0.0.1:9000"},
-	})
+	conn, err := GetStdDSNConnection(clickhouse.Native, false, "false")
+	require.NoError(t, err)
 	if err := CheckMinServerVersion(conn, 22, 6, 1); err != nil {
 		t.Skip(err.Error())
 		return
 	}
 	conn.Close()
-	conn = clickhouse.OpenDB(&clickhouse.Options{
-		Addr: []string{"127.0.0.1:9000"},
-		Settings: clickhouse.Settings{
-			"allow_experimental_object_type": 1,
-		},
-	})
+	conn, err = GetStdOpenDBConnection(clickhouse.Native, clickhouse.Settings{
+		"allow_experimental_object_type": 1,
+	}, nil, nil)
+	require.NoError(t, err)
 	conn.Exec("DROP TABLE json_std_test")
 	const ddl = `
 		CREATE TABLE json_std_test (
@@ -91,7 +88,7 @@ func TestStdJson(t *testing.T) {
 	defer func() {
 		conn.Exec("DROP TABLE json_std_test")
 	}()
-	_, err := conn.Exec(ddl)
+	_, err = conn.Exec(ddl)
 	require.NoError(t, err)
 	scope, err := conn.Begin()
 	require.NoError(t, err)
@@ -134,20 +131,17 @@ func TestStdJson(t *testing.T) {
 
 //https://github.com/ClickHouse/clickhouse-go/issues/645
 func TestStdJsonWithMap(t *testing.T) {
-	conn := clickhouse.OpenDB(&clickhouse.Options{
-		Addr: []string{"127.0.0.1:9000"},
-	})
+	conn, err := GetStdDSNConnection(clickhouse.Native, false, "false")
+	require.NoError(t, err)
 	if err := CheckMinServerVersion(conn, 22, 6, 1); err != nil {
 		t.Skip(err.Error())
 		return
 	}
 	conn.Close()
-	conn = clickhouse.OpenDB(&clickhouse.Options{
-		Addr: []string{"127.0.0.1:9000"},
-		Settings: clickhouse.Settings{
-			"allow_experimental_object_type": 1,
-		},
-	})
+	conn, err = GetStdOpenDBConnection(clickhouse.Native, clickhouse.Settings{
+		"allow_experimental_object_type": 1,
+	}, nil, nil)
+	require.NoError(t, err)
 	conn.Exec("DROP TABLE json_std_test")
 	const ddl = `
 		CREATE TABLE json_std_test (
@@ -157,7 +151,7 @@ func TestStdJsonWithMap(t *testing.T) {
 	defer func() {
 		conn.Exec("DROP TABLE json_std_test")
 	}()
-	_, err := conn.Exec(ddl)
+	_, err = conn.Exec(ddl)
 	require.NoError(t, err)
 	scope, err := conn.Begin()
 	require.NoError(t, err)

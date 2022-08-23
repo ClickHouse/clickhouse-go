@@ -22,6 +22,7 @@ import (
 	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
 	"strings"
+	"time"
 )
 
 // https://github.com/ClickHouse/ClickHouse/blob/master/src/Columns/ColumnMap.cpp
@@ -44,13 +45,13 @@ func (col *Map) Name() string {
 	return col.name
 }
 
-func (col *Map) parse(t Type) (_ Interface, err error) {
+func (col *Map) parse(t Type, tz *time.Location) (_ Interface, err error) {
 	col.chType = t
 	if types := strings.SplitN(t.params(), ",", 2); len(types) == 2 {
-		if col.keys, err = Type(strings.TrimSpace(types[0])).Column(col.name); err != nil {
+		if col.keys, err = Type(strings.TrimSpace(types[0])).Column(col.name, tz); err != nil {
 			return nil, err
 		}
-		if col.values, err = Type(strings.TrimSpace(types[1])).Column(col.name); err != nil {
+		if col.values, err = Type(strings.TrimSpace(types[1])).Column(col.name, tz); err != nil {
 			return nil, err
 		}
 		col.scanType = reflect.MapOf(

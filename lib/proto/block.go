@@ -20,15 +20,17 @@ package proto
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/ClickHouse/ch-go/proto"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 )
 
 type Block struct {
-	names   []string
-	Packet  byte
-	Columns []column.Interface
+	names    []string
+	Packet   byte
+	Columns  []column.Interface
+	Timezone *time.Location
 }
 
 func (b *Block) Rows() int {
@@ -39,7 +41,7 @@ func (b *Block) Rows() int {
 }
 
 func (b *Block) AddColumn(name string, ct column.Type) error {
-	column, err := ct.Column(name)
+	column, err := ct.Column(name, b.Timezone)
 	if err != nil {
 		return err
 	}
@@ -141,7 +143,7 @@ func (b *Block) Decode(reader *proto.Reader, revision uint64) (err error) {
 		if columnType, err = reader.Str(); err != nil {
 			return err
 		}
-		c, err := column.Type(columnType).Column(columnName)
+		c, err := column.Type(columnType).Column(columnName, b.Timezone)
 		if err != nil {
 			return err
 		}

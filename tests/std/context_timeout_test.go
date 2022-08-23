@@ -19,8 +19,9 @@ package std
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
+	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/stretchr/testify/require"
 	"net"
 	"net/url"
 	"testing"
@@ -30,39 +31,40 @@ import (
 )
 
 func TestStdContextStdTimeout(t *testing.T) {
-	dsns := map[string]string{"Native": "clickhouse://127.0.0.1:9000", "Http": "http://127.0.0.1:8123"}
+	dsns := map[string]clickhouse.Protocol{"Native": clickhouse.Native, "Http": clickhouse.HTTP}
 
-	for name, dsn := range dsns {
+	for name, protocol := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
-			if connect, err := sql.Open("clickhouse", dsn); assert.NoError(t, err) && assert.NoError(t, connect.Ping()) {
-				{
-					ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*20)
-					defer cancel()
-					if row := connect.QueryRowContext(ctx, "SELECT 1, sleep(1)"); assert.NotNil(t, row) {
-						var a, b int
-						if err := row.Scan(&a, &b); assert.Error(t, err) {
-							switch err := err.(type) {
-							case *net.OpError:
-								assert.Equal(t, "read", err.Op)
-							case *url.Error:
-								assert.Equal(t, context.DeadlineExceeded, err.Err)
-							default:
-								assert.Equal(t, context.DeadlineExceeded, err)
-							}
-						}
-					}
-				}
-				{
-					ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-					defer cancel()
-					if row := connect.QueryRowContext(ctx, "SELECT 1, sleep(0.1)"); assert.NotNil(t, row) {
-						var value, value2 int
-						if assert.NoError(t, row.Scan(&value, &value2)) {
-							assert.Equal(t, int(1), value)
+			connect, err := GetStdDSNConnection(protocol, false, "false")
+			require.NoError(t, err)
+			{
+				ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*20)
+				defer cancel()
+				if row := connect.QueryRowContext(ctx, "SELECT 1, sleep(1)"); assert.NotNil(t, row) {
+					var a, b int
+					if err := row.Scan(&a, &b); assert.Error(t, err) {
+						switch err := err.(type) {
+						case *net.OpError:
+							assert.Equal(t, "read", err.Op)
+						case *url.Error:
+							assert.Equal(t, context.DeadlineExceeded, err.Err)
+						default:
+							assert.Equal(t, context.DeadlineExceeded, err)
 						}
 					}
 				}
 			}
+			{
+				ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+				defer cancel()
+				if row := connect.QueryRowContext(ctx, "SELECT 1, sleep(0.1)"); assert.NotNil(t, row) {
+					var value, value2 int
+					if assert.NoError(t, row.Scan(&value, &value2)) {
+						assert.Equal(t, int(1), value)
+					}
+				}
+			}
+
 		})
 	}
 }

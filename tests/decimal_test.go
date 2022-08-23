@@ -28,30 +28,18 @@ import (
 )
 
 func TestDecimal(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			Settings: clickhouse.Settings{
-				"allow_experimental_bigint_types": 1,
-			},
-			//Debug: true,
-		})
-	)
-	if assert.NoError(t, err) {
-		if err := CheckMinServerVersion(conn, 21, 1, 0); err != nil {
-			t.Skip(err.Error())
-			return
-		}
-		const ddl = `
+	conn, err := GetNativeConnection(clickhouse.Settings{
+		"allow_experimental_bigint_types": 1,
+	}, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+	require.NoError(t, err)
+	if err := CheckMinServerVersion(conn, 21, 1, 0); err != nil {
+		t.Skip(err.Error())
+		return
+	}
+	const ddl = `
 			CREATE TABLE test_decimal (
 				  Col1 Decimal32(3)
 				, Col2 Decimal(18,6)
@@ -60,60 +48,42 @@ func TestDecimal(t *testing.T) {
 				, Col5 Decimal256(9)
 			) Engine Memory
 		`
-		defer func() {
-			conn.Exec(ctx, "DROP TABLE test_decimal")
-		}()
-		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
-			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_decimal"); assert.NoError(t, err) {
-				if err := batch.Append(
-					decimal.New(25, 4),
-					decimal.New(30, 5),
-					decimal.New(35, 6),
-					decimal.New(135, 7),
-					decimal.New(256, 8),
-				); !assert.NoError(t, err) {
-					return
-				}
-				if assert.NoError(t, batch.Send()) {
-					var (
-						col1 decimal.Decimal
-						col2 decimal.Decimal
-						col3 decimal.Decimal
-						col4 decimal.Decimal
-						col5 decimal.Decimal
-					)
-					if err := conn.QueryRow(ctx, "SELECT * FROM test_decimal").Scan(&col1, &col2, &col3, &col4, &col5); assert.NoError(t, err) {
-						assert.True(t, decimal.New(25, 4).Equal(col1))
-						assert.True(t, decimal.New(30, 5).Equal(col2))
-						assert.True(t, decimal.New(35, 6).Equal(col3))
-						assert.True(t, decimal.New(135, 7).Equal(col4))
-						assert.True(t, decimal.New(256, 8).Equal(col5))
-					}
-				}
-			}
-		}
-	}
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE test_decimal")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_decimal")
+	require.NoError(t, err)
+	require.NoError(t, batch.Append(
+		decimal.New(25, 4),
+		decimal.New(30, 5),
+		decimal.New(35, 6),
+		decimal.New(135, 7),
+		decimal.New(256, 8),
+	))
+	require.NoError(t, batch.Send())
+	var (
+		col1 decimal.Decimal
+		col2 decimal.Decimal
+		col3 decimal.Decimal
+		col4 decimal.Decimal
+		col5 decimal.Decimal
+	)
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_decimal").Scan(&col1, &col2, &col3, &col4, &col5))
+	assert.True(t, decimal.New(25, 4).Equal(col1))
+	assert.True(t, decimal.New(30, 5).Equal(col2))
+	assert.True(t, decimal.New(35, 6).Equal(col3))
+	assert.True(t, decimal.New(135, 7).Equal(col4))
+	assert.True(t, decimal.New(256, 8).Equal(col5))
 }
 
 func TestNegativeDecimal(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			Settings: clickhouse.Settings{
-				"allow_experimental_bigint_types": 1,
-			},
-			//Debug: true,
-		})
-	)
+	conn, err := GetNativeConnection(clickhouse.Settings{
+		"allow_experimental_bigint_types": 1,
+	}, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	require.NoError(t, err)
 	require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS test_decimal"))
 	const ddl = `
@@ -153,99 +123,64 @@ func TestNegativeDecimal(t *testing.T) {
 }
 
 func TestNullableDecimal(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			Settings: clickhouse.Settings{
-				"allow_experimental_bigint_types": 1,
-			},
-			//Debug: true,
-		})
-	)
-	if assert.NoError(t, err) {
-		if err := CheckMinServerVersion(conn, 21, 1, 0); err != nil {
-			t.Skip(err.Error())
-			return
-		}
-		const ddl = `
+	conn, err := GetNativeConnection(clickhouse.Settings{
+		"allow_experimental_bigint_types": 1,
+	}, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+	require.NoError(t, err)
+	if err := CheckMinServerVersion(conn, 21, 1, 0); err != nil {
+		t.Skip(err.Error())
+		return
+	}
+	const ddl = `
 		CREATE TABLE test_decimal (
 			  Col1 Nullable(Decimal32(5))
 			, Col2 Nullable(Decimal(18,5))
 			, Col3 Nullable(Decimal(15,3))
 		) Engine Memory
 		`
-		defer func() {
-			conn.Exec(ctx, "DROP TABLE test_decimal")
-		}()
-		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
-			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_decimal"); assert.NoError(t, err) {
-				if err := batch.Append(decimal.New(25, 0), decimal.New(30, 0), decimal.New(35, 0)); !assert.NoError(t, err) {
-					return
-				}
-				if assert.NoError(t, batch.Send()) {
-					var (
-						col1 *decimal.Decimal
-						col2 *decimal.Decimal
-						col3 *decimal.Decimal
-					)
-					if err := conn.QueryRow(ctx, "SELECT * FROM test_decimal").Scan(&col1, &col2, &col3); assert.NoError(t, err) {
-						assert.True(t, decimal.New(25, 0).Equal(*col1))
-						assert.True(t, decimal.New(30, 0).Equal(*col2))
-						assert.True(t, decimal.New(35, 0).Equal(*col3))
-					}
-				}
-			}
-
-			if err := conn.Exec(ctx, "TRUNCATE TABLE test_decimal"); !assert.NoError(t, err) {
-				return
-			}
-			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_decimal"); assert.NoError(t, err) {
-				if err := batch.Append(decimal.New(25, 0), nil, decimal.New(35, 0)); !assert.NoError(t, err) {
-					return
-				}
-				if assert.NoError(t, batch.Send()) {
-					var (
-						col1 *decimal.Decimal
-						col2 *decimal.Decimal
-						col3 *decimal.Decimal
-					)
-					if err := conn.QueryRow(ctx, "SELECT * FROM test_decimal").Scan(&col1, &col2, &col3); assert.NoError(t, err) {
-						if assert.Nil(t, col2) {
-							assert.True(t, decimal.New(25, 0).Equal(*col1))
-							assert.True(t, decimal.New(35, 0).Equal(*col3))
-						}
-					}
-				}
-			}
-		}
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE test_decimal")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_decimal")
+	require.NoError(t, err)
+	require.NoError(t, batch.Append(decimal.New(25, 0), decimal.New(30, 0), decimal.New(35, 0)))
+	require.NoError(t, batch.Send())
+	var (
+		col1 *decimal.Decimal
+		col2 *decimal.Decimal
+		col3 *decimal.Decimal
+	)
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_decimal").Scan(&col1, &col2, &col3))
+	assert.True(t, decimal.New(25, 0).Equal(*col1))
+	assert.True(t, decimal.New(30, 0).Equal(*col2))
+	assert.True(t, decimal.New(35, 0).Equal(*col3))
+	require.NoError(t, conn.Exec(ctx, "TRUNCATE TABLE test_decimal"))
+	batch, err = conn.PrepareBatch(ctx, "INSERT INTO test_decimal")
+	require.NoError(t, err)
+	require.NoError(t, batch.Append(decimal.New(25, 0), nil, decimal.New(35, 0)))
+	require.NoError(t, batch.Send())
+	{
+		var (
+			col1 *decimal.Decimal
+			col2 *decimal.Decimal
+			col3 *decimal.Decimal
+		)
+		require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_decimal").Scan(&col1, &col2, &col3))
+		require.Nil(t, col2)
+		assert.True(t, decimal.New(25, 0).Equal(*col1))
+		assert.True(t, decimal.New(35, 0).Equal(*col3))
 	}
 }
 
 func TestDecimalFlush(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			MaxOpenConns: 1,
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	require.NoError(t, err)
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE decimal_flush")
