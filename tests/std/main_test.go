@@ -29,11 +29,14 @@ import (
 func TestMain(m *testing.M) {
 	useDocker := strings.ToLower(clickhouse_tests.GetEnv("CLICKHOUSE_USE_DOCKER", "true"))
 	if useDocker == "false" {
-		fmt.Printf("Using external ClickHouse for IT tests -  %s:%s\n",
+		fmt.Printf("Using external ClickHouse for std IT tests -  %s:%s\n",
 			clickhouse_tests.GetEnv("CLICKHOUSE_PORT", "9000"),
 			clickhouse_tests.GetEnv("CLICKHOUSE_HOST", "localhost"))
-		// TODO: Set environment
-
+		env, err := clickhouse_tests.GetExternalTestEnvironment()
+		if err != nil {
+			panic(err)
+		}
+		clickhouse_tests.SetTestEnvironment("std", env)
 		os.Exit(m.Run())
 	}
 	testEnv, err := clickhouse_tests.CreateClickHouseTestEnvironment("std")

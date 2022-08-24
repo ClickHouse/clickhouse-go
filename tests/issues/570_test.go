@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"testing"
@@ -12,7 +11,7 @@ import (
 )
 
 func Test570(t *testing.T) {
-	env, err := clickhouse_tests.GetTestEnvironment("issues")
+	env, err := GetIssuesTestEnvironment()
 	require.NoError(t, err)
 	// using ParseDNS - defaults shouldn't be set for maxOpenConnections etc
 	options, err := clickhouse.ParseDSN(fmt.Sprintf("clickhouse://%s:%s@%s:%d/default", env.Username, env.Password,

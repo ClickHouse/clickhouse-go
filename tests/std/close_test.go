@@ -19,7 +19,6 @@ package std
 
 import (
 	"fmt"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
@@ -29,7 +28,7 @@ import (
 )
 
 func TestStdConnClose(t *testing.T) {
-	env, err := clickhouse_tests.GetTestEnvironment("std")
+	env, err := GetStdTestEnvironment()
 	require.NoError(t, err)
 	conn := clickhouse.OpenDB(&clickhouse.Options{
 		Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},

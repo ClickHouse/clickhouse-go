@@ -35,6 +35,10 @@ func init() {
 	rand.Seed(seed)
 }
 
+func GetStdTestEnvironment() (clickhouse_tests.ClickHouseTestEnvironment, error) {
+	return clickhouse_tests.GetTestEnvironment("std")
+}
+
 func CheckMinServerVersion(conn *sql.DB, major, minor, patch uint64) error {
 	var version struct {
 		Major uint64
@@ -66,7 +70,7 @@ func GetStdDSNConnection(protocol clickhouse.Protocol, secure bool, compress str
 }
 
 func GetDSNConnection(environment string, protocol clickhouse.Protocol, secure bool, compress string) (*sql.DB, error) {
-	env, err := clickhouse_tests.GetTestEnvironment(environment)
+	env, err := GetStdTestEnvironment()
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +98,7 @@ func GetStdOpenDBConnection(protocol clickhouse.Protocol, settings clickhouse.Se
 }
 
 func GetOpenDBConnection(environment string, protocol clickhouse.Protocol, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (*sql.DB, error) {
-	env, err := clickhouse_tests.GetTestEnvironment(environment)
+	env, err := GetStdTestEnvironment()
 	if err != nil {
 		return nil, err
 	}

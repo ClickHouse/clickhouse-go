@@ -21,18 +21,21 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strings"
+	"strconv"
 	"testing"
 )
 
 func TestMain(m *testing.M) {
-	useDocker := strings.ToLower(GetEnv("CLICKHOUSE_USE_DOCKER", "true"))
-	if useDocker == "false" {
-		fmt.Printf("Using external ClickHouse for IT tests -  %s:%s\n",
+	useDocker, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_DOCKER", "true"))
+	if !useDocker {
+		fmt.Printf("Using external ClickHouse for native IT tests -  %s:%s\n",
 			GetEnv("CLICKHOUSE_PORT", "9000"),
 			GetEnv("CLICKHOUSE_HOST", "localhost"))
-		// TODO: Set environment
-
+		env, err := GetExternalTestEnvironment()
+		if err != nil {
+			panic(err)
+		}
+		SetTestEnvironment("native", env)
 		os.Exit(m.Run())
 	}
 	testEnv, err := CreateClickHouseTestEnvironment("native")

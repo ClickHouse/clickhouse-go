@@ -5,13 +5,12 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/require"
 	"testing"
 )
 
 func Test647(t *testing.T) {
-	env, err := clickhouse_tests.GetTestEnvironment("issues")
+	env, err := GetIssuesTestEnvironment()
 	require.NoError(t, err)
 	options := &clickhouse.Options{
 		Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},
@@ -32,7 +31,7 @@ func Test647(t *testing.T) {
 }
 
 func Test647_OpenDB(t *testing.T) {
-	env, err := clickhouse_tests.GetTestEnvironment("issues")
+	env, err := GetIssuesTestEnvironment()
 	require.NoError(t, err)
 	options := &clickhouse.Options{
 		Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},
@@ -53,7 +52,7 @@ func Test647_OpenDB(t *testing.T) {
 }
 
 func Test647_Connector(t *testing.T) {
-	env, err := clickhouse_tests.GetTestEnvironment("issues")
+	env, err := GetIssuesTestEnvironment()
 	require.NoError(t, err)
 	options := &clickhouse.Options{
 		Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},

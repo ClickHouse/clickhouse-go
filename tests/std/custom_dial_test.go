@@ -20,7 +20,6 @@ package std
 import (
 	"context"
 	"fmt"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/require"
 	"net"
 	"testing"
@@ -31,7 +30,7 @@ import (
 )
 
 func TestStdCustomDial(t *testing.T) {
-	env, err := clickhouse_tests.GetTestEnvironment("std")
+	env, err := GetStdTestEnvironment()
 	require.NoError(t, err)
 	var (
 		dialCount int

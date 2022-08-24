@@ -19,18 +19,28 @@ package tests
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/require"
+	"strconv"
 	"testing"
 	"time"
 )
 
 func TestQuotedDDL(t *testing.T) {
-	env, err := GetTestEnvironment("native")
+	env, err := GetNativeTestEnvironment()
 	require.NoError(t, err)
+	useSSL, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	port := env.Port
+	var tlsConfig *tls.Config
+	if useSSL {
+		port = env.SslPort
+		tlsConfig = &tls.Config{}
+	}
 	conn, err := clickhouse.Open(&clickhouse.Options{
-		Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},
+		Addr: []string{fmt.Sprintf("%s:%d", env.Host, port)},
 		Auth: clickhouse.Auth{
 			Database: "default",
 			Username: env.Username,
@@ -40,6 +50,7 @@ func TestQuotedDDL(t *testing.T) {
 			Method: clickhouse.CompressionLZ4,
 		},
 		DialTimeout: time.Second * 120,
+		TLS:         tlsConfig,
 	})
 	ctx := context.Background()
 	require.NoError(t, err)

@@ -35,6 +35,7 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -153,7 +154,18 @@ func SetTestEnvironment(testSet string, environment ClickHouseTestEnvironment) {
 	os.Setenv(fmt.Sprintf("CLICKHOUSE_%s_ENV", strings.ToUpper(testSet)), string(bytes))
 }
 
+func GetNativeTestEnvironment() (ClickHouseTestEnvironment, error) {
+	return GetTestEnvironment("native")
+}
+
 func GetTestEnvironment(testSet string) (ClickHouseTestEnvironment, error) {
+	useDocker, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_DOCKER", "true"))
+	if err != nil {
+		return ClickHouseTestEnvironment{}, err
+	}
+	if !useDocker {
+		return GetExternalTestEnvironment()
+	}
 	sEnv := os.Getenv(fmt.Sprintf("CLICKHOUSE_%s_ENV", strings.ToUpper(testSet)))
 	if sEnv == "" {
 		return ClickHouseTestEnvironment{}, errors.New("unable to find environment")
@@ -165,17 +177,54 @@ func GetTestEnvironment(testSet string) (ClickHouseTestEnvironment, error) {
 	return env, nil
 }
 
+func GetExternalTestEnvironment() (ClickHouseTestEnvironment, error) {
+	port, err := strconv.Atoi(GetEnv("CLICKHOUSE_PORT", "9000"))
+	if err != nil {
+		return ClickHouseTestEnvironment{}, nil
+	}
+	httpPort, err := strconv.Atoi(GetEnv("CLICKHOUSE_HTTP_PORT", "8123"))
+	if err != nil {
+		return ClickHouseTestEnvironment{}, nil
+	}
+	sslPort, err := strconv.Atoi(GetEnv("CLICKHOUSE_SSL_PORT", "9440"))
+	if err != nil {
+		return ClickHouseTestEnvironment{}, nil
+	}
+	httpsPort, err := strconv.Atoi(GetEnv("CLICKHOUSE_HTTPS_PORT", "8443"))
+	if err != nil {
+		return ClickHouseTestEnvironment{}, nil
+	}
+	return ClickHouseTestEnvironment{
+		Port:      port,
+		HttpPort:  httpPort,
+		SslPort:   sslPort,
+		HttpsPort: httpsPort,
+		Username:  GetEnv("CLICKHOUSE_USERNAME", "default"),
+		Password:  GetEnv("CLICKHOUSE_PASSWORD", "default"),
+		Host:      GetEnv("CLICKHOUSE_HOST", "localhost"),
+	}, nil
+}
+
 func GetNativeConnection(settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (driver.Conn, error) {
 	return GetConnection("native", settings, tlsConfig, compression)
 }
 
 func GetConnection(environment string, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (driver.Conn, error) {
 	env, err := GetTestEnvironment(environment)
+	useSSL, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_SSL", "false"))
 	if err != nil {
 		panic(err)
 	}
+	if err != nil {
+		panic(err)
+	}
+	port := env.Port
+	if useSSL && tlsConfig == nil {
+		tlsConfig = &tls.Config{}
+		port = env.SslPort
+	}
 	conn, err := clickhouse.Open(&clickhouse.Options{
-		Addr:     []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},
+		Addr:     []string{fmt.Sprintf("%s:%d", env.Host, port)},
 		Settings: settings,
 		Auth: clickhouse.Auth{
 			Database: "default",
@@ -194,11 +243,6 @@ func GetEnv(key, fallback string) string {
 		return value
 	}
 	return fallback
-}
-
-func IsSetInEnv(key string) bool {
-	_, ok := os.LookupEnv(key)
-	return ok
 }
 
 var src = rand.NewSource(time.Now().UnixNano())

@@ -21,7 +21,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"testing"
 	"time"
 
@@ -46,7 +45,7 @@ func TestStdConn(t *testing.T) {
 }
 
 func TestStdConnFailover(t *testing.T) {
-	env, err := clickhouse_tests.GetTestEnvironment("std")
+	env, err := GetStdTestEnvironment()
 	require.NoError(t, err)
 	dsns := map[string]string{"Native": fmt.Sprintf("clickhouse://%s:%s@127.0.0.1:9001,127.0.0.1:9002,%s:%d", env.Username, env.Password, env.Host, env.Port),
 		"Http": fmt.Sprintf("http://%s:%s@127.0.0.1:8124,127.0.0.1:8125,%s:%d", env.Username, env.Password, env.Host, env.HttpPort)}
@@ -63,7 +62,7 @@ func TestStdConnFailover(t *testing.T) {
 }
 
 func TestStdConnFailoverConnOpenRoundRobin(t *testing.T) {
-	env, err := clickhouse_tests.GetTestEnvironment("std")
+	env, err := GetStdTestEnvironment()
 	require.NoError(t, err)
 	dsns := map[string]string{
 		"Native": fmt.Sprintf("clickhouse://%s:%s@127.0.0.1:9001,127.0.0.1:9002,127.0.0.1:9003,127.0.0.1:9004,127.0.0.1:9005,127.0.0.1:9006,%s:%d/?connection_open_strategy=round_robin", env.Username, env.Password, env.Host, env.Port),
@@ -82,7 +81,7 @@ func TestStdConnFailoverConnOpenRoundRobin(t *testing.T) {
 }
 
 func TestStdPingDeadline(t *testing.T) {
-	env, err := clickhouse_tests.GetTestEnvironment("std")
+	env, err := GetStdTestEnvironment()
 	require.NoError(t, err)
 	dsns := map[string]string{
 		"Native": fmt.Sprintf("clickhouse://%s:%s:%s:%d", env.Username, env.Password, env.Host, env.Port),
@@ -103,7 +102,7 @@ func TestStdPingDeadline(t *testing.T) {
 }
 
 func TestStdConnAuth(t *testing.T) {
-	env, err := clickhouse_tests.GetTestEnvironment("std")
+	env, err := GetStdTestEnvironment()
 	require.NoError(t, err)
 	dsns := map[string]string{"Native": fmt.Sprintf("clickhouse://%s:%d?username=%s&password=%s", env.Host, env.Port, env.Username, env.Password),
 		"Http": fmt.Sprintf("http://%s:%d?username=%s&password=%s", env.Host, env.HttpPort, env.Username, env.Password)}
@@ -120,7 +119,7 @@ func TestStdConnAuth(t *testing.T) {
 }
 
 func TestStdHTTPEmptyResponse(t *testing.T) {
-	env, err := clickhouse_tests.GetTestEnvironment("std")
+	env, err := GetStdTestEnvironment()
 	require.NoError(t, err)
 
 	dsns := map[string]string{"Native": fmt.Sprintf("clickhouse://%s:%d?username=%s&password=%s", env.Host, env.Port, env.Username, env.Password),
@@ -162,7 +161,7 @@ func TestStdHTTPEmptyResponse(t *testing.T) {
 }
 
 func TestStdConnector(t *testing.T) {
-	env, err := clickhouse_tests.GetTestEnvironment("std")
+	env, err := GetStdTestEnvironment()
 	require.NoError(t, err)
 	connector := clickhouse.Connector(&clickhouse.Options{
 		Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},

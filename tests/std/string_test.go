@@ -20,14 +20,13 @@ package std
 import (
 	"database/sql"
 	"fmt"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"testing"
 )
 
 func TestSimpleStdString(t *testing.T) {
-	env, err := clickhouse_tests.GetTestEnvironment("std")
+	env, err := GetStdTestEnvironment()
 	require.NoError(t, err)
 
 	dsns := map[string]string{"Http": fmt.Sprintf("http://%s:%d?username=%s&password=%s&dial_timeout=200ms&max_execution_time=60", env.Host, env.HttpPort, env.Username, env.Password)}

@@ -19,6 +19,7 @@ package issues
 
 import (
 	"fmt"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"math/rand"
 	"time"
 )
@@ -27,4 +28,8 @@ func init() {
 	seed := time.Now().UnixNano()
 	fmt.Printf("using random seed %d for issues\n", seed)
 	rand.Seed(seed)
+}
+
+func GetIssuesTestEnvironment() (clickhouse_tests.ClickHouseTestEnvironment, error) {
+	return clickhouse_tests.GetTestEnvironment("issues")
 }

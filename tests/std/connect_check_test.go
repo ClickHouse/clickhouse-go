@@ -21,7 +21,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
@@ -39,7 +38,7 @@ func TestStdConnCheck(t *testing.T) {
 		dml = `INSERT INTO clickhouse_test_conncheck VALUES `
 	)
 
-	env, err := clickhouse_tests.GetTestEnvironment("std")
+	env, err := GetStdTestEnvironment()
 	require.NoError(t, err)
 
 	dsns := map[string]string{"Native": fmt.Sprintf("clickhouse://%s:%d?username=%s&password=%s", env.Host, env.Port, env.Username, env.Password),

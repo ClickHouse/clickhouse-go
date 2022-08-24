@@ -20,7 +20,6 @@ package std
 import (
 	"database/sql"
 	"fmt"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/require"
 	"testing"
 
@@ -29,7 +28,7 @@ import (
 )
 
 func TestStdUUID(t *testing.T) {
-	env, err := clickhouse_tests.GetTestEnvironment("std")
+	env, err := GetStdTestEnvironment()
 	require.NoError(t, err)
 	dsns := map[string]string{"Native": fmt.Sprintf("clickhouse://%s:%d?username=%s&password=%s", env.Host, env.Port, env.Username, env.Password),
 		"Http": fmt.Sprintf("http://%s:%d?username=%s&password=%s&session_id=session", env.Host, env.HttpPort, env.Username, env.Password)}
@@ -72,7 +71,7 @@ func TestStdUUID(t *testing.T) {
 }
 
 func TestStdNullableUUID(t *testing.T) {
-	env, err := clickhouse_tests.GetTestEnvironment("std")
+	env, err := GetStdTestEnvironment()
 	require.NoError(t, err)
 	dsns := map[string]string{"Native": fmt.Sprintf("clickhouse://%s:%d?username=%s&password=%s", env.Host, env.Port, env.Username, env.Password),
 		"Http": fmt.Sprintf("http://%s:%d?username=%s&password=%s&session_id=session", env.Host, env.HttpPort, env.Username, env.Password)}
