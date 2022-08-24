@@ -41,9 +41,9 @@ func TestStdContextStdTimeout(t *testing.T) {
 			connect, err := GetStdDSNConnection(protocol, useSSL, "false")
 			require.NoError(t, err)
 			{
-				ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*20)
+				ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 				defer cancel()
-				if row := connect.QueryRowContext(ctx, "SELECT 1, sleep(1)"); assert.NotNil(t, row) {
+				if row := connect.QueryRowContext(ctx, "SELECT 1, sleep(3)"); assert.NotNil(t, row) {
 					var a, b int
 					if err := row.Scan(&a, &b); assert.Error(t, err) {
 						switch err := err.(type) {

@@ -74,7 +74,7 @@ func GetDSNConnection(environment string, protocol clickhouse.Protocol, secure b
 	case clickhouse.Native:
 		switch secure {
 		case true:
-			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("clickhouse://%s:%s@%s:%d/%s?secure=true&compress=%s", env.Username, env.Password, env.Host, env.SslPort, env.Database, compress)))
+			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("clickhouse://%s:%s@%s:%d/%s?secure=true&compress=%s&", env.Username, env.Password, env.Host, env.SslPort, env.Database, compress)))
 		case false:
 			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("clickhouse://%s:%s@%s:%d/%s?compress=%s", env.Username, env.Password, env.Host, env.Port, env.Database, compress)))
 		}

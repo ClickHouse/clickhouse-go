@@ -64,7 +64,7 @@ func TestStdConnCheck(t *testing.T) {
 			require.NoError(t, err)
 			_, err = connect.Exec("set idle_connection_timeout=1")
 			assert.NoError(t, err)
-
+			// The time in seconds the connection needs to remain idle before TCP starts sending keepalive probes
 			_, err = connect.Exec("set tcp_keep_alive_timeout=0")
 			assert.NoError(t, err)
 
