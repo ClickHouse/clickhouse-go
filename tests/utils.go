@@ -27,6 +27,7 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/go-units"
+	"github.com/google/uuid"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 	"math/rand"
@@ -40,11 +41,8 @@ import (
 	"time"
 )
 
-func init() {
-	seed := time.Now().UnixNano()
-	fmt.Printf("using random seed %d for native tests\n", seed)
-	rand.Seed(seed)
-}
+var testUUID string = uuid.NewString()[0:12]
+var testTimestamp int64 = time.Now().UnixMilli()
 
 func CheckMinServerVersion(conn driver.Conn, major, minor, patch uint64) error {
 	v, err := conn.ServerVersion()
@@ -71,6 +69,7 @@ type ClickHouseTestEnvironment struct {
 	Host      string
 	Username  string
 	Password  string
+	Database  string
 	Container testcontainers.Container `json:"-"`
 }
 
@@ -103,7 +102,6 @@ func CreateClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment,
 			Soft: 262144,
 		},
 	}
-
 	req := testcontainers.ContainerRequest{
 		Image:        fmt.Sprintf("clickhouse/clickhouse-server:%s", GetClickHouseTestVersion()),
 		Name:         fmt.Sprintf("clickhouse-go-%s-%d", strings.ToLower(testSet), time.Now().UnixNano()),
@@ -141,8 +139,8 @@ func CreateClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment,
 		Username:  "default",
 		Password:  "ClickHouse",
 		Container: clickhouseContainer,
+		Database:  GetEnv("CLICKHOUSE_DATABASE", getDatabaseName(testSet)),
 	}
-	SetTestEnvironment(testSet, testEnv)
 	return testEnv, nil
 }
 
@@ -154,17 +152,13 @@ func SetTestEnvironment(testSet string, environment ClickHouseTestEnvironment) {
 	os.Setenv(fmt.Sprintf("CLICKHOUSE_%s_ENV", strings.ToUpper(testSet)), string(bytes))
 }
 
-func GetNativeTestEnvironment() (ClickHouseTestEnvironment, error) {
-	return GetTestEnvironment("native")
-}
-
 func GetTestEnvironment(testSet string) (ClickHouseTestEnvironment, error) {
 	useDocker, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_DOCKER", "true"))
 	if err != nil {
 		return ClickHouseTestEnvironment{}, err
 	}
 	if !useDocker {
-		return GetExternalTestEnvironment()
+		return GetExternalTestEnvironment(testSet)
 	}
 	sEnv := os.Getenv(fmt.Sprintf("CLICKHOUSE_%s_ENV", strings.ToUpper(testSet)))
 	if sEnv == "" {
@@ -177,7 +171,7 @@ func GetTestEnvironment(testSet string) (ClickHouseTestEnvironment, error) {
 	return env, nil
 }
 
-func GetExternalTestEnvironment() (ClickHouseTestEnvironment, error) {
+func GetExternalTestEnvironment(testSet string) (ClickHouseTestEnvironment, error) {
 	port, err := strconv.Atoi(GetEnv("CLICKHOUSE_PORT", "9000"))
 	if err != nil {
 		return ClickHouseTestEnvironment{}, nil
@@ -200,21 +194,22 @@ func GetExternalTestEnvironment() (ClickHouseTestEnvironment, error) {
 		SslPort:   sslPort,
 		HttpsPort: httpsPort,
 		Username:  GetEnv("CLICKHOUSE_USERNAME", "default"),
-		Password:  GetEnv("CLICKHOUSE_PASSWORD", "default"),
+		Password:  GetEnv("CLICKHOUSE_PASSWORD", ""),
 		Host:      GetEnv("CLICKHOUSE_HOST", "localhost"),
+		Database:  GetEnv("CLICKHOUSE_DATABASE", getDatabaseName(testSet)),
 	}, nil
 }
 
-func GetNativeConnection(settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (driver.Conn, error) {
-	return GetConnection("native", settings, tlsConfig, compression)
+func GetConnection(testSet string, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (driver.Conn, error) {
+	env, err := GetTestEnvironment(testSet)
+	if err != nil {
+		return nil, err
+	}
+	return getConnection(env, env.Database, settings, tlsConfig, compression)
 }
 
-func GetConnection(environment string, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (driver.Conn, error) {
-	env, err := GetTestEnvironment(environment)
+func getConnection(env ClickHouseTestEnvironment, database string, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (driver.Conn, error) {
 	useSSL, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_SSL", "false"))
-	if err != nil {
-		panic(err)
-	}
 	if err != nil {
 		panic(err)
 	}
@@ -227,7 +222,7 @@ func GetConnection(environment string, settings clickhouse.Settings, tlsConfig *
 		Addr:     []string{fmt.Sprintf("%s:%d", env.Host, port)},
 		Settings: settings,
 		Auth: clickhouse.Auth{
-			Database: "default",
+			Database: database,
 			Username: env.Username,
 			Password: env.Password,
 		},
@@ -236,6 +231,22 @@ func GetConnection(environment string, settings clickhouse.Settings, tlsConfig *
 		DialTimeout: time.Duration(10) * time.Second,
 	})
 	return conn, err
+}
+
+func CreateDatabase(testSet string) error {
+	env, err := GetTestEnvironment(testSet)
+	if err != nil {
+		return err
+	}
+	conn, err := getConnection(env, "default", nil, nil, nil)
+	if err != nil {
+		return err
+	}
+	return conn.Exec(context.Background(), fmt.Sprintf("CREATE DATABASE `%s`", env.Database))
+}
+
+func getDatabaseName(testSet string) string {
+	return fmt.Sprintf("clickhouse-go-%s-%s-%d", testSet, testUUID, testTimestamp)
 }
 
 func GetEnv(key, fallback string) string {

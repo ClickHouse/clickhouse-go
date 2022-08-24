@@ -23,17 +23,10 @@ import (
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
-	"math/rand"
 	"strconv"
 	"strings"
 	"time"
 )
-
-func init() {
-	seed := time.Now().UnixNano()
-	fmt.Printf("using random seed %d for std tests\n", seed)
-	rand.Seed(seed)
-}
 
 func GetStdTestEnvironment() (clickhouse_tests.ClickHouseTestEnvironment, error) {
 	return clickhouse_tests.GetTestEnvironment("std")
@@ -65,10 +58,6 @@ func CheckMinServerVersion(conn *sql.DB, major, minor, patch uint64) error {
 	return nil
 }
 
-func GetStdDSNConnection(protocol clickhouse.Protocol, secure bool, compress string) (*sql.DB, error) {
-	return GetDSNConnection("std", protocol, secure, compress)
-}
-
 func GetDSNConnection(environment string, protocol clickhouse.Protocol, secure bool, compress string) (*sql.DB, error) {
 	env, err := clickhouse_tests.GetTestEnvironment(environment)
 	if err != nil {
@@ -78,23 +67,19 @@ func GetDSNConnection(environment string, protocol clickhouse.Protocol, secure b
 	case clickhouse.HTTP:
 		switch secure {
 		case true:
-			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("https://%s:%s@%s:%d?secure=true&compress=%s", env.Username, env.Password, env.Host, env.HttpsPort, compress)))
+			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("https://%s:%s@%s:%d/%s?secure=true&compress=%s", env.Username, env.Password, env.Host, env.HttpsPort, env.Database, compress)))
 		case false:
-			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("http://%s:%s@%s:%d?compress=%s", env.Username, env.Password, env.Host, env.HttpPort, compress)))
+			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("http://%s:%s@%s:%d/%s?compress=%s", env.Username, env.Password, env.Host, env.HttpPort, env.Database, compress)))
 		}
 	case clickhouse.Native:
 		switch secure {
 		case true:
-			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("clickhouse://%s:%s@%s:%d?secure=true&compress=%s", env.Username, env.Password, env.Host, env.SslPort, compress)))
+			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("clickhouse://%s:%s@%s:%d/%s?secure=true&compress=%s", env.Username, env.Password, env.Host, env.SslPort, env.Database, compress)))
 		case false:
-			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("clickhouse://%s:%s@%s:%d?compress=%s", env.Username, env.Password, env.Host, env.Port, compress)))
+			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("clickhouse://%s:%s@%s:%d/%s?compress=%s", env.Username, env.Password, env.Host, env.Port, env.Database, compress)))
 		}
 	}
 	return nil, fmt.Errorf("unsupport protocol - %s", protocol.String())
-}
-
-func GetStdOpenDBConnection(protocol clickhouse.Protocol, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (*sql.DB, error) {
-	return GetOpenDBConnection("std", protocol, settings, tlsConfig, compression)
 }
 
 func GetOpenDBConnection(environment string, protocol clickhouse.Protocol, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (*sql.DB, error) {
@@ -118,7 +103,7 @@ func GetOpenDBConnection(environment string, protocol clickhouse.Protocol, setti
 	return clickhouse.OpenDB(&clickhouse.Options{
 		Addr: []string{fmt.Sprintf("%s:%d", env.Host, port)},
 		Auth: clickhouse.Auth{
-			Database: "default",
+			Database: env.Database,
 			Username: env.Username,
 			Password: env.Password,
 		},
@@ -127,6 +112,5 @@ func GetOpenDBConnection(environment string, protocol clickhouse.Protocol, setti
 		Compression: compression,
 		TLS:         tlsConfig,
 		Protocol:    protocol,
-		//	Debug: true,
 	}), nil
 }

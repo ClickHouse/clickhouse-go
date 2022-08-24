@@ -19,29 +19,52 @@ package tests
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
+	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"math/rand"
 	"os"
 	"strconv"
 	"testing"
+	"time"
 )
 
+const testSet string = "native"
+
 func TestMain(m *testing.M) {
+	seed := time.Now().UnixNano()
+	fmt.Printf("using random seed %d for %s tests\n", seed, testSet)
+	rand.Seed(seed)
 	useDocker, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_DOCKER", "true"))
-	if !useDocker {
-		fmt.Printf("Using external ClickHouse for native IT tests -  %s:%s\n",
-			GetEnv("CLICKHOUSE_PORT", "9000"),
-			GetEnv("CLICKHOUSE_HOST", "localhost"))
-		env, err := GetExternalTestEnvironment()
-		if err != nil {
-			panic(err)
-		}
-		SetTestEnvironment("native", env)
-		os.Exit(m.Run())
-	}
-	testEnv, err := CreateClickHouseTestEnvironment("native")
 	if err != nil {
 		panic(err)
 	}
-	defer testEnv.Container.Terminate(context.Background()) //nolint
+	var env ClickHouseTestEnvironment
+	switch useDocker {
+	case true:
+		env, err = CreateClickHouseTestEnvironment(testSet)
+		if err != nil {
+			panic(err)
+		}
+		defer env.Container.Terminate(context.Background()) //nolint
+	case false:
+		env, err = GetExternalTestEnvironment(testSet)
+		if err != nil {
+			panic(err)
+		}
+	}
+	SetTestEnvironment(testSet, env)
+	if err := CreateDatabase(testSet); err != nil {
+		panic(err)
+	}
 	os.Exit(m.Run())
+}
+
+func GetNativeTestEnvironment() (ClickHouseTestEnvironment, error) {
+	return GetTestEnvironment(testSet)
+}
+
+func GetNativeConnection(settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (driver.Conn, error) {
+	return GetConnection(testSet, settings, tlsConfig, compression)
 }
