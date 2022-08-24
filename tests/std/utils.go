@@ -70,7 +70,7 @@ func GetStdDSNConnection(protocol clickhouse.Protocol, secure bool, compress str
 }
 
 func GetDSNConnection(environment string, protocol clickhouse.Protocol, secure bool, compress string) (*sql.DB, error) {
-	env, err := GetStdTestEnvironment()
+	env, err := clickhouse_tests.GetTestEnvironment(environment)
 	if err != nil {
 		return nil, err
 	}

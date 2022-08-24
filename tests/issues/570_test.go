@@ -1,11 +1,14 @@
 package issues
 
 import (
+	"crypto/tls"
 	"database/sql"
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -13,9 +16,21 @@ import (
 func Test570(t *testing.T) {
 	env, err := GetIssuesTestEnvironment()
 	require.NoError(t, err)
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	var tlsConfig *tls.Config
+	dsn := fmt.Sprintf("clickhouse://%s:%s@%s:%d/default", env.Username, env.Password,
+		env.Host, env.Port)
+	port := env.Port
+	if useSSL {
+		tlsConfig = &tls.Config{}
+		port = env.SslPort
+		dsn = fmt.Sprintf("clickhouse://%s:%s@%s:%d/default?secure=true", env.Username, env.Password,
+			env.Host, env.SslPort)
+	}
+	require.NoError(t, err)
 	// using ParseDNS - defaults shouldn't be set for maxOpenConnections etc
-	options, err := clickhouse.ParseDSN(fmt.Sprintf("clickhouse://%s:%s@%s:%d/default", env.Username, env.Password,
-		env.Host, env.Port))
+	options, err := clickhouse.ParseDSN(dsn)
 	assert.NoError(t, err)
 	conn := clickhouse.OpenDB(options)
 	conn.SetMaxOpenConns(5)
@@ -25,7 +40,7 @@ func Test570(t *testing.T) {
 
 	// check we can pass Options
 	options = &clickhouse.Options{
-		Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},
+		Addr: []string{fmt.Sprintf("%s:%d", env.Host, port)},
 		Auth: clickhouse.Auth{
 			Database: "default",
 			Username: env.Username,
@@ -35,13 +50,13 @@ func Test570(t *testing.T) {
 			Method: clickhouse.CompressionLZ4,
 		},
 		DialTimeout: time.Second,
+		TLS:         tlsConfig,
 	}
 	conn = clickhouse.OpenDB(options)
 	assert.NoError(t, conn.Ping())
 
 	// check we can open with a DSN
-	conn, err = sql.Open("clickhouse", fmt.Sprintf("clickhouse://%s:%s@%s:%d", env.Username, env.Password,
-		env.Host, env.Port))
+	conn, err = sql.Open("clickhouse", dsn)
 	require.NoError(t, err)
 	assert.NoError(t, conn.Ping())
 }
