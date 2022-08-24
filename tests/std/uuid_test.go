@@ -20,7 +20,9 @@ package std
 import (
 	"database/sql"
 	"fmt"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/require"
+	"strconv"
 	"testing"
 
 	"github.com/google/uuid"
@@ -30,8 +32,14 @@ import (
 func TestStdUUID(t *testing.T) {
 	env, err := GetStdTestEnvironment()
 	require.NoError(t, err)
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
 	dsns := map[string]string{"Native": fmt.Sprintf("clickhouse://%s:%d?username=%s&password=%s", env.Host, env.Port, env.Username, env.Password),
 		"Http": fmt.Sprintf("http://%s:%d?username=%s&password=%s&session_id=session", env.Host, env.HttpPort, env.Username, env.Password)}
+	if useSSL {
+		dsns = map[string]string{"Native": fmt.Sprintf("clickhouse://%s:%d?username=%s&password=%s&secure=true", env.Host, env.SslPort, env.Username, env.Password),
+			"Http": fmt.Sprintf("https://%s:%d?username=%s&password=%s&session_id=session&secure=true", env.Host, env.HttpsPort, env.Username, env.Password)}
+	}
 
 	for name, dsn := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
@@ -73,9 +81,14 @@ func TestStdUUID(t *testing.T) {
 func TestStdNullableUUID(t *testing.T) {
 	env, err := GetStdTestEnvironment()
 	require.NoError(t, err)
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
 	dsns := map[string]string{"Native": fmt.Sprintf("clickhouse://%s:%d?username=%s&password=%s", env.Host, env.Port, env.Username, env.Password),
 		"Http": fmt.Sprintf("http://%s:%d?username=%s&password=%s&session_id=session", env.Host, env.HttpPort, env.Username, env.Password)}
-
+	if useSSL {
+		dsns = map[string]string{"Native": fmt.Sprintf("clickhouse://%s:%d?username=%s&password=%s&secure=true", env.Host, env.SslPort, env.Username, env.Password),
+			"Http": fmt.Sprintf("https://%s:%d?username=%s&password=%s&session_id=session&secure=true", env.Host, env.HttpsPort, env.Username, env.Password)}
+	}
 	for name, dsn := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
 			conn, err := sql.Open("clickhouse", dsn)

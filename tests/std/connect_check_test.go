@@ -21,7 +21,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/require"
+	"strconv"
 	"testing"
 	"time"
 
@@ -31,11 +33,11 @@ import (
 func TestStdConnCheck(t *testing.T) {
 	const (
 		ddl = `
-		CREATE TABLE clickhouse_test_conncheck (
+		CREATE TABLE clickhouse_test_conn_check (
 			Value String
 		) Engine Memory
 		`
-		dml = `INSERT INTO clickhouse_test_conncheck VALUES `
+		dml = `INSERT INTO clickhouse_test_conn_check VALUES `
 	)
 
 	env, err := GetStdTestEnvironment()
@@ -43,7 +45,12 @@ func TestStdConnCheck(t *testing.T) {
 
 	dsns := map[string]string{"Native": fmt.Sprintf("clickhouse://%s:%d?username=%s&password=%s", env.Host, env.Port, env.Username, env.Password),
 		"Http": fmt.Sprintf("http://%s:%d?username=%s&password=%s&session_id=session", env.Host, env.HttpPort, env.Username, env.Password)}
-
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	if useSSL {
+		dsns = map[string]string{"Native": fmt.Sprintf("clickhouse://%s:%d?username=%s&password=%s&secure=true", env.Host, env.SslPort, env.Username, env.Password),
+			"Http": fmt.Sprintf("https://%s:%d?username=%s&password=%s&session_id=session&secure=true", env.Host, env.HttpsPort, env.Username, env.Password)}
+	}
 	for name, dsn := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
 			connect, err := sql.Open("clickhouse", dsn)
@@ -51,7 +58,7 @@ func TestStdConnCheck(t *testing.T) {
 			// We can only change the settings at the connection level.
 			// If we have only one connection, we change the settings specifically for that connection.
 			connect.SetMaxOpenConns(1)
-			_, err = connect.Exec("DROP TABLE IF EXISTS clickhouse_test_conncheck")
+			_, err = connect.Exec("DROP TABLE IF EXISTS clickhouse_test_conn_check")
 			require.NoError(t, err)
 			_, err = connect.Exec(ddl)
 			require.NoError(t, err)
@@ -70,7 +77,7 @@ func TestStdConnCheck(t *testing.T) {
 			assert.NoError(t, err)
 			assert.NoError(t, tx.Commit())
 
-			connect.Exec("DROP TABLE IF EXISTS clickhouse_test_conncheck")
+			connect.Exec("DROP TABLE IF EXISTS clickhouse_test_conn_check")
 		})
 	}
 }

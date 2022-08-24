@@ -98,7 +98,7 @@ func GetStdOpenDBConnection(protocol clickhouse.Protocol, settings clickhouse.Se
 }
 
 func GetOpenDBConnection(environment string, protocol clickhouse.Protocol, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (*sql.DB, error) {
-	env, err := GetStdTestEnvironment()
+	env, err := clickhouse_tests.GetTestEnvironment(environment)
 	if err != nil {
 		return nil, err
 	}
