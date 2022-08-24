@@ -69,10 +69,10 @@ func TestConnFailover(t *testing.T) {
 	useSSL, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_SSL", "false"))
 	require.NoError(t, err)
 	port := env.Port
-	var tlsConfig tls.Config
+	var tlsConfig *tls.Config
 	if useSSL {
 		port = env.SslPort
-		tlsConfig = tls.Config{}
+		tlsConfig = &tls.Config{}
 	}
 	conn, err := clickhouse.Open(&clickhouse.Options{
 		Addr: []string{
@@ -88,7 +88,7 @@ func TestConnFailover(t *testing.T) {
 		Compression: &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
 		},
-		TLS: &tlsConfig,
+		TLS: tlsConfig,
 	})
 	require.NoError(t, err)
 	require.NoError(t, conn.Ping(context.Background()))
@@ -102,10 +102,10 @@ func TestConnFailoverConnOpenRoundRobin(t *testing.T) {
 	useSSL, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_SSL", "false"))
 	require.NoError(t, err)
 	port := env.Port
-	var tlsConfig tls.Config
+	var tlsConfig *tls.Config
 	if useSSL {
 		port = env.SslPort
-		tlsConfig = tls.Config{}
+		tlsConfig = &tls.Config{}
 	}
 	conn, err := clickhouse.Open(&clickhouse.Options{
 		Addr: []string{
@@ -122,7 +122,7 @@ func TestConnFailoverConnOpenRoundRobin(t *testing.T) {
 			Method: clickhouse.CompressionLZ4,
 		},
 		ConnOpenStrategy: clickhouse.ConnOpenRoundRobin,
-		TLS:              &tlsConfig,
+		TLS:              tlsConfig,
 	})
 	require.NoError(t, err)
 	require.NoError(t, conn.Ping(context.Background()))
@@ -148,10 +148,10 @@ func TestReadDeadline(t *testing.T) {
 	useSSL, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_SSL", "false"))
 	require.NoError(t, err)
 	port := env.Port
-	var tlsConfig tls.Config
+	var tlsConfig *tls.Config
 	if useSSL {
 		port = env.SslPort
-		tlsConfig = tls.Config{}
+		tlsConfig = &tls.Config{}
 	}
 	conn, err := clickhouse.Open(&clickhouse.Options{
 		Addr: []string{fmt.Sprintf("%s:%d", env.Host, port)},
@@ -164,7 +164,7 @@ func TestReadDeadline(t *testing.T) {
 			Method: clickhouse.CompressionLZ4,
 		},
 		ReadTimeout: time.Duration(-1) * time.Second,
-		TLS:         &tlsConfig,
+		TLS:         tlsConfig,
 	})
 	require.NoError(t, err)
 	err = conn.Ping(context.Background())
@@ -182,10 +182,10 @@ func TestQueryDeadline(t *testing.T) {
 	useSSL, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_SSL", "false"))
 	require.NoError(t, err)
 	port := env.Port
-	var tlsConfig tls.Config
+	var tlsConfig *tls.Config
 	if useSSL {
 		port = env.SslPort
-		tlsConfig = tls.Config{}
+		tlsConfig = &tls.Config{}
 	}
 	conn, err := clickhouse.Open(&clickhouse.Options{
 		Addr: []string{fmt.Sprintf("%s:%d", env.Host, port)},
@@ -198,7 +198,7 @@ func TestQueryDeadline(t *testing.T) {
 			Method: clickhouse.CompressionLZ4,
 		},
 		ReadTimeout: time.Duration(-1) * time.Second,
-		TLS:         &tlsConfig,
+		TLS:         tlsConfig,
 	})
 	require.NoError(t, err)
 	var count uint64
