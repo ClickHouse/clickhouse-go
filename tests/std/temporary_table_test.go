@@ -20,7 +20,9 @@ package std
 import (
 	"context"
 	"fmt"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/require"
+	"strconv"
 	"testing"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
@@ -29,7 +31,8 @@ import (
 
 func TestStdTemporaryTable(t *testing.T) {
 	dsns := map[string]clickhouse.Protocol{"Native": clickhouse.Native, "Http": clickhouse.HTTP}
-
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
 	for name, protocol := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
 			ctx := context.Background()
@@ -38,7 +41,7 @@ func TestStdTemporaryTable(t *testing.T) {
 					"session_id": "test_session",
 				}))
 			}
-			conn, err := GetStdDSNConnection(protocol, false, "false")
+			conn, err := GetStdDSNConnection(protocol, useSSL, "false")
 			require.NoError(t, err)
 			defer func() {
 				conn.Exec("DROP TABLE test_temporary_table")

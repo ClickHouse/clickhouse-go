@@ -19,7 +19,9 @@ package std
 
 import (
 	"github.com/ClickHouse/clickhouse-go/v2"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/require"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -34,8 +36,9 @@ func TestStdWithTotals(t *testing.T) {
 		SELECT number FROM system.numbers LIMIT 100
 	) GROUP BY n WITH TOTALS
 	`
-
-	conn, err := GetStdDSNConnection(clickhouse.Native, false, "false")
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	conn, err := GetStdDSNConnection(clickhouse.Native, useSSL, "false")
 	require.NoError(t, err)
 	rows, err := conn.Query(query)
 	require.NoError(t, err)

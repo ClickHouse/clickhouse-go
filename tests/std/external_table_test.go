@@ -20,7 +20,9 @@ package std
 import (
 	"context"
 	"fmt"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/require"
+	"strconv"
 	"testing"
 	"time"
 
@@ -48,7 +50,9 @@ func TestStdExternalTable(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		assert.NoError(t, table2.Append(uint8(i), fmt.Sprintf("value_%d", i), time.Now()))
 	}
-	conn, err := GetStdDSNConnection(clickhouse.Native, false, "false")
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	conn, err := GetStdDSNConnection(clickhouse.Native, useSSL, "false")
 	require.NoError(t, err)
 	ctx := clickhouse.Context(context.Background(),
 		clickhouse.WithExternalTable(table1, table2),

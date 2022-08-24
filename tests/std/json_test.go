@@ -18,10 +18,13 @@
 package std
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"github.com/ClickHouse/clickhouse-go/v2"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -68,7 +71,13 @@ func toJson(obj interface{}) string {
 }
 
 func TestStdJson(t *testing.T) {
-	conn, err := GetStdDSNConnection(clickhouse.Native, false, "false")
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	var tlsConfig *tls.Config
+	if useSSL {
+		tlsConfig = &tls.Config{}
+	}
+	conn, err := GetStdDSNConnection(clickhouse.Native, useSSL, "false")
 	require.NoError(t, err)
 	if err := CheckMinServerVersion(conn, 22, 6, 1); err != nil {
 		t.Skip(err.Error())
@@ -77,7 +86,7 @@ func TestStdJson(t *testing.T) {
 	conn.Close()
 	conn, err = GetStdOpenDBConnection(clickhouse.Native, clickhouse.Settings{
 		"allow_experimental_object_type": 1,
-	}, nil, nil)
+	}, tlsConfig, nil)
 	require.NoError(t, err)
 	conn.Exec("DROP TABLE json_std_test")
 	const ddl = `
@@ -131,7 +140,13 @@ func TestStdJson(t *testing.T) {
 
 //https://github.com/ClickHouse/clickhouse-go/issues/645
 func TestStdJsonWithMap(t *testing.T) {
-	conn, err := GetStdDSNConnection(clickhouse.Native, false, "false")
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	var tlsConfig *tls.Config
+	if useSSL {
+		tlsConfig = &tls.Config{}
+	}
+	conn, err := GetStdDSNConnection(clickhouse.Native, useSSL, "false")
 	require.NoError(t, err)
 	if err := CheckMinServerVersion(conn, 22, 6, 1); err != nil {
 		t.Skip(err.Error())
@@ -140,7 +155,7 @@ func TestStdJsonWithMap(t *testing.T) {
 	conn.Close()
 	conn, err = GetStdOpenDBConnection(clickhouse.Native, clickhouse.Settings{
 		"allow_experimental_object_type": 1,
-	}, nil, nil)
+	}, tlsConfig, nil)
 	require.NoError(t, err)
 	conn.Exec("DROP TABLE json_std_test")
 	const ddl = `
