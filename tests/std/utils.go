@@ -67,16 +67,16 @@ func GetDSNConnection(environment string, protocol clickhouse.Protocol, secure b
 	case clickhouse.HTTP:
 		switch secure {
 		case true:
-			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("https://%s:%s@%s:%d/%s?secure=true&compress=%s", env.Username, env.Password, env.Host, env.HttpsPort, env.Database, compress)))
+			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("https://%s:%s@%s:%d/%s?secure=true&compress=%s&wait_end_of_query=1", env.Username, env.Password, env.Host, env.HttpsPort, env.Database, compress)))
 		case false:
-			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("http://%s:%s@%s:%d/%s?compress=%s", env.Username, env.Password, env.Host, env.HttpPort, env.Database, compress)))
+			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("http://%s:%s@%s:%d/%s?compress=%s&wait_end_of_query=1", env.Username, env.Password, env.Host, env.HttpPort, env.Database, compress)))
 		}
 	case clickhouse.Native:
 		switch secure {
 		case true:
-			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("clickhouse://%s:%s@%s:%d/%s?secure=true&compress=%s&wait_end_of_query=1", env.Username, env.Password, env.Host, env.SslPort, env.Database, compress)))
+			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("clickhouse://%s:%s@%s:%d/%s?secure=true&compress=%s", env.Username, env.Password, env.Host, env.SslPort, env.Database, compress)))
 		case false:
-			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("clickhouse://%s:%s@%s:%d/%s?compress=%s&wait_end_of_query=1", env.Username, env.Password, env.Host, env.Port, env.Database, compress)))
+			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("clickhouse://%s:%s@%s:%d/%s?compress=%s", env.Username, env.Password, env.Host, env.Port, env.Database, compress)))
 		}
 	}
 	return nil, fmt.Errorf("unsupport protocol - %s", protocol.String())
