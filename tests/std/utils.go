@@ -74,9 +74,9 @@ func GetDSNConnection(environment string, protocol clickhouse.Protocol, secure b
 	case clickhouse.Native:
 		switch secure {
 		case true:
-			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("clickhouse://%s:%s@%s:%d/%s?secure=true&compress=%s&", env.Username, env.Password, env.Host, env.SslPort, env.Database, compress)))
+			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("clickhouse://%s:%s@%s:%d/%s?secure=true&compress=%s&wait_end_of_query=1", env.Username, env.Password, env.Host, env.SslPort, env.Database, compress)))
 		case false:
-			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("clickhouse://%s:%s@%s:%d/%s?compress=%s", env.Username, env.Password, env.Host, env.Port, env.Database, compress)))
+			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("clickhouse://%s:%s@%s:%d/%s?compress=%s&wait_end_of_query=1", env.Username, env.Password, env.Host, env.Port, env.Database, compress)))
 		}
 	}
 	return nil, fmt.Errorf("unsupport protocol - %s", protocol.String())
@@ -99,6 +99,12 @@ func GetOpenDBConnection(environment string, protocol clickhouse.Protocol, setti
 		if tlsConfig != nil {
 			port = env.SslPort
 		}
+	}
+	if settings == nil {
+		settings = clickhouse.Settings{}
+	}
+	if protocol == clickhouse.HTTP {
+		settings["wait_end_of_query"] = 1
 	}
 	return clickhouse.OpenDB(&clickhouse.Options{
 		Addr: []string{fmt.Sprintf("%s:%d", env.Host, port)},
