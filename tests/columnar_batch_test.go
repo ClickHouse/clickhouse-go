@@ -21,9 +21,11 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
+
+	"github.com/shopspring/decimal"
+	"github.com/stretchr/testify/require"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
@@ -119,6 +121,7 @@ func TestNullableColumnarInterface(t *testing.T) {
 				  Col1 Nullable(UInt8)
 				, Col2 Nullable(String)
 				, Col3 Nullable(DateTime)
+				, Col4 Nullable(Decimal(10, 2))
 			) Engine Memory
 		`
 	defer func() {
@@ -131,7 +134,9 @@ func TestNullableColumnarInterface(t *testing.T) {
 		col1Data    []*uint8
 		col2Data    []*string
 		col3Data    []*time.Time
+		col4Data    []*decimal.Decimal
 		currentTime = time.Now().Truncate(time.Second)
+		decimalVal  = decimal.NewFromFloat(12.02)
 	)
 	for i := 0; i < 150; i++ {
 		a, b := uint8(i), fmt.Sprintf("value_%d", i)
@@ -139,11 +144,13 @@ func TestNullableColumnarInterface(t *testing.T) {
 			col1Data = append(col1Data, &a)
 			col2Data = append(col2Data, &b)
 			col3Data = append(col3Data, &currentTime)
+			col4Data = append(col4Data, &decimalVal)
 		}
 	}
 	require.NoError(t, batch.Column(0).Append(col1Data))
 	require.NoError(t, batch.Column(1).Append(col2Data))
 	require.NoError(t, batch.Column(2).Append(col3Data))
+	require.NoError(t, batch.Column(3).Append(col4Data))
 	require.NoError(t, batch.Send())
 	var count uint64
 	require.NoError(t, conn.QueryRow(ctx, "SELECT COUNT() FROM test_column_interface").Scan(&count))
@@ -159,11 +166,13 @@ func TestNullableColumnarInterface(t *testing.T) {
 			col1 *uint8
 			col2 *string
 			col3 *time.Time
+			col4 *decimal.Decimal
 		)
-		if assert.NoError(t, rows.Scan(&col1, &col2, &col3)) {
+		if assert.NoError(t, rows.Scan(&col1, &col2, &col3, &col4)) {
 			assert.Equal(t, row, *col1)
 			assert.Equal(t, fmt.Sprintf("value_%d", row), *col2)
 			assert.Equal(t, currentTime.Unix(), col3.Unix())
+			assert.Equal(t, decimalVal.String(), (*col4).String())
 		}
 		row++
 		count++
@@ -180,6 +189,7 @@ func TestNullableColumnarInterface(t *testing.T) {
 			col1Data    []*uint8
 			col2Data    []*string
 			col3Data    []*time.Time
+			col4Data    []*decimal.Decimal
 			currentTime = time.Now().Truncate(time.Second)
 		)
 		for i := 0; i < 150; i++ {
@@ -189,14 +199,17 @@ func TestNullableColumnarInterface(t *testing.T) {
 			case i%2 == 0:
 				col2Data = append(col2Data, &b)
 				col3Data = append(col3Data, &currentTime)
+				col4Data = append(col4Data, &decimalVal)
 			default:
 				col2Data = append(col2Data, nil)
 				col3Data = append(col3Data, nil)
+				col4Data = append(col4Data, nil)
 			}
 		}
 		require.NoError(t, batch.Column(0).Append(col1Data))
 		require.NoError(t, batch.Column(1).Append(col2Data))
 		require.NoError(t, batch.Column(2).Append(col3Data))
+		require.NoError(t, batch.Column(3).Append(col4Data))
 		require.NoError(t, batch.Send())
 		var count uint64
 		require.NoError(t, conn.QueryRow(ctx, "SELECT COUNT() FROM test_column_interface").Scan(&count))
@@ -212,17 +225,20 @@ func TestNullableColumnarInterface(t *testing.T) {
 				col1 *uint8
 				col2 *string
 				col3 *time.Time
+				col4 *decimal.Decimal
 			)
-			require.NoError(t, rows.Scan(&col1, &col2, &col3))
+			require.NoError(t, rows.Scan(&col1, &col2, &col3, &col4))
 			switch {
 			case row%2 == 0:
 				assert.Equal(t, row, *col1)
 				assert.Equal(t, fmt.Sprintf("value_%d", row), *col2)
 				assert.Equal(t, currentTime.Unix(), col3.Unix())
+				assert.Equal(t, decimalVal.String(), (*col4).String())
 			default:
 				if assert.Equal(t, row, *col1) {
 					assert.Nil(t, col2)
 					assert.Nil(t, col3)
+					assert.Nil(t, col4)
 				}
 			}
 
