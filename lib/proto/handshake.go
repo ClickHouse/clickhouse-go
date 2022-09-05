@@ -28,8 +28,8 @@ import (
 const ClientName = "Golang SQLDriver"
 
 const (
-	ClientVersionMajor       = 1
-	ClientVersionMinor       = 1
+	ClientVersionMajor       = 2
+	ClientVersionMinor       = 3
 	ClientTCPProtocolVersion = DBMS_TCP_PROTOCOL_VERSION
 )
 

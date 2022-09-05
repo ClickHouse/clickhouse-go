@@ -2,24 +2,35 @@ package issues
 
 import (
 	"context"
+	"crypto/tls"
 	"database/sql"
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/require"
+	"strconv"
 	"testing"
 )
 
 func Test647(t *testing.T) {
-	env, err := clickhouse_tests.GetTestEnvironment("issues")
+	env, err := GetIssuesTestEnvironment()
 	require.NoError(t, err)
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	var tlsConfig *tls.Config
+	port := env.Port
+	if useSSL {
+		tlsConfig = &tls.Config{}
+		port = env.SslPort
+	}
 	options := &clickhouse.Options{
-		Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},
+		Addr: []string{fmt.Sprintf("%s:%d", env.Host, port)},
 		Auth: clickhouse.Auth{
 			Database: "default",
 			Username: env.Username,
 			Password: env.Password,
 		},
+		TLS: tlsConfig,
 	}
 	conn, err := clickhouse.Open(options)
 	require.NoError(t, err)
@@ -32,15 +43,24 @@ func Test647(t *testing.T) {
 }
 
 func Test647_OpenDB(t *testing.T) {
-	env, err := clickhouse_tests.GetTestEnvironment("issues")
+	env, err := GetIssuesTestEnvironment()
 	require.NoError(t, err)
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	var tlsConfig *tls.Config
+	port := env.Port
+	if useSSL {
+		tlsConfig = &tls.Config{}
+		port = env.SslPort
+	}
 	options := &clickhouse.Options{
-		Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},
+		Addr: []string{fmt.Sprintf("%s:%d", env.Host, port)},
 		Auth: clickhouse.Auth{
 			Database: "default",
 			Username: env.Username,
 			Password: env.Password,
 		},
+		TLS: tlsConfig,
 	}
 	conn := clickhouse.OpenDB(options)
 	require.NoError(t, conn.Ping())
@@ -53,15 +73,24 @@ func Test647_OpenDB(t *testing.T) {
 }
 
 func Test647_Connector(t *testing.T) {
-	env, err := clickhouse_tests.GetTestEnvironment("issues")
+	env, err := GetIssuesTestEnvironment()
 	require.NoError(t, err)
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	var tlsConfig *tls.Config
+	port := env.Port
+	if useSSL {
+		tlsConfig = &tls.Config{}
+		port = env.SslPort
+	}
 	options := &clickhouse.Options{
-		Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},
+		Addr: []string{fmt.Sprintf("%s:%d", env.Host, port)},
 		Auth: clickhouse.Auth{
 			Database: "default",
 			Username: env.Username,
 			Password: env.Password,
 		},
+		TLS: tlsConfig,
 	}
 	conn := clickhouse.Connector(options)
 	require.NoError(t, sql.OpenDB(conn).Ping())

@@ -19,9 +19,11 @@ package tests
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"github.com/stretchr/testify/require"
 	"net"
+	"strconv"
 	"testing"
 	"time"
 
@@ -30,13 +32,21 @@ import (
 )
 
 func TestCustomDialContext(t *testing.T) {
-	env, err := GetTestEnvironment("native")
+	env, err := GetNativeTestEnvironment()
 	require.NoError(t, err)
 	var (
 		dialCount int
 	)
+	useSSL, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	port := env.Port
+	var tlsConfig *tls.Config
+	if useSSL {
+		port = env.SslPort
+		tlsConfig = &tls.Config{}
+	}
 	conn, err := clickhouse.Open(&clickhouse.Options{
-		Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},
+		Addr: []string{fmt.Sprintf("%s:%d", env.Host, port)},
 		Auth: clickhouse.Auth{
 			Database: "default",
 			Username: env.Username,
@@ -45,8 +55,12 @@ func TestCustomDialContext(t *testing.T) {
 		DialContext: func(ctx context.Context, addr string) (net.Conn, error) {
 			dialCount++
 			var d net.Dialer
+			if tlsConfig != nil {
+				return tls.DialWithDialer(&net.Dialer{Timeout: time.Duration(5) * time.Second}, "tcp", addr, tlsConfig)
+			}
 			return d.DialContext(ctx, "tcp", addr)
 		},
+		TLS: tlsConfig,
 	})
 	require.NoError(t, err)
 	ctx := context.Background()

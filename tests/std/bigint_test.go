@@ -20,8 +20,10 @@ package std
 import (
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/require"
 	"math/big"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -29,10 +31,11 @@ import (
 
 func TestStdBigInt(t *testing.T) {
 	dsns := map[string]clickhouse.Protocol{"Native": clickhouse.Native, "Http": clickhouse.HTTP}
-
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
 	for name, protocol := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
-			if conn, err := GetStdDSNConnection(protocol, false, "false"); assert.NoError(t, err) {
+			if conn, err := GetStdDSNConnection(protocol, useSSL, "false"); assert.NoError(t, err) {
 				if err := CheckMinServerVersion(conn, 21, 12, 0); err != nil {
 					t.Skip(err.Error())
 					return
@@ -101,10 +104,11 @@ func TestStdBigInt(t *testing.T) {
 
 func TestStdNullableBigInt(t *testing.T) {
 	dsns := map[string]clickhouse.Protocol{"Native": clickhouse.Native, "Http": clickhouse.HTTP}
-
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
 	for name, protocol := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
-			if conn, err := GetStdDSNConnection(protocol, false, "false"); assert.NoError(t, err) {
+			if conn, err := GetStdDSNConnection(protocol, useSSL, "false"); assert.NoError(t, err) {
 				if err := CheckMinServerVersion(conn, 21, 12, 0); err != nil {
 					t.Skip(err.Error())
 					return

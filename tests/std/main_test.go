@@ -19,27 +19,53 @@ package std
 
 import (
 	"context"
+	"crypto/tls"
+	"database/sql"
 	"fmt"
+	"github.com/ClickHouse/clickhouse-go/v2"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
+	"math/rand"
 	"os"
-	"strings"
+	"strconv"
 	"testing"
+	"time"
 )
 
-func TestMain(m *testing.M) {
-	useDocker := strings.ToLower(clickhouse_tests.GetEnv("CLICKHOUSE_USE_DOCKER", "true"))
-	if useDocker == "false" {
-		fmt.Printf("Using external ClickHouse for IT tests -  %s:%s\n",
-			clickhouse_tests.GetEnv("CLICKHOUSE_PORT", "9000"),
-			clickhouse_tests.GetEnv("CLICKHOUSE_HOST", "localhost"))
-		// TODO: Set environment
+const testSet string = "std"
 
-		os.Exit(m.Run())
-	}
-	testEnv, err := clickhouse_tests.CreateClickHouseTestEnvironment("std")
+func TestMain(m *testing.M) {
+	seed := time.Now().UnixNano()
+	fmt.Printf("using random seed %d for %s tests\n", seed, testSet)
+	rand.Seed(seed)
+	useDocker, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_DOCKER", "true"))
 	if err != nil {
 		panic(err)
 	}
-	defer testEnv.Container.Terminate(context.Background()) //nolint
+	var env clickhouse_tests.ClickHouseTestEnvironment
+	switch useDocker {
+	case true:
+		env, err = clickhouse_tests.CreateClickHouseTestEnvironment(testSet)
+		if err != nil {
+			panic(err)
+		}
+		defer env.Container.Terminate(context.Background()) //nolint
+	case false:
+		env, err = clickhouse_tests.GetExternalTestEnvironment(testSet)
+		if err != nil {
+			panic(err)
+		}
+	}
+	clickhouse_tests.SetTestEnvironment(testSet, env)
+	if err := clickhouse_tests.CreateDatabase(testSet); err != nil {
+		panic(err)
+	}
 	os.Exit(m.Run())
+}
+
+func GetStdDSNConnection(protocol clickhouse.Protocol, secure bool, compress string) (*sql.DB, error) {
+	return GetDSNConnection(testSet, protocol, secure, compress)
+}
+
+func GetStdOpenDBConnection(protocol clickhouse.Protocol, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (*sql.DB, error) {
+	return GetOpenDBConnection(testSet, protocol, settings, tlsConfig, compression)
 }

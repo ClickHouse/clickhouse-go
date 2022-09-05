@@ -21,9 +21,11 @@ import (
 	"context"
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/require"
 	"net"
 	"net/url"
+	"strconv"
 	"testing"
 	"time"
 
@@ -32,15 +34,16 @@ import (
 
 func TestStdContextStdTimeout(t *testing.T) {
 	dsns := map[string]clickhouse.Protocol{"Native": clickhouse.Native, "Http": clickhouse.HTTP}
-
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
 	for name, protocol := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
-			connect, err := GetStdDSNConnection(protocol, false, "false")
+			connect, err := GetStdDSNConnection(protocol, useSSL, "false")
 			require.NoError(t, err)
 			{
-				ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*20)
+				ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 				defer cancel()
-				if row := connect.QueryRowContext(ctx, "SELECT 1, sleep(1)"); assert.NotNil(t, row) {
+				if row := connect.QueryRowContext(ctx, "SELECT 1, sleep(3)"); assert.NotNil(t, row) {
 					var a, b int
 					if err := row.Scan(&a, &b); assert.Error(t, err) {
 						switch err := err.(type) {

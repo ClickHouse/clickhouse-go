@@ -2,9 +2,11 @@ package issues
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/require"
+	"strconv"
 	"testing"
 	"time"
 
@@ -14,10 +16,18 @@ import (
 
 func Test548(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	env, err := clickhouse_tests.GetTestEnvironment("issues")
+	env, err := GetIssuesTestEnvironment()
 	require.NoError(t, err)
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	var tlsConfig *tls.Config
+	port := env.Port
+	if useSSL {
+		tlsConfig = &tls.Config{}
+		port = env.SslPort
+	}
 	conn, err := clickhouse.Open(&clickhouse.Options{
-		Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},
+		Addr: []string{fmt.Sprintf("%s:%d", env.Host, port)},
 		Auth: clickhouse.Auth{
 			Database: "default",
 			Username: env.Username,
@@ -27,6 +37,7 @@ func Test548(t *testing.T) {
 			Method: clickhouse.CompressionLZ4,
 		},
 		DialTimeout: time.Second,
+		TLS:         tlsConfig,
 	})
 
 	defer cancel()

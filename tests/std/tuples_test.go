@@ -17,7 +17,10 @@
 package std
 
 import (
+	"crypto/tls"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/require"
+	"strconv"
 	"testing"
 	"time"
 
@@ -26,7 +29,13 @@ import (
 )
 
 func TestTuple(t *testing.T) {
-	conn, err := GetStdOpenDBConnection(clickhouse.Native, nil, nil, nil)
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	var tlsConfig *tls.Config
+	if useSSL {
+		tlsConfig = &tls.Config{}
+	}
+	conn, err := GetStdOpenDBConnection(clickhouse.Native, nil, tlsConfig, nil)
 	require.NoError(t, err)
 	loc, err := time.LoadLocation("Europe/Lisbon")
 	require.NoError(t, err)

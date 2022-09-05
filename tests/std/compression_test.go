@@ -18,10 +18,13 @@
 package std
 
 import (
+	"crypto/tls"
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"strconv"
 	"testing"
 )
 
@@ -36,13 +39,19 @@ func TestCompressionStd(t *testing.T) {
 		compressionMethods: []clickhouse.CompressionMethod{clickhouse.CompressionLZ4, clickhouse.CompressionZSTD},
 	}}
 
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	var tlsConfig *tls.Config
+	if useSSL {
+		tlsConfig = &tls.Config{}
+	}
 	for protocol, compressionTest := range protocols {
 		for _, method := range compressionTest.compressionMethods {
 			t.Run(fmt.Sprintf("%s with %s", protocol, method), func(t *testing.T) {
 				conn, err := GetStdOpenDBConnection(protocol, clickhouse.Settings{
 					"max_execution_time":      60,
 					"enable_http_compression": 1, // needed for http compression e.g. gzip
-				}, nil, &clickhouse.Compression{
+				}, tlsConfig, &clickhouse.Compression{
 					Method: method,
 					Level:  3,
 				})
@@ -111,10 +120,11 @@ func TestCompressionStd(t *testing.T) {
 
 func TestCompressionStdDSN(t *testing.T) {
 	dsns := map[string]clickhouse.Protocol{"Native": clickhouse.Native, "Http": clickhouse.HTTP}
-
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
 	for name, protocol := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
-			conn, err := GetStdDSNConnection(protocol, false, "true")
+			conn, err := GetStdDSNConnection(protocol, useSSL, "true")
 			require.NoError(t, err)
 			conn.Exec("DROP TABLE IF EXISTS test_array_compress")
 			const ddl = `
@@ -167,9 +177,11 @@ func TestCompressionStdDSNWithLevel(t *testing.T) {
 		protocol: clickhouse.HTTP,
 		compress: "gzip&compress_level=9",
 	}}
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
 	for name, protocol := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
-			conn, err := GetStdDSNConnection(protocol.protocol, false, protocol.compress)
+			conn, err := GetStdDSNConnection(protocol.protocol, useSSL, protocol.compress)
 			require.NoError(t, err)
 			conn.Exec("DROP TABLE IF EXISTS test_array_compress")
 			const ddl = `
@@ -221,10 +233,12 @@ func TestCompressionStdDSNInvalid(t *testing.T) {
 		protocol: clickhouse.HTTP,
 		compress: "gzip&compress_level=-3",
 	}}}
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
 	for name, dsns := range configs {
 		for _, dsn := range dsns {
 			t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
-				conn, err := GetStdDSNConnection(dsn.protocol, false, dsn.compress)
+				conn, err := GetStdDSNConnection(dsn.protocol, useSSL, dsn.compress)
 				const ddl = `
 				CREATE TABLE test_array_compress (
 					  Col1 Array(String)
