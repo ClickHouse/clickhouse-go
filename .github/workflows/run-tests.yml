@@ -63,7 +63,7 @@ jobs:
           #CLICKHOUSE_HOST: ${{ secrets.INTEGRATIONS_TEAM_TESTS_CLOUD_HOST }}
           #CLICKHOUSE_PASSWORD: ${{ secrets.INTEGRATIONS_TEAM_TESTS_CLOUD_PASSWORD }}
           CLICKHOUSE_HOST: loc2a1d1o9.eu-west-1.aws.clickhouse-staging.com
-          CLICKHOUSE_VERSION: HZPwuGMbHaZi
+          CLICKHOUSE_PASSWORD: HZPwuGMbHaZi
           CLICKHOUSE_USE_DOCKER: false
           CLICKHOUSE_USE_SSL: true
         run: |
