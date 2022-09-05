@@ -1,5 +1,6 @@
 CLICKHOUSE_VERSION ?= latest
 CLICKHOUSE_TEST_TIMEOUT ?= 60s
+CLICKHOUSE_QUORUM_INSERT ?= 1
 
 up:
 	@docker compose up -d
@@ -11,7 +12,7 @@ cli:
 
 test:
 	@go install -race -v
-	@CLICKHOUSE_VERSION=$(CLICKHOUSE_VERSION) go test -race -timeout $(CLICKHOUSE_TEST_TIMEOUT) -count=1 -v ./...
+	@CLICKHOUSE_VERSION=$(CLICKHOUSE_VERSION) @CLICKHOUSE_QUORUM_INSERT=$(CLICKHOUSE_QUORUM_INSERT) go test -race -timeout $(CLICKHOUSE_TEST_TIMEOUT) -count=1 -v ./...
 
 lint:
 	golangci-lint run || :

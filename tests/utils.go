@@ -218,6 +218,13 @@ func getConnection(env ClickHouseTestEnvironment, database string, settings clic
 		tlsConfig = &tls.Config{}
 		port = env.SslPort
 	}
+	if settings == nil {
+		settings = clickhouse.Settings{}
+	}
+	settings["insert_quorum"], err = strconv.Atoi(GetEnv("CLICKHOUSE_QUORUM_INSERT", "1"))
+	if err != nil {
+		return nil, err
+	}
 	conn, err := clickhouse.Open(&clickhouse.Options{
 		Addr:     []string{fmt.Sprintf("%s:%d", env.Host, port)},
 		Settings: settings,

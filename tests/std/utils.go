@@ -63,20 +63,21 @@ func GetDSNConnection(environment string, protocol clickhouse.Protocol, secure b
 	if err != nil {
 		return nil, err
 	}
+	insertQuorum := clickhouse_tests.GetEnv("CLICKHOUSE_QUORUM_INSERT", "1")
 	switch protocol {
 	case clickhouse.HTTP:
 		switch secure {
 		case true:
-			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("https://%s:%s@%s:%d/%s?secure=true&compress=%s&wait_end_of_query=1", env.Username, env.Password, env.Host, env.HttpsPort, env.Database, compress)))
+			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("https://%s:%s@%s:%d/%s?secure=true&compress=%s&wait_end_of_query=1&insert_quorum=%s", env.Username, env.Password, env.Host, env.HttpsPort, env.Database, compress, insertQuorum)))
 		case false:
-			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("http://%s:%s@%s:%d/%s?compress=%s&wait_end_of_query=1", env.Username, env.Password, env.Host, env.HttpPort, env.Database, compress)))
+			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("http://%s:%s@%s:%d/%s?compress=%s&wait_end_of_query=1&insert_quorum=%s", env.Username, env.Password, env.Host, env.HttpPort, env.Database, compress, insertQuorum)))
 		}
 	case clickhouse.Native:
 		switch secure {
 		case true:
-			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("clickhouse://%s:%s@%s:%d/%s?secure=true&compress=%s", env.Username, env.Password, env.Host, env.SslPort, env.Database, compress)))
+			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("clickhouse://%s:%s@%s:%d/%s?secure=true&compress=%s&insert_quorum=%s", env.Username, env.Password, env.Host, env.SslPort, env.Database, compress, insertQuorum)))
 		case false:
-			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("clickhouse://%s:%s@%s:%d/%s?compress=%s", env.Username, env.Password, env.Host, env.Port, env.Database, compress)))
+			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("clickhouse://%s:%s@%s:%d/%s?compress=%s&insert_quorum=%s", env.Username, env.Password, env.Host, env.Port, env.Database, compress, insertQuorum)))
 		}
 	}
 	return nil, fmt.Errorf("unsupport protocol - %s", protocol.String())
@@ -105,6 +106,10 @@ func GetOpenDBConnection(environment string, protocol clickhouse.Protocol, setti
 	}
 	if protocol == clickhouse.HTTP {
 		settings["wait_end_of_query"] = 1
+	}
+	settings["insert_quorum"], err = strconv.Atoi(clickhouse_tests.GetEnv("CLICKHOUSE_QUORUM_INSERT", "1"))
+	if err != nil {
+		return nil, err
 	}
 	return clickhouse.OpenDB(&clickhouse.Options{
 		Addr: []string{fmt.Sprintf("%s:%d", env.Host, port)},

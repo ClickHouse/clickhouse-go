@@ -65,4 +65,4 @@ jobs:
           CLICKHOUSE_USE_DOCKER: false
           CLICKHOUSE_USE_SSL: true
         run: |
-          CLICKHOUSE_TEST_TIMEOUT=360s make test
+          CLICKHOUSE_TEST_TIMEOUT=600s CLICKHOUSE_QUORUM_INSERT=2 make test
