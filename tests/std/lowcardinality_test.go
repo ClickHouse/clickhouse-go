@@ -56,7 +56,7 @@ func TestStdLowCardinality(t *testing.T) {
 			, Col6 Array(Array(LowCardinality(String)))
 			, Col7 LowCardinality(Nullable(String))
 			, Col8 Array(Array(LowCardinality(Nullable(String))))
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 			defer func() {
 				conn.Exec("DROP TABLE test_lowcardinality")

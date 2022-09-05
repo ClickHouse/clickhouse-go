@@ -49,7 +49,7 @@ func TestDate32(t *testing.T) {
 			    , Col6 Nullable(Date32)
 			    , Col7 Array(Date32)
 			    , Col8 Array(Nullable(Date32))
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_date32")
@@ -145,7 +145,7 @@ func TestNullableDate32(t *testing.T) {
 				, Col2 Nullable(Date32)
 				, Col3 Date32
 			    , Col4 Nullable(Date32)
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_date32")
@@ -203,7 +203,7 @@ func TestColumnarDate32(t *testing.T) {
 			, Col2 Nullable(Date32)
 			, Col3 Array(Date32)
 			, Col4 Array(Nullable(Date32))
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_date32")
@@ -274,7 +274,7 @@ func TestDate32Flush(t *testing.T) {
 	const ddl = `
 		CREATE TABLE date_32_flush (
 			  Col1 Date32
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO date_32_flush")

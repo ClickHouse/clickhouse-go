@@ -43,7 +43,7 @@ func TestAppendStruct(t *testing.T) {
 			, Col2  String
 			, Col3  Array(String)
 			, Col4  Nullable(UInt8)
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_append_struct")

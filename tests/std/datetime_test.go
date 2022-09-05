@@ -48,7 +48,7 @@ func TestStdDateTime(t *testing.T) {
 				, Col6 Array(Nullable(DateTime('Europe/Moscow')))
 			    , Col7 DateTime
 			    , Col8 Nullable(DateTime)
-			) Engine Memory`
+			) Engine MergeTree() ORDER BY tuple()`
 			defer func() {
 				conn.Exec("DROP TABLE test_datetime")
 			}()

@@ -43,7 +43,7 @@ func TestQuotedDDL(t *testing.T) {
 			defer func() {
 				conn.Exec("DROP TABLE `test_string`")
 			}()
-			_, err = conn.Exec("CREATE TABLE `test_string` (`1` String) Engine Memory")
+			_, err = conn.Exec("CREATE TABLE `test_string` (`1` String) Engine MergeTree() ORDER BY tuple()")
 			require.NoError(t, err)
 			scope, err := conn.Begin()
 			require.NoError(t, err)

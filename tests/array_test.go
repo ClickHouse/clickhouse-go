@@ -36,7 +36,7 @@ func TestSimpleArray(t *testing.T) {
 	const ddl = `
 		CREATE TABLE test_array (
 			  Col1 Array(String)
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_array")
@@ -75,7 +75,7 @@ func TestInterfaceArray(t *testing.T) {
 	const ddl = `
 		CREATE TABLE test_array (
 			  Col1 Array(String)
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_array")
@@ -115,7 +115,7 @@ func TestArray(t *testing.T) {
 			, Col2 Array(Array(UInt32))
 			, Col3 Array(Array(Array(DateTime)))
 			, Col4 Array(String)
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_array")
@@ -190,7 +190,7 @@ func TestColumnarArray(t *testing.T) {
 			, Col2 Array(Array(UInt32))
 			, Col3 Array(Array(Array(DateTime)))
 			, Col4 Array(String)
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_array")

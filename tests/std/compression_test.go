@@ -61,7 +61,7 @@ func TestCompressionStd(t *testing.T) {
 					CREATE TABLE test_array_compress (
 						  Col1 Array(Int32),
 					      Col2 Int32         
-					) Engine Memory
+					) Engine MergeTree() ORDER BY tuple()
 					`
 				defer func() {
 					conn.Exec("DROP TABLE test_array_compress")
@@ -130,7 +130,7 @@ func TestCompressionStdDSN(t *testing.T) {
 			const ddl = `
 				CREATE TABLE test_array_compress (
 					  Col1 Array(String)
-				) Engine Memory
+				) Engine MergeTree() ORDER BY tuple()
 				`
 			defer func() {
 				conn.Exec("DROP TABLE test_array_compress")
@@ -187,7 +187,7 @@ func TestCompressionStdDSNWithLevel(t *testing.T) {
 			const ddl = `
 				CREATE TABLE test_array_compress (
 					  Col1 Array(String)
-				) Engine Memory
+				) Engine MergeTree() ORDER BY tuple()
 				`
 			defer func() {
 				conn.Exec("DROP TABLE test_array_compress")
@@ -242,7 +242,7 @@ func TestCompressionStdDSNInvalid(t *testing.T) {
 				const ddl = `
 				CREATE TABLE test_array_compress (
 					  Col1 Array(String)
-				) Engine Memory
+				) Engine MergeTree() ORDER BY tuple()
 				`
 				_, err = conn.Exec(ddl)
 				require.Error(t, err)

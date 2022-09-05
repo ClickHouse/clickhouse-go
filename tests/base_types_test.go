@@ -40,7 +40,7 @@ func TestUInt8(t *testing.T) {
 				, Col2 Nullable(UInt8)
 				, Col3 Array(UInt8)
 				, Col4 Array(Nullable(UInt8))
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_uint8")
@@ -89,7 +89,7 @@ func TestColumnarUInt8(t *testing.T) {
 			, Col2 Nullable(UInt8)
 			, Col3 Array(UInt8)
 			, Col4 Array(Nullable(UInt8))
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_uint8_c")
@@ -161,7 +161,7 @@ func TestSimpleInt(t *testing.T) {
 		t.Skip(err.Error())
 		return
 	}
-	const ddl = "CREATE TABLE test_int (`1` Int64) Engine Memory"
+	const ddl = "CREATE TABLE test_int (`1` Int64) Engine MergeTree() ORDER BY tuple()"
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_int")
 	}()
@@ -181,7 +181,7 @@ func TestNullableInt(t *testing.T) {
 		t.Skip(err.Error())
 		return
 	}
-	const ddl = "CREATE TABLE test_int (col1 Int64, col2 Nullable(Int64), col3 Int32, col4 Nullable(Int32), col5 Int16, col6 Nullable(Int16)) Engine Memory"
+	const ddl = "CREATE TABLE test_int (col1 Int64, col2 Nullable(Int64), col3 Int32, col4 Nullable(Int32), col5 Int16, col6 Nullable(Int16)) Engine MergeTree() ORDER BY tuple()"
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_int")
 	}()

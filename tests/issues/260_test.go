@@ -37,7 +37,7 @@ func TestIssue260(t *testing.T) {
 	const ddl = `
 		CREATE TABLE issue_260 (
 			Col1 Nullable(DateTime('UTC'))
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE issue_260")

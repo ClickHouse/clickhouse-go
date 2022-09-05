@@ -53,7 +53,7 @@ func TestFixedString(t *testing.T) {
 				, Col3 Nullable(FixedString(10))
 				, Col4 Array(FixedString(10))
 				, Col5 Array(Nullable(FixedString(10)))
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_fixed_string")
@@ -110,7 +110,7 @@ func TestEmptyFixedString(t *testing.T) {
 			CREATE TABLE test_fixed_string_empty (
 				Col1 FixedString(2),
 				Col2 FixedString(2)
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_fixed_string_empty")
@@ -143,7 +143,7 @@ func TestNullableFixedString(t *testing.T) {
 		CREATE TABLE test_fixed_string (
 			  Col1 Nullable(FixedString(10))
 			, Col2 Nullable(FixedString(10))
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_fixed_string")
@@ -196,7 +196,7 @@ func TestColumnarFixedString(t *testing.T) {
 			, Col3 Nullable(FixedString(10))
 			, Col4 Array(FixedString(10))
 			, Col5 Array(Nullable(FixedString(10)))
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_fixed_string")
@@ -335,7 +335,7 @@ func TestFixedStringFlush(t *testing.T) {
 	const ddl = `
 		CREATE TABLE fixed_string_flush (
 			  Col1 FixedString(10)
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO fixed_string_flush")

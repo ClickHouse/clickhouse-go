@@ -54,7 +54,7 @@ func TestTuple(t *testing.T) {
 			, Col5 Tuple(LowCardinality(String),           Array(LowCardinality(String)))
 			, Col6 Tuple(LowCardinality(Nullable(String)), Array(LowCardinality(Nullable(String))))
 			, Col7 Tuple(String, Int64)
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec("DROP TABLE test_tuple")

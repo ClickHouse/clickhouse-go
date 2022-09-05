@@ -50,7 +50,7 @@ func TestStdGeoMultiPolygon(t *testing.T) {
 				CREATE TABLE test_geo_multipolygon (
 					  Col1 MultiPolygon
 					, Col2 Array(MultiPolygon)
-				) Engine Memory
+				) Engine MergeTree() ORDER BY tuple()
 				`
 			defer func() {
 				conn.Exec("DROP TABLE test_geo_multipolygon")

@@ -46,7 +46,7 @@ func TestStdBool(t *testing.T) {
 				  , Col3 Array(Bool)
 				  , Col4 Nullable(Bool)
 				  , Col5 Array(Nullable(Bool))
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 				defer func() {
 					conn.Exec("DROP TABLE test_bool")

@@ -56,7 +56,7 @@ func TestStdNested(t *testing.T) {
 						, Col2_N2_N1 UInt8
 					)
 				)
-			) Engine Memory`
+			) Engine MergeTree() ORDER BY tuple()`
 	defer func() {
 		conn.Exec("DROP TABLE std_nested_test")
 	}()

@@ -46,7 +46,7 @@ func TestDateTime(t *testing.T) {
 				, Col9 Nullable(DateTime('Asia/Shanghai'))
 				, Col10 Array(DateTime('Asia/Shanghai'))
 			    , Col11 DateTime
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_datetime")
@@ -125,7 +125,7 @@ func TestNullableDateTime(t *testing.T) {
 			    , Col4_Null Nullable(DateTime)
 			    , Col5		DateTime('Asia/Shanghai')
 			    , Col5_Null Nullable(DateTime('Asia/Shanghai'))
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_datetime")
@@ -231,7 +231,7 @@ func TestColumnarDateTime(t *testing.T) {
 			, Col4 Array(Nullable(DateTime))
 		    , Col5 Array(DateTime)
 		    , Col6 Array(Nullable(DateTime))
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_datetime")
@@ -330,7 +330,7 @@ func TestDateTimeFlush(t *testing.T) {
 	const ddl = `
 		CREATE TABLE datetime_flush (
 			  Col1 DateTime
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO datetime_flush")

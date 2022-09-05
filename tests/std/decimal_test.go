@@ -47,7 +47,7 @@ func TestStdDecimal(t *testing.T) {
 				, Col2 Decimal(18,5)
 				, Col3 Nullable(Decimal(15,3))
 				, Col4 Array(Decimal(15,3))
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 			defer func() {
 				conn.Exec("DROP TABLE test_decimal")

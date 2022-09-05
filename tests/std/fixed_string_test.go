@@ -61,7 +61,7 @@ func TestStdFixedString(t *testing.T) {
 			, Col3 Nullable(FixedString(10))
 			, Col4 Array(FixedString(10))
 			, Col5 Array(Nullable(FixedString(10)))
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 			defer func() {
 				conn.Exec("DROP TABLE test_fixed_string")

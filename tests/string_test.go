@@ -76,7 +76,7 @@ func TestSimpleString(t *testing.T) {
 		CREATE TABLE test_string (
 			  	  Col1 String
 		        , Col2 String
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_string")
@@ -110,7 +110,7 @@ func TestString(t *testing.T) {
 		    , Col8 Nullable(String)
 		    , Col9 String
 		    , Col10 Nullable(String)
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 	`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_string")
@@ -248,7 +248,7 @@ func TestStringFlush(t *testing.T) {
 	const ddl = `
 		CREATE TABLE string_flush (
 			  Col1 FixedString(10)
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO string_flush")

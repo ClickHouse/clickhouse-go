@@ -52,7 +52,7 @@ func TestStdDateTime64(t *testing.T) {
 				, Col6 Array(Nullable(DateTime64(3, 'Europe/Moscow')))
 				, Col7 DateTime64(0, 'Europe/London')
 				, Col8 Nullable(DateTime64(3, 'Europe/Moscow'))
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 			defer func() {
 				conn.Exec("DROP TABLE test_datetime64")

@@ -45,7 +45,7 @@ func TestStdIPv4(t *testing.T) {
 				, Col3 Nullable(IPv4)
 				, Col4 Array(IPv4)
 				, Col5 Array(Nullable(IPv4))
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 			defer func() {
 				conn.Exec("DROP TABLE test_ipv4")

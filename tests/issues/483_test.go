@@ -50,7 +50,7 @@ func TestIssue483(t *testing.T) {
 				  keyword String
 				),
 			status UInt8
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE issue_483")

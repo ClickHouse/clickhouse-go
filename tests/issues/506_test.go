@@ -25,7 +25,7 @@ func Test506(t *testing.T) {
 			, Col2  String
 			, Col3  Array(String)
 			, Col4  Nullable(UInt8)
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 
 	const ddlB = `
@@ -34,7 +34,7 @@ func Test506(t *testing.T) {
 			, Col3  Nullable(UInt8)
 			, Col2  UInt32
 			, Col1  String
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_append_struct_a")

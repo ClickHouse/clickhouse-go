@@ -36,7 +36,7 @@ func TestStdConnCheck(t *testing.T) {
 		ddl = `
 		CREATE TABLE clickhouse_test_conn_check (
 			Value String
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 		dml = `INSERT INTO clickhouse_test_conn_check VALUES `
 	)

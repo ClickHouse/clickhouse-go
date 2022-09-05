@@ -42,7 +42,7 @@ func TestSimpleStdString(t *testing.T) {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
 			conn, err := sql.Open("clickhouse", dsn)
 			require.NoError(t, err)
-			const ddl = `CREATE TABLE test_array (Col1 String) Engine Memory`
+			const ddl = `CREATE TABLE test_array (Col1 String) Engine MergeTree() ORDER BY tuple()`
 			conn.Exec("DROP TABLE test_array")
 			defer func() {
 				conn.Exec("DROP TABLE test_array")

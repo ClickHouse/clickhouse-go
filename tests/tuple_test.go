@@ -48,7 +48,7 @@ func TestTuple(t *testing.T) {
 			, Col5 Tuple(LowCardinality(String),           Array(LowCardinality(String)))
 			, Col6 Tuple(LowCardinality(Nullable(String)), Array(LowCardinality(Nullable(String))))
 			, Col7 Tuple(String, Int64)
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_tuple")
@@ -114,7 +114,7 @@ func TestNamedTupleWithSlice(t *testing.T) {
 		t.Skip(err.Error())
 		return
 	}
-	const ddl = "CREATE TABLE test_tuple (Col1 Tuple(name String, `1` Int64)) Engine Memory"
+	const ddl = "CREATE TABLE test_tuple (Col1 Tuple(name String, `1` Int64)) Engine MergeTree() ORDER BY tuple()"
 
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_tuple")
@@ -146,7 +146,7 @@ func TestNamedTupleWithTypedSlice(t *testing.T) {
 		t.Skip(err.Error())
 		return
 	}
-	const ddl = "CREATE TABLE test_tuple (Col1 Tuple(name String, city String), Col2 Int32) Engine Memory"
+	const ddl = "CREATE TABLE test_tuple (Col1 Tuple(name String, city String), Col2 Int32) Engine MergeTree() ORDER BY tuple()"
 
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_tuple")
@@ -180,7 +180,7 @@ func TestNamedTupleWithMap(t *testing.T) {
 		t.Skip(err.Error())
 		return
 	}
-	const ddl = "CREATE TABLE test_tuple (Col1 Tuple(name String, id Int64)) Engine Memory"
+	const ddl = "CREATE TABLE test_tuple (Col1 Tuple(name String, id Int64)) Engine MergeTree() ORDER BY tuple()"
 
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_tuple")
@@ -211,7 +211,7 @@ func TestNamedTupleWithTypedMap(t *testing.T) {
 		t.Skip(err.Error())
 		return
 	}
-	const ddl = "CREATE TABLE test_tuple (Col1 Tuple(id Int64, code Int64)) Engine Memory"
+	const ddl = "CREATE TABLE test_tuple (Col1 Tuple(id Int64, code Int64)) Engine MergeTree() ORDER BY tuple()"
 
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_tuple")
@@ -242,7 +242,7 @@ func TestNamedTupleWithEscapedColumns(t *testing.T) {
 		t.Skip(err.Error())
 		return
 	}
-	const ddl = "CREATE TABLE test_tuple (Col1 Tuple(`56` String, `a22\\`` Int64)) Engine Memory"
+	const ddl = "CREATE TABLE test_tuple (Col1 Tuple(`56` String, `a22\\`` Int64)) Engine MergeTree() ORDER BY tuple()"
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_tuple")
 	}()
@@ -268,7 +268,7 @@ func TestNamedTupleIncomplete(t *testing.T) {
 		t.Skip(err.Error())
 		return
 	}
-	const ddl = "CREATE TABLE test_tuple (Col1 Tuple(name String, id Int64)) Engine Memory"
+	const ddl = "CREATE TABLE test_tuple (Col1 Tuple(name String, id Int64)) Engine MergeTree() ORDER BY tuple()"
 
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_tuple")
@@ -290,7 +290,7 @@ func TestUnNamedTupleWithMap(t *testing.T) {
 		t.Skip(err.Error())
 		return
 	}
-	const ddl = "CREATE TABLE test_tuple (Col1 Tuple(String, Int64)) Engine Memory"
+	const ddl = "CREATE TABLE test_tuple (Col1 Tuple(String, Int64)) Engine MergeTree() ORDER BY tuple()"
 
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_tuple")
@@ -331,7 +331,7 @@ func TestColumnarTuple(t *testing.T) {
 			, Col2 Tuple(String, Int8, DateTime)
 			, Col3 Tuple(DateTime, FixedString(2), Map(String, String))
 			, Col4 Tuple(String, Int64)
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_tuple")
@@ -411,7 +411,7 @@ func TestTupleFlush(t *testing.T) {
 	const ddl = `
 		CREATE TABLE test_tuple_flush (
 			Col1 Tuple(name String, id Int64)
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_tuple_flush")

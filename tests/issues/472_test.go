@@ -43,7 +43,7 @@ func TestIssue472(t *testing.T) {
 				, EventType          String
 				, ControllerRevision UInt8
 				, Timestamp          DateTime
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE issue_472")

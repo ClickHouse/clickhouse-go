@@ -20,7 +20,7 @@ func Test693(t *testing.T) {
 			CREATE TABLE test_date (
 				  ID   UInt8
 				, Col1 Date
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 	type result struct {
 		ColID uint8 `ch:"ID"`

@@ -46,7 +46,7 @@ func TestDecimal(t *testing.T) {
 				, Col3 Decimal(15,7)
 				, Col4 Decimal128(8)
 				, Col5 Decimal256(9)
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_decimal")
@@ -92,7 +92,7 @@ func TestNegativeDecimal(t *testing.T) {
 			  Col2 Nullable(Decimal(18,5)),
               Col3 Nullable(Decimal(48,7)),
               Col4 Nullable(Decimal(76,29))
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_decimal")
@@ -139,7 +139,7 @@ func TestNullableDecimal(t *testing.T) {
 			  Col1 Nullable(Decimal32(5))
 			, Col2 Nullable(Decimal(18,5))
 			, Col3 Nullable(Decimal(15,3))
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_decimal")
@@ -188,7 +188,7 @@ func TestDecimalFlush(t *testing.T) {
 	const ddl = `
 		CREATE TABLE decimal_flush (
 			  Col1 Decimal(76,29)
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO decimal_flush")

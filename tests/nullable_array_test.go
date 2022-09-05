@@ -51,7 +51,7 @@ func TestNullableArray(t *testing.T) {
 		, Col12 Array(Nullable(IPv6))
 		, Col13 Array(Nullable(String))
 		, Col14 Array(Nullable(UUID))
-	) Engine Memory
+	) Engine MergeTree() ORDER BY tuple()
 	`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_nullable_array")

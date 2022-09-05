@@ -42,7 +42,7 @@ func TestStdArray(t *testing.T) {
 			  Col1 Array(String)
 			, Col2 Array(Array(UInt32))
 			, Col3 Array(Array(Array(DateTime)))
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 			conn.Exec("DROP TABLE test_array")
 			defer func() {

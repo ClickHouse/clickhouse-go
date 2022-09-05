@@ -48,7 +48,7 @@ func TestStdBigInt(t *testing.T) {
 			, Col4 Array(Int256)
 			, Col5 UInt256
 			, Col6 Array(UInt256)
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 				defer func() {
 					conn.Exec("DROP TABLE test_bigint")
@@ -121,7 +121,7 @@ func TestStdNullableBigInt(t *testing.T) {
 			, Col4 Array(Nullable(Int256))
 			, Col5 Nullable(UInt256)
 			, Col6 Array(Nullable(UInt256))
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 				defer func() {
 					conn.Exec("DROP TABLE test_nullable_bigint")

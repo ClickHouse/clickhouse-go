@@ -45,7 +45,7 @@ func TestMap(t *testing.T) {
 			, Col4 Array(Map(String, String))
 			, Col5 Map(LowCardinality(String), LowCardinality(UInt64))
 			, Col6 Map(String, Map(String,UInt64))
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_map")
@@ -116,7 +116,7 @@ func TestColumnarMap(t *testing.T) {
 			  Col1 Map(String, UInt64)
 			, Col2 Map(String, UInt64)
 			, Col3 Map(String, UInt64)
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_map")
@@ -179,7 +179,7 @@ func TestMapFlush(t *testing.T) {
 	const ddl = `
 		CREATE TABLE test_map_flush (
 			  Col1 Map(String, UInt64)
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_map_flush")

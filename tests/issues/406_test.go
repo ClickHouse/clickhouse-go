@@ -42,7 +42,7 @@ func TestIssue406(t *testing.T) {
 	const ddl = `
 			CREATE TABLE issue_406 (
 				Col1 Tuple(Array(Int32), Array(Int32))
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE issue_406")

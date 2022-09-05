@@ -45,7 +45,7 @@ func TestColumnarInterface(t *testing.T) {
 				  , Col4 String
 				  , Col5 DateTime
 				  , Col6 Int64	
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_column_interface")
@@ -122,7 +122,7 @@ func TestNullableColumnarInterface(t *testing.T) {
 				, Col2 Nullable(String)
 				, Col3 Nullable(DateTime)
 				, Col4 Nullable(Decimal(10, 2))
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_column_interface")

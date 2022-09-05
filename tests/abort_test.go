@@ -35,7 +35,7 @@ func TestAbort(t *testing.T) {
 	const ddl = `
 		CREATE TABLE test_abort (
 			Col1 UInt8
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_abort")
