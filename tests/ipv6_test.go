@@ -41,7 +41,7 @@ func TestIPv6(t *testing.T) {
 				, Col3 Nullable(IPv6)
 				, Col4 Array(IPv6)
 				, Col5 Array(Nullable(IPv6))
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_ipv6")
@@ -88,7 +88,7 @@ func TestIPv4InIPv6(t *testing.T) {
 			CREATE TABLE test_ipv6 (
 				  Col1 IPv6
 				, Col2 IPv6
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_ipv6")
@@ -121,7 +121,7 @@ func TestNullableIPv6(t *testing.T) {
 			CREATE TABLE test_ipv6 (
 				  Col1 Nullable(IPv6)
 				, Col2 Nullable(IPv6)
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_ipv6")
@@ -170,7 +170,7 @@ func TestColumnarIPv6(t *testing.T) {
 				  Col1 IPv6
 				, Col2 IPv6
 				, Col3 Nullable(IPv6)
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_ipv6")
@@ -380,7 +380,7 @@ func TestIPv6Flush(t *testing.T) {
 	const ddl = `
 		CREATE TABLE test_ipv6_ring_flush (
 			  Col1 IPv6
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_ipv6_ring_flush")

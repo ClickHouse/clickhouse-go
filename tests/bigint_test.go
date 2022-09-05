@@ -40,7 +40,7 @@ func TestSimpleBigInt(t *testing.T) {
 	const ddl = `
 		CREATE TABLE test_bigint (
 			  Col1 Int128
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_bigint")
@@ -79,7 +79,7 @@ func TestBigInt(t *testing.T) {
 			, Col5 Array(Int256)
 			, Col6 UInt256
 			, Col7 Array(UInt256)
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_bigint")
@@ -148,7 +148,7 @@ func TestNullableBigInt(t *testing.T) {
 			, Col4 Array(Nullable(Int256))
 			, Col5 Nullable(UInt256)
 			, Col6 Array(Nullable(UInt256))
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_nullable_bigint")
@@ -209,7 +209,7 @@ func TestBigIntUIntOverflow(t *testing.T) {
 			  Col4 UInt256,
 			  Col5 UInt256,
 			  Col6 Array(UInt256)
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_bigint_uint_overflow")
@@ -275,7 +275,7 @@ func TestBigIntFlush(t *testing.T) {
 	const ddl = `
 		CREATE TABLE big_int_flush (
 			  Col1 UInt128
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO big_int_flush")

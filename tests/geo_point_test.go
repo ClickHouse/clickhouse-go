@@ -44,7 +44,7 @@ func TestGeoPoint(t *testing.T) {
 		CREATE TABLE test_geo_point (
 			Col1 Point
 			, Col2 Array(Point)
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_geo_point")
@@ -87,7 +87,7 @@ func TestGeoPointFlush(t *testing.T) {
 	const ddl = `
 		CREATE TABLE test_geo_point_flush (
 			  Col1 Point
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_geo_point_flush")

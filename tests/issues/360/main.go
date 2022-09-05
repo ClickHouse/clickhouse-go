@@ -60,7 +60,7 @@ func main() {
 			categories   Array(Int16),
 			action_day   Date,
 			action_time  DateTime
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 	`)
 	defer func() {
 		conn.Exec("DROP TABLE example")

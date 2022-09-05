@@ -41,7 +41,7 @@ func TestSimpleAggregateFunction(t *testing.T) {
 			  Col1 UInt64
 			, Col2 SimpleAggregateFunction(sum, Double)
 			, Col3 SimpleAggregateFunction(sumMap, Tuple(Array(Int16), Array(UInt64)))
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_simple_aggregate_function")

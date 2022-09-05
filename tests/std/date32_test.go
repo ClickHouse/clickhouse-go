@@ -51,7 +51,7 @@ func TestStdDate32(t *testing.T) {
 				, Col4 Array(Nullable(Date32))
 				, Col5 Nullable(Date32)
 				, Col6 Date32
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 			defer func() {
 				conn.Exec("DROP TABLE test_date32")

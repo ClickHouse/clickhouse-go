@@ -43,7 +43,7 @@ func TestIssue412(t *testing.T) {
 	const ddl = `
 			CREATE TABLE issue_412 (
 				Col1 SimpleAggregateFunction(max, DateTime64(3, 'UTC'))
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE issue_412")

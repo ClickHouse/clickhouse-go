@@ -41,7 +41,7 @@ func TestSimpleNested(t *testing.T) {
 				Col1 Nested(
 					  Col1_N1 String
 				)
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_nested")
@@ -87,7 +87,7 @@ func TestNestedFlattened(t *testing.T) {
 						, Col2_N2_N1 UInt8
 					)
 				)
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_nested")
@@ -145,7 +145,7 @@ func TestFlattenedSimpleNested(t *testing.T) {
 				Col1 Nested(
 					  Col1_N1 String
 				)
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_nested")
@@ -201,7 +201,7 @@ func TestNestedUnFlattened(t *testing.T) {
 						, Col2_N2_N1 UInt8
 					)
 				)
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_nested")
@@ -275,7 +275,7 @@ func TestNestedFlush(t *testing.T) {
 					  Col1_N1 UInt8
 					, Col2_N1 UInt8
 				)
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_nested_flush")

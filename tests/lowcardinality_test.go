@@ -50,7 +50,7 @@ func TestLowCardinality(t *testing.T) {
 			, Col6 Array(Array(LowCardinality(String)))
 			, Col7 LowCardinality(Nullable(String))
 			, Col8 Array(Array(LowCardinality(Nullable(String))))
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_lowcardinality")
@@ -142,7 +142,7 @@ func TestColmunarLowCardinality(t *testing.T) {
 			, Col2 LowCardinality(FixedString(2))
 			, Col3 LowCardinality(DateTime)
 			, Col4 LowCardinality(Int32)
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_lowcardinality")
@@ -201,7 +201,7 @@ func TestLowCardinalityFlush(t *testing.T) {
 	const ddl = `
 		CREATE TABLE test_lowcardinality_flush (
 			  Col1 LowCardinality(String)
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_lowcardinality_flush")

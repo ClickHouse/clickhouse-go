@@ -41,8 +41,8 @@ import (
 	"time"
 )
 
-var testUUID string = uuid.NewString()[0:12]
-var testTimestamp int64 = time.Now().UnixMilli()
+var testUUID = uuid.NewString()[0:12]
+var testTimestamp = time.Now().UnixMilli()
 
 func CheckMinServerVersion(conn driver.Conn, major, minor, patch uint64) error {
 	v, err := conn.ServerVersion()

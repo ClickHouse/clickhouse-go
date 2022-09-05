@@ -59,7 +59,7 @@ func TestQuotedDDL(t *testing.T) {
 		t.Skip(err.Error())
 		return
 	}
-	const ddl = "CREATE TABLE `test_string` (`1` String) Engine Memory"
+	const ddl = "CREATE TABLE `test_string` (`1` String) Engine MergeTree() ORDER BY tuple()"
 
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE `test_string`")

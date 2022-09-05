@@ -49,7 +49,7 @@ func TestDateTime64(t *testing.T) {
 				, Col8 DateTime64(6) 
 				, Col9 DateTime64(9)
 			    , Col10 DateTime64(9)
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_datetime64")
@@ -123,7 +123,7 @@ func TestDateTime64AsReference(t *testing.T) {
 	const ddl = `
 			CREATE TABLE test_datetime64 (
 				Col1      DateTime64(3)
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_datetime64")
@@ -167,7 +167,7 @@ func TestNullableDateTime64(t *testing.T) {
 				, Col2_Null Nullable(DateTime64(9, 'Europe/Moscow'))
 				, Col3      DateTime64(0, 'Europe/London')
 				, Col3_Null Nullable(DateTime64(0, 'Europe/London'))
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_datetime64")
@@ -256,7 +256,7 @@ func TestColumnarDateTime64(t *testing.T) {
 			, Col5 DateTime64(3) 
 			, Col6 DateTime64(6) 
 			, Col7 DateTime64(9)
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_datetime64")
@@ -341,7 +341,7 @@ func TestDateTime64Flush(t *testing.T) {
 	const ddl = `
 		CREATE TABLE datetime_64_flush (
 			  Col1 DateTime64(3)
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO datetime_64_flush")

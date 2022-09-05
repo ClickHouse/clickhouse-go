@@ -44,7 +44,7 @@ func TestGeoPolygon(t *testing.T) {
 		CREATE TABLE test_geo_polygon (
 			  Col1 Polygon
 			, Col2 Array(Polygon)
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_geo_polygon")
@@ -112,7 +112,7 @@ func TestGeoPolygonFlush(t *testing.T) {
 	const ddl = `
 		CREATE TABLE test_geo_polygon_flush (
 			  Col1 Polygon
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_geo_polygon_flush")

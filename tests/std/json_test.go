@@ -92,7 +92,7 @@ func TestStdJson(t *testing.T) {
 	const ddl = `
 		CREATE TABLE json_std_test (
 			  event JSON
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec("DROP TABLE json_std_test")
@@ -161,7 +161,7 @@ func TestStdJsonWithMap(t *testing.T) {
 	const ddl = `
 		CREATE TABLE json_std_test (
 			  event JSON
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec("DROP TABLE json_std_test")

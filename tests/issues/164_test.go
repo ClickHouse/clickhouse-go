@@ -38,7 +38,7 @@ func TestIssue164(t *testing.T) {
 		CREATE TABLE issue_164 (
 			  Col1 Int32
 			, Col2 Array(Int8)
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec("DROP TABLE issue_164")

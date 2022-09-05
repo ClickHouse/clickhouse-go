@@ -35,7 +35,7 @@ func TestSimpleEnum(t *testing.T) {
 	const ddl = `
 			CREATE TABLE test_enum (
 				  Col1 Enum  ('hello'   = 1,  'world' = 2)
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_enum")
@@ -72,7 +72,7 @@ func TestEnum(t *testing.T) {
 				, Col5 Array(Enum16 ('click' = 1, 'house' = 2))
 				, Col6 Array(Nullable(Enum8  ('click' = 1, 'house' = 2)))
 				, Col7 Array(Nullable(Enum16 ('click' = 1, 'house' = 2)))
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_enum")
@@ -132,7 +132,7 @@ func TestNullableEnum(t *testing.T) {
 				  Col1 Nullable(Enum  ('hello'   = 1,  'world' = 2))
 				, Col2 Nullable(Enum8 ('click'   = 5,  'house' = 25))
 				, Col3 Nullable(Enum16('default' = 10, 'value' = 50))
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_enum")
@@ -184,7 +184,7 @@ func TestColumnarEnum(t *testing.T) {
 				, Col5 Array(Enum16 ('click' = 1, 'house' = 2))
 				, Col6 Array(Nullable(Enum8  ('click' = 1, 'house' = 2)))
 				, Col7 Array(Nullable(Enum16 ('click' = 1, 'house' = 2)))
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_enum")

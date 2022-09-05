@@ -43,7 +43,7 @@ func TestUUID(t *testing.T) {
 				, Col3 Array(UUID)
 				, Col4 Nullable(UUID)
 				, Col5 Array(Nullable(UUID))
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_uuid")
@@ -85,7 +85,7 @@ func TestStringerUUID(t *testing.T) {
 	const ddl = `
 			CREATE TABLE test_uuid (
 				  Col1 UUID
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_uuid")
@@ -115,7 +115,7 @@ func TestNullableUUID(t *testing.T) {
 			CREATE TABLE test_uuid (
 				  Col1 Nullable(UUID)
 				, Col2 Nullable(UUID)
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_uuid")
@@ -166,7 +166,7 @@ func TestColumnarUUID(t *testing.T) {
 				, Col3 Nullable(UUID)
 				, Col4 Array(UUID)
 				, Col5 Array(Nullable(UUID))
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_uuid")
@@ -309,7 +309,7 @@ func TestUUIDFlush(t *testing.T) {
 	const ddl = `
 		CREATE TABLE uuid_flush (
 			  Col1 UUID
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO uuid_flush")

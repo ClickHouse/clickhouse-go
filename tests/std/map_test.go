@@ -47,7 +47,7 @@ func TestStdMap(t *testing.T) {
 			, Col3 Map(String, UInt64)
 			, Col4 Array(Map(String, String))
 			, Col5 Map(LowCardinality(String), LowCardinality(UInt64))
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 			defer func() {
 				conn.Exec("DROP TABLE test_map")

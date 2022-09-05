@@ -43,7 +43,7 @@ func TestGeoRing(t *testing.T) {
 		CREATE TABLE test_geo_ring (
 			Col1 Ring
 			, Col2 Array(Ring)
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_geo_ring")
@@ -93,7 +93,7 @@ func TestGeoRingFlush(t *testing.T) {
 	const ddl = `
 		CREATE TABLE test_geo_ring_flush (
 			  Col1 Ring
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_geo_ring_flush")

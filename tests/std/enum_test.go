@@ -45,7 +45,7 @@ func TestStdEnum(t *testing.T) {
 				, Col5 Array(Enum16 ('click' = 1, 'house' = 2))
 				, Col6 Array(Nullable(Enum8  ('click' = 1, 'house' = 2)))
 				, Col7 Array(Nullable(Enum16 ('click' = 1, 'house' = 2)))
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 			defer func() {
 				conn.Exec("DROP TABLE test_enum")

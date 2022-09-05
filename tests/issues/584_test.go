@@ -25,7 +25,7 @@ func Test584(t *testing.T) {
 	const ddl = `
 	CREATE TABLE issue_584 (
 		Col1 Map(String, String)
-	) Engine Memory
+	) Engine MergeTree() ORDER BY tuple()
 	`
 	require.NoError(t, conn.Exec(context.Background(), "DROP TABLE IF EXISTS issue_584"))
 	require.NoError(t, conn.Exec(context.Background(), ddl))
@@ -55,7 +55,7 @@ func Test584Complex(t *testing.T) {
 	const ddl = `
 	CREATE TABLE issue_584_complex (
 		Col1 Map(String, Map(UInt8, Array(UInt8)))
-	) Engine Memory
+	) Engine MergeTree() ORDER BY tuple()
 	`
 	require.NoError(t, conn.Exec(context.Background(), "DROP TABLE IF EXISTS issue_584_complex"))
 	require.NoError(t, conn.Exec(context.Background(), ddl))

@@ -49,7 +49,7 @@ func TestStdGeoRing(t *testing.T) {
 				CREATE TABLE test_geo_ring (
 					Col1 Ring
 					, Col2 Array(Ring)
-				) Engine Memory
+				) Engine MergeTree() ORDER BY tuple()
 				`
 			defer func() {
 				conn.Exec("DROP TABLE test_geo_ring")

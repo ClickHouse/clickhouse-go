@@ -47,7 +47,7 @@ func TestBool(t *testing.T) {
 				, Col5 Array(Nullable(Bool))
 				, Col6 Bool
 				, Col7 Nullable(Bool)
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_bool")
@@ -107,7 +107,7 @@ func TestColumnarBool(t *testing.T) {
 				, Col3 Array(Bool)
 				, Col4 Nullable(Bool)
 				, Col5 Array(Nullable(Bool))
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_bool")
@@ -169,7 +169,7 @@ func TestBoolFlush(t *testing.T) {
 	const ddl = `
 		CREATE TABLE bool_flush (
 			  Col1 Bool
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO bool_flush")

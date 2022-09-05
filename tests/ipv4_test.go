@@ -37,7 +37,7 @@ func TestSimpleIPv4(t *testing.T) {
 	const ddl = `
 			CREATE TABLE test_ipv4 (
 				  Col1 IPv4
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_ipv4")
@@ -72,7 +72,7 @@ func TestIPv4(t *testing.T) {
 				, Col3 Nullable(IPv4)
 				, Col4 Array(IPv4)
 				, Col5 Array(Nullable(IPv4))
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_ipv4")
@@ -119,7 +119,7 @@ func TestNullableIPv4(t *testing.T) {
 			CREATE TABLE test_ipv4 (
 				  Col1 Nullable(IPv4)
 				, Col2 Nullable(IPv4)
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_ipv4")
@@ -168,7 +168,7 @@ func TestColumnarIPv4(t *testing.T) {
 				  Col1 IPv4
 				, Col2 IPv4
 				, Col3 Nullable(IPv4)
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_ipv4")
@@ -371,7 +371,7 @@ func TestIPv4Flush(t *testing.T) {
 	const ddl = `
 		CREATE TABLE test_ipv4_ring_flush (
 			  Col1 IPv4
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_ipv4_ring_flush")

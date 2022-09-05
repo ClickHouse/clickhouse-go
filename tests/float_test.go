@@ -26,7 +26,7 @@ func TestSimpleFloat(t *testing.T) {
 			  Col1 Float32,
 			  Col2 Float64,
 			  Col3 Nullable(Float64)
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_float")
@@ -107,7 +107,7 @@ func TestFixedFloatFlush(t *testing.T) {
 		CREATE TABLE fixed_float_flush (
 			  Col1 Float32,
 			  Col2 Float64	
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO fixed_float_flush")
