@@ -60,10 +60,8 @@ jobs:
 
       - name: Run tests
         env:
-          #CLICKHOUSE_HOST: ${{ secrets.INTEGRATIONS_TEAM_TESTS_CLOUD_HOST }}
-          #CLICKHOUSE_PASSWORD: ${{ secrets.INTEGRATIONS_TEAM_TESTS_CLOUD_PASSWORD }}
-          CLICKHOUSE_HOST: wdazrhzrra.us-east-2.aws.clickhouse-staging.com
-          CLICKHOUSE_PASSWORD: GdQPRDwubwrg
+          CLICKHOUSE_HOST: ${{ secrets.INTEGRATIONS_TEAM_TESTS_CLOUD_HOST }}
+          CLICKHOUSE_PASSWORD: ${{ secrets.INTEGRATIONS_TEAM_TESTS_CLOUD_PASSWORD }}
           CLICKHOUSE_USE_DOCKER: false
           CLICKHOUSE_USE_SSL: true
         run: |
