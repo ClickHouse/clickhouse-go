@@ -44,7 +44,7 @@ func TestSimpleNested(t *testing.T) {
 			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_nested")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_nested")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_nested")
@@ -90,7 +90,7 @@ func TestNestedFlattened(t *testing.T) {
 			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_nested")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_nested")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_nested")
@@ -148,7 +148,7 @@ func TestFlattenedSimpleNested(t *testing.T) {
 			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_nested")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_nested")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_nested")
@@ -204,7 +204,7 @@ func TestNestedUnFlattened(t *testing.T) {
 			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_nested")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_nested")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_nested")
@@ -278,13 +278,13 @@ func TestNestedFlush(t *testing.T) {
 			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_nested_flush")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_nested_flush")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_nested_flush")
 	require.NoError(t, err)
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_nested_flush")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_nested_flush")
 	}()
 	batch, err = conn.PrepareBatch(ctx, "INSERT INTO test_nested_flush")
 	require.NoError(t, err)

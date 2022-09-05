@@ -29,7 +29,7 @@ func TestSimpleFloat(t *testing.T) {
 		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_float")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_float")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_float")
@@ -68,7 +68,7 @@ func BenchmarkFloat(b *testing.B) {
 		b.Fatal(err)
 	}
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE benchmark_float")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS benchmark_float")
 	}()
 
 	if err = conn.Exec(ctx, `CREATE TABLE benchmark_float (Col1 Float32, Col2 Float64) ENGINE = Null`); err != nil {
@@ -101,7 +101,7 @@ func TestFixedFloatFlush(t *testing.T) {
 	require.NoError(t, err)
 
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE fixed_float_flush")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS fixed_float_flush")
 	}()
 	const ddl = `
 		CREATE TABLE fixed_float_flush (

@@ -46,7 +46,7 @@ func TestUUID(t *testing.T) {
 			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_uuid")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_uuid")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_uuid")
@@ -88,7 +88,7 @@ func TestStringerUUID(t *testing.T) {
 			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_uuid")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_uuid")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_uuid")
@@ -118,7 +118,7 @@ func TestNullableUUID(t *testing.T) {
 			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_uuid")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_uuid")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_uuid")
@@ -169,7 +169,7 @@ func TestColumnarUUID(t *testing.T) {
 			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_uuid")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_uuid")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_uuid")
@@ -221,7 +221,7 @@ func BenchmarkUUID(b *testing.B) {
 	}
 
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE benchmark_uuid")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS benchmark_uuid")
 	}()
 
 	if err = conn.Exec(ctx, `CREATE TABLE benchmark_uuid (Col1 UInt64, Col2 UUID) ENGINE = Null`); err != nil {
@@ -304,7 +304,7 @@ func TestUUIDFlush(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, err)
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE uuid_flush")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS uuid_flush")
 	}()
 	const ddl = `
 		CREATE TABLE uuid_flush (

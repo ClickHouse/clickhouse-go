@@ -43,7 +43,7 @@ func TestUInt8(t *testing.T) {
 			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_uint8")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_uint8")
 	}()
 	type result struct {
 		ColID uint8 `ch:"ID"`
@@ -92,7 +92,7 @@ func TestColumnarUInt8(t *testing.T) {
 		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_uint8_c")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_uint8_c")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_uint8_c")
@@ -163,7 +163,7 @@ func TestSimpleInt(t *testing.T) {
 	}
 	const ddl = "CREATE TABLE test_int (`1` Int64) Engine MergeTree() ORDER BY tuple()"
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_int")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_int")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_int")
@@ -183,7 +183,7 @@ func TestNullableInt(t *testing.T) {
 	}
 	const ddl = "CREATE TABLE test_int (col1 Int64, col2 Nullable(Int64), col3 Int32, col4 Nullable(Int32), col5 Int16, col6 Nullable(Int16)) Engine MergeTree() ORDER BY tuple()"
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_int")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_int")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_int")

@@ -63,11 +63,11 @@ func setupTest(t *testing.T) (driver.Conn, func(t *testing.T)) {
 	if err := CheckMinServerVersion(conn, 22, 6, 1); err != nil {
 		t.Skip(err.Error())
 	}
-	conn.Exec(ctx, "DROP TABLE json_test")
+	conn.Exec(ctx, "DROP TABLE IF EXISTS json_test")
 	ddl := `CREATE table json_test(event JSON) ENGINE=Memory;`
 	require.NoError(t, conn.Exec(ctx, ddl))
 	return conn, func(t *testing.T) {
-		require.NoError(t, conn.Exec(ctx, "DROP TABLE json_test"))
+		require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS json_test"))
 	}
 }
 
@@ -1975,13 +1975,13 @@ func TestJSONNilMapFields(t *testing.T) {
 func TestJSONManyColumns(t *testing.T) {
 	ctx := context.Background()
 	conn := setupConnection(t)
-	conn.Exec(ctx, "DROP TABLE json_test")
+	conn.Exec(ctx, "DROP TABLE IF EXISTS json_test")
 	if err := CheckMinServerVersion(conn, 22, 6, 1); err != nil {
 		t.Skip(err.Error())
 	}
 	ddl := `CREATE table json_test(event JSON, event2 JSON, col1 String) ENGINE=Memory;`
 	require.NoError(t, conn.Exec(ctx, ddl))
-	defer conn.Exec(ctx, "DROP TABLE json_test")
+	defer conn.Exec(ctx, "DROP TABLE IF EXISTS json_test")
 	batch := prepareBatch(t, conn, ctx)
 	col1 := Repository{URL: "https://github.com/ClickHouse/clickhouse-python", Releases: []Releases{{Version: "1.0.0"}, {Version: "1.1.0"}}}
 	col2 := Repository{URL: "https://github.com/ClickHouse/clickhouse-go", Releases: []Releases{{Version: "2.0.0"}, {Version: "2.1.0"}}}

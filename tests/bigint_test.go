@@ -43,7 +43,7 @@ func TestSimpleBigInt(t *testing.T) {
 		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_bigint")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_bigint")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_bigint")
@@ -82,7 +82,7 @@ func TestBigInt(t *testing.T) {
 		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_bigint")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_bigint")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_bigint")
@@ -151,7 +151,7 @@ func TestNullableBigInt(t *testing.T) {
 		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_nullable_bigint")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_nullable_bigint")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_nullable_bigint")
@@ -212,7 +212,7 @@ func TestBigIntUIntOverflow(t *testing.T) {
 		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_bigint_uint_overflow")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_bigint_uint_overflow")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_bigint_uint_overflow")
@@ -270,7 +270,7 @@ func TestBigIntFlush(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, err)
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE big_int_flush")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS big_int_flush")
 	}()
 	const ddl = `
 		CREATE TABLE big_int_flush (
