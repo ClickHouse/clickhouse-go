@@ -69,7 +69,7 @@ func insertWithFlush(t *testing.T, conn driver.Conn, flush bool) {
 			, Col6 Array(String)
 			, Col7 Tuple(String, UInt64, Array(Map(String, UInt64)))
 			, Col8 DateTime
-		) Engine = Memory
+		) Engine = MergeTree() ORDER BY tuple()
 	`)
 	require.NoError(t, err)
 

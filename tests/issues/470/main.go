@@ -24,6 +24,7 @@ import (
 	"reflect"
 
 	_ "github.com/ClickHouse/clickhouse-go/v2"
+	clickHouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests/std"
 )
 
 type DatabaseFrame struct {
@@ -73,7 +74,7 @@ func (f DatabaseFrame) Next() ([]interface{}, bool, error) {
 
 func NewNativeClient(host string, port uint16, username string, password string) (*sql.DB, error) {
 	// debug output ?debug=true
-	connection, err := sql.Open("clickhouse", fmt.Sprintf("clickhouse://%s:%s@%s:%d/", username, password, host, port))
+	connection, err := clickHouse_tests.GetConnectionFromDSN(fmt.Sprintf("clickhouse://%s:%s@%s:%d/", username, password, host, port))
 	if err != nil {
 		return nil, err
 	}

@@ -34,7 +34,7 @@ func TestBool(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 21, 12, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 21, 12, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -50,7 +50,7 @@ func TestBool(t *testing.T) {
 			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_bool")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_bool")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_bool")
@@ -95,7 +95,7 @@ func TestColumnarBool(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 21, 12, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 21, 12, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -110,7 +110,7 @@ func TestColumnarBool(t *testing.T) {
 			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_bool")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_bool")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	val := true
@@ -164,7 +164,7 @@ func TestBoolFlush(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, err)
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE bool_flush")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS bool_flush")
 	}()
 	const ddl = `
 		CREATE TABLE bool_flush (

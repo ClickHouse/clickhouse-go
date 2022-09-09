@@ -35,7 +35,7 @@ func TestDecimal(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 21, 1, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 21, 1, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -49,7 +49,7 @@ func TestDecimal(t *testing.T) {
 			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_decimal")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_decimal")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_decimal")
@@ -95,9 +95,9 @@ func TestNegativeDecimal(t *testing.T) {
 		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_decimal")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_decimal")
 	}()
-	if err := CheckMinServerVersion(conn, 21, 1, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 21, 1, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -130,7 +130,7 @@ func TestNullableDecimal(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 21, 1, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 21, 1, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -142,7 +142,7 @@ func TestNullableDecimal(t *testing.T) {
 		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_decimal")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_decimal")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_decimal")
@@ -183,7 +183,7 @@ func TestDecimalFlush(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, err)
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE decimal_flush")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS decimal_flush")
 	}()
 	const ddl = `
 		CREATE TABLE decimal_flush (

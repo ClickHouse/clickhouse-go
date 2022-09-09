@@ -56,7 +56,7 @@ func TestFixedString(t *testing.T) {
 			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_fixed_string")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_fixed_string")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_fixed_string")
@@ -113,7 +113,7 @@ func TestEmptyFixedString(t *testing.T) {
 			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_fixed_string_empty")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_fixed_string_empty")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_fixed_string_empty")
@@ -146,7 +146,7 @@ func TestNullableFixedString(t *testing.T) {
 		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_fixed_string")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_fixed_string")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_fixed_string")
@@ -199,7 +199,7 @@ func TestColumnarFixedString(t *testing.T) {
 		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_fixed_string")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_fixed_string")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_fixed_string")
@@ -251,7 +251,7 @@ func BenchmarkFixedString(b *testing.B) {
 		b.Fatal(err)
 	}
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE benchmark_fixed_string")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS benchmark_fixed_string")
 	}()
 	if err = conn.Exec(ctx, `DROP TABLE IF EXISTS benchmark_fixed_string`); err != nil {
 		b.Fatal(err)
@@ -288,7 +288,7 @@ func BenchmarkColumnarFixedString(b *testing.B) {
 	}
 
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE benchmark_fixed_string")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS benchmark_fixed_string")
 	}()
 	if err = conn.Exec(ctx, `CREATE TABLE benchmark_fixed_string (Col1 UInt64, Col2 FixedString(4)) ENGINE = Null`); err != nil {
 		b.Fatal(err)
@@ -330,7 +330,7 @@ func TestFixedStringFlush(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, err)
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE fixed_string_flush")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS fixed_string_flush")
 	}()
 	const ddl = `
 		CREATE TABLE fixed_string_flush (

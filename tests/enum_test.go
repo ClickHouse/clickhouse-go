@@ -38,7 +38,7 @@ func TestSimpleEnum(t *testing.T) {
 			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_enum")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_enum")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_enum")
@@ -75,7 +75,7 @@ func TestEnum(t *testing.T) {
 			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_enum")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_enum")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_enum")
@@ -135,7 +135,7 @@ func TestNullableEnum(t *testing.T) {
 			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_enum")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_enum")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_enum")
@@ -187,7 +187,7 @@ func TestColumnarEnum(t *testing.T) {
 			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_enum")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_enum")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_enum")

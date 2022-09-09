@@ -33,7 +33,7 @@ func TestDateTime64(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 20, 3, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 20, 3, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -52,7 +52,7 @@ func TestDateTime64(t *testing.T) {
 			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_datetime64")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_datetime64")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_datetime64")
@@ -116,7 +116,7 @@ func TestDateTime64AsReference(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 20, 3, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 20, 3, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -126,7 +126,7 @@ func TestDateTime64AsReference(t *testing.T) {
 			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_datetime64")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_datetime64")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_datetime64")
@@ -155,7 +155,7 @@ func TestNullableDateTime64(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 20, 3, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 20, 3, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -170,7 +170,7 @@ func TestNullableDateTime64(t *testing.T) {
 			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_datetime64")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_datetime64")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_datetime64")
@@ -242,7 +242,7 @@ func TestColumnarDateTime64(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 20, 3, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 20, 3, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -259,7 +259,7 @@ func TestColumnarDateTime64(t *testing.T) {
 		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_datetime64")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_datetime64")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_datetime64")
@@ -336,7 +336,7 @@ func TestDateTime64Flush(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, err)
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE datetime_64_flush")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS datetime_64_flush")
 	}()
 	const ddl = `
 		CREATE TABLE datetime_64_flush (

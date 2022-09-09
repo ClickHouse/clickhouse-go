@@ -49,7 +49,7 @@ func TestDateTime(t *testing.T) {
 			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_datetime")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_datetime")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_datetime")
@@ -128,7 +128,7 @@ func TestNullableDateTime(t *testing.T) {
 			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_datetime")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_datetime")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_datetime")
@@ -234,7 +234,7 @@ func TestColumnarDateTime(t *testing.T) {
 		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_datetime")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_datetime")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_datetime")

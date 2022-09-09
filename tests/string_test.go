@@ -19,11 +19,8 @@ package tests
 
 import (
 	"context"
-	"crypto/tls"
 	"database/sql"
-	"fmt"
 	"github.com/stretchr/testify/require"
-	"strconv"
 	"testing"
 	"time"
 
@@ -41,34 +38,14 @@ func (t testStr) String() string {
 }
 
 func TestSimpleString(t *testing.T) {
-	env, err := GetNativeTestEnvironment()
-	require.NoError(t, err)
-	useSSL, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_SSL", "false"))
-	require.NoError(t, err)
-	port := env.Port
-	var tlsConfig *tls.Config
-	if useSSL {
-		port = env.SslPort
-		tlsConfig = &tls.Config{}
-	}
-	conn, err := clickhouse.Open(&clickhouse.Options{
-		Addr: []string{fmt.Sprintf("%s:%d", env.Host, port)},
-		Auth: clickhouse.Auth{
-			Database: "default",
-			Username: env.Username,
-			Password: env.Password,
-		},
-		Compression: &clickhouse.Compression{
-			Method: clickhouse.CompressionLZ4,
-		},
-		DialTimeout: time.Second * 120,
-		TLS:         tlsConfig,
+	conn, err := GetConnection("native", nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
 	})
 	ctx := context.Background()
 
 	require.NoError(t, err)
 	require.NoError(t, conn.Ping(ctx))
-	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -94,7 +71,7 @@ func TestString(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}

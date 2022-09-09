@@ -33,7 +33,7 @@ func TestMap(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -48,7 +48,7 @@ func TestMap(t *testing.T) {
 		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_map")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_map")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_map")
@@ -107,7 +107,7 @@ func TestColumnarMap(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -119,7 +119,7 @@ func TestColumnarMap(t *testing.T) {
 		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_map")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_map")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_map")
@@ -172,7 +172,7 @@ func TestMapFlush(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -182,7 +182,7 @@ func TestMapFlush(t *testing.T) {
 		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_map_flush")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_map_flush")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_map_flush")

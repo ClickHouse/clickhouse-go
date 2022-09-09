@@ -35,7 +35,7 @@ func TestTuple(t *testing.T) {
 	require.NoError(t, err)
 	localTime := testDate.In(loc)
 
-	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -51,7 +51,7 @@ func TestTuple(t *testing.T) {
 		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_tuple")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_tuple")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_tuple")
@@ -110,14 +110,14 @@ func TestNamedTupleWithSlice(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, err)
 	// https://github.com/ClickHouse/ClickHouse/pull/36544
-	if err := CheckMinServerVersion(conn, 22, 5, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 22, 5, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
 	const ddl = "CREATE TABLE test_tuple (Col1 Tuple(name String, `1` Int64)) Engine MergeTree() ORDER BY tuple()"
 
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_tuple")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_tuple")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_tuple")
@@ -142,14 +142,14 @@ func TestNamedTupleWithTypedSlice(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, err)
 	// https://github.com/ClickHouse/ClickHouse/pull/36544
-	if err := CheckMinServerVersion(conn, 22, 5, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 22, 5, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
 	const ddl = "CREATE TABLE test_tuple (Col1 Tuple(name String, city String), Col2 Int32) Engine MergeTree() ORDER BY tuple()"
 
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_tuple")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_tuple")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_tuple")
@@ -176,14 +176,14 @@ func TestNamedTupleWithMap(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, err)
 	// https://github.com/ClickHouse/ClickHouse/pull/36544
-	if err := CheckMinServerVersion(conn, 22, 5, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 22, 5, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
 	const ddl = "CREATE TABLE test_tuple (Col1 Tuple(name String, id Int64)) Engine MergeTree() ORDER BY tuple()"
 
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_tuple")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_tuple")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_tuple")
@@ -207,14 +207,14 @@ func TestNamedTupleWithTypedMap(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, err)
 	// https://github.com/ClickHouse/ClickHouse/pull/36544
-	if err := CheckMinServerVersion(conn, 22, 5, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 22, 5, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
 	const ddl = "CREATE TABLE test_tuple (Col1 Tuple(id Int64, code Int64)) Engine MergeTree() ORDER BY tuple()"
 
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_tuple")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_tuple")
 	}()
 	// typed maps can be used provided the Tuple is consistent
 	require.NoError(t, conn.Exec(ctx, ddl))
@@ -238,13 +238,13 @@ func TestNamedTupleWithEscapedColumns(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, err)
 	// https://github.com/ClickHouse/ClickHouse/pull/36544
-	if err := CheckMinServerVersion(conn, 22, 5, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 22, 5, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
 	const ddl = "CREATE TABLE test_tuple (Col1 Tuple(`56` String, `a22\\`` Int64)) Engine MergeTree() ORDER BY tuple()"
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_tuple")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_tuple")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_tuple")
@@ -264,14 +264,14 @@ func TestNamedTupleIncomplete(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, err)
 	// https://github.com/ClickHouse/ClickHouse/pull/36544
-	if err := CheckMinServerVersion(conn, 22, 5, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 22, 5, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
 	const ddl = "CREATE TABLE test_tuple (Col1 Tuple(name String, id Int64)) Engine MergeTree() ORDER BY tuple()"
 
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_tuple")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_tuple")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_tuple")
@@ -286,14 +286,14 @@ func TestUnNamedTupleWithMap(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, err)
 	// https://github.com/ClickHouse/ClickHouse/pull/36544
-	if err := CheckMinServerVersion(conn, 22, 5, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 22, 5, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
 	const ddl = "CREATE TABLE test_tuple (Col1 Tuple(String, Int64)) Engine MergeTree() ORDER BY tuple()"
 
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_tuple")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_tuple")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_tuple")
@@ -320,7 +320,7 @@ func TestColumnarTuple(t *testing.T) {
 	conn, err := GetNativeConnection(nil, nil, nil)
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -334,7 +334,7 @@ func TestColumnarTuple(t *testing.T) {
 		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_tuple")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_tuple")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_tuple")
@@ -404,7 +404,7 @@ func TestTupleFlush(t *testing.T) {
 	conn, err := GetNativeConnection(nil, nil, nil)
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -414,7 +414,7 @@ func TestTupleFlush(t *testing.T) {
 		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_tuple_flush")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_tuple_flush")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_tuple_flush")

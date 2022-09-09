@@ -19,7 +19,6 @@ package std
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
@@ -59,7 +58,7 @@ func TestStdConnCheck(t *testing.T) {
 		}
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
 
-			connect, err := sql.Open("clickhouse", dsn)
+			connect, err := GetConnectionFromDSN(dsn)
 			require.NoError(t, err)
 			// We can only change the settings at the connection level.
 			// If we have only one connection, we change the settings specifically for that connection.

@@ -23,12 +23,13 @@ import (
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 )
 
 func example() error {
 	var (
 		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
+		conn, err = clickhouse_tests.GetConnectionWithOptions(&clickhouse.Options{
 			Addr: []string{"127.0.0.1:9000"},
 			Auth: clickhouse.Auth{
 				Database: "default",

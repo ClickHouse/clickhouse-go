@@ -36,7 +36,7 @@ func TestLowCardinality(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 19, 11, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 19, 11, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -53,7 +53,7 @@ func TestLowCardinality(t *testing.T) {
 		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_lowcardinality")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_lowcardinality")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_lowcardinality")
@@ -132,7 +132,7 @@ func TestColmunarLowCardinality(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 20, 1, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 20, 1, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -145,7 +145,7 @@ func TestColmunarLowCardinality(t *testing.T) {
 		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_lowcardinality")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_lowcardinality")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_lowcardinality")
@@ -194,7 +194,7 @@ func TestLowCardinalityFlush(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 20, 1, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 20, 1, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -204,7 +204,7 @@ func TestLowCardinalityFlush(t *testing.T) {
 		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_lowcardinality_flush")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_lowcardinality_flush")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_lowcardinality_flush")

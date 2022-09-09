@@ -32,12 +32,12 @@ func Test647(t *testing.T) {
 		},
 		TLS: tlsConfig,
 	}
-	conn, err := clickhouse.Open(options)
+	conn, err := clickhouse_tests.GetConnectionWithOptions(options)
 	require.NoError(t, err)
 	ctx := context.Background()
 	require.NoError(t, conn.Ping(ctx))
 	//reuse options
-	conn2, err := clickhouse.Open(options)
+	conn2, err := clickhouse_tests.GetConnectionWithOptions(options)
 	require.NoError(t, err)
 	require.NoError(t, conn2.Ping(ctx))
 }

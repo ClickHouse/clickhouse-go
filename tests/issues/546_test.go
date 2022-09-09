@@ -25,7 +25,7 @@ func Test546(t *testing.T) {
 		tlsConfig = &tls.Config{}
 		port = env.SslPort
 	}
-	conn, err := clickhouse.Open(&clickhouse.Options{
+	conn, err := clickhouse_tests.GetConnectionWithOptions(&clickhouse.Options{
 		Addr: []string{fmt.Sprintf("%s:%d", env.Host, port)},
 		Auth: clickhouse.Auth{
 			Database: "default",

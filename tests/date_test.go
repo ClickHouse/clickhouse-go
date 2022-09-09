@@ -48,7 +48,7 @@ func TestDate(t *testing.T) {
 			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_date")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_date")
 	}()
 	type result struct {
 		ColID uint8 `ch:"ID"`
@@ -109,7 +109,7 @@ func TestNullableDate(t *testing.T) {
 			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_date")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_date")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_date")
@@ -168,7 +168,7 @@ func TestColumnarDate(t *testing.T) {
 		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_date")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_date")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_date")
@@ -241,7 +241,7 @@ func TestDateFlush(t *testing.T) {
 	})
 	ctx := context.Background()
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE date_flush")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS date_flush")
 	}()
 	const ddl = `
 		CREATE TABLE date_flush (

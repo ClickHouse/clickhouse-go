@@ -26,6 +26,7 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/go-connections/nat"
 	"github.com/docker/go-units"
 	"github.com/google/uuid"
 	"github.com/testcontainers/testcontainers-go"
@@ -44,21 +45,16 @@ import (
 var testUUID = uuid.NewString()[0:12]
 var testTimestamp = time.Now().UnixMilli()
 
-func CheckMinServerVersion(conn driver.Conn, major, minor, patch uint64) error {
-	v, err := conn.ServerVersion()
-	if err != nil {
-		panic(err)
-	}
-	if v.Version.Major < major || (v.Version.Major == major && v.Version.Minor < minor) || (v.Version.Major == major && v.Version.Minor == minor && v.Version.Patch < patch) {
-		return fmt.Errorf("unsupported server version %d.%d < %d.%d", v.Version.Major, v.Version.Minor, major, minor)
-	}
-	return nil
-}
-
 const defaultClickHouseVersion = "latest"
 
 func GetClickHouseTestVersion() string {
 	return GetEnv("CLICKHOUSE_VERSION", defaultClickHouseVersion)
+}
+
+type Version struct {
+	Major uint64
+	Minor uint64
+	Patch uint64
 }
 
 type ClickHouseTestEnvironment struct {
@@ -70,7 +66,56 @@ type ClickHouseTestEnvironment struct {
 	Username  string
 	Password  string
 	Database  string
+	Version   Version
 	Container testcontainers.Container `json:"-"`
+}
+
+func (env *ClickHouseTestEnvironment) setVersion() {
+	useSSL, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	if err != nil {
+		panic(err)
+	}
+	port := env.Port
+	var tlsConfig *tls.Config
+	if useSSL {
+		tlsConfig = &tls.Config{}
+		port = env.SslPort
+	}
+	conn, err := clickhouse.Open(&clickhouse.Options{
+		Addr:     []string{fmt.Sprintf("%s:%d", env.Host, port)},
+		Settings: nil,
+		Auth: clickhouse.Auth{
+			Database: "default",
+			Username: env.Username,
+			Password: env.Password,
+		},
+		TLS:         tlsConfig,
+		DialTimeout: time.Duration(10) * time.Second,
+	})
+	v, err := conn.ServerVersion()
+	if err != nil {
+		panic(err)
+	}
+	env.Version = v.Version
+}
+
+func CheckMinServerServerVersion(conn driver.Conn, major, minor, patch uint64) error {
+	v, err := conn.ServerVersion()
+	if err != nil {
+		panic(err)
+	}
+	return CheckMinVersion(Version{
+		Major: major,
+		Minor: minor,
+		Patch: patch,
+	}, v.Version)
+}
+
+func CheckMinVersion(constraint Version, version Version) error {
+	if version.Major < constraint.Major || (version.Major == constraint.Major && version.Minor < constraint.Minor) || (version.Major == constraint.Major && version.Minor == constraint.Minor && version.Patch < constraint.Patch) {
+		return fmt.Errorf("unsupported server version %d.%d.%d < %d.%d.%d", version.Major, version.Minor, version.Patch, constraint.Major, constraint.Minor, constraint.Patch)
+	}
+	return nil
 }
 
 func CreateClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment, error) {
@@ -106,7 +151,9 @@ func CreateClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment,
 		Image:        fmt.Sprintf("clickhouse/clickhouse-server:%s", GetClickHouseTestVersion()),
 		Name:         fmt.Sprintf("clickhouse-go-%s-%d", strings.ToLower(testSet), time.Now().UnixNano()),
 		ExposedPorts: []string{"9000/tcp", "8123/tcp", "9440/tcp", "8443/tcp"},
-		WaitingFor:   wait.ForLog("Ready for connections"),
+		WaitingFor: wait.ForAll(wait.ForLog("Ready for connections"), wait.ForSQL("9000/tcp", "clickhouse", func(port nat.Port) string {
+			return fmt.Sprintf("clickhouse://default:ClickHouse@localhost:%s", port.Port())
+		})).WithStartupTimeout(time.Second * time.Duration(120)),
 		Mounts: []testcontainers.ContainerMount{
 			testcontainers.BindMount(path.Join(basePath, "./resources/custom.xml"), "/etc/clickhouse-server/config.d/custom.xml"),
 			testcontainers.BindMount(path.Join(basePath, "./resources/admin.xml"), "/etc/clickhouse-server/users.d/admin.xml"),
@@ -141,6 +188,7 @@ func CreateClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment,
 		Container: clickhouseContainer,
 		Database:  GetEnv("CLICKHOUSE_DATABASE", getDatabaseName(testSet)),
 	}
+	testEnv.setVersion()
 	return testEnv, nil
 }
 
@@ -188,7 +236,7 @@ func GetExternalTestEnvironment(testSet string) (ClickHouseTestEnvironment, erro
 	if err != nil {
 		return ClickHouseTestEnvironment{}, nil
 	}
-	return ClickHouseTestEnvironment{
+	env := ClickHouseTestEnvironment{
 		Port:      port,
 		HttpPort:  httpPort,
 		SslPort:   sslPort,
@@ -197,7 +245,9 @@ func GetExternalTestEnvironment(testSet string) (ClickHouseTestEnvironment, erro
 		Password:  GetEnv("CLICKHOUSE_PASSWORD", ""),
 		Host:      GetEnv("CLICKHOUSE_HOST", "localhost"),
 		Database:  GetEnv("CLICKHOUSE_DATABASE", getDatabaseName(testSet)),
-	}, nil
+	}
+	env.setVersion()
+	return env, nil
 }
 
 func GetConnection(testSet string, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (driver.Conn, error) {
@@ -206,6 +256,24 @@ func GetConnection(testSet string, settings clickhouse.Settings, tlsConfig *tls.
 		return nil, err
 	}
 	return getConnection(env, env.Database, settings, tlsConfig, compression)
+}
+
+func GetConnectionWithOptions(options *clickhouse.Options) (driver.Conn, error) {
+	if options.Settings == nil {
+		options.Settings = clickhouse.Settings{}
+	}
+	conn, err := clickhouse.Open(options)
+	if err != nil {
+		return conn, err
+	}
+	if CheckMinServerServerVersion(conn, 22, 8, 0) == nil {
+		options.Settings["database_replicated_enforce_synchronous_settings"] = "1"
+	}
+	options.Settings["insert_quorum"], err = strconv.Atoi(GetEnv("CLICKHOUSE_QUORUM_INSERT", "1"))
+	if err != nil {
+		return nil, err
+	}
+	return clickhouse.Open(options)
 }
 
 func getConnection(env ClickHouseTestEnvironment, database string, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (driver.Conn, error) {
@@ -217,6 +285,20 @@ func getConnection(env ClickHouseTestEnvironment, database string, settings clic
 	if useSSL && tlsConfig == nil {
 		tlsConfig = &tls.Config{}
 		port = env.SslPort
+	}
+	if settings == nil {
+		settings = clickhouse.Settings{}
+	}
+	if CheckMinVersion(Version{
+		Major: 22,
+		Minor: 8,
+		Patch: 0,
+	}, env.Version) == nil {
+		settings["database_replicated_enforce_synchronous_settings"] = "1"
+	}
+	settings["insert_quorum"], err = strconv.Atoi(GetEnv("CLICKHOUSE_QUORUM_INSERT", "1"))
+	if err != nil {
+		return nil, err
 	}
 	conn, err := clickhouse.Open(&clickhouse.Options{
 		Addr:     []string{fmt.Sprintf("%s:%d", env.Host, port)},

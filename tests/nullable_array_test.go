@@ -54,10 +54,10 @@ func TestNullableArray(t *testing.T) {
 	) Engine MergeTree() ORDER BY tuple()
 	`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_nullable_array")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_nullable_array")
 	}()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 21, 12, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 21, 12, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}

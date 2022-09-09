@@ -18,7 +18,6 @@
 package std
 
 import (
-	"database/sql"
 	"fmt"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/assert"
@@ -40,7 +39,7 @@ func TestSimpleStdString(t *testing.T) {
 	dsns := map[string]string{"Http": connectionString}
 	for name, dsn := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
-			conn, err := sql.Open("clickhouse", dsn)
+			conn, err := GetConnectionFromDSN(dsn)
 			require.NoError(t, err)
 			const ddl = `CREATE TABLE test_array (Col1 String) Engine MergeTree() ORDER BY tuple()`
 			conn.Exec("DROP TABLE test_array")

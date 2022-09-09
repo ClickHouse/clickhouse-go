@@ -13,7 +13,7 @@ on:
     - cron: "0 9 1 * *"
 
 jobs:
-  run:
+  single-node:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
@@ -23,7 +23,6 @@ jobs:
           - 1.19
         clickhouse:
           - 22.3
-          - 22.5
           - 22.6
           - 22.7
           - 22.8
@@ -40,3 +39,29 @@ jobs:
       - name: Run tests
         run: |
           CLICKHOUSE_VERSION=${{ matrix.clickhouse }} make test
+
+  integration-tests-cloud:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        go:
+          - 1.18
+          - 1.19
+    steps:
+      - uses: actions/checkout@main
+
+      - name: Install Go ${{ matrix.go }}
+        uses: actions/setup-go@v2.1.5
+        with:
+          stable: false
+          go-version: ${{ matrix.go }}
+
+      - name: Run tests
+        env:
+          CLICKHOUSE_HOST: ${{ secrets.INTEGRATIONS_TEAM_TESTS_CLOUD_HOST }}
+          CLICKHOUSE_PASSWORD: ${{ secrets.INTEGRATIONS_TEAM_TESTS_CLOUD_PASSWORD }}
+          CLICKHOUSE_USE_DOCKER: false
+          CLICKHOUSE_USE_SSL: true
+        run: |
+          CLICKHOUSE_TEST_TIMEOUT=600s CLICKHOUSE_QUORUM_INSERT=2 make test

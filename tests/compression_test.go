@@ -32,7 +32,7 @@ func CompressionTest(t *testing.T, method clickhouse.CompressionMethod) {
 		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_array")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_array")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_array")

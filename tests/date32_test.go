@@ -34,7 +34,7 @@ func TestDate32(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -52,7 +52,7 @@ func TestDate32(t *testing.T) {
 			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_date32")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_date32")
 	}()
 	type result struct {
 		ColID uint8 `ch:"ID"`
@@ -135,7 +135,7 @@ func TestNullableDate32(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -148,7 +148,7 @@ func TestNullableDate32(t *testing.T) {
 			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_date32")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_date32")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_date32")
@@ -192,7 +192,7 @@ func TestColumnarDate32(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -206,7 +206,7 @@ func TestColumnarDate32(t *testing.T) {
 		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_date32")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_date32")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_date32")
@@ -263,13 +263,13 @@ func TestDate32Flush(t *testing.T) {
 		Method: clickhouse.CompressionLZ4,
 	})
 	ctx := context.Background()
-	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
 	require.NoError(t, err)
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE date_32_flush")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS date_32_flush")
 	}()
 	const ddl = `
 		CREATE TABLE date_32_flush (

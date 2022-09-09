@@ -48,7 +48,7 @@ func TestColumnarInterface(t *testing.T) {
 			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_column_interface")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_column_interface")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_column_interface")
@@ -125,7 +125,7 @@ func TestNullableColumnarInterface(t *testing.T) {
 			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_column_interface")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_column_interface")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_column_interface")

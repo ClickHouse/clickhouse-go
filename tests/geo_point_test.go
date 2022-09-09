@@ -36,7 +36,7 @@ func TestGeoPoint(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 21, 12, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 21, 12, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -47,7 +47,7 @@ func TestGeoPoint(t *testing.T) {
 		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_geo_point")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_geo_point")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_geo_point")
@@ -80,7 +80,7 @@ func TestGeoPointFlush(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 21, 12, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 21, 12, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -90,7 +90,7 @@ func TestGeoPointFlush(t *testing.T) {
 		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_geo_point_flush")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_geo_point_flush")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_geo_point_flush")

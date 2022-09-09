@@ -39,7 +39,7 @@ func TestQuotedDDL(t *testing.T) {
 		port = env.SslPort
 		tlsConfig = &tls.Config{}
 	}
-	conn, err := clickhouse.Open(&clickhouse.Options{
+	conn, err := GetConnectionWithOptions(&clickhouse.Options{
 		Addr: []string{fmt.Sprintf("%s:%d", env.Host, port)},
 		Auth: clickhouse.Auth{
 			Database: "default",
@@ -55,7 +55,7 @@ func TestQuotedDDL(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, err)
 	require.NoError(t, conn.Ping(ctx))
-	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}

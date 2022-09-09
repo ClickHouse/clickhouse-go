@@ -38,7 +38,7 @@ func TestAbort(t *testing.T) {
 		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_abort")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_abort")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_abort")

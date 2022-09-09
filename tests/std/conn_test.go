@@ -161,13 +161,13 @@ func TestStdHTTPEmptyResponse(t *testing.T) {
 	}
 	for name, dsn := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
-			conn, err := sql.Open("clickhouse", dsn)
+			conn, err := GetConnectionFromDSN(dsn)
 			defer func() {
 				conn.Exec("DROP TABLE empty_example")
 			}()
 			conn.Exec("DROP TABLE IF EXISTS empty_example")
 			_, err = conn.Exec(`
-				CREATE TABLE IF NOT EXISTS empty_example (
+				CREATE TABLE empty_example (
 					  Col1 UInt64
 					, Col2 String
 					, Col3 FixedString(3)
@@ -176,7 +176,7 @@ func TestStdHTTPEmptyResponse(t *testing.T) {
 					, Col6 Array(String)
 					, Col7 Tuple(String, UInt64, Array(Map(String, UInt64)))
 					, Col8 DateTime
-				) Engine = Memory
+				) Engine = MergeTree() ORDER BY tuple()
 			`)
 			require.NoError(t, err)
 			rows, err := conn.Query("SELECT Col1 FROM empty_example")
