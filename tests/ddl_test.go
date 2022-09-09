@@ -39,7 +39,7 @@ func TestQuotedDDL(t *testing.T) {
 		port = env.SslPort
 		tlsConfig = &tls.Config{}
 	}
-	conn, err := clickhouse.Open(&clickhouse.Options{
+	conn, err := GetConnectionWithOptions(&clickhouse.Options{
 		Addr: []string{fmt.Sprintf("%s:%d", env.Host, port)},
 		Auth: clickhouse.Auth{
 			Database: "default",

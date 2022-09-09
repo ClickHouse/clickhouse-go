@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
+	clickhouse_std_tests "github.com/ClickHouse/clickhouse-go/v2/tests/std"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"strconv"
@@ -32,7 +33,7 @@ func Test570(t *testing.T) {
 	// using ParseDNS - defaults shouldn't be set for maxOpenConnections etc
 	options, err := clickhouse.ParseDSN(dsn)
 	assert.NoError(t, err)
-	conn := clickhouse.OpenDB(options)
+	conn := clickhouse_std_tests.GetConnectionWithOptions(options)
 	conn.SetMaxOpenConns(5)
 	conn.SetMaxIdleConns(10)
 	assert.NoError(t, conn.Ping())
@@ -52,7 +53,7 @@ func Test570(t *testing.T) {
 		DialTimeout: time.Second,
 		TLS:         tlsConfig,
 	}
-	conn = clickhouse.OpenDB(options)
+	conn = clickhouse_std_tests.GetConnectionWithOptions(options)
 	assert.NoError(t, conn.Ping())
 
 	// check we can open with a DSN

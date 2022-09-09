@@ -161,7 +161,7 @@ func TestStdHTTPEmptyResponse(t *testing.T) {
 	}
 	for name, dsn := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
-			conn, err := sql.Open("clickhouse", dsn)
+			conn, err := GetConnectionFromDSN(dsn)
 			defer func() {
 				conn.Exec("DROP TABLE empty_example")
 			}()

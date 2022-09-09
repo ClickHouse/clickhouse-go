@@ -208,6 +208,19 @@ func GetConnection(testSet string, settings clickhouse.Settings, tlsConfig *tls.
 	return getConnection(env, env.Database, settings, tlsConfig, compression)
 }
 
+func GetConnectionWithOptions(options *clickhouse.Options) (driver.Conn, error) {
+	if options.Settings == nil {
+		options.Settings = clickhouse.Settings{}
+	}
+	options.Settings["database_replicated_enforce_synchronous_settings"] = "1"
+	var err error
+	options.Settings["insert_quorum"], err = strconv.Atoi(GetEnv("CLICKHOUSE_QUORUM_INSERT", "1"))
+	if err != nil {
+		return nil, err
+	}
+	return clickhouse.Open(options)
+}
+
 func getConnection(env ClickHouseTestEnvironment, database string, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (driver.Conn, error) {
 	useSSL, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_SSL", "false"))
 	if err != nil {
@@ -221,6 +234,7 @@ func getConnection(env ClickHouseTestEnvironment, database string, settings clic
 	if settings == nil {
 		settings = clickhouse.Settings{}
 	}
+	settings["database_replicated_enforce_synchronous_settings"] = "1"
 	settings["insert_quorum"], err = strconv.Atoi(GetEnv("CLICKHOUSE_QUORUM_INSERT", "1"))
 	if err != nil {
 		return nil, err

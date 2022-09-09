@@ -25,10 +25,11 @@ import (
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 )
 
 func getClickhouseClient() driver.Conn {
-	conn, _ := clickhouse.Open(&clickhouse.Options{
+	conn, _ := clickhouse_tests.GetConnectionWithOptions(&clickhouse.Options{
 		Addr: []string{"127.0.0.1:9000"},
 		Auth: clickhouse.Auth{
 			Database: "",

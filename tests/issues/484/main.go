@@ -22,10 +22,11 @@ import (
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests/std"
 )
 
 func main() {
-	conn := clickhouse.OpenDB(&clickhouse.Options{
+	conn := clickhouse_tests.GetConnectionWithOptions(&clickhouse.Options{
 		Addr: []string{"127.0.0.1:9000"},
 		Auth: clickhouse.Auth{
 			Database: "default",

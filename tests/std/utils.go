@@ -68,19 +68,41 @@ func GetDSNConnection(environment string, protocol clickhouse.Protocol, secure b
 	case clickhouse.HTTP:
 		switch secure {
 		case true:
-			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("https://%s:%s@%s:%d/%s?secure=true&compress=%s&wait_end_of_query=1&insert_quorum=%s", env.Username, env.Password, env.Host, env.HttpsPort, env.Database, compress, insertQuorum)))
+			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("https://%s:%s@%s:%d/%s?secure=true&compress=%s&wait_end_of_query=1&database_replicated_enforce_synchronous_settings=1&insert_quorum=%s", env.Username, env.Password, env.Host, env.HttpsPort, env.Database, compress, insertQuorum)))
 		case false:
-			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("http://%s:%s@%s:%d/%s?compress=%s&wait_end_of_query=1&insert_quorum=%s", env.Username, env.Password, env.Host, env.HttpPort, env.Database, compress, insertQuorum)))
+			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("http://%s:%s@%s:%d/%s?compress=%s&wait_end_of_query=1&database_replicated_enforce_synchronous_settings=1&insert_quorum=%s", env.Username, env.Password, env.Host, env.HttpPort, env.Database, compress, insertQuorum)))
 		}
 	case clickhouse.Native:
 		switch secure {
 		case true:
-			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("clickhouse://%s:%s@%s:%d/%s?secure=true&compress=%s&insert_quorum=%s", env.Username, env.Password, env.Host, env.SslPort, env.Database, compress, insertQuorum)))
+			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("clickhouse://%s:%s@%s:%d/%s?secure=true&compress=%s&database_replicated_enforce_synchronous_settings=1&insert_quorum=%s", env.Username, env.Password, env.Host, env.SslPort, env.Database, compress, insertQuorum)))
 		case false:
-			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("clickhouse://%s:%s@%s:%d/%s?compress=%s&insert_quorum=%s", env.Username, env.Password, env.Host, env.Port, env.Database, compress, insertQuorum)))
+			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("clickhouse://%s:%s@%s:%d/%s?compress=%s&database_replicated_enforce_synchronous_settings=1&insert_quorum=%s", env.Username, env.Password, env.Host, env.Port, env.Database, compress, insertQuorum)))
 		}
 	}
 	return nil, fmt.Errorf("unsupport protocol - %s", protocol.String())
+}
+
+func GetConnectionFromDSN(dsn string) (*sql.DB, error) {
+	insertQuorum := clickhouse_tests.GetEnv("CLICKHOUSE_QUORUM_INSERT", "1")
+	dsn = fmt.Sprintf("%s&database_replicated_enforce_synchronous_settings=1&insert_quorum=%s", dsn, insertQuorum)
+	if strings.HasPrefix(dsn, "http") {
+		dsn = fmt.Sprintf("%s&wait_end_of_query=1", dsn)
+	}
+	return sql.Open("clickhouse", dsn)
+}
+
+func GetConnectionWithOptions(options *clickhouse.Options) *sql.DB {
+	if options.Settings == nil {
+		options.Settings = clickhouse.Settings{}
+	}
+	options.Settings["database_replicated_enforce_synchronous_settings"] = "1"
+	var err error
+	options.Settings["insert_quorum"], err = strconv.Atoi(clickhouse_tests.GetEnv("CLICKHOUSE_QUORUM_INSERT", "1"))
+	if err != nil {
+		return nil
+	}
+	return clickhouse.OpenDB(options)
 }
 
 func GetOpenDBConnection(environment string, protocol clickhouse.Protocol, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (*sql.DB, error) {
@@ -108,6 +130,7 @@ func GetOpenDBConnection(environment string, protocol clickhouse.Protocol, setti
 		settings["wait_end_of_query"] = 1
 	}
 	settings["insert_quorum"], err = strconv.Atoi(clickhouse_tests.GetEnv("CLICKHOUSE_QUORUM_INSERT", "1"))
+	settings["database_replicated_enforce_synchronous_settings"] = "1"
 	if err != nil {
 		return nil, err
 	}

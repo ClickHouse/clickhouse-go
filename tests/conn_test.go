@@ -46,7 +46,7 @@ func TestConn(t *testing.T) {
 func TestBadConn(t *testing.T) {
 	env, err := GetNativeTestEnvironment()
 	require.NoError(t, err)
-	conn, err := clickhouse.Open(&clickhouse.Options{
+	conn, err := GetConnectionWithOptions(&clickhouse.Options{
 		Addr: []string{"127.0.0.1:9790"},
 		Auth: clickhouse.Auth{
 			Database: "default",
@@ -74,7 +74,7 @@ func TestConnFailover(t *testing.T) {
 		port = env.SslPort
 		tlsConfig = &tls.Config{}
 	}
-	conn, err := clickhouse.Open(&clickhouse.Options{
+	conn, err := GetConnectionWithOptions(&clickhouse.Options{
 		Addr: []string{
 			"127.0.0.1:9001",
 			"127.0.0.1:9002",
@@ -107,7 +107,7 @@ func TestConnFailoverConnOpenRoundRobin(t *testing.T) {
 		port = env.SslPort
 		tlsConfig = &tls.Config{}
 	}
-	conn, err := clickhouse.Open(&clickhouse.Options{
+	conn, err := GetConnectionWithOptions(&clickhouse.Options{
 		Addr: []string{
 			"127.0.0.1:9001",
 			"127.0.0.1:9002",
@@ -153,7 +153,7 @@ func TestReadDeadline(t *testing.T) {
 		port = env.SslPort
 		tlsConfig = &tls.Config{}
 	}
-	conn, err := clickhouse.Open(&clickhouse.Options{
+	conn, err := GetConnectionWithOptions(&clickhouse.Options{
 		Addr: []string{fmt.Sprintf("%s:%d", env.Host, port)},
 		Auth: clickhouse.Auth{
 			Database: "default",
@@ -187,7 +187,7 @@ func TestQueryDeadline(t *testing.T) {
 		port = env.SslPort
 		tlsConfig = &tls.Config{}
 	}
-	conn, err := clickhouse.Open(&clickhouse.Options{
+	conn, err := GetConnectionWithOptions(&clickhouse.Options{
 		Addr: []string{fmt.Sprintf("%s:%d", env.Host, port)},
 		Auth: clickhouse.Auth{
 			Database: "default",
