@@ -19,7 +19,7 @@ func Test615(t *testing.T) {
 		})
 	)
 	require.NoError(t, err)
-	if err := clickhouse_tests.CheckMinServerVersion(conn, 22, 0, 0); err != nil {
+	if err := clickhouse_tests.CheckMinServerServerVersion(conn, 22, 0, 0); err != nil {
 		t.Skip(err.Error())
 	}
 	require.NoError(t, err)

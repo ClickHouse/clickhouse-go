@@ -36,7 +36,7 @@ func TestIssue412(t *testing.T) {
 		})
 	)
 	require.NoError(t, err)
-	if err := clickhouse_tests.CheckMinServerVersion(conn, 21, 9, 0); err != nil {
+	if err := clickhouse_tests.CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}

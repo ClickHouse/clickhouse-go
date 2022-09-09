@@ -33,15 +33,11 @@ func GetStdTestEnvironment() (clickhouse_tests.ClickHouseTestEnvironment, error)
 }
 
 func CheckMinServerVersion(conn *sql.DB, major, minor, patch uint64) error {
-	var version struct {
-		Major uint64
-		Minor uint64
-		Patch uint64
-	}
 	var res string
 	if err := conn.QueryRow("SELECT version()").Scan(&res); err != nil {
 		panic(err)
 	}
+	var version clickhouse_tests.Version
 	for i, v := range strings.Split(res, ".") {
 		switch i {
 		case 0:
@@ -52,14 +48,23 @@ func CheckMinServerVersion(conn *sql.DB, major, minor, patch uint64) error {
 			version.Patch, _ = strconv.ParseUint(v, 10, 64)
 		}
 	}
-	if version.Major < major || (version.Major == major && version.Minor < minor) || (version.Major == major && version.Minor == minor && version.Patch < patch) {
-		return fmt.Errorf("unsupported server version %d.%d.%d < %d.%d.%d", version.Major, version.Minor, version.Patch, major, minor, patch)
-	}
-	return nil
+	return clickhouse_tests.CheckMinVersion(clickhouse_tests.Version{
+		Major: major,
+		Minor: minor,
+		Patch: patch,
+	}, version)
 }
 
 func GetDSNConnection(environment string, protocol clickhouse.Protocol, secure bool, compress string) (*sql.DB, error) {
 	env, err := clickhouse_tests.GetTestEnvironment(environment)
+	enforceReplication := ""
+	if clickhouse_tests.CheckMinVersion(clickhouse_tests.Version{
+		Major: 22,
+		Minor: 8,
+		Patch: 0,
+	}, env.Version) == nil {
+		enforceReplication = "database_replicated_enforce_synchronous_settings=1"
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -68,24 +73,31 @@ func GetDSNConnection(environment string, protocol clickhouse.Protocol, secure b
 	case clickhouse.HTTP:
 		switch secure {
 		case true:
-			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("https://%s:%s@%s:%d/%s?secure=true&compress=%s&wait_end_of_query=1&database_replicated_enforce_synchronous_settings=1&insert_quorum=%s", env.Username, env.Password, env.Host, env.HttpsPort, env.Database, compress, insertQuorum)))
+			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("https://%s:%s@%s:%d/%s?%s&secure=true&compress=%s&wait_end_of_query=1&insert_quorum=%s", env.Username, env.Password, env.Host, env.HttpsPort, env.Database, enforceReplication, compress, insertQuorum)))
 		case false:
-			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("http://%s:%s@%s:%d/%s?compress=%s&wait_end_of_query=1&database_replicated_enforce_synchronous_settings=1&insert_quorum=%s", env.Username, env.Password, env.Host, env.HttpPort, env.Database, compress, insertQuorum)))
+			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("http://%s:%s@%s:%d/%s?%s&compress=%s&wait_end_of_query=1&insert_quorum=%s", env.Username, env.Password, env.Host, env.HttpPort, env.Database, enforceReplication, compress, insertQuorum)))
 		}
 	case clickhouse.Native:
 		switch secure {
 		case true:
-			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("clickhouse://%s:%s@%s:%d/%s?secure=true&compress=%s&database_replicated_enforce_synchronous_settings=1&insert_quorum=%s", env.Username, env.Password, env.Host, env.SslPort, env.Database, compress, insertQuorum)))
+			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("clickhouse://%s:%s@%s:%d/%s?%s&secure=true&compress=%s&insert_quorum=%s", env.Username, env.Password, env.Host, env.SslPort, env.Database, enforceReplication, compress, insertQuorum)))
 		case false:
-			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("clickhouse://%s:%s@%s:%d/%s?compress=%s&database_replicated_enforce_synchronous_settings=1&insert_quorum=%s", env.Username, env.Password, env.Host, env.Port, env.Database, compress, insertQuorum)))
+			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("clickhouse://%s:%s@%s:%d/%s?%s&compress=%s&insert_quorum=%s", env.Username, env.Password, env.Host, env.Port, env.Database, enforceReplication, compress, insertQuorum)))
 		}
 	}
 	return nil, fmt.Errorf("unsupport protocol - %s", protocol.String())
 }
 
 func GetConnectionFromDSN(dsn string) (*sql.DB, error) {
+	conn, err := sql.Open("clickhouse", dsn)
+	if err != nil {
+		return conn, err
+	}
+	if CheckMinServerVersion(conn, 22, 8, 0) == nil {
+		dsn = fmt.Sprintf("%s&database_replicated_enforce_synchronous_settings=1", dsn)
+	}
 	insertQuorum := clickhouse_tests.GetEnv("CLICKHOUSE_QUORUM_INSERT", "1")
-	dsn = fmt.Sprintf("%s&database_replicated_enforce_synchronous_settings=1&insert_quorum=%s", dsn, insertQuorum)
+	dsn = fmt.Sprintf("%s&insert_quorum=%s", dsn, insertQuorum)
 	if strings.HasPrefix(dsn, "http") {
 		dsn = fmt.Sprintf("%s&wait_end_of_query=1", dsn)
 	}
@@ -96,7 +108,10 @@ func GetConnectionWithOptions(options *clickhouse.Options) *sql.DB {
 	if options.Settings == nil {
 		options.Settings = clickhouse.Settings{}
 	}
-	options.Settings["database_replicated_enforce_synchronous_settings"] = "1"
+	conn := clickhouse.OpenDB(options)
+	if CheckMinServerVersion(conn, 22, 8, 0) == nil {
+		options.Settings["database_replicated_enforce_synchronous_settings"] = "1"
+	}
 	var err error
 	options.Settings["insert_quorum"], err = strconv.Atoi(clickhouse_tests.GetEnv("CLICKHOUSE_QUORUM_INSERT", "1"))
 	if err != nil {
@@ -130,7 +145,13 @@ func GetOpenDBConnection(environment string, protocol clickhouse.Protocol, setti
 		settings["wait_end_of_query"] = 1
 	}
 	settings["insert_quorum"], err = strconv.Atoi(clickhouse_tests.GetEnv("CLICKHOUSE_QUORUM_INSERT", "1"))
-	settings["database_replicated_enforce_synchronous_settings"] = "1"
+	if clickhouse_tests.CheckMinVersion(clickhouse_tests.Version{
+		Major: 22,
+		Minor: 8,
+		Patch: 0,
+	}, env.Version) == nil {
+		settings["database_replicated_enforce_synchronous_settings"] = "1"
+	}
 	if err != nil {
 		return nil, err
 	}

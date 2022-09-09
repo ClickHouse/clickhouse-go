@@ -35,7 +35,7 @@ func TestTuple(t *testing.T) {
 	require.NoError(t, err)
 	localTime := testDate.In(loc)
 
-	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -110,7 +110,7 @@ func TestNamedTupleWithSlice(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, err)
 	// https://github.com/ClickHouse/ClickHouse/pull/36544
-	if err := CheckMinServerVersion(conn, 22, 5, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 22, 5, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -142,7 +142,7 @@ func TestNamedTupleWithTypedSlice(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, err)
 	// https://github.com/ClickHouse/ClickHouse/pull/36544
-	if err := CheckMinServerVersion(conn, 22, 5, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 22, 5, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -176,7 +176,7 @@ func TestNamedTupleWithMap(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, err)
 	// https://github.com/ClickHouse/ClickHouse/pull/36544
-	if err := CheckMinServerVersion(conn, 22, 5, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 22, 5, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -207,7 +207,7 @@ func TestNamedTupleWithTypedMap(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, err)
 	// https://github.com/ClickHouse/ClickHouse/pull/36544
-	if err := CheckMinServerVersion(conn, 22, 5, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 22, 5, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -238,7 +238,7 @@ func TestNamedTupleWithEscapedColumns(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, err)
 	// https://github.com/ClickHouse/ClickHouse/pull/36544
-	if err := CheckMinServerVersion(conn, 22, 5, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 22, 5, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -264,7 +264,7 @@ func TestNamedTupleIncomplete(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, err)
 	// https://github.com/ClickHouse/ClickHouse/pull/36544
-	if err := CheckMinServerVersion(conn, 22, 5, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 22, 5, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -286,7 +286,7 @@ func TestUnNamedTupleWithMap(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, err)
 	// https://github.com/ClickHouse/ClickHouse/pull/36544
-	if err := CheckMinServerVersion(conn, 22, 5, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 22, 5, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -320,7 +320,7 @@ func TestColumnarTuple(t *testing.T) {
 	conn, err := GetNativeConnection(nil, nil, nil)
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -404,7 +404,7 @@ func TestTupleFlush(t *testing.T) {
 	conn, err := GetNativeConnection(nil, nil, nil)
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}

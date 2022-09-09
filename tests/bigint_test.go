@@ -33,7 +33,7 @@ func TestSimpleBigInt(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 21, 12, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 21, 12, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -66,7 +66,7 @@ func TestBigInt(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 21, 12, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 21, 12, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -136,7 +136,7 @@ func TestNullableBigInt(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 21, 12, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 21, 12, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}

@@ -45,7 +45,7 @@ func TestStdCustomDial(t *testing.T) {
 	}
 	var (
 		dialCount int
-		conn      = GetConnectionWithOptions(&clickhouse.Options{
+		conn      = clickhouse.OpenDB(&clickhouse.Options{
 			Addr: []string{fmt.Sprintf("%s:%d", env.Host, port)},
 			Auth: clickhouse.Auth{
 				Database: "default",

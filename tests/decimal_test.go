@@ -35,7 +35,7 @@ func TestDecimal(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 21, 1, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 21, 1, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -97,7 +97,7 @@ func TestNegativeDecimal(t *testing.T) {
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE IF EXISTS test_decimal")
 	}()
-	if err := CheckMinServerVersion(conn, 21, 1, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 21, 1, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -130,7 +130,7 @@ func TestNullableDecimal(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 21, 1, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 21, 1, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}

@@ -32,7 +32,7 @@ func TestSimpleNested(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 22, 1, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 22, 1, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -70,7 +70,7 @@ func TestNestedFlattened(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 22, 1, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 22, 1, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -136,7 +136,7 @@ func TestFlattenedSimpleNested(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 22, 1, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 22, 1, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -184,7 +184,7 @@ func TestNestedUnFlattened(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 22, 1, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 22, 1, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -265,7 +265,7 @@ func TestNestedFlush(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 22, 1, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 22, 1, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}

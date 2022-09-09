@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
-	clickhouse_std_tests "github.com/ClickHouse/clickhouse-go/v2/tests/std"
 	"github.com/stretchr/testify/require"
 	"strconv"
 	"testing"
@@ -63,10 +62,10 @@ func Test647_OpenDB(t *testing.T) {
 		},
 		TLS: tlsConfig,
 	}
-	conn := clickhouse_std_tests.GetConnectionWithOptions(options)
+	conn := clickhouse.OpenDB(options)
 	require.NoError(t, conn.Ping())
 	//reuse options
-	conn2 := clickhouse_std_tests.GetConnectionWithOptions(options)
+	conn2 := clickhouse.OpenDB(options)
 	require.NoError(t, conn2.Ping())
 	// allow nil to be parsed - should work if ClickHouse was available on 9000
 	//conn3 := clickhouse.OpenDB(nil)

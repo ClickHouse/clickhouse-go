@@ -57,7 +57,7 @@ func TestNullableArray(t *testing.T) {
 		conn.Exec(ctx, "DROP TABLE IF EXISTS test_nullable_array")
 	}()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 21, 12, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 21, 12, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}

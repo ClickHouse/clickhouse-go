@@ -33,7 +33,7 @@ func TestDateTime64(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 20, 3, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 20, 3, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -116,7 +116,7 @@ func TestDateTime64AsReference(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 20, 3, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 20, 3, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -155,7 +155,7 @@ func TestNullableDateTime64(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 20, 3, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 20, 3, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -242,7 +242,7 @@ func TestColumnarDateTime64(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 20, 3, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 20, 3, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}

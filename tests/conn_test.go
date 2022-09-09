@@ -46,7 +46,7 @@ func TestConn(t *testing.T) {
 func TestBadConn(t *testing.T) {
 	env, err := GetNativeTestEnvironment()
 	require.NoError(t, err)
-	conn, err := GetConnectionWithOptions(&clickhouse.Options{
+	conn, err := clickhouse.Open(&clickhouse.Options{
 		Addr: []string{"127.0.0.1:9790"},
 		Auth: clickhouse.Auth{
 			Database: "default",

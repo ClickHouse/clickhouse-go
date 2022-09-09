@@ -36,7 +36,7 @@ func TestLowCardinality(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 19, 11, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 19, 11, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -132,7 +132,7 @@ func TestColmunarLowCardinality(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 20, 1, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 20, 1, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -194,7 +194,7 @@ func TestLowCardinalityFlush(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 20, 1, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 20, 1, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}

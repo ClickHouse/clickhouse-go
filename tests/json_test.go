@@ -60,7 +60,7 @@ func setupConnection(t *testing.T) driver.Conn {
 func setupTest(t *testing.T) (driver.Conn, func(t *testing.T)) {
 	ctx := context.Background()
 	conn := setupConnection(t)
-	if err := CheckMinServerVersion(conn, 22, 6, 1); err != nil {
+	if err := CheckMinServerServerVersion(conn, 22, 6, 1); err != nil {
 		t.Skip(err.Error())
 	}
 	conn.Exec(ctx, "DROP TABLE IF EXISTS json_test")
@@ -1976,7 +1976,7 @@ func TestJSONManyColumns(t *testing.T) {
 	ctx := context.Background()
 	conn := setupConnection(t)
 	conn.Exec(ctx, "DROP TABLE IF EXISTS json_test")
-	if err := CheckMinServerVersion(conn, 22, 6, 1); err != nil {
+	if err := CheckMinServerServerVersion(conn, 22, 6, 1); err != nil {
 		t.Skip(err.Error())
 	}
 	ddl := `CREATE table json_test(event JSON, event2 JSON, col1 String) ENGINE=Memory;`
