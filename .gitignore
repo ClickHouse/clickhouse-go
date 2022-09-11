@@ -28,3 +28,5 @@ _testmain.go
 coverage.txt
 .idea/**
 dev/*
+
+vendor

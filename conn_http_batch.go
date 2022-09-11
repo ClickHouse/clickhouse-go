@@ -27,6 +27,9 @@ import (
 	"io"
 	"io/ioutil"
 	"regexp"
+	"strconv"
+
+	"github.com/tidwall/gjson"
 )
 
 var splitHttpInsertRe = regexp.MustCompile("(?i)^INSERT INTO\\s+`?([\\w.]+)`?")
@@ -118,6 +121,55 @@ func (b *httpBatch) AppendStruct(v interface{}) error {
 		return err
 	}
 	return b.Append(values...)
+}
+
+func (b *httpBatch) AppendJson(j string) error {
+	if b.sent {
+		return ErrBatchAlreadySent
+	}
+	var v = make([]interface{}, len(b.block.Columns))
+
+	for i, c := range b.block.Columns {
+
+		//ct := c.ScanType().String()   // []time.Time
+		//ct := c.ScanType().Name()     //[]time.Time
+		//ct := c.Type()                //Array(DateTime)
+		//ct, err := c.Type().Column(c.Name()) //*column.Array
+
+		ct, err := c.Type().Column(c.Name(), nil) //*column.Array
+		if err != nil {
+			return b.err
+		}
+
+		r := gjson.Get(j, c.Name())
+
+		if !r.Exists() {
+			return fmt.Errorf("invalid column name %s", c.Name())
+		}
+
+		if r.IsObject() || r.IsArray() {
+			return fmt.Errorf("column name %s: unsuported complex type", c.Name())
+		}
+
+		val := r.Value()
+
+		switch ct.ScanType().String() {
+		case "[]int64":
+			val, err = strconv.ParseInt(r.String(), 10, 64)
+		}
+
+		switch ct.(type) {
+		case *column.Array:
+			v[i] = &[]interface{}{val}
+		default:
+			v[i] = val
+		}
+	}
+
+	if err := b.block.Append(v...); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (b *httpBatch) Column(idx int) driver.BatchColumn {

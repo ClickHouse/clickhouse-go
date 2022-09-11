@@ -80,6 +80,7 @@ type (
 		Abort() error
 		Append(v ...interface{}) error
 		AppendStruct(v interface{}) error
+		AppendJson(j string) error
 		Column(int) BatchColumn
 		Flush() error
 		Send() error
