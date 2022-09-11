@@ -27,7 +27,7 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/rnbondarenko/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
 )
 

@@ -23,8 +23,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"github.com/rnbondarenko/clickhouse-go/v2"
+	"github.com/rnbondarenko/clickhouse-go/v2/lib/driver"
 )
 
 func getClickhouseClient() driver.Conn {

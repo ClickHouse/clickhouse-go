@@ -25,7 +25,7 @@ import (
 	_ "net/http/pprof"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/rnbondarenko/clickhouse-go/v2"
 )
 
 var conn *sql.DB

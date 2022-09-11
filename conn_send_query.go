@@ -18,7 +18,7 @@
 package clickhouse
 
 import (
-	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
+	"github.com/rnbondarenko/clickhouse-go/v2/lib/proto"
 )
 
 // Connection::sendQuery

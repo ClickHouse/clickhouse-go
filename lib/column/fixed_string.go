@@ -23,7 +23,7 @@ import (
 	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
 
-	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
+	"github.com/rnbondarenko/clickhouse-go/v2/lib/binary"
 )
 
 type FixedString struct {

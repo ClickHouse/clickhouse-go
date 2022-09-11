@@ -19,11 +19,11 @@ package issues
 
 import (
 	"context"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
+	clickhouse_tests "github.com/rnbondarenko/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/require"
 	"testing"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/rnbondarenko/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
 )
 

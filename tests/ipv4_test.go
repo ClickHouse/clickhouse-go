@@ -19,12 +19,12 @@ package tests
 
 import (
 	"context"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
+	"github.com/rnbondarenko/clickhouse-go/v2/lib/column"
 	"github.com/stretchr/testify/require"
 	"net"
 	"testing"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/rnbondarenko/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
 )
 

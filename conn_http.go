@@ -35,9 +35,9 @@ import (
 
 	"github.com/ClickHouse/ch-go/compress"
 	chproto "github.com/ClickHouse/ch-go/proto"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 	"github.com/andybalholm/brotli"
 	"github.com/pkg/errors"
+	"github.com/rnbondarenko/clickhouse-go/v2/lib/proto"
 )
 
 const (

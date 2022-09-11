@@ -26,9 +26,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
+	"github.com/rnbondarenko/clickhouse-go/v2/lib/column"
+	"github.com/rnbondarenko/clickhouse-go/v2/lib/driver"
+	"github.com/rnbondarenko/clickhouse-go/v2/lib/proto"
 	"github.com/tidwall/gjson"
 )
 

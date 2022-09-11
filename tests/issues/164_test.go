@@ -20,9 +20,9 @@ package issues
 import (
 	"context"
 	"database/sql"
-	"github.com/ClickHouse/clickhouse-go/v2"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
-	clickhouse_std_tests "github.com/ClickHouse/clickhouse-go/v2/tests/std"
+	"github.com/rnbondarenko/clickhouse-go/v2"
+	clickhouse_tests "github.com/rnbondarenko/clickhouse-go/v2/tests"
+	clickhouse_std_tests "github.com/rnbondarenko/clickhouse-go/v2/tests/std"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"strconv"

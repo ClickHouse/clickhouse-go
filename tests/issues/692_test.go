@@ -1,10 +1,10 @@
 package issues
 
 import (
-	"github.com/ClickHouse/clickhouse-go/v2"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
-	"github.com/ClickHouse/clickhouse-go/v2/tests/std"
-	clickhouse_std_tests "github.com/ClickHouse/clickhouse-go/v2/tests/std"
+	"github.com/rnbondarenko/clickhouse-go/v2"
+	clickhouse_tests "github.com/rnbondarenko/clickhouse-go/v2/tests"
+	"github.com/rnbondarenko/clickhouse-go/v2/tests/std"
+	clickhouse_std_tests "github.com/rnbondarenko/clickhouse-go/v2/tests/std"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"strconv"

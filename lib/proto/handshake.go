@@ -22,7 +22,7 @@ import (
 	chproto "github.com/ClickHouse/ch-go/proto"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/v2/lib/timezone"
+	"github.com/rnbondarenko/clickhouse-go/v2/lib/timezone"
 )
 
 const ClientName = "Golang SQLDriver"

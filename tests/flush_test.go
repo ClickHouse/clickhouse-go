@@ -19,9 +19,9 @@ package tests
 
 import (
 	"context"
-	"github.com/ClickHouse/clickhouse-go/v2"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/google/uuid"
+	"github.com/rnbondarenko/clickhouse-go/v2"
+	"github.com/rnbondarenko/clickhouse-go/v2/lib/driver"
 	"github.com/stretchr/testify/require"
 	"testing"
 	"time"

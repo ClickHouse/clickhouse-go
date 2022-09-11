@@ -25,7 +25,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"github.com/rnbondarenko/clickhouse-go/v2/lib/driver"
 )
 
 func Named(name string, value interface{}) driver.NamedValue {
