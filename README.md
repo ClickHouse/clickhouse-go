@@ -29,11 +29,11 @@ The client is tested against the currently [supported versions](https://github.c
 * Supports native ClickHouse TCP client-server protocol
 * Compatibility with [`database/sql`](#std-databasesql-interface) ([slower](#benchmark) than [native interface](#native-interface)!)
 * [`database/sql`](#std-databasesql-interface) supports http protocol for transport. (Experimental)
-* Marshal rows into structs ([ScanStruct](tests/scan_struct_test.go), [Select](examples/native/scan_struct/main.go))
+* Marshal rows into structs ([ScanStruct](examples/clickhouse_api/scan_struct.go), [Select](examples/clickhouse_api/select_struct.go))
 * Unmarshal struct to row ([AppendStruct](benchmark/v2/write-native-struct/main.go))
 * Connection pool
 * Failover and load balancing
-* [Bulk write support](examples/native/batch/main.go) (for `database/sql` [use](examples/std/batch/main.go) `begin->prepare->(in loop exec)->commit`)
+* [Bulk write support](examples/clickhouse_api/batch.go) (for `database/sql` [use](examples/std/batch.go) `begin->prepare->(in loop exec)->commit`)
 * [AsyncInsert](benchmark/v2/write-async/main.go)
 * Named and numeric placeholders support
 * LZ4/ZSTD compression support
@@ -251,19 +251,19 @@ go get -u github.com/ClickHouse/clickhouse-go/v2
 
 ### native interface
 
-* [batch](examples/native/batch/main.go)
-* [async insert](examples/native/write-async)
-* [batch struct](examples/native/write-struct/main.go)
-* [columnar](examples/native/write-columnar/main.go)
-* [scan struct](examples/native/scan_struct/main.go)
-* [bind params](examples/native/bind/main.go)
+* [batch](examples/clickhouse_api/batch.go)
+* [async insert](examples/clickhouse_api/async.go)
+* [batch struct](examples/clickhouse_api/append_struct.go)
+* [columnar](examples/clickhouse_api/columnar_insert.go)
+* [scan struct](eexamples/clickhouse_api/scan_struct.go)
+* [bind params](examples/clickhouse_api/bind.go)
 
 ### std `database/sql` interface
 
-* [batch](examples/std/batch/main.go)
-* [async insert](examples/std/write-async)
-* [open db](examples/std/open_db/main.go)
-* [bind params](examples/std/bind/main.go)
+* [batch](examples/std/batch.go)
+* [async insert](examples/std/async.go)
+* [open db](examples/std/connect.go)
+* [bind params](examples/std/bind.go)
 
 ## ClickHouse alternatives - ch-go
 
