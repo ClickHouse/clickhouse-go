@@ -144,6 +144,10 @@ func TestStdOpenTelemetry(t *testing.T) {
 	require.NoError(t, OpenTelemetry())
 }
 
+func TestOpenDb(t *testing.T) {
+	require.NoError(t, OpenDb())
+}
+
 // TODO:
 // println
 // README

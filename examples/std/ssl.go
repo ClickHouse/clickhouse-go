@@ -52,7 +52,7 @@ func ConnectSSL() error {
 	conn := clickhouse.OpenDB(&clickhouse.Options{
 		Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.SslPort)},
 		Auth: clickhouse.Auth{
-			Database: "default",
+			Database: env.Database,
 			Username: env.Username,
 			Password: env.Password,
 		},

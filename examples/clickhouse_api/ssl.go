@@ -50,7 +50,7 @@ func SSLVersion() error {
 	conn, err := clickhouse.Open(&clickhouse.Options{
 		Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.SslPort)},
 		Auth: clickhouse.Auth{
-			Database: "default",
+			Database: env.Database,
 			Username: env.Username,
 			Password: env.Password,
 		},

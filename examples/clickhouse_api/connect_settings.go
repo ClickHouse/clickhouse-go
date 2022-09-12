@@ -34,7 +34,7 @@ func PingWithSettings() error {
 	conn, err := clickhouse.Open(&clickhouse.Options{
 		Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},
 		Auth: clickhouse.Auth{
-			Database: "default",
+			Database: env.Database,
 			Username: env.Username,
 			Password: env.Password,
 		},

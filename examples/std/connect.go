@@ -31,7 +31,7 @@ func Connect() error {
 	conn := clickhouse.OpenDB(&clickhouse.Options{
 		Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},
 		Auth: clickhouse.Auth{
-			Database: "default",
+			Database: env.Database,
 			Username: env.Username,
 			Password: env.Password,
 		},

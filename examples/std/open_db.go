@@ -15,24 +15,27 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package main
+package std
 
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 )
 
-func example() error {
+func OpenDb() error {
+	env, err := GetStdTestEnvironment()
+	if err != nil {
+		return err
+	}
 	conn := clickhouse.OpenDB(&clickhouse.Options{
-		Addr: []string{"127.0.0.1:9000"},
+		Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},
 		Auth: clickhouse.Auth{
-			Database: "default",
-			Username: "default",
-			Password: "",
+			Database: env.Database,
+			Username: env.Username,
+			Password: env.Password,
 		},
 		Settings: clickhouse.Settings{
 			"max_execution_time": 60,
@@ -41,7 +44,6 @@ func example() error {
 		Compression: &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
 		},
-		//Debug: true,
 	})
 	conn.SetMaxIdleConns(5)
 	conn.SetMaxOpenConns(10)
@@ -60,7 +62,7 @@ func example() error {
 	if _, err := conn.ExecContext(ctx, `DROP TABLE IF EXISTS example`); err != nil {
 		return err
 	}
-	_, err := conn.ExecContext(ctx, `
+	_, err = conn.ExecContext(ctx, `
 		CREATE TABLE IF NOT EXISTS example (
 			Col1 UInt8,
 			Col2 String,
@@ -105,10 +107,4 @@ func example() error {
 	}
 	rows.Close()
 	return rows.Err()
-}
-
-func main() {
-	if err := example(); err != nil {
-		log.Fatal(err)
-	}
 }
