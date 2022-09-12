@@ -29,7 +29,7 @@ func ConnectHTTP() error {
 		return err
 	}
 	conn := clickhouse.OpenDB(&clickhouse.Options{
-		Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},
+		Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.HttpPort)},
 		Auth: clickhouse.Auth{
 			Database: "default",
 			Username: env.Username,
@@ -45,7 +45,7 @@ func ConnectDSNHTTP() error {
 	if err != nil {
 		return err
 	}
-	conn, err := sql.Open("clickhouse", fmt.Sprintf("http://%s:%d?username=%s&password=%s", env.Host, env.Port, env.Username, env.Password))
+	conn, err := sql.Open("clickhouse", fmt.Sprintf("http://%s:%d?username=%s&password=%s", env.Host, env.HttpPort, env.Username, env.Password))
 	if err != nil {
 		return err
 	}

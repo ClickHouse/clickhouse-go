@@ -29,7 +29,7 @@ func Sessions() error {
 		return err
 	}
 	conn := clickhouse.OpenDB(&clickhouse.Options{
-		Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},
+		Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.HttpPort)},
 		Auth: clickhouse.Auth{
 			Database: "default",
 			Username: env.Username,

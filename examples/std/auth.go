@@ -21,7 +21,6 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 )
 
 func ConnectAuth() error {
@@ -41,18 +40,15 @@ func ConnectAuth() error {
 }
 
 func ConnectDSNAuth() error {
-	port := clickhouse_tests.GetEnv("CLICKHOUSE_HTTP_PORT", "8123")
-	host := clickhouse_tests.GetEnv("CLICKHOUSE_HOST", "localhost")
-	username := clickhouse_tests.GetEnv("CLICKHOUSE_USERNAME", "default")
-	password := clickhouse_tests.GetEnv("CLICKHOUSE_PASSWORD", "")
-	conn, err := sql.Open("clickhouse", fmt.Sprintf("http://%s:%s?username=%s&password=%s", host, port, username, password))
+	env, err := GetStdTestEnvironment()
+	conn, err := sql.Open("clickhouse", fmt.Sprintf("http://%s:%d?username=%s&password=%s", env.Host, env.HttpPort, env.Username, env.Password))
 	if err != nil {
 		return err
 	}
 	if err = conn.Ping(); err != nil {
 		return err
 	}
-	conn, err = sql.Open("clickhouse", fmt.Sprintf("http://%s:%s@%s:%s", username, password, host, port))
+	conn, err = sql.Open("clickhouse", fmt.Sprintf("http://%s:%s@%s:%d", env.Username, env.Password, env.Host, env.HttpPort))
 	if err != nil {
 		return err
 	}

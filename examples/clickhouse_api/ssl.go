@@ -37,7 +37,7 @@ func SSLVersion() error {
 		return err
 	}
 	t := &tls.Config{}
-	caCert, err := ioutil.ReadFile(path.Join(cwd, "../tests/resources/CAroot.crt"))
+	caCert, err := ioutil.ReadFile(path.Join(cwd, "../../tests/resources/CAroot.crt"))
 	if err != nil {
 		return err
 	}
@@ -48,7 +48,7 @@ func SSLVersion() error {
 	}
 	t.RootCAs = caCertPool
 	conn, err := clickhouse.Open(&clickhouse.Options{
-		Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},
+		Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.SslPort)},
 		Auth: clickhouse.Auth{
 			Database: "default",
 			Username: env.Username,

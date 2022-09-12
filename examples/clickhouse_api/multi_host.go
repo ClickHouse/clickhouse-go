@@ -20,7 +20,6 @@ package clickhouse_api
 import (
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 )
 
 func MultiHostVersion() error {
@@ -48,17 +47,14 @@ func MultiHostVersion() error {
 }
 
 func MultiHostRoundRobinVersion() error {
-	port := clickhouse_tests.GetEnv("CLICKHOUSE_PORT", "9000")
-	host := clickhouse_tests.GetEnv("CLICKHOUSE_HOST", "localhost")
-	username := clickhouse_tests.GetEnv("CLICKHOUSE_USERNAME", "default")
-	password := clickhouse_tests.GetEnv("CLICKHOUSE_PASSWORD", "")
+	env, err := GetNativeTestEnvironment()
 	conn, err := clickhouse.Open(&clickhouse.Options{
-		Addr:             []string{"127.0.0.1:9001", "127.0.0.1:9002", fmt.Sprintf("%s:%s", host, port)},
+		Addr:             []string{"127.0.0.1:9001", "127.0.0.1:9002", fmt.Sprintf("%s:%d", env.Host, env.Port)},
 		ConnOpenStrategy: clickhouse.ConnOpenRoundRobin,
 		Auth: clickhouse.Auth{
 			Database: "default",
-			Username: username,
-			Password: password,
+			Username: env.Username,
+			Password: env.Password,
 		},
 	})
 	if err != nil {

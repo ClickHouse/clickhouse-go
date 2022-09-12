@@ -29,7 +29,7 @@ func SSLNoVerifyVersion() error {
 		return err
 	}
 	conn, err := clickhouse.Open(&clickhouse.Options{
-		Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},
+		Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.SslPort)},
 		Auth: clickhouse.Auth{
 			Database: "default",
 			Username: env.Username,

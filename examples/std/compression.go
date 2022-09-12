@@ -30,7 +30,7 @@ func CompressOpenDB() error {
 		return err
 	}
 	conn := clickhouse.OpenDB(&clickhouse.Options{
-		Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},
+		Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.HttpPort)},
 		Auth: clickhouse.Auth{
 			Database: "default",
 			Username: env.Username,
@@ -81,7 +81,7 @@ func CompressOpen() error {
 		return err
 	}
 	// note compress=gzip&compress_level=5
-	conn, err := sql.Open("clickhouse", fmt.Sprintf("http://%s:%d?username=%s&password=%s&compress=gzip&compress_level=5", env.Host, env.Port, env.Username, env.Password))
+	conn, err := sql.Open("clickhouse", fmt.Sprintf("http://%s:%d?username=%s&password=%s&compress=gzip&compress_level=5", env.Host, env.HttpPort, env.Username, env.Password))
 	defer func() {
 		conn.Exec("DROP TABLE example")
 	}()
