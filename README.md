@@ -51,6 +51,43 @@ Support for the ClickHouse protocol advanced features using `Context`:
 	* Profile info
 	* Profile events
 
+# `clickhouse` interface (formally `native` interface)
+
+```go
+	conn, err := clickhouse.Open(&clickhouse.Options{
+		Addr: []string{"127.0.0.1:9000"},
+		Auth: clickhouse.Auth{
+			Database: "default",
+			Username: "default",
+			Password: "",
+		},
+		DialContext: func(ctx context.Context, addr string) (net.Conn, error) {
+			dialCount++
+			var d net.Dialer
+			return d.DialContext(ctx, "tcp", addr)
+		},
+		Debug: true,
+		Debugf: func(format string, v ...interface{}) {
+			fmt.Printf(format, v)
+		},
+		Settings: clickhouse.Settings{
+			"max_execution_time": 60,
+		},
+		Compression: &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		},
+		DialTimeout:      time.Duration(10) * time.Second,
+		MaxOpenConns:     5,
+		MaxIdleConns:     5,
+		ConnMaxLifetime:  time.Duration(10) * time.Minute,
+		ConnOpenStrategy: clickhouse.ConnOpenInOrder,
+	})
+	if err != nil {
+		return err
+	}
+	return conn.Ping(context.Background())
+```
+
 # `database/sql` interface
 
 ## OpenDB
@@ -79,6 +116,7 @@ conn.SetMaxIdleConns(5)
 conn.SetMaxOpenConns(10)
 conn.SetConnMaxLifetime(time.Hour)
 ```
+
 ## DSN
 
 * hosts  - comma-separated list of single address hosts for load-balancing and failover
@@ -89,7 +127,12 @@ conn.SetConnMaxLifetime(time.Hour)
     * round_robin      - choose a round-robin server from the set
     * in_order    - first live server is chosen in specified order
 * debug - enable debug output (boolean value)
-* compress - enable lz4 compression (boolean value)
+* compress - compress - specify the compression algorithm - “none” (default), `zstd`, `lz4`, `gzip`, `deflate`, `br`. If set to `true`, `lz4` will be used.
+* compress_level - Level of compression (default is 0). This is algorithm specific:
+  - `gzip` - `-2` (Best Speed) to `9` (Best Compression)
+  - `deflate` - `-2` (Best Speed) to `9` (Best Compression)
+  - `br` - `0` (Best Speed) to `11` (Best Compression)
+  - `zstd`, `lz4` - ignored
 
 SSL/TLS parameters:
 
@@ -135,7 +178,7 @@ conn := clickhouse.OpenDB(&clickhouse.Options{
 
 ## Compression
 
-ZSTD/LZ4 compression is supported over native and http. This is performed at a block level and is only used for inserts.
+ZSTD/LZ4 compression is supported over native and http protocols. This is performed at a block level and is only used for inserts.
 
 If using `Open` via the std interface and specifying a DSN, compression can be enabled via the `compress` flag. Currently, this is a boolean flag which enables `LZ4` compression.
 
@@ -187,12 +230,12 @@ conn := clickhouse.OpenDB(&clickhouse.Options{
 
 ## Benchmark
 
-| [V1 (READ)](benchmark/v1/read/main.go) | [V2 (READ) std](benchmark/v2/read/main.go) | [V2 (READ) native](benchmark/v2/read-native/main.go) |
-| -------------------------------------- | ------------------------------------------ | ---------------------------------------------------- |
-| 1.218s                                 | 924.390ms                                  | 675.721ms                                            |
+| [V1 (READ)](benchmark/v1/read/main.go) | [V2 (READ) std](benchmark/v2/read/main.go) | [V2 (READ) clickhouse API](benchmark/v2/read-native/main.go) |
+| -------------------------------------- | ------------------------------------------ |--------------------------------------------------------------|
+| 1.218s                                 | 924.390ms                                  | 675.721ms                                                    |
 
 
-| [V1 (WRITE)](benchmark/v1/write/main.go) | [V2 (WRITE) std](benchmark/v2/write/main.go) | [V2 (WRITE) native](benchmark/v2/write-native/main.go) | [V2 (WRITE) by column](benchmark/v2/write-native-columnar/main.go) |
+| [V1 (WRITE)](benchmark/v1/write/main.go) | [V2 (WRITE) std](benchmark/v2/write/main.go) | [V2 (WRITE) clickhouse API](benchmark/v2/write-native/main.go) | [V2 (WRITE) by column](benchmark/v2/write-native-columnar/main.go) |
 | ---------------------------------------- | -------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------ |
 | 1.899s                                   | 1.177s                                       | 699.203ms                                              | 661.973ms                                                          |
 

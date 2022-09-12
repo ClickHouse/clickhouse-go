@@ -19,7 +19,6 @@ package std
 
 import (
 	"crypto/tls"
-	"encoding/json"
 	"github.com/ClickHouse/clickhouse-go/v2"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/assert"
@@ -61,14 +60,6 @@ type GithubEvent struct {
 }
 
 var testDate, _ = time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", "2022-05-25 17:20:57 +0100 WEST")
-
-func toJson(obj interface{}) string {
-	bytes, err := json.Marshal(obj)
-	if err != nil {
-		return "unable to marshal"
-	}
-	return string(bytes)
-}
 
 func TestStdJson(t *testing.T) {
 	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
@@ -126,16 +117,16 @@ func TestStdJson(t *testing.T) {
 	var event interface{}
 	rows := conn.QueryRow("SELECT * FROM json_std_test")
 	require.NoError(t, rows.Scan(&event))
-	assert.JSONEq(t, toJson(col1Data), toJson(event))
+	assert.JSONEq(t, ToJson(col1Data), ToJson(event))
 	// again pass interface{} for anthing other than primitives
 	rows = conn.QueryRow("SELECT event.assignee.Achievement FROM json_std_test")
 	var achievement interface{}
 	require.NoError(t, rows.Scan(&achievement))
-	assert.JSONEq(t, toJson(col1Data.Assignee.Achievement), toJson(achievement))
+	assert.JSONEq(t, ToJson(col1Data.Assignee.Achievement), ToJson(achievement))
 	rows = conn.QueryRow("SELECT event.assignee.Repositories FROM json_std_test")
 	var repositories interface{}
 	require.NoError(t, rows.Scan(&repositories))
-	assert.JSONEq(t, toJson(col1Data.Assignee.Repositories), toJson(repositories))
+	assert.JSONEq(t, ToJson(col1Data.Assignee.Repositories), ToJson(repositories))
 }
 
 //https://github.com/ClickHouse/clickhouse-go/issues/645
@@ -184,5 +175,5 @@ func TestStdJsonWithMap(t *testing.T) {
 	var event interface{}
 	rows := conn.QueryRow("SELECT * FROM json_std_test")
 	require.NoError(t, rows.Scan(&event))
-	assert.JSONEq(t, toJson(col1Data), toJson(event))
+	assert.JSONEq(t, ToJson(col1Data), ToJson(event))
 }

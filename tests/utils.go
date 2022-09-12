@@ -99,6 +99,7 @@ func (env *ClickHouseTestEnvironment) setVersion() {
 	env.Version = v.Version
 }
 
+
 func CheckMinServerServerVersion(conn driver.Conn, major, minor, patch uint64) error {
 	v, err := conn.ServerVersion()
 	if err != nil {
@@ -117,6 +118,7 @@ func CheckMinVersion(constraint Version, version Version) error {
 	}
 	return nil
 }
+
 
 func CreateClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment, error) {
 	// create a ClickHouse Container
@@ -331,12 +333,19 @@ func getDatabaseName(testSet string) string {
 	return fmt.Sprintf("clickhouse-go-%s-%s-%d", testSet, testUUID, testTimestamp)
 }
 
+
 func GetEnv(key, fallback string) string {
 	if value, ok := os.LookupEnv(key); ok {
 		return value
 	}
 	return fallback
 }
+
+func IsSetInEnv(key string) bool {
+	_, ok := os.LookupEnv(key)
+	return ok
+}
+
 
 var src = rand.NewSource(time.Now().UnixNano())
 

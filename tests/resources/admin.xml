@@ -1,4 +1,4 @@
-<yandex>
+<clickhouse>
     <!-- Profiles of settings. -->
     <profiles>
         <!-- Default settings. -->
@@ -12,4 +12,4 @@
             <access_management>1</access_management>
         </default>
     </users>
-</yandex>
+</clickhouse>

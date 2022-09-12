@@ -209,8 +209,8 @@ func TestLowCardinalityFlush(t *testing.T) {
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_lowcardinality_flush")
 	require.NoError(t, err)
-	vals := [1000]string{}
-	for i := 0; i < 1000; i++ {
+	vals := [100]string{}
+	for i := 0; i < 100; i++ {
 		vals[i] = RandAsciiString(10)
 		require.NoError(t, batch.Append(vals[i]))
 		require.NoError(t, batch.Flush())
@@ -225,5 +225,5 @@ func TestLowCardinalityFlush(t *testing.T) {
 		require.Equal(t, vals[i], col1)
 		i += 1
 	}
-	require.Equal(t, 1000, i)
+	require.Equal(t, 100, i)
 }

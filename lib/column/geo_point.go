@@ -86,6 +86,14 @@ func (col *Point) Append(v interface{}) (nulls []uint8, err error) {
 				Y: v.Lat(),
 			})
 		}
+	case []*orb.Point:
+		nulls = make([]uint8, len(v))
+		for _, v := range v {
+			col.col.Append(proto.Point{
+				X: v.Lon(),
+				Y: v.Lat(),
+			})
+		}
 	default:
 		return nil, &ColumnConverterError{
 			Op:   "Append",
@@ -98,6 +106,11 @@ func (col *Point) Append(v interface{}) (nulls []uint8, err error) {
 func (col *Point) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case orb.Point:
+		col.col.Append(proto.Point{
+			X: v.Lon(),
+			Y: v.Lat(),
+		})
+	case *orb.Point:
 		col.col.Append(proto.Point{
 			X: v.Lon(),
 			Y: v.Lat(),

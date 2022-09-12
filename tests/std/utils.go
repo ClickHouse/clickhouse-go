@@ -20,6 +20,7 @@ package std
 import (
 	"crypto/tls"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
@@ -168,4 +169,12 @@ func GetOpenDBConnection(environment string, protocol clickhouse.Protocol, setti
 		TLS:         tlsConfig,
 		Protocol:    protocol,
 	}), nil
+}
+
+func ToJson(obj interface{}) string {
+	bytes, err := json.Marshal(obj)
+	if err != nil {
+		return "unable to marshal"
+	}
+	return string(bytes)
 }

@@ -73,8 +73,8 @@ func TestCustomDialContext(t *testing.T) {
 	}()
 	start := time.Now()
 	// query is cancelled with context
-	err = conn.QueryRow(ctx1, "SELECT sleep(10)").Scan()
-	require.Error(t, err, "context cancelled")
-	assert.Equal(t, 1, dialCount)
+	if err = conn.QueryRow(ctx1, "SELECT sleep(3)").Scan(); assert.Error(t, err, "context cancelled") {
+		assert.Equal(t, 1, dialCount)
+	}
 	assert.True(t, time.Since(start) < time.Second)
 }

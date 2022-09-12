@@ -84,7 +84,12 @@ func (col *MultiPolygon) Append(v interface{}) (nulls []uint8, err error) {
 			values = append(values, v)
 		}
 		return col.set.Append(values)
-
+	case []*orb.MultiPolygon:
+		values := make([][]orb.Polygon, 0, len(v))
+		for _, v := range v {
+			values = append(values, *v)
+		}
+		return col.set.Append(values)
 	default:
 		return nil, &ColumnConverterError{
 			Op:   "Append",
@@ -98,6 +103,8 @@ func (col *MultiPolygon) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case orb.MultiPolygon:
 		return col.set.AppendRow([]orb.Polygon(v))
+	case *orb.MultiPolygon:
+		return col.set.AppendRow([]orb.Polygon(*v))
 	default:
 		return &ColumnConverterError{
 			Op:   "AppendRow",
