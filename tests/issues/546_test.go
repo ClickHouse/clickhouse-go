@@ -2,7 +2,11 @@ package issues
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
+	"github.com/stretchr/testify/require"
+	"strconv"
 	"testing"
 	"time"
 
@@ -11,24 +15,33 @@ import (
 )
 
 func Test546(t *testing.T) {
-	conn, err := clickhouse.Open(&clickhouse.Options{
-		Addr: []string{"127.0.0.1:9000"},
+	env, err := GetIssuesTestEnvironment()
+	require.NoError(t, err)
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	var tlsConfig *tls.Config
+	port := env.Port
+	if useSSL {
+		tlsConfig = &tls.Config{}
+		port = env.SslPort
+	}
+	conn, err := clickhouse_tests.GetConnectionWithOptions(&clickhouse.Options{
+		Addr: []string{fmt.Sprintf("%s:%d", env.Host, port)},
 		Auth: clickhouse.Auth{
 			Database: "default",
-			Username: "default",
-			Password: "",
+			Username: env.Username,
+			Password: env.Password,
+		},
+		Compression: &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
 		},
 		DialTimeout:     time.Second,
 		MaxOpenConns:    10,
 		MaxIdleConns:    5,
 		ConnMaxLifetime: time.Hour,
-		Compression: &clickhouse.Compression{
-			Method: clickhouse.CompressionLZ4,
-		},
+		TLS:             tlsConfig,
 	})
-	if err != nil {
-		assert.NoError(t, err)
-	}
+	require.NoError(t, err)
 	ctx := clickhouse.Context(context.Background(), clickhouse.WithSettings(clickhouse.Settings{
 		"max_block_size": 2000000,
 	}),
@@ -37,12 +50,11 @@ func Test546(t *testing.T) {
 		}), clickhouse.WithProfileInfo(func(p *clickhouse.ProfileInfo) {
 			fmt.Println("profile info: ", p)
 		}))
-	if err := conn.Ping(ctx); err != nil {
-		if exception, ok := err.(*clickhouse.Exception); ok {
-			fmt.Printf("Catch exception [%d] %s \n%s\n", exception.Code, exception.Message, exception.StackTrace)
-		}
-		assert.NoError(t, err)
+	require.NoError(t, conn.Ping(ctx))
+	if exception, ok := err.(*clickhouse.Exception); ok {
+		fmt.Printf("Catch exception [%d] %s \n%s\n", exception.Code, exception.Message, exception.StackTrace)
 	}
+	assert.NoError(t, err)
 
 	rows, err := conn.Query(ctx, "SELECT * FROM system.numbers LIMIT 2000000", time.Now())
 	assert.NoError(t, err)

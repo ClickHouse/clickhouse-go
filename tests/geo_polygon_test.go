@@ -29,25 +29,14 @@ import (
 )
 
 func TestGeoPolygon(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			Settings: clickhouse.Settings{
-				"allow_experimental_geo_types": 1,
-			},
-		})
-	)
+	conn, err := GetNativeConnection(clickhouse.Settings{
+		"allow_experimental_geo_types": 1,
+	}, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 21, 12, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 21, 12, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -55,7 +44,7 @@ func TestGeoPolygon(t *testing.T) {
 		CREATE TABLE test_geo_polygon (
 			  Col1 Polygon
 			, Col2 Array(Polygon)
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_geo_polygon")
@@ -109,32 +98,21 @@ func TestGeoPolygon(t *testing.T) {
 }
 
 func TestGeoPolygonFlush(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			Settings: clickhouse.Settings{
-				"allow_experimental_geo_types": 1,
-			},
-		})
-	)
+	conn, err := GetNativeConnection(clickhouse.Settings{
+		"allow_experimental_geo_types": 1,
+	}, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 21, 12, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 21, 12, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
 	const ddl = `
 		CREATE TABLE test_geo_polygon_flush (
 			  Col1 Polygon
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_geo_polygon_flush")

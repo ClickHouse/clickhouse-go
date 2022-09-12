@@ -1,21 +1,26 @@
 package issues
 
 import (
-	"database/sql"
+	"github.com/ClickHouse/clickhouse-go/v2"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
+	clickhouse_std_tests "github.com/ClickHouse/clickhouse-go/v2/tests/std"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"strconv"
 	"testing"
 	"time"
 )
 
 func Test693(t *testing.T) {
-	conn, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000")
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	conn, err := clickhouse_std_tests.GetDSNConnection("issues", clickhouse.Native, useSSL, "false")
 	require.NoError(t, err)
 	const ddl = `
 			CREATE TABLE test_date (
 				  ID   UInt8
 				, Col1 Date
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 	type result struct {
 		ColID uint8 `ch:"ID"`

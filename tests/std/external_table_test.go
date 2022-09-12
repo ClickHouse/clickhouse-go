@@ -19,8 +19,10 @@ package std
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
+	"github.com/stretchr/testify/require"
+	"strconv"
 	"testing"
 	"time"
 
@@ -35,47 +37,44 @@ func TestStdExternalTable(t *testing.T) {
 		ext.Column("col2", "String"),
 		ext.Column("col3", "DateTime"),
 	)
-	if assert.NoError(t, err) {
-		for i := 0; i < 10; i++ {
-			assert.NoError(t, table1.Append(uint8(i), fmt.Sprintf("value_%d", i), time.Now()))
-		}
+	require.NoError(t, err)
+	for i := 0; i < 10; i++ {
+		assert.NoError(t, table1.Append(uint8(i), fmt.Sprintf("value_%d", i), time.Now()))
 	}
 	table2, err := ext.NewTable("external_table_2",
 		ext.Column("col1", "UInt8"),
 		ext.Column("col2", "String"),
 		ext.Column("col3", "DateTime"),
 	)
-	if assert.NoError(t, err) {
-		for i := 0; i < 10; i++ {
-			assert.NoError(t, table2.Append(uint8(i), fmt.Sprintf("value_%d", i), time.Now()))
-		}
+	require.NoError(t, err)
+	for i := 0; i < 10; i++ {
+		assert.NoError(t, table2.Append(uint8(i), fmt.Sprintf("value_%d", i), time.Now()))
 	}
-	if conn, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000"); assert.NoError(t, err) {
-		ctx := clickhouse.Context(context.Background(),
-			clickhouse.WithExternalTable(table1, table2),
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	conn, err := GetStdDSNConnection(clickhouse.Native, useSSL, "false")
+	require.NoError(t, err)
+	ctx := clickhouse.Context(context.Background(),
+		clickhouse.WithExternalTable(table1, table2),
+	)
+	rows, err := conn.QueryContext(ctx, "SELECT * FROM external_table_1")
+	require.NoError(t, err)
+	for rows.Next() {
+		var (
+			col1 uint8
+			col2 string
+			col3 time.Time
 		)
-		if rows, err := conn.QueryContext(ctx, "SELECT * FROM external_table_1"); assert.NoError(t, err) {
-			for rows.Next() {
-				var (
-					col1 uint8
-					col2 string
-					col3 time.Time
-				)
-				if err := rows.Scan(&col1, &col2, &col3); assert.NoError(t, err) {
-					t.Logf("row: col1=%d, col2=%s, col3=%s\n", col1, col2, col3)
-				}
-			}
-			rows.Close()
-		}
-		var count uint64
-		if err := conn.QueryRowContext(ctx, "SELECT COUNT(*) FROM external_table_1").Scan(&count); assert.NoError(t, err) {
-			assert.Equal(t, uint64(10), count)
-		}
-		if err := conn.QueryRowContext(ctx, "SELECT COUNT(*) FROM external_table_2").Scan(&count); assert.NoError(t, err) {
-			assert.Equal(t, uint64(10), count)
-		}
-		if err := conn.QueryRowContext(ctx, "SELECT COUNT(*) FROM (SELECT * FROM external_table_1 UNION ALL SELECT * FROM external_table_2)").Scan(&count); assert.NoError(t, err) {
-			assert.Equal(t, uint64(20), count)
-		}
+		require.NoError(t, rows.Scan(&col1, &col2, &col3))
+		t.Logf("row: col1=%d, col2=%s, col3=%s\n", col1, col2, col3)
 	}
+	rows.Close()
+
+	var count uint64
+	require.NoError(t, conn.QueryRowContext(ctx, "SELECT COUNT(*) FROM external_table_1").Scan(&count))
+	assert.Equal(t, uint64(10), count)
+	require.NoError(t, conn.QueryRowContext(ctx, "SELECT COUNT(*) FROM external_table_2").Scan(&count))
+	assert.Equal(t, uint64(10), count)
+	require.NoError(t, conn.QueryRowContext(ctx, "SELECT COUNT(*) FROM (SELECT * FROM external_table_1 UNION ALL SELECT * FROM external_table_2)").Scan(&count))
+	assert.Equal(t, uint64(20), count)
 }

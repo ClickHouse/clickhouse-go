@@ -201,7 +201,7 @@ func (c *connect) readData(packet byte, compressible bool) (*proto.Block, error)
 		c.reader.EnableCompression()
 		defer c.reader.DisableCompression()
 	}
-	var block proto.Block
+	block := proto.Block{Timezone: c.server.Timezone}
 	if err := block.Decode(c.reader, c.revision); err != nil {
 		return nil, err
 	}

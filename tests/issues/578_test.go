@@ -2,16 +2,18 @@ package issues
 
 import (
 	"context"
-	"github.com/ClickHouse/clickhouse-go/v2"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"testing"
 )
 
 func Test578(t *testing.T) {
-	ctx := context.Background()
-	conn, err := clickhouse.Open(&clickhouse.Options{
-		Addr: []string{"127.0.0.1:9000"},
-	})
+	var (
+		ctx       = context.Background()
+		conn, err = clickhouse_tests.GetConnection("issues", nil, nil, nil)
+	)
+	require.NoError(t, err)
 	assert.NoError(t, err)
 
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO non_existent_table")

@@ -38,25 +38,14 @@ func (t testStr) String() string {
 }
 
 func TestSimpleString(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			DialTimeout: time.Second * 120,
-			// Debug:       true,
-		})
-	)
+	conn, err := GetConnection("native", nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+
 	require.NoError(t, err)
 	require.NoError(t, conn.Ping(ctx))
-	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -64,7 +53,7 @@ func TestSimpleString(t *testing.T) {
 		CREATE TABLE test_string (
 			  	  Col1 String
 		        , Col2 String
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_string")
@@ -77,22 +66,12 @@ func TestSimpleString(t *testing.T) {
 }
 
 func TestString(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -108,7 +87,7 @@ func TestString(t *testing.T) {
 		    , Col8 Nullable(String)
 		    , Col9 String
 		    , Col10 Nullable(String)
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 	`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE test_string")
@@ -160,17 +139,8 @@ func TestString(t *testing.T) {
 }
 
 func BenchmarkString(b *testing.B) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, nil)
+	ctx := context.Background()
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -201,17 +171,8 @@ func BenchmarkString(b *testing.B) {
 }
 
 func BenchmarkColumnarString(b *testing.B) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, nil)
+	ctx := context.Background()
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -253,21 +214,10 @@ func BenchmarkColumnarString(b *testing.B) {
 }
 
 func TestStringFlush(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			MaxOpenConns: 1,
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	require.NoError(t, err)
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE string_flush")
@@ -275,7 +225,7 @@ func TestStringFlush(t *testing.T) {
 	const ddl = `
 		CREATE TABLE string_flush (
 			  Col1 FixedString(10)
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO string_flush")

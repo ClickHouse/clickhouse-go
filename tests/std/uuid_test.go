@@ -18,8 +18,10 @@
 package std
 
 import (
-	"database/sql"
 	"fmt"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
+	"github.com/stretchr/testify/require"
+	"strconv"
 	"testing"
 
 	"github.com/google/uuid"
@@ -27,112 +29,116 @@ import (
 )
 
 func TestStdUUID(t *testing.T) {
-	dsns := map[string]string{"Native": "clickhouse://127.0.0.1:9000", "Http": "http://127.0.0.1:8123?session_id=test_session"}
+	env, err := GetStdTestEnvironment()
+	require.NoError(t, err)
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	dsns := map[string]string{"Native": fmt.Sprintf("clickhouse://%s:%d?username=%s&password=%s", env.Host, env.Port, env.Username, env.Password),
+		"Http": fmt.Sprintf("http://%s:%d?username=%s&password=%s&session_id=session", env.Host, env.HttpPort, env.Username, env.Password)}
+	if useSSL {
+		dsns = map[string]string{"Native": fmt.Sprintf("clickhouse://%s:%d?username=%s&password=%s&secure=true", env.Host, env.SslPort, env.Username, env.Password),
+			"Http": fmt.Sprintf("https://%s:%d?username=%s&password=%s&session_id=session&secure=true", env.Host, env.HttpsPort, env.Username, env.Password)}
+	}
 
 	for name, dsn := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
-			if conn, err := sql.Open("clickhouse", dsn); assert.NoError(t, err) {
-				const ddl = `
+			conn, err := GetConnectionFromDSN(dsn)
+			require.NoError(t, err)
+			const ddl = `
 			CREATE TEMPORARY TABLE test_uuid (
 				  Col1 UUID
 				, Col2 UUID
-			) Engine Memory
+			) Engine Memory()
 		`
-				defer func() {
-					conn.Exec("DROP TABLE test_uuid")
-				}()
-				if _, err := conn.Exec(ddl); assert.NoError(t, err) {
-					scope, err := conn.Begin()
-					if !assert.NoError(t, err) {
-						return
-					}
-
-					if batch, err := scope.Prepare("INSERT INTO test_uuid"); assert.NoError(t, err) {
-						var (
-							col1Data = uuid.New()
-							col2Data = uuid.New()
-						)
-						if _, err := batch.Exec(col1Data, col2Data); assert.NoError(t, err) {
-							if assert.NoError(t, scope.Commit()) {
-								var (
-									col1 uuid.UUID
-									col2 uuid.UUID
-								)
-								if err := conn.QueryRow("SELECT * FROM test_uuid").Scan(&col1, &col2); assert.NoError(t, err) {
-									assert.Equal(t, col1Data, col1)
-									assert.Equal(t, col2Data, col2)
-								}
-							}
-						}
-					}
-				}
-			}
+			defer func() {
+				conn.Exec("DROP TABLE test_uuid")
+			}()
+			_, err = conn.Exec(ddl)
+			require.NoError(t, err)
+			scope, err := conn.Begin()
+			require.NoError(t, err)
+			batch, err := scope.Prepare("INSERT INTO test_uuid")
+			require.NoError(t, err)
+			var (
+				col1Data = uuid.New()
+				col2Data = uuid.New()
+			)
+			_, err = batch.Exec(col1Data, col2Data)
+			require.NoError(t, err)
+			require.NoError(t, scope.Commit())
+			var (
+				col1 uuid.UUID
+				col2 uuid.UUID
+			)
+			require.NoError(t, conn.QueryRow("SELECT * FROM test_uuid").Scan(&col1, &col2))
+			assert.Equal(t, col1Data, col1)
+			assert.Equal(t, col2Data, col2)
 		})
 	}
 }
 
 func TestStdNullableUUID(t *testing.T) {
-	dsns := map[string]string{"Native": "clickhouse://127.0.0.1:9000", "Http": "http://127.0.0.1:8123?session_id=test_session"}
-
+	env, err := GetStdTestEnvironment()
+	require.NoError(t, err)
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	dsns := map[string]string{"Native": fmt.Sprintf("clickhouse://%s:%d?username=%s&password=%s", env.Host, env.Port, env.Username, env.Password),
+		"Http": fmt.Sprintf("http://%s:%d?username=%s&password=%s&session_id=session", env.Host, env.HttpPort, env.Username, env.Password)}
+	if useSSL {
+		dsns = map[string]string{"Native": fmt.Sprintf("clickhouse://%s:%d?username=%s&password=%s&secure=true", env.Host, env.SslPort, env.Username, env.Password),
+			"Http": fmt.Sprintf("https://%s:%d?username=%s&password=%s&session_id=session&secure=true", env.Host, env.HttpsPort, env.Username, env.Password)}
+	}
 	for name, dsn := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
-			if conn, err := sql.Open("clickhouse", dsn); assert.NoError(t, err) {
-				const ddl = `
+			conn, err := GetConnectionFromDSN(dsn)
+			require.NoError(t, err)
+			const ddl = `
 					CREATE TEMPORARY TABLE test_uuid (
 						  Col1 Nullable(UUID)
 						, Col2 Nullable(UUID)
 					)
 				`
-				defer func() {
-					conn.Exec("DROP TABLE test_uuid")
-				}()
-				if _, err := conn.Exec(ddl); assert.NoError(t, err) {
-					scope, err := conn.Begin()
-					if assert.NoError(t, err) {
-						return
-					}
-					if batch, err := conn.Prepare("INSERT INTO test_uuid"); assert.NoError(t, err) {
-						var (
-							col1Data = uuid.New()
-							col2Data = uuid.New()
-						)
-						if _, err := batch.Exec(col1Data, col2Data); assert.NoError(t, err) {
-							if assert.NoError(t, scope.Commit()) {
-								var (
-									col1 *uuid.UUID
-									col2 *uuid.UUID
-								)
-								if err := conn.QueryRow("SELECT * FROM test_uuid").Scan(&col1, &col2); assert.NoError(t, err) {
-									assert.Equal(t, col1Data, *col1)
-									assert.Equal(t, col2Data, *col2)
-								}
-							}
-						}
-					}
-				}
-				if _, err := conn.Exec("TRUNCATE TABLE test_uuid"); !assert.NoError(t, err) {
-					return
-				}
-				scope, err := conn.Begin()
-				if assert.NoError(t, err) {
-					return
-				}
-				if batch, err := scope.Prepare("INSERT INTO test_uuid"); assert.NoError(t, err) {
-					var col1Data = uuid.New()
-					if _, err := batch.Exec(col1Data, nil); assert.NoError(t, err) {
-						if assert.NoError(t, scope.Commit()) {
-							var (
-								col1 *uuid.UUID
-								col2 *uuid.UUID
-							)
-							if err := conn.QueryRow("SELECT * FROM test_uuid").Scan(&col1, &col2); assert.NoError(t, err) {
-								if assert.Nil(t, col2) {
-									assert.Equal(t, col1Data, *col1)
-								}
-							}
-						}
-					}
-				}
+			defer func() {
+				conn.Exec("DROP TABLE test_uuid")
+			}()
+			_, err = conn.Exec(ddl)
+			require.NoError(t, err)
+			scope, err := conn.Begin()
+			require.NoError(t, err)
+			batch, err := scope.Prepare("INSERT INTO test_uuid")
+			require.NoError(t, err)
+			var (
+				col1Data = uuid.New()
+				col2Data = uuid.New()
+			)
+			_, err = batch.Exec(col1Data, col2Data)
+			require.NoError(t, err)
+			require.NoError(t, scope.Commit())
+			var (
+				col1 *uuid.UUID
+				col2 *uuid.UUID
+			)
+			require.NoError(t, conn.QueryRow("SELECT * FROM test_uuid").Scan(&col1, &col2))
+			assert.Equal(t, col1Data, *col1)
+			assert.Equal(t, col2Data, *col2)
+			_, err = conn.Exec("TRUNCATE TABLE test_uuid")
+			require.NoError(t, err)
+			scope, err = conn.Begin()
+			require.NoError(t, err)
+			batch, err = scope.Prepare("INSERT INTO test_uuid")
+			require.NoError(t, err)
+			col1Data = uuid.New()
+			_, err = batch.Exec(col1Data, nil)
+			require.NoError(t, err)
+			require.NoError(t, scope.Commit())
+			{
+				var (
+					col1 *uuid.UUID
+					col2 *uuid.UUID
+				)
+				require.NoError(t, conn.QueryRow("SELECT * FROM test_uuid").Scan(&col1, &col2))
+				require.Nil(t, col2)
+				assert.Equal(t, col1Data, *col1)
 			}
 		})
 	}

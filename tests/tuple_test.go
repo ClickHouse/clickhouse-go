@@ -24,29 +24,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestTuple(t *testing.T) {
-
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, nil)
+	ctx := context.Background()
 	require.NoError(t, err)
 	loc, err := time.LoadLocation("Europe/Lisbon")
 	require.NoError(t, err)
 	localTime := testDate.In(loc)
 
-	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -59,10 +48,10 @@ func TestTuple(t *testing.T) {
 			, Col5 Tuple(LowCardinality(String),           Array(LowCardinality(String)))
 			, Col6 Tuple(LowCardinality(Nullable(String)), Array(LowCardinality(Nullable(String))))
 			, Col7 Tuple(String, Int64)
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_tuple")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_tuple")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_tuple")
@@ -117,27 +106,18 @@ func TestTuple(t *testing.T) {
 }
 
 func TestNamedTupleWithSlice(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, nil)
+	ctx := context.Background()
 	require.NoError(t, err)
 	// https://github.com/ClickHouse/ClickHouse/pull/36544
-	if err := CheckMinServerVersion(conn, 22, 5, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 22, 5, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
-	const ddl = "CREATE TABLE test_tuple (Col1 Tuple(name String, `1` Int64)) Engine Memory"
+	const ddl = "CREATE TABLE test_tuple (Col1 Tuple(name String, `1` Int64)) Engine MergeTree() ORDER BY tuple()"
 
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_tuple")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_tuple")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_tuple")
@@ -158,27 +138,18 @@ func TestNamedTupleWithSlice(t *testing.T) {
 }
 
 func TestNamedTupleWithTypedSlice(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, nil)
+	ctx := context.Background()
 	require.NoError(t, err)
 	// https://github.com/ClickHouse/ClickHouse/pull/36544
-	if err := CheckMinServerVersion(conn, 22, 5, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 22, 5, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
-	const ddl = "CREATE TABLE test_tuple (Col1 Tuple(name String, city String), Col2 Int32) Engine Memory"
+	const ddl = "CREATE TABLE test_tuple (Col1 Tuple(name String, city String), Col2 Int32) Engine MergeTree() ORDER BY tuple()"
 
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_tuple")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_tuple")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_tuple")
@@ -201,27 +172,18 @@ func TestNamedTupleWithTypedSlice(t *testing.T) {
 
 // named tuples work with maps
 func TestNamedTupleWithMap(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, nil)
+	ctx := context.Background()
 	require.NoError(t, err)
 	// https://github.com/ClickHouse/ClickHouse/pull/36544
-	if err := CheckMinServerVersion(conn, 22, 5, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 22, 5, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
-	const ddl = "CREATE TABLE test_tuple (Col1 Tuple(name String, id Int64)) Engine Memory"
+	const ddl = "CREATE TABLE test_tuple (Col1 Tuple(name String, id Int64)) Engine MergeTree() ORDER BY tuple()"
 
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_tuple")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_tuple")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_tuple")
@@ -241,27 +203,18 @@ func TestNamedTupleWithMap(t *testing.T) {
 
 // named tuples work with typed maps
 func TestNamedTupleWithTypedMap(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, nil)
+	ctx := context.Background()
 	require.NoError(t, err)
 	// https://github.com/ClickHouse/ClickHouse/pull/36544
-	if err := CheckMinServerVersion(conn, 22, 5, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 22, 5, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
-	const ddl = "CREATE TABLE test_tuple (Col1 Tuple(id Int64, code Int64)) Engine Memory"
+	const ddl = "CREATE TABLE test_tuple (Col1 Tuple(id Int64, code Int64)) Engine MergeTree() ORDER BY tuple()"
 
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_tuple")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_tuple")
 	}()
 	// typed maps can be used provided the Tuple is consistent
 	require.NoError(t, conn.Exec(ctx, ddl))
@@ -281,26 +234,17 @@ func TestNamedTupleWithTypedMap(t *testing.T) {
 
 // test column names which need escaping
 func TestNamedTupleWithEscapedColumns(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, nil)
+	ctx := context.Background()
 	require.NoError(t, err)
 	// https://github.com/ClickHouse/ClickHouse/pull/36544
-	if err := CheckMinServerVersion(conn, 22, 5, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 22, 5, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
-	const ddl = "CREATE TABLE test_tuple (Col1 Tuple(`56` String, `a22\\`` Int64)) Engine Memory"
+	const ddl = "CREATE TABLE test_tuple (Col1 Tuple(`56` String, `a22\\`` Int64)) Engine MergeTree() ORDER BY tuple()"
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_tuple")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_tuple")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_tuple")
@@ -316,27 +260,18 @@ func TestNamedTupleWithEscapedColumns(t *testing.T) {
 }
 
 func TestNamedTupleIncomplete(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, nil)
+	ctx := context.Background()
 	require.NoError(t, err)
 	// https://github.com/ClickHouse/ClickHouse/pull/36544
-	if err := CheckMinServerVersion(conn, 22, 5, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 22, 5, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
-	const ddl = "CREATE TABLE test_tuple (Col1 Tuple(name String, id Int64)) Engine Memory"
+	const ddl = "CREATE TABLE test_tuple (Col1 Tuple(name String, id Int64)) Engine MergeTree() ORDER BY tuple()"
 
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_tuple")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_tuple")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_tuple")
@@ -347,27 +282,18 @@ func TestNamedTupleIncomplete(t *testing.T) {
 
 // unnamed tuples will not work with maps - keys cannot be attributed to fields
 func TestUnNamedTupleWithMap(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, nil)
+	ctx := context.Background()
 	require.NoError(t, err)
 	// https://github.com/ClickHouse/ClickHouse/pull/36544
-	if err := CheckMinServerVersion(conn, 22, 5, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 22, 5, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
-	const ddl = "CREATE TABLE test_tuple (Col1 Tuple(String, Int64)) Engine Memory"
+	const ddl = "CREATE TABLE test_tuple (Col1 Tuple(String, Int64)) Engine MergeTree() ORDER BY tuple()"
 
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_tuple")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_tuple")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_tuple")
@@ -391,19 +317,10 @@ func TestUnNamedTupleWithMap(t *testing.T) {
 }
 
 func TestColumnarTuple(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, nil)
+	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -414,10 +331,10 @@ func TestColumnarTuple(t *testing.T) {
 			, Col2 Tuple(String, Int8, DateTime)
 			, Col3 Tuple(DateTime, FixedString(2), Map(String, String))
 			, Col4 Tuple(String, Int64)
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_tuple")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_tuple")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_tuple")
@@ -464,10 +381,10 @@ func TestColumnarTuple(t *testing.T) {
 				"A_542", int64(542),
 			}
 			col2Data = []interface{}{
-				"B_542", int8(1), timestamp,
+				"B_542", int8(1), timestamp.In(time.UTC),
 			}
 			col3Data = []interface{}{
-				timestamp, "CH", map[string]string{
+				timestamp.In(time.UTC), "CH", map[string]string{
 					"key": "value",
 				},
 			}
@@ -484,29 +401,20 @@ func TestColumnarTuple(t *testing.T) {
 }
 
 func TestTupleFlush(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, nil)
+	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
 	const ddl = `
 		CREATE TABLE test_tuple_flush (
 			Col1 Tuple(name String, id Int64)
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_tuple_flush")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_tuple_flush")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_tuple_flush")
@@ -531,5 +439,4 @@ func TestTupleFlush(t *testing.T) {
 		i += 1
 	}
 	require.Equal(t, 1000, i)
-
 }

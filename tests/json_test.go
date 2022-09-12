@@ -50,19 +50,9 @@ type GithubEvent struct {
 var testDate, _ = time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", "2022-05-25 17:20:57 +0100 WEST")
 
 func setupConnection(t *testing.T) driver.Conn {
-	var (
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr:        []string{"127.0.0.1:9000"},
-			DialTimeout: time.Hour,
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			}, Settings: clickhouse.Settings{
-				"allow_experimental_object_type": 1,
-			},
-		})
-	)
+	conn, err := GetNativeConnection(clickhouse.Settings{
+		"allow_experimental_object_type": 1,
+	}, nil, nil)
 	require.NoError(t, err)
 	return conn
 }
@@ -70,14 +60,14 @@ func setupConnection(t *testing.T) driver.Conn {
 func setupTest(t *testing.T) (driver.Conn, func(t *testing.T)) {
 	ctx := context.Background()
 	conn := setupConnection(t)
-	if err := CheckMinServerVersion(conn, 22, 6, 1); err != nil {
+	if err := CheckMinServerServerVersion(conn, 22, 6, 1); err != nil {
 		t.Skip(err.Error())
 	}
-	conn.Exec(ctx, "DROP TABLE json_test")
-	ddl := `CREATE table json_test(event JSON) ENGINE=Memory;`
+	conn.Exec(ctx, "DROP TABLE IF EXISTS json_test")
+	ddl := `CREATE table json_test(event JSON) ENGINE=MergeTree() ORDER BY tuple();`
 	require.NoError(t, conn.Exec(ctx, ddl))
 	return conn, func(t *testing.T) {
-		require.NoError(t, conn.Exec(ctx, "DROP TABLE json_test"))
+		require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS json_test"))
 	}
 }
 
@@ -1985,13 +1975,13 @@ func TestJSONNilMapFields(t *testing.T) {
 func TestJSONManyColumns(t *testing.T) {
 	ctx := context.Background()
 	conn := setupConnection(t)
-	conn.Exec(ctx, "DROP TABLE json_test")
-	if err := CheckMinServerVersion(conn, 22, 6, 1); err != nil {
+	conn.Exec(ctx, "DROP TABLE IF EXISTS json_test")
+	if err := CheckMinServerServerVersion(conn, 22, 6, 1); err != nil {
 		t.Skip(err.Error())
 	}
-	ddl := `CREATE table json_test(event JSON, event2 JSON, col1 String) ENGINE=Memory;`
+	ddl := `CREATE table json_test(event JSON, event2 JSON, col1 String) ENGINE=MergeTree() ORDER BY tuple();`
 	require.NoError(t, conn.Exec(ctx, ddl))
-	defer conn.Exec(ctx, "DROP TABLE json_test")
+	defer conn.Exec(ctx, "DROP TABLE IF EXISTS json_test")
 	batch := prepareBatch(t, conn, ctx)
 	col1 := Repository{URL: "https://github.com/ClickHouse/clickhouse-python", Releases: []Releases{{Version: "1.0.0"}, {Version: "1.1.0"}}}
 	col2 := Repository{URL: "https://github.com/ClickHouse/clickhouse-go", Releases: []Releases{{Version: "2.0.0"}, {Version: "2.1.0"}}}

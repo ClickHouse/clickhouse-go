@@ -18,20 +18,25 @@
 package std
 
 import (
-	"database/sql"
 	"fmt"
+	"github.com/ClickHouse/clickhouse-go/v2"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
+	"github.com/stretchr/testify/require"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestStdEnum(t *testing.T) {
-	dsns := map[string]string{"Native": "clickhouse://127.0.0.1:9000", "Http": "http://127.0.0.1:8123"}
-
-	for name, dsn := range dsns {
+	dsns := map[string]clickhouse.Protocol{"Native": clickhouse.Native, "Http": clickhouse.HTTP}
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	for name, protocol := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
-			if conn, err := sql.Open("clickhouse", dsn); assert.NoError(t, err) {
-				const ddl = `
+			conn, err := GetStdDSNConnection(protocol, useSSL, "false")
+			require.NoError(t, err)
+			const ddl = `
 			CREATE TABLE test_enum (
 				  Col1 Enum  ('hello'   = 1,  'world' = 2)
 				, Col2 Enum8 ('click'   = 5,  'house' = 25)
@@ -40,62 +45,57 @@ func TestStdEnum(t *testing.T) {
 				, Col5 Array(Enum16 ('click' = 1, 'house' = 2))
 				, Col6 Array(Nullable(Enum8  ('click' = 1, 'house' = 2)))
 				, Col7 Array(Nullable(Enum16 ('click' = 1, 'house' = 2)))
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
-				defer func() {
-					conn.Exec("DROP TABLE test_enum")
-				}()
-				if _, err := conn.Exec(ddl); assert.NoError(t, err) {
-					scope, err := conn.Begin()
-					if !assert.NoError(t, err) {
-						return
-					}
-					if batch, err := scope.Prepare("INSERT INTO test_enum"); assert.NoError(t, err) {
-						var (
-							col1Data = "hello"
-							col2Data = "click"
-							col3Data = "house"
-							col4Data = []string{"click", "house"}
-							col5Data = []string{"house", "click"}
-							col6Data = []*string{&col2Data, nil, &col3Data}
-							col7Data = []*string{&col3Data, nil, &col2Data}
-						)
-						if _, err := batch.Exec(
-							col1Data,
-							col2Data,
-							col3Data,
-							col4Data,
-							col5Data,
-							col6Data,
-							col7Data,
-						); assert.NoError(t, err) {
-							if err := scope.Commit(); assert.NoError(t, err) {
-								var (
-									col1 string
-									col2 string
-									col3 string
-									col4 []string
-									col5 []string
-									col6 []*string
-									col7 []*string
-								)
-								if err := conn.QueryRow("SELECT * FROM test_enum").Scan(
-									&col1, &col2, &col3, &col4,
-									&col5, &col6, &col7,
-								); assert.NoError(t, err) {
-									assert.Equal(t, col1Data, col1)
-									assert.Equal(t, col2Data, col2)
-									assert.Equal(t, col3Data, col3)
-									assert.Equal(t, col4Data, col4)
-									assert.Equal(t, col5Data, col5)
-									assert.Equal(t, col6Data, col6)
-									assert.Equal(t, col7Data, col7)
-								}
-							}
-						}
-					}
-				}
-			}
+			defer func() {
+				conn.Exec("DROP TABLE test_enum")
+			}()
+			_, err = conn.Exec(ddl)
+			require.NoError(t, err)
+			scope, err := conn.Begin()
+			require.NoError(t, err)
+			batch, err := scope.Prepare("INSERT INTO test_enum")
+			require.NoError(t, err)
+			var (
+				col1Data = "hello"
+				col2Data = "click"
+				col3Data = "house"
+				col4Data = []string{"click", "house"}
+				col5Data = []string{"house", "click"}
+				col6Data = []*string{&col2Data, nil, &col3Data}
+				col7Data = []*string{&col3Data, nil, &col2Data}
+			)
+			_, err = batch.Exec(
+				col1Data,
+				col2Data,
+				col3Data,
+				col4Data,
+				col5Data,
+				col6Data,
+				col7Data,
+			)
+			require.NoError(t, err)
+			require.NoError(t, scope.Commit())
+			var (
+				col1 string
+				col2 string
+				col3 string
+				col4 []string
+				col5 []string
+				col6 []*string
+				col7 []*string
+			)
+			require.NoError(t, conn.QueryRow("SELECT * FROM test_enum").Scan(
+				&col1, &col2, &col3, &col4,
+				&col5, &col6, &col7,
+			))
+			assert.Equal(t, col1Data, col1)
+			assert.Equal(t, col2Data, col2)
+			assert.Equal(t, col3Data, col3)
+			assert.Equal(t, col4Data, col4)
+			assert.Equal(t, col5Data, col5)
+			assert.Equal(t, col6Data, col6)
+			assert.Equal(t, col7Data, col7)
 		})
 	}
 }

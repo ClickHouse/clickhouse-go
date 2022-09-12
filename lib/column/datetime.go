@@ -51,8 +51,9 @@ func (col *DateTime) Name() string {
 	return col.name
 }
 
-func (col *DateTime) parse(t Type) (_ *DateTime, err error) {
+func (col *DateTime) parse(t Type, tz *time.Location) (_ *DateTime, err error) {
 	if col.chType = t; col.chType == "DateTime" {
+		col.col.Location = tz
 		return col, nil
 	}
 	var name = strings.TrimSuffix(strings.TrimPrefix(string(t), "DateTime('"), "')")

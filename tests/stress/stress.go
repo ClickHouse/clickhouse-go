@@ -19,6 +19,7 @@ package main
 
 import (
 	"context"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"log"
 	"os"
 	"os/signal"
@@ -121,7 +122,7 @@ func main() {
 	go func() {
 		log.Fatal(http.ListenAndServe(":8080", nil))
 	}()
-	conn, err := clickhouse.Open(&clickhouse.Options{
+	conn, err := clickhouse_tests.GetConnectionWithOptions(&clickhouse.Options{
 		Addr: []string{"127.0.0.1:9000"},
 		Auth: clickhouse.Auth{
 			Database: "default",

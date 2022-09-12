@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
+	clickHouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests/std"
 )
 
 var conn *sql.DB
@@ -36,7 +37,7 @@ func main() {
 	}()
 
 	var err error
-	conn, err = sql.Open("clickhouse", "tcp://127.0.0.1:9000?debug=false")
+	conn, err = clickHouse_tests.GetConnectionFromDSN("tcp://127.0.0.1:9000?debug=false")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -60,7 +61,7 @@ func main() {
 			categories   Array(Int16),
 			action_day   Date,
 			action_time  DateTime
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 	`)
 	defer func() {
 		conn.Exec("DROP TABLE example")

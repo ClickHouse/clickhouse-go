@@ -3,21 +3,20 @@ package issues
 import (
 	"context"
 	"github.com/ClickHouse/clickhouse-go/v2"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"testing"
 )
 
 func Test584(t *testing.T) {
-	conn, err := clickhouse.Open(&clickhouse.Options{
-		Addr: []string{"127.0.0.1:9000"},
-		Compression: &clickhouse.Compression{
-			Method: clickhouse.CompressionLZ4,
-		},
-		Settings: clickhouse.Settings{
+	var (
+		conn, err = clickhouse_tests.GetConnection("issues", clickhouse.Settings{
 			"max_execution_time": 60,
-		},
-	})
+		}, nil, &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		})
+	)
 	require.NoError(t, err)
 	defer func() {
 		require.NoError(t, conn.Exec(context.Background(), "DROP TABLE issue_584"))
@@ -26,7 +25,7 @@ func Test584(t *testing.T) {
 	const ddl = `
 	CREATE TABLE issue_584 (
 		Col1 Map(String, String)
-	) Engine Memory
+	) Engine MergeTree() ORDER BY tuple()
 	`
 	require.NoError(t, conn.Exec(context.Background(), "DROP TABLE IF EXISTS issue_584"))
 	require.NoError(t, conn.Exec(context.Background(), ddl))
@@ -41,15 +40,13 @@ func Test584(t *testing.T) {
 }
 
 func Test584Complex(t *testing.T) {
-	conn, err := clickhouse.Open(&clickhouse.Options{
-		Addr: []string{"127.0.0.1:9000"},
-		Compression: &clickhouse.Compression{
-			Method: clickhouse.CompressionLZ4,
-		},
-		Settings: clickhouse.Settings{
+	var (
+		conn, err = clickhouse_tests.GetConnection("issues", clickhouse.Settings{
 			"max_execution_time": 60,
-		},
-	})
+		}, nil, &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		})
+	)
 	require.NoError(t, err)
 	defer func() {
 		require.NoError(t, conn.Exec(context.Background(), "DROP TABLE issue_584_complex"))
@@ -58,7 +55,7 @@ func Test584Complex(t *testing.T) {
 	const ddl = `
 	CREATE TABLE issue_584_complex (
 		Col1 Map(String, Map(UInt8, Array(UInt8)))
-	) Engine Memory
+	) Engine MergeTree() ORDER BY tuple()
 	`
 	require.NoError(t, conn.Exec(context.Background(), "DROP TABLE IF EXISTS issue_584_complex"))
 	require.NoError(t, conn.Exec(context.Background(), ddl))

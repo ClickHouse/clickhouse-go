@@ -28,23 +28,12 @@ import (
 )
 
 func TestMap(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			//Debug: true,
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -56,10 +45,10 @@ func TestMap(t *testing.T) {
 			, Col4 Array(Map(String, String))
 			, Col5 Map(LowCardinality(String), LowCardinality(UInt64))
 			, Col6 Map(String, Map(String,UInt64))
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_map")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_map")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_map")
@@ -112,24 +101,13 @@ func TestMap(t *testing.T) {
 	assert.Equal(t, col6Data, col6)
 }
 
-func TestColmnarMap(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			//Debug: true,
-		})
-	)
+func TestColumnarMap(t *testing.T) {
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -138,10 +116,10 @@ func TestColmnarMap(t *testing.T) {
 			  Col1 Map(String, UInt64)
 			, Col2 Map(String, UInt64)
 			, Col3 Map(String, UInt64)
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_map")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_map")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_map")
@@ -162,15 +140,9 @@ func TestColmnarMap(t *testing.T) {
 		})
 		col3Data = append(col3Data, map[string]uint64{})
 	}
-	if err := batch.Column(0).Append(col1Data); !assert.NoError(t, err) {
-		return
-	}
-	if err := batch.Column(1).Append(col2Data); !assert.NoError(t, err) {
-		return
-	}
-	if err := batch.Column(2).Append(col3Data); !assert.NoError(t, err) {
-		return
-	}
+	require.NoError(t, batch.Column(0).Append(col1Data))
+	require.NoError(t, batch.Column(1).Append(col2Data))
+	require.NoError(t, batch.Column(2).Append(col3Data))
 	require.NoError(t, batch.Send())
 	{
 		var (
@@ -195,33 +167,22 @@ func TestColmnarMap(t *testing.T) {
 }
 
 func TestMapFlush(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			//Debug: true,
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
 	const ddl = `
 		CREATE TABLE test_map_flush (
 			  Col1 Map(String, UInt64)
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_map_flush")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_map_flush")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_map_flush")

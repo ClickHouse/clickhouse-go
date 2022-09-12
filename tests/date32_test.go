@@ -29,23 +29,12 @@ import (
 )
 
 func TestDate32(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			//Debug: true,
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -60,10 +49,10 @@ func TestDate32(t *testing.T) {
 			    , Col6 Nullable(Date32)
 			    , Col7 Array(Date32)
 			    , Col8 Array(Nullable(Date32))
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_date32")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_date32")
 	}()
 	type result struct {
 		ColID uint8 `ch:"ID"`
@@ -141,23 +130,12 @@ func TestDate32(t *testing.T) {
 }
 
 func TestNullableDate32(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			//Debug: true,
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -167,10 +145,10 @@ func TestNullableDate32(t *testing.T) {
 				, Col2 Nullable(Date32)
 				, Col3 Date32
 			    , Col4 Nullable(Date32)
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_date32")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_date32")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_date32")
@@ -209,22 +187,12 @@ func TestNullableDate32(t *testing.T) {
 }
 
 func TestColumnarDate32(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -235,10 +203,10 @@ func TestColumnarDate32(t *testing.T) {
 			, Col2 Nullable(Date32)
 			, Col3 Array(Date32)
 			, Col4 Array(Nullable(Date32))
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_date32")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_date32")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_date32")
@@ -270,21 +238,11 @@ func TestColumnarDate32(t *testing.T) {
 		})
 	}
 	{
-		if err := batch.Column(0).Append(id); !assert.NoError(t, err) {
-			return
-		}
-		if err := batch.Column(1).Append(col1Data); !assert.NoError(t, err) {
-			return
-		}
-		if err := batch.Column(2).Append(col2Data); !assert.NoError(t, err) {
-			return
-		}
-		if err := batch.Column(3).Append(col3Data); !assert.NoError(t, err) {
-			return
-		}
-		if err := batch.Column(4).Append(col4Data); !assert.NoError(t, err) {
-			return
-		}
+		require.NoError(t, batch.Column(0).Append(id))
+		require.NoError(t, batch.Column(1).Append(col1Data))
+		require.NoError(t, batch.Column(2).Append(col2Data))
+		require.NoError(t, batch.Column(3).Append(col3Data))
+		require.NoError(t, batch.Column(4).Append(col4Data))
 	}
 	require.NoError(t, batch.Send())
 	var result struct {
@@ -301,33 +259,22 @@ func TestColumnarDate32(t *testing.T) {
 }
 
 func TestDate32Flush(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			MaxOpenConns: 1,
-		})
-	)
-	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
 	require.NoError(t, err)
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE date_32_flush")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS date_32_flush")
 	}()
 	const ddl = `
 		CREATE TABLE date_32_flush (
 			  Col1 Date32
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO date_32_flush")

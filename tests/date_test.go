@@ -29,23 +29,12 @@ import (
 )
 
 func TestDate(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			//Debug: true,
-		})
-	)
-	if assert.NoError(t, err) {
-		const ddl = `
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+	require.NoError(t, err)
+	const ddl = `
 			CREATE TABLE test_date (
 				  ID   UInt8
 				, Col1 Date
@@ -56,168 +45,118 @@ func TestDate(t *testing.T) {
 			    , Col6 Nullable(Date)
 				, Col7 Date
 			    , Col8 Nullable(Date)
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
-		defer func() {
-			conn.Exec(ctx, "DROP TABLE test_date")
-		}()
-		type result struct {
-			ColID uint8 `ch:"ID"`
-			Col1  time.Time
-			Col2  *time.Time
-			Col3  []time.Time
-			Col4  []*time.Time
-			Col5  time.Time
-			Col6  *time.Time
-			Col7  time.Time
-			Col8  *time.Time
-		}
-
-		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
-			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_date"); assert.NoError(t, err) {
-				dateStr := "2022-01-12"
-				testStuStr := testStr{
-					Col1: dateStr,
-				}
-				date, err := time.Parse("2006-01-02 15:04:05", "2022-01-12 00:00:00")
-				if !assert.NoError(t, err) {
-					return
-				}
-				if err := batch.Append(uint8(1), date, &date, []time.Time{date}, []*time.Time{&date, nil, &date}, dateStr, dateStr, testStuStr, &testStuStr); !assert.NoError(t, err) {
-					return
-				}
-				if err := batch.Append(uint8(2), date, nil, []time.Time{date}, []*time.Time{nil, nil, &date}, dateStr, dateStr, testStuStr, &testStuStr); !assert.NoError(t, err) {
-					return
-				}
-
-				if err := batch.Send(); assert.NoError(t, err) {
-					var (
-						result1 result
-						result2 result
-					)
-					if err := conn.QueryRow(ctx, "SELECT * FROM test_date WHERE ID = $1", 1).ScanStruct(&result1); assert.NoError(t, err) {
-						if assert.Equal(t, date, result1.Col1) {
-							assert.Equal(t, "UTC", result1.Col1.Location().String())
-							assert.Equal(t, date, *result1.Col2)
-							assert.Equal(t, []time.Time{date}, result1.Col3)
-							assert.Equal(t, []*time.Time{&date, nil, &date}, result1.Col4)
-							assert.Equal(t, date, result1.Col5)
-							assert.Equal(t, date, *result1.Col6)
-							assert.Equal(t, date, result1.Col7)
-							assert.Equal(t, date, *result1.Col8)
-						}
-					}
-					if err := conn.QueryRow(ctx, "SELECT * FROM test_date WHERE ID = $1", 2).ScanStruct(&result2); assert.NoError(t, err) {
-						if assert.Equal(t, date, result2.Col1) {
-							assert.Equal(t, "UTC", result2.Col1.Location().String())
-							if assert.Nil(t, result2.Col2) {
-								assert.Equal(t, []time.Time{date}, result2.Col3)
-								assert.Equal(t, []*time.Time{nil, nil, &date}, result2.Col4)
-							}
-						}
-					}
-				}
-			}
-		}
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_date")
+	}()
+	type result struct {
+		ColID uint8 `ch:"ID"`
+		Col1  time.Time
+		Col2  *time.Time
+		Col3  []time.Time
+		Col4  []*time.Time
+		Col5  time.Time
+		Col6  *time.Time
+		Col7  time.Time
+		Col8  *time.Time
 	}
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_date")
+	require.NoError(t, err)
+	dateStr := "2022-01-12"
+	testStuStr := testStr{
+		Col1: dateStr,
+	}
+	date, err := time.Parse("2006-01-02 15:04:05", "2022-01-12 00:00:00")
+	require.NoError(t, err)
+	require.NoError(t, batch.Append(uint8(1), date, &date, []time.Time{date}, []*time.Time{&date, nil, &date}, dateStr, dateStr, testStuStr, &testStuStr))
+	require.NoError(t, batch.Append(uint8(2), date, nil, []time.Time{date}, []*time.Time{nil, nil, &date}, dateStr, dateStr, testStuStr, &testStuStr))
+	require.NoError(t, batch.Send())
+	var (
+		result1 result
+		result2 result
+	)
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_date WHERE ID = $1", 1).ScanStruct(&result1))
+	require.Equal(t, date, result1.Col1)
+	assert.Equal(t, "UTC", result1.Col1.Location().String())
+	assert.Equal(t, date, *result1.Col2)
+	assert.Equal(t, []time.Time{date}, result1.Col3)
+	assert.Equal(t, []*time.Time{&date, nil, &date}, result1.Col4)
+	assert.Equal(t, date, result1.Col5)
+	assert.Equal(t, date, *result1.Col6)
+	assert.Equal(t, date, result1.Col7)
+	assert.Equal(t, date, *result1.Col8)
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_date WHERE ID = $1", 2).ScanStruct(&result2))
+	require.Equal(t, date, result2.Col1)
+	assert.Equal(t, "UTC", result2.Col1.Location().String())
+	require.Nil(t, result2.Col2)
+	assert.Equal(t, []time.Time{date}, result2.Col3)
+	assert.Equal(t, []*time.Time{nil, nil, &date}, result2.Col4)
 }
 
 func TestNullableDate(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			//Debug: true,
-		})
-	)
-	if assert.NoError(t, err) {
-		const ddl = `
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+	require.NoError(t, err)
+	const ddl = `
 			CREATE TABLE test_date (
 				  Col1 Date
 				, Col2 Nullable(Date)
 			    , Col3 Nullable(Date)
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
-		defer func() {
-			conn.Exec(ctx, "DROP TABLE test_date")
-		}()
-		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
-			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_date"); assert.NoError(t, err) {
-				date, err := time.Parse("2006-01-02 15:04:05", "2022-01-12 00:00:00")
-				var dateNilStr *string = nil
-				if !assert.NoError(t, err) {
-					return
-				}
-				if err := batch.Append(date, date, dateNilStr); assert.NoError(t, err) {
-					if err := batch.Send(); assert.NoError(t, err) {
-						var (
-							col1 *time.Time
-							col2 *time.Time
-							col3 *time.Time
-						)
-						if err := conn.QueryRow(ctx, "SELECT * FROM test_date").Scan(&col1, &col2, &col3); assert.NoError(t, err) {
-							assert.Equal(t, date, *col1)
-							assert.Equal(t, date, *col2)
-							assert.Nil(t, col3)
-						}
-					}
-				}
-			}
-			if err := conn.Exec(ctx, "TRUNCATE TABLE test_date"); !assert.NoError(t, err) {
-				return
-			}
-			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_date"); assert.NoError(t, err) {
-				date, err := time.Parse("2006-01-02 15:04:05", "2022-01-12 00:00:00")
-				if !assert.NoError(t, err) {
-					return
-				}
-				if err := batch.Append(date, nil, nil); assert.NoError(t, err) {
-					if err := batch.Send(); assert.NoError(t, err) {
-						var (
-							col1 *time.Time
-							col2 *time.Time
-							col3 *time.Time
-						)
-						if err = conn.QueryRow(ctx, "SELECT * FROM test_date").Scan(&col1, &col2, &col3); assert.NoError(t, err) {
-							if assert.Nil(t, col2) {
-								assert.Equal(t, date, *col1)
-								assert.Equal(t, date.Unix(), col1.Unix())
-								assert.Nil(t, col3)
-							}
-						}
-					}
-				}
-			}
-		}
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_date")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_date")
+
+	require.NoError(t, err)
+	date, err := time.Parse("2006-01-02 15:04:05", "2022-01-12 00:00:00")
+	var dateNilStr *string = nil
+	require.NoError(t, err)
+	require.NoError(t, batch.Append(date, date, dateNilStr))
+	require.NoError(t, batch.Send())
+	var (
+		col1 *time.Time
+		col2 *time.Time
+		col3 *time.Time
+	)
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_date").Scan(&col1, &col2, &col3))
+	assert.Equal(t, date, *col1)
+	assert.Equal(t, date, *col2)
+	assert.Nil(t, col3)
+	require.NoError(t, conn.Exec(ctx, "TRUNCATE TABLE test_date"))
+	batch, err = conn.PrepareBatch(ctx, "INSERT INTO test_date")
+	require.NoError(t, err)
+	date, err = time.Parse("2006-01-02 15:04:05", "2022-01-12 00:00:00")
+	require.NoError(t, err)
+	require.NoError(t, batch.Append(date, nil, nil))
+	require.NoError(t, batch.Send())
+	{
+		var (
+			col1 *time.Time
+			col2 *time.Time
+			col3 *time.Time
+		)
+		require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_date").Scan(&col1, &col2, &col3))
+		require.Nil(t, col2)
+		assert.Equal(t, date, *col1)
+		assert.Equal(t, date.Unix(), col1.Unix())
+		assert.Nil(t, col3)
 	}
 }
 
 func TestColumnarDate(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			//Debug: true,
-		})
-	)
-	if assert.NoError(t, err) {
-		const ddl = `
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+	require.NoError(t, err)
+	const ddl = `
 		CREATE TABLE test_date (
 			  ID   UInt64
 			, Col1 Date
@@ -226,119 +165,88 @@ func TestColumnarDate(t *testing.T) {
 			, Col4 Array(Nullable(Date))
 		    , Col5 Array(Date)
 			, Col6 Array(Nullable(Date))
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
-		defer func() {
-			conn.Exec(ctx, "DROP TABLE test_date")
-		}()
-		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
-			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_date"); assert.NoError(t, err) {
-				var (
-					id       []uint64
-					col1Data []time.Time
-					col2Data []*time.Time
-					col3Data [][]time.Time
-					col4Data [][]*time.Time
-					col5Data [][]string
-					col6Data [][]*string
-				)
-				dateStr := "2022-01-12"
-				date, err := time.Parse("2006-01-02 15:04:05", "2022-01-12 00:00:00")
-				if !assert.NoError(t, err) {
-					return
-				}
-				for i := 0; i < 1000; i++ {
-					id = append(id, uint64(i))
-					col1Data = append(col1Data, date)
-					if i%2 == 0 {
-						col2Data = append(col2Data, &date)
-					} else {
-						col2Data = append(col2Data, nil)
-					}
-					col3Data = append(col3Data, []time.Time{
-						date, date, date,
-					})
-					col4Data = append(col4Data, []*time.Time{
-						&date, nil, &date,
-					})
-					col5Data = append(col5Data, []string{
-						dateStr, dateStr, dateStr,
-					})
-					col6Data = append(col6Data, []*string{
-						&dateStr, nil, nil,
-					})
-				}
-				{
-					if err := batch.Column(0).Append(id); !assert.NoError(t, err) {
-						return
-					}
-					if err := batch.Column(1).Append(col1Data); !assert.NoError(t, err) {
-						return
-					}
-					if err := batch.Column(2).Append(col2Data); !assert.NoError(t, err) {
-						return
-					}
-					if err := batch.Column(3).Append(col3Data); !assert.NoError(t, err) {
-						return
-					}
-					if err := batch.Column(4).Append(col4Data); !assert.NoError(t, err) {
-						return
-					}
-					if err := batch.Column(5).Append(col5Data); !assert.NoError(t, err) {
-						return
-					}
-					if err := batch.Column(6).Append(col6Data); !assert.NoError(t, err) {
-						return
-					}
-				}
-				if assert.NoError(t, batch.Send()) {
-					var result struct {
-						Col1 time.Time
-						Col2 *time.Time
-						Col3 []time.Time
-						Col4 []*time.Time
-						Col5 []time.Time
-						Col6 []*time.Time
-					}
-					if err := conn.QueryRow(ctx, "SELECT Col1, Col2, Col3, Col4, Col5, Col6 FROM test_date WHERE ID = $1", 11).ScanStruct(&result); assert.NoError(t, err) {
-						if assert.Nil(t, result.Col2) {
-							assert.Equal(t, date, result.Col1)
-							assert.Equal(t, []time.Time{date, date, date}, result.Col3)
-							assert.Equal(t, []*time.Time{&date, nil, &date}, result.Col4)
-							assert.Equal(t, []time.Time{date, date, date}, result.Col5)
-							assert.Equal(t, []*time.Time{&date, nil, nil}, result.Col6)
-						}
-					}
-				}
-			}
-		}
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_date")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_date")
+	require.NoError(t, err)
+	var (
+		id       []uint64
+		col1Data []time.Time
+		col2Data []*time.Time
+		col3Data [][]time.Time
+		col4Data [][]*time.Time
+		col5Data [][]string
+		col6Data [][]*string
+	)
+	dateStr := "2022-01-12"
+	date, err := time.Parse("2006-01-02 15:04:05", "2022-01-12 00:00:00")
+	if !assert.NoError(t, err) {
+		return
 	}
+	for i := 0; i < 1000; i++ {
+		id = append(id, uint64(i))
+		col1Data = append(col1Data, date)
+		if i%2 == 0 {
+			col2Data = append(col2Data, &date)
+		} else {
+			col2Data = append(col2Data, nil)
+		}
+		col3Data = append(col3Data, []time.Time{
+			date, date, date,
+		})
+		col4Data = append(col4Data, []*time.Time{
+			&date, nil, &date,
+		})
+		col5Data = append(col5Data, []string{
+			dateStr, dateStr, dateStr,
+		})
+		col6Data = append(col6Data, []*string{
+			&dateStr, nil, nil,
+		})
+	}
+	{
+		require.NoError(t, batch.Column(0).Append(id))
+		require.NoError(t, batch.Column(1).Append(col1Data))
+		require.NoError(t, batch.Column(2).Append(col2Data))
+		require.NoError(t, batch.Column(3).Append(col3Data))
+		require.NoError(t, batch.Column(4).Append(col4Data))
+		require.NoError(t, batch.Column(5).Append(col5Data))
+		require.NoError(t, batch.Column(6).Append(col6Data))
+	}
+	require.NoError(t, batch.Send())
+	var result struct {
+		Col1 time.Time
+		Col2 *time.Time
+		Col3 []time.Time
+		Col4 []*time.Time
+		Col5 []time.Time
+		Col6 []*time.Time
+	}
+	require.NoError(t, conn.QueryRow(ctx, "SELECT Col1, Col2, Col3, Col4, Col5, Col6 FROM test_date WHERE ID = $1", 11).ScanStruct(&result))
+	require.Nil(t, result.Col2)
+	assert.Equal(t, date, result.Col1)
+	assert.Equal(t, []time.Time{date, date, date}, result.Col3)
+	assert.Equal(t, []*time.Time{&date, nil, &date}, result.Col4)
+	assert.Equal(t, []time.Time{date, date, date}, result.Col5)
+	assert.Equal(t, []*time.Time{&date, nil, nil}, result.Col6)
 }
 
 func TestDateFlush(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			MaxOpenConns: 1,
-		})
-	)
-	require.NoError(t, err)
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE date_flush")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS date_flush")
 	}()
 	const ddl = `
 		CREATE TABLE date_flush (
 			  Col1 Date
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO date_flush")

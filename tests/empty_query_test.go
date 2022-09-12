@@ -19,6 +19,7 @@ package tests
 
 import (
 	"context"
+	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
 
@@ -27,19 +28,12 @@ import (
 )
 
 func TestEmptyQuery(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-		})
-	)
-	if assert.NoError(t, err) {
-		const ddl = `
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+	require.NoError(t, err)
+	const ddl = `
 		CREATE TEMPORARY TABLE test_empty_query (
 			  Col1 UInt8
 			, Col2 Array(UInt8)
@@ -50,12 +44,10 @@ func TestEmptyQuery(t *testing.T) {
 			)
 		)
 		`
-		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
-			ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(10*time.Second))
-			defer cancel()
-			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_empty_query"); assert.NoError(t, err) {
-				assert.NoError(t, batch.Send())
-			}
-		}
-	}
+	require.NoError(t, conn.Exec(ctx, ddl))
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(10*time.Second))
+	defer cancel()
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_empty_query")
+	require.NoError(t, err)
+	assert.NoError(t, batch.Send())
 }

@@ -20,7 +20,10 @@ package std
 import (
 	"database/sql"
 	"fmt"
+	"github.com/ClickHouse/clickhouse-go/v2"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/require"
+	"strconv"
 	"testing"
 	"time"
 
@@ -28,11 +31,12 @@ import (
 )
 
 func TestStdDate32(t *testing.T) {
-	dsns := map[string]string{"Native": "clickhouse://127.0.0.1:9000", "Http": "http://127.0.0.1:8123"}
-
-	for name, dsn := range dsns {
+	dsns := map[string]clickhouse.Protocol{"Native": clickhouse.Native, "Http": clickhouse.HTTP}
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	for name, protocol := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
-			conn, err := sql.Open("clickhouse", dsn)
+			conn, err := GetStdDSNConnection(protocol, useSSL, "false")
 			require.NoError(t, err)
 			if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
 				t.Skip(err.Error())
@@ -47,7 +51,7 @@ func TestStdDate32(t *testing.T) {
 				, Col4 Array(Nullable(Date32))
 				, Col5 Nullable(Date32)
 				, Col6 Date32
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 			defer func() {
 				conn.Exec("DROP TABLE test_date32")

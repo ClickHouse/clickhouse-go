@@ -19,8 +19,11 @@ package tests
 
 import (
 	"context"
+	"crypto/tls"
+	"fmt"
 	"github.com/stretchr/testify/require"
 	"os"
+	"strconv"
 	"testing"
 	"time"
 
@@ -29,16 +32,8 @@ import (
 )
 
 func TestConn(t *testing.T) {
-	conn, err := clickhouse.Open(&clickhouse.Options{
-		Addr: []string{"127.0.0.1:9000"},
-		Auth: clickhouse.Auth{
-			Database: "default",
-			Username: "default",
-			Password: "",
-		},
-		Compression: &clickhouse.Compression{
-			Method: clickhouse.CompressionLZ4,
-		},
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
 	})
 	require.NoError(t, err)
 	require.NoError(t, conn.Ping(context.Background()))
@@ -49,12 +44,14 @@ func TestConn(t *testing.T) {
 }
 
 func TestBadConn(t *testing.T) {
+	env, err := GetNativeTestEnvironment()
+	require.NoError(t, err)
 	conn, err := clickhouse.Open(&clickhouse.Options{
 		Addr: []string{"127.0.0.1:9790"},
 		Auth: clickhouse.Auth{
 			Database: "default",
-			Username: "default",
-			Password: "",
+			Username: env.Username,
+			Password: env.Password,
 		},
 		MaxOpenConns: 2,
 	})
@@ -67,21 +64,31 @@ func TestBadConn(t *testing.T) {
 }
 
 func TestConnFailover(t *testing.T) {
-	conn, err := clickhouse.Open(&clickhouse.Options{
+	env, err := GetNativeTestEnvironment()
+	require.NoError(t, err)
+	useSSL, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	port := env.Port
+	var tlsConfig *tls.Config
+	if useSSL {
+		port = env.SslPort
+		tlsConfig = &tls.Config{}
+	}
+	conn, err := GetConnectionWithOptions(&clickhouse.Options{
 		Addr: []string{
 			"127.0.0.1:9001",
 			"127.0.0.1:9002",
-			"127.0.0.1:9000",
+			fmt.Sprintf("%s:%d", env.Host, port),
 		},
 		Auth: clickhouse.Auth{
 			Database: "default",
-			Username: "default",
-			Password: "",
+			Username: env.Username,
+			Password: env.Password,
 		},
 		Compression: &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
 		},
-		//	Debug: true,
+		TLS: tlsConfig,
 	})
 	require.NoError(t, err)
 	require.NoError(t, conn.Ping(context.Background()))
@@ -90,22 +97,32 @@ func TestConnFailover(t *testing.T) {
 }
 
 func TestConnFailoverConnOpenRoundRobin(t *testing.T) {
-	conn, err := clickhouse.Open(&clickhouse.Options{
+	env, err := GetNativeTestEnvironment()
+	require.NoError(t, err)
+	useSSL, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	port := env.Port
+	var tlsConfig *tls.Config
+	if useSSL {
+		port = env.SslPort
+		tlsConfig = &tls.Config{}
+	}
+	conn, err := GetConnectionWithOptions(&clickhouse.Options{
 		Addr: []string{
 			"127.0.0.1:9001",
 			"127.0.0.1:9002",
-			"127.0.0.1:9000",
+			fmt.Sprintf("%s:%d", env.Host, port),
 		},
 		Auth: clickhouse.Auth{
 			Database: "default",
-			Username: "default",
-			Password: "",
+			Username: env.Username,
+			Password: env.Password,
 		},
 		Compression: &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
 		},
 		ConnOpenStrategy: clickhouse.ConnOpenRoundRobin,
-		//	Debug: true,
+		TLS:              tlsConfig,
 	})
 	require.NoError(t, err)
 	require.NoError(t, conn.Ping(context.Background()))
@@ -114,16 +131,8 @@ func TestConnFailoverConnOpenRoundRobin(t *testing.T) {
 }
 
 func TestPingDeadline(t *testing.T) {
-	conn, err := clickhouse.Open(&clickhouse.Options{
-		Addr: []string{"127.0.0.1:9000"},
-		Auth: clickhouse.Auth{
-			Database: "default",
-			Username: "default",
-			Password: "",
-		},
-		Compression: &clickhouse.Compression{
-			Method: clickhouse.CompressionLZ4,
-		},
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
 	})
 	require.NoError(t, err)
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
@@ -134,17 +143,28 @@ func TestPingDeadline(t *testing.T) {
 }
 
 func TestReadDeadline(t *testing.T) {
-	conn, err := clickhouse.Open(&clickhouse.Options{
-		Addr: []string{"127.0.0.1:9000"},
+	env, err := GetNativeTestEnvironment()
+	require.NoError(t, err)
+	useSSL, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	port := env.Port
+	var tlsConfig *tls.Config
+	if useSSL {
+		port = env.SslPort
+		tlsConfig = &tls.Config{}
+	}
+	conn, err := GetConnectionWithOptions(&clickhouse.Options{
+		Addr: []string{fmt.Sprintf("%s:%d", env.Host, port)},
 		Auth: clickhouse.Auth{
 			Database: "default",
-			Username: "default",
-			Password: "",
+			Username: env.Username,
+			Password: env.Password,
 		},
 		Compression: &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
 		},
 		ReadTimeout: time.Duration(-1) * time.Second,
+		TLS:         tlsConfig,
 	})
 	require.NoError(t, err)
 	err = conn.Ping(context.Background())
@@ -157,17 +177,28 @@ func TestReadDeadline(t *testing.T) {
 }
 
 func TestQueryDeadline(t *testing.T) {
-	conn, err := clickhouse.Open(&clickhouse.Options{
-		Addr: []string{"127.0.0.1:9000"},
+	env, err := GetNativeTestEnvironment()
+	require.NoError(t, err)
+	useSSL, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	port := env.Port
+	var tlsConfig *tls.Config
+	if useSSL {
+		port = env.SslPort
+		tlsConfig = &tls.Config{}
+	}
+	conn, err := GetConnectionWithOptions(&clickhouse.Options{
+		Addr: []string{fmt.Sprintf("%s:%d", env.Host, port)},
 		Auth: clickhouse.Auth{
 			Database: "default",
-			Username: "default",
-			Password: "",
+			Username: env.Username,
+			Password: env.Password,
 		},
 		Compression: &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
 		},
 		ReadTimeout: time.Duration(-1) * time.Second,
+		TLS:         tlsConfig,
 	})
 	require.NoError(t, err)
 	var count uint64

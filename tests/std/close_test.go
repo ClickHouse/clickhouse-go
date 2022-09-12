@@ -18,6 +18,11 @@
 package std
 
 import (
+	"crypto/tls"
+	"fmt"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
+	"github.com/stretchr/testify/require"
+	"strconv"
 	"testing"
 	"time"
 
@@ -26,12 +31,22 @@ import (
 )
 
 func TestStdConnClose(t *testing.T) {
-	conn := clickhouse.OpenDB(&clickhouse.Options{
-		Addr: []string{"127.0.0.1:9000"},
+	env, err := GetStdTestEnvironment()
+	require.NoError(t, err)
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	port := env.Port
+	var tlsConfig *tls.Config
+	if useSSL {
+		port = env.SslPort
+		tlsConfig = &tls.Config{}
+	}
+	conn := GetConnectionWithOptions(&clickhouse.Options{
+		Addr: []string{fmt.Sprintf("%s:%d", env.Host, port)},
 		Auth: clickhouse.Auth{
 			Database: "default",
-			Username: "default",
-			Password: "",
+			Username: env.Username,
+			Password: env.Password,
 		},
 		Settings: clickhouse.Settings{
 			"max_execution_time": 60,
@@ -40,13 +55,10 @@ func TestStdConnClose(t *testing.T) {
 		Compression: &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
 		},
-		//	Debug: true,
+		TLS: tlsConfig,
 	})
-
-	if err := conn.Ping(); assert.NoError(t, err) {
-		var one int
-		if err := conn.QueryRow("SELECT 1").Scan(&one); assert.NoError(t, err) {
-			assert.NoError(t, conn.Close())
-		}
-	}
+	require.NoError(t, conn.Ping())
+	var one int
+	require.NoError(t, conn.QueryRow("SELECT 1").Scan(&one))
+	assert.NoError(t, conn.Close())
 }

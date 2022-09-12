@@ -19,19 +19,22 @@ package std
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
+	"github.com/ClickHouse/clickhouse-go/v2"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/require"
+	"strconv"
 	"testing"
 )
 
 func TestQuotedDDL(t *testing.T) {
-
-	dsns := map[string]string{"Native": "clickhouse://127.0.0.1:9000", "Http": "http://127.0.0.1:8123"}
+	dsns := map[string]clickhouse.Protocol{"Native": clickhouse.Native, "Http": clickhouse.HTTP}
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
 	ctx := context.Background()
-	for name, dsn := range dsns {
+	for name, protocol := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
-			conn, err := sql.Open("clickhouse", dsn)
+			conn, err := GetStdDSNConnection(protocol, useSSL, "false")
 			require.NoError(t, err)
 			require.NoError(t, conn.PingContext(context.Background()))
 			require.NoError(t, err)
@@ -40,7 +43,7 @@ func TestQuotedDDL(t *testing.T) {
 			defer func() {
 				conn.Exec("DROP TABLE `test_string`")
 			}()
-			_, err = conn.Exec("CREATE TABLE `test_string` (`1` String) Engine Memory")
+			_, err = conn.Exec("CREATE TABLE `test_string` (`1` String) Engine MergeTree() ORDER BY tuple()")
 			require.NoError(t, err)
 			scope, err := conn.Begin()
 			require.NoError(t, err)
