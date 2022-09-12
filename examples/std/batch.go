@@ -18,6 +18,7 @@
 package std
 
 import (
+	"github.com/ClickHouse/clickhouse-go/v2"
 	"time"
 
 	_ "github.com/ClickHouse/clickhouse-go/v2"
@@ -25,7 +26,7 @@ import (
 )
 
 func BatchInsert() error {
-	conn, err := GetConnection(nil, nil)
+	conn, err := GetStdOpenDBConnection(clickhouse.Native, nil, nil, nil)
 	if err != nil {
 		return err
 	}

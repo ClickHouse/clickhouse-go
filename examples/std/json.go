@@ -39,9 +39,9 @@ type GithubEvent struct {
 }
 
 func JSONInsertRead() error {
-	conn, err := GetConnection(clickhouse.Settings{
+	conn, err := GetStdOpenDBConnection(clickhouse.Native, clickhouse.Settings{
 		"allow_experimental_object_type": 1,
-	}, nil)
+	}, nil, nil)
 	if err != nil {
 		return err
 	}

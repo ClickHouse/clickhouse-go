@@ -25,9 +25,9 @@ import (
 )
 
 func NestedUnFlattened() error {
-	conn, err := GetConnection(clickhouse.Settings{
+	conn, err := GetNativeConnection(clickhouse.Settings{
 		"flatten_nested": 0,
-	}, nil)
+	}, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -120,7 +120,7 @@ func NestedUnFlattened() error {
 }
 
 func NestedFlattened() error {
-	conn, err := GetConnection(nil, nil)
+	conn, err := GetNativeConnection(nil, nil, nil)
 	if err != nil {
 		return err
 	}

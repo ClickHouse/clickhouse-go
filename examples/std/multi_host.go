@@ -21,20 +21,19 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 )
 
 func MultiStdHost() error {
-	port := clickhouse_tests.GetEnv("CLICKHOUSE_PORT", "9000")
-	host := clickhouse_tests.GetEnv("CLICKHOUSE_HOST", "localhost")
-	username := clickhouse_tests.GetEnv("CLICKHOUSE_USERNAME", "default")
-	password := clickhouse_tests.GetEnv("CLICKHOUSE_PASSWORD", "")
+	env, err := GetStdTestEnvironment()
+	if err != nil {
+		return err
+	}
 	conn, err := clickhouse.Open(&clickhouse.Options{
-		Addr: []string{"127.0.0.1:9001", "127.0.0.1:9002", fmt.Sprintf("%s:%s", host, port)},
+		Addr: []string{"127.0.0.1:9001", "127.0.0.1:9002", fmt.Sprintf("%s:%d", env.Host, env.Port)},
 		Auth: clickhouse.Auth{
 			Database: "default",
-			Username: username,
-			Password: password,
+			Username: env.Username,
+			Password: env.Password,
 		},
 		ConnOpenStrategy: clickhouse.ConnOpenRoundRobin,
 	})
@@ -50,11 +49,11 @@ func MultiStdHost() error {
 }
 
 func MultiStdHostDSN() error {
-	port := clickhouse_tests.GetEnv("CLICKHOUSE_PORT", "9000")
-	host := clickhouse_tests.GetEnv("CLICKHOUSE_HOST", "localhost")
-	username := clickhouse_tests.GetEnv("CLICKHOUSE_USERNAME", "default")
-	password := clickhouse_tests.GetEnv("CLICKHOUSE_PASSWORD", "")
-	conn, err := sql.Open("clickhouse", fmt.Sprintf("clickhouse://127.0.0.1:9001,127.0.0.1:9002,%s:%s?username=%s&password=%s&connection_open_strategy=round_robin", host, port, username, password))
+	env, err := GetStdTestEnvironment()
+	if err != nil {
+		return err
+	}
+	conn, err := sql.Open("clickhouse", fmt.Sprintf("clickhouse://127.0.0.1:9001,127.0.0.1:9002,%s:%d?username=%s&password=%s&connection_open_strategy=round_robin", env.Host, env.Port, env.Username, env.Password))
 	if err != nil {
 		return err
 	}

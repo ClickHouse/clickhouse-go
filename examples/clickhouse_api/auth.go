@@ -20,20 +20,19 @@ package clickhouse_api
 import (
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 )
 
 func Auth() error {
-	port := clickhouse_tests.GetEnv("CLICKHOUSE_PORT", "9000")
-	host := clickhouse_tests.GetEnv("CLICKHOUSE_HOST", "localhost")
-	username := clickhouse_tests.GetEnv("CLICKHOUSE_USERNAME", "default")
-	password := clickhouse_tests.GetEnv("CLICKHOUSE_PASSWORD", "")
+	env, err := GetNativeTestEnvironment()
+	if err != nil {
+		return err
+	}
 	conn, err := clickhouse.Open(&clickhouse.Options{
-		Addr: []string{fmt.Sprintf("%s:%s", host, port)},
+		Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},
 		Auth: clickhouse.Auth{
-			Database: "default",
-			Username: username,
-			Password: password,
+			Database: env.Database,
+			Username: env.Username,
+			Password: env.Password,
 		},
 	})
 	if err != nil {

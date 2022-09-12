@@ -25,9 +25,9 @@ import (
 )
 
 func GeoInsertRead() error {
-	conn, err := GetConnection(clickhouse.Settings{
+	conn, err := GetNativeConnection(clickhouse.Settings{
 		"allow_experimental_geo_types": 1,
-	}, nil)
+	}, nil, nil)
 	if err != nil {
 		return err
 	}

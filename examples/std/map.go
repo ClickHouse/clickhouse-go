@@ -2,10 +2,14 @@ package std
 
 import (
 	"fmt"
+	"github.com/ClickHouse/clickhouse-go/v2"
 )
 
 func MapInsertRead() error {
-	conn, err := GetConnection(nil, nil)
+	conn, err := GetStdOpenDBConnection(clickhouse.Native, nil, nil, nil)
+	if err != nil {
+		return err
+	}
 	if err != nil {
 		return err
 	}

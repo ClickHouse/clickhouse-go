@@ -28,30 +28,28 @@ import (
 )
 
 func UseContext() error {
-	port := clickhouse_tests.GetEnv("CLICKHOUSE_PORT", "9000")
-	host := clickhouse_tests.GetEnv("CLICKHOUSE_HOST", "localhost")
-	username := clickhouse_tests.GetEnv("CLICKHOUSE_USERNAME", "default")
-	password := clickhouse_tests.GetEnv("CLICKHOUSE_PASSWORD", "")
-	var (
-		dialCount int
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{fmt.Sprintf("%s:%s", host, port)},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: username,
-				Password: password,
-			},
-			DialContext: func(ctx context.Context, addr string) (net.Conn, error) {
-				dialCount++
-				var d net.Dialer
-				return d.DialContext(ctx, "tcp", addr)
-			},
-		})
-	)
+	env, err := GetNativeTestEnvironment()
 	if err != nil {
 		return err
 	}
-	if err := clickhouse_tests.CheckMinServerVersion(conn, 22, 6, 1); err != nil {
+	dialCount := 0
+	conn, err := clickhouse.Open(&clickhouse.Options{
+		Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},
+		Auth: clickhouse.Auth{
+			Database: "default",
+			Username: env.Username,
+			Password: env.Password,
+		},
+		DialContext: func(ctx context.Context, addr string) (net.Conn, error) {
+			dialCount++
+			var d net.Dialer
+			return d.DialContext(ctx, "tcp", addr)
+		},
+	})
+	if err != nil {
+		return err
+	}
+	if err := clickhouse_tests.CheckMinServerServerVersion(conn, 22, 6, 1); err != nil {
 		return nil
 	}
 	// we can use context to pass settings to a specific API call

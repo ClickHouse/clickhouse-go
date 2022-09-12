@@ -24,12 +24,12 @@ import (
 )
 
 func AsyncInsert() error {
-	conn, err := GetConnection(nil, nil)
+	conn, err := GetNativeConnection(nil, nil, nil)
 	if err != nil {
 		return err
 	}
 	ctx := context.Background()
-	if err := clickhouse_tests.CheckMinServerVersion(conn, 21, 12, 0); err != nil {
+	if err := clickhouse_tests.CheckMinServerServerVersion(conn, 21, 12, 0); err != nil {
 		return nil
 	}
 	defer func() {

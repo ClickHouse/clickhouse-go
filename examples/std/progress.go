@@ -24,9 +24,9 @@ import (
 )
 
 func ProgressProfileLogs() error {
-	conn, err := GetConnection(clickhouse.Settings{
+	conn, err := GetStdOpenDBConnection(clickhouse.Native, clickhouse.Settings{
 		"send_logs_level": "trace",
-	}, nil)
+	}, nil, nil)
 	if err != nil {
 		return err
 	}

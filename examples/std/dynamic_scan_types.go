@@ -20,11 +20,12 @@ package std
 import (
 	"context"
 	"fmt"
+	"github.com/ClickHouse/clickhouse-go/v2"
 	"reflect"
 )
 
 func DynamicScan() error {
-	conn, err := GetConnection(nil, nil)
+	conn, err := GetStdOpenDBConnection(clickhouse.Native, nil, nil, nil)
 	if err != nil {
 		return err
 	}

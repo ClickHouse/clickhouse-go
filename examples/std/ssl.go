@@ -23,17 +23,16 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"io/ioutil"
 	"os"
 	"path"
 )
 
 func ConnectSSL() error {
-	port := clickhouse_tests.GetEnv("CLICKHOUSE_SSL_PORT", "9440")
-	host := clickhouse_tests.GetEnv("CLICKHOUSE_HOST", "localhost")
-	username := clickhouse_tests.GetEnv("CLICKHOUSE_USERNAME", "default")
-	password := clickhouse_tests.GetEnv("CLICKHOUSE_PASSWORD", "")
+	env, err := GetStdTestEnvironment()
+	if err != nil {
+		return err
+	}
 	cwd, err := os.Getwd()
 	if err != nil {
 		return err
@@ -51,11 +50,11 @@ func ConnectSSL() error {
 	t.RootCAs = caCertPool
 
 	conn := clickhouse.OpenDB(&clickhouse.Options{
-		Addr: []string{fmt.Sprintf("%s:%s", host, port)},
+		Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},
 		Auth: clickhouse.Auth{
 			Database: "default",
-			Username: username,
-			Password: password,
+			Username: env.Username,
+			Password: env.Password,
 		},
 		TLS: t,
 	})
@@ -63,11 +62,11 @@ func ConnectSSL() error {
 }
 
 func ConnectDSNSSL() error {
-	port := clickhouse_tests.GetEnv("CLICKHOUSE_HTTPS_PORT", "8443")
-	host := clickhouse_tests.GetEnv("CLICKHOUSE_HOST", "localhost")
-	username := clickhouse_tests.GetEnv("CLICKHOUSE_USERNAME", "default")
-	password := clickhouse_tests.GetEnv("CLICKHOUSE_PASSWORD", "")
-	conn, err := sql.Open("clickhouse", fmt.Sprintf("https://%s:%s?secure=true&skip_verify=true&username=%s&password=%s", host, port, username, password))
+	env, err := GetStdTestEnvironment()
+	if err != nil {
+		return err
+	}
+	conn, err := sql.Open("clickhouse", fmt.Sprintf("https://%s:%d?secure=true&skip_verify=true&username=%s&password=%s", env.Host, env.Port, env.Username, env.Password))
 	if err != nil {
 		return err
 	}

@@ -20,21 +20,20 @@ package std
 import (
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/google/uuid"
 )
 
 func Sessions() error {
-	port := clickhouse_tests.GetEnv("CLICKHOUSE_HTTP_PORT", "8123")
-	host := clickhouse_tests.GetEnv("CLICKHOUSE_HOST", "localhost")
-	username := clickhouse_tests.GetEnv("CLICKHOUSE_USERNAME", "default")
-	password := clickhouse_tests.GetEnv("CLICKHOUSE_PASSWORD", "")
+	env, err := GetStdTestEnvironment()
+	if err != nil {
+		return err
+	}
 	conn := clickhouse.OpenDB(&clickhouse.Options{
-		Addr: []string{fmt.Sprintf("%s:%s", host, port)},
+		Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},
 		Auth: clickhouse.Auth{
 			Database: "default",
-			Username: username,
-			Password: password,
+			Username: env.Username,
+			Password: env.Password,
 		},
 		Protocol: clickhouse.HTTP,
 		Settings: clickhouse.Settings{
@@ -44,7 +43,7 @@ func Sessions() error {
 	if _, err := conn.Exec(`DROP TABLE IF EXISTS example`); err != nil {
 		return err
 	}
-	_, err := conn.Exec(`
+	_, err = conn.Exec(`
 		CREATE TEMPORARY TABLE IF NOT EXISTS example (
 			  Col1 UInt8
 		)

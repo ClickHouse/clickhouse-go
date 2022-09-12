@@ -25,7 +25,7 @@ import (
 )
 
 func OpenTelemetry() error {
-	conn, err := GetConnection(nil, nil)
+	conn, err := GetNativeConnection(nil, nil, nil)
 	if err != nil {
 		return err
 	}

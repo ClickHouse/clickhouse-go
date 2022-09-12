@@ -19,7 +19,6 @@ package std
 
 import (
 	"crypto/tls"
-	"encoding/json"
 	"github.com/ClickHouse/clickhouse-go/v2"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/assert"

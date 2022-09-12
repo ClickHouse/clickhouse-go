@@ -20,25 +20,21 @@ package std
 import (
 	"crypto/tls"
 	"database/sql"
-	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
+	clickhouse_tests_std "github.com/ClickHouse/clickhouse-go/v2/tests/std"
 )
 
-func GetConnection(settings clickhouse.Settings, tlsConfig *tls.Config) (*sql.DB, error) {
-	port := clickhouse_tests.GetEnv("CLICKHOUSE_PORT", "9000")
-	host := clickhouse_tests.GetEnv("CLICKHOUSE_HOST", "localhost")
-	username := clickhouse_tests.GetEnv("CLICKHOUSE_USERNAME", "default")
-	password := clickhouse_tests.GetEnv("CLICKHOUSE_PASSWORD", "")
-	conn := clickhouse.OpenDB(&clickhouse.Options{
-		Addr:     []string{fmt.Sprintf("%s:%s", host, port)},
-		Settings: settings,
-		Auth: clickhouse.Auth{
-			Database: "default",
-			Username: username,
-			Password: password,
-		},
-		TLS: tlsConfig,
-	})
-	return conn, nil
+const TestSet string = "examples_std_api"
+
+func GetStdDSNConnection(protocol clickhouse.Protocol, secure bool, compress string) (*sql.DB, error) {
+	return clickhouse_tests_std.GetDSNConnection(TestSet, protocol, secure, compress)
+}
+
+func GetStdOpenDBConnection(protocol clickhouse.Protocol, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (*sql.DB, error) {
+	return clickhouse_tests_std.GetOpenDBConnection(TestSet, protocol, settings, tlsConfig, compression)
+}
+
+func GetStdTestEnvironment() (clickhouse_tests.ClickHouseTestEnvironment, error) {
+	return clickhouse_tests.GetTestEnvironment(TestSet)
 }

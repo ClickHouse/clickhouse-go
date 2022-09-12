@@ -19,13 +19,14 @@ package std
 
 import (
 	"fmt"
+	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/google/uuid"
 	"strconv"
 	"time"
 )
 
 func QueryRow() error {
-	conn, err := GetConnection(nil, nil)
+	conn, err := GetStdOpenDBConnection(clickhouse.Native, nil, nil, nil)
 	if err != nil {
 		return err
 	}

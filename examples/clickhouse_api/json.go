@@ -25,14 +25,14 @@ import (
 )
 
 func InsertReadJSON() error {
-	conn, err := GetConnection(clickhouse.Settings{
+	conn, err := GetNativeConnection(clickhouse.Settings{
 		"allow_experimental_object_type": 1,
-	}, nil)
+	}, nil, nil)
 	if err != nil {
 		return err
 	}
 	ctx := context.Background()
-	if err := clickhouse_tests.CheckMinServerVersion(conn, 22, 6, 1); err != nil {
+	if err := clickhouse_tests.CheckMinServerServerVersion(conn, 22, 6, 1); err != nil {
 		return nil
 	}
 	if err != nil {
@@ -100,15 +100,15 @@ func InsertReadJSON() error {
 }
 
 func ReadComplexJSON() error {
-	conn, err := GetConnection(clickhouse.Settings{
+	conn, err := GetNativeConnection(clickhouse.Settings{
 		"allow_experimental_object_type": 1,
-	}, nil)
+	}, nil, nil)
 	if err != nil {
 		return err
 	}
 	ctx := context.Background()
 
-	if err := clickhouse_tests.CheckMinServerVersion(conn, 22, 6, 1); err != nil {
+	if err := clickhouse_tests.CheckMinServerServerVersion(conn, 22, 6, 1); err != nil {
 		return nil
 	}
 	conn.Exec(ctx, "DROP TABLE IF EXISTS example")

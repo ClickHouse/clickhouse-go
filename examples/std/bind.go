@@ -20,12 +20,13 @@ package std
 import (
 	"database/sql"
 	"fmt"
+	"github.com/ClickHouse/clickhouse-go/v2"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests/std"
 	"time"
 )
 
 func BindParameters() error {
-	conn, err := GetConnection(nil, nil)
+	conn, err := GetStdOpenDBConnection(clickhouse.Native, nil, nil, nil)
 	if err != nil {
 		return err
 	}

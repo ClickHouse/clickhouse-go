@@ -179,49 +179,6 @@ func TestArray(t *testing.T) {
 	require.NoError(t, rows.Err())
 }
 
-func TestTypeConvertArray(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-		})
-	)
-	require.NoError(t, err)
-	const ddl = `
-		CREATE TABLE test_array (
-			  Col1 Array(DateTime64(3))
-		) Engine Memory
-		`
-	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_array")
-	}()
-	require.NoError(t, conn.Exec(ctx, ddl))
-	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_array")
-	require.NoError(t, err)
-	var (
-		datetime = time.Now().Truncate(time.Millisecond)
-	)
-	for i := 0; i < 10; i++ {
-		require.NoError(t, batch.Append([]string{datetime.Add(time.Duration(i) * time.Hour).Format("2006-01-02 15:04:05.999")}))
-	}
-	require.NoError(t, batch.Send())
-	rows, err := conn.Query(ctx, "SELECT * FROM test_array")
-	require.NoError(t, err)
-	for rows.Next() {
-		var (
-			col1 []time.Time
-		)
-		require.NoError(t, rows.Scan(&col1))
-	}
-	require.NoError(t, rows.Close())
-	require.NoError(t, rows.Err())
-}
-
 func TestColumnarArray(t *testing.T) {
 	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
