@@ -46,10 +46,8 @@ func TestMain(m *testing.M) {
 		}
 		defer env.Container.Terminate(context.Background()) //nolint
 	case false:
-		env, err = clickhouse_tests.GetExternalTestEnvironment(TestSet)
-		if err != nil {
-			panic(err)
-		}
+		fmt.Printf("skipping %s tests as docker only\n", TestSet)
+		os.Exit(0)
 	}
 	clickhouse_tests.SetTestEnvironment(TestSet, env)
 	if err := clickhouse_tests.CreateDatabase(TestSet); err != nil {
