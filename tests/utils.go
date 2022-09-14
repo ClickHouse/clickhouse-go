@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"github.com/ClickHouse/clickhouse-go/v2/tests/std"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/go-connections/nat"
 	"github.com/docker/go-units"
@@ -71,6 +72,8 @@ type ClickHouseTestEnvironment struct {
 }
 
 func (env *ClickHouseTestEnvironment) setVersion() {
+	fmt.Println(std.ToJson(env))
+
 	useSSL, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_SSL", "false"))
 	if err != nil {
 		panic(err)
@@ -99,7 +102,6 @@ func (env *ClickHouseTestEnvironment) setVersion() {
 	env.Version = v.Version
 }
 
-
 func CheckMinServerServerVersion(conn driver.Conn, major, minor, patch uint64) error {
 	v, err := conn.ServerVersion()
 	if err != nil {
@@ -118,7 +120,6 @@ func CheckMinVersion(constraint Version, version Version) error {
 	}
 	return nil
 }
-
 
 func CreateClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment, error) {
 	// create a ClickHouse Container
@@ -333,7 +334,6 @@ func getDatabaseName(testSet string) string {
 	return fmt.Sprintf("clickhouse-go-%s-%s-%d", testSet, testUUID, testTimestamp)
 }
 
-
 func GetEnv(key, fallback string) string {
 	if value, ok := os.LookupEnv(key); ok {
 		return value
@@ -345,7 +345,6 @@ func IsSetInEnv(key string) bool {
 	_, ok := os.LookupEnv(key)
 	return ok
 }
-
 
 var src = rand.NewSource(time.Now().UnixNano())
 
