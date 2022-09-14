@@ -25,7 +25,6 @@ import (
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
-	"github.com/ClickHouse/clickhouse-go/v2/tests/std"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/go-connections/nat"
 	"github.com/docker/go-units"
@@ -72,7 +71,7 @@ type ClickHouseTestEnvironment struct {
 }
 
 func (env *ClickHouseTestEnvironment) setVersion() {
-	fmt.Println(std.ToJson(env))
+	fmt.Println(ToJson(env))
 
 	useSSL, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_SSL", "false"))
 	if err != nil {
@@ -100,6 +99,14 @@ func (env *ClickHouseTestEnvironment) setVersion() {
 		panic(err)
 	}
 	env.Version = v.Version
+}
+
+func ToJson(obj interface{}) string {
+	bytes, err := json.Marshal(obj)
+	if err != nil {
+		return "unable to marshal"
+	}
+	return string(bytes)
 }
 
 func CheckMinServerServerVersion(conn driver.Conn, major, minor, patch uint64) error {
