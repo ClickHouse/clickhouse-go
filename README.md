@@ -255,7 +255,7 @@ go get -u github.com/ClickHouse/clickhouse-go/v2
 * [async insert](examples/clickhouse_api/async.go)
 * [batch struct](examples/clickhouse_api/append_struct.go)
 * [columnar](examples/clickhouse_api/columnar_insert.go)
-* [scan struct](eexamples/clickhouse_api/scan_struct.go)
+* [scan struct](examples/clickhouse_api/scan_struct.go)
 * [bind params](examples/clickhouse_api/bind.go)
 
 ### std `database/sql` interface
