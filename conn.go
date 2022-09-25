@@ -70,6 +70,7 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 	}
 	var (
 		connect = &connect{
+			id:          num,
 			opt:         opt,
 			conn:        conn,
 			debugf:      debugf,
@@ -91,6 +92,7 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 
 // https://github.com/ClickHouse/ClickHouse/blob/master/src/Client/Connection.cpp
 type connect struct {
+	id          int
 	opt         *Options
 	conn        net.Conn
 	debugf      func(format string, v ...interface{})

@@ -113,6 +113,7 @@ func (ch *clickhouse) ServerVersion() (*driver.ServerVersion, error) {
 
 func (ch *clickhouse) Query(ctx context.Context, query string, args ...interface{}) (rows driver.Rows, err error) {
 	conn, err := ch.acquire(ctx)
+	conn.debugf("[acquired] connection [%d]", conn.id)
 	if err != nil {
 		return nil, err
 	}
@@ -121,6 +122,7 @@ func (ch *clickhouse) Query(ctx context.Context, query string, args ...interface
 
 func (ch *clickhouse) QueryRow(ctx context.Context, query string, args ...interface{}) (rows driver.Row) {
 	conn, err := ch.acquire(ctx)
+	conn.debugf("[acquired] connection [%d]", conn.id)
 	if err != nil {
 		return &row{
 			err: err,

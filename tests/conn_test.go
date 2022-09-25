@@ -206,3 +206,47 @@ func TestQueryDeadline(t *testing.T) {
 	require.Error(t, err)
 	assert.ErrorIs(t, err, os.ErrDeadlineExceeded)
 }
+
+// Issue https://github.com/ClickHouse/clickhouse-go/issues/761
+func TestQueryCancel(t *testing.T) {
+	env, err := GetNativeTestEnvironment()
+	require.NoError(t, err)
+	useSSL, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	port := env.Port
+	var tlsConfig *tls.Config
+	if useSSL {
+		port = env.SslPort
+		tlsConfig = &tls.Config{}
+	}
+	conn, err := GetConnectionWithOptions(&clickhouse.Options{
+		Addr: []string{fmt.Sprintf("%s:%d", env.Host, port)},
+		Auth: clickhouse.Auth{
+			Database: "default",
+			Username: env.Username,
+			Password: env.Password,
+		},
+		Compression: &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		},
+		TLS:          tlsConfig,
+		MaxOpenConns: 1,
+		MaxIdleConns: 1,
+		Debug:        true,
+	})
+	require.NoError(t, err)
+	// Issue a query which will take 3 secs, cancel after 1 and reissue a query which take 3 secs - check response is q2, not q1
+
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Millisecond*time.Duration(500)))
+	defer cancel()
+	var queryId uint16
+	// query 1
+	err = conn.QueryRow(ctx, "SELECT sleep(3) + 1 as query_id").Scan(&queryId)
+	require.Error(t, err)
+	// query 2
+	err = conn.QueryRow(context.Background(), "SELECT sleep(3) + 2 as query_id").Scan(&queryId)
+	require.NoError(t, err)
+	require.Equal(t, uint16(2), queryId)
+
+	// what if the cancel timeouts?
+}
