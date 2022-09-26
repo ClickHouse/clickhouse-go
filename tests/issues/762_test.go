@@ -32,7 +32,14 @@ func Test762Std(t *testing.T) {
 	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
 	require.NoError(t, err)
 	conn, err := clickhouse_std_tests.GetDSNConnection("issues", clickhouse.Native, useSSL, "false")
-	rows, err := conn.Query("SELECT (NULL, NULL)")
+	rows, err := conn.Query("SELECT tuple(NULL)")
 	require.NoError(t, err)
-	rows.Next()
+	for rows.Next() {
+		var (
+			n interface{}
+		)
+		require.NoError(t, rows.Scan(&n))
+		expected := []interface{}{(*interface{})(nil)}
+		require.Equal(t, &expected, n)
+	}
 }
