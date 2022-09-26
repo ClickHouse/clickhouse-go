@@ -17,7 +17,10 @@
 package std
 
 import (
+	"crypto/tls"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/require"
+	"strconv"
 	"testing"
 	"time"
 
@@ -26,17 +29,14 @@ import (
 )
 
 func TestTuple(t *testing.T) {
-
-	var (
-		conn = clickhouse.OpenDB(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-		})
-	)
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	var tlsConfig *tls.Config
+	if useSSL {
+		tlsConfig = &tls.Config{}
+	}
+	conn, err := GetStdOpenDBConnection(clickhouse.Native, nil, tlsConfig, nil)
+	require.NoError(t, err)
 	loc, err := time.LoadLocation("Europe/Lisbon")
 	require.NoError(t, err)
 	localTime := testDate.In(loc)
@@ -54,7 +54,7 @@ func TestTuple(t *testing.T) {
 			, Col5 Tuple(LowCardinality(String),           Array(LowCardinality(String)))
 			, Col6 Tuple(LowCardinality(Nullable(String)), Array(LowCardinality(Nullable(String))))
 			, Col7 Tuple(String, Int64)
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec("DROP TABLE test_tuple")
@@ -106,11 +106,11 @@ func TestTuple(t *testing.T) {
 	)
 	require.NoError(t, conn.QueryRow("SELECT * FROM test_tuple").Scan(&col1, &col2, &col3, &col4, &col5, &col6, &col7))
 	assert.NoError(t, err)
-	assert.Equal(t, toJson(col1Data), toJson(col1))
-	assert.Equal(t, toJson(col2Data), toJson(col2))
-	assert.JSONEq(t, toJson(col3Data), toJson(col3))
-	assert.Equal(t, toJson(col4Data), toJson(col4))
-	assert.Equal(t, toJson(col5Data), toJson(col5))
-	assert.Equal(t, toJson(col6Data), toJson(col6))
-	assert.Equal(t, toJson(col7Data), toJson(col7))
+	assert.Equal(t, ToJson(col1Data), ToJson(col1))
+	assert.Equal(t, ToJson(col2Data), ToJson(col2))
+	assert.JSONEq(t, ToJson(col3Data), ToJson(col3))
+	assert.Equal(t, ToJson(col4Data), ToJson(col4))
+	assert.Equal(t, ToJson(col5Data), ToJson(col5))
+	assert.Equal(t, ToJson(col6Data), ToJson(col6))
+	assert.Equal(t, ToJson(col7Data), ToJson(col7))
 }

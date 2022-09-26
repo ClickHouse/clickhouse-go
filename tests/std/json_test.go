@@ -18,10 +18,12 @@
 package std
 
 import (
-	"encoding/json"
+	"crypto/tls"
 	"github.com/ClickHouse/clickhouse-go/v2"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -59,39 +61,34 @@ type GithubEvent struct {
 
 var testDate, _ = time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", "2022-05-25 17:20:57 +0100 WEST")
 
-func toJson(obj interface{}) string {
-	bytes, err := json.Marshal(obj)
-	if err != nil {
-		return "unable to marshal"
-	}
-	return string(bytes)
-}
-
 func TestStdJson(t *testing.T) {
-	conn := clickhouse.OpenDB(&clickhouse.Options{
-		Addr: []string{"127.0.0.1:9000"},
-	})
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	var tlsConfig *tls.Config
+	if useSSL {
+		tlsConfig = &tls.Config{}
+	}
+	conn, err := GetStdDSNConnection(clickhouse.Native, useSSL, "false")
+	require.NoError(t, err)
 	if err := CheckMinServerVersion(conn, 22, 6, 1); err != nil {
 		t.Skip(err.Error())
 		return
 	}
 	conn.Close()
-	conn = clickhouse.OpenDB(&clickhouse.Options{
-		Addr: []string{"127.0.0.1:9000"},
-		Settings: clickhouse.Settings{
-			"allow_experimental_object_type": 1,
-		},
-	})
+	conn, err = GetStdOpenDBConnection(clickhouse.Native, clickhouse.Settings{
+		"allow_experimental_object_type": 1,
+	}, tlsConfig, nil)
+	require.NoError(t, err)
 	conn.Exec("DROP TABLE json_std_test")
 	const ddl = `
 		CREATE TABLE json_std_test (
 			  event JSON
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec("DROP TABLE json_std_test")
 	}()
-	_, err := conn.Exec(ddl)
+	_, err = conn.Exec(ddl)
 	require.NoError(t, err)
 	scope, err := conn.Begin()
 	require.NoError(t, err)
@@ -120,44 +117,47 @@ func TestStdJson(t *testing.T) {
 	var event interface{}
 	rows := conn.QueryRow("SELECT * FROM json_std_test")
 	require.NoError(t, rows.Scan(&event))
-	assert.JSONEq(t, toJson(col1Data), toJson(event))
+	assert.JSONEq(t, ToJson(col1Data), ToJson(event))
 	// again pass interface{} for anthing other than primitives
 	rows = conn.QueryRow("SELECT event.assignee.Achievement FROM json_std_test")
 	var achievement interface{}
 	require.NoError(t, rows.Scan(&achievement))
-	assert.JSONEq(t, toJson(col1Data.Assignee.Achievement), toJson(achievement))
+	assert.JSONEq(t, ToJson(col1Data.Assignee.Achievement), ToJson(achievement))
 	rows = conn.QueryRow("SELECT event.assignee.Repositories FROM json_std_test")
 	var repositories interface{}
 	require.NoError(t, rows.Scan(&repositories))
-	assert.JSONEq(t, toJson(col1Data.Assignee.Repositories), toJson(repositories))
+	assert.JSONEq(t, ToJson(col1Data.Assignee.Repositories), ToJson(repositories))
 }
 
 //https://github.com/ClickHouse/clickhouse-go/issues/645
 func TestStdJsonWithMap(t *testing.T) {
-	conn := clickhouse.OpenDB(&clickhouse.Options{
-		Addr: []string{"127.0.0.1:9000"},
-	})
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	var tlsConfig *tls.Config
+	if useSSL {
+		tlsConfig = &tls.Config{}
+	}
+	conn, err := GetStdDSNConnection(clickhouse.Native, useSSL, "false")
+	require.NoError(t, err)
 	if err := CheckMinServerVersion(conn, 22, 6, 1); err != nil {
 		t.Skip(err.Error())
 		return
 	}
 	conn.Close()
-	conn = clickhouse.OpenDB(&clickhouse.Options{
-		Addr: []string{"127.0.0.1:9000"},
-		Settings: clickhouse.Settings{
-			"allow_experimental_object_type": 1,
-		},
-	})
+	conn, err = GetStdOpenDBConnection(clickhouse.Native, clickhouse.Settings{
+		"allow_experimental_object_type": 1,
+	}, tlsConfig, nil)
+	require.NoError(t, err)
 	conn.Exec("DROP TABLE json_std_test")
 	const ddl = `
 		CREATE TABLE json_std_test (
 			  event JSON
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec("DROP TABLE json_std_test")
 	}()
-	_, err := conn.Exec(ddl)
+	_, err = conn.Exec(ddl)
 	require.NoError(t, err)
 	scope, err := conn.Begin()
 	require.NoError(t, err)
@@ -175,5 +175,5 @@ func TestStdJsonWithMap(t *testing.T) {
 	var event interface{}
 	rows := conn.QueryRow("SELECT * FROM json_std_test")
 	require.NoError(t, rows.Scan(&event))
-	assert.JSONEq(t, toJson(col1Data), toJson(event))
+	assert.JSONEq(t, ToJson(col1Data), ToJson(event))
 }

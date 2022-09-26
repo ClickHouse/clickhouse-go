@@ -154,6 +154,22 @@ func (b *batch) Send() (err error) {
 	return nil
 }
 
+func (b *batch) Flush() error {
+	if b.sent {
+		return ErrBatchAlreadySent
+	}
+	if b.err != nil {
+		return b.err
+	}
+	if b.block.Rows() != 0 {
+		if err := b.conn.sendData(b.block, ""); err != nil {
+			return err
+		}
+	}
+	b.block.Reset()
+	return nil
+}
+
 type batchColumn struct {
 	err     error
 	batch   driver.Batch

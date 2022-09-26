@@ -18,32 +18,36 @@
 package issues
 
 import (
-	"database/sql"
+	"github.com/ClickHouse/clickhouse-go/v2"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
+	clickhouse_std_tests "github.com/ClickHouse/clickhouse-go/v2/tests/std"
+	"github.com/stretchr/testify/require"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func Test470PR(t *testing.T) {
-	if conn, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000"); assert.NoError(t, err) {
-		const ddl = `
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	conn, err := clickhouse_std_tests.GetDSNConnection("issues", clickhouse.Native, useSSL, "false")
+	require.NoError(t, err)
+	const ddl = `
 		CREATE TABLE issue_470_pr (
 			Col1 Array(String)
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
-		defer func() {
-			conn.Exec("DROP TABLE issue_470_pr")
-		}()
-		if _, err := conn.Exec(ddl); assert.NoError(t, err) {
-			scope, err := conn.Begin()
-			if !assert.NoError(t, err) {
-				return
-			}
-			if batch, err := scope.Prepare("INSERT INTO issue_470_pr"); assert.NoError(t, err) {
-				if _, err := batch.Exec(nil); assert.Error(t, err) {
-					assert.Contains(t, err.Error(), "converting <nil> to Array(String) is unsupported")
-				}
-			}
-		}
-	}
+	defer func() {
+		conn.Exec("DROP TABLE issue_470_pr")
+	}()
+	_, err = conn.Exec(ddl)
+	require.NoError(t, err)
+	scope, err := conn.Begin()
+	require.NoError(t, err)
+	batch, err := scope.Prepare("INSERT INTO issue_470_pr")
+	require.NoError(t, err)
+	_, err = batch.Exec(nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "converting <nil> to Array(String) is unsupported")
 }

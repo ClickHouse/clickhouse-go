@@ -69,14 +69,25 @@ type LowCardinality struct {
 	name string
 }
 
+func (col *LowCardinality) Reset() {
+	col.rows = 0
+	col.index.Reset()
+	col.keys8.Reset()
+	col.keys16.Reset()
+	col.keys32.Reset()
+	col.keys64.Reset()
+	col.append.index = make(map[interface{}]int)
+	col.append.keys = col.append.keys[:0]
+}
+
 func (col *LowCardinality) Name() string {
 	return col.name
 }
 
-func (col *LowCardinality) parse(t Type) (_ *LowCardinality, err error) {
+func (col *LowCardinality) parse(t Type, tz *time.Location) (_ *LowCardinality, err error) {
 	col.chType = t
 	col.append.index = make(map[interface{}]int)
-	if col.index, err = Type(t.params()).Column(col.name); err != nil {
+	if col.index, err = Type(t.params()).Column(col.name, tz); err != nil {
 		return nil, err
 	}
 	if nullable, ok := col.index.(*Nullable); ok {

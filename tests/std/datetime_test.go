@@ -20,7 +20,10 @@ package std
 import (
 	"database/sql"
 	"fmt"
+	"github.com/ClickHouse/clickhouse-go/v2"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/require"
+	"strconv"
 	"testing"
 	"time"
 
@@ -28,11 +31,12 @@ import (
 )
 
 func TestStdDateTime(t *testing.T) {
-	dsns := map[string]string{"Native": "clickhouse://127.0.0.1:9000", "Http": "http://127.0.0.1:8123"}
-
-	for name, dsn := range dsns {
+	dsns := map[string]clickhouse.Protocol{"Native": clickhouse.Native, "Http": clickhouse.HTTP}
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	for name, protocol := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
-			conn, err := sql.Open("clickhouse", dsn)
+			conn, err := GetStdDSNConnection(protocol, useSSL, "false")
 			require.NoError(t, err)
 			const ddl = `
 			CREATE TABLE test_datetime (
@@ -44,7 +48,7 @@ func TestStdDateTime(t *testing.T) {
 				, Col6 Array(Nullable(DateTime('Europe/Moscow')))
 			    , Col7 DateTime
 			    , Col8 Nullable(DateTime)
-			) Engine Memory`
+			) Engine MergeTree() ORDER BY tuple()`
 			defer func() {
 				conn.Exec("DROP TABLE test_datetime")
 			}()
@@ -84,16 +88,17 @@ func TestStdDateTime(t *testing.T) {
 				col8 sql.NullTime
 			)
 			require.NoError(t, conn.QueryRow("SELECT * FROM test_datetime").Scan(&col1, &col2, &col3, &col4, &col5, &col6, &col7, &col8))
-			assert.Equal(t, datetime, col1)
+			assert.Equal(t, datetime.In(time.UTC), col1)
 			assert.Equal(t, datetime.Unix(), col2.Unix())
 			assert.Equal(t, datetime.Unix(), col3.Unix())
 			if name == "Http" {
 				// Native Format over HTTP works with revision 0
 				// Clickhouse before 54337 revision don't support Time Zone
 				// So, it removes Time Zone if revision less than 54337
-				if assert.Equal(t, "Local", col2.Location().String()) {
-					assert.Equal(t, "Local", col3.Location().String())
-				}
+				// https://github.com/ClickHouse/ClickHouse/issues/38209
+				// pending https://github.com/ClickHouse/ClickHouse/issues/40397
+				require.Equal(t, "UTC", col2.Location().String())
+				require.Equal(t, "UTC", col3.Location().String())
 			} else {
 				if assert.Equal(t, "Europe/Moscow", col2.Location().String()) {
 					assert.Equal(t, "Europe/London", col3.Location().String())
@@ -108,7 +113,7 @@ func TestStdDateTime(t *testing.T) {
 			assert.NotNil(t, col6[0])
 			assert.NotNil(t, col6[2])
 			assert.Equal(t, sql.NullTime{
-				Time:  datetime,
+				Time:  datetime.In(time.UTC),
 				Valid: true,
 			}, col7)
 			assert.Equal(t, sql.NullTime{

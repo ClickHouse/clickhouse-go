@@ -31,6 +31,10 @@ type Enum16 struct {
 	name   string
 }
 
+func (col *Enum16) Reset() {
+	col.col.Reset()
+}
+
 func (col *Enum16) Name() string {
 	return col.name
 }

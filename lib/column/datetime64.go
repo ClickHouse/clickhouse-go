@@ -42,11 +42,15 @@ type DateTime64 struct {
 	col      proto.ColDateTime64
 }
 
+func (col *DateTime64) Reset() {
+	col.col.Reset()
+}
+
 func (col *DateTime64) Name() string {
 	return col.name
 }
 
-func (col *DateTime64) parse(t Type) (_ Interface, err error) {
+func (col *DateTime64) parse(t Type, tz *time.Location) (_ Interface, err error) {
 	col.chType = t
 	switch params := strings.Split(t.params(), ","); len(params) {
 	case 2:
@@ -68,6 +72,7 @@ func (col *DateTime64) parse(t Type) (_ Interface, err error) {
 		}
 		p := byte(precision)
 		col.col.WithPrecision(proto.Precision(p))
+		col.col.WithLocation(tz)
 	default:
 		return nil, &UnsupportedColumnTypeError{
 			t: t,
@@ -238,6 +243,10 @@ func (col *DateTime64) AppendRow(v interface{}) error {
 	case nil:
 		col.col.Append(time.Time{})
 	default:
+		s, ok := v.(fmt.Stringer)
+		if ok {
+			return col.AppendRow(s.String())
+		}
 		return &ColumnConverterError{
 			Op:   "AppendRow",
 			To:   "Datetime64",

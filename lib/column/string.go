@@ -22,13 +22,18 @@ import (
 	"encoding"
 	"fmt"
 	"github.com/ClickHouse/ch-go/proto"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
 	"reflect"
+
+	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
 )
 
 type String struct {
 	name string
 	col  proto.ColStr
+}
+
+func (col *String) Reset() {
+	col.col.Reset()
 }
 
 func (col String) Name() string {
@@ -107,10 +112,14 @@ func (col *String) AppendRow(v interface{}) error {
 	case nil:
 		col.col.Append("")
 	default:
-		return &ColumnConverterError{
-			Op:   "AppendRow",
-			To:   "String",
-			From: fmt.Sprintf("%T", v),
+		if s, ok := v.(fmt.Stringer); ok {
+			return col.AppendRow(s.String())
+		} else {
+			return &ColumnConverterError{
+				Op:   "AppendRow",
+				To:   "String",
+				From: fmt.Sprintf("%T", v),
+			}
 		}
 	}
 	return nil

@@ -19,6 +19,8 @@ package issues
 
 import (
 	"context"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
+	"github.com/stretchr/testify/require"
 	"testing"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
@@ -28,22 +30,13 @@ import (
 func TestIssue483(t *testing.T) {
 	var (
 		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			//Debug: true,
+		conn, err = clickhouse_tests.GetConnection("issues", nil, nil, &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
 		})
 	)
-	if assert.NoError(t, err) {
+	require.NoError(t, err)
 
-		const ddl = `
+	const ddl = `
 		CREATE TABLE issue_483
 		(
 			example_id UInt8,
@@ -57,30 +50,24 @@ func TestIssue483(t *testing.T) {
 				  keyword String
 				),
 			status UInt8
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
-		defer func() {
-			conn.Exec(ctx, "DROP TABLE issue_483")
-		}()
-		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
-			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO issue_483 (example_id)"); assert.NoError(t, err) {
-				if err := batch.Append(uint8(1)); !assert.NoError(t, err) {
-					return
-				}
-				if err := batch.Send(); assert.NoError(t, err) {
-					var (
-						col1 uint8
-						col2 []uint8           // steps.duration
-						col3 [][][]interface{} // steps.result
-						col4 []string          //  steps.keyword
-						col5 uint8
-					)
-					if err := conn.QueryRow(ctx, `SELECT * FROM issue_483`).Scan(&col1, &col2, &col3, &col4, &col5); assert.NoError(t, err) {
-						assert.Equal(t, uint8(1), col1)
-						assert.Equal(t, []uint8{}, col2)
-					}
-				}
-			}
-		}
-	}
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE issue_483")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO issue_483 (example_id)")
+	require.NoError(t, err)
+	require.NoError(t, batch.Append(uint8(1)))
+	require.NoError(t, batch.Send())
+	var (
+		col1 uint8
+		col2 []uint8           // steps.duration
+		col3 [][][]interface{} // steps.result
+		col4 []string          //  steps.keyword
+		col5 uint8
+	)
+	require.NoError(t, conn.QueryRow(ctx, `SELECT * FROM issue_483`).Scan(&col1, &col2, &col3, &col4, &col5))
+	assert.Equal(t, uint8(1), col1)
+	assert.Equal(t, []uint8{}, col2)
 }

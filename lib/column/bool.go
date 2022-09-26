@@ -29,6 +29,10 @@ type Bool struct {
 	name string
 }
 
+func (col *Bool) Reset() {
+	col.col.Reset()
+}
+
 func (col *Bool) Name() string {
 	return col.name
 }

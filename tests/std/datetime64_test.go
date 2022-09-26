@@ -20,7 +20,10 @@ package std
 import (
 	"database/sql"
 	"fmt"
+	"github.com/ClickHouse/clickhouse-go/v2"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/require"
+	"strconv"
 	"testing"
 	"time"
 
@@ -28,11 +31,12 @@ import (
 )
 
 func TestStdDateTime64(t *testing.T) {
-	dsns := map[string]string{"Native": "clickhouse://127.0.0.1:9000", "Http": "http://127.0.0.1:8123"}
-
-	for name, dsn := range dsns {
+	dsns := map[string]clickhouse.Protocol{"Native": clickhouse.Native, "Http": clickhouse.HTTP}
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	for name, protocol := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
-			conn, err := sql.Open("clickhouse", dsn)
+			conn, err := GetStdDSNConnection(protocol, useSSL, "false")
 			require.NoError(t, err)
 			if err := CheckMinServerVersion(conn, 20, 3, 0); err != nil {
 				t.Skip(err.Error())
@@ -48,7 +52,7 @@ func TestStdDateTime64(t *testing.T) {
 				, Col6 Array(Nullable(DateTime64(3, 'Europe/Moscow')))
 				, Col7 DateTime64(0, 'Europe/London')
 				, Col8 Nullable(DateTime64(3, 'Europe/Moscow'))
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 			defer func() {
 				conn.Exec("DROP TABLE test_datetime64")
@@ -87,7 +91,7 @@ func TestStdDateTime64(t *testing.T) {
 				col8 sql.NullTime
 			)
 			require.NoError(t, conn.QueryRow("SELECT * FROM test_datetime64").Scan(&col1, &col2, &col3, &col4, &col5, &col6, &col7, &col8))
-			assert.Equal(t, datetime1, col1)
+			assert.Equal(t, datetime1.In(time.UTC), col1)
 			assert.Equal(t, datetime2.UnixNano(), col2.UnixNano())
 			assert.Equal(t, datetime3.UnixNano(), col3.UnixNano())
 			require.Equal(t, "Europe/Moscow", col2.Location().String())

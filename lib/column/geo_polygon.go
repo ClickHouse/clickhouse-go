@@ -30,6 +30,10 @@ type Polygon struct {
 	name string
 }
 
+func (col *Polygon) Reset() {
+	col.set.Reset()
+}
+
 func (col *Polygon) Name() string {
 	return col.name
 }
@@ -80,7 +84,12 @@ func (col *Polygon) Append(v interface{}) (nulls []uint8, err error) {
 			values = append(values, v)
 		}
 		return col.set.Append(values)
-
+	case []*orb.Polygon:
+		values := make([][]orb.Ring, 0, len(v))
+		for _, v := range v {
+			values = append(values, *v)
+		}
+		return col.set.Append(values)
 	default:
 		return nil, &ColumnConverterError{
 			Op:   "Append",
@@ -94,6 +103,8 @@ func (col *Polygon) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case orb.Polygon:
 		return col.set.AppendRow([]orb.Ring(v))
+	case *orb.Polygon:
+		return col.set.AppendRow([]orb.Ring(*v))
 	default:
 		return &ColumnConverterError{
 			Op:   "AppendRow",

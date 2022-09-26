@@ -20,35 +20,39 @@ package issues
 import (
 	"context"
 	"database/sql"
-	"testing"
-
+	"github.com/ClickHouse/clickhouse-go/v2"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
+	clickhouse_std_tests "github.com/ClickHouse/clickhouse-go/v2/tests/std"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"strconv"
+	"testing"
 )
 
 func TestIssue164(t *testing.T) {
-	if conn, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000"); assert.NoError(t, err) {
-		const ddl = `
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	conn, err := clickhouse_std_tests.GetDSNConnection("issues", clickhouse.Native, useSSL, "false")
+	require.NoError(t, err)
+	const ddl = `
 		CREATE TABLE issue_164 (
 			  Col1 Int32
 			, Col2 Array(Int8)
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
-		defer func() {
-			conn.Exec("DROP TABLE issue_164")
-		}()
-		if _, err := conn.Exec(ddl); assert.NoError(t, err) {
-			scope, err := conn.Begin()
-			if !assert.NoError(t, err) {
-				return
-			}
-			if batch, err := scope.Prepare("INSERT INTO issue_164"); assert.NoError(t, err) {
-				stmtParams := make([]interface{}, 0)
-				stmtParams = append(stmtParams, sql.NamedArg{Name: "id", Value: int32(10)})
-				stmtParams = append(stmtParams, sql.NamedArg{Name: "anything", Value: nil})
-				if _, err := batch.ExecContext(context.Background(), stmtParams...); assert.Error(t, err) {
-					assert.Contains(t, err.Error(), "converting <nil> to Array(Int8) is unsupported")
-				}
-			}
-		}
-	}
+	defer func() {
+		conn.Exec("DROP TABLE issue_164")
+	}()
+	_, err = conn.Exec(ddl)
+	require.NoError(t, err)
+	scope, err := conn.Begin()
+	require.NoError(t, err)
+	batch, err := scope.Prepare("INSERT INTO issue_164")
+	require.NoError(t, err)
+	stmtParams := make([]interface{}, 0)
+	stmtParams = append(stmtParams, sql.NamedArg{Name: "id", Value: int32(10)})
+	stmtParams = append(stmtParams, sql.NamedArg{Name: "anything", Value: nil})
+	_, err = batch.ExecContext(context.Background(), stmtParams...)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "converting <nil> to Array(Int8) is unsupported")
 }

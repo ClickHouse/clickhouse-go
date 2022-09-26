@@ -19,7 +19,11 @@ package tests
 
 import (
 	"context"
+	"crypto/tls"
+	"fmt"
+	"github.com/stretchr/testify/require"
 	"net"
+	"strconv"
 	"testing"
 	"time"
 
@@ -28,30 +32,40 @@ import (
 )
 
 func TestCustomDialContext(t *testing.T) {
+	env, err := GetNativeTestEnvironment()
+	require.NoError(t, err)
 	var (
 		dialCount int
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			DialContext: func(ctx context.Context, addr string) (net.Conn, error) {
-				dialCount++
-				var d net.Dialer
-				return d.DialContext(ctx, "tcp", addr)
-			},
-		})
 	)
-	if !assert.NoError(t, err) {
-		return
+	useSSL, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	port := env.Port
+	var tlsConfig *tls.Config
+	if useSSL {
+		port = env.SslPort
+		tlsConfig = &tls.Config{}
 	}
+	conn, err := clickhouse.Open(&clickhouse.Options{
+		Addr: []string{fmt.Sprintf("%s:%d", env.Host, port)},
+		Auth: clickhouse.Auth{
+			Database: "default",
+			Username: env.Username,
+			Password: env.Password,
+		},
+		DialContext: func(ctx context.Context, addr string) (net.Conn, error) {
+			dialCount++
+			var d net.Dialer
+			if tlsConfig != nil {
+				return tls.DialWithDialer(&net.Dialer{Timeout: time.Duration(5) * time.Second}, "tcp", addr, tlsConfig)
+			}
+			return d.DialContext(ctx, "tcp", addr)
+		},
+		TLS: tlsConfig,
+	})
+	require.NoError(t, err)
 	ctx := context.Background()
-	if err := conn.Ping(ctx); assert.NoError(t, err) {
-		assert.Equal(t, 1, dialCount)
-	}
-
+	require.NoError(t, conn.Ping(ctx))
+	assert.Equal(t, 1, dialCount)
 	ctx1, cancel := context.WithCancel(ctx)
 
 	go func() {
@@ -59,7 +73,7 @@ func TestCustomDialContext(t *testing.T) {
 	}()
 	start := time.Now()
 	// query is cancelled with context
-	if err = conn.QueryRow(ctx1, "SELECT sleep(10)").Scan(); assert.Error(t, err, "context cancelled") {
+	if err = conn.QueryRow(ctx1, "SELECT sleep(3)").Scan(); assert.Error(t, err, "context cancelled") {
 		assert.Equal(t, 1, dialCount)
 	}
 	assert.True(t, time.Since(start) < time.Second)

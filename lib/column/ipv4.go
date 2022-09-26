@@ -30,6 +30,10 @@ type IPv4 struct {
 	col  proto.ColIPv4
 }
 
+func (col *IPv4) Reset() {
+	col.col.Reset()
+}
+
 func (col *IPv4) Name() string {
 	return col.name
 }

@@ -20,38 +20,29 @@ package issues
 import (
 	"context"
 	"github.com/ClickHouse/clickhouse-go/v2"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"testing"
 )
 
 func TestSelectTwoInRow(t *testing.T) {
 	var (
 		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			//Debug: true,
+		conn, err = clickhouse_tests.GetConnection("issues", nil, nil, &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
 		})
 	)
-	if assert.NoError(t, err) {
-		var result []struct {
-			Col1 uint64 `ch:"number"`
-		}
-		err := conn.Select(ctx, &result, "SELECT number FROM system.numbers LIMIT 10")
-		if assert.NoError(t, err) && assert.Len(t, result, 10) {
-			err = conn.Select(ctx, &result, "SELECT number FROM system.numbers LIMIT 5")
-			if assert.NoError(t, err) && assert.Len(t, result, 5) {
-				for i, v := range result {
-					assert.Equal(t, uint64(i), v.Col1)
-				}
-			}
-		}
+	require.NoError(t, err)
+
+	var result []struct {
+		Col1 uint64 `ch:"number"`
+	}
+	require.NoError(t, conn.Select(ctx, &result, "SELECT number FROM system.numbers LIMIT 10"))
+	require.Len(t, result, 10)
+	require.NoError(t, conn.Select(ctx, &result, "SELECT number FROM system.numbers LIMIT 5"))
+	require.Len(t, result, 5)
+	for i, v := range result {
+		assert.Equal(t, uint64(i), v.Col1)
 	}
 }

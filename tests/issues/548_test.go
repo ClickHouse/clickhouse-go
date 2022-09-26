@@ -2,6 +2,11 @@ package issues
 
 import (
 	"context"
+	"crypto/tls"
+	"fmt"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
+	"github.com/stretchr/testify/require"
+	"strconv"
 	"testing"
 	"time"
 
@@ -10,22 +15,31 @@ import (
 )
 
 func Test548(t *testing.T) {
-	var (
-		ctx, cancel = context.WithTimeout(context.Background(), time.Second)
-		conn, err   = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			DialTimeout: time.Second,
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			//Debug: true,
-		})
-	)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	env, err := GetIssuesTestEnvironment()
+	require.NoError(t, err)
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	var tlsConfig *tls.Config
+	port := env.Port
+	if useSSL {
+		tlsConfig = &tls.Config{}
+		port = env.SslPort
+	}
+	conn, err := clickhouse_tests.GetConnectionWithOptions(&clickhouse.Options{
+		Addr: []string{fmt.Sprintf("%s:%d", env.Host, port)},
+		Auth: clickhouse.Auth{
+			Database: "default",
+			Username: env.Username,
+			Password: env.Password,
+		},
+		Compression: &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		},
+		DialTimeout: time.Second,
+		TLS:         tlsConfig,
+	})
+
 	defer cancel()
 	assert.NoError(t, err)
 	// give it plenty of time before we conclusively assume deadlock

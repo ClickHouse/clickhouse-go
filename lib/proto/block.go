@@ -20,15 +20,17 @@ package proto
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/ClickHouse/ch-go/proto"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 )
 
 type Block struct {
-	names   []string
-	Packet  byte
-	Columns []column.Interface
+	names    []string
+	Packet   byte
+	Columns  []column.Interface
+	Timezone *time.Location
 }
 
 func (b *Block) Rows() int {
@@ -39,7 +41,7 @@ func (b *Block) Rows() int {
 }
 
 func (b *Block) AddColumn(name string, ct column.Type) error {
-	column, err := ct.Column(name)
+	column, err := ct.Column(name, b.Timezone)
 	if err != nil {
 		return err
 	}
@@ -79,10 +81,11 @@ func (b *Block) Encode(buffer *proto.Buffer, revision uint64) error {
 	if len(b.Columns) != 0 {
 		rows = b.Columns[0].Rows()
 		for _, c := range b.Columns[1:] {
-			if rows != c.Rows() {
+			cRows := c.Rows()
+			if rows != cRows {
 				return &BlockError{
 					Op:  "Encode",
-					Err: errors.New("mismatched len of columns"),
+					Err: fmt.Errorf("mismatched len of columns - expected %d, recieved %d for col %s", rows, cRows, c.Name()),
 				}
 			}
 		}
@@ -140,7 +143,7 @@ func (b *Block) Decode(reader *proto.Reader, revision uint64) (err error) {
 		if columnType, err = reader.Str(); err != nil {
 			return err
 		}
-		c, err := column.Type(columnType).Column(columnName)
+		c, err := column.Type(columnType).Column(columnName, b.Timezone)
 		if err != nil {
 			return err
 		}
@@ -165,6 +168,12 @@ func (b *Block) Decode(reader *proto.Reader, revision uint64) (err error) {
 		b.names, b.Columns = append(b.names, columnName), append(b.Columns, c)
 	}
 	return nil
+}
+
+func (b *Block) Reset() {
+	for i := range b.Columns {
+		b.Columns[i].Reset()
+	}
 }
 
 func encodeBlockInfo(buffer *proto.Buffer) {

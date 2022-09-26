@@ -3,14 +3,19 @@ package issues
 import (
 	"context"
 	"github.com/ClickHouse/clickhouse-go/v2"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/require"
 	"testing"
 )
 
 func Test648(t *testing.T) {
-	conn, err := clickhouse.Open(&clickhouse.Options{
-		Addr: []string{"127.0.0.1:9000"},
-	})
+	var (
+		conn, err = clickhouse_tests.GetConnection("issues", clickhouse.Settings{
+			"max_execution_time": 60,
+		}, nil, &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		})
+	)
 	conn.Exec(context.Background(), "DROP TABLE IF EXISTS issue_648")
 	require.NoError(t, err)
 	require.NoError(t, conn.Exec(

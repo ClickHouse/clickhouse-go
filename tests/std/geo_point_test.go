@@ -19,8 +19,10 @@ package std
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
+	"github.com/stretchr/testify/require"
+	"strconv"
 	"testing"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
@@ -32,55 +34,51 @@ func TestStdGeoPoint(t *testing.T) {
 	ctx := clickhouse.Context(context.Background(), clickhouse.WithSettings(clickhouse.Settings{
 		"allow_experimental_geo_types": 1,
 	}))
-
-	dsns := map[string]string{"Native": "clickhouse://127.0.0.1:9000", "Http": "http://127.0.0.1:8123"}
-
-	for name, dsn := range dsns {
+	dsns := map[string]clickhouse.Protocol{"Native": clickhouse.Native, "Http": clickhouse.HTTP}
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	for name, protocol := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
-			if conn, err := sql.Open("clickhouse", dsn); assert.NoError(t, err) {
-				if err := CheckMinServerVersion(conn, 21, 12, 0); err != nil {
-					t.Skip(err.Error())
-					return
-				}
-				const ddl = `
+			conn, err := GetStdDSNConnection(protocol, useSSL, "false")
+			require.NoError(t, err)
+			if err := CheckMinServerVersion(conn, 21, 12, 0); err != nil {
+				t.Skip(err.Error())
+				return
+			}
+			const ddl = `
 				CREATE TABLE test_geo_point (
 					Col1 Point
 					, Col2 Array(Point)
-				) Engine Memory
+				) Engine MergeTree() ORDER BY tuple()
 				`
-				defer func() {
-					conn.Exec("DROP TABLE test_geo_point")
-				}()
-				if _, err := conn.ExecContext(ctx, ddl); assert.NoError(t, err) {
-					scope, err := conn.Begin()
-					if !assert.NoError(t, err) {
-						return
-					}
-					if batch, err := scope.Prepare("INSERT INTO test_geo_point"); assert.NoError(t, err) {
-						if _, err := batch.Exec(
-							orb.Point{11, 22},
-							[]orb.Point{
-								{1, 2},
-								{3, 4},
-							},
-						); assert.NoError(t, err) {
-							if assert.NoError(t, scope.Commit()) {
-								var (
-									col1 orb.Point
-									col2 []orb.Point
-								)
-								if err := conn.QueryRow("SELECT * FROM test_geo_point").Scan(&col1, &col2); assert.NoError(t, err) {
-									assert.Equal(t, orb.Point{11, 22}, col1)
-									assert.Equal(t, []orb.Point{
-										{1, 2},
-										{3, 4},
-									}, col2)
-								}
-							}
-						}
-					}
-				}
-			}
+			defer func() {
+				conn.Exec("DROP TABLE test_geo_point")
+			}()
+			_, err = conn.ExecContext(ctx, ddl)
+			require.NoError(t, err)
+			scope, err := conn.Begin()
+			require.NoError(t, err)
+			batch, err := scope.Prepare("INSERT INTO test_geo_point")
+			require.NoError(t, err)
+			_, err = batch.Exec(
+				orb.Point{11, 22},
+				[]orb.Point{
+					{1, 2},
+					{3, 4},
+				},
+			)
+			require.NoError(t, err)
+			require.NoError(t, scope.Commit())
+			var (
+				col1 orb.Point
+				col2 []orb.Point
+			)
+			require.NoError(t, conn.QueryRow("SELECT * FROM test_geo_point").Scan(&col1, &col2))
+			assert.Equal(t, orb.Point{11, 22}, col1)
+			assert.Equal(t, []orb.Point{
+				{1, 2},
+				{3, 4},
+			}, col2)
 		})
 	}
 }

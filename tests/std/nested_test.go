@@ -18,23 +18,26 @@
 package std
 
 import (
+	"crypto/tls"
 	"github.com/ClickHouse/clickhouse-go/v2"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"strconv"
 	"testing"
 )
 
 func TestStdNested(t *testing.T) {
-	conn := clickhouse.OpenDB(&clickhouse.Options{
-		Addr: []string{"127.0.0.1:9000"},
-	})
-	conn.Close()
-	conn = clickhouse.OpenDB(&clickhouse.Options{
-		Addr: []string{"127.0.0.1:9000"},
-		Settings: clickhouse.Settings{
-			"flatten_nested": 0,
-		},
-	})
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	var tlsConfig *tls.Config
+	if useSSL {
+		tlsConfig = &tls.Config{}
+	}
+	conn, err := GetStdOpenDBConnection(clickhouse.Native, clickhouse.Settings{
+		"flatten_nested": 0,
+	}, tlsConfig, nil)
+	require.NoError(t, err)
 	conn.Exec("DROP TABLE std_nested_test")
 	if err := CheckMinServerVersion(conn, 22, 1, 0); err != nil {
 		t.Skip(err.Error())
@@ -53,11 +56,11 @@ func TestStdNested(t *testing.T) {
 						, Col2_N2_N1 UInt8
 					)
 				)
-			) Engine Memory`
+			) Engine MergeTree() ORDER BY tuple()`
 	defer func() {
 		conn.Exec("DROP TABLE std_nested_test")
 	}()
-	_, err := conn.Exec(ddl)
+	_, err = conn.Exec(ddl)
 	require.NoError(t, err)
 	require.NoError(t, err)
 	scope, err := conn.Begin()
@@ -110,6 +113,6 @@ func TestStdNested(t *testing.T) {
 	)
 	rows := conn.QueryRow("SELECT * FROM std_nested_test")
 	require.NoError(t, rows.Scan(&col1, &col2))
-	assert.JSONEq(t, toJson(col1Data), toJson(col1))
-	assert.JSONEq(t, toJson(col2Data), toJson(col2))
+	assert.JSONEq(t, ToJson(col1Data), ToJson(col1))
+	assert.JSONEq(t, ToJson(col2Data), ToJson(col2))
 }

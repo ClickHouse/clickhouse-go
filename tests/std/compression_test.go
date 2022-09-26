@@ -1,60 +1,72 @@
+// Licensed to ClickHouse, Inc. under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. ClickHouse, Inc. licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package std
 
 import (
-	"database/sql"
+	"crypto/tls"
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"strconv"
 	"testing"
-	"time"
 )
 
 func TestCompressionStd(t *testing.T) {
 	type compressionTest struct {
-		port               int
 		compressionMethods []clickhouse.CompressionMethod
 	}
 
 	protocols := map[clickhouse.Protocol]compressionTest{clickhouse.HTTP: {
-		port:               8123,
 		compressionMethods: []clickhouse.CompressionMethod{clickhouse.CompressionLZ4, clickhouse.CompressionZSTD, clickhouse.CompressionGZIP, clickhouse.CompressionDeflate, clickhouse.CompressionBrotli},
 	}, clickhouse.Native: {
-		port:               9000,
 		compressionMethods: []clickhouse.CompressionMethod{clickhouse.CompressionLZ4, clickhouse.CompressionZSTD},
 	}}
+
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	var tlsConfig *tls.Config
+	if useSSL {
+		tlsConfig = &tls.Config{}
+	}
 	for protocol, compressionTest := range protocols {
 		for _, method := range compressionTest.compressionMethods {
 			t.Run(fmt.Sprintf("%s with %s", protocol, method), func(t *testing.T) {
-				conn := clickhouse.OpenDB(&clickhouse.Options{
-					Addr: []string{fmt.Sprintf("127.0.0.1:%d", compressionTest.port)},
-					Auth: clickhouse.Auth{
-						Database: "default",
-						Username: "default",
-						Password: "",
-					},
-					Settings: clickhouse.Settings{
-						"max_execution_time":      60,
-						"enable_http_compression": 1, // needed for http compression e.g. gzip
-					},
-					DialTimeout: 5 * time.Second,
-					Compression: &clickhouse.Compression{
-						Method: method,
-						Level:  3,
-					},
-					Protocol: protocol,
+				conn, err := GetStdOpenDBConnection(protocol, clickhouse.Settings{
+					"max_execution_time":      60,
+					"enable_http_compression": 1, // needed for http compression e.g. gzip
+				}, tlsConfig, &clickhouse.Compression{
+					Method: method,
+					Level:  3,
 				})
+				require.NoError(t, err)
 				conn.Exec("DROP TABLE IF EXISTS test_array_compress")
 				const ddl = `
 					CREATE TABLE test_array_compress (
 						  Col1 Array(Int32),
 					      Col2 Int32         
-					) Engine Memory
+					) Engine MergeTree() ORDER BY tuple()
 					`
 				defer func() {
 					conn.Exec("DROP TABLE test_array_compress")
 				}()
-				_, err := conn.Exec(ddl)
+				_, err = conn.Exec(ddl)
 				require.NoError(t, err)
 				scope, err := conn.Begin()
 				require.NoError(t, err)
@@ -107,17 +119,18 @@ func TestCompressionStd(t *testing.T) {
 }
 
 func TestCompressionStdDSN(t *testing.T) {
-	dsns := map[string]string{"Native": "clickhouse://127.0.0.1:9000?compress=true", "Http": "http://127.0.0.1:8123?compress=true"}
-
-	for name, dsn := range dsns {
+	dsns := map[string]clickhouse.Protocol{"Native": clickhouse.Native, "Http": clickhouse.HTTP}
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	for name, protocol := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
-			conn, err := sql.Open("clickhouse", dsn)
+			conn, err := GetStdDSNConnection(protocol, useSSL, "true")
 			require.NoError(t, err)
 			conn.Exec("DROP TABLE IF EXISTS test_array_compress")
 			const ddl = `
 				CREATE TABLE test_array_compress (
 					  Col1 Array(String)
-				) Engine Memory
+				) Engine MergeTree() ORDER BY tuple()
 				`
 			defer func() {
 				conn.Exec("DROP TABLE test_array_compress")
@@ -151,18 +164,30 @@ func TestCompressionStdDSN(t *testing.T) {
 	}
 }
 
-func TestCompressionStdDSNWithLevel(t *testing.T) {
-	dsns := map[string]string{"Native": "clickhouse://127.0.0.1:9000?compress=lz4", "Http": "http://127.0.0.1:8123?compress=gzip&compress_level=9"}
+type protocolCompress struct {
+	protocol clickhouse.Protocol
+	compress string
+}
 
-	for name, dsn := range dsns {
+func TestCompressionStdDSNWithLevel(t *testing.T) {
+	dsns := map[string]protocolCompress{"Native": {
+		protocol: clickhouse.Native,
+		compress: "lz4",
+	}, "Http": {
+		protocol: clickhouse.HTTP,
+		compress: "gzip&compress_level=9",
+	}}
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	for name, protocol := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
-			conn, err := sql.Open("clickhouse", dsn)
+			conn, err := GetStdDSNConnection(protocol.protocol, useSSL, protocol.compress)
 			require.NoError(t, err)
 			conn.Exec("DROP TABLE IF EXISTS test_array_compress")
 			const ddl = `
 				CREATE TABLE test_array_compress (
 					  Col1 Array(String)
-				) Engine Memory
+				) Engine MergeTree() ORDER BY tuple()
 				`
 			defer func() {
 				conn.Exec("DROP TABLE test_array_compress")
@@ -198,17 +223,26 @@ func TestCompressionStdDSNWithLevel(t *testing.T) {
 
 func TestCompressionStdDSNInvalid(t *testing.T) {
 	// these should all fail
-	config := map[string][]string{"Native": {"clickhouse://127.0.0.1:9000?compress=gzip"},
-		"Http": {"http://127.0.0.1:8123?compress=gzip&compress_level=10",
-			"http://127.0.0.1:8123?compress=gzip&compress_level=-3"}}
-	for name, dsns := range config {
+	configs := map[string][]protocolCompress{"Native": {{
+		protocol: clickhouse.Native,
+		compress: "gzip",
+	}}, "Http": {{
+		protocol: clickhouse.HTTP,
+		compress: "gzip&compress_level=10",
+	}, {
+		protocol: clickhouse.HTTP,
+		compress: "gzip&compress_level=-3",
+	}}}
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	for name, dsns := range configs {
 		for _, dsn := range dsns {
 			t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
-				conn, err := sql.Open("clickhouse", dsn)
+				conn, err := GetStdDSNConnection(dsn.protocol, useSSL, dsn.compress)
 				const ddl = `
 				CREATE TABLE test_array_compress (
 					  Col1 Array(String)
-				) Engine Memory
+				) Engine MergeTree() ORDER BY tuple()
 				`
 				_, err = conn.Exec(ddl)
 				require.Error(t, err)

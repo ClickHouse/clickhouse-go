@@ -29,7 +29,7 @@ import (
 	"regexp"
 )
 
-var splitHttpInsertRe = regexp.MustCompile(`(?i)^INSERT INTO\s([\w.]+)`)
+var splitHttpInsertRe = regexp.MustCompile("(?i)^INSERT INTO\\s+`?([\\w.]+)`?")
 
 // release is ignored, because http used by std with empty release function
 func (h *httpConnect) prepareBatch(ctx context.Context, query string, release func(*connect, error)) (driver.Batch, error) {
@@ -85,6 +85,11 @@ type httpBatch struct {
 	structMap *structMap
 	sent      bool
 	block     *proto.Block
+}
+
+// Flush TODO: noop on http currently - requires streaming to be implemented
+func (b *httpBatch) Flush() error {
+	return nil
 }
 
 func (b *httpBatch) Abort() error {

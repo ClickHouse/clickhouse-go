@@ -20,31 +20,21 @@ package tests
 import (
 	"context"
 	"database/sql"
-	"github.com/stretchr/testify/require"
-	"testing"
-
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"math/rand"
+	"testing"
+	"time"
 )
 
 func TestBool(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			MaxOpenConns: 1,
-		})
-	)
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 21, 12, 0); err != nil {
+	if err := CheckMinServerServerVersion(conn, 21, 12, 0); err != nil {
 		t.Skip(err.Error())
 		return
 	}
@@ -57,10 +47,10 @@ func TestBool(t *testing.T) {
 				, Col5 Array(Nullable(Bool))
 				, Col6 Bool
 				, Col7 Nullable(Bool)
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_bool")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_bool")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_bool")
@@ -100,27 +90,16 @@ func TestBool(t *testing.T) {
 }
 
 func TestColumnarBool(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			MaxOpenConns: 1,
-		})
-	)
-	if assert.NoError(t, err) {
-		if err := CheckMinServerVersion(conn, 21, 12, 0); err != nil {
-			t.Skip(err.Error())
-			return
-		}
-		const ddl = `
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+	require.NoError(t, err)
+	if err := CheckMinServerServerVersion(conn, 21, 12, 0); err != nil {
+		t.Skip(err.Error())
+		return
+	}
+	const ddl = `
 			CREATE TABLE test_bool (
 				  ID   UInt64
 				, Col1 Bool
@@ -128,69 +107,90 @@ func TestColumnarBool(t *testing.T) {
 				, Col3 Array(Bool)
 				, Col4 Nullable(Bool)
 				, Col5 Array(Nullable(Bool))
-			) Engine Memory
+			) Engine MergeTree() ORDER BY tuple()
 		`
-		defer func() {
-			conn.Exec(ctx, "DROP TABLE test_bool")
-		}()
-		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
-			val := true
-			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_bool"); assert.NoError(t, err) {
-				var (
-					id   []uint64
-					col1 []bool
-					col2 []bool
-					col3 [][]bool
-					col4 []*bool
-					col5 [][]*bool
-				)
-				for i := 0; i < 1000; i++ {
-					id = append(id, uint64(i))
-					col1 = append(col1, true)
-					col2 = append(col2, false)
-					col3 = append(col3, []bool{true, false, true})
-					col4 = append(col4, nil)
-					col5 = append(col5, []*bool{&val, nil, &val})
-				}
-				{
-					if err := batch.Column(0).Append(id); !assert.NoError(t, err) {
-						return
-					}
-					if err := batch.Column(1).Append(col1); !assert.NoError(t, err) {
-						return
-					}
-					if err := batch.Column(2).Append(col2); !assert.NoError(t, err) {
-						return
-					}
-					if err := batch.Column(3).Append(col3); !assert.NoError(t, err) {
-						return
-					}
-					if err := batch.Column(4).Append(col4); !assert.NoError(t, err) {
-						return
-					}
-					if err := batch.Column(5).Append(col5); !assert.NoError(t, err) {
-						return
-					}
-					if err := batch.Send(); assert.NoError(t, err) {
-						var (
-							id   uint64
-							col1 bool
-							col2 bool
-							col3 []bool
-							col4 *bool
-							col5 []*bool
-						)
-						if err := conn.QueryRow(ctx, "SELECT * FROM test_bool WHERE ID = $1", 42).Scan(&id, &col1, &col2, &col3, &col4, &col5); assert.NoError(t, err) {
-							assert.Equal(t, true, col1)
-							assert.Equal(t, false, col2)
-							assert.Equal(t, []bool{true, false, true}, col3)
-							if assert.Nil(t, col4) {
-								assert.Equal(t, []*bool{&val, nil, &val}, col5)
-							}
-						}
-					}
-				}
-			}
-		}
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_bool")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	val := true
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_bool")
+	require.NoError(t, err)
+	var (
+		id   []uint64
+		col1 []bool
+		col2 []bool
+		col3 [][]bool
+		col4 []*bool
+		col5 [][]*bool
+	)
+	for i := 0; i < 1000; i++ {
+		id = append(id, uint64(i))
+		col1 = append(col1, true)
+		col2 = append(col2, false)
+		col3 = append(col3, []bool{true, false, true})
+		col4 = append(col4, nil)
+		col5 = append(col5, []*bool{&val, nil, &val})
+	}
+	{
+		require.NoError(t, batch.Column(0).Append(id))
+		require.NoError(t, batch.Column(1).Append(col1))
+		require.NoError(t, batch.Column(2).Append(col2))
+		require.NoError(t, batch.Column(3).Append(col3))
+		require.NoError(t, batch.Column(4).Append(col4))
+		require.NoError(t, batch.Column(5).Append(col5))
+		require.NoError(t, batch.Send())
+		var (
+			id   uint64
+			col1 bool
+			col2 bool
+			col3 []bool
+			col4 *bool
+			col5 []*bool
+		)
+		require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_bool WHERE ID = $1", 42).Scan(&id, &col1, &col2, &col3, &col4, &col5))
+		assert.Equal(t, true, col1)
+		assert.Equal(t, false, col2)
+		assert.Equal(t, []bool{true, false, true}, col3)
+		require.Nil(t, col4)
+		assert.Equal(t, []*bool{&val, nil, &val}, col5)
+	}
+}
+
+func TestBoolFlush(t *testing.T) {
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+	require.NoError(t, err)
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE IF EXISTS bool_flush")
+	}()
+	const ddl = `
+		CREATE TABLE bool_flush (
+			  Col1 Bool
+		) Engine MergeTree() ORDER BY tuple()
+		`
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO bool_flush")
+	require.NoError(t, err)
+	vals := [1000]bool{}
+	var src = rand.NewSource(time.Now().UnixNano())
+	var r = rand.New(src)
+
+	for i := 0; i < 1000; i++ {
+		vals[i] = r.Intn(2) != 0
+		require.NoError(t, batch.Append(vals[i]))
+		require.NoError(t, batch.Flush())
+	}
+	batch.Send()
+	rows, err := conn.Query(ctx, "SELECT * FROM bool_flush")
+	require.NoError(t, err)
+	i := 0
+	for rows.Next() {
+		var col1 bool
+		require.NoError(t, rows.Scan(&col1))
+		assert.Equal(t, vals[i], col1)
+		i += 1
 	}
 }

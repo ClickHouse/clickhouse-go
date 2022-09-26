@@ -28,71 +28,49 @@ import (
 )
 
 func TestSimpleBigInt(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			MaxOpenConns: 1,
-		})
-	)
-	if assert.NoError(t, err) {
-		if err := CheckMinServerVersion(conn, 21, 12, 0); err != nil {
-			t.Skip(err.Error())
-			return
-		}
-		const ddl = `
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+	require.NoError(t, err)
+	if err := CheckMinServerServerVersion(conn, 21, 12, 0); err != nil {
+		t.Skip(err.Error())
+		return
+	}
+	const ddl = `
 		CREATE TABLE test_bigint (
 			  Col1 Int128
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
-		defer func() {
-			conn.Exec(ctx, "DROP TABLE test_bigint")
-		}()
-		require.NoError(t, conn.Exec(ctx, ddl))
-		batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_bigint")
-		require.NoError(t, err)
-		col1Data, ok := new(big.Int).SetString("170141183460469231731687303715884105727", 10)
-		require.True(t, ok)
-		require.NoError(t, batch.Append(col1Data))
-		require.NoError(t, batch.Send())
-		var (
-			col1 big.Int
-		)
-		require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_bigint").Scan(&col1))
-		assert.Equal(t, *col1Data, col1)
-	}
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_bigint")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_bigint")
+	require.NoError(t, err)
+	col1Data, ok := new(big.Int).SetString("170141183460469231731687303715884105727", 10)
+	require.True(t, ok)
+	require.NoError(t, batch.Append(col1Data))
+	require.NoError(t, batch.Send())
+	var (
+		col1 big.Int
+	)
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_bigint").Scan(&col1))
+	assert.Equal(t, *col1Data, col1)
+
 }
 
 func TestBigInt(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			MaxOpenConns: 1,
-		})
-	)
-	if assert.NoError(t, err) {
-		if err := CheckMinServerVersion(conn, 21, 12, 0); err != nil {
-			t.Skip(err.Error())
-			return
-		}
-		const ddl = `
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+	require.NoError(t, err)
+	if err := CheckMinServerServerVersion(conn, 21, 12, 0); err != nil {
+		t.Skip(err.Error())
+		return
+	}
+	const ddl = `
 		CREATE TABLE test_bigint (
 			  Col1 Int128
 			, Col2 UInt128
@@ -101,85 +79,68 @@ func TestBigInt(t *testing.T) {
 			, Col5 Array(Int256)
 			, Col6 UInt256
 			, Col7 Array(UInt256)
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
-		defer func() {
-			conn.Exec(ctx, "DROP TABLE test_bigint")
-		}()
-
-		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
-			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_bigint"); assert.NoError(t, err) {
-				col1Data, ok := new(big.Int).SetString("170141183460469231731687303715884105727", 10)
-				require.True(t, ok)
-				var (
-					col2Data = big.NewInt(128)
-					col3Data = []*big.Int{
-						big.NewInt(-128),
-						big.NewInt(128128),
-						big.NewInt(128128128),
-					}
-					col4Data = big.NewInt(256)
-					col5Data = []*big.Int{
-						big.NewInt(256),
-						big.NewInt(256256),
-						big.NewInt(256256256256),
-					}
-					col6Data = big.NewInt(256)
-					col7Data = []*big.Int{
-						big.NewInt(256),
-						big.NewInt(256256),
-						big.NewInt(256256256256),
-					}
-				)
-				if err := batch.Append(col1Data, col2Data, col3Data, col4Data, col5Data, col6Data, col7Data); assert.NoError(t, err) {
-					if err := batch.Send(); assert.NoError(t, err) {
-						var (
-							col1 big.Int
-							col2 big.Int
-							col3 []*big.Int
-							col4 big.Int
-							col5 []*big.Int
-							col6 big.Int
-							col7 []*big.Int
-						)
-						if err := conn.QueryRow(ctx, "SELECT * FROM test_bigint").Scan(&col1, &col2, &col3, &col4, &col5, &col6, &col7); assert.NoError(t, err) {
-							assert.Equal(t, *col1Data, col1)
-							assert.Equal(t, *col2Data, col2)
-							assert.Equal(t, col3Data, col3)
-							assert.Equal(t, *col4Data, col4)
-							assert.Equal(t, col5Data, col5)
-							assert.Equal(t, *col6Data, col6)
-							assert.Equal(t, col7Data, col7)
-						}
-					}
-				}
-			}
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_bigint")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_bigint")
+	require.NoError(t, err)
+	col1Data, ok := new(big.Int).SetString("170141183460469231731687303715884105727", 10)
+	require.True(t, ok)
+	var (
+		col2Data = big.NewInt(128)
+		col3Data = []*big.Int{
+			big.NewInt(-128),
+			big.NewInt(128128),
+			big.NewInt(128128128),
 		}
-	}
+		col4Data = big.NewInt(256)
+		col5Data = []*big.Int{
+			big.NewInt(256),
+			big.NewInt(256256),
+			big.NewInt(256256256256),
+		}
+		col6Data = big.NewInt(256)
+		col7Data = []*big.Int{
+			big.NewInt(256),
+			big.NewInt(256256),
+			big.NewInt(256256256256),
+		}
+	)
+	require.NoError(t, batch.Append(col1Data, col2Data, col3Data, col4Data, col5Data, col6Data, col7Data))
+	require.NoError(t, batch.Send())
+	var (
+		col1 big.Int
+		col2 big.Int
+		col3 []*big.Int
+		col4 big.Int
+		col5 []*big.Int
+		col6 big.Int
+		col7 []*big.Int
+	)
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_bigint").Scan(&col1, &col2, &col3, &col4, &col5, &col6, &col7))
+	assert.Equal(t, *col1Data, col1)
+	assert.Equal(t, *col2Data, col2)
+	assert.Equal(t, col3Data, col3)
+	assert.Equal(t, *col4Data, col4)
+	assert.Equal(t, col5Data, col5)
+	assert.Equal(t, *col6Data, col6)
+	assert.Equal(t, col7Data, col7)
 }
 
 func TestNullableBigInt(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			MaxOpenConns: 1,
-		})
-	)
-	if assert.NoError(t, err) {
-		if err := CheckMinServerVersion(conn, 21, 12, 0); err != nil {
-			t.Skip(err.Error())
-			return
-		}
-		const ddl = `
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+	require.NoError(t, err)
+	if err := CheckMinServerServerVersion(conn, 21, 12, 0); err != nil {
+		t.Skip(err.Error())
+		return
+	}
+	const ddl = `
 		CREATE TABLE test_nullable_bigint (
 			  Col1 Nullable(Int128)
 			, Col2 Array(Nullable(Int128))
@@ -187,76 +148,60 @@ func TestNullableBigInt(t *testing.T) {
 			, Col4 Array(Nullable(Int256))
 			, Col5 Nullable(UInt256)
 			, Col6 Array(Nullable(UInt256))
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
-		defer func() {
-			conn.Exec(ctx, "DROP TABLE test_nullable_bigint")
-		}()
-		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
-			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_nullable_bigint"); assert.NoError(t, err) {
-				var (
-					col1Data = big.NewInt(128)
-					col2Data = []*big.Int{
-						big.NewInt(-128),
-						big.NewInt(128128),
-						big.NewInt(128128128),
-					}
-					col3Data = big.NewInt(256)
-					col4Data = []*big.Int{
-						big.NewInt(256),
-						nil,
-						big.NewInt(256256256256),
-					}
-					col5Data = big.NewInt(256)
-					col6Data = []*big.Int{
-						big.NewInt(256),
-						big.NewInt(256256),
-						big.NewInt(256256256256),
-					}
-				)
-				if err := batch.Append(col1Data, col2Data, col3Data, col4Data, col5Data, col6Data); assert.NoError(t, err) {
-					if err := batch.Send(); assert.NoError(t, err) {
-						var (
-							col1 *big.Int
-							col2 []*big.Int
-							col3 *big.Int
-							col4 []*big.Int
-							col5 *big.Int
-							col6 []*big.Int
-						)
-						if err := conn.QueryRow(ctx, "SELECT * FROM test_nullable_bigint").Scan(&col1, &col2, &col3, &col4, &col5, &col6); assert.NoError(t, err) {
-							assert.Equal(t, *col1Data, *col1)
-							assert.Equal(t, col2Data, col2)
-							assert.Equal(t, *col3Data, *col3)
-							assert.Equal(t, col4Data, col4)
-							assert.Equal(t, *col5Data, *col5)
-							assert.Equal(t, col6Data, col6)
-						}
-					}
-				}
-			}
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_nullable_bigint")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_nullable_bigint")
+	require.NoError(t, err)
+	var (
+		col1Data = big.NewInt(128)
+		col2Data = []*big.Int{
+			big.NewInt(-128),
+			big.NewInt(128128),
+			big.NewInt(128128128),
 		}
-	}
+		col3Data = big.NewInt(256)
+		col4Data = []*big.Int{
+			big.NewInt(256),
+			nil,
+			big.NewInt(256256256256),
+		}
+		col5Data = big.NewInt(256)
+		col6Data = []*big.Int{
+			big.NewInt(256),
+			big.NewInt(256256),
+			big.NewInt(256256256256),
+		}
+	)
+	require.NoError(t, batch.Append(col1Data, col2Data, col3Data, col4Data, col5Data, col6Data))
+	require.NoError(t, batch.Send())
+	var (
+		col1 *big.Int
+		col2 []*big.Int
+		col3 *big.Int
+		col4 []*big.Int
+		col5 *big.Int
+		col6 []*big.Int
+	)
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_nullable_bigint").Scan(&col1, &col2, &col3, &col4, &col5, &col6))
+	assert.Equal(t, *col1Data, *col1)
+	assert.Equal(t, col2Data, col2)
+	assert.Equal(t, *col3Data, *col3)
+	assert.Equal(t, col4Data, col4)
+	assert.Equal(t, *col5Data, *col5)
+	assert.Equal(t, col6Data, col6)
 }
 
 func TestBigIntUIntOverflow(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		conn, err = clickhouse.Open(&clickhouse.Options{
-			Addr: []string{"127.0.0.1:9000"},
-			Auth: clickhouse.Auth{
-				Database: "default",
-				Username: "default",
-				Password: "",
-			},
-			Compression: &clickhouse.Compression{
-				Method: clickhouse.CompressionLZ4,
-			},
-			MaxOpenConns: 1,
-		})
-	)
-	if assert.NoError(t, err) {
-		const ddl = `
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+	require.NoError(t, err)
+	const ddl = `
 		CREATE TABLE test_bigint_uint_overflow (
 			  Col1 UInt128,
 			  Col2 UInt128,
@@ -264,62 +209,93 @@ func TestBigIntUIntOverflow(t *testing.T) {
 			  Col4 UInt256,
 			  Col5 UInt256,
 			  Col6 Array(UInt256)
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
-		defer func() {
-			conn.Exec(ctx, "DROP TABLE test_bigint_uint_overflow")
-		}()
-		if err := conn.Exec(ctx, ddl); assert.NoError(t, err) {
-			if batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_bigint_uint_overflow"); assert.NoError(t, err) {
-				bigUint128Val := big.NewInt(0)
-				bigUint128Val.SetString("170141183460469231731687303715884105729", 10)
-				maxUint128Val := big.NewInt(0)
-				maxUint128Val.SetString("340282366920938463463374607431768211455", 10)
-				bigUint256Val := big.NewInt(0)
-				bigUint256Val.SetString("57896044618658097711785492504343953926634992332820282019728792003956564819969", 10)
-				maxUint256Val := big.NewInt(0)
-				maxUint256Val.SetString("115792089237316195423570985008687907853269984665640564039457584007913129639935", 10)
-				var (
-					col1Data = bigUint128Val
-					col2Data = maxUint128Val
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_bigint_uint_overflow")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_bigint_uint_overflow")
+	require.NoError(t, err)
+	bigUint128Val := big.NewInt(0)
+	bigUint128Val.SetString("170141183460469231731687303715884105729", 10)
+	maxUint128Val := big.NewInt(0)
+	maxUint128Val.SetString("340282366920938463463374607431768211455", 10)
+	bigUint256Val := big.NewInt(0)
+	bigUint256Val.SetString("57896044618658097711785492504343953926634992332820282019728792003956564819969", 10)
+	maxUint256Val := big.NewInt(0)
+	maxUint256Val.SetString("115792089237316195423570985008687907853269984665640564039457584007913129639935", 10)
+	var (
+		col1Data = bigUint128Val
+		col2Data = maxUint128Val
 
-					col3Data = []*big.Int{
-						big.NewInt(256),
-						bigUint128Val,
-						maxUint128Val,
-					}
-
-					col4Data = bigUint256Val
-					col5Data = maxUint256Val
-
-					col6Data = []*big.Int{
-						big.NewInt(256),
-						bigUint256Val,
-						maxUint256Val,
-					}
-				)
-
-				if err := batch.Append(col1Data, col2Data, col3Data, col4Data, col5Data, col6Data); assert.NoError(t, err) {
-					if err := batch.Send(); assert.NoError(t, err) {
-						var (
-							col1 big.Int
-							col2 big.Int
-							col3 []*big.Int
-							col4 big.Int
-							col5 big.Int
-							col6 []*big.Int
-						)
-						if err := conn.QueryRow(ctx, "SELECT * FROM test_bigint_uint_overflow").Scan(&col1, &col2, &col3, &col4, &col5, &col6); assert.NoError(t, err) {
-							assert.Equal(t, *col1Data, col1)
-							assert.Equal(t, *col2Data, col2)
-							assert.Equal(t, col3Data, col3)
-							assert.Equal(t, *col4Data, col4)
-							assert.Equal(t, *col5Data, col5)
-							assert.Equal(t, col6Data, col6)
-						}
-					}
-				}
-			}
+		col3Data = []*big.Int{
+			big.NewInt(256),
+			bigUint128Val,
+			maxUint128Val,
 		}
+
+		col4Data = bigUint256Val
+		col5Data = maxUint256Val
+
+		col6Data = []*big.Int{
+			big.NewInt(256),
+			bigUint256Val,
+			maxUint256Val,
+		}
+	)
+	require.NoError(t, batch.Append(col1Data, col2Data, col3Data, col4Data, col5Data, col6Data))
+	require.NoError(t, batch.Send())
+	var (
+		col1 big.Int
+		col2 big.Int
+		col3 []*big.Int
+		col4 big.Int
+		col5 big.Int
+		col6 []*big.Int
+	)
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_bigint_uint_overflow").Scan(&col1, &col2, &col3, &col4, &col5, &col6))
+	assert.Equal(t, *col1Data, col1)
+	assert.Equal(t, *col2Data, col2)
+	assert.Equal(t, col3Data, col3)
+	assert.Equal(t, *col4Data, col4)
+	assert.Equal(t, *col5Data, col5)
+	assert.Equal(t, col6Data, col6)
+}
+
+func TestBigIntFlush(t *testing.T) {
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+	require.NoError(t, err)
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE IF EXISTS big_int_flush")
+	}()
+	const ddl = `
+		CREATE TABLE big_int_flush (
+			  Col1 UInt128
+		) Engine MergeTree() ORDER BY tuple()
+		`
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO big_int_flush")
+	require.NoError(t, err)
+	vals := [1000]*big.Int{}
+	for i := 0; i < 1000; i++ {
+		bigUint128Val := big.NewInt(0)
+		bigUint128Val.SetString(RandIntString(20), 10)
+		vals[i] = bigUint128Val
+		batch.Append(vals[i])
+		batch.Flush()
+	}
+	batch.Send()
+	rows, err := conn.Query(ctx, "SELECT * FROM big_int_flush")
+	require.NoError(t, err)
+	i := 0
+	for rows.Next() {
+		var col1 big.Int
+		require.NoError(t, rows.Scan(&col1))
+		assert.Equal(t, *vals[i], col1)
+		i += 1
 	}
 }

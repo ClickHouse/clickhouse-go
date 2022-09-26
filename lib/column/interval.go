@@ -31,6 +31,10 @@ type Interval struct {
 	col    proto.ColInt64
 }
 
+func (col *Interval) Reset() {
+	col.col.Reset()
+}
+
 func (col *Interval) Name() string {
 	return col.name
 }

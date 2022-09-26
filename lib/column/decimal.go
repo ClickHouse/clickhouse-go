@@ -21,11 +21,12 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/ClickHouse/ch-go/proto"
 	"math/big"
 	"reflect"
 	"strconv"
 	"strings"
+
+	"github.com/ClickHouse/ch-go/proto"
 
 	"github.com/shopspring/decimal"
 )
@@ -40,6 +41,10 @@ type Decimal struct {
 
 func (col *Decimal) Name() string {
 	return col.name
+}
+
+func (col *Decimal) Reset() {
+	col.col.Reset()
 }
 
 func (col *Decimal) parse(t Type) (_ *Decimal, err error) {
@@ -152,7 +157,7 @@ func (col *Decimal) Append(v interface{}) (nulls []uint8, err error) {
 		nulls = make([]uint8, len(v))
 		for i := range v {
 			switch {
-			case v != nil:
+			case v[i] != nil:
 				col.append(v[i])
 			default:
 				nulls[i] = 1
