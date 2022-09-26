@@ -24,6 +24,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"os"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -229,24 +230,38 @@ func TestQueryCancel(t *testing.T) {
 		Compression: &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
 		},
-		TLS:          tlsConfig,
-		MaxOpenConns: 1,
-		MaxIdleConns: 1,
-		Debug:        true,
+		TLS: tlsConfig,
+
+		ConnMaxLifetime: time.Duration(1) * time.Second,
+		Debug:           true,
+		DialTimeout:     time.Duration(60) * time.Second,
 	})
+
 	require.NoError(t, err)
 	// Issue a query which will take 3 secs, cancel after 1 and reissue a query which take 3 secs - check response is q2, not q1
+	var wg sync.WaitGroup
+	for i := uint16(1); i <= uint16(10); i++ {
+		wg.Add(2)
+		go func(j uint16) {
+			var col1 uint16
+			err := conn.QueryRow(context.Background(), fmt.Sprintf("SELECT sleep(2) + %d as query_id", j)).Scan(&col1)
+			assert.NoError(t, err)
+			assert.Equal(t, j, col1)
+			wg.Done()
+		}(i)
+		go func(j uint16) {
+			var col2 uint16
+			err := conn.QueryRow(context.Background(), fmt.Sprintf("SELECT sleep(0.5) + %d as query_id", j+1)).Scan(&col2)
+			assert.NoError(t, err)
+			assert.Equal(t, j+1, col2)
+			wg.Done()
+		}(i)
+		wg.Wait()
+	}
 
-	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Millisecond*time.Duration(500)))
-	defer cancel()
-	var queryId uint16
 	// query 1
-	err = conn.QueryRow(ctx, "SELECT sleep(3) + 1 as query_id").Scan(&queryId)
-	require.Error(t, err)
+
 	// query 2
-	err = conn.QueryRow(context.Background(), "SELECT sleep(3) + 2 as query_id").Scan(&queryId)
-	require.NoError(t, err)
-	require.Equal(t, uint16(2), queryId)
 
 	// what if the cancel timeouts?
 }
