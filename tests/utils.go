@@ -99,7 +99,6 @@ func (env *ClickHouseTestEnvironment) setVersion() {
 	env.Version = v.Version
 }
 
-
 func CheckMinServerServerVersion(conn driver.Conn, major, minor, patch uint64) error {
 	v, err := conn.ServerVersion()
 	if err != nil {
@@ -118,7 +117,6 @@ func CheckMinVersion(constraint Version, version Version) error {
 	}
 	return nil
 }
-
 
 func CreateClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment, error) {
 	// create a ClickHouse Container
@@ -153,7 +151,7 @@ func CreateClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment,
 		Image:        fmt.Sprintf("clickhouse/clickhouse-server:%s", GetClickHouseTestVersion()),
 		Name:         fmt.Sprintf("clickhouse-go-%s-%d", strings.ToLower(testSet), time.Now().UnixNano()),
 		ExposedPorts: []string{"9000/tcp", "8123/tcp", "9440/tcp", "8443/tcp"},
-		WaitingFor: wait.ForAll(wait.ForLog("Ready for connections"), wait.ForSQL("9000/tcp", "clickhouse", func(port nat.Port) string {
+		WaitingFor: wait.ForAll(wait.ForLog("Ready for connections").WithStartupTimeout(time.Second*time.Duration(120)), wait.ForSQL("9000/tcp", "clickhouse", func(port nat.Port) string {
 			return fmt.Sprintf("clickhouse://default:ClickHouse@localhost:%s", port.Port())
 		})).WithStartupTimeout(time.Second * time.Duration(120)),
 		Mounts: []testcontainers.ContainerMount{
@@ -333,7 +331,6 @@ func getDatabaseName(testSet string) string {
 	return fmt.Sprintf("clickhouse-go-%s-%s-%d", testSet, testUUID, testTimestamp)
 }
 
-
 func GetEnv(key, fallback string) string {
 	if value, ok := os.LookupEnv(key); ok {
 		return value
@@ -345,7 +342,6 @@ func IsSetInEnv(key string) bool {
 	_, ok := os.LookupEnv(key)
 	return ok
 }
-
 
 var src = rand.NewSource(time.Now().UnixNano())
 
