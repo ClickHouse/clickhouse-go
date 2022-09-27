@@ -31,7 +31,8 @@ var (
 )
 
 const (
-	defaultDateFormat = "2006-01-02"
+	defaultDateFormatNoZone   = "2006-01-02"
+	defaultDateFormatWithZone = "2006-01-02 -07:00"
 )
 
 type Date struct {
@@ -90,7 +91,7 @@ func (col *Date) Append(v interface{}) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []time.Time:
 		for _, t := range v {
-			if err := dateOverflow(minDate, maxDate, t, defaultDateFormat); err != nil {
+			if err := dateOverflow(minDate, maxDate, t, defaultDateFormatNoZone); err != nil {
 				return nil, err
 			}
 			col.col.Append(t)
@@ -100,7 +101,7 @@ func (col *Date) Append(v interface{}) (nulls []uint8, err error) {
 		for i, v := range v {
 			switch {
 			case v != nil:
-				if err := dateOverflow(minDate, maxDate, *v, defaultDateFormat); err != nil {
+				if err := dateOverflow(minDate, maxDate, *v, defaultDateFormatNoZone); err != nil {
 					return nil, err
 				}
 				col.col.Append(*v)
@@ -158,14 +159,14 @@ func (col *Date) Append(v interface{}) (nulls []uint8, err error) {
 func (col *Date) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case time.Time:
-		if err := dateOverflow(minDate, maxDate, v, defaultDateFormat); err != nil {
+		if err := dateOverflow(minDate, maxDate, v, defaultDateFormatNoZone); err != nil {
 			return err
 		}
 		col.col.Append(v)
 	case *time.Time:
 		switch {
 		case v != nil:
-			if err := dateOverflow(minDate, maxDate, *v, defaultDateFormat); err != nil {
+			if err := dateOverflow(minDate, maxDate, *v, defaultDateFormatNoZone); err != nil {
 				return err
 			}
 			col.col.Append(*v)
@@ -218,13 +219,25 @@ func (col *Date) AppendRow(v interface{}) error {
 	return nil
 }
 
-func (col *Date) parseDate(str string) (datetime time.Time, err error) {
+func parseDate(value string, minDate time.Time, maxDate time.Time) (tv time.Time, err error) {
 	defer func() {
 		if err == nil {
-			err = dateOverflow(minDate, maxDate, datetime, defaultDateFormat)
+			err = dateOverflow(minDate, maxDate, tv, defaultDateFormatNoZone)
 		}
 	}()
-	return time.Parse(defaultDateFormat, str)
+	if tv, err = time.Parse(defaultDateFormatWithZone, value); err == nil {
+		return tv, nil
+	}
+	if tv, err = time.Parse(defaultDateFormatNoZone, value); err == nil {
+		return time.Date(
+			tv.Year(), tv.Month(), tv.Day(), tv.Hour(), tv.Minute(), tv.Second(), tv.Nanosecond(), time.Local,
+		), nil
+	}
+	return time.Time{}, err
+}
+
+func (col *Date) parseDate(value string) (tv time.Time, err error) {
+	return parseDate(value, minDate, maxDate)
 }
 
 func (col *Date) Decode(reader *proto.Reader, rows int) error {

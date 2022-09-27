@@ -34,7 +34,8 @@ var (
 )
 
 const (
-	defaultDateTimeFormat = "2006-01-02 15:04:05"
+	defaultDateTimeFormatNoZone   = "2006-01-02 15:04:05"
+	defaultDateTimeFormatWithZone = "2006-01-02 15:04:05 -07:00"
 )
 
 type DateTime struct {
@@ -109,7 +110,7 @@ func (col *DateTime) Append(v interface{}) (nulls []uint8, err error) {
 	case []time.Time:
 		nulls = make([]uint8, len(v))
 		for i := range v {
-			if err := dateOverflow(minDateTime, maxDateTime, v[i], defaultDateTimeFormat); err != nil {
+			if err := dateOverflow(minDateTime, maxDateTime, v[i], defaultDateTimeFormatNoZone); err != nil {
 				return nil, err
 			}
 			col.col.Append(v[i])
@@ -120,7 +121,7 @@ func (col *DateTime) Append(v interface{}) (nulls []uint8, err error) {
 		for i := range v {
 			switch {
 			case v[i] != nil:
-				if err := dateOverflow(minDateTime, maxDateTime, *v[i], defaultDateTimeFormat); err != nil {
+				if err := dateOverflow(minDateTime, maxDateTime, *v[i], defaultDateTimeFormatNoZone); err != nil {
 					return nil, err
 				}
 				col.col.Append(*v[i])
@@ -179,14 +180,14 @@ func (col *DateTime) Append(v interface{}) (nulls []uint8, err error) {
 func (col *DateTime) AppendRow(v interface{}) error {
 	switch v := v.(type) {
 	case time.Time:
-		if err := dateOverflow(minDateTime, maxDateTime, v, defaultDateTimeFormat); err != nil {
+		if err := dateOverflow(minDateTime, maxDateTime, v, defaultDateTimeFormatNoZone); err != nil {
 			return err
 		}
 		col.col.Append(v)
 	case *time.Time:
 		switch {
 		case v != nil:
-			if err := dateOverflow(minDateTime, maxDateTime, *v, defaultDateTimeFormat); err != nil {
+			if err := dateOverflow(minDateTime, maxDateTime, *v, defaultDateTimeFormatNoZone); err != nil {
 				return err
 			}
 			col.col.Append(*v)
@@ -252,13 +253,22 @@ func (col *DateTime) row(i int) time.Time {
 	return v
 }
 
-func (col *DateTime) parseDateTime(str string) (datetime time.Time, err error) {
+func (col *DateTime) parseDateTime(value string) (tv time.Time, err error) {
 	defer func() {
 		if err == nil {
-			err = dateOverflow(minDateTime, maxDateTime, datetime, defaultDateFormat)
+			err = dateOverflow(minDateTime, maxDateTime, tv, defaultDateFormatNoZone)
 		}
 	}()
-	return time.Parse(defaultDateTimeFormat, str)
+
+	if tv, err = time.Parse(defaultDateTimeFormatWithZone, value); err == nil {
+		return tv, nil
+	}
+	if tv, err = time.Parse(defaultDateTimeFormatNoZone, value); err == nil {
+		return time.Date(
+			tv.Year(), tv.Month(), tv.Day(), tv.Hour(), tv.Minute(), tv.Second(), tv.Nanosecond(), time.Local,
+		), nil
+	}
+	return time.Time{}, err
 }
 
 var _ Interface = (*DateTime)(nil)

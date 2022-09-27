@@ -6,6 +6,7 @@
     <logger>
         <console>1</console>
     </logger>
+    <timezone>UTC</timezone>
     <openSSL>
         <server>
             <certificateFile>/etc/clickhouse-server/certs/clickhouse.crt</certificateFile>

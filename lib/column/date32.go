@@ -214,13 +214,8 @@ func (col *Date32) AppendRow(v interface{}) error {
 	return nil
 }
 
-func (col *Date32) parseDate(str string) (datetime time.Time, err error) {
-	defer func() {
-		if err == nil {
-			err = dateOverflow(minDate32, maxDate32, datetime, defaultDateFormat)
-		}
-	}()
-	return time.Parse(defaultDateFormat, str)
+func (col *Date32) parseDate(value string) (datetime time.Time, err error) {
+	return parseDate(value, minDate32, maxDate32)
 }
 
 func (col *Date32) Decode(reader *proto.Reader, rows int) error {

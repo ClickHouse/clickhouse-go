@@ -62,7 +62,7 @@ func TestDateTime64(t *testing.T) {
 		datetime2   = time.Now().Truncate(time.Nanosecond)
 		datetime3   = time.Now().Truncate(time.Second)
 		datetimeStu = &testStr{
-			Col1: datetime1.UTC().Format("2006-01-02 15:04:05.999"),
+			Col1: datetime1.UTC().Format("2006-01-02 15:04:05.999 +00:00"),
 		}
 	)
 	require.NoError(t, batch.Append(
@@ -72,9 +72,9 @@ func TestDateTime64(t *testing.T) {
 		&datetime1,
 		[]time.Time{datetime1, datetime1},
 		[]*time.Time{&datetime3, nil, &datetime3},
-		datetime1.UTC().Format("2006-01-02 15:04:05.999"),
-		datetime1.UTC().Format("2006-01-02 15:04:05.999"),
-		datetime1.UTC().Format("2006-01-02 15:04:05.999"),
+		datetime1.UTC().Format("2006-01-02 15:04:05.999 +00:00"),
+		datetime1.UTC().Format("2006-01-02 15:04:05.999 +00:00"),
+		datetime1.UTC().Format("2006-01-02 15:04:05.999 +00:00"),
 		datetimeStu,
 	))
 	require.NoError(t, batch.Send())
@@ -293,9 +293,9 @@ func TestColumnarDateTime64(t *testing.T) {
 			&datetime2, nil, &datetime1,
 		})
 
-		col5Data = append(col5Data, datetime1.UTC().Format("2006-01-02 15:04:05.999"))
-		col6Data = append(col6Data, datetime1.UTC().Format("2006-01-02 15:04:05.999"))
-		col7Data = append(col7Data, datetime1.UTC().Format("2006-01-02 15:04:05.999"))
+		col5Data = append(col5Data, datetime1.UTC().Format("2006-01-02 15:04:05.999 +00:00"))
+		col6Data = append(col6Data, datetime1.UTC().Format("2006-01-02 15:04:05.999 +00:00"))
+		col7Data = append(col7Data, datetime1.UTC().Format("2006-01-02 15:04:05.999 +00:00"))
 	}
 	{
 		require.NoError(t, batch.Column(0).Append(id))
@@ -363,4 +363,74 @@ func TestDateTime64Flush(t *testing.T) {
 		assert.Equal(t, vals[i].In(time.UTC), col1)
 		i += 1
 	}
+}
+
+func TestDateTime64TZ(t *testing.T) {
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+	const ddl = `
+		CREATE TABLE datetime64_tz (
+			Id Int64,
+			Col1 DateTime64(3),
+		    Col2 DateTime64(6, 'UTC'),
+		    Col3 DateTime64(9, 'Asia/Shanghai'),
+		    Col4 DateTime64(3),
+		    Col5 DateTime64(6, 'UTC'),
+		    Col6 DateTime64(9, 'Asia/Shanghai'),
+		) Engine MergeTree ORDER BY tuple()
+		`
+	conn.Exec(ctx, "DROP TABLE datetime64_tz")
+	require.NoError(t, conn.Exec(ctx, ddl))
+	require.NoError(t, err)
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO datetime64_tz")
+	require.NoError(t, err)
+	require.NoError(t, batch.Append(
+		int64(23),
+		"2022-07-20 17:42:48.129",
+		"2022-07-20 17:42:48.129876",
+		"2022-07-20 17:42:48.129876123",
+		"2022-07-20 17:42:48.129 +08:00",
+		"2022-07-20 17:42:48.129876 +08:00",
+		"2022-07-20 17:42:48.129876123 +08:00",
+	))
+	require.NoError(t, err)
+	require.NoError(t, batch.Send())
+	var (
+		id                                 int64
+		col1, col2, col3, col4, col5, col6 time.Time
+	)
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM datetime64_tz").Scan(
+		&id,
+		&col1,
+		&col2,
+		&col3,
+		&col4,
+		&col5,
+		&col6,
+	))
+	assert.Equal(t, int64(23), id)
+	// datetime64 - no tz
+	col1Expected, err := time.ParseInLocation("2006-01-02 15:04:05.999999999", "2022-07-20 17:42:48.129", time.Local)
+	require.NoError(t, err)
+	assert.Equal(t, col1Expected.UTC(), col1)
+	col2Expected, err := time.ParseInLocation("2006-01-02 15:04:05.999999999", "2022-07-20 17:42:48.129876", time.Local)
+	require.NoError(t, err)
+	assert.Equal(t, col2Expected.UTC(), col2)
+	asiaLoc, err := time.LoadLocation("Asia/Shanghai")
+	require.NoError(t, err)
+	col3Expected, err := time.ParseInLocation("2006-01-02 15:04:05.999999999", "2022-07-20 17:42:48.129876123", time.Local)
+	require.NoError(t, err)
+	assert.Equal(t, col3Expected.In(asiaLoc), col3)
+	col4Expected, err := time.ParseInLocation("2006-01-02 15:04:05.999999999", "2022-07-20 17:42:48.129", asiaLoc)
+	require.NoError(t, err)
+	// datetime64 - with tz
+	assert.Equal(t, col4Expected.UTC(), col4)
+	col5Expected, err := time.ParseInLocation("2006-01-02 15:04:05.999999999", "2022-07-20 17:42:48.129876", asiaLoc)
+	require.NoError(t, err)
+	assert.Equal(t, col5Expected.UTC(), col5)
+	col6Expected, err := time.ParseInLocation("2006-01-02 15:04:05.999999999", "2022-07-20 17:42:48.129876123", asiaLoc)
+	require.NoError(t, err)
+	assert.Equal(t, col6Expected.In(asiaLoc), col6)
 }

@@ -205,7 +205,7 @@ func bindNamed(tz *time.Location, query string, args ...interface{}) (_ string, 
 
 func formatTime(tz *time.Location, scale TimeUnit, value time.Time) (string, error) {
 	switch value.Location().String() {
-	case "Local":
+	case "Local", "":
 		switch scale {
 		case Seconds:
 			return fmt.Sprintf("toDateTime('%d')", value.Unix()), nil
