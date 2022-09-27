@@ -298,3 +298,41 @@ func TestDate32Flush(t *testing.T) {
 		i += 1
 	}
 }
+
+func TestDate32TZ(t *testing.T) {
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+	const ddl = `
+		CREATE TABLE date32_tz (
+		    Col15 Date32,
+		    Col16 Date32
+		) Engine MergeTree() ORDER BY tuple()
+		`
+	conn.Exec(ctx, "DROP TABLE date32_tz")
+	require.NoError(t, conn.Exec(ctx, ddl))
+	require.NoError(t, err)
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO date32_tz")
+	require.NoError(t, err)
+	require.NoError(t, batch.Append(
+		"2022-07-20",
+		"2022-07-20 +08:00",
+	))
+	require.NoError(t, err)
+	require.NoError(t, batch.Send())
+	var (
+		col15, col16 time.Time
+	)
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM date32_tz").Scan(
+		&col15,
+		&col16,
+	))
+	// date32 tests
+	col15Expected, err := time.ParseInLocation("2006-01-02", "2022-07-20", time.UTC)
+	require.NoError(t, err)
+	assert.Equal(t, col15Expected.UTC(), col15)
+	col16Expected, err := time.ParseInLocation("2006-01-02", "2022-07-20", time.UTC)
+	require.NoError(t, err)
+	assert.Equal(t, col16Expected.UTC(), col16)
+}

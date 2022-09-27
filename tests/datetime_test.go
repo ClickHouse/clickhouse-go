@@ -55,7 +55,7 @@ func TestDateTime(t *testing.T) {
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_datetime")
 	require.NoError(t, err)
 	datetime := time.Now().Truncate(time.Second)
-	dateTimeStr := datetime.UTC().Format("2006-01-02 15:04:05")
+	dateTimeStr := datetime.UTC().Format("2006-01-02 15:04:05 +00:00")
 	require.NoError(t, batch.Append(
 		datetime,
 		datetime,
@@ -171,7 +171,7 @@ func TestNullableDateTime(t *testing.T) {
 	{
 		var (
 			datetime               = time.Now().Truncate(time.Second)
-			datetimeStr            = datetime.UTC().Format("2006-01-02 15:04:05")
+			datetimeStr            = datetime.UTC().Format("2006-01-02 15:04:05 +00:00")
 			datetimeNilStr *string = nil
 		)
 		require.NoError(t, batch.Append(datetime, nil, datetime, nil, datetime, nil, datetimeStr, nil, datetimeStr, datetimeNilStr))
@@ -251,7 +251,7 @@ func TestColumnarDateTime(t *testing.T) {
 	var (
 		datetime1              = time.Now().Truncate(time.Second)
 		datetime2              = time.Now().Truncate(time.Second)
-		datetimeStr            = datetime2.UTC().Format("2006-01-02 15:04:05")
+		datetimeStr            = datetime2.UTC().Format("2006-01-02 15:04:05 +00:00")
 		datetimeNilStr *string = nil
 	)
 	for i := 0; i < 1000; i++ {
@@ -352,4 +352,69 @@ func TestDateTimeFlush(t *testing.T) {
 		assert.Equal(t, vals[i].In(time.UTC), col1)
 		i += 1
 	}
+}
+
+func TestDateTimeTZ(t *testing.T) {
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+	const ddl = `
+		CREATE TABLE datetime_tz (
+			Col7 DateTime,
+		    Col8 DateTime('UTC'),
+		    Col9 DateTime('Asia/Shanghai'),
+		    Col10 DateTime,
+		    Col11 DateTime('UTC'),
+		    Col12 DateTime('Asia/Shanghai')
+		) Engine MergeTree() ORDER BY tuple()
+		`
+	conn.Exec(ctx, "DROP TABLE datetime_tz")
+	require.NoError(t, conn.Exec(ctx, ddl))
+	require.NoError(t, err)
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO datetime_tz")
+	require.NoError(t, err)
+	require.NoError(t, batch.Append(
+		"2022-07-20 17:42:48",
+		"2022-07-20 17:42:48",
+		"2022-07-20 17:42:48",
+		"2022-07-20 17:42:48 +08:00",
+		"2022-07-20 17:42:48 +08:00",
+		"2022-07-20 17:42:48 +08:00",
+	))
+	require.NoError(t, err)
+	require.NoError(t, batch.Send())
+	var (
+		col7, col8, col9, col10, col11, col12 time.Time
+	)
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM datetime_tz").Scan(
+		&col7,
+		&col8,
+		&col9,
+		&col10,
+		&col11,
+		&col12,
+	))
+	asiaLoc, err := time.LoadLocation("Asia/Shanghai")
+	require.NoError(t, err)
+	// datetime - no tz
+	col7Expected, err := time.ParseInLocation("2006-01-02 15:04:05", "2022-07-20 17:42:48", time.Local)
+	require.NoError(t, err)
+	assert.Equal(t, col7Expected.UTC(), col7)
+	col8Expected, err := time.ParseInLocation("2006-01-02 15:04:05", "2022-07-20 17:42:48", time.Local)
+	require.NoError(t, err)
+	assert.Equal(t, col8Expected.UTC(), col8)
+	col9Expected, err := time.ParseInLocation("2006-01-02 15:04:05", "2022-07-20 17:42:48", time.Local)
+	require.NoError(t, err)
+	assert.Equal(t, col9Expected.In(asiaLoc), col9)
+	// datetime - with tz
+	col10Expected, err := time.ParseInLocation("2006-01-02 15:04:05", "2022-07-20 17:42:48", asiaLoc)
+	require.NoError(t, err)
+	assert.Equal(t, col10Expected.UTC(), col10)
+	col11Expected, err := time.ParseInLocation("2006-01-02 15:04:05", "2022-07-20 17:42:48", asiaLoc)
+	require.NoError(t, err)
+	assert.Equal(t, col11Expected.UTC(), col11)
+	col12Expected, err := time.ParseInLocation("2006-01-02 15:04:05", "2022-07-20 17:42:48", asiaLoc)
+	require.NoError(t, err)
+	assert.Equal(t, col12Expected.In(asiaLoc), col12)
 }
