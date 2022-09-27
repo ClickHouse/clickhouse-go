@@ -277,15 +277,15 @@ func TestDateTZ(t *testing.T) {
 	})
 	ctx := context.Background()
 	const ddl = `
-		CREATE TABLE datetime64_tz (
+		CREATE TABLE date_tz (
 		    Col13 Date,
 		    Col14 Date
-		) Engine MergeTree ORDER BY tuple()
+		) Engine MergeTree() ORDER BY tuple()
 		`
-	conn.Exec(ctx, "DROP TABLE datetime64_tz")
+	conn.Exec(ctx, "DROP TABLE date_tz")
 	require.NoError(t, conn.Exec(ctx, ddl))
 	require.NoError(t, err)
-	batch, err := conn.PrepareBatch(ctx, "INSERT INTO datetime64_tz")
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO date_tz")
 	require.NoError(t, err)
 	require.NoError(t, batch.Append(
 		"2022-07-20",
@@ -296,7 +296,7 @@ func TestDateTZ(t *testing.T) {
 	var (
 		col13, col14 time.Time
 	)
-	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM datetime64_tz").Scan(
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM date_tz").Scan(
 		&col13,
 		&col14,
 	))

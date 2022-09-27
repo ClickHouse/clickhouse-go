@@ -379,7 +379,7 @@ func TestDateTime64TZ(t *testing.T) {
 		    Col4 DateTime64(3),
 		    Col5 DateTime64(6, 'UTC'),
 		    Col6 DateTime64(9, 'Asia/Shanghai'),
-		) Engine MergeTree ORDER BY tuple()
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	conn.Exec(ctx, "DROP TABLE datetime64_tz")
 	require.NoError(t, conn.Exec(ctx, ddl))
