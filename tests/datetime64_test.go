@@ -434,3 +434,27 @@ func TestDateTime64TZ(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, col6Expected.In(asiaLoc), col6)
 }
+
+func TestCustomDateTime64(t *testing.T) {
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+	const ddl = `
+		CREATE TABLE datetime64_custom (
+			Col1 DateTime64(3)
+	) Engine MergeTree() ORDER BY tuple()
+	`
+	conn.Exec(ctx, "DROP TABLE datetime64_custom")
+	require.NoError(t, conn.Exec(ctx, ddl))
+	require.NoError(t, err)
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO datetime64_custom")
+	require.NoError(t, err)
+	now := time.Now().UTC().Truncate(time.Millisecond)
+	require.NoError(t, batch.Append(now))
+	require.NoError(t, batch.Send())
+	row := conn.QueryRow(ctx, "SELECT * FROM datetime64_custom")
+	var col1 CustomDateTime
+	require.NoError(t, row.Scan(&col1))
+	require.Equal(t, now, time.Time(col1))
+}

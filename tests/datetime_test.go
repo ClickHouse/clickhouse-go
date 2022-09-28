@@ -19,6 +19,7 @@ package tests
 
 import (
 	"context"
+	"fmt"
 	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
@@ -417,4 +418,38 @@ func TestDateTimeTZ(t *testing.T) {
 	col12Expected, err := time.ParseInLocation("2006-01-02 15:04:05", "2022-07-20 17:42:48", asiaLoc)
 	require.NoError(t, err)
 	assert.Equal(t, col12Expected.In(asiaLoc), col12)
+}
+
+type CustomDateTime time.Time
+
+func (ct *CustomDateTime) Scan(src any) error {
+	if t, ok := src.(time.Time); ok {
+		*ct = CustomDateTime(t)
+		return nil
+	}
+	return fmt.Errorf("cannot scan %T into CustomDateTime", src)
+}
+
+func TestCustomDateTime(t *testing.T) {
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+	const ddl = `
+		CREATE TABLE datetime_custom (
+			Col1 DateTime
+	) Engine MergeTree() ORDER BY tuple()
+	`
+	conn.Exec(ctx, "DROP TABLE datetime_custom")
+	require.NoError(t, conn.Exec(ctx, ddl))
+	require.NoError(t, err)
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO datetime_custom")
+	require.NoError(t, err)
+	now := time.Now().UTC().Truncate(time.Second)
+	require.NoError(t, batch.Append(now))
+	require.NoError(t, batch.Send())
+	row := conn.QueryRow(ctx, "SELECT * FROM datetime_custom")
+	var col1 CustomDateTime
+	require.NoError(t, row.Scan(&col1))
+	require.Equal(t, now, time.Time(col1))
 }
