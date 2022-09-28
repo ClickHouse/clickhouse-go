@@ -336,3 +336,27 @@ func TestDate32TZ(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, col16Expected.UTC(), col16)
 }
+
+func TestCustomDateTime32(t *testing.T) {
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+	const ddl = `
+		CREATE TABLE date32_custom (
+			Col1 DateTime
+	) Engine MergeTree() ORDER BY tuple()
+	`
+	conn.Exec(ctx, "DROP TABLE date32_custom")
+	require.NoError(t, conn.Exec(ctx, ddl))
+	require.NoError(t, err)
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO date32_custom")
+	require.NoError(t, err)
+	now := time.Now().UTC().Truncate(time.Hour)
+	require.NoError(t, batch.Append(now))
+	require.NoError(t, batch.Send())
+	row := conn.QueryRow(ctx, "SELECT * FROM date32_custom")
+	var col1 CustomDateTime
+	require.NoError(t, row.Scan(&col1))
+	require.Equal(t, now, time.Time(col1))
+}

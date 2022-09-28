@@ -172,12 +172,11 @@ func (col *UUID) AppendRow(v interface{}) error {
 	default:
 		if s, ok := v.(fmt.Stringer); ok {
 			return col.AppendRow(s.String())
-		} else {
-			return &ColumnConverterError{
-				Op:   "AppendRow",
-				To:   "UUID",
-				From: fmt.Sprintf("%T", v),
-			}
+		}
+		return &ColumnConverterError{
+			Op:   "AppendRow",
+			To:   "UUID",
+			From: fmt.Sprintf("%T", v),
 		}
 	}
 	return nil
