@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-func Test615(t *testing.T) {
+func TestIssue615(t *testing.T) {
 	var (
 		conn, err = clickhouse_tests.GetConnection("issues", clickhouse.Settings{
 			"max_execution_time": 60,

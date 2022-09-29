@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func Test584(t *testing.T) {
+func TestIssue584(t *testing.T) {
 	var (
 		conn, err = clickhouse_tests.GetConnection("issues", clickhouse.Settings{
 			"max_execution_time": 60,
@@ -39,7 +39,7 @@ func Test584(t *testing.T) {
 	}, event)
 }
 
-func Test584Complex(t *testing.T) {
+func TestIssue584Complex(t *testing.T) {
 	var (
 		conn, err = clickhouse_tests.GetConnection("issues", clickhouse.Settings{
 			"max_execution_time": 60,

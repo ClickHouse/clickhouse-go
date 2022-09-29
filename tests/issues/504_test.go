@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func Test504(t *testing.T) {
+func TestIssue504(t *testing.T) {
 	var (
 		ctx       = context.Background()
 		conn, err = clickhouse_tests.GetConnection("issues", nil, nil, &clickhouse.Compression{
