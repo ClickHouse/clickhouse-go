@@ -26,7 +26,7 @@ import (
 	"testing"
 )
 
-func TestSelectTwoInRow(t *testing.T) {
+func TestIssue517(t *testing.T) {
 	var (
 		ctx       = context.Background()
 		conn, err = clickhouse_tests.GetConnection("issues", nil, nil, &clickhouse.Compression{

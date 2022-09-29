@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func Test546(t *testing.T) {
+func TestIssue546(t *testing.T) {
 	env, err := GetIssuesTestEnvironment()
 	require.NoError(t, err)
 	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))

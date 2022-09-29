@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func Test548(t *testing.T) {
+func TestIssue548(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	env, err := GetIssuesTestEnvironment()
 	require.NoError(t, err)

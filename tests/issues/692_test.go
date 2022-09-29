@@ -11,7 +11,7 @@ import (
 	"testing"
 )
 
-func Test692(t *testing.T) {
+func TestIssue692(t *testing.T) {
 	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
 	require.NoError(t, err)
 	conn, err := clickhouse_std_tests.GetDSNConnection("issues", clickhouse.Native, useSSL, "false")

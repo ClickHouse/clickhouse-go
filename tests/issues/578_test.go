@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func Test578(t *testing.T) {
+func TestIssue578(t *testing.T) {
 	var (
 		ctx       = context.Background()
 		conn, err = clickhouse_tests.GetConnection("issues", nil, nil, nil)

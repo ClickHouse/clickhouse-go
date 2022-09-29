@@ -12,7 +12,7 @@ import (
 	"testing"
 )
 
-func Test647(t *testing.T) {
+func TestIssue647(t *testing.T) {
 	env, err := GetIssuesTestEnvironment()
 	require.NoError(t, err)
 	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
@@ -42,7 +42,7 @@ func Test647(t *testing.T) {
 	require.NoError(t, conn2.Ping(ctx))
 }
 
-func Test647_OpenDB(t *testing.T) {
+func TestIssue647_OpenDB(t *testing.T) {
 	env, err := GetIssuesTestEnvironment()
 	require.NoError(t, err)
 	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))

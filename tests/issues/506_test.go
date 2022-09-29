@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-func Test506(t *testing.T) {
+func TestIssue506(t *testing.T) {
 	var (
 		ctx       = context.Background()
 		conn, err = clickhouse_tests.GetConnection("issues", nil, nil, &clickhouse.Compression{
