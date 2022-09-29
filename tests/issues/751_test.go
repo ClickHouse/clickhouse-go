@@ -21,9 +21,9 @@ func TestIssue751(t *testing.T) {
 				Col2 String,
 				Col3 Nullable(Int8),
 				Col4 Nullable(Int64),
-				Col5 LowCardinality(Nullable(String)),
+				Col5 LowCardinality(Nullable(String))
 			)
-			Engine Memory
+			Engine MergeTree() ORDER BY tuple()
 		`))
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE issue_751")
