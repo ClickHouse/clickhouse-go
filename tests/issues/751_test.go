@@ -37,25 +37,32 @@ func TestIssue751(t *testing.T) {
 	}
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO issue_751")
 	require.NoError(t, err)
-	require.NoError(t, batch.AppendStruct(&Example{}))
-
+	example := Example{}
+	require.NoError(t, batch.AppendStruct(&example))
+	batch.Append(example.Col1, example.Col2, example.Col3, example.Col4, example.Col5)
 	require.NoError(t, batch.Send())
 
-	var (
-		col1 *string
-		col2 string
-		col3 *int8
-		col4 sql.NullInt64
-		col5 *string
-	)
-
-	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM issue_751").Scan(&col1, &col2, &col3, &col4, &col5))
-	assert.Nil(t, col1)
-	assert.Equal(t, "", col2)
-	assert.Nil(t, col3)
-	assert.Equal(t, sql.NullInt64{
-		Int64: 0,
-		Valid: false,
-	}, col4)
-	assert.Nil(t, col5)
+	rows, err := conn.Query(ctx, "SELECT * FROM issue_751")
+	require.NoError(t, err)
+	c := 0
+	for rows.Next() {
+		var (
+			col1 *string
+			col2 string
+			col3 *int8
+			col4 sql.NullInt64
+			col5 *string
+		)
+		require.NoError(t, rows.Scan(&col1, &col2, &col3, &col4, &col5))
+		assert.Nil(t, col1)
+		assert.Equal(t, "", col2)
+		assert.Nil(t, col3)
+		assert.Equal(t, sql.NullInt64{
+			Int64: 0,
+			Valid: false,
+		}, col4)
+		assert.Nil(t, col5)
+		c++
+	}
+	assert.Equal(t, 2, c)
 }

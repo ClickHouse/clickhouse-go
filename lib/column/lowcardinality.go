@@ -148,7 +148,8 @@ func (col *LowCardinality) AppendRow(v interface{}) error {
 			col.index.AppendRow(nil)
 		}
 	}
-	if v == nil {
+	// second check is unfortunate - but we could be passed a *type(nil) e.g. via LowCardinality(Nullable(String))
+	if v == nil || (reflect.ValueOf(v).Kind() == reflect.Ptr && reflect.ValueOf(v).IsNil()) {
 		col.append.keys = append(col.append.keys, 0)
 		return nil
 	}
