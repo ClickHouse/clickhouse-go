@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/ClickHouse/ch-go"
+	"github.com/ClickHouse/ch-go/proto"
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"log"
 	"testing"
@@ -15,13 +17,16 @@ func getConnection() clickhouse.Conn {
 		Auth: clickhouse.Auth{
 			Database: "default",
 			Username: "default",
-			Password: "",
+			Password: "ClickHouse",
 		},
 		//Debug:           true,
 		DialTimeout:     time.Second,
 		MaxOpenConns:    10,
 		MaxIdleConns:    5,
 		ConnMaxLifetime: time.Hour,
+		Compression: &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		},
 	})
 	if err != nil {
 		log.Fatal(err)
@@ -78,4 +83,52 @@ func benchmarkStringRead(b *testing.B) {
 			break
 		}
 	}
+}
+
+func TestRead(b *testing.T) {
+	conn := getConnection()
+	start := time.Now()
+	rows, err := conn.Query(context.Background(), fmt.Sprintf(`SELECT number FROM system.numbers_mt LIMIT 500000000`))
+	if err != nil {
+		b.Fatal(err)
+	}
+	var (
+		col1 uint64
+	)
+	for rows.Next() {
+		if err := rows.Scan(&col1); err != nil {
+			b.Fatal(err)
+		}
+	}
+	elapsed := time.Since(start)
+	log.Printf("Read took %s", elapsed)
+}
+
+func TestChRead(b *testing.T) {
+	ctx := context.Background()
+	c, err := ch.Dial(ctx, ch.Options{Address: "localhost:9000", Password: "ClickHouse"})
+	if err != nil {
+		panic(err)
+	}
+	var (
+		numbers int
+		data    proto.ColUInt64
+	)
+	start := time.Now()
+	if err := c.Do(ctx, ch.Query{
+		Body: "SELECT number FROM system.numbers LIMIT 500000000",
+		Result: proto.Results{
+			{Name: "number", Data: &data},
+		},
+		// OnResult will be called on next received data block.
+		OnResult: func(ctx context.Context, b proto.Block) error {
+			numbers += len(data)
+			return nil
+		},
+	}); err != nil {
+		panic(err)
+	}
+	fmt.Println("numbers:", numbers)
+	elapsed := time.Since(start)
+	log.Printf("Read took %s", elapsed)
 }
