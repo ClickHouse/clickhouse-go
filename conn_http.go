@@ -39,6 +39,7 @@ import (
 	"github.com/andybalholm/brotli"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel/propagation"
 )
 
 const (
@@ -189,7 +190,7 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		IdleConnTimeout:       opt.ConnMaxLifetime,
 		ResponseHeaderTimeout: opt.ReadTimeout,
 		TLSClientConfig:       opt.TLS,
-	})
+	}, otelhttp.WithPropagators(propagation.TraceContext{}))
 
 	conn := &httpConnect{
 		client: &http.Client{
