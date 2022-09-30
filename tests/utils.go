@@ -81,6 +81,10 @@ func (env *ClickHouseTestEnvironment) setVersion() {
 		tlsConfig = &tls.Config{}
 		port = env.SslPort
 	}
+	timeout, err := strconv.Atoi(GetEnv("CLICKHOUSE_DIAL_TIMEOUT", "10"))
+	if err != nil {
+		panic(err)
+	}
 	conn, err := clickhouse.Open(&clickhouse.Options{
 		Addr:     []string{fmt.Sprintf("%s:%d", env.Host, port)},
 		Settings: nil,
@@ -90,7 +94,7 @@ func (env *ClickHouseTestEnvironment) setVersion() {
 			Password: env.Password,
 		},
 		TLS:         tlsConfig,
-		DialTimeout: time.Duration(10) * time.Second,
+		DialTimeout: time.Duration(timeout) * time.Second,
 	})
 	v, err := conn.ServerVersion()
 	if err != nil {
@@ -270,6 +274,8 @@ func GetConnectionWithOptions(options *clickhouse.Options) (driver.Conn, error) 
 		options.Settings["database_replicated_enforce_synchronous_settings"] = "1"
 	}
 	options.Settings["insert_quorum"], err = strconv.Atoi(GetEnv("CLICKHOUSE_QUORUM_INSERT", "1"))
+	options.Settings["insert_quorum_parallel"] = 0
+	options.Settings["select_sequential_consistency"] = 1
 	if err != nil {
 		return nil, err
 	}
@@ -297,6 +303,13 @@ func getConnection(env ClickHouseTestEnvironment, database string, settings clic
 		settings["database_replicated_enforce_synchronous_settings"] = "1"
 	}
 	settings["insert_quorum"], err = strconv.Atoi(GetEnv("CLICKHOUSE_QUORUM_INSERT", "1"))
+	settings["insert_quorum_parallel"] = 0
+	settings["select_sequential_consistency"] = 1
+	if err != nil {
+		return nil, err
+	}
+
+	timeout, err := strconv.Atoi(GetEnv("CLICKHOUSE_DIAL_TIMEOUT", "10"))
 	if err != nil {
 		return nil, err
 	}
@@ -310,7 +323,7 @@ func getConnection(env ClickHouseTestEnvironment, database string, settings clic
 		},
 		TLS:         tlsConfig,
 		Compression: compression,
-		DialTimeout: time.Duration(10) * time.Second,
+		DialTimeout: time.Duration(timeout) * time.Second,
 	})
 	return conn, err
 }
