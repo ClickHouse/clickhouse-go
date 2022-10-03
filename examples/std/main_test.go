@@ -148,6 +148,6 @@ func TestOpenDb(t *testing.T) {
 	require.NoError(t, OpenDb())
 }
 
-// TODO:
-// println
-// README
+func TestConnectionSettings(t *testing.T) {
+	require.NoError(t, ConnectSettings())
+}
