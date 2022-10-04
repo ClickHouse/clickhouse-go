@@ -186,6 +186,8 @@ func (o *Options) fromDSN(in string) error {
 				} else {
 					o.Compression.Level = int(level)
 				}
+			} else {
+				return err
 			}
 		case "dial_timeout":
 			duration, err := time.ParseDuration(params.Get(v))
@@ -199,6 +201,8 @@ func (o *Options) fromDSN(in string) error {
 					return fmt.Errorf("block_buffer_size must be greater than 0")
 				}
 				o.BlockBufferSize = uint8(blockBufferSize)
+			} else {
+				return err
 			}
 		case "read_timeout":
 			duration, err := time.ParseDuration(params.Get(v))

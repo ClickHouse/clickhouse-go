@@ -206,3 +206,39 @@ func TestQueryDeadline(t *testing.T) {
 	require.Error(t, err)
 	assert.ErrorIs(t, err, os.ErrDeadlineExceeded)
 }
+
+func TestBlockBufferSize(t *testing.T) {
+	env, err := GetNativeTestEnvironment()
+	require.NoError(t, err)
+	useSSL, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	port := env.Port
+	var tlsConfig *tls.Config
+	if useSSL {
+		port = env.SslPort
+		tlsConfig = &tls.Config{}
+	}
+	conn, err := GetConnectionWithOptions(&clickhouse.Options{
+		Addr: []string{fmt.Sprintf("%s:%d", env.Host, port)},
+		Auth: clickhouse.Auth{
+			Database: "default",
+			Username: env.Username,
+			Password: env.Password,
+		},
+		Compression: &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		},
+		TLS:             tlsConfig,
+		BlockBufferSize: 100,
+	})
+	require.NoError(t, err)
+	var count uint64
+	rows, err := conn.Query(clickhouse.Context(context.Background(), clickhouse.WithBlockBufferSize(50)), "SELECT number FROM numbers(10000000)")
+	require.NoError(t, err)
+	i := 0
+	for rows.Next() {
+		require.NoError(t, rows.Scan(&count))
+		i++
+	}
+	require.Equal(t, 10000000, i)
+}
