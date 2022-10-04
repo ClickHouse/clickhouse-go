@@ -111,7 +111,15 @@ func (col *Nullable) Append(v interface{}) ([]uint8, error) {
 }
 
 func (col *Nullable) AppendRow(v interface{}) error {
-	if v == nil || (reflect.ValueOf(v).Kind() == reflect.Ptr && reflect.ValueOf(v).IsNil()) {
+	// Might receive double pointers like **String, because of how Nullable columns are read
+	// Unpack because we can't write double pointers
+	rv := reflect.ValueOf(v)
+	if v != nil && rv.Kind() == reflect.Pointer && !rv.IsNil() {
+		v = rv.Elem().Interface()
+		rv = reflect.ValueOf(v)
+	}
+
+	if v == nil || (rv.Kind() == reflect.Pointer && rv.IsNil()) {
 		col.nulls.Append(1)
 		// used to detect sql.Null* types
 	} else if val, ok := v.(driver.Valuer); ok {
