@@ -55,8 +55,9 @@ func (h *httpConnect) query(ctx context.Context, release func(*connect, error), 
 
 	rw := h.compressionPool.Get()
 	body, err = rw.read(res)
-	bufferSize := 2
+	bufferSize := h.blockBufferSize
 	if options.blockBufferSize > 0 {
+		// allow block buffer sze to be overridden per query
 		bufferSize = options.blockBufferSize
 	}
 	var (

@@ -129,6 +129,7 @@ type Options struct {
 	MaxIdleConns     int           // default 5
 	ConnMaxLifetime  time.Duration // default 1 hour
 	ConnOpenStrategy ConnOpenStrategy
+	BlockBufferSize  uint8 // default 2 - can be overwritten on query
 
 	scheme      string
 	ReadTimeout time.Duration
@@ -192,6 +193,13 @@ func (o *Options) fromDSN(in string) error {
 				return fmt.Errorf("clickhouse [dsn parse]: dial timeout: %s", err)
 			}
 			o.DialTimeout = duration
+		case "block_buffer_size":
+			if blockBufferSize, err := strconv.ParseUint(params.Get(v), 10, 8); err == nil {
+				if blockBufferSize <= 0 {
+					return fmt.Errorf("block_buffer_size must be greater than 0")
+				}
+				o.BlockBufferSize = uint8(blockBufferSize)
+			}
 		case "read_timeout":
 			duration, err := time.ParseDuration(params.Get(v))
 			if err != nil {
@@ -252,7 +260,7 @@ func (o *Options) fromDSN(in string) error {
 	return nil
 }
 
-// receive copy of Options so we don't modify original - so its reusable
+// receive copy of Options, so we don't modify original - so its reusable
 func (o Options) setDefaults() *Options {
 	if len(o.Auth.Database) == 0 {
 		o.Auth.Database = "default"
@@ -274,6 +282,9 @@ func (o Options) setDefaults() *Options {
 	}
 	if o.ConnMaxLifetime == 0 {
 		o.ConnMaxLifetime = time.Hour
+	}
+	if o.BlockBufferSize <= 0 {
+		o.BlockBufferSize = 2
 	}
 	if o.Addr == nil || len(o.Addr) == 0 {
 		switch o.Protocol {

@@ -17,7 +17,7 @@ func getConnection() clickhouse.Conn {
 		Auth: clickhouse.Auth{
 			Database: "default",
 			Username: "default",
-			Password: "ClickHouse",
+			Password: "",
 		},
 		//Debug:           true,
 		DialTimeout:     time.Second,
@@ -27,6 +27,7 @@ func getConnection() clickhouse.Conn {
 		Compression: &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
 		},
+		BlockBufferSize: 100,
 	})
 	if err != nil {
 		log.Fatal(err)
@@ -88,7 +89,7 @@ func benchmarkStringRead(b *testing.B) {
 func TestRead(b *testing.T) {
 	conn := getConnection()
 	start := time.Now()
-	rows, err := conn.Query(clickhouse.Context(context.Background(), clickhouse.WithBlockBufferSize(100)), fmt.Sprintf(`SELECT number FROM system.numbers_mt LIMIT 500000000`))
+	rows, err := conn.Query(context.Background(), fmt.Sprintf(`SELECT number FROM system.numbers_mt LIMIT 500000000`))
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -106,7 +107,7 @@ func TestRead(b *testing.T) {
 
 func TestChRead(b *testing.T) {
 	ctx := context.Background()
-	c, err := ch.Dial(ctx, ch.Options{Address: "localhost:9000", Password: "ClickHouse"})
+	c, err := ch.Dial(ctx, ch.Options{Address: "localhost:9000", Password: ""})
 	if err != nil {
 		panic(err)
 	}

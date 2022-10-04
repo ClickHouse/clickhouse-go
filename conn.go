@@ -70,17 +70,18 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 	}
 	var (
 		connect = &connect{
-			opt:         opt,
-			conn:        conn,
-			debugf:      debugf,
-			buffer:      new(chproto.Buffer),
-			reader:      chproto.NewReader(conn),
-			revision:    proto.ClientTCPProtocolVersion,
-			structMap:   &structMap{},
-			compression: compression,
-			connectedAt: time.Now(),
-			compressor:  compress.NewWriter(),
-			readTimeout: opt.ReadTimeout,
+			opt:             opt,
+			conn:            conn,
+			debugf:          debugf,
+			buffer:          new(chproto.Buffer),
+			reader:          chproto.NewReader(conn),
+			revision:        proto.ClientTCPProtocolVersion,
+			structMap:       &structMap{},
+			compression:     compression,
+			connectedAt:     time.Now(),
+			compressor:      compress.NewWriter(),
+			readTimeout:     opt.ReadTimeout,
+			blockBufferSize: opt.BlockBufferSize,
 		}
 	)
 	if err := connect.handshake(opt.Auth.Database, opt.Auth.Username, opt.Auth.Password); err != nil {
@@ -91,20 +92,21 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 
 // https://github.com/ClickHouse/ClickHouse/blob/master/src/Client/Connection.cpp
 type connect struct {
-	opt         *Options
-	conn        net.Conn
-	debugf      func(format string, v ...interface{})
-	server      ServerVersion
-	closed      bool
-	buffer      *chproto.Buffer
-	reader      *chproto.Reader
-	released    bool
-	revision    uint64
-	structMap   *structMap
-	compression CompressionMethod
-	connectedAt time.Time
-	compressor  *compress.Writer
-	readTimeout time.Duration
+	opt             *Options
+	conn            net.Conn
+	debugf          func(format string, v ...interface{})
+	server          ServerVersion
+	closed          bool
+	buffer          *chproto.Buffer
+	reader          *chproto.Reader
+	released        bool
+	revision        uint64
+	structMap       *structMap
+	compression     CompressionMethod
+	connectedAt     time.Time
+	compressor      *compress.Writer
+	readTimeout     time.Duration
+	blockBufferSize uint8
 }
 
 func (c *connect) settings(querySettings Settings) []proto.Setting {

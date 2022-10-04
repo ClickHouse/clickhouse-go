@@ -50,7 +50,7 @@ type (
 		}
 		settings        Settings
 		external        []*ext.Table
-		blockBufferSize int
+		blockBufferSize uint8
 	}
 )
 
@@ -68,7 +68,7 @@ func WithQueryID(queryID string) QueryOption {
 	}
 }
 
-func WithBlockBufferSize(size int) QueryOption {
+func WithBlockBufferSize(size uint8) QueryOption {
 	return func(o *QueryOptions) error {
 		o.blockBufferSize = size
 		return nil
@@ -148,7 +148,6 @@ func queryOptions(ctx context.Context) QueryOptions {
 				o.settings["max_execution_time"] = int(sec + 5)
 			}
 		}
-		
 		return o
 	}
 	return QueryOptions{
