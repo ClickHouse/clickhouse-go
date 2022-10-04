@@ -88,7 +88,7 @@ func benchmarkStringRead(b *testing.B) {
 func TestRead(b *testing.T) {
 	conn := getConnection()
 	start := time.Now()
-	rows, err := conn.Query(context.Background(), fmt.Sprintf(`SELECT number FROM system.numbers_mt LIMIT 500000000`))
+	rows, err := conn.Query(clickhouse.Context(context.Background(), clickhouse.WithBlockBufferSize(100)), fmt.Sprintf(`SELECT number FROM system.numbers_mt LIMIT 500000000`))
 	if err != nil {
 		b.Fatal(err)
 	}

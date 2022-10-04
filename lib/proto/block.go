@@ -128,10 +128,11 @@ func (b *Block) Decode(reader *proto.Reader, revision uint64) (err error) {
 	if numRows > 1_000_000_000 {
 		return &BlockError{
 			Op:  "Decode",
-			Err: errors.New("more then 1 billion rows in block"),
+			Err: errors.New("more then 1 billion rows in block - suspiciously big - preventing OOM"),
 		}
 	}
-	b.Columns = make([]column.Interface, 0, numCols)
+	b.Columns = make([]column.Interface, numCols, numCols)
+	b.names = make([]string, numCols, numCols)
 	for i := 0; i < int(numCols); i++ {
 		var (
 			columnName string
@@ -165,7 +166,8 @@ func (b *Block) Decode(reader *proto.Reader, revision uint64) (err error) {
 				}
 			}
 		}
-		b.names, b.Columns = append(b.names, columnName), append(b.Columns, c)
+		b.names[i] = columnName
+		b.Columns[i] = c
 	}
 	return nil
 }

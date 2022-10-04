@@ -48,8 +48,9 @@ type (
 			profileInfo   func(*ProfileInfo)
 			profileEvents func([]ProfileEvent)
 		}
-		settings Settings
-		external []*ext.Table
+		settings        Settings
+		external        []*ext.Table
+		blockBufferSize int
 	}
 )
 
@@ -63,6 +64,13 @@ func WithSpan(span trace.SpanContext) QueryOption {
 func WithQueryID(queryID string) QueryOption {
 	return func(o *QueryOptions) error {
 		o.queryID = queryID
+		return nil
+	}
+}
+
+func WithBlockBufferSize(size int) QueryOption {
+	return func(o *QueryOptions) error {
+		o.blockBufferSize = size
 		return nil
 	}
 }
@@ -140,6 +148,7 @@ func queryOptions(ctx context.Context) QueryOptions {
 				o.settings["max_execution_time"] = int(sec + 5)
 			}
 		}
+		
 		return o
 	}
 	return QueryOptions{

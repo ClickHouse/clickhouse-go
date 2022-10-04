@@ -55,10 +55,13 @@ func (h *httpConnect) query(ctx context.Context, release func(*connect, error), 
 
 	rw := h.compressionPool.Get()
 	body, err = rw.read(res)
-
+	bufferSize := 2
+	if options.blockBufferSize > 0 {
+		bufferSize = options.blockBufferSize
+	}
 	var (
 		errCh  = make(chan error)
-		stream = make(chan *proto.Block, 2)
+		stream = make(chan *proto.Block, bufferSize)
 	)
 
 	if len(body) == 0 {
