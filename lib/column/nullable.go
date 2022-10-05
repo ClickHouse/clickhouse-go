@@ -114,7 +114,7 @@ func (col *Nullable) AppendRow(v interface{}) error {
 	// Might receive double pointers like **String, because of how Nullable columns are read
 	// Unpack because we can't write double pointers
 	rv := reflect.ValueOf(v)
-	if v != nil && rv.Kind() == reflect.Pointer && !rv.IsNil() {
+	if v != nil && rv.Kind() == reflect.Pointer && !rv.IsNil() && rv.Elem().Kind() == reflect.Pointer {
 		v = rv.Elem().Interface()
 		rv = reflect.ValueOf(v)
 	}
