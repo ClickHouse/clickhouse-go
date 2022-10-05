@@ -51,6 +51,10 @@ Support for the ClickHouse protocol advanced features using `Context`:
 	* Profile info
 	* Profile events
 
+## Documentation
+
+[https://clickhouse.com/docs/en/integrations/go](https://clickhouse.com/docs/en/integrations/go)
+
 # `clickhouse` interface (formally `native` interface)
 
 ```go
@@ -81,6 +85,7 @@ Support for the ClickHouse protocol advanced features using `Context`:
 		MaxIdleConns:     5,
 		ConnMaxLifetime:  time.Duration(10) * time.Minute,
 		ConnOpenStrategy: clickhouse.ConnOpenInOrder,
+		BlockBufferSize: 10,
 	})
 	if err != nil {
 		return err
@@ -111,6 +116,7 @@ conn := clickhouse.OpenDB(&clickhouse.Options{
 		clickhouse.CompressionLZ4,
 	},
 	Debug: true,
+	BlockBufferSize: 10,
 })
 conn.SetMaxIdleConns(5)
 conn.SetMaxOpenConns(10)
@@ -133,6 +139,7 @@ conn.SetConnMaxLifetime(time.Hour)
   - `deflate` - `-2` (Best Speed) to `9` (Best Compression)
   - `br` - `0` (Best Speed) to `11` (Best Compression)
   - `zstd`, `lz4` - ignored
+* block_buffer_size - size of block buffer (default 2)
 
 SSL/TLS parameters:
 

@@ -199,6 +199,7 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		compression:     opt.Compression.Method,
 		blockCompressor: compress.NewWriter(),
 		compressionPool: compressionPool,
+		blockBufferSize: opt.BlockBufferSize,
 	}
 	location, err := conn.readTimeZone(ctx)
 	if err != nil {
@@ -215,6 +216,7 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		blockCompressor: compress.NewWriter(),
 		compressionPool: compressionPool,
 		location:        location,
+		blockBufferSize: opt.BlockBufferSize,
 	}, nil
 }
 
@@ -226,6 +228,7 @@ type httpConnect struct {
 	compression     CompressionMethod
 	blockCompressor *compress.Writer
 	compressionPool Pool[HTTPReaderWriter]
+	blockBufferSize uint8
 }
 
 func (h *httpConnect) isBad() bool {

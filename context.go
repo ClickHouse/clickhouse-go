@@ -48,8 +48,9 @@ type (
 			profileInfo   func(*ProfileInfo)
 			profileEvents func([]ProfileEvent)
 		}
-		settings Settings
-		external []*ext.Table
+		settings        Settings
+		external        []*ext.Table
+		blockBufferSize uint8
 	}
 )
 
@@ -63,6 +64,13 @@ func WithSpan(span trace.SpanContext) QueryOption {
 func WithQueryID(queryID string) QueryOption {
 	return func(o *QueryOptions) error {
 		o.queryID = queryID
+		return nil
+	}
+}
+
+func WithBlockBufferSize(size uint8) QueryOption {
+	return func(o *QueryOptions) error {
+		o.blockBufferSize = size
 		return nil
 	}
 }
