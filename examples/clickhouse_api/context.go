@@ -98,7 +98,7 @@ func UseContext() error {
 	defer func() {
 		conn.Exec(context.Background(), "DROP QUOTA IF EXISTS foobar")
 	}()
-	ctx = clickhouse.Context(context.Background(), clickhouse.WithQuotaKey("abcde"))
+	ctx = clickhouse.Context(context.Background(), clickhouse.WithQuotaKey("abcde"), clickhouse.WithBlockBufferSize(100))
 	// set a quota key - first create the quota
 	if err = conn.Exec(ctx, "CREATE QUOTA IF NOT EXISTS foobar KEYED BY client_key FOR INTERVAL 1 minute MAX queries = 5 TO default"); err != nil {
 		return err
