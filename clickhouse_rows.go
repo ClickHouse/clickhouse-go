@@ -19,6 +19,7 @@ package clickhouse
 
 import (
 	"database/sql"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	"io"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
@@ -73,6 +74,14 @@ func (r *rows) Scan(dest ...interface{}) error {
 		return io.EOF
 	}
 	return scan(r.block, r.row, dest...)
+}
+
+func (r *rows) Row() int {
+	return r.row - 1
+}
+
+func (r *rows) Column(i int) (column.Interface, error) {
+	return r.block.Columns[i], nil
 }
 
 func (r *rows) ScanStruct(dest interface{}) error {

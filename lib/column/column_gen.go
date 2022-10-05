@@ -1414,6 +1414,11 @@ func (col *UInt64) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
+func (col *UInt64) Scan(dest *uint64, row int) {
+	value := col.col.Row(row)
+	*dest = value
+}
+
 func (col *UInt64) Row(i int, ptr bool) interface{} {
 	value := col.col.Row(i)
 	if ptr {

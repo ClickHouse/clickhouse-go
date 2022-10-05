@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
+	"github.com/stretchr/testify/require"
 	"log"
 	"testing"
 	"time"
@@ -15,7 +17,7 @@ func getConnection() clickhouse.Conn {
 		Auth: clickhouse.Auth{
 			Database: "default",
 			Username: "default",
-			Password: "",
+			Password: "ClickHouse",
 		},
 		//Debug:           true,
 		DialTimeout:     time.Second,
@@ -82,4 +84,28 @@ func benchmarkStringRead(b *testing.B) {
 			break
 		}
 	}
+}
+
+func TestRead(b *testing.T) {
+	conn := getConnection()
+	start := time.Now()
+	rows, err := conn.Query(context.Background(), fmt.Sprintf(`SELECT number FROM system.numbers_mt LIMIT 500000000`))
+	if err != nil {
+		b.Fatal(err)
+	}
+	var (
+		col1 uint64
+	)
+	c := 0
+	for rows.Next() {
+		i := rows.Row()
+		if col, err := rows.Column(0); err == nil {
+			uCol := col.(*column.UInt64)
+			uCol.Scan(&col1, i)
+		}
+		c++
+	}
+	require.Equal(b, 500000000, c)
+	elapsed := time.Since(start)
+	log.Printf("Read took %s", elapsed)
 }
