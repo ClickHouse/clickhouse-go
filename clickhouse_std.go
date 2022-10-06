@@ -160,6 +160,22 @@ func (std *stdDriver) Ping(ctx context.Context) error { return std.conn.ping(ctx
 
 func (std *stdDriver) Begin() (driver.Tx, error) { return std, nil }
 
+func (std *stdDriver) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
+	// Check the transaction level. If the transaction level is non-default
+	// then return an error here as the BeginTx driver value is not supported.
+	if int(opts.Isolation) != int(sql.LevelDefault) {
+		return nil, errors.New("sql: driver does not support non-default isolation level")
+	}
+
+	// If a read-only transaction is requested return an error as the
+	// BeginTx driver value is not supported.
+	if opts.ReadOnly {
+		return nil, errors.New("sql: driver does not support read-only transactions")
+	}
+
+	return std.Begin()
+}
+
 func (std *stdDriver) Commit() error {
 	if std.commit == nil {
 		return nil
