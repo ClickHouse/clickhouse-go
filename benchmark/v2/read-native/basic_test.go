@@ -17,7 +17,7 @@ func getConnection() clickhouse.Conn {
 		Auth: clickhouse.Auth{
 			Database: "default",
 			Username: "default",
-			Password: "ClickHouse",
+			Password: "",
 		},
 		//Debug:           true,
 		DialTimeout:     time.Second,
@@ -89,21 +89,25 @@ func benchmarkStringRead(b *testing.B) {
 func TestRead(b *testing.T) {
 	conn := getConnection()
 	start := time.Now()
-	rows, err := conn.Query(context.Background(), fmt.Sprintf(`SELECT number FROM system.numbers_mt LIMIT 500000000`))
+	rows, err := conn.Query(context.Background(), fmt.Sprintf(`SELECT toString(number) FROM system.numbers_mt LIMIT 500000000`))
 	if err != nil {
 		b.Fatal(err)
 	}
-	var (
-		col1 uint64
-	)
+
 	c := 0
 	for rows.Next() {
 		i := rows.Row()
+		var x string
 		if col, err := rows.Column(0); err == nil {
-			uCol := col.(*column.UInt64)
-			uCol.Scan(&col1, i)
+			uCol := col.(*column.String)
+			x = uCol.Scan(i)
+		} else {
+			panic(err)
 		}
 		c++
+		if c == 100000000 {
+			fmt.Println(x)
+		}
 	}
 	require.Equal(b, 500000000, c)
 	elapsed := time.Since(start)
