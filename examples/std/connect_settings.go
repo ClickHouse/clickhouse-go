@@ -15,47 +15,21 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package clickhouse_api
+package std
 
 import (
-	"context"
+	"database/sql"
 	"fmt"
-	"reflect"
 )
 
-func DynamicScan() error {
-	conn, err := GetNativeConnection(nil, nil, nil)
+func ConnectSettings() error {
+	env, err := GetStdTestEnvironment()
 	if err != nil {
 		return err
 	}
-	const query = `
-	SELECT
-		   1     AS Col1
-		, 'Text' AS Col2
-	`
-	rows, err := conn.Query(context.Background(), query)
+	conn, err := sql.Open("clickhouse", fmt.Sprintf("clickhouse://127.0.0.1:9001,127.0.0.1:9002,%s:%d/%s?username=%s&password=%s&dial_timeout=10s&connection_open_strategy=round_robin&debug=true&compress=lz4", env.Host, env.Port, env.Database, env.Username, env.Password))
 	if err != nil {
 		return err
 	}
-	var (
-		columnTypes = rows.ColumnTypes()
-		vars        = make([]interface{}, len(columnTypes))
-	)
-	for i := range columnTypes {
-		vars[i] = reflect.New(columnTypes[i].ScanType()).Interface()
-	}
-	for rows.Next() {
-		if err := rows.Scan(vars...); err != nil {
-			return err
-		}
-		for _, v := range vars {
-			switch v := v.(type) {
-			case *string:
-				fmt.Println(*v)
-			case *uint8:
-				fmt.Println(*v)
-			}
-		}
-	}
-	return nil
+	return conn.Ping()
 }
