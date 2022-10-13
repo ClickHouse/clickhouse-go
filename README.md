@@ -166,7 +166,7 @@ Alternatively, use `OpenDB` and specify the interface type.
 
 ```go
 conn := clickhouse.OpenDB(&clickhouse.Options{
-	Addr: []string{"127.0.0.1:8123")},
+	Addr: []string{"127.0.0.1:8123"},
 	Auth: clickhouse.Auth{
 		Database: "default",
 		Username: "default",
@@ -224,7 +224,7 @@ To connect using HTTPS either:
 
 ```go
 conn := clickhouse.OpenDB(&clickhouse.Options{
-	Addr: []string{"127.0.0.1:8443")},
+	Addr: []string{"127.0.0.1:8443"},
 	Auth: clickhouse.Auth{
 		Database: "default",
 		Username: "default",
