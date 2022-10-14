@@ -276,6 +276,10 @@ func (col *Float32) Reset() {
 	col.col.Reset()
 }
 
+func (col *Float32) Scan(dest *float32, row int) {
+	*dest = col.col.Row(row)
+}
+
 func (col *Float32) ScanRow(dest interface{}, row int) error {
 	value := col.col.Row(row)
 	switch d := dest.(type) {
@@ -380,6 +384,10 @@ func (col *Float64) Rows() int {
 
 func (col *Float64) Reset() {
 	col.col.Reset()
+}
+
+func (col *Float64) Scan(dest *float64, row int) {
+	*dest = col.col.Row(row)
 }
 
 func (col *Float64) ScanRow(dest interface{}, row int) error {
@@ -515,6 +523,10 @@ func (col *Int8) Rows() int {
 
 func (col *Int8) Reset() {
 	col.col.Reset()
+}
+
+func (col *Int8) Scan(dest *int8, row int) {
+	*dest = col.col.Row(row)
 }
 
 func (col *Int8) ScanRow(dest interface{}, row int) error {
@@ -660,6 +672,10 @@ func (col *Int16) Reset() {
 	col.col.Reset()
 }
 
+func (col *Int16) Scan(dest *int16, row int) {
+	*dest = col.col.Row(row)
+}
+
 func (col *Int16) ScanRow(dest interface{}, row int) error {
 	value := col.col.Row(row)
 	switch d := dest.(type) {
@@ -795,6 +811,10 @@ func (col *Int32) Reset() {
 	col.col.Reset()
 }
 
+func (col *Int32) Scan(dest *int32, row int) {
+	*dest = col.col.Row(row)
+}
+
 func (col *Int32) ScanRow(dest interface{}, row int) error {
 	value := col.col.Row(row)
 	switch d := dest.(type) {
@@ -928,6 +948,10 @@ func (col *Int64) Rows() int {
 
 func (col *Int64) Reset() {
 	col.col.Reset()
+}
+
+func (col *Int64) Scan(dest *int64, row int) {
+	*dest = col.col.Row(row)
 }
 
 func (col *Int64) ScanRow(dest interface{}, row int) error {
@@ -1071,6 +1095,10 @@ func (col *UInt8) Reset() {
 	col.col.Reset()
 }
 
+func (col *UInt8) Scan(dest *uint8, row int) {
+	*dest = col.col.Row(row)
+}
+
 func (col *UInt8) ScanRow(dest interface{}, row int) error {
 	value := col.col.Row(row)
 	switch d := dest.(type) {
@@ -1183,6 +1211,10 @@ func (col *UInt16) Reset() {
 	col.col.Reset()
 }
 
+func (col *UInt16) Scan(dest *uint16, row int) {
+	*dest = col.col.Row(row)
+}
+
 func (col *UInt16) ScanRow(dest interface{}, row int) error {
 	value := col.col.Row(row)
 	switch d := dest.(type) {
@@ -1287,6 +1319,10 @@ func (col *UInt32) Rows() int {
 
 func (col *UInt32) Reset() {
 	col.col.Reset()
+}
+
+func (col *UInt32) Scan(dest *uint32, row int) {
+	*dest = col.col.Row(row)
 }
 
 func (col *UInt32) ScanRow(dest interface{}, row int) error {
@@ -1395,6 +1431,10 @@ func (col *UInt64) Reset() {
 	col.col.Reset()
 }
 
+func (col *UInt64) Scan(dest *uint64, row int) {
+	*dest = col.col.Row(row)
+}
+
 func (col *UInt64) ScanRow(dest interface{}, row int) error {
 	value := col.col.Row(row)
 	switch d := dest.(type) {
@@ -1412,11 +1452,6 @@ func (col *UInt64) ScanRow(dest interface{}, row int) error {
 		}
 	}
 	return nil
-}
-
-func (col *UInt64) Scan(dest *uint64, row int) {
-	value := col.col.Row(row)
-	*dest = value
 }
 
 func (col *UInt64) Row(i int, ptr bool) interface{} {

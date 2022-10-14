@@ -58,6 +58,10 @@ func (col *Ring) Row(i int, ptr bool) interface{} {
 	return value
 }
 
+func (col *Ring) Scan(dest *orb.Ring, row int) {
+	*dest = col.row(row)
+}
+
 func (col *Ring) ScanRow(dest interface{}, row int) error {
 	switch d := dest.(type) {
 	case *orb.Ring:

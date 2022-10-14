@@ -19,7 +19,6 @@ package clickhouse
 
 import (
 	"database/sql"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	"io"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
@@ -34,6 +33,33 @@ type rows struct {
 	stream    chan *proto.Block
 	columns   []string
 	structMap *structMap
+}
+
+func (r *rows) NextBlock() (block *proto.Block) {
+	defer func() {
+		if block == nil {
+			r.Close()
+		}
+	}()
+next:
+	select {
+	case err := <-r.errors:
+		if err != nil {
+			r.err = err
+			return nil
+		}
+		goto next
+	case block := <-r.stream:
+		if block == nil {
+			return nil
+		}
+		if block.Packet == proto.ServerTotals {
+			r.block, r.totals = nil, block
+			return nil
+		}
+		r.block = block
+		return block
+	}
 }
 
 func (r *rows) Next() (result bool) {
@@ -74,14 +100,6 @@ func (r *rows) Scan(dest ...interface{}) error {
 		return io.EOF
 	}
 	return scan(r.block, r.row, dest...)
-}
-
-func (r *rows) Row() int {
-	return r.row - 1
-}
-
-func (r *rows) Column(i int) (column.Interface, error) {
-	return r.block.Columns[i], nil
 }
 
 func (r *rows) ScanStruct(dest interface{}) error {

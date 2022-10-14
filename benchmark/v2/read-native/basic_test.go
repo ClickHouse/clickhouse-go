@@ -34,40 +34,38 @@ func getConnection() clickhouse.Conn {
 	}
 	return conn
 }
-func BenchmarkRead(b *testing.B) {
-	b.Run("string", benchmarkStringRead)
-	b.Run("random", benchmarkRandom)
-}
 
-func benchmarkRandom(b *testing.B) {
+func TestNewStringRead(b *testing.T) {
 	conn := getConnection()
-	b.ResetTimer()
-	rows, err := conn.Query(context.Background(), fmt.Sprintf(`SELECT number, randomString(25), array(1, 2, 3, 4, 5), now() FROM system.numbers LIMIT %d`, b.N))
+	start := time.Now()
+	rows, err := conn.Query(context.Background(), fmt.Sprintf(`SELECT toString(number) FROM system.numbers_mt LIMIT 500000000`))
 	if err != nil {
 		b.Fatal(err)
 	}
-	i := 0
-	for rows.Next() {
-		var (
-			col1 uint64
-			col2 string
-			col3 []uint8
-			col4 time.Time
-		)
-		if err := rows.Scan(&col1, &col2, &col3, &col4); err != nil {
-			b.Fatal(err)
-		}
-		i++
-		if i == b.N {
+	var (
+		val string
+	)
+	c := 0
+	for {
+		block := rows.NextBlock()
+		if block == nil {
 			break
 		}
+		col := block.Columns[0].(*column.String)
+		for i := 0; i < col.Rows(); i++ {
+			col.Scan(&val, i)
+			c++
+		}
 	}
+	require.Equal(b, 500000000, c)
+	elapsed := time.Since(start)
+	fmt.Printf("Read took %s", elapsed)
 }
 
-func benchmarkStringRead(b *testing.B) {
+func TestOldStringRead(b *testing.T) {
 	conn := getConnection()
-	b.ResetTimer()
-	rows, err := conn.Query(context.Background(), fmt.Sprintf(`SELECT toString(number) FROM numbers(%d)`, b.N))
+	start := time.Now()
+	rows, err := conn.Query(context.Background(), fmt.Sprintf(`SELECT toString(number) FROM system.numbers_mt LIMIT 500000000`))
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -80,36 +78,35 @@ func benchmarkStringRead(b *testing.B) {
 			b.Fatal(err)
 		}
 		i++
-		if i == b.N {
-			break
-		}
 	}
+	require.Equal(b, 500000000, i)
+	elapsed := time.Since(start)
+	fmt.Printf("Read took %s", elapsed)
 }
 
-func TestRead(b *testing.T) {
+func TestNewNumberRead(b *testing.T) {
 	conn := getConnection()
 	start := time.Now()
-	rows, err := conn.Query(context.Background(), fmt.Sprintf(`SELECT toString(number) FROM system.numbers_mt LIMIT 500000000`))
+	rows, err := conn.Query(context.Background(), fmt.Sprintf(`SELECT number FROM system.numbers_mt LIMIT 500000000`))
 	if err != nil {
 		b.Fatal(err)
 	}
-
+	var (
+		val uint64
+	)
 	c := 0
-	for rows.Next() {
-		i := rows.Row()
-		var x string
-		if col, err := rows.Column(0); err == nil {
-			uCol := col.(*column.String)
-			x = uCol.Scan(i)
-		} else {
-			panic(err)
+	for {
+		block := rows.NextBlock()
+		if block == nil {
+			break
 		}
-		c++
-		if c == 100000000 {
-			fmt.Println(x)
+		col := block.Columns[0].(*column.UInt64)
+		for i := 0; i < col.Rows(); i++ {
+			col.Scan(&val, i)
+			c++
 		}
 	}
 	require.Equal(b, 500000000, c)
 	elapsed := time.Since(start)
-	log.Printf("Read took %s", elapsed)
+	fmt.Printf("Read took %s", elapsed)
 }

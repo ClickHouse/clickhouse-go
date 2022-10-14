@@ -58,6 +58,10 @@ func (col *Point) Row(i int, ptr bool) interface{} {
 	return value
 }
 
+func (col *Point) Scan(dest *orb.Point, row int) {
+	*dest = col.row(row)
+}
+
 func (col *Point) ScanRow(dest interface{}, row int) error {
 	switch d := dest.(type) {
 	case *orb.Point:

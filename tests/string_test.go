@@ -20,6 +20,7 @@ package tests
 import (
 	"context"
 	"database/sql"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
@@ -247,4 +248,46 @@ func TestStringFlush(t *testing.T) {
 		i += 1
 	}
 	require.Equal(t, 1000, i)
+}
+
+func TestColumnarStringRead(t *testing.T) {
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+	require.NoError(t, err)
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE string_columnar")
+	}()
+	const ddl = `
+		CREATE TABLE string_columnar (
+			  Col1 String
+		) Engine MergeTree() ORDER BY tuple()
+		`
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO string_columnar")
+	require.NoError(t, err)
+	vals := [1000]string{}
+	for i := 0; i < 1000; i++ {
+		vals[i] = RandAsciiString(10)
+		batch.Append(vals[i])
+	}
+	batch.Send()
+	rows, err := conn.Query(ctx, "SELECT * FROM string_columnar")
+	require.NoError(t, err)
+	c := 0
+	var col1 string
+	for {
+		block := rows.NextBlock()
+		if block == nil {
+			break
+		}
+		col := block.Columns[0].(*column.String)
+		for i := 0; i < col.Rows(); i++ {
+			col.Scan(&col1, i)
+			require.Equal(t, vals[i], col1)
+			c++
+		}
+	}
+	require.Equal(t, 1000, c)
 }

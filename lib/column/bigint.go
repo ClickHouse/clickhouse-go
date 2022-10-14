@@ -61,6 +61,10 @@ func (col *BigInt) Row(i int, ptr bool) interface{} {
 	return *value
 }
 
+func (col *BigInt) Scan(dest *big.Int, row int) {
+	*dest = *col.row(row)
+}
+
 func (col *BigInt) ScanRow(dest interface{}, row int) error {
 	switch d := dest.(type) {
 	case *big.Int:

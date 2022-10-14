@@ -58,6 +58,10 @@ func (col *IPv4) Row(i int, ptr bool) interface{} {
 	return value
 }
 
+func (col *IPv4) Scan(dest *net.IP, row int) {
+	*dest = col.row(row)
+}
+
 func (col *IPv4) ScanRow(dest interface{}, row int) error {
 	switch d := dest.(type) {
 	case *string:

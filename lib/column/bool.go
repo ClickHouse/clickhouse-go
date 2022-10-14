@@ -57,6 +57,10 @@ func (col *Bool) Row(i int, ptr bool) interface{} {
 	return val
 }
 
+func (col *Bool) Scan(dest *bool, row int) {
+	*dest = col.col.Row(row)
+}
+
 func (col *Bool) ScanRow(dest interface{}, row int) error {
 	switch d := dest.(type) {
 	case *bool:

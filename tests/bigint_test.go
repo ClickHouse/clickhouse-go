@@ -19,6 +19,7 @@ package tests
 
 import (
 	"context"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	"github.com/stretchr/testify/require"
 	"math/big"
 	"testing"
@@ -298,4 +299,48 @@ func TestBigIntFlush(t *testing.T) {
 		assert.Equal(t, *vals[i], col1)
 		i += 1
 	}
+}
+
+func TestColumnarBigIntRead(t *testing.T) {
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+	require.NoError(t, err)
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE big_int_columnar")
+	}()
+	const ddl = `
+		CREATE TABLE big_int_columnar (
+			  Col1 UInt128
+		) Engine MergeTree() ORDER BY tuple()
+		`
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO big_int_columnar")
+	require.NoError(t, err)
+	vals := [1000]*big.Int{}
+	for i := 0; i < 1000; i++ {
+		bigUint128Val := big.NewInt(0)
+		bigUint128Val.SetString(RandIntString(20), 10)
+		vals[i] = bigUint128Val
+		batch.Append(vals[i])
+	}
+	batch.Send()
+	rows, err := conn.Query(ctx, "SELECT * FROM big_int_columnar")
+	require.NoError(t, err)
+	c := 0
+	var col1 big.Int
+	for {
+		block := rows.NextBlock()
+		if block == nil {
+			break
+		}
+		col := block.Columns[0].(*column.BigInt)
+		for i := 0; i < col.Rows(); i++ {
+			col.Scan(&col1, i)
+			require.Equal(t, *vals[i], col1)
+			c++
+		}
+	}
+	require.Equal(t, 1000, c)
 }

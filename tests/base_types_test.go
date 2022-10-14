@@ -20,8 +20,10 @@ package tests
 import (
 	"context"
 	"database/sql"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	"github.com/stretchr/testify/require"
 	"testing"
+	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
@@ -211,4 +213,126 @@ func TestNullableInt(t *testing.T) {
 	require.Equal(t, col4Data, col4)
 	require.Equal(t, col5Data, col5)
 	require.Equal(t, col6Data, col6)
+}
+
+func TestDurationInt64(t *testing.T) {
+	conn, err := GetNativeConnection(clickhouse.Settings{
+		"max_execution_time": 60,
+	}, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	require.NoError(t, err)
+	require.NoError(t, conn.Exec(
+		context.Background(),
+		`
+			CREATE TABLE IF NOT EXISTS issue_631
+			(timeDuration Int64)
+			ENGINE = MergeTree
+			ORDER BY (timeDuration)
+			`,
+	))
+	defer func() {
+		require.NoError(t, conn.Exec(context.Background(), "DROP TABLE issue_631"))
+	}()
+
+	batch, err := conn.PrepareBatch(context.Background(), "INSERT INTO issue_631 (timeDuration)")
+	require.NoError(t, err)
+	require.NoError(t, batch.Append(time.Duration(time.Second)*120))
+	require.NoError(t, batch.Send())
+	row := conn.QueryRow(context.Background(), "SELECT timeDuration from issue_631")
+	require.NoError(t, err)
+	var timeDuration time.Duration
+	require.NoError(t, row.Scan(&timeDuration))
+	assert.Equal(t, time.Duration(time.Second)*120, timeDuration)
+}
+
+func TestColumnarBaseTypeRead(t *testing.T) {
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+	require.NoError(t, err)
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE base_types_columnar")
+	}()
+	const ddl = `
+		CREATE TABLE base_types_columnar (
+			  Col1 UInt8,
+			  Col2 UInt16,
+			  Col3 UInt32,
+			  Col4 UInt64,
+			  Col5 Int8,
+			  Col6 Int16,
+			  Col7 Int32,
+			  Col8 Int64,
+			  Col9 Float64,
+			  Col10 Float32
+		) Engine MergeTree() ORDER BY tuple()
+		`
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO base_types_columnar")
+	require.NoError(t, err)
+	type Values struct {
+		Col1  uint8
+		Col2  uint16
+		Col3  uint32
+		Col4  uint64
+		Col5  int8
+		Col6  int16
+		Col7  int32
+		Col8  int64
+		Col9  float64
+		Col10 float32
+	}
+	vals := [1000]Values{}
+	for i := 0; i < 256; i++ {
+		vals[i] = Values{
+			Col1:  uint8(i),
+			Col2:  uint16(i) + 1,
+			Col3:  uint32(i) * 2,
+			Col4:  uint64(i) * 3,
+			Col5:  int8(i) * -1,
+			Col6:  int16(i) * -2,
+			Col7:  int32(i) * -3,
+			Col8:  int64(i) * -4,
+			Col9:  float64(i / 2),
+			Col10: float32(i / 2),
+		}
+		require.NoError(t, batch.AppendStruct(&vals[i]))
+	}
+	require.NoError(t, batch.Send())
+	rows, err := conn.Query(ctx, "SELECT * FROM base_types_columnar")
+	require.NoError(t, err)
+	c := 0
+	var value Values
+	for {
+		block := rows.NextBlock()
+		if block == nil {
+			break
+		}
+		col1 := block.Columns[0].(*column.UInt8)
+		for i := 0; i < col1.Rows(); i++ {
+			col1.Scan(&value.Col1, i)
+			block.Columns[1].(*column.UInt16).Scan(&value.Col2, i)
+			require.Equal(t, vals[i].Col2, value.Col2)
+			block.Columns[2].(*column.UInt32).Scan(&value.Col3, i)
+			require.Equal(t, vals[i].Col3, value.Col3)
+			block.Columns[3].(*column.UInt64).Scan(&value.Col4, i)
+			require.Equal(t, vals[i].Col4, value.Col4)
+			block.Columns[4].(*column.Int8).Scan(&value.Col5, i)
+			require.Equal(t, vals[i].Col5, value.Col5)
+			block.Columns[5].(*column.Int16).Scan(&value.Col6, i)
+			require.Equal(t, vals[i].Col6, value.Col6)
+			block.Columns[6].(*column.Int32).Scan(&value.Col7, i)
+			require.Equal(t, vals[i].Col7, value.Col7)
+			block.Columns[7].(*column.Int64).Scan(&value.Col8, i)
+			require.Equal(t, vals[i].Col8, value.Col8)
+			block.Columns[8].(*column.Float64).Scan(&value.Col9, i)
+			require.Equal(t, vals[i].Col8, value.Col8)
+			block.Columns[9].(*column.Float32).Scan(&value.Col10, i)
+			require.Equal(t, vals[i].Col8, value.Col8)
+			c++
+		}
+	}
+	require.Equal(t, 256, c)
 }

@@ -66,6 +66,10 @@ func (col *FixedString) Row(i int, ptr bool) interface{} {
 	return value
 }
 
+func (col *FixedString) Scan(dest *string, row int) {
+	*dest = col.row(row)
+}
+
 func (col *FixedString) ScanRow(dest interface{}, row int) error {
 	switch d := dest.(type) {
 	case *string:

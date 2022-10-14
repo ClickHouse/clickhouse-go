@@ -213,6 +213,10 @@ func (col *{{ .ChType }}) Reset() {
     col.col.Reset()
 }
 
+func (col *{{ .ChType }}) Scan(dest *{{ .GoType }}, row int) {
+	*dest = col.col.Row(row)
+}
+
 func (col *{{ .ChType }}) ScanRow(dest interface{}, row int) error {
 	value := col.col.Row(row)
 	switch d := dest.(type) {

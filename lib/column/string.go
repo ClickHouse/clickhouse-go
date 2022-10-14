@@ -60,8 +60,8 @@ func (col *String) Row(i int, ptr bool) interface{} {
 	return val
 }
 
-func (col *String) Scan(row int) string {
-	return col.col.Row(row)
+func (col *String) Scan(dest *string, row int) {
+	*dest = col.col.Row(row)
 }
 
 func (col *String) ScanRow(dest interface{}, row int) error {

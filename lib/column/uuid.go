@@ -59,6 +59,10 @@ func (col *UUID) Row(i int, ptr bool) interface{} {
 	return value
 }
 
+func (col *UUID) Scan(dest *uuid.UUID, row int) {
+	*dest = col.row(row)
+}
+
 func (col *UUID) ScanRow(dest interface{}, row int) error {
 	switch d := dest.(type) {
 	case *string:

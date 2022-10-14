@@ -59,6 +59,10 @@ func (col *Enum16) Row(i int, ptr bool) interface{} {
 	return value
 }
 
+func (col *Enum16) Scan(dest *string, row int) {
+	*dest = col.vi[col.col.Row(row)]
+}
+
 func (col *Enum16) ScanRow(dest interface{}, row int) error {
 	value := col.col.Row(row)
 	switch d := dest.(type) {

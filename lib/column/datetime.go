@@ -86,6 +86,10 @@ func (col *DateTime) Row(i int, ptr bool) interface{} {
 	return value
 }
 
+func (col *DateTime) Scan(dest *time.Time, row int) {
+	*dest = col.row(row)
+}
+
 func (col *DateTime) ScanRow(dest interface{}, row int) error {
 	switch d := dest.(type) {
 	case *time.Time:

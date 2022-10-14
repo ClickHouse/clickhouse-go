@@ -20,9 +20,8 @@ package column
 import (
 	"fmt"
 	"github.com/ClickHouse/ch-go/proto"
-	"reflect"
-
 	"github.com/paulmach/orb"
+	"reflect"
 )
 
 type MultiPolygon struct {
@@ -56,6 +55,10 @@ func (col *MultiPolygon) Row(i int, ptr bool) interface{} {
 		return &value
 	}
 	return value
+}
+
+func (col *MultiPolygon) Scan(dest *orb.MultiPolygon, row int) {
+	*dest = col.row(row)
 }
 
 func (col *MultiPolygon) ScanRow(dest interface{}, row int) error {

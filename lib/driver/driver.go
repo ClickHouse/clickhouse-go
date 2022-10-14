@@ -19,7 +19,6 @@ package driver
 
 import (
 	"context"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	"reflect"
 	"time"
 
@@ -69,6 +68,7 @@ type (
 	}
 	Rows interface {
 		Next() bool
+		NextBlock() (block *proto.Block)
 		Scan(dest ...interface{}) error
 		ScanStruct(dest interface{}) error
 		ColumnTypes() []ColumnType
@@ -76,8 +76,6 @@ type (
 		Columns() []string
 		Close() error
 		Err() error
-		Row() int
-		Column(i int) (column.Interface, error)
 	}
 	Batch interface {
 		Abort() error

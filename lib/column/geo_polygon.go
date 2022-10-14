@@ -58,6 +58,10 @@ func (col *Polygon) Row(i int, ptr bool) interface{} {
 	return value
 }
 
+func (col *Polygon) Scan(dest *orb.Polygon, row int) {
+	*dest = col.row(row)
+}
+
 func (col *Polygon) ScanRow(dest interface{}, row int) error {
 	switch d := dest.(type) {
 	case *orb.Polygon:

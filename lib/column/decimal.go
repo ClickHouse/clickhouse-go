@@ -21,12 +21,11 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/ClickHouse/ch-go/proto"
 	"math/big"
 	"reflect"
 	"strconv"
 	"strings"
-
-	"github.com/ClickHouse/ch-go/proto"
 
 	"github.com/shopspring/decimal"
 )
@@ -127,6 +126,10 @@ func (col *Decimal) row(i int) *decimal.Decimal {
 		value = decimal.NewFromBigInt(bv, int32(-col.scale))
 	}
 	return &value
+}
+
+func (col *Decimal) Scan(dest *decimal.Decimal, row int) {
+	*dest = *col.row(row)
 }
 
 func (col *Decimal) ScanRow(dest interface{}, row int) error {
