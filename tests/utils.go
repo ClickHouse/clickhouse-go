@@ -155,9 +155,12 @@ func CreateClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment,
 		Image:        fmt.Sprintf("clickhouse/clickhouse-server:%s", GetClickHouseTestVersion()),
 		Name:         fmt.Sprintf("clickhouse-go-%s-%d", strings.ToLower(testSet), time.Now().UnixNano()),
 		ExposedPorts: []string{"9000/tcp", "8123/tcp", "9440/tcp", "8443/tcp"},
-		WaitingFor: wait.ForAll(wait.ForLog("Ready for connections").WithStartupTimeout(time.Second*time.Duration(120)), wait.ForSQL("9000/tcp", "clickhouse", func(port nat.Port) string {
-			return fmt.Sprintf("clickhouse://default:ClickHouse@localhost:%s", port.Port())
-		})).WithStartupTimeout(time.Second * time.Duration(120)),
+		WaitingFor: wait.ForAll(
+			wait.ForLog("Ready for connections").WithStartupTimeout(time.Second*time.Duration(120)),
+			wait.ForSQL("9000/tcp", "clickhouse", func(port nat.Port) string {
+				return fmt.Sprintf("clickhouse://default:ClickHouse@127.0.0.1:%s", port.Port())
+			}),
+		).WithStartupTimeout(time.Second * time.Duration(120)),
 		Mounts: []testcontainers.ContainerMount{
 			testcontainers.BindMount(path.Join(basePath, "./resources/custom.xml"), "/etc/clickhouse-server/config.d/custom.xml"),
 			testcontainers.BindMount(path.Join(basePath, "./resources/admin.xml"), "/etc/clickhouse-server/users.d/admin.xml"),
@@ -185,7 +188,7 @@ func CreateClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment,
 		HttpPort:  hp.Int(),
 		SslPort:   sslPort.Int(),
 		HttpsPort: hps.Int(),
-		Host:      "localhost",
+		Host:      "127.0.0.1",
 		// we set this explicitly - note its also set in the /etc/clickhouse-server/users.d/admin.xml
 		Username:  "default",
 		Password:  "ClickHouse",
