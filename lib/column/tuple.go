@@ -287,12 +287,18 @@ func (col *Tuple) scanMap(targetMap reflect.Value, row int) error {
 			}
 			targetMap.SetMapIndex(reflect.ValueOf(colName), subSlice)
 		default:
-			field := reflect.New(reflect.TypeOf(c.Row(0, false))).Elem()
-			value := reflect.ValueOf(c.Row(row, false))
-			if err := setJSONFieldValue(field, value); err != nil {
-				return err
+			val := c.Row(row, false)
+			if val != nil {
+				field := reflect.New(reflect.TypeOf(c.Row(0, false))).Elem()
+				value := reflect.ValueOf(c.Row(row, false))
+				if err := setJSONFieldValue(field, value); err != nil {
+					return err
+				}
+				targetMap.SetMapIndex(reflect.ValueOf(colName), field)
+			} else {
+				targetMap.SetMapIndex(reflect.ValueOf(colName), reflect.Zero(c.ScanType().Elem()))
 			}
-			targetMap.SetMapIndex(reflect.ValueOf(colName), field)
+
 		}
 	}
 	return nil
@@ -380,9 +386,12 @@ func (col *Tuple) scanSlice(targetType reflect.Type, row int) (reflect.Value, er
 			rSlice = reflect.Append(rSlice, subSlice)
 		default:
 			field := reflect.New(c.ScanType()).Elem()
-			value := reflect.ValueOf(c.Row(row, false))
-			if err := setJSONFieldValue(field, value); err != nil {
-				return reflect.Value{}, err
+			val := c.Row(row, false)
+			if val != nil {
+				value := reflect.ValueOf(val)
+				if err := setJSONFieldValue(field, value); err != nil {
+					return reflect.Value{}, err
+				}
 			}
 			rSlice = reflect.Append(rSlice, field)
 		}
@@ -422,6 +431,14 @@ func (col *Tuple) scan(targetType reflect.Type, row int) (reflect.Value, error) 
 		return rSlice, nil
 	case reflect.Interface:
 		// catches interface{} -Note this swallows custom interfaces to which maps couldn't conform
+		if !col.isNamed {
+			return reflect.Value{}, &ColumnConverterError{
+				Op:   "ScanRow",
+				To:   fmt.Sprintf("%s", targetType),
+				From: string(col.chType),
+				Hint: "cannot use interface for unnamed tuples, use slice",
+			}
+		}
 		rMap := reflect.ValueOf(make(map[string]interface{}))
 		if err := col.scanMap(rMap, row); err != nil {
 			return reflect.Value{}, err
