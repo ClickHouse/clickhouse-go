@@ -31,7 +31,7 @@ import (
 )
 
 var splitInsertRe = regexp.MustCompile(`(?i)\sVALUES\s*\(`)
-var columnMatch = regexp.MustCompile(`.*\((?P<Columns>.*)\)$`)
+var columnMatch = regexp.MustCompile(`.*\((?P<Columns>.+)\)$`)
 
 func (c *connect) prepareBatch(ctx context.Context, query string, release func(*connect, error)) (driver.Batch, error) {
 	query = splitInsertRe.Split(query, -1)[0]

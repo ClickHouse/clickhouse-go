@@ -14,26 +14,31 @@ import (
 )
 
 func TestIssue741(t *testing.T) {
-	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
-	require.NoError(t, err)
-	conn, err := clickhouse_std_tests.GetDSNConnection("issues", clickhouse.Native, useSSL, "false")
-	require.NoError(t, err)
-	conn.Exec("DROP TABLE IF EXISTS issue_741")
-	ddl := `
-		CREATE TABLE issue_741 (
-				Col1 String,
-				Col2 Int64
-			)
-			Engine MergeTree() ORDER BY tuple()
-		`
-	_, err = conn.Exec(ddl)
-	require.NoError(t, err)
-	defer func() {
-		conn.Exec("DROP TABLE issue_741")
-	}()
-	stmt, err := conn.Prepare("INSERT INTO issue_741 (Col2, Col1) VALUES (? ?)")
-	_, err = stmt.Exec(int64(1), "1")
-	require.NoError(t, err)
+	protocols := []clickhouse.Protocol{clickhouse.Native, clickhouse.HTTP}
+	for _, protocol := range protocols {
+		t.Run(fmt.Sprintf("%v Protocol", protocol), func(t *testing.T) {
+			useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+			require.NoError(t, err)
+			conn, err := clickhouse_std_tests.GetDSNConnection("issues", protocol, useSSL, "false")
+			require.NoError(t, err)
+			conn.Exec("DROP TABLE IF EXISTS issue_741")
+			ddl := `
+				CREATE TABLE issue_741 (
+						Col1 String,
+						Col2 Int64
+					)
+					Engine MergeTree() ORDER BY tuple()
+				`
+			_, err = conn.Exec(ddl)
+			require.NoError(t, err)
+			defer func() {
+				conn.Exec("DROP TABLE issue_741")
+			}()
+			stmt, err := conn.Prepare("INSERT INTO issue_741 (Col2, Col1) VALUES (? ?)")
+			_, err = stmt.Exec(int64(1), "1")
+			require.NoError(t, err)
+		})
+	}
 }
 
 func TestIssue741SingleColumn(t *testing.T) {
@@ -114,7 +119,7 @@ func TestIssue741RandomOrder(t *testing.T) {
 }
 
 // test Append on native connection
-func TestIssue741Append(t *testing.T) {
+func TestIssue741NativeAppend(t *testing.T) {
 	var (
 		conn, err = clickhouse_tests.GetConnection("issues", clickhouse.Settings{
 			"max_execution_time": 60,
@@ -131,4 +136,9 @@ func TestIssue741Append(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, batch.Append(values...))
 	require.NoError(t, batch.Send())
+}
+
+// test Append on native connection
+func TestIssue741StdAppend(t *testing.T) {
+	//test http and native
 }
