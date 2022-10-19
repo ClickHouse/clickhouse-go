@@ -6,19 +6,23 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	clickhouse_std_tests "github.com/ClickHouse/clickhouse-go/v2/tests/std"
+	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 	"math/rand"
+	"net"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestIssue741(t *testing.T) {
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
 	protocols := []clickhouse.Protocol{clickhouse.Native, clickhouse.HTTP}
 	for _, protocol := range protocols {
 		t.Run(fmt.Sprintf("%v Protocol", protocol), func(t *testing.T) {
-			useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
-			require.NoError(t, err)
 			conn, err := clickhouse_std_tests.GetDSNConnection("issues", protocol, useSSL, "false")
 			require.NoError(t, err)
 			conn.Exec("DROP TABLE IF EXISTS issue_741")
@@ -44,32 +48,41 @@ func TestIssue741(t *testing.T) {
 func TestIssue741SingleColumn(t *testing.T) {
 	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
 	require.NoError(t, err)
-	conn, err := clickhouse_std_tests.GetDSNConnection("issues", clickhouse.Native, useSSL, "false")
-	require.NoError(t, err)
-	conn.Exec("DROP TABLE IF EXISTS issue_741_single")
-	ddl := `
-		CREATE TABLE issue_741_single (
+	protocols := []clickhouse.Protocol{clickhouse.Native, clickhouse.HTTP}
+	for _, protocol := range protocols {
+		t.Run(fmt.Sprintf("%v Protocol", protocol), func(t *testing.T) {
+			conn, err := clickhouse_std_tests.GetDSNConnection("issues", protocol, useSSL, "false")
+			require.NoError(t, err)
+			conn.Exec("DROP TABLE IF EXISTS issue_741_single")
+			ddl := `
+			CREATE TABLE issue_741_single (
 				Col1 String,
 				Col2 Int64
 			)
 			Engine MergeTree() ORDER BY tuple()
-		`
-	_, err = conn.Exec(ddl)
-	require.NoError(t, err)
-	defer func() {
-		conn.Exec("DROP TABLE issue_741_single")
-	}()
-	stmt, err := conn.Prepare("INSERT INTO issue_741_single (Col1) VALUES (?)")
-	_, err = stmt.Exec("1")
-	require.NoError(t, err)
+			`
+			_, err = conn.Exec(ddl)
+			require.NoError(t, err)
+			defer func() {
+				conn.Exec("DROP TABLE issue_741_single")
+			}()
+			stmt, err := conn.Prepare("INSERT INTO issue_741_single (Col1) VALUES (?)")
+			_, err = stmt.Exec("1")
+			require.NoError(t, err)
+		})
+	}
 }
 
 func generateRandomInsert(tableName string) (string, string, []interface{}) {
 	columns := map[string]interface{}{
-		"Col1 String": "a",
-		"Col2 Int64":  int64(1),
-		"Col3 Int32":  int32(2),
-		"Col4 Bool":   true,
+		"Col1 String":       "a",
+		"Col2 Int64":        int64(1),
+		"Col3 Int32":        int32(2),
+		"Col4 Bool":         true,
+		"Col5 Date32":       time.Now(),
+		"Col6 IPv4":         net.ParseIP("8.8.8.8"),
+		"Col7 Decimal32(5)": decimal.New(25, 0),
+		"Col8 UUID":         uuid.New(),
 	}
 	colNames := make([]string, len(columns))
 	i := 0
@@ -103,19 +116,24 @@ func generateRandomInsert(tableName string) (string, string, []interface{}) {
 func TestIssue741RandomOrder(t *testing.T) {
 	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
 	require.NoError(t, err)
-	conn, err := clickhouse_std_tests.GetDSNConnection("issues", clickhouse.Native, useSSL, "false")
-	require.NoError(t, err)
-	conn.Exec("DROP TABLE IF EXISTS issue_741_random")
-	defer func() {
-		conn.Exec("DROP TABLE issue_741_random")
-	}()
-	ddl, insertStatement, values := generateRandomInsert("issue_741_random")
-	_, err = conn.Exec(ddl)
-	require.NoError(t, err)
-	stmt, err := conn.Prepare(fmt.Sprintf(insertStatement))
-	require.NoError(t, err)
-	_, err = stmt.Exec(values...)
-	require.NoError(t, err)
+	protocols := []clickhouse.Protocol{clickhouse.Native, clickhouse.HTTP}
+	for _, protocol := range protocols {
+		t.Run(fmt.Sprintf("%v Protocol", protocol), func(t *testing.T) {
+			conn, err := clickhouse_std_tests.GetDSNConnection("issues", clickhouse.Native, useSSL, "false")
+			require.NoError(t, err)
+			conn.Exec("DROP TABLE IF EXISTS issue_741_random")
+			defer func() {
+				conn.Exec("DROP TABLE issue_741_random")
+			}()
+			ddl, insertStatement, values := generateRandomInsert("issue_741_random")
+			_, err = conn.Exec(ddl)
+			require.NoError(t, err)
+			stmt, err := conn.Prepare(fmt.Sprintf(insertStatement))
+			require.NoError(t, err)
+			_, err = stmt.Exec(values...)
+			require.NoError(t, err)
+		})
+	}
 }
 
 // test Append on native connection
@@ -130,6 +148,9 @@ func TestIssue741NativeAppend(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, err)
 	conn.Exec(ctx, "DROP TABLE IF EXISTS issue_741_append_random")
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE issue_741_append_random")
+	}()
 	ddl, insertStatement, values := generateRandomInsert("issue_741_append_random")
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, insertStatement)
@@ -141,4 +162,26 @@ func TestIssue741NativeAppend(t *testing.T) {
 // test Append on native connection
 func TestIssue741StdAppend(t *testing.T) {
 	//test http and native
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	protocols := []clickhouse.Protocol{clickhouse.Native, clickhouse.HTTP}
+	for _, protocol := range protocols {
+		t.Run(fmt.Sprintf("%v Protocol", protocol), func(t *testing.T) {
+			conn, err := clickhouse_std_tests.GetDSNConnection("issues", clickhouse.Native, useSSL, "false")
+			require.NoError(t, err)
+			conn.Exec("DROP TABLE IF EXISTS issue_741_std_append_random")
+			defer func() {
+				conn.Exec("DROP TABLE issue_741_std_append_random")
+			}()
+			ddl, insertStatement, values := generateRandomInsert("issue_741_std_append_random")
+			_, err = conn.Exec(ddl)
+			require.NoError(t, err)
+			scope, err := conn.Begin()
+			require.NoError(t, err)
+			batch, err := scope.Prepare(insertStatement)
+			require.NoError(t, err)
+			_, err = batch.Exec(values...)
+			require.NoError(t, err)
+		})
+	}
 }
