@@ -8,6 +8,7 @@
         <console>1</console>
     </logger>
     <timezone>UTC</timezone>
+    <mark_cache_size>104857600</mark_cache_size>
     <openSSL>
         <server>
             <certificateFile>/etc/clickhouse-server/certs/clickhouse.crt</certificateFile>
