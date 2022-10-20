@@ -37,7 +37,7 @@ func TestStdConnCheck(t *testing.T) {
 			Value String
 		) Engine MergeTree() ORDER BY tuple()
 		`
-		dml = `INSERT INTO clickhouse_test_conn_check VALUES `
+		dml = "INSERT INTO `clickhouse_test_conn_check` VALUES "
 	)
 
 	env, err := GetStdTestEnvironment()

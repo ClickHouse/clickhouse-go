@@ -31,9 +31,18 @@ import (
 )
 
 var splitInsertRe = regexp.MustCompile(`(?i)\sVALUES\s*\(`)
+var columnMatch = regexp.MustCompile(`.*\((?P<Columns>.+)\)$`)
 
 func (c *connect) prepareBatch(ctx context.Context, query string, release func(*connect, error)) (driver.Batch, error) {
 	query = splitInsertRe.Split(query, -1)[0]
+	colMatch := columnMatch.FindStringSubmatch(query)
+	var columns []string
+	if len(colMatch) == 2 {
+		columns = strings.Split(colMatch[1], ",")
+		for i := range columns {
+			columns[i] = strings.TrimSpace(columns[i])
+		}
+	}
 	if !strings.HasSuffix(strings.TrimSpace(strings.ToUpper(query)), "VALUES") {
 		query += " VALUES"
 	}
@@ -52,6 +61,10 @@ func (c *connect) prepareBatch(ctx context.Context, query string, release func(*
 	)
 	if err != nil {
 		release(c, err)
+		return nil, err
+	}
+	// resort batch to specified columns
+	if err = block.SortColumns(columns); err != nil {
 		return nil, err
 	}
 	return &batch{
@@ -90,6 +103,7 @@ func (b *batch) Append(v ...interface{}) error {
 	if b.sent {
 		return ErrBatchAlreadySent
 	}
+	//
 	if err := b.block.Append(v...); err != nil {
 		b.release(err)
 		return err
