@@ -29,7 +29,7 @@ func AsyncInsert() error {
 		return err
 	}
 	ctx := context.Background()
-	if err := clickhouse_tests.CheckMinServerServerVersion(conn, 21, 12, 0); err != nil {
+	if !clickhouse_tests.CheckMinServerServerVersion(conn, 21, 12, 0) {
 		return nil
 	}
 	defer func() {

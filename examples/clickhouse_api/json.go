@@ -32,7 +32,7 @@ func InsertReadJSON() error {
 		return err
 	}
 	ctx := context.Background()
-	if err := clickhouse_tests.CheckMinServerServerVersion(conn, 22, 6, 1); err != nil {
+	if !clickhouse_tests.CheckMinServerServerVersion(conn, 22, 6, 1) {
 		return nil
 	}
 	if err != nil {
@@ -108,7 +108,7 @@ func ReadComplexJSON() error {
 	}
 	ctx := context.Background()
 
-	if err := clickhouse_tests.CheckMinServerServerVersion(conn, 22, 6, 1); err != nil {
+	if !clickhouse_tests.CheckMinServerServerVersion(conn, 22, 6, 1) {
 		return nil
 	}
 	conn.Exec(ctx, "DROP TABLE IF EXISTS example")
