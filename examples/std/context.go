@@ -14,7 +14,7 @@ func UseContext() error {
 	if err != nil {
 		return err
 	}
-	if err := clickhouse_tests.CheckMinServerVersion(conn, 22, 6, 1); err != nil {
+	if !clickhouse_tests.CheckMinServerVersion(conn, 22, 6, 1) {
 		return nil
 	}
 	// we can use context to pass settings to a specific API call

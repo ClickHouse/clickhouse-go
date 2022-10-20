@@ -19,6 +19,7 @@ package tests
 
 import (
 	"context"
+	"fmt"
 	"github.com/stretchr/testify/require"
 	"net"
 	"testing"
@@ -57,8 +58,8 @@ func TestNullableArray(t *testing.T) {
 		conn.Exec(ctx, "DROP TABLE IF EXISTS test_nullable_array")
 	}()
 	require.NoError(t, err)
-	if err := CheckMinServerServerVersion(conn, 21, 12, 0); err != nil {
-		t.Skip(err.Error())
+	if !CheckMinServerServerVersion(conn, 21, 12, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
 		return
 	}
 	require.NoError(t, conn.Exec(ctx, ddl))

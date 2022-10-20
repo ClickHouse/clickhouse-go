@@ -2,6 +2,7 @@ package issues
 
 import (
 	"context"
+	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/assert"
@@ -19,8 +20,8 @@ func TestIssue615(t *testing.T) {
 		})
 	)
 	require.NoError(t, err)
-	if err := clickhouse_tests.CheckMinServerServerVersion(conn, 22, 0, 0); err != nil {
-		t.Skip(err.Error())
+	if !clickhouse_tests.CheckMinServerServerVersion(conn, 22, 0, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
 	}
 	require.NoError(t, err)
 	if err := conn.Exec(

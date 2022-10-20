@@ -19,6 +19,7 @@ package tests
 
 import (
 	"context"
+	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/require"
 	"testing"
@@ -31,8 +32,8 @@ func TestQuotedDDL(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, err)
 	require.NoError(t, conn.Ping(ctx))
-	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
-		t.Skip(err.Error())
+	if !CheckMinServerServerVersion(conn, 21, 9, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
 		return
 	}
 	const ddl = "CREATE TABLE `test_string` (`1` String) Engine MergeTree() ORDER BY tuple()"

@@ -42,8 +42,8 @@ func TestStdLowCardinality(t *testing.T) {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
 			conn, err := GetStdDSNConnection(protocol, useSSL, "false")
 			require.NoError(t, err)
-			if err := CheckMinServerVersion(conn, 19, 11, 0); err != nil {
-				t.Skip(err.Error())
+			if !CheckMinServerVersion(conn, 19, 11, 0) {
+				t.Skip(fmt.Errorf("unsupported clickhouse version"))
 				return
 			}
 			const ddl = `

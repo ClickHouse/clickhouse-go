@@ -3,6 +3,7 @@ package tests
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"github.com/stretchr/testify/require"
 	"math/rand"
 	"testing"
@@ -17,8 +18,8 @@ func TestSimpleFloat(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
-		t.Skip(err.Error())
+	if !CheckMinServerServerVersion(conn, 21, 9, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
 		return
 	}
 	const ddl = `

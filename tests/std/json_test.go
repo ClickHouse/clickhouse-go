@@ -19,6 +19,7 @@ package std
 
 import (
 	"crypto/tls"
+	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/assert"
@@ -70,8 +71,8 @@ func TestStdJson(t *testing.T) {
 	}
 	conn, err := GetStdDSNConnection(clickhouse.Native, useSSL, "false")
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 22, 6, 1); err != nil {
-		t.Skip(err.Error())
+	if !CheckMinServerVersion(conn, 22, 6, 1) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
 		return
 	}
 	conn.Close()
@@ -139,8 +140,8 @@ func TestStdJsonWithMap(t *testing.T) {
 	}
 	conn, err := GetStdDSNConnection(clickhouse.Native, useSSL, "false")
 	require.NoError(t, err)
-	if err := CheckMinServerVersion(conn, 22, 6, 1); err != nil {
-		t.Skip(err.Error())
+	if !CheckMinServerVersion(conn, 22, 6, 1) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
 		return
 	}
 	conn.Close()

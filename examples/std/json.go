@@ -45,7 +45,7 @@ func JSONInsertRead() error {
 	if err != nil {
 		return err
 	}
-	if err := std.CheckMinServerVersion(conn, 22, 6, 1); err != nil {
+	if !std.CheckMinServerVersion(conn, 22, 6, 1) {
 		return nil
 	}
 	conn.Exec("DROP TABLE example")

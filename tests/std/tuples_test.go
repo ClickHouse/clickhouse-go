@@ -18,6 +18,7 @@ package std
 
 import (
 	"crypto/tls"
+	"fmt"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/require"
 	"strconv"
@@ -41,8 +42,8 @@ func TestTuple(t *testing.T) {
 	require.NoError(t, err)
 	localTime := testDate.In(loc)
 
-	if err := CheckMinServerVersion(conn, 21, 9, 0); err != nil {
-		t.Skip(err.Error())
+	if !CheckMinServerVersion(conn, 21, 9, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
 		return
 	}
 	const ddl = `

@@ -60,8 +60,8 @@ func setupConnection(t *testing.T) driver.Conn {
 func setupTest(t *testing.T) (driver.Conn, func(t *testing.T)) {
 	ctx := context.Background()
 	conn := setupConnection(t)
-	if err := CheckMinServerServerVersion(conn, 22, 6, 1); err != nil {
-		t.Skip(err.Error())
+	if !CheckMinServerServerVersion(conn, 22, 6, 1) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
 	}
 	conn.Exec(ctx, "DROP TABLE IF EXISTS json_test")
 	ddl := `CREATE table json_test(event JSON) ENGINE=MergeTree() ORDER BY tuple();`
@@ -1976,8 +1976,8 @@ func TestJSONManyColumns(t *testing.T) {
 	ctx := context.Background()
 	conn := setupConnection(t)
 	conn.Exec(ctx, "DROP TABLE IF EXISTS json_test")
-	if err := CheckMinServerServerVersion(conn, 22, 6, 1); err != nil {
-		t.Skip(err.Error())
+	if !CheckMinServerServerVersion(conn, 22, 6, 1) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
 	}
 	ddl := `CREATE table json_test(event JSON, event2 JSON, col1 String) ENGINE=MergeTree() ORDER BY tuple();`
 	require.NoError(t, conn.Exec(ctx, ddl))

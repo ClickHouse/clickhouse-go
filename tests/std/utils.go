@@ -34,7 +34,7 @@ func GetStdTestEnvironment() (clickhouse_tests.ClickHouseTestEnvironment, error)
 	return clickhouse_tests.GetTestEnvironment("std")
 }
 
-func CheckMinServerVersion(conn *sql.DB, major, minor, patch uint64) error {
+func CheckMinServerVersion(conn *sql.DB, major, minor, patch uint64) bool {
 	var res string
 	if err := conn.QueryRow("SELECT version()").Scan(&res); err != nil {
 		panic(err)
@@ -50,7 +50,7 @@ func CheckMinServerVersion(conn *sql.DB, major, minor, patch uint64) error {
 			version.Patch, _ = strconv.ParseUint(v, 10, 64)
 		}
 	}
-	return clickhouse_tests.CheckMinVersion(proto.Version{
+	return proto.CheckMinVersion(proto.Version{
 		Major: major,
 		Minor: minor,
 		Patch: patch,
@@ -60,11 +60,11 @@ func CheckMinServerVersion(conn *sql.DB, major, minor, patch uint64) error {
 func GetDSNConnection(environment string, protocol clickhouse.Protocol, secure bool, compress string) (*sql.DB, error) {
 	env, err := clickhouse_tests.GetTestEnvironment(environment)
 	enforceReplication := ""
-	if clickhouse_tests.CheckMinVersion(proto.Version{
+	if proto.CheckMinVersion(proto.Version{
 		Major: 22,
 		Minor: 8,
 		Patch: 0,
-	}, env.Version) == nil {
+	}, env.Version) {
 		enforceReplication = "database_replicated_enforce_synchronous_settings=1"
 	}
 	if err != nil {
@@ -95,7 +95,7 @@ func GetConnectionFromDSN(dsn string) (*sql.DB, error) {
 	if err != nil {
 		return conn, err
 	}
-	if CheckMinServerVersion(conn, 22, 8, 0) == nil {
+	if CheckMinServerVersion(conn, 22, 8, 0) {
 		dsn = fmt.Sprintf("%s&database_replicated_enforce_synchronous_settings=1", dsn)
 	}
 	insertQuorum := clickhouse_tests.GetEnv("CLICKHOUSE_QUORUM_INSERT", "1")
@@ -111,7 +111,7 @@ func GetConnectionWithOptions(options *clickhouse.Options) *sql.DB {
 		options.Settings = clickhouse.Settings{}
 	}
 	conn := clickhouse.OpenDB(options)
-	if CheckMinServerVersion(conn, 22, 8, 0) == nil {
+	if CheckMinServerVersion(conn, 22, 8, 0) {
 		options.Settings["database_replicated_enforce_synchronous_settings"] = "1"
 	}
 	var err error
@@ -151,11 +151,11 @@ func GetOpenDBConnection(environment string, protocol clickhouse.Protocol, setti
 	settings["insert_quorum"], err = strconv.Atoi(clickhouse_tests.GetEnv("CLICKHOUSE_QUORUM_INSERT", "1"))
 	settings["insert_quorum_parallel"] = 0
 	settings["select_sequential_consistency"] = 1
-	if clickhouse_tests.CheckMinVersion(proto.Version{
+	if proto.CheckMinVersion(proto.Version{
 		Major: 22,
 		Minor: 8,
 		Patch: 0,
-	}, env.Version) == nil {
+	}, env.Version) {
 		settings["database_replicated_enforce_synchronous_settings"] = "1"
 	}
 	if err != nil {
