@@ -20,6 +20,9 @@ package proto
 import (
 	"fmt"
 	chproto "github.com/ClickHouse/ch-go/proto"
+	"gopkg.in/yaml.v3"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/timezone"
@@ -50,12 +53,14 @@ type ServerHandshake struct {
 	Name        string
 	DisplayName string
 	Revision    uint64
-	Version     struct {
-		Major uint64
-		Minor uint64
-		Patch uint64
-	}
-	Timezone *time.Location
+	Version     Version
+	Timezone    *time.Location
+}
+
+type Version struct {
+	Major uint64
+	Minor uint64
+	Patch uint64
 }
 
 func (srv *ServerHandshake) Decode(reader *chproto.Reader) (err error) {
@@ -103,4 +108,36 @@ func (srv ServerHandshake) String() string {
 		srv.Revision,
 		srv.Timezone,
 	)
+}
+
+func (v Version) String() string {
+	return fmt.Sprintf("%d.%d.%d",
+		v.Major,
+		v.Minor,
+		v.Patch,
+	)
+}
+
+func (v *Version) UnmarshalYAML(value *yaml.Node) (err error) {
+	versions := strings.Split(value.Value, ".")
+	if len(versions) < 1 || len(versions) > 3 {
+		return fmt.Errorf("%s is not a valid version", value.Value)
+	}
+	for i := range versions {
+		switch i {
+		case 0:
+			if v.Major, err = strconv.ParseUint(versions[i], 10, 8); err != nil {
+				return err
+			}
+		case 1:
+			if v.Minor, err = strconv.ParseUint(versions[i], 10, 8); err != nil {
+				return err
+			}
+		case 2:
+			if v.Patch, err = strconv.ParseUint(versions[i], 10, 8); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

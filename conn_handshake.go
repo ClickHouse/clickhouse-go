@@ -18,7 +18,9 @@
 package clickhouse
 
 import (
+	_ "embed"
 	"fmt"
+	"github.com/ClickHouse/clickhouse-go/v2/resources"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
@@ -67,6 +69,13 @@ func (c *connect) handshake(database, username, password string) error {
 	if c.server.Revision < proto.DBMS_MIN_REVISION_WITH_CLIENT_INFO {
 		return ErrUnsupportedServerRevision
 	}
+
+	if !resources.ClientMeta.IsSupportedClickHouse(c.server.Version) {
+		// send to debugger and console
+		fmt.Printf("WARNING: version %v of ClickHouse is not supported by this client\n", c.server.Version)
+		c.debugf("[handshake] WARNING: version %v of ClickHouse is not supported by this client - client supports %v", c.server.Version, resources.ClientMeta.SupportedVersions())
+	}
+
 	if c.revision > c.server.Revision {
 		c.revision = c.server.Revision
 		c.debugf("[handshake] downgrade client proto")

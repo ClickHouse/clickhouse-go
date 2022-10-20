@@ -1,0 +1,8 @@
+clickhouse_versions:
+  - 22.3
+  - 22.7
+  - 22.8
+  - 22.9
+go_versions:
+  - 1.18
+  - 1.19

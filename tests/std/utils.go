@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"strconv"
 	"strings"
@@ -38,7 +39,7 @@ func CheckMinServerVersion(conn *sql.DB, major, minor, patch uint64) error {
 	if err := conn.QueryRow("SELECT version()").Scan(&res); err != nil {
 		panic(err)
 	}
-	var version clickhouse_tests.Version
+	var version proto.Version
 	for i, v := range strings.Split(res, ".") {
 		switch i {
 		case 0:
@@ -49,7 +50,7 @@ func CheckMinServerVersion(conn *sql.DB, major, minor, patch uint64) error {
 			version.Patch, _ = strconv.ParseUint(v, 10, 64)
 		}
 	}
-	return clickhouse_tests.CheckMinVersion(clickhouse_tests.Version{
+	return clickhouse_tests.CheckMinVersion(proto.Version{
 		Major: major,
 		Minor: minor,
 		Patch: patch,
@@ -59,7 +60,7 @@ func CheckMinServerVersion(conn *sql.DB, major, minor, patch uint64) error {
 func GetDSNConnection(environment string, protocol clickhouse.Protocol, secure bool, compress string) (*sql.DB, error) {
 	env, err := clickhouse_tests.GetTestEnvironment(environment)
 	enforceReplication := ""
-	if clickhouse_tests.CheckMinVersion(clickhouse_tests.Version{
+	if clickhouse_tests.CheckMinVersion(proto.Version{
 		Major: 22,
 		Minor: 8,
 		Patch: 0,
@@ -150,7 +151,7 @@ func GetOpenDBConnection(environment string, protocol clickhouse.Protocol, setti
 	settings["insert_quorum"], err = strconv.Atoi(clickhouse_tests.GetEnv("CLICKHOUSE_QUORUM_INSERT", "1"))
 	settings["insert_quorum_parallel"] = 0
 	settings["select_sequential_consistency"] = 1
-	if clickhouse_tests.CheckMinVersion(clickhouse_tests.Version{
+	if clickhouse_tests.CheckMinVersion(proto.Version{
 		Major: 22,
 		Minor: 8,
 		Patch: 0,
