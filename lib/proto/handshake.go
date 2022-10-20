@@ -63,6 +63,23 @@ type Version struct {
 	Patch uint64
 }
 
+func ParseVersion(v string) (ver Version, err error) {
+	parts := strings.Split(v, ".")
+	if len(parts) < 3 {
+		return Version{}, fmt.Errorf("%s is not a valid version", v)
+	}
+	if ver.Major, err = strconv.ParseUint(parts[0], 10, 8); err != nil {
+		return Version{}, err
+	}
+	if ver.Minor, err = strconv.ParseUint(parts[1], 10, 8); err != nil {
+		return Version{}, err
+	}
+	if ver.Patch, err = strconv.ParseUint(parts[2], 10, 8); err != nil {
+		return Version{}, err
+	}
+	return ver, nil
+}
+
 func CheckMinVersion(constraint Version, version Version) bool {
 	if version.Major < constraint.Major || (version.Major == constraint.Major && version.Minor < constraint.Minor) || (version.Major == constraint.Major && version.Minor == constraint.Minor && version.Patch < constraint.Patch) {
 		return false

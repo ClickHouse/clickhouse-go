@@ -25,6 +25,7 @@ import (
 	"context"
 	"database/sql/driver"
 	"fmt"
+	"github.com/ClickHouse/clickhouse-go/v2/resources"
 	"io"
 	"io/ioutil"
 	"net"
@@ -205,6 +206,15 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 	if err != nil {
 		return nil, err
 	}
+	if num == 1 {
+		version, err := conn.readVersion(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if !resources.ClientMeta.IsSupportedClickHouseVersion(version) {
+			fmt.Printf("WARNING: version %v of ClickHouse is not supported by this client\n", version)
+		}
+	}
 
 	return &httpConnect{
 		client: &http.Client{
@@ -254,6 +264,23 @@ func (h *httpConnect) readTimeZone(ctx context.Context) (*time.Location, error) 
 		return location, nil
 	}
 	return nil, errors.New("unable to determine server timezone")
+}
+
+func (h *httpConnect) readVersion(ctx context.Context) (proto.Version, error) {
+	rows, err := h.query(ctx, func(*connect, error) {}, "SELECT version()")
+	if err != nil {
+		return proto.Version{}, err
+	}
+	for rows.Next() {
+		var v string
+		rows.Scan(&v)
+		version, err := proto.ParseVersion(v)
+		if err != nil {
+			return proto.Version{}, err
+		}
+		return version, nil
+	}
+	return proto.Version{}, errors.New("unable to determine version")
 }
 
 func createCompressionPool(compression *Compression) (Pool[HTTPReaderWriter], error) {
