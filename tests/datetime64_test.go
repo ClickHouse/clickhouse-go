@@ -19,6 +19,7 @@ package tests
 
 import (
 	"context"
+	"fmt"
 	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
@@ -33,8 +34,8 @@ func TestDateTime64(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerServerVersion(conn, 20, 3, 0); err != nil {
-		t.Skip(err.Error())
+	if !CheckMinServerServerVersion(conn, 20, 3, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
 		return
 	}
 	const ddl = `
@@ -116,8 +117,8 @@ func TestDateTime64AsReference(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerServerVersion(conn, 20, 3, 0); err != nil {
-		t.Skip(err.Error())
+	if !CheckMinServerServerVersion(conn, 20, 3, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
 		return
 	}
 	const ddl = `
@@ -155,8 +156,8 @@ func TestNullableDateTime64(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerServerVersion(conn, 20, 3, 0); err != nil {
-		t.Skip(err.Error())
+	if !CheckMinServerServerVersion(conn, 20, 3, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
 		return
 	}
 	const ddl = `
@@ -242,8 +243,8 @@ func TestColumnarDateTime64(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerServerVersion(conn, 20, 3, 0); err != nil {
-		t.Skip(err.Error())
+	if !CheckMinServerServerVersion(conn, 20, 3, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
 		return
 	}
 	const ddl = `

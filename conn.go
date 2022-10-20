@@ -21,6 +21,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"github.com/ClickHouse/clickhouse-go/v2/resources"
 	"github.com/pkg/errors"
 	"log"
 	"net"
@@ -68,6 +69,7 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 			return nil, fmt.Errorf("unsupported compression method for native protocol")
 		}
 	}
+
 	var (
 		connect = &connect{
 			opt:             opt,
@@ -86,6 +88,13 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 	)
 	if err := connect.handshake(opt.Auth.Database, opt.Auth.Username, opt.Auth.Password); err != nil {
 		return nil, err
+	}
+
+	// warn only on the first connection in the pool
+	if num == 1 && !resources.ClientMeta.IsSupportedClickHouseVersion(connect.server.Version) {
+		// send to debugger and console
+		fmt.Printf("WARNING: version %v of ClickHouse is not supported by this client\n", connect.server.Version)
+		debugf("[handshake] WARNING: version %v of ClickHouse is not supported by this client - client supports %v", connect.server.Version, resources.ClientMeta.SupportedVersions())
 	}
 	return connect, nil
 }

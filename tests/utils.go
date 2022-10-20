@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/go-connections/nat"
 	"github.com/docker/go-units"
@@ -51,12 +52,6 @@ func GetClickHouseTestVersion() string {
 	return GetEnv("CLICKHOUSE_VERSION", defaultClickHouseVersion)
 }
 
-type Version struct {
-	Major uint64
-	Minor uint64
-	Patch uint64
-}
-
 type ClickHouseTestEnvironment struct {
 	Port      int
 	HttpPort  int
@@ -66,7 +61,7 @@ type ClickHouseTestEnvironment struct {
 	Username  string
 	Password  string
 	Database  string
-	Version   Version
+	Version   proto.Version
 	Container testcontainers.Container `json:"-"`
 }
 
@@ -103,23 +98,16 @@ func (env *ClickHouseTestEnvironment) setVersion() {
 	env.Version = v.Version
 }
 
-func CheckMinServerServerVersion(conn driver.Conn, major, minor, patch uint64) error {
+func CheckMinServerServerVersion(conn driver.Conn, major, minor, patch uint64) bool {
 	v, err := conn.ServerVersion()
 	if err != nil {
 		panic(err)
 	}
-	return CheckMinVersion(Version{
+	return proto.CheckMinVersion(proto.Version{
 		Major: major,
 		Minor: minor,
 		Patch: patch,
 	}, v.Version)
-}
-
-func CheckMinVersion(constraint Version, version Version) error {
-	if version.Major < constraint.Major || (version.Major == constraint.Major && version.Minor < constraint.Minor) || (version.Major == constraint.Major && version.Minor == constraint.Minor && version.Patch < constraint.Patch) {
-		return fmt.Errorf("unsupported server version %d.%d.%d < %d.%d.%d", version.Major, version.Minor, version.Patch, constraint.Major, constraint.Minor, constraint.Patch)
-	}
-	return nil
 }
 
 func CreateClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment, error) {
@@ -273,7 +261,7 @@ func GetConnectionWithOptions(options *clickhouse.Options) (driver.Conn, error) 
 	if err != nil {
 		return conn, err
 	}
-	if CheckMinServerServerVersion(conn, 22, 8, 0) == nil {
+	if CheckMinServerServerVersion(conn, 22, 8, 0) {
 		options.Settings["database_replicated_enforce_synchronous_settings"] = "1"
 	}
 	options.Settings["insert_quorum"], err = strconv.Atoi(GetEnv("CLICKHOUSE_QUORUM_INSERT", "1"))
@@ -298,11 +286,11 @@ func getConnection(env ClickHouseTestEnvironment, database string, settings clic
 	if settings == nil {
 		settings = clickhouse.Settings{}
 	}
-	if CheckMinVersion(Version{
+	if proto.CheckMinVersion(proto.Version{
 		Major: 22,
 		Minor: 8,
 		Patch: 0,
-	}, env.Version) == nil {
+	}, env.Version) {
 		settings["database_replicated_enforce_synchronous_settings"] = "1"
 	}
 	settings["insert_quorum"], err = strconv.Atoi(GetEnv("CLICKHOUSE_QUORUM_INSERT", "1"))

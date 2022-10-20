@@ -20,6 +20,7 @@ package tests
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
@@ -45,8 +46,8 @@ func TestSimpleString(t *testing.T) {
 
 	require.NoError(t, err)
 	require.NoError(t, conn.Ping(ctx))
-	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
-		t.Skip(err.Error())
+	if !CheckMinServerServerVersion(conn, 21, 9, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
 		return
 	}
 	const ddl = `
@@ -71,8 +72,8 @@ func TestString(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
-		t.Skip(err.Error())
+	if !CheckMinServerServerVersion(conn, 21, 9, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
 		return
 	}
 	const ddl = `

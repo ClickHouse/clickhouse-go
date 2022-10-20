@@ -33,8 +33,8 @@ func TestMap(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
-		t.Skip(err.Error())
+	if !CheckMinServerServerVersion(conn, 21, 9, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
 		return
 	}
 	const ddl = `
@@ -107,8 +107,8 @@ func TestColumnarMap(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
-		t.Skip(err.Error())
+	if !CheckMinServerServerVersion(conn, 21, 9, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
 		return
 	}
 	const ddl = `
@@ -172,8 +172,8 @@ func TestMapFlush(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
-		t.Skip(err.Error())
+	if !CheckMinServerServerVersion(conn, 21, 9, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
 		return
 	}
 	const ddl = `
@@ -254,8 +254,8 @@ func TestOrderedMap(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
-		t.Skip(err.Error())
+	if !CheckMinServerServerVersion(conn, 21, 9, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
 		return
 	}
 	const ddl = `

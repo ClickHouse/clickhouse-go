@@ -25,6 +25,7 @@ import (
 	"context"
 	"database/sql/driver"
 	"fmt"
+	"github.com/ClickHouse/clickhouse-go/v2/resources"
 	"io"
 	"io/ioutil"
 	"net"
@@ -205,6 +206,15 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 	if err != nil {
 		return nil, err
 	}
+	if num == 1 {
+		version, err := conn.readVersion(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if !resources.ClientMeta.IsSupportedClickHouseVersion(version) {
+			fmt.Printf("WARNING: version %v of ClickHouse is not supported by this client\n", version)
+		}
+	}
 
 	return &httpConnect{
 		client: &http.Client{
@@ -254,6 +264,23 @@ func (h *httpConnect) readTimeZone(ctx context.Context) (*time.Location, error) 
 		return location, nil
 	}
 	return nil, errors.New("unable to determine server timezone")
+}
+
+func (h *httpConnect) readVersion(ctx context.Context) (proto.Version, error) {
+	rows, err := h.query(ctx, func(*connect, error) {}, "SELECT version()")
+	if err != nil {
+		return proto.Version{}, err
+	}
+	for rows.Next() {
+		var v string
+		rows.Scan(&v)
+		version, err := proto.ParseVersion(v)
+		if err != nil {
+			return proto.Version{}, err
+		}
+		return version, nil
+	}
+	return proto.Version{}, errors.New("unable to determine version")
 }
 
 func createCompressionPool(compression *Compression) (Pool[HTTPReaderWriter], error) {
@@ -347,18 +374,31 @@ func (h *httpConnect) sendQuery(ctx context.Context, r io.Reader, options *Query
 	return res, nil
 }
 
-func readResponse(response *http.Response) ([]byte, error) {
-	var result []byte
-	if response.ContentLength > 0 {
-		result = make([]byte, 0, response.ContentLength)
-	}
-	buf := bytes.NewBuffer(result)
+func (h *httpConnect) readRawResponse(response *http.Response) (body []byte, err error) {
+	rw := h.compressionPool.Get()
 	defer response.Body.Close()
-	_, err := buf.ReadFrom(response.Body)
-	if err != nil {
+	defer h.compressionPool.Put(rw)
+	if body, err = rw.read(response); err != nil {
 		return nil, err
 	}
-	return buf.Bytes(), nil
+	if h.compression == CompressionLZ4 || h.compression == CompressionZSTD {
+		result := make([]byte, len(body))
+		reader := chproto.NewReader(bytes.NewReader(body))
+		reader.EnableCompression()
+		defer reader.DisableCompression()
+		for {
+			b, err := reader.ReadByte()
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					break
+				}
+				return nil, err
+			}
+			result = append(result, b)
+		}
+		return result, nil
+	}
+	return body, nil
 }
 
 func (h *httpConnect) prepareRequest(ctx context.Context, reader io.Reader, options *QueryOptions, headers map[string]string) (*http.Request, error) {
@@ -402,7 +442,8 @@ func (h *httpConnect) executeRequest(req *http.Request) (*http.Response, error) 
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		msg, err := readResponse(resp)
+
+		msg, err := h.readRawResponse(resp)
 
 		if err != nil {
 			return nil, errors.Wrap(err, "clickhouse [execute]:: failed to read the response")

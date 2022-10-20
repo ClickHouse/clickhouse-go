@@ -20,6 +20,7 @@ package tests
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"github.com/stretchr/testify/require"
 	"testing"
 
@@ -157,8 +158,8 @@ func TestSimpleInt(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
-		t.Skip(err.Error())
+	if !CheckMinServerServerVersion(conn, 21, 9, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
 		return
 	}
 	const ddl = "CREATE TABLE test_int (`1` Int64) Engine MergeTree() ORDER BY tuple()"
@@ -177,8 +178,8 @@ func TestNullableInt(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
-		t.Skip(err.Error())
+	if !CheckMinServerServerVersion(conn, 21, 9, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
 		return
 	}
 	const ddl = "CREATE TABLE test_int (col1 Int64, col2 Nullable(Int64), col3 Int32, col4 Nullable(Int32), col5 Int16, col6 Nullable(Int16)) Engine MergeTree() ORDER BY tuple()"

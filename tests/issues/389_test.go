@@ -19,6 +19,7 @@ package issues
 
 import (
 	"context"
+	"fmt"
 	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
@@ -36,8 +37,8 @@ func TestIssue389(t *testing.T) {
 		})
 	)
 	require.NoError(t, err)
-	if err := clickhouse_tests.CheckMinServerServerVersion(conn, 20, 3, 0); err != nil {
-		t.Skip(err.Error())
+	if !clickhouse_tests.CheckMinServerServerVersion(conn, 20, 3, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
 		return
 	}
 	const ddl = `

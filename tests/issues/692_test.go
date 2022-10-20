@@ -1,6 +1,7 @@
 package issues
 
 import (
+	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/ClickHouse/clickhouse-go/v2/tests/std"
@@ -16,8 +17,8 @@ func TestIssue692(t *testing.T) {
 	require.NoError(t, err)
 	conn, err := clickhouse_std_tests.GetDSNConnection("issues", clickhouse.Native, useSSL, "false")
 	require.NoError(t, err)
-	if err := std.CheckMinServerVersion(conn, 21, 9, 0); err != nil {
-		t.Skip(err.Error())
+	if !std.CheckMinServerVersion(conn, 21, 9, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
 		return
 	}
 	const ddl = `
