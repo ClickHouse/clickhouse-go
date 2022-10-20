@@ -63,6 +63,13 @@ type Version struct {
 	Patch uint64
 }
 
+func CheckMinVersion(constraint Version, version Version) bool {
+	if version.Major < constraint.Major || (version.Major == constraint.Major && version.Minor < constraint.Minor) || (version.Major == constraint.Major && version.Minor == constraint.Minor && version.Patch < constraint.Patch) {
+		return false
+	}
+	return true
+}
+
 func (srv *ServerHandshake) Decode(reader *chproto.Reader) (err error) {
 	if srv.Name, err = reader.Str(); err != nil {
 		return fmt.Errorf("could not read server name: %v", err)

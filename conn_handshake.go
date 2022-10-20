@@ -70,7 +70,7 @@ func (c *connect) handshake(database, username, password string) error {
 		return ErrUnsupportedServerRevision
 	}
 
-	if !resources.ClientMeta.IsSupportedClickHouse(c.server.Version) {
+	if !resources.ClientMeta.IsSupportedClickHouseVersion(c.server.Version) {
 		// send to debugger and console
 		fmt.Printf("WARNING: version %v of ClickHouse is not supported by this client\n", c.server.Version)
 		c.debugf("[handshake] WARNING: version %v of ClickHouse is not supported by this client - client supports %v", c.server.Version, resources.ClientMeta.SupportedVersions())
