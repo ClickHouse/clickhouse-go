@@ -93,6 +93,15 @@ func (col *Map) ScanRow(dest interface{}, i int) error {
 		value.Set(col.row(i))
 		return nil
 	}
+	if value.Kind() == reflect.Map && col.row(i).Kind() == reflect.Map {
+		tempValue := reflect.MakeMap(value.Type())
+		iter := col.row(i).MapRange()
+		for iter.Next() {
+			tempValue.SetMapIndex(iter.Key(), iter.Value())
+		}
+		value.Set(tempValue)
+		return nil
+	}
 	if om, ok := dest.(OrderedMap); ok {
 		keys, values := col.orderedRow(i)
 		for i := range keys {
@@ -162,6 +171,29 @@ func (col *Map) AppendRow(v interface{}) error {
 				return err
 			}
 			if err := col.values.AppendRow(value); err != nil {
+				return err
+			}
+		}
+		var prev int64
+		if n := col.offsets.Rows(); n != 0 {
+			prev = col.offsets.col.Row(n - 1)
+		}
+		col.offsets.col.Append(prev + size)
+		return nil
+	}
+
+	// try reflect
+	if value.Kind() == reflect.Map {
+		var (
+			iter = value.MapRange()
+			size int64
+		)
+		for iter.Next() {
+			size++
+			if err := col.keys.AppendRow(iter.Key().Interface()); err != nil {
+				return err
+			}
+			if err := col.values.AppendRow(iter.Value().Interface()); err != nil {
 				return err
 			}
 		}

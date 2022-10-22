@@ -598,37 +598,15 @@ func (col *Int8) Append(v interface{}) (nulls []uint8, err error) {
 }
 
 func (col *Int8) AppendRow(v interface{}) error {
-	switch v := v.(type) {
-	case int8:
-		col.col.Append(v)
-	case *int8:
-		switch {
-		case v != nil:
-			col.col.Append(*v)
-		default:
-			col.col.Append(0)
-		}
-	case nil:
-		col.col.Append(0)
-	case bool:
-		val := int8(0)
-		if v {
-			val = 1
-		}
-		col.col.Append(val)
-	case *bool:
-		val := int8(0)
-		if *v {
-			val = 1
-		}
-		col.col.Append(val)
-	default:
+	i, ok := ToInt64(v)
+	if !ok {
 		return &ColumnConverterError{
 			Op:   "AppendRow",
 			To:   "Int8",
 			From: fmt.Sprintf("%T", v),
 		}
 	}
+	col.col.Append(int8(i))
 	return nil
 }
 
@@ -731,39 +709,15 @@ func (col *Int16) Append(v interface{}) (nulls []uint8, err error) {
 }
 
 func (col *Int16) AppendRow(v interface{}) error {
-	switch v := v.(type) {
-	case int16:
-		col.col.Append(v)
-	case *int16:
-		switch {
-		case v != nil:
-			col.col.Append(*v)
-		default:
-			col.col.Append(0)
-		}
-	case nil:
-		col.col.Append(0)
-	case sql.NullInt16:
-		switch v.Valid {
-		case true:
-			col.col.Append(v.Int16)
-		default:
-			col.col.Append(0)
-		}
-	case *sql.NullInt16:
-		switch v.Valid {
-		case true:
-			col.col.Append(v.Int16)
-		default:
-			col.col.Append(0)
-		}
-	default:
+	i, ok := ToInt64(v)
+	if !ok {
 		return &ColumnConverterError{
 			Op:   "AppendRow",
 			To:   "Int16",
 			From: fmt.Sprintf("%T", v),
 		}
 	}
+	col.col.Append(int16(i))
 	return nil
 }
 
@@ -866,39 +820,15 @@ func (col *Int32) Append(v interface{}) (nulls []uint8, err error) {
 }
 
 func (col *Int32) AppendRow(v interface{}) error {
-	switch v := v.(type) {
-	case int32:
-		col.col.Append(v)
-	case *int32:
-		switch {
-		case v != nil:
-			col.col.Append(*v)
-		default:
-			col.col.Append(0)
-		}
-	case nil:
-		col.col.Append(0)
-	case sql.NullInt32:
-		switch v.Valid {
-		case true:
-			col.col.Append(v.Int32)
-		default:
-			col.col.Append(0)
-		}
-	case *sql.NullInt32:
-		switch v.Valid {
-		case true:
-			col.col.Append(v.Int32)
-		default:
-			col.col.Append(0)
-		}
-	default:
+	i, ok := ToInt64(v)
+	if !ok {
 		return &ColumnConverterError{
 			Op:   "AppendRow",
 			To:   "Int32",
 			From: fmt.Sprintf("%T", v),
 		}
 	}
+	col.col.Append(int32(i))
 	return nil
 }
 
@@ -1003,43 +933,15 @@ func (col *Int64) Append(v interface{}) (nulls []uint8, err error) {
 }
 
 func (col *Int64) AppendRow(v interface{}) error {
-	switch v := v.(type) {
-	case int64:
-		col.col.Append(v)
-	case *int64:
-		switch {
-		case v != nil:
-			col.col.Append(*v)
-		default:
-			col.col.Append(0)
-		}
-	case nil:
-		col.col.Append(0)
-	case sql.NullInt64:
-		switch v.Valid {
-		case true:
-			col.col.Append(v.Int64)
-		default:
-			col.col.Append(0)
-		}
-	case *sql.NullInt64:
-		switch v.Valid {
-		case true:
-			col.col.Append(v.Int64)
-		default:
-			col.col.Append(0)
-		}
-	case time.Duration:
-		col.col.Append(int64(v))
-	case *time.Duration:
-		col.col.Append(int64(*v))
-	default:
+	i, ok := ToInt64(v)
+	if !ok {
 		return &ColumnConverterError{
 			Op:   "AppendRow",
 			To:   "Int64",
 			From: fmt.Sprintf("%T", v),
 		}
 	}
+	col.col.Append(i)
 	return nil
 }
 
@@ -1127,31 +1029,15 @@ func (col *UInt8) Append(v interface{}) (nulls []uint8, err error) {
 }
 
 func (col *UInt8) AppendRow(v interface{}) error {
-	switch v := v.(type) {
-	case uint8:
-		col.col.Append(v)
-	case *uint8:
-		switch {
-		case v != nil:
-			col.col.Append(*v)
-		default:
-			col.col.Append(0)
-		}
-	case nil:
-		col.col.Append(0)
-	case bool:
-		var t uint8
-		if v {
-			t = 1
-		}
-		col.col.Append(t)
-	default:
+	i, ok := ToUInt64(v)
+	if !ok {
 		return &ColumnConverterError{
 			Op:   "AppendRow",
 			To:   "UInt8",
 			From: fmt.Sprintf("%T", v),
 		}
 	}
+	col.col.Append(uint8(i))
 	return nil
 }
 
@@ -1239,25 +1125,15 @@ func (col *UInt16) Append(v interface{}) (nulls []uint8, err error) {
 }
 
 func (col *UInt16) AppendRow(v interface{}) error {
-	switch v := v.(type) {
-	case uint16:
-		col.col.Append(v)
-	case *uint16:
-		switch {
-		case v != nil:
-			col.col.Append(*v)
-		default:
-			col.col.Append(0)
-		}
-	case nil:
-		col.col.Append(0)
-	default:
+	i, ok := ToUInt64(v)
+	if !ok {
 		return &ColumnConverterError{
 			Op:   "AppendRow",
 			To:   "UInt16",
 			From: fmt.Sprintf("%T", v),
 		}
 	}
+	col.col.Append(uint16(i))
 	return nil
 }
 
@@ -1345,25 +1221,15 @@ func (col *UInt32) Append(v interface{}) (nulls []uint8, err error) {
 }
 
 func (col *UInt32) AppendRow(v interface{}) error {
-	switch v := v.(type) {
-	case uint32:
-		col.col.Append(v)
-	case *uint32:
-		switch {
-		case v != nil:
-			col.col.Append(*v)
-		default:
-			col.col.Append(0)
-		}
-	case nil:
-		col.col.Append(0)
-	default:
+	i, ok := ToUInt64(v)
+	if !ok {
 		return &ColumnConverterError{
 			Op:   "AppendRow",
 			To:   "UInt32",
 			From: fmt.Sprintf("%T", v),
 		}
 	}
+	col.col.Append(uint32(i))
 	return nil
 }
 
@@ -1451,25 +1317,15 @@ func (col *UInt64) Append(v interface{}) (nulls []uint8, err error) {
 }
 
 func (col *UInt64) AppendRow(v interface{}) error {
-	switch v := v.(type) {
-	case uint64:
-		col.col.Append(v)
-	case *uint64:
-		switch {
-		case v != nil:
-			col.col.Append(*v)
-		default:
-			col.col.Append(0)
-		}
-	case nil:
-		col.col.Append(0)
-	default:
+	i, ok := ToUInt64(v)
+	if !ok {
 		return &ColumnConverterError{
 			Op:   "AppendRow",
 			To:   "UInt64",
 			From: fmt.Sprintf("%T", v),
 		}
 	}
+	col.col.Append(i)
 	return nil
 }
 

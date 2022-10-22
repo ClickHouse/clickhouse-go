@@ -9,7 +9,6 @@ require (
 	github.com/docker/docker v20.10.20+incompatible
 	github.com/docker/go-connections v0.4.0
 	github.com/docker/go-units v0.5.0
-	github.com/ghodss/yaml v1.0.0
 	github.com/google/uuid v1.3.0
 	github.com/mkevac/debugcharts v0.0.0-20191222103121-ae1c48aa8615
 	github.com/paulmach/orb v0.7.1
@@ -19,6 +18,7 @@ require (
 	github.com/stretchr/testify v1.8.0
 	github.com/testcontainers/testcontainers-go v0.14.0
 	go.opentelemetry.io/otel/trace v1.11.1
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require go.opentelemetry.io/otel v1.11.1 // indirect
@@ -63,6 +63,4 @@ require (
 	google.golang.org/genproto v0.0.0-20220617124728-180714bec0ad // indirect
 	google.golang.org/grpc v1.47.0 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
-	gopkg.in/yaml.v2 v2.4.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

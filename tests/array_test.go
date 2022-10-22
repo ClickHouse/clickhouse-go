@@ -23,8 +23,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 )
 
 func TestSimpleArray(t *testing.T) {
@@ -36,6 +38,7 @@ func TestSimpleArray(t *testing.T) {
 	const ddl = `
 		CREATE TABLE test_array (
 			  Col1 Array(String)
+		     ,Col2 Array(Int32)
 		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
@@ -46,9 +49,10 @@ func TestSimpleArray(t *testing.T) {
 	require.NoError(t, err)
 	var (
 		col1Data = []string{"A", "b", "c"}
+		col2Data = []interface{}{"11111", 11111, uint32(111), int64(11111)}
 	)
 	for i := 0; i < 10; i++ {
-		require.NoError(t, batch.Append(col1Data))
+		require.NoError(t, batch.Append(col1Data, col2Data))
 		batch.Flush()
 	}
 	require.NoError(t, batch.Send())
@@ -57,10 +61,18 @@ func TestSimpleArray(t *testing.T) {
 	for rows.Next() {
 		var (
 			col1 []string
+			col2 []interface{}
 		)
-		require.NoError(t, rows.Scan(&col1))
+		require.NoError(t, rows.Scan(&col1, &col2))
 		assert.Equal(t, col1Data, col1)
-
+		assert.Equal(t, len(col2Data), len(col2))
+		for i := range col2Data {
+			expect, ok := column.ToInt64(col2Data[i])
+			require.True(t, ok)
+			actual, ok := column.ToInt64(col2[i])
+			require.True(t, ok)
+			assert.Equal(t, expect, actual)
+		}
 	}
 	require.NoError(t, rows.Close())
 	require.NoError(t, rows.Err())
