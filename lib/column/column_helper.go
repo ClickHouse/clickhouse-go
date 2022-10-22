@@ -15,62 +15,104 @@ func ToInt64(i interface{}) (int64, bool) {
 	case int:
 		return int64(i), true
 	case *int:
+		if i == nil {
+			return 0, true
+		}
 		return int64(*i), true
 	case int8:
 		return int64(i), true
 	case *int8:
+		if i == nil {
+			return 0, true
+		}
 		return int64(*i), true
 	case int16:
 		return int64(i), true
 	case *int16:
+		if i == nil {
+			return 0, true
+		}
 		return int64(*i), true
 	case int32:
 		return int64(i), true
 	case *int32:
+		if i == nil {
+			return 0, true
+		}
 		return int64(*i), true
 	case int64:
 		return int64(i), true
 	case *int64:
+		if i == nil {
+			return 0, true
+		}
 		return int64(*i), true
 	case uint:
 		return int64(i), true
 	case *uint:
+		if i == nil {
+			return 0, true
+		}
 		return int64(*i), true
 	case uint8:
 		return int64(i), true
 	case *uint8:
+		if i == nil {
+			return 0, true
+		}
 		return int64(*i), true
 	case uint16:
 		return int64(i), true
 	case *uint16:
+		if i == nil {
+			return 0, true
+		}
 		return int64(*i), true
 	case uint32:
 		return int64(i), true
 	case *uint32:
+		if i == nil {
+			return 0, true
+		}
 		return int64(*i), true
 	case uint64:
 		return int64(i), true
 	case *uint64:
+		if i == nil {
+			return 0, true
+		}
 		return int64(*i), true
 	case string:
 		v, _ := strconv.ParseInt(i, 10, 64)
 		return v, true
 	case *string:
+		if i == nil {
+			return 0, true
+		}
 		v, _ := strconv.ParseInt(*i, 10, 64)
 		return v, true
 	case driver.Valuer:
 		v, _ := i.Value()
 		return ToInt64(v)
 	case *driver.Valuer:
+		if i == nil {
+			return 0, true
+		}
 		v, _ := (*i).Value()
 		return ToInt64(v)
 	case json.Number:
 		return ToInt64(string(i))
 	case *json.Number:
+		if i == nil {
+			return 0, true
+		}
 		return ToInt64(string(*i))
 	case time.Duration:
 		return int64(i), true
 	case *time.Duration:
+		if i == nil {
+			return 0, true
+		}
 		return int64(*i), true
 	case bool:
 		if i {
@@ -78,6 +120,9 @@ func ToInt64(i interface{}) (int64, bool) {
 		}
 		return 0, true
 	case *bool:
+		if i == nil {
+			return 0, true
+		}
 		if *i {
 			return 1, true
 		}
@@ -95,62 +140,104 @@ func ToUInt64(i interface{}) (uint64, bool) {
 	case int:
 		return uint64(i), true
 	case *int:
+		if i == nil {
+			return 0, true
+		}
 		return uint64(*i), true
 	case int8:
 		return uint64(i), true
 	case *int8:
+		if i == nil {
+			return 0, true
+		}
 		return uint64(*i), true
 	case int16:
 		return uint64(i), true
 	case *int16:
+		if i == nil {
+			return 0, true
+		}
 		return uint64(*i), true
 	case int32:
 		return uint64(i), true
 	case *int32:
+		if i == nil {
+			return 0, true
+		}
 		return uint64(*i), true
 	case int64:
 		return uint64(i), true
 	case *int64:
+		if i == nil {
+			return 0, true
+		}
 		return uint64(*i), true
 	case uint:
 		return uint64(i), true
 	case *uint:
+		if i == nil {
+			return 0, true
+		}
 		return uint64(*i), true
 	case uint8:
 		return uint64(i), true
 	case *uint8:
+		if i == nil {
+			return 0, true
+		}
 		return uint64(*i), true
 	case uint16:
 		return uint64(i), true
 	case *uint16:
+		if i == nil {
+			return 0, true
+		}
 		return uint64(*i), true
 	case uint32:
 		return uint64(i), true
 	case *uint32:
+		if i == nil {
+			return 0, true
+		}
 		return uint64(*i), true
 	case uint64:
 		return i, true
 	case *uint64:
-		return *i, true
+		if i == nil {
+			return 0, true
+		}
+		return uint64(*i), true
 	case string:
 		v, _ := strconv.ParseUint(i, 10, 64)
 		return v, true
 	case *string:
+		if i == nil {
+			return 0, true
+		}
 		v, _ := strconv.ParseUint(*i, 10, 64)
 		return v, true
 	case driver.Valuer:
 		v, _ := i.Value()
 		return ToUInt64(v)
 	case *driver.Valuer:
+		if i == nil {
+			return 0, true
+		}
 		v, _ := (*i).Value()
 		return ToUInt64(v)
 	case json.Number:
 		return ToUInt64(string(i))
 	case *json.Number:
+		if i == nil {
+			return 0, true
+		}
 		return ToUInt64(string(*i))
 	case time.Duration:
 		return uint64(i), true
 	case *time.Duration:
+		if i == nil {
+			return 0, true
+		}
 		return uint64(*i), true
 	case bool:
 		if i {
@@ -158,6 +245,9 @@ func ToUInt64(i interface{}) (uint64, bool) {
 		}
 		return 0, true
 	case *bool:
+		if i == nil {
+			return 0, true
+		}
 		if *i {
 			return 1, true
 		}
