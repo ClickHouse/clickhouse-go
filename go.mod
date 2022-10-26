@@ -16,7 +16,7 @@ require (
 	github.com/satori/go.uuid v1.2.0
 	github.com/shopspring/decimal v1.3.1
 	github.com/stretchr/testify v1.8.1
-	github.com/testcontainers/testcontainers-go v0.14.0
+	github.com/testcontainers/testcontainers-go v0.15.0
 	go.opentelemetry.io/otel/trace v1.11.1
 	gopkg.in/yaml.v3 v3.0.1
 )
