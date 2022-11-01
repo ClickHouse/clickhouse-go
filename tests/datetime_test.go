@@ -47,6 +47,7 @@ func TestDateTime(t *testing.T) {
 				, Col9 Nullable(DateTime('Asia/Shanghai'))
 				, Col10 Array(DateTime('Asia/Shanghai'))
 			    , Col11 DateTime
+				, Col12 DateTime
 			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
@@ -56,6 +57,7 @@ func TestDateTime(t *testing.T) {
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_datetime")
 	require.NoError(t, err)
 	datetime := time.Now().Truncate(time.Second)
+	iDateTime := datetime.Unix()
 	dateTimeStr := datetime.UTC().Format("2006-01-02 15:04:05 +00:00")
 	require.NoError(t, batch.Append(
 		datetime,
@@ -69,6 +71,7 @@ func TestDateTime(t *testing.T) {
 		&dateTimeStr,
 		[]string{dateTimeStr, dateTimeStr},
 		&testStr{Col1: dateTimeStr},
+		iDateTime,
 	))
 	require.NoError(t, batch.Send())
 	var (
@@ -83,8 +86,9 @@ func TestDateTime(t *testing.T) {
 		col9  *time.Time
 		col10 []time.Time
 		col11 time.Time
+		col12 time.Time
 	)
-	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_datetime").Scan(&col1, &col2, &col3, &col4, &col5, &col6, &col7, &col8, &col9, &col10, &col11))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_datetime").Scan(&col1, &col2, &col3, &col4, &col5, &col6, &col7, &col8, &col9, &col10, &col11, &col12))
 	assert.Equal(t, datetime.In(time.UTC), col1)
 	assert.Equal(t, datetime.Unix(), col2.Unix())
 	assert.Equal(t, datetime.Unix(), col3.Unix())
@@ -106,6 +110,7 @@ func TestDateTime(t *testing.T) {
 	assert.Equal(t, "Asia/Shanghai", col10[0].Location().String())
 	assert.Equal(t, "Asia/Shanghai", col10[1].Location().String())
 	assert.Equal(t, datetime.In(time.UTC), col11)
+	assert.Equal(t, datetime.In(time.UTC), col12)
 }
 
 func TestNullableDateTime(t *testing.T) {
@@ -232,6 +237,7 @@ func TestColumnarDateTime(t *testing.T) {
 			, Col4 Array(Nullable(DateTime))
 		    , Col5 Array(DateTime)
 		    , Col6 Array(Nullable(DateTime))
+			, Col7 DateTime
 		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
@@ -248,6 +254,7 @@ func TestColumnarDateTime(t *testing.T) {
 		col4Data [][]*time.Time
 		col5Data [][]string
 		col6Data [][]*string
+		col7Data []int64
 	)
 	var (
 		datetime1              = time.Now().Truncate(time.Second)
@@ -275,29 +282,17 @@ func TestColumnarDateTime(t *testing.T) {
 		col6Data = append(col6Data, []*string{
 			datetimeNilStr, datetimeNilStr, datetimeNilStr,
 		})
+		col7Data = append(col7Data, datetime1.Unix())
 	}
 	{
-		if err := batch.Column(0).Append(id); !assert.NoError(t, err) {
-			return
-		}
-		if err := batch.Column(1).Append(col1Data); !assert.NoError(t, err) {
-			return
-		}
-		if err := batch.Column(2).Append(col2Data); !assert.NoError(t, err) {
-			return
-		}
-		if err := batch.Column(3).Append(col3Data); !assert.NoError(t, err) {
-			return
-		}
-		if err := batch.Column(4).Append(col4Data); !assert.NoError(t, err) {
-			return
-		}
-		if err := batch.Column(5).Append(col5Data); !assert.NoError(t, err) {
-			return
-		}
-		if err := batch.Column(6).Append(col6Data); !assert.NoError(t, err) {
-			return
-		}
+		require.NoError(t, batch.Column(0).Append(id))
+		require.NoError(t, batch.Column(1).Append(col1Data))
+		require.NoError(t, batch.Column(2).Append(col2Data))
+		require.NoError(t, batch.Column(3).Append(col3Data))
+		require.NoError(t, batch.Column(4).Append(col4Data))
+		require.NoError(t, batch.Column(5).Append(col5Data))
+		require.NoError(t, batch.Column(6).Append(col6Data))
+		require.NoError(t, batch.Column(7).Append(col7Data))
 	}
 	require.NoError(t, batch.Send())
 	var result struct {
@@ -307,8 +302,9 @@ func TestColumnarDateTime(t *testing.T) {
 		Col4 []*time.Time
 		Col5 []time.Time
 		Col6 []*time.Time
+		Col7 time.Time
 	}
-	require.NoError(t, conn.QueryRow(ctx, "SELECT Col1, Col2, Col3, Col4, Col5, Col6 FROM test_datetime WHERE ID = $1", 11).ScanStruct(&result))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT Col1, Col2, Col3, Col4, Col5, Col6, Col7 FROM test_datetime WHERE ID = $1", 11).ScanStruct(&result))
 	require.Nil(t, result.Col2)
 	assert.Equal(t, datetime1.In(time.UTC), result.Col1)
 	assert.Equal(t, []time.Time{datetime1.In(time.UTC), datetime2.In(time.UTC), datetime1.In(time.UTC)}, result.Col3)
@@ -317,6 +313,7 @@ func TestColumnarDateTime(t *testing.T) {
 	assert.Equal(t, []*time.Time{&dt2UTC, nil, &dt1UTC}, result.Col4)
 	assert.Equal(t, []time.Time{datetime2.In(time.UTC), datetime2.In(time.UTC), datetime2.In(time.UTC)}, result.Col5)
 	assert.Equal(t, []*time.Time{nil, nil, nil}, result.Col6)
+	assert.Equal(t, datetime1.In(time.UTC), result.Col7)
 }
 
 func TestDateTimeFlush(t *testing.T) {
