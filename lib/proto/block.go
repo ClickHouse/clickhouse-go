@@ -117,7 +117,10 @@ func difference(a, b []string) []string {
 	return diff
 }
 
-func (b *Block) Encode(buffer *proto.Buffer, revision uint64) error {
+type flusher func(buffer *proto.Buffer, from int, end bool) (int, error)
+
+func (b *Block) Encode(buffer *proto.Buffer, flush flusher, revision uint64) (err error) {
+	start := len(buffer.Buf)
 	if revision > 0 {
 		encodeBlockInfo(buffer)
 	}
@@ -149,6 +152,14 @@ func (b *Block) Encode(buffer *proto.Buffer, revision uint64) error {
 			}
 		}
 		c.Encode(buffer)
+		// invoke flush on each column
+		if start, err = flush(buffer, start, false); err != nil {
+			return err
+		}
+	}
+	// flush at end - indicate no more data
+	if start, err = flush(buffer, start, true); err != nil {
+		return err
 	}
 	return nil
 }

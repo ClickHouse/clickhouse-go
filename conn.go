@@ -72,18 +72,19 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 
 	var (
 		connect = &connect{
-			opt:             opt,
-			conn:            conn,
-			debugf:          debugf,
-			buffer:          new(chproto.Buffer),
-			reader:          chproto.NewReader(conn),
-			revision:        proto.ClientTCPProtocolVersion,
-			structMap:       &structMap{},
-			compression:     compression,
-			connectedAt:     time.Now(),
-			compressor:      compress.NewWriter(),
-			readTimeout:     opt.ReadTimeout,
-			blockBufferSize: opt.BlockBufferSize,
+			opt:                        opt,
+			conn:                       conn,
+			debugf:                     debugf,
+			buffer:                     new(chproto.Buffer),
+			reader:                     chproto.NewReader(conn),
+			revision:                   proto.ClientTCPProtocolVersion,
+			structMap:                  &structMap{},
+			compression:                compression,
+			connectedAt:                time.Now(),
+			compressor:                 compress.NewWriter(),
+			readTimeout:                opt.ReadTimeout,
+			blockBufferSize:            opt.BlockBufferSize,
+			maxBufferBeforeCompression: opt.MaxBufferBeforeCompression,
 		}
 	)
 	if err := connect.handshake(opt.Auth.Database, opt.Auth.Username, opt.Auth.Password); err != nil {
@@ -101,21 +102,22 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 
 // https://github.com/ClickHouse/ClickHouse/blob/master/src/Client/Connection.cpp
 type connect struct {
-	opt             *Options
-	conn            net.Conn
-	debugf          func(format string, v ...interface{})
-	server          ServerVersion
-	closed          bool
-	buffer          *chproto.Buffer
-	reader          *chproto.Reader
-	released        bool
-	revision        uint64
-	structMap       *structMap
-	compression     CompressionMethod
-	connectedAt     time.Time
-	compressor      *compress.Writer
-	readTimeout     time.Duration
-	blockBufferSize uint8
+	opt                        *Options
+	conn                       net.Conn
+	debugf                     func(format string, v ...interface{})
+	server                     ServerVersion
+	closed                     bool
+	buffer                     *chproto.Buffer
+	reader                     *chproto.Reader
+	released                   bool
+	revision                   uint64
+	structMap                  *structMap
+	compression                CompressionMethod
+	connectedAt                time.Time
+	compressor                 *compress.Writer
+	readTimeout                time.Duration
+	blockBufferSize            uint8
+	maxBufferBeforeCompression int
 }
 
 func (c *connect) settings(querySettings Settings) []proto.Setting {
@@ -177,25 +179,29 @@ func (c *connect) exception() error {
 	return &e
 }
 
+func (c *connect) flushBuffer(buffer *chproto.Buffer, from int, end bool) (int, error) {
+	if len(buffer.Buf) > c.maxBufferBeforeCompression || (end && len(buffer.Buf) > 0) {
+		if c.compression != CompressionNone {
+			data := buffer.Buf[from:]
+			if err := c.compressor.Compress(compress.Method(c.compression), data); err != nil {
+				return 0, errors.Wrap(err, "compress")
+			}
+			buffer.Buf = append(c.buffer.Buf[:from], c.compressor.Data...)
+		}
+		if err := c.flush(); err != nil {
+			return 0, err
+		}
+		buffer.Reset()
+		return 0, nil
+	}
+	return from, nil
+}
+
 func (c *connect) sendData(block *proto.Block, name string) error {
 	c.debugf("[send data] compression=%t", c.compression)
 	c.buffer.PutByte(proto.ClientData)
 	c.buffer.PutString(name)
-	// Saving offset of compressible data.
-	start := len(c.buffer.Buf)
-	if err := block.Encode(c.buffer, c.revision); err != nil {
-		return err
-	}
-	if c.compression != CompressionNone {
-		// Performing compression. Note: only blocks are compressed.
-		data := c.buffer.Buf[start:]
-		if err := c.compressor.Compress(compress.Method(c.compression), data); err != nil {
-			return errors.Wrap(err, "compress")
-		}
-		c.buffer.Buf = append(c.buffer.Buf[:start], c.compressor.Data...)
-	}
-
-	if err := c.flush(); err != nil {
+	if err := block.Encode(c.buffer, c.flushBuffer, c.revision); err != nil {
 		return err
 	}
 	defer func() {
