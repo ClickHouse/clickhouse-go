@@ -186,7 +186,7 @@ func (c *connect) flushBuffer(buffer *chproto.Buffer, from int, end bool) (int, 
 			if err := c.compressor.Compress(compress.Method(c.compression), data); err != nil {
 				return 0, errors.Wrap(err, "compress")
 			}
-			buffer.Buf = append(c.buffer.Buf[:from], c.compressor.Data...)
+			buffer.Buf = append(buffer.Buf[:from], c.compressor.Data...)
 		}
 		if err := c.flush(); err != nil {
 			return 0, err
