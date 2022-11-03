@@ -331,22 +331,19 @@ func createCompressionPool(compression *Compression) (Pool[HTTPReaderWriter], er
 	return pool, nil
 }
 
-func (h *httpConnect) flushBuffer(buffer *chproto.Buffer, from int, end bool) (int, error) {
-	if end && len(buffer.Buf) > 0 && (h.compression == CompressionLZ4 || h.compression == CompressionZSTD) {
-		data := buffer.Buf[from:]
-		if err := h.blockCompressor.Compress(compress.Method(h.compression), data); err != nil {
-			return 0, errors.Wrap(err, "compress")
-		}
-		buffer.Buf = append(buffer.Buf[:from], h.blockCompressor.Data...)
-		return len(buffer.Buf), nil
-	}
-	return from, nil
-}
-
 func (h *httpConnect) writeData(block *proto.Block) error {
 	// Saving offset of compressible data
-	if err := block.Encode(h.buffer, h.flushBuffer, 0); err != nil {
+	start := len(h.buffer.Buf)
+	if err := block.Encode(h.buffer, 0); err != nil {
 		return err
+	}
+	if h.compression == CompressionLZ4 || h.compression == CompressionZSTD {
+		// Performing compression. Supported and requires
+		data := h.buffer.Buf[start:]
+		if err := h.blockCompressor.Compress(compress.Method(h.compression), data); err != nil {
+			return errors.Wrap(err, "compress")
+		}
+		h.buffer.Buf = append(h.buffer.Buf[:start], h.blockCompressor.Data...)
 	}
 	return nil
 }

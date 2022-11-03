@@ -179,29 +179,45 @@ func (c *connect) exception() error {
 	return &e
 }
 
-func (c *connect) flushBuffer(buffer *chproto.Buffer, from int, end bool) (int, error) {
-	if len(buffer.Buf) > c.maxBufferBeforeCompression || (end && len(buffer.Buf) > 0) {
-		if c.compression != CompressionNone {
-			data := buffer.Buf[from:]
-			if err := c.compressor.Compress(compress.Method(c.compression), data); err != nil {
-				return 0, errors.Wrap(err, "compress")
-			}
-			buffer.Buf = append(buffer.Buf[:from], c.compressor.Data...)
+func (c *connect) compressBuffer(start int) error {
+	if c.compression != CompressionNone && len(c.buffer.Buf) > 0 {
+		data := c.buffer.Buf[start:]
+		if err := c.compressor.Compress(compress.Method(c.compression), data); err != nil {
+			return errors.Wrap(err, "compress")
 		}
-		if err := c.flush(); err != nil {
-			return 0, err
-		}
-		buffer.Reset()
-		return 0, nil
+		c.buffer.Buf = append(c.buffer.Buf[:start], c.compressor.Data...)
 	}
-	return from, nil
+	return nil
 }
 
 func (c *connect) sendData(block *proto.Block, name string) error {
 	c.debugf("[send data] compression=%t", c.compression)
 	c.buffer.PutByte(proto.ClientData)
 	c.buffer.PutString(name)
-	if err := block.Encode(c.buffer, c.flushBuffer, c.revision); err != nil {
+	// Saving offset of compressible data.
+	start := len(c.buffer.Buf)
+	if err := block.EncodeHeader(c.buffer, c.revision); err != nil {
+		return err
+	}
+	for i := range block.Columns {
+		if err := block.EncodeColumn(c.buffer, i); err != nil {
+			return err
+		}
+		if len(c.buffer.Buf) >= c.maxBufferBeforeCompression {
+			if err := c.compressBuffer(start); err != nil {
+				return err
+			}
+			if err := c.flush(); err != nil {
+				return err
+			}
+			start = 0
+			c.buffer.Reset()
+		}
+	}
+	if err := c.compressBuffer(start); err != nil {
+		return err
+	}
+	if err := c.flush(); err != nil {
 		return err
 	}
 	defer func() {

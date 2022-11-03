@@ -77,7 +77,7 @@ func benchmarkSimpleWrite(b *testing.B) {
 		if err != nil {
 			b.Fatal(err)
 		}
-		for c := 0; c < 1_000_000; c++ {
+		for c := 0; c < 10_000_000; c++ {
 			err := batch.Append(
 				uint64(i),
 				"Golang SQL database driver",
