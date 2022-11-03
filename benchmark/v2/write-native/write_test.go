@@ -19,7 +19,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"log"
 	"testing"
@@ -32,7 +31,7 @@ func getConnection() clickhouse.Conn {
 		Auth: clickhouse.Auth{
 			Database: "default",
 			Username: "default",
-			Password: "",
+			Password: "ClickHouse",
 		},
 		//Debug:           true,
 		DialTimeout:     time.Second,
@@ -50,54 +49,48 @@ func getConnection() clickhouse.Conn {
 	return conn
 }
 
-func BenchmarkRead(b *testing.B) {
-	b.Run("string", benchmarkStringRead)
-	b.Run("random", benchmarkRandom)
+func BenchmarkWrite(b *testing.B) {
+	b.Run("simple", benchmarkSimpleWrite)
 }
 
-func benchmarkRandom(b *testing.B) {
+func benchmarkSimpleWrite(b *testing.B) {
 	conn := getConnection()
-	b.ResetTimer()
-	rows, err := conn.Query(context.Background(), fmt.Sprintf(`SELECT number, randomString(25), array(1, 2, 3, 4, 5), now() FROM system.numbers LIMIT %d`, b.N))
-	if err != nil {
-		b.Fatal(err)
-	}
-	i := 0
-	for rows.Next() {
-		var (
-			col1 uint64
-			col2 string
-			col3 []uint8
-			col4 time.Time
-		)
-		if err := rows.Scan(&col1, &col2, &col3, &col4); err != nil {
-			b.Fatal(err)
-		}
-		i++
-		if i == b.N {
-			break
-		}
-	}
-}
 
-func benchmarkStringRead(b *testing.B) {
-	conn := getConnection()
-	b.ResetTimer()
-	rows, err := conn.Query(context.Background(), fmt.Sprintf(`SELECT toString(number) FROM numbers(%d)`, b.N))
-	if err != nil {
+	if err := conn.Exec(context.Background(), "DROP TABLE IF EXISTS benchmark"); err != nil {
 		b.Fatal(err)
 	}
-	i := 0
-	for rows.Next() {
-		var (
-			col1 string
-		)
-		if err := rows.Scan(&col1); err != nil {
+	const ddl = `
+		CREATE TABLE benchmark (
+			  Col1 UInt64
+			, Col2 String
+			, Col3 Array(UInt8)
+			, Col4 DateTime
+		) Engine Null
+		`
+
+	if err := conn.Exec(context.Background(), ddl); err != nil {
+		b.Fatal(err)
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		batch, err := conn.PrepareBatch(context.Background(), "INSERT INTO benchmark")
+		if err != nil {
 			b.Fatal(err)
 		}
-		i++
-		if i == b.N {
-			break
+		for c := 0; c < 1_000_000; c++ {
+			err := batch.Append(
+				uint64(i),
+				"Golang SQL database driver",
+				[]uint8{1, 2, 3, 4, 5, 6, 7, 8, 9},
+				time.Now(),
+			)
+			if err != nil {
+				b.Fatal(err)
+			}
+		}
+
+		if err := batch.Send(); err != nil {
+			b.Fatal(err)
 		}
 	}
 }
