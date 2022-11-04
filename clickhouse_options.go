@@ -129,7 +129,8 @@ type Options struct {
 	MaxIdleConns     int           // default 5
 	ConnMaxLifetime  time.Duration // default 1 hour
 	ConnOpenStrategy ConnOpenStrategy
-	BlockBufferSize  uint8 // default 2 - can be overwritten on query
+	HttpHeaders      map[string]string // set additional headers on HTTP requests
+	BlockBufferSize  uint8             // default 2 - can be overwritten on query
 
 	scheme      string
 	ReadTimeout time.Duration
