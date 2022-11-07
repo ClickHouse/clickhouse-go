@@ -116,21 +116,21 @@ func ParseDSN(dsn string) (*Options, error) {
 type Options struct {
 	Protocol Protocol
 
-	TLS                        *tls.Config
-	Addr                       []string
-	Auth                       Auth
-	DialContext                func(ctx context.Context, addr string) (net.Conn, error)
-	Debug                      bool
-	Debugf                     func(format string, v ...interface{}) // only works when Debug is true
-	Settings                   Settings
-	Compression                *Compression
-	DialTimeout                time.Duration // default 1 second
-	MaxOpenConns               int           // default MaxIdleConns + 5
-	MaxIdleConns               int           // default 5
-	ConnMaxLifetime            time.Duration // default 1 hour
-	ConnOpenStrategy           ConnOpenStrategy
-	BlockBufferSize            uint8 // default 2 - can be overwritten on query
-	MaxBufferBeforeCompression int   // default 1048576 - measured in bytes  i.e. 1mb
+	TLS                  *tls.Config
+	Addr                 []string
+	Auth                 Auth
+	DialContext          func(ctx context.Context, addr string) (net.Conn, error)
+	Debug                bool
+	Debugf               func(format string, v ...interface{}) // only works when Debug is true
+	Settings             Settings
+	Compression          *Compression
+	DialTimeout          time.Duration // default 1 second
+	MaxOpenConns         int           // default MaxIdleConns + 5
+	MaxIdleConns         int           // default 5
+	ConnMaxLifetime      time.Duration // default 1 hour
+	ConnOpenStrategy     ConnOpenStrategy
+	BlockBufferSize      uint8 // default 2 - can be overwritten on query
+	MaxCompressionBuffer int   // default 1048576 - measured in bytes  i.e. 1mb
 
 	scheme      string
 	ReadTimeout time.Duration
@@ -291,8 +291,8 @@ func (o Options) setDefaults() *Options {
 	if o.BlockBufferSize <= 0 {
 		o.BlockBufferSize = 2
 	}
-	if o.MaxBufferBeforeCompression <= 0 {
-		o.MaxBufferBeforeCompression = 1048576
+	if o.MaxCompressionBuffer <= 0 {
+		o.MaxCompressionBuffer = 1048576
 	}
 	if o.Addr == nil || len(o.Addr) == 0 {
 		switch o.Protocol {
