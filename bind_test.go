@@ -268,6 +268,12 @@ func TestFormatMap(t *testing.T) {
 	assert.Equal(t, "map('a', 1)", val)
 }
 
+func TestFormatArrayMap(t *testing.T) {
+	arraySet := ArraySet{map[string]uint8{"a": 1}, map[string]uint8{"b": 2}}
+	val, _ := format(time.UTC, Seconds, arraySet)
+	assert.Equal(t, "[map('a', 1), map('b', 2)]", val)
+}
+
 func BenchmarkBindNumeric(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {

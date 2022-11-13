@@ -272,7 +272,7 @@ func format(tz *time.Location, scale TimeUnit, v interface{}) (string, error) {
 			}
 			values = append(values, val)
 		}
-		return strings.Join(values, ", "), nil
+		return fmt.Sprintf("[%s]", strings.Join(values, ", ")), nil
 	case reflect.Map: // map
 		values := make([]string, 0, len(v.MapKeys()))
 		for _, key := range v.MapKeys() {
