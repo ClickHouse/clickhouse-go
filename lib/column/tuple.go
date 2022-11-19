@@ -295,8 +295,12 @@ func (col *Tuple) scanMap(targetMap reflect.Value, row int) error {
 					return err
 				}
 				targetMap.SetMapIndex(reflect.ValueOf(colName), field)
-			} else if _, isNullable := c.(*Nullable); !isNullable {
-				targetMap.SetMapIndex(reflect.ValueOf(colName), reflect.Zero(c.ScanType().Elem()))
+			} else {
+				if _, isNullable := c.(*Nullable); !isNullable {
+					targetMap.SetMapIndex(reflect.ValueOf(colName), reflect.Zero(c.ScanType().Elem()))
+				} else {
+					targetMap.SetMapIndex(reflect.ValueOf(colName), reflect.Zero(c.ScanType()))
+				}
 			}
 
 		}
