@@ -1,7 +1,6 @@
 package issues
 
 import (
-	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	clickhouse_std_tests "github.com/ClickHouse/clickhouse-go/v2/tests/std"
@@ -52,5 +51,4 @@ func Test816(t *testing.T) {
 	var col1 interface{}
 	require.NoError(t, conn.QueryRow("SELECT Col1 FROM test_816").Scan(&col1))
 	assert.Equal(t, clickhouse_std_tests.ToJson(col1Data), clickhouse_std_tests.ToJson(col1))
-	fmt.Println(col1)
 }
