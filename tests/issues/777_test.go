@@ -24,7 +24,7 @@ func TestInsertNullableString(t *testing.T) {
 		CREATE TABLE test_nullable_string_insert (
 			  Col1 String
 			, Col2 Nullable(String)
-		) Engine Memory
+		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE IF EXISTS test_nullable_string_insert")
