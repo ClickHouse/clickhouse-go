@@ -24,9 +24,10 @@ jobs:
           - 1.19
         clickhouse:
           - 22.3
-          - 22.7
           - 22.8
           - 22.9
+          - 22.10
+          - 22.11
           - latest
     steps:
       - uses: actions/checkout@main
