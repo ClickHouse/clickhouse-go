@@ -161,9 +161,9 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 			u.User = url.User(opt.Auth.Username)
 		}
 	} else if opt.TLS != nil && len(opt.Auth.Username) > 0 {
-		headers["X-Clickhouse-User"] = opt.Auth.Username
+		headers["X-ClickHouse-User"] = opt.Auth.Username
 		if len(opt.Auth.Password) > 0 {
-			headers["X-Clickhouse-Key"] = opt.Auth.Password
+			headers["X-ClickHouse-Key"] = opt.Auth.Password
 		}
 	}
 
@@ -205,13 +205,13 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		client: &http.Client{
 			Transport: t,
 		},
-		url:                   u,
-		buffer:                new(chproto.Buffer),
-		compression:           opt.Compression.Method,
-		blockCompressor:       compress.NewWriter(),
-		compressionPool:       compressionPool,
-		blockBufferSize:       opt.BlockBufferSize,
-		additionalHttpHeaders: headers,
+		url:             u,
+		buffer:          new(chproto.Buffer),
+		compression:     opt.Compression.Method,
+		blockCompressor: compress.NewWriter(),
+		compressionPool: compressionPool,
+		blockBufferSize: opt.BlockBufferSize,
+		headers:         headers,
 	}
 	location, err := conn.readTimeZone(ctx)
 	if err != nil {
@@ -231,27 +231,27 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		client: &http.Client{
 			Transport: t,
 		},
-		url:                   u,
-		buffer:                new(chproto.Buffer),
-		compression:           opt.Compression.Method,
-		blockCompressor:       compress.NewWriter(),
-		compressionPool:       compressionPool,
-		location:              location,
-		blockBufferSize:       opt.BlockBufferSize,
-		additionalHttpHeaders: headers,
+		url:             u,
+		buffer:          new(chproto.Buffer),
+		compression:     opt.Compression.Method,
+		blockCompressor: compress.NewWriter(),
+		compressionPool: compressionPool,
+		location:        location,
+		blockBufferSize: opt.BlockBufferSize,
+		headers:         headers,
 	}, nil
 }
 
 type httpConnect struct {
-	url                   *url.URL
-	client                *http.Client
-	location              *time.Location
-	buffer                *chproto.Buffer
-	compression           CompressionMethod
-	blockCompressor       *compress.Writer
-	compressionPool       Pool[HTTPReaderWriter]
-	blockBufferSize       uint8
-	additionalHttpHeaders map[string]string
+	url             *url.URL
+	client          *http.Client
+	location        *time.Location
+	buffer          *chproto.Buffer
+	compression     CompressionMethod
+	blockCompressor *compress.Writer
+	compressionPool Pool[HTTPReaderWriter]
+	blockBufferSize uint8
+	headers         map[string]string
 }
 
 func (h *httpConnect) isBad() bool {
