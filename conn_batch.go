@@ -40,7 +40,7 @@ func (c *connect) prepareBatch(ctx context.Context, query string, release func(*
 	if len(colMatch) == 2 {
 		columns = strings.Split(colMatch[1], ",")
 		for i := range columns {
-			columns[i] = strings.TrimSpace(columns[i])
+			columns[i] = strings.Trim(strings.TrimSpace(columns[i]), "`")
 		}
 	}
 	if !strings.HasSuffix(strings.TrimSpace(strings.ToUpper(query)), "VALUES") {
