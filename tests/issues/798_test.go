@@ -43,6 +43,7 @@ func Test798(t *testing.T) {
 	// append invalid batch
 	require.Error(t, batch.Append("true", false, []bool{true, false, true}))
 	// send invalid batch
+	require.ErrorIs(t, batch.Flush(), clickhouse.ErrBatchInvalid)
 	require.ErrorIs(t, batch.Send(), clickhouse.ErrBatchInvalid)
 	// test append, send, append
 	batch, err = conn.PrepareBatch(ctx, "INSERT INTO test_issue_798")
