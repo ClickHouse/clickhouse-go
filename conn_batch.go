@@ -20,6 +20,7 @@ package clickhouse
 import (
 	"context"
 	"fmt"
+	"github.com/pkg/errors"
 	"os"
 	"regexp"
 	"strings"
@@ -105,6 +106,7 @@ func (b *batch) Append(v ...interface{}) error {
 	}
 	//
 	if err := b.block.Append(v...); err != nil {
+		b.err = errors.Wrap(ErrBatchInvalid, err.Error())
 		b.release(err)
 		return err
 	}
