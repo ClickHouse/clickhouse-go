@@ -20,6 +20,7 @@ package clickhouse
 import (
 	"context"
 	"fmt"
+	"github.com/pkg/errors"
 	"os"
 	"regexp"
 	"strings"
@@ -40,7 +41,7 @@ func (c *connect) prepareBatch(ctx context.Context, query string, release func(*
 	if len(colMatch) == 2 {
 		columns = strings.Split(colMatch[1], ",")
 		for i := range columns {
-			columns[i] = strings.TrimSpace(columns[i])
+			columns[i] = strings.Trim(strings.TrimSpace(columns[i]), "`")
 		}
 	}
 	if !strings.HasSuffix(strings.TrimSpace(strings.ToUpper(query)), "VALUES") {
@@ -105,6 +106,7 @@ func (b *batch) Append(v ...interface{}) error {
 	}
 	//
 	if err := b.block.Append(v...); err != nil {
+		b.err = errors.Wrap(ErrBatchInvalid, err.Error())
 		b.release(err)
 		return err
 	}

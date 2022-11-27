@@ -427,6 +427,12 @@ func iterateMap(mapVal reflect.Value, col JSONParent, preFill int) error {
 	addedColumns := make([]string, len(mapVal.MapKeys()), len(mapVal.MapKeys()))
 	newColumn := false
 	for i, key := range mapVal.MapKeys() {
+		if newColumn {
+			// reset as otherwise prefill overflow to other fields. But don't reset if this prefill has come from
+			// a higher level
+			preFill = 0
+		}
+
 		name := getMapFieldName(key.Interface().(string))
 		if _, ok := columnLookup[name]; !ok && len(currentColumns) > 0 {
 			// new column - need to handle
@@ -471,11 +477,6 @@ func iterateMap(mapVal reflect.Value, col JSONParent, preFill int) error {
 			}
 		}
 		addedColumns[i] = name
-		if newColumn {
-			// reset as otherwise prefill overflow to other fields. But don't reset if this prefill has come from
-			// a higher level
-			preFill = 0
-		}
 	}
 	// handle missing
 	missingColumns := difference(currentColumns, addedColumns)

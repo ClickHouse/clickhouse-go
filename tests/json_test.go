@@ -2448,3 +2448,38 @@ func TestJSONFlush(t *testing.T) {
 	}
 	require.Equal(t, 1000, i)
 }
+
+func TestMultipleJsonRowsWithNil(t *testing.T) {
+	// will got new map to different order
+	getMapByMapForTest := func(myMap map[string]interface{}) map[string]interface{} {
+		newMap := map[string]interface{}{}
+		for k := range myMap {
+			newMap[k] = myMap[k]
+		}
+	
+		return newMap
+	}
+
+	type Login struct {
+		Username string `json:"username"`
+		Attachment      map[string]interface{}
+	}
+
+	myAttachment := map[string]interface{}{
+		"col1": int64(1),
+		"col2": time.Date(2022, 11, 21, 16, 21, 0, 0, time.Local),
+		"col3": nil,
+		"col4": "1",
+	}
+
+	conn, teardown := setupTest(t)
+	defer teardown(t)
+	ctx := context.Background()
+	batch := prepareBatch(t, conn, ctx)
+	for i := 0; i < 1000; i++ {
+		row := Login{Username: "Gingerwizard", Attachment: getMapByMapForTest(myAttachment)}
+		require.NoError(t, batch.Append(row))
+	}
+
+	require.NoError(t, batch.Send())
+}
