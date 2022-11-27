@@ -54,6 +54,7 @@ func (col *Map) Name() string {
 func (col *Map) parse(t Type, tz *time.Location) (_ Interface, err error) {
 	col.chType = t
 	if types := strings.SplitN(t.params(), ",", 2); len(types) == 2 {
+		fmt.Println(types)
 		if col.keys, err = Type(strings.TrimSpace(types[0])).Column(col.name, tz); err != nil {
 			return nil, err
 		}
@@ -137,7 +138,7 @@ func (col *Map) Append(v interface{}) (nulls []uint8, err error) {
 
 func (col *Map) AppendRow(v interface{}) error {
 	value := reflect.Indirect(reflect.ValueOf(v))
-	if value.Type() == col.scanType {
+	if value.Kind() == reflect.Map {
 		var (
 			size int64
 			iter = value.MapRange()
@@ -171,29 +172,6 @@ func (col *Map) AppendRow(v interface{}) error {
 				return err
 			}
 			if err := col.values.AppendRow(value); err != nil {
-				return err
-			}
-		}
-		var prev int64
-		if n := col.offsets.Rows(); n != 0 {
-			prev = col.offsets.col.Row(n - 1)
-		}
-		col.offsets.col.Append(prev + size)
-		return nil
-	}
-
-	// try reflect
-	if value.Kind() == reflect.Map {
-		var (
-			iter = value.MapRange()
-			size int64
-		)
-		for iter.Next() {
-			size++
-			if err := col.keys.AppendRow(iter.Key().Interface()); err != nil {
-				return err
-			}
-			if err := col.values.AppendRow(iter.Value().Interface()); err != nil {
 				return err
 			}
 		}
