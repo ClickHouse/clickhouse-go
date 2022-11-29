@@ -159,7 +159,7 @@ The native format can be used over the HTTP protocol. This is useful in scenario
 This can be achieved by modifying the DSN to specify the http protocol.
 
 ```sh
-http://host1:9000,host2:9000/database?dial_timeout=200ms&max_execution_time=60
+http://host1:8123,host2:8123/database?dial_timeout=200ms&max_execution_time=60
 ```
 
 Alternatively, use `OpenDB` and specify the interface type.
@@ -217,7 +217,7 @@ To connect using HTTPS either:
 - Use `https` in your dsn string e.g.
 
     ```sh
-    https://host1:9000,host2:9000/database?dial_timeout=200ms&max_execution_time=60
+    https://host1:8443,host2:8443/database?dial_timeout=200ms&max_execution_time=60
     ```
 
 - Specify the interface type as `HttpsInterface` e.g.
