@@ -68,3 +68,7 @@ func GetNativeTestEnvironment() (ClickHouseTestEnvironment, error) {
 func GetNativeConnection(settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (driver.Conn, error) {
 	return GetConnection(testSet, settings, tlsConfig, compression)
 }
+
+func GetReadOnlyNativeConnection(settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (driver.Conn, error) {
+	return GetReadOnlyConnection(testSet, settings, tlsConfig, compression)
+}
