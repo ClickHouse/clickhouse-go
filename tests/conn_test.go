@@ -268,7 +268,7 @@ func TestReadOnlyUserConnInsert(t *testing.T) {
 		Method: clickhouse.CompressionLZ4,
 	})
 
-	actualErr := roConn.Exec(ctx, "INSERT INTO test_readonly_user VALUES (0)", "value")
+	actualErr := roConn.Exec(ctx, "INSERT INTO test_readonly_user VALUES (0)")
 
 	assert.EqualError(t, actualErr, "code: 164, message: readonly: Cannot execute query in readonly mode")
 }
