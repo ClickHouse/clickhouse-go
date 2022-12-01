@@ -243,7 +243,7 @@ func TestBlockBufferSize(t *testing.T) {
 	require.Equal(t, 10000000, i)
 }
 
-func TestReadOnlyUser(t *testing.T) {
+func TestReadOnlyUserConnInsert(t *testing.T) {
 	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})

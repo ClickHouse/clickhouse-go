@@ -9,6 +9,7 @@
         <readonly>
             <max_threads>1</max_threads>
             <max_block_size>8000</max_block_size>
+            <readonly>1</readonly>
         </readonly>
     </profiles>
     <users>
