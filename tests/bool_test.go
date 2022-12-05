@@ -21,6 +21,7 @@ import (
 	"context"
 	"database/sql"
 	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"math/rand"
@@ -193,4 +194,46 @@ func TestBoolFlush(t *testing.T) {
 		assert.Equal(t, vals[i], col1)
 		i += 1
 	}
+}
+
+func TestColumnarBoolRead(t *testing.T) {
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+	require.NoError(t, err)
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE bool_columnar")
+	}()
+	const ddl = `
+		CREATE TABLE bool_columnar (
+			  Col1 Bool
+		) Engine MergeTree() ORDER BY tuple()
+		`
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO bool_columnar")
+	require.NoError(t, err)
+	vals := [1000]bool{}
+	for i := 0; i < 1000; i++ {
+		vals[i] = i%2 == 1
+		batch.Append(vals[i])
+	}
+	batch.Send()
+	rows, err := conn.Query(ctx, "SELECT * FROM bool_columnar")
+	require.NoError(t, err)
+	c := 0
+	var col1 bool
+	for {
+		block := rows.NextBlock()
+		if block == nil {
+			break
+		}
+		col := block.Columns[0].(*column.Bool)
+		for i := 0; i < col.Rows(); i++ {
+			col.Scan(&col1, i)
+			require.Equal(t, vals[i], col1)
+			c++
+		}
+	}
+	require.Equal(t, 1000, c)
 }

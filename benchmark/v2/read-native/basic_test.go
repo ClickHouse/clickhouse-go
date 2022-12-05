@@ -35,7 +35,7 @@ func getConnection() clickhouse.Conn {
 	return conn
 }
 
-func TestNewStringRead(b *testing.T) {
+func TestColumnStringRead(b *testing.T) {
 	conn := getConnection()
 	start := time.Now()
 	rows, err := conn.Query(context.Background(), fmt.Sprintf(`SELECT toString(number) FROM system.numbers_mt LIMIT 500000000`))
@@ -62,7 +62,7 @@ func TestNewStringRead(b *testing.T) {
 	fmt.Printf("Read took %s", elapsed)
 }
 
-func TestOldStringRead(b *testing.T) {
+func TestRowStringRead(b *testing.T) {
 	conn := getConnection()
 	start := time.Now()
 	rows, err := conn.Query(context.Background(), fmt.Sprintf(`SELECT toString(number) FROM system.numbers_mt LIMIT 500000000`))
@@ -84,7 +84,29 @@ func TestOldStringRead(b *testing.T) {
 	fmt.Printf("Read took %s", elapsed)
 }
 
-func TestNewNumberRead(b *testing.T) {
+func TestRowNumberRead(b *testing.T) {
+	conn := getConnection()
+	start := time.Now()
+	rows, err := conn.Query(context.Background(), fmt.Sprintf(`SELECT number FROM system.numbers_mt LIMIT 500000000`))
+	if err != nil {
+		b.Fatal(err)
+	}
+	i := 0
+	for rows.Next() {
+		var (
+			col1 uint64
+		)
+		if err := rows.Scan(&col1); err != nil {
+			b.Fatal(err)
+		}
+		i++
+	}
+	require.Equal(b, 500000000, i)
+	elapsed := time.Since(start)
+	fmt.Printf("Read took %s", elapsed)
+}
+
+func TestColumnNumberRead(b *testing.T) {
 	conn := getConnection()
 	start := time.Now()
 	rows, err := conn.Query(context.Background(), fmt.Sprintf(`SELECT number FROM system.numbers_mt LIMIT 500000000`))
