@@ -6,20 +6,11 @@
             <max_threads>1</max_threads>
             <max_block_size>8000</max_block_size>
         </default>
-        <readonly>
-            <max_threads>1</max_threads>
-            <max_block_size>8000</max_block_size>
-            <readonly>1</readonly>
-        </readonly>
     </profiles>
     <users>
         <default>
             <password>ClickHouse</password>
             <access_management>1</access_management>
         </default>
-        <readonly>
-            <password>ClickHouse</password>
-            <profile>readonly</profile>
-        </readonly>
     </users>
 </clickhouse>
