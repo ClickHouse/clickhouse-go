@@ -245,20 +245,52 @@ func GetExternalTestEnvironment(testSet string) (ClickHouseTestEnvironment, erro
 	return env, nil
 }
 
+func clientOptionsFromEnv(env ClickHouseTestEnvironment, settings clickhouse.Settings) clickhouse.Options {
+	timeout, err := strconv.Atoi(GetEnv("CLICKHOUSE_DIAL_TIMEOUT", "10"))
+	if err != nil {
+		timeout = 10
+	}
+
+	return clickhouse.Options{
+		Addr:     []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},
+		Settings: settings,
+		Auth: clickhouse.Auth{
+			Database: env.Database,
+			Username: env.Username,
+			Password: env.Password,
+		},
+		DialTimeout: time.Duration(timeout) * time.Second,
+	}
+}
+
+func testClientWithDefaultOptions(env ClickHouseTestEnvironment, settings clickhouse.Settings) (driver.Conn, error) {
+	opts := clientOptionsFromEnv(env, settings)
+	return clickhouse.Open(&opts)
+}
+
+func testClientWithDefaultSettings(env ClickHouseTestEnvironment) (driver.Conn, error) {
+	settings := clickhouse.Settings{}
+
+	if proto.CheckMinVersion(proto.Version{
+		Major: 22,
+		Minor: 8,
+		Patch: 0,
+	}, env.Version) {
+		settings["database_replicated_enforce_synchronous_settings"] = "1"
+	}
+	settings["insert_quorum"], _ = strconv.Atoi(GetEnv("CLICKHOUSE_QUORUM_INSERT", "1"))
+	settings["insert_quorum_parallel"] = 0
+	settings["select_sequential_consistency"] = 1
+
+	return testClientWithDefaultOptions(env, settings)
+}
+
 func GetConnection(testSet string, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (driver.Conn, error) {
 	env, err := GetTestEnvironment(testSet)
 	if err != nil {
 		return nil, err
 	}
-	return getConnection(env, env.Database, false, settings, tlsConfig, compression)
-}
-
-func GetReadOnlyConnection(testSet string, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (driver.Conn, error) {
-	env, err := GetTestEnvironment(testSet)
-	if err != nil {
-		return nil, err
-	}
-	return getConnection(env, env.Database, true, settings, tlsConfig, compression)
+	return getConnection(env, env.Database, settings, tlsConfig, compression)
 }
 
 func GetConnectionWithOptions(options *clickhouse.Options) (driver.Conn, error) {
@@ -281,7 +313,7 @@ func GetConnectionWithOptions(options *clickhouse.Options) (driver.Conn, error) 
 	return clickhouse.Open(options)
 }
 
-func getConnection(env ClickHouseTestEnvironment, database string, roUser bool, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (driver.Conn, error) {
+func getConnection(env ClickHouseTestEnvironment, database string, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (driver.Conn, error) {
 	useSSL, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_SSL", "false"))
 	if err != nil {
 		panic(err)
@@ -294,25 +326,18 @@ func getConnection(env ClickHouseTestEnvironment, database string, roUser bool, 
 	if settings == nil {
 		settings = clickhouse.Settings{}
 	}
-	if !roUser {
-		if proto.CheckMinVersion(proto.Version{
-			Major: 22,
-			Minor: 8,
-			Patch: 0,
-		}, env.Version) {
-			settings["database_replicated_enforce_synchronous_settings"] = "1"
-		}
-		settings["insert_quorum"], err = strconv.Atoi(GetEnv("CLICKHOUSE_QUORUM_INSERT", "1"))
-		settings["insert_quorum_parallel"] = 0
-		settings["select_sequential_consistency"] = 1
-		if err != nil {
-			return nil, err
-		}
+	if proto.CheckMinVersion(proto.Version{
+		Major: 22,
+		Minor: 8,
+		Patch: 0,
+	}, env.Version) {
+		settings["database_replicated_enforce_synchronous_settings"] = "1"
 	}
-
-	username := env.Username
-	if roUser {
-		username = "readonly"
+	settings["insert_quorum"], err = strconv.Atoi(GetEnv("CLICKHOUSE_QUORUM_INSERT", "1"))
+	settings["insert_quorum_parallel"] = 0
+	settings["select_sequential_consistency"] = 1
+	if err != nil {
+		return nil, err
 	}
 
 	timeout, err := strconv.Atoi(GetEnv("CLICKHOUSE_DIAL_TIMEOUT", "10"))
@@ -324,7 +349,7 @@ func getConnection(env ClickHouseTestEnvironment, database string, roUser bool, 
 		Settings: settings,
 		Auth: clickhouse.Auth{
 			Database: database,
-			Username: username,
+			Username: env.Username,
 			Password: env.Password,
 		},
 		TLS:         tlsConfig,
@@ -339,11 +364,61 @@ func CreateDatabase(testSet string) error {
 	if err != nil {
 		return err
 	}
-	conn, err := getConnection(env, "default", false, nil, nil, nil)
+	conn, err := getConnection(env, "default", nil, nil, nil)
 	if err != nil {
 		return err
 	}
 	return conn.Exec(context.Background(), fmt.Sprintf("CREATE DATABASE `%s`", env.Database))
+}
+
+const (
+	readOnlyReadWriteChangeSettings = 0
+	readOnlyRead                    = 1
+	readOnlyReadChangeSettings      = 2
+)
+
+func createUserWithReadOnlySetting(conn driver.Conn, defaultDatabase string, readOnlyType int) (username string, err error) {
+	username = fmt.Sprintf("readonly_user_%s", RandAsciiString(6))
+
+	createUserQuery := fmt.Sprintf(`
+          CREATE USER IF NOT EXISTS %s 
+          IDENTIFIED WITH no_password
+          DEFAULT DATABASE "%s"
+          SETTINGS readonly = %d
+        `, username, defaultDatabase, readOnlyType)
+	if err := conn.Exec(context.Background(), createUserQuery); err != nil {
+		return "", err
+	}
+
+	grantQuery := fmt.Sprintf(`
+          GRANT ALL
+          ON "%s".*
+          TO %s
+        `, defaultDatabase, username)
+
+	return username, conn.Exec(context.Background(), grantQuery)
+}
+
+func dropUser(conn driver.Conn, username string) error {
+	query := fmt.Sprintf(`
+          DROP USER IF EXISTS %s
+        `, username)
+
+	return conn.Exec(context.Background(), query)
+}
+
+func createSimpleTable(client driver.Conn, table string) error {
+	return client.Exec(context.Background(), fmt.Sprintf(`
+		CREATE TABLE %s (
+			  Col1 UInt8
+		) Engine MergeTree() ORDER BY tuple()
+	`, table))
+}
+
+func dropTable(client driver.Conn, table string) error {
+	return client.Exec(context.Background(), fmt.Sprintf(`
+		DROP TABLE %s
+	`, table))
 }
 
 func getDatabaseName(testSet string) string {

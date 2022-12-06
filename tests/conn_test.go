@@ -242,33 +242,3 @@ func TestBlockBufferSize(t *testing.T) {
 	}
 	require.Equal(t, 10000000, i)
 }
-
-func TestReadOnlyUserConnInsert(t *testing.T) {
-	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
-		Method: clickhouse.CompressionLZ4,
-	})
-	ctx := context.Background()
-	require.NoError(t, err)
-	if !CheckMinServerServerVersion(conn, 21, 9, 0) {
-		t.Skip(fmt.Errorf("unsupported clickhouse version"))
-		return
-	}
-	const ddl = `
-		CREATE TABLE test_readonly_user (
-			  Col1 UInt8
-		) Engine MergeTree() ORDER BY tuple()
-	`
-	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_readonly_user")
-	}()
-
-	require.NoError(t, conn.Exec(ctx, ddl))
-
-	roConn, err := GetReadOnlyNativeConnection(nil, nil, &clickhouse.Compression{
-		Method: clickhouse.CompressionLZ4,
-	})
-
-	actualErr := roConn.Exec(ctx, "INSERT INTO test_readonly_user VALUES (0)")
-
-	assert.EqualError(t, actualErr, "code: 164, message: readonly: Cannot execute query in readonly mode")
-}
