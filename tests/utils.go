@@ -256,7 +256,9 @@ func clientOptionsFromEnv(env ClickHouseTestEnvironment, settings clickhouse.Set
 		panic(err)
 	}
 	port := env.Port
+	var tlsConfig *tls.Config
 	if useSSL {
+		tlsConfig = &tls.Config{}
 		port = env.SslPort
 	}
 
@@ -269,7 +271,7 @@ func clientOptionsFromEnv(env ClickHouseTestEnvironment, settings clickhouse.Set
 			Password: env.Password,
 		},
 		DialTimeout: time.Duration(timeout) * time.Second,
-		TLS:         &tls.Config{},
+		TLS:         tlsConfig,
 	}
 }
 
