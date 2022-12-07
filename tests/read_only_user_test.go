@@ -69,11 +69,6 @@ func TestReadOnlyUser(t *testing.T) {
 			name:  "insert into table",
 			query: "INSERT INTO test_readonly_user VALUES (0)"},
 		{
-			name:             "delete from table",
-			query:            "DELETE FROM test_readonly_user WHERE 1=1",
-			supportedVersion: struct{ major, minor, patch uint64 }{major: 22, minor: 4},
-		},
-		{
 			name:  "drop table",
 			query: "DROP TABLE test_readonly_user",
 		},
