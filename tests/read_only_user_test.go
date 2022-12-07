@@ -19,14 +19,75 @@ package tests
 
 import (
 	"context"
+	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"testing"
-	"time"
 )
 
 func TestReadOnlyUser(t *testing.T) {
+	readQueryCases := []struct {
+		name        string
+		query       string
+		assertRowFn func(row driver.Row)
+	}{
+		{
+			name:  "select from table",
+			query: "SELECT sum(Col1) FROM test_readonly_user",
+			assertRowFn: func(row driver.Row) {
+				var expectedValue uint64
+				err := row.Scan(&expectedValue)
+				assert.NoError(t, err)
+
+				assert.Equal(t, expectedValue, uint64(5))
+			},
+		},
+		{
+			name:  "select from system.numbers",
+			query: "SELECT number FROM system.numbers LIMIT 1 OFFSET 1",
+			assertRowFn: func(row driver.Row) {
+				var expectedValue uint64
+				err := row.Scan(&expectedValue)
+				assert.NoError(t, err)
+
+				assert.Equal(t, expectedValue, uint64(1))
+			},
+		},
+	}
+
+	writeQueryCases := []struct {
+		name             string
+		query            string
+		supportedVersion struct{ major, minor, patch uint64 }
+	}{
+		{
+			name:  "create table",
+			query: "CREATE TABLE some_table (Col1 UInt8) Engine MergeTree() ORDER BY tuple()",
+		},
+		{
+			name:  "insert into table",
+			query: "INSERT INTO test_readonly_user VALUES (0)"},
+		{
+			name:  "delete from table",
+			query: "DELETE FROM test_readonly_user WHERE 1=1"},
+		{
+			name:             "drop table",
+			query:            "DROP TABLE test_readonly_user",
+			supportedVersion: struct{ major, minor, patch uint64 }{major: 22, minor: 4},
+		},
+	}
+
+	setSettingQueries := []struct {
+		name  string
+		query string
+	}{
+		{
+			name:  "set setting",
+			query: "SET log_queries = 0",
+		},
+	}
+
 	ctx := context.Background()
 
 	env, err := GetTestEnvironment(testSet)
@@ -40,65 +101,6 @@ func TestReadOnlyUser(t *testing.T) {
 	require.NoError(t, client.Exec(ctx, `
 		INSERT INTO test_readonly_user VALUES (5)
 	`))
-
-	readQueryCases := []struct {
-		name        string
-		query       string
-		assertRowFn func(row driver.Row)
-	}{
-		{
-			"select from table",
-			"SELECT sum(Col1) FROM test_readonly_user",
-			func(row driver.Row) {
-				var expectedValue uint64
-				err = row.Scan(&expectedValue)
-				assert.NoError(t, err)
-
-				assert.Equal(t, expectedValue, uint64(5))
-			},
-		},
-		{
-			"select from system.numbers",
-			"SELECT number FROM system.numbers LIMIT 1 OFFSET 1",
-			func(row driver.Row) {
-				var expectedValue uint64
-				err = row.Scan(&expectedValue)
-				assert.NoError(t, err)
-
-				assert.Equal(t, expectedValue, uint64(1))
-			},
-		},
-	}
-
-	writeQueryCases := []struct {
-		name  string
-		query string
-	}{
-		{
-			"create table",
-			"CREATE TABLE some_table (Col1 UInt8) Engine MergeTree() ORDER BY tuple()",
-		},
-		{
-			"insert into table",
-			"INSERT INTO test_readonly_user VALUES (0)"},
-		{
-			"delete from table",
-			"DELETE FROM test_readonly_user WHERE 1=1"},
-		{
-			"drop table",
-			"DROP TABLE test_readonly_user",
-		},
-	}
-
-	setSettingQueries := []struct {
-		name  string
-		query string
-	}{
-		{
-			"set setting",
-			"SET log_queries = 0",
-		},
-	}
 
 	username, err := createUserWithReadOnlySetting(client, env.Database, readOnlyRead)
 	require.NoError(t, err)
@@ -123,12 +125,21 @@ func TestReadOnlyUser(t *testing.T) {
 
 	for _, testCase := range writeQueryCases {
 		t.Run(testCase.name, func(t *testing.T) {
+			if testCase.supportedVersion.major > 0 &&
+				!CheckMinServerServerVersion(
+					roClient,
+					testCase.supportedVersion.major,
+					testCase.supportedVersion.minor,
+					testCase.supportedVersion.patch,
+				) {
+				t.Skip(fmt.Errorf("unsupported clickhouse version"))
+				return
+			}
+
 			actualErr := roClient.Exec(ctx, testCase.query)
 
 			assert.ErrorContains(t, actualErr, "Cannot execute query in readonly mode")
 		})
-
-		time.Sleep(time.Millisecond)
 	}
 
 	for _, testCase := range setSettingQueries {
