@@ -43,17 +43,6 @@ func TestReadOnlyUser(t *testing.T) {
 				assert.Equal(t, expectedValue, uint64(5))
 			},
 		},
-		{
-			name:  "select from system.numbers",
-			query: "SELECT number FROM system.numbers LIMIT 1 OFFSET 1",
-			assertRowFn: func(row driver.Row) {
-				var expectedValue uint64
-				err := row.Scan(&expectedValue)
-				assert.NoError(t, err)
-
-				assert.Equal(t, expectedValue, uint64(1))
-			},
-		},
 	}
 
 	writeQueryCases := []struct {
@@ -98,7 +87,7 @@ func TestReadOnlyUser(t *testing.T) {
 		INSERT INTO test_readonly_user VALUES (5)
 	`))
 
-	username, err := createUserWithReadOnlySetting(client, env.Database, readOnlyRead)
+	username, password, err := createUserWithReadOnlySetting(client, env.Database, readOnlyRead)
 	require.NoError(t, err)
 	defer func() {
 		require.NoError(t, dropUser(client, username))
@@ -106,6 +95,7 @@ func TestReadOnlyUser(t *testing.T) {
 
 	roEnv := env
 	roEnv.Username = username
+	roEnv.Password = password
 
 	roClient, err := testClientWithDefaultOptions(roEnv, nil)
 	require.NoError(t, err)

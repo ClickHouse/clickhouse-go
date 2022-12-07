@@ -272,6 +272,9 @@ func clientOptionsFromEnv(env ClickHouseTestEnvironment, settings clickhouse.Set
 		},
 		DialTimeout: time.Duration(timeout) * time.Second,
 		TLS:         tlsConfig,
+		Compression: &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		},
 	}
 }
 
@@ -389,26 +392,27 @@ const (
 	readOnlyReadChangeSettings      = 2
 )
 
-func createUserWithReadOnlySetting(conn driver.Conn, defaultDatabase string, readOnlyType int) (username string, err error) {
+func createUserWithReadOnlySetting(conn driver.Conn, defaultDatabase string, readOnlyType int) (username, password string, err error) {
 	username = fmt.Sprintf("readonly_user_%s", RandAsciiString(6))
+	password = RandAsciiString(6)
 
 	createUserQuery := fmt.Sprintf(`
           CREATE USER IF NOT EXISTS %s 
-          IDENTIFIED WITH no_password
+          IDENTIFIED BY '%s'
           DEFAULT DATABASE "%s"
           SETTINGS readonly = %d
-        `, username, defaultDatabase, readOnlyType)
+        `, username, password, defaultDatabase, readOnlyType)
 	if err := conn.Exec(context.Background(), createUserQuery); err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	grantQuery := fmt.Sprintf(`
-          GRANT ALL
+          GRANT SELECT, INSERT, CREATE TABLE, DROP TABLE 
           ON "%s".*
           TO %s
         `, defaultDatabase, username)
 
-	return username, conn.Exec(context.Background(), grantQuery)
+	return username, password, conn.Exec(context.Background(), grantQuery)
 }
 
 func dropUser(conn driver.Conn, username string) error {
