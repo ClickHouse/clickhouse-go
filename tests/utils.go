@@ -251,8 +251,17 @@ func clientOptionsFromEnv(env ClickHouseTestEnvironment, settings clickhouse.Set
 		timeout = 10
 	}
 
+	useSSL, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	if err != nil {
+		panic(err)
+	}
+	port := env.Port
+	if useSSL {
+		port = env.SslPort
+	}
+
 	return clickhouse.Options{
-		Addr:     []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},
+		Addr:     []string{fmt.Sprintf("%s:%d", env.Host, port)},
 		Settings: settings,
 		Auth: clickhouse.Auth{
 			Database: env.Database,
@@ -260,6 +269,7 @@ func clientOptionsFromEnv(env ClickHouseTestEnvironment, settings clickhouse.Set
 			Password: env.Password,
 		},
 		DialTimeout: time.Duration(timeout) * time.Second,
+		TLS:         &tls.Config{},
 	}
 }
 
