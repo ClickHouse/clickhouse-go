@@ -19,7 +19,6 @@ package tests
 
 import (
 	"context"
-	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -46,9 +45,8 @@ func TestReadOnlyUser(t *testing.T) {
 	}
 
 	writeQueryCases := []struct {
-		name             string
-		query            string
-		supportedVersion struct{ major, minor, patch uint64 }
+		name  string
+		query string
 	}{
 		{
 			name:  "create table",
@@ -111,17 +109,6 @@ func TestReadOnlyUser(t *testing.T) {
 
 	for _, testCase := range writeQueryCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			if testCase.supportedVersion.major > 0 &&
-				!CheckMinServerServerVersion(
-					roClient,
-					testCase.supportedVersion.major,
-					testCase.supportedVersion.minor,
-					testCase.supportedVersion.patch,
-				) {
-				t.Skip(fmt.Errorf("unsupported clickhouse version"))
-				return
-			}
-
 			actualErr := roClient.Exec(ctx, testCase.query)
 
 			assert.ErrorContains(t, actualErr, "Cannot execute query in readonly mode")
