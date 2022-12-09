@@ -140,6 +140,7 @@ conn.SetConnMaxLifetime(time.Hour)
   - `br` - `0` (Best Speed) to `11` (Best Compression)
   - `zstd`, `lz4` - ignored
 * block_buffer_size - size of block buffer (default 2)
+* read_timeout - a duration string is a possibly signed sequence of decimal numbers, each with optional fraction and a unit suffix such as "300ms", "1s". Valid time units are "ms", "s", "m" (default 5m).
 
 SSL/TLS parameters:
 
