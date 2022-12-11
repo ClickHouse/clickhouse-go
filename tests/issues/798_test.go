@@ -5,6 +5,8 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/require"
+	"sync"
+	"sync/atomic"
 	"testing"
 )
 
@@ -50,4 +52,61 @@ func Test798(t *testing.T) {
 	require.NoError(t, batch.Append(true, false, []bool{true, false, true}))
 	require.NoError(t, batch.Send())
 	require.ErrorIs(t, batch.Append(true, false, []bool{true, false, true}), clickhouse.ErrBatchAlreadySent)
+}
+
+func writeRows(prepareSQL string, rows [][]interface{}, conn clickhouse.Conn) (err error) {
+	batch, err := conn.PrepareBatch(context.Background(), prepareSQL)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if batch != nil {
+			_ = batch.Abort()
+		}
+	}()
+	for _, row := range rows {
+		batch.Append(row...)
+	}
+	return batch.Send()
+}
+
+func Test798Concurrent(t *testing.T) {
+
+	var (
+		conn, err = clickhouse_tests.GetConnection("issues", clickhouse.Settings{
+			"max_execution_time": 60,
+		}, nil, &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		})
+	)
+	ctx := context.Background()
+	const ddl = `
+			CREATE TABLE test_issue_798 (
+				  Col1 Bool
+				, Col2 Bool
+			) Engine MergeTree() ORDER BY tuple()
+		`
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_issue_798")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+
+	require.NoError(t, err)
+	todo, done := int64(1000), int64(-1)
+	var wg sync.WaitGroup
+	wg.Add(10)
+	for i := 0; i < 10; i++ {
+		go func() {
+			for {
+				index := atomic.AddInt64(&done, 1)
+				if index >= todo {
+					wg.Done()
+					break
+				}
+				writeRows("INSERT INTO test_issue_798", [][]interface{}{{true, false}, {false, true}}, conn)
+			}
+		}()
+	}
+	wg.Wait()
+
 }
