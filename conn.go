@@ -194,8 +194,9 @@ func (c *connect) sendData(block *proto.Block, name string) error {
 	c.debugf("[send data] compression=%t", c.compression)
 	c.buffer.PutByte(proto.ClientData)
 	c.buffer.PutString(name)
-	// Saving offset of compressible data.
-	start := len(c.buffer.Buf)
+
+	compressionOffset := len(c.buffer.Buf)
+
 	if err := block.EncodeHeader(c.buffer, c.revision); err != nil {
 		return err
 	}
@@ -204,17 +205,20 @@ func (c *connect) sendData(block *proto.Block, name string) error {
 			return err
 		}
 		if len(c.buffer.Buf) >= c.maxCompressionBuffer {
-			if err := c.compressBuffer(start); err != nil {
+			bufOverflow := c.buffer.Buf[c.maxCompressionBuffer:]
+			c.buffer.Buf = c.buffer.Buf[:c.maxCompressionBuffer]
+
+			if err := c.compressBuffer(compressionOffset); err != nil {
 				return err
 			}
 			if err := c.flush(); err != nil {
 				return err
 			}
-			start = 0
-			c.buffer.Reset()
+			compressionOffset = 0
+			c.buffer.Buf = bufOverflow
 		}
 	}
-	if err := c.compressBuffer(start); err != nil {
+	if err := c.compressBuffer(compressionOffset); err != nil {
 		return err
 	}
 	if err := c.flush(); err != nil {
