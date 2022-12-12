@@ -72,17 +72,18 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 
 	var (
 		connect = &connect{
-			opt:             opt,
-			conn:            conn,
-			debugf:          debugf,
-			buffer:          new(chproto.Buffer),
-			reader:          chproto.NewReader(conn),
-			revision:        proto.ClientTCPProtocolVersion,
-			structMap:       &structMap{},
-			compression:     compression,
-			connectedAt:     time.Now(),
-			compressor:      compress.NewWriter(),
-			readTimeout:     opt.ReadTimeout,
+			id:          num,
+			opt:         opt,
+			conn:        conn,
+			debugf:      debugf,
+			buffer:      new(chproto.Buffer),
+			reader:      chproto.NewReader(conn),
+			revision:    proto.ClientTCPProtocolVersion,
+			structMap:   &structMap{},
+			compression: compression,
+			connectedAt: time.Now(),
+			compressor:  compress.NewWriter(),
+			readTimeout: opt.ReadTimeout,
 			blockBufferSize: opt.BlockBufferSize,
 		}
 	)
@@ -101,20 +102,21 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 
 // https://github.com/ClickHouse/ClickHouse/blob/master/src/Client/Connection.cpp
 type connect struct {
-	opt             *Options
-	conn            net.Conn
-	debugf          func(format string, v ...interface{})
-	server          ServerVersion
-	closed          bool
-	buffer          *chproto.Buffer
-	reader          *chproto.Reader
-	released        bool
-	revision        uint64
-	structMap       *structMap
-	compression     CompressionMethod
-	connectedAt     time.Time
-	compressor      *compress.Writer
-	readTimeout     time.Duration
+	id          int
+	opt         *Options
+	conn        net.Conn
+	debugf      func(format string, v ...interface{})
+	server      ServerVersion
+	closed      bool
+	buffer      *chproto.Buffer
+	reader      *chproto.Reader
+	released    bool
+	revision    uint64
+	structMap   *structMap
+	compression CompressionMethod
+	connectedAt time.Time
+	compressor  *compress.Writer
+	readTimeout time.Duration
 	blockBufferSize uint8
 }
 

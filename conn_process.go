@@ -20,10 +20,8 @@ package clickhouse
 import (
 	"context"
 	"fmt"
-	"io"
-	"time"
-
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
+	"io"
 )
 
 type onProcess struct {
@@ -137,9 +135,12 @@ func (c *connect) handle(packet byte, on *onProcess) error {
 }
 
 func (c *connect) cancel() error {
-	c.conn.SetDeadline(time.Now().Add(2 * time.Second))
 	c.debugf("[cancel]")
-	c.closed = true
 	c.buffer.PutUVarInt(proto.ClientCancel)
-	return c.flush()
+	wErr := c.flush()
+	// don't reuse a cancelled query as we don't drain the connection
+	if cErr := c.close(); cErr != nil {
+		return cErr
+	}
+	return wErr
 }
