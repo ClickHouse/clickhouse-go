@@ -24,7 +24,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"os"
 	"strconv"
-	"sync"
 	"testing"
 	"time"
 
