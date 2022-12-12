@@ -203,6 +203,15 @@ func setJSONFieldValue(field reflect.Value, value reflect.Value) error {
 		field.Set(value.Convert(field.Type()))
 		return nil
 	}
+	if value.Kind() == reflect.Map && field.Kind() == reflect.Map {
+		tempValue := reflect.MakeMap(field.Type())
+		iter := value.MapRange()
+		for iter.Next() {
+			tempValue.SetMapIndex(iter.Key(), iter.Value())
+		}
+		field.Set(tempValue)
+		return nil
+	}
 
 	return &ColumnConverterError{
 		Op:   "ScanRow",

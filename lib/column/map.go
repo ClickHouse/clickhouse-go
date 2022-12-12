@@ -54,6 +54,7 @@ func (col *Map) Name() string {
 func (col *Map) parse(t Type, tz *time.Location) (_ Interface, err error) {
 	col.chType = t
 	if types := strings.SplitN(t.params(), ",", 2); len(types) == 2 {
+		fmt.Println(types)
 		if col.keys, err = Type(strings.TrimSpace(types[0])).Column(col.name, tz); err != nil {
 			return nil, err
 		}
@@ -93,6 +94,15 @@ func (col *Map) ScanRow(dest interface{}, i int) error {
 		value.Set(col.row(i))
 		return nil
 	}
+	if value.Kind() == reflect.Map && col.row(i).Kind() == reflect.Map {
+		tempValue := reflect.MakeMap(value.Type())
+		iter := col.row(i).MapRange()
+		for iter.Next() {
+			tempValue.SetMapIndex(iter.Key(), iter.Value())
+		}
+		value.Set(tempValue)
+		return nil
+	}
 	if om, ok := dest.(OrderedMap); ok {
 		keys, values := col.orderedRow(i)
 		for i := range keys {
@@ -128,7 +138,7 @@ func (col *Map) Append(v interface{}) (nulls []uint8, err error) {
 
 func (col *Map) AppendRow(v interface{}) error {
 	value := reflect.Indirect(reflect.ValueOf(v))
-	if value.Type() == col.scanType {
+	if value.Kind() == reflect.Map {
 		var (
 			size int64
 			iter = value.MapRange()

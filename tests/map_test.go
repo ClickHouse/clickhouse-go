@@ -23,8 +23,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"testing"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 )
 
 func TestMap(t *testing.T) {
@@ -45,6 +47,8 @@ func TestMap(t *testing.T) {
 			, Col4 Array(Map(String, String))
 			, Col5 Map(LowCardinality(String), LowCardinality(UInt64))
 			, Col6 Map(String, Map(String,UInt64))
+			, Col7 Map(String, UInt64)
+		    , Col8 Array(Map(String, Int64))
 		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
@@ -81,8 +85,25 @@ func TestMap(t *testing.T) {
 				"key_col_6_2_2": 200,
 			},
 		}
+		col7Data = map[string]interface{}{
+			"key_col_7_1": 111111,
+			"key_col_7_2": "11111",
+			"key_col_7_3": uint32(1111),
+		}
+		col8Data = []map[string]interface{}{
+			{
+				"key_col_8_1": 111111,
+				"key_col_8_2": "11111",
+				"key_col_8_3": uint32(1111),
+			},
+			{
+				"key_col_8_4": 111111,
+				"key_col_8_5": "11111",
+				"key_col_8_6": uint32(1111),
+			},
+		}
 	)
-	require.NoError(t, batch.Append(col1Data, col2Data, col3Data, col4Data, col5Data, col6Data))
+	require.NoError(t, batch.Append(col1Data, col2Data, col3Data, col4Data, col5Data, col6Data, col7Data, col8Data))
 	require.NoError(t, batch.Send())
 	var (
 		col1 map[string]uint64
@@ -91,14 +112,34 @@ func TestMap(t *testing.T) {
 		col4 []map[string]string
 		col5 map[string]uint64
 		col6 map[string]map[string]uint64
+		col7 map[string]interface{}
+		col8 []map[string]interface{}
 	)
-	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_map").Scan(&col1, &col2, &col3, &col4, &col5, &col6))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_map").Scan(&col1, &col2, &col3, &col4, &col5, &col6, &col7, &col8))
 	assert.Equal(t, col1Data, col1)
 	assert.Equal(t, col2Data, col2)
 	assert.Equal(t, col3Data, col3)
 	assert.Equal(t, col4Data, col4)
 	assert.Equal(t, col5Data, col5)
 	assert.Equal(t, col6Data, col6)
+
+	for key, value := range col7 {
+		expect, ok := column.ToInt64(col7Data[key])
+		assert.True(t, ok)
+		actual, ok := column.ToInt64(value)
+		assert.True(t, ok)
+		assert.Equal(t, expect, actual)
+	}
+	assert.Equal(t, len(col8Data), len(col8))
+	for i := 0; i < len(col8Data); i++ {
+		for key, value := range col8[i] {
+			expect, ok := column.ToInt64(col8Data[i][key])
+			assert.True(t, ok)
+			actual, ok := column.ToInt64(value)
+			assert.True(t, ok)
+			assert.Equal(t, expect, actual)
+		}
+	}
 }
 
 func TestColumnarMap(t *testing.T) {
