@@ -20,6 +20,7 @@ package clickhouse
 import (
 	"context"
 	"fmt"
+	"github.com/pkg/errors"
 	"os"
 	"regexp"
 	"strings"
@@ -34,13 +35,18 @@ var splitInsertRe = regexp.MustCompile(`(?i)\sVALUES\s*\(`)
 var columnMatch = regexp.MustCompile(`.*\((?P<Columns>.+)\)$`)
 
 func (c *connect) prepareBatch(ctx context.Context, query string, release func(*connect, error)) (driver.Batch, error) {
+	//defer func() {
+	//	if err := recover(); err != nil {
+	//		fmt.Printf("panic occurred on %d:\n", c.num)
+	//	}
+	//}()
 	query = splitInsertRe.Split(query, -1)[0]
 	colMatch := columnMatch.FindStringSubmatch(query)
 	var columns []string
 	if len(colMatch) == 2 {
 		columns = strings.Split(colMatch[1], ",")
 		for i := range columns {
-			columns[i] = strings.TrimSpace(columns[i])
+			columns[i] = strings.Trim(strings.TrimSpace(columns[i]), "`")
 		}
 	}
 	if !strings.HasSuffix(strings.TrimSpace(strings.ToUpper(query)), "VALUES") {
@@ -68,24 +74,31 @@ func (c *connect) prepareBatch(ctx context.Context, query string, release func(*
 		return nil, err
 	}
 	return &batch{
-		ctx:   ctx,
-		conn:  c,
-		block: block,
-		release: func(err error) {
-			release(c, err)
-		},
-		onProcess: onProcess,
+		ctx:         ctx,
+		conn:        c,
+		block:       block,
+		released:    false,
+		connRelease: release,
+		onProcess:   onProcess,
 	}, nil
 }
 
 type batch struct {
-	err       error
-	ctx       context.Context
-	conn      *connect
-	sent      bool
-	block     *proto.Block
-	release   func(error)
-	onProcess *onProcess
+	err         error
+	ctx         context.Context
+	conn        *connect
+	sent        bool
+	released    bool
+	block       *proto.Block
+	connRelease func(*connect, error)
+	onProcess   *onProcess
+}
+
+func (b *batch) release(err error) {
+	if !b.released {
+		b.released = true
+		b.connRelease(b.conn, err)
+	}
 }
 
 func (b *batch) Abort() error {
@@ -103,8 +116,11 @@ func (b *batch) Append(v ...interface{}) error {
 	if b.sent {
 		return ErrBatchAlreadySent
 	}
-	//
+	if b.err != nil {
+		return b.err
+	}
 	if err := b.block.Append(v...); err != nil {
+		b.err = errors.Wrap(ErrBatchInvalid, err.Error())
 		b.release(err)
 		return err
 	}
@@ -112,6 +128,9 @@ func (b *batch) Append(v ...interface{}) error {
 }
 
 func (b *batch) AppendStruct(v interface{}) error {
+	if b.err != nil {
+		return b.err
+	}
 	values, err := b.conn.structMap.Map("AppendStruct", b.block.ColumnsNames(), v, false)
 	if err != nil {
 		return err

@@ -3,7 +3,7 @@ module github.com/ClickHouse/clickhouse-go/v2
 go 1.18
 
 require (
-	github.com/ClickHouse/ch-go v0.49.0
+	github.com/ClickHouse/ch-go v0.50.0
 	github.com/ClickHouse/clickhouse-go v1.5.4
 	github.com/andybalholm/brotli v1.0.4
 	github.com/docker/docker v20.10.21+incompatible
@@ -17,11 +17,11 @@ require (
 	github.com/shopspring/decimal v1.3.1
 	github.com/stretchr/testify v1.8.1
 	github.com/testcontainers/testcontainers-go v0.14.0
-	go.opentelemetry.io/otel/trace v1.11.1
+	go.opentelemetry.io/otel/trace v1.11.2
 	gopkg.in/yaml.v3 v3.0.1
 )
 
-require go.opentelemetry.io/otel v1.11.1 // indirect
+require go.opentelemetry.io/otel v1.11.2 // indirect
 
 require (
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect

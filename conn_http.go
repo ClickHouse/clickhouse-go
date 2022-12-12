@@ -149,11 +149,21 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		Host:   addr,
 	}
 
-	if len(opt.Auth.Username) > 0 {
+	headers := make(map[string]string)
+	for k, v := range opt.HttpHeaders {
+		headers[k] = v
+	}
+
+	if opt.TLS == nil && len(opt.Auth.Username) > 0 {
 		if len(opt.Auth.Password) > 0 {
 			u.User = url.UserPassword(opt.Auth.Username, opt.Auth.Password)
 		} else {
 			u.User = url.User(opt.Auth.Username)
+		}
+	} else if opt.TLS != nil && len(opt.Auth.Username) > 0 {
+		headers["X-ClickHouse-User"] = opt.Auth.Username
+		if len(opt.Auth.Password) > 0 {
+			headers["X-ClickHouse-Key"] = opt.Auth.Password
 		}
 	}
 
@@ -201,6 +211,7 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		blockCompressor: compress.NewWriter(),
 		compressionPool: compressionPool,
 		blockBufferSize: opt.BlockBufferSize,
+		headers:         headers,
 	}
 	location, err := conn.readTimeZone(ctx)
 	if err != nil {
@@ -227,6 +238,7 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		compressionPool: compressionPool,
 		location:        location,
 		blockBufferSize: opt.BlockBufferSize,
+		headers:         headers,
 	}, nil
 }
 
@@ -239,6 +251,7 @@ type httpConnect struct {
 	blockCompressor *compress.Writer
 	compressionPool Pool[HTTPReaderWriter]
 	blockBufferSize uint8
+	headers         map[string]string
 }
 
 func (h *httpConnect) isBad() bool {

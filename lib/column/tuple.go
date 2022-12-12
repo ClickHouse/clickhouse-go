@@ -289,14 +289,18 @@ func (col *Tuple) scanMap(targetMap reflect.Value, row int) error {
 		default:
 			val := c.Row(row, false)
 			if val != nil {
-				field := reflect.New(reflect.TypeOf(c.Row(0, false))).Elem()
-				value := reflect.ValueOf(c.Row(row, false))
+				field := reflect.New(reflect.TypeOf(val)).Elem()
+				value := reflect.ValueOf(val)
 				if err := setJSONFieldValue(field, value); err != nil {
 					return err
 				}
 				targetMap.SetMapIndex(reflect.ValueOf(colName), field)
 			} else {
-				targetMap.SetMapIndex(reflect.ValueOf(colName), reflect.Zero(c.ScanType().Elem()))
+				if _, isNullable := c.(*Nullable); !isNullable {
+					targetMap.SetMapIndex(reflect.ValueOf(colName), reflect.Zero(c.ScanType().Elem()))
+				} else {
+					targetMap.SetMapIndex(reflect.ValueOf(colName), reflect.Zero(c.ScanType()))
+				}
 			}
 
 		}

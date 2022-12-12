@@ -21,10 +21,11 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	chproto "github.com/ClickHouse/ch-go/proto"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 	"io"
 	"strings"
+
+	chproto "github.com/ClickHouse/ch-go/proto"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 
 // release is ignored, because http used by std with empty release function
@@ -41,6 +42,10 @@ func (h *httpConnect) query(ctx context.Context, release func(*connect, error), 
 	case CompressionGZIP, CompressionDeflate, CompressionBrotli:
 		// request encoding
 		headers["Accept-Encoding"] = h.compression.String()
+	}
+
+	for k, v := range h.headers {
+		headers[k] = v
 	}
 
 	res, err := h.sendQuery(ctx, strings.NewReader(query), &options, headers)
