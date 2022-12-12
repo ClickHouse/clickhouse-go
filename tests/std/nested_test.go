@@ -19,6 +19,7 @@ package std
 
 import (
 	"crypto/tls"
+	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/assert"
@@ -39,8 +40,8 @@ func TestStdNested(t *testing.T) {
 	}, tlsConfig, nil)
 	require.NoError(t, err)
 	conn.Exec("DROP TABLE std_nested_test")
-	if err := CheckMinServerVersion(conn, 22, 1, 0); err != nil {
-		t.Skip(err.Error())
+	if !CheckMinServerVersion(conn, 22, 1, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
 		return
 	}
 	const ddl = `

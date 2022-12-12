@@ -114,6 +114,23 @@ func (col *DateTime) ScanRow(dest interface{}, row int) error {
 
 func (col *DateTime) Append(v interface{}) (nulls []uint8, err error) {
 	switch v := v.(type) {
+	// we assume int64 is in seconds and don't currently scale to the precision
+	case []int64:
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			col.col.Append(time.Unix(v[i], 0))
+		}
+	case []*int64:
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			switch {
+			case v != nil:
+				col.col.Append(time.Unix(*v[i], 0))
+			default:
+				col.col.Append(time.Time{})
+				nulls[i] = 1
+			}
+		}
 	case []time.Time:
 		nulls = make([]uint8, len(v))
 		for i := range v {
@@ -186,6 +203,16 @@ func (col *DateTime) Append(v interface{}) (nulls []uint8, err error) {
 
 func (col *DateTime) AppendRow(v interface{}) error {
 	switch v := v.(type) {
+	// we assume int64 is in seconds and don't currently scale to the precision
+	case int64:
+		col.col.Append(time.Unix(v, 0))
+	case *int64:
+		switch {
+		case v != nil:
+			col.col.Append(time.Unix(*v, 0))
+		default:
+			col.col.Append(time.Time{})
+		}
 	case time.Time:
 		if err := dateOverflow(minDateTime, maxDateTime, v, defaultDateTimeFormatNoZone); err != nil {
 			return err

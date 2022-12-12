@@ -1,12 +1,14 @@
 <?xml version="1.0" ?>
 <clickhouse>
     <listen_host>::</listen_host>
-    <listen_host>0.0.0.0</listen_host>
     <listen_try>1</listen_try>
+    <https_port>8443</https_port>
+    <tcp_port_secure>9440</tcp_port_secure>
     <logger>
         <console>1</console>
     </logger>
     <timezone>UTC</timezone>
+    <mark_cache_size>104857600</mark_cache_size>
     <openSSL>
         <server>
             <certificateFile>/etc/clickhouse-server/certs/clickhouse.crt</certificateFile>
@@ -30,7 +32,4 @@
         </client>
     </openSSL>
     <display_name>clickhouse</display_name>
-    <listen_host>0.0.0.0</listen_host>
-    <https_port>8443</https_port>
-    <tcp_port_secure>9440</tcp_port_secure>
 </clickhouse>

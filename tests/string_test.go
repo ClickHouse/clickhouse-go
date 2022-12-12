@@ -20,6 +20,7 @@ package tests
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	"github.com/stretchr/testify/require"
 	"testing"
@@ -46,8 +47,8 @@ func TestSimpleString(t *testing.T) {
 
 	require.NoError(t, err)
 	require.NoError(t, conn.Ping(ctx))
-	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
-		t.Skip(err.Error())
+	if !CheckMinServerServerVersion(conn, 21, 9, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
 		return
 	}
 	const ddl = `
@@ -72,8 +73,8 @@ func TestString(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
-		t.Skip(err.Error())
+	if !CheckMinServerServerVersion(conn, 21, 9, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
 		return
 	}
 	const ddl = `
@@ -88,6 +89,7 @@ func TestString(t *testing.T) {
 		    , Col8 Nullable(String)
 		    , Col9 String
 		    , Col10 Nullable(String)
+			, Col11 Nullable(String)
 		) Engine MergeTree() ORDER BY tuple()
 	`
 	defer func() {
@@ -101,6 +103,7 @@ func TestString(t *testing.T) {
 	col8Data := &time.Time{}
 	col9Data := &testStr{"E"}
 	var col10Data testStr
+	col11Data := "G"
 	require.NoError(t, batch.Append(
 		"A",
 		[]string{"A", "B", "C"},
@@ -112,6 +115,7 @@ func TestString(t *testing.T) {
 		col8Data,
 		col9Data,
 		&col10Data,
+		&col11Data,
 	))
 	require.NoError(t, batch.Send())
 	var (
@@ -125,8 +129,9 @@ func TestString(t *testing.T) {
 		col8  string
 		col9  string
 		col10 string
+		col11 string
 	)
-	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_string").Scan(&col1, &col2, &col3, &col4, &col5, &col6, &col7, &col8, &col9, &col10))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_string").Scan(&col1, &col2, &col3, &col4, &col5, &col6, &col7, &col8, &col9, &col10, &col11))
 	require.Nil(t, col3)
 	assert.Equal(t, "A", col1)
 	assert.Equal(t, []string{"A", "B", "C"}, col2)
@@ -137,6 +142,7 @@ func TestString(t *testing.T) {
 	assert.Equal(t, col8, col8Data.String())
 	assert.Equal(t, col9, col9Data.String())
 	assert.Equal(t, col10, col10Data.String())
+	assert.Equal(t, "G", col11)
 }
 
 func BenchmarkString(b *testing.B) {

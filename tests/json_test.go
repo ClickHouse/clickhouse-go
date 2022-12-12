@@ -60,8 +60,8 @@ func setupConnection(t *testing.T) driver.Conn {
 func setupTest(t *testing.T) (driver.Conn, func(t *testing.T)) {
 	ctx := context.Background()
 	conn := setupConnection(t)
-	if err := CheckMinServerServerVersion(conn, 22, 6, 1); err != nil {
-		t.Skip(err.Error())
+	if !CheckMinServerServerVersion(conn, 22, 6, 1) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
 	}
 	conn.Exec(ctx, "DROP TABLE IF EXISTS json_test")
 	ddl := `CREATE table json_test(event JSON) ENGINE=MergeTree() ORDER BY tuple();`
@@ -1976,8 +1976,8 @@ func TestJSONManyColumns(t *testing.T) {
 	ctx := context.Background()
 	conn := setupConnection(t)
 	conn.Exec(ctx, "DROP TABLE IF EXISTS json_test")
-	if err := CheckMinServerServerVersion(conn, 22, 6, 1); err != nil {
-		t.Skip(err.Error())
+	if !CheckMinServerServerVersion(conn, 22, 6, 1) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
 	}
 	ddl := `CREATE table json_test(event JSON, event2 JSON, col1 String) ENGINE=MergeTree() ORDER BY tuple();`
 	require.NoError(t, conn.Exec(ctx, ddl))
@@ -2447,4 +2447,39 @@ func TestJSONFlush(t *testing.T) {
 		i += 1
 	}
 	require.Equal(t, 1000, i)
+}
+
+func TestMultipleJsonRowsWithNil(t *testing.T) {
+	// will got new map to different order
+	getMapByMapForTest := func(myMap map[string]interface{}) map[string]interface{} {
+		newMap := map[string]interface{}{}
+		for k := range myMap {
+			newMap[k] = myMap[k]
+		}
+	
+		return newMap
+	}
+
+	type Login struct {
+		Username string `json:"username"`
+		Attachment      map[string]interface{}
+	}
+
+	myAttachment := map[string]interface{}{
+		"col1": int64(1),
+		"col2": time.Date(2022, 11, 21, 16, 21, 0, 0, time.Local),
+		"col3": nil,
+		"col4": "1",
+	}
+
+	conn, teardown := setupTest(t)
+	defer teardown(t)
+	ctx := context.Background()
+	batch := prepareBatch(t, conn, ctx)
+	for i := 0; i < 1000; i++ {
+		row := Login{Username: "Gingerwizard", Attachment: getMapByMapForTest(myAttachment)}
+		require.NoError(t, batch.Append(row))
+	}
+
+	require.NoError(t, batch.Send())
 }

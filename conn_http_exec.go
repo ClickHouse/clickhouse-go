@@ -32,7 +32,7 @@ func (h *httpConnect) exec(ctx context.Context, query string, args ...interface{
 
 	options := queryOptions(ctx)
 
-	res, err := h.sendQuery(ctx, strings.NewReader(query), &options, nil)
+	res, err := h.sendQuery(ctx, strings.NewReader(query), &options, h.headers)
 	if res != nil {
 		defer res.Body.Close()
 		// we don't care about result, so just discard it to reuse connection

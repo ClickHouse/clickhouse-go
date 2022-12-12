@@ -83,6 +83,46 @@ func (col *Enum16) ScanRow(dest interface{}, row int) error {
 
 func (col *Enum16) Append(v interface{}) (nulls []uint8, err error) {
 	switch v := v.(type) {
+	case []int16:
+		nulls = make([]uint8, len(v))
+		for _, elem := range v {
+			if err = col.AppendRow(elem); err != nil {
+				return nil, err
+			}
+		}
+	case []*int16:
+		nulls = make([]uint8, len(v))
+		for i, elem := range v {
+			switch {
+			case elem != nil:
+				if err = col.AppendRow(elem); err != nil {
+					return nil, err
+				}
+			default:
+				col.col.Append(0)
+				nulls[i] = 1
+			}
+		}
+	case []int:
+		nulls = make([]uint8, len(v))
+		for _, elem := range v {
+			if err = col.AppendRow(elem); err != nil {
+				return nil, err
+			}
+		}
+	case []*int:
+		nulls = make([]uint8, len(v))
+		for i, elem := range v {
+			switch {
+			case elem != nil:
+				if err = col.AppendRow(elem); err != nil {
+					return nil, err
+				}
+			default:
+				col.col.Append(0)
+				nulls[i] = 1
+			}
+		}
 	case []string:
 		nulls = make([]uint8, len(v))
 		for _, elem := range v {
@@ -119,6 +159,35 @@ func (col *Enum16) Append(v interface{}) (nulls []uint8, err error) {
 
 func (col *Enum16) AppendRow(elem interface{}) error {
 	switch elem := elem.(type) {
+	case int16:
+		return col.AppendRow(int(elem))
+	case *int16:
+		return col.AppendRow(int(*elem))
+	case int:
+		v := proto.Enum16(elem)
+		_, ok := col.vi[v]
+		if !ok {
+			return &Error{
+				Err:        fmt.Errorf("unknown element %v", elem),
+				ColumnType: string(col.chType),
+			}
+		}
+		col.col.Append(v)
+	case *int:
+		switch {
+		case elem != nil:
+			v := proto.Enum16(*elem)
+			_, ok := col.vi[v]
+			if !ok {
+				return &Error{
+					Err:        fmt.Errorf("unknown element %v", *elem),
+					ColumnType: string(col.chType),
+				}
+			}
+			col.col.Append(v)
+		default:
+			col.col.Append(0)
+		}
 	case string:
 		v, ok := col.iv[elem]
 		if !ok {

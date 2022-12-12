@@ -25,6 +25,7 @@ import (
 	"testing"
 	"time"
 
+	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
 )
@@ -159,8 +160,8 @@ func TestSimpleInt(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
-		t.Skip(err.Error())
+	if !CheckMinServerServerVersion(conn, 21, 9, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
 		return
 	}
 	const ddl = "CREATE TABLE test_int (`1` Int64) Engine MergeTree() ORDER BY tuple()"
@@ -179,8 +180,8 @@ func TestNullableInt(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
-		t.Skip(err.Error())
+	if !CheckMinServerServerVersion(conn, 21, 9, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
 		return
 	}
 	const ddl = "CREATE TABLE test_int (col1 Int64, col2 Nullable(Int64), col3 Int32, col4 Nullable(Int32), col5 Int16, col6 Nullable(Int16)) Engine MergeTree() ORDER BY tuple()"
@@ -335,4 +336,42 @@ func TestColumnarBaseTypeRead(t *testing.T) {
 		}
 	}
 	require.Equal(t, 256, c)
+}
+
+func TestIntFlush(t *testing.T) {
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+	require.NoError(t, err)
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE IF EXISTS int_flush")
+	}()
+	const ddl = `
+		CREATE TABLE int_flush (
+			  Col1 UInt8
+		) Engine MergeTree() ORDER BY tuple()
+		`
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO int_flush")
+	require.NoError(t, err)
+	vals := [1000]uint8{}
+
+	for i := 0; i < 1000; i++ {
+		vals[i] = uint8(i)
+		require.NoError(t, batch.Append(vals[i]))
+		if i%100 == 0 {
+			require.NoError(t, batch.Flush())
+		}
+	}
+	batch.Send()
+	rows, err := conn.Query(ctx, "SELECT * FROM int_flush")
+	require.NoError(t, err)
+	i := 0
+	for rows.Next() {
+		var col1 uint8
+		require.NoError(t, rows.Scan(&col1))
+		assert.Equal(t, vals[i], col1)
+		i += 1
+	}
 }
