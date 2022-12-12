@@ -2,11 +2,9 @@ package issues
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/require"
-	"strconv"
 	"testing"
 	"time"
 
@@ -14,33 +12,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func Test546(t *testing.T) {
-	env, err := GetIssuesTestEnvironment()
-	require.NoError(t, err)
-	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
-	require.NoError(t, err)
-	var tlsConfig *tls.Config
-	port := env.Port
-	if useSSL {
-		tlsConfig = &tls.Config{}
-		port = env.SslPort
-	}
-	conn, err := clickhouse_tests.GetConnectionWithOptions(&clickhouse.Options{
-		Addr: []string{fmt.Sprintf("%s:%d", env.Host, port)},
-		Auth: clickhouse.Auth{
-			Database: "default",
-			Username: env.Username,
-			Password: env.Password,
-		},
-		Compression: &clickhouse.Compression{
+func TestIssue546(t *testing.T) {
+	var (
+		conn, err = clickhouse_tests.GetConnection("issues", nil, nil, &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
-		},
-		DialTimeout:     time.Second,
-		MaxOpenConns:    10,
-		MaxIdleConns:    5,
-		ConnMaxLifetime: time.Hour,
-		TLS:             tlsConfig,
-	})
+		})
+	)
 	require.NoError(t, err)
 	ctx := clickhouse.Context(context.Background(), clickhouse.WithSettings(clickhouse.Settings{
 		"max_block_size": 2000000,
@@ -50,7 +27,7 @@ func Test546(t *testing.T) {
 		}), clickhouse.WithProfileInfo(func(p *clickhouse.ProfileInfo) {
 			fmt.Println("profile info: ", p)
 		}))
-	require.NoError(t, conn.Ping(ctx))
+	require.NoError(t, conn.Ping(context.Background()))
 	if exception, ok := err.(*clickhouse.Exception); ok {
 		fmt.Printf("Catch exception [%d] %s \n%s\n", exception.Code, exception.Message, exception.StackTrace)
 	}

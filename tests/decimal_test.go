@@ -35,8 +35,8 @@ func TestDecimal(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerServerVersion(conn, 21, 1, 0); err != nil {
-		t.Skip(err.Error())
+	if !CheckMinServerServerVersion(conn, 21, 1, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
 		return
 	}
 	const ddl = `
@@ -97,8 +97,8 @@ func TestNegativeDecimal(t *testing.T) {
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE IF EXISTS test_decimal")
 	}()
-	if err := CheckMinServerServerVersion(conn, 21, 1, 0); err != nil {
-		t.Skip(err.Error())
+	if !CheckMinServerServerVersion(conn, 21, 1, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
 		return
 	}
 	require.NoError(t, conn.Exec(ctx, ddl))
@@ -130,8 +130,8 @@ func TestNullableDecimal(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerServerVersion(conn, 21, 1, 0); err != nil {
-		t.Skip(err.Error())
+	if !CheckMinServerServerVersion(conn, 21, 1, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
 		return
 	}
 	const ddl = `

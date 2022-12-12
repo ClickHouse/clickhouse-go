@@ -27,19 +27,27 @@ import (
 	"io"
 	"io/ioutil"
 	"regexp"
+	"strings"
 )
 
-var splitHttpInsertRe = regexp.MustCompile("(?i)^INSERT INTO\\s+`?([\\w.]+)`?")
+// \x60 represents a backtick
+var httpInsertRe = regexp.MustCompile(`(?i)^INSERT INTO\s+\x60?([\w.^\(]+)\x60?\s*(\([^\)]*\))?`)
 
 // release is ignored, because http used by std with empty release function
 func (h *httpConnect) prepareBatch(ctx context.Context, query string, release func(*connect, error)) (driver.Batch, error) {
-	index := splitHttpInsertRe.FindStringSubmatchIndex(query)
-
-	if len(index) < 3 {
+	matches := httpInsertRe.FindStringSubmatch(query)
+	if len(matches) < 3 {
 		return nil, errors.New("cannot get table name from query")
 	}
-
-	tableName := query[index[2]:index[3]]
+	tableName := matches[1]
+	var rColumns []string
+	if matches[2] != "" {
+		colMatch := strings.TrimSuffix(strings.TrimPrefix(matches[2], "("), ")")
+		rColumns = strings.Split(colMatch, ",")
+		for i := range rColumns {
+			rColumns[i] = strings.TrimSpace(rColumns[i])
+		}
+	}
 	query = "INSERT INTO " + tableName + " FORMAT Native"
 	queryTableSchema := "DESCRIBE TABLE " + tableName
 	r, err := h.query(ctx, release, queryTableSchema)
@@ -50,6 +58,8 @@ func (h *httpConnect) prepareBatch(ctx context.Context, query string, release fu
 	block := &proto.Block{}
 
 	// get Table columns and types
+	columns := make(map[string]string)
+	var colNames []string
 	for r.Next() {
 		var (
 			colName string
@@ -57,14 +67,30 @@ func (h *httpConnect) prepareBatch(ctx context.Context, query string, release fu
 			ignore  string
 		)
 
-		err = r.Scan(&colName, &colType, &ignore, &ignore, &ignore, &ignore, &ignore)
-		if err != nil {
+		if err = r.Scan(&colName, &colType, &ignore, &ignore, &ignore, &ignore, &ignore); err != nil {
 			return nil, err
 		}
+		colNames = append(colNames, colName)
+		columns[colName] = colType
+	}
 
-		err = block.AddColumn(colName, column.Type(colType))
-		if err != nil {
-			return nil, err
+	switch len(rColumns) {
+	case 0:
+		for _, colName := range colNames {
+			if err = block.AddColumn(colName, column.Type(columns[colName])); err != nil {
+				return nil, err
+			}
+		}
+	default:
+		// user has requested specific columns so only include these
+		for _, colName := range rColumns {
+			if colType, ok := columns[colName]; ok {
+				if err = block.AddColumn(colName, column.Type(colType)); err != nil {
+					return nil, err
+				}
+			} else {
+				return nil, fmt.Errorf("column %s is not present in the table %s", colName, tableName)
+			}
 		}
 	}
 
@@ -189,6 +215,9 @@ func (b *httpBatch) Send() (err error) {
 
 	options.settings["query"] = b.query
 	headers["Content-Type"] = "application/octet-stream"
+	for k, v := range b.conn.headers {
+		headers[k] = v
+	}
 	res, err := b.conn.sendQuery(b.ctx, r, &options, headers)
 
 	if res != nil {

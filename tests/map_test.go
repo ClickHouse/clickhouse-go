@@ -33,8 +33,8 @@ func TestMap(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
-		t.Skip(err.Error())
+	if !CheckMinServerServerVersion(conn, 21, 9, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
 		return
 	}
 	const ddl = `
@@ -107,8 +107,8 @@ func TestColumnarMap(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
-		t.Skip(err.Error())
+	if !CheckMinServerServerVersion(conn, 21, 9, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
 		return
 	}
 	const ddl = `
@@ -172,8 +172,8 @@ func TestMapFlush(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
-		t.Skip(err.Error())
+	if !CheckMinServerServerVersion(conn, 21, 9, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
 		return
 	}
 	const ddl = `
@@ -203,6 +203,88 @@ func TestMapFlush(t *testing.T) {
 		var col1 map[string]uint64
 		require.NoError(t, rows.Scan(&col1))
 		require.Equal(t, vals[i], col1)
+		i += 1
+	}
+	require.Equal(t, 1000, i)
+}
+
+// a simple (non thread safe) ordered map
+type OrderedMap struct {
+	keys   []interface{}
+	values map[interface{}]interface{}
+}
+
+func NewOrderedMap() *OrderedMap {
+	om := OrderedMap{}
+	om.keys = []interface{}{}
+	om.values = map[interface{}]interface{}{}
+	return &om
+}
+
+func (om *OrderedMap) Get(key interface{}) (interface{}, bool) {
+	if value, present := om.values[key]; present {
+		return value, present
+	}
+	return nil, false
+}
+
+func (om *OrderedMap) Put(key interface{}, value interface{}) {
+	if _, present := om.values[key]; present {
+		om.values[key] = value
+		return
+	}
+	om.keys = append(om.keys, key)
+	om.values[key] = value
+}
+
+func (om *OrderedMap) Keys() <-chan interface{} {
+	ch := make(chan interface{})
+	go func() {
+		defer close(ch)
+		for _, key := range om.keys {
+			ch <- key
+		}
+	}()
+	return ch
+}
+
+func TestOrderedMap(t *testing.T) {
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+	require.NoError(t, err)
+	if !CheckMinServerServerVersion(conn, 21, 9, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
+		return
+	}
+	const ddl = `
+		CREATE TABLE test_map_ordered (
+			  Col1 Map(String, String)
+		) Engine MergeTree() ORDER BY tuple()
+		`
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_map_ordered")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_map_ordered")
+	values := make([]*OrderedMap, 1000)
+	for i := 0; i < 1000; i++ {
+		om := NewOrderedMap()
+		om.Put(fmt.Sprintf("k%d", i), fmt.Sprintf("v%d", i))
+		om.Put(fmt.Sprintf("k%d", i+1), fmt.Sprintf("v%d", i+1))
+		values[i] = om
+		require.NoError(t, batch.Append(om))
+	}
+	require.NoError(t, batch.Flush())
+	require.NoError(t, batch.Send())
+	rows, err := conn.Query(ctx, "SELECT * FROM test_map_ordered")
+	require.NoError(t, err)
+	i := 0
+	for rows.Next() {
+		col1 := NewOrderedMap()
+		require.NoError(t, rows.Scan(col1))
+		require.Equal(t, values[i], col1)
 		i += 1
 	}
 	require.Equal(t, 1000, i)

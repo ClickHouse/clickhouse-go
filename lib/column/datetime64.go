@@ -35,6 +35,11 @@ var (
 	maxDateTime64, _ = time.Parse("2006-01-02 15:04:05", "2283-11-11 00:00:00")
 )
 
+const (
+	defaultDateTime64FormatNoZone   = "2006-01-02 15:04:05.999999999"
+	defaultDateTime64FormatWithZone = "2006-01-02 15:04:05.999999999 -07:00"
+)
+
 type DateTime64 struct {
 	chType   Type
 	timezone *time.Location
@@ -111,6 +116,9 @@ func (col *DateTime64) ScanRow(dest interface{}, row int) error {
 	case *sql.NullTime:
 		d.Scan(col.row(row))
 	default:
+		if scan, ok := dest.(sql.Scanner); ok {
+			return scan.Scan(col.row(row))
+		}
 		return &ColumnConverterError{
 			Op:   "ScanRow",
 			To:   fmt.Sprintf("%T", dest),
@@ -280,13 +288,16 @@ func (col *DateTime64) timeToInt64(t time.Time) int64 {
 	return timestamp / int64(math.Pow10(9-int(col.col.Precision)))
 }
 
-func (col *DateTime64) parseDateTime(value string) (time.Time, error) {
-	tv, err := time.Parse("2006-01-02 15:04:05.999", value)
-	if err != nil {
-		return time.Time{}, err
+func (col *DateTime64) parseDateTime(value string) (tv time.Time, err error) {
+	if tv, err = time.Parse(defaultDateTime64FormatWithZone, value); err == nil {
+		return tv, nil
 	}
-	// scale to the appropriate units based on the precision
-	return tv, nil
+	if tv, err = time.Parse(defaultDateTime64FormatNoZone, value); err == nil {
+		return time.Date(
+			tv.Year(), tv.Month(), tv.Day(), tv.Hour(), tv.Minute(), tv.Second(), tv.Nanosecond(), time.Local,
+		), nil
+	}
+	return time.Time{}, err
 }
 
 var _ Interface = (*DateTime64)(nil)

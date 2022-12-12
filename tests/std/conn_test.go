@@ -227,50 +227,63 @@ func TestStdConnector(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// Issue https://github.com/ClickHouse/clickhouse-go/issues/761
-func TestQueryCancel(t *testing.T) {
+func TestBlockBufferSize(t *testing.T) {
 	env, err := GetStdTestEnvironment()
 	require.NoError(t, err)
+	dsns := map[string]string{"Native": fmt.Sprintf("clickhouse://%s:%d?username=%s&password=%s", env.Host, env.Port, env.Username, env.Password),
+		"Http": fmt.Sprintf("http://%s:%d?username=%s&password=%s", env.Host, env.HttpPort, env.Username, env.Password)}
 	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
 	require.NoError(t, err)
-	port := env.Port
-	var tlsConfig *tls.Config
 	if useSSL {
-		port = env.SslPort
-		tlsConfig = &tls.Config{}
+		dsns = map[string]string{"Native": fmt.Sprintf("clickhouse://%s:%d?username=%s&password=%s&secure=true", env.Host, env.SslPort, env.Username, env.Password),
+			"Http": fmt.Sprintf("https://%s:%d?username=%s&password=%s&secure=true", env.Host, env.HttpsPort, env.Username, env.Password)}
 	}
-	conn := GetConnectionWithOptions(&clickhouse.Options{
-		Addr: []string{fmt.Sprintf("%s:%d", env.Host, port)},
-		Auth: clickhouse.Auth{
-			Database: "default",
-			Username: env.Username,
-			Password: env.Password,
-		},
-		Compression: &clickhouse.Compression{
-			Method: clickhouse.CompressionLZ4,
-		},
-		TLS:   tlsConfig,
-		Debug: true,
-		Settings: clickhouse.Settings{
-			"max_execution_time": 1,
-		},
-	})
-	conn.SetMaxOpenConns(1)
-	conn.SetMaxIdleConns(1)
-	require.NoError(t, err)
-	// Issue a query which will take 3 secs, cancel after 1 and reissue a query which take 3 secs - check response is q2, not q1
-
-	//ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Millisecond*time.Duration(100)))
-	//defer cancel()
-	var queryId uint16
-	// query 1
-	err = conn.QueryRowContext(context.Background(), "SELECT sleep(3) + 1 as query_id").Scan(&queryId)
-	require.Error(t, err)
-	// query 2
-	ctx := clickhouse.Context(context.Background(), clickhouse.WithSettings(clickhouse.Settings{
-		"max_execution_time": 10,
-	}))
-	err = conn.QueryRowContext(ctx, "SELECT sleep(3) + 2 as query_id").Scan(&queryId)
-	require.NoError(t, err)
-	require.Equal(t, uint16(2), queryId)
+	for name, dsn := range dsns {
+		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
+			dsn := fmt.Sprintf("%s&block_buffer_size=100", dsn)
+			conn, err := GetConnectionFromDSN(dsn)
+			require.NoError(t, err)
+			var count uint64
+			rows, err := conn.Query("SELECT number FROM numbers(1000000)")
+			require.NoError(t, err)
+			i := 0
+			for rows.Next() {
+				require.NoError(t, rows.Scan(&count))
+				i++
+			}
+			require.Equal(t, 1000000, i)
+		})
+	}
 }
+
+func TestMaxExecutionTime(t *testing.T) {
+	env, err := GetStdTestEnvironment()
+	require.NoError(t, err)
+	dsns := map[string]string{"Native": fmt.Sprintf("clickhouse://%s:%d?username=%s&password=%s", env.Host, env.Port, env.Username, env.Password),
+		"Http": fmt.Sprintf("http://%s:%d?username=%s&password=%s", env.Host, env.HttpPort, env.Username, env.Password)}
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	if useSSL {
+		dsns = map[string]string{"Native": fmt.Sprintf("clickhouse://%s:%d?username=%s&password=%s&secure=true", env.Host, env.SslPort, env.Username, env.Password),
+			"Http": fmt.Sprintf("https://%s:%d?username=%s&password=%s&secure=true", env.Host, env.HttpsPort, env.Username, env.Password)}
+	}
+	for name, dsn := range dsns {
+		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
+			dsn := fmt.Sprintf("%s&max_execution_time=2", dsn)
+			conn, err := GetConnectionFromDSN(dsn)
+			require.NoError(t, err)
+			rows, err := conn.Query("SELECT sleep(3), number FROM numbers(10)")
+			switch name {
+			case "Http":
+				assert.Error(t, err)
+			case "Native":
+				assert.NoError(t, err)
+				for rows.Next() {
+
+				}
+				assert.Error(t, rows.Err())
+			}
+		})
+	}
+}
+

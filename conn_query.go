@@ -56,10 +56,14 @@ func (c *connect) query(ctx context.Context, release func(*connect, error), quer
 		release(c, err)
 		return nil, err
 	}
-
+	bufferSize := c.blockBufferSize
+	if options.blockBufferSize > 0 {
+		// allow block buffer sze to be overridden per query
+		bufferSize = options.blockBufferSize
+	}
 	var (
 		errors = make(chan error)
-		stream = make(chan *proto.Block, 2)
+		stream = make(chan *proto.Block, bufferSize)
 	)
 
 	go func() {

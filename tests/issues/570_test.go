@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-func Test570(t *testing.T) {
+func TestIssue570(t *testing.T) {
 	env, err := GetIssuesTestEnvironment()
 	require.NoError(t, err)
 	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))

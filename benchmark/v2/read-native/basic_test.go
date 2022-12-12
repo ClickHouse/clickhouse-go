@@ -22,6 +22,10 @@ func getConnection() clickhouse.Conn {
 		MaxOpenConns:    10,
 		MaxIdleConns:    5,
 		ConnMaxLifetime: time.Hour,
+		Compression: &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		},
+		BlockBufferSize: 100,
 	})
 	if err != nil {
 		log.Fatal(err)

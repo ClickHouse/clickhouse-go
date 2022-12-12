@@ -73,6 +73,9 @@ func (col *Date32) ScanRow(dest interface{}, row int) error {
 	case *sql.NullTime:
 		d.Scan(col.row(row))
 	default:
+		if scan, ok := dest.(sql.Scanner); ok {
+			return scan.Scan(col.row(row))
+		}
 		return &ColumnConverterError{
 			Op:   "ScanRow",
 			To:   fmt.Sprintf("%T", dest),
@@ -214,13 +217,8 @@ func (col *Date32) AppendRow(v interface{}) error {
 	return nil
 }
 
-func (col *Date32) parseDate(str string) (datetime time.Time, err error) {
-	defer func() {
-		if err == nil {
-			err = dateOverflow(minDate32, maxDate32, datetime, defaultDateFormat)
-		}
-	}()
-	return time.Parse(defaultDateFormat, str)
+func (col *Date32) parseDate(value string) (datetime time.Time, err error) {
+	return parseDate(value, minDate32, maxDate32)
 }
 
 func (col *Date32) Decode(reader *proto.Reader, rows int) error {

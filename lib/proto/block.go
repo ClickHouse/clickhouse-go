@@ -20,6 +20,7 @@ package proto
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/ClickHouse/ch-go/proto"
@@ -71,6 +72,49 @@ func (b *Block) Append(v ...interface{}) (err error) {
 
 func (b *Block) ColumnsNames() []string {
 	return b.names
+}
+
+// SortColumns sorts our block according to the requested order - a slice of column names. Names must be identical in requested order and block.
+func (b *Block) SortColumns(columns []string) error {
+	if len(columns) == 0 {
+		// no preferred sort order
+		return nil
+	}
+	if len(columns) != len(b.Columns) {
+		return fmt.Errorf("requested column order is incorrect length to sort block - expected %d, got %d", len(b.Columns), len(columns))
+	}
+	missing := difference(b.names, columns)
+	if len(missing) > 0 {
+		return fmt.Errorf("block cannot be sorted - missing columns in requested order: %v", missing)
+	}
+	lookup := make(map[string]int)
+	for i, col := range columns {
+		lookup[col] = i
+	}
+	// we assume both lists have the same
+	sort.Slice(b.Columns, func(i, j int) bool {
+		iRank, jRank := lookup[b.Columns[i].Name()], lookup[b.Columns[j].Name()]
+		return iRank < jRank
+	})
+	sort.Slice(b.names, func(i, j int) bool {
+		iRank, jRank := lookup[b.names[i]], lookup[b.names[j]]
+		return iRank < jRank
+	})
+	return nil
+}
+
+func difference(a, b []string) []string {
+	mb := make(map[string]struct{}, len(b))
+	for _, x := range b {
+		mb[x] = struct{}{}
+	}
+	var diff []string
+	for _, x := range a {
+		if _, found := mb[x]; !found {
+			diff = append(diff, x)
+		}
+	}
+	return diff
 }
 
 func (b *Block) Encode(buffer *proto.Buffer, revision uint64) error {
@@ -128,10 +172,11 @@ func (b *Block) Decode(reader *proto.Reader, revision uint64) (err error) {
 	if numRows > 1_000_000_000 {
 		return &BlockError{
 			Op:  "Decode",
-			Err: errors.New("more then 1 billion rows in block"),
+			Err: errors.New("more then 1 billion rows in block - suspiciously big - preventing OOM"),
 		}
 	}
-	b.Columns = make([]column.Interface, 0, numCols)
+	b.Columns = make([]column.Interface, numCols, numCols)
+	b.names = make([]string, numCols, numCols)
 	for i := 0; i < int(numCols); i++ {
 		var (
 			columnName string
@@ -165,7 +210,8 @@ func (b *Block) Decode(reader *proto.Reader, revision uint64) (err error) {
 				}
 			}
 		}
-		b.names, b.Columns = append(b.names, columnName), append(b.Columns, c)
+		b.names[i] = columnName
+		b.Columns[i] = c
 	}
 	return nil
 }

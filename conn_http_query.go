@@ -21,10 +21,11 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	chproto "github.com/ClickHouse/ch-go/proto"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 	"io"
 	"strings"
+
+	chproto "github.com/ClickHouse/ch-go/proto"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 
 // release is ignored, because http used by std with empty release function
@@ -43,6 +44,10 @@ func (h *httpConnect) query(ctx context.Context, release func(*connect, error), 
 		headers["Accept-Encoding"] = h.compression.String()
 	}
 
+	for k, v := range h.headers {
+		headers[k] = v
+	}
+
 	res, err := h.sendQuery(ctx, strings.NewReader(query), &options, headers)
 	if err != nil {
 		return nil, err
@@ -55,10 +60,14 @@ func (h *httpConnect) query(ctx context.Context, release func(*connect, error), 
 
 	rw := h.compressionPool.Get()
 	body, err = rw.read(res)
-
+	bufferSize := h.blockBufferSize
+	if options.blockBufferSize > 0 {
+		// allow block buffer sze to be overridden per query
+		bufferSize = options.blockBufferSize
+	}
 	var (
 		errCh  = make(chan error)
-		stream = make(chan *proto.Block, 2)
+		stream = make(chan *proto.Block, bufferSize)
 	)
 
 	if len(body) == 0 {

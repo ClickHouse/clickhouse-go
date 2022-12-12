@@ -51,6 +51,10 @@ Support for the ClickHouse protocol advanced features using `Context`:
 	* Profile info
 	* Profile events
 
+## Documentation
+
+[https://clickhouse.com/docs/en/integrations/go](https://clickhouse.com/docs/en/integrations/go)
+
 # `clickhouse` interface (formally `native` interface)
 
 ```go
@@ -81,6 +85,7 @@ Support for the ClickHouse protocol advanced features using `Context`:
 		MaxIdleConns:     5,
 		ConnMaxLifetime:  time.Duration(10) * time.Minute,
 		ConnOpenStrategy: clickhouse.ConnOpenInOrder,
+		BlockBufferSize: 10,
 	})
 	if err != nil {
 		return err
@@ -111,6 +116,7 @@ conn := clickhouse.OpenDB(&clickhouse.Options{
 		clickhouse.CompressionLZ4,
 	},
 	Debug: true,
+	BlockBufferSize: 10,
 })
 conn.SetMaxIdleConns(5)
 conn.SetMaxOpenConns(10)
@@ -133,6 +139,8 @@ conn.SetConnMaxLifetime(time.Hour)
   - `deflate` - `-2` (Best Speed) to `9` (Best Compression)
   - `br` - `0` (Best Speed) to `11` (Best Compression)
   - `zstd`, `lz4` - ignored
+* block_buffer_size - size of block buffer (default 2)
+* read_timeout - a duration string is a possibly signed sequence of decimal numbers, each with optional fraction and a unit suffix such as "300ms", "1s". Valid time units are "ms", "s", "m" (default 5m).
 
 SSL/TLS parameters:
 
@@ -152,14 +160,14 @@ The native format can be used over the HTTP protocol. This is useful in scenario
 This can be achieved by modifying the DSN to specify the http protocol.
 
 ```sh
-http://host1:9000,host2:9000/database?dial_timeout=200ms&max_execution_time=60
+http://host1:8123,host2:8123/database?dial_timeout=200ms&max_execution_time=60
 ```
 
 Alternatively, use `OpenDB` and specify the interface type.
 
 ```go
 conn := clickhouse.OpenDB(&clickhouse.Options{
-	Addr: []string{"127.0.0.1:8123")},
+	Addr: []string{"127.0.0.1:8123"},
 	Auth: clickhouse.Auth{
 		Database: "default",
 		Username: "default",
@@ -210,14 +218,14 @@ To connect using HTTPS either:
 - Use `https` in your dsn string e.g.
 
     ```sh
-    https://host1:9000,host2:9000/database?dial_timeout=200ms&max_execution_time=60
+    https://host1:8443,host2:8443/database?dial_timeout=200ms&max_execution_time=60
     ```
 
 - Specify the interface type as `HttpsInterface` e.g.
 
 ```go
 conn := clickhouse.OpenDB(&clickhouse.Options{
-	Addr: []string{"127.0.0.1:8443")},
+	Addr: []string{"127.0.0.1:8443"},
 	Auth: clickhouse.Auth{
 		Database: "default",
 		Username: "default",
@@ -255,7 +263,7 @@ go get -u github.com/ClickHouse/clickhouse-go/v2
 * [async insert](examples/clickhouse_api/async.go)
 * [batch struct](examples/clickhouse_api/append_struct.go)
 * [columnar](examples/clickhouse_api/columnar_insert.go)
-* [scan struct](eexamples/clickhouse_api/scan_struct.go)
+* [scan struct](examples/clickhouse_api/scan_struct.go)
 * [bind params](examples/clickhouse_api/bind.go)
 
 ### std `database/sql` interface

@@ -35,8 +35,8 @@ func TestTuple(t *testing.T) {
 	require.NoError(t, err)
 	localTime := testDate.In(loc)
 
-	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
-		t.Skip(err.Error())
+	if !CheckMinServerServerVersion(conn, 21, 9, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
 		return
 	}
 	const ddl = `
@@ -48,6 +48,7 @@ func TestTuple(t *testing.T) {
 			, Col5 Tuple(LowCardinality(String),           Array(LowCardinality(String)))
 			, Col6 Tuple(LowCardinality(Nullable(String)), Array(LowCardinality(Nullable(String))))
 			, Col7 Tuple(String, Int64)
+			, Col8 Tuple(Nullable(String),Nullable(String))
 		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
@@ -80,9 +81,11 @@ func TestTuple(t *testing.T) {
 			&str,
 			[]*string{&str, nil, &str},
 		}
+		col8Val  = "G"
 		col7Data = &[]interface{}{"C", int64(42)}
+		col8Data = []interface{}{&col8Val, (*string)(nil)}
 	)
-	require.NoError(t, batch.Append(col1Data, col2Data, col3Data, col4Data, col5Data, col6Data, col7Data))
+	require.NoError(t, batch.Append(col1Data, col2Data, col3Data, col4Data, col5Data, col6Data, col7Data, col8Data))
 	require.NoError(t, batch.Send())
 	var (
 		col1 []interface{}
@@ -93,8 +96,9 @@ func TestTuple(t *testing.T) {
 		col5 []interface{}
 		col6 []interface{}
 		col7 []interface{}
+		col8 []interface{}
 	)
-	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_tuple").Scan(&col1, &col2, &col3, &col4, &col5, &col6, &col7))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_tuple").Scan(&col1, &col2, &col3, &col4, &col5, &col6, &col7, &col8))
 	assert.NoError(t, err)
 	assert.Equal(t, col1Data, col1)
 	assert.Equal(t, col2Data, col2)
@@ -103,6 +107,7 @@ func TestTuple(t *testing.T) {
 	assert.Equal(t, col5Data, col5)
 	assert.Equal(t, col6Data, col6)
 	assert.Equal(t, col7Data, &col7)
+	assert.Equal(t, col8Data, col8)
 }
 
 func TestNamedTupleWithSlice(t *testing.T) {
@@ -110,8 +115,8 @@ func TestNamedTupleWithSlice(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, err)
 	// https://github.com/ClickHouse/ClickHouse/pull/36544
-	if err := CheckMinServerServerVersion(conn, 22, 5, 0); err != nil {
-		t.Skip(err.Error())
+	if !CheckMinServerServerVersion(conn, 22, 5, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
 		return
 	}
 	const ddl = "CREATE TABLE test_tuple (Col1 Tuple(name String, `1` Int64)) Engine MergeTree() ORDER BY tuple()"
@@ -142,8 +147,8 @@ func TestNamedTupleWithTypedSlice(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, err)
 	// https://github.com/ClickHouse/ClickHouse/pull/36544
-	if err := CheckMinServerServerVersion(conn, 22, 5, 0); err != nil {
-		t.Skip(err.Error())
+	if !CheckMinServerServerVersion(conn, 22, 5, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
 		return
 	}
 	const ddl = "CREATE TABLE test_tuple (Col1 Tuple(name String, city String), Col2 Int32) Engine MergeTree() ORDER BY tuple()"
@@ -176,8 +181,8 @@ func TestNamedTupleWithMap(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, err)
 	// https://github.com/ClickHouse/ClickHouse/pull/36544
-	if err := CheckMinServerServerVersion(conn, 22, 5, 0); err != nil {
-		t.Skip(err.Error())
+	if !CheckMinServerServerVersion(conn, 22, 5, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
 		return
 	}
 	const ddl = "CREATE TABLE test_tuple (Col1 Tuple(name String, id Int64)) Engine MergeTree() ORDER BY tuple()"
@@ -207,8 +212,8 @@ func TestNamedTupleWithTypedMap(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, err)
 	// https://github.com/ClickHouse/ClickHouse/pull/36544
-	if err := CheckMinServerServerVersion(conn, 22, 5, 0); err != nil {
-		t.Skip(err.Error())
+	if !CheckMinServerServerVersion(conn, 22, 5, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
 		return
 	}
 	const ddl = "CREATE TABLE test_tuple (Col1 Tuple(id Int64, code Int64)) Engine MergeTree() ORDER BY tuple()"
@@ -238,8 +243,8 @@ func TestNamedTupleWithEscapedColumns(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, err)
 	// https://github.com/ClickHouse/ClickHouse/pull/36544
-	if err := CheckMinServerServerVersion(conn, 22, 5, 0); err != nil {
-		t.Skip(err.Error())
+	if !CheckMinServerServerVersion(conn, 22, 5, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
 		return
 	}
 	const ddl = "CREATE TABLE test_tuple (Col1 Tuple(`56` String, `a22\\`` Int64)) Engine MergeTree() ORDER BY tuple()"
@@ -264,8 +269,8 @@ func TestNamedTupleIncomplete(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, err)
 	// https://github.com/ClickHouse/ClickHouse/pull/36544
-	if err := CheckMinServerServerVersion(conn, 22, 5, 0); err != nil {
-		t.Skip(err.Error())
+	if !CheckMinServerServerVersion(conn, 22, 5, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
 		return
 	}
 	const ddl = "CREATE TABLE test_tuple (Col1 Tuple(name String, id Int64)) Engine MergeTree() ORDER BY tuple()"
@@ -286,8 +291,8 @@ func TestUnNamedTupleWithMap(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, err)
 	// https://github.com/ClickHouse/ClickHouse/pull/36544
-	if err := CheckMinServerServerVersion(conn, 22, 5, 0); err != nil {
-		t.Skip(err.Error())
+	if !CheckMinServerServerVersion(conn, 22, 5, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
 		return
 	}
 	const ddl = "CREATE TABLE test_tuple (Col1 Tuple(String, Int64)) Engine MergeTree() ORDER BY tuple()"
@@ -320,8 +325,8 @@ func TestColumnarTuple(t *testing.T) {
 	conn, err := GetNativeConnection(nil, nil, nil)
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
-		t.Skip(err.Error())
+	if !CheckMinServerServerVersion(conn, 21, 9, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
 		return
 	}
 	const ddl = `
@@ -404,8 +409,8 @@ func TestTupleFlush(t *testing.T) {
 	conn, err := GetNativeConnection(nil, nil, nil)
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
-		t.Skip(err.Error())
+	if !CheckMinServerServerVersion(conn, 21, 9, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
 		return
 	}
 	const ddl = `

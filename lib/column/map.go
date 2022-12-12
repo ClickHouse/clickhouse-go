@@ -35,6 +35,12 @@ type Map struct {
 	name     string
 }
 
+type OrderedMap interface {
+	Get(key interface{}) (interface{}, bool)
+	Put(key interface{}, value interface{})
+	Keys() <-chan interface{}
+}
+
 func (col *Map) Reset() {
 	col.keys.Reset()
 	col.values.Reset()
@@ -83,18 +89,23 @@ func (col *Map) Row(i int, ptr bool) interface{} {
 
 func (col *Map) ScanRow(dest interface{}, i int) error {
 	value := reflect.Indirect(reflect.ValueOf(dest))
-	if value.Type() != col.scanType {
-		return &ColumnConverterError{
-			Op:   "ScanRow",
-			To:   fmt.Sprintf("%T", dest),
-			From: string(col.chType),
-			Hint: fmt.Sprintf("try using %s", col.scanType),
-		}
-	}
-	{
+	if value.Type() == col.scanType {
 		value.Set(col.row(i))
+		return nil
 	}
-	return nil
+	if om, ok := dest.(OrderedMap); ok {
+		keys, values := col.orderedRow(i)
+		for i := range keys {
+			om.Put(keys[i], values[i])
+		}
+		return nil
+	}
+	return &ColumnConverterError{
+		Op:   "ScanRow",
+		To:   fmt.Sprintf("%T", dest),
+		From: string(col.chType),
+		Hint: fmt.Sprintf("try using %s", col.scanType),
+	}
 }
 
 func (col *Map) Append(v interface{}) (nulls []uint8, err error) {
@@ -117,33 +128,58 @@ func (col *Map) Append(v interface{}) (nulls []uint8, err error) {
 
 func (col *Map) AppendRow(v interface{}) error {
 	value := reflect.Indirect(reflect.ValueOf(v))
-	if value.Type() != col.scanType {
-		return &ColumnConverterError{
-			Op:   "AppendRow",
-			To:   string(col.chType),
-			From: fmt.Sprintf("%T", v),
-			Hint: fmt.Sprintf("try using %s", col.scanType),
+	if value.Type() == col.scanType {
+		var (
+			size int64
+			iter = value.MapRange()
+		)
+		for iter.Next() {
+			size++
+			if err := col.keys.AppendRow(iter.Key().Interface()); err != nil {
+				return err
+			}
+			if err := col.values.AppendRow(iter.Value().Interface()); err != nil {
+				return err
+			}
 		}
-	}
-	var (
-		size int64
-		iter = value.MapRange()
-	)
-	for iter.Next() {
-		size++
-		if err := col.keys.AppendRow(iter.Key().Interface()); err != nil {
-			return err
+		var prev int64
+		if n := col.offsets.Rows(); n != 0 {
+			prev = col.offsets.col.Row(n - 1)
 		}
-		if err := col.values.AppendRow(iter.Value().Interface()); err != nil {
-			return err
+		col.offsets.col.Append(prev + size)
+		return nil
+	}
+
+	if orderedMap, ok := v.(OrderedMap); ok {
+		var size int64
+		for key := range orderedMap.Keys() {
+			value, ok := orderedMap.Get(key)
+			if !ok {
+				return fmt.Errorf("ordered map has key %v but no corresponding value", key)
+			}
+			size++
+			if err := col.keys.AppendRow(key); err != nil {
+				return err
+			}
+			if err := col.values.AppendRow(value); err != nil {
+				return err
+			}
 		}
+		var prev int64
+		if n := col.offsets.Rows(); n != 0 {
+			prev = col.offsets.col.Row(n - 1)
+		}
+		col.offsets.col.Append(prev + size)
+		return nil
 	}
-	var prev int64
-	if n := col.offsets.Rows(); n != 0 {
-		prev = col.offsets.col.Row(n - 1)
+
+	return &ColumnConverterError{
+		Op:   "AppendRow",
+		To:   string(col.chType),
+		From: fmt.Sprintf("%T", v),
+		Hint: fmt.Sprintf("try using %s", col.scanType),
 	}
-	col.offsets.col.Append(prev + size)
-	return nil
+
 }
 
 func (col *Map) Decode(reader *proto.Reader, rows int) error {
@@ -213,6 +249,24 @@ func (col *Map) row(n int) reflect.Value {
 		)
 	}
 	return value
+}
+
+func (col *Map) orderedRow(n int) ([]interface{}, []interface{}) {
+	var prev int64
+	if n != 0 {
+		prev = col.offsets.col.Row(n - 1)
+	}
+	var (
+		size = int(col.offsets.col.Row(n) - prev)
+		from = int(prev)
+	)
+	keys := make([]interface{}, size)
+	values := make([]interface{}, size)
+	for next := 0; next < size; next++ {
+		keys[next] = col.keys.Row(from+next, false)
+		values[next] = col.values.Row(from+next, false)
+	}
+	return keys, values
 }
 
 var (

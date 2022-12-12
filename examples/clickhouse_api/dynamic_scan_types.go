@@ -33,7 +33,7 @@ func DynamicScan() error {
 		   1     AS Col1
 		, 'Text' AS Col2
 	`
-	rows, err := conn.Query(context.TODO(), query)
+	rows, err := conn.Query(context.Background(), query)
 	if err != nil {
 		return err
 	}

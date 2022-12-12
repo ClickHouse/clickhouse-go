@@ -32,7 +32,7 @@ func (h *httpConnect) asyncInsert(ctx context.Context, query string, wait bool) 
 	if wait {
 		options.settings["wait_for_async_insert"] = 1
 	}
-	res, err := h.sendQuery(ctx, strings.NewReader(query), &options, nil)
+	res, err := h.sendQuery(ctx, strings.NewReader(query), &options, h.headers)
 	if res != nil {
 		defer res.Body.Close()
 		// we don't care about result, so just discard it to reuse connection

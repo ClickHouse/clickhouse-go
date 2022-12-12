@@ -208,8 +208,7 @@ func TestQueryDeadline(t *testing.T) {
 	assert.ErrorIs(t, err, os.ErrDeadlineExceeded)
 }
 
-// Issue https://github.com/ClickHouse/clickhouse-go/issues/761
-func TestQueryCancel(t *testing.T) {
+func TestBlockBufferSize(t *testing.T) {
 	env, err := GetNativeTestEnvironment()
 	require.NoError(t, err)
 	useSSL, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_SSL", "false"))
@@ -230,38 +229,17 @@ func TestQueryCancel(t *testing.T) {
 		Compression: &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
 		},
-		TLS: tlsConfig,
-
-		ConnMaxLifetime: time.Duration(1) * time.Second,
-		Debug:           true,
-		DialTimeout:     time.Duration(60) * time.Second,
+		TLS:             tlsConfig,
+		BlockBufferSize: 100,
 	})
-
 	require.NoError(t, err)
-	// Issue a query which will take 3 secs, cancel after 1 and reissue a query which take 3 secs - check response is q2, not q1
-	var wg sync.WaitGroup
-	for i := uint16(1); i <= uint16(10); i++ {
-		wg.Add(2)
-		go func(j uint16) {
-			var col1 uint16
-			err := conn.QueryRow(context.Background(), fmt.Sprintf("SELECT sleep(2) + %d as query_id", j)).Scan(&col1)
-			assert.NoError(t, err)
-			assert.Equal(t, j, col1)
-			wg.Done()
-		}(i)
-		go func(j uint16) {
-			var col2 uint16
-			err := conn.QueryRow(context.Background(), fmt.Sprintf("SELECT sleep(0.5) + %d as query_id", j+1)).Scan(&col2)
-			assert.NoError(t, err)
-			assert.Equal(t, j+1, col2)
-			wg.Done()
-		}(i)
-		wg.Wait()
+	var count uint64
+	rows, err := conn.Query(clickhouse.Context(context.Background(), clickhouse.WithBlockBufferSize(50)), "SELECT number FROM numbers(10000000)")
+	require.NoError(t, err)
+	i := 0
+	for rows.Next() {
+		require.NoError(t, rows.Scan(&count))
+		i++
 	}
-
-	// query 1
-
-	// query 2
-
-	// what if the cancel timeouts?
+	require.Equal(t, 10000000, i)
 }

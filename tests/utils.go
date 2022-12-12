@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/go-connections/nat"
 	"github.com/docker/go-units"
@@ -51,12 +52,6 @@ func GetClickHouseTestVersion() string {
 	return GetEnv("CLICKHOUSE_VERSION", defaultClickHouseVersion)
 }
 
-type Version struct {
-	Major uint64
-	Minor uint64
-	Patch uint64
-}
-
 type ClickHouseTestEnvironment struct {
 	Port      int
 	HttpPort  int
@@ -66,7 +61,7 @@ type ClickHouseTestEnvironment struct {
 	Username  string
 	Password  string
 	Database  string
-	Version   Version
+	Version   proto.Version
 	Container testcontainers.Container `json:"-"`
 }
 
@@ -81,6 +76,10 @@ func (env *ClickHouseTestEnvironment) setVersion() {
 		tlsConfig = &tls.Config{}
 		port = env.SslPort
 	}
+	timeout, err := strconv.Atoi(GetEnv("CLICKHOUSE_DIAL_TIMEOUT", "10"))
+	if err != nil {
+		panic(err)
+	}
 	conn, err := clickhouse.Open(&clickhouse.Options{
 		Addr:     []string{fmt.Sprintf("%s:%d", env.Host, port)},
 		Settings: nil,
@@ -90,7 +89,7 @@ func (env *ClickHouseTestEnvironment) setVersion() {
 			Password: env.Password,
 		},
 		TLS:         tlsConfig,
-		DialTimeout: time.Duration(10) * time.Second,
+		DialTimeout: time.Duration(timeout) * time.Second,
 	})
 	v, err := conn.ServerVersion()
 	if err != nil {
@@ -99,26 +98,17 @@ func (env *ClickHouseTestEnvironment) setVersion() {
 	env.Version = v.Version
 }
 
-
-func CheckMinServerServerVersion(conn driver.Conn, major, minor, patch uint64) error {
+func CheckMinServerServerVersion(conn driver.Conn, major, minor, patch uint64) bool {
 	v, err := conn.ServerVersion()
 	if err != nil {
 		panic(err)
 	}
-	return CheckMinVersion(Version{
+	return proto.CheckMinVersion(proto.Version{
 		Major: major,
 		Minor: minor,
 		Patch: patch,
 	}, v.Version)
 }
-
-func CheckMinVersion(constraint Version, version Version) error {
-	if version.Major < constraint.Major || (version.Major == constraint.Major && version.Minor < constraint.Minor) || (version.Major == constraint.Major && version.Minor == constraint.Minor && version.Patch < constraint.Patch) {
-		return fmt.Errorf("unsupported server version %d.%d.%d < %d.%d.%d", version.Major, version.Minor, version.Patch, constraint.Major, constraint.Minor, constraint.Patch)
-	}
-	return nil
-}
-
 
 func CreateClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment, error) {
 	// create a ClickHouse Container
@@ -153,9 +143,12 @@ func CreateClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment,
 		Image:        fmt.Sprintf("clickhouse/clickhouse-server:%s", GetClickHouseTestVersion()),
 		Name:         fmt.Sprintf("clickhouse-go-%s-%d", strings.ToLower(testSet), time.Now().UnixNano()),
 		ExposedPorts: []string{"9000/tcp", "8123/tcp", "9440/tcp", "8443/tcp"},
-		WaitingFor: wait.ForAll(wait.ForLog("Ready for connections"), wait.ForSQL("9000/tcp", "clickhouse", func(port nat.Port) string {
-			return fmt.Sprintf("clickhouse://default:ClickHouse@localhost:%s", port.Port())
-		})).WithStartupTimeout(time.Second * time.Duration(120)),
+		WaitingFor: wait.ForAll(
+			wait.ForLog("Ready for connections").WithStartupTimeout(time.Second*time.Duration(120)),
+			wait.ForSQL("9000/tcp", "clickhouse", func(port nat.Port) string {
+				return fmt.Sprintf("clickhouse://default:ClickHouse@127.0.0.1:%s", port.Port())
+			}),
+		).WithStartupTimeout(time.Second * time.Duration(120)),
 		Mounts: []testcontainers.ContainerMount{
 			testcontainers.BindMount(path.Join(basePath, "./resources/custom.xml"), "/etc/clickhouse-server/config.d/custom.xml"),
 			testcontainers.BindMount(path.Join(basePath, "./resources/admin.xml"), "/etc/clickhouse-server/users.d/admin.xml"),
@@ -183,7 +176,7 @@ func CreateClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment,
 		HttpPort:  hp.Int(),
 		SslPort:   sslPort.Int(),
 		HttpsPort: hps.Int(),
-		Host:      "localhost",
+		Host:      "127.0.0.1",
 		// we set this explicitly - note its also set in the /etc/clickhouse-server/users.d/admin.xml
 		Username:  "default",
 		Password:  "ClickHouse",
@@ -252,6 +245,61 @@ func GetExternalTestEnvironment(testSet string) (ClickHouseTestEnvironment, erro
 	return env, nil
 }
 
+func clientOptionsFromEnv(env ClickHouseTestEnvironment, settings clickhouse.Settings) clickhouse.Options {
+	timeout, err := strconv.Atoi(GetEnv("CLICKHOUSE_DIAL_TIMEOUT", "10"))
+	if err != nil {
+		timeout = 10
+	}
+
+	useSSL, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	if err != nil {
+		panic(err)
+	}
+	port := env.Port
+	var tlsConfig *tls.Config
+	if useSSL {
+		tlsConfig = &tls.Config{}
+		port = env.SslPort
+	}
+
+	return clickhouse.Options{
+		Addr:     []string{fmt.Sprintf("%s:%d", env.Host, port)},
+		Settings: settings,
+		Auth: clickhouse.Auth{
+			Database: env.Database,
+			Username: env.Username,
+			Password: env.Password,
+		},
+		DialTimeout: time.Duration(timeout) * time.Second,
+		TLS:         tlsConfig,
+		Compression: &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		},
+	}
+}
+
+func testClientWithDefaultOptions(env ClickHouseTestEnvironment, settings clickhouse.Settings) (driver.Conn, error) {
+	opts := clientOptionsFromEnv(env, settings)
+	return clickhouse.Open(&opts)
+}
+
+func testClientWithDefaultSettings(env ClickHouseTestEnvironment) (driver.Conn, error) {
+	settings := clickhouse.Settings{}
+
+	if proto.CheckMinVersion(proto.Version{
+		Major: 22,
+		Minor: 8,
+		Patch: 0,
+	}, env.Version) {
+		settings["database_replicated_enforce_synchronous_settings"] = "1"
+	}
+	settings["insert_quorum"], _ = strconv.Atoi(GetEnv("CLICKHOUSE_QUORUM_INSERT", "1"))
+	settings["insert_quorum_parallel"] = 0
+	settings["select_sequential_consistency"] = 1
+
+	return testClientWithDefaultOptions(env, settings)
+}
+
 func GetConnection(testSet string, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (driver.Conn, error) {
 	env, err := GetTestEnvironment(testSet)
 	if err != nil {
@@ -268,10 +316,12 @@ func GetConnectionWithOptions(options *clickhouse.Options) (driver.Conn, error) 
 	if err != nil {
 		return conn, err
 	}
-	if CheckMinServerServerVersion(conn, 22, 8, 0) == nil {
+	if CheckMinServerServerVersion(conn, 22, 8, 0) {
 		options.Settings["database_replicated_enforce_synchronous_settings"] = "1"
 	}
 	options.Settings["insert_quorum"], err = strconv.Atoi(GetEnv("CLICKHOUSE_QUORUM_INSERT", "1"))
+	options.Settings["insert_quorum_parallel"] = 0
+	options.Settings["select_sequential_consistency"] = 1
 	if err != nil {
 		return nil, err
 	}
@@ -291,14 +341,21 @@ func getConnection(env ClickHouseTestEnvironment, database string, settings clic
 	if settings == nil {
 		settings = clickhouse.Settings{}
 	}
-	if CheckMinVersion(Version{
+	if proto.CheckMinVersion(proto.Version{
 		Major: 22,
 		Minor: 8,
 		Patch: 0,
-	}, env.Version) == nil {
+	}, env.Version) {
 		settings["database_replicated_enforce_synchronous_settings"] = "1"
 	}
 	settings["insert_quorum"], err = strconv.Atoi(GetEnv("CLICKHOUSE_QUORUM_INSERT", "1"))
+	settings["insert_quorum_parallel"] = 0
+	settings["select_sequential_consistency"] = 1
+	if err != nil {
+		return nil, err
+	}
+
+	timeout, err := strconv.Atoi(GetEnv("CLICKHOUSE_DIAL_TIMEOUT", "10"))
 	if err != nil {
 		return nil, err
 	}
@@ -312,7 +369,7 @@ func getConnection(env ClickHouseTestEnvironment, database string, settings clic
 		},
 		TLS:         tlsConfig,
 		Compression: compression,
-		DialTimeout: time.Duration(10) * time.Second,
+		DialTimeout: time.Duration(timeout) * time.Second,
 	})
 	return conn, err
 }
@@ -329,10 +386,60 @@ func CreateDatabase(testSet string) error {
 	return conn.Exec(context.Background(), fmt.Sprintf("CREATE DATABASE `%s`", env.Database))
 }
 
+const (
+	readOnlyReadWriteChangeSettings = 0
+	readOnlyRead                    = 1
+	readOnlyReadChangeSettings      = 2
+)
+
+func createUserWithReadOnlySetting(conn driver.Conn, defaultDatabase string, readOnlyType int) (username, password string, err error) {
+	username = fmt.Sprintf("readonly_user_%s", RandAsciiString(6))
+	password = RandAsciiString(6)
+
+	createUserQuery := fmt.Sprintf(`
+          CREATE USER IF NOT EXISTS %s 
+          IDENTIFIED BY '%s'
+          DEFAULT DATABASE "%s"
+          SETTINGS readonly = %d
+        `, username, password, defaultDatabase, readOnlyType)
+	if err := conn.Exec(context.Background(), createUserQuery); err != nil {
+		return "", "", err
+	}
+
+	grantQuery := fmt.Sprintf(`
+          GRANT SELECT, INSERT, CREATE TABLE, DROP TABLE 
+          ON "%s".*
+          TO %s
+        `, defaultDatabase, username)
+
+	return username, password, conn.Exec(context.Background(), grantQuery)
+}
+
+func dropUser(conn driver.Conn, username string) error {
+	query := fmt.Sprintf(`
+          DROP USER IF EXISTS %s
+        `, username)
+
+	return conn.Exec(context.Background(), query)
+}
+
+func createSimpleTable(client driver.Conn, table string) error {
+	return client.Exec(context.Background(), fmt.Sprintf(`
+		CREATE TABLE %s (
+			  Col1 UInt8
+		) Engine MergeTree() ORDER BY tuple()
+	`, table))
+}
+
+func dropTable(client driver.Conn, table string) error {
+	return client.Exec(context.Background(), fmt.Sprintf(`
+		DROP TABLE %s
+	`, table))
+}
+
 func getDatabaseName(testSet string) string {
 	return fmt.Sprintf("clickhouse-go-%s-%s-%d", testSet, testUUID, testTimestamp)
 }
-
 
 func GetEnv(key, fallback string) string {
 	if value, ok := os.LookupEnv(key); ok {
@@ -345,7 +452,6 @@ func IsSetInEnv(key string) bool {
 	_, ok := os.LookupEnv(key)
 	return ok
 }
-
 
 var src = rand.NewSource(time.Now().UnixNano())
 

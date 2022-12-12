@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func Test592(t *testing.T) {
+func TestIssue592(t *testing.T) {
 	conn, err := clickhouse.Open(&clickhouse.Options{})
 	assert.NoError(t, err)
 

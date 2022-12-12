@@ -58,6 +58,7 @@ func PingWithSettings() error {
 		MaxIdleConns:     5,
 		ConnMaxLifetime:  time.Duration(10) * time.Minute,
 		ConnOpenStrategy: clickhouse.ConnOpenInOrder,
+		BlockBufferSize:  10,
 	})
 	if err != nil {
 		return err

@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"strconv"
 	"strings"
@@ -33,12 +34,12 @@ func GetStdTestEnvironment() (clickhouse_tests.ClickHouseTestEnvironment, error)
 	return clickhouse_tests.GetTestEnvironment("std")
 }
 
-func CheckMinServerVersion(conn *sql.DB, major, minor, patch uint64) error {
+func CheckMinServerVersion(conn *sql.DB, major, minor, patch uint64) bool {
 	var res string
 	if err := conn.QueryRow("SELECT version()").Scan(&res); err != nil {
 		panic(err)
 	}
-	var version clickhouse_tests.Version
+	var version proto.Version
 	for i, v := range strings.Split(res, ".") {
 		switch i {
 		case 0:
@@ -49,7 +50,7 @@ func CheckMinServerVersion(conn *sql.DB, major, minor, patch uint64) error {
 			version.Patch, _ = strconv.ParseUint(v, 10, 64)
 		}
 	}
-	return clickhouse_tests.CheckMinVersion(clickhouse_tests.Version{
+	return proto.CheckMinVersion(proto.Version{
 		Major: major,
 		Minor: minor,
 		Patch: patch,
@@ -59,11 +60,11 @@ func CheckMinServerVersion(conn *sql.DB, major, minor, patch uint64) error {
 func GetDSNConnection(environment string, protocol clickhouse.Protocol, secure bool, compress string) (*sql.DB, error) {
 	env, err := clickhouse_tests.GetTestEnvironment(environment)
 	enforceReplication := ""
-	if clickhouse_tests.CheckMinVersion(clickhouse_tests.Version{
+	if proto.CheckMinVersion(proto.Version{
 		Major: 22,
 		Minor: 8,
 		Patch: 0,
-	}, env.Version) == nil {
+	}, env.Version) {
 		enforceReplication = "database_replicated_enforce_synchronous_settings=1"
 	}
 	if err != nil {
@@ -74,16 +75,16 @@ func GetDSNConnection(environment string, protocol clickhouse.Protocol, secure b
 	case clickhouse.HTTP:
 		switch secure {
 		case true:
-			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("https://%s:%s@%s:%d/%s?%s&secure=true&compress=%s&wait_end_of_query=1&insert_quorum=%s", env.Username, env.Password, env.Host, env.HttpsPort, env.Database, enforceReplication, compress, insertQuorum)))
+			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("https://%s:%s@%s:%d/%s?%s&secure=true&compress=%s&wait_end_of_query=1&insert_quorum=%s&insert_quorum_parallel=0&select_sequential_consistency=1", env.Username, env.Password, env.Host, env.HttpsPort, env.Database, enforceReplication, compress, insertQuorum)))
 		case false:
-			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("http://%s:%s@%s:%d/%s?%s&compress=%s&wait_end_of_query=1&insert_quorum=%s", env.Username, env.Password, env.Host, env.HttpPort, env.Database, enforceReplication, compress, insertQuorum)))
+			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("http://%s:%s@%s:%d/%s?%s&compress=%s&wait_end_of_query=1&insert_quorum=%s&insert_quorum_parallel=0&select_sequential_consistency=1", env.Username, env.Password, env.Host, env.HttpPort, env.Database, enforceReplication, compress, insertQuorum)))
 		}
 	case clickhouse.Native:
 		switch secure {
 		case true:
-			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("clickhouse://%s:%s@%s:%d/%s?%s&secure=true&compress=%s&insert_quorum=%s", env.Username, env.Password, env.Host, env.SslPort, env.Database, enforceReplication, compress, insertQuorum)))
+			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("clickhouse://%s:%s@%s:%d/%s?%s&secure=true&compress=%s&insert_quorum=%s&insert_quorum_parallel=0&select_sequential_consistency=1", env.Username, env.Password, env.Host, env.SslPort, env.Database, enforceReplication, compress, insertQuorum)))
 		case false:
-			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("clickhouse://%s:%s@%s:%d/%s?%s&compress=%s&insert_quorum=%s", env.Username, env.Password, env.Host, env.Port, env.Database, enforceReplication, compress, insertQuorum)))
+			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("clickhouse://%s:%s@%s:%d/%s?%s&compress=%s&insert_quorum=%s&insert_quorum_parallel=0&select_sequential_consistency=1", env.Username, env.Password, env.Host, env.Port, env.Database, enforceReplication, compress, insertQuorum)))
 		}
 	}
 	return nil, fmt.Errorf("unsupport protocol - %s", protocol.String())
@@ -94,11 +95,11 @@ func GetConnectionFromDSN(dsn string) (*sql.DB, error) {
 	if err != nil {
 		return conn, err
 	}
-	if CheckMinServerVersion(conn, 22, 8, 0) == nil {
+	if CheckMinServerVersion(conn, 22, 8, 0) {
 		dsn = fmt.Sprintf("%s&database_replicated_enforce_synchronous_settings=1", dsn)
 	}
 	insertQuorum := clickhouse_tests.GetEnv("CLICKHOUSE_QUORUM_INSERT", "1")
-	dsn = fmt.Sprintf("%s&insert_quorum=%s", dsn, insertQuorum)
+	dsn = fmt.Sprintf("%s&insert_quorum=%s&insert_quorum_parallel=0&select_sequential_consistency=1", dsn, insertQuorum)
 	if strings.HasPrefix(dsn, "http") {
 		dsn = fmt.Sprintf("%s&wait_end_of_query=1", dsn)
 	}
@@ -110,11 +111,13 @@ func GetConnectionWithOptions(options *clickhouse.Options) *sql.DB {
 		options.Settings = clickhouse.Settings{}
 	}
 	conn := clickhouse.OpenDB(options)
-	if CheckMinServerVersion(conn, 22, 8, 0) == nil {
+	if CheckMinServerVersion(conn, 22, 8, 0) {
 		options.Settings["database_replicated_enforce_synchronous_settings"] = "1"
 	}
 	var err error
 	options.Settings["insert_quorum"], err = strconv.Atoi(clickhouse_tests.GetEnv("CLICKHOUSE_QUORUM_INSERT", "1"))
+	options.Settings["insert_quorum_parallel"] = 0
+	options.Settings["select_sequential_consistency"] = 1
 	if err != nil {
 		return nil
 	}
@@ -146,11 +149,13 @@ func GetOpenDBConnection(environment string, protocol clickhouse.Protocol, setti
 		settings["wait_end_of_query"] = 1
 	}
 	settings["insert_quorum"], err = strconv.Atoi(clickhouse_tests.GetEnv("CLICKHOUSE_QUORUM_INSERT", "1"))
-	if clickhouse_tests.CheckMinVersion(clickhouse_tests.Version{
+	settings["insert_quorum_parallel"] = 0
+	settings["select_sequential_consistency"] = 1
+	if proto.CheckMinVersion(proto.Version{
 		Major: 22,
 		Minor: 8,
 		Patch: 0,
-	}, env.Version) == nil {
+	}, env.Version) {
 		settings["database_replicated_enforce_synchronous_settings"] = "1"
 	}
 	if err != nil {

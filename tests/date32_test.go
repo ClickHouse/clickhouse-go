@@ -19,6 +19,7 @@ package tests
 
 import (
 	"context"
+	"fmt"
 	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
@@ -34,8 +35,8 @@ func TestDate32(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
-		t.Skip(err.Error())
+	if !CheckMinServerServerVersion(conn, 21, 9, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
 		return
 	}
 	const ddl = `
@@ -135,8 +136,8 @@ func TestNullableDate32(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
-		t.Skip(err.Error())
+	if !CheckMinServerServerVersion(conn, 21, 9, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
 		return
 	}
 	const ddl = `
@@ -192,8 +193,8 @@ func TestColumnarDate32(t *testing.T) {
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
-	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
-		t.Skip(err.Error())
+	if !CheckMinServerServerVersion(conn, 21, 9, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
 		return
 	}
 	const ddl = `
@@ -263,8 +264,8 @@ func TestDate32Flush(t *testing.T) {
 		Method: clickhouse.CompressionLZ4,
 	})
 	ctx := context.Background()
-	if err := CheckMinServerServerVersion(conn, 21, 9, 0); err != nil {
-		t.Skip(err.Error())
+	if !CheckMinServerServerVersion(conn, 21, 9, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
 		return
 	}
 	require.NoError(t, err)
@@ -297,4 +298,66 @@ func TestDate32Flush(t *testing.T) {
 		assert.Equal(t, vals[i].Format("2016-02-01"), col1.Format("2016-02-01"))
 		i += 1
 	}
+}
+
+func TestDate32TZ(t *testing.T) {
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+	const ddl = `
+		CREATE TABLE date32_tz (
+		    Col15 Date32,
+		    Col16 Date32
+		) Engine MergeTree() ORDER BY tuple()
+		`
+	conn.Exec(ctx, "DROP TABLE date32_tz")
+	require.NoError(t, conn.Exec(ctx, ddl))
+	require.NoError(t, err)
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO date32_tz")
+	require.NoError(t, err)
+	require.NoError(t, batch.Append(
+		"2022-07-20",
+		"2022-07-20 +08:00",
+	))
+	require.NoError(t, err)
+	require.NoError(t, batch.Send())
+	var (
+		col15, col16 time.Time
+	)
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM date32_tz").Scan(
+		&col15,
+		&col16,
+	))
+	// date32 tests
+	col15Expected, err := time.ParseInLocation("2006-01-02", "2022-07-20", time.UTC)
+	require.NoError(t, err)
+	assert.Equal(t, col15Expected.UTC(), col15)
+	col16Expected, err := time.ParseInLocation("2006-01-02", "2022-07-20", time.UTC)
+	require.NoError(t, err)
+	assert.Equal(t, col16Expected.UTC(), col16)
+}
+
+func TestCustomDateTime32(t *testing.T) {
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+	const ddl = `
+		CREATE TABLE date32_custom (
+			Col1 DateTime
+	) Engine MergeTree() ORDER BY tuple()
+	`
+	conn.Exec(ctx, "DROP TABLE date32_custom")
+	require.NoError(t, conn.Exec(ctx, ddl))
+	require.NoError(t, err)
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO date32_custom")
+	require.NoError(t, err)
+	now := time.Now().UTC().Truncate(time.Hour)
+	require.NoError(t, batch.Append(now))
+	require.NoError(t, batch.Send())
+	row := conn.QueryRow(ctx, "SELECT * FROM date32_custom")
+	var col1 CustomDateTime
+	require.NoError(t, row.Scan(&col1))
+	require.Equal(t, now, time.Time(col1))
 }
