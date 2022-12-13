@@ -19,11 +19,26 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"log"
+	"runtime"
 	"testing"
 	"time"
 )
+
+func bToMb(b uint64) uint64 {
+	return b / 1024 / 1024
+}
+
+func PrintMemUsage() {
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	fmt.Printf("Alloc = %v MiB", bToMb(m.Alloc))
+	fmt.Printf("\tTotalAlloc = %v MiB", bToMb(m.TotalAlloc))
+	fmt.Printf("\tSys = %v MiB", bToMb(m.Sys))
+	fmt.Printf("\tNumGC = %v\n", m.NumGC)
+}
 
 func getConnection(maxCompressionBuffer int) clickhouse.Conn {
 	conn, err := clickhouse.Open(&clickhouse.Options{
@@ -83,6 +98,15 @@ func BenchmarkWrite10MB(b *testing.B) {
 }
 
 func benchmarkCompressionBufferLimitedWrite(b *testing.B, maxCompressionBuffer int) {
+	fmt.Sprintf("max compression buffer= %dB", maxCompressionBuffer)
+
+	go func() {
+		for {
+			PrintMemUsage()
+			time.Sleep(time.Second)
+		}
+	}()
+
 	conn := getConnection(maxCompressionBuffer)
 
 	if err := conn.Exec(context.Background(), "DROP TABLE IF EXISTS benchmark"); err != nil {
