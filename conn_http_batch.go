@@ -45,7 +45,7 @@ func (h *httpConnect) prepareBatch(ctx context.Context, query string, release fu
 		colMatch := strings.TrimSuffix(strings.TrimPrefix(matches[2], "("), ")")
 		rColumns = strings.Split(colMatch, ",")
 		for i := range rColumns {
-			rColumns[i] = strings.TrimSpace(rColumns[i])
+			rColumns[i] = strings.TrimSuffix(strings.TrimPrefix(strings.TrimSpace(rColumns[i]), "`"), "`")
 		}
 	}
 	query = "INSERT INTO " + tableName + " FORMAT Native"
