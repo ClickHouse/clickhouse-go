@@ -208,6 +208,7 @@ func (c *connect) sendData(block *proto.Block, name string) error {
 			if err := c.compressBuffer(compressionOffset); err != nil {
 				return err
 			}
+			c.debugf("[buff compress] buffer size: %d", len(c.buffer.Buf))
 			if err := c.flush(); err != nil {
 				return err
 			}
