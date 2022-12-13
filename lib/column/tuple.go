@@ -196,8 +196,10 @@ func setJSONFieldValue(field reflect.Value, value reflect.Value) error {
 
 	// check if our target is a string
 	if field.Kind() == reflect.String {
-		field.Set(reflect.ValueOf(fmt.Sprint(value.Interface())))
-		return nil
+		if v := reflect.ValueOf(fmt.Sprint(value.Interface())); v.Type().AssignableTo(field.Type()) {
+			field.Set(v)
+			return nil
+		}
 	}
 	if value.CanConvert(field.Type()) {
 		field.Set(value.Convert(field.Type()))
