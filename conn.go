@@ -205,9 +205,6 @@ func (c *connect) sendData(block *proto.Block, name string) error {
 			return err
 		}
 		if len(c.buffer.Buf) >= c.maxCompressionBuffer {
-			bufOverflow := c.buffer.Buf[c.maxCompressionBuffer:]
-			c.buffer.Buf = c.buffer.Buf[:c.maxCompressionBuffer]
-
 			if err := c.compressBuffer(compressionOffset); err != nil {
 				return err
 			}
@@ -215,7 +212,6 @@ func (c *connect) sendData(block *proto.Block, name string) error {
 				return err
 			}
 			compressionOffset = 0
-			c.buffer.Buf = bufOverflow
 		}
 	}
 	if err := c.compressBuffer(compressionOffset); err != nil {
