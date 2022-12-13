@@ -18,6 +18,7 @@
 package column
 
 import (
+	"database/sql"
 	"encoding"
 	"fmt"
 	"github.com/ClickHouse/ch-go/proto"
@@ -76,6 +77,9 @@ func (col *FixedString) ScanRow(dest interface{}, row int) error {
 	case encoding.BinaryUnmarshaler:
 		return d.UnmarshalBinary(col.rowBytes(row))
 	default:
+		if scan, ok := dest.(sql.Scanner); ok {
+			return scan.Scan(col.row(row))
+		}
 		return &ColumnConverterError{
 			Op:   "ScanRow",
 			To:   fmt.Sprintf("%T", dest),
@@ -149,10 +153,14 @@ func (col *FixedString) AppendRow(v interface{}) (err error) {
 			return err
 		}
 	default:
-		return &ColumnConverterError{
-			Op:   "AppendRow",
-			To:   "FixedString",
-			From: fmt.Sprintf("%T", v),
+		if s, ok := v.(fmt.Stringer); ok {
+			return col.AppendRow(s.String())
+		} else {
+			return &ColumnConverterError{
+				Op:   "AppendRow",
+				To:   "FixedString",
+				From: fmt.Sprintf("%T", v),
+			}
 		}
 	}
 	col.col.Append(data)

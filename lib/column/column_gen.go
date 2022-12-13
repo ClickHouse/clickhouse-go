@@ -285,6 +285,9 @@ func (col *Float32) ScanRow(dest interface{}, row int) error {
 		*d = new(float32)
 		**d = value
 	default:
+		if scan, ok := dest.(sql.Scanner); ok {
+			return scan.Scan(value)
+		}
 		return &ColumnConverterError{
 			Op:   "ScanRow",
 			To:   fmt.Sprintf("%T", dest),
@@ -391,8 +394,11 @@ func (col *Float64) ScanRow(dest interface{}, row int) error {
 		*d = new(float64)
 		**d = value
 	case *sql.NullFloat64:
-		d.Scan(value)
+		return d.Scan(value)
 	default:
+		if scan, ok := dest.(sql.Scanner); ok {
+			return scan.Scan(value)
+		}
 		return &ColumnConverterError{
 			Op:   "ScanRow",
 			To:   fmt.Sprintf("%T", dest),
@@ -533,6 +539,9 @@ func (col *Int8) ScanRow(dest interface{}, row int) error {
 			*d = true
 		}
 	default:
+		if scan, ok := dest.(sql.Scanner); ok {
+			return scan.Scan(value)
+		}
 		return &ColumnConverterError{
 			Op:   "ScanRow",
 			To:   fmt.Sprintf("%T", dest),
@@ -669,8 +678,11 @@ func (col *Int16) ScanRow(dest interface{}, row int) error {
 		*d = new(int16)
 		**d = value
 	case *sql.NullInt16:
-		d.Scan(value)
+		return d.Scan(value)
 	default:
+		if scan, ok := dest.(sql.Scanner); ok {
+			return scan.Scan(value)
+		}
 		return &ColumnConverterError{
 			Op:   "ScanRow",
 			To:   fmt.Sprintf("%T", dest),
@@ -804,8 +816,11 @@ func (col *Int32) ScanRow(dest interface{}, row int) error {
 		*d = new(int32)
 		**d = value
 	case *sql.NullInt32:
-		d.Scan(value)
+		return d.Scan(value)
 	default:
+		if scan, ok := dest.(sql.Scanner); ok {
+			return scan.Scan(value)
+		}
 		return &ColumnConverterError{
 			Op:   "ScanRow",
 			To:   fmt.Sprintf("%T", dest),
@@ -941,8 +956,11 @@ func (col *Int64) ScanRow(dest interface{}, row int) error {
 	case *time.Duration:
 		*d = time.Duration(value)
 	case *sql.NullInt64:
-		d.Scan(value)
+		return d.Scan(value)
 	default:
+		if scan, ok := dest.(sql.Scanner); ok {
+			return scan.Scan(value)
+		}
 		return &ColumnConverterError{
 			Op:   "ScanRow",
 			To:   fmt.Sprintf("%T", dest),
@@ -1080,6 +1098,9 @@ func (col *UInt8) ScanRow(dest interface{}, row int) error {
 		*d = new(uint8)
 		**d = value
 	default:
+		if scan, ok := dest.(sql.Scanner); ok {
+			return scan.Scan(value)
+		}
 		return &ColumnConverterError{
 			Op:   "ScanRow",
 			To:   fmt.Sprintf("%T", dest),
@@ -1192,6 +1213,9 @@ func (col *UInt16) ScanRow(dest interface{}, row int) error {
 		*d = new(uint16)
 		**d = value
 	default:
+		if scan, ok := dest.(sql.Scanner); ok {
+			return scan.Scan(value)
+		}
 		return &ColumnConverterError{
 			Op:   "ScanRow",
 			To:   fmt.Sprintf("%T", dest),
@@ -1298,6 +1322,9 @@ func (col *UInt32) ScanRow(dest interface{}, row int) error {
 		*d = new(uint32)
 		**d = value
 	default:
+		if scan, ok := dest.(sql.Scanner); ok {
+			return scan.Scan(value)
+		}
 		return &ColumnConverterError{
 			Op:   "ScanRow",
 			To:   fmt.Sprintf("%T", dest),
@@ -1404,6 +1431,9 @@ func (col *UInt64) ScanRow(dest interface{}, row int) error {
 		*d = new(uint64)
 		**d = value
 	default:
+		if scan, ok := dest.(sql.Scanner); ok {
+			return scan.Scan(value)
+		}
 		return &ColumnConverterError{
 			Op:   "ScanRow",
 			To:   fmt.Sprintf("%T", dest),

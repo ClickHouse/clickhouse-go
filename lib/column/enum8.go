@@ -18,6 +18,7 @@
 package column
 
 import (
+	"database/sql"
 	"fmt"
 	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
@@ -68,6 +69,9 @@ func (col *Enum8) ScanRow(dest interface{}, row int) error {
 		*d = new(string)
 		**d = col.vi[v]
 	default:
+		if scan, ok := dest.(sql.Scanner); ok {
+			return scan.Scan(col.vi[v])
+		}
 		return &ColumnConverterError{
 			Op:   "ScanRow",
 			To:   fmt.Sprintf("%T", dest),
@@ -216,10 +220,14 @@ func (col *Enum8) AppendRow(elem interface{}) error {
 	case nil:
 		col.col.Append(0)
 	default:
-		return &ColumnConverterError{
-			Op:   "AppendRow",
-			To:   "Enum8",
-			From: fmt.Sprintf("%T", elem),
+		if s, ok := elem.(fmt.Stringer); ok {
+			return col.AppendRow(s.String())
+		} else {
+			return &ColumnConverterError{
+				Op:   "AppendRow",
+				To:   "Enum8",
+				From: fmt.Sprintf("%T", elem),
+			}
 		}
 	}
 	return nil
