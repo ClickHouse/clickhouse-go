@@ -127,6 +127,10 @@ func TestContext(t *testing.T) {
 	require.NoError(t, UseContext())
 }
 
+func TestCustomTypes(t *testing.T) {
+	require.NoError(t, CustomTypes())
+}
+
 func TestDynamicScan(t *testing.T) {
 	require.NoError(t, DynamicScan())
 }
