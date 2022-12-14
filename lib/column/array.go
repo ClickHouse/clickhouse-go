@@ -240,10 +240,6 @@ func (col *Array) scan(sliceType reflect.Type, row int) (reflect.Value, error) {
 		}
 		return subSlice, nil
 	}
-	return reflect.Value{}, &Error{
-		ColumnType: fmt.Sprint(sliceType.Kind()),
-		Err:        fmt.Errorf("column %s - needs a slice or interface{}", col.Name()),
-	}
 }
 
 func (col *Array) scanSlice(sliceType reflect.Type, row int, level int) (reflect.Value, error) {
@@ -352,7 +348,6 @@ func (col *Array) scanSliceOfObjects(sliceType reflect.Type, row int) (reflect.V
 				Err:        fmt.Errorf("column %s - needs a slice of objects or an interface{}", col.Name()),
 			}
 		}
-		return reflect.Value{}, nil
 	}
 	return reflect.Value{}, &Error{
 		ColumnType: fmt.Sprint(sliceType.Kind()),
