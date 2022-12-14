@@ -27,6 +27,16 @@ import (
 	"testing"
 )
 
+type customUint8 uint8
+
+func (f *customUint8) Scan(src any) error {
+	if t, ok := src.(uint8); ok {
+		*f = customUint8(t)
+		return nil
+	}
+	return fmt.Errorf("cannot scan %T into customUint8", src)
+}
+
 func TestUInt8(t *testing.T) {
 	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
@@ -40,6 +50,7 @@ func TestUInt8(t *testing.T) {
 				, Col2 Nullable(UInt8)
 				, Col3 Array(UInt8)
 				, Col4 Array(Nullable(UInt8))
+				, Col5 UInt8
 			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
@@ -51,14 +62,15 @@ func TestUInt8(t *testing.T) {
 		Col2  *uint8
 		Col3  []uint8
 		Col4  []*uint8
+		Col5  customUint8
 	}
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_uint8")
 	require.NoError(t, err)
 	data := uint8(42)
 	require.NoError(t, err)
-	require.NoError(t, batch.Append(uint8(1), data, &data, []uint8{data}, []*uint8{&data, nil, &data}))
-	require.NoError(t, batch.Append(uint8(2), data, nil, []uint8{data}, []*uint8{nil, nil, &data}))
+	require.NoError(t, batch.Append(uint8(1), data, &data, []uint8{data}, []*uint8{&data, nil, &data}, customUint8(data)))
+	require.NoError(t, batch.Append(uint8(2), data, nil, []uint8{data}, []*uint8{nil, nil, &data}, customUint8(data)))
 	require.NoError(t, batch.Send())
 	var (
 		result1 result
@@ -69,11 +81,13 @@ func TestUInt8(t *testing.T) {
 	assert.Equal(t, data, *result1.Col2)
 	assert.Equal(t, []uint8{data}, result1.Col3)
 	assert.Equal(t, []*uint8{&data, nil, &data}, result1.Col4)
+	require.Equal(t, customUint8(data), result1.Col5)
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_uint8 WHERE ID = $1", 2).ScanStruct(&result2))
 	require.Equal(t, data, result2.Col1)
 	require.Nil(t, result2.Col2)
 	assert.Equal(t, []uint8{data}, result2.Col3)
 	assert.Equal(t, []*uint8{nil, nil, &data}, result2.Col4)
+	require.Equal(t, customUint8(data), result2.Col5)
 }
 
 func TestColumnarUInt8(t *testing.T) {

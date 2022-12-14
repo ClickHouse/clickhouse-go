@@ -381,10 +381,14 @@ func (col *{{ .ChType }}) AppendRow(v interface{}) error {
         col.col.Append(val)
 	{{- end }}
 	default:
-		return &ColumnConverterError{
-			Op:   "AppendRow",
-			To:   "{{ .ChType }}",
-			From: fmt.Sprintf("%T", v),
+		if rv := reflect.ValueOf(v); rv.Kind() == col.ScanType().Kind() && rv.CanConvert(col.ScanType()) {
+			col.col.Append(rv.Convert(col.ScanType()).Interface().({{ .GoType }}))
+		} else {
+			return &ColumnConverterError{
+				Op:   "AppendRow",
+				To:   "{{ .ChType }}",
+				From: fmt.Sprintf("%T", v),
+			}
 		}
 	}
 	return nil

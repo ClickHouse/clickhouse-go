@@ -348,10 +348,14 @@ func (col *Float32) AppendRow(v interface{}) error {
 	case nil:
 		col.col.Append(0)
 	default:
-		return &ColumnConverterError{
-			Op:   "AppendRow",
-			To:   "Float32",
-			From: fmt.Sprintf("%T", v),
+		if rv := reflect.ValueOf(v); rv.Kind() == col.ScanType().Kind() && rv.CanConvert(col.ScanType()) {
+			col.col.Append(rv.Convert(col.ScanType()).Interface().(float32))
+		} else {
+			return &ColumnConverterError{
+				Op:   "AppendRow",
+				To:   "Float32",
+				From: fmt.Sprintf("%T", v),
+			}
 		}
 	}
 	return nil
@@ -486,10 +490,14 @@ func (col *Float64) AppendRow(v interface{}) error {
 			col.col.Append(0)
 		}
 	default:
-		return &ColumnConverterError{
-			Op:   "AppendRow",
-			To:   "Float64",
-			From: fmt.Sprintf("%T", v),
+		if rv := reflect.ValueOf(v); rv.Kind() == col.ScanType().Kind() && rv.CanConvert(col.ScanType()) {
+			col.col.Append(rv.Convert(col.ScanType()).Interface().(float64))
+		} else {
+			return &ColumnConverterError{
+				Op:   "AppendRow",
+				To:   "Float64",
+				From: fmt.Sprintf("%T", v),
+			}
 		}
 	}
 	return nil
@@ -632,10 +640,14 @@ func (col *Int8) AppendRow(v interface{}) error {
 		}
 		col.col.Append(val)
 	default:
-		return &ColumnConverterError{
-			Op:   "AppendRow",
-			To:   "Int8",
-			From: fmt.Sprintf("%T", v),
+		if rv := reflect.ValueOf(v); rv.Kind() == col.ScanType().Kind() && rv.CanConvert(col.ScanType()) {
+			col.col.Append(rv.Convert(col.ScanType()).Interface().(int8))
+		} else {
+			return &ColumnConverterError{
+				Op:   "AppendRow",
+				To:   "Int8",
+				From: fmt.Sprintf("%T", v),
+			}
 		}
 	}
 	return nil
@@ -770,10 +782,14 @@ func (col *Int16) AppendRow(v interface{}) error {
 			col.col.Append(0)
 		}
 	default:
-		return &ColumnConverterError{
-			Op:   "AppendRow",
-			To:   "Int16",
-			From: fmt.Sprintf("%T", v),
+		if rv := reflect.ValueOf(v); rv.Kind() == col.ScanType().Kind() && rv.CanConvert(col.ScanType()) {
+			col.col.Append(rv.Convert(col.ScanType()).Interface().(int16))
+		} else {
+			return &ColumnConverterError{
+				Op:   "AppendRow",
+				To:   "Int16",
+				From: fmt.Sprintf("%T", v),
+			}
 		}
 	}
 	return nil
@@ -908,10 +924,14 @@ func (col *Int32) AppendRow(v interface{}) error {
 			col.col.Append(0)
 		}
 	default:
-		return &ColumnConverterError{
-			Op:   "AppendRow",
-			To:   "Int32",
-			From: fmt.Sprintf("%T", v),
+		if rv := reflect.ValueOf(v); rv.Kind() == col.ScanType().Kind() && rv.CanConvert(col.ScanType()) {
+			col.col.Append(rv.Convert(col.ScanType()).Interface().(int32))
+		} else {
+			return &ColumnConverterError{
+				Op:   "AppendRow",
+				To:   "Int32",
+				From: fmt.Sprintf("%T", v),
+			}
 		}
 	}
 	return nil
@@ -1052,10 +1072,14 @@ func (col *Int64) AppendRow(v interface{}) error {
 	case *time.Duration:
 		col.col.Append(int64(*v))
 	default:
-		return &ColumnConverterError{
-			Op:   "AppendRow",
-			To:   "Int64",
-			From: fmt.Sprintf("%T", v),
+		if rv := reflect.ValueOf(v); rv.Kind() == col.ScanType().Kind() && rv.CanConvert(col.ScanType()) {
+			col.col.Append(rv.Convert(col.ScanType()).Interface().(int64))
+		} else {
+			return &ColumnConverterError{
+				Op:   "AppendRow",
+				To:   "Int64",
+				From: fmt.Sprintf("%T", v),
+			}
 		}
 	}
 	return nil
@@ -1167,10 +1191,14 @@ func (col *UInt8) AppendRow(v interface{}) error {
 		}
 		col.col.Append(t)
 	default:
-		return &ColumnConverterError{
-			Op:   "AppendRow",
-			To:   "UInt8",
-			From: fmt.Sprintf("%T", v),
+		if rv := reflect.ValueOf(v); rv.Kind() == col.ScanType().Kind() && rv.CanConvert(col.ScanType()) {
+			col.col.Append(rv.Convert(col.ScanType()).Interface().(uint8))
+		} else {
+			return &ColumnConverterError{
+				Op:   "AppendRow",
+				To:   "UInt8",
+				From: fmt.Sprintf("%T", v),
+			}
 		}
 	}
 	return nil
@@ -1276,10 +1304,14 @@ func (col *UInt16) AppendRow(v interface{}) error {
 	case nil:
 		col.col.Append(0)
 	default:
-		return &ColumnConverterError{
-			Op:   "AppendRow",
-			To:   "UInt16",
-			From: fmt.Sprintf("%T", v),
+		if rv := reflect.ValueOf(v); rv.Kind() == col.ScanType().Kind() && rv.CanConvert(col.ScanType()) {
+			col.col.Append(rv.Convert(col.ScanType()).Interface().(uint16))
+		} else {
+			return &ColumnConverterError{
+				Op:   "AppendRow",
+				To:   "UInt16",
+				From: fmt.Sprintf("%T", v),
+			}
 		}
 	}
 	return nil
@@ -1385,10 +1417,14 @@ func (col *UInt32) AppendRow(v interface{}) error {
 	case nil:
 		col.col.Append(0)
 	default:
-		return &ColumnConverterError{
-			Op:   "AppendRow",
-			To:   "UInt32",
-			From: fmt.Sprintf("%T", v),
+		if rv := reflect.ValueOf(v); rv.Kind() == col.ScanType().Kind() && rv.CanConvert(col.ScanType()) {
+			col.col.Append(rv.Convert(col.ScanType()).Interface().(uint32))
+		} else {
+			return &ColumnConverterError{
+				Op:   "AppendRow",
+				To:   "UInt32",
+				From: fmt.Sprintf("%T", v),
+			}
 		}
 	}
 	return nil
@@ -1494,10 +1530,14 @@ func (col *UInt64) AppendRow(v interface{}) error {
 	case nil:
 		col.col.Append(0)
 	default:
-		return &ColumnConverterError{
-			Op:   "AppendRow",
-			To:   "UInt64",
-			From: fmt.Sprintf("%T", v),
+		if rv := reflect.ValueOf(v); rv.Kind() == col.ScanType().Kind() && rv.CanConvert(col.ScanType()) {
+			col.col.Append(rv.Convert(col.ScanType()).Interface().(uint64))
+		} else {
+			return &ColumnConverterError{
+				Op:   "AppendRow",
+				To:   "UInt64",
+				From: fmt.Sprintf("%T", v),
+			}
 		}
 	}
 	return nil

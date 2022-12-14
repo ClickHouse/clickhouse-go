@@ -76,7 +76,8 @@ func TestCustomArray(t *testing.T) {
 	require.NoError(t, err)
 	const ddl = `
 		CREATE TABLE test_array (
-			  Col1 Array(Enum ('hello'   = 1,  'world' = 2))
+			  Col1 Array(Enum ('hello'   = 1,  'world' = 2)),
+			  Col2 Array(String)
 		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
@@ -87,9 +88,10 @@ func TestCustomArray(t *testing.T) {
 	require.NoError(t, err)
 	var (
 		col1Data = customArr{"hello", "hello", "world"}
+		col2Data = customArr{"a", "b", "c"}
 	)
 	for i := 0; i < 10; i++ {
-		require.NoError(t, batch.Append(col1Data))
+		require.NoError(t, batch.Append(col1Data, col2Data))
 		require.NoError(t, batch.Flush())
 	}
 	require.NoError(t, batch.Send())
@@ -98,9 +100,11 @@ func TestCustomArray(t *testing.T) {
 	for rows.Next() {
 		var (
 			col1 customArr
+			col2 customArr
 		)
-		require.NoError(t, rows.Scan(&col1))
+		require.NoError(t, rows.Scan(&col1, &col2))
 		assert.Equal(t, col1Data, col1)
+		assert.Equal(t, col2Data, col2)
 	}
 	require.NoError(t, rows.Close())
 	require.NoError(t, rows.Err())
