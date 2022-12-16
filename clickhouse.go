@@ -43,7 +43,7 @@ type (
 var (
 	ErrBatchInvalid              = errors.New("clickhouse: batch is invalid. check appended data is correct")
 	ErrBatchAlreadySent          = errors.New("clickhouse: batch has already been sent")
-	ErrAcquireConnTimeout        = errors.New("clickhouse: acquire conn timeout. you can increase the number of max open conn or the dial timeout")
+	ErrAcquireConnTimeout        = errors.New("clickhouse: acquire conn timeout. you can increase the number of max open conn or the Dial timeout")
 	ErrUnsupportedServerRevision = errors.New("clickhouse: unsupported server revision")
 	ErrBindMixedParamsFormats    = errors.New("clickhouse [bind]: mixed named, numeric or positional parameters")
 	ErrAcquireConnNoAddress      = errors.New("clickhouse: no valid address supplied")
@@ -195,15 +195,24 @@ func (ch *clickhouse) Stats() driver.Stats {
 
 func (ch *clickhouse) dial(ctx context.Context) (conn *connect, err error) {
 	connID := int(atomic.AddInt64(&ch.connID, 1))
-	for i := range ch.opt.Addr {
+
+	if ch.opt.DialStrategy != nil {
+		return ch.opt.DialStrategy(ctx, ch.opt, connID)
+	}
+
+	return ch.defaultDialStrategy(ctx, ch.opt, connID)
+}
+
+func (ch *clickhouse) defaultDialStrategy(ctx context.Context, opt *Options, connID int) (conn *connect, err error) {
+	for i := range opt.Addr {
 		var num int
-		switch ch.opt.ConnOpenStrategy {
+		switch opt.ConnOpenStrategy {
 		case ConnOpenInOrder:
 			num = i
 		case ConnOpenRoundRobin:
-			num = (int(connID) + i) % len(ch.opt.Addr)
+			num = (int(connID) + i) % len(opt.Addr)
 		}
-		if conn, err = dial(ctx, ch.opt.Addr[num], connID, ch.opt); err == nil {
+		if conn, err = Dial(ctx, opt.Addr[num], connID, ch.opt); err == nil {
 			return conn, nil
 		}
 	}

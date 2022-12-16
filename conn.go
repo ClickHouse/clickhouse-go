@@ -33,7 +33,7 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 
-func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, error) {
+func Dial(ctx context.Context, addr string, num int, opt *Options) (*connect, error) {
 	var (
 		err    error
 		conn   net.Conn
@@ -72,7 +72,7 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 
 	var (
 		connect = &connect{
-			id:          num,
+			id:                   num,
 			opt:                  opt,
 			conn:                 conn,
 			debugf:               debugf,
@@ -103,7 +103,7 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 
 // https://github.com/ClickHouse/ClickHouse/blob/master/src/Client/Connection.cpp
 type connect struct {
-	id          int
+	id                   int
 	opt                  *Options
 	conn                 net.Conn
 	debugf               func(format string, v ...interface{})

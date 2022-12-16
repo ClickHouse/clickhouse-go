@@ -307,7 +307,7 @@ func TestParseDSN(t *testing.T) {
 			"compress_level invalid value: strconv.ParseInt: parsing \"first\": invalid syntax",
 		},
 		{
-			"native protocol dial timeout",
+			"native protocol Dial timeout",
 			"clickhouse://127.0.0.1/test_database?max_compression_buffer=1024",
 			&Options{
 				Protocol:             Native,

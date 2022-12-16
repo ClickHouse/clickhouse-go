@@ -121,6 +121,7 @@ type Options struct {
 	Addr                 []string
 	Auth                 Auth
 	DialContext          func(ctx context.Context, addr string) (net.Conn, error)
+	DialStrategy         func(ctx context.Context, options *Options, ID int) (*connect, error)
 	Debug                bool
 	Debugf               func(format string, v ...interface{}) // only works when Debug is true
 	Settings             Settings
@@ -210,7 +211,7 @@ func (o *Options) fromDSN(in string) error {
 		case "dial_timeout":
 			duration, err := time.ParseDuration(params.Get(v))
 			if err != nil {
-				return fmt.Errorf("clickhouse [dsn parse]: dial timeout: %s", err)
+				return fmt.Errorf("clickhouse [dsn parse]: Dial timeout: %s", err)
 			}
 			o.DialTimeout = duration
 		case "block_buffer_size":
