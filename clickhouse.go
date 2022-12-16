@@ -43,7 +43,7 @@ type (
 var (
 	ErrBatchInvalid              = errors.New("clickhouse: batch is invalid. check appended data is correct")
 	ErrBatchAlreadySent          = errors.New("clickhouse: batch has already been sent")
-	ErrAcquireConnTimeout        = errors.New("clickhouse: acquire conn timeout. you can increase the number of max open conn or the Dial timeout")
+	ErrAcquireConnTimeout        = errors.New("clickhouse: acquire conn timeout. you can increase the number of max open conn or the dial timeout")
 	ErrUnsupportedServerRevision = errors.New("clickhouse: unsupported server revision")
 	ErrBindMixedParamsFormats    = errors.New("clickhouse [bind]: mixed named, numeric or positional parameters")
 	ErrAcquireConnNoAddress      = errors.New("clickhouse: no valid address supplied")
