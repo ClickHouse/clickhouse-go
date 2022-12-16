@@ -168,35 +168,39 @@ func (o *Options) fromDSN(in string) error {
 			o.Debug, _ = strconv.ParseBool(params.Get(v))
 		case "compress":
 			if on, _ := strconv.ParseBool(params.Get(v)); on {
-				o.Compression = &Compression{
-					Method: CompressionLZ4,
+				if o.Compression == nil {
+					o.Compression = &Compression{}
 				}
+
+				o.Compression.Method = CompressionLZ4
+				continue
 			}
 			if compressMethod, ok := compressionMap[params.Get(v)]; ok {
 				if o.Compression == nil {
 					o.Compression = &Compression{
-						Method: compressMethod,
 						// default for now same as Clickhouse - https://clickhouse.com/docs/en/operations/settings/settings#settings-http_zlib_compression_level
 						Level: 3,
 					}
-				} else {
-					o.Compression.Method = compressMethod
 				}
+
+				o.Compression.Method = compressMethod
 			}
 		case "compress_level":
-			if level, err := strconv.ParseInt(params.Get(v), 10, 8); err == nil {
-				if o.Compression == nil {
-					o.Compression = &Compression{
-						// a level alone doesn't enable compression
-						Method: CompressionNone,
-						Level:  int(level),
-					}
-				} else {
-					o.Compression.Level = int(level)
-				}
-			} else {
-				return err
+			level, err := strconv.ParseInt(params.Get(v), 10, 8)
+			if err != nil {
+				return errors.Wrap(err, "compress_level invalid value")
 			}
+
+			if o.Compression == nil {
+				o.Compression = &Compression{
+					// a level alone doesn't enable compression
+					Method: CompressionNone,
+					Level:  int(level),
+				}
+				continue
+			}
+
+			o.Compression.Level = int(level)
 		case "max_compression_buffer":
 			max, err := strconv.Atoi(params.Get(v))
 			if err != nil {

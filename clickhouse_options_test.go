@@ -284,6 +284,12 @@ func TestParseDSN(t *testing.T) {
 			"max_compression_buffer invalid value: strconv.Atoi: parsing \"onebyte\": invalid syntax",
 		},
 		{
+			"native protocol with invalid numeric compress level",
+			"clickhouse://127.0.0.1/test_database?compress_level=first",
+			nil,
+			"compress_level invalid value: strconv.ParseInt: parsing \"first\": invalid syntax",
+		},
+		{
 			"native protocol dial timeout",
 			"clickhouse://127.0.0.1/test_database?max_compression_buffer=1024",
 			&Options{
@@ -307,7 +313,7 @@ func TestParseDSN(t *testing.T) {
 
 			if testCase.expectedErr != "" {
 				assert.Nil(t, opts)
-				assert.Error(t, err, testCase.expectedErr)
+				assert.EqualError(t, err, testCase.expectedErr)
 				return
 			}
 
