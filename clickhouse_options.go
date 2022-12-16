@@ -22,6 +22,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"github.com/ClickHouse/ch-go/compress"
+	"github.com/pkg/errors"
 	"net"
 	"net/url"
 	"strconv"
@@ -131,7 +132,7 @@ type Options struct {
 	ConnOpenStrategy     ConnOpenStrategy
 	HttpHeaders          map[string]string // set additional headers on HTTP requests
 	BlockBufferSize      uint8             // default 2 - can be overwritten on query
-	MaxCompressionBuffer int   // default 1048576 - measured in bytes  i.e. 1mb
+	MaxCompressionBuffer int               // default 10485760 - measured in bytes  i.e. 10MiB
 
 	scheme      string
 	ReadTimeout time.Duration
@@ -142,6 +143,11 @@ func (o *Options) fromDSN(in string) error {
 	if err != nil {
 		return err
 	}
+
+	if dsn.Host == "" {
+		return errors.New("parse dsn address failed")
+	}
+
 	if o.Settings == nil {
 		o.Settings = make(Settings)
 	}
@@ -191,6 +197,12 @@ func (o *Options) fromDSN(in string) error {
 			} else {
 				return err
 			}
+		case "max_compression_buffer":
+			max, err := strconv.Atoi(params.Get(v))
+			if err != nil {
+				return errors.Wrap(err, "max_compression_buffer invalid value")
+			}
+			o.MaxCompressionBuffer = max
 		case "dial_timeout":
 			duration, err := time.ParseDuration(params.Get(v))
 			if err != nil {
@@ -293,7 +305,7 @@ func (o Options) setDefaults() *Options {
 		o.BlockBufferSize = 2
 	}
 	if o.MaxCompressionBuffer <= 0 {
-		o.MaxCompressionBuffer = 1048576
+		o.MaxCompressionBuffer = 10485760
 	}
 	if o.Addr == nil || len(o.Addr) == 0 {
 		switch o.Protocol {
