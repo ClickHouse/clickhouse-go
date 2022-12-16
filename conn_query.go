@@ -19,6 +19,8 @@ package clickhouse
 
 import (
 	"context"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"regexp"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
@@ -26,9 +28,10 @@ import (
 
 func (c *connect) query(ctx context.Context, release func(*connect, error), query string, args ...interface{}) (*rows, error) {
 	var (
-		options   = queryOptions(ctx)
-		onProcess = options.onProcess()
-		body, err = bind(c.server.Timezone, query, args...)
+		options                    = queryOptions(ctx)
+		onProcess                  = options.onProcess()
+		queryParamsProtocolSupport = c.revision >= proto.DBMS_MIN_PROTOCOL_VERSION_WITH_PARAMETERS
+		body, err                  = bindQueryOrAppendParameters(queryParamsProtocolSupport, &options, query, c.server.Timezone, args...)
 	)
 
 	if err != nil {
@@ -98,4 +101,21 @@ func (c *connect) queryRow(ctx context.Context, release func(*connect, error), q
 	return &row{
 		rows: rows,
 	}
+}
+
+var hasQueryParamsRe = regexp.MustCompile("{.+:.+}")
+
+func bindQueryOrAppendParameters(paramsProtocolSupport bool, options *QueryOptions, query string, timezone *time.Location, args ...interface{}) (string, error) {
+	if paramsProtocolSupport && hasQueryParamsRe.MatchString(query) {
+		options.parameters = make(Parameters, len(args))
+		for _, a := range args {
+			if p, ok := a.(driver.NamedValue); ok {
+				options.parameters[p.Name] = p.Value
+			}
+		}
+
+		return query, nil
+	}
+
+	return bind(timezone, query, args...)
 }

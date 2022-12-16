@@ -36,6 +36,7 @@ type Query struct {
 	Body           string
 	QuotaKey       string
 	Settings       Settings
+	Parameters     Settings
 	Compression    bool
 	InitialUser    string
 	InitialAddress string
@@ -61,6 +62,13 @@ func (q *Query) Encode(buffer *chproto.Buffer, revision uint64) error {
 		buffer.PutBool(q.Compression)
 	}
 	buffer.PutString(q.Body)
+
+	if revision >= DBMS_MIN_PROTOCOL_VERSION_WITH_PARAMETERS {
+		if err := q.Parameters.Encode(buffer, revision); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 

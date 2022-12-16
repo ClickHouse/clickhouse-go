@@ -19,6 +19,7 @@ package clickhouse
 
 import (
 	"context"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2/ext"
@@ -32,6 +33,7 @@ var _contextOptionKey = &QueryOptions{
 }
 
 type Settings map[string]interface{}
+type Parameters map[string]interface{}
 type (
 	QueryOption  func(*QueryOptions) error
 	QueryOptions struct {
@@ -49,6 +51,7 @@ type (
 			profileEvents func([]ProfileEvent)
 		}
 		settings        Settings
+		parameters      Parameters
 		external        []*ext.Table
 		blockBufferSize uint8
 	}
@@ -85,6 +88,16 @@ func WithQuotaKey(quotaKey string) QueryOption {
 func WithSettings(settings Settings) QueryOption {
 	return func(o *QueryOptions) error {
 		o.settings = settings
+		return nil
+	}
+}
+
+func WithParameters(params ...driver.NamedValue) QueryOption {
+	return func(o *QueryOptions) error {
+		o.parameters = make(Parameters, len(params))
+		for _, p := range params {
+			o.parameters[p.Name] = p.Value
+		}
 		return nil
 	}
 }

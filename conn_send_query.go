@@ -34,6 +34,7 @@ func (c *connect) sendQuery(body string, o *QueryOptions) error {
 		Compression:    c.compression != CompressionNone,
 		InitialAddress: c.conn.LocalAddr().String(),
 		Settings:       c.settings(o.settings),
+		Parameters:     parametersToProtoSettings(o.parameters),
 	}
 	if err := q.Encode(c.buffer, c.revision); err != nil {
 		return err
@@ -47,4 +48,15 @@ func (c *connect) sendQuery(body string, o *QueryOptions) error {
 		return err
 	}
 	return c.flush()
+}
+
+func parametersToProtoSettings(parameters Parameters) (s proto.Settings) {
+	for k, v := range parameters {
+		s = append(s, proto.Setting{
+			Key:   k,
+			Value: v,
+		})
+	}
+
+	return s
 }
