@@ -117,7 +117,7 @@ func difference(a, b []string) []string {
 	return diff
 }
 
-func (b *Block) Encode(buffer *proto.Buffer, revision uint64) error {
+func (b *Block) EncodeHeader(buffer *proto.Buffer, revision uint64) (err error) {
 	if revision > 0 {
 		encodeBlockInfo(buffer)
 	}
@@ -136,7 +136,12 @@ func (b *Block) Encode(buffer *proto.Buffer, revision uint64) error {
 	}
 	buffer.PutUVarInt(uint64(len(b.Columns)))
 	buffer.PutUVarInt(uint64(rows))
-	for _, c := range b.Columns {
+	return nil
+}
+
+func (b *Block) EncodeColumn(buffer *proto.Buffer, i int) (err error) {
+	if i >= 0 && i < len(b.Columns) {
+		c := b.Columns[i]
 		buffer.PutString(c.Name())
 		buffer.PutString(string(c.Type()))
 		if serialize, ok := c.(column.CustomSerialization); ok {
@@ -149,6 +154,22 @@ func (b *Block) Encode(buffer *proto.Buffer, revision uint64) error {
 			}
 		}
 		c.Encode(buffer)
+		return nil
+	}
+	return &BlockError{
+		Op:  "Encode",
+		Err: fmt.Errorf("%d is out of range of %d columns", i, len(b.Columns)),
+	}
+}
+
+func (b *Block) Encode(buffer *proto.Buffer, revision uint64) (err error) {
+	if err := b.EncodeHeader(buffer, revision); err != nil {
+		return err
+	}
+	for i := range b.Columns {
+		if err := b.EncodeColumn(buffer, i); err != nil {
+			return err
+		}
 	}
 	return nil
 }

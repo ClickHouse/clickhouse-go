@@ -86,6 +86,7 @@ Support for the ClickHouse protocol advanced features using `Context`:
 		ConnMaxLifetime:  time.Duration(10) * time.Minute,
 		ConnOpenStrategy: clickhouse.ConnOpenInOrder,
 		BlockBufferSize: 10,
+		MaxCompressionBuffer: 10240,
 	})
 	if err != nil {
 		return err
@@ -117,6 +118,7 @@ conn := clickhouse.OpenDB(&clickhouse.Options{
 	},
 	Debug: true,
 	BlockBufferSize: 10,
+	MaxCompressionBuffer: 10240,
 })
 conn.SetMaxIdleConns(5)
 conn.SetMaxOpenConns(10)
@@ -141,6 +143,7 @@ conn.SetConnMaxLifetime(time.Hour)
   - `zstd`, `lz4` - ignored
 * block_buffer_size - size of block buffer (default 2)
 * read_timeout - a duration string is a possibly signed sequence of decimal numbers, each with optional fraction and a unit suffix such as "300ms", "1s". Valid time units are "ms", "s", "m" (default 5m).
+* max_compression_buffer - max size (bytes) of compression buffer during column by column compression (default 10MiB)
 
 SSL/TLS parameters:
 
@@ -186,7 +189,7 @@ conn := clickhouse.OpenDB(&clickhouse.Options{
 
 ## Compression
 
-ZSTD/LZ4 compression is supported over native and http protocols. This is performed at a block level and is only used for inserts.
+ZSTD/LZ4 compression is supported over native and http protocols. This is performed column by column at a block level and is only used for inserts. Compression buffer size is set as `MaxCompressionBuffer` option.
 
 If using `Open` via the std interface and specifying a DSN, compression can be enabled via the `compress` flag. Currently, this is a boolean flag which enables `LZ4` compression.
 
