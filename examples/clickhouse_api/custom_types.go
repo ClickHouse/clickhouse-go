@@ -51,7 +51,7 @@ func CustomTypes() error {
 	err = conn.Exec(ctx, `
 		CREATE TABLE IF NOT EXISTS example (
 			  Col1 String,
-			  Col2 Enum ('hello'   = 1,  'world' = 2),
+			  Col2 Enum ('hello'   = 1,  'world' = 2)
 		) Engine = Memory
 	`)
 	if err != nil {
