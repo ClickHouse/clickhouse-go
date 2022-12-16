@@ -66,6 +66,61 @@ func TestSimpleString(t *testing.T) {
 	require.NoError(t, batch.Send())
 }
 
+type customStr string
+
+func (s *customStr) Scan(src any) error {
+	if t, ok := src.(string); ok {
+		*s = customStr(t)
+		return nil
+	}
+	return fmt.Errorf("cannot scan %T into customStr", src)
+}
+
+func (s customStr) String() string {
+	return string(s)
+}
+
+func TestCustomString(t *testing.T) {
+	conn, err := GetConnection("native", nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+
+	require.NoError(t, err)
+	require.NoError(t, conn.Ping(ctx))
+	if !CheckMinServerServerVersion(conn, 21, 9, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
+		return
+	}
+	const ddl = `
+		CREATE TABLE test_string (
+			  	  Col1 String
+		        , Col2 String
+		) Engine MergeTree() ORDER BY tuple()
+		`
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE test_string")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_string")
+	require.NoError(t, err)
+
+	type data struct {
+		Col1 string    `ch:"Col1"`
+		Col2 customStr `ch:"Col2"`
+	}
+	require.NoError(t, batch.AppendStruct(&data{
+		Col1: "A",
+		Col2: "B",
+	}))
+	require.NoError(t, batch.Send())
+
+	var dest data
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_string").ScanStruct(&dest))
+	assert.Equal(t, "A", dest.Col1)
+	assert.Equal(t, customStr("B"), dest.Col2)
+}
+
 func TestString(t *testing.T) {
 	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,

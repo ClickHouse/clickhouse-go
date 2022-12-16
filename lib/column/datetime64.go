@@ -114,7 +114,7 @@ func (col *DateTime64) ScanRow(dest interface{}, row int) error {
 		*d = new(time.Time)
 		**d = col.row(row)
 	case *sql.NullTime:
-		d.Scan(col.row(row))
+		return d.Scan(col.row(row))
 	default:
 		if scan, ok := dest.(sql.Scanner); ok {
 			return scan.Scan(col.row(row))

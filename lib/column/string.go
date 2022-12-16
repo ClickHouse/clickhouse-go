@@ -69,10 +69,13 @@ func (col *String) ScanRow(dest interface{}, row int) error {
 		*d = new(string)
 		**d = val
 	case *sql.NullString:
-		d.Scan(val)
+		return d.Scan(val)
 	case encoding.BinaryUnmarshaler:
 		return d.UnmarshalBinary(binary.Str2Bytes(val))
 	default:
+		if scan, ok := dest.(sql.Scanner); ok {
+			return scan.Scan(val)
+		}
 		return &ColumnConverterError{
 			Op:   "ScanRow",
 			To:   fmt.Sprintf("%T", dest),

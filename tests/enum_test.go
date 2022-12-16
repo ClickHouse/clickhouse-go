@@ -57,6 +57,47 @@ func TestSimpleEnum(t *testing.T) {
 	assert.Equal(t, col1Data, col1)
 }
 
+func TestCustomEnum(t *testing.T) {
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+	require.NoError(t, err)
+	const ddl = `
+			CREATE TABLE test_enum (
+				  Col1 Enum ('hello'   = 1,  'world' = 2),
+				  Col2 Enum8 ('hello'   = 1,  'world' = 2),
+				  Col3 Enum16 ('hello'   = 1,  'world' = 2)
+			) Engine MergeTree() ORDER BY tuple()
+		`
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_enum")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_enum")
+	require.NoError(t, err)
+	var (
+		col1Data = customStr("hello")
+		col2Data = customStr("world")
+		col3Data = customStr("hello")
+	)
+	require.NoError(t, batch.Append(
+		col1Data,
+		col2Data,
+		col3Data,
+	))
+	require.NoError(t, batch.Send())
+	var (
+		col1 customStr
+		col2 customStr
+		col3 customStr
+	)
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_enum").Scan(&col1, &col2, &col3))
+	assert.Equal(t, col1Data, col1)
+	assert.Equal(t, col2Data, col2)
+	assert.Equal(t, col3Data, col3)
+}
+
 func TestEnum(t *testing.T) {
 	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,

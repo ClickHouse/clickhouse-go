@@ -60,6 +60,59 @@ func TestSimpleFloat(t *testing.T) {
 	}, col3)
 }
 
+type customFloat32 float32
+
+func (f *customFloat32) Scan(src any) error {
+	if t, ok := src.(float32); ok {
+		*f = customFloat32(t)
+		return nil
+	}
+	return fmt.Errorf("cannot scan %T into customFloat32", src)
+}
+
+type customFloat64 float64
+
+func (f *customFloat64) Scan(src any) error {
+	if t, ok := src.(float64); ok {
+		*f = customFloat64(t)
+		return nil
+	}
+	return fmt.Errorf("cannot scan %T into customFloat64", src)
+}
+
+func TestCustomFloat(t *testing.T) {
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+	require.NoError(t, err)
+	if !CheckMinServerServerVersion(conn, 21, 9, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
+		return
+	}
+	const ddl = `
+		CREATE TABLE test_float (
+			  Col1 Float32,
+			  Col2 Float64
+		) Engine MergeTree() ORDER BY tuple()
+		`
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_float")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_float")
+	require.NoError(t, err)
+	require.NoError(t, batch.Append(customFloat32(33.1221), customFloat64(22.1)))
+	assert.NoError(t, batch.Send())
+	var (
+		col1 customFloat32
+		col2 customFloat64
+	)
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_float").Scan(&col1, &col2))
+	require.Equal(t, customFloat32(33.1221), col1)
+	require.Equal(t, customFloat64(22.1), col2)
+}
+
 func BenchmarkFloat(b *testing.B) {
 	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,

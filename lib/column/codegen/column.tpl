@@ -227,7 +227,7 @@ func (col *{{ .ChType }}) ScanRow(dest interface{}, row int) error {
 	{{- end }}
 	{{- if or (eq .ChType "Int64") (eq .ChType "Int32") (eq .ChType "Int16") (eq .ChType "Float64") }}
 	case *sql.Null{{ .ChType }}:
-		d.Scan(value)
+		return d.Scan(value)
 	{{- end }}
     {{- if eq .ChType "Int8" }}
 	case *bool:
@@ -239,6 +239,9 @@ func (col *{{ .ChType }}) ScanRow(dest interface{}, row int) error {
 		}
     {{- end }}
 	default:
+		if scan, ok := dest.(sql.Scanner); ok {
+			return scan.Scan(value)
+		}
 		return &ColumnConverterError{
 			Op:   "ScanRow",
 			To:   fmt.Sprintf("%T", dest),
@@ -378,10 +381,14 @@ func (col *{{ .ChType }}) AppendRow(v interface{}) error {
         col.col.Append(val)
 	{{- end }}
 	default:
-		return &ColumnConverterError{
-			Op:   "AppendRow",
-			To:   "{{ .ChType }}",
-			From: fmt.Sprintf("%T", v),
+		if rv := reflect.ValueOf(v); rv.Kind() == col.ScanType().Kind() && rv.CanConvert(col.ScanType()) {
+			col.col.Append(rv.Convert(col.ScanType()).Interface().({{ .GoType }}))
+		} else {
+			return &ColumnConverterError{
+				Op:   "AppendRow",
+				To:   "{{ .ChType }}",
+				From: fmt.Sprintf("%T", v),
+			}
 		}
 	}
 	return nil

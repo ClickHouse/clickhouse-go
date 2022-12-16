@@ -65,7 +65,7 @@ func (col *Bool) ScanRow(dest interface{}, row int) error {
 		*d = new(bool)
 		**d = col.row(row)
 	case *sql.NullBool:
-		d.Scan(col.row(row))
+		return d.Scan(col.row(row))
 	default:
 		return &ColumnConverterError{
 			Op:   "ScanRow",
