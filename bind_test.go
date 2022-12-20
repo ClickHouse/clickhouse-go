@@ -26,41 +26,58 @@ import (
 )
 
 func TestBindNumeric(t *testing.T) {
-	_, err := bind(time.Local, `
-	SELECT * FROM t WHERE col = $1
-		AND col2 = $2
-		AND col3 = $1
-		ANS col4 = $3
-		AND null_coll = $4
-	)
-	`, 1, 2, "I'm a string param", nil)
-	if assert.NoError(t, err) {
-		assets := []struct {
-			query    string
-			params   []interface{}
-			expected string
-		}{
-			{
-				query:    "SELECT $1",
-				params:   []interface{}{1},
-				expected: "SELECT 1",
-			},
-			{
-				query:    "SELECT $2 $1 $3",
-				params:   []interface{}{1, 2, 3},
-				expected: "SELECT 2 1 3",
-			},
-			{
-				query:    "SELECT $2 $1 $3",
-				params:   []interface{}{"a", "b", "c"},
-				expected: "SELECT 'b' 'a' 'c'",
-			},
-		}
+	assets := []struct {
+		query    string
+		params   []interface{}
+		expected string
+	}{
+		{
+			query:    "SELECT $1",
+			params:   []interface{}{1},
+			expected: "SELECT 1",
+		},
+		{
+			query:    "SELECT $2 $1 $3",
+			params:   []interface{}{1, 2, 3},
+			expected: "SELECT 2 1 3",
+		},
+		{
+			query:    "SELECT $2 $1 $3",
+			params:   []interface{}{"a", "b", "c"},
+			expected: "SELECT 'b' 'a' 'c'",
+		},
+		{
+			query:    "SELECT $1",
+			params:   []interface{}{time.Unix(1671565275, 0).UTC()},
+			expected: "SELECT toDateTime('2022-12-20 19:41:15', 'UTC')",
+		},
+		{
+			query:    "SELECT $1",
+			params:   []interface{}{Date("Time", time.Unix(1671565275, 10).UTC(), NanoSeconds)},
+			expected: "SELECT toDateTime64('2022-12-20 19:41:15.000000010', 9, 'UTC')",
+		},
+		{
+			query: `
+SELECT * FROM t WHERE col = $1
+	AND col2 = $2
+	AND col3 = $1
+	ANS col4 = $3
+	AND null_coll = $4
+`,
+			params: []interface{}{1, 2, "I'm a string param", nil},
+			expected: `
+SELECT * FROM t WHERE col = 1
+	AND col2 = 2
+	AND col3 = 1
+	ANS col4 = 'I\'m a string param'
+	AND null_coll = NULL
+`,
+		},
+	}
 
-		for _, asset := range assets {
-			if actual, err := bind(time.Local, asset.query, asset.params...); assert.NoError(t, err) {
-				assert.Equal(t, asset.expected, actual)
-			}
+	for _, asset := range assets {
+		if actual, err := bind(time.Local, asset.query, asset.params...); assert.NoError(t, err) {
+			assert.Equal(t, asset.expected, actual)
 		}
 	}
 }
@@ -111,6 +128,11 @@ func TestBindNamed(t *testing.T) {
 				},
 				expected: "SELECT 'b' 'a' 'c'",
 			},
+			{
+				query:    "SELECT @Time",
+				params:   []interface{}{DateNamed("Time", time.Unix(1671565275, 10).UTC(), NanoSeconds)},
+				expected: "SELECT toDateTime64('2022-12-20 19:41:15.000000010', 9, 'UTC')",
+			},
 		}
 		for _, asset := range assets {
 			if actual, err := bind(time.Local, asset.query, asset.params...); assert.NoError(t, err) {
@@ -159,6 +181,11 @@ func TestBindPositional(t *testing.T) {
 				query:    "SELECT x where col = 'blah\\?' AND col2 = ?",
 				params:   []interface{}{"a"},
 				expected: "SELECT x where col = 'blah?' AND col2 = 'a'",
+			},
+			{
+				query:    "SELECT ?",
+				params:   []interface{}{Date("Time", time.Unix(1671565275, 10).UTC(), NanoSeconds)},
+				expected: "SELECT toDateTime64('2022-12-20 19:41:15.000000010', 9, 'UTC')",
 			},
 		}
 

@@ -39,6 +39,11 @@ type (
 		Scale uint8
 	}
 
+	DateValue struct {
+		Value time.Time
+		Scale uint8
+	}
+
 	Stats struct {
 		MaxOpenConns int
 		MaxIdleConns int
