@@ -67,6 +67,7 @@ func (q *Query) Encode(buffer *chproto.Buffer, revision uint64) error {
 		if err := q.Parameters.Encode(buffer, revision); err != nil {
 			return err
 		}
+		buffer.PutString("") /* empty string is a marker of the end of parameters */
 	}
 
 	return nil
