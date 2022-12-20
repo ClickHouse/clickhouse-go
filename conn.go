@@ -72,19 +72,20 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 
 	var (
 		connect = &connect{
-			id:              num,
-			opt:             opt,
-			conn:            conn,
-			debugf:          debugf,
-			buffer:          new(chproto.Buffer),
-			reader:          chproto.NewReader(conn),
-			revision:        proto.ClientTCPProtocolVersion,
-			structMap:       &structMap{},
-			compression:     compression,
-			connectedAt:     time.Now(),
-			compressor:      compress.NewWriter(),
-			readTimeout:     opt.ReadTimeout,
-			blockBufferSize: opt.BlockBufferSize,
+			id:                   num,
+			opt:                  opt,
+			conn:                 conn,
+			debugf:               debugf,
+			buffer:               new(chproto.Buffer),
+			reader:               chproto.NewReader(conn),
+			revision:             proto.ClientTCPProtocolVersion,
+			structMap:            &structMap{},
+			compression:          compression,
+			connectedAt:          time.Now(),
+			compressor:           compress.NewWriter(),
+			readTimeout:          opt.ReadTimeout,
+			blockBufferSize:      opt.BlockBufferSize,
+			maxCompressionBuffer: opt.MaxCompressionBuffer,
 		}
 	)
 	if err := connect.handshake(opt.Auth.Database, opt.Auth.Username, opt.Auth.Password); err != nil {
@@ -107,22 +108,23 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 
 // https://github.com/ClickHouse/ClickHouse/blob/master/src/Client/Connection.cpp
 type connect struct {
-	id              int
-	opt             *Options
-	conn            net.Conn
-	debugf          func(format string, v ...interface{})
-	server          ServerVersion
-	closed          bool
-	buffer          *chproto.Buffer
-	reader          *chproto.Reader
-	released        bool
-	revision        uint64
-	structMap       *structMap
-	compression     CompressionMethod
-	connectedAt     time.Time
-	compressor      *compress.Writer
-	readTimeout     time.Duration
-	blockBufferSize uint8
+	id                   int
+	opt                  *Options
+	conn                 net.Conn
+	debugf               func(format string, v ...interface{})
+	server               ServerVersion
+	closed               bool
+	buffer               *chproto.Buffer
+	reader               *chproto.Reader
+	released             bool
+	revision             uint64
+	structMap            *structMap
+	compression          CompressionMethod
+	connectedAt          time.Time
+	compressor           *compress.Writer
+	readTimeout          time.Duration
+	blockBufferSize      uint8
+	maxCompressionBuffer int
 }
 
 func (c *connect) settings(querySettings Settings) []proto.Setting {
@@ -184,24 +186,45 @@ func (c *connect) exception() error {
 	return &e
 }
 
-func (c *connect) sendData(block *proto.Block, name string) error {
-	c.debugf("[send data] compression=%t", c.compression)
-	c.buffer.PutByte(proto.ClientData)
-	c.buffer.PutString(name)
-	// Saving offset of compressible data.
-	start := len(c.buffer.Buf)
-	if err := block.Encode(c.buffer, c.revision); err != nil {
-		return err
-	}
-	if c.compression != CompressionNone {
-		// Performing compression. Note: only blocks are compressed.
+func (c *connect) compressBuffer(start int) error {
+	if c.compression != CompressionNone && len(c.buffer.Buf) > 0 {
 		data := c.buffer.Buf[start:]
 		if err := c.compressor.Compress(compress.Method(c.compression), data); err != nil {
 			return errors.Wrap(err, "compress")
 		}
 		c.buffer.Buf = append(c.buffer.Buf[:start], c.compressor.Data...)
 	}
+	return nil
+}
 
+func (c *connect) sendData(block *proto.Block, name string) error {
+	c.debugf("[send data] compression=%t", c.compression)
+	c.buffer.PutByte(proto.ClientData)
+	c.buffer.PutString(name)
+
+	compressionOffset := len(c.buffer.Buf)
+
+	if err := block.EncodeHeader(c.buffer, c.revision); err != nil {
+		return err
+	}
+	for i := range block.Columns {
+		if err := block.EncodeColumn(c.buffer, i); err != nil {
+			return err
+		}
+		if len(c.buffer.Buf) >= c.maxCompressionBuffer {
+			if err := c.compressBuffer(compressionOffset); err != nil {
+				return err
+			}
+			c.debugf("[buff compress] buffer size: %d", len(c.buffer.Buf))
+			if err := c.flush(); err != nil {
+				return err
+			}
+			compressionOffset = 0
+		}
+	}
+	if err := c.compressBuffer(compressionOffset); err != nil {
+		return err
+	}
 	if err := c.flush(); err != nil {
 		return err
 	}

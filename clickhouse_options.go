@@ -22,6 +22,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"github.com/ClickHouse/ch-go/compress"
+	"github.com/pkg/errors"
 	"net"
 	"net/url"
 	"strconv"
@@ -116,21 +117,22 @@ func ParseDSN(dsn string) (*Options, error) {
 type Options struct {
 	Protocol Protocol
 
-	TLS              *tls.Config
-	Addr             []string
-	Auth             Auth
-	DialContext      func(ctx context.Context, addr string) (net.Conn, error)
-	Debug            bool
-	Debugf           func(format string, v ...interface{}) // only works when Debug is true
-	Settings         Settings
-	Compression      *Compression
-	DialTimeout      time.Duration // default 1 second
-	MaxOpenConns     int           // default MaxIdleConns + 5
-	MaxIdleConns     int           // default 5
-	ConnMaxLifetime  time.Duration // default 1 hour
-	ConnOpenStrategy ConnOpenStrategy
-	HttpHeaders      map[string]string // set additional headers on HTTP requests
-	BlockBufferSize  uint8             // default 2 - can be overwritten on query
+	TLS                  *tls.Config
+	Addr                 []string
+	Auth                 Auth
+	DialContext          func(ctx context.Context, addr string) (net.Conn, error)
+	Debug                bool
+	Debugf               func(format string, v ...interface{}) // only works when Debug is true
+	Settings             Settings
+	Compression          *Compression
+	DialTimeout          time.Duration // default 1 second
+	MaxOpenConns         int           // default MaxIdleConns + 5
+	MaxIdleConns         int           // default 5
+	ConnMaxLifetime      time.Duration // default 1 hour
+	ConnOpenStrategy     ConnOpenStrategy
+	HttpHeaders          map[string]string // set additional headers on HTTP requests
+	BlockBufferSize      uint8             // default 2 - can be overwritten on query
+	MaxCompressionBuffer int               // default 10485760 - measured in bytes  i.e. 10MiB
 
 	scheme      string
 	ReadTimeout time.Duration
@@ -141,6 +143,11 @@ func (o *Options) fromDSN(in string) error {
 	if err != nil {
 		return err
 	}
+
+	if dsn.Host == "" {
+		return errors.New("parse dsn address failed")
+	}
+
 	if o.Settings == nil {
 		o.Settings = make(Settings)
 	}
@@ -161,35 +168,45 @@ func (o *Options) fromDSN(in string) error {
 			o.Debug, _ = strconv.ParseBool(params.Get(v))
 		case "compress":
 			if on, _ := strconv.ParseBool(params.Get(v)); on {
-				o.Compression = &Compression{
-					Method: CompressionLZ4,
+				if o.Compression == nil {
+					o.Compression = &Compression{}
 				}
+
+				o.Compression.Method = CompressionLZ4
+				continue
 			}
 			if compressMethod, ok := compressionMap[params.Get(v)]; ok {
 				if o.Compression == nil {
 					o.Compression = &Compression{
-						Method: compressMethod,
 						// default for now same as Clickhouse - https://clickhouse.com/docs/en/operations/settings/settings#settings-http_zlib_compression_level
 						Level: 3,
 					}
-				} else {
-					o.Compression.Method = compressMethod
 				}
+
+				o.Compression.Method = compressMethod
 			}
 		case "compress_level":
-			if level, err := strconv.ParseInt(params.Get(v), 10, 8); err == nil {
-				if o.Compression == nil {
-					o.Compression = &Compression{
-						// a level alone doesn't enable compression
-						Method: CompressionNone,
-						Level:  int(level),
-					}
-				} else {
-					o.Compression.Level = int(level)
-				}
-			} else {
-				return err
+			level, err := strconv.ParseInt(params.Get(v), 10, 8)
+			if err != nil {
+				return errors.Wrap(err, "compress_level invalid value")
 			}
+
+			if o.Compression == nil {
+				o.Compression = &Compression{
+					// a level alone doesn't enable compression
+					Method: CompressionNone,
+					Level:  int(level),
+				}
+				continue
+			}
+
+			o.Compression.Level = int(level)
+		case "max_compression_buffer":
+			max, err := strconv.Atoi(params.Get(v))
+			if err != nil {
+				return errors.Wrap(err, "max_compression_buffer invalid value")
+			}
+			o.MaxCompressionBuffer = max
 		case "dial_timeout":
 			duration, err := time.ParseDuration(params.Get(v))
 			if err != nil {
@@ -290,6 +307,9 @@ func (o Options) setDefaults() *Options {
 	}
 	if o.BlockBufferSize <= 0 {
 		o.BlockBufferSize = 2
+	}
+	if o.MaxCompressionBuffer <= 0 {
+		o.MaxCompressionBuffer = 10485760
 	}
 	if o.Addr == nil || len(o.Addr) == 0 {
 		switch o.Protocol {
