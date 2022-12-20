@@ -139,7 +139,7 @@ func (b *Block) EncodeHeader(buffer *proto.Buffer, revision uint64) (err error) 
 	return nil
 }
 
-func (b *Block) EncodeColumn(buffer *proto.Buffer, i int) (err error) {
+func (b *Block) EncodeColumn(buffer *proto.Buffer, revision uint64, i int) (err error) {
 	if i >= 0 && i < len(b.Columns) {
 		c := b.Columns[i]
 		buffer.PutString(c.Name())
@@ -172,7 +172,7 @@ func (b *Block) Encode(buffer *proto.Buffer, revision uint64) (err error) {
 		return err
 	}
 	for i := range b.Columns {
-		if err := b.EncodeColumn(buffer, i); err != nil {
+		if err := b.EncodeColumn(buffer, revision, i); err != nil {
 			return err
 		}
 	}

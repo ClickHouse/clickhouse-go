@@ -19,13 +19,14 @@ package tests
 
 import (
 	"context"
+	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"testing"
 )
 
-func TestQueryWithContextParameters(t *testing.T) {
+func TestQueryParameters(t *testing.T) {
 	ctx := context.Background()
 
 	env, err := GetTestEnvironment(testSet)
@@ -34,86 +35,69 @@ func TestQueryWithContextParameters(t *testing.T) {
 	require.NoError(t, err)
 	defer client.Close()
 
-	chCtx := clickhouse.Context(ctx, clickhouse.WithParameters(clickhouse.Parameters{
-		"num":   "42",
-		"str":   "hello",
-		"array": "['a', 'b', 'c']",
-	}))
+	if !CheckMinServerServerVersion(client, 22, 8, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
+		return
+	}
 
-	var actualNum uint64
-	var actualStr string
-	var actualArray []string
-	row := client.QueryRow(chCtx, "SELECT {num:UInt64} v, {str:String} s, {array:Array(String)} a")
-	require.NoError(t, row.Err())
-	require.NoError(t, row.Scan(&actualNum, &actualStr, &actualArray))
+	t.Run("with context parameters", func(t *testing.T) {
+		chCtx := clickhouse.Context(ctx, clickhouse.WithParameters(clickhouse.Parameters{
+			"num":   "42",
+			"str":   "hello",
+			"array": "['a', 'b', 'c']",
+		}))
 
-	assert.Equal(t, uint64(42), actualNum)
-	assert.Equal(t, "hello", actualStr)
-	assert.Equal(t, []string{"a", "b", "c"}, actualArray)
-}
+		var actualNum uint64
+		var actualStr string
+		var actualArray []string
+		row := client.QueryRow(chCtx, "SELECT {num:UInt64} v, {str:String} s, {array:Array(String)} a")
+		require.NoError(t, row.Err())
+		require.NoError(t, row.Scan(&actualNum, &actualStr, &actualArray))
 
-func TestQueryParametersWithNamedArg(t *testing.T) {
-	ctx := context.Background()
+		assert.Equal(t, uint64(42), actualNum)
+		assert.Equal(t, "hello", actualStr)
+		assert.Equal(t, []string{"a", "b", "c"}, actualArray)
+	})
 
-	env, err := GetTestEnvironment(testSet)
-	require.NoError(t, err)
-	client, err := testClientWithDefaultSettings(env)
-	require.NoError(t, err)
-	defer client.Close()
+	t.Run("with named arguments", func(t *testing.T) {
+		var actualNum uint64
+		var actualStr string
+		row := client.QueryRow(
+			ctx,
+			"SELECT {num:UInt64}, {str:String}",
+			clickhouse.Named("num", "42"),
+			clickhouse.Named("str", "hello"),
+		)
+		require.NoError(t, row.Err())
+		require.NoError(t, row.Scan(&actualNum, &actualStr))
 
-	var actualNum uint64
-	var actualStr string
-	row := client.QueryRow(
-		ctx,
-		"SELECT {num:UInt64}, {str:String}",
-		clickhouse.Named("num", "42"),
-		clickhouse.Named("str", "hello"),
-	)
-	require.NoError(t, row.Err())
-	require.NoError(t, row.Scan(&actualNum, &actualStr))
+		assert.Equal(t, uint64(42), actualNum)
+		assert.Equal(t, "hello", actualStr)
+	})
 
-	assert.Equal(t, uint64(42), actualNum)
-	assert.Equal(t, "hello", actualStr)
-}
+	t.Run("named args with only strings supported", func(t *testing.T) {
+		row := client.QueryRow(
+			ctx,
+			"SELECT {num:UInt64}, {str:String}",
+			clickhouse.Named("num", 42),
+			clickhouse.Named("str", "hello"),
+		)
+		require.Error(t, row.Err(), "code: 456, message: Substitution `num` is not set")
+	})
 
-func TestQueryParametersWithNamedArgOnlyStringSupported(t *testing.T) {
-	ctx := context.Background()
+	t.Run("with bind backwards compatibility", func(t *testing.T) {
+		var actualNum uint8
+		var actualStr string
+		row := client.QueryRow(
+			ctx,
+			"SELECT @num, @str",
+			clickhouse.Named("num", 42),
+			clickhouse.Named("str", "hello"),
+		)
+		require.NoError(t, row.Err())
+		require.NoError(t, row.Scan(&actualNum, &actualStr))
 
-	env, err := GetTestEnvironment(testSet)
-	require.NoError(t, err)
-	client, err := testClientWithDefaultSettings(env)
-	require.NoError(t, err)
-	defer client.Close()
-
-	row := client.QueryRow(
-		ctx,
-		"SELECT {num:UInt64}, {str:String}",
-		clickhouse.Named("num", 42),
-		clickhouse.Named("str", "hello"),
-	)
-	require.Error(t, row.Err(), "code: 456, message: Substitution `num` is not set")
-}
-
-func TestQueryWithNamedArgBindBackwardsSupport(t *testing.T) {
-	ctx := context.Background()
-
-	env, err := GetTestEnvironment(testSet)
-	require.NoError(t, err)
-	client, err := testClientWithDefaultSettings(env)
-	require.NoError(t, err)
-	defer client.Close()
-
-	var actualNum uint8
-	var actualStr string
-	row := client.QueryRow(
-		ctx,
-		"SELECT @num, @str",
-		clickhouse.Named("num", 42),
-		clickhouse.Named("str", "hello"),
-	)
-	require.NoError(t, row.Err())
-	require.NoError(t, row.Scan(&actualNum, &actualStr))
-
-	assert.Equal(t, uint8(42), actualNum)
-	assert.Equal(t, "hello", actualStr)
+		assert.Equal(t, uint8(42), actualNum)
+		assert.Equal(t, "hello", actualStr)
+	})
 }

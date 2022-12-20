@@ -208,7 +208,7 @@ func (c *connect) sendData(block *proto.Block, name string) error {
 		return err
 	}
 	for i := range block.Columns {
-		if err := block.EncodeColumn(c.buffer, i); err != nil {
+		if err := block.EncodeColumn(c.buffer, c.revision, i); err != nil {
 			return err
 		}
 		if len(c.buffer.Buf) >= c.maxCompressionBuffer {

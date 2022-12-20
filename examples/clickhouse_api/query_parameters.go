@@ -21,12 +21,17 @@ import (
 	"context"
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 )
 
 func QueryWithParameters() error {
 	conn, err := GetNativeConnection(nil, nil, nil)
 	if err != nil {
 		return err
+	}
+
+	if !clickhouse_tests.CheckMinServerServerVersion(conn, 22, 8, 0) {
+		return nil
 	}
 
 	chCtx := clickhouse.Context(context.Background(), clickhouse.WithParameters(clickhouse.Parameters{

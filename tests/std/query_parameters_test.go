@@ -27,7 +27,7 @@ import (
 	"testing"
 )
 
-func TestQueryParametersWithNamedArg(t *testing.T) {
+func TestQueryParameters(t *testing.T) {
 	env, err := GetStdTestEnvironment()
 	require.NoError(t, err)
 	require.NoError(t, err)
@@ -38,80 +38,50 @@ func TestQueryParametersWithNamedArg(t *testing.T) {
 		connectionString = fmt.Sprintf("https://%s:%d?username=%s&password=%s&dial_timeout=200ms&max_execution_time=60&secure=true", env.Host, env.HttpsPort, env.Username, env.Password)
 	}
 	dsns := map[string]string{"Http": connectionString}
+
 	for name, dsn := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
 			conn, err := GetConnectionFromDSN(dsn)
 			require.NoError(t, err)
 
-			var actualNum uint64
-			var actualStr string
-			row := conn.QueryRow(
-				"SELECT {num:UInt64}, {str:String}",
-				clickhouse.Named("num", "42"),
-				clickhouse.Named("str", "hello"),
-			)
-			require.NoError(t, row.Err())
-			require.NoError(t, row.Scan(&actualNum, &actualStr))
+			t.Run("with named arguments", func(t *testing.T) {
+				var actualNum uint64
+				var actualStr string
+				row := conn.QueryRow(
+					"SELECT {num:UInt64}, {str:String}",
+					clickhouse.Named("num", "42"),
+					clickhouse.Named("str", "hello"),
+				)
+				require.NoError(t, row.Err())
+				require.NoError(t, row.Scan(&actualNum, &actualStr))
 
-			assert.Equal(t, uint64(42), actualNum)
-			assert.Equal(t, "hello", actualStr)
-		})
-	}
-}
-func TestQueryParametersWithNamedArgOnlyStringSupported(t *testing.T) {
-	env, err := GetStdTestEnvironment()
-	require.NoError(t, err)
-	require.NoError(t, err)
-	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
-	require.NoError(t, err)
-	connectionString := fmt.Sprintf("http://%s:%d?username=%s&password=%s&dial_timeout=200ms&max_execution_time=60", env.Host, env.HttpPort, env.Username, env.Password)
-	if useSSL {
-		connectionString = fmt.Sprintf("https://%s:%d?username=%s&password=%s&dial_timeout=200ms&max_execution_time=60&secure=true", env.Host, env.HttpsPort, env.Username, env.Password)
-	}
-	dsns := map[string]string{"Http": connectionString}
-	for name, dsn := range dsns {
-		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
-			conn, err := GetConnectionFromDSN(dsn)
-			require.NoError(t, err)
+				assert.Equal(t, uint64(42), actualNum)
+				assert.Equal(t, "hello", actualStr)
+			})
 
-			row := conn.QueryRow(
-				"SELECT {num:UInt64}, {str:String}",
-				clickhouse.Named("num", 42),
-				clickhouse.Named("str", "hello"),
-			)
-			require.Error(t, row.Err(), "code: 456, message: Substitution `num` is not set")
-		})
-	}
-}
+			t.Run("named args with only strings supported", func(t *testing.T) {
+				row := conn.QueryRow(
+					"SELECT {num:UInt64}, {str:String}",
+					clickhouse.Named("num", 42),
+					clickhouse.Named("str", "hello"),
+				)
+				require.Error(t, row.Err(), "code: 456, message: Substitution `num` is not set")
+			})
 
-func TestQueryWithNamedArgBindBackwardsSupport(t *testing.T) {
-	env, err := GetStdTestEnvironment()
-	require.NoError(t, err)
-	require.NoError(t, err)
-	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
-	require.NoError(t, err)
-	connectionString := fmt.Sprintf("http://%s:%d?username=%s&password=%s&dial_timeout=200ms&max_execution_time=60", env.Host, env.HttpPort, env.Username, env.Password)
-	if useSSL {
-		connectionString = fmt.Sprintf("https://%s:%d?username=%s&password=%s&dial_timeout=200ms&max_execution_time=60&secure=true", env.Host, env.HttpsPort, env.Username, env.Password)
-	}
-	dsns := map[string]string{"Http": connectionString}
-	for name, dsn := range dsns {
-		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
-			conn, err := GetConnectionFromDSN(dsn)
-			require.NoError(t, err)
+			t.Run("with bind backwards compatibility", func(t *testing.T) {
+				var actualNum uint8
+				var actualStr string
+				row := conn.QueryRow(
+					"SELECT @num, @str",
+					clickhouse.Named("num", 42),
+					clickhouse.Named("str", "hello"),
+				)
+				require.NoError(t, row.Err())
+				require.NoError(t, row.Scan(&actualNum, &actualStr))
 
-			var actualNum uint8
-			var actualStr string
-			row := conn.QueryRow(
-				"SELECT @num, @str",
-				clickhouse.Named("num", 42),
-				clickhouse.Named("str", "hello"),
-			)
-			require.NoError(t, row.Err())
-			require.NoError(t, row.Scan(&actualNum, &actualStr))
-
-			assert.Equal(t, uint8(42), actualNum)
-			assert.Equal(t, "hello", actualStr)
+				assert.Equal(t, uint8(42), actualNum)
+				assert.Equal(t, "hello", actualStr)
+			})
 		})
 	}
 }
