@@ -19,7 +19,6 @@ package clickhouse
 
 import (
 	"context"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2/ext"
@@ -33,7 +32,7 @@ var _contextOptionKey = &QueryOptions{
 }
 
 type Settings map[string]interface{}
-type Parameters map[string]interface{}
+type Parameters map[string]string
 type (
 	QueryOption  func(*QueryOptions) error
 	QueryOptions struct {
@@ -92,12 +91,9 @@ func WithSettings(settings Settings) QueryOption {
 	}
 }
 
-func WithParameters(params ...driver.NamedValue) QueryOption {
+func WithParameters(params Parameters) QueryOption {
 	return func(o *QueryOptions) error {
-		o.parameters = make(Parameters, len(params))
-		for _, p := range params {
-			o.parameters[p.Name] = p.Value
-		}
+		o.parameters = params
 		return nil
 	}
 }

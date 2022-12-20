@@ -106,13 +106,19 @@ func (c *connect) queryRow(ctx context.Context, release func(*connect, error), q
 var hasQueryParamsRe = regexp.MustCompile("{.+:.+}")
 
 func bindQueryOrAppendParameters(paramsProtocolSupport bool, options *QueryOptions, query string, timezone *time.Location, args ...interface{}) (string, error) {
+	if len(options.parameters) > 0 {
+		return query, nil
+	}
+
 	if paramsProtocolSupport &&
 		len(args) > 0 &&
 		hasQueryParamsRe.MatchString(query) {
 		options.parameters = make(Parameters, len(args))
 		for _, a := range args {
 			if p, ok := a.(driver.NamedValue); ok {
-				options.parameters[p.Name] = p.Value
+				if str, ok := p.Value.(string); ok {
+					options.parameters[p.Name] = str
+				}
 			}
 		}
 

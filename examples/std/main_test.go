@@ -99,6 +99,10 @@ func TestStdQueryRows(t *testing.T) {
 	require.NoError(t, QueryRows())
 }
 
+func TestStdQueryWithParameters(t *testing.T) {
+	require.NoError(t, QueryWithParameters())
+}
+
 func TestStdAsyncInsert(t *testing.T) {
 	require.NoError(t, AsyncInsert())
 }

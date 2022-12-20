@@ -441,7 +441,7 @@ func (h *httpConnect) prepareRequest(ctx context.Context, reader io.Reader, opti
 			query.Set(key, fmt.Sprint(value))
 		}
 		for key, value := range options.parameters {
-			query.Set(fmt.Sprintf("param_%s", key), fmt.Sprint(value))
+			query.Set(fmt.Sprintf("param_%s", key), value)
 		}
 		req.URL.RawQuery = query.Encode()
 	}

@@ -38,12 +38,14 @@ The client is tested against the currently [supported versions](https://github.c
 * Named and numeric placeholders support
 * LZ4/ZSTD compression support
 * External data
+* [Query parameters](examples/std/query_parameters.go)
 
 Support for the ClickHouse protocol advanced features using `Context`:
 
 * Query ID
 * Quota Key
 * Settings
+* [Query parameters](examples/clickhouse_api/query_parameters.go)
 * OpenTelemetry
 * Execution events:
 	* Logs
@@ -264,14 +266,16 @@ go get -u github.com/ClickHouse/clickhouse-go/v2
 * [batch struct](examples/clickhouse_api/append_struct.go)
 * [columnar](examples/clickhouse_api/columnar_insert.go)
 * [scan struct](examples/clickhouse_api/scan_struct.go)
-* [bind params](examples/clickhouse_api/bind.go)
+* [query parameters](examples/clickhouse_api/query_parameters.go) (deprecated in favour of native query parameters)
+* [bind params](examples/clickhouse_api/bind.go) (deprecated in favour of native query parameters)
 
 ### std `database/sql` interface
 
 * [batch](examples/std/batch.go)
 * [async insert](examples/std/async.go)
 * [open db](examples/std/connect.go)
-* [bind params](examples/std/bind.go)
+* [query parameters](examples/std/query_parameters.go)
+* [bind params](examples/std/bind.go) (deprecated in favour of native query parameters)
 
 ## ClickHouse alternatives - ch-go
 
