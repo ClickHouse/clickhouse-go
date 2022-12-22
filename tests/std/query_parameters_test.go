@@ -65,7 +65,16 @@ func TestQueryParameters(t *testing.T) {
 					clickhouse.Named("num", 42),
 					clickhouse.Named("str", "hello"),
 				)
-				require.Error(t, row.Err(), "code: 456, message: Substitution `num` is not set")
+				require.ErrorIs(t, row.Err(), clickhouse.ErrExpectedStringValueInNamedValueForQueryParameter)
+			})
+
+			t.Run("unsupported arg type", func(t *testing.T) {
+				row := conn.QueryRow(
+					"SELECT {num:UInt64}, {str:String}",
+					1234,
+					"String",
+				)
+				require.ErrorIs(t, row.Err(), clickhouse.ErrExpectedStringValueInNamedValueForQueryParameter)
 			})
 
 			t.Run("with bind backwards compatibility", func(t *testing.T) {

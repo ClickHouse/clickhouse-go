@@ -19,8 +19,6 @@ package clickhouse
 
 import (
 	"context"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
-	"regexp"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
@@ -101,32 +99,4 @@ func (c *connect) queryRow(ctx context.Context, release func(*connect, error), q
 	return &row{
 		rows: rows,
 	}
-}
-
-var hasQueryParamsRe = regexp.MustCompile("{.+:.+}")
-
-func bindQueryOrAppendParameters(paramsProtocolSupport bool, options *QueryOptions, query string, timezone *time.Location, args ...interface{}) (string, error) {
-	// prefer native query parameters over legacy bind if query parameters provided explicit
-	if len(options.parameters) > 0 {
-		return query, nil
-	}
-
-	// validate if query contains a {<name>:<data type>} syntax, so it's intentional use of query parameters
-	// parameter values will be loaded from `args ...interface{}` for compatibility
-	if paramsProtocolSupport &&
-		len(args) > 0 &&
-		hasQueryParamsRe.MatchString(query) {
-		options.parameters = make(Parameters, len(args))
-		for _, a := range args {
-			if p, ok := a.(driver.NamedValue); ok {
-				if str, ok := p.Value.(string); ok {
-					options.parameters[p.Name] = str
-				}
-			}
-		}
-
-		return query, nil
-	}
-
-	return bind(timezone, query, args...)
 }
