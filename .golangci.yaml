@@ -1,0 +1,16 @@
+run:
+  tests: false
+
+  skip-dirs:
+    - benchmark/
+    - examples/
+    - tests/
+
+linters:
+  presets:
+    - bugs
+    - complexity
+    - error
+    - performance
+    - sql
+    - unused
