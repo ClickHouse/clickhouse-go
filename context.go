@@ -132,9 +132,7 @@ func WithStdAsync(wait bool) QueryOption {
 }
 
 func Context(parent context.Context, options ...QueryOption) context.Context {
-	opt := QueryOptions{
-		settings: make(Settings),
-	}
+	opt := queryOptions(parent)
 	for _, f := range options {
 		f(&opt)
 	}
