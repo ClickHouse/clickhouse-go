@@ -25,7 +25,7 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 
-func (c *connect) handshake(database, username, password string) error {
+func (c *Connect) handshake(database, username, password string) error {
 	defer c.buffer.Reset()
 	c.debugf("[handshake] -> %s", proto.ClientHandshake{})
 	// set a read deadline - alternative to context.Read operation will fail if no data is received after deadline.

@@ -121,7 +121,7 @@ type Options struct {
 	Addr                 []string
 	Auth                 Auth
 	DialContext          func(ctx context.Context, addr string) (net.Conn, error)
-	DialStrategy         func(ctx context.Context, options *Options, ID int) (*connect, error)
+	DialStrategy         func(ctx context.Context, options *Options) (*Connect, error)
 	Debug                bool
 	Debugf               func(format string, v ...interface{}) // only works when Debug is true
 	Settings             Settings

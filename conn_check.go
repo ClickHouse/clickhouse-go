@@ -26,7 +26,7 @@ import (
 	"syscall"
 )
 
-func (c *connect) connCheck() error {
+func (c *Connect) connCheck() error {
 	var sysErr error
 	sysConn, ok := c.conn.(syscall.Conn)
 	if !ok {

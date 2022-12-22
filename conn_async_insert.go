@@ -21,7 +21,7 @@ import (
 	"context"
 )
 
-func (c *connect) asyncInsert(ctx context.Context, query string, wait bool) error {
+func (c *Connect) asyncInsert(ctx context.Context, query string, wait bool) error {
 	options := queryOptions(ctx)
 	{
 		options.settings["async_insert"] = 1

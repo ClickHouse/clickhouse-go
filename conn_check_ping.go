@@ -25,7 +25,7 @@ import (
 	"time"
 )
 
-func (c *connect) connCheck() error {
+func (c *Connect) connCheck() error {
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Second))
 	defer cancel()
 	if err := c.ping(ctx); err != nil {

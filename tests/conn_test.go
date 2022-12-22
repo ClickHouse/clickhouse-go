@@ -242,3 +242,22 @@ func TestBlockBufferSize(t *testing.T) {
 	}
 	require.Equal(t, 10000000, i)
 }
+
+func TestConnCustomDialStrategy(t *testing.T) {
+	env, err := GetTestEnvironment(testSet)
+	require.NoError(t, err)
+
+	actualAddr := fmt.Sprintf("%s:%d", env.Host, env.Port)
+	env.Host = "non-existent.host"
+	opts := clientOptionsFromEnv(env, clickhouse.Settings{})
+	opts.DialStrategy = func(ctx context.Context, opts *clickhouse.Options) (*clickhouse.Connect, error) {
+		return clickhouse.Dial(ctx, actualAddr, 1, opts)
+	}
+
+	conn, err := clickhouse.Open(&opts)
+	require.NoError(t, err)
+
+	require.NoError(t, err)
+	require.NoError(t, conn.Ping(context.Background()))
+	require.NoError(t, conn.Close())
+}

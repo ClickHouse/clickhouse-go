@@ -22,7 +22,7 @@ import (
 	"time"
 )
 
-func (c *connect) exec(ctx context.Context, query string, args ...interface{}) error {
+func (c *Connect) exec(ctx context.Context, query string, args ...interface{}) error {
 	var (
 		options   = queryOptions(ctx)
 		body, err = bind(c.server.Timezone, query, args...)
