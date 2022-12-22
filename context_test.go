@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestContext(t *testing.T) {
@@ -17,9 +17,9 @@ func TestContext(t *testing.T) {
 			}))
 
 			opts := queryOptions(ctx)
-			require.Equal(t, "a", opts.queryID)
-			require.Equal(t, "b", opts.quotaKey)
-			require.Equal(t, "d", opts.settings["c"])
+			assert.Equal(t, "a", opts.queryID)
+			assert.Equal(t, "b", opts.quotaKey)
+			assert.Equal(t, "d", opts.settings["c"])
 		},
 	)
 
@@ -29,7 +29,7 @@ func TestContext(t *testing.T) {
 			ctx = Context(ctx, WithQueryID("b"))
 
 			opts := queryOptions(ctx)
-			require.Equal(t, "b", opts.queryID)
+			assert.Equal(t, "b", opts.queryID)
 		},
 	)
 }
