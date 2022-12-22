@@ -2,8 +2,9 @@ package clickhouse
 
 import (
 	"context"
-	"github.com/stretchr/testify/require"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestContext(t *testing.T) {
