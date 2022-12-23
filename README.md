@@ -72,9 +72,6 @@ Support for the ClickHouse protocol advanced features using `Context`:
 			var d net.Dialer
 			return d.DialContext(ctx, "tcp", addr)
 		},
-		opts.DialStrategy = func(ctx context.Context, opts *clickhouse.Options) (*clickhouse.Connect, error) {
-			return clickhouse.Dial(ctx, "127.0.0.1:5678", 1, opts)
-		}
 		Debug: true,
 		Debugf: func(format string, v ...interface{}) {
 			fmt.Printf(format, v)
