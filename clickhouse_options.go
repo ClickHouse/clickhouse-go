@@ -21,13 +21,14 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/ClickHouse/ch-go/compress"
-	"github.com/pkg/errors"
 	"net"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/ClickHouse/ch-go/compress"
+	"github.com/pkg/errors"
 )
 
 type CompressionMethod byte
@@ -229,9 +230,25 @@ func (o *Options) fromDSN(in string) error {
 			}
 			o.ReadTimeout = duration
 		case "secure":
-			secure = true
+			secureParam := params.Get(v)
+			if secureParam == "" {
+				secure = true
+			} else {
+				secure, err = strconv.ParseBool(secureParam)
+				if err != nil {
+					return fmt.Errorf("clickhouse [dsn parse]:secure: %s", err)
+				}
+			}
 		case "skip_verify":
-			skipVerify = true
+			skipVerifyParam := params.Get(v)
+			if skipVerifyParam == "" {
+				skipVerify = true
+			} else {
+				skipVerify, err = strconv.ParseBool(skipVerifyParam)
+				if err != nil {
+					return fmt.Errorf("clickhouse [dsn parse]:verify: %s", err)
+				}
+			}
 		case "connection_open_strategy":
 			switch params.Get(v) {
 			case "in_order":

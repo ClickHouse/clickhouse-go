@@ -18,8 +18,10 @@
 package clickhouse
 
 import (
-	"github.com/stretchr/testify/assert"
+	"crypto/tls"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 // TestParseDSN does not implement all use cases yet
@@ -126,6 +128,86 @@ func TestParseDSN(t *testing.T) {
 				scheme: "clickhouse",
 			},
 			"",
+		},
+		{
+			"native protocol with secure",
+			"clickhouse://127.0.0.1/test_database?secure=true",
+			&Options{
+				Protocol: Native,
+				TLS: &tls.Config{
+					InsecureSkipVerify: false,
+				},
+				Addr:     []string{"127.0.0.1"},
+				Settings: Settings{},
+				Auth: Auth{
+					Database: "test_database",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
+			"native protocol with skip_verify",
+			"clickhouse://127.0.0.1/test_database?secure=true&skip_verify=true",
+			&Options{
+				Protocol: Native,
+				TLS: &tls.Config{
+					InsecureSkipVerify: true,
+				},
+				Addr:     []string{"127.0.0.1"},
+				Settings: Settings{},
+				Auth: Auth{
+					Database: "test_database",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
+			"native protocol with secure (legacy)",
+			"clickhouse://127.0.0.1/test_database?secure",
+			&Options{
+				Protocol: Native,
+				TLS: &tls.Config{
+					InsecureSkipVerify: false,
+				},
+				Addr:     []string{"127.0.0.1"},
+				Settings: Settings{},
+				Auth: Auth{
+					Database: "test_database",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
+			"native protocol with skip_verify (legacy)",
+			"clickhouse://127.0.0.1/test_database?secure&skip_verify",
+			&Options{
+				Protocol: Native,
+				TLS: &tls.Config{
+					InsecureSkipVerify: true,
+				},
+				Addr:     []string{"127.0.0.1"},
+				Settings: Settings{},
+				Auth: Auth{
+					Database: "test_database",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
+			"native protocol with secure (bad)",
+			"clickhouse://127.0.0.1/test_database?secure=ture",
+			nil,
+			"clickhouse [dsn parse]:secure: strconv.ParseBool: parsing \"ture\": invalid syntax",
+		},
+		{
+			"native protocol with skip_verify (bad)",
+			"clickhouse://127.0.0.1/test_database?secure&skip_verify=ture",
+			nil,
+			"clickhouse [dsn parse]:verify: strconv.ParseBool: parsing \"ture\": invalid syntax",
 		},
 		{
 			"native protocol with default lz4 compression",
