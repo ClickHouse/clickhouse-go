@@ -15,28 +15,38 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package clickhouse
+package std
 
 import (
-	"context"
-	"io"
-	"io/ioutil"
-	"strings"
+	"fmt"
+	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/ClickHouse/clickhouse-go/v2/tests/std"
 )
 
-func (h *httpConnect) exec(ctx context.Context, query string, args ...interface{}) error {
-	options := queryOptions(ctx)
-	query, err := bindQueryOrAppendParameters(true, &options, query, h.location, args...)
+func QueryWithParameters() error {
+	conn, err := GetStdOpenDBConnection(clickhouse.Native, nil, nil, nil)
 	if err != nil {
 		return err
 	}
 
-	res, err := h.sendQuery(ctx, strings.NewReader(query), &options, h.headers)
-	if res != nil {
-		defer res.Body.Close()
-		// we don't care about result, so just discard it to reuse connection
-		_, _ = io.Copy(ioutil.Discard, res.Body)
+	if !std.CheckMinServerVersion(conn, 22, 8, 0) {
+		return nil
 	}
 
-	return err
+	row := conn.QueryRow(
+		"SELECT {num:UInt64} v, {str:String} s, {array:Array(String)} a",
+		clickhouse.Named("num", "42"),
+		clickhouse.Named("str", "hello"),
+		clickhouse.Named("array", "['a', 'b', 'c']"),
+	)
+	var (
+		col1 uint64
+		col2 string
+		col3 []string
+	)
+	if err := row.Scan(&col1, &col2, &col3); err != nil {
+		return err
+	}
+	fmt.Printf("row: col1=%d, col2=%s, col3=%s\n", col1, col2, col3)
+	return nil
 }

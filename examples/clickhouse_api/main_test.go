@@ -173,6 +173,10 @@ func TestQueryRow(t *testing.T) {
 	require.NoError(t, QueryRow())
 }
 
+func TestQueryWithParameters(t *testing.T) {
+	require.NoError(t, QueryWithParameters())
+}
+
 func TestSelectStruct(t *testing.T) {
 	require.NoError(t, SelectStruct())
 }

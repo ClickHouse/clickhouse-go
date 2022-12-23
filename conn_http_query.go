@@ -30,11 +30,11 @@ import (
 
 // release is ignored, because http used by std with empty release function
 func (h *httpConnect) query(ctx context.Context, release func(*Connect, error), query string, args ...interface{}) (*rows, error) {
-	query, err := bind(h.location, query, args...)
+	options := queryOptions(ctx)
+	query, err := bindQueryOrAppendParameters(true, &options, query, h.location, args...)
 	if err != nil {
 		return nil, err
 	}
-	options := queryOptions(ctx)
 	headers := make(map[string]string)
 	switch h.compression {
 	case CompressionZSTD, CompressionLZ4:

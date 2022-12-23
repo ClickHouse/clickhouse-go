@@ -194,16 +194,33 @@ func (ch *clickhouse) Stats() driver.Stats {
 }
 
 func (ch *clickhouse) dial(ctx context.Context) (conn *Connect, err error) {
-	if ch.opt.DialStrategy != nil {
-		return ch.opt.DialStrategy(ctx, ch.opt)
-	}
-
-	return ch.defaultDialStrategy(ctx, ch.opt)
-}
-
-func (ch *clickhouse) defaultDialStrategy(ctx context.Context, opt *Options) (conn *Connect, err error) {
 	connID := int(atomic.AddInt64(&ch.connID, 1))
 
+	dialFunc := func(ctx context.Context, addr string, opt *Options) DialResult {
+		conn, err := dial(ctx, addr, connID, opt)
+
+		return DialResult{
+			conn: conn,
+			err:  err,
+		}
+	}
+
+	dialStrategy := DefaultDialStrategy
+	if ch.opt.DialStrategy != nil {
+		dialStrategy = ch.opt.DialStrategy
+	}
+
+	result, err := dialStrategy(ctx, connID, ch.opt, dialFunc)
+	if err != nil {
+		return nil, err
+	}
+	if result.err != nil {
+		return nil, err
+	}
+	return result.conn, nil
+}
+
+func DefaultDialStrategy(ctx context.Context, connID int, opt *Options, dial Dial) (DialResult, error) {
 	for i := range opt.Addr {
 		var num int
 		switch opt.ConnOpenStrategy {
@@ -212,14 +229,11 @@ func (ch *clickhouse) defaultDialStrategy(ctx context.Context, opt *Options) (co
 		case ConnOpenRoundRobin:
 			num = (int(connID) + i) % len(opt.Addr)
 		}
-		if conn, err = Dial(ctx, opt.Addr[num], connID, ch.opt); err == nil {
-			return conn, nil
-		}
+
+		return dial(ctx, opt.Addr[num], opt), nil
 	}
-	if err == nil {
-		err = ErrAcquireConnNoAddress
-	}
-	return nil, err
+
+	return DialResult{}, ErrAcquireConnNoAddress
 }
 
 func (ch *clickhouse) acquire(ctx context.Context) (conn *Connect, err error) {

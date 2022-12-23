@@ -60,7 +60,7 @@ func (o *stdConnOpener) Connect(ctx context.Context) (_ driver.Conn, err error) 
 		}
 	default:
 		dialFunc = func(ctx context.Context, addr string, num int, opt *Options) (stdConnect, error) {
-			return Dial(ctx, addr, num, opt)
+			return dial(ctx, addr, num, opt)
 		}
 	}
 

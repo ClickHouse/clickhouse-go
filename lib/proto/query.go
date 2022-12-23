@@ -23,6 +23,7 @@ import (
 	chproto "github.com/ClickHouse/ch-go/proto"
 	"go.opentelemetry.io/otel/trace"
 	"os"
+	"strings"
 )
 
 var (
@@ -36,6 +37,7 @@ type Query struct {
 	Body           string
 	QuotaKey       string
 	Settings       Settings
+	Parameters     Parameters
 	Compression    bool
 	InitialUser    string
 	InitialAddress string
@@ -61,6 +63,14 @@ func (q *Query) Encode(buffer *chproto.Buffer, revision uint64) error {
 		buffer.PutBool(q.Compression)
 	}
 	buffer.PutString(q.Body)
+
+	if revision >= DBMS_MIN_PROTOCOL_VERSION_WITH_PARAMETERS {
+		if err := q.Parameters.Encode(buffer, revision); err != nil {
+			return err
+		}
+		buffer.PutString("") /* empty string is a marker of the end of parameters */
+	}
+
 	return nil
 }
 
@@ -161,5 +171,29 @@ func (s *Setting) encode(buffer *chproto.Buffer, revision uint64) error {
 	}
 	buffer.PutBool(true) // is_important
 	buffer.PutString(fmt.Sprint(s.Value))
+	return nil
+}
+
+type Parameters []Parameter
+
+type Parameter struct {
+	Key   string
+	Value string
+}
+
+func (s Parameters) Encode(buffer *chproto.Buffer, revision uint64) error {
+	for _, s := range s {
+		if err := s.encode(buffer, revision); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Parameter) encode(buffer *chproto.Buffer, revision uint64) error {
+	buffer.PutString(s.Key)
+	buffer.PutUVarInt(uint64(0x02))
+	buffer.PutString(fmt.Sprintf("'%v'", strings.ReplaceAll(s.Value, "'", "\\'")))
+
 	return nil
 }

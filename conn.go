@@ -33,7 +33,7 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 
-func Dial(ctx context.Context, addr string, num int, opt *Options) (*Connect, error) {
+func dial(ctx context.Context, addr string, num int, opt *Options) (*Connect, error) {
 	var (
 		err    error
 		conn   net.Conn
@@ -90,6 +90,11 @@ func Dial(ctx context.Context, addr string, num int, opt *Options) (*Connect, er
 	)
 	if err := connect.handshake(opt.Auth.Database, opt.Auth.Username, opt.Auth.Password); err != nil {
 		return nil, err
+	}
+	if connect.revision >= proto.DBMS_MIN_PROTOCOL_VERSION_WITH_ADDENDUM {
+		if err := connect.sendAddendum(); err != nil {
+			return nil, err
+		}
 	}
 
 	// warn only on the first connection in the pool
@@ -203,7 +208,7 @@ func (c *Connect) sendData(block *proto.Block, name string) error {
 		return err
 	}
 	for i := range block.Columns {
-		if err := block.EncodeColumn(c.buffer, i); err != nil {
+		if err := block.EncodeColumn(c.buffer, c.revision, i); err != nil {
 			return err
 		}
 		if len(c.buffer.Buf) >= c.maxCompressionBuffer {

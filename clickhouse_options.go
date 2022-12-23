@@ -21,13 +21,14 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/ClickHouse/ch-go/compress"
-	"github.com/pkg/errors"
 	"net"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/ClickHouse/ch-go/compress"
+	"github.com/pkg/errors"
 )
 
 type CompressionMethod byte
@@ -114,6 +115,12 @@ func ParseDSN(dsn string) (*Options, error) {
 	return opt, nil
 }
 
+type Dial func(ctx context.Context, addr string, opt *Options) DialResult
+type DialResult struct {
+	conn *Connect
+	err  error
+}
+
 type Options struct {
 	Protocol Protocol
 
@@ -121,7 +128,7 @@ type Options struct {
 	Addr                 []string
 	Auth                 Auth
 	DialContext          func(ctx context.Context, addr string) (net.Conn, error)
-	DialStrategy         func(ctx context.Context, options *Options) (*Connect, error)
+	DialStrategy         func(ctx context.Context, connID int, options *Options, dial Dial) (DialResult, error)
 	Debug                bool
 	Debugf               func(format string, v ...interface{}) // only works when Debug is true
 	Settings             Settings
@@ -230,9 +237,25 @@ func (o *Options) fromDSN(in string) error {
 			}
 			o.ReadTimeout = duration
 		case "secure":
-			secure = true
+			secureParam := params.Get(v)
+			if secureParam == "" {
+				secure = true
+			} else {
+				secure, err = strconv.ParseBool(secureParam)
+				if err != nil {
+					return fmt.Errorf("clickhouse [dsn parse]:secure: %s", err)
+				}
+			}
 		case "skip_verify":
-			skipVerify = true
+			skipVerifyParam := params.Get(v)
+			if skipVerifyParam == "" {
+				skipVerify = true
+			} else {
+				skipVerify, err = strconv.ParseBool(skipVerifyParam)
+				if err != nil {
+					return fmt.Errorf("clickhouse [dsn parse]:verify: %s", err)
+				}
+			}
 		case "connection_open_strategy":
 			switch params.Get(v) {
 			case "in_order":
