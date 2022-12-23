@@ -34,7 +34,7 @@ type Log struct {
 	Text      string
 }
 
-func (c *Connect) logs() ([]Log, error) {
+func (c *connect) logs() ([]Log, error) {
 	block, err := c.readData(proto.ServerLog, false)
 	if err != nil {
 		return nil, err

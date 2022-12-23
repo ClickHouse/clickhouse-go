@@ -116,7 +116,7 @@ func OpenDB(opt *Options) *sql.DB {
 	}
 	if len(settings) != 0 {
 		return sql.OpenDB(&stdConnOpener{
-			err: fmt.Errorf("cannot Connect. invalid settings. use %s (see https://pkg.go.dev/database/sql)", strings.Join(settings, ",")),
+			err: fmt.Errorf("cannot connect. invalid settings. use %s (see https://pkg.go.dev/database/sql)", strings.Join(settings, ",")),
 		})
 	}
 	o := opt.setDefaults()
@@ -128,10 +128,10 @@ func OpenDB(opt *Options) *sql.DB {
 type stdConnect interface {
 	isBad() bool
 	close() error
-	query(ctx context.Context, release func(*Connect, error), query string, args ...interface{}) (*rows, error)
+	query(ctx context.Context, release func(*connect, error), query string, args ...interface{}) (*rows, error)
 	exec(ctx context.Context, query string, args ...interface{}) error
 	ping(ctx context.Context) (err error)
-	prepareBatch(ctx context.Context, query string, release func(*Connect, error)) (ldriver.Batch, error)
+	prepareBatch(ctx context.Context, query string, release func(*connect, error)) (ldriver.Batch, error)
 	asyncInsert(ctx context.Context, query string, wait bool) error
 }
 
@@ -192,7 +192,7 @@ func (std *stdDriver) ExecContext(ctx context.Context, query string, args []driv
 }
 
 func (std *stdDriver) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
-	r, err := std.conn.query(ctx, func(*Connect, error) {}, query, rebind(args)...)
+	r, err := std.conn.query(ctx, func(*connect, error) {}, query, rebind(args)...)
 	if err != nil {
 		return nil, err
 	}
@@ -206,7 +206,7 @@ func (std *stdDriver) Prepare(query string) (driver.Stmt, error) {
 }
 
 func (std *stdDriver) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
-	batch, err := std.conn.prepareBatch(ctx, query, func(*Connect, error) {})
+	batch, err := std.conn.prepareBatch(ctx, query, func(*connect, error) {})
 	if err != nil {
 		return nil, err
 	}

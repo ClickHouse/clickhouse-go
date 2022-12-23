@@ -32,7 +32,7 @@ type onProcess struct {
 	profileEvents func([]ProfileEvent)
 }
 
-func (c *Connect) firstBlock(ctx context.Context, on *onProcess) (*proto.Block, error) {
+func (c *connect) firstBlock(ctx context.Context, on *onProcess) (*proto.Block, error) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -58,7 +58,7 @@ func (c *Connect) firstBlock(ctx context.Context, on *onProcess) (*proto.Block, 
 	}
 }
 
-func (c *Connect) process(ctx context.Context, on *onProcess) error {
+func (c *connect) process(ctx context.Context, on *onProcess) error {
 	for {
 		select {
 		case <-ctx.Done():
@@ -81,7 +81,7 @@ func (c *Connect) process(ctx context.Context, on *onProcess) error {
 	}
 }
 
-func (c *Connect) handle(packet byte, on *onProcess) error {
+func (c *connect) handle(packet byte, on *onProcess) error {
 	switch packet {
 	case proto.ServerData, proto.ServerTotals, proto.ServerExtremes:
 		block, err := c.readData(packet, true)
@@ -134,7 +134,7 @@ func (c *Connect) handle(packet byte, on *onProcess) error {
 	return nil
 }
 
-func (c *Connect) cancel() error {
+func (c *connect) cancel() error {
 	c.debugf("[cancel]")
 	c.buffer.PutUVarInt(proto.ClientCancel)
 	wErr := c.flush()

@@ -33,7 +33,7 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 
-func dial(ctx context.Context, addr string, num int, opt *Options) (*Connect, error) {
+func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, error) {
 	var (
 		err    error
 		conn   net.Conn
@@ -71,7 +71,7 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*Connect, er
 	}
 
 	var (
-		connect = &Connect{
+		connect = &connect{
 			id:                   num,
 			opt:                  opt,
 			conn:                 conn,
@@ -107,7 +107,7 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*Connect, er
 }
 
 // https://github.com/ClickHouse/ClickHouse/blob/master/src/Client/Connection.cpp
-type Connect struct {
+type connect struct {
 	id                   int
 	opt                  *Options
 	conn                 net.Conn
@@ -127,7 +127,7 @@ type Connect struct {
 	maxCompressionBuffer int
 }
 
-func (c *Connect) settings(querySettings Settings) []proto.Setting {
+func (c *connect) settings(querySettings Settings) []proto.Setting {
 	settings := make([]proto.Setting, 0, len(c.opt.Settings)+len(querySettings))
 	for k, v := range c.opt.Settings {
 		settings = append(settings, proto.Setting{
@@ -144,7 +144,7 @@ func (c *Connect) settings(querySettings Settings) []proto.Setting {
 	return settings
 }
 
-func (c *Connect) isBad() bool {
+func (c *connect) isBad() bool {
 	switch {
 	case c.closed:
 		return true
@@ -155,7 +155,7 @@ func (c *Connect) isBad() bool {
 	return false
 }
 
-func (c *Connect) close() error {
+func (c *connect) close() error {
 	if c.closed {
 		return nil
 	}
@@ -168,7 +168,7 @@ func (c *Connect) close() error {
 	return nil
 }
 
-func (c *Connect) progress() (*Progress, error) {
+func (c *connect) progress() (*Progress, error) {
 	var progress proto.Progress
 	if err := progress.Decode(c.reader, c.revision); err != nil {
 		return nil, err
@@ -177,7 +177,7 @@ func (c *Connect) progress() (*Progress, error) {
 	return &progress, nil
 }
 
-func (c *Connect) exception() error {
+func (c *connect) exception() error {
 	var e Exception
 	if err := e.Decode(c.reader); err != nil {
 		return err
@@ -186,7 +186,7 @@ func (c *Connect) exception() error {
 	return &e
 }
 
-func (c *Connect) compressBuffer(start int) error {
+func (c *connect) compressBuffer(start int) error {
 	if c.compression != CompressionNone && len(c.buffer.Buf) > 0 {
 		data := c.buffer.Buf[start:]
 		if err := c.compressor.Compress(compress.Method(c.compression), data); err != nil {
@@ -197,7 +197,7 @@ func (c *Connect) compressBuffer(start int) error {
 	return nil
 }
 
-func (c *Connect) sendData(block *proto.Block, name string) error {
+func (c *connect) sendData(block *proto.Block, name string) error {
 	c.debugf("[send data] compression=%t", c.compression)
 	c.buffer.PutByte(proto.ClientData)
 	c.buffer.PutString(name)
@@ -234,7 +234,7 @@ func (c *Connect) sendData(block *proto.Block, name string) error {
 	return nil
 }
 
-func (c *Connect) readData(packet byte, compressible bool) (*proto.Block, error) {
+func (c *connect) readData(packet byte, compressible bool) (*proto.Block, error) {
 	if _, err := c.reader.Str(); err != nil {
 		return nil, err
 	}
@@ -251,7 +251,7 @@ func (c *Connect) readData(packet byte, compressible bool) (*proto.Block, error)
 	return &block, nil
 }
 
-func (c *Connect) flush() error {
+func (c *connect) flush() error {
 	if len(c.buffer.Buf) == 0 {
 		// Nothing to flush.
 		return nil

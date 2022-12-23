@@ -80,14 +80,14 @@ func Open(opt *Options) (driver.Conn, error) {
 	o := opt.setDefaults()
 	return &clickhouse{
 		opt:  o,
-		idle: make(chan *Connect, o.MaxIdleConns),
+		idle: make(chan *connect, o.MaxIdleConns),
 		open: make(chan struct{}, o.MaxOpenConns),
 	}, nil
 }
 
 type clickhouse struct {
 	opt    *Options
-	idle   chan *Connect
+	idle   chan *connect
 	open   chan struct{}
 	connID int64
 }
@@ -193,7 +193,7 @@ func (ch *clickhouse) Stats() driver.Stats {
 	}
 }
 
-func (ch *clickhouse) dial(ctx context.Context) (conn *Connect, err error) {
+func (ch *clickhouse) dial(ctx context.Context) (conn *connect, err error) {
 	connID := int(atomic.AddInt64(&ch.connID, 1))
 
 	dialFunc := func(ctx context.Context, addr string, opt *Options) DialResult {
@@ -236,7 +236,7 @@ func DefaultDialStrategy(ctx context.Context, connID int, opt *Options, dial Dia
 	return DialResult{}, ErrAcquireConnNoAddress
 }
 
-func (ch *clickhouse) acquire(ctx context.Context) (conn *Connect, err error) {
+func (ch *clickhouse) acquire(ctx context.Context) (conn *connect, err error) {
 	timer := time.NewTimer(ch.opt.DialTimeout)
 	defer timer.Stop()
 	select {
@@ -277,7 +277,7 @@ func (ch *clickhouse) acquire(ctx context.Context) (conn *Connect, err error) {
 	return conn, nil
 }
 
-func (ch *clickhouse) release(conn *Connect, err error) {
+func (ch *clickhouse) release(conn *connect, err error) {
 	if conn.released {
 		return
 	}

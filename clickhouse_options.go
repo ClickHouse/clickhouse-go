@@ -117,7 +117,7 @@ func ParseDSN(dsn string) (*Options, error) {
 
 type Dial func(ctx context.Context, addr string, opt *Options) DialResult
 type DialResult struct {
-	conn *Connect
+	conn *connect
 	err  error
 }
 

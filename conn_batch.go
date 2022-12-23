@@ -34,7 +34,7 @@ import (
 var splitInsertRe = regexp.MustCompile(`(?i)\sVALUES\s*\(`)
 var columnMatch = regexp.MustCompile(`.*\((?P<Columns>.+)\)$`)
 
-func (c *Connect) prepareBatch(ctx context.Context, query string, release func(*Connect, error)) (driver.Batch, error) {
+func (c *connect) prepareBatch(ctx context.Context, query string, release func(*connect, error)) (driver.Batch, error) {
 	//defer func() {
 	//	if err := recover(); err != nil {
 	//		fmt.Printf("panic occurred on %d:\n", c.num)
@@ -86,11 +86,11 @@ func (c *Connect) prepareBatch(ctx context.Context, query string, release func(*
 type batch struct {
 	err         error
 	ctx         context.Context
-	conn        *Connect
+	conn        *connect
 	sent        bool
 	released    bool
 	block       *proto.Block
-	connRelease func(*Connect, error)
+	connRelease func(*connect, error)
 	onProcess   *onProcess
 }
 

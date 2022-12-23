@@ -262,7 +262,7 @@ func (h *httpConnect) isBad() bool {
 }
 
 func (h *httpConnect) readTimeZone(ctx context.Context) (*time.Location, error) {
-	rows, err := h.query(ctx, func(*Connect, error) {}, "SELECT timezone()")
+	rows, err := h.query(ctx, func(*connect, error) {}, "SELECT timezone()")
 	if err != nil {
 		return nil, err
 	}
@@ -280,7 +280,7 @@ func (h *httpConnect) readTimeZone(ctx context.Context) (*time.Location, error) 
 }
 
 func (h *httpConnect) readVersion(ctx context.Context) (proto.Version, error) {
-	rows, err := h.query(ctx, func(*Connect, error) {}, "SELECT version()")
+	rows, err := h.query(ctx, func(*connect, error) {}, "SELECT version()")
 	if err != nil {
 		return proto.Version{}, err
 	}

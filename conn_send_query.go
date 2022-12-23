@@ -23,7 +23,7 @@ import (
 
 // Connection::sendQuery
 // https://github.com/ClickHouse/ClickHouse/blob/master/src/Client/Connection.cpp
-func (c *Connect) sendQuery(body string, o *QueryOptions) error {
+func (c *connect) sendQuery(body string, o *QueryOptions) error {
 	c.debugf("[send query] compression=%t %s", c.compression, body)
 	c.buffer.PutByte(proto.ClientQuery)
 	q := proto.Query{
