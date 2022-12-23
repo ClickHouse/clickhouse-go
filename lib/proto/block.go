@@ -139,11 +139,16 @@ func (b *Block) EncodeHeader(buffer *proto.Buffer, revision uint64) (err error) 
 	return nil
 }
 
-func (b *Block) EncodeColumn(buffer *proto.Buffer, i int) (err error) {
+func (b *Block) EncodeColumn(buffer *proto.Buffer, revision uint64, i int) (err error) {
 	if i >= 0 && i < len(b.Columns) {
 		c := b.Columns[i]
 		buffer.PutString(c.Name())
 		buffer.PutString(string(c.Type()))
+
+		if revision >= DBMS_MIN_REVISION_WITH_CUSTOM_SERIALIZATION {
+			buffer.PutBool(false)
+		}
+
 		if serialize, ok := c.(column.CustomSerialization); ok {
 			if err := serialize.WriteStatePrefix(buffer); err != nil {
 				return &BlockError{
@@ -167,7 +172,7 @@ func (b *Block) Encode(buffer *proto.Buffer, revision uint64) (err error) {
 		return err
 	}
 	for i := range b.Columns {
-		if err := b.EncodeColumn(buffer, i); err != nil {
+		if err := b.EncodeColumn(buffer, revision, i); err != nil {
 			return err
 		}
 	}
@@ -213,6 +218,20 @@ func (b *Block) Decode(reader *proto.Reader, revision uint64) (err error) {
 		if err != nil {
 			return err
 		}
+
+		if revision >= DBMS_MIN_REVISION_WITH_CUSTOM_SERIALIZATION {
+			hasCustom, err := reader.Bool()
+			if err != nil {
+				return err
+			}
+			if hasCustom {
+				return &BlockError{
+					Op:  "Decode",
+					Err: errors.New(fmt.Sprintf("custom serialization for column %s. not supported", columnName)),
+				}
+			}
+		}
+
 		if numRows != 0 {
 			if serialize, ok := c.(column.CustomSerialization); ok {
 				if err := serialize.ReadStatePrefix(reader); err != nil {

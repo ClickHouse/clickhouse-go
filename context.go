@@ -32,6 +32,7 @@ var _contextOptionKey = &QueryOptions{
 }
 
 type Settings map[string]interface{}
+type Parameters map[string]string
 type (
 	QueryOption  func(*QueryOptions) error
 	QueryOptions struct {
@@ -49,6 +50,7 @@ type (
 			profileEvents func([]ProfileEvent)
 		}
 		settings        Settings
+		parameters      Parameters
 		external        []*ext.Table
 		blockBufferSize uint8
 	}
@@ -85,6 +87,13 @@ func WithQuotaKey(quotaKey string) QueryOption {
 func WithSettings(settings Settings) QueryOption {
 	return func(o *QueryOptions) error {
 		o.settings = settings
+		return nil
+	}
+}
+
+func WithParameters(params Parameters) QueryOption {
+	return func(o *QueryOptions) error {
+		o.parameters = params
 		return nil
 	}
 }

@@ -19,13 +19,15 @@ package clickhouse
 
 import (
 	"context"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 	"time"
 )
 
 func (c *connect) exec(ctx context.Context, query string, args ...interface{}) error {
 	var (
-		options   = queryOptions(ctx)
-		body, err = bind(c.server.Timezone, query, args...)
+		options                    = queryOptions(ctx)
+		queryParamsProtocolSupport = c.revision >= proto.DBMS_MIN_PROTOCOL_VERSION_WITH_PARAMETERS
+		body, err                  = bindQueryOrAppendParameters(queryParamsProtocolSupport, &options, query, c.server.Timezone, args...)
 	)
 	if err != nil {
 		return err

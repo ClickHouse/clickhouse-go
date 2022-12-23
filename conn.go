@@ -72,7 +72,7 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 
 	var (
 		connect = &connect{
-			id:          num,
+			id:                   num,
 			opt:                  opt,
 			conn:                 conn,
 			debugf:               debugf,
@@ -91,6 +91,11 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 	if err := connect.handshake(opt.Auth.Database, opt.Auth.Username, opt.Auth.Password); err != nil {
 		return nil, err
 	}
+	if connect.revision >= proto.DBMS_MIN_PROTOCOL_VERSION_WITH_ADDENDUM {
+		if err := connect.sendAddendum(); err != nil {
+			return nil, err
+		}
+	}
 
 	// warn only on the first connection in the pool
 	if num == 1 && !resources.ClientMeta.IsSupportedClickHouseVersion(connect.server.Version) {
@@ -103,7 +108,7 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 
 // https://github.com/ClickHouse/ClickHouse/blob/master/src/Client/Connection.cpp
 type connect struct {
-	id          int
+	id                   int
 	opt                  *Options
 	conn                 net.Conn
 	debugf               func(format string, v ...interface{})
@@ -203,7 +208,7 @@ func (c *connect) sendData(block *proto.Block, name string) error {
 		return err
 	}
 	for i := range block.Columns {
-		if err := block.EncodeColumn(c.buffer, i); err != nil {
+		if err := block.EncodeColumn(c.buffer, c.revision, i); err != nil {
 			return err
 		}
 		if len(c.buffer.Buf) >= c.maxCompressionBuffer {
