@@ -251,7 +251,7 @@ func TestConnCustomDialStrategy(t *testing.T) {
 	env.Host = "non-existent.host"
 	opts := clientOptionsFromEnv(env, clickhouse.Settings{})
 	opts.DialStrategy = func(ctx context.Context, connID int, opts *clickhouse.Options, dial clickhouse.Dial) (clickhouse.DialResult, error) {
-		return dial(ctx, actualAddr, opts), nil
+		return dial(ctx, actualAddr, opts)
 	}
 
 	conn, err := clickhouse.Open(&opts)

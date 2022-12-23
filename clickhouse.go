@@ -196,13 +196,10 @@ func (ch *clickhouse) Stats() driver.Stats {
 func (ch *clickhouse) dial(ctx context.Context) (conn *connect, err error) {
 	connID := int(atomic.AddInt64(&ch.connID, 1))
 
-	dialFunc := func(ctx context.Context, addr string, opt *Options) DialResult {
+	dialFunc := func(ctx context.Context, addr string, opt *Options) (DialResult, error) {
 		conn, err := dial(ctx, addr, connID, opt)
 
-		return DialResult{
-			conn: conn,
-			err:  err,
-		}
+		return DialResult{conn}, err
 	}
 
 	dialStrategy := DefaultDialStrategy
@@ -214,13 +211,10 @@ func (ch *clickhouse) dial(ctx context.Context) (conn *connect, err error) {
 	if err != nil {
 		return nil, err
 	}
-	if result.err != nil {
-		return nil, err
-	}
 	return result.conn, nil
 }
 
-func DefaultDialStrategy(ctx context.Context, connID int, opt *Options, dial Dial) (DialResult, error) {
+func DefaultDialStrategy(ctx context.Context, connID int, opt *Options, dial Dial) (r DialResult, err error) {
 	for i := range opt.Addr {
 		var num int
 		switch opt.ConnOpenStrategy {
@@ -230,10 +224,16 @@ func DefaultDialStrategy(ctx context.Context, connID int, opt *Options, dial Dia
 			num = (int(connID) + i) % len(opt.Addr)
 		}
 
-		return dial(ctx, opt.Addr[num], opt), nil
+		if r, err = dial(ctx, opt.Addr[num], opt); err == nil {
+			return r, nil
+		}
 	}
 
-	return DialResult{}, ErrAcquireConnNoAddress
+	if err == nil {
+		err = ErrAcquireConnNoAddress
+	}
+
+	return r, err
 }
 
 func (ch *clickhouse) acquire(ctx context.Context) (conn *connect, err error) {
