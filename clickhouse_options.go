@@ -115,6 +115,11 @@ func ParseDSN(dsn string) (*Options, error) {
 	return opt, nil
 }
 
+type Dial func(ctx context.Context, addr string, opt *Options) (DialResult, error)
+type DialResult struct {
+	conn *connect
+}
+
 type Options struct {
 	Protocol Protocol
 
@@ -122,6 +127,7 @@ type Options struct {
 	Addr                 []string
 	Auth                 Auth
 	DialContext          func(ctx context.Context, addr string) (net.Conn, error)
+	DialStrategy         func(ctx context.Context, connID int, options *Options, dial Dial) (DialResult, error)
 	Debug                bool
 	Debugf               func(format string, v ...interface{}) // only works when Debug is true
 	Settings             Settings
