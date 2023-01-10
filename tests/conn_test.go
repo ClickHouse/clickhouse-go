@@ -247,11 +247,12 @@ func TestConnCustomDialStrategy(t *testing.T) {
 	env, err := GetTestEnvironment(testSet)
 	require.NoError(t, err)
 
-	actualAddr := fmt.Sprintf("%s:%d", env.Host, env.Port)
-	env.Host = "non-existent.host"
 	opts := clientOptionsFromEnv(env, clickhouse.Settings{})
+	validAddr := opts.Addr[0]
+	opts.Addr = []string{"invalid.host:9001"}
+
 	opts.DialStrategy = func(ctx context.Context, connID int, opts *clickhouse.Options, dial clickhouse.Dial) (clickhouse.DialResult, error) {
-		return dial(ctx, actualAddr, opts)
+		return dial(ctx, validAddr, opts)
 	}
 
 	conn, err := clickhouse.Open(&opts)
