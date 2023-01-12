@@ -28,25 +28,42 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/timezone"
 )
 
-const ClientName = "Golang SQLDriver"
-
 const (
+	ClientName               = "Golang SQLDriver"
 	ClientVersionMajor       = 2
 	ClientVersionMinor       = 3
 	ClientTCPProtocolVersion = DBMS_TCP_PROTOCOL_VERSION
 )
 
-type ClientHandshake struct{}
+type ClientInfo struct {
+	Name    string
+	Version struct {
+		Major, Minor, Patch uint64
+	}
+	OSUser   string
+	Hostname string
+}
 
-func (ClientHandshake) Encode(buffer *chproto.Buffer) {
-	buffer.PutString(ClientName)
-	buffer.PutUVarInt(ClientVersionMajor)
-	buffer.PutUVarInt(ClientVersionMinor)
+type ClientHandshake struct {
+	ClientInfo ClientInfo
+}
+
+func (ch ClientHandshake) Encode(buffer *chproto.Buffer) {
+	buffer.PutString(ch.ClientInfo.Name)
+	buffer.PutUVarInt(ch.ClientInfo.Version.Major)
+	buffer.PutUVarInt(ch.ClientInfo.Version.Minor)
 	buffer.PutUVarInt(ClientTCPProtocolVersion)
 }
 
-func (ClientHandshake) String() string {
-	return fmt.Sprintf("%s %d.%d.%d", ClientName, ClientVersionMajor, ClientVersionMinor, ClientTCPProtocolVersion)
+func (ch ClientHandshake) String() string {
+	return fmt.Sprintf(
+		"%s %d.%d.%d.%d",
+		ch.ClientInfo.Name,
+		ch.ClientInfo.Version.Major,
+		ch.ClientInfo.Version.Minor,
+		ch.ClientInfo.Version.Patch,
+		ClientTCPProtocolVersion,
+	)
 }
 
 type ServerHandshake struct {

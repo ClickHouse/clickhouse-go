@@ -22,17 +22,12 @@ import (
 	"fmt"
 	chproto "github.com/ClickHouse/ch-go/proto"
 	"go.opentelemetry.io/otel/trace"
-	"os"
 	"strings"
-)
-
-var (
-	osUser      = os.Getenv("USER")
-	hostname, _ = os.Hostname()
 )
 
 type Query struct {
 	ID             string
+	ClientInfo     ClientInfo
 	Span           trace.SpanContext
 	Body           string
 	QuotaKey       string
@@ -91,11 +86,11 @@ func (q *Query) encodeClientInfo(buffer *chproto.Buffer, revision uint64) error 
 	}
 	buffer.PutByte(1) // interface [tcp - 1, http - 2]
 	{
-		buffer.PutString(osUser)
-		buffer.PutString(hostname)
-		buffer.PutString(ClientName)
-		buffer.PutUVarInt(ClientVersionMajor)
-		buffer.PutUVarInt(ClientVersionMinor)
+		buffer.PutString(q.ClientInfo.OSUser)
+		buffer.PutString(q.ClientInfo.Hostname)
+		buffer.PutString(q.ClientInfo.Name)
+		buffer.PutUVarInt(q.ClientInfo.Version.Major)
+		buffer.PutUVarInt(q.ClientInfo.Version.Minor)
 		buffer.PutUVarInt(ClientTCPProtocolVersion)
 	}
 	if revision >= DBMS_MIN_REVISION_WITH_QUOTA_KEY_IN_CLIENT_INFO {
@@ -105,7 +100,7 @@ func (q *Query) encodeClientInfo(buffer *chproto.Buffer, revision uint64) error 
 		buffer.PutUVarInt(0)
 	}
 	if revision >= DBMS_MIN_REVISION_WITH_VERSION_PATCH {
-		buffer.PutUVarInt(0)
+		buffer.PutUVarInt(q.ClientInfo.Version.Patch)
 	}
 	if revision >= DBMS_MIN_REVISION_WITH_OPENTELEMETRY {
 		switch {

@@ -17,6 +17,7 @@
 
 package clickhouse
 
+import "C"
 import (
 	"bytes"
 	"compress/flate"
@@ -31,6 +32,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"runtime"
 	"sync"
 	"time"
 
@@ -153,6 +155,8 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 	for k, v := range opt.HttpHeaders {
 		headers[k] = v
 	}
+
+	headers["User-Agent"] = buildUserAgentFromClientInfo(opt.Client)
 
 	if opt.TLS == nil && len(opt.Auth.Username) > 0 {
 		if len(opt.Auth.Password) > 0 {
@@ -490,4 +494,15 @@ func (h *httpConnect) close() error {
 	h.client.CloseIdleConnections()
 	h.client = nil
 	return nil
+}
+
+func buildUserAgentFromClientInfo(c ClientInfo) string {
+	return fmt.Sprintf(
+		"%s/%d.%d.%d (Go/%s)",
+		c.Name,
+		c.Version.Major,
+		c.Version.Minor,
+		c.Version.Patch,
+		runtime.Version(),
+	)
 }

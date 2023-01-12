@@ -28,6 +28,7 @@ func (c *connect) sendQuery(body string, o *QueryOptions) error {
 	c.buffer.PutByte(proto.ClientQuery)
 	q := proto.Query{
 		ID:             o.queryID,
+		ClientInfo:     proto.ClientInfo(c.opt.Client),
 		Body:           body,
 		Span:           o.span,
 		QuotaKey:       o.quotaKey,

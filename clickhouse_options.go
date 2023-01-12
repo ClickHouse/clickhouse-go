@@ -21,14 +21,23 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 	"net"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/ClickHouse/ch-go/compress"
 	"github.com/pkg/errors"
+)
+
+const (
+	clientName         = "clickhouse-go"
+	clientMajorVersion = 2
+	clientMinorVersion = 5
+	clientPatchVersion = 0
 )
 
 type CompressionMethod byte
@@ -120,8 +129,18 @@ type DialResult struct {
 	conn *connect
 }
 
+type ClientInfo struct {
+	Name    string
+	Version struct {
+		Major, Minor, Patch uint64
+	}
+	OSUser   string
+	Hostname string
+}
+
 type Options struct {
 	Protocol Protocol
+	Client   ClientInfo
 
 	TLS                  *tls.Config
 	Addr                 []string
@@ -266,6 +285,14 @@ func (o *Options) fromDSN(in string) error {
 			o.Auth.Username = params.Get(v)
 		case "password":
 			o.Auth.Password = params.Get(v)
+		case "client_name":
+			o.Client.Name = params.Get(v)
+		case "client_version":
+			ver, err := proto.ParseVersion(params.Get(v))
+			if err != nil {
+				return fmt.Errorf("clickhouse [dsn parse]:client_version: %s", err)
+			}
+			o.Client.Version = ver
 
 		default:
 			switch p := strings.ToLower(params.Get(v)); p {
@@ -307,6 +334,20 @@ func (o *Options) fromDSN(in string) error {
 
 // receive copy of Options, so we don't modify original - so its reusable
 func (o Options) setDefaults() *Options {
+	if len(o.Client.Name) == 0 {
+		o.Client.Name = clientName
+	}
+	if o.Client.Version.Major == 0 && o.Client.Version.Minor == 0 && o.Client.Version.Patch == 0 {
+		o.Client.Version.Major = clientMajorVersion
+		o.Client.Version.Minor = clientMinorVersion
+		o.Client.Version.Patch = clientPatchVersion
+	}
+	if len(o.Client.OSUser) == 0 {
+		o.Client.OSUser = os.Getenv("USER")
+	}
+	if len(o.Client.Hostname) == 0 {
+		o.Client.Hostname, _ = os.Hostname()
+	}
 	if len(o.Auth.Database) == 0 {
 		o.Auth.Database = "default"
 	}
