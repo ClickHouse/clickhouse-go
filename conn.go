@@ -26,6 +26,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"syscall"
 	"time"
 
 	"github.com/ClickHouse/ch-go/compress"
@@ -226,6 +227,10 @@ func (c *connect) sendData(block *proto.Block, name string) error {
 		return err
 	}
 	if err := c.flush(); err != nil {
+		if errors.Is(err, syscall.EPIPE) {
+			c.debugf("[send data] pipe is broken, closing connection")
+			c.closed = true
+		}
 		return err
 	}
 	defer func() {
