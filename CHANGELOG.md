@@ -1,3 +1,9 @@
+## 2.5.1, 2023-01-10
+
+### Bug fixes
+
+- Flag connection as closed on broken pipe [#871](https://github.com/ClickHouse/clickhouse-go/pull/871) by @n-oden
+
 ## 2.5.0, 2023-01-10
 
 ### New features
