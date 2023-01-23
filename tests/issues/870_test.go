@@ -47,16 +47,19 @@ func Test870(t *testing.T) {
 	require.NoError(t, batch.Send())
 
 	queryCtx := clickhouse.Context(ctx, clickhouse.WithParameters(clickhouse.Parameters{
-		"groupBy": "Col1",
+		"groupBy":   "Col1",
+		"stringVal": "lorem ipsum",
 	}))
 
-	row := conn.QueryRow(queryCtx, "SELECT {groupBy:Identifier} as groupBy, SUM(Col2) FROM test_870 GROUP BY {groupBy:Identifier}")
+	row := conn.QueryRow(queryCtx, "SELECT {groupBy:Identifier} as groupBy, SUM(Col2), {stringVal:String} FROM test_870 GROUP BY {groupBy:Identifier}")
 	assert.NoError(t, row.Err())
 
 	var groupBy string
 	var sum int64
+	var actualStringFromParam string
 
-	assert.NoError(t, row.Scan(&groupBy, &sum))
+	assert.NoError(t, row.Scan(&groupBy, &sum, &actualStringFromParam))
 	assert.Equal(t, "foo", groupBy)
 	assert.Equal(t, int64(15), sum)
+	assert.Equal(t, "lorem ipsum", actualStringFromParam)
 }
