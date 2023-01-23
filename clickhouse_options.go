@@ -121,7 +121,8 @@ type DialResult struct {
 }
 
 type Options struct {
-	Protocol Protocol
+	Protocol   Protocol
+	ClientInfo ClientInfo
 
 	TLS                  *tls.Config
 	Addr                 []string

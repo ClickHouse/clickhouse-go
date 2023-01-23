@@ -167,6 +167,8 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		}
 	}
 
+	headers["User-Agent"] = opt.ClientInfo.String()
+
 	query := u.Query()
 	if len(opt.Auth.Database) > 0 {
 		query.Set("database", opt.Auth.Database)
