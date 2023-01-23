@@ -19,6 +19,12 @@ func Test870(t *testing.T) {
 			Method: clickhouse.CompressionLZ4,
 		})
 	)
+
+	if !clickhouse_tests.CheckMinServerServerVersion(conn, 20, 8, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
+		return
+	}
+
 	ctx := context.Background()
 	require.NoError(t, err)
 	env, err := clickhouse_tests.GetTestEnvironment(testSet)
