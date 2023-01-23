@@ -28,7 +28,7 @@ import (
 const TestSet string = "examples_std_api"
 
 func GetStdDSNConnection(protocol clickhouse.Protocol, secure bool, compress string) (*sql.DB, error) {
-	return clickhouse_tests_std.GetDSNConnection(TestSet, protocol, secure, compress)
+	return clickhouse_tests_std.GetDSNConnection(TestSet, protocol, secure, nil)
 }
 
 func GetStdOpenDBConnection(protocol clickhouse.Protocol, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (*sql.DB, error) {

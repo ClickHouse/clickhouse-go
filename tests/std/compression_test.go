@@ -24,6 +24,7 @@ import (
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"net/url"
 	"strconv"
 	"testing"
 )
@@ -124,7 +125,7 @@ func TestCompressionStdDSN(t *testing.T) {
 	require.NoError(t, err)
 	for name, protocol := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
-			conn, err := GetStdDSNConnection(protocol, useSSL, "true")
+			conn, err := GetStdDSNConnection(protocol, useSSL, url.Values{"compress": []string{"true"}})
 			require.NoError(t, err)
 			conn.Exec("DROP TABLE IF EXISTS test_array_compress")
 			const ddl = `
@@ -167,6 +168,7 @@ func TestCompressionStdDSN(t *testing.T) {
 type protocolCompress struct {
 	protocol clickhouse.Protocol
 	compress string
+	level    string
 }
 
 func TestCompressionStdDSNWithLevel(t *testing.T) {
@@ -175,13 +177,14 @@ func TestCompressionStdDSNWithLevel(t *testing.T) {
 		compress: "lz4",
 	}, "Http": {
 		protocol: clickhouse.HTTP,
-		compress: "gzip&compress_level=9",
+		compress: "gzip",
+		level:    "9",
 	}}
 	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
 	require.NoError(t, err)
 	for name, protocol := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
-			conn, err := GetStdDSNConnection(protocol.protocol, useSSL, protocol.compress)
+			conn, err := GetStdDSNConnection(protocol.protocol, useSSL, nil)
 			require.NoError(t, err)
 			conn.Exec("DROP TABLE IF EXISTS test_array_compress")
 			const ddl = `
@@ -228,17 +231,22 @@ func TestCompressionStdDSNInvalid(t *testing.T) {
 		compress: "gzip",
 	}}, "Http": {{
 		protocol: clickhouse.HTTP,
-		compress: "gzip&compress_level=10",
+		compress: "gzip",
+		level:    "10",
 	}, {
 		protocol: clickhouse.HTTP,
-		compress: "gzip&compress_level=-3",
+		compress: "gzip",
+		level:    "-3",
 	}}}
 	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
 	require.NoError(t, err)
 	for name, dsns := range configs {
 		for _, dsn := range dsns {
 			t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
-				conn, err := GetStdDSNConnection(dsn.protocol, useSSL, dsn.compress)
+				conn, err := GetStdDSNConnection(dsn.protocol, useSSL, url.Values{
+					"compress":       []string{dsn.compress},
+					"compress_level": []string{dsn.level},
+				})
 				const ddl = `
 				CREATE TABLE test_array_compress (
 					  Col1 Array(String)

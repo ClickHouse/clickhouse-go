@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -146,6 +147,8 @@ type Options struct {
 	ReadTimeout time.Duration
 }
 
+var dsnOptionKeyRegex = regexp.MustCompile("^(.*?)(\\[(.*)\\]|)$")
+
 func (o *Options) fromDSN(in string) error {
 	dsn, err := url.Parse(in)
 	if err != nil {
@@ -170,12 +173,22 @@ func (o *Options) fromDSN(in string) error {
 		skipVerify bool
 	)
 	o.Auth.Database = strings.TrimPrefix(dsn.Path, "/")
+
+	if o.ClientInfo.Meta == nil {
+		o.ClientInfo.Meta = make(map[string]string)
+	}
+
 	for v := range params {
-		switch v {
+		key, subKey, found := strings.Cut(v, "[")
+		if found { // truncate ] suffix if present
+			subKey, _, _ = strings.Cut(subKey, "]")
+		}
+
+		switch key {
 		case "debug":
-			o.Debug, _ = strconv.ParseBool(params.Get(v))
+			o.Debug, _ = strconv.ParseBool(params.Get(key))
 		case "compress":
-			if on, _ := strconv.ParseBool(params.Get(v)); on {
+			if on, _ := strconv.ParseBool(params.Get(key)); on {
 				if o.Compression == nil {
 					o.Compression = &Compression{}
 				}
@@ -183,7 +196,7 @@ func (o *Options) fromDSN(in string) error {
 				o.Compression.Method = CompressionLZ4
 				continue
 			}
-			if compressMethod, ok := compressionMap[params.Get(v)]; ok {
+			if compressMethod, ok := compressionMap[params.Get(key)]; ok {
 				if o.Compression == nil {
 					o.Compression = &Compression{
 						// default for now same as Clickhouse - https://clickhouse.com/docs/en/operations/settings/settings#settings-http_zlib_compression_level
@@ -194,7 +207,7 @@ func (o *Options) fromDSN(in string) error {
 				o.Compression.Method = compressMethod
 			}
 		case "compress_level":
-			level, err := strconv.ParseInt(params.Get(v), 10, 8)
+			level, err := strconv.ParseInt(params.Get(key), 10, 8)
 			if err != nil {
 				return errors.Wrap(err, "compress_level invalid value")
 			}
@@ -210,19 +223,19 @@ func (o *Options) fromDSN(in string) error {
 
 			o.Compression.Level = int(level)
 		case "max_compression_buffer":
-			max, err := strconv.Atoi(params.Get(v))
+			max, err := strconv.Atoi(params.Get(key))
 			if err != nil {
 				return errors.Wrap(err, "max_compression_buffer invalid value")
 			}
 			o.MaxCompressionBuffer = max
 		case "dial_timeout":
-			duration, err := time.ParseDuration(params.Get(v))
+			duration, err := time.ParseDuration(params.Get(key))
 			if err != nil {
 				return fmt.Errorf("clickhouse [dsn parse]: dial timeout: %s", err)
 			}
 			o.DialTimeout = duration
 		case "block_buffer_size":
-			if blockBufferSize, err := strconv.ParseUint(params.Get(v), 10, 8); err == nil {
+			if blockBufferSize, err := strconv.ParseUint(params.Get(key), 10, 8); err == nil {
 				if blockBufferSize <= 0 {
 					return fmt.Errorf("block_buffer_size must be greater than 0")
 				}
@@ -231,13 +244,13 @@ func (o *Options) fromDSN(in string) error {
 				return err
 			}
 		case "read_timeout":
-			duration, err := time.ParseDuration(params.Get(v))
+			duration, err := time.ParseDuration(params.Get(key))
 			if err != nil {
 				return fmt.Errorf("clickhouse [dsn parse]:read timeout: %s", err)
 			}
 			o.ReadTimeout = duration
 		case "secure":
-			secureParam := params.Get(v)
+			secureParam := params.Get(key)
 			if secureParam == "" {
 				secure = true
 			} else {
@@ -247,7 +260,7 @@ func (o *Options) fromDSN(in string) error {
 				}
 			}
 		case "skip_verify":
-			skipVerifyParam := params.Get(v)
+			skipVerifyParam := params.Get(key)
 			if skipVerifyParam == "" {
 				skipVerify = true
 			} else {
@@ -257,19 +270,46 @@ func (o *Options) fromDSN(in string) error {
 				}
 			}
 		case "connection_open_strategy":
-			switch params.Get(v) {
+			switch params.Get(key) {
 			case "in_order":
 				o.ConnOpenStrategy = ConnOpenInOrder
 			case "round_robin":
 				o.ConnOpenStrategy = ConnOpenRoundRobin
 			}
 		case "username":
-			o.Auth.Username = params.Get(v)
+			o.Auth.Username = params.Get(key)
 		case "password":
-			o.Auth.Password = params.Get(v)
+			o.Auth.Password = params.Get(key)
+		case "client_info_product":
+			val := params.Get(v)
+
+			if len(subKey) == 0 || len(val) == 0 {
+				continue
+			}
+
+			o.ClientInfo.Products = append(o.ClientInfo.Products, struct{ Name, Version string }{
+				subKey,
+				val,
+			})
+		case "client_info_meta":
+			val := params.Get(v)
+
+			if len(subKey) == 0 || len(val) == 0 {
+				continue
+			}
+
+			o.ClientInfo.Meta[subKey] = val
+		case "client_info_comment":
+			for _, part := range params[v] {
+				if len(part) == 0 {
+					continue
+				}
+
+				o.ClientInfo.Comment = append(o.ClientInfo.Comment, part)
+			}
 
 		default:
-			switch p := strings.ToLower(params.Get(v)); p {
+			switch p := strings.ToLower(params.Get(key)); p {
 			case "true":
 				o.Settings[v] = int(1)
 			case "false":

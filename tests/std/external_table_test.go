@@ -52,7 +52,7 @@ func TestStdExternalTable(t *testing.T) {
 	}
 	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
 	require.NoError(t, err)
-	conn, err := GetStdDSNConnection(clickhouse.Native, useSSL, "false")
+	conn, err := GetStdDSNConnection(clickhouse.Native, useSSL, nil)
 	require.NoError(t, err)
 	ctx := clickhouse.Context(context.Background(),
 		clickhouse.WithExternalTable(table1, table2),

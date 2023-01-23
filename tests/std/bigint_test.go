@@ -35,7 +35,7 @@ func TestStdBigInt(t *testing.T) {
 	require.NoError(t, err)
 	for name, protocol := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
-			if conn, err := GetStdDSNConnection(protocol, useSSL, "false"); assert.NoError(t, err) {
+			if conn, err := GetStdDSNConnection(protocol, useSSL, nil); assert.NoError(t, err) {
 				if !CheckMinServerVersion(conn, 21, 12, 0) {
 					t.Skip(fmt.Errorf("unsupported clickhouse version"))
 					return
@@ -108,7 +108,7 @@ func TestStdNullableBigInt(t *testing.T) {
 	require.NoError(t, err)
 	for name, protocol := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
-			if conn, err := GetStdDSNConnection(protocol, useSSL, "false"); assert.NoError(t, err) {
+			if conn, err := GetStdDSNConnection(protocol, useSSL, nil); assert.NoError(t, err) {
 				if !CheckMinServerVersion(conn, 21, 12, 0) {
 					t.Skip(err.Error())
 					return

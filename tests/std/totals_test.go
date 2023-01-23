@@ -38,7 +38,7 @@ func TestStdWithTotals(t *testing.T) {
 	`
 	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
 	require.NoError(t, err)
-	conn, err := GetStdDSNConnection(clickhouse.Native, useSSL, "false")
+	conn, err := GetStdDSNConnection(clickhouse.Native, useSSL, nil)
 	require.NoError(t, err)
 	rows, err := conn.Query(query)
 	require.NoError(t, err)

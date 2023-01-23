@@ -23,7 +23,7 @@ func TestIssue741(t *testing.T) {
 	protocols := []clickhouse.Protocol{clickhouse.Native, clickhouse.HTTP}
 	for _, protocol := range protocols {
 		t.Run(fmt.Sprintf("%v Protocol", protocol), func(t *testing.T) {
-			conn, err := clickhouse_std_tests.GetDSNConnection("issues", protocol, useSSL, "false")
+			conn, err := clickhouse_std_tests.GetDSNConnection("issues", protocol, useSSL, nil)
 			require.NoError(t, err)
 			conn.Exec("DROP TABLE IF EXISTS issue_741")
 			ddl := `
@@ -51,7 +51,7 @@ func TestIssue741SingleColumn(t *testing.T) {
 	protocols := []clickhouse.Protocol{clickhouse.Native, clickhouse.HTTP}
 	for _, protocol := range protocols {
 		t.Run(fmt.Sprintf("%v Protocol", protocol), func(t *testing.T) {
-			conn, err := clickhouse_std_tests.GetDSNConnection("issues", protocol, useSSL, "false")
+			conn, err := clickhouse_std_tests.GetDSNConnection("issues", protocol, useSSL, nil)
 			require.NoError(t, err)
 			conn.Exec("DROP TABLE IF EXISTS issue_741_single")
 			ddl := `
@@ -119,7 +119,7 @@ func TestIssue741RandomOrder(t *testing.T) {
 	protocols := []clickhouse.Protocol{clickhouse.Native, clickhouse.HTTP}
 	for _, protocol := range protocols {
 		t.Run(fmt.Sprintf("%v Protocol", protocol), func(t *testing.T) {
-			conn, err := clickhouse_std_tests.GetDSNConnection("issues", clickhouse.Native, useSSL, "false")
+			conn, err := clickhouse_std_tests.GetDSNConnection("issues", clickhouse.Native, useSSL, nil)
 			require.NoError(t, err)
 			conn.Exec("DROP TABLE IF EXISTS issue_741_random")
 			defer func() {
@@ -167,7 +167,7 @@ func TestIssue741StdAppend(t *testing.T) {
 	protocols := []clickhouse.Protocol{clickhouse.Native, clickhouse.HTTP}
 	for _, protocol := range protocols {
 		t.Run(fmt.Sprintf("%v Protocol", protocol), func(t *testing.T) {
-			conn, err := clickhouse_std_tests.GetDSNConnection("issues", clickhouse.Native, useSSL, "false")
+			conn, err := clickhouse_std_tests.GetDSNConnection("issues", clickhouse.Native, useSSL, nil)
 			require.NoError(t, err)
 			conn.Exec("DROP TABLE IF EXISTS issue_741_std_append_random")
 			defer func() {

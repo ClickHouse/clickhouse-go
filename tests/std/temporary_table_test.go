@@ -41,7 +41,7 @@ func TestStdTemporaryTable(t *testing.T) {
 					"session_id": "test_session",
 				}))
 			}
-			conn, err := GetStdDSNConnection(protocol, useSSL, "false")
+			conn, err := GetStdDSNConnection(protocol, useSSL, nil)
 			require.NoError(t, err)
 			conn.Exec("DROP TABLE IF EXISTS test_temporary_table")
 			defer func() {

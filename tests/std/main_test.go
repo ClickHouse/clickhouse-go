@@ -25,6 +25,7 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"math/rand"
+	"net/url"
 	"os"
 	"strconv"
 	"testing"
@@ -62,8 +63,8 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func GetStdDSNConnection(protocol clickhouse.Protocol, secure bool, compress string) (*sql.DB, error) {
-	return GetDSNConnection(testSet, protocol, secure, compress)
+func GetStdDSNConnection(protocol clickhouse.Protocol, secure bool, opts url.Values) (*sql.DB, error) {
+	return GetDSNConnection(testSet, protocol, secure, opts)
 }
 
 func GetStdOpenDBConnection(protocol clickhouse.Protocol, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (*sql.DB, error) {
