@@ -68,6 +68,21 @@ func TestQueryParameters(t *testing.T) {
 				require.ErrorIs(t, row.Err(), clickhouse.ErrExpectedStringValueInNamedValueForQueryParameter)
 			})
 
+			t.Run("with identifier type", func(t *testing.T) {
+				var actualNum uint64
+
+				row := conn.QueryRow(
+					"SELECT {column:Identifier} FROM {database:Identifier}.{table:Identifier} LIMIT 1 OFFSET 100;",
+					clickhouse.Named("column", "number"),
+					clickhouse.Named("database", "system"),
+					clickhouse.Named("table", "numbers"),
+				)
+				require.NoError(t, row.Err())
+				require.NoError(t, row.Scan(&actualNum))
+
+				assert.Equal(t, uint64(100), actualNum)
+			})
+
 			t.Run("unsupported arg type", func(t *testing.T) {
 				row := conn.QueryRow(
 					"SELECT {num:UInt64}, {str:String}",

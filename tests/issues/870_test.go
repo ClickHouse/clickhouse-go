@@ -20,7 +20,7 @@ func Test870(t *testing.T) {
 		})
 	)
 
-	if !clickhouse_tests.CheckMinServerServerVersion(conn, 20, 8, 0) {
+	if !clickhouse_tests.CheckMinServerServerVersion(conn, 22, 8, 0) {
 		t.Skip(fmt.Errorf("unsupported clickhouse version"))
 		return
 	}
