@@ -37,6 +37,11 @@ func TestClientInfo(t *testing.T) {
 			conn, err := GetStdDSNConnection(protocol, useSSL, "false")
 			require.NoError(t, err)
 
+			if !CheckMinServerVersion(conn, 22, 8, 0) {
+				t.Skip(fmt.Errorf("unsupported clickhouse version"))
+				return
+			}
+
 			var queryID string
 			row := conn.QueryRow("SELECT queryID()")
 			require.NoError(t, row.Err())
