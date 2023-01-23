@@ -44,56 +44,44 @@ type ClientInfo struct {
 	Meta    map[string]string
 }
 
-func (i ClientInfo) String() string {
+func (o ClientInfo) String() string {
 	var s strings.Builder
 
-	products := append(i.Products, struct{ Name, Version string }{
+	info := o
+
+	if info.Meta == nil {
+		info.Meta = make(map[string]string)
+	}
+	info.Meta["lv"] = "go/" + runtime.Version()[2:]
+	info.Meta["os"] = runtime.GOOS
+
+	info.Products = append(info.Products, struct{ Name, Version string }{
 		Name:    ClientName,
 		Version: fmt.Sprintf("%d.%d.%d", ClientVersionMajor, ClientVersionMinor, ClientVersionPatch),
 	})
 
-	for _, product := range products {
-		s.WriteString(product.Name)
-		s.WriteByte('/')
-		s.WriteString(product.Version)
-		s.WriteByte(' ')
+	encodedProducts := make([]string, len(info.Products))
+	for i, product := range info.Products {
+		encodedProducts[i] = fmt.Sprintf("%s/%s", product.Name, product.Version)
+	}
+	s.WriteString(strings.Join(encodedProducts, " "))
+
+	if len(info.Comment) == 0 && len(info.Meta) == 0 {
+		return s.String()
 	}
 
-	if i.Meta == nil {
-		i.Meta = make(map[string]string)
-	}
-	i.Meta["lv"] = "go/" + runtime.Version()[2:]
-	i.Meta["os"] = runtime.GOOS
+	chunks := info.Comment
+	if len(info.Meta) > 0 {
+		for _, key := range mapKeysInOrder(info.Meta) {
+			chunk := fmt.Sprintf("%s:%s", key, info.Meta[key])
 
-	totalChunks := len(i.Comment) + len(i.Meta)
-	if totalChunks == 0 {
-		return strings.TrimSpace(s.String())
-	}
-	var chunksWritten int
-	writePart := func() {
-		if chunksWritten == totalChunks-1 {
-			return
+			chunks = append(chunks, chunk)
 		}
-
-		s.WriteByte(';')
-		s.WriteByte(' ')
-		chunksWritten++
 	}
 
+	s.WriteByte(' ')
 	s.WriteByte('(')
-
-	for _, comment := range i.Comment {
-		s.WriteString(comment)
-		writePart()
-	}
-
-	for _, key := range mapKeysInOrder(i.Meta) {
-		s.WriteString(key)
-		s.WriteByte(':')
-		s.WriteString(i.Meta[key])
-		writePart()
-	}
-
+	s.WriteString(strings.Join(chunks, "; "))
 	s.WriteByte(')')
 
 	return s.String()
