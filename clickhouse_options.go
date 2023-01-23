@@ -174,10 +174,6 @@ func (o *Options) fromDSN(in string) error {
 	)
 	o.Auth.Database = strings.TrimPrefix(dsn.Path, "/")
 
-	if o.ClientInfo.Meta == nil {
-		o.ClientInfo.Meta = make(map[string]string)
-	}
-
 	for v := range params {
 		key, subKey, found := strings.Cut(v, "[")
 		if found { // truncate ] suffix if present
@@ -296,6 +292,10 @@ func (o *Options) fromDSN(in string) error {
 
 			if len(subKey) == 0 || len(val) == 0 {
 				continue
+			}
+
+			if o.ClientInfo.Meta == nil {
+				o.ClientInfo.Meta = make(map[string]string)
 			}
 
 			o.ClientInfo.Meta[subKey] = val
