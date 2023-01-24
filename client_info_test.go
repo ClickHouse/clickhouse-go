@@ -25,7 +25,10 @@ import (
 )
 
 func TestClientInfoString(t *testing.T) {
+	// e.g. clickhouse-go/2.5.1
 	expectedClientProduct := fmt.Sprintf("%s/%d.%d.%d", ClientName, ClientVersionMajor, ClientVersionMinor, ClientVersionPatch)
+
+	// e.g. lv:go/1.19.5; os:darwin
 	expectedDefaultMeta := fmt.Sprintf("lv:go/%s; os:%s", runtime.Version()[2:], runtime.GOOS)
 
 	testCases := map[string]struct {
@@ -34,36 +37,17 @@ func TestClientInfoString(t *testing.T) {
 	}{
 		"client": {
 			ClientInfo{},
+			// e.g. clickhouse-go/2.5.1 (lv:go/1.19.5; os:darwin)
 			fmt.Sprintf("%s (%s)", expectedClientProduct, expectedDefaultMeta),
 		},
-		"client with meta": {
+		"client with comment": {
 			ClientInfo{
-				Meta: map[string]string{
-					"property": "value",
-				},
+				comment: []string{"database/sql"},
 			},
-			fmt.Sprintf("%s (%s; property:value)", expectedClientProduct, expectedDefaultMeta),
+			// e.g. clickhouse-go/2.5.1 (database/sql; lv:go/1.19.5; os:darwin)
+			fmt.Sprintf("%s (database/sql; %s)", expectedClientProduct, expectedDefaultMeta),
 		},
-		"client with multiple meta": {
-			ClientInfo{
-				Meta: map[string]string{
-					"property":  "value",
-					"property2": "value",
-				},
-			},
-			fmt.Sprintf("%s (%s; property:value; property2:value)", expectedClientProduct, expectedDefaultMeta),
-		},
-		"client with multiple meta and comment": {
-			ClientInfo{
-				Comment: []string{"comment value"},
-				Meta: map[string]string{
-					"property":  "value",
-					"property2": "value",
-				},
-			},
-			fmt.Sprintf("%s (comment value; %s; property:value; property2:value)", expectedClientProduct, expectedDefaultMeta),
-		},
-		"additional product with multiple meta and comment": {
+		"additional product": {
 			ClientInfo{
 				Products: []struct {
 					Name    string
@@ -71,15 +55,11 @@ func TestClientInfoString(t *testing.T) {
 				}{
 					{Name: "grafana-datasource", Version: "0.1.1"},
 				},
-				Comment: []string{"comment value"},
-				Meta: map[string]string{
-					"property":  "value",
-					"property2": "value",
-				},
 			},
-			fmt.Sprintf("grafana-datasource/0.1.1 %s (comment value; %s; property:value; property2:value)", expectedClientProduct, expectedDefaultMeta),
+			// e.g. grafana-datasource/0.1.1 clickhouse-go/2.5.1 (lv:go/1.19.5; os:darwin)
+			fmt.Sprintf("grafana-datasource/0.1.1 %s (%s)", expectedClientProduct, expectedDefaultMeta),
 		},
-		"additional products with multiple meta and comment": {
+		"additional products with comment": {
 			ClientInfo{
 				Products: []struct {
 					Name    string
@@ -88,13 +68,10 @@ func TestClientInfoString(t *testing.T) {
 					{Name: "grafana", Version: "6.1"},
 					{Name: "grafana-datasource", Version: "0.1.1"},
 				},
-				Comment: []string{"comment value"},
-				Meta: map[string]string{
-					"property":  "value",
-					"property2": "value",
-				},
+				comment: []string{"database/sql"},
 			},
-			fmt.Sprintf("grafana/6.1 grafana-datasource/0.1.1 %s (comment value; %s; property:value; property2:value)", expectedClientProduct, expectedDefaultMeta),
+			// e.g. grafana/6.1 grafana-datasource/0.1.1 clickhouse-go/2.5.1 (database/sql; lv:go/1.19.5; os:darwin)
+			fmt.Sprintf("grafana/6.1 grafana-datasource/0.1.1 %s (database/sql; %s)", expectedClientProduct, expectedDefaultMeta),
 		},
 	}
 

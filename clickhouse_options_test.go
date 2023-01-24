@@ -406,17 +406,13 @@ func TestParseDSN(t *testing.T) {
 		},
 		{
 			"client info",
-			"clickhouse://127.0.0.1/test_database?client_info_product[grafana]=6.1&client_info_meta[test]=std&client_info_comment=clickhouse&client_info_comment=fun",
+			"clickhouse://127.0.0.1/test_database?client_info_product[grafana]=6.1",
 			&Options{
 				Protocol: Native,
 				ClientInfo: ClientInfo{
 					Products: []struct{ Name, Version string }{
 						{"grafana", "6.1"},
 					},
-					Meta: map[string]string{
-						"test": "std",
-					},
-					Comment: []string{"clickhouse", "fun"},
 				},
 				TLS:      nil,
 				Addr:     []string{"127.0.0.1"},

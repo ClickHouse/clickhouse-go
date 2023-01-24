@@ -284,27 +284,6 @@ func (o *Options) fromDSN(in string) error {
 				subKey,
 				val,
 			})
-		case "client_info_meta":
-			val := params.Get(v)
-
-			if len(subKey) == 0 || len(val) == 0 {
-				continue
-			}
-
-			if o.ClientInfo.Meta == nil {
-				o.ClientInfo.Meta = make(map[string]string)
-			}
-
-			o.ClientInfo.Meta[subKey] = val
-		case "client_info_comment":
-			for _, part := range params[v] {
-				if len(part) == 0 {
-					continue
-				}
-
-				o.ClientInfo.Comment = append(o.ClientInfo.Comment, part)
-			}
-
 		default:
 			switch p := strings.ToLower(params.Get(key)); p {
 			case "true":

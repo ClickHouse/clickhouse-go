@@ -68,6 +68,8 @@ func (o *stdConnOpener) Connect(ctx context.Context) (_ driver.Conn, err error) 
 		return nil, ErrAcquireConnNoAddress
 	}
 
+	o.setClientInfoDefaults()
+
 	for i := range o.opt.Addr {
 		var num int
 		switch o.opt.ConnOpenStrategy {
@@ -82,7 +84,12 @@ func (o *stdConnOpener) Connect(ctx context.Context) (_ driver.Conn, err error) 
 			}, nil
 		}
 	}
+
 	return nil, err
+}
+
+func (o *stdConnOpener) setClientInfoDefaults() {
+	o.opt.ClientInfo.comment = []string{"database/sql"}
 }
 
 func init() {

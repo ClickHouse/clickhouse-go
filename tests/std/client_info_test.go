@@ -37,11 +37,6 @@ func TestClientInfo(t *testing.T) {
 			conn, err := GetStdDSNConnection(protocol, useSSL, nil)
 			require.NoError(t, err)
 
-			if !CheckMinServerVersion(conn, 22, 8, 0) {
-				t.Skip(fmt.Errorf("unsupported clickhouse version"))
-				return
-			}
-
 			var queryID string
 			row := conn.QueryRow("SELECT queryID()")
 			require.NoError(t, row.Err())
@@ -51,19 +46,19 @@ func TestClientInfo(t *testing.T) {
 			require.NoError(t, err)
 
 			var clientName string
-			row = conn.QueryRow("SELECT IF(interface = 2, http_user_agent, client_name) as client_name FROM system.query_log WHERE query_id = {queryId:String}", clickhouse.Named("queryId", queryID))
+			row = conn.QueryRow("SELECT IF(interface = 2, http_user_agent, client_name) as client_name FROM system.query_log WHERE query_id = " + queryID)
 			require.NoError(t, row.Err())
 			require.NoError(t, row.Scan(&clientName))
 
+			// e.g. tests/dev clickhouse-go/2.5.1 (database/sql; lv:go/1.19.3; os:darwin)
 			expectedClientName := fmt.Sprintf(
-				"tests/dev %s/%d.%d.%d (std; lv:go/%s; os:%s; protocol:%s)",
+				"tests/dev %s/%d.%d.%d (database/sql; lv:go/%s; os:%s)",
 				clickhouse.ClientName,
 				clickhouse.ClientVersionMajor,
 				clickhouse.ClientVersionMinor,
 				clickhouse.ClientVersionPatch,
 				runtime.Version()[2:],
 				runtime.GOOS,
-				protocol.String(),
 			)
 			assert.Equal(t, expectedClientName, clientName)
 		})

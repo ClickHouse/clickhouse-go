@@ -40,20 +40,13 @@ type ClientInfo struct {
 		Version string
 	}
 
-	Comment []string
-	Meta    map[string]string
+	comment []string
 }
 
 func (o ClientInfo) String() string {
 	var s strings.Builder
 
 	info := o
-
-	if info.Meta == nil {
-		info.Meta = make(map[string]string)
-	}
-	info.Meta["lv"] = "go/" + runtime.Version()[2:]
-	info.Meta["os"] = runtime.GOOS
 
 	info.Products = append(info.Products, struct{ Name, Version string }{
 		Name:    ClientName,
@@ -66,18 +59,10 @@ func (o ClientInfo) String() string {
 	}
 	s.WriteString(strings.Join(encodedProducts, " "))
 
-	if len(info.Comment) == 0 && len(info.Meta) == 0 {
-		return s.String()
-	}
+	lvMeta := "lv:go/" + runtime.Version()[2:]
+	osMeta := "os:" + runtime.GOOS
 
-	chunks := info.Comment
-	if len(info.Meta) > 0 {
-		for _, key := range mapKeysInOrder(info.Meta) {
-			chunk := fmt.Sprintf("%s:%s", key, info.Meta[key])
-
-			chunks = append(chunks, chunk)
-		}
-	}
+	chunks := append(info.comment, lvMeta, osMeta)
 
 	s.WriteByte(' ')
 	s.WriteByte('(')
