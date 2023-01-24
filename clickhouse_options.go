@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"net"
 	"net/url"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -146,8 +145,6 @@ type Options struct {
 	scheme      string
 	ReadTimeout time.Duration
 }
-
-var dsnOptionKeyRegex = regexp.MustCompile("^(.*?)(\\[(.*)\\]|)$")
 
 func (o *Options) fromDSN(in string) error {
 	dsn, err := url.Parse(in)
