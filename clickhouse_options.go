@@ -172,16 +172,11 @@ func (o *Options) fromDSN(in string) error {
 	o.Auth.Database = strings.TrimPrefix(dsn.Path, "/")
 
 	for v := range params {
-		key, subKey, found := strings.Cut(v, "[")
-		if found { // truncate ] suffix if present
-			subKey, _, _ = strings.Cut(subKey, "]")
-		}
-
-		switch key {
+		switch v {
 		case "debug":
-			o.Debug, _ = strconv.ParseBool(params.Get(key))
+			o.Debug, _ = strconv.ParseBool(params.Get(v))
 		case "compress":
-			if on, _ := strconv.ParseBool(params.Get(key)); on {
+			if on, _ := strconv.ParseBool(params.Get(v)); on {
 				if o.Compression == nil {
 					o.Compression = &Compression{}
 				}
@@ -189,7 +184,7 @@ func (o *Options) fromDSN(in string) error {
 				o.Compression.Method = CompressionLZ4
 				continue
 			}
-			if compressMethod, ok := compressionMap[params.Get(key)]; ok {
+			if compressMethod, ok := compressionMap[params.Get(v)]; ok {
 				if o.Compression == nil {
 					o.Compression = &Compression{
 						// default for now same as Clickhouse - https://clickhouse.com/docs/en/operations/settings/settings#settings-http_zlib_compression_level
@@ -200,7 +195,7 @@ func (o *Options) fromDSN(in string) error {
 				o.Compression.Method = compressMethod
 			}
 		case "compress_level":
-			level, err := strconv.ParseInt(params.Get(key), 10, 8)
+			level, err := strconv.ParseInt(params.Get(v), 10, 8)
 			if err != nil {
 				return errors.Wrap(err, "compress_level invalid value")
 			}
@@ -216,19 +211,19 @@ func (o *Options) fromDSN(in string) error {
 
 			o.Compression.Level = int(level)
 		case "max_compression_buffer":
-			max, err := strconv.Atoi(params.Get(key))
+			max, err := strconv.Atoi(params.Get(v))
 			if err != nil {
 				return errors.Wrap(err, "max_compression_buffer invalid value")
 			}
 			o.MaxCompressionBuffer = max
 		case "dial_timeout":
-			duration, err := time.ParseDuration(params.Get(key))
+			duration, err := time.ParseDuration(params.Get(v))
 			if err != nil {
 				return fmt.Errorf("clickhouse [dsn parse]: dial timeout: %s", err)
 			}
 			o.DialTimeout = duration
 		case "block_buffer_size":
-			if blockBufferSize, err := strconv.ParseUint(params.Get(key), 10, 8); err == nil {
+			if blockBufferSize, err := strconv.ParseUint(params.Get(v), 10, 8); err == nil {
 				if blockBufferSize <= 0 {
 					return fmt.Errorf("block_buffer_size must be greater than 0")
 				}
@@ -237,13 +232,13 @@ func (o *Options) fromDSN(in string) error {
 				return err
 			}
 		case "read_timeout":
-			duration, err := time.ParseDuration(params.Get(key))
+			duration, err := time.ParseDuration(params.Get(v))
 			if err != nil {
 				return fmt.Errorf("clickhouse [dsn parse]:read timeout: %s", err)
 			}
 			o.ReadTimeout = duration
 		case "secure":
-			secureParam := params.Get(key)
+			secureParam := params.Get(v)
 			if secureParam == "" {
 				secure = true
 			} else {
@@ -253,7 +248,7 @@ func (o *Options) fromDSN(in string) error {
 				}
 			}
 		case "skip_verify":
-			skipVerifyParam := params.Get(key)
+			skipVerifyParam := params.Get(v)
 			if skipVerifyParam == "" {
 				skipVerify = true
 			} else {
@@ -263,29 +258,29 @@ func (o *Options) fromDSN(in string) error {
 				}
 			}
 		case "connection_open_strategy":
-			switch params.Get(key) {
+			switch params.Get(v) {
 			case "in_order":
 				o.ConnOpenStrategy = ConnOpenInOrder
 			case "round_robin":
 				o.ConnOpenStrategy = ConnOpenRoundRobin
 			}
 		case "username":
-			o.Auth.Username = params.Get(key)
+			o.Auth.Username = params.Get(v)
 		case "password":
-			o.Auth.Password = params.Get(key)
+			o.Auth.Password = params.Get(v)
 		case "client_info_product":
-			val := params.Get(v)
+			chunks := strings.Split(params.Get(v), ",")
 
-			if len(subKey) == 0 || len(val) == 0 {
-				continue
+			for _, chunk := range chunks {
+				name, version, _ := strings.Cut(chunk, "/")
+
+				o.ClientInfo.Products = append(o.ClientInfo.Products, struct{ Name, Version string }{
+					name,
+					version,
+				})
 			}
-
-			o.ClientInfo.Products = append(o.ClientInfo.Products, struct{ Name, Version string }{
-				subKey,
-				val,
-			})
 		default:
-			switch p := strings.ToLower(params.Get(key)); p {
+			switch p := strings.ToLower(params.Get(v)); p {
 			case "true":
 				o.Settings[v] = int(1)
 			case "false":

@@ -53,14 +53,15 @@ func TestClientInfo(t *testing.T) {
 		"one additional product": {
 			// e.g. tests/dev clickhouse-go/2.5.1 (database/sql; lv:go/1.19.3; os:darwin)
 			fmt.Sprintf("tests/dev %s", expectedClientProduct),
-			url.Values{"client_info_product[tests]": []string{"dev"}},
+			url.Values{
+				"client_info_product": []string{"tests/dev"},
+			},
 		},
 		"two additional products": {
 			// e.g. product/version tests/dev clickhouse-go/2.5.1 (database/sql; lv:go/1.19.3; os:darwin)
 			fmt.Sprintf("product/version tests/dev %s", expectedClientProduct),
 			url.Values{
-				"client_info_product[product]": []string{"version"},
-				"client_info_product[tests]":   []string{"dev"},
+				"client_info_product": []string{"product/version,tests/dev"},
 			},
 		},
 	}
