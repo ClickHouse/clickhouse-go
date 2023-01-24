@@ -76,7 +76,6 @@ func GetDSNConnection(environment string, protocol clickhouse.Protocol, secure b
 	query.Set("insert_quorum", insertQuorum)
 	query.Set("insert_quorum_parallel", "0")
 	query.Set("select_sequential_consistency", "1")
-	query.Set("client_info_product[tests]", "dev")
 
 	if proto.CheckMinVersion(proto.Version{
 		Major: 22,
