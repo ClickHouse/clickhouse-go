@@ -101,6 +101,10 @@ func GetDSNConnection(environment string, protocol clickhouse.Protocol, secure b
 		}
 	}
 
+	if secure {
+		query.Set("secure", "true")
+	}
+
 	dsn := url.URL{
 		Scheme:   scheme,
 		User:     url.UserPassword(env.Username, env.Password),
