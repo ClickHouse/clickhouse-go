@@ -89,7 +89,7 @@ Support for the ClickHouse protocol advanced features using `Context`:
 		ConnOpenStrategy: clickhouse.ConnOpenInOrder,
 		BlockBufferSize: 10,
 		MaxCompressionBuffer: 10240,
-		ClientInfo: clickhouse.ClientInfo{ // optional
+		ClientInfo: clickhouse.ClientInfo{ // optional, please see Client info section in the README.md
 			Products: []struct {
 				Name    string
 				Version string
@@ -129,7 +129,7 @@ conn := clickhouse.OpenDB(&clickhouse.Options{
 	Debug: true,
 	BlockBufferSize: 10,
 	MaxCompressionBuffer: 10240,
-	ClientInfo: clickhouse.ClientInfo{ // optional
+	ClientInfo: clickhouse.ClientInfo{ // optional, please see Client info section in the README.md
 		Products: []struct {
 			Name    string
 			Version string
@@ -162,7 +162,7 @@ conn.SetConnMaxLifetime(time.Hour)
 * block_buffer_size - size of block buffer (default 2)
 * read_timeout - a duration string is a possibly signed sequence of decimal numbers, each with optional fraction and a unit suffix such as "300ms", "1s". Valid time units are "ms", "s", "m" (default 5m).
 * max_compression_buffer - max size (bytes) of compression buffer during column by column compression (default 10MiB)
-* client_info_product - optional list (comma separated) of product name and version pair separated with `/`. This value will be pass a part of client info. e.g. `client_info_product=my_app/1.0,my_module/0.1`
+* client_info_product - optional list (comma separated) of product name and version pair separated with `/`. This value will be pass a part of client info. e.g. `client_info_product=my_app/1.0,my_module/0.1` More details in [Client info](#client-info) section.
 
 SSL/TLS parameters:
 
@@ -263,6 +263,8 @@ conn := clickhouse.OpenDB(&clickhouse.Options{
 Clickhouse-go implements [client info](https://docs.google.com/document/d/1924Dvy79KXIhfqKpi1EBVY3133pIdoMwgCQtZ-uhEKs/edit#heading=h.ah33hoz5xei2) as a part of language client specification. `client_name` for native protocol and HTTP `User-Agent` header values are provided with the exact client info string.
 
 Users can extend client options with additional product information included in client info. This might be useful for analysis [on a server side](https://clickhouse.com/docs/en/operations/system-tables/query_log/).
+
+Order is the highest abstraction to the lowest level implementation left to right.
 
 Usage examples for [native API](examples/clickhouse_api/client_info.go) and [database/sql](examples/std/client_info.go)  are provided.
 
