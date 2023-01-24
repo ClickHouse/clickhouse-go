@@ -89,6 +89,14 @@ Support for the ClickHouse protocol advanced features using `Context`:
 		ConnOpenStrategy: clickhouse.ConnOpenInOrder,
 		BlockBufferSize: 10,
 		MaxCompressionBuffer: 10240,
+		ClientInfo: clickhouse.ClientInfo{ // optional
+			Products: []struct {
+				Name    string
+				Version string
+			}{
+				{Name: "my-app", Version: "0.1"},
+			},
+		},
 	})
 	if err != nil {
 		return err
@@ -121,6 +129,14 @@ conn := clickhouse.OpenDB(&clickhouse.Options{
 	Debug: true,
 	BlockBufferSize: 10,
 	MaxCompressionBuffer: 10240,
+	ClientInfo: clickhouse.ClientInfo{ // optional
+		Products: []struct {
+			Name    string
+			Version string
+		}{
+			{Name: "my-app", Version: "0.1"},
+		},
+	},
 })
 conn.SetMaxIdleConns(5)
 conn.SetMaxOpenConns(10)
@@ -146,6 +162,7 @@ conn.SetConnMaxLifetime(time.Hour)
 * block_buffer_size - size of block buffer (default 2)
 * read_timeout - a duration string is a possibly signed sequence of decimal numbers, each with optional fraction and a unit suffix such as "300ms", "1s". Valid time units are "ms", "s", "m" (default 5m).
 * max_compression_buffer - max size (bytes) of compression buffer during column by column compression (default 10MiB)
+* client_info_product - optional map of products to be added to client info 
 
 SSL/TLS parameters:
 
@@ -240,7 +257,6 @@ conn := clickhouse.OpenDB(&clickhouse.Options{
 })
 ```
 
-
 ## Benchmark
 
 | [V1 (READ)](benchmark/v1/read/main.go) | [V2 (READ) std](benchmark/v2/read/main.go) | [V2 (READ) clickhouse API](benchmark/v2/read-native/main.go) |
@@ -271,7 +287,8 @@ go get -u github.com/ClickHouse/clickhouse-go/v2
 * [scan struct](examples/clickhouse_api/scan_struct.go)
 * [query parameters](examples/clickhouse_api/query_parameters.go) (deprecated in favour of native query parameters)
 * [bind params](examples/clickhouse_api/bind.go) (deprecated in favour of native query parameters)
-
+* [client info](examples/clickhouse_api/client_info.go)
+* 
 ### std `database/sql` interface
 
 * [batch](examples/std/batch.go)
@@ -279,6 +296,7 @@ go get -u github.com/ClickHouse/clickhouse-go/v2
 * [open db](examples/std/connect.go)
 * [query parameters](examples/std/query_parameters.go)
 * [bind params](examples/std/bind.go) (deprecated in favour of native query parameters)
+* [client info](examples/std/client_info.go)
 
 ## ClickHouse alternatives - ch-go
 
