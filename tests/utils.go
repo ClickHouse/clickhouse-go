@@ -23,15 +23,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/ClickHouse/clickhouse-go/v2"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/go-connections/nat"
-	"github.com/docker/go-units"
-	"github.com/google/uuid"
-	"github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/wait"
 	"math/rand"
 	"net"
 	"os"
@@ -41,6 +32,16 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/go-connections/nat"
+	"github.com/docker/go-units"
+	"github.com/google/uuid"
+	"github.com/testcontainers/testcontainers-go"
+	"github.com/testcontainers/testcontainers-go/wait"
 )
 
 var testUUID = uuid.NewString()[0:12]
@@ -300,7 +301,7 @@ func testClientWithDefaultSettings(env ClickHouseTestEnvironment) (driver.Conn, 
 	return testClientWithDefaultOptions(env, settings)
 }
 
-func GetConnection(testSet string, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (driver.Conn, error) {
+func GetConnection(testSet string, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (clickhouse.Conn, error) {
 	env, err := GetTestEnvironment(testSet)
 	if err != nil {
 		return nil, err
@@ -308,7 +309,7 @@ func GetConnection(testSet string, settings clickhouse.Settings, tlsConfig *tls.
 	return getConnection(env, env.Database, settings, tlsConfig, compression)
 }
 
-func GetConnectionWithOptions(options *clickhouse.Options) (driver.Conn, error) {
+func GetConnectionWithOptions(options *clickhouse.Options) (clickhouse.Conn, error) {
 	if options.Settings == nil {
 		options.Settings = clickhouse.Settings{}
 	}
@@ -328,7 +329,7 @@ func GetConnectionWithOptions(options *clickhouse.Options) (driver.Conn, error) 
 	return clickhouse.Open(options)
 }
 
-func getConnection(env ClickHouseTestEnvironment, database string, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (driver.Conn, error) {
+func getConnection(env ClickHouseTestEnvironment, database string, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (clickhouse.Conn, error) {
 	useSSL, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_SSL", "false"))
 	if err != nil {
 		panic(err)
@@ -397,7 +398,7 @@ func createUserWithReadOnlySetting(conn driver.Conn, defaultDatabase string, rea
 	password = RandAsciiString(6)
 
 	createUserQuery := fmt.Sprintf(`
-          CREATE USER IF NOT EXISTS %s 
+          CREATE USER IF NOT EXISTS %s
           IDENTIFIED BY '%s'
           DEFAULT DATABASE "%s"
           SETTINGS readonly = %d
@@ -407,7 +408,7 @@ func createUserWithReadOnlySetting(conn driver.Conn, defaultDatabase string, rea
 	}
 
 	grantQuery := fmt.Sprintf(`
-          GRANT SELECT, INSERT, CREATE TABLE, DROP TABLE 
+          GRANT SELECT, INSERT, CREATE TABLE, DROP TABLE
           ON "%s".*
           TO %s
         `, defaultDatabase, username)

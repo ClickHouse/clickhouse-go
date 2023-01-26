@@ -24,14 +24,19 @@ import (
 	"sync/atomic"
 	"time"
 
+	_ "time/tzdata"
+
 	"github.com/ClickHouse/clickhouse-go/v2/contributors"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
-	_ "time/tzdata"
 )
 
-type Conn = driver.Conn
+type Conn interface {
+	driver.Conn
+
+	Options() *Options
+}
 
 type (
 	Progress      = proto.Progress
@@ -73,7 +78,7 @@ func (e *OpError) Error() string {
 	return fmt.Sprintf("clickhouse [%s]: %s", e.Op, e.Err)
 }
 
-func Open(opt *Options) (driver.Conn, error) {
+func Open(opt *Options) (Conn, error) {
 	if opt == nil {
 		opt = &Options{}
 	}
@@ -191,6 +196,11 @@ func (ch *clickhouse) Stats() driver.Stats {
 		MaxOpenConns: cap(ch.open),
 		MaxIdleConns: cap(ch.idle),
 	}
+}
+
+func (ch *clickhouse) Options() *Options {
+	opt := *ch.opt
+	return &opt
 }
 
 func (ch *clickhouse) dial(ctx context.Context) (conn *connect, err error) {
