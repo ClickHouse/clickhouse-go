@@ -79,7 +79,7 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 			debugf:               debugf,
 			buffer:               new(chproto.Buffer),
 			reader:               chproto.NewReader(conn),
-			revision:             proto.ClientTCPProtocolVersion,
+			revision:             ClientTCPProtocolVersion,
 			structMap:            &structMap{},
 			compression:          compression,
 			connectedAt:          time.Now(),

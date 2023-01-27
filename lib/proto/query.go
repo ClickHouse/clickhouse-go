@@ -32,15 +32,18 @@ var (
 )
 
 type Query struct {
-	ID             string
-	Span           trace.SpanContext
-	Body           string
-	QuotaKey       string
-	Settings       Settings
-	Parameters     Parameters
-	Compression    bool
-	InitialUser    string
-	InitialAddress string
+	ID                       string
+	ClientName               string
+	ClientVersion            Version
+	ClientTCPProtocolVersion uint64
+	Span                     trace.SpanContext
+	Body                     string
+	QuotaKey                 string
+	Settings                 Settings
+	Parameters               Parameters
+	Compression              bool
+	InitialUser              string
+	InitialAddress           string
 }
 
 func (q *Query) Encode(buffer *chproto.Buffer, revision uint64) error {
@@ -93,10 +96,10 @@ func (q *Query) encodeClientInfo(buffer *chproto.Buffer, revision uint64) error 
 	{
 		buffer.PutString(osUser)
 		buffer.PutString(hostname)
-		buffer.PutString(ClientName)
-		buffer.PutUVarInt(ClientVersionMajor)
-		buffer.PutUVarInt(ClientVersionMinor)
-		buffer.PutUVarInt(ClientTCPProtocolVersion)
+		buffer.PutString(q.ClientName)
+		buffer.PutUVarInt(q.ClientVersion.Major)
+		buffer.PutUVarInt(q.ClientVersion.Minor)
+		buffer.PutUVarInt(q.ClientTCPProtocolVersion)
 	}
 	if revision >= DBMS_MIN_REVISION_WITH_QUOTA_KEY_IN_CLIENT_INFO {
 		buffer.PutString(q.QuotaKey)

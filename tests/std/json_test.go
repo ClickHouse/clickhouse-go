@@ -69,7 +69,7 @@ func TestStdJson(t *testing.T) {
 	if useSSL {
 		tlsConfig = &tls.Config{}
 	}
-	conn, err := GetStdDSNConnection(clickhouse.Native, useSSL, "false")
+	conn, err := GetStdDSNConnection(clickhouse.Native, useSSL, nil)
 	require.NoError(t, err)
 	if !CheckMinServerVersion(conn, 22, 6, 1) {
 		t.Skip(fmt.Errorf("unsupported clickhouse version"))
@@ -130,7 +130,7 @@ func TestStdJson(t *testing.T) {
 	assert.JSONEq(t, ToJson(col1Data.Assignee.Repositories), ToJson(repositories))
 }
 
-//https://github.com/ClickHouse/clickhouse-go/issues/645
+// https://github.com/ClickHouse/clickhouse-go/issues/645
 func TestStdJsonWithMap(t *testing.T) {
 	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
 	require.NoError(t, err)
@@ -138,7 +138,7 @@ func TestStdJsonWithMap(t *testing.T) {
 	if useSSL {
 		tlsConfig = &tls.Config{}
 	}
-	conn, err := GetStdDSNConnection(clickhouse.Native, useSSL, "false")
+	conn, err := GetStdDSNConnection(clickhouse.Native, useSSL, nil)
 	require.NoError(t, err)
 	if !CheckMinServerVersion(conn, 22, 6, 1) {
 		t.Skip(fmt.Errorf("unsupported clickhouse version"))

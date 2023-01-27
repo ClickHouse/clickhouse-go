@@ -29,7 +29,7 @@ func Test783(t *testing.T) {
 func TestStd783(t *testing.T) {
 	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
 	require.NoError(t, err)
-	conn, err := clickhouse_std_tests.GetDSNConnection("issues", clickhouse.Native, useSSL, "false")
+	conn, err := clickhouse_std_tests.GetDSNConnection("issues", clickhouse.Native, useSSL, nil)
 	require.NoError(t, err)
 	row := conn.QueryRow("SELECT groupArray(('a', ['time1', 'time2'])) as val")
 	var x [][]interface{}

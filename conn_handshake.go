@@ -36,7 +36,12 @@ func (c *connect) handshake(database, username, password string) error {
 	defer c.conn.SetDeadline(time.Time{})
 	{
 		c.buffer.PutByte(proto.ClientHello)
-		(&proto.ClientHandshake{}).Encode(c.buffer)
+		handshake := &proto.ClientHandshake{
+			ProtocolVersion: ClientTCPProtocolVersion,
+			ClientName:      c.opt.ClientInfo.String(),
+			ClientVersion:   proto.Version{ClientVersionMajor, ClientVersionMinor, ClientVersionPatch}, //nolint:govet
+		}
+		handshake.Encode(c.buffer)
 		{
 			c.buffer.PutString(database)
 			c.buffer.PutString(username)

@@ -121,7 +121,8 @@ type DialResult struct {
 }
 
 type Options struct {
-	Protocol Protocol
+	Protocol   Protocol
+	ClientInfo ClientInfo
 
 	TLS                  *tls.Config
 	Addr                 []string
@@ -169,6 +170,7 @@ func (o *Options) fromDSN(in string) error {
 		skipVerify bool
 	)
 	o.Auth.Database = strings.TrimPrefix(dsn.Path, "/")
+
 	for v := range params {
 		switch v {
 		case "debug":
@@ -266,7 +268,17 @@ func (o *Options) fromDSN(in string) error {
 			o.Auth.Username = params.Get(v)
 		case "password":
 			o.Auth.Password = params.Get(v)
+		case "client_info_product":
+			chunks := strings.Split(params.Get(v), ",")
 
+			for _, chunk := range chunks {
+				name, version, _ := strings.Cut(chunk, "/")
+
+				o.ClientInfo.Products = append(o.ClientInfo.Products, struct{ Name, Version string }{
+					name,
+					version,
+				})
+			}
 		default:
 			switch p := strings.ToLower(params.Get(v)); p {
 			case "true":

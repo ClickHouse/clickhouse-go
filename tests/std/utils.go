@@ -25,6 +25,7 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -57,37 +58,62 @@ func CheckMinServerVersion(conn *sql.DB, major, minor, patch uint64) bool {
 	}, version)
 }
 
-func GetDSNConnection(environment string, protocol clickhouse.Protocol, secure bool, compress string) (*sql.DB, error) {
+func GetDSNConnection(environment string, protocol clickhouse.Protocol, secure bool, opts url.Values) (*sql.DB, error) {
 	env, err := clickhouse_tests.GetTestEnvironment(environment)
-	enforceReplication := ""
+	if err != nil {
+		return nil, err
+	}
+	insertQuorum := clickhouse_tests.GetEnv("CLICKHOUSE_QUORUM_INSERT", "1")
+
+	scheme := "clickhouse"
+	port := env.Port
+
+	query := opts
+	if query == nil {
+		query = make(url.Values)
+	}
+
+	query.Set("insert_quorum", insertQuorum)
+	query.Set("insert_quorum_parallel", "0")
+	query.Set("select_sequential_consistency", "1")
+
 	if proto.CheckMinVersion(proto.Version{
 		Major: 22,
 		Minor: 8,
 		Patch: 0,
 	}, env.Version) {
-		enforceReplication = "database_replicated_enforce_synchronous_settings=1"
+		query.Set("database_replicated_enforce_synchronous_settings", "1")
 	}
-	if err != nil {
-		return nil, err
-	}
-	insertQuorum := clickhouse_tests.GetEnv("CLICKHOUSE_QUORUM_INSERT", "1")
-	switch protocol {
-	case clickhouse.HTTP:
-		switch secure {
-		case true:
-			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("https://%s:%s@%s:%d/%s?%s&secure=true&compress=%s&wait_end_of_query=1&insert_quorum=%s&insert_quorum_parallel=0&select_sequential_consistency=1", env.Username, env.Password, env.Host, env.HttpsPort, env.Database, enforceReplication, compress, insertQuorum)))
-		case false:
-			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("http://%s:%s@%s:%d/%s?%s&compress=%s&wait_end_of_query=1&insert_quorum=%s&insert_quorum_parallel=0&select_sequential_consistency=1", env.Username, env.Password, env.Host, env.HttpPort, env.Database, enforceReplication, compress, insertQuorum)))
+
+	if protocol == clickhouse.HTTP {
+		query.Set("wait_end_of_query", "1")
+
+		if secure {
+			scheme = "https"
+			port = env.HttpsPort
+		} else {
+			scheme = "http"
+			port = env.HttpPort
 		}
-	case clickhouse.Native:
-		switch secure {
-		case true:
-			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("clickhouse://%s:%s@%s:%d/%s?%s&secure=true&compress=%s&insert_quorum=%s&insert_quorum_parallel=0&select_sequential_consistency=1", env.Username, env.Password, env.Host, env.SslPort, env.Database, enforceReplication, compress, insertQuorum)))
-		case false:
-			return sql.Open("clickhouse", fmt.Sprintf(fmt.Sprintf("clickhouse://%s:%s@%s:%d/%s?%s&compress=%s&insert_quorum=%s&insert_quorum_parallel=0&select_sequential_consistency=1", env.Username, env.Password, env.Host, env.Port, env.Database, enforceReplication, compress, insertQuorum)))
+	} else {
+		if secure {
+			port = env.SslPort
 		}
 	}
-	return nil, fmt.Errorf("unsupport protocol - %s", protocol.String())
+
+	if secure {
+		query.Set("secure", "true")
+	}
+
+	dsn := url.URL{
+		Scheme:   scheme,
+		User:     url.UserPassword(env.Username, env.Password),
+		Host:     fmt.Sprintf("%s:%d", env.Host, port),
+		Path:     env.Database,
+		RawQuery: query.Encode(),
+	}
+
+	return sql.Open("clickhouse", dsn.String())
 }
 
 func GetConnectionFromDSN(dsn string) (*sql.DB, error) {

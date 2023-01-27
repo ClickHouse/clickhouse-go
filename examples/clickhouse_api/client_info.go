@@ -15,26 +15,27 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package std
+package clickhouse_api
 
 import (
-	"crypto/tls"
-	"database/sql"
+	"context"
 	"github.com/ClickHouse/clickhouse-go/v2"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
-	clickhouse_tests_std "github.com/ClickHouse/clickhouse-go/v2/tests/std"
 )
 
-const TestSet string = "examples_std_api"
+func ClientInfo() error {
+	conn, err := clickhouse.Open(&clickhouse.Options{
+		ClientInfo: clickhouse.ClientInfo{
+			Products: []struct {
+				Name    string
+				Version string
+			}{
+				{Name: "my-app", Version: "0.1"},
+			},
+		},
+	})
+	if err != nil {
+		return err
+	}
 
-func GetStdDSNConnection(protocol clickhouse.Protocol, secure bool, compress string) (*sql.DB, error) {
-	return clickhouse_tests_std.GetDSNConnection(TestSet, protocol, secure, nil)
-}
-
-func GetStdOpenDBConnection(protocol clickhouse.Protocol, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (*sql.DB, error) {
-	return clickhouse_tests_std.GetOpenDBConnection(TestSet, protocol, settings, tlsConfig, compression)
-}
-
-func GetStdTestEnvironment() (clickhouse_tests.ClickHouseTestEnvironment, error) {
-	return clickhouse_tests.GetTestEnvironment(TestSet)
+	return conn.Exec(context.TODO(), "SELECT 1")
 }

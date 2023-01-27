@@ -13,7 +13,7 @@ import (
 func Test816(t *testing.T) {
 	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
 	require.NoError(t, err)
-	conn, err := clickhouse_std_tests.GetDSNConnection("issues", clickhouse.Native, useSSL, "false")
+	conn, err := clickhouse_std_tests.GetDSNConnection("issues", clickhouse.Native, useSSL, nil)
 	const ddl = `
 		CREATE TABLE test_816 (
 			  Col1 Tuple(count Nullable(Int64), products Array(Tuple(price Nullable(Float64), qty Nullable(Int64))), price Nullable(Float64))

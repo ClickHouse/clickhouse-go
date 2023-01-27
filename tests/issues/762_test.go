@@ -31,7 +31,7 @@ func Test762(t *testing.T) {
 func Test762Std(t *testing.T) {
 	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
 	require.NoError(t, err)
-	conn, err := clickhouse_std_tests.GetDSNConnection("issues", clickhouse.Native, useSSL, "false")
+	conn, err := clickhouse_std_tests.GetDSNConnection("issues", clickhouse.Native, useSSL, nil)
 	rows, err := conn.Query("SELECT tuple(NULL)")
 	require.NoError(t, err)
 	for rows.Next() {

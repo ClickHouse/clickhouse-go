@@ -16,3 +16,7 @@ func GetNativeConnection(settings clickhouse.Settings, tlsConfig *tls.Config, co
 func GetNativeTestEnvironment() (clickhouse_tests.ClickHouseTestEnvironment, error) {
 	return clickhouse_tests.GetTestEnvironment(TestSet)
 }
+
+func GetNativeConnectionWithOptions(settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (driver.Conn, error) {
+	return clickhouse_tests.GetConnection(TestSet, settings, tlsConfig, compression)
+}

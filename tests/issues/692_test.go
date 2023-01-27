@@ -15,7 +15,7 @@ import (
 func TestIssue692(t *testing.T) {
 	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
 	require.NoError(t, err)
-	conn, err := clickhouse_std_tests.GetDSNConnection("issues", clickhouse.Native, useSSL, "false")
+	conn, err := clickhouse_std_tests.GetDSNConnection("issues", clickhouse.Native, useSSL, nil)
 	require.NoError(t, err)
 	if !std.CheckMinServerVersion(conn, 21, 9, 0) {
 		t.Skip(fmt.Errorf("unsupported clickhouse version"))

@@ -404,6 +404,27 @@ func TestParseDSN(t *testing.T) {
 			},
 			"",
 		},
+		{
+			"client info",
+			"clickhouse://127.0.0.1/test_database?client_info_product=grafana/6.1,clickhouse-datasource/1.1",
+			&Options{
+				Protocol: Native,
+				ClientInfo: ClientInfo{
+					Products: []struct{ Name, Version string }{
+						{"grafana", "6.1"},
+						{"clickhouse-datasource", "1.1"},
+					},
+				},
+				TLS:      nil,
+				Addr:     []string{"127.0.0.1"},
+				Settings: Settings{},
+				Auth: Auth{
+					Database: "test_database",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
 	}
 
 	for _, testCase := range testCases {
