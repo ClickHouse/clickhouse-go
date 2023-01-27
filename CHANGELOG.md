@@ -1,3 +1,18 @@
+## 2.6.0, 2023-01-27
+
+### New features
+
+- Client info specification implementation [#876](https://github.com/ClickHouse/clickhouse-go/pull/876) by @jkaflik
+
+### Bug fixes
+
+- Better handling for broken connection errors in the std interface [#879](https://github.com/ClickHouse/clickhouse-go/pull/879) by @n-oden
+
+### Chore
+
+- Document way to provide table or database identifier with query parameters [#875](https://github.com/ClickHouse/clickhouse-go/pull/875) by @jkaflik
+- Bump github.com/ClickHouse/ch-go from 0.51.0 to 0.51.2 [#881](https://github.com/ClickHouse/clickhouse-go/pull/881)
+
 ## 2.5.1, 2023-01-10
 
 ### Bug fixes
