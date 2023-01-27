@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2/resources"
 	"github.com/pkg/errors"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -230,6 +231,11 @@ func (c *connect) sendData(block *proto.Block, name string) error {
 		if errors.Is(err, syscall.EPIPE) {
 			c.debugf("[send data] pipe is broken, closing connection")
 			c.closed = true
+		} else if errors.Is(err, io.EOF) {
+			c.debugf("[send data] unexpected EOF, closing connection")
+			c.closed = true
+		} else {
+			c.debugf("[send data] unexpected error: %v", err)
 		}
 		return err
 	}
@@ -241,6 +247,7 @@ func (c *connect) sendData(block *proto.Block, name string) error {
 
 func (c *connect) readData(packet byte, compressible bool) (*proto.Block, error) {
 	if _, err := c.reader.Str(); err != nil {
+		c.debugf("[read data] str error: %v", err)
 		return nil, err
 	}
 	if compressible && c.compression != CompressionNone {
@@ -249,6 +256,7 @@ func (c *connect) readData(packet byte, compressible bool) (*proto.Block, error)
 	}
 	block := proto.Block{Timezone: c.server.Timezone}
 	if err := block.Decode(c.reader, c.revision); err != nil {
+		c.debugf("[read data] decode error: %v", err)
 		return nil, err
 	}
 	block.Packet = packet
