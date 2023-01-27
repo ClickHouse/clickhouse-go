@@ -75,6 +75,22 @@ func TestQueryParameters(t *testing.T) {
 		assert.Equal(t, "hello", actualStr)
 	})
 
+	t.Run("with identifier type", func(t *testing.T) {
+		var actualNum uint64
+
+		row := client.QueryRow(
+			ctx,
+			"SELECT {column:Identifier} FROM {database:Identifier}.{table:Identifier} LIMIT 1 OFFSET 100;",
+			clickhouse.Named("column", "number"),
+			clickhouse.Named("database", "system"),
+			clickhouse.Named("table", "numbers"),
+		)
+		require.NoError(t, row.Err())
+		require.NoError(t, row.Scan(&actualNum))
+
+		assert.Equal(t, uint64(100), actualNum)
+	})
+
 	t.Run("named args with only strings supported", func(t *testing.T) {
 		row := client.QueryRow(
 			ctx,

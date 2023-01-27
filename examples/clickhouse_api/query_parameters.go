@@ -35,12 +35,14 @@ func QueryWithParameters() error {
 	}
 
 	chCtx := clickhouse.Context(context.Background(), clickhouse.WithParameters(clickhouse.Parameters{
-		"num":   "42",
-		"str":   "hello",
-		"array": "['a', 'b', 'c']",
+		"str":      "hello",
+		"array":    "['a', 'b', 'c']",
+		"column":   "number",
+		"database": "system",
+		"table":    "numbers",
 	}))
 
-	row := conn.QueryRow(chCtx, "SELECT {num:UInt64} v, {str:String} s, {array:Array(String)} a")
+	row := conn.QueryRow(chCtx, "SELECT {column:Identifier} v, {str:String} s, {array:Array(String)} a FROM {database:Identifier}.{table:Identifier} LIMIT 1 OFFSET 100")
 	var (
 		col1 uint64
 		col2 string

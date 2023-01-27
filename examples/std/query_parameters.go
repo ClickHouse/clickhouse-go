@@ -34,10 +34,13 @@ func QueryWithParameters() error {
 	}
 
 	row := conn.QueryRow(
-		"SELECT {num:UInt64} v, {str:String} s, {array:Array(String)} a",
+		"SELECT {column:Identifier} v, {str:String} s, {array:Array(String)} a FROM {database:Identifier}.{table:Identifier} LIMIT 1 OFFSET 100",
 		clickhouse.Named("num", "42"),
 		clickhouse.Named("str", "hello"),
 		clickhouse.Named("array", "['a', 'b', 'c']"),
+		clickhouse.Named("column", "number"),
+		clickhouse.Named("database", "system"),
+		clickhouse.Named("table", "numbers"),
 	)
 	var (
 		col1 uint64
