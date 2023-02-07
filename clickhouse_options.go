@@ -133,7 +133,7 @@ type Options struct {
 	Debugf               func(format string, v ...interface{}) // only works when Debug is true
 	Settings             Settings
 	Compression          *Compression
-	DialTimeout          time.Duration // default 1 second
+	DialTimeout          time.Duration // default 30 second
 	MaxOpenConns         int           // default MaxIdleConns + 5
 	MaxIdleConns         int           // default 5
 	ConnMaxLifetime      time.Duration // default 1 hour
@@ -326,7 +326,7 @@ func (o Options) setDefaults() *Options {
 		o.Auth.Username = "default"
 	}
 	if o.DialTimeout == 0 {
-		o.DialTimeout = time.Second
+		o.DialTimeout = time.Second * 30
 	}
 	if o.ReadTimeout == 0 {
 		o.ReadTimeout = time.Second * time.Duration(300)

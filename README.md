@@ -82,7 +82,7 @@ Support for the ClickHouse protocol advanced features using `Context`:
 		Compression: &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
 		},
-		DialTimeout:      time.Duration(10) * time.Second,
+		DialTimeout:      time.Second * 30,
 		MaxOpenConns:     5,
 		MaxIdleConns:     5,
 		ConnMaxLifetime:  time.Duration(10) * time.Minute,
@@ -122,7 +122,7 @@ conn := clickhouse.OpenDB(&clickhouse.Options{
 	Settings: clickhouse.Settings{
 		"max_execution_time": 60,
 	},
-	DialTimeout: 5 * time.Second,
+	DialTimeout: time.Second * 30,
 	Compression: &clickhouse.Compression{
 		clickhouse.CompressionLZ4,
 	},
@@ -148,7 +148,7 @@ conn.SetConnMaxLifetime(time.Hour)
 * hosts  - comma-separated list of single address hosts for load-balancing and failover
 * username/password - auth credentials
 * database - select the current default database
-* dial_timeout -  a duration string is a possibly signed sequence of decimal numbers, each with optional fraction and a unit suffix such as "300ms", "1s". Valid time units are "ms", "s", "m".
+* dial_timeout -  a duration string is a possibly signed sequence of decimal numbers, each with optional fraction and a unit suffix such as "300ms", "1s". Valid time units are "ms", "s", "m". (default 30s)
 * connection_open_strategy - round_robin/in_order (default in_order).
     * round_robin      - choose a round-robin server from the set
     * in_order    - first live server is chosen in specified order
@@ -198,7 +198,7 @@ conn := clickhouse.OpenDB(&clickhouse.Options{
 	Settings: clickhouse.Settings{
 		"max_execution_time": 60,
 	},
-	DialTimeout: 5 * time.Second,
+	DialTimeout: 30 * time.Second,
 	Compression: &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	},
