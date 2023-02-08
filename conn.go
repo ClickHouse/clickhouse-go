@@ -21,14 +21,15 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/ClickHouse/clickhouse-go/v2/resources"
-	"github.com/pkg/errors"
 	"io"
 	"log"
 	"net"
 	"os"
 	"syscall"
 	"time"
+
+	"github.com/ClickHouse/clickhouse-go/v2/resources"
+	"github.com/pkg/errors"
 
 	"github.com/ClickHouse/ch-go/compress"
 	chproto "github.com/ClickHouse/ch-go/proto"
@@ -151,6 +152,11 @@ func (c *connect) isBad() bool {
 	case c.closed:
 		return true
 	}
+
+	if time.Since(c.connectedAt) >= c.opt.ConnMaxLifetime {
+		return true
+	}
+
 	if err := c.connCheck(); err != nil {
 		return true
 	}
