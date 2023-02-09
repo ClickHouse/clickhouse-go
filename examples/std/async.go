@@ -19,7 +19,6 @@ package std
 
 import (
 	"context"
-	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
 )
 
@@ -28,30 +27,59 @@ func AsyncInsert() error {
 	if err != nil {
 		return err
 	}
+	conn.SetMaxIdleConns(5)
+	if err != nil {
+		return err
+	}
 	if _, err := conn.Exec(`DROP TABLE IF EXISTS example`); err != nil {
 		return err
 	}
-	const ddl = `
-		CREATE TABLE example (
-			  Col1 UInt64
+	_, err = conn.Exec(`
+		CREATE TABLE IF NOT EXISTS example (
+			  Col1 UInt8
 			, Col2 String
-			, Col3 Array(UInt8)
-			, Col4 DateTime
-		) ENGINE = Memory
-		`
-	if _, err := conn.Exec(ddl); err != nil {
+			, Col3 FixedString(3)
+			, Col4 UUID
+			, Col5 Map(String, UInt8)
+			, Col6 Array(String)
+			, Col7 Tuple(String, UInt8, Array(Map(String, String)))
+			, Col8 DateTime
+		) Engine = Memory
+	`)
+
+	queryCtx := clickhouse.Context(context.Background(), clickhouse.WithAsync())
+
+	if err != nil {
 		return err
 	}
-	ctx := clickhouse.Context(context.Background(), clickhouse.WithStdAsync(false))
-	{
-		for i := 0; i < 100; i++ {
-			_, err := conn.ExecContext(ctx, fmt.Sprintf(`INSERT INTO example VALUES (
-				%d, '%s', [1, 2, 3, 4, 5, 6, 7, 8, 9], now()
-			)`, i, "Golang SQL database driver"))
-			if err != nil {
-				return err
-			}
+	scope, err := conn.Begin()
+	if err != nil {
+		return err
+	}
+	batch, err := scope.Prepare("INSERT INTO example")
+	if err != nil {
+		return err
+	}
+	for i := 0; i < 1000; i++ {
+		_, err := batch.ExecContext(
+			queryCtx,
+			uint8(42),
+			"ClickHouse", "Inc",
+			uuid.New(),
+			map[string]uint8{"key": 1},             // Map(String, UInt8)
+			[]string{"Q", "W", "E", "R", "T", "Y"}, // Array(String)
+			[]interface{}{ // Tuple(String, UInt8, Array(Map(String, String)))
+				"String Value", uint8(5), []map[string]string{
+					map[string]string{"key": "value"},
+					map[string]string{"key": "value"},
+					map[string]string{"key": "value"},
+				},
+			},
+			time.Now(),
+		)
+		if err != nil {
+			return err
 		}
 	}
-	return nil
+	return scope.Commit()
 }

@@ -19,8 +19,9 @@ package clickhouse_api
 
 import (
 	"context"
-	"fmt"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
+	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/google/uuid"
+	"time"
 )
 
 func AsyncInsert() error {
@@ -29,31 +30,52 @@ func AsyncInsert() error {
 		return err
 	}
 	ctx := context.Background()
-	if !clickhouse_tests.CheckMinServerServerVersion(conn, 21, 12, 0) {
-		return nil
-	}
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE example")
 	}()
-	conn.Exec(ctx, `DROP TABLE IF EXISTS example`)
-	const ddl = `
-		CREATE TABLE example (
-			  Col1 UInt64
+	conn.Exec(context.Background(), "DROP TABLE IF EXISTS example")
+	err = conn.Exec(ctx, `
+		CREATE TABLE IF NOT EXISTS example (
+			  Col1 UInt8
 			, Col2 String
-			, Col3 Array(UInt8)
-			, Col4 DateTime
-		) ENGINE = Memory
-	`
-
-	if err := conn.Exec(ctx, ddl); err != nil {
+			, Col3 FixedString(3)
+			, Col4 UUID
+			, Col5 Map(String, UInt8)
+			, Col6 Array(String)
+			, Col7 Tuple(String, UInt8, Array(Map(String, String)))
+			, Col8 DateTime
+		) Engine = Memory
+	`)
+	if err != nil {
 		return err
 	}
-	for i := 0; i < 100; i++ {
-		if err := conn.AsyncInsert(ctx, fmt.Sprintf(`INSERT INTO example VALUES (
-			%d, '%s', [1, 2, 3, 4, 5, 6, 7, 8, 9], now()
-		)`, i, "Golang SQL database driver"), false); err != nil {
+
+	queryCtx := clickhouse.Context(ctx, clickhouse.WithAsync())
+
+	batch, err := conn.PrepareBatch(queryCtx, "INSERT INTO example")
+	if err != nil {
+		return err
+	}
+	for i := 0; i < 1000; i++ {
+		err := batch.Append(
+			uint8(42),
+			"ClickHouse",
+			"Inc",
+			uuid.New(),
+			map[string]uint8{"key": 1},             // Map(String, UInt8)
+			[]string{"Q", "W", "E", "R", "T", "Y"}, // Array(String)
+			[]interface{}{ // Tuple(String, UInt8, Array(Map(String, String)))
+				"String Value", uint8(5), []map[string]string{
+					{"key": "value"},
+					{"key": "value"},
+					{"key": "value"},
+				},
+			},
+			time.Now(),
+		)
+		if err != nil {
 			return err
 		}
 	}
-	return nil
+	return batch.Send()
 }

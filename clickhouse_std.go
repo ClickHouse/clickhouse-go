@@ -240,11 +240,11 @@ func (std *stdDriver) Rollback() error {
 func (std *stdDriver) CheckNamedValue(nv *driver.NamedValue) error { return nil }
 
 func (std *stdDriver) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
-	if options := queryOptions(ctx); options.async.ok {
+	if options := queryOptions(ctx); options.stdAsync.ok {
 		if len(args) != 0 {
 			return nil, errors.New("clickhouse: you can't use parameters in an asynchronous insert")
 		}
-		return driver.RowsAffected(0), std.conn.asyncInsert(ctx, query, options.async.wait)
+		return driver.RowsAffected(0), std.conn.asyncInsert(ctx, query, options.stdAsync.wait)
 	}
 	if err := std.conn.exec(ctx, query, rebind(args)...); err != nil {
 		if isConnBrokenError(err) {

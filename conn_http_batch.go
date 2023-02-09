@@ -180,6 +180,11 @@ func (b *httpBatch) Send() (err error) {
 	}
 	options := queryOptions(b.ctx)
 
+	if options.async {
+		options.settings["async_insert"] = 1
+		options.settings["wait_for_async_insert"] = 0
+	}
+
 	headers := make(map[string]string)
 
 	r, pw := io.Pipe()

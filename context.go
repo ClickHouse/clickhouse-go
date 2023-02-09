@@ -36,11 +36,12 @@ type Parameters map[string]string
 type (
 	QueryOption  func(*QueryOptions) error
 	QueryOptions struct {
-		span  trace.SpanContext
-		async struct {
+		span     trace.SpanContext
+		stdAsync struct {
 			ok   bool
 			wait bool
 		}
+		async    bool
 		queryID  string
 		quotaKey string
 		events   struct {
@@ -135,7 +136,15 @@ func WithExternalTable(t ...*ext.Table) QueryOption {
 
 func WithStdAsync(wait bool) QueryOption {
 	return func(o *QueryOptions) error {
-		o.async.ok, o.async.wait = true, wait
+		o.stdAsync.ok, o.stdAsync.wait = true, wait
+		return nil
+	}
+}
+
+func WithAsync() QueryOption {
+	return func(o *QueryOptions) error {
+		o.async = true
+
 		return nil
 	}
 }

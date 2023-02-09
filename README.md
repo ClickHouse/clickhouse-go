@@ -34,7 +34,7 @@ The client is tested against the currently [supported versions](https://github.c
 * Connection pool
 * Failover and load balancing
 * [Bulk write support](examples/clickhouse_api/batch.go) (for `database/sql` [use](examples/std/batch.go) `begin->prepare->(in loop exec)->commit`)
-* [AsyncInsert](benchmark/v2/write-async/main.go)
+* [async insert](examples/clickhouse_api/async.go) (for `database/sql` [use](examples/std/async.go))
 * Named and numeric placeholders support
 * LZ4/ZSTD compression support
 * External data

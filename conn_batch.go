@@ -57,6 +57,12 @@ func (c *connect) prepareBatch(ctx context.Context, query string, release func(*
 		c.conn.SetDeadline(deadline)
 		defer c.conn.SetDeadline(time.Time{})
 	}
+
+	if options.async {
+		options.settings["async_insert"] = 1
+		options.settings["wait_for_async_insert"] = 0
+	}
+
 	if err := c.sendQuery(query, &options); err != nil {
 		release(c, err)
 		return nil, err
