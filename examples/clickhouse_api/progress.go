@@ -30,9 +30,6 @@ func ProgressProfileLogs() error {
 	if err != nil {
 		return err
 	}
-	if err != nil {
-		return err
-	}
 	totalRows := uint64(0)
 	// use context to pass a call back for progress and profile info
 	ctx := clickhouse.Context(context.Background(), clickhouse.WithProgress(func(p *clickhouse.Progress) {
