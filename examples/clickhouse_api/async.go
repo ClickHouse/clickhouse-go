@@ -19,9 +19,10 @@ package clickhouse_api
 
 import (
 	"context"
+	"time"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/google/uuid"
-	"time"
 )
 
 func AsyncInsert() error {

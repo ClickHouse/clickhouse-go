@@ -19,7 +19,10 @@ package std
 
 import (
 	"context"
+	"time"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/google/uuid"
 )
 
 func AsyncInsert() error {

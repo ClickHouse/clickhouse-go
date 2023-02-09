@@ -155,3 +155,7 @@ func TestOpenDb(t *testing.T) {
 func TestConnectionSettings(t *testing.T) {
 	require.NoError(t, ConnectSettings())
 }
+
+func TestAsyncInsert(t *testing.T) {
+	require.NoError(t, AsyncInsert())
+}
