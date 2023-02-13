@@ -1,3 +1,11 @@
+## 2.6.1, 2023-02-13
+
+### Bug fixes
+
+- Do not reuse expired connections (`ConnMaxLifetime`) [#892](https://github.com/ClickHouse/clickhouse-go/pull/892) by @iamluc
+- Extend default dial timeout value to 30s [#893](https://github.com/ClickHouse/clickhouse-go/pull/893) by @jkaflik
+- Compression name fixed in sendQuery log  [#884](https://github.com/ClickHouse/clickhouse-go/pull/884) by @fredngr
+
 ## 2.6.0, 2023-01-27
 
 ### New features
