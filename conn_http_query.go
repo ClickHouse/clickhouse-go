@@ -90,14 +90,14 @@ func (h *httpConnect) query(ctx context.Context, release func(*connect, error), 
 	}
 	h.compressionPool.Put(rw)
 	reader := chproto.NewReader(bytes.NewReader(body))
-	block, err := h.readData(reader)
+	block, err := h.readData(ctx, reader)
 	if err != nil {
 		return nil, err
 	}
 
 	go func() {
 		for {
-			block, err := h.readData(reader)
+			block, err := h.readData(ctx, reader)
 			if err != nil {
 				// ch-go wraps EOF errors
 				if !errors.Is(err, io.EOF) {

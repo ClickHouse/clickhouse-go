@@ -18,6 +18,7 @@
 package clickhouse
 
 import (
+	"context"
 	"reflect"
 	"time"
 
@@ -33,8 +34,8 @@ type ProfileEvent struct {
 	Value       int64
 }
 
-func (c *connect) profileEvents() ([]ProfileEvent, error) {
-	block, err := c.readData(proto.ServerProfileEvents, false)
+func (c *connect) profileEvents(ctx context.Context) ([]ProfileEvent, error) {
+	block, err := c.readData(ctx, proto.ServerProfileEvents, false)
 	if err != nil {
 		return nil, err
 	}
