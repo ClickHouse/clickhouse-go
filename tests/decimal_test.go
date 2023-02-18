@@ -251,7 +251,7 @@ func TestRoundDecimals(t *testing.T) {
 		checks := []decimal.Decimal{
 			decimal.NewFromFloat(600),    // this will make decimal 6*e^2
 			decimal.NewFromFloat(601),    // this will make decimal 601*e^0
-			decimal.NewFromFloat(601.21), // check that
+			decimal.NewFromFloat(601.21), // check that normal case is working
 		}
 		for _, c := range checks {
 			batch.Append(c)
