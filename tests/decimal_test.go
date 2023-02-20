@@ -20,11 +20,12 @@ package tests
 import (
 	"context"
 	"fmt"
+	"testing"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func TestDecimal(t *testing.T) {
@@ -210,4 +211,68 @@ func TestDecimalFlush(t *testing.T) {
 		i += 1
 	}
 	require.Equal(t, 1000, i)
+}
+
+type decimalTestCase struct {
+	bits        int
+	decimalSize int
+}
+
+// TestRoundDecimals tests cases when decimal has non-standard representation.
+// e.g. decimal.NewFromFloat(600) will create decimal with exponent 2 and value 6.
+// we need to assert that these decimals will be written correctly
+func TestRoundDecimals(t *testing.T) {
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+	require.NoError(t, err)
+
+	decimalSizes := []decimalTestCase{
+		{bits: 32, decimalSize: 6},
+		{bits: 64, decimalSize: 10},
+		{bits: 128, decimalSize: 20},
+		{bits: 256, decimalSize: 40},
+	}
+
+	runTest := func(tt *testing.T, decimalSize int) {
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE IF EXISTS decimal_flush")
+		}()
+		ddl := fmt.Sprintf(`
+			CREATE TABLE decimal_flush (
+				  Col1 Decimal(%d,2)
+			) Engine MergeTree() ORDER BY tuple()
+			`, decimalSize)
+		require.NoError(tt, conn.Exec(ctx, ddl))
+		batch, err := conn.PrepareBatch(ctx, "INSERT INTO decimal_flush")
+		require.NoError(tt, err)
+
+		checks := []decimal.Decimal{
+			decimal.NewFromFloat(600),    // this will make decimal 6*e^2
+			decimal.NewFromFloat(601),    // this will make decimal 601*e^0
+			decimal.NewFromFloat(601.21), // check that normal case is working
+		}
+		for _, c := range checks {
+			batch.Append(c)
+		}
+		batch.Send()
+		rows, err := conn.Query(ctx, "SELECT * FROM decimal_flush ORDER BY Col1 asc")
+		require.NoError(tt, err)
+		i := 0
+		for rows.Next() {
+			actual := decimal.Decimal{}
+			require.NoError(tt, rows.Scan(&actual))
+			require.EqualValues(tt, checks[i].String(), actual.String())
+			i++
+		}
+		require.Equal(tt, len(checks), i)
+	}
+
+	for _, size := range decimalSizes {
+		t.Run(fmt.Sprintf("Checking decimal size %d", size.bits), func(t *testing.T) {
+			runTest(t, size.decimalSize)
+		})
+	}
+
 }
