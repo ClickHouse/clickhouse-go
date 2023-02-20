@@ -71,7 +71,7 @@ func (col *String) ScanRow(dest interface{}, row int) error {
 	case *sql.NullString:
 		return d.Scan(val)
 	case encoding.BinaryUnmarshaler:
-		return d.UnmarshalBinary(binary.Str2Bytes(val))
+		return d.UnmarshalBinary(binary.Str2Bytes(val, len(val)))
 	default:
 		if scan, ok := dest.(sql.Scanner); ok {
 			return scan.Scan(val)

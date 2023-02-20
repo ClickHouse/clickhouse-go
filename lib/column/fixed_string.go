@@ -97,7 +97,7 @@ func (col *FixedString) Append(v interface{}) (nulls []uint8, err error) {
 			if v == "" {
 				col.col.Append(make([]byte, col.col.Size))
 			} else {
-				col.col.Append(binary.Str2Bytes(v))
+				col.col.Append(binary.Str2Bytes(v, col.col.Size))
 			}
 		}
 	case []*string:
@@ -113,7 +113,7 @@ func (col *FixedString) Append(v interface{}) (nulls []uint8, err error) {
 				if *v == "" {
 					col.col.Append(make([]byte, col.col.Size))
 				} else {
-					col.col.Append(binary.Str2Bytes(*v))
+					col.col.Append(binary.Str2Bytes(*v, col.col.Size))
 				}
 			}
 		}
@@ -139,12 +139,12 @@ func (col *FixedString) AppendRow(v interface{}) (err error) {
 	switch v := v.(type) {
 	case string:
 		if v != "" {
-			data = binary.Str2Bytes(v)
+			data = binary.Str2Bytes(v, col.col.Size)
 		}
 	case *string:
 		if v != nil {
 			if *v != "" {
-				data = binary.Str2Bytes(*v)
+				data = binary.Str2Bytes(*v, col.col.Size)
 			}
 		}
 	case nil:
