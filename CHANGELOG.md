@@ -1,3 +1,9 @@
+## 2.6.3, 2023-02-22
+
+### Bug fixes
+
+- Fixed `lib/binary/string_safe.go` for non 64bit arch [#914](https://github.com/ClickHouse/clickhouse-go/pull/914) by @atoulme
+ 
 ## 2.6.2, 2023-02-20
 
 ### Bug fixes
