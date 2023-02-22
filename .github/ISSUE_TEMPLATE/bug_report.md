@@ -2,31 +2,34 @@
 name: Bug report
 about: Create a report to help us improve
 title: ''
-labels: ''
+labels: bug
 assignees: ''
 
 ---
 
-### Issue description
-Tell us what should happen and what happens instead
+<!-- delete unnecessary items -->
+### Describe the bug
 
-### Example code
+### Steps to reproduce
+1.
+2.
+3.
+
+### Expected behaviour
+
+### Code example
 ```go
-If possible, please enter some example code here to reproduce the issue.
 ```
-
 ### Error log
-```
-If you have an error log, please paste it here.
-```
 
 ### Configuration
-*OS:*
+#### Environment
+* Client version:
+* Language version:
+* OS:
 
-*Interface:* E.g. `native`, `database/sql`
-
-*Driver version:*
-
-*Go version:* run `go version` in your console
-
-*ClickHouse Server version:*
+#### ClickHouse server
+* ClickHouse Server version:
+* ClickHouse Server non-default settings, if any:
+* `CREATE TABLE` statements for tables involved:
+* Sample data for all these tables, use [clickhouse-obfuscator](https://github.com/ClickHouse/ClickHouse/blob/master/programs/obfuscator/Obfuscator.cpp#L42-L80) if necessary
