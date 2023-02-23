@@ -1,3 +1,9 @@
+## 2.6.4, 2023-02-23
+
+### Bug fixes
+
+- Fixed concurrency issue in stdConnOpener [#918](https://github.com/ClickHouse/clickhouse-go/pull/918) by @jkaflik
+
 ## 2.6.3, 2023-02-22
 
 ### Bug fixes
