@@ -272,7 +272,7 @@ func format(tz *time.Location, scale TimeUnit, v interface{}) (string, error) {
 			}
 			values = append(values, val)
 		}
-		return strings.Join(values, ", "), nil
+		return fmt.Sprintf("[%s]", strings.Join(values, ", ")), nil
 	case reflect.Map: // map
 		values := make([]string, 0, len(v.MapKeys()))
 		for _, key := range v.MapKeys() {
@@ -283,10 +283,6 @@ func format(tz *time.Location, scale TimeUnit, v interface{}) (string, error) {
 			val, err := format(tz, scale, v.MapIndex(key).Interface())
 			if err != nil {
 				return "", err
-			}
-			if v.MapIndex(key).Kind() == reflect.Slice || v.MapIndex(key).Kind() == reflect.Array {
-				// assume slices in maps are arrays
-				val = fmt.Sprintf("[%s]", val)
 			}
 			values = append(values, fmt.Sprintf("%s, %s", name, val))
 		}

@@ -240,7 +240,7 @@ func TestStringBasedType(t *testing.T) {
 	val, _ = format(time.UTC, Seconds, SupperSupperString("a"))
 	require.Equal(t, "'a'", val)
 	val, _ = format(time.UTC, Seconds, []SupperSupperString{"a", "b", "c"})
-	require.Equal(t, "'a', 'b', 'c'", val)
+	require.Equal(t, "['a', 'b', 'c']", val)
 }
 
 func TestFormatGroup(t *testing.T) {
