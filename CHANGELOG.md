@@ -1,3 +1,9 @@
+## 2.6.5, 2023-02-28
+
+### Bug fixes
+
+- Fix array parameter formatting in binding mechanism [#921](https://github.com/ClickHouse/clickhouse-go/pull/921) by @genzgd
+
 ## 2.6.4, 2023-02-23
 
 ### Bug fixes
