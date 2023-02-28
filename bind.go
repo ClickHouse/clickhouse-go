@@ -284,10 +284,6 @@ func format(tz *time.Location, scale TimeUnit, v interface{}) (string, error) {
 			if err != nil {
 				return "", err
 			}
-			if v.MapIndex(key).Kind() == reflect.Slice || v.MapIndex(key).Kind() == reflect.Array {
-				// assume slices in maps are arrays
-				val = fmt.Sprintf("[%s]", val)
-			}
 			values = append(values, fmt.Sprintf("%s, %s", name, val))
 		}
 		return "map(" + strings.Join(values, ", ") + ")", nil
