@@ -390,7 +390,7 @@ func TestNullableAppendRowColumnarInterface(t *testing.T) {
 
                for i := 0; i < 150; i++ {
                        a, b := uint8(i), fmt.Sprintf("value_%d", i)
-                       require.NoError(t, batch.Column(0).Append( &a ))
+                       require.NoError(t, batch.Column(0).AppendRow( &a ))
 
                        switch {
                        case i%2 == 0:
