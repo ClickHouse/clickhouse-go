@@ -78,9 +78,9 @@ func (t Type) Column(name string, tz *time.Location) (Interface, error) {
 	case "Bool", "Boolean":
 		return &Bool{name: name}, nil
 	case "Date":
-		return &Date{name: name}, nil
+		return &Date{name: name, location: tz}, nil
 	case "Date32":
-		return &Date32{name: name}, nil
+		return &Date32{name: name, location: tz}, nil
 	case "UUID":
 		return &UUID{name: name}, nil
 	case "Nothing":

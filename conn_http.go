@@ -363,8 +363,14 @@ func (h *httpConnect) writeData(block *proto.Block) error {
 	return nil
 }
 
-func (h *httpConnect) readData(reader *chproto.Reader) (*proto.Block, error) {
-	block := proto.Block{Timezone: h.location}
+func (h *httpConnect) readData(ctx context.Context, reader *chproto.Reader) (*proto.Block, error) {
+	opts := queryOptions(ctx)
+	location := h.location
+	if opts.userLocation != nil {
+		location = opts.userLocation
+	}
+
+	block := proto.Block{Timezone: location}
 	if h.compression == CompressionLZ4 || h.compression == CompressionZSTD {
 		reader.EnableCompression()
 		defer reader.DisableCompression()

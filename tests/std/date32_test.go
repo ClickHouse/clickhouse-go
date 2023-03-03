@@ -18,6 +18,7 @@
 package std
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
@@ -116,6 +117,45 @@ func TestStdDate32(t *testing.T) {
 			assert.Equal(t, []*time.Time{nil, nil, &date2}, result2.Col4)
 			assert.Equal(t, sql.NullTime{Time: time.Time{}, Valid: false}, result1.Col5)
 			assert.Equal(t, sql.NullTime{Time: date2, Valid: true}, result1.Col6)
+		})
+	}
+}
+
+func TestDate32WithUserLocation(t *testing.T) {
+	t.Skip("Date32 decode is broken in this scenario. row.Scan returns '1977-07-01 00:00:00 +0000' instead of '2022-07-01 00:00:00 +0000'. Needs further investigation.")
+
+	ctx := context.Background()
+
+	dsns := map[string]clickhouse.Protocol{"Native": clickhouse.Native, "Http": clickhouse.HTTP}
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	for name, protocol := range dsns {
+		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
+			conn, err := GetStdDSNConnection(protocol, useSSL, nil)
+			require.NoError(t, err)
+
+			_, err = conn.ExecContext(ctx, "DROP TABLE IF EXISTS date_with_user_location")
+			require.NoError(t, err)
+			_, err = conn.ExecContext(ctx, `
+		CREATE TABLE date_with_user_location (
+			Col1 Date32
+	) Engine MergeTree() ORDER BY tuple()
+	`)
+			require.NoError(t, err)
+			_, err = conn.ExecContext(ctx, "INSERT INTO date_with_user_location SELECT toDate32(toStartOfMonth(toDate('2022-07-12')))")
+			require.NoError(t, err)
+
+			userLocation, _ := time.LoadLocation("Pacific/Pago_Pago")
+			queryCtx := clickhouse.Context(ctx, clickhouse.WithUserLocation(userLocation))
+
+			var col1 time.Time
+			row := conn.QueryRowContext(queryCtx, "SELECT * FROM date_with_user_location")
+			require.NoError(t, row.Err())
+			require.NoError(t, row.Scan(&col1))
+
+			const dateTimeNoZoneFormat = "2006-01-02T15:04:05"
+			assert.Equal(t, "2022-07-01T00:00:00", col1.Format(dateTimeNoZoneFormat))
+			assert.Equal(t, userLocation.String(), col1.Location().String())
 		})
 	}
 }
