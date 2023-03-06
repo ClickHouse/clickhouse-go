@@ -18,6 +18,7 @@
 package clickhouse
 
 import (
+	"context"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
@@ -34,8 +35,8 @@ type Log struct {
 	Text      string
 }
 
-func (c *connect) logs() ([]Log, error) {
-	block, err := c.readData(proto.ServerLog, false)
+func (c *connect) logs(ctx context.Context) ([]Log, error) {
+	block, err := c.readData(ctx, proto.ServerLog, false)
 	if err != nil {
 		return nil, err
 	}

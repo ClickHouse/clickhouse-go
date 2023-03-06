@@ -53,6 +53,7 @@ type (
 		parameters      Parameters
 		external        []*ext.Table
 		blockBufferSize uint8
+		userLocation    *time.Location
 	}
 )
 
@@ -136,6 +137,13 @@ func WithExternalTable(t ...*ext.Table) QueryOption {
 func WithStdAsync(wait bool) QueryOption {
 	return func(o *QueryOptions) error {
 		o.async.ok, o.async.wait = true, wait
+		return nil
+	}
+}
+
+func WithUserLocation(location *time.Location) QueryOption {
+	return func(o *QueryOptions) error {
+		o.userLocation = location
 		return nil
 	}
 }

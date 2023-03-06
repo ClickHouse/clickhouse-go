@@ -332,3 +332,32 @@ func TestCustomDate(t *testing.T) {
 	require.NoError(t, row.Scan(&col1))
 	require.Equal(t, now, time.Time(col1))
 }
+
+func TestDateWithUserLocation(t *testing.T) {
+	ctx := context.Background()
+
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS date_with_user_location"))
+	require.NoError(t, conn.Exec(ctx, `
+		CREATE TABLE date_with_user_location (
+			Col1 Date
+	) Engine MergeTree() ORDER BY tuple()
+	`))
+	require.NoError(t, conn.Exec(ctx, "INSERT INTO date_with_user_location SELECT toStartOfMonth(toDate('2022-07-12'))"))
+
+	userLocation, _ := time.LoadLocation("Pacific/Pago_Pago")
+	queryCtx := clickhouse.Context(ctx, clickhouse.WithUserLocation(userLocation))
+
+	var col1 time.Time
+	row := conn.QueryRow(queryCtx, "SELECT * FROM date_with_user_location")
+	require.NoError(t, row.Err())
+	require.NoError(t, row.Scan(&col1))
+
+	const dateTimeNoZoneFormat = "2006-01-02T15:04:05"
+	assert.Equal(t, "2022-07-01T00:00:00", col1.Format(dateTimeNoZoneFormat))
+	assert.Equal(t, userLocation.String(), col1.Location().String())
+}
