@@ -52,6 +52,30 @@ func TestParseDSN(t *testing.T) {
 		},
 		{
 			"native protocol",
+			"clickhouse://127.0.0.1/",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"127.0.0.1"},
+				Settings: Settings{},
+				scheme:   "clickhouse",
+			},
+			"",
+		},
+		{
+			"http protocol",
+			"http://127.0.0.1/",
+			&Options{
+				Protocol: HTTP,
+				TLS:      nil,
+				Addr:     []string{"127.0.0.1"},
+				Settings: Settings{},
+				scheme:   "http",
+			},
+			"",
+		},
+		{
+			"native protocol",
 			"clickhouse://127.0.0.1/test_database",
 			&Options{
 				Protocol: Native,
