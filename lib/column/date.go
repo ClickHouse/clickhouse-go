@@ -223,11 +223,12 @@ func (col *Date) AppendRow(v interface{}) error {
 }
 
 func parseDate(value string, minDate time.Time, maxDate time.Time) (tv time.Time, err error) {
-        defer func() {
+ 	defer func() {
 		if err == nil {
 			err = dateOverflow(minDate, maxDate, tv, defaultDateFormatNoZone)
 		}
-        }()
+ 	}()
+
 	if tv, err = time.Parse(defaultDateFormatWithZone, value); err == nil {
 		return tv, nil
 	}
@@ -236,7 +237,6 @@ func parseDate(value string, minDate time.Time, maxDate time.Time) (tv time.Time
 			tv.Year(), tv.Month(), tv.Day(), tv.Hour(), tv.Minute(), tv.Second(), tv.Nanosecond(), time.Local,
 		), nil
 	}
-	
 	return time.Time{}, err
 }
 
