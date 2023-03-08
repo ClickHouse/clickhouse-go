@@ -157,7 +157,7 @@ func TestNullableDate32(t *testing.T) {
 	date, err := time.Parse("2006-01-02 15:04:05", "2283-11-11 00:00:00")
 	require.NoError(t, err)
 	dateStr := "2283-11-11"
-	require.NoError(t, batch.Append(date, date, dateStr, &dateStr))
+	require.NoError(t, batch.Append(date, &date, dateStr, &dateStr))
 	require.NoError(t, batch.Send())
 	var (
 		col1 *time.Time

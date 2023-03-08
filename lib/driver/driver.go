@@ -87,6 +87,7 @@ type (
 	}
 	BatchColumn interface {
 		Append(interface{}) error
+                AppendRow(interface{}) error
 	}
 	ColumnType interface {
 		Name() string
