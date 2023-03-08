@@ -27,6 +27,7 @@ assignees: ''
 * Client version:
 * Language version:
 * OS:
+* Interface: ClickHouse API / database/sql compatible driver
 
 #### ClickHouse server
 * ClickHouse Server version:
