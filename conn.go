@@ -206,7 +206,7 @@ func (c *connect) compressBuffer(start int) error {
 }
 
 func (c *connect) sendData(block *proto.Block, name string) error {
-	c.debugf("[send data] compression=%t", c.compression)
+	c.debugf("[send data] compression=%q", c.compression)
 	c.buffer.PutByte(proto.ClientData)
 	c.buffer.PutString(name)
 
@@ -273,7 +273,7 @@ func (c *connect) readData(ctx context.Context, packet byte, compressible bool) 
 		return nil, err
 	}
 	block.Packet = packet
-	c.debugf("[read data] compression=%t. block: columns=%d, rows=%d", c.compression, len(block.Columns), block.Rows())
+	c.debugf("[read data] compression=%q. block: columns=%d, rows=%d", c.compression, len(block.Columns), block.Rows())
 	return &block, nil
 }
 
