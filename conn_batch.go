@@ -34,7 +34,7 @@ import (
 var splitInsertRe = regexp.MustCompile(`(?i)\sVALUES\s*\(`)
 var columnMatch = regexp.MustCompile(`.*\((?P<Columns>.+)\)$`)
 
-func (c *connect) prepareBatch(ctx context.Context, query string, release func(*connect, error)) (driver.Batch, error) {
+func (c *connect) prepareBatch(ctx context.Context, query string, release func(*connect, error), acquire func(context.Context) (*connect, error)) (driver.Batch, error) {
 	//defer func() {
 	//	if err := recover(); err != nil {
 	//		fmt.Printf("panic occurred on %d:\n", c.num)
@@ -79,6 +79,7 @@ func (c *connect) prepareBatch(ctx context.Context, query string, release func(*
 		block:       block,
 		released:    false,
 		connRelease: release,
+		connAcquire: acquire,
 		onProcess:   onProcess,
 	}, nil
 }
@@ -91,6 +92,7 @@ type batch struct {
 	released    bool
 	block       *proto.Block
 	connRelease func(*connect, error)
+	connAcquire func(context.Context) (*connect, error)
 	onProcess   *onProcess
 }
 
@@ -185,6 +187,18 @@ func (b *batch) Send() (err error) {
 		return err
 	}
 	return nil
+}
+
+func (b *batch) Retry() (err error) {
+	if !b.sent {
+		return ErrBatchNotSent
+	}
+	if b.conn, err = b.connAcquire(b.ctx); err != nil {
+		return err
+	}
+	b.sent = false
+	b.released = false
+	return b.Send()
 }
 
 func (b *batch) Flush() error {

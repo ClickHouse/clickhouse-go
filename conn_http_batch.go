@@ -34,7 +34,7 @@ import (
 var httpInsertRe = regexp.MustCompile(`(?i)^INSERT INTO\s+\x60?([\w.^\(]+)\x60?\s*(\([^\)]*\))?`)
 
 // release is ignored, because http used by std with empty release function
-func (h *httpConnect) prepareBatch(ctx context.Context, query string, release func(*connect, error)) (driver.Batch, error) {
+func (h *httpConnect) prepareBatch(ctx context.Context, query string, release func(*connect, error), acquire func(context.Context) (*connect, error)) (driver.Batch, error) {
 	matches := httpInsertRe.FindStringSubmatch(query)
 	if len(matches) < 3 {
 		return nil, errors.New("cannot get table name from query")
