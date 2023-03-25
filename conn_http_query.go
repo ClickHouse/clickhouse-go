@@ -46,7 +46,7 @@ func (h *httpConnect) query(ctx context.Context, release func(*connect, error), 
 		headers[k] = v
 	}
 
-	res, err := h.sendQueryString(ctx, query, &options, headers)
+	res, err := h.sendQuery(ctx, query, &options, headers)
 	if err != nil {
 		return nil, err
 	}
