@@ -21,11 +21,9 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"io"
-	"strings"
-
 	chproto "github.com/ClickHouse/ch-go/proto"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
+	"io"
 )
 
 // release is ignored, because http used by std with empty release function
@@ -48,7 +46,7 @@ func (h *httpConnect) query(ctx context.Context, release func(*connect, error), 
 		headers[k] = v
 	}
 
-	res, err := h.sendQuery(ctx, strings.NewReader(query), &options, headers)
+	res, err := h.sendQueryString(ctx, query, &options, headers)
 	if err != nil {
 		return nil, err
 	}
