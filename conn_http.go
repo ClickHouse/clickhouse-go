@@ -529,11 +529,15 @@ func (h *httpConnect) writeRequestBodyWithCompression(body []byte, options *Quer
 	case CompressionZSTD, CompressionLZ4:
 		options.settings["decompress"] = "1"
 	}
-	defer pw.Close()
-	defer w.Close()
-	if _, err := w.Write(body); err != nil {
-		return nil, err
-	}
+	go func() {
+		var err error
+		defer pw.CloseWithError(err)
+		defer w.Close()
+		if _, err := pw.Write(body); err != nil {
+			return
+		}
+	}()
+
 	return r, nil
 }
 
