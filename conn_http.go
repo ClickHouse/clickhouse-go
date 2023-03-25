@@ -383,7 +383,7 @@ func (h *httpConnect) readData(ctx context.Context, reader *chproto.Reader) (*pr
 }
 
 func (h *httpConnect) sendQueryBody(ctx context.Context, r io.Reader, options *QueryOptions, headers map[string]string) (*http.Response, error) {
-	req, err := h.prepareRequest(ctx, r, options, headers)
+	req, err := h.createRequest(ctx, r, options, headers)
 	if err != nil {
 		return nil, err
 	}
@@ -397,17 +397,7 @@ func (h *httpConnect) sendQueryBody(ctx context.Context, r io.Reader, options *Q
 }
 
 func (h *httpConnect) sendQuery(ctx context.Context, query string, options *QueryOptions, headers map[string]string) (*http.Response, error) {
-	var req *http.Request
-	var err error
-	if options == nil || len(options.external) == 0 {
-		r, err := h.writeRequestBodyWithCompression([]byte(query), options, headers)
-		if err != nil {
-			return nil, err
-		}
-		req, err = h.prepareRequest(ctx, r, options, headers)
-	} else {
-		req, err = h.prepareMultiPartRequest(ctx, query, options, headers)
-	}
+	req, err := h.prepareRequest(ctx, query, options, headers)
 	if err != nil {
 		return nil, err
 	}
@@ -416,7 +406,6 @@ func (h *httpConnect) sendQuery(ctx context.Context, query string, options *Quer
 	if err != nil {
 		return nil, err
 	}
-
 	return res, nil
 }
 
@@ -447,7 +436,7 @@ func (h *httpConnect) readRawResponse(response *http.Response) (body []byte, err
 	return body, nil
 }
 
-func (h *httpConnect) prepareRequest(ctx context.Context, reader io.Reader, options *QueryOptions, headers map[string]string) (*http.Request, error) {
+func (h *httpConnect) createRequest(ctx context.Context, reader io.Reader, options *QueryOptions, headers map[string]string) (*http.Request, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, h.url.String(), reader)
 	if err != nil {
 		return nil, err
@@ -479,44 +468,52 @@ func (h *httpConnect) prepareRequest(ctx context.Context, reader io.Reader, opti
 	return req, nil
 }
 
-func (h *httpConnect) prepareMultiPartRequest(ctx context.Context, query string, options *QueryOptions, headers map[string]string) (*http.Request, error) {
-	queryValues := h.url.Query()
-	payload := &bytes.Buffer{}
-	w := multipart.NewWriter(payload)
-	for _, table := range options.external {
-		tableName := table.Name()
-		queryValues.Set(fmt.Sprintf("%v_format", tableName), "Native")
-		queryValues.Set(fmt.Sprintf("%v_structure", tableName), table.Structure())
+func (h *httpConnect) prepareRequest(ctx context.Context, query string, options *QueryOptions, headers map[string]string) (*http.Request, error) {
+	var body []byte
+	if len(options.external) > 0 {
+		payload := &bytes.Buffer{}
+		queryValues := h.url.Query()
+		w := multipart.NewWriter(payload)
+		for _, table := range options.external {
+			tableName := table.Name()
+			queryValues.Set(fmt.Sprintf("%v_format", tableName), "Native")
+			queryValues.Set(fmt.Sprintf("%v_structure", tableName), table.Structure())
+			h.buffer.Reset()
+			partWriter, err := w.CreateFormFile(tableName, tableName)
+			if err != nil {
+				return nil, err
+			}
+			err = table.Block().Encode(h.buffer, 0)
+			if err != nil {
+				return nil, err
+			}
+			_, err = partWriter.Write(h.buffer.Buf)
+			if err != nil {
+				return nil, err
+			}
+		}
 		h.buffer.Reset()
-		partWriter, err := w.CreateFormFile(tableName, tableName)
+		h.url.RawQuery = queryValues.Encode()
+		err := w.WriteField("query", query)
 		if err != nil {
 			return nil, err
 		}
-		err = table.Block().Encode(h.buffer, 0)
+		err = w.Close()
 		if err != nil {
 			return nil, err
 		}
-		_, err = partWriter.Write(h.buffer.Buf)
-		if err != nil {
-			return nil, err
-		}
+		headers["Content-Type"] = w.FormDataContentType()
+		body = payload.Bytes()
+	} else {
+		body = []byte(query)
 	}
-	h.buffer.Reset()
-	h.url.RawQuery = queryValues.Encode()
-	err := w.WriteField("query", query)
+
+	r, err := h.writeRequestBodyWithCompression(body, options, headers)
 	if err != nil {
 		return nil, err
 	}
-	err = w.Close()
-	if err != nil {
-		return nil, err
-	}
-	r, err := h.writeRequestBodyWithCompression(payload.Bytes(), options, headers)
-	if err != nil {
-		return nil, err
-	}
-	headers["Content-Type"] = w.FormDataContentType()
-	return h.prepareRequest(ctx, r, options, headers)
+
+	return h.createRequest(ctx, r, options, headers)
 }
 
 func (h *httpConnect) writeRequestBodyWithCompression(body []byte, options *QueryOptions, headers map[string]string) (io.Reader, error) {
