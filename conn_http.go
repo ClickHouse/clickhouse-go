@@ -471,7 +471,7 @@ func (h *httpConnect) createRequest(ctx context.Context, reader io.Reader, optio
 
 func (h *httpConnect) prepareRequest(ctx context.Context, query string, options *QueryOptions, headers map[string]string) (*http.Request, error) {
 	var body []byte
-	if len(options.external) > 0 {
+	if options != nil && len(options.external) > 0 {
 		payload := &bytes.Buffer{}
 		queryValues := h.url.Query()
 		w := multipart.NewWriter(payload)
