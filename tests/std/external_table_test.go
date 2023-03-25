@@ -19,6 +19,7 @@ package std
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/require"
@@ -100,7 +101,14 @@ func TestStdHttpConnectionExternalTable(t *testing.T) {
 	}
 	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
 	require.NoError(t, err)
-	conn, err := GetStdDSNConnection(clickhouse.HTTP, useSSL, nil)
+	var tlsConfig *tls.Config
+	if useSSL {
+		tlsConfig = &tls.Config{}
+	}
+	conn, err := GetStdOpenDBConnection(clickhouse.HTTP, nil, tlsConfig, &clickhouse.Compression{
+		Method: clickhouse.CompressionZSTD,
+		Level:  3,
+	})
 	require.NoError(t, err)
 	ctx := clickhouse.Context(context.Background(),
 		clickhouse.WithExternalTable(table1, table2),
