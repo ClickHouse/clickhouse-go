@@ -510,36 +510,7 @@ func (h *httpConnect) prepareRequest(ctx context.Context, query string, options 
 	} else {
 		body = []byte(query)
 	}
-
-	r, err := h.writeRequestBodyWithCompression(body, options, headers)
-	if err != nil {
-		return nil, err
-	}
-
-	return h.createRequest(ctx, r, options, headers)
-}
-
-func (h *httpConnect) writeRequestBodyWithCompression(body []byte, options *QueryOptions, headers map[string]string) (io.Reader, error) {
-	r, pw := io.Pipe()
-	compressionReaderWriter := h.compressionPool.Get()
-	w := compressionReaderWriter.reset(pw)
-	defer h.compressionPool.Put(compressionReaderWriter)
-	switch h.compression {
-	case CompressionGZIP, CompressionDeflate, CompressionBrotli:
-		headers["Content-Encoding"] = h.compression.String()
-	case CompressionZSTD, CompressionLZ4:
-		options.settings["decompress"] = "1"
-	}
-	go func() {
-		var err error
-		defer pw.CloseWithError(err)
-		defer w.Close()
-		if _, err := pw.Write(body); err != nil {
-			return
-		}
-	}()
-
-	return r, nil
+	return h.createRequest(ctx, bytes.NewReader(body), options, headers)
 }
 
 func (h *httpConnect) executeRequest(req *http.Request) (*http.Response, error) {
