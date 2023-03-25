@@ -28,9 +28,11 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/resources"
 	"io"
 	"io/ioutil"
+	"mime/multipart"
 	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -381,7 +383,7 @@ func (h *httpConnect) readData(ctx context.Context, reader *chproto.Reader) (*pr
 	return &block, nil
 }
 
-func (h *httpConnect) sendQuery(ctx context.Context, r io.Reader, options *QueryOptions, headers map[string]string) (*http.Response, error) {
+func (h *httpConnect) sendQueryBody(ctx context.Context, r io.Reader, options *QueryOptions, headers map[string]string) (*http.Response, error) {
 	req, err := h.prepareRequest(ctx, r, options, headers)
 	if err != nil {
 		return nil, err
@@ -393,6 +395,32 @@ func (h *httpConnect) sendQuery(ctx context.Context, r io.Reader, options *Query
 	}
 
 	return res, nil
+}
+
+func (h *httpConnect) sendQueryString(ctx context.Context, query string, options *QueryOptions, headers map[string]string) (*http.Response, error) {
+	if options == nil || len(options.external) == 0 {
+		return h.sendQueryBody(ctx, strings.NewReader(query), options, h.headers)
+	}
+	req, err := h.prepareMultiPartRequest(ctx, query, options, headers)
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := h.executeRequest(req)
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func (h *httpConnect) setCompressionRequestOptions(options *QueryOptions, headers map[string]string) {
+	switch h.compression {
+	case CompressionGZIP, CompressionDeflate, CompressionBrotli:
+		headers["Content-Encoding"] = h.compression.String()
+	case CompressionZSTD, CompressionLZ4:
+		options.settings["decompress"] = "1"
+	}
 }
 
 func (h *httpConnect) readRawResponse(response *http.Response) (body []byte, err error) {
@@ -427,11 +455,14 @@ func (h *httpConnect) prepareRequest(ctx context.Context, reader io.Reader, opti
 	if err != nil {
 		return nil, err
 	}
+	h.prepareHttpRequestHeaderAndParameters(req, options, headers)
+	return req, nil
+}
 
+func (h *httpConnect) prepareHttpRequestHeaderAndParameters(req *http.Request, options *QueryOptions, headers map[string]string) {
 	for k, v := range headers {
 		req.Header.Add(k, v)
 	}
-
 	var query url.Values
 	if options != nil {
 		query = req.URL.Query()
@@ -453,7 +484,61 @@ func (h *httpConnect) prepareRequest(ctx context.Context, reader io.Reader, opti
 		}
 		req.URL.RawQuery = query.Encode()
 	}
+}
 
+func (h *httpConnect) prepareMultiPartRequest(ctx context.Context, query string, options *QueryOptions, headers map[string]string) (*http.Request, error) {
+	queryValues := h.url.Query()
+	payload := &bytes.Buffer{}
+	w := multipart.NewWriter(payload)
+	for _, table := range options.external {
+		tableName := table.Name()
+		queryValues.Set(fmt.Sprintf("%v_format", tableName), "Native")
+		queryValues.Set(fmt.Sprintf("%v_structure", tableName), table.Structure())
+		h.buffer.Reset()
+		partWriter, err := w.CreateFormFile(tableName, tableName)
+		if err != nil {
+			return nil, err
+		}
+		err = table.Block().Encode(h.buffer, 0)
+		if err != nil {
+			return nil, err
+		}
+		_, err = partWriter.Write(h.buffer.Buf)
+		if err != nil {
+			return nil, err
+		}
+	}
+	h.url.RawQuery = queryValues.Encode()
+
+	err := w.WriteField("query", query)
+	if err != nil {
+		return nil, err
+	}
+	err = w.Close()
+	if err != nil {
+		return nil, err
+	}
+	// apply body compression here
+	r, pw := io.Pipe()
+	crw := h.compressionPool.Get()
+	wc := crw.reset(pw)
+	defer h.compressionPool.Put(crw)
+	h.setCompressionRequestOptions(options, headers)
+	go func() {
+		var err error = nil
+		defer pw.CloseWithError(err)
+		defer wc.Close()
+		h.buffer.Reset()
+		if _, err = wc.Write(payload.Bytes()); err != nil {
+			return
+		}
+	}()
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, h.url.String(), r)
+	if err != nil {
+		return nil, err
+	}
+	headers["Content-Type"] = w.FormDataContentType()
+	h.prepareHttpRequestHeaderAndParameters(req, options, headers)
 	return req, nil
 }
 
