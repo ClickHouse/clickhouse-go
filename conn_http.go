@@ -415,15 +415,6 @@ func (h *httpConnect) sendQueryString(ctx context.Context, query string, options
 	return res, nil
 }
 
-func (h *httpConnect) setCompressionRequestOptions(options *QueryOptions, headers map[string]string) {
-	switch h.compression {
-	case CompressionGZIP, CompressionDeflate, CompressionBrotli:
-		headers["Content-Encoding"] = h.compression.String()
-	case CompressionZSTD, CompressionLZ4:
-		options.settings["decompress"] = "1"
-	}
-}
-
 func (h *httpConnect) readRawResponse(response *http.Response) (body []byte, err error) {
 	rw := h.compressionPool.Get()
 	defer response.Body.Close()
@@ -524,7 +515,6 @@ func (h *httpConnect) prepareMultiPartRequest(ctx context.Context, query string,
 	crw := h.compressionPool.Get()
 	wc := crw.reset(pw)
 	defer h.compressionPool.Put(crw)
-	h.setCompressionRequestOptions(options, headers)
 	go func() {
 		var err error = nil
 		defer pw.CloseWithError(err)
