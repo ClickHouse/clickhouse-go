@@ -500,8 +500,8 @@ func (h *httpConnect) prepareMultiPartRequest(ctx context.Context, query string,
 			return nil, err
 		}
 	}
+	h.buffer.Reset()
 	h.url.RawQuery = queryValues.Encode()
-
 	err := w.WriteField("query", query)
 	if err != nil {
 		return nil, err
@@ -519,7 +519,6 @@ func (h *httpConnect) prepareMultiPartRequest(ctx context.Context, query string,
 		var err error = nil
 		defer pw.CloseWithError(err)
 		defer wc.Close()
-		h.buffer.Reset()
 		if _, err = wc.Write(payload.Bytes()); err != nil {
 			return
 		}
