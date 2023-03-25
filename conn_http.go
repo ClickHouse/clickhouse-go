@@ -447,11 +447,6 @@ func (h *httpConnect) prepareRequest(ctx context.Context, reader io.Reader, opti
 	if err != nil {
 		return nil, err
 	}
-	h.prepareHttpRequestHeaderAndParameters(req, options, headers)
-	return req, nil
-}
-
-func (h *httpConnect) prepareHttpRequestHeaderAndParameters(req *http.Request, options *QueryOptions, headers map[string]string) {
 	for k, v := range headers {
 		req.Header.Add(k, v)
 	}
@@ -476,6 +471,7 @@ func (h *httpConnect) prepareHttpRequestHeaderAndParameters(req *http.Request, o
 		}
 		req.URL.RawQuery = query.Encode()
 	}
+	return req, nil
 }
 
 func (h *httpConnect) prepareMultiPartRequest(ctx context.Context, query string, options *QueryOptions, headers map[string]string) (*http.Request, error) {
@@ -523,13 +519,9 @@ func (h *httpConnect) prepareMultiPartRequest(ctx context.Context, query string,
 			return
 		}
 	}()
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, h.url.String(), r)
-	if err != nil {
-		return nil, err
-	}
 	headers["Content-Type"] = w.FormDataContentType()
-	h.prepareHttpRequestHeaderAndParameters(req, options, headers)
-	return req, nil
+
+	return h.prepareRequest(ctx, r, options, headers)
 }
 
 func (h *httpConnect) executeRequest(req *http.Request) (*http.Response, error) {
