@@ -475,6 +475,9 @@ func (h *httpConnect) prepareRequest(ctx context.Context, query string, options 
 		payload := &bytes.Buffer{}
 		queryValues := h.url.Query()
 		w := multipart.NewWriter(payload)
+		defer func() {
+			h.buffer.Reset()
+		}()
 		for _, table := range options.external {
 			tableName := table.Name()
 			queryValues.Set(fmt.Sprintf("%v_format", tableName), "Native")
@@ -493,7 +496,6 @@ func (h *httpConnect) prepareRequest(ctx context.Context, query string, options 
 				return nil, err
 			}
 		}
-		h.buffer.Reset()
 		h.url.RawQuery = queryValues.Encode()
 		err := w.WriteField("query", query)
 		if err != nil {
