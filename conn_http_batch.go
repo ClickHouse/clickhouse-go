@@ -188,7 +188,13 @@ func (b *httpBatch) Send() (err error) {
 
 	defer b.conn.compressionPool.Put(crw)
 
-	b.conn.setCompressionRequestOptions(&options, headers)
+	switch b.conn.compression {
+	case CompressionGZIP, CompressionDeflate, CompressionBrotli:
+		headers["Content-Encoding"] = b.conn.compression.String()
+	case CompressionZSTD, CompressionLZ4:
+		options.settings["decompress"] = "1"
+	}
+
 	go func() {
 		var err error = nil
 		defer pw.CloseWithError(err)
