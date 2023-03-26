@@ -32,6 +32,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -470,47 +471,42 @@ func (h *httpConnect) createRequest(ctx context.Context, reader io.Reader, optio
 }
 
 func (h *httpConnect) prepareRequest(ctx context.Context, query string, options *QueryOptions, headers map[string]string) (*http.Request, error) {
-	var body []byte
-	if options != nil && !options.ignoreExternalTables && len(options.external) > 0 {
-		payload := &bytes.Buffer{}
-		queryValues := h.url.Query()
-		w := multipart.NewWriter(payload)
-		defer func() {
-			h.buffer.Reset()
-		}()
-		for _, table := range options.external {
-			tableName := table.Name()
-			queryValues.Set(fmt.Sprintf("%v_format", tableName), "Native")
-			queryValues.Set(fmt.Sprintf("%v_structure", tableName), table.Structure())
-			h.buffer.Reset()
-			partWriter, err := w.CreateFormFile(tableName, tableName)
-			if err != nil {
-				return nil, err
-			}
-			err = table.Block().Encode(h.buffer, 0)
-			if err != nil {
-				return nil, err
-			}
-			_, err = partWriter.Write(h.buffer.Buf)
-			if err != nil {
-				return nil, err
-			}
-		}
-		h.url.RawQuery = queryValues.Encode()
-		err := w.WriteField("query", query)
-		if err != nil {
-			return nil, err
-		}
-		err = w.Close()
-		if err != nil {
-			return nil, err
-		}
-		headers["Content-Type"] = w.FormDataContentType()
-		body = payload.Bytes()
-	} else {
-		body = []byte(query)
+	if options == nil || options.ignoreExternalTables || len(options.external) == 0 {
+		return h.createRequest(ctx, strings.NewReader(query), options, headers)
 	}
-	return h.createRequest(ctx, bytes.NewReader(body), options, headers)
+	payload := &bytes.Buffer{}
+	w := multipart.NewWriter(payload)
+	queryValues := h.url.Query()
+	defer h.buffer.Reset()
+	for _, table := range options.external {
+		tableName := table.Name()
+		queryValues.Set(fmt.Sprintf("%v_format", tableName), "Native")
+		queryValues.Set(fmt.Sprintf("%v_structure", tableName), table.Structure())
+		h.buffer.Reset()
+		partWriter, err := w.CreateFormFile(tableName, tableName)
+		if err != nil {
+			return nil, err
+		}
+		err = table.Block().Encode(h.buffer, 0)
+		if err != nil {
+			return nil, err
+		}
+		_, err = partWriter.Write(h.buffer.Buf)
+		if err != nil {
+			return nil, err
+		}
+	}
+	h.url.RawQuery = queryValues.Encode()
+	err := w.WriteField("query", query)
+	if err != nil {
+		return nil, err
+	}
+	err = w.Close()
+	if err != nil {
+		return nil, err
+	}
+	headers["Content-Type"] = w.FormDataContentType()
+	return h.createRequest(ctx, bytes.NewReader(payload.Bytes()), options, headers)
 }
 
 func (h *httpConnect) executeRequest(req *http.Request) (*http.Response, error) {
