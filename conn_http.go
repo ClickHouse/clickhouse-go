@@ -383,7 +383,7 @@ func (h *httpConnect) readData(ctx context.Context, reader *chproto.Reader) (*pr
 	return &block, nil
 }
 
-func (h *httpConnect) sendQueryBody(ctx context.Context, r io.Reader, options *QueryOptions, headers map[string]string) (*http.Response, error) {
+func (h *httpConnect) sendStreamQuery(ctx context.Context, r io.Reader, options *QueryOptions, headers map[string]string) (*http.Response, error) {
 	req, err := h.createRequest(ctx, r, options, headers)
 	if err != nil {
 		return nil, err

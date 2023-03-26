@@ -218,7 +218,7 @@ func (b *httpBatch) Send() (err error) {
 	for k, v := range b.conn.headers {
 		headers[k] = v
 	}
-	res, err := b.conn.sendQueryBody(b.ctx, r, &options, headers)
+	res, err := b.conn.sendStreamQuery(b.ctx, r, &options, headers)
 
 	if res != nil {
 		defer res.Body.Close()
