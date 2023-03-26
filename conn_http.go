@@ -266,7 +266,7 @@ func (h *httpConnect) isBad() bool {
 }
 
 func (h *httpConnect) readTimeZone(ctx context.Context) (*time.Location, error) {
-	rows, err := h.query(ctx, func(*connect, error) {}, "SELECT timezone()")
+	rows, err := h.query(Context(ctx, ignoreExternalTables()), func(*connect, error) {}, "SELECT timezone()")
 	if err != nil {
 		return nil, err
 	}
@@ -284,7 +284,7 @@ func (h *httpConnect) readTimeZone(ctx context.Context) (*time.Location, error) 
 }
 
 func (h *httpConnect) readVersion(ctx context.Context) (proto.Version, error) {
-	rows, err := h.query(ctx, func(*connect, error) {}, "SELECT version()")
+	rows, err := h.query(Context(ctx, ignoreExternalTables()), func(*connect, error) {}, "SELECT version()")
 	if err != nil {
 		return proto.Version{}, err
 	}
@@ -471,7 +471,7 @@ func (h *httpConnect) createRequest(ctx context.Context, reader io.Reader, optio
 
 func (h *httpConnect) prepareRequest(ctx context.Context, query string, options *QueryOptions, headers map[string]string) (*http.Request, error) {
 	var body []byte
-	if options != nil && len(options.external) > 0 {
+	if options != nil && !options.ignoreExternalTables && len(options.external) > 0 {
 		payload := &bytes.Buffer{}
 		queryValues := h.url.Query()
 		w := multipart.NewWriter(payload)
@@ -535,7 +535,7 @@ func (h *httpConnect) executeRequest(req *http.Request) (*http.Response, error) 
 }
 
 func (h *httpConnect) ping(ctx context.Context) error {
-	rows, err := h.query(ctx, nil, "SELECT 1")
+	rows, err := h.query(Context(ctx, ignoreExternalTables()), nil, "SELECT 1")
 	if err != nil {
 		return err
 	}

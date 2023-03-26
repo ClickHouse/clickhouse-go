@@ -49,11 +49,12 @@ type (
 			profileInfo   func(*ProfileInfo)
 			profileEvents func([]ProfileEvent)
 		}
-		settings        Settings
-		parameters      Parameters
-		external        []*ext.Table
-		blockBufferSize uint8
-		userLocation    *time.Location
+		settings             Settings
+		parameters           Parameters
+		external             []*ext.Table
+		ignoreExternalTables bool
+		blockBufferSize      uint8
+		userLocation         *time.Location
 	}
 )
 
@@ -144,6 +145,13 @@ func WithStdAsync(wait bool) QueryOption {
 func WithUserLocation(location *time.Location) QueryOption {
 	return func(o *QueryOptions) error {
 		o.userLocation = location
+		return nil
+	}
+}
+
+func ignoreExternalTables() QueryOption {
+	return func(o *QueryOptions) error {
+		o.ignoreExternalTables = true
 		return nil
 	}
 }
