@@ -477,7 +477,7 @@ func (h *httpConnect) prepareRequest(ctx context.Context, query string, options 
 	payload := &bytes.Buffer{}
 	w := multipart.NewWriter(payload)
 	queryValues := h.url.Query()
-	defer h.buffer.Reset()
+	buf := &chproto.Buffer{}
 	for _, table := range options.external {
 		tableName := table.Name()
 		queryValues.Set(fmt.Sprintf("%v_format", tableName), "Native")
@@ -486,12 +486,12 @@ func (h *httpConnect) prepareRequest(ctx context.Context, query string, options 
 		if err != nil {
 			return nil, err
 		}
-		h.buffer.Reset()
-		err = table.Block().Encode(h.buffer, 0)
+		buf.Reset()
+		err = table.Block().Encode(buf, 0)
 		if err != nil {
 			return nil, err
 		}
-		_, err = partWriter.Write(h.buffer.Buf)
+		_, err = partWriter.Write(buf.Buf)
 		if err != nil {
 			return nil, err
 		}
