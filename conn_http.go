@@ -481,11 +481,11 @@ func (h *httpConnect) prepareRequest(ctx context.Context, query string, options 
 		tableName := table.Name()
 		queryValues.Set(fmt.Sprintf("%v_format", tableName), "Native")
 		queryValues.Set(fmt.Sprintf("%v_structure", tableName), table.Structure())
-		h.buffer.Reset()
-		partWriter, err := w.CreateFormFile(tableName, tableName)
+		partWriter, err := w.CreateFormFile(tableName, "")
 		if err != nil {
 			return nil, err
 		}
+		h.buffer.Reset()
 		err = table.Block().Encode(h.buffer, 0)
 		if err != nil {
 			return nil, err
