@@ -21,7 +21,6 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/stretchr/testify/require"
 	"os"
 	"strconv"
 	"testing"
@@ -29,6 +28,7 @@ import (
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestConn(t *testing.T) {
@@ -261,4 +261,42 @@ func TestConnCustomDialStrategy(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, conn.Ping(context.Background()))
 	require.NoError(t, conn.Close())
+}
+
+func TestEmptyDatabaseConfig(t *testing.T) {
+	env, err := GetNativeTestEnvironment()
+	require.NoError(t, err)
+	useSSL, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	port := env.Port
+	var tlsConfig *tls.Config
+	if useSSL {
+		port = env.SslPort
+		tlsConfig = &tls.Config{}
+	}
+	options := &clickhouse.Options{
+		Addr: []string{fmt.Sprintf("%s:%d", env.Host, port)},
+		Auth: clickhouse.Auth{
+			Username: env.Username,
+			Password: env.Password,
+		},
+		TLS: tlsConfig,
+	}
+	conn, err := GetConnectionWithOptions(options)
+	require.NoError(t, err)
+
+	// Setup
+	err = conn.Exec(context.Background(), `DROP DATABASE IF EXISTS "default"`)
+	require.NoError(t, err)
+
+	defer func() {
+		// Tear down
+		err = conn.Exec(context.Background(), `CREATE DATABASE "default"`)
+		require.NoError(t, err)
+	}()
+
+	anotherConn, err := GetConnectionWithOptions(options)
+	require.NoError(t, err)
+	err = anotherConn.Ping(context.Background())
+	require.NoError(t, err)
 }
