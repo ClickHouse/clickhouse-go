@@ -139,6 +139,7 @@ type Options struct {
 	ConnMaxLifetime      time.Duration // default 1 hour
 	ConnOpenStrategy     ConnOpenStrategy
 	HttpHeaders          map[string]string // set additional headers on HTTP requests
+	HttpUrlPath          string            // set additional URL path for HTTP requests
 	BlockBufferSize      uint8             // default 2 - can be overwritten on query
 	MaxCompressionBuffer int               // default 10485760 - measured in bytes  i.e. 10MiB
 

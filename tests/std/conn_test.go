@@ -285,6 +285,39 @@ func TestMaxExecutionTime(t *testing.T) {
 	}
 }
 
+func TestHttpConnWithOptions(t *testing.T) {
+	env, err := GetStdTestEnvironment()
+	require.NoError(t, err)
+	nginxEnv, err := clickhouse_tests.CreateNginxReverseProxyTestEnvironment(env)
+	defer func() {
+		if nginxEnv.NginxContainer != nil {
+			nginxEnv.NginxContainer.Terminate(context.Background())
+		}
+	}()
+	require.NoError(t, err)
+	conn := GetConnectionWithOptions(&clickhouse.Options{
+		Addr:     []string{fmt.Sprintf("%s:%d", env.Host, nginxEnv.HttpPort)},
+		Protocol: clickhouse.HTTP,
+		Auth: clickhouse.Auth{
+			Database: env.Database,
+			Username: env.Username,
+			Password: env.Password,
+		},
+		Settings: clickhouse.Settings{
+			"max_execution_time": 60,
+		},
+		DialTimeout: 5 * time.Second,
+		Compression: &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		},
+		HttpUrlPath: "clickhouse",
+	})
+	require.NoError(t, conn.Ping())
+	var one int
+	require.NoError(t, conn.QueryRow("SELECT 1").Scan(&one))
+	assert.NoError(t, conn.Close())
+}
+
 func TestEmptyDatabaseConfig(t *testing.T) {
 	env, err := GetStdTestEnvironment()
 	require.NoError(t, err)

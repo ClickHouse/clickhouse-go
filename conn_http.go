@@ -147,6 +147,7 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 	u := &url.URL{
 		Scheme: opt.scheme,
 		Host:   addr,
+		Path:   opt.HttpUrlPath,
 	}
 
 	headers := make(map[string]string)
