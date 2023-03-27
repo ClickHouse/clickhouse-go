@@ -22,16 +22,14 @@ import (
 	"crypto/tls"
 	"database/sql"
 	"fmt"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"strconv"
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/ClickHouse/clickhouse-go/v2"
-	_ "github.com/ClickHouse/clickhouse-go/v2"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestStdConn(t *testing.T) {
@@ -318,4 +316,41 @@ func TestHttpConnWithOptions(t *testing.T) {
 	var one int
 	require.NoError(t, conn.QueryRow("SELECT 1").Scan(&one))
 	assert.NoError(t, conn.Close())
+}
+
+func TestEmptyDatabaseConfig(t *testing.T) {
+	env, err := GetStdTestEnvironment()
+	require.NoError(t, err)
+	dsns := map[string]string{
+		"Native": fmt.Sprintf("clickhouse://%s:%d?username=%s&password=%s", env.Host, env.Port, env.Username, env.Password),
+		"Http":   fmt.Sprintf("http://%s:%d?username=%s&password=%s", env.Host, env.HttpPort, env.Username, env.Password),
+	}
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	if useSSL {
+		dsns = map[string]string{
+			"Native": fmt.Sprintf("clickhouse://%s:%d?username=%s&password=%s&secure=true", env.Host, env.Port, env.Username, env.Password),
+			"Http":   fmt.Sprintf("https://%s:%d?username=%s&password=%s&secure=true", env.Host, env.HttpPort, env.Username, env.Password),
+		}
+	}
+
+	setupConn, err := sql.Open("clickhouse", dsns["Native"])
+	require.NoError(t, err)
+
+	// Setup
+	_, err = setupConn.ExecContext(context.Background(), `DROP DATABASE IF EXISTS "default"`)
+	require.NoError(t, err)
+
+	for name, dsn := range dsns {
+		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
+			conn, err := sql.Open("clickhouse", dsn)
+			require.NoError(t, err)
+			err = conn.Ping()
+			require.NoError(t, err)
+		})
+	}
+
+	// Tear down
+	_, err = setupConn.ExecContext(context.Background(), `CREATE DATABASE "default"`)
+	require.NoError(t, err)
 }

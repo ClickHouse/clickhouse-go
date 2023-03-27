@@ -320,9 +320,6 @@ func (o *Options) fromDSN(in string) error {
 
 // receive copy of Options, so we don't modify original - so its reusable
 func (o Options) setDefaults() *Options {
-	if len(o.Auth.Database) == 0 {
-		o.Auth.Database = "default"
-	}
 	if len(o.Auth.Username) == 0 {
 		o.Auth.Username = "default"
 	}
