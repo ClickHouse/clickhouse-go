@@ -55,7 +55,6 @@ func TestStdExternalTable(t *testing.T) {
 			for i := 0; i < 10; i++ {
 				assert.NoError(t, table2.Append(uint8(i), fmt.Sprintf("value_%d", i), time.Now()))
 			}
-			require.NoError(t, err)
 			conn, err := GetStdDSNConnection(protocol, useSSL, nil)
 			require.NoError(t, err)
 			ctx := clickhouse.Context(context.Background(),
