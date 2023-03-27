@@ -1,3 +1,16 @@
+## 2.8.0, 2023-03-27
+
+### New features
+
+- Support customized "url path" in http connection [#938](https://github.com/ClickHouse/clickhouse-go/pull/938) by @crisismaple
+- Allow Auth.Database option to be empty [#926](https://github.com/ClickHouse/clickhouse-go/pull/938) by @v4run
+
+### Chores
+
+- Bump github.com/stretchr/testify from 1.8.1 to 1.8.2 [#933](https://github.com/ClickHouse/clickhouse-go/pull/933)
+- fix: small typo in the text of an error [#936](https://github.com/ClickHouse/clickhouse-go/pull/936) by @lspgn
+- Improved bug template [#916](https://github.com/ClickHouse/clickhouse-go/pull/916) by @mshustov
+
 ## 2.7.0, 2023-03-08
 
 ### New features
