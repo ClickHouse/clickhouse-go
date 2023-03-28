@@ -151,8 +151,7 @@ func (c *connect) settings(querySettings Settings) []proto.Setting {
 }
 
 func (c *connect) isBad() bool {
-	switch {
-	case c.closed:
+	if c.isClosed() {
 		return true
 	}
 
@@ -179,27 +178,35 @@ func (c *connect) closeAfterMaxLifeTime() {
 			c.close()
 			return
 		default:
-			if c.closed == true {
+			if c.isClosed() {
 				return
 			}
+
 			time.Sleep(time.Second)
 		}
 	}
 }
 
+func (c *connect) isClosed() bool {
+	c.closeLock.Lock()
+	defer c.closeLock.Unlock()
+
+	return c.closed
+}
+
 func (c *connect) close() error {
+	c.closeLock.Lock()
+	defer c.closeLock.Unlock()
+
 	if c.closed {
 		return nil
 	}
-
-	c.closeLock.Lock()
-	defer c.closeLock.Unlock()
 
 	c.closed = true
 	c.buffer = nil
 	c.reader = nil
 	if err := c.conn.Close(); err != nil {
-		return err
+		c.debugf("[close] %s", err)
 	}
 	return nil
 }
@@ -264,10 +271,10 @@ func (c *connect) sendData(block *proto.Block, name string) error {
 	if err := c.flush(); err != nil {
 		if errors.Is(err, syscall.EPIPE) {
 			c.debugf("[send data] pipe is broken, closing connection")
-			c.closed = true
+			c.close()
 		} else if errors.Is(err, io.EOF) {
 			c.debugf("[send data] unexpected EOF, closing connection")
-			c.closed = true
+			c.close()
 		} else {
 			c.debugf("[send data] unexpected error: %v", err)
 		}
