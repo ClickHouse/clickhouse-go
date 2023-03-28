@@ -118,7 +118,7 @@ type connect struct {
 	conn                 net.Conn
 	debugf               func(format string, v ...interface{})
 	server               ServerVersion
-	closed               atomic.Bool
+	closed               atomic.Uint32
 	buffer               *chproto.Buffer
 	reader               *chproto.Reader
 	released             bool
@@ -153,7 +153,7 @@ func (c *connect) settings(querySettings Settings) []proto.Setting {
 
 func (c *connect) isBad() bool {
 	switch {
-	case c.closed.Load():
+	case c.closed.Load() == 1:
 		return true
 	}
 
@@ -180,7 +180,7 @@ func (c *connect) closeAfterMaxLifeTime() {
 			c.close()
 			return
 		default:
-			if c.closed.Load() {
+			if c.closed.Load() == 1 {
 				return
 			}
 			time.Sleep(time.Second)
@@ -189,14 +189,14 @@ func (c *connect) closeAfterMaxLifeTime() {
 }
 
 func (c *connect) close() error {
-	if c.closed.Load() {
+	if c.closed.Load() == 1 {
 		return nil
 	}
 
 	c.closeLock.Lock()
 	defer c.closeLock.Unlock()
 
-	c.closed.Swap(true)
+	c.closed.Swap(1)
 	c.buffer = nil
 	c.reader = nil
 	if err := c.conn.Close(); err != nil {
@@ -265,10 +265,10 @@ func (c *connect) sendData(block *proto.Block, name string) error {
 	if err := c.flush(); err != nil {
 		if errors.Is(err, syscall.EPIPE) {
 			c.debugf("[send data] pipe is broken, closing connection")
-			c.closed.Swap(true)
+			c.closed.Swap(1)
 		} else if errors.Is(err, io.EOF) {
 			c.debugf("[send data] unexpected EOF, closing connection")
-			c.closed.Swap(true)
+			c.closed.Swap(1)
 		} else {
 			c.debugf("[send data] unexpected error: %v", err)
 		}
