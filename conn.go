@@ -25,6 +25,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"sync"
 	"syscall"
 	"time"
 
@@ -128,6 +129,8 @@ type connect struct {
 	readTimeout          time.Duration
 	blockBufferSize      uint8
 	maxCompressionBuffer int
+
+	closeLock sync.Mutex
 }
 
 func (c *connect) settings(querySettings Settings) []proto.Setting {
@@ -188,6 +191,10 @@ func (c *connect) close() error {
 	if c.closed {
 		return nil
 	}
+
+	c.closeLock.Lock()
+	defer c.closeLock.Unlock()
+
 	c.closed = true
 	c.buffer = nil
 	c.reader = nil
