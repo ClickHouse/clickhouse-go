@@ -163,6 +163,27 @@ func (c *connect) isBad() bool {
 	return false
 }
 
+// closeAfterMaxLifeTime closes the connection if it has been used for longer than ConnMaxLifeTime
+func (c *connect) closeAfterMaxLifeTime() {
+	t := time.NewTimer(c.opt.ConnMaxLifetime)
+	defer t.Stop()
+
+	// check if connection should be closed after duration of ConnMaxLifeTime
+	// if connection is closed, return
+	for {
+		select {
+		case <-t.C:
+			c.close()
+			return
+		default:
+			if c.closed == true {
+				return
+			}
+			time.Sleep(time.Second)
+		}
+	}
+}
+
 func (c *connect) close() error {
 	if c.closed {
 		return nil
