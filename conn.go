@@ -26,6 +26,7 @@ import (
 	"net"
 	"os"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -117,7 +118,7 @@ type connect struct {
 	conn                 net.Conn
 	debugf               func(format string, v ...interface{})
 	server               ServerVersion
-	closed               bool
+	closed               atomic.Bool
 	buffer               *chproto.Buffer
 	reader               *chproto.Reader
 	released             bool
@@ -152,7 +153,7 @@ func (c *connect) settings(querySettings Settings) []proto.Setting {
 
 func (c *connect) isBad() bool {
 	switch {
-	case c.closed:
+	case c.closed.Load():
 		return true
 	}
 
@@ -179,7 +180,7 @@ func (c *connect) closeAfterMaxLifeTime() {
 			c.close()
 			return
 		default:
-			if c.closed == true {
+			if c.closed.Load() {
 				return
 			}
 			time.Sleep(time.Second)
@@ -188,14 +189,14 @@ func (c *connect) closeAfterMaxLifeTime() {
 }
 
 func (c *connect) close() error {
-	if c.closed {
+	if c.closed.Load() {
 		return nil
 	}
 
 	c.closeLock.Lock()
 	defer c.closeLock.Unlock()
 
-	c.closed = true
+	c.closed.Swap(true)
 	c.buffer = nil
 	c.reader = nil
 	if err := c.conn.Close(); err != nil {
@@ -264,10 +265,10 @@ func (c *connect) sendData(block *proto.Block, name string) error {
 	if err := c.flush(); err != nil {
 		if errors.Is(err, syscall.EPIPE) {
 			c.debugf("[send data] pipe is broken, closing connection")
-			c.closed = true
+			c.closed.Swap(true)
 		} else if errors.Is(err, io.EOF) {
 			c.debugf("[send data] unexpected EOF, closing connection")
-			c.closed = true
+			c.closed.Swap(true)
 		} else {
 			c.debugf("[send data] unexpected error: %v", err)
 		}
