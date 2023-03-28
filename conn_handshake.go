@@ -26,8 +26,8 @@ import (
 )
 
 func (c *connect) handshake(database, username, password string) error {
-	c.closeLock.Lock()
-	defer c.closeLock.Unlock()
+	c.rwLock.Lock()
+	defer c.rwLock.Unlock()
 
 	defer c.buffer.Reset()
 	c.debugf("[handshake] -> %s", proto.ClientHandshake{})
@@ -86,8 +86,8 @@ func (c *connect) handshake(database, username, password string) error {
 }
 
 func (c *connect) sendAddendum() error {
-	c.closeLock.Lock()
-	defer c.closeLock.Unlock()
+	c.rwLock.Lock()
+	defer c.rwLock.Unlock()
 
 	if c.revision >= proto.DBMS_MIN_PROTOCOL_VERSION_WITH_QUOTA_KEY {
 		c.buffer.PutString("") // todo quota key support

@@ -130,7 +130,7 @@ type connect struct {
 	blockBufferSize      uint8
 	maxCompressionBuffer int
 
-	closeLock sync.Mutex
+	rwLock sync.Mutex
 }
 
 func (c *connect) settings(querySettings Settings) []proto.Setting {
@@ -188,15 +188,15 @@ func (c *connect) closeAfterMaxLifeTime() {
 }
 
 func (c *connect) isClosed() bool {
-	c.closeLock.Lock()
-	defer c.closeLock.Unlock()
+	c.rwLock.Lock()
+	defer c.rwLock.Unlock()
 
 	return c.closed
 }
 
 func (c *connect) close() error {
-	c.closeLock.Lock()
-	defer c.closeLock.Unlock()
+	c.rwLock.Lock()
+	defer c.rwLock.Unlock()
 
 	if c.closed {
 		return nil
@@ -241,9 +241,6 @@ func (c *connect) compressBuffer(start int) error {
 }
 
 func (c *connect) sendData(block *proto.Block, name string) error {
-	c.closeLock.Lock()
-	defer c.closeLock.Unlock()
-
 	c.debugf("[send data] compression=%q", c.compression)
 	c.buffer.PutByte(proto.ClientData)
 	c.buffer.PutString(name)
