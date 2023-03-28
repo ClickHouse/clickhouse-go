@@ -241,6 +241,9 @@ func (c *connect) compressBuffer(start int) error {
 }
 
 func (c *connect) sendData(block *proto.Block, name string) error {
+	c.closeLock.Lock()
+	defer c.closeLock.Unlock()
+
 	c.debugf("[send data] compression=%q", c.compression)
 	c.buffer.PutByte(proto.ClientData)
 	c.buffer.PutString(name)
