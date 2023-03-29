@@ -286,6 +286,11 @@ func TestMaxExecutionTime(t *testing.T) {
 }
 
 func TestHttpConnWithOptions(t *testing.T) {
+	runInDocker, _ := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_DOCKER", "true"))
+	if !runInDocker {
+		t.Skip("Skip test in cloud environment.")
+	}
+
 	env, err := GetStdTestEnvironment()
 	require.NoError(t, err)
 	nginxEnv, err := clickhouse_tests.CreateNginxReverseProxyTestEnvironment(env)
@@ -319,6 +324,11 @@ func TestHttpConnWithOptions(t *testing.T) {
 }
 
 func TestEmptyDatabaseConfig(t *testing.T) {
+	runInDocker, _ := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_DOCKER", "true"))
+	if !runInDocker {
+		t.Skip("Skip test in cloud environment.")
+	}
+
 	env, err := GetStdTestEnvironment()
 	require.NoError(t, err)
 	dsns := map[string]string{
