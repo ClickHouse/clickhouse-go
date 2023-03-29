@@ -1,3 +1,9 @@
+## 2.8.1, 2023-03-29
+
+### Bug fixes
+
+- Fix idle connection check for TLS connections [#951](https://github.com/ClickHouse/clickhouse-go/pull/951) by @jkaflik & @alekar
+
 ## 2.8.0, 2023-03-27
 
 ### New features
