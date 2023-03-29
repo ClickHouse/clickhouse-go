@@ -308,6 +308,11 @@ func TestEmptyDatabaseConfig(t *testing.T) {
 }
 
 func TestConnectionExpiresIdleConnection(t *testing.T) {
+	runInDocker, _ := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_DOCKER", "true"))
+	if !runInDocker {
+		t.Skip("Skip test in cloud environment. This test is not stable in cloud environment, due to race conditions.")
+	}
+
 	// given
 	ctx := context.Background()
 	testEnv, err := GetTestEnvironment(testSet)
