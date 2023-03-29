@@ -22,12 +22,9 @@ jobs:
         go:
           - "1.19"
           - "1.20"
-        clickhouse:
+        clickhouse: # https://github.com/ClickHouse/ClickHouse/blob/master/SECURITY.md#scope-and-supported-versions
           - "22.3"
           - "22.8"
-          - "22.9"
-          - "22.10"
-          - "22.11"
           - "22.12"
           - "23.1"
           - "23.2"
