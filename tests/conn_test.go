@@ -264,6 +264,11 @@ func TestConnCustomDialStrategy(t *testing.T) {
 }
 
 func TestEmptyDatabaseConfig(t *testing.T) {
+	runInDocker, _ := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_DOCKER", "true"))
+	if !runInDocker {
+		t.Skip("Skip test in cloud environment.")
+	}
+
 	env, err := GetNativeTestEnvironment()
 	require.NoError(t, err)
 	useSSL, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_SSL", "false"))

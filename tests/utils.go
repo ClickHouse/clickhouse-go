@@ -397,7 +397,7 @@ const (
 
 func createUserWithReadOnlySetting(conn driver.Conn, defaultDatabase string, readOnlyType int) (username, password string, err error) {
 	username = fmt.Sprintf("readonly_user_%s", RandAsciiString(6))
-	password = RandAsciiString(6)
+	password = RandAsciiString(10) + "1#"
 
 	createUserQuery := fmt.Sprintf(`
           CREATE USER IF NOT EXISTS %s 
