@@ -1,3 +1,9 @@
+## 2.8.2, 2023-03-31
+
+### Bug fixes
+
+- Expire idle connections no longer acquired during lifetime [#945](https://github.com/ClickHouse/clickhouse-go/pull/945) by @jkaflik
+
 ## 2.8.1, 2023-03-29
 
 ### Bug fixes
