@@ -1,3 +1,9 @@
+## 2.8.3, 2023-04-03
+
+### Bug fixes
+
+- Revert: Expire idle connections no longer acquired during lifetime [#958](https://github.com/ClickHouse/clickhouse-go/pull/958) by @jkaflik
+
 ## 2.8.2, 2023-03-31
 
 ### Bug fixes

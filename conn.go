@@ -25,7 +25,6 @@ import (
 	"log"
 	"net"
 	"os"
-	"sync"
 	"syscall"
 	"time"
 
@@ -129,8 +128,6 @@ type connect struct {
 	readTimeout          time.Duration
 	blockBufferSize      uint8
 	maxCompressionBuffer int
-
-	rwLock sync.Mutex
 }
 
 func (c *connect) settings(querySettings Settings) []proto.Setting {
@@ -151,7 +148,8 @@ func (c *connect) settings(querySettings Settings) []proto.Setting {
 }
 
 func (c *connect) isBad() bool {
-	if c.isClosed() {
+	switch {
+	case c.closed:
 		return true
 	}
 
@@ -165,48 +163,15 @@ func (c *connect) isBad() bool {
 	return false
 }
 
-// closeAfterMaxLifeTime closes the connection if it has been used for longer than ConnMaxLifeTime
-func (c *connect) closeAfterMaxLifeTime() {
-	t := time.NewTimer(c.opt.ConnMaxLifetime)
-	defer t.Stop()
-
-	// check if connection should be closed after duration of ConnMaxLifeTime
-	// if connection is closed, return
-	for {
-		select {
-		case <-t.C:
-			c.close()
-			return
-		default:
-			if c.isClosed() {
-				return
-			}
-
-			time.Sleep(time.Second)
-		}
-	}
-}
-
-func (c *connect) isClosed() bool {
-	c.rwLock.Lock()
-	defer c.rwLock.Unlock()
-
-	return c.closed
-}
-
 func (c *connect) close() error {
-	c.rwLock.Lock()
-	defer c.rwLock.Unlock()
-
 	if c.closed {
 		return nil
 	}
-
 	c.closed = true
 	c.buffer = nil
 	c.reader = nil
 	if err := c.conn.Close(); err != nil {
-		c.debugf("[close] %s", err)
+		return err
 	}
 	return nil
 }
@@ -271,10 +236,10 @@ func (c *connect) sendData(block *proto.Block, name string) error {
 	if err := c.flush(); err != nil {
 		if errors.Is(err, syscall.EPIPE) {
 			c.debugf("[send data] pipe is broken, closing connection")
-			c.close()
+			c.closed = true
 		} else if errors.Is(err, io.EOF) {
 			c.debugf("[send data] unexpected EOF, closing connection")
-			c.close()
+			c.closed = true
 		} else {
 			c.debugf("[send data] unexpected error: %v", err)
 		}

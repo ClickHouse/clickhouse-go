@@ -66,9 +66,7 @@ func (c *connect) process(ctx context.Context, on *onProcess) error {
 			return ctx.Err()
 		default:
 		}
-		c.rwLock.Lock()
 		packet, err := c.reader.ReadByte()
-		c.rwLock.Unlock()
 		if err != nil {
 			return err
 		}
@@ -84,9 +82,6 @@ func (c *connect) process(ctx context.Context, on *onProcess) error {
 }
 
 func (c *connect) handle(ctx context.Context, packet byte, on *onProcess) error {
-	c.rwLock.Lock()
-	defer c.rwLock.Unlock()
-
 	switch packet {
 	case proto.ServerData, proto.ServerTotals, proto.ServerExtremes:
 		block, err := c.readData(ctx, packet, true)
