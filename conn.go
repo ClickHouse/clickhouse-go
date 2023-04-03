@@ -118,6 +118,7 @@ type connect struct {
 	debugf               func(format string, v ...interface{})
 	server               ServerVersion
 	closed               bool
+	interruptIdleClose   chan struct{}
 	buffer               *chproto.Buffer
 	reader               *chproto.Reader
 	released             bool
@@ -167,6 +168,9 @@ func (c *connect) isBad() bool {
 
 // closeAfterMaxLifeTime closes the connection if it has been used for longer than ConnMaxLifeTime
 func (c *connect) closeAfterMaxLifeTime() {
+	// initialize interruptIdleClose channel, so close func can signal this goroutine to stop
+	c.interruptIdleClose = make(chan struct{}, 1)
+
 	t := time.NewTimer(c.opt.ConnMaxLifetime)
 	defer t.Stop()
 
@@ -175,14 +179,12 @@ func (c *connect) closeAfterMaxLifeTime() {
 	for {
 		select {
 		case <-t.C:
+			c.debugf("[closeAfterMaxLifeTime] closing connection after %s", c.opt.ConnMaxLifetime)
 			c.close()
 			return
-		default:
-			if c.isClosed() {
-				return
-			}
-
-			time.Sleep(time.Second)
+		case <-c.interruptIdleClose:
+			c.debugf("[closeAfterMaxLifeTime] interrupting, connection is closed")
+			return
 		}
 	}
 }
@@ -205,6 +207,11 @@ func (c *connect) close() error {
 	c.closed = true
 	c.buffer = nil
 	c.reader = nil
+
+	if c.interruptIdleClose != nil {
+		c.interruptIdleClose <- struct{}{}
+	}
+
 	if err := c.conn.Close(); err != nil {
 		c.debugf("[close] %s", err)
 	}

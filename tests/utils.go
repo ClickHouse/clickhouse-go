@@ -248,7 +248,7 @@ func GetExternalTestEnvironment(testSet string) (ClickHouseTestEnvironment, erro
 	return env, nil
 }
 
-func clientOptionsFromEnv(env ClickHouseTestEnvironment, settings clickhouse.Settings) clickhouse.Options {
+func ClientOptionsFromEnv(env ClickHouseTestEnvironment, settings clickhouse.Settings) clickhouse.Options {
 	timeout, err := strconv.Atoi(GetEnv("CLICKHOUSE_DIAL_TIMEOUT", "10"))
 	if err != nil {
 		timeout = 10
@@ -281,12 +281,12 @@ func clientOptionsFromEnv(env ClickHouseTestEnvironment, settings clickhouse.Set
 	}
 }
 
-func testClientWithDefaultOptions(env ClickHouseTestEnvironment, settings clickhouse.Settings) (driver.Conn, error) {
-	opts := clientOptionsFromEnv(env, settings)
+func TestClientWithDefaultOptions(env ClickHouseTestEnvironment, settings clickhouse.Settings) (driver.Conn, error) {
+	opts := ClientOptionsFromEnv(env, settings)
 	return clickhouse.Open(&opts)
 }
 
-func testClientWithDefaultSettings(env ClickHouseTestEnvironment) (driver.Conn, error) {
+func TestClientWithDefaultSettings(env ClickHouseTestEnvironment) (driver.Conn, error) {
 	settings := clickhouse.Settings{}
 
 	if proto.CheckMinVersion(proto.Version{
@@ -300,7 +300,7 @@ func testClientWithDefaultSettings(env ClickHouseTestEnvironment) (driver.Conn, 
 	settings["insert_quorum_parallel"] = 0
 	settings["select_sequential_consistency"] = 1
 
-	return testClientWithDefaultOptions(env, settings)
+	return TestClientWithDefaultOptions(env, settings)
 }
 
 func GetConnection(testSet string, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (driver.Conn, error) {
