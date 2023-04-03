@@ -211,7 +211,6 @@ func (ch *clickhouse) dial(ctx context.Context) (conn *connect, err error) {
 	if err != nil {
 		return nil, err
 	}
-	go result.conn.closeAfterMaxLifeTime()
 	return result.conn, nil
 }
 
