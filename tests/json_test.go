@@ -2456,13 +2456,13 @@ func TestMultipleJsonRowsWithNil(t *testing.T) {
 		for k := range myMap {
 			newMap[k] = myMap[k]
 		}
-	
+
 		return newMap
 	}
 
 	type Login struct {
-		Username string `json:"username"`
-		Attachment      map[string]interface{}
+		Username   string `json:"username"`
+		Attachment map[string]interface{}
 	}
 
 	myAttachment := map[string]interface{}{
@@ -2482,4 +2482,73 @@ func TestMultipleJsonRowsWithNil(t *testing.T) {
 	}
 
 	require.NoError(t, batch.Send())
+}
+
+func TestComplexJSONWithDistributed(t *testing.T) {
+	conn, teardown := setupTest(t)
+	defer teardown(t)
+
+	ctx := context.Background()
+	cluster := ""
+	require.NoError(t, conn.QueryRow(ctx, "SELECT `cluster` FROM system.clusters LIMIT 1;").Scan(&cluster))
+	conn.Exec(ctx, "DROP TABLE IF EXISTS json_test_distributed")
+	ddl := fmt.Sprintf(`CREATE table json_test_distributed(event JSON) ENGINE = Distributed('%s', currentDatabase(), 'json_test', rand());`, cluster)
+	require.NoError(t, conn.Exec(ctx, ddl))
+	defer func() {
+		require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS json_test_distributed"))
+	}()
+
+	batch := prepareBatch(t, conn, ctx)
+	row1 := GithubEvent{
+		Title: "Document JSON support",
+		Type:  "Issue",
+		Assignee: Account{
+			Id:            1244,
+			Name:          "Geoff",
+			Achievement:   Achievement{Name: "Mars Star", AwardedDate: testDate.Truncate(time.Second)},
+			Repositories:  []Repository{{URL: "https://github.com/ClickHouse/clickhouse-python", Releases: []Releases{{Version: "1.0.0"}, {Version: "1.1.0"}}}, {URL: "https://github.com/ClickHouse/clickhouse-go", Releases: []Releases{{Version: "2.0.0"}, {Version: "2.1.0"}}}},
+			Organizations: []string{"Support Engineer", "Integrations"},
+		},
+		Labels: []string{"Help wanted"},
+		Contributors: []Account{
+			{Id: 2244, Achievement: Achievement{Name: "Adding JSON to go driver", AwardedDate: testDate.Truncate(time.Second).Add(time.Hour * -500)}, Organizations: []string{"Support Engineer", "Consulting", "PM", "Integrations"}, Name: "Dale", Repositories: []Repository{{URL: "https://github.com/ClickHouse/clickhouse-go", Releases: []Releases{{Version: "2.0.0"}, {Version: "2.1.0"}}}, {URL: "https://github.com/grafana/clickhouse", Releases: []Releases{{Version: "1.2.0"}, {Version: "1.3.0"}}}}},
+			{Id: 2344, Achievement: Achievement{Name: "Managing S3 buckets", AwardedDate: testDate.Truncate(time.Second).Add(time.Hour * -700)}, Organizations: []string{"Support Engineer", "Consulting"}, Name: "Melyvn", Repositories: []Repository{{URL: "https://github.com/ClickHouse/support", Releases: []Releases{{Version: "1.0.0"}, {Version: "2.3.0"}, {Version: "2.4.0"}}}}},
+		},
+	}
+	row2 := GithubEvent{
+		Title: "Document JSON support 2",
+		Type:  "Issue",
+		Assignee: Account{
+			Id:            1245,
+			Name:          "Geoff",
+			Achievement:   Achievement{Name: "Mars Star", AwardedDate: testDate.Truncate(time.Second)},
+			Repositories:  []Repository{{URL: "https://github.com/ClickHouse/clickhouse-python", Releases: []Releases{{Version: "1.0.0"}, {Version: "1.1.0"}}}, {URL: "https://github.com/ClickHouse/clickhouse-go", Releases: []Releases{{Version: "2.0.0"}, {Version: "2.1.0"}}}},
+			Organizations: []string{"Support Engineer", "Integrations"},
+		},
+		Labels: []string{"Help wanted"},
+		Contributors: []Account{
+			{Id: 2244, Achievement: Achievement{Name: "Adding JSON to go driver", AwardedDate: testDate.Truncate(time.Second).Add(time.Hour * -500)}, Organizations: []string{"Support Engineer", "Consulting", "PM", "Integrations"}, Name: "Dale", Repositories: []Repository{{URL: "https://github.com/ClickHouse/clickhouse-go", Releases: []Releases{{Version: "2.0.0"}, {Version: "2.1.0"}}}, {URL: "https://github.com/grafana/clickhouse", Releases: []Releases{{Version: "1.2.0"}, {Version: "1.3.0"}}}}},
+			{Id: 2344, Achievement: Achievement{Name: "Managing S3 buckets", AwardedDate: testDate.Truncate(time.Second).Add(time.Hour * -700)}, Organizations: []string{"Support Engineer", "Consulting"}, Name: "Melyvn", Repositories: []Repository{{URL: "https://github.com/ClickHouse/support", Releases: []Releases{{Version: "1.0.0"}, {Version: "2.3.0"}, {Version: "2.4.0"}}}}},
+		},
+	}
+	require.NoError(t, batch.Append(row1, row2))
+	require.NoError(t, batch.Send())
+
+	var (
+		event1 GithubEvent
+		event2 GithubEvent
+		n      int
+	)
+	rows, err := conn.Query(ctx, "SELECT * FROM json_test_distributed ORDER BY assignee.id")
+	require.NoError(t, err)
+	for rows.Next() {
+		if n == 0 {
+			require.NoError(t, rows.Scan(event1))
+		} else {
+			require.NoError(t, rows.Scan(event2))
+		}
+		n++
+	}
+	assert.JSONEq(t, toJson(row1), toJson(event1))
+	assert.JSONEq(t, toJson(row2), toJson(event2))
 }
