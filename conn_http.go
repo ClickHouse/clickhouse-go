@@ -471,9 +471,17 @@ func (h *httpConnect) createRequest(ctx context.Context, reader io.Reader, optio
 }
 
 func (h *httpConnect) prepareRequest(ctx context.Context, query string, options *QueryOptions, headers map[string]string) (*http.Request, error) {
-	if options == nil || options.ignoreExternalTables || len(options.external) == 0 {
+	if options == nil || len(options.external) == 0 {
 		return h.createRequest(ctx, strings.NewReader(query), options, headers)
 	}
+	payloadBytes, err := h.createRequestPayloadWithExternalTables(ctx, query, options, headers)
+	if err != nil {
+		return nil, err
+	}
+	return h.createRequest(ctx, bytes.NewReader(payloadBytes), options, headers)
+}
+
+func (h *httpConnect) createRequestPayloadWithExternalTables(ctx context.Context, query string, options *QueryOptions, headers map[string]string) ([]byte, error) {
 	payload := &bytes.Buffer{}
 	w := multipart.NewWriter(payload)
 	queryValues := h.url.Query()
@@ -506,7 +514,7 @@ func (h *httpConnect) prepareRequest(ctx context.Context, query string, options 
 		return nil, err
 	}
 	headers["Content-Type"] = w.FormDataContentType()
-	return h.createRequest(ctx, bytes.NewReader(payload.Bytes()), options, headers)
+	return payload.Bytes(), nil
 }
 
 func (h *httpConnect) executeRequest(req *http.Request) (*http.Response, error) {
