@@ -134,6 +134,11 @@ type connect struct {
 	rwLock sync.Mutex
 }
 
+func (c *connect) lockRW() func() {
+	c.rwLock.Lock()
+	return c.rwLock.Unlock
+}
+
 func (c *connect) settings(querySettings Settings) []proto.Setting {
 	settings := make([]proto.Setting, 0, len(c.opt.Settings)+len(querySettings))
 	for k, v := range c.opt.Settings {
@@ -152,6 +157,8 @@ func (c *connect) settings(querySettings Settings) []proto.Setting {
 }
 
 func (c *connect) isBad() bool {
+	defer c.lockRW()
+
 	if c.isClosed() {
 		return true
 	}
@@ -190,15 +197,13 @@ func (c *connect) closeAfterMaxLifeTime() {
 }
 
 func (c *connect) isClosed() bool {
-	c.rwLock.Lock()
-	defer c.rwLock.Unlock()
+	defer c.lockRW()
 
 	return c.closed
 }
 
 func (c *connect) close() error {
-	c.rwLock.Lock()
-	defer c.rwLock.Unlock()
+	defer c.lockRW()
 
 	if c.closed {
 		return nil

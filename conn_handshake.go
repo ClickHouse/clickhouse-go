@@ -26,6 +26,8 @@ import (
 )
 
 func (c *connect) handshake(database, username, password string) error {
+	defer c.lockRW()
+
 	defer c.buffer.Reset()
 	c.debugf("[handshake] -> %s", proto.ClientHandshake{})
 	// set a read deadline - alternative to context.Read operation will fail if no data is received after deadline.

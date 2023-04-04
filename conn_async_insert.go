@@ -22,6 +22,8 @@ import (
 )
 
 func (c *connect) asyncInsert(ctx context.Context, query string, wait bool) error {
+	defer c.lockRW()
+
 	options := queryOptions(ctx)
 	{
 		options.settings["async_insert"] = 1

@@ -35,6 +35,8 @@ var splitInsertRe = regexp.MustCompile(`(?i)\sVALUES\s*\(`)
 var columnMatch = regexp.MustCompile(`.*\((?P<Columns>.+)\)$`)
 
 func (c *connect) prepareBatch(ctx context.Context, query string, release func(*connect, error)) (driver.Batch, error) {
+	defer c.lockRW()
+	
 	//defer func() {
 	//	if err := recover(); err != nil {
 	//		fmt.Printf("panic occurred on %d:\n", c.num)
@@ -226,18 +228,18 @@ func (b *batchColumn) Append(v interface{}) (err error) {
 }
 
 func (b *batchColumn) AppendRow(v interface{}) (err error) {
-        if b.batch.IsSent() {
-                return ErrBatchAlreadySent
-        }
-        if b.err != nil {
-                b.release(b.err)
-                return b.err
-        }
-        if  err = b.column.AppendRow(v); err != nil {
-                b.release(err)
-                return err
-        }
-        return nil
+	if b.batch.IsSent() {
+		return ErrBatchAlreadySent
+	}
+	if b.err != nil {
+		b.release(b.err)
+		return b.err
+	}
+	if err = b.column.AppendRow(v); err != nil {
+		b.release(err)
+		return err
+	}
+	return nil
 }
 
 var (

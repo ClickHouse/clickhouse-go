@@ -25,6 +25,8 @@ import (
 )
 
 func (c *connect) query(ctx context.Context, release func(*connect, error), query string, args ...interface{}) (*rows, error) {
+	defer c.lockRW()
+
 	var (
 		options                    = queryOptions(ctx)
 		onProcess                  = options.onProcess()
@@ -93,6 +95,8 @@ func (c *connect) query(ctx context.Context, release func(*connect, error), quer
 }
 
 func (c *connect) queryRow(ctx context.Context, release func(*connect, error), query string, args ...interface{}) *row {
+	defer c.lockRW()
+
 	rows, err := c.query(ctx, release, query, args...)
 	if err != nil {
 		return &row{

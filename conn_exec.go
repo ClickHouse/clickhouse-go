@@ -24,6 +24,8 @@ import (
 )
 
 func (c *connect) exec(ctx context.Context, query string, args ...interface{}) error {
+	defer c.lockRW()
+
 	var (
 		options                    = queryOptions(ctx)
 		queryParamsProtocolSupport = c.revision >= proto.DBMS_MIN_PROTOCOL_VERSION_WITH_PARAMETERS
