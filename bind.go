@@ -102,7 +102,7 @@ func checkAllNamedArguments(args ...interface{}) (bool, error) {
 		default:
 			haveAnonymous = true
 		}
-		if haveNamed && !haveAnonymous {
+		if haveNamed && haveAnonymous {
 			return haveNamed, ErrBindMixedParamsFormats
 		}
 	}
