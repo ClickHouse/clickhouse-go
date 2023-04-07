@@ -178,6 +178,16 @@ func TestBindPositional(t *testing.T) {
 	)
 	`, 1, 2, "I'm a string param", nil)
 	assert.Error(t, err)
+
+	_, err = bind(time.Local, `
+	SELECT * FROM t WHERE col = ?
+		AND col2 = ?
+		AND col3 = ?
+		ANS col4 = ?
+		AND null_coll = ?
+	)
+	`, 1, 2, "I'm a string param", nil, Named("namedArg", nil))
+	assert.Error(t, err)
 }
 
 func TestFormatTime(t *testing.T) {
@@ -266,6 +276,20 @@ func TestFormatArray(t *testing.T) {
 func TestFormatMap(t *testing.T) {
 	val, _ := format(time.UTC, Seconds, map[string]uint8{"a": 1})
 	assert.Equal(t, "map('a', 1)", val)
+}
+
+func TestBindNamedWithTernaryOperator(t *testing.T) {
+	sqls := []string{
+		`SELECT if(@arg1,@arg2,@arg3)`, // correct
+		`SELECT @arg1?@arg2:@arg3`,     // failed here
+	}
+	for _, sql := range sqls {
+		_, err := bind(time.Local, sql,
+			Named("arg1", 0),
+			Named("arg2", 1),
+			Named("arg3", 2))
+		assert.NoError(t, err)
+	}
 }
 
 func BenchmarkBindNumeric(b *testing.B) {

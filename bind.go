@@ -66,32 +66,47 @@ func bind(tz *time.Location, query string, args ...interface{}) (string, error) 
 		return query, nil
 	}
 	var (
-		haveNamed      bool
 		haveNumeric    bool
 		havePositional bool
 	)
+
+	allArgumentsNamed, err := checkAllNamedArguments(args...)
+	if err != nil {
+		return "", err
+	}
+
+	if allArgumentsNamed {
+		return bindNamed(tz, query, args...)
+	}
+
 	haveNumeric = bindNumericRe.MatchString(query)
 	havePositional = bindPositionalRe.MatchString(query)
 	if haveNumeric && havePositional {
 		return "", ErrBindMixedParamsFormats
 	}
+	if haveNumeric {
+		return bindNumeric(tz, query, args...)
+	}
+	return bindPositional(tz, query, args...)
+}
+
+func checkAllNamedArguments(args ...interface{}) (bool, error) {
+	var (
+		haveNamed     bool
+		haveAnonymous bool
+	)
 	for _, v := range args {
 		switch v.(type) {
 		case driver.NamedValue, driver.NamedDateValue:
 			haveNamed = true
 		default:
+			haveAnonymous = true
 		}
-		if haveNamed && (haveNumeric || havePositional) {
-			return "", ErrBindMixedParamsFormats
+		if haveNamed && !haveAnonymous {
+			return haveNamed, ErrBindMixedParamsFormats
 		}
 	}
-	if haveNamed {
-		return bindNamed(tz, query, args...)
-	}
-	if haveNumeric {
-		return bindNumeric(tz, query, args...)
-	}
-	return bindPositional(tz, query, args...)
+	return haveNamed, nil
 }
 
 var bindPositionCharRe = regexp.MustCompile(`[?]`)
