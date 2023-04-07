@@ -90,6 +90,32 @@ func (col *Nullable) ScanRow(dest interface{}, row int) error {
 	if col.enable {
 		switch col.nulls.Row(row) {
 		case 1:
+			switch v := dest.(type) {
+			case **uint64:
+				*v = nil
+			case **int64:
+				*v = nil
+			case **uint32:
+				*v = nil
+			case **int32:
+				*v = nil
+			case **uint16:
+				*v = nil
+			case **int16:
+				*v = nil
+			case **uint8:
+				*v = nil
+			case **int8:
+				*v = nil
+			case **string:
+				*v = nil
+			case **float32:
+				*v = nil
+			case **float64:
+				*v = nil
+			case **time.Time:
+				*v = nil
+			}
 			if scan, ok := dest.(sql.Scanner); ok {
 				return scan.Scan(nil)
 			}
