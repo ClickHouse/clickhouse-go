@@ -18,6 +18,7 @@
 package column
 
 import (
+	"encoding/binary"
 	"fmt"
 	"github.com/ClickHouse/ch-go/proto"
 	"net"
@@ -70,6 +71,27 @@ func (col *IPv4) ScanRow(dest interface{}, row int) error {
 	case **net.IP:
 		*d = new(net.IP)
 		**d = col.row(row)
+	case *uint32:
+		ip := col.row(row)
+		if len(ip) != net.IPv4len {
+			return &ColumnConverterError{
+				Op:   "ScanRow",
+				To:   fmt.Sprintf("%T", dest),
+				From: "IPv4",
+			}
+		}
+		*d = binary.BigEndian.Uint32(ip[:])
+	case **uint32:
+		ip := col.row(row)
+		if len(ip) != net.IPv4len {
+			return &ColumnConverterError{
+				Op:   "ScanRow",
+				To:   fmt.Sprintf("%T", dest),
+				From: "IPv4",
+			}
+		}
+		*d = new(uint32)
+		**d = binary.BigEndian.Uint32(ip[:])
 	default:
 		return &ColumnConverterError{
 			Op:   "ScanRow",
@@ -159,6 +181,22 @@ func (col *IPv4) Append(v interface{}) (nulls []uint8, err error) {
 				col.col.Append(0)
 			}
 		}
+	case []uint32:
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			col.col.Append(proto.IPv4(v[i]))
+		}
+	case []*uint32:
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			switch {
+			case v != nil:
+				col.col.Append(proto.IPv4(*v[i]))
+			default:
+				nulls[i] = 1
+				col.col.Append(0)
+			}
+		}
 	default:
 		return nil, &ColumnConverterError{
 			Op:   "Append",
@@ -204,6 +242,15 @@ func (col *IPv4) AppendRow(v interface{}) (err error) {
 		}
 	case nil:
 		col.col.Append(0)
+	case uint32:
+		col.col.Append(proto.IPv4(v))
+	case *uint32:
+		switch {
+		case v != nil:
+			col.col.Append(proto.IPv4(*v))
+		default:
+			col.col.Append(0)
+		}
 	default:
 		return &ColumnConverterError{
 			Op:   "AppendRow",
