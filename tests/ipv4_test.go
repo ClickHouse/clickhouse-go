@@ -301,7 +301,7 @@ func TestIPv4_AppendRow(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 6, col.Rows(), "AppendRow didn't add IP")
 	if !col.Row(5, false).(net.IP).Equal(ip) {
-		require.Failf(t, "Invalid result of AppendRow", "Added %q instead of %q", col.Row(4, false), ip)
+		require.Failf(t, "Invalid result of AppendRow", "Added %q instead of %q", col.Row(5, false), ip)
 	}
 }
 
