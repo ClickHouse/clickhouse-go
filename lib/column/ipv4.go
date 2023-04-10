@@ -72,18 +72,18 @@ func (col *IPv4) ScanRow(dest interface{}, row int) error {
 		*d = new(net.IP)
 		**d = col.row(row)
 	case *uint32:
-		ip := col.row(row)
-		if len(ip) != net.IPv4len {
+		ipV4 := col.row(row).To4()
+		if ipV4 == nil {
 			return &ColumnConverterError{
 				Op:   "ScanRow",
 				To:   fmt.Sprintf("%T", dest),
 				From: "IPv4",
 			}
 		}
-		*d = binary.BigEndian.Uint32(ip[:])
+		*d = binary.BigEndian.Uint32(ipV4[:])
 	case **uint32:
-		ip := col.row(row)
-		if len(ip) != net.IPv4len {
+		ipV4 := col.row(row).To4()
+		if ipV4 == nil {
 			return &ColumnConverterError{
 				Op:   "ScanRow",
 				To:   fmt.Sprintf("%T", dest),
@@ -91,7 +91,7 @@ func (col *IPv4) ScanRow(dest interface{}, row int) error {
 			}
 		}
 		*d = new(uint32)
-		**d = binary.BigEndian.Uint32(ip[:])
+		**d = binary.BigEndian.Uint32(ipV4[:])
 	default:
 		return &ColumnConverterError{
 			Op:   "ScanRow",

@@ -317,7 +317,7 @@ func TestIPv4_Append(t *testing.T) {
 	var uint32Ips []uint32
 	var uint32PtrIps []*uint32
 	for _, ip := range ips {
-		uint32Ip := binary.BigEndian.Uint32(ip[12:])
+		uint32Ip := binary.BigEndian.Uint32(ip.To4()[:])
 		uint32Ips = append(uint32Ips, uint32Ip)
 		uint32PtrIps = append(uint32PtrIps, &uint32Ip)
 	}
