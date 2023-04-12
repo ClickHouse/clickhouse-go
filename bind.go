@@ -58,6 +58,13 @@ func DateNamed(name string, value time.Time, scale TimeUnit) driver.NamedDateVal
 	}
 }
 
+func Date(name string, value time.Time, scale TimeUnit) driver.DateValue {
+	return driver.DateValue{
+		Value: value,
+		Scale: uint8(scale),
+	}
+}
+
 var bindNumericRe = regexp.MustCompile(`\$[0-9]+`)
 var bindPositionalRe = regexp.MustCompile(`[^\\][?]`)
 
@@ -102,12 +109,17 @@ func bindPositional(tz *time.Location, query string, args ...interface{}) (_ str
 		params = make([]string, len(args))
 	)
 	for i, v := range args {
-		if fn, ok := v.(std_driver.Valuer); ok {
-			if v, err = fn.Value(); err != nil {
+		switch vv := v.(type) {
+		case driver.DateValue:
+			params[i], err = format(tz, TimeUnit(vv.Scale), vv.Value)
+		case std_driver.Valuer:
+			if v, err = vv.Value(); err != nil {
 				return "", nil
 			}
+			params[i], err = format(tz, Seconds, v)
+		default:
+			params[i], err = format(tz, Seconds, v)
 		}
-		params[i], err = format(tz, Seconds, v)
 		if err != nil {
 			return "", err
 		}
@@ -135,25 +147,32 @@ func bindNumeric(tz *time.Location, query string, args ...interface{}) (_ string
 	var (
 		unbind = make(map[string]struct{})
 		params = make(map[string]string)
+		val    string
 	)
 	for i, v := range args {
-		if fn, ok := v.(std_driver.Valuer); ok {
-			if v, err = fn.Value(); err != nil {
+		switch vv := v.(type) {
+		case driver.DateValue:
+			val, err = format(tz, TimeUnit(vv.Scale), vv.Value)
+		case std_driver.Valuer:
+			if v, err = vv.Value(); err != nil {
 				return "", nil
 			}
+			val, err = format(tz, Seconds, v)
+		default:
+			val, err = format(tz, Seconds, v)
 		}
-		val, err := format(tz, Seconds, v)
 		if err != nil {
 			return "", err
 		}
 		params[fmt.Sprintf("$%d", i+1)] = val
 	}
 	query = bindNumericRe.ReplaceAllStringFunc(query, func(n string) string {
-		if _, found := params[n]; !found {
+		if param, found := params[n]; !found {
 			unbind[n] = struct{}{}
 			return ""
+		} else {
+			return param
 		}
-		return params[n]
 	})
 	for param := range unbind {
 		return "", fmt.Errorf("have no arg for %s param", param)
