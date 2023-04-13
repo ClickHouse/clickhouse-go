@@ -148,6 +148,13 @@ func WithUserLocation(location *time.Location) QueryOption {
 	}
 }
 
+func ignoreExternalTables() QueryOption {
+	return func(o *QueryOptions) error {
+		o.external = nil
+		return nil
+	}
+}
+
 func Context(parent context.Context, options ...QueryOption) context.Context {
 	opt := queryOptions(parent)
 	for _, f := range options {

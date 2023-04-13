@@ -18,8 +18,10 @@
 package ext
 
 import (
+	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
+	"strings"
 )
 
 func NewTable(name string, columns ...func(t *Table) error) (*Table, error) {
@@ -42,6 +44,14 @@ type Table struct {
 
 func (tbl *Table) Name() string {
 	return tbl.name
+}
+
+func (tbl *Table) Structure() string {
+	columnStructure := make([]string, 0, len(tbl.block.Columns))
+	for _, c := range tbl.block.Columns {
+		columnStructure = append(columnStructure, fmt.Sprintf("%v %v", c.Name(), c.Type()))
+	}
+	return strings.Join(columnStructure, ", ")
 }
 
 func (tbl *Table) Block() *proto.Block {
