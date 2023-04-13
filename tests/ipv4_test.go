@@ -19,9 +19,11 @@ package tests
 
 import (
 	"context"
+	"encoding/binary"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	"github.com/stretchr/testify/require"
 	"net"
+	"net/netip"
 	"testing"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
@@ -251,7 +253,7 @@ func TestIPv4_Append_InvalidIP(t *testing.T) {
 func TestIPv4_AppendRow(t *testing.T) {
 	ip := getTestIPv4()[0]
 	strIp := ip.String()
-
+	uint32Ip := binary.BigEndian.Uint32(ip.To4()[:])
 	col := column.IPv4{}
 
 	// appending string
@@ -285,6 +287,22 @@ func TestIPv4_AppendRow(t *testing.T) {
 	if !col.Row(3, false).(net.IP).Equal(ip) {
 		require.Failf(t, "Invalid result of AppendRow", "Added %q instead of %q", col.Row(3, false), ip)
 	}
+
+	// appending uint32
+	err = col.AppendRow(uint32Ip)
+	require.NoError(t, err)
+	require.Equal(t, 5, col.Rows(), "AppendRow didn't add IP")
+	if !col.Row(4, false).(net.IP).Equal(ip) {
+		require.Failf(t, "Invalid result of AppendRow", "Added %q instead of %q", col.Row(4, false), ip)
+	}
+
+	// appending uint32 pointer
+	err = col.AppendRow(&uint32Ip)
+	require.NoError(t, err)
+	require.Equal(t, 6, col.Rows(), "AppendRow didn't add IP")
+	if !col.Row(5, false).(net.IP).Equal(ip) {
+		require.Failf(t, "Invalid result of AppendRow", "Added %q instead of %q", col.Row(5, false), ip)
+	}
 }
 
 func TestIPv4_Append(t *testing.T) {
@@ -294,6 +312,14 @@ func TestIPv4_Append(t *testing.T) {
 
 	for _, ip := range ips {
 		strIps = append(strIps, ip.String())
+	}
+
+	var uint32Ips []uint32
+	var uint32PtrIps []*uint32
+	for _, ip := range ips {
+		uint32Ip := binary.BigEndian.Uint32(ip.To4()[:])
+		uint32Ips = append(uint32Ips, uint32Ip)
+		uint32PtrIps = append(uint32PtrIps, &uint32Ip)
 	}
 
 	// appending strings
@@ -320,6 +346,31 @@ func TestIPv4_Append(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equalf(t, col.Rows(), len(strPtrIps), "Added %d rows instead of %d", col.Rows(), len(strPtrIps))
+	for i, ip := range ips {
+		if !col.Row(i, false).(net.IP).Equal(ip) {
+			require.Failf(t, "Invalid result of Append", "Added %q instead of %q", col.Row(i, false), ip)
+		}
+	}
+
+	// appending uint32s
+	col = column.IPv4{}
+	_, err = col.Append(uint32Ips)
+
+	require.NoError(t, err)
+	require.Equalf(t, col.Rows(), len(uint32Ips), "AppendRow didn't add IP", "Added %d rows instead of %d", col.Rows(), len(strIps))
+	for i, ip := range ips {
+		if !col.Row(i, false).(net.IP).Equal(ip) {
+			require.Failf(t, "Invalid result of Append", "Added %q instead of %q", col.Row(i, false), ip)
+		}
+	}
+
+	// appending uint32 pointers
+
+	col = column.IPv4{}
+	_, err = col.Append(uint32PtrIps)
+
+	require.NoError(t, err)
+	require.Equalf(t, col.Rows(), len(uint32PtrIps), "Added %d rows instead of %d", col.Rows(), len(strPtrIps))
 	for i, ip := range ips {
 		if !col.Row(i, false).(net.IP).Equal(ip) {
 			require.Failf(t, "Invalid result of Append", "Added %q instead of %q", col.Row(i, false), ip)
@@ -361,6 +412,24 @@ func TestIPv4_ScanRow(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNilf(t, u, "ScanRow resulted nil")
 		require.Equal(t, *u, ips[i].String(), "ScanRow resulted in %q instead of %q", *u, ips[i])
+	}
+
+	// scanning uint32 and uint32 pointers
+	for i := range ips {
+		var u uint32
+		var v *uint32
+		addr, _ := netip.ParseAddr(ips[i].String())
+		bytes := addr.As4()
+		convertedUInt32 := binary.BigEndian.Uint32(bytes[:])
+
+		err := col.ScanRow(&u, i)
+		require.NoError(t, err)
+		require.NotNilf(t, u, "ScanRow resulted nil")
+		require.Equal(t, convertedUInt32, u)
+		err = col.ScanRow(&v, i)
+		require.NoError(t, err)
+		require.NotNilf(t, v, "ScanRow resulted nil")
+		require.Equal(t, convertedUInt32, *v)
 	}
 }
 
