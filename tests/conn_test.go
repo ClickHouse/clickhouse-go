@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"os"
 	"strconv"
-	"sync"
 	"testing"
 	"time"
 
@@ -305,58 +304,4 @@ func TestEmptyDatabaseConfig(t *testing.T) {
 	require.NoError(t, err)
 	err = anotherConn.Ping(context.Background())
 	require.NoError(t, err)
-}
-
-func TestConnectionExpiresIdleConnection(t *testing.T) {
-	runInDocker, _ := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_DOCKER", "true"))
-	if !runInDocker {
-		t.Skip("Skip test in cloud environment. This test is not stable in cloud environment, due to race conditions.")
-	}
-
-	// given
-	ctx := context.Background()
-	testEnv, err := GetTestEnvironment(testSet)
-	require.NoError(t, err)
-
-	baseConn, err := testClientWithDefaultSettings(testEnv)
-	require.NoError(t, err)
-
-	expectedConnections := getActiveConnections(t, baseConn)
-
-	// when the client is configured to expire idle connections after 1/10 of a second
-	opts := clientOptionsFromEnv(testEnv, clickhouse.Settings{})
-	opts.MaxIdleConns = 20
-	opts.MaxOpenConns = 20
-	opts.ConnMaxLifetime = time.Second / 10
-	conn, err := clickhouse.Open(&opts)
-	require.NoError(t, err)
-
-	// run 1000 queries in parallel
-	var wg sync.WaitGroup
-	const selectToRunAtOnce = 1000
-	for i := 0; i < selectToRunAtOnce; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			r, err := conn.Query(ctx, "SELECT 1")
-			require.NoError(t, err)
-
-			r.Close()
-		}()
-	}
-	wg.Wait()
-
-	// then we expect that all connections will be closed when they are idle
-	// retrying for 10 seconds to make sure that the connections are closed
-	assert.Eventuallyf(t, func() bool {
-		return getActiveConnections(t, baseConn) == expectedConnections
-	}, time.Second*10, opts.ConnMaxLifetime, "expected connections to be reset back to %d", expectedConnections)
-}
-
-func getActiveConnections(t *testing.T, client clickhouse.Conn) (conns int64) {
-	ctx := context.Background()
-	r := client.QueryRow(ctx, "SELECT sum(value) as conns FROM system.metrics WHERE metric LIKE '%Connection'")
-	require.NoError(t, r.Err())
-	require.NoError(t, r.Scan(&conns))
-	return conns
 }

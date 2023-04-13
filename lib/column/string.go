@@ -19,6 +19,7 @@ package column
 
 import (
 	"database/sql"
+	"database/sql/driver"
 	"encoding"
 	"fmt"
 	"github.com/ClickHouse/ch-go/proto"
@@ -115,14 +116,37 @@ func (col *String) AppendRow(v interface{}) error {
 	case nil:
 		col.col.Append("")
 	default:
-		if s, ok := v.(fmt.Stringer); ok {
-			return col.AppendRow(s.String())
-		} else {
+		if s, ok := v.(driver.Valuer); ok {
+			val, err := s.Value()
+			if err != nil {
+				return &ColumnConverterError{
+					Op:   "AppendRow",
+					To:   "String",
+					From: fmt.Sprintf("%T", s),
+					Hint: "could not get driver.Valuer value",
+				}
+			}
+
+			if s, ok := val.(string); ok {
+				return col.AppendRow(s)
+			}
+
 			return &ColumnConverterError{
 				Op:   "AppendRow",
 				To:   "String",
 				From: fmt.Sprintf("%T", v),
+				Hint: "driver.Valuer value is not a string",
 			}
+		}
+
+		if s, ok := v.(fmt.Stringer); ok {
+			return col.AppendRow(s.String())
+		}
+
+		return &ColumnConverterError{
+			Op:   "AppendRow",
+			To:   "String",
+			From: fmt.Sprintf("%T", v),
 		}
 	}
 	return nil

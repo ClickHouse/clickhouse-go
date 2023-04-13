@@ -254,6 +254,11 @@ func format(tz *time.Location, scale TimeUnit, v interface{}) (string, error) {
 		return quote(v), nil
 	case time.Time:
 		return formatTime(tz, scale, v)
+	case bool:
+		if v {
+			return "1", nil
+		}
+		return "0", nil
 	case GroupSet:
 		val, err := join(tz, scale, v.Value)
 		if err != nil {
@@ -302,7 +307,11 @@ func format(tz *time.Location, scale TimeUnit, v interface{}) (string, error) {
 			values = append(values, fmt.Sprintf("%s, %s", name, val))
 		}
 		return "map(" + strings.Join(values, ", ") + ")", nil
-
+	case reflect.Ptr:
+		if v.IsNil() {
+			return "NULL", nil
+		}
+		return format(tz, scale, v.Elem().Interface())
 	}
 	return fmt.Sprint(v), nil
 }

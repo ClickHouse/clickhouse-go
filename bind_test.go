@@ -34,6 +34,19 @@ func TestBindNumeric(t *testing.T) {
 		AND null_coll = $4
 	)
 	`, 1, 2, "I'm a string param", nil)
+	var nilPtr *bool = nil
+	var nilPtrPtr **interface{} = nil
+	valuedPtr := &([]interface{}{123}[0])
+	nilValuePtr := &([]interface{}{nil}[0])
+	_, err = bind(time.Local, `
+	SELECT * FROM t WHERE col = $5
+		AND col2 = $2
+		AND col3 = $1
+		AND col4 = $3
+		AND col5 = $4
+	`, nilPtr, valuedPtr, nilPtrPtr, nilValuePtr, &nilValuePtr)
+	assert.NoError(t, err)
+
 	if assert.NoError(t, err) {
 		assets := []struct {
 			query    string
@@ -54,6 +67,11 @@ func TestBindNumeric(t *testing.T) {
 				query:    "SELECT $2 $1 $3",
 				params:   []interface{}{"a", "b", "c"},
 				expected: "SELECT 'b' 'a' 'c'",
+			},
+			{
+				query:    "SELECT $2 $1",
+				params:   []interface{}{true, false},
+				expected: "SELECT 0 1",
 			},
 		}
 
@@ -80,6 +98,24 @@ func TestBindNamed(t *testing.T) {
 		Named("col3", "I'm a string param"),
 		Named("col4", nil),
 	)
+	var nilPtr *bool = nil
+	var nilPtrPtr **interface{} = nil
+	valuedPtr := &([]interface{}{123}[0])
+	nilValuePtr := &([]interface{}{nil}[0])
+	_, err = bind(time.Local, `
+	SELECT * FROM t WHERE col =  @col1
+		AND col2 =  @col2
+		AND col3 =  @col3
+		AND col4 =  @col4
+		AND col5 =  @col5
+	`,
+		Named("col1", nilPtr),
+		Named("col2", nilPtrPtr),
+		Named("col3", valuedPtr),
+		Named("col4", nilValuePtr),
+		Named("col5", &nilValuePtr))
+	assert.NoError(t, err)
+
 	if assert.NoError(t, err) {
 		assets := []struct {
 			query    string
@@ -110,6 +146,14 @@ func TestBindNamed(t *testing.T) {
 					Named("col3", "c"),
 				},
 				expected: "SELECT 'b' 'a' 'c'",
+			},
+			{
+				query: "SELECT @col2 @col1",
+				params: []interface{}{
+					Named("col1", true),
+					Named("col2", false),
+				},
+				expected: "SELECT 0 1",
 			},
 		}
 		for _, asset := range assets {
@@ -160,6 +204,11 @@ func TestBindPositional(t *testing.T) {
 				params:   []interface{}{"a"},
 				expected: "SELECT x where col = 'blah?' AND col2 = 'a'",
 			},
+			{
+				query:    "SELECT ? ?",
+				params:   []interface{}{true, false},
+				expected: "SELECT 1 0",
+			},
 		}
 
 		for _, asset := range assets {
@@ -176,18 +225,22 @@ func TestBindPositional(t *testing.T) {
 		ANS col4 = ?
 		AND null_coll = ?
 	)
-	`, 1, 2, "I'm a string param", nil)
+	`, 1, 2, "I'm a string param", nil, Named("namedArg", nil))
 	assert.Error(t, err)
 
+	var nilPtr *bool = nil
+	var nilPtrPtr **interface{} = nil
+	valuedPtr := &([]interface{}{123}[0])
+	nilValuePtr := &([]interface{}{nil}[0])
+  
 	_, err = bind(time.Local, `
 	SELECT * FROM t WHERE col = ?
 		AND col2 = ?
 		AND col3 = ?
-		ANS col4 = ?
-		AND null_coll = ?
-	)
-	`, 1, 2, "I'm a string param", nil, Named("namedArg", nil))
-	assert.Error(t, err)
+		AND col4 = ?
+		AND col5 = ?
+	`, nilPtr, valuedPtr, nilPtrPtr, nilValuePtr, &nilValuePtr)
+	assert.NoError(t, err)
 }
 
 func TestFormatTime(t *testing.T) {

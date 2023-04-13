@@ -28,9 +28,11 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/resources"
 	"io"
 	"io/ioutil"
+	"mime/multipart"
 	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -265,7 +267,7 @@ func (h *httpConnect) isBad() bool {
 }
 
 func (h *httpConnect) readTimeZone(ctx context.Context) (*time.Location, error) {
-	rows, err := h.query(ctx, func(*connect, error) {}, "SELECT timezone()")
+	rows, err := h.query(Context(ctx, ignoreExternalTables()), func(*connect, error) {}, "SELECT timezone()")
 	if err != nil {
 		return nil, err
 	}
@@ -283,7 +285,7 @@ func (h *httpConnect) readTimeZone(ctx context.Context) (*time.Location, error) 
 }
 
 func (h *httpConnect) readVersion(ctx context.Context) (proto.Version, error) {
-	rows, err := h.query(ctx, func(*connect, error) {}, "SELECT version()")
+	rows, err := h.query(Context(ctx, ignoreExternalTables()), func(*connect, error) {}, "SELECT version()")
 	if err != nil {
 		return proto.Version{}, err
 	}
@@ -382,8 +384,8 @@ func (h *httpConnect) readData(ctx context.Context, reader *chproto.Reader) (*pr
 	return &block, nil
 }
 
-func (h *httpConnect) sendQuery(ctx context.Context, r io.Reader, options *QueryOptions, headers map[string]string) (*http.Response, error) {
-	req, err := h.prepareRequest(ctx, r, options, headers)
+func (h *httpConnect) sendStreamQuery(ctx context.Context, r io.Reader, options *QueryOptions, headers map[string]string) (*http.Response, error) {
+	req, err := h.createRequest(ctx, r, options, headers)
 	if err != nil {
 		return nil, err
 	}
@@ -393,6 +395,19 @@ func (h *httpConnect) sendQuery(ctx context.Context, r io.Reader, options *Query
 		return nil, err
 	}
 
+	return res, nil
+}
+
+func (h *httpConnect) sendQuery(ctx context.Context, query string, options *QueryOptions, headers map[string]string) (*http.Response, error) {
+	req, err := h.prepareRequest(ctx, query, options, headers)
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := h.executeRequest(req)
+	if err != nil {
+		return nil, err
+	}
 	return res, nil
 }
 
@@ -423,16 +438,14 @@ func (h *httpConnect) readRawResponse(response *http.Response) (body []byte, err
 	return body, nil
 }
 
-func (h *httpConnect) prepareRequest(ctx context.Context, reader io.Reader, options *QueryOptions, headers map[string]string) (*http.Request, error) {
+func (h *httpConnect) createRequest(ctx context.Context, reader io.Reader, options *QueryOptions, headers map[string]string) (*http.Request, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, h.url.String(), reader)
 	if err != nil {
 		return nil, err
 	}
-
 	for k, v := range headers {
 		req.Header.Add(k, v)
 	}
-
 	var query url.Values
 	if options != nil {
 		query = req.URL.Query()
@@ -454,8 +467,54 @@ func (h *httpConnect) prepareRequest(ctx context.Context, reader io.Reader, opti
 		}
 		req.URL.RawQuery = query.Encode()
 	}
-
 	return req, nil
+}
+
+func (h *httpConnect) prepareRequest(ctx context.Context, query string, options *QueryOptions, headers map[string]string) (*http.Request, error) {
+	if options == nil || len(options.external) == 0 {
+		return h.createRequest(ctx, strings.NewReader(query), options, headers)
+	}
+	payloadBytes, err := h.createRequestPayloadWithExternalTables(ctx, query, options, headers)
+	if err != nil {
+		return nil, err
+	}
+	return h.createRequest(ctx, bytes.NewReader(payloadBytes), options, headers)
+}
+
+func (h *httpConnect) createRequestPayloadWithExternalTables(ctx context.Context, query string, options *QueryOptions, headers map[string]string) ([]byte, error) {
+	payload := &bytes.Buffer{}
+	w := multipart.NewWriter(payload)
+	queryValues := h.url.Query()
+	buf := &chproto.Buffer{}
+	for _, table := range options.external {
+		tableName := table.Name()
+		queryValues.Set(fmt.Sprintf("%v_format", tableName), "Native")
+		queryValues.Set(fmt.Sprintf("%v_structure", tableName), table.Structure())
+		partWriter, err := w.CreateFormFile(tableName, "")
+		if err != nil {
+			return nil, err
+		}
+		buf.Reset()
+		err = table.Block().Encode(buf, 0)
+		if err != nil {
+			return nil, err
+		}
+		_, err = partWriter.Write(buf.Buf)
+		if err != nil {
+			return nil, err
+		}
+	}
+	h.url.RawQuery = queryValues.Encode()
+	err := w.WriteField("query", query)
+	if err != nil {
+		return nil, err
+	}
+	err = w.Close()
+	if err != nil {
+		return nil, err
+	}
+	headers["Content-Type"] = w.FormDataContentType()
+	return payload.Bytes(), nil
 }
 
 func (h *httpConnect) executeRequest(req *http.Request) (*http.Response, error) {
@@ -480,7 +539,7 @@ func (h *httpConnect) executeRequest(req *http.Request) (*http.Response, error) 
 }
 
 func (h *httpConnect) ping(ctx context.Context) error {
-	rows, err := h.query(ctx, nil, "SELECT 1")
+	rows, err := h.query(Context(ctx, ignoreExternalTables()), nil, "SELECT 1")
 	if err != nil {
 		return err
 	}
