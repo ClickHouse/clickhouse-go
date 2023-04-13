@@ -1,3 +1,22 @@
+# v2.9.0, 2023-04-13 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Enhancements 🎉
+* External tables support for HTTP protocol by @crisismaple in https://github.com/ClickHouse/clickhouse-go/pull/942
+* Support driver.Valuer in String and FixedString columns by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/946
+* Support boolean and pointer type parameter binding by @crisismaple in https://github.com/ClickHouse/clickhouse-go/pull/963
+* Support insert/scan IPv4 using UInt32/*UInt32 types by @crisismaple in https://github.com/ClickHouse/clickhouse-go/pull/966
+### Fixes 🐛
+* Reset the pointer to the nullable field by @xiaochaoren1 in https://github.com/ClickHouse/clickhouse-go/pull/964
+* Enable to use ternary operator with named arguments by @crisismaple in https://github.com/ClickHouse/clickhouse-go/pull/965
+### Other Changes 🛠
+* chore: explain async insert in docs by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/969
+
+## New Contributors
+* @xiaochaoren1 made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/964
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.8.3...v2.9.0
+
 ## 2.8.3, 2023-04-03
 
 ### Bug fixes
