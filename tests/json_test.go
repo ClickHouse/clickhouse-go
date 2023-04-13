@@ -2456,13 +2456,13 @@ func TestMultipleJsonRowsWithNil(t *testing.T) {
 		for k := range myMap {
 			newMap[k] = myMap[k]
 		}
-	
+
 		return newMap
 	}
 
 	type Login struct {
-		Username string `json:"username"`
-		Attachment      map[string]interface{}
+		Username   string `json:"username"`
+		Attachment map[string]interface{}
 	}
 
 	myAttachment := map[string]interface{}{

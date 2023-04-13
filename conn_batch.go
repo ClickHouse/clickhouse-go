@@ -226,18 +226,18 @@ func (b *batchColumn) Append(v interface{}) (err error) {
 }
 
 func (b *batchColumn) AppendRow(v interface{}) (err error) {
-        if b.batch.IsSent() {
-                return ErrBatchAlreadySent
-        }
-        if b.err != nil {
-                b.release(b.err)
-                return b.err
-        }
-        if  err = b.column.AppendRow(v); err != nil {
-                b.release(err)
-                return err
-        }
-        return nil
+	if b.batch.IsSent() {
+		return ErrBatchAlreadySent
+	}
+	if b.err != nil {
+		b.release(b.err)
+		return b.err
+	}
+	if err = b.column.AppendRow(v); err != nil {
+		b.release(err)
+		return err
+	}
+	return nil
 }
 
 var (
