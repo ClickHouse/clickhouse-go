@@ -40,6 +40,6 @@ func Test762Std(t *testing.T) {
 		)
 		require.NoError(t, rows.Scan(&n))
 		expected := []interface{}{(*interface{})(nil)}
-		require.Equal(t, &expected, n)
+		require.Equal(t, expected, n)
 	}
 }
