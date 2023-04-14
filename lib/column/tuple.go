@@ -137,7 +137,10 @@ func (col *Tuple) Row(i int, ptr bool) interface{} {
 		// if this happens we have an unexplained problem
 		return nil
 	}
-	return value
+	if ptr {
+		return value
+	}
+	return tuple.Elem().Interface()
 }
 
 func setJSONFieldValue(field reflect.Value, value reflect.Value) error {
