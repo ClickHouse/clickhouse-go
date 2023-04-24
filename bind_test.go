@@ -232,7 +232,7 @@ func TestBindPositional(t *testing.T) {
 	var nilPtrPtr **interface{} = nil
 	valuedPtr := &([]interface{}{123}[0])
 	nilValuePtr := &([]interface{}{nil}[0])
-  
+
 	_, err = bind(time.Local, `
 	SELECT * FROM t WHERE col = ?
 		AND col2 = ?

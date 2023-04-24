@@ -1,3 +1,17 @@
+# v2.9.1, 2023-04-24 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Enhancements 🎉
+* Do not return hard error on unparsable version in HTTP proto by @hexchain in https://github.com/ClickHouse/clickhouse-go/pull/975
+### Fixes 🐛
+* Return ErrBadConn in stdDriver Prepare if connection is broken by @czubocha in https://github.com/ClickHouse/clickhouse-go/pull/977
+
+## New Contributors
+* @czubocha made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/977
+* @hexchain made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/975
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.9.0...v2.9.1
+
 # v2.9.0, 2023-04-13 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
