@@ -277,6 +277,7 @@ func (std *stdDriver) PrepareContext(ctx context.Context, query string) (driver.
 	if err != nil {
 		if isConnBrokenError(err) {
 			std.debugf("PrepareContext got a fatal error, resetting connection: %v\n", err)
+			return nil, driver.ErrBadConn
 		}
 		std.debugf("PrepareContext error: %v\n", err)
 		return nil, err
