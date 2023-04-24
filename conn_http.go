@@ -292,10 +292,7 @@ func (h *httpConnect) readVersion(ctx context.Context) (proto.Version, error) {
 	for rows.Next() {
 		var v string
 		rows.Scan(&v)
-		version, err := proto.ParseVersion(v)
-		if err != nil {
-			return proto.Version{}, err
-		}
+		version := proto.ParseVersion(v)
 		return version, nil
 	}
 	return proto.Version{}, errors.New("unable to determine version")
