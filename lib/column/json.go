@@ -691,6 +691,7 @@ type JSONObject struct {
 	name     string
 	root     bool
 	encoding uint8
+	decoding Interface
 	tz       *time.Location
 }
 
@@ -846,14 +847,18 @@ func (jCol *JSONObject) Rows() int {
 	return 0
 }
 
-// ClickHouse returns JSON as a tuple i.e. these will never be invoked
-
 func (jCol *JSONObject) Row(i int, ptr bool) interface{} {
-	panic("Not implemented")
+	if jCol.decoding != nil {
+		return jCol.decoding.Row(i, ptr)
+	}
+	panic("bug")
 }
 
 func (jCol *JSONObject) ScanRow(dest interface{}, row int) error {
-	panic("Not implemented")
+	if jCol.decoding != nil {
+		return jCol.decoding.ScanRow(dest, row)
+	}
+	panic("bug")
 }
 
 func (jCol *JSONObject) Append(v interface{}) (nulls []uint8, err error) {
@@ -908,7 +913,15 @@ func (jCol *JSONObject) AppendRow(v interface{}) error {
 }
 
 func (jCol *JSONObject) Decode(reader *proto.Reader, rows int) error {
-	panic("Not implemented")
+	columnType, err := reader.Str()
+	if err != nil {
+		return err
+	}
+	jCol.decoding, err = Type(columnType).Column("", jCol.tz)
+	if err != nil {
+		return err
+	}
+	return jCol.decoding.Decode(reader, rows)
 }
 
 func (jCol *JSONObject) Encode(buffer *proto.Buffer) {
