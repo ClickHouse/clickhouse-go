@@ -360,7 +360,7 @@ func (col *Array) scanSliceOfMaps(sliceType reflect.Type, row int) (reflect.Valu
 	if sliceType.Kind() != reflect.Slice {
 		return reflect.Value{}, &ColumnConverterError{
 			Op:   "ScanRow",
-			To:   fmt.Sprintf("%s", sliceType),
+			To:   sliceType.String(),
 			From: string(col.Type()),
 		}
 	}
@@ -398,7 +398,7 @@ func (col *Array) scanSliceOfStructs(sliceType reflect.Type, row int) (reflect.V
 	if sliceType.Kind() != reflect.Slice {
 		return reflect.Value{}, &ColumnConverterError{
 			Op:   "ScanRow",
-			To:   fmt.Sprintf("%s", sliceType),
+			To:   sliceType.String(),
 			From: string(col.Type()),
 		}
 	}

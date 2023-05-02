@@ -16,7 +16,6 @@ test:
 
 lint:
 	golangci-lint run || :
-	gocritic check -disable=singleCaseSwitch ./... || :
 
 contributors:
 	@git log --pretty="%an <%ae>%n%cn <%ce>" | sort -u -t '<' -k 2,2 | LC_ALL=C sort | \

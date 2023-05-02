@@ -260,10 +260,7 @@ type httpConnect struct {
 }
 
 func (h *httpConnect) isBad() bool {
-	if h.client == nil {
-		return true
-	}
-	return false
+	return h.client == nil
 }
 
 func (h *httpConnect) readTimeZone(ctx context.Context) (*time.Location, error) {
@@ -272,16 +269,20 @@ func (h *httpConnect) readTimeZone(ctx context.Context) (*time.Location, error) 
 		return nil, err
 	}
 
-	for rows.Next() {
-		var serverLocation string
-		rows.Scan(&serverLocation)
-		location, err := time.LoadLocation(serverLocation)
-		if err != nil {
-			return nil, err
-		}
-		return location, nil
+	if !rows.Next() {
+		return nil, errors.New("unable to determine server timezone")
 	}
-	return nil, errors.New("unable to determine server timezone")
+
+	var serverLocation string
+	if err := rows.Scan(&serverLocation); err != nil {
+		return nil, err
+	}
+
+	location, err := time.LoadLocation(serverLocation)
+	if err != nil {
+		return nil, err
+	}
+	return location, nil
 }
 
 func (h *httpConnect) readVersion(ctx context.Context) (proto.Version, error) {
@@ -289,13 +290,17 @@ func (h *httpConnect) readVersion(ctx context.Context) (proto.Version, error) {
 	if err != nil {
 		return proto.Version{}, err
 	}
-	for rows.Next() {
-		var v string
-		rows.Scan(&v)
-		version := proto.ParseVersion(v)
-		return version, nil
+
+	if !rows.Next() {
+		return proto.Version{}, errors.New("unable to determine version")
 	}
-	return proto.Version{}, errors.New("unable to determine version")
+
+	var v string
+	if err := rows.Scan(&v); err != nil {
+		return proto.Version{}, err
+	}
+	version := proto.ParseVersion(v)
+	return version, nil
 }
 
 func createCompressionPool(compression *Compression) (Pool[HTTPReaderWriter], error) {

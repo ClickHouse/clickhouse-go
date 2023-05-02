@@ -234,13 +234,14 @@ func (c *connect) sendData(block *proto.Block, name string) error {
 		return err
 	}
 	if err := c.flush(); err != nil {
-		if errors.Is(err, syscall.EPIPE) {
+		switch {
+		case errors.Is(err, syscall.EPIPE):
 			c.debugf("[send data] pipe is broken, closing connection")
 			c.closed = true
-		} else if errors.Is(err, io.EOF) {
+		case errors.Is(err, io.EOF):
 			c.debugf("[send data] unexpected EOF, closing connection")
 			c.closed = true
-		} else {
+		default:
 			c.debugf("[send data] unexpected error: %v", err)
 		}
 		return err

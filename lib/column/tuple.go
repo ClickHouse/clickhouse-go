@@ -418,7 +418,7 @@ func (col *Tuple) scan(targetType reflect.Type, row int) (reflect.Value, error) 
 		if !col.isNamed {
 			return reflect.Value{}, &ColumnConverterError{
 				Op:   "ScanRow",
-				To:   fmt.Sprintf("%s", targetType),
+				To:   targetType.String(),
 				From: string(col.chType),
 				Hint: "cannot use maps for unnamed tuples, use slice",
 			}

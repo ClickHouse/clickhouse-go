@@ -46,10 +46,10 @@ var kindMappings = map[reflect.Kind]string{
 // complex types for which a mapping exists - currently we map to String but could enhance in the future for other types
 var typeMappings = map[string]struct{}{
 	// currently JSON doesn't support DateTime, Decimal or IP so mapped to String
-	"time.Time":       struct{}{},
-	"decimal.Decimal": struct{}{},
-	"net.IP":          struct{}{},
-	"uuid.UUID":       struct{}{},
+	"time.Time":       {},
+	"decimal.Decimal": {},
+	"net.IP":          {},
+	"uuid.UUID":       {},
 }
 
 type JSON interface {
@@ -618,7 +618,7 @@ func (jCol *JSONList) upsertValue(name string, ct string) (*JSONValue, error) {
 	vCol := &JSONValue{
 		Interface: col,
 	}
-	jCol.values.(*JSONObject).columns = append(cols, vCol)
+	jCol.values.(*JSONObject).columns = append(cols, vCol) // nolint:gocritic
 	return vCol, nil
 }
 
@@ -640,7 +640,7 @@ func (jCol *JSONList) upsertList(name string) (*JSONList, error) {
 		}
 	}
 	lCol := createJSONList(name, jObj.tz)
-	jCol.values.(*JSONObject).columns = append(cols, lCol)
+	jCol.values.(*JSONObject).columns = append(cols, lCol) // nolint:gocritic
 	return lCol, nil
 
 }
@@ -669,7 +669,7 @@ func (jCol *JSONList) upsertObject(name string) (*JSONObject, error) {
 		name: name,
 		tz:   jObj.tz,
 	}
-	jCol.values.(*JSONObject).columns = append(cols, oCol)
+	jCol.values.(*JSONObject).columns = append(cols, oCol) // nolint:gocritic
 	return oCol, nil
 }
 
