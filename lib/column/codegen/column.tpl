@@ -31,6 +31,7 @@ import (
 	"github.com/paulmach/orb"
 	"github.com/shopspring/decimal"
 	"database/sql"
+	"github.com/ClickHouse/ch-go/proto"
 )
 
 func (t Type) Column(name string, tz *time.Location) (Interface, error) {
