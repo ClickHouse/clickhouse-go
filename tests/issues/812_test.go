@@ -51,12 +51,12 @@ func Test812(t *testing.T) {
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_812")
 	require.NoError(t, batch.Append(
-		map[string]interface{}{"name": "Clicky McClickHouse Jnr", "age": uint8(20)},
-		[]interface{}{"Baby Clicky McClickHouse", uint8(1)},
+		map[string]any{"name": "Clicky McClickHouse Jnr", "age": uint8(20)},
+		[]any{"Baby Clicky McClickHouse", uint8(1)},
 		map[string]string{"name": "Geoff", "id": "12123"},
 		// Col4
-		[]interface{}{
-			map[string]interface{}{"name": "Clicky McClickHouse Jnr", "age": uint8(20)},
+		[]any{
+			map[string]any{"name": "Clicky McClickHouse Jnr", "age": uint8(20)},
 		},
 	))
 	require.NoError(t, batch.Send())

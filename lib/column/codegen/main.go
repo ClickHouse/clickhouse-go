@@ -66,7 +66,7 @@ func init() {
 		return sequenceKey(types[i].ChType) < sequenceKey(types[j].ChType)
 	})
 }
-func write(name string, v interface{}, t *template.Template) error {
+func write(name string, v any, t *template.Template) error {
 	out := new(bytes.Buffer)
 	if err := t.Execute(out, v); err != nil {
 		return err

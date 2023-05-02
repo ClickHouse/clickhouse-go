@@ -53,7 +53,7 @@ func TestSimpleAggregateFunction(t *testing.T) {
 	var (
 		col1Data = uint64(42)
 		col2Data = float64(256.1)
-		col3Data = []interface{}{
+		col3Data = []any{
 			[]int16{1, 2, 3, 4, 5},
 			[]uint64{1, 2, 3, 4, 5},
 		}
@@ -63,7 +63,7 @@ func TestSimpleAggregateFunction(t *testing.T) {
 	var result struct {
 		Col1 uint64
 		Col2 float64
-		Col3 []interface{}
+		Col3 []any
 	}
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_simple_aggregate_function").ScanStruct(&result))
 	assert.Equal(t, col1Data, result.Col1)

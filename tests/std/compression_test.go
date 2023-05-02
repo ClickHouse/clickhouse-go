@@ -83,7 +83,7 @@ func TestCompressionStd(t *testing.T) {
 				i := int32(0)
 				for rows.Next() {
 					var (
-						col1 interface{}
+						col1 any
 						col2 int32
 					)
 					require.NoError(t, rows.Scan(&col1, &col2))
@@ -106,7 +106,7 @@ func TestCompressionStd(t *testing.T) {
 				i = 0
 				for rows.Next() {
 					var (
-						col1 interface{}
+						col1 any
 						col2 int32
 					)
 					require.NoError(t, rows.Scan(&col1, &col2))
@@ -154,7 +154,7 @@ func TestCompressionStdDSN(t *testing.T) {
 			require.NoError(t, err)
 			for rows.Next() {
 				var (
-					col1 interface{}
+					col1 any
 				)
 				require.NoError(t, rows.Scan(&col1))
 				assert.Equal(t, col1Data, col1)
@@ -213,7 +213,7 @@ func TestCompressionStdDSNWithLevel(t *testing.T) {
 			require.NoError(t, err)
 			for rows.Next() {
 				var (
-					col1 interface{}
+					col1 any
 				)
 				require.NoError(t, rows.Scan(&col1))
 				assert.Equal(t, col1Data, col1)

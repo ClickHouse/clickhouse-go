@@ -58,7 +58,7 @@ func (tbl *Table) Block() *proto.Block {
 	return tbl.block
 }
 
-func (tbl *Table) Append(v ...interface{}) error {
+func (tbl *Table) Append(v ...any) error {
 	return tbl.block.Append(v...)
 }
 

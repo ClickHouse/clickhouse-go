@@ -54,7 +54,7 @@ type Pool[T any] struct {
 
 func NewPool[T any](fn func() T) Pool[T] {
 	return Pool[T]{
-		pool: &sync.Pool{New: func() interface{} { return fn() }},
+		pool: &sync.Pool{New: func() any { return fn() }},
 	}
 }
 

@@ -58,16 +58,16 @@ func (col *SimpleAggregateFunction) ScanType() reflect.Type {
 func (col *SimpleAggregateFunction) Rows() int {
 	return col.base.Rows()
 }
-func (col *SimpleAggregateFunction) Row(i int, ptr bool) interface{} {
+func (col *SimpleAggregateFunction) Row(i int, ptr bool) any {
 	return col.base.Row(i, ptr)
 }
-func (col *SimpleAggregateFunction) ScanRow(dest interface{}, rows int) error {
+func (col *SimpleAggregateFunction) ScanRow(dest any, rows int) error {
 	return col.base.ScanRow(dest, rows)
 }
-func (col *SimpleAggregateFunction) Append(v interface{}) ([]uint8, error) {
+func (col *SimpleAggregateFunction) Append(v any) ([]uint8, error) {
 	return col.base.Append(v)
 }
-func (col *SimpleAggregateFunction) AppendRow(v interface{}) error {
+func (col *SimpleAggregateFunction) AppendRow(v any) error {
 	return col.base.AppendRow(v)
 }
 func (col *SimpleAggregateFunction) Decode(reader *proto.Reader, rows int) error {

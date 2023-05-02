@@ -50,7 +50,7 @@ func (col *Ring) Rows() int {
 	return col.set.Rows()
 }
 
-func (col *Ring) Row(i int, ptr bool) interface{} {
+func (col *Ring) Row(i int, ptr bool) any {
 	value := col.row(i)
 	if ptr {
 		return &value
@@ -58,7 +58,7 @@ func (col *Ring) Row(i int, ptr bool) interface{} {
 	return value
 }
 
-func (col *Ring) ScanRow(dest interface{}, row int) error {
+func (col *Ring) ScanRow(dest any, row int) error {
 	switch d := dest.(type) {
 	case *orb.Ring:
 		*d = col.row(row)
@@ -76,7 +76,7 @@ func (col *Ring) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (col *Ring) Append(v interface{}) (nulls []uint8, err error) {
+func (col *Ring) Append(v any) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []orb.Ring:
 		values := make([][]orb.Point, 0, len(v))
@@ -99,7 +99,7 @@ func (col *Ring) Append(v interface{}) (nulls []uint8, err error) {
 	}
 }
 
-func (col *Ring) AppendRow(v interface{}) error {
+func (col *Ring) AppendRow(v any) error {
 	switch v := v.(type) {
 	case orb.Ring:
 		return col.set.AppendRow([]orb.Point(v))

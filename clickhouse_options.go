@@ -130,7 +130,7 @@ type Options struct {
 	DialContext          func(ctx context.Context, addr string) (net.Conn, error)
 	DialStrategy         func(ctx context.Context, connID int, options *Options, dial Dial) (DialResult, error)
 	Debug                bool
-	Debugf               func(format string, v ...interface{}) // only works when Debug is true
+	Debugf               func(format string, v ...any) // only works when Debug is true
 	Settings             Settings
 	Compression          *Compression
 	DialTimeout          time.Duration // default 30 second

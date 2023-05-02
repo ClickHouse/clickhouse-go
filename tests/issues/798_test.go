@@ -71,7 +71,7 @@ func Test798(t *testing.T) {
 	require.ErrorIs(t, batch.Append(true, false, []bool{true, false, true}), clickhouse.ErrBatchAlreadySent)
 }
 
-func writeRows(prepareSQL string, rows [][]interface{}, conn clickhouse.Conn) (err error) {
+func writeRows(prepareSQL string, rows [][]any, conn clickhouse.Conn) (err error) {
 	batch, err := conn.PrepareBatch(context.Background(), prepareSQL)
 	if err != nil {
 		return err
@@ -120,7 +120,7 @@ func Test798Concurrent(t *testing.T) {
 					wg.Done()
 					break
 				}
-				writeRows("INSERT INTO test_issue_798", [][]interface{}{{true, false}, {false, true}}, conn)
+				writeRows("INSERT INTO test_issue_798", [][]any{{true, false}, {false, true}}, conn)
 			}
 		}()
 	}

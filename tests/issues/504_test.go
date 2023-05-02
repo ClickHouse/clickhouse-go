@@ -57,8 +57,8 @@ func TestIssue504(t *testing.T) {
 		WHERE (Col1, Col2) IN (@GS)
 		`
 	err = conn.Select(ctx, &result, query, clickhouse.Named("GS", []clickhouse.GroupSet{
-		{Value: []interface{}{"A", 2}},
-		{Value: []interface{}{"A", 4}},
+		{Value: []any{"A", 2}},
+		{Value: []any{"A", 4}},
 	}))
 	require.NoError(t, err)
 	assert.Equal(t, []struct {

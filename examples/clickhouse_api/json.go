@@ -71,7 +71,7 @@ func InsertReadJSON() error {
 		Age:      uint8(80),
 		Password: "random",
 	}
-	col3Data := map[string]interface{}{
+	col3Data := map[string]any{
 		"name":     "Clicky McClickHouse Jnr",
 		"age":      uint8(10),
 		"password": "clicky",
@@ -86,8 +86,8 @@ func InsertReadJSON() error {
 	}
 	// we can scan JSON into either a map or struct
 	var (
-		col1 map[string]interface{}
-		col2 map[string]interface{}
+		col1 map[string]any
+		col2 map[string]any
 		col3 User
 	)
 	// named tuples can be retrieved into a map or slices, unnamed just slices
@@ -131,10 +131,10 @@ func ReadComplexJSON() error {
 		Releases []Releases
 	}
 
-	row := map[string]interface{}{
+	row := map[string]any{
 		"title": "Document JSON support",
 		"type":  "Issue",
-		"assignee": map[string]interface{}{
+		"assignee": map[string]any{
 			"id":   int16(0),
 			"name": "Dale",
 			"repositories": []Repository{
@@ -144,8 +144,8 @@ func ReadComplexJSON() error {
 			"organizations": []string{},
 		},
 		"labels": []string{},
-		"contributors": []map[string]interface{}{
-			{"Id": int16(2244), "Name": "Dale", "orgs": []string{"Support Engineer", "Consulting", "PM", "Integrations"}, "Repositories": []map[string]interface{}{{"url": "https://github.com/ClickHouse/clickhouse-go", "Releases": []map[string]interface{}{{"Version": "2.0.0"}, {"Version": "2.1.0"}}}, {"url": "https://github.com/grafana/clickhouse"}}},
+		"contributors": []map[string]any{
+			{"Id": int16(2244), "Name": "Dale", "orgs": []string{"Support Engineer", "Consulting", "PM", "Integrations"}, "Repositories": []map[string]any{{"url": "https://github.com/ClickHouse/clickhouse-go", "Releases": []map[string]any{{"Version": "2.0.0"}, {"Version": "2.1.0"}}}, {"url": "https://github.com/grafana/clickhouse"}}},
 		},
 	}
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO example")
@@ -161,7 +161,7 @@ func ReadComplexJSON() error {
 		return err
 	}
 
-	var event map[string]interface{}
+	var event map[string]any
 
 	if err = conn.QueryRow(ctx, "SELECT * FROM example").Scan(&event); err != nil {
 		return err

@@ -51,7 +51,7 @@ func (col *IPv4) Rows() int {
 	return col.col.Rows()
 }
 
-func (col *IPv4) Row(i int, ptr bool) interface{} {
+func (col *IPv4) Row(i int, ptr bool) any {
 	value := col.row(i)
 	if ptr {
 		return &value
@@ -59,7 +59,7 @@ func (col *IPv4) Row(i int, ptr bool) interface{} {
 	return value
 }
 
-func (col *IPv4) ScanRow(dest interface{}, row int) error {
+func (col *IPv4) ScanRow(dest any, row int) error {
 	switch d := dest.(type) {
 	case *string:
 		*d = col.row(row).String()
@@ -120,7 +120,7 @@ func (col *IPv4) AppendV4IPs(ips []netip.Addr) {
 	}
 }
 
-func (col *IPv4) Append(v interface{}) (nulls []uint8, err error) {
+func (col *IPv4) Append(v any) (nulls []uint8, err error) {
 
 	switch v := v.(type) {
 	case []string:
@@ -208,7 +208,7 @@ func (col *IPv4) Append(v interface{}) (nulls []uint8, err error) {
 	return
 }
 
-func (col *IPv4) AppendRow(v interface{}) (err error) {
+func (col *IPv4) AppendRow(v any) (err error) {
 	switch v := v.(type) {
 	case string:
 		ip, err := strToIPV4(v)

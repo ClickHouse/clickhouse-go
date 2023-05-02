@@ -60,7 +60,7 @@ func (col *FixedString) Rows() int {
 	return col.col.Rows()
 }
 
-func (col *FixedString) Row(i int, ptr bool) interface{} {
+func (col *FixedString) Row(i int, ptr bool) any {
 	value := col.row(i)
 	if ptr {
 		return &value
@@ -68,7 +68,7 @@ func (col *FixedString) Row(i int, ptr bool) interface{} {
 	return value
 }
 
-func (col *FixedString) ScanRow(dest interface{}, row int) error {
+func (col *FixedString) ScanRow(dest any, row int) error {
 	switch d := dest.(type) {
 	case *string:
 		*d = col.row(row)
@@ -90,7 +90,7 @@ func (col *FixedString) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (col *FixedString) Append(v interface{}) (nulls []uint8, err error) {
+func (col *FixedString) Append(v any) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []string:
 		nulls = make([]uint8, len(v))
@@ -135,7 +135,7 @@ func (col *FixedString) Append(v interface{}) (nulls []uint8, err error) {
 	return
 }
 
-func (col *FixedString) AppendRow(v interface{}) (err error) {
+func (col *FixedString) AppendRow(v any) (err error) {
 	data := make([]byte, col.col.Size)
 	switch v := v.(type) {
 	case string:

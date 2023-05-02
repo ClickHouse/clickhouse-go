@@ -83,7 +83,7 @@ func TestIssue692(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, scope.Commit())
 	var (
-		col1 interface{}
+		col1 any
 		col2 map[string]uint64
 		col3 map[string]uint64
 		col4 []map[string]string

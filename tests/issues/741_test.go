@@ -90,8 +90,8 @@ func TestIssue741SingleColumn(t *testing.T) {
 	}
 }
 
-func generateRandomInsert(tableName string) (string, string, []interface{}) {
-	columns := map[string]interface{}{
+func generateRandomInsert(tableName string) (string, string, []any) {
+	columns := map[string]any{
 		"Col1 String":       "a",
 		"Col2 Int64":        int64(1),
 		"Col3 Int32":        int32(2),
@@ -123,7 +123,7 @@ func generateRandomInsert(tableName string) (string, string, []interface{}) {
 		placeholders[i] = "?"
 	}
 	insertStatement := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", tableName, strings.Join(names, ", "), strings.Join(placeholders, ", "))
-	values := make([]interface{}, len(colNames))
+	values := make([]any, len(colNames))
 	for i, colName := range colNames {
 		values[i] = columns[colName]
 	}

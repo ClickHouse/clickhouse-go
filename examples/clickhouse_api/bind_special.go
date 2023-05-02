@@ -73,12 +73,12 @@ func SpecialBind() error {
 	}
 	fmt.Printf("Array count: %d\n", count)
 	// Group sets allow us to form ( ) lists
-	if err = conn.QueryRow(ctx, "SELECT count() FROM example WHERE Col1 IN ?", clickhouse.GroupSet{[]interface{}{100, 200, 300, 400, 500}}).Scan(&count); err != nil {
+	if err = conn.QueryRow(ctx, "SELECT count() FROM example WHERE Col1 IN ?", clickhouse.GroupSet{[]any{100, 200, 300, 400, 500}}).Scan(&count); err != nil {
 		return err
 	}
 	fmt.Printf("Group count: %d\n", count)
 	// More useful when we need nesting
-	if err = conn.QueryRow(ctx, "SELECT count() FROM example WHERE (Col1, Col5) IN (?)", []clickhouse.GroupSet{{[]interface{}{100, 101}}, {[]interface{}{200, 201}}}).Scan(&count); err != nil {
+	if err = conn.QueryRow(ctx, "SELECT count() FROM example WHERE (Col1, Col5) IN (?)", []clickhouse.GroupSet{{[]any{100, 101}}, {[]any{200, 201}}}).Scan(&count); err != nil {
 		return err
 	}
 	fmt.Printf("Group count: %d\n", count)

@@ -36,9 +36,9 @@ type Map struct {
 }
 
 type OrderedMap interface {
-	Get(key interface{}) (interface{}, bool)
-	Put(key interface{}, value interface{})
-	Keys() <-chan interface{}
+	Get(key any) (any, bool)
+	Put(key any, value any)
+	Keys() <-chan any
 }
 
 func (col *Map) Reset() {
@@ -83,11 +83,11 @@ func (col *Map) Rows() int {
 	return col.offsets.col.Rows()
 }
 
-func (col *Map) Row(i int, ptr bool) interface{} {
+func (col *Map) Row(i int, ptr bool) any {
 	return col.row(i).Interface()
 }
 
-func (col *Map) ScanRow(dest interface{}, i int) error {
+func (col *Map) ScanRow(dest any, i int) error {
 	value := reflect.Indirect(reflect.ValueOf(dest))
 	if value.Type() == col.scanType {
 		value.Set(col.row(i))
@@ -108,7 +108,7 @@ func (col *Map) ScanRow(dest interface{}, i int) error {
 	}
 }
 
-func (col *Map) Append(v interface{}) (nulls []uint8, err error) {
+func (col *Map) Append(v any) (nulls []uint8, err error) {
 	value := reflect.Indirect(reflect.ValueOf(v))
 	if value.Kind() != reflect.Slice {
 		return nil, &ColumnConverterError{
@@ -126,7 +126,7 @@ func (col *Map) Append(v interface{}) (nulls []uint8, err error) {
 	return
 }
 
-func (col *Map) AppendRow(v interface{}) error {
+func (col *Map) AppendRow(v any) error {
 	value := reflect.Indirect(reflect.ValueOf(v))
 	if value.Type() == col.scanType {
 		var (
@@ -251,7 +251,7 @@ func (col *Map) row(n int) reflect.Value {
 	return value
 }
 
-func (col *Map) orderedRow(n int) ([]interface{}, []interface{}) {
+func (col *Map) orderedRow(n int) ([]any, []any) {
 	var prev int64
 	if n != 0 {
 		prev = col.offsets.col.Row(n - 1)
@@ -260,8 +260,8 @@ func (col *Map) orderedRow(n int) ([]interface{}, []interface{}) {
 		size = int(col.offsets.col.Row(n) - prev)
 		from = int(prev)
 	)
-	keys := make([]interface{}, size)
-	values := make([]interface{}, size)
+	keys := make([]any, size)
+	values := make([]any, size)
 	for next := 0; next < size; next++ {
 		keys[next] = col.keys.Row(from+next, false)
 		values[next] = col.values.Row(from+next, false)

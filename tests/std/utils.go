@@ -202,7 +202,7 @@ func GetOpenDBConnection(environment string, protocol clickhouse.Protocol, setti
 	}), nil
 }
 
-func ToJson(obj interface{}) string {
+func ToJson(obj any) string {
 	bytes, err := json.Marshal(obj)
 	if err != nil {
 		return "unable to marshal"

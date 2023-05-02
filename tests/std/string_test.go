@@ -65,7 +65,7 @@ func TestSimpleStdString(t *testing.T) {
 			require.NoError(t, err)
 			for rows.Next() {
 				var (
-					col1 interface{}
+					col1 any
 					col2 sql.NullString
 				)
 				require.NoError(t, rows.Scan(&col1, &col2))

@@ -113,7 +113,7 @@ func (ch *clickhouse) ServerVersion() (*driver.ServerVersion, error) {
 	return &conn.server, nil
 }
 
-func (ch *clickhouse) Query(ctx context.Context, query string, args ...interface{}) (rows driver.Rows, err error) {
+func (ch *clickhouse) Query(ctx context.Context, query string, args ...any) (rows driver.Rows, err error) {
 	conn, err := ch.acquire(ctx)
 	if err != nil {
 		return nil, err
@@ -122,7 +122,7 @@ func (ch *clickhouse) Query(ctx context.Context, query string, args ...interface
 	return conn.query(ctx, ch.release, query, args...)
 }
 
-func (ch *clickhouse) QueryRow(ctx context.Context, query string, args ...interface{}) (rows driver.Row) {
+func (ch *clickhouse) QueryRow(ctx context.Context, query string, args ...any) (rows driver.Row) {
 	conn, err := ch.acquire(ctx)
 	if err != nil {
 		return &row{
@@ -133,7 +133,7 @@ func (ch *clickhouse) QueryRow(ctx context.Context, query string, args ...interf
 	return conn.queryRow(ctx, ch.release, query, args...)
 }
 
-func (ch *clickhouse) Exec(ctx context.Context, query string, args ...interface{}) error {
+func (ch *clickhouse) Exec(ctx context.Context, query string, args ...any) error {
 	conn, err := ch.acquire(ctx)
 	if err != nil {
 		return err

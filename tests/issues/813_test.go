@@ -45,7 +45,7 @@ func Test813(t *testing.T) {
 	_, err = conn.Exec(ddl)
 	require.NoError(t, err)
 
-	valueArgs := []interface{}{
+	valueArgs := []any{
 		int64(14),
 		clickhouse.ArraySet{map[string]string{"array1_key1": "array1_value2", "array1_key2": "array1_value2"}},
 	}

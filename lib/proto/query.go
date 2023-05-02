@@ -143,7 +143,7 @@ type Settings []Setting
 
 type Setting struct {
 	Key   string
-	Value interface{}
+	Value any
 }
 
 func (s Settings) Encode(buffer *chproto.Buffer, revision uint64) error {

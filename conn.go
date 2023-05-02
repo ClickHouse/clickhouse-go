@@ -40,7 +40,7 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 	var (
 		err    error
 		conn   net.Conn
-		debugf = func(format string, v ...interface{}) {}
+		debugf = func(format string, v ...any) {}
 	)
 	switch {
 	case opt.DialContext != nil:
@@ -114,7 +114,7 @@ type connect struct {
 	id                   int
 	opt                  *Options
 	conn                 net.Conn
-	debugf               func(format string, v ...interface{})
+	debugf               func(format string, v ...any)
 	server               ServerVersion
 	closed               bool
 	buffer               *chproto.Buffer

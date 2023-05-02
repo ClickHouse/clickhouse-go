@@ -114,18 +114,18 @@ func TestStdJson(t *testing.T) {
 	_, err = batch.Exec(col1Data)
 	require.NoError(t, err)
 	require.NoError(t, scope.Commit())
-	// must pass interface{} - maps must be strongly typed so map[string]interface{} wont work - it wont convert
-	var event interface{}
+	// must pass any - maps must be strongly typed so map[string]any wont work - it wont convert
+	var event any
 	rows := conn.QueryRow("SELECT * FROM json_std_test")
 	require.NoError(t, rows.Scan(&event))
 	assert.JSONEq(t, ToJson(col1Data), ToJson(event))
-	// again pass interface{} for anthing other than primitives
+	// again pass any for anthing other than primitives
 	rows = conn.QueryRow("SELECT event.assignee.Achievement FROM json_std_test")
-	var achievement interface{}
+	var achievement any
 	require.NoError(t, rows.Scan(&achievement))
 	assert.JSONEq(t, ToJson(col1Data.Assignee.Achievement), ToJson(achievement))
 	rows = conn.QueryRow("SELECT event.assignee.Repositories FROM json_std_test")
-	var repositories interface{}
+	var repositories any
 	require.NoError(t, rows.Scan(&repositories))
 	assert.JSONEq(t, ToJson(col1Data.Assignee.Repositories), ToJson(repositories))
 }
@@ -164,16 +164,16 @@ func TestStdJsonWithMap(t *testing.T) {
 	require.NoError(t, err)
 	batch, err := scope.Prepare("INSERT INTO json_std_test")
 	require.NoError(t, err)
-	col1Data := map[string]interface{}{
-		"58": map[string]interface{}{
+	col1Data := map[string]any{
+		"58": map[string]any{
 			"test": []string{"2", "3"},
 		},
 	}
 	_, err = batch.Exec(col1Data)
 	require.NoError(t, err)
 	require.NoError(t, scope.Commit())
-	// must pass interface{} - maps must be strongly typed so map[string]interface{} wont work - it wont convert
-	var event interface{}
+	// must pass any - maps must be strongly typed so map[string]any wont work - it wont convert
+	var event any
 	rows := conn.QueryRow("SELECT * FROM json_std_test")
 	require.NoError(t, rows.Scan(&event))
 	assert.JSONEq(t, ToJson(col1Data), ToJson(event))

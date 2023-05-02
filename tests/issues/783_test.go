@@ -38,9 +38,9 @@ func Test783(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, err)
 	row := conn.QueryRow(ctx, "SELECT groupArray(('a', ['time1', 'time2'])) as val")
-	var x [][]interface{}
+	var x [][]any
 	require.NoError(t, row.Scan(&x))
-	require.Equal(t, [][]interface{}{{"a", []string{"time1", "time2"}}}, x)
+	require.Equal(t, [][]any{{"a", []string{"time1", "time2"}}}, x)
 }
 
 func TestStd783(t *testing.T) {
@@ -49,7 +49,7 @@ func TestStd783(t *testing.T) {
 	conn, err := clickhouse_std_tests.GetDSNConnection("issues", clickhouse.Native, useSSL, nil)
 	require.NoError(t, err)
 	row := conn.QueryRow("SELECT groupArray(('a', ['time1', 'time2'])) as val")
-	var x [][]interface{}
+	var x [][]any
 	require.NoError(t, row.Scan(&x))
-	require.Equal(t, [][]interface{}{{"a", []string{"time1", "time2"}}}, x)
+	require.Equal(t, [][]any{{"a", []string{"time1", "time2"}}}, x)
 }

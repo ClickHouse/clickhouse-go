@@ -101,15 +101,15 @@ func TestNestedFlattened(t *testing.T) {
 
 		col2Data = []uint8{10, 20, 30}
 		col3Data = []uint8{101, 201, 230} // Col2.Col1_N2
-		col4Data = [][][]interface{}{
-			[][]interface{}{
-				[]interface{}{uint8(1), uint8(2)},
+		col4Data = [][][]any{
+			[][]any{
+				[]any{uint8(1), uint8(2)},
 			},
-			[][]interface{}{
-				[]interface{}{uint8(1), uint8(2)},
+			[][]any{
+				[]any{uint8(1), uint8(2)},
 			},
-			[][]interface{}{
-				[]interface{}{uint8(1), uint8(2)},
+			[][]any{
+				[]any{uint8(1), uint8(2)},
 			},
 		}
 	)
@@ -119,7 +119,7 @@ func TestNestedFlattened(t *testing.T) {
 		col1 []uint8
 		col2 []uint8
 		col3 []uint8
-		col4 [][][]interface{}
+		col4 [][][]any
 	)
 	rows := conn.QueryRow(ctx, "SELECT * FROM test_nested")
 	require.NoError(t, rows.Scan(&col1, &col2, &col3, &col4))
@@ -155,7 +155,7 @@ func TestFlattenedSimpleNested(t *testing.T) {
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_nested")
 	require.NoError(t, err)
 	var (
-		col1Data = []map[string]interface{}{
+		col1Data = []map[string]any{
 			{
 				"Col1_N1": "1",
 			},
@@ -170,7 +170,7 @@ func TestFlattenedSimpleNested(t *testing.T) {
 	require.NoError(t, batch.Append(col1Data))
 	require.NoError(t, batch.Send())
 	var (
-		col1 []map[string]interface{}
+		col1 []map[string]any
 	)
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_nested").Scan(&col1))
 	assert.Equal(t, col1Data, col1)
@@ -211,7 +211,7 @@ func TestNestedUnFlattened(t *testing.T) {
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_nested")
 	require.NoError(t, err)
 	var (
-		col1Data = []map[string]interface{}{
+		col1Data = []map[string]any{
 			{
 				"Col1_N1": uint8(1),
 				"Col2_N1": uint8(20),
@@ -225,10 +225,10 @@ func TestNestedUnFlattened(t *testing.T) {
 				"Col2_N1": uint8(20),
 			},
 		}
-		col2Data = []map[string]interface{}{
+		col2Data = []map[string]any{
 			{
 				"Col1_N2": uint8(101),
-				"Col2_N2": []map[string]interface{}{
+				"Col2_N2": []map[string]any{
 					{
 						"Col1_N2_N1": uint8(1),
 						"Col2_N2_N1": uint8(2),
@@ -237,7 +237,7 @@ func TestNestedUnFlattened(t *testing.T) {
 			},
 			{
 				"Col1_N2": uint8(201),
-				"Col2_N2": []map[string]interface{}{
+				"Col2_N2": []map[string]any{
 					{
 						"Col1_N2_N1": uint8(3),
 						"Col2_N2_N1": uint8(4),
@@ -249,8 +249,8 @@ func TestNestedUnFlattened(t *testing.T) {
 	require.NoError(t, batch.Append(col1Data, col2Data))
 	require.NoError(t, batch.Send())
 	var (
-		col1 []map[string]interface{}
-		col2 []map[string]interface{}
+		col1 []map[string]any
+		col2 []map[string]any
 	)
 	rows := conn.QueryRow(ctx, "SELECT * FROM test_nested")
 	require.NoError(t, rows.Scan(&col1, &col2))
@@ -289,9 +289,9 @@ func TestNestedFlush(t *testing.T) {
 	}()
 	batch, err = conn.PrepareBatch(ctx, "INSERT INTO test_nested_flush")
 	require.NoError(t, err)
-	vals := [1000][]map[string]interface{}{}
+	vals := [1000][]map[string]any{}
 	for i := 0; i < 1000; i++ {
-		vals[i] = []map[string]interface{}{
+		vals[i] = []map[string]any{
 			{
 				"Col1_N1": uint8(i),
 				"Col2_N1": uint8(i) + 1,
@@ -313,7 +313,7 @@ func TestNestedFlush(t *testing.T) {
 	require.NoError(t, err)
 	i := 0
 	for rows.Next() {
-		var col1 []map[string]interface{}
+		var col1 []map[string]any
 		require.NoError(t, rows.Scan(&col1))
 		require.Equal(t, vals[i], col1)
 		i += 1

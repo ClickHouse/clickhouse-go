@@ -84,43 +84,43 @@ func TestTuple(t *testing.T) {
 	batch, err := scope.Prepare("INSERT INTO test_tuple")
 	require.NoError(t, err)
 	var (
-		col1Data = []interface{}{"A", int64(42)}
-		col2Data = []interface{}{"B", int8(1), localTime.Truncate(time.Second)}
-		col3Data = map[string]interface{}{
+		col1Data = []any{"A", int64(42)}
+		col2Data = []any{"B", int8(1), localTime.Truncate(time.Second)}
+		col3Data = map[string]any{
 			"name1": localTime.Truncate(time.Second),
 			"name2": "CH",
 			"name3": map[string]string{
 				"key": "value",
 			},
 		}
-		col4Data = [][][]interface{}{
-			[][]interface{}{
-				[]interface{}{"Hi", int64(42)},
+		col4Data = [][][]any{
+			[][]any{
+				[]any{"Hi", int64(42)},
 			},
 		}
-		col5Data = []interface{}{
+		col5Data = []any{
 			"LCString",
 			[]string{"A", "B", "C"},
 		}
 		str      = "LCString"
-		col6Data = []interface{}{
+		col6Data = []any{
 			&str,
 			[]*string{&str, nil, &str},
 		}
-		col7Data = &[]interface{}{"C", int64(42)}
+		col7Data = &[]any{"C", int64(42)}
 	)
 	_, err = batch.Exec(col1Data, col2Data, col3Data, col4Data, col5Data, col6Data, col7Data)
 	require.NoError(t, err)
 	require.NoError(t, scope.Commit())
 	var (
-		col1 interface{}
-		col2 interface{}
+		col1 any
+		col2 any
 		// col3 is a named tuple - we can use map
-		col3 interface{}
-		col4 interface{}
-		col5 interface{}
-		col6 interface{}
-		col7 interface{}
+		col3 any
+		col4 any
+		col5 any
+		col6 any
+		col7 any
 	)
 	require.NoError(t, conn.QueryRow("SELECT * FROM test_tuple").Scan(&col1, &col2, &col3, &col4, &col5, &col6, &col7))
 	assert.NoError(t, err)

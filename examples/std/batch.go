@@ -67,7 +67,7 @@ func BatchInsert() error {
 			uuid.New(),
 			map[string]uint8{"key": 1},             // Map(String, UInt8)
 			[]string{"Q", "W", "E", "R", "T", "Y"}, // Array(String)
-			[]interface{}{ // Tuple(String, UInt8, Array(Map(String, String)))
+			[]any{ // Tuple(String, UInt8, Array(Map(String, String)))
 				"String Value", uint8(5), []map[string]string{
 					map[string]string{"key": "value"},
 					map[string]string{"key": "value"},

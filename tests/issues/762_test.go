@@ -37,10 +37,10 @@ func Test762(t *testing.T) {
 	require.NoError(t, err)
 	for rows.Next() {
 		var (
-			n []interface{}
+			n []any
 		)
 		require.NoError(t, rows.Scan(&n))
-		require.Equal(t, []interface{}{(*interface{})(nil), (*interface{})(nil)}, n)
+		require.Equal(t, []any{(*any)(nil), (*any)(nil)}, n)
 	}
 
 }
@@ -53,10 +53,10 @@ func Test762Std(t *testing.T) {
 	require.NoError(t, err)
 	for rows.Next() {
 		var (
-			n interface{}
+			n any
 		)
 		require.NoError(t, rows.Scan(&n))
-		expected := []interface{}{(*interface{})(nil)}
+		expected := []any{(*any)(nil)}
 		require.Equal(t, &expected, n)
 	}
 }

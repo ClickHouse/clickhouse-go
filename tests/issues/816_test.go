@@ -47,9 +47,9 @@ func Test816(t *testing.T) {
 	batch, err := scope.Prepare("INSERT INTO test_816")
 	require.NoError(t, err)
 	var (
-		col1Data = map[string]interface{}{
+		col1Data = map[string]any{
 			"count": nil,
-			"products": []map[string]interface{}{
+			"products": []map[string]any{
 				{
 					"price": nil,
 					"qty":   nil,
@@ -65,7 +65,7 @@ func Test816(t *testing.T) {
 	_, err = batch.Exec(col1Data)
 	require.NoError(t, err)
 	require.NoError(t, scope.Commit())
-	var col1 interface{}
+	var col1 any
 	require.NoError(t, conn.QueryRow("SELECT Col1 FROM test_816").Scan(&col1))
 	assert.Equal(t, clickhouse_std_tests.ToJson(col1Data), clickhouse_std_tests.ToJson(col1))
 }
