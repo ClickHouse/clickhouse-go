@@ -62,7 +62,7 @@ func (o ClientInfo) String() string {
 	lvMeta := "lv:go/" + runtime.Version()[2:]
 	osMeta := "os:" + runtime.GOOS
 
-	chunks := append(info.comment, lvMeta, osMeta)
+	chunks := append(info.comment, lvMeta, osMeta) // nolint:gocritic
 
 	s.WriteByte(' ')
 	s.WriteByte('(')
@@ -74,7 +74,7 @@ func (o ClientInfo) String() string {
 
 func mapKeysInOrder[V any](m map[string]V) []string {
 	keys := make([]string, 0, len(m))
-	for key, _ := range m {
+	for key := range m {
 		keys = append(keys, key)
 	}
 

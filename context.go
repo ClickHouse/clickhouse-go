@@ -31,7 +31,7 @@ var _contextOptionKey = &QueryOptions{
 	},
 }
 
-type Settings map[string]interface{}
+type Settings map[string]any
 type Parameters map[string]string
 type (
 	QueryOption  func(*QueryOptions) error

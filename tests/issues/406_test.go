@@ -52,16 +52,16 @@ func TestIssue406(t *testing.T) {
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO issue_406")
 	require.NoError(t, err)
 	require.NoError(t, batch.Append(
-		[]interface{}{
+		[]any{
 			[]int32{1, 2, 3, 4, 5},
 			[]int32{5, 1, 2, 3, 4},
 		},
 	))
 	require.NoError(t, batch.Send())
-	var col1 []interface{}
+	var col1 []any
 	require.NoError(t,
 		conn.QueryRow(ctx, "SELECT * FROM issue_406").Scan(&col1))
-	assert.Equal(t, []interface{}{
+	assert.Equal(t, []any{
 		[]int32{1, 2, 3, 4, 5},
 		[]int32{5, 1, 2, 3, 4},
 	}, col1)

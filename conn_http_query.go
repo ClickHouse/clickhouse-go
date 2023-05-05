@@ -27,7 +27,7 @@ import (
 )
 
 // release is ignored, because http used by std with empty release function
-func (h *httpConnect) query(ctx context.Context, release func(*connect, error), query string, args ...interface{}) (*rows, error) {
+func (h *httpConnect) query(ctx context.Context, release func(*connect, error), query string, args ...any) (*rows, error) {
 	options := queryOptions(ctx)
 	query, err := bindQueryOrAppendParameters(true, &options, query, h.location, args...)
 	if err != nil {

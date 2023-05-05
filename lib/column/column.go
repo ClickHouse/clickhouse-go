@@ -26,7 +26,7 @@ import (
 )
 
 // column names which match this must be escaped - see https://clickhouse.com/docs/en/sql-reference/syntax/#identifiers
-var escapeColRegex, _ = regexp.Compile("^[a-zA-Z_][0-9a-zA-Z_]*$")
+var escapeColRegex = regexp.MustCompile("^[a-zA-Z_][0-9a-zA-Z_]*$")
 
 // to escape and unescape special chars
 var colEscape = strings.NewReplacer("`", "\\`", "\\", "\\\\")
@@ -78,10 +78,10 @@ type Interface interface {
 	Name() string
 	Type() Type
 	Rows() int
-	Row(i int, ptr bool) interface{}
-	ScanRow(dest interface{}, row int) error
-	Append(v interface{}) (nulls []uint8, err error)
-	AppendRow(v interface{}) error
+	Row(i int, ptr bool) any
+	ScanRow(dest any, row int) error
+	Append(v any) (nulls []uint8, err error)
+	AppendRow(v any) error
 	Decode(reader *proto.Reader, rows int) error
 	Encode(buffer *proto.Buffer)
 	ScanType() reflect.Type

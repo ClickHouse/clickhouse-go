@@ -84,7 +84,7 @@ func insertWithFlush(t *testing.T, conn driver.Conn, flush bool) {
 			uuid.New(),
 			map[string]uint64{"key": uint64(i)}, // Map(String, UInt64)
 			[]string{RandAsciiString(1), RandAsciiString(1), RandAsciiString(1), RandAsciiString(1), RandAsciiString(1), RandAsciiString(1)}, // Array(String)
-			[]interface{}{ // Tuple(String, UInt64, Array(Map(String, UInt64)))
+			[]any{ // Tuple(String, UInt64, Array(Map(String, UInt64)))
 				RandAsciiString(10), uint64(i), []map[string]uint64{
 					{"key": uint64(i)},
 					{"key": uint64(i + 1)},

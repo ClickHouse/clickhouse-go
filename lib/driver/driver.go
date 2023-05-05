@@ -30,7 +30,7 @@ type ServerVersion = proto.ServerHandshake
 type (
 	NamedValue struct {
 		Name  string
-		Value interface{}
+		Value any
 	}
 
 	NamedDateValue struct {
@@ -51,11 +51,11 @@ type (
 	Conn interface {
 		Contributors() []string
 		ServerVersion() (*ServerVersion, error)
-		Select(ctx context.Context, dest interface{}, query string, args ...interface{}) error
-		Query(ctx context.Context, query string, args ...interface{}) (Rows, error)
-		QueryRow(ctx context.Context, query string, args ...interface{}) Row
+		Select(ctx context.Context, dest any, query string, args ...any) error
+		Query(ctx context.Context, query string, args ...any) (Rows, error)
+		QueryRow(ctx context.Context, query string, args ...any) Row
 		PrepareBatch(ctx context.Context, query string) (Batch, error)
-		Exec(ctx context.Context, query string, args ...interface{}) error
+		Exec(ctx context.Context, query string, args ...any) error
 		AsyncInsert(ctx context.Context, query string, wait bool) error
 		Ping(context.Context) error
 		Stats() Stats
@@ -63,31 +63,31 @@ type (
 	}
 	Row interface {
 		Err() error
-		Scan(dest ...interface{}) error
-		ScanStruct(dest interface{}) error
+		Scan(dest ...any) error
+		ScanStruct(dest any) error
 	}
 	Rows interface {
 		Next() bool
-		Scan(dest ...interface{}) error
-		ScanStruct(dest interface{}) error
+		Scan(dest ...any) error
+		ScanStruct(dest any) error
 		ColumnTypes() []ColumnType
-		Totals(dest ...interface{}) error
+		Totals(dest ...any) error
 		Columns() []string
 		Close() error
 		Err() error
 	}
 	Batch interface {
 		Abort() error
-		Append(v ...interface{}) error
-		AppendStruct(v interface{}) error
+		Append(v ...any) error
+		AppendStruct(v any) error
 		Column(int) BatchColumn
 		Flush() error
 		Send() error
 		IsSent() bool
 	}
 	BatchColumn interface {
-		Append(interface{}) error
-		AppendRow(interface{}) error
+		Append(any) error
+		AppendRow(any) error
 	}
 	ColumnType interface {
 		Name() string

@@ -50,7 +50,7 @@ func (col *MultiPolygon) Rows() int {
 	return col.set.Rows()
 }
 
-func (col *MultiPolygon) Row(i int, ptr bool) interface{} {
+func (col *MultiPolygon) Row(i int, ptr bool) any {
 	value := col.row(i)
 	if ptr {
 		return &value
@@ -58,7 +58,7 @@ func (col *MultiPolygon) Row(i int, ptr bool) interface{} {
 	return value
 }
 
-func (col *MultiPolygon) ScanRow(dest interface{}, row int) error {
+func (col *MultiPolygon) ScanRow(dest any, row int) error {
 	switch d := dest.(type) {
 	case *orb.MultiPolygon:
 		*d = col.row(row)
@@ -76,7 +76,7 @@ func (col *MultiPolygon) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (col *MultiPolygon) Append(v interface{}) (nulls []uint8, err error) {
+func (col *MultiPolygon) Append(v any) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []orb.MultiPolygon:
 		values := make([][]orb.Polygon, 0, len(v))
@@ -99,7 +99,7 @@ func (col *MultiPolygon) Append(v interface{}) (nulls []uint8, err error) {
 	}
 }
 
-func (col *MultiPolygon) AppendRow(v interface{}) error {
+func (col *MultiPolygon) AppendRow(v any) error {
 	switch v := v.(type) {
 	case orb.MultiPolygon:
 		return col.set.AppendRow([]orb.Polygon(v))

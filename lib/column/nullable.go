@@ -77,7 +77,7 @@ func (col *Nullable) Rows() int {
 	return col.nulls.Rows()
 }
 
-func (col *Nullable) Row(i int, ptr bool) interface{} {
+func (col *Nullable) Row(i int, ptr bool) any {
 	if col.enable {
 		if col.nulls.Row(i) == 1 {
 			return nil
@@ -86,7 +86,7 @@ func (col *Nullable) Row(i int, ptr bool) interface{} {
 	return col.base.Row(i, true)
 }
 
-func (col *Nullable) ScanRow(dest interface{}, row int) error {
+func (col *Nullable) ScanRow(dest any, row int) error {
 	if col.enable {
 		switch col.nulls.Row(row) {
 		case 1:
@@ -125,7 +125,7 @@ func (col *Nullable) ScanRow(dest interface{}, row int) error {
 	return col.base.ScanRow(dest, row)
 }
 
-func (col *Nullable) Append(v interface{}) ([]uint8, error) {
+func (col *Nullable) Append(v any) ([]uint8, error) {
 	nulls, err := col.base.Append(v)
 	if err != nil {
 		return nil, err
@@ -136,7 +136,7 @@ func (col *Nullable) Append(v interface{}) ([]uint8, error) {
 	return nulls, nil
 }
 
-func (col *Nullable) AppendRow(v interface{}) error {
+func (col *Nullable) AppendRow(v any) error {
 	// Might receive double pointers like **String, because of how Nullable columns are read
 	// Unpack because we can't write double pointers
 	rv := reflect.ValueOf(v)

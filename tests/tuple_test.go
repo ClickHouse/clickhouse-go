@@ -58,45 +58,45 @@ func TestTuple(t *testing.T) {
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_tuple")
 	require.NoError(t, err)
 	var (
-		col1Data = []interface{}{"A", int64(42)}
-		col2Data = []interface{}{"B", int8(1), localTime.Truncate(time.Second)}
-		col3Data = map[string]interface{}{
+		col1Data = []any{"A", int64(42)}
+		col2Data = []any{"B", int8(1), localTime.Truncate(time.Second)}
+		col3Data = map[string]any{
 			"name1": localTime.Truncate(time.Second),
 			"name2": "CH",
 			"name3": map[string]string{
 				"key": "value",
 			},
 		}
-		col4Data = [][][]interface{}{
-			[][]interface{}{
-				[]interface{}{"Hi", int64(42)},
+		col4Data = [][][]any{
+			[][]any{
+				[]any{"Hi", int64(42)},
 			},
 		}
-		col5Data = []interface{}{
+		col5Data = []any{
 			"LCString",
 			[]string{"A", "B", "C"},
 		}
 		str      = "LCString"
-		col6Data = []interface{}{
+		col6Data = []any{
 			&str,
 			[]*string{&str, nil, &str},
 		}
 		col8Val  = "G"
-		col7Data = &[]interface{}{"C", int64(42)}
-		col8Data = []interface{}{&col8Val, (*string)(nil)}
+		col7Data = &[]any{"C", int64(42)}
+		col8Data = []any{&col8Val, (*string)(nil)}
 	)
 	require.NoError(t, batch.Append(col1Data, col2Data, col3Data, col4Data, col5Data, col6Data, col7Data, col8Data))
 	require.NoError(t, batch.Send())
 	var (
-		col1 []interface{}
-		col2 []interface{}
+		col1 []any
+		col2 []any
 		// col3 is a named tuple - we can use map
-		col3 map[string]interface{}
-		col4 [][][]interface{}
-		col5 []interface{}
-		col6 []interface{}
-		col7 []interface{}
-		col8 []interface{}
+		col3 map[string]any
+		col4 [][][]any
+		col5 []any
+		col6 []any
+		col7 []any
+		col8 []any
 	)
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_tuple").Scan(&col1, &col2, &col3, &col4, &col5, &col6, &col7, &col8))
 	assert.NoError(t, err)
@@ -131,12 +131,12 @@ func TestNamedTupleWithSlice(t *testing.T) {
 	require.Error(t, batch.Append([]string{"A", "2"}))
 	batch, _ = conn.PrepareBatch(ctx, "INSERT INTO test_tuple")
 	var (
-		col1Data = []interface{}{"A", int64(42)}
+		col1Data = []any{"A", int64(42)}
 	)
 	require.NoError(t, batch.Append(col1Data))
 	require.NoError(t, batch.Send())
 	var (
-		col1 []interface{}
+		col1 []any
 	)
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_tuple").Scan(&col1))
 	assert.Equal(t, col1Data, col1)
@@ -196,11 +196,11 @@ func TestNamedTupleWithMap(t *testing.T) {
 	// this will fail - see TestNamedTupleWithTypedMap as tuple needs to be same type
 	require.Error(t, batch.Append(map[string]string{"name": "A", "id": "1"}))
 	batch, _ = conn.PrepareBatch(ctx, "INSERT INTO test_tuple")
-	col1Data := map[string]interface{}{"name": "A", "id": int64(1)}
+	col1Data := map[string]any{"name": "A", "id": int64(1)}
 	require.NoError(t, batch.Append(col1Data))
 	require.NoError(t, batch.Send())
 	var (
-		col1 map[string]interface{}
+		col1 map[string]any
 	)
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_tuple").Scan(&col1))
 	assert.Equal(t, col1Data, col1)
@@ -255,11 +255,11 @@ func TestNamedTupleWithEscapedColumns(t *testing.T) {
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_tuple")
 	require.NoError(t, err)
 	var (
-		col1Data = map[string]interface{}{"56": "A", "a22`": int64(1)}
+		col1Data = map[string]any{"56": "A", "a22`": int64(1)}
 	)
 	require.NoError(t, batch.Append(col1Data))
 	require.NoError(t, batch.Send())
-	var col1 map[string]interface{}
+	var col1 map[string]any
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_tuple").Scan(&col1))
 	assert.Equal(t, col1Data, col1)
 }
@@ -281,8 +281,8 @@ func TestNamedTupleIncomplete(t *testing.T) {
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_tuple")
 	require.NoError(t, err)
-	require.Error(t, batch.Append(map[string]interface{}{"name": "A"}))
-	require.Error(t, batch.Append([]interface{}{"Dale"}))
+	require.Error(t, batch.Append(map[string]any{"name": "A"}))
+	require.Error(t, batch.Append([]any{"Dale"}))
 }
 
 // unnamed tuples will not work with maps - keys cannot be attributed to fields
@@ -304,7 +304,7 @@ func TestUnNamedTupleWithMap(t *testing.T) {
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_tuple")
 	require.NoError(t, err)
 	var (
-		col1Data = map[string]interface{}{"name": "A", "id": int64(1)}
+		col1Data = map[string]any{"name": "A", "id": int64(1)}
 	)
 	// this will fail - maps can't be used for unnamed tuples
 	err = batch.Append(col1Data)
@@ -313,9 +313,9 @@ func TestUnNamedTupleWithMap(t *testing.T) {
 	// insert some data properly to test scan - can't reuse batch
 	batch, err = conn.PrepareBatch(ctx, "INSERT INTO test_tuple")
 	require.NoError(t, err)
-	require.NoError(t, batch.Append([]interface{}{"A", int64(42)}))
+	require.NoError(t, batch.Append([]any{"A", int64(42)}))
 	require.NoError(t, batch.Send())
-	var col1 map[string]interface{}
+	var col1 map[string]any
 	err = conn.QueryRow(ctx, "SELECT * FROM test_tuple").Scan(&col1)
 	require.Error(t, err)
 	require.Equal(t, "clickhouse [ScanRow]: (Col1) converting Tuple(String, Int64) to map[string]interface {} is unsupported. cannot use maps for unnamed tuples, use slice", err.Error())
@@ -346,26 +346,26 @@ func TestColumnarTuple(t *testing.T) {
 	require.NoError(t, err)
 	var (
 		id        []uint64
-		col1Data  = [][]interface{}{}
-		col2Data  = [][]interface{}{}
-		col3Data  = [][]interface{}{}
-		col4Data  = []*[]interface{}{}
+		col1Data  = [][]any{}
+		col2Data  = [][]any{}
+		col3Data  = [][]any{}
+		col4Data  = []*[]any{}
 		timestamp = time.Now().Truncate(time.Second)
 	)
 	for i := 0; i < 1000; i++ {
 		id = append(id, uint64(i))
-		col1Data = append(col1Data, []interface{}{
+		col1Data = append(col1Data, []any{
 			fmt.Sprintf("A_%d", i), int64(i),
 		})
-		col2Data = append(col2Data, []interface{}{
+		col2Data = append(col2Data, []any{
 			fmt.Sprintf("B_%d", i), int8(1), timestamp,
 		})
-		col3Data = append(col3Data, []interface{}{
+		col3Data = append(col3Data, []any{
 			timestamp, "CH", map[string]string{
 				"key": "value",
 			},
 		})
-		col4Data = append(col4Data, &[]interface{}{
+		col4Data = append(col4Data, &[]any{
 			fmt.Sprintf("C_%d", i), int64(i),
 		})
 	}
@@ -378,22 +378,22 @@ func TestColumnarTuple(t *testing.T) {
 	{
 		var (
 			id       uint64
-			col1     []interface{}
-			col2     []interface{}
-			col3     []interface{}
-			col4     []interface{}
-			col1Data = []interface{}{
+			col1     []any
+			col2     []any
+			col3     []any
+			col4     []any
+			col1Data = []any{
 				"A_542", int64(542),
 			}
-			col2Data = []interface{}{
+			col2Data = []any{
 				"B_542", int8(1), timestamp.In(time.UTC),
 			}
-			col3Data = []interface{}{
+			col3Data = []any{
 				timestamp.In(time.UTC), "CH", map[string]string{
 					"key": "value",
 				},
 			}
-			col4Data = &[]interface{}{
+			col4Data = &[]any{
 				"C_542", int64(542),
 			}
 		)
@@ -424,9 +424,9 @@ func TestTupleFlush(t *testing.T) {
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_tuple_flush")
 	require.NoError(t, err)
-	vals := [1000]map[string]interface{}{}
+	vals := [1000]map[string]any{}
 	for i := 0; i < 1000; i++ {
-		vals[i] = map[string]interface{}{
+		vals[i] = map[string]any{
 			"id":   int64(i),
 			"name": RandAsciiString(10),
 		}
@@ -438,7 +438,7 @@ func TestTupleFlush(t *testing.T) {
 	require.NoError(t, err)
 	i := 0
 	for rows.Next() {
-		var col1 map[string]interface{}
+		var col1 map[string]any
 		require.NoError(t, rows.Scan(&col1))
 		require.Equal(t, vals[i], col1)
 		i += 1

@@ -50,7 +50,7 @@ func (col *Polygon) Rows() int {
 	return col.set.Rows()
 }
 
-func (col *Polygon) Row(i int, ptr bool) interface{} {
+func (col *Polygon) Row(i int, ptr bool) any {
 	value := col.row(i)
 	if ptr {
 		return &value
@@ -58,7 +58,7 @@ func (col *Polygon) Row(i int, ptr bool) interface{} {
 	return value
 }
 
-func (col *Polygon) ScanRow(dest interface{}, row int) error {
+func (col *Polygon) ScanRow(dest any, row int) error {
 	switch d := dest.(type) {
 	case *orb.Polygon:
 		*d = col.row(row)
@@ -76,7 +76,7 @@ func (col *Polygon) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (col *Polygon) Append(v interface{}) (nulls []uint8, err error) {
+func (col *Polygon) Append(v any) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []orb.Polygon:
 		values := make([][]orb.Ring, 0, len(v))
@@ -99,7 +99,7 @@ func (col *Polygon) Append(v interface{}) (nulls []uint8, err error) {
 	}
 }
 
-func (col *Polygon) AppendRow(v interface{}) error {
+func (col *Polygon) AppendRow(v any) error {
 	switch v := v.(type) {
 	case orb.Polygon:
 		return col.set.AppendRow([]orb.Ring(v))

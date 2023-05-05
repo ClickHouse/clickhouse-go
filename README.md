@@ -73,7 +73,7 @@ Support for the ClickHouse protocol advanced features using `Context`:
 			return d.DialContext(ctx, "tcp", addr)
 		},
 		Debug: true,
-		Debugf: func(format string, v ...interface{}) {
+		Debugf: func(format string, v ...any) {
 			fmt.Printf(format, v)
 		},
 		Settings: clickhouse.Settings{

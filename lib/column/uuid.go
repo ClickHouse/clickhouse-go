@@ -51,7 +51,7 @@ func (col *UUID) Rows() int {
 	return col.col.Rows()
 }
 
-func (col *UUID) Row(i int, ptr bool) interface{} {
+func (col *UUID) Row(i int, ptr bool) any {
 	value := col.row(i)
 	if ptr {
 		return &value
@@ -59,7 +59,7 @@ func (col *UUID) Row(i int, ptr bool) interface{} {
 	return value
 }
 
-func (col *UUID) ScanRow(dest interface{}, row int) error {
+func (col *UUID) ScanRow(dest any, row int) error {
 	switch d := dest.(type) {
 	case *string:
 		*d = col.row(row).String()
@@ -85,7 +85,7 @@ func (col *UUID) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (col *UUID) Append(v interface{}) (nulls []uint8, err error) {
+func (col *UUID) Append(v any) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []string:
 		nulls = make([]uint8, len(v))
@@ -139,7 +139,7 @@ func (col *UUID) Append(v interface{}) (nulls []uint8, err error) {
 	return
 }
 
-func (col *UUID) AppendRow(v interface{}) error {
+func (col *UUID) AppendRow(v any) error {
 	switch v := v.(type) {
 	case string:
 		u, err := uuid.Parse(v)

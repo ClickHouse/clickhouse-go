@@ -56,7 +56,7 @@ func (col *Date32) Rows() int {
 	return col.col.Rows()
 }
 
-func (col *Date32) Row(i int, ptr bool) interface{} {
+func (col *Date32) Row(i int, ptr bool) any {
 	value := col.row(i)
 	if ptr {
 		return &value
@@ -64,7 +64,7 @@ func (col *Date32) Row(i int, ptr bool) interface{} {
 	return value
 }
 
-func (col *Date32) ScanRow(dest interface{}, row int) error {
+func (col *Date32) ScanRow(dest any, row int) error {
 	switch d := dest.(type) {
 	case *time.Time:
 		*d = col.row(row)
@@ -86,7 +86,7 @@ func (col *Date32) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (col *Date32) Append(v interface{}) (nulls []uint8, err error) {
+func (col *Date32) Append(v any) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []time.Time:
 		for _, t := range v {
@@ -155,7 +155,7 @@ func (col *Date32) Append(v interface{}) (nulls []uint8, err error) {
 	return
 }
 
-func (col *Date32) AppendRow(v interface{}) error {
+func (col *Date32) AppendRow(v any) error {
 	switch v := v.(type) {
 	case time.Time:
 		if err := dateOverflow(minDate32, maxDate32, v, "2006-01-02"); err != nil {

@@ -49,7 +49,7 @@ func TestIssue164(t *testing.T) {
 	require.NoError(t, err)
 	batch, err := scope.Prepare("INSERT INTO issue_164")
 	require.NoError(t, err)
-	stmtParams := make([]interface{}, 0)
+	stmtParams := make([]any, 0)
 	stmtParams = append(stmtParams, sql.NamedArg{Name: "id", Value: int32(10)})
 	stmtParams = append(stmtParams, sql.NamedArg{Name: "anything", Value: nil})
 	_, err = batch.ExecContext(context.Background(), stmtParams...)

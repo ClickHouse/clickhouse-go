@@ -64,7 +64,7 @@ type LowCardinality struct {
 
 	append struct {
 		keys  []int
-		index map[interface{}]int
+		index map[any]int
 	}
 	name string
 }
@@ -76,7 +76,7 @@ func (col *LowCardinality) Reset() {
 	col.keys16.Reset()
 	col.keys32.Reset()
 	col.keys64.Reset()
-	col.append.index = make(map[interface{}]int)
+	col.append.index = make(map[any]int)
 	col.append.keys = col.append.keys[:0]
 }
 
@@ -86,7 +86,7 @@ func (col *LowCardinality) Name() string {
 
 func (col *LowCardinality) parse(t Type, tz *time.Location) (_ *LowCardinality, err error) {
 	col.chType = t
-	col.append.index = make(map[interface{}]int)
+	col.append.index = make(map[any]int)
 	if col.index, err = Type(t.params()).Column(col.name, tz); err != nil {
 		return nil, err
 	}
@@ -108,7 +108,7 @@ func (col *LowCardinality) Rows() int {
 	return col.rows
 }
 
-func (col *LowCardinality) Row(i int, ptr bool) interface{} {
+func (col *LowCardinality) Row(i int, ptr bool) any {
 	idx := col.indexRowNum(i)
 	if idx == 0 && col.nullable {
 		return nil
@@ -116,7 +116,7 @@ func (col *LowCardinality) Row(i int, ptr bool) interface{} {
 	return col.index.Row(idx, ptr)
 }
 
-func (col *LowCardinality) ScanRow(dest interface{}, row int) error {
+func (col *LowCardinality) ScanRow(dest any, row int) error {
 	idx := col.indexRowNum(row)
 	if idx == 0 && col.nullable {
 		return nil
@@ -124,7 +124,7 @@ func (col *LowCardinality) ScanRow(dest interface{}, row int) error {
 	return col.index.ScanRow(dest, idx)
 }
 
-func (col *LowCardinality) Append(v interface{}) (nulls []uint8, err error) {
+func (col *LowCardinality) Append(v any) (nulls []uint8, err error) {
 	value := reflect.Indirect(reflect.ValueOf(v))
 	if value.Kind() != reflect.Slice {
 		return nil, &ColumnConverterError{
@@ -141,7 +141,7 @@ func (col *LowCardinality) Append(v interface{}) (nulls []uint8, err error) {
 	return
 }
 
-func (col *LowCardinality) AppendRow(v interface{}) error {
+func (col *LowCardinality) AppendRow(v any) error {
 	col.rows++
 	if col.index.Rows() == 0 { // init
 		if col.index.AppendRow(nil); col.nullable {

@@ -23,7 +23,7 @@ import (
 	"time"
 )
 
-func (c *connect) exec(ctx context.Context, query string, args ...interface{}) error {
+func (c *connect) exec(ctx context.Context, query string, args ...any) error {
 	var (
 		options                    = queryOptions(ctx)
 		queryParamsProtocolSupport = c.revision >= proto.DBMS_MIN_PROTOCOL_VERSION_WITH_PARAMETERS
