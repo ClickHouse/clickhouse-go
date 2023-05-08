@@ -196,6 +196,7 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 	u.RawQuery = query.Encode()
 
 	t := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
 		DialContext: (&net.Dialer{
 			Timeout:   opt.DialTimeout,
 			KeepAlive: opt.ConnMaxLifetime,
