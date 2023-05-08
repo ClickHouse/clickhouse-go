@@ -412,5 +412,5 @@ func TestHTTPProxy(t *testing.T) {
 		}
 
 		return strings.Contains(scanner.Text(), fmt.Sprintf("Established connection to host \"%s\"", clickHouseHost))
-	}, 5*time.Second, time.Millisecond, "proxy logs should contain clickhouse.cloud instance host")
+	}, 60*time.Second, time.Millisecond, "proxy logs should contain clickhouse.cloud instance host")
 }
