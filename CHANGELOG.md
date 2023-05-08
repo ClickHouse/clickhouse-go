@@ -1,3 +1,17 @@
+# v2.9.2, 2023-05-08 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Fixes 🐛
+* Pass http.ProxyFromEnvironment configuration to http.Transport by @slvrtrn in https://github.com/ClickHouse/clickhouse-go/pull/987
+### Other Changes 🛠
+* Use `any` instead of `interface{}` by @candiduslynx in https://github.com/ClickHouse/clickhouse-go/pull/984
+
+## New Contributors
+* @candiduslynx made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/984
+* @slvrtrn made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/987
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.9.1...v2.9.2
+
 # v2.9.1, 2023-04-24 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
