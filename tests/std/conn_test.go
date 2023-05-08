@@ -392,6 +392,11 @@ func TestHTTPProxy(t *testing.T) {
 		os.Unsetenv("HTTPS_PROXY")
 	}()
 
+	logs, err := proxyEnv.Container.Logs(context.Background())
+	require.NoError(t, err)
+	defer logs.Close()
+	scanner := bufio.NewScanner(logs)
+
 	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
 	require.NoError(t, err)
 	conn, err := GetStdDSNConnection(clickhouse.HTTP, useSSL, nil)
@@ -400,11 +405,6 @@ func TestHTTPProxy(t *testing.T) {
 	defer conn.Close()
 
 	require.NoError(t, conn.Ping())
-
-	logs, err := proxyEnv.Container.Logs(context.Background())
-	require.NoError(t, err)
-	scanner := bufio.NewScanner(logs)
-	defer logs.Close()
 
 	assert.Eventually(t, func() bool {
 		if !scanner.Scan() {
