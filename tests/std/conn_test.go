@@ -369,6 +369,8 @@ func TestEmptyDatabaseConfig(t *testing.T) {
 }
 
 func TestHTTPProxy(t *testing.T) {
+	t.Skip("test is flaky, tinyproxy container can't be started in CI")
+
 	// check if CLICKHOUSE_HOST env is postfixed with "clickhouse.cloud", skip if not
 	clickHouseHost := clickhouse_tests.GetEnv("CLICKHOUSE_HOST", "")
 	if !strings.HasSuffix(clickHouseHost, "clickhouse.cloud") {
