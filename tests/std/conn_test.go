@@ -18,11 +18,14 @@
 package std
 
 import (
+	"bufio"
 	"context"
 	"crypto/tls"
 	"database/sql"
 	"fmt"
+	"os"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -363,4 +366,51 @@ func TestEmptyDatabaseConfig(t *testing.T) {
 	// Tear down
 	_, err = setupConn.ExecContext(context.Background(), `CREATE DATABASE "default"`)
 	require.NoError(t, err)
+}
+
+func TestHTTPProxy(t *testing.T) {
+	// check if CLICKHOUSE_HOST env is postfixed with "clickhouse.cloud", skip if not
+	clickHouseHost := clickhouse_tests.GetEnv("CLICKHOUSE_HOST", "")
+	if !strings.HasSuffix(clickHouseHost, "clickhouse.cloud") {
+		t.Skip("Skip test in non cloud environment.")
+	}
+
+	proxyEnv, err := clickhouse_tests.CreateTinyProxyTestEnvironment(t)
+	defer func() {
+		if proxyEnv.Container != nil {
+			proxyEnv.Container.Terminate(context.Background())
+		}
+	}()
+	require.NoError(t, err)
+
+	proxyURL := proxyEnv.ProxyUrl(t)
+
+	os.Setenv("HTTP_PROXY", proxyURL)
+	os.Setenv("HTTPS_PROXY", proxyURL)
+	defer func() {
+		os.Unsetenv("HTTP_PROXY")
+		os.Unsetenv("HTTPS_PROXY")
+	}()
+
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	conn, err := GetStdDSNConnection(clickhouse.HTTP, useSSL, nil)
+
+	require.NoError(t, err)
+	defer conn.Close()
+
+	require.NoError(t, conn.Ping())
+
+	logs, err := proxyEnv.Container.Logs(context.Background())
+	require.NoError(t, err)
+	scanner := bufio.NewScanner(logs)
+	defer logs.Close()
+
+	assert.Eventually(t, func() bool {
+		if !scanner.Scan() {
+			return false
+		}
+
+		return strings.Contains(scanner.Text(), fmt.Sprintf("Established connection to host \"%s\"", clickHouseHost))
+	}, 5*time.Second, time.Millisecond, "proxy logs should contain clickhouse.cloud instance host")
 }
