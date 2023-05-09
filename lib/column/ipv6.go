@@ -70,27 +70,6 @@ func (col *IPv6) ScanRow(dest any, row int) error {
 	case **net.IP:
 		*d = new(net.IP)
 		**d = col.row(row)
-	case *[16]uint8:
-		v := col.row(row)
-		if len(v) < 16 {
-			return &ColumnConverterError{
-				Op:   "ScanRow",
-				To:   fmt.Sprintf("%T", dest),
-				From: "IPv6",
-			}
-		}
-		*d = IPv6ToBytes(v)
-	case **[16]uint8:
-		v := col.row(row)
-		if len(v) < 16 {
-			return &ColumnConverterError{
-				Op:   "ScanRow",
-				To:   fmt.Sprintf("%T", dest),
-				From: "IPv6",
-			}
-		}
-		*d = new([16]uint8)
-		**d = IPv6ToBytes(v)
 	default:
 		return &ColumnConverterError{
 			Op:   "ScanRow",
