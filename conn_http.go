@@ -477,14 +477,10 @@ func (h *httpConnect) prepareRequest(ctx context.Context, query string, options 
 	if options == nil || len(options.external) == 0 {
 		return h.createRequest(ctx, h.url.String(), strings.NewReader(query), options, headers)
 	}
-	requestUrl, payloadBytes, err := h.createRequestPayloadWithExternalTables(ctx, query, options, headers)
-	if err != nil {
-		return nil, err
-	}
-	return h.createRequest(ctx, requestUrl, bytes.NewReader(payloadBytes), options, headers)
+	return h.createRequestWithExternalTables(ctx, query, options, headers)
 }
 
-func (h *httpConnect) createRequestPayloadWithExternalTables(ctx context.Context, query string, options *QueryOptions, headers map[string]string) (string, []byte, error) {
+func (h *httpConnect) createRequestWithExternalTables(ctx context.Context, query string, options *QueryOptions, headers map[string]string) (*http.Request, error) {
 	payload := &bytes.Buffer{}
 	w := multipart.NewWriter(payload)
 	currentUrl := new(url.URL)
@@ -497,29 +493,29 @@ func (h *httpConnect) createRequestPayloadWithExternalTables(ctx context.Context
 		queryValues.Set(fmt.Sprintf("%v_structure", tableName), table.Structure())
 		partWriter, err := w.CreateFormFile(tableName, "")
 		if err != nil {
-			return "", nil, err
+			return nil, err
 		}
 		buf.Reset()
 		err = table.Block().Encode(buf, 0)
 		if err != nil {
-			return "", nil, err
+			return nil, err
 		}
 		_, err = partWriter.Write(buf.Buf)
 		if err != nil {
-			return "", nil, err
+			return nil, err
 		}
 	}
 	currentUrl.RawQuery = queryValues.Encode()
 	err := w.WriteField("query", query)
 	if err != nil {
-		return "", nil, err
+		return nil, err
 	}
 	err = w.Close()
 	if err != nil {
-		return "", nil, err
+		return nil, err
 	}
 	headers["Content-Type"] = w.FormDataContentType()
-	return currentUrl.String(), payload.Bytes(), nil
+	return h.createRequest(ctx, currentUrl.String(), bytes.NewReader(payload.Bytes()), options, headers)
 }
 
 func (h *httpConnect) executeRequest(req *http.Request) (*http.Response, error) {
