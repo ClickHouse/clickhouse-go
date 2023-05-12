@@ -131,18 +131,27 @@ type connect struct {
 }
 
 func (c *connect) settings(querySettings Settings) []proto.Setting {
+	settingToProtoSetting := func(k string, v any) proto.Setting {
+		isCustom := false
+		if cv, ok := v.(CustomSetting); ok {
+			v = cv.Value
+			isCustom = true
+		}
+
+		return proto.Setting{
+			Key:       k,
+			Value:     v,
+			Important: !isCustom,
+			Custom:    isCustom,
+		}
+	}
+
 	settings := make([]proto.Setting, 0, len(c.opt.Settings)+len(querySettings))
 	for k, v := range c.opt.Settings {
-		settings = append(settings, proto.Setting{
-			Key:   k,
-			Value: v,
-		})
+		settings = append(settings, settingToProtoSetting(k, v))
 	}
 	for k, v := range querySettings {
-		settings = append(settings, proto.Setting{
-			Key:   k,
-			Value: v,
-		})
+		settings = append(settings, settingToProtoSetting(k, v))
 	}
 	return settings
 }

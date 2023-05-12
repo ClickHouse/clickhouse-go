@@ -305,3 +305,44 @@ func TestEmptyDatabaseConfig(t *testing.T) {
 	err = anotherConn.Ping(context.Background())
 	require.NoError(t, err)
 }
+
+func TestCustomSettings(t *testing.T) {
+	runInDocker, _ := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_DOCKER", "true"))
+	if !runInDocker {
+		t.Skip("Skip test in cloud environment.") // todo configure cloud instance with custom settings
+	}
+
+	conn, err := GetNativeConnection(clickhouse.Settings{
+		"custom_setting": clickhouse.CustomSetting{"custom_value"},
+	}, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	require.NoError(t, err)
+
+	t.Run("get existing custom setting value", func(t *testing.T) {
+		row := conn.QueryRow(context.Background(), "SELECT getSetting('custom_setting')")
+		require.NoError(t, row.Err())
+
+		var setting string
+		require.NoError(t, row.Scan(&setting))
+		require.Equal(t, "custom_value", setting)
+	})
+
+	t.Run("get non-existing custom setting value", func(t *testing.T) {
+		row := conn.QueryRow(context.Background(), "SELECT getSetting('custom_non_existing_setting')")
+		require.ErrorContains(t, row.Err(), "Unknown setting custom_non_existing_setting")
+	})
+
+	t.Run("get custom setting value from query context", func(t *testing.T) {
+		ctx := clickhouse.Context(context.Background(), clickhouse.WithSettings(clickhouse.Settings{
+			"custom_query_setting": clickhouse.CustomSetting{"custom_query_value"},
+		}))
+
+		row := conn.QueryRow(ctx, "SELECT getSetting('custom_query_setting')")
+		require.NoError(t, row.Err())
+
+		var setting string
+		require.NoError(t, row.Scan(&setting))
+		require.Equal(t, "custom_query_value", setting)
+	})
+}

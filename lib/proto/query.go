@@ -142,9 +142,16 @@ func (q *Query) encodeClientInfo(buffer *chproto.Buffer, revision uint64) error 
 type Settings []Setting
 
 type Setting struct {
-	Key   string
-	Value any
+	Key       string
+	Value     any
+	Important bool
+	Custom    bool
 }
+
+const (
+	settingFlagImportant = 0x01
+	settingFlagCustom    = 0x02
+)
 
 func (s Settings) Encode(buffer *chproto.Buffer, revision uint64) error {
 	for _, s := range s {
@@ -172,8 +179,29 @@ func (s *Setting) encode(buffer *chproto.Buffer, revision uint64) error {
 		buffer.PutUVarInt(value)
 		return nil
 	}
-	buffer.PutBool(true) // is_important
-	buffer.PutString(fmt.Sprint(s.Value))
+
+	{
+		var flags uint64
+		if s.Important {
+			flags |= settingFlagImportant
+		}
+		if s.Custom {
+			flags |= settingFlagCustom
+		}
+		buffer.PutUVarInt(flags)
+	}
+
+	if s.Custom {
+		fieldDump, err := encodeFieldDump(s.Value)
+		if err != nil {
+			return err
+		}
+
+		buffer.PutString(fieldDump)
+	} else {
+		buffer.PutString(fmt.Sprint(s.Value))
+	}
+
 	return nil
 }
 
@@ -195,8 +223,26 @@ func (s Parameters) Encode(buffer *chproto.Buffer, revision uint64) error {
 
 func (s *Parameter) encode(buffer *chproto.Buffer, revision uint64) error {
 	buffer.PutString(s.Key)
-	buffer.PutUVarInt(uint64(0x02))
-	buffer.PutString(fmt.Sprintf("'%v'", strings.ReplaceAll(s.Value, "'", "\\'")))
+	buffer.PutUVarInt(uint64(settingFlagCustom))
+
+	fieldDump, err := encodeFieldDump(s.Value)
+	if err != nil {
+		return err
+	}
+
+	buffer.PutString(fieldDump)
 
 	return nil
+}
+
+// encodes a field dump with an appropriate type format
+// implements the same logic as in ClickHouse Field::restoreFromDump (https://github.com/ClickHouse/ClickHouse/blob/master/src/Core/Field.cpp#L312)
+// currently, only string type is supported
+func encodeFieldDump(value any) (string, error) {
+	switch v := value.(type) {
+	case string:
+		return fmt.Sprintf("'%v'", strings.ReplaceAll(v, "'", "\\'")), nil
+	}
+
+	return "", fmt.Errorf("unsupported field type %T", value)
 }
