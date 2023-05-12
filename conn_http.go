@@ -388,7 +388,7 @@ func (h *httpConnect) readData(ctx context.Context, reader *chproto.Reader) (*pr
 }
 
 func (h *httpConnect) sendStreamQuery(ctx context.Context, r io.Reader, options *QueryOptions, headers map[string]string) (*http.Response, error) {
-	req, err := h.createRequest(ctx, r, options, headers)
+	req, err := h.createRequest(ctx, h.url.String(), r, options, headers)
 	if err != nil {
 		return nil, err
 	}
@@ -441,8 +441,8 @@ func (h *httpConnect) readRawResponse(response *http.Response) (body []byte, err
 	return body, nil
 }
 
-func (h *httpConnect) createRequest(ctx context.Context, reader io.Reader, options *QueryOptions, headers map[string]string) (*http.Request, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, h.url.String(), reader)
+func (h *httpConnect) createRequest(ctx context.Context, requestUrl string, reader io.Reader, options *QueryOptions, headers map[string]string) (*http.Request, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, requestUrl, reader)
 	if err != nil {
 		return nil, err
 	}
@@ -475,19 +475,17 @@ func (h *httpConnect) createRequest(ctx context.Context, reader io.Reader, optio
 
 func (h *httpConnect) prepareRequest(ctx context.Context, query string, options *QueryOptions, headers map[string]string) (*http.Request, error) {
 	if options == nil || len(options.external) == 0 {
-		return h.createRequest(ctx, strings.NewReader(query), options, headers)
+		return h.createRequest(ctx, h.url.String(), strings.NewReader(query), options, headers)
 	}
-	payloadBytes, err := h.createRequestPayloadWithExternalTables(ctx, query, options, headers)
-	if err != nil {
-		return nil, err
-	}
-	return h.createRequest(ctx, bytes.NewReader(payloadBytes), options, headers)
+	return h.createRequestWithExternalTables(ctx, query, options, headers)
 }
 
-func (h *httpConnect) createRequestPayloadWithExternalTables(ctx context.Context, query string, options *QueryOptions, headers map[string]string) ([]byte, error) {
+func (h *httpConnect) createRequestWithExternalTables(ctx context.Context, query string, options *QueryOptions, headers map[string]string) (*http.Request, error) {
 	payload := &bytes.Buffer{}
 	w := multipart.NewWriter(payload)
-	queryValues := h.url.Query()
+	currentUrl := new(url.URL)
+	*currentUrl = *h.url
+	queryValues := currentUrl.Query()
 	buf := &chproto.Buffer{}
 	for _, table := range options.external {
 		tableName := table.Name()
@@ -507,7 +505,7 @@ func (h *httpConnect) createRequestPayloadWithExternalTables(ctx context.Context
 			return nil, err
 		}
 	}
-	h.url.RawQuery = queryValues.Encode()
+	currentUrl.RawQuery = queryValues.Encode()
 	err := w.WriteField("query", query)
 	if err != nil {
 		return nil, err
@@ -517,7 +515,7 @@ func (h *httpConnect) createRequestPayloadWithExternalTables(ctx context.Context
 		return nil, err
 	}
 	headers["Content-Type"] = w.FormDataContentType()
-	return payload.Bytes(), nil
+	return h.createRequest(ctx, currentUrl.String(), bytes.NewReader(payload.Bytes()), options, headers)
 }
 
 func (h *httpConnect) executeRequest(req *http.Request) (*http.Response, error) {
