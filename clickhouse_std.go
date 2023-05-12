@@ -40,11 +40,11 @@ var globalConnID int64
 type stdConnOpener struct {
 	err    error
 	opt    *Options
-	debugf func(format string, v ...interface{})
+	debugf func(format string, v ...any)
 }
 
 func (o *stdConnOpener) Driver() driver.Driver {
-	var debugf = func(format string, v ...interface{}) {}
+	var debugf = func(format string, v ...any) {}
 	if o.opt.Debug {
 		debugf = log.New(os.Stdout, fmt.Sprintf("[clickhouse-std] "), 0).Printf
 	}
@@ -86,7 +86,7 @@ func (o *stdConnOpener) Connect(ctx context.Context) (_ driver.Conn, err error) 
 			num = (int(connID) + i) % len(o.opt.Addr)
 		}
 		if conn, err = dialFunc(ctx, o.opt.Addr[num], connID, o.opt); err == nil {
-			var debugf = func(format string, v ...interface{}) {}
+			var debugf = func(format string, v ...any) {}
 			if o.opt.Debug {
 				debugf = log.New(os.Stdout, fmt.Sprintf("[clickhouse-std][conn=%d][%s] ", num, o.opt.Addr[num]), 0).Printf
 			}
@@ -103,7 +103,7 @@ func (o *stdConnOpener) Connect(ctx context.Context) (_ driver.Conn, err error) 
 }
 
 func init() {
-	var debugf = func(format string, v ...interface{}) {}
+	var debugf = func(format string, v ...any) {}
 	sql.Register("clickhouse", &stdDriver{debugf: debugf})
 }
 
@@ -123,7 +123,7 @@ func Connector(opt *Options) driver.Connector {
 
 	o := opt.setDefaults()
 
-	var debugf = func(format string, v ...interface{}) {}
+	var debugf = func(format string, v ...any) {}
 	if o.Debug {
 		debugf = log.New(os.Stdout, fmt.Sprintf("[clickhouse-std][opener] "), 0).Printf
 	}
@@ -134,7 +134,7 @@ func Connector(opt *Options) driver.Connector {
 }
 
 func OpenDB(opt *Options) *sql.DB {
-	var debugf = func(format string, v ...interface{}) {}
+	var debugf = func(format string, v ...any) {}
 	if opt == nil {
 		opt = &Options{}
 	}
@@ -167,8 +167,8 @@ func OpenDB(opt *Options) *sql.DB {
 type stdConnect interface {
 	isBad() bool
 	close() error
-	query(ctx context.Context, release func(*connect, error), query string, args ...interface{}) (*rows, error)
-	exec(ctx context.Context, query string, args ...interface{}) error
+	query(ctx context.Context, release func(*connect, error), query string, args ...any) (*rows, error)
+	exec(ctx context.Context, query string, args ...any) error
 	ping(ctx context.Context) (err error)
 	prepareBatch(ctx context.Context, query string, release func(*connect, error)) (ldriver.Batch, error)
 	asyncInsert(ctx context.Context, query string, wait bool) error
@@ -177,7 +177,7 @@ type stdConnect interface {
 type stdDriver struct {
 	conn   stdConnect
 	commit func() error
-	debugf func(format string, v ...interface{})
+	debugf func(format string, v ...any)
 }
 
 func (std *stdDriver) Open(dsn string) (_ driver.Conn, err error) {
@@ -187,7 +187,7 @@ func (std *stdDriver) Open(dsn string) (_ driver.Conn, err error) {
 		return nil, err
 	}
 	o := opt.setDefaults()
-	var debugf = func(format string, v ...interface{}) {}
+	var debugf = func(format string, v ...any) {}
 	if o.Debug {
 		debugf = log.New(os.Stdout, fmt.Sprintf("[clickhouse-std][opener] "), 0).Printf
 	}
@@ -277,6 +277,7 @@ func (std *stdDriver) PrepareContext(ctx context.Context, query string) (driver.
 	if err != nil {
 		if isConnBrokenError(err) {
 			std.debugf("PrepareContext got a fatal error, resetting connection: %v\n", err)
+			return nil, driver.ErrBadConn
 		}
 		std.debugf("PrepareContext error: %v\n", err)
 		return nil, err
@@ -302,12 +303,12 @@ func (std *stdDriver) Close() error {
 
 type stdBatch struct {
 	batch  ldriver.Batch
-	debugf func(format string, v ...interface{})
+	debugf func(format string, v ...any)
 }
 
 func (s *stdBatch) NumInput() int { return -1 }
 func (s *stdBatch) Exec(args []driver.Value) (driver.Result, error) {
-	values := make([]interface{}, 0, len(args))
+	values := make([]any, 0, len(args))
 	for _, v := range args {
 		values = append(values, v)
 	}
@@ -334,7 +335,7 @@ func (s *stdBatch) Close() error { return nil }
 
 type stdRows struct {
 	rows   *rows
-	debugf func(format string, v ...interface{})
+	debugf func(format string, v ...any)
 }
 
 func (r *stdRows) Columns() []string {

@@ -50,7 +50,7 @@ func (col *Point) Rows() int {
 	return col.col.Rows()
 }
 
-func (col *Point) Row(i int, ptr bool) interface{} {
+func (col *Point) Row(i int, ptr bool) any {
 	value := col.row(i)
 	if ptr {
 		return &value
@@ -58,7 +58,7 @@ func (col *Point) Row(i int, ptr bool) interface{} {
 	return value
 }
 
-func (col *Point) ScanRow(dest interface{}, row int) error {
+func (col *Point) ScanRow(dest any, row int) error {
 	switch d := dest.(type) {
 	case *orb.Point:
 		*d = col.row(row)
@@ -76,7 +76,7 @@ func (col *Point) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (col *Point) Append(v interface{}) (nulls []uint8, err error) {
+func (col *Point) Append(v any) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []orb.Point:
 		nulls = make([]uint8, len(v))
@@ -103,7 +103,7 @@ func (col *Point) Append(v interface{}) (nulls []uint8, err error) {
 	}
 	return
 }
-func (col *Point) AppendRow(v interface{}) error {
+func (col *Point) AppendRow(v any) error {
 	switch v := v.(type) {
 	case orb.Point:
 		col.col.Append(proto.Point{

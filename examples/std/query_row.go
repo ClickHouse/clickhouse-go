@@ -68,7 +68,7 @@ func QueryRow() error {
 			uuid.New(),
 			map[string]uint8{"key": uint8(i)},
 			[]string{strconv.Itoa(i), strconv.Itoa(i + 1), strconv.Itoa(i + 2), strconv.Itoa(i + 3), strconv.Itoa(i + 4), strconv.Itoa(i + 5)},
-			[]interface{}{
+			[]any{
 				strconv.Itoa(i), uint8(i), []map[string]string{
 					{"key": strconv.Itoa(i)},
 					{"key": strconv.Itoa(i + 1)},
@@ -89,7 +89,7 @@ func QueryRow() error {
 		col2, col3, col4 string
 		col5             map[string]uint8
 		col6             []string
-		col7             interface{}
+		col7             any
 		col8             time.Time
 	)
 	if err := row.Scan(&col1, &col2, &col3, &col4, &col5, &col6, &col7, &col8); err != nil {

@@ -128,7 +128,7 @@ func (b *httpBatch) Abort() error {
 	return nil
 }
 
-func (b *httpBatch) Append(v ...interface{}) error {
+func (b *httpBatch) Append(v ...any) error {
 	if b.sent {
 		return ErrBatchAlreadySent
 	}
@@ -138,7 +138,7 @@ func (b *httpBatch) Append(v ...interface{}) error {
 	return nil
 }
 
-func (b *httpBatch) AppendStruct(v interface{}) error {
+func (b *httpBatch) AppendStruct(v any) error {
 	values, err := b.structMap.Map("AppendStruct", b.block.ColumnsNames(), v, false)
 	if err != nil {
 		return err

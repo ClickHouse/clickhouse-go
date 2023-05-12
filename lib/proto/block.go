@@ -50,7 +50,7 @@ func (b *Block) AddColumn(name string, ct column.Type) error {
 	return nil
 }
 
-func (b *Block) Append(v ...interface{}) (err error) {
+func (b *Block) Append(v ...any) (err error) {
 	columns := b.Columns
 	if len(columns) != len(v) {
 		return &BlockError{

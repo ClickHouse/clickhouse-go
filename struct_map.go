@@ -27,7 +27,7 @@ type structMap struct {
 	cache sync.Map
 }
 
-func (m *structMap) Map(op string, columns []string, s interface{}, ptr bool) ([]interface{}, error) {
+func (m *structMap) Map(op string, columns []string, s any, ptr bool) ([]any, error) {
 	v := reflect.ValueOf(s)
 	if v.Kind() != reflect.Ptr {
 		return nil, &OpError{
@@ -54,7 +54,7 @@ func (m *structMap) Map(op string, columns []string, s interface{}, ptr bool) ([
 
 	var (
 		index  map[string][]int
-		values = make([]interface{}, 0, len(columns))
+		values = make([]any, 0, len(columns))
 	)
 
 	switch idx, found := m.cache.Load(t); {

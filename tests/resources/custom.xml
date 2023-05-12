@@ -32,4 +32,5 @@
         </client>
     </openSSL>
     <display_name>clickhouse</display_name>
+    <custom_settings_prefixes>custom_</custom_settings_prefixes>
 </clickhouse>

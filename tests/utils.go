@@ -30,6 +30,7 @@ import (
 	"github.com/docker/go-connections/nat"
 	"github.com/docker/go-units"
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 	"math/rand"
@@ -40,6 +41,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"testing"
 	"time"
 )
 
@@ -571,5 +573,43 @@ func CreateNginxReverseProxyTestEnvironment(clickhouseEnv ClickHouseTestEnvironm
 	return NginxReverseHTTPProxyTestEnvironment{
 		HttpPort:       p.Int(),
 		NginxContainer: nginxContainer,
+	}, nil
+}
+
+type TinyProxyTestEnvironment struct {
+	HttpPort  int
+	Container testcontainers.Container `json:"-"`
+}
+
+func (e TinyProxyTestEnvironment) ProxyUrl(t *testing.T) string {
+	require.NotNil(t, e.Container)
+
+	host, err := e.Container.Host(context.Background())
+	require.NoError(t, err)
+
+	return fmt.Sprintf("http://%s:%d", host, e.HttpPort)
+}
+
+func CreateTinyProxyTestEnvironment(t *testing.T) (TinyProxyTestEnvironment, error) {
+	ctx := context.Background()
+
+	req := testcontainers.ContainerRequest{
+		Image:        "monokal/tinyproxy",
+		Name:         fmt.Sprintf("tinyproxy-clickhouse-go-%d", time.Now().UnixNano()),
+		ExposedPorts: []string{"8888/tcp"},
+		WaitingFor:   wait.ForListeningPort("8888/tcp").WithStartupTimeout(time.Second * time.Duration(120)),
+		Cmd:          []string{"--enable-debug", "ANY"},
+	}
+
+	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: req,
+		Started:          true,
+	})
+	require.NoError(t, err)
+
+	p, _ := container.MappedPort(ctx, "8888")
+	return TinyProxyTestEnvironment{
+		HttpPort:  p.Int(),
+		Container: container,
 	}, nil
 }

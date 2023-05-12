@@ -53,7 +53,7 @@ func (col *BigInt) Rows() int {
 	return col.col.Rows()
 }
 
-func (col *BigInt) Row(i int, ptr bool) interface{} {
+func (col *BigInt) Row(i int, ptr bool) any {
 	value := col.row(i)
 	if ptr {
 		return value
@@ -61,7 +61,7 @@ func (col *BigInt) Row(i int, ptr bool) interface{} {
 	return *value
 }
 
-func (col *BigInt) ScanRow(dest interface{}, row int) error {
+func (col *BigInt) ScanRow(dest any, row int) error {
 	switch d := dest.(type) {
 	case *big.Int:
 		*d = *col.row(row)
@@ -78,7 +78,7 @@ func (col *BigInt) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (col *BigInt) Append(v interface{}) (nulls []uint8, err error) {
+func (col *BigInt) Append(v any) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []big.Int:
 		nulls = make([]uint8, len(v))
@@ -106,7 +106,7 @@ func (col *BigInt) Append(v interface{}) (nulls []uint8, err error) {
 	return
 }
 
-func (col *BigInt) AppendRow(v interface{}) error {
+func (col *BigInt) AppendRow(v any) error {
 	switch v := v.(type) {
 	case big.Int:
 		col.append(&v)

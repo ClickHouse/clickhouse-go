@@ -106,7 +106,7 @@ func (col *Array) Rows() int {
 	return 0
 }
 
-func (col *Array) Row(i int, ptr bool) interface{} {
+func (col *Array) Row(i int, ptr bool) any {
 	value, err := col.scan(col.ScanType(), i)
 	if err != nil {
 		fmt.Println(err)
@@ -114,7 +114,7 @@ func (col *Array) Row(i int, ptr bool) interface{} {
 	return value.Interface()
 }
 
-func (col *Array) Append(v interface{}) (nulls []uint8, err error) {
+func (col *Array) Append(v any) (nulls []uint8, err error) {
 	value := reflect.Indirect(reflect.ValueOf(v))
 	if value.Kind() != reflect.Slice {
 		return nil, &ColumnConverterError{
@@ -132,7 +132,7 @@ func (col *Array) Append(v interface{}) (nulls []uint8, err error) {
 	return
 }
 
-func (col *Array) AppendRow(v interface{}) error {
+func (col *Array) AppendRow(v any) error {
 	var elem reflect.Value
 	switch v := v.(type) {
 	case reflect.Value:
@@ -215,7 +215,7 @@ func (col *Array) WriteStatePrefix(buffer *proto.Buffer) error {
 	return nil
 }
 
-func (col *Array) ScanRow(dest interface{}, row int) error {
+func (col *Array) ScanRow(dest any, row int) error {
 	elem := reflect.Indirect(reflect.ValueOf(dest))
 	value, err := col.scan(elem.Type(), row)
 	if err != nil {
@@ -265,7 +265,7 @@ func (col *Array) scanSlice(sliceType reflect.Type, row int, level int) (reflect
 	default:
 		return reflect.Value{}, &Error{
 			ColumnType: fmt.Sprint(sliceType.Kind()),
-			Err:        fmt.Errorf("column %s - needs a slice or interface{}", col.Name()),
+			Err:        fmt.Errorf("column %s - needs a slice or any", col.Name()),
 		}
 	}
 
@@ -325,8 +325,8 @@ func (col *Array) scanSlice(sliceType reflect.Type, row int, level int) (reflect
 
 func (col *Array) scanSliceOfObjects(sliceType reflect.Type, row int) (reflect.Value, error) {
 	if sliceType.Kind() == reflect.Interface {
-		// catches interface{} - Note this swallows custom interfaces to which maps couldn't conform
-		subMap := make(map[string]interface{})
+		// catches any - Note this swallows custom interfaces to which maps couldn't conform
+		subMap := make(map[string]any)
 		return col.scanSliceOfMaps(reflect.SliceOf(reflect.TypeOf(subMap)), row)
 	} else if sliceType.Kind() == reflect.Slice {
 		// make a slice of the right type - we need this to be a slice of a type capable of taking an object as nested
@@ -339,19 +339,19 @@ func (col *Array) scanSliceOfObjects(sliceType reflect.Type, row int) (reflect.V
 			// tuples can be read as arrays
 			return col.scanSlice(sliceType, row, 0)
 		case reflect.Interface:
-			// catches []interface{} - Note this swallows custom interfaces to which maps could never conform
-			subMap := make(map[string]interface{})
+			// catches []any - Note this swallows custom interfaces to which maps could never conform
+			subMap := make(map[string]any)
 			return col.scanSliceOfMaps(reflect.SliceOf(reflect.TypeOf(subMap)), row)
 		default:
 			return reflect.Value{}, &Error{
 				ColumnType: fmt.Sprint(sliceType.Elem().Kind()),
-				Err:        fmt.Errorf("column %s - needs a slice of objects or an interface{}", col.Name()),
+				Err:        fmt.Errorf("column %s - needs a slice of objects or an any", col.Name()),
 			}
 		}
 	}
 	return reflect.Value{}, &Error{
 		ColumnType: fmt.Sprint(sliceType.Kind()),
-		Err:        fmt.Errorf("column %s - needs a slice or interface{}", col.Name()),
+		Err:        fmt.Errorf("column %s - needs a slice or any", col.Name()),
 	}
 }
 
@@ -360,7 +360,7 @@ func (col *Array) scanSliceOfMaps(sliceType reflect.Type, row int) (reflect.Valu
 	if sliceType.Kind() != reflect.Slice {
 		return reflect.Value{}, &ColumnConverterError{
 			Op:   "ScanRow",
-			To:   fmt.Sprintf("%s", sliceType),
+			To:   sliceType.String(),
 			From: string(col.Type()),
 		}
 	}
@@ -398,7 +398,7 @@ func (col *Array) scanSliceOfStructs(sliceType reflect.Type, row int) (reflect.V
 	if sliceType.Kind() != reflect.Slice {
 		return reflect.Value{}, &ColumnConverterError{
 			Op:   "ScanRow",
-			To:   fmt.Sprintf("%s", sliceType),
+			To:   sliceType.String(),
 			From: string(col.Type()),
 		}
 	}
@@ -419,7 +419,7 @@ func (col *Array) scanSliceOfStructs(sliceType reflect.Type, row int) (reflect.V
 		start = offset.values.col.Row(row - 1)
 	}
 	if end-start > 0 {
-		// create a slice of the type from the sliceType - if this might be interface{} as its driven by the target datastructure
+		// create a slice of the type from the sliceType - if this might be any as its driven by the target datastructure
 		rSlice := reflect.MakeSlice(sliceType, 0, int(end-start))
 		for i := start; i < end; i++ {
 			sStruct := reflect.New(sliceType.Elem()).Elem()

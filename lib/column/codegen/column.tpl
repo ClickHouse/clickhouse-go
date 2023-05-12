@@ -31,6 +31,7 @@ import (
 	"github.com/paulmach/orb"
 	"github.com/shopspring/decimal"
 	"database/sql"
+	"github.com/ClickHouse/ch-go/proto"
 )
 
 func (t Type) Column(name string, tz *time.Location) (Interface, error) {
@@ -182,8 +183,8 @@ var (
 		scanTypeTime    = reflect.TypeOf(time.Time{})
 		scanTypeRing    = reflect.TypeOf(orb.Ring{})
 		scanTypePoint   = reflect.TypeOf(orb.Point{})
-		scanTypeSlice   = reflect.TypeOf([]interface{}{})
-		scanTypeMap	    = reflect.TypeOf(map[string]interface{}{})
+		scanTypeSlice   = reflect.TypeOf([]any{})
+		scanTypeMap	    = reflect.TypeOf(map[string]any{})
 		scanTypeBigInt  = reflect.TypeOf(&big.Int{})
 		scanTypeString  = reflect.TypeOf("")
 		scanTypePolygon = reflect.TypeOf(orb.Polygon{})
@@ -213,7 +214,7 @@ func (col *{{ .ChType }}) Reset() {
     col.col.Reset()
 }
 
-func (col *{{ .ChType }}) ScanRow(dest interface{}, row int) error {
+func (col *{{ .ChType }}) ScanRow(dest any, row int) error {
 	value := col.col.Row(row)
 	switch d := dest.(type) {
 	case *{{ .GoType }}:
@@ -252,7 +253,7 @@ func (col *{{ .ChType }}) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (col *{{ .ChType }}) Row(i int, ptr bool) interface{} {
+func (col *{{ .ChType }}) Row(i int, ptr bool) any {
 	value := col.col.Row(i)
 	if ptr {
 		return &value
@@ -260,7 +261,7 @@ func (col *{{ .ChType }}) Row(i int, ptr bool) interface{} {
 	return value
 }
 
-func (col *{{ .ChType }}) Append(v interface{}) (nulls []uint8,err error) {
+func (col *{{ .ChType }}) Append(v any) (nulls []uint8,err error) {
 	switch v := v.(type) {
 	case []{{ .GoType }}:
 		nulls =  make([]uint8, len(v))
@@ -323,7 +324,7 @@ func (col *{{ .ChType }}) Append(v interface{}) (nulls []uint8,err error) {
 	return
 }
 
-func (col *{{ .ChType }}) AppendRow(v interface{}) error {
+func (col *{{ .ChType }}) AppendRow(v any) error {
 	switch v := v.(type) {
 	case {{ .GoType }}:
 		col.col.Append(v)

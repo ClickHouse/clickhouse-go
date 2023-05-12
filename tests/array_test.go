@@ -138,7 +138,7 @@ func TestInterfaceArray(t *testing.T) {
 	require.NoError(t, err)
 	for rows.Next() {
 		var (
-			col1 interface{}
+			col1 any
 		)
 		require.NoError(t, rows.Scan(&col1))
 		assert.ObjectsAreEqual(col1Data, col1)

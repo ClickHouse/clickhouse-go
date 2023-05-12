@@ -54,7 +54,7 @@ type Pool[T any] struct {
 
 func NewPool[T any](fn func() T) Pool[T] {
 	return Pool[T]{
-		pool: &sync.Pool{New: func() interface{} { return fn() }},
+		pool: &sync.Pool{New: func() any { return fn() }},
 	}
 }
 
@@ -189,6 +189,10 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 	}
 
 	for k, v := range opt.Settings {
+		if cv, ok := v.(CustomSetting); ok {
+			v = cv.Value
+		}
+
 		query.Set(k, fmt.Sprint(v))
 	}
 
@@ -196,6 +200,7 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 	u.RawQuery = query.Encode()
 
 	t := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
 		DialContext: (&net.Dialer{
 			Timeout:   opt.DialTimeout,
 			KeepAlive: opt.ConnMaxLifetime,
@@ -260,10 +265,7 @@ type httpConnect struct {
 }
 
 func (h *httpConnect) isBad() bool {
-	if h.client == nil {
-		return true
-	}
-	return false
+	return h.client == nil
 }
 
 func (h *httpConnect) readTimeZone(ctx context.Context) (*time.Location, error) {
@@ -272,16 +274,20 @@ func (h *httpConnect) readTimeZone(ctx context.Context) (*time.Location, error) 
 		return nil, err
 	}
 
-	for rows.Next() {
-		var serverLocation string
-		rows.Scan(&serverLocation)
-		location, err := time.LoadLocation(serverLocation)
-		if err != nil {
-			return nil, err
-		}
-		return location, nil
+	if !rows.Next() {
+		return nil, errors.New("unable to determine server timezone")
 	}
-	return nil, errors.New("unable to determine server timezone")
+
+	var serverLocation string
+	if err := rows.Scan(&serverLocation); err != nil {
+		return nil, err
+	}
+
+	location, err := time.LoadLocation(serverLocation)
+	if err != nil {
+		return nil, err
+	}
+	return location, nil
 }
 
 func (h *httpConnect) readVersion(ctx context.Context) (proto.Version, error) {
@@ -289,16 +295,17 @@ func (h *httpConnect) readVersion(ctx context.Context) (proto.Version, error) {
 	if err != nil {
 		return proto.Version{}, err
 	}
-	for rows.Next() {
-		var v string
-		rows.Scan(&v)
-		version, err := proto.ParseVersion(v)
-		if err != nil {
-			return proto.Version{}, err
-		}
-		return version, nil
+
+	if !rows.Next() {
+		return proto.Version{}, errors.New("unable to determine version")
 	}
-	return proto.Version{}, errors.New("unable to determine version")
+
+	var v string
+	if err := rows.Scan(&v); err != nil {
+		return proto.Version{}, err
+	}
+	version := proto.ParseVersion(v)
+	return version, nil
 }
 
 func createCompressionPool(compression *Compression) (Pool[HTTPReaderWriter], error) {
@@ -385,7 +392,7 @@ func (h *httpConnect) readData(ctx context.Context, reader *chproto.Reader) (*pr
 }
 
 func (h *httpConnect) sendStreamQuery(ctx context.Context, r io.Reader, options *QueryOptions, headers map[string]string) (*http.Response, error) {
-	req, err := h.createRequest(ctx, r, options, headers)
+	req, err := h.createRequest(ctx, h.url.String(), r, options, headers)
 	if err != nil {
 		return nil, err
 	}
@@ -438,8 +445,8 @@ func (h *httpConnect) readRawResponse(response *http.Response) (body []byte, err
 	return body, nil
 }
 
-func (h *httpConnect) createRequest(ctx context.Context, reader io.Reader, options *QueryOptions, headers map[string]string) (*http.Request, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, h.url.String(), reader)
+func (h *httpConnect) createRequest(ctx context.Context, requestUrl string, reader io.Reader, options *QueryOptions, headers map[string]string) (*http.Request, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, requestUrl, reader)
 	if err != nil {
 		return nil, err
 	}
@@ -460,6 +467,9 @@ func (h *httpConnect) createRequest(ctx context.Context, reader io.Reader, optio
 			if key == "default_format" {
 				continue
 			}
+			if cv, ok := value.(CustomSetting); ok {
+				value = cv.Value
+			}
 			query.Set(key, fmt.Sprint(value))
 		}
 		for key, value := range options.parameters {
@@ -472,19 +482,17 @@ func (h *httpConnect) createRequest(ctx context.Context, reader io.Reader, optio
 
 func (h *httpConnect) prepareRequest(ctx context.Context, query string, options *QueryOptions, headers map[string]string) (*http.Request, error) {
 	if options == nil || len(options.external) == 0 {
-		return h.createRequest(ctx, strings.NewReader(query), options, headers)
+		return h.createRequest(ctx, h.url.String(), strings.NewReader(query), options, headers)
 	}
-	payloadBytes, err := h.createRequestPayloadWithExternalTables(ctx, query, options, headers)
-	if err != nil {
-		return nil, err
-	}
-	return h.createRequest(ctx, bytes.NewReader(payloadBytes), options, headers)
+	return h.createRequestWithExternalTables(ctx, query, options, headers)
 }
 
-func (h *httpConnect) createRequestPayloadWithExternalTables(ctx context.Context, query string, options *QueryOptions, headers map[string]string) ([]byte, error) {
+func (h *httpConnect) createRequestWithExternalTables(ctx context.Context, query string, options *QueryOptions, headers map[string]string) (*http.Request, error) {
 	payload := &bytes.Buffer{}
 	w := multipart.NewWriter(payload)
-	queryValues := h.url.Query()
+	currentUrl := new(url.URL)
+	*currentUrl = *h.url
+	queryValues := currentUrl.Query()
 	buf := &chproto.Buffer{}
 	for _, table := range options.external {
 		tableName := table.Name()
@@ -504,7 +512,7 @@ func (h *httpConnect) createRequestPayloadWithExternalTables(ctx context.Context
 			return nil, err
 		}
 	}
-	h.url.RawQuery = queryValues.Encode()
+	currentUrl.RawQuery = queryValues.Encode()
 	err := w.WriteField("query", query)
 	if err != nil {
 		return nil, err
@@ -514,7 +522,7 @@ func (h *httpConnect) createRequestPayloadWithExternalTables(ctx context.Context
 		return nil, err
 	}
 	headers["Content-Type"] = w.FormDataContentType()
-	return payload.Bytes(), nil
+	return h.createRequest(ctx, currentUrl.String(), bytes.NewReader(payload.Bytes()), options, headers)
 }
 
 func (h *httpConnect) executeRequest(req *http.Request) (*http.Response, error) {

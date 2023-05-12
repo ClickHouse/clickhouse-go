@@ -32,7 +32,7 @@ type DatabaseFrame struct {
 	ColumnNames []string
 	rows        *sql.Rows
 	columnTypes []*sql.ColumnType
-	vars        []interface{}
+	vars        []any
 }
 
 func NewDatabaseFrame(name string, rows *sql.Rows) (DatabaseFrame, error) {
@@ -43,7 +43,7 @@ func NewDatabaseFrame(name string, rows *sql.Rows) (DatabaseFrame, error) {
 	}
 	databaseFrame.columnTypes = columnTypes
 	databaseFrame.name = name
-	vars := make([]interface{}, len(columnTypes), len(columnTypes))
+	vars := make([]any, len(columnTypes), len(columnTypes))
 	columnNames := make([]string, len(columnTypes), len(columnTypes))
 	for i := range columnTypes {
 		value := reflect.Zero(columnTypes[i].ScanType()).Interface()
@@ -56,8 +56,8 @@ func NewDatabaseFrame(name string, rows *sql.Rows) (DatabaseFrame, error) {
 	return databaseFrame, nil
 }
 
-func (f DatabaseFrame) Next() ([]interface{}, bool, error) {
-	values := make([]interface{}, len(f.columnTypes), len(f.columnTypes))
+func (f DatabaseFrame) Next() ([]any, bool, error) {
+	values := make([]any, len(f.columnTypes), len(f.columnTypes))
 	for f.rows.Next() {
 		if err := f.rows.Scan(f.vars...); err != nil {
 			return nil, false, err

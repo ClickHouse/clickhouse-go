@@ -1,3 +1,20 @@
+// Licensed to ClickHouse, Inc. under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. ClickHouse, Inc. licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package tests
 
 import (
@@ -77,7 +94,7 @@ func prepareBatch(t *testing.T, conn driver.Conn, ctx context.Context) driver.Ba
 	return batch
 }
 
-func toJson(obj interface{}) string {
+func toJson(obj any) string {
 	bytes, err := json.Marshal(obj)
 	if err != nil {
 		return "unable to marshal"
@@ -202,7 +219,7 @@ func TestJSONUUID(t *testing.T) {
 	require.NoError(t, batch.Append(row1))
 	require.NoError(t, batch.Append(row2))
 	require.NoError(t, batch.Send())
-	event := make(map[string]interface{})
+	event := make(map[string]any)
 	i := 0
 	rows, err := conn.Query(ctx, "SELECT * FROM json_test ORDER BY event.Row ASC")
 	defer rows.Close()
@@ -281,7 +298,7 @@ func TestMultipleJSONRows(t *testing.T) {
 
 func TestJSONStructWithInterface(t *testing.T) {
 	type Login struct {
-		Username interface{}
+		Username any
 	}
 	conn, teardown := setupTest(t)
 	defer teardown(t)
@@ -297,7 +314,7 @@ func TestJSONStructWithInterface(t *testing.T) {
 
 func TestJSONStructWithStructInterface(t *testing.T) {
 	type Login struct {
-		Username interface{}
+		Username any
 	}
 	conn, teardown := setupTest(t)
 	defer teardown(t)
@@ -313,26 +330,26 @@ func TestJSONStructWithStructInterface(t *testing.T) {
 
 func TestJSONSlicedInterfaceInconsistent(t *testing.T) {
 	type Login struct {
-		Random []interface{}
+		Random []any
 	}
 	conn, teardown := setupTest(t)
 	defer teardown(t)
 	ctx := context.Background()
 	batch := prepareBatch(t, conn, ctx)
-	event := Login{Random: []interface{}{"gingerwizard", int64(2222341)}}
+	event := Login{Random: []any{"gingerwizard", int64(2222341)}}
 	// Inconsistent slices not supported
 	require.Error(t, batch.Append(event))
 }
 
 func TestJSONSlicedInterface(t *testing.T) {
 	type Login struct {
-		Random []interface{}
+		Random []any
 	}
 	conn, teardown := setupTest(t)
 	defer teardown(t)
 	ctx := context.Background()
 	batch := prepareBatch(t, conn, ctx)
-	login := Login{Random: []interface{}{"gingerwizard", "geoff"}}
+	login := Login{Random: []any{"gingerwizard", "geoff"}}
 	require.NoError(t, batch.Append(login))
 	require.NoError(t, batch.Send())
 	var event Login
@@ -342,13 +359,13 @@ func TestJSONSlicedInterface(t *testing.T) {
 
 func TestJSONSlicedNilInterfaceStart(t *testing.T) {
 	type Login struct {
-		Random []interface{}
+		Random []any
 	}
 	conn, teardown := setupTest(t)
 	defer teardown(t)
 	ctx := context.Background()
 	batch := prepareBatch(t, conn, ctx)
-	login := Login{Random: []interface{}{nil, "gingerwizard", nil, "geoff"}}
+	login := Login{Random: []any{nil, "gingerwizard", nil, "geoff"}}
 	require.NoError(t, batch.Append(login))
 	require.NoError(t, batch.Send())
 	var event Login
@@ -358,14 +375,14 @@ func TestJSONSlicedNilInterfaceStart(t *testing.T) {
 
 func TestJSONSlicedAllNils(t *testing.T) {
 	type Login struct {
-		Random  []interface{}
+		Random  []any
 		SomeStr string
 	}
 	conn, _ := setupTest(t)
 	// defer teardown(t)
 	ctx := context.Background()
 	batch := prepareBatch(t, conn, ctx)
-	login := Login{Random: []interface{}{nil, nil, nil}, SomeStr: "Astring"}
+	login := Login{Random: []any{nil, nil, nil}, SomeStr: "Astring"}
 	require.NoError(t, batch.Append(login))
 	require.NoError(t, batch.Send())
 	var event Login
@@ -375,13 +392,13 @@ func TestJSONSlicedAllNils(t *testing.T) {
 
 func TestJSONSlicedInterfaceFloat(t *testing.T) {
 	type Login struct {
-		Random []interface{}
+		Random []any
 	}
 	conn, teardown := setupTest(t)
 	defer teardown(t)
 	ctx := context.Background()
 	batch := prepareBatch(t, conn, ctx)
-	login := Login{Random: []interface{}{1.1, 1.4}}
+	login := Login{Random: []any{1.1, 1.4}}
 	require.NoError(t, batch.Append(login))
 	require.NoError(t, batch.Send())
 	var event Login
@@ -391,14 +408,14 @@ func TestJSONSlicedInterfaceFloat(t *testing.T) {
 
 func TestJSONSlicedInterfaceInt(t *testing.T) {
 	type Login struct {
-		Random []interface{}
+		Random []any
 	}
 	conn, teardown := setupTest(t)
 	defer teardown(t)
 	ctx := context.Background()
 	batch := prepareBatch(t, conn, ctx)
 	//need int64
-	login := Login{Random: []interface{}{int64(1), int64(2)}}
+	login := Login{Random: []any{int64(1), int64(2)}}
 	require.NoError(t, batch.Append(login))
 	require.NoError(t, batch.Send())
 	var event Login
@@ -408,44 +425,44 @@ func TestJSONSlicedInterfaceInt(t *testing.T) {
 
 func TestJSONSlicedInterfaceMixed(t *testing.T) {
 	type Login struct {
-		Random []interface{}
+		Random []any
 	}
 	conn, teardown := setupTest(t)
 	defer teardown(t)
 	ctx := context.Background()
 	batch := prepareBatch(t, conn, ctx)
-	event := Login{Random: []interface{}{1, 2.3}}
+	event := Login{Random: []any{1, 2.3}}
 	// This will error - currently not permitted as float can't be converted to int - first value determines type
 	require.Error(t, batch.Append(event))
 }
 
 func TestJSONSlicedInterfaceMixedConvertable(t *testing.T) {
 	type Login struct {
-		Random []interface{}
+		Random []any
 	}
 	conn, teardown := setupTest(t)
 	defer teardown(t)
 	ctx := context.Background()
 	batch := prepareBatch(t, conn, ctx)
 	// this will not work - numbers currently not coerced to strings
-	event := Login{Random: []interface{}{"2.4", 2, 5.6}}
+	event := Login{Random: []any{"2.4", 2, 5.6}}
 	require.Error(t, batch.Append(event))
 }
 
 func TestJSONSlicedInterfaceMap(t *testing.T) {
 	type Login struct {
-		Values []interface{}
+		Values []any
 	}
 	conn, teardown := setupTest(t)
 	defer teardown(t)
 	ctx := context.Background()
 	batch := prepareBatch(t, conn, ctx)
 	event := Login{
-		Values: []interface{}{
-			map[string][]interface{}{
+		Values: []any{
+			map[string][]any{
 				"Random": {2.1, 2, 5.6},
 			},
-			map[string][]interface{}{
+			map[string][]any{
 				"Random": {2, 2},
 			},
 		},
@@ -455,15 +472,15 @@ func TestJSONSlicedInterfaceMap(t *testing.T) {
 
 func TestJSONSlicedInterfaceInconsistentMap(t *testing.T) {
 	type Login struct {
-		Values []interface{}
+		Values []any
 	}
 	conn, teardown := setupTest(t)
 	defer teardown(t)
 	ctx := context.Background()
 	batch := prepareBatch(t, conn, ctx)
 	event := Login{
-		Values: []interface{}{
-			map[string][]interface{}{
+		Values: []any{
+			map[string][]any{
 				"Random": {"2.4", 2, 5.6},
 			},
 			map[string][]int64{
@@ -476,20 +493,20 @@ func TestJSONSlicedInterfaceInconsistentMap(t *testing.T) {
 
 func TestJSONSlicedInterfaceConsistentMapStruct(t *testing.T) {
 	type Login struct {
-		Values []interface{}
+		Values []any
 	}
 	conn, teardown := setupTest(t)
 	defer teardown(t)
 	ctx := context.Background()
 	batch := prepareBatch(t, conn, ctx)
 	logins := Login{
-		Values: []interface{}{
+		Values: []any{
 			Login{
-				Values: []interface{}{
+				Values: []any{
 					"2.4", "2", "5.6",
 				},
 			},
-			map[string][]interface{}{
+			map[string][]any{
 				"Values": {"3", "1"},
 			},
 		},
@@ -497,27 +514,27 @@ func TestJSONSlicedInterfaceConsistentMapStruct(t *testing.T) {
 	// This will error - can't mix objects
 	require.NoError(t, batch.Append(logins))
 	require.NoError(t, batch.Send())
-	event := make(map[string]interface{})
+	event := make(map[string]any)
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event))
 	assert.JSONEq(t, toJson(event), toJson(logins))
 }
 
 func TestJSONSlicedInterfaceInConsistentMapStruct(t *testing.T) {
 	type Login struct {
-		Values []interface{}
+		Values []any
 	}
 	conn, teardown := setupTest(t)
 	defer teardown(t)
 	ctx := context.Background()
 	batch := prepareBatch(t, conn, ctx)
 	event := Login{
-		Values: []interface{}{
+		Values: []any{
 			Login{
-				Values: []interface{}{
+				Values: []any{
 					2.4, 2, 5.6,
 				},
 			},
-			map[string][]interface{}{
+			map[string][]any{
 				"Values": {3, int8(1)},
 			},
 		},
@@ -527,20 +544,20 @@ func TestJSONSlicedInterfaceInConsistentMapStruct(t *testing.T) {
 
 func TestJSONSlicedInterfaceCompatibleObjects(t *testing.T) {
 	type Login struct {
-		Values []interface{}
+		Values []any
 	}
 	conn, teardown := setupTest(t)
 	defer teardown(t)
 	ctx := context.Background()
 	batch := prepareBatch(t, conn, ctx)
 	logins := Login{
-		Values: []interface{}{
+		Values: []any{
 			Login{
-				Values: []interface{}{
+				Values: []any{
 					2.4, 2.1, 5.6,
 				},
 			},
-			map[string][]interface{}{
+			map[string][]any{
 				"Random": {int64(3), int64(65)},
 			},
 		},
@@ -548,29 +565,29 @@ func TestJSONSlicedInterfaceCompatibleObjects(t *testing.T) {
 	// types dont differ in dimensions
 	require.NoError(t, batch.Append(logins))
 	require.NoError(t, batch.Send())
-	event := make(map[string]interface{})
+	event := make(map[string]any)
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event))
 	assert.JSONEq(t, `{"Values":[{"Random":[],"Values":[2.4,2.1,5.6]},{"Random":[3,65],"Values":[]}]}`, toJson(event))
 }
 
 func TestJSONSlicedInterfaceInConsistentObjects(t *testing.T) {
 	type Login struct {
-		Values []interface{}
+		Values []any
 	}
 	conn, teardown := setupTest(t)
 	defer teardown(t)
 	ctx := context.Background()
 	batch := prepareBatch(t, conn, ctx)
 	logins := Login{
-		Values: []interface{}{
+		Values: []any{
 			Login{
-				Values: []interface{}{
+				Values: []any{
 					2.4, 2.1, 5.6,
 				},
 			},
-			map[string][]interface{}{
+			map[string][]any{
 				"Values": {
-					map[string]interface{}{
+					map[string]any{
 						"c": "d",
 					},
 				},
@@ -582,17 +599,17 @@ func TestJSONSlicedInterfaceInConsistentObjects(t *testing.T) {
 
 func TestJSONSlicedInterfaceInConsistentTypes(t *testing.T) {
 	type Login struct {
-		Values []interface{}
+		Values []any
 	}
 	conn, teardown := setupTest(t)
 	defer teardown(t)
 	ctx := context.Background()
 	batch := prepareBatch(t, conn, ctx)
 	logins := Login{
-		Values: []interface{}{
+		Values: []any{
 			Login{
-				Values: []interface{}{
-					2.4, map[string]interface{}{
+				Values: []any{
+					2.4, map[string]any{
 						"random": "will fail",
 					},
 				},
@@ -604,20 +621,20 @@ func TestJSONSlicedInterfaceInConsistentTypes(t *testing.T) {
 
 func TestJSONSlicedInterfaceStruct(t *testing.T) {
 	type Login struct {
-		Random []interface{}
+		Random []any
 	}
 	conn, teardown := setupTest(t)
 	defer teardown(t)
 	ctx := context.Background()
 	batch := prepareBatch(t, conn, ctx)
 	event := Login{
-		Random: []interface{}{
+		Random: []any{
 			Login{
-				Random: []interface{}{
+				Random: []any{
 					"2.4", 2, 5.6,
 				},
 			}, Login{
-				Random: []interface{}{
+				Random: []any{
 					"2.4", 1,
 				},
 			},
@@ -628,21 +645,21 @@ func TestJSONSlicedInterfaceStruct(t *testing.T) {
 
 func TestJSONSlicedInterfaceSlice(t *testing.T) {
 	type Login struct {
-		Random []interface{}
+		Random []any
 	}
 	conn, teardown := setupTest(t)
 	defer teardown(t)
 	ctx := context.Background()
 	batch := prepareBatch(t, conn, ctx)
 	logins := Login{
-		Random: []interface{}{
-			[]interface{}{"dale", "geoff"},
-			[]interface{}{"mike", "alexy"},
+		Random: []any{
+			[]any{"dale", "geoff"},
+			[]any{"mike", "alexy"},
 		},
 	}
 	require.NoError(t, batch.Append(logins))
 	require.NoError(t, batch.Send())
-	event := make(map[string]interface{})
+	event := make(map[string]any)
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event))
 	assert.JSONEq(t, toJson(event), toJson(logins))
 }
@@ -732,13 +749,13 @@ func TestJSONUnTypedMapInsert(t *testing.T) {
 	type Login struct {
 		IP      net.IP `json:"ip_address"`
 		Row     uint8
-		Details map[string]interface{}
+		Details map[string]any
 	}
-	logins := make(map[string]interface{})
+	logins := make(map[string]any)
 	logins["monday"] = Login{
 		IP:  net.ParseIP("85.242.48.167"),
 		Row: 0,
-		Details: map[string]interface{}{
+		Details: map[string]any{
 			"src_port":  int64(232323),
 			"dest_port": int64(9000),
 		},
@@ -849,14 +866,14 @@ func TestJSONMapInconsistentMapWithInterface(t *testing.T) {
 	type Login struct {
 		IP      net.IP `json:"ip_address"`
 		Row     uint8
-		Details []map[string]interface{}
+		Details []map[string]any
 	}
-	logins := make(map[string]map[string]interface{})
-	logins["session"] = make(map[string]interface{})
+	logins := make(map[string]map[string]any)
+	logins["session"] = make(map[string]any)
 	logins["session"]["user"] = []Login{{
 		IP:  net.ParseIP("85.242.48.167"),
 		Row: 0,
-		Details: []map[string]interface{}{
+		Details: []map[string]any{
 			{
 				"src_port":  uint64(232323),
 				"dest_port": uint64(9000),
@@ -916,15 +933,15 @@ func TestJSONMapInconsistentComplexMap(t *testing.T) {
 	type Login struct {
 		IP      string
 		Row     uint8
-		Details []map[string]interface{}
+		Details []map[string]any
 	}
 	batch := prepareBatch(t, conn, ctx)
-	logins := map[string][]map[string]interface{}{
+	logins := map[string][]map[string]any{
 		"server": {
 			{
 				"a": "b",
 				"l": []string{"z", "x"},
-				"y": [][]map[string]interface{}{
+				"y": [][]map[string]any{
 					{
 						{
 							"a": "b",
@@ -952,12 +969,12 @@ func TestJSONMapInconsistentComplexMap(t *testing.T) {
 			},
 			{
 				"b": []string{"c", "d"},
-				"c": []map[string]interface{}{
+				"c": []map[string]any{
 					{
 						"g": Login{
 							IP:  "11.242.48.167",
 							Row: 4,
-							Details: []map[string]interface{}{
+							Details: []map[string]any{
 								{
 									"src_port":  uint64(132323),
 									"dest_port": uint64(20000),
@@ -971,7 +988,7 @@ func TestJSONMapInconsistentComplexMap(t *testing.T) {
 						},
 					},
 				},
-				"p": [][]map[string]interface{}{
+				"p": [][]map[string]any{
 					{
 						{
 							"c": "d",
@@ -995,16 +1012,16 @@ func TestJSONMapInconsistentComplexMap(t *testing.T) {
 				},
 			},
 			{
-				"e": map[string]interface{}{
+				"e": map[string]any{
 					"f": "g",
-					"h": map[string]interface{}{
+					"h": map[string]any{
 						"i": "j",
 					},
 				},
 				"k": Login{
 					IP:  "85.242.48.167",
 					Row: 4,
-					Details: []map[string]interface{}{
+					Details: []map[string]any{
 						{
 							"src_port":  uint64(232323),
 							"dest_port": uint64(10000),
@@ -1024,7 +1041,7 @@ func TestJSONMapInconsistentComplexMap(t *testing.T) {
 				"g": Login{
 					IP:  "85.242.48.167",
 					Row: 4,
-					Details: []map[string]interface{}{
+					Details: []map[string]any{
 						{
 							"src_port":  uint64(232323),
 							"dest_port": uint64(9000),
@@ -1039,12 +1056,12 @@ func TestJSONMapInconsistentComplexMap(t *testing.T) {
 						},
 					},
 				},
-				"m": []map[string]interface{}{
+				"m": []map[string]any{
 					{
 						"g": Login{
 							IP:  "22.242.48.167",
 							Row: 4,
-							Details: []map[string]interface{}{
+							Details: []map[string]any{
 								{
 									"src_port":   uint64(132323),
 									"dest_port":  uint64(20000),
@@ -1063,7 +1080,7 @@ func TestJSONMapInconsistentComplexMap(t *testing.T) {
 	require.NoError(t, batch.Append(logins))
 	require.NoError(t, batch.Send())
 	// TODO: current issue with slices and slices at insert time
-	/*event := make(map[string]interface{})
+	/*event := make(map[string]any)
 	conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(event)
 	*/
 }
@@ -1163,7 +1180,7 @@ func TestJSONMapSimpleInconsistentRows(t *testing.T) {
 		Row uint8
 	}
 	batch := prepareBatch(t, conn, ctx)
-	row1 := map[string]map[string]interface{}{
+	row1 := map[string]map[string]any{
 		"i": {
 			"row": int64(0),
 		},
@@ -1180,7 +1197,7 @@ func TestJSONMapSimpleInconsistentRows(t *testing.T) {
 			},
 		},
 	}
-	row2 := map[string]map[string]interface{}{
+	row2 := map[string]map[string]any{
 		"i": {
 			"row": int64(1),
 		},
@@ -1214,7 +1231,7 @@ func TestJSONMapSimpleInconsistentRows(t *testing.T) {
 	require.NoError(t, batch.Append(row1))
 	require.NoError(t, batch.Append(row2))
 	require.NoError(t, batch.Send())
-	event := make(map[string]map[string]interface{})
+	event := make(map[string]map[string]any)
 	rows, err := conn.Query(ctx, "SELECT * FROM json_test ORDER BY event.i.row ASC")
 	defer rows.Close()
 	require.NoError(t, err)
@@ -1236,7 +1253,7 @@ func TestJSONMapInconsistentRowsOfSlices(t *testing.T) {
 	defer teardown(t)
 	ctx := context.Background()
 	batch := prepareBatch(t, conn, ctx)
-	row1 := map[string][]map[string]interface{}{
+	row1 := map[string][]map[string]any{
 		"i": {
 			{
 				"row": int64(0),
@@ -1253,7 +1270,7 @@ func TestJSONMapInconsistentRowsOfSlices(t *testing.T) {
 			},
 		},
 	}
-	row2 := map[string][]map[string]interface{}{
+	row2 := map[string][]map[string]any{
 		"i": {
 			{
 				"row": int64(1),
@@ -1285,7 +1302,7 @@ func TestJSONMapInconsistentRowsOfSlices(t *testing.T) {
 	defer rows.Close()
 	require.NoError(t, err)
 	i := 0
-	event := make(map[string][]map[string]interface{})
+	event := make(map[string][]map[string]any)
 	for rows.Next() {
 		require.NoError(t, rows.Scan(&event))
 		if i == 0 {
@@ -1311,7 +1328,7 @@ func TestJSONInconsistentStruct(t *testing.T) {
 	type l2 struct {
 		E []l3
 		G []string
-		M interface{}
+		M any
 	}
 
 	type l1 struct {
@@ -1319,7 +1336,7 @@ func TestJSONInconsistentStruct(t *testing.T) {
 		C l2
 		A l3
 		E l3
-		F interface{}
+		F any
 	}
 
 	s1 := l1{
@@ -1373,7 +1390,7 @@ func TestJSONMapInconsistentRows(t *testing.T) {
 	ctx := context.Background()
 	batch := prepareBatch(t, conn, ctx)
 
-	row1 := map[string]map[string]interface{}{
+	row1 := map[string]map[string]any{
 		"i": {
 			"row": int8(0),
 		},
@@ -1403,7 +1420,7 @@ func TestJSONMapInconsistentRows(t *testing.T) {
 		},
 	}
 
-	row2 := map[string]map[string]interface{}{
+	row2 := map[string]map[string]any{
 		"i": {
 			"row": int8(1),
 		},
@@ -1428,7 +1445,7 @@ func TestJSONMapInconsistentRows(t *testing.T) {
 		},
 	}
 
-	row3 := map[string]map[string]interface{}{
+	row3 := map[string]map[string]any{
 		"i": {
 			"row": int8(2),
 		},
@@ -1442,7 +1459,7 @@ func TestJSONMapInconsistentRows(t *testing.T) {
 	defer rows.Close()
 	require.NoError(t, err)
 	i := 0
-	event := make(map[string]map[string]interface{})
+	event := make(map[string]map[string]any)
 	for rows.Next() {
 		require.NoError(t, rows.Scan(&event))
 		switch i {
@@ -1479,18 +1496,18 @@ func TestJSONMapSliceOfSlices(t *testing.T) {
 	assert.JSONEq(t, toJson(row1), toJson(event))
 
 	//read into a generic map
-	genEvent := make(map[string]interface{})
+	genEvent := make(map[string]any)
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&genEvent))
 	assert.JSONEq(t, toJson(row1), toJson(genEvent))
 
-	//read into a slice of interface{}
-	genSliceEvent := make(map[string][]interface{})
+	//read into a slice of any
+	genSliceEvent := make(map[string][]any)
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&genSliceEvent))
 	assert.JSONEq(t, toJson(row1), toJson(genSliceEvent))
 
 	///read into a struct
 	type UUIDSets struct {
-		Uuids [][]interface{} `json:"uuids"`
+		Uuids [][]any `json:"uuids"`
 	}
 	var sEvent UUIDSets
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&sEvent))
@@ -1498,7 +1515,7 @@ func TestJSONMapSliceOfSlices(t *testing.T) {
 
 	//read in interface struct
 	type UUIDIntSet struct {
-		Uuids interface{} `json:"uuids"`
+		Uuids any `json:"uuids"`
 	}
 	var siEvent UUIDIntSet
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&siEvent))
@@ -1506,7 +1523,7 @@ func TestJSONMapSliceOfSlices(t *testing.T) {
 	//read in interface[] struct
 
 	type UUIDArraySet struct {
-		Uuids []interface{} `json:"uuids"`
+		Uuids []any `json:"uuids"`
 	}
 	var arEvent UUIDArraySet
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&arEvent))
@@ -1545,18 +1562,18 @@ func TestJSONMapSliceOfSlicesWithStruct(t *testing.T) {
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event))
 	assert.JSONEq(t, toJson(row1), toJson(event))
 
-	mEvent := make(map[string][][]map[string]interface{})
+	mEvent := make(map[string][][]map[string]any)
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&mEvent))
 	assert.JSONEq(t, toJson(row1), toJson(mEvent))
 
 }
 func TestJSONMapSliceOfSlicesWithMap(t *testing.T) {
-	//map[string][][]map[string]interface{}
+	//map[string][][]map[string]any
 	conn, teardown := setupTest(t)
 	defer teardown(t)
 	ctx := context.Background()
 	batch := prepareBatch(t, conn, ctx)
-	row1 := map[string][][]map[string]interface{}{
+	row1 := map[string][][]map[string]any{
 		"logins": {
 			{
 				{
@@ -1579,7 +1596,7 @@ func TestJSONMapSliceOfSlicesWithMap(t *testing.T) {
 	require.NoError(t, batch.Append(row1))
 	require.NoError(t, batch.Send())
 	//read into a typed map
-	event := make(map[string][][]map[string]interface{})
+	event := make(map[string][][]map[string]any)
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event))
 	assert.JSONEq(t, toJson(row1), toJson(event))
 	type Login struct {
@@ -1592,7 +1609,7 @@ func TestJSONMapSliceOfSlicesWithMap(t *testing.T) {
 }
 
 func TestMapSliceOfInterface(t *testing.T) {
-	///query with map[string][]interface{} on map[string][]map[string][]string
+	///query with map[string][]any on map[string][]map[string][]string
 	conn, teardown := setupTest(t)
 	defer teardown(t)
 	ctx := context.Background()
@@ -1607,13 +1624,13 @@ func TestMapSliceOfInterface(t *testing.T) {
 	}
 	require.NoError(t, batch.Append(row1))
 	require.NoError(t, batch.Send())
-	event := make(map[string][]interface{})
-	// currently this fails cannot set []map[string][]string into []interface{} - maybe we can handle in future
+	event := make(map[string][]any)
+	// currently this fails cannot set []map[string][]string into []any - maybe we can handle in future
 	require.Panics(t, func() { conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event) })
 }
 
 func TestStructSliceOfInterface(t *testing.T) {
-	///query with map[string][]interface{} on map[string][]struct
+	///query with map[string][]any on map[string][]struct
 	conn, teardown := setupTest(t)
 	defer teardown(t)
 	ctx := context.Background()
@@ -1646,8 +1663,8 @@ func TestStructSliceOfInterface(t *testing.T) {
 	}
 	require.NoError(t, batch.Append(row1))
 	require.NoError(t, batch.Send())
-	event := make(map[string][]interface{})
-	// currently this fails cannot set []map[string][]string into []interface{} - maybe we can handle in future
+	event := make(map[string][]any)
+	// currently this fails cannot set []map[string][]string into []any - maybe we can handle in future
 	require.Panics(t, func() { conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event) })
 }
 
@@ -1657,13 +1674,13 @@ func TestStructSliceInInterface(t *testing.T) {
 	defer teardown(t)
 	ctx := context.Background()
 	type Junk struct {
-		Data interface{}
+		Data any
 	}
 	row1 := Junk{Data: []string{"some", "junk", "rows"}}
 	batch := prepareBatch(t, conn, ctx)
 	require.NoError(t, batch.Append(row1))
 	require.NoError(t, batch.Send())
-	event := make(map[string][]interface{})
+	event := make(map[string][]any)
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event))
 	assert.JSONEq(t, toJson(row1), toJson(event))
 }
@@ -1675,14 +1692,14 @@ func TestInsertMarshaledJSON(t *testing.T) {
 	batch := prepareBatch(t, conn, ctx)
 	row1s := `{"a":{"d":"test"},"c":{"e":"test"},"i":{"row":0},"k":{"h":{"IP":"127.0.0.1","Row":0}}}`
 	row2s := `{"a":{"d":"test"},"d":{"e":"test"},"g":{"h":{"IP":"127.0.0.1","Row":0}},"i":{"row":1},"z":{"c":2.0}}`
-	row1 := make(map[string]interface{})
-	row2 := make(map[string]interface{})
+	row1 := make(map[string]any)
+	row2 := make(map[string]any)
 	require.NoError(t, json.Unmarshal([]byte(row1s), &row1))
 	require.NoError(t, json.Unmarshal([]byte(row2s), &row2))
 	require.NoError(t, batch.Append(row1))
 	require.NoError(t, batch.Append(row2))
 	require.NoError(t, batch.Send())
-	event := make(map[string]map[string]interface{})
+	event := make(map[string]map[string]any)
 	rows, err := conn.Query(ctx, "SELECT * FROM json_test ORDER BY event.i.row ASC")
 	require.NoError(t, err)
 	i := 0
@@ -1720,7 +1737,7 @@ func TestJSONEmbeddedStruct(t *testing.T) {
 	}
 	require.NoError(t, batch.Append(row1))
 	require.NoError(t, batch.Send())
-	event := make(map[string]interface{})
+	event := make(map[string]any)
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event))
 	assert.JSONEq(t, toJson(row1), toJson(row1))
 
@@ -1922,28 +1939,28 @@ func TestJSONNilMapFields(t *testing.T) {
 	defer teardown(t)
 	ctx := context.Background()
 	batch := prepareBatch(t, conn, ctx)
-	row1 := map[string]interface{}{
+	row1 := map[string]any{
 		"title": "Document JSON support",
 		"type":  "Issue",
-		"assignee": map[string]interface{}{
+		"assignee": map[string]any{
 			"id":            int16(1233),
 			"name":          "Dale",
 			"repositories":  nil,
 			"organizations": []string{},
 		},
 		"labels": []string{},
-		"contributors": []map[string]interface{}{
-			{"Id": int16(2244), "Name": "Dale", "orgs": []string{"Support Engineer", "Consulting", "PM", "Integrations"}, "Repositories": []map[string]interface{}{{"url": "https://github.com/ClickHouse/clickhouse-go", "Releases": []map[string]interface{}{{"Version": "2.0.0"}, {"Version": "2.1.0"}}}, {"url": "https://github.com/grafana/clickhouse"}}},
+		"contributors": []map[string]any{
+			{"Id": int16(2244), "Name": "Dale", "orgs": []string{"Support Engineer", "Consulting", "PM", "Integrations"}, "Repositories": []map[string]any{{"url": "https://github.com/ClickHouse/clickhouse-go", "Releases": []map[string]any{{"Version": "2.0.0"}, {"Version": "2.1.0"}}}, {"url": "https://github.com/grafana/clickhouse"}}},
 		},
 	}
-	row2 := map[string]interface{}{
+	row2 := map[string]any{
 		"title": "Document JSON issues",
 		"type":  "Issue",
-		"assignee": map[string]interface{}{
+		"assignee": map[string]any{
 			"id":   int16(1244),
 			"name": "Geoff",
-			"repositories": []map[string]interface{}{
-				{"url": "https://github.com/ClickHouse/clickhouse-python", "Releases": []map[string]interface{}{{"Version": "2.0.0"}, {"Version": "2.1.0"}}},
+			"repositories": []map[string]any{
+				{"url": "https://github.com/ClickHouse/clickhouse-python", "Releases": []map[string]any{{"Version": "2.0.0"}, {"Version": "2.1.0"}}},
 				{"url": "https://github.com/ClickHouse/clickhouse-go"},
 			},
 			"organizations": []string{"Support Engineer", "Integrations"},
@@ -1957,7 +1974,7 @@ func TestJSONNilMapFields(t *testing.T) {
 	require.NoError(t, batch.Send())
 	rows, err := conn.Query(ctx, "SELECT * FROM json_test ORDER BY event.assignee.id ASC")
 	require.NoError(t, err)
-	event := make(map[string]interface{})
+	event := make(map[string]any)
 	i := 0
 	for rows.Next() {
 		require.NoError(t, rows.Scan(&event))
@@ -2000,13 +2017,13 @@ func TestJSONManyColumns(t *testing.T) {
 
 func TestIPInInterfaceSlice(t *testing.T) {
 	type Login struct {
-		IPs []interface{}
+		IPs []any
 	}
 	conn, teardown := setupTest(t)
 	defer teardown(t)
 	ctx := context.Background()
 	batch := prepareBatch(t, conn, ctx)
-	login := Login{IPs: []interface{}{net.ParseIP("134.1.1.1"), net.ParseIP("127.0.0.1"), "127.0.0.2"}}
+	login := Login{IPs: []any{net.ParseIP("134.1.1.1"), net.ParseIP("127.0.0.1"), "127.0.0.2"}}
 	require.NoError(t, batch.Append(login))
 	require.NoError(t, batch.Send())
 	var event Login
@@ -2016,13 +2033,13 @@ func TestIPInInterfaceSlice(t *testing.T) {
 
 func TestNilStringInInterfaceSlice(t *testing.T) {
 	type Login struct {
-		IPs []interface{}
+		IPs []any
 	}
 	conn, teardown := setupTest(t)
 	defer teardown(t)
 	ctx := context.Background()
 	batch := prepareBatch(t, conn, ctx)
-	login := Login{IPs: []interface{}{"dale", "geoff", nil}}
+	login := Login{IPs: []any{"dale", "geoff", nil}}
 	require.NoError(t, batch.Append(login))
 	require.NoError(t, batch.Send())
 	var event Login
@@ -2032,13 +2049,13 @@ func TestNilStringInInterfaceSlice(t *testing.T) {
 
 func TestNilInNumericInterfaceSlice(t *testing.T) {
 	type Login struct {
-		IPs []interface{}
+		IPs []any
 	}
 	conn, teardown := setupTest(t)
 	defer teardown(t)
 	ctx := context.Background()
 	batch := prepareBatch(t, conn, ctx)
-	login := Login{IPs: []interface{}{int64(1), int64(2), nil}}
+	login := Login{IPs: []any{int64(1), int64(2), nil}}
 	require.NoError(t, batch.Append(login))
 	require.NoError(t, batch.Send())
 	var event Login
@@ -2051,10 +2068,10 @@ func TestJSONNonStringMap(t *testing.T) {
 	defer teardown(t)
 	ctx := context.Background()
 	batch := prepareBatch(t, conn, ctx)
-	row1 := map[string]interface{}{
+	row1 := map[string]any{
 		"title": "Document JSON support",
 		"type":  "Issue",
-		"assignee": map[int]interface{}{
+		"assignee": map[int]any{
 			1: "this is not permitted",
 		},
 	}
@@ -2066,24 +2083,24 @@ func TestInconsistentCompatibleTypesInBatch(t *testing.T) {
 	defer teardown(t)
 	ctx := context.Background()
 	batch := prepareBatch(t, conn, ctx)
-	row1 := map[string]interface{}{
+	row1 := map[string]any{
 		"title": "Document JSON support",
 		"type":  "Issue",
-		"assignee": map[string]interface{}{
+		"assignee": map[string]any{
 			"id":            int16(0),
 			"name":          "Dale",
 			"repositories":  nil,
 			"organizations": []string{},
 		},
 		"labels": []string{},
-		"contributors": []map[string]interface{}{
-			{"Id": int16(2244), "Name": "Dale", "orgs": []string{"Support Engineer", "Consulting", "PM", "Integrations"}, "Repositories": []map[string]interface{}{{"url": "https://github.com/ClickHouse/clickhouse-go", "Releases": []map[string]interface{}{{"Version": "2.0.0"}, {"Version": "2.1.0"}}}, {"url": "https://github.com/grafana/clickhouse"}}},
+		"contributors": []map[string]any{
+			{"Id": int16(2244), "Name": "Dale", "orgs": []string{"Support Engineer", "Consulting", "PM", "Integrations"}, "Repositories": []map[string]any{{"url": "https://github.com/ClickHouse/clickhouse-go", "Releases": []map[string]any{{"Version": "2.0.0"}, {"Version": "2.1.0"}}}, {"url": "https://github.com/grafana/clickhouse"}}},
 		},
 	}
-	row2 := map[string]interface{}{
+	row2 := map[string]any{
 		"title": "Document JSON issues",
 		"type":  "Issue",
-		"assignee": map[string]interface{}{
+		"assignee": map[string]any{
 			"id":   int16(1),
 			"name": "Geoff",
 			"repositories": []Repository{
@@ -2099,7 +2116,7 @@ func TestInconsistentCompatibleTypesInBatch(t *testing.T) {
 	require.NoError(t, batch.Send())
 	rows, err := conn.Query(ctx, "SELECT * FROM json_test ORDER BY event.assignee.id ASC")
 	require.NoError(t, err)
-	event := make(map[string]interface{})
+	event := make(map[string]any)
 	i := 0
 	for rows.Next() {
 		require.NoError(t, rows.Scan(&event))
@@ -2118,10 +2135,10 @@ func TestInconsistentInCompatibleTypesInBatch(t *testing.T) {
 	defer teardown(t)
 	ctx := context.Background()
 	batch := prepareBatch(t, conn, ctx)
-	row1 := map[string]interface{}{
+	row1 := map[string]any{
 		"title": "Document JSON support",
 		"type":  "Issue",
-		"assignee": map[string]interface{}{
+		"assignee": map[string]any{
 			"id":   int16(0),
 			"name": "Dale",
 			"repositories": []Repository{
@@ -2131,14 +2148,14 @@ func TestInconsistentInCompatibleTypesInBatch(t *testing.T) {
 			"organizations": []string{},
 		},
 		"labels": []string{},
-		"contributors": []map[string]interface{}{
-			{"Id": int16(2244), "Name": "Dale", "orgs": []string{"Support Engineer", "Consulting", "PM", "Integrations"}, "Repositories": []map[string]interface{}{{"url": "https://github.com/ClickHouse/clickhouse-go", "Releases": []map[string]interface{}{{"Version": "2.0.0"}, {"Version": "2.1.0"}}}, {"url": "https://github.com/grafana/clickhouse"}}},
+		"contributors": []map[string]any{
+			{"Id": int16(2244), "Name": "Dale", "orgs": []string{"Support Engineer", "Consulting", "PM", "Integrations"}, "Repositories": []map[string]any{{"url": "https://github.com/ClickHouse/clickhouse-go", "Releases": []map[string]any{{"Version": "2.0.0"}, {"Version": "2.1.0"}}}, {"url": "https://github.com/grafana/clickhouse"}}},
 		},
 	}
-	row2 := map[string]interface{}{
+	row2 := map[string]any{
 		"title": "Document JSON issues",
 		"type":  "Issue",
-		"assignee": map[string]interface{}{
+		"assignee": map[string]any{
 			"id":            int16(1),
 			"name":          "Geoff",
 			"repositories":  []string{"https://github.com/ClickHouse/clickhouse-python", "https://github.com/ClickHouse/clickhouse-go"},
@@ -2155,14 +2172,14 @@ func TestCastableTypesOnQuery(t *testing.T) {
 	defer teardown(t)
 	ctx := context.Background()
 	batch := prepareBatch(t, conn, ctx)
-	row1 := map[string]interface{}{
+	row1 := map[string]any{
 		"title": "Document JSON support",
 		"type":  "Issue",
-		"assignee": map[string]interface{}{
+		"assignee": map[string]any{
 			"id":           int16(0),
 			"name":         "Dale",
 			"orgs":         []string{"clickhouse"},
-			"repositories": []map[string]interface{}{{"url": "https://github.com/ClickHouse/clickhouse-go", "Releases": []map[string]interface{}{{"Version": "2.0.0"}, {"Version": "2.1.0"}}}, {"url": "https://github.com/grafana/clickhouse"}},
+			"repositories": []map[string]any{{"url": "https://github.com/ClickHouse/clickhouse-go", "Releases": []map[string]any{{"Version": "2.0.0"}, {"Version": "2.1.0"}}}, {"url": "https://github.com/grafana/clickhouse"}},
 		},
 	}
 	require.NoError(t, batch.Append(row1))
@@ -2189,14 +2206,14 @@ func TestIncompatibleTypesOnQuery(t *testing.T) {
 	defer teardown(t)
 	ctx := context.Background()
 	batch := prepareBatch(t, conn, ctx)
-	row1 := map[string]interface{}{
+	row1 := map[string]any{
 		"title": "Document JSON support",
 		"type":  "Issue",
-		"assignee": map[string]interface{}{
+		"assignee": map[string]any{
 			"id":           int16(0),
 			"name":         "Dale",
 			"orgs":         []string{"clickhouse"},
-			"repositories": []map[string]interface{}{{"url": "https://github.com/ClickHouse/clickhouse-go", "Releases": []map[string]interface{}{{"Version": "2.0.0"}, {"Version": "2.1.0"}}}, {"url": "https://github.com/grafana/clickhouse"}},
+			"repositories": []map[string]any{{"url": "https://github.com/ClickHouse/clickhouse-go", "Releases": []map[string]any{{"Version": "2.0.0"}, {"Version": "2.1.0"}}}, {"url": "https://github.com/grafana/clickhouse"}},
 		},
 	}
 	require.NoError(t, batch.Append(row1))
@@ -2222,14 +2239,14 @@ func TestInconsistentStructsOnQuery(t *testing.T) {
 	defer teardown(t)
 	ctx := context.Background()
 	batch := prepareBatch(t, conn, ctx)
-	row1 := map[string]interface{}{
+	row1 := map[string]any{
 		"title": "Document JSON support",
 		"type":  "Issue",
-		"assignee": map[string]interface{}{
+		"assignee": map[string]any{
 			"id":           int16(0),
 			"name":         "Dale",
 			"orgs":         []string{"clickhouse"},
-			"repositories": []map[string]interface{}{{"url": "https://github.com/ClickHouse/clickhouse-go", "Releases": []map[string]interface{}{{"Version": "2.0.0"}, {"Version": "2.1.0"}}}, {"url": "https://github.com/grafana/clickhouse"}},
+			"repositories": []map[string]any{{"url": "https://github.com/ClickHouse/clickhouse-go", "Releases": []map[string]any{{"Version": "2.0.0"}, {"Version": "2.1.0"}}}, {"url": "https://github.com/grafana/clickhouse"}},
 		},
 	}
 	require.NoError(t, batch.Append(row1))
@@ -2254,10 +2271,10 @@ func TestColumnFormat(t *testing.T) {
 	defer teardown(t)
 	ctx := context.Background()
 	batch := prepareBatch(t, conn, ctx)
-	var cols []map[string]interface{}
+	var cols []map[string]any
 
 	for i := 0; i < 1_000; i++ {
-		cols = append(cols, map[string]interface{}{
+		cols = append(cols, map[string]any{
 			"id":    int64(i),
 			"title": fmt.Sprintf("doc %v", i),
 		})
@@ -2274,7 +2291,7 @@ func TestMixedBatch(t *testing.T) {
 	defer teardown(t)
 	ctx := context.Background()
 	batch := prepareBatch(t, conn, ctx)
-	require.NoError(t, batch.Append(map[string]interface{}{
+	require.NoError(t, batch.Append(map[string]any{
 		"id":    int64(0),
 		"title": "doc 0",
 	}))
@@ -2289,12 +2306,12 @@ func TestQueryMapByReference(t *testing.T) {
 	row1 := Repository{URL: "https://github.com/ClickHouse/clickhouse-python", Releases: []Releases{{Version: "1.0.0"}, {Version: "1.1.0"}}}
 	require.NoError(t, batch.Append(row1))
 	require.NoError(t, batch.Send())
-	var event map[string]interface{}
+	var event map[string]any
 	//if passing an uninitialized map, ensure it is passed by pointer
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event))
 	assert.JSONEq(t, toJson(row1), toJson(event))
 	// an init map can be passed by ref or by value
-	event = make(map[string]interface{})
+	event = make(map[string]any)
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event))
 	assert.JSONEq(t, toJson(row1), toJson(event))
 }
@@ -2304,11 +2321,11 @@ func TestQueryNestedSubColumn(t *testing.T) {
 	defer teardown(t)
 	ctx := context.Background()
 	batch := prepareBatch(t, conn, ctx)
-	repositories := []map[string]interface{}{{"url": "https://github.com/ClickHouse/clickhouse-go", "Releases": []map[string]interface{}{{"Version": "2.0.0"}, {"Version": "2.1.0"}}}, {"url": "https://github.com/grafana/clickhouse"}}
-	row1 := map[string]interface{}{
+	repositories := []map[string]any{{"url": "https://github.com/ClickHouse/clickhouse-go", "Releases": []map[string]any{{"Version": "2.0.0"}, {"Version": "2.1.0"}}}, {"url": "https://github.com/grafana/clickhouse"}}
+	row1 := map[string]any{
 		"title": "Document JSON support",
 		"type":  "Issue",
-		"assignee": map[string]interface{}{
+		"assignee": map[string]any{
 			"id":           int16(0),
 			"name":         "Dale",
 			"orgs":         []string{"clickhouse"},
@@ -2317,7 +2334,7 @@ func TestQueryNestedSubColumn(t *testing.T) {
 	}
 	require.NoError(t, batch.Append(row1))
 	require.NoError(t, batch.Send())
-	var event []map[string]interface{}
+	var event []map[string]any
 	require.NoError(t, conn.QueryRow(ctx, "SELECT event.assignee.repositories FROM json_test").Scan(&event))
 	assert.JSONEq(t, `[{"Releases":[{"Version":"2.0.0"},{"Version":"2.1.0"}],"url":"https://github.com/ClickHouse/clickhouse-go"},{"Releases":[],"url":"https://github.com/grafana/clickhouse"}]`, toJson(event))
 }
@@ -2327,20 +2344,20 @@ func TestQueryTupleSubColumn(t *testing.T) {
 	defer teardown(t)
 	ctx := context.Background()
 	batch := prepareBatch(t, conn, ctx)
-	assignee := map[string]interface{}{
+	assignee := map[string]any{
 		"id":           int16(0),
 		"name":         "Dale",
 		"orgs":         []string{"clickhouse"},
-		"repositories": []map[string]interface{}{{"url": "https://github.com/ClickHouse/clickhouse-go", "Releases": []map[string]interface{}{{"Version": "2.0.0"}, {"Version": "2.1.0"}}}, {"url": "https://github.com/grafana/clickhouse"}},
+		"repositories": []map[string]any{{"url": "https://github.com/ClickHouse/clickhouse-go", "Releases": []map[string]any{{"Version": "2.0.0"}, {"Version": "2.1.0"}}}, {"url": "https://github.com/grafana/clickhouse"}},
 	}
-	row1 := map[string]interface{}{
+	row1 := map[string]any{
 		"title":    "Document JSON support",
 		"type":     "Issue",
 		"assignee": assignee,
 	}
 	require.NoError(t, batch.Append(row1))
 	require.NoError(t, batch.Send())
-	var event map[string]interface{}
+	var event map[string]any
 	require.NoError(t, conn.QueryRow(ctx, "SELECT event.assignee FROM json_test").Scan(&event))
 	assert.JSONEq(t, `{"id":0,"name":"Dale","orgs":["clickhouse"],"repositories":[{"Releases":[{"Version":"2.0.0"},{"Version":"2.1.0"}],"url":"https://github.com/ClickHouse/clickhouse-go"},{"Releases":[],"url":"https://github.com/grafana/clickhouse"}]}`, toJson(event))
 }
@@ -2427,9 +2444,9 @@ func TestJSONFlush(t *testing.T) {
 	defer teardown(t)
 	ctx := context.Background()
 	batch := prepareBatch(t, conn, ctx)
-	vals := [1000]map[string]interface{}{}
+	vals := [1000]map[string]any{}
 	for i := 0; i < 1000; i++ {
-		vals[i] = map[string]interface{}{
+		vals[i] = map[string]any{
 			"i": uint64(i),
 			"s": RandAsciiString(10),
 		}
@@ -2441,7 +2458,7 @@ func TestJSONFlush(t *testing.T) {
 	require.NoError(t, err)
 	i := 0
 	for rows.Next() {
-		var col1 map[string]interface{}
+		var col1 map[string]any
 		require.NoError(t, rows.Scan(&col1))
 		require.Equal(t, vals[i], col1)
 		i += 1
@@ -2451,8 +2468,8 @@ func TestJSONFlush(t *testing.T) {
 
 func TestMultipleJsonRowsWithNil(t *testing.T) {
 	// will got new map to different order
-	getMapByMapForTest := func(myMap map[string]interface{}) map[string]interface{} {
-		newMap := map[string]interface{}{}
+	getMapByMapForTest := func(myMap map[string]any) map[string]any {
+		newMap := map[string]any{}
 		for k := range myMap {
 			newMap[k] = myMap[k]
 		}
@@ -2462,10 +2479,10 @@ func TestMultipleJsonRowsWithNil(t *testing.T) {
 
 	type Login struct {
 		Username   string `json:"username"`
-		Attachment map[string]interface{}
+		Attachment map[string]any
 	}
 
-	myAttachment := map[string]interface{}{
+	myAttachment := map[string]any{
 		"col1": int64(1),
 		"col2": time.Date(2022, 11, 21, 16, 21, 0, 0, time.Local),
 		"col3": nil,

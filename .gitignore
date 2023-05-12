@@ -29,3 +29,5 @@ coverage.txt
 .idea/**
 dev/*
 .run/**
+
+vendor

@@ -52,14 +52,14 @@ func (col *Interval) parse(t Type) (Interface, error) {
 func (col *Interval) Type() Type             { return col.chType }
 func (col *Interval) ScanType() reflect.Type { return scanTypeString }
 func (col *Interval) Rows() int              { return col.col.Rows() }
-func (col *Interval) Row(i int, ptr bool) interface{} {
+func (col *Interval) Row(i int, ptr bool) any {
 	val := col.row(i)
 	if ptr {
 		return &val
 	}
 	return val
 }
-func (col *Interval) ScanRow(dest interface{}, row int) error {
+func (col *Interval) ScanRow(dest any, row int) error {
 	switch d := dest.(type) {
 	case *string:
 		*d = col.row(row)
@@ -76,14 +76,14 @@ func (col *Interval) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (Interval) Append(interface{}) ([]uint8, error) {
+func (Interval) Append(any) ([]uint8, error) {
 	return nil, &Error{
 		ColumnType: "Interval",
 		Err:        errors.New("data type values can't be stored in tables"),
 	}
 }
 
-func (Interval) AppendRow(interface{}) error {
+func (Interval) AppendRow(any) error {
 	return &Error{
 		ColumnType: "Interval",
 		Err:        errors.New("data type values can't be stored in tables"),

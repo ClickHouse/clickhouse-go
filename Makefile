@@ -16,7 +16,6 @@ test:
 
 lint:
 	golangci-lint run || :
-	gocritic check -disable=singleCaseSwitch ./... || :
 
 contributors:
 	@git log --pretty="%an <%ae>%n%cn <%ce>" | sort -u -t '<' -k 2,2 | LC_ALL=C sort | \
@@ -27,7 +26,7 @@ staticcheck:
 	staticcheck ./...
 
 codegen: contributors
-	@cd lib/column && go run codegen/main.go
+	@go run lib/column/codegen/main.go
 	@go-licenser -licensor "ClickHouse, Inc."
 
 .PHONY: contributors

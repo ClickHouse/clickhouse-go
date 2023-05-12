@@ -52,7 +52,7 @@ func (col *Enum16) Rows() int {
 	return col.col.Rows()
 }
 
-func (col *Enum16) Row(i int, ptr bool) interface{} {
+func (col *Enum16) Row(i int, ptr bool) any {
 	value := col.vi[col.col.Row(i)]
 	if ptr {
 		return &value
@@ -60,7 +60,7 @@ func (col *Enum16) Row(i int, ptr bool) interface{} {
 	return value
 }
 
-func (col *Enum16) ScanRow(dest interface{}, row int) error {
+func (col *Enum16) ScanRow(dest any, row int) error {
 	value := col.col.Row(row)
 	switch d := dest.(type) {
 	case *string:
@@ -81,7 +81,7 @@ func (col *Enum16) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (col *Enum16) Append(v interface{}) (nulls []uint8, err error) {
+func (col *Enum16) Append(v any) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []int16:
 		nulls = make([]uint8, len(v))
@@ -157,7 +157,7 @@ func (col *Enum16) Append(v interface{}) (nulls []uint8, err error) {
 	return
 }
 
-func (col *Enum16) AppendRow(elem interface{}) error {
+func (col *Enum16) AppendRow(elem any) error {
 	switch elem := elem.(type) {
 	case int16:
 		return col.AppendRow(int(elem))

@@ -49,7 +49,7 @@ func (col *Bool) Rows() int {
 	return col.col.Rows()
 }
 
-func (col *Bool) Row(i int, ptr bool) interface{} {
+func (col *Bool) Row(i int, ptr bool) any {
 	val := col.row(i)
 	if ptr {
 		return &val
@@ -57,7 +57,7 @@ func (col *Bool) Row(i int, ptr bool) interface{} {
 	return val
 }
 
-func (col *Bool) ScanRow(dest interface{}, row int) error {
+func (col *Bool) ScanRow(dest any, row int) error {
 	switch d := dest.(type) {
 	case *bool:
 		*d = col.row(row)
@@ -76,7 +76,7 @@ func (col *Bool) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (col *Bool) Append(v interface{}) (nulls []uint8, err error) {
+func (col *Bool) Append(v any) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []bool:
 		for _, v := range v {
@@ -119,7 +119,7 @@ func (col *Bool) Append(v interface{}) (nulls []uint8, err error) {
 	return
 }
 
-func (col *Bool) AppendRow(v interface{}) error {
+func (col *Bool) AppendRow(v any) error {
 	var value bool
 	switch v := v.(type) {
 	case bool:

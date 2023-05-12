@@ -130,7 +130,7 @@ func (col *Tuple) Rows() int {
 	return 0
 }
 
-func (col *Tuple) Row(i int, ptr bool) interface{} {
+func (col *Tuple) Row(i int, ptr bool) any {
 	tuple := reflect.New(col.ScanType())
 	value := tuple.Interface()
 	if err := col.ScanRow(value, i); err != nil {
@@ -265,8 +265,8 @@ func (col *Tuple) scanMap(targetMap reflect.Value, row int) error {
 				}
 				targetMap.SetMapIndex(reflect.ValueOf(colName), newMap)
 			case reflect.Interface:
-				// catches interface{} - Note this swallows custom interfaces to which maps couldn't conform
-				newMap := reflect.ValueOf(make(map[string]interface{}))
+				// catches any - Note this swallows custom interfaces to which maps couldn't conform
+				newMap := reflect.ValueOf(make(map[string]any))
 				if err := dCol.scanMap(newMap, row); err != nil {
 					return err
 				}
@@ -274,7 +274,7 @@ func (col *Tuple) scanMap(targetMap reflect.Value, row int) error {
 			default:
 				return &Error{
 					ColumnType: fmt.Sprint(targetMap.Type().Elem().Kind()),
-					Err:        fmt.Errorf("column %s - needs a map/struct or interface{}", col.Name()),
+					Err:        fmt.Errorf("column %s - needs a map/struct or any", col.Name()),
 				}
 			}
 		case *Nested:
@@ -283,7 +283,7 @@ func (col *Tuple) scanMap(targetMap reflect.Value, row int) error {
 			if err != nil {
 				return err
 			}
-			// this wont work if targetMap is a map[string][]interface{} and we try to set a typed slice
+			// this wont work if targetMap is a map[string][]any and we try to set a typed slice
 			targetMap.SetMapIndex(reflect.ValueOf(colName), subSlice)
 		case *Array:
 			subSlice, err := dCol.scan(targetMap.Type().Elem(), row)
@@ -335,8 +335,8 @@ func (col *Tuple) scanStruct(targetStruct reflect.Value, row int) error {
 				}
 				sField.Set(newMap)
 			case reflect.Interface:
-				// catches []interface{} -Note this swallows custom interfaces to which maps couldn't conform
-				newMap := reflect.ValueOf(make(map[string]interface{}))
+				// catches []any -Note this swallows custom interfaces to which maps couldn't conform
+				newMap := reflect.ValueOf(make(map[string]any))
 				if err := dCol.scanMap(newMap, row); err != nil {
 					return err
 				}
@@ -344,7 +344,7 @@ func (col *Tuple) scanStruct(targetStruct reflect.Value, row int) error {
 			default:
 				return &Error{
 					ColumnType: fmt.Sprint(sField.Kind()),
-					Err:        fmt.Errorf("column %s - needs a map/struct/slice or interface{}", col.Name()),
+					Err:        fmt.Errorf("column %s - needs a map/struct/slice or any", col.Name()),
 				}
 			}
 		case *Nested:
@@ -421,7 +421,7 @@ func (col *Tuple) scan(targetType reflect.Type, row int) (reflect.Value, error) 
 		if !col.isNamed {
 			return reflect.Value{}, &ColumnConverterError{
 				Op:   "ScanRow",
-				To:   fmt.Sprintf("%s", targetType),
+				To:   targetType.String(),
 				From: string(col.chType),
 				Hint: "cannot use maps for unnamed tuples, use slice",
 			}
@@ -439,7 +439,7 @@ func (col *Tuple) scan(targetType reflect.Type, row int) (reflect.Value, error) 
 		}
 		return rSlice, nil
 	case reflect.Interface:
-		// catches interface{} -Note this swallows custom interfaces to which maps couldn't conform
+		// catches any -Note this swallows custom interfaces to which maps couldn't conform
 		if !col.isNamed {
 			return reflect.Value{}, &ColumnConverterError{
 				Op:   "ScanRow",
@@ -448,7 +448,7 @@ func (col *Tuple) scan(targetType reflect.Type, row int) (reflect.Value, error) 
 				Hint: "cannot use interface for unnamed tuples, use slice",
 			}
 		}
-		rMap := reflect.ValueOf(make(map[string]interface{}))
+		rMap := reflect.ValueOf(make(map[string]any))
 		if err := col.scanMap(rMap, row); err != nil {
 			return reflect.Value{}, err
 		}
@@ -456,11 +456,11 @@ func (col *Tuple) scan(targetType reflect.Type, row int) (reflect.Value, error) 
 	}
 	return reflect.Value{}, &Error{
 		ColumnType: fmt.Sprint(targetType.Kind()),
-		Err:        fmt.Errorf("column %s - needs a map/struct/slice or interface{}", col.Name()),
+		Err:        fmt.Errorf("column %s - needs a map/struct/slice or any", col.Name()),
 	}
 }
 
-func (col *Tuple) ScanRow(dest interface{}, row int) error {
+func (col *Tuple) ScanRow(dest any, row int) error {
 	value := reflect.Indirect(reflect.ValueOf(dest))
 	tuple, err := col.scan(value.Type(), row)
 	if err != nil {
@@ -470,7 +470,7 @@ func (col *Tuple) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (col *Tuple) Append(v interface{}) (nulls []uint8, err error) {
+func (col *Tuple) Append(v any) (nulls []uint8, err error) {
 	value := reflect.ValueOf(v)
 	if value.Kind() == reflect.Slice {
 		for i := 0; i < value.Len(); i++ {
@@ -487,8 +487,8 @@ func (col *Tuple) Append(v interface{}) (nulls []uint8, err error) {
 	}
 }
 
-func (col *Tuple) AppendRow(v interface{}) error {
-	// allows support of tuples where map or slice is typed and NOT interface{}. Will fail if tuple isn't consistent
+func (col *Tuple) AppendRow(v any) error {
+	// allows support of tuples where map or slice is typed and NOT any. Will fail if tuple isn't consistent
 	value := reflect.ValueOf(v)
 	if value.Kind() == reflect.Pointer {
 		value = value.Elem()

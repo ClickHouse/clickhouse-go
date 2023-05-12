@@ -28,7 +28,7 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 )
 
-func Named(name string, value interface{}) driver.NamedValue {
+func Named(name string, value any) driver.NamedValue {
 	return driver.NamedValue{
 		Name:  name,
 		Value: value,
@@ -45,10 +45,10 @@ const (
 )
 
 type GroupSet struct {
-	Value []interface{}
+	Value []any
 }
 
-type ArraySet []interface{}
+type ArraySet []any
 
 func DateNamed(name string, value time.Time, scale TimeUnit) driver.NamedDateValue {
 	return driver.NamedDateValue{
@@ -61,7 +61,7 @@ func DateNamed(name string, value time.Time, scale TimeUnit) driver.NamedDateVal
 var bindNumericRe = regexp.MustCompile(`\$[0-9]+`)
 var bindPositionalRe = regexp.MustCompile(`[^\\][?]`)
 
-func bind(tz *time.Location, query string, args ...interface{}) (string, error) {
+func bind(tz *time.Location, query string, args ...any) (string, error) {
 	if len(args) == 0 {
 		return query, nil
 	}
@@ -90,7 +90,7 @@ func bind(tz *time.Location, query string, args ...interface{}) (string, error) 
 	return bindPositional(tz, query, args...)
 }
 
-func checkAllNamedArguments(args ...interface{}) (bool, error) {
+func checkAllNamedArguments(args ...any) (bool, error) {
 	var (
 		haveNamed     bool
 		haveAnonymous bool
@@ -111,7 +111,7 @@ func checkAllNamedArguments(args ...interface{}) (bool, error) {
 
 var bindPositionCharRe = regexp.MustCompile(`[?]`)
 
-func bindPositional(tz *time.Location, query string, args ...interface{}) (_ string, err error) {
+func bindPositional(tz *time.Location, query string, args ...any) (_ string, err error) {
 	var (
 		unbind = make(map[int]struct{})
 		params = make([]string, len(args))
@@ -146,7 +146,7 @@ func bindPositional(tz *time.Location, query string, args ...interface{}) (_ str
 	return strings.ReplaceAll(query, "\\?", "?"), nil
 }
 
-func bindNumeric(tz *time.Location, query string, args ...interface{}) (_ string, err error) {
+func bindNumeric(tz *time.Location, query string, args ...any) (_ string, err error) {
 	var (
 		unbind = make(map[string]struct{})
 		params = make(map[string]string)
@@ -178,7 +178,7 @@ func bindNumeric(tz *time.Location, query string, args ...interface{}) (_ string
 
 var bindNamedRe = regexp.MustCompile(`@[a-zA-Z0-9\_]+`)
 
-func bindNamed(tz *time.Location, query string, args ...interface{}) (_ string, err error) {
+func bindNamed(tz *time.Location, query string, args ...any) (_ string, err error) {
 	var (
 		unbind = make(map[string]struct{})
 		params = make(map[string]string)
@@ -243,7 +243,7 @@ func formatTime(tz *time.Location, scale TimeUnit, value time.Time) (string, err
 	return fmt.Sprintf("toDateTime64('%s', %d, '%s')", value.Format(fmt.Sprintf("2006-01-02 15:04:05.%0*d", int(scale*3), 0)), int(scale*3), value.Location().String()), nil
 }
 
-func format(tz *time.Location, scale TimeUnit, v interface{}) (string, error) {
+func format(tz *time.Location, scale TimeUnit, v any) (string, error) {
 	quote := func(v string) string {
 		return "'" + strings.NewReplacer(`\`, `\\`, `'`, `\'`).Replace(v) + "'"
 	}
@@ -328,8 +328,8 @@ func join[E any](tz *time.Location, scale TimeUnit, values []E) (string, error) 
 	return strings.Join(items, ", "), nil
 }
 
-func rebind(in []std_driver.NamedValue) []interface{} {
-	args := make([]interface{}, 0, len(in))
+func rebind(in []std_driver.NamedValue) []any {
+	args := make([]any, 0, len(in))
 	for _, v := range in {
 		switch {
 		case len(v.Name) != 0:

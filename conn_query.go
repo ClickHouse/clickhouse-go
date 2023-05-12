@@ -24,7 +24,7 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 
-func (c *connect) query(ctx context.Context, release func(*connect, error), query string, args ...interface{}) (*rows, error) {
+func (c *connect) query(ctx context.Context, release func(*connect, error), query string, args ...any) (*rows, error) {
 	var (
 		options                    = queryOptions(ctx)
 		onProcess                  = options.onProcess()
@@ -92,7 +92,7 @@ func (c *connect) query(ctx context.Context, release func(*connect, error), quer
 	}, nil
 }
 
-func (c *connect) queryRow(ctx context.Context, release func(*connect, error), query string, args ...interface{}) *row {
+func (c *connect) queryRow(ctx context.Context, release func(*connect, error), query string, args ...any) *row {
 	rows, err := c.query(ctx, release, query, args...)
 	if err != nil {
 		return &row{
