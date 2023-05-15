@@ -57,6 +57,6 @@ func Test762Std(t *testing.T) {
 		)
 		require.NoError(t, rows.Scan(&n))
 		expected := []any{(*any)(nil)}
-		require.Equal(t, &expected, n)
+		require.Equal(t, expected, n)
 	}
 }
