@@ -25,7 +25,6 @@ import (
 	"context"
 	"database/sql/driver"
 	"fmt"
-	"github.com/ClickHouse/clickhouse-go/v2/resources"
 	"io"
 	"io/ioutil"
 	"mime/multipart"
@@ -35,6 +34,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/ClickHouse/clickhouse-go/v2/resources"
 
 	"github.com/ClickHouse/ch-go/compress"
 	chproto "github.com/ClickHouse/ch-go/proto"
@@ -209,6 +210,12 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		IdleConnTimeout:       opt.ConnMaxLifetime,
 		ResponseHeaderTimeout: opt.ReadTimeout,
 		TLSClientConfig:       opt.TLS,
+	}
+
+	if opt.DialContext != nil {
+		t.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+			return opt.DialContext(ctx, addr)
+		}
 	}
 
 	conn := &httpConnect{
