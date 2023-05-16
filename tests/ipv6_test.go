@@ -306,24 +306,23 @@ func assertRowColumnEqualToIP(t *testing.T, value any, ip net.IP) {
 func TestIPv6AppendRow(t *testing.T) {
 	ip := getTestIPv6()[0]
 	strIp := ip.String()
-
+	ipBytes := netip.MustParseAddr(strIp).As16()
 	col := column.IPv6{}
 
 	rows := []any{
-		strIp,                                   // appending string
-		&ip,                                     // appending IP pointer
-		ip,                                      // appending IP
-		&strIp,                                  // appending string pointer
-		netip.MustParseAddr(ip.String()).As16(), // appending [16]byte
-		proto.IPv6(netip.MustParseAddr(ip.String()).As16()),                   // appending proto.IPv6
-		&[][16]byte{netip.MustParseAddr(ip.String()).As16()}[0],               // appending [16]byte pointer
-		&[]proto.IPv6{proto.IPv6(netip.MustParseAddr(ip.String()).As16())}[0], // appending proto.IPv6 pointer
+		strIp,                     // appending string
+		&ip,                       // appending IP pointer
+		ip,                        // appending IP
+		&strIp,                    // appending string pointer
+		ipBytes,                   // appending [16]byte
+		proto.IPv6(ipBytes),       // appending proto.IPv6
+		&[][16]byte{ipBytes}[0],   // appending [16]byte pointer
+		&[]proto.IPv6{ipBytes}[0], // appending proto.IPv6 pointer
 	}
 	for i, row := range rows {
 		err := col.AppendRow(row)
-
-		require.NoError(t, err)
-		require.Equal(t, i+1, col.Rows(), "AppendRow didn't add IP")
+		assert.Nil(t, err)
+		assert.Truef(t, i+1 == col.Rows(), "AppendRow didn't add IP")
 		assertRowColumnEqualToIP(t, col.Row(i, false), ip)
 	}
 }
