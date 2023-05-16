@@ -89,7 +89,7 @@ func TestClientInfo(t *testing.T) {
 
 	for name, testCase := range testCases {
 		t.Run(name, func(t *testing.T) {
-			opts := clientOptionsFromEnv(env, clickhouse.Settings{})
+			opts := ClientOptionsFromEnv(env, clickhouse.Settings{})
 			opts.ClientInfo = testCase.clientInfo
 
 			conn, err := clickhouse.Open(&opts)
