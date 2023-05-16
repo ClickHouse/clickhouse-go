@@ -263,7 +263,7 @@ func getTestIPv6() []net.IP {
 	}
 }
 
-func TestIPv6_AppendRow_InvalidIP(t *testing.T) {
+func TestIPv6AppendRowInvalidIP(t *testing.T) {
 	col := column.IPv6{}
 
 	// appending string
@@ -276,7 +276,7 @@ func TestIPv6_AppendRow_InvalidIP(t *testing.T) {
 	}).Error())
 }
 
-func TestIPv6_Append_InvalidIP(t *testing.T) {
+func TestIPv6Append_InvalidIP(t *testing.T) {
 	strIps := []string{
 		getTestIPv6()[0].String(),
 		invalidIPv6Str,
@@ -298,76 +298,34 @@ func TestIPv6_Append_InvalidIP(t *testing.T) {
 	require.Equal(t, 1, col.Rows(), "Append must preserve initial state if error happened")
 }
 
-func TestIPv6_AppendRow(t *testing.T) {
+func assertRowColumnEqualToIP(t *testing.T, value any, ip net.IP) {
+	require.IsType(t, net.IP{}, value, "Invalid type of column value. net.IP expected.")
+	assert.Truef(t, value.(net.IP).Equal(ip), "%q is not equal to IP %q", value, ip)
+}
+
+func TestIPv6AppendRow(t *testing.T) {
 	ip := getTestIPv6()[0]
 	strIp := ip.String()
 
 	col := column.IPv6{}
 
-	// appending string
-	err := col.AppendRow(strIp)
-
-	require.NoError(t, err)
-	require.Equal(t, 1, col.Rows(), "AppendRow didn't add IP")
-	if !col.Row(0, false).(net.IP).Equal(ip) {
-		require.Failf(t, "Invalid result of AppendRow", "Added %q instead of %q", col.Row(0, false), ip)
+	rows := []any{
+		strIp,                                   // appending string
+		&ip,                                     // appending IP pointer
+		ip,                                      // appending IP
+		&strIp,                                  // appending string pointer
+		netip.MustParseAddr(ip.String()).As16(), // appending [16]byte
+		proto.IPv6(netip.MustParseAddr(ip.String()).As16()),                   // appending proto.IPv6
+		&[][16]byte{netip.MustParseAddr(ip.String()).As16()}[0],               // appending [16]byte pointer
+		&[]proto.IPv6{proto.IPv6(netip.MustParseAddr(ip.String()).As16())}[0], // appending proto.IPv6 pointer
 	}
+	for i, row := range rows {
+		err := col.AppendRow(row)
 
-	// appending IP pointer
-	err = col.AppendRow(&ip)
-
-	require.NoError(t, err)
-	require.Equal(t, 2, col.Rows(), "AppendRow didn't add IP")
-	if !col.Row(1, false).(net.IP).Equal(ip) {
-		require.Failf(t, "Invalid result of AppendRow", "Added %q instead of %q", col.Row(1, false), ip)
+		require.NoError(t, err)
+		require.Equal(t, i+1, col.Rows(), "AppendRow didn't add IP")
+		assertRowColumnEqualToIP(t, col.Row(i, false), ip)
 	}
-
-	// appending IP
-	err = col.AppendRow(ip)
-
-	require.NoError(t, err)
-	require.Equal(t, 3, col.Rows(), "AppendRow didn't add IP")
-	if !col.Row(2, false).(net.IP).Equal(ip) {
-		require.Failf(t, "Invalid result of AppendRow", "Added %q instead of %q", col.Row(2, false), ip)
-	}
-
-	// appending string pointer
-	err = col.AppendRow(&strIp)
-
-	require.NoError(t, err)
-	require.Equal(t, 4, col.Rows(), "AppendRow didn't add IP")
-	if !col.Row(3, false).(net.IP).Equal(ip) {
-		require.Failf(t, "Invalid result of AppendRow", "Added %q instead of %q", col.Row(3, false), ip)
-	}
-
-	// appending [16]byte
-	require.NoError(t, col.AppendRow(netip.MustParseAddr(ip.String()).As16()))
-	require.Equal(t, 5, col.Rows(), "AppendRow didn't add IP")
-	if !col.Row(4, false).(net.IP).Equal(ip) {
-		require.Failf(t, "Invalid result of AppendRow", "Added %q instead of %q", col.Row(4, false), ip)
-	}
-
-	// appending proto.IPv6
-	require.NoError(t, col.AppendRow(proto.IPv6(netip.MustParseAddr(ip.String()).As16())))
-	require.Equal(t, 6, col.Rows(), "AppendRow didn't add IP")
-	if !col.Row(5, false).(net.IP).Equal(ip) {
-		require.Failf(t, "Invalid result of AppendRow", "Added %q instead of %q", col.Row(5, false), ip)
-	}
-
-	// appending [16]byte pointer
-	require.NoError(t, col.AppendRow(&[][16]byte{netip.MustParseAddr(ip.String()).As16()}[0]))
-	require.Equal(t, 7, col.Rows(), "AppendRow didn't add IP")
-	if !col.Row(6, false).(net.IP).Equal(ip) {
-		require.Failf(t, "Invalid result of AppendRow", "Added %q instead of %q", col.Row(6, false), ip)
-	}
-
-	// appending proto.IPv6 pointer
-	require.NoError(t, col.AppendRow(&[]proto.IPv6{proto.IPv6(netip.MustParseAddr(ip.String()).As16())}[0]))
-	require.Equal(t, 8, col.Rows(), "AppendRow didn't add IP")
-	if !col.Row(7, false).(net.IP).Equal(ip) {
-		require.Failf(t, "Invalid result of AppendRow", "Added %q instead of %q", col.Row(7, false), ip)
-	}
-
 }
 
 func testAppend[T any](t *testing.T, ips []net.IP, convertor func(ip net.IP) T) {
@@ -390,7 +348,7 @@ func testAppend[T any](t *testing.T, ips []net.IP, convertor func(ip net.IP) T) 
 	}
 }
 
-func TestIPv6_Append(t *testing.T) {
+func TestIPv6Append(t *testing.T) {
 	ips := getTestIPv6()
 
 	testAppend(t, ips, func(ip net.IP) string {
@@ -427,7 +385,7 @@ func testScanRow[T any](t *testing.T, col *column.IPv6, ips []net.IP, convertor 
 
 }
 
-func TestIPv6_ScanRow(t *testing.T) {
+func TestIPv6ScanRow(t *testing.T) {
 	ips := getTestIPv6()
 
 	col := column.IPv6{}
