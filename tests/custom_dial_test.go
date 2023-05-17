@@ -92,7 +92,7 @@ func TestCustomHTTPDialContext(t *testing.T) {
 	port := env.HttpPort
 	var tlsConfig *tls.Config
 	if useSSL {
-		port = env.SslPort
+		port = env.HttpsPort
 		tlsConfig = &tls.Config{}
 	}
 	connector := clickhouse.Connector(&clickhouse.Options{
@@ -106,9 +106,6 @@ func TestCustomHTTPDialContext(t *testing.T) {
 		DialContext: func(ctx context.Context, addr string) (net.Conn, error) {
 			dialCount++
 			var d net.Dialer
-			if tlsConfig != nil {
-				return tls.DialWithDialer(&net.Dialer{Timeout: time.Duration(5) * time.Second}, "tcp", addr, tlsConfig)
-			}
 			return d.DialContext(ctx, "tcp", addr)
 		},
 		TLS: tlsConfig,
