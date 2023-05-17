@@ -78,11 +78,13 @@ func Open(opt *Options) (driver.Conn, error) {
 		opt = &Options{}
 	}
 	o := opt.setDefaults()
-	return &clickhouse{
+	conn := &clickhouse{
 		opt:  o,
 		idle: make(chan *connect, o.MaxIdleConns),
 		open: make(chan struct{}, o.MaxOpenConns),
-	}, nil
+	}
+	go conn.startAutoCloseIdleConnections()
+	return conn, nil
 }
 
 type clickhouse struct {
@@ -275,6 +277,39 @@ func (ch *clickhouse) acquire(ctx context.Context) (conn *connect, err error) {
 		return nil, err
 	}
 	return conn, nil
+}
+
+func (ch *clickhouse) startAutoCloseIdleConnections() {
+	ticker := time.NewTicker(ch.opt.ConnMaxLifetime)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			ch.closeIdleExpired()
+		}
+	}
+}
+
+func (ch *clickhouse) closeIdleExpired() {
+	cutoff := time.Now().Add(-ch.opt.ConnMaxLifetime)
+	for {
+		select {
+		case conn := <-ch.idle:
+			if conn.connectedAt.Before(cutoff) {
+				conn.close()
+			} else {
+				select {
+				case ch.idle <- conn:
+				default:
+					conn.close()
+				}
+				return
+			}
+		default:
+			return
+		}
+	}
 }
 
 func (ch *clickhouse) release(conn *connect, err error) {

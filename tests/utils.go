@@ -250,7 +250,7 @@ func GetExternalTestEnvironment(testSet string) (ClickHouseTestEnvironment, erro
 	return env, nil
 }
 
-func clientOptionsFromEnv(env ClickHouseTestEnvironment, settings clickhouse.Settings) clickhouse.Options {
+func ClientOptionsFromEnv(env ClickHouseTestEnvironment, settings clickhouse.Settings) clickhouse.Options {
 	timeout, err := strconv.Atoi(GetEnv("CLICKHOUSE_DIAL_TIMEOUT", "10"))
 	if err != nil {
 		timeout = 10
@@ -284,11 +284,11 @@ func clientOptionsFromEnv(env ClickHouseTestEnvironment, settings clickhouse.Set
 }
 
 func testClientWithDefaultOptions(env ClickHouseTestEnvironment, settings clickhouse.Settings) (driver.Conn, error) {
-	opts := clientOptionsFromEnv(env, settings)
+	opts := ClientOptionsFromEnv(env, settings)
 	return clickhouse.Open(&opts)
 }
 
-func testClientWithDefaultSettings(env ClickHouseTestEnvironment) (driver.Conn, error) {
+func TestClientWithDefaultSettings(env ClickHouseTestEnvironment) (driver.Conn, error) {
 	settings := clickhouse.Settings{}
 
 	if proto.CheckMinVersion(proto.Version{
