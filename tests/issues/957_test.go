@@ -34,10 +34,6 @@ func Test957(t *testing.T) {
 
 	// when the client is configured to use the test environment
 	opts := clickhouse_tests.ClientOptionsFromEnv(testEnv, clickhouse.Settings{})
-	opts.Debug = true
-	opts.Debugf = func(format string, v ...interface{}) {
-		t.Logf(format, v...)
-	}
 	// and the client is configured to have only 1 connection
 	opts.MaxIdleConns = 2
 	opts.MaxOpenConns = 1
@@ -49,7 +45,8 @@ func Test957(t *testing.T) {
 	// then the client should be able to execute queries for 1 second
 	deadline := time.Now().Add(time.Second)
 	for time.Now().Before(deadline) {
-		_, err := conn.Query(ctx, "SELECT 1")
+		rows, err := conn.Query(ctx, "SELECT 1")
 		require.NoError(t, err)
+		rows.Close()
 	}
 }
