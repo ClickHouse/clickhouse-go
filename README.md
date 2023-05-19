@@ -202,7 +202,7 @@ conn := clickhouse.OpenDB(&clickhouse.Options{
 	Compression: &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	},
-	Interface: clickhouse.HttpInterface,
+	Protocol: clickhouse.HTTP,
 })
 ```
 
@@ -237,13 +237,13 @@ If additional TLS parameters are necessary the application code should set the d
 
 To connect using HTTPS either:
 
-- Use `https` in your dsn string e.g.
+- Use `https` scheme and `secure` argument in your dsn string e.g.
 
     ```sh
-    https://host1:8443,host2:8443/database?dial_timeout=200ms&max_execution_time=60
+    https://host1:8443,host2:8443/database?dial_timeout=200ms&max_execution_time=60&secure
     ```
 
-- Specify the interface type as `HttpsInterface` e.g.
+- Specify the protocol type as `HTTP` and a non-nil tls.Config pointer e.g.
 
 ```go
 conn := clickhouse.OpenDB(&clickhouse.Options{
@@ -253,9 +253,13 @@ conn := clickhouse.OpenDB(&clickhouse.Options{
 		Username: "default",
 		Password: "",
 	},
-	Interface: clickhouse.HttpsInterface,
+	Protocol: clickhouse.HTTP,
+	TLS: &tls.Config{
+		InsecureSkipVerify: false,
+	},
 })
 ```
+
 
 ## Client info
 
