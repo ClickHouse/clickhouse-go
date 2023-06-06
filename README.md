@@ -202,7 +202,7 @@ conn := clickhouse.OpenDB(&clickhouse.Options{
 	Compression: &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	},
-	Interface: clickhouse.HttpInterface,
+	Protocol:  clickhouse.HTTP,
 })
 ```
 
@@ -253,7 +253,7 @@ conn := clickhouse.OpenDB(&clickhouse.Options{
 		Username: "default",
 		Password: "",
 	},
-	Interface: clickhouse.HttpsInterface,
+	Protocol:  clickhouse.HTTP,
 })
 ```
 
