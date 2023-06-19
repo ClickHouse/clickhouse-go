@@ -24,11 +24,12 @@ import (
 	"sync/atomic"
 	"time"
 
+	_ "time/tzdata"
+
 	"github.com/ClickHouse/clickhouse-go/v2/contributors"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
-	_ "time/tzdata"
 )
 
 type Conn = driver.Conn
@@ -82,6 +83,7 @@ func Open(opt *Options) (driver.Conn, error) {
 		opt:  o,
 		idle: make(chan *connect, o.MaxIdleConns),
 		open: make(chan struct{}, o.MaxOpenConns),
+		exit: make(chan struct{}),
 	}
 	go conn.startAutoCloseIdleConnections()
 	return conn, nil
@@ -91,6 +93,7 @@ type clickhouse struct {
 	opt    *Options
 	idle   chan *connect
 	open   chan struct{}
+	exit   chan struct{}
 	connID int64
 }
 
@@ -287,6 +290,8 @@ func (ch *clickhouse) startAutoCloseIdleConnections() {
 		select {
 		case <-ticker.C:
 			ch.closeIdleExpired()
+		case <-ch.exit:
+			return
 		}
 	}
 }
@@ -338,6 +343,7 @@ func (ch *clickhouse) Close() error {
 		case c := <-ch.idle:
 			c.close()
 		default:
+			ch.exit <- struct{}{}
 			return nil
 		}
 	}
