@@ -20,11 +20,12 @@ package clickhouse
 import (
 	"context"
 	"fmt"
-	"github.com/pkg/errors"
 	"os"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
@@ -170,7 +171,7 @@ func (b *batch) Send() (err error) {
 		b.release(err)
 	}()
 	if b.sent {
-		return ErrBatchAlreadySent
+		return b.retry()
 	}
 	if b.err != nil {
 		return b.err
@@ -189,10 +190,13 @@ func (b *batch) Send() (err error) {
 	return nil
 }
 
-func (b *batch) Retry() (err error) {
+func (b *batch) retry() (err error) {
+	// exit early if Send() hasn't been attepted
 	if !b.sent {
 		return ErrBatchNotSent
 	}
+
+	// acquire a new conn
 	if b.conn, err = b.connAcquire(b.ctx); err != nil {
 		return err
 	}
