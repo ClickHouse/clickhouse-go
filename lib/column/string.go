@@ -19,6 +19,7 @@ package column
 
 import (
 	"database/sql"
+	"database/sql/driver"
 	"encoding"
 	"fmt"
 	"github.com/ClickHouse/ch-go/proto"
@@ -52,7 +53,7 @@ func (col *String) Rows() int {
 	return col.col.Rows()
 }
 
-func (col *String) Row(i int, ptr bool) interface{} {
+func (col *String) Row(i int, ptr bool) any {
 	val := col.col.Row(i)
 	if ptr {
 		return &val
@@ -60,7 +61,7 @@ func (col *String) Row(i int, ptr bool) interface{} {
 	return val
 }
 
-func (col *String) ScanRow(dest interface{}, row int) error {
+func (col *String) ScanRow(dest any, row int) error {
 	val := col.Row(row, false).(string)
 	switch d := dest.(type) {
 	case *string:
@@ -71,7 +72,7 @@ func (col *String) ScanRow(dest interface{}, row int) error {
 	case *sql.NullString:
 		return d.Scan(val)
 	case encoding.BinaryUnmarshaler:
-		return d.UnmarshalBinary(binary.Str2Bytes(val))
+		return d.UnmarshalBinary(binary.Str2Bytes(val, len(val)))
 	default:
 		if scan, ok := dest.(sql.Scanner); ok {
 			return scan.Scan(val)
@@ -85,7 +86,7 @@ func (col *String) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (col *String) AppendRow(v interface{}) error {
+func (col *String) AppendRow(v any) error {
 	switch v := v.(type) {
 	case string:
 		col.col.Append(v)
@@ -115,20 +116,43 @@ func (col *String) AppendRow(v interface{}) error {
 	case nil:
 		col.col.Append("")
 	default:
-		if s, ok := v.(fmt.Stringer); ok {
-			return col.AppendRow(s.String())
-		} else {
+		if s, ok := v.(driver.Valuer); ok {
+			val, err := s.Value()
+			if err != nil {
+				return &ColumnConverterError{
+					Op:   "AppendRow",
+					To:   "String",
+					From: fmt.Sprintf("%T", s),
+					Hint: "could not get driver.Valuer value",
+				}
+			}
+
+			if s, ok := val.(string); ok {
+				return col.AppendRow(s)
+			}
+
 			return &ColumnConverterError{
 				Op:   "AppendRow",
 				To:   "String",
 				From: fmt.Sprintf("%T", v),
+				Hint: "driver.Valuer value is not a string",
 			}
+		}
+
+		if s, ok := v.(fmt.Stringer); ok {
+			return col.AppendRow(s.String())
+		}
+
+		return &ColumnConverterError{
+			Op:   "AppendRow",
+			To:   "String",
+			From: fmt.Sprintf("%T", v),
 		}
 	}
 	return nil
 }
 
-func (col *String) Append(v interface{}) (nulls []uint8, err error) {
+func (col *String) Append(v any) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []string:
 		col.col.AppendArr(v)

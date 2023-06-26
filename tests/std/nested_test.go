@@ -69,7 +69,7 @@ func TestStdNested(t *testing.T) {
 	batch, err := scope.Prepare("INSERT INTO std_nested_test")
 	require.NoError(t, err)
 	var (
-		col1Data = []map[string]interface{}{
+		col1Data = []map[string]any{
 			{
 				"Col1_N1": uint8(1),
 				"Col2_N1": uint8(20),
@@ -83,10 +83,10 @@ func TestStdNested(t *testing.T) {
 				"Col2_N1": uint8(20),
 			},
 		}
-		col2Data = []map[string]interface{}{
+		col2Data = []map[string]any{
 			{
 				"Col1_N2": uint8(101),
-				"Col2_N2": []map[string]interface{}{
+				"Col2_N2": []map[string]any{
 					{
 						"Col1_N2_N1": uint8(1),
 						"Col2_N2_N1": uint8(2),
@@ -95,7 +95,7 @@ func TestStdNested(t *testing.T) {
 			},
 			{
 				"Col1_N2": uint8(201),
-				"Col2_N2": []map[string]interface{}{
+				"Col2_N2": []map[string]any{
 					{
 						"Col1_N2_N1": uint8(3),
 						"Col2_N2_N1": uint8(4),
@@ -109,8 +109,8 @@ func TestStdNested(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, scope.Commit())
 	var (
-		col1 []map[string]interface{}
-		col2 []map[string]interface{}
+		col1 []map[string]any
+		col2 []map[string]any
 	)
 	rows := conn.QueryRow("SELECT * FROM std_nested_test")
 	require.NoError(t, rows.Scan(&col1, &col2))

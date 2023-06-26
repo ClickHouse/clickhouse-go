@@ -26,7 +26,7 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 
-func (ch *clickhouse) Select(ctx context.Context, dest interface{}, query string, args ...interface{}) error {
+func (ch *clickhouse) Select(ctx context.Context, dest any, query string, args ...any) error {
 	value := reflect.ValueOf(dest)
 	if value.Kind() != reflect.Ptr {
 		return &OpError{
@@ -70,7 +70,7 @@ func (ch *clickhouse) Select(ctx context.Context, dest interface{}, query string
 	return rows.Err()
 }
 
-func scan(block *proto.Block, row int, dest ...interface{}) error {
+func scan(block *proto.Block, row int, dest ...any) error {
 	columns := block.Columns
 	if len(columns) != len(dest) {
 		return &OpError{

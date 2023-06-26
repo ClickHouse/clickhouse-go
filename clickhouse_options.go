@@ -130,7 +130,7 @@ type Options struct {
 	DialContext          func(ctx context.Context, addr string) (net.Conn, error)
 	DialStrategy         func(ctx context.Context, connID int, options *Options, dial Dial) (DialResult, error)
 	Debug                bool
-	Debugf               func(format string, v ...interface{}) // only works when Debug is true
+	Debugf               func(format string, v ...any) // only works when Debug is true
 	Settings             Settings
 	Compression          *Compression
 	DialTimeout          time.Duration // default 30 second
@@ -139,6 +139,7 @@ type Options struct {
 	ConnMaxLifetime      time.Duration // default 1 hour
 	ConnOpenStrategy     ConnOpenStrategy
 	HttpHeaders          map[string]string // set additional headers on HTTP requests
+	HttpUrlPath          string            // set additional URL path for HTTP requests
 	BlockBufferSize      uint8             // default 2 - can be overwritten on query
 	MaxCompressionBuffer int               // default 10485760 - measured in bytes  i.e. 10MiB
 
@@ -319,9 +320,6 @@ func (o *Options) fromDSN(in string) error {
 
 // receive copy of Options, so we don't modify original - so its reusable
 func (o Options) setDefaults() *Options {
-	if len(o.Auth.Database) == 0 {
-		o.Auth.Database = "default"
-	}
 	if len(o.Auth.Username) == 0 {
 		o.Auth.Username = "default"
 	}

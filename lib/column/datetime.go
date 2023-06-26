@@ -78,7 +78,7 @@ func (col *DateTime) Rows() int {
 	return col.col.Rows()
 }
 
-func (col *DateTime) Row(i int, ptr bool) interface{} {
+func (col *DateTime) Row(i int, ptr bool) any {
 	value := col.row(i)
 	if ptr {
 		return &value
@@ -86,7 +86,7 @@ func (col *DateTime) Row(i int, ptr bool) interface{} {
 	return value
 }
 
-func (col *DateTime) ScanRow(dest interface{}, row int) error {
+func (col *DateTime) ScanRow(dest any, row int) error {
 	switch d := dest.(type) {
 	case *time.Time:
 		*d = col.row(row)
@@ -108,7 +108,7 @@ func (col *DateTime) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (col *DateTime) Append(v interface{}) (nulls []uint8, err error) {
+func (col *DateTime) Append(v any) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	// we assume int64 is in seconds and don't currently scale to the precision
 	case []int64:
@@ -197,7 +197,7 @@ func (col *DateTime) Append(v interface{}) (nulls []uint8, err error) {
 	return
 }
 
-func (col *DateTime) AppendRow(v interface{}) error {
+func (col *DateTime) AppendRow(v any) error {
 	switch v := v.(type) {
 	// we assume int64 is in seconds and don't currently scale to the precision
 	case int64:

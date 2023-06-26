@@ -210,25 +210,25 @@ func TestMapFlush(t *testing.T) {
 
 // a simple (non thread safe) ordered map
 type OrderedMap struct {
-	keys   []interface{}
-	values map[interface{}]interface{}
+	keys   []any
+	values map[any]any
 }
 
 func NewOrderedMap() *OrderedMap {
 	om := OrderedMap{}
-	om.keys = []interface{}{}
-	om.values = map[interface{}]interface{}{}
+	om.keys = []any{}
+	om.values = map[any]any{}
 	return &om
 }
 
-func (om *OrderedMap) Get(key interface{}) (interface{}, bool) {
+func (om *OrderedMap) Get(key any) (any, bool) {
 	if value, present := om.values[key]; present {
 		return value, present
 	}
 	return nil, false
 }
 
-func (om *OrderedMap) Put(key interface{}, value interface{}) {
+func (om *OrderedMap) Put(key any, value any) {
 	if _, present := om.values[key]; present {
 		om.values[key] = value
 		return
@@ -237,8 +237,8 @@ func (om *OrderedMap) Put(key interface{}, value interface{}) {
 	om.values[key] = value
 }
 
-func (om *OrderedMap) Keys() <-chan interface{} {
-	ch := make(chan interface{})
+func (om *OrderedMap) Keys() <-chan any {
+	ch := make(chan any)
 	go func() {
 		defer close(ch)
 		for _, key := range om.keys {

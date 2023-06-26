@@ -34,26 +34,44 @@ func TestBindNumeric(t *testing.T) {
 		AND null_coll = $4
 	)
 	`, 1, 2, "I'm a string param", nil)
+	var nilPtr *bool = nil
+	var nilPtrPtr **any = nil
+	valuedPtr := &([]any{123}[0])
+	nilValuePtr := &([]any{nil}[0])
+	_, err = bind(time.Local, `
+	SELECT * FROM t WHERE col = $5
+		AND col2 = $2
+		AND col3 = $1
+		AND col4 = $3
+		AND col5 = $4
+	`, nilPtr, valuedPtr, nilPtrPtr, nilValuePtr, &nilValuePtr)
+	assert.NoError(t, err)
+
 	if assert.NoError(t, err) {
 		assets := []struct {
 			query    string
-			params   []interface{}
+			params   []any
 			expected string
 		}{
 			{
 				query:    "SELECT $1",
-				params:   []interface{}{1},
+				params:   []any{1},
 				expected: "SELECT 1",
 			},
 			{
 				query:    "SELECT $2 $1 $3",
-				params:   []interface{}{1, 2, 3},
+				params:   []any{1, 2, 3},
 				expected: "SELECT 2 1 3",
 			},
 			{
 				query:    "SELECT $2 $1 $3",
-				params:   []interface{}{"a", "b", "c"},
+				params:   []any{"a", "b", "c"},
 				expected: "SELECT 'b' 'a' 'c'",
+			},
+			{
+				query:    "SELECT $2 $1",
+				params:   []any{true, false},
+				expected: "SELECT 0 1",
 			},
 		}
 
@@ -80,22 +98,40 @@ func TestBindNamed(t *testing.T) {
 		Named("col3", "I'm a string param"),
 		Named("col4", nil),
 	)
+	var nilPtr *bool = nil
+	var nilPtrPtr **any = nil
+	valuedPtr := &([]any{123}[0])
+	nilValuePtr := &([]any{nil}[0])
+	_, err = bind(time.Local, `
+	SELECT * FROM t WHERE col =  @col1
+		AND col2 =  @col2
+		AND col3 =  @col3
+		AND col4 =  @col4
+		AND col5 =  @col5
+	`,
+		Named("col1", nilPtr),
+		Named("col2", nilPtrPtr),
+		Named("col3", valuedPtr),
+		Named("col4", nilValuePtr),
+		Named("col5", &nilValuePtr))
+	assert.NoError(t, err)
+
 	if assert.NoError(t, err) {
 		assets := []struct {
 			query    string
-			params   []interface{}
+			params   []any
 			expected string
 		}{
 			{
 				query: "SELECT @col1",
-				params: []interface{}{
+				params: []any{
 					Named("col1", 1),
 				},
 				expected: "SELECT 1",
 			},
 			{
 				query: "SELECT @col2 @col1 @col3",
-				params: []interface{}{
+				params: []any{
 					Named("col1", 1),
 					Named("col2", 2),
 					Named("col3", 3),
@@ -104,12 +140,20 @@ func TestBindNamed(t *testing.T) {
 			},
 			{
 				query: "SELECT @col2 @col1 @col3",
-				params: []interface{}{
+				params: []any{
 					Named("col1", "a"),
 					Named("col2", "b"),
 					Named("col3", "c"),
 				},
 				expected: "SELECT 'b' 'a' 'c'",
+			},
+			{
+				query: "SELECT @col2 @col1",
+				params: []any{
+					Named("col1", true),
+					Named("col2", false),
+				},
+				expected: "SELECT 0 1",
 			},
 		}
 		for _, asset := range assets {
@@ -132,33 +176,38 @@ func TestBindPositional(t *testing.T) {
 	if assert.NoError(t, err) {
 		assets := []struct {
 			query    string
-			params   []interface{}
+			params   []any
 			expected string
 		}{
 			{
 				query:    "SELECT ?",
-				params:   []interface{}{1},
+				params:   []any{1},
 				expected: "SELECT 1",
 			},
 			{
 				query:    "SELECT ? ? ?",
-				params:   []interface{}{1, 2, 3},
+				params:   []any{1, 2, 3},
 				expected: "SELECT 1 2 3",
 			},
 			{
 				query:    "SELECT ? ? ?",
-				params:   []interface{}{"a", "b", "c"},
+				params:   []any{"a", "b", "c"},
 				expected: "SELECT 'a' 'b' 'c'",
 			},
 			{
 				query:    "SELECT ? ? '\\?'",
-				params:   []interface{}{"a", "b"},
+				params:   []any{"a", "b"},
 				expected: "SELECT 'a' 'b' '?'",
 			},
 			{
 				query:    "SELECT x where col = 'blah\\?' AND col2 = ?",
-				params:   []interface{}{"a"},
+				params:   []any{"a"},
 				expected: "SELECT x where col = 'blah?' AND col2 = 'a'",
+			},
+			{
+				query:    "SELECT ? ?",
+				params:   []any{true, false},
+				expected: "SELECT 1 0",
 			},
 		}
 
@@ -176,8 +225,22 @@ func TestBindPositional(t *testing.T) {
 		ANS col4 = ?
 		AND null_coll = ?
 	)
-	`, 1, 2, "I'm a string param", nil)
+	`, 1, 2, "I'm a string param", nil, Named("namedArg", nil))
 	assert.Error(t, err)
+
+	var nilPtr *bool = nil
+	var nilPtrPtr **any = nil
+	valuedPtr := &([]any{123}[0])
+	nilValuePtr := &([]any{nil}[0])
+
+	_, err = bind(time.Local, `
+	SELECT * FROM t WHERE col = ?
+		AND col2 = ?
+		AND col3 = ?
+		AND col4 = ?
+		AND col5 = ?
+	`, nilPtr, valuedPtr, nilPtrPtr, nilValuePtr, &nilValuePtr)
+	assert.NoError(t, err)
 }
 
 func TestFormatTime(t *testing.T) {
@@ -240,17 +303,17 @@ func TestStringBasedType(t *testing.T) {
 	val, _ = format(time.UTC, Seconds, SupperSupperString("a"))
 	require.Equal(t, "'a'", val)
 	val, _ = format(time.UTC, Seconds, []SupperSupperString{"a", "b", "c"})
-	require.Equal(t, "'a', 'b', 'c'", val)
+	require.Equal(t, "['a', 'b', 'c']", val)
 }
 
 func TestFormatGroup(t *testing.T) {
-	groupSet := GroupSet{Value: []interface{}{"A", 1}}
+	groupSet := GroupSet{Value: []any{"A", 1}}
 	val, _ := format(time.UTC, Seconds, groupSet)
 	assert.Equal(t, "('A', 1)", val)
 	{
 		tuples := []GroupSet{
-			{Value: []interface{}{"A", 1}},
-			{Value: []interface{}{"B", 2}},
+			{Value: []any{"A", 1}},
+			{Value: []any{"B", 2}},
 		}
 		val, _ = format(time.UTC, Seconds, tuples)
 		assert.Equal(t, "('A', 1), ('B', 2)", val)
@@ -266,6 +329,20 @@ func TestFormatArray(t *testing.T) {
 func TestFormatMap(t *testing.T) {
 	val, _ := format(time.UTC, Seconds, map[string]uint8{"a": 1})
 	assert.Equal(t, "map('a', 1)", val)
+}
+
+func TestBindNamedWithTernaryOperator(t *testing.T) {
+	sqls := []string{
+		`SELECT if(@arg1,@arg2,@arg3)`, // correct
+		`SELECT @arg1?@arg2:@arg3`,     // failed here
+	}
+	for _, sql := range sqls {
+		_, err := bind(time.Local, sql,
+			Named("arg1", 0),
+			Named("arg2", 1),
+			Named("arg3", 2))
+		assert.NoError(t, err)
+	}
 }
 
 func BenchmarkBindNumeric(b *testing.B) {

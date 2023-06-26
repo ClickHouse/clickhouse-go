@@ -20,15 +20,15 @@ jobs:
       max-parallel: 1
       matrix:
         go:
-          - 1.18
-          - 1.19
-        clickhouse:
-          - 22.3
-          - 22.8
-          - 22.9
-          - '22.10'
-          - 22.11
-          - latest
+          - "1.19"
+          - "1.20"
+        clickhouse: # https://github.com/ClickHouse/ClickHouse/blob/master/SECURITY.md#scope-and-supported-versions
+          - "22.3"
+          - "22.8"
+          - "22.12"
+          - "23.1"
+          - "23.2"
+          - "latest"
     steps:
       - uses: actions/checkout@main
 
@@ -49,8 +49,8 @@ jobs:
       fail-fast: true
       matrix:
         go:
-          - 1.18
-          - 1.19
+          - "1.19"
+          - "1.20"
     steps:
       - uses: actions/checkout@main
 

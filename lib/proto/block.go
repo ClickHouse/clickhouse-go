@@ -50,7 +50,7 @@ func (b *Block) AddColumn(name string, ct column.Type) error {
 	return nil
 }
 
-func (b *Block) Append(v ...interface{}) (err error) {
+func (b *Block) Append(v ...any) (err error) {
 	columns := b.Columns
 	if len(columns) != len(v) {
 		return &BlockError{
@@ -129,7 +129,7 @@ func (b *Block) EncodeHeader(buffer *proto.Buffer, revision uint64) (err error) 
 			if rows != cRows {
 				return &BlockError{
 					Op:  "Encode",
-					Err: fmt.Errorf("mismatched len of columns - expected %d, recieved %d for col %s", rows, cRows, c.Name()),
+					Err: fmt.Errorf("mismatched len of columns - expected %d, received %d for col %s", rows, cRows, c.Name()),
 				}
 			}
 		}

@@ -21,14 +21,20 @@
 package clickhouse
 
 import (
+	"crypto/tls"
 	"errors"
 	"io"
 	"syscall"
 )
 
 func (c *connect) connCheck() error {
+	conn := c.conn
+	if tlsConn, ok := c.conn.(*tls.Conn); ok {
+		conn = tlsConn.NetConn()
+	}
+
 	var sysErr error
-	sysConn, ok := c.conn.(syscall.Conn)
+	sysConn, ok := conn.(syscall.Conn)
 	if !ok {
 		return nil
 	}

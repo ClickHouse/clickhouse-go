@@ -19,6 +19,7 @@ package column
 
 import (
 	"database/sql"
+	"database/sql/driver"
 	"encoding"
 	"fmt"
 	"github.com/ClickHouse/ch-go/proto"
@@ -59,7 +60,7 @@ func (col *FixedString) Rows() int {
 	return col.col.Rows()
 }
 
-func (col *FixedString) Row(i int, ptr bool) interface{} {
+func (col *FixedString) Row(i int, ptr bool) any {
 	value := col.row(i)
 	if ptr {
 		return &value
@@ -67,7 +68,7 @@ func (col *FixedString) Row(i int, ptr bool) interface{} {
 	return value
 }
 
-func (col *FixedString) ScanRow(dest interface{}, row int) error {
+func (col *FixedString) ScanRow(dest any, row int) error {
 	switch d := dest.(type) {
 	case *string:
 		*d = col.row(row)
@@ -89,7 +90,7 @@ func (col *FixedString) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (col *FixedString) Append(v interface{}) (nulls []uint8, err error) {
+func (col *FixedString) Append(v any) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []string:
 		nulls = make([]uint8, len(v))
@@ -97,7 +98,7 @@ func (col *FixedString) Append(v interface{}) (nulls []uint8, err error) {
 			if v == "" {
 				col.col.Append(make([]byte, col.col.Size))
 			} else {
-				col.col.Append(binary.Str2Bytes(v))
+				col.col.Append(binary.Str2Bytes(v, col.col.Size))
 			}
 		}
 	case []*string:
@@ -113,7 +114,7 @@ func (col *FixedString) Append(v interface{}) (nulls []uint8, err error) {
 				if *v == "" {
 					col.col.Append(make([]byte, col.col.Size))
 				} else {
-					col.col.Append(binary.Str2Bytes(*v))
+					col.col.Append(binary.Str2Bytes(*v, col.col.Size))
 				}
 			}
 		}
@@ -134,17 +135,17 @@ func (col *FixedString) Append(v interface{}) (nulls []uint8, err error) {
 	return
 }
 
-func (col *FixedString) AppendRow(v interface{}) (err error) {
+func (col *FixedString) AppendRow(v any) (err error) {
 	data := make([]byte, col.col.Size)
 	switch v := v.(type) {
 	case string:
 		if v != "" {
-			data = binary.Str2Bytes(v)
+			data = binary.Str2Bytes(v, col.col.Size)
 		}
 	case *string:
 		if v != nil {
 			if *v != "" {
-				data = binary.Str2Bytes(*v)
+				data = binary.Str2Bytes(*v, col.col.Size)
 			}
 		}
 	case nil:
@@ -153,14 +154,37 @@ func (col *FixedString) AppendRow(v interface{}) (err error) {
 			return err
 		}
 	default:
-		if s, ok := v.(fmt.Stringer); ok {
-			return col.AppendRow(s.String())
-		} else {
+		if s, ok := v.(driver.Valuer); ok {
+			val, err := s.Value()
+			if err != nil {
+				return &ColumnConverterError{
+					Op:   "AppendRow",
+					To:   "String",
+					From: fmt.Sprintf("%T", s),
+					Hint: "could not get driver.Valuer value",
+				}
+			}
+
+			if s, ok := val.(string); ok {
+				return col.AppendRow(s)
+			}
+
 			return &ColumnConverterError{
 				Op:   "AppendRow",
-				To:   "FixedString",
+				To:   "String",
 				From: fmt.Sprintf("%T", v),
+				Hint: "driver.Valuer value is not a string",
 			}
+		}
+
+		if s, ok := v.(fmt.Stringer); ok {
+			return col.AppendRow(s.String())
+		}
+
+		return &ColumnConverterError{
+			Op:   "AppendRow",
+			To:   "String",
+			From: fmt.Sprintf("%T", v),
 		}
 	}
 	col.col.Append(data)

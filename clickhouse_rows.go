@@ -68,14 +68,14 @@ next:
 	return r.row <= r.block.Rows()
 }
 
-func (r *rows) Scan(dest ...interface{}) error {
+func (r *rows) Scan(dest ...any) error {
 	if r.block == nil || (r.row == 0 && r.row >= r.block.Rows()) { // call without next when result is empty
 		return io.EOF
 	}
 	return scan(r.block, r.row, dest...)
 }
 
-func (r *rows) ScanStruct(dest interface{}) error {
+func (r *rows) ScanStruct(dest any) error {
 	values, err := r.structMap.Map("ScanStruct", r.columns, dest, true)
 	if err != nil {
 		return err
@@ -83,7 +83,7 @@ func (r *rows) ScanStruct(dest interface{}) error {
 	return r.Scan(values...)
 }
 
-func (r *rows) Totals(dest ...interface{}) error {
+func (r *rows) Totals(dest ...any) error {
 	if r.totals == nil {
 		return sql.ErrNoRows
 	}
@@ -132,7 +132,7 @@ func (r *row) Err() error {
 	return r.err
 }
 
-func (r *row) ScanStruct(dest interface{}) error {
+func (r *row) ScanStruct(dest any) error {
 	if r.err != nil {
 		return r.err
 	}
@@ -143,7 +143,7 @@ func (r *row) ScanStruct(dest interface{}) error {
 	return r.Scan(values...)
 }
 
-func (r *row) Scan(dest ...interface{}) error {
+func (r *row) Scan(dest ...any) error {
 	if r.err != nil {
 		return r.err
 	}

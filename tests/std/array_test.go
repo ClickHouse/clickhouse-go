@@ -93,7 +93,7 @@ func TestStdArray(t *testing.T) {
 			require.NoError(t, err)
 			for rows.Next() {
 				var (
-					col1 interface{}
+					col1 any
 					col2 [][]uint32
 					col3 [][][]time.Time
 				)

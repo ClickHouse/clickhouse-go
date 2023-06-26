@@ -18,20 +18,21 @@
 package std
 
 import (
+	"bufio"
 	"context"
 	"crypto/tls"
 	"database/sql"
 	"fmt"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
+	"os"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/ClickHouse/clickhouse-go/v2"
-	_ "github.com/ClickHouse/clickhouse-go/v2"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestStdConn(t *testing.T) {
@@ -283,6 +284,186 @@ func TestMaxExecutionTime(t *testing.T) {
 				}
 				assert.Error(t, rows.Err())
 			}
+		})
+	}
+}
+
+func TestHttpConnWithOptions(t *testing.T) {
+	runInDocker, _ := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_DOCKER", "true"))
+	if !runInDocker {
+		t.Skip("Skip test in cloud environment.")
+	}
+
+	env, err := GetStdTestEnvironment()
+	require.NoError(t, err)
+	nginxEnv, err := clickhouse_tests.CreateNginxReverseProxyTestEnvironment(env)
+	defer func() {
+		if nginxEnv.NginxContainer != nil {
+			nginxEnv.NginxContainer.Terminate(context.Background())
+		}
+	}()
+	require.NoError(t, err)
+	conn := GetConnectionWithOptions(&clickhouse.Options{
+		Addr:     []string{fmt.Sprintf("%s:%d", env.Host, nginxEnv.HttpPort)},
+		Protocol: clickhouse.HTTP,
+		Auth: clickhouse.Auth{
+			Database: env.Database,
+			Username: env.Username,
+			Password: env.Password,
+		},
+		Settings: clickhouse.Settings{
+			"max_execution_time": 60,
+		},
+		DialTimeout: 5 * time.Second,
+		Compression: &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		},
+		HttpUrlPath: "clickhouse",
+	})
+	require.NoError(t, conn.Ping())
+	var one int
+	require.NoError(t, conn.QueryRow("SELECT 1").Scan(&one))
+	assert.NoError(t, conn.Close())
+}
+
+func TestEmptyDatabaseConfig(t *testing.T) {
+	runInDocker, _ := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_DOCKER", "true"))
+	if !runInDocker {
+		t.Skip("Skip test in cloud environment.")
+	}
+
+	env, err := GetStdTestEnvironment()
+	require.NoError(t, err)
+	dsns := map[string]string{
+		"Native": fmt.Sprintf("clickhouse://%s:%d?username=%s&password=%s", env.Host, env.Port, env.Username, env.Password),
+		"Http":   fmt.Sprintf("http://%s:%d?username=%s&password=%s", env.Host, env.HttpPort, env.Username, env.Password),
+	}
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	if useSSL {
+		dsns = map[string]string{
+			"Native": fmt.Sprintf("clickhouse://%s:%d?username=%s&password=%s&secure=true", env.Host, env.Port, env.Username, env.Password),
+			"Http":   fmt.Sprintf("https://%s:%d?username=%s&password=%s&secure=true", env.Host, env.HttpPort, env.Username, env.Password),
+		}
+	}
+
+	setupConn, err := sql.Open("clickhouse", dsns["Native"])
+	require.NoError(t, err)
+
+	// Setup
+	_, err = setupConn.ExecContext(context.Background(), `DROP DATABASE IF EXISTS "default"`)
+	require.NoError(t, err)
+
+	for name, dsn := range dsns {
+		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
+			conn, err := sql.Open("clickhouse", dsn)
+			require.NoError(t, err)
+			err = conn.Ping()
+			require.NoError(t, err)
+		})
+	}
+
+	// Tear down
+	_, err = setupConn.ExecContext(context.Background(), `CREATE DATABASE "default"`)
+	require.NoError(t, err)
+}
+
+func TestHTTPProxy(t *testing.T) {
+	t.Skip("test is flaky, tinyproxy container can't be started in CI")
+
+	// check if CLICKHOUSE_HOST env is postfixed with "clickhouse.cloud", skip if not
+	clickHouseHost := clickhouse_tests.GetEnv("CLICKHOUSE_HOST", "")
+	if !strings.HasSuffix(clickHouseHost, "clickhouse.cloud") {
+		t.Skip("Skip test in non cloud environment.")
+	}
+
+	proxyEnv, err := clickhouse_tests.CreateTinyProxyTestEnvironment(t)
+	defer func() {
+		if proxyEnv.Container != nil {
+			proxyEnv.Container.Terminate(context.Background())
+		}
+	}()
+	require.NoError(t, err)
+
+	proxyURL := proxyEnv.ProxyUrl(t)
+
+	os.Setenv("HTTP_PROXY", proxyURL)
+	os.Setenv("HTTPS_PROXY", proxyURL)
+	defer func() {
+		os.Unsetenv("HTTP_PROXY")
+		os.Unsetenv("HTTPS_PROXY")
+	}()
+
+	logs, err := proxyEnv.Container.Logs(context.Background())
+	require.NoError(t, err)
+	defer logs.Close()
+	scanner := bufio.NewScanner(logs)
+
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	conn, err := GetStdDSNConnection(clickhouse.HTTP, useSSL, nil)
+
+	require.NoError(t, err)
+	defer conn.Close()
+
+	require.NoError(t, conn.Ping())
+
+	assert.Eventually(t, func() bool {
+		if !scanner.Scan() {
+			return false
+		}
+
+		text := scanner.Text()
+		t.Log(text)
+		return strings.Contains(text, fmt.Sprintf("Established connection to host \"%s\"", clickHouseHost))
+	}, 60*time.Second, time.Millisecond, "proxy logs should contain clickhouse.cloud instance host")
+}
+
+func TestCustomSettings(t *testing.T) {
+	runInDocker, _ := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_DOCKER", "true"))
+	if !runInDocker {
+		t.Skip("Skip test in cloud environment.")
+	}
+
+	dsns := map[string]clickhouse.Protocol{"Native": clickhouse.Native, "Http": clickhouse.HTTP}
+	for name, protocol := range dsns {
+		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
+			conn, err := GetStdOpenDBConnection(
+				protocol,
+				clickhouse.Settings{
+					"custom_setting": clickhouse.CustomSetting{"custom_value"},
+				},
+				nil,
+				nil,
+			)
+			require.NoError(t, err)
+
+			t.Run("get existing custom setting value", func(t *testing.T) {
+				row := conn.QueryRowContext(context.Background(), "SELECT getSetting('custom_setting')")
+				require.NoError(t, row.Err())
+
+				var setting string
+				require.NoError(t, row.Scan(&setting))
+				require.Equal(t, "custom_value", setting)
+			})
+
+			t.Run("get non-existing custom setting value", func(t *testing.T) {
+				row := conn.QueryRowContext(context.Background(), "SELECT getSetting('custom_non_existing_setting')")
+				require.ErrorContains(t, row.Err(), "Unknown setting custom_non_existing_setting")
+			})
+
+			t.Run("get custom setting value from query context", func(t *testing.T) {
+				ctx := clickhouse.Context(context.Background(), clickhouse.WithSettings(clickhouse.Settings{
+					"custom_query_setting": clickhouse.CustomSetting{"custom_query_value"},
+				}))
+
+				row := conn.QueryRowContext(ctx, "SELECT getSetting('custom_query_setting')")
+				require.NoError(t, row.Err())
+
+				var setting string
+				require.NoError(t, row.Scan(&setting))
+				require.Equal(t, "custom_query_value", setting)
+			})
 		})
 	}
 }

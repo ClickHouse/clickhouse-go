@@ -46,10 +46,10 @@ var kindMappings = map[reflect.Kind]string{
 // complex types for which a mapping exists - currently we map to String but could enhance in the future for other types
 var typeMappings = map[string]struct{}{
 	// currently JSON doesn't support DateTime, Decimal or IP so mapped to String
-	"time.Time":       struct{}{},
-	"decimal.Decimal": struct{}{},
-	"net.IP":          struct{}{},
-	"uuid.UUID":       struct{}{},
+	"time.Time":       {},
+	"decimal.Decimal": {},
+	"net.IP":          {},
+	"uuid.UUID":       {},
 }
 
 type JSON interface {
@@ -66,7 +66,7 @@ type JSONParent interface {
 	rows() int
 }
 
-func parseType(name string, vType reflect.Type, values interface{}, isArray bool, jCol JSONParent, numEmpty int) error {
+func parseType(name string, vType reflect.Type, values any, isArray bool, jCol JSONParent, numEmpty int) error {
 	_, ok := typeMappings[vType.String()]
 	if !ok {
 		return &UnsupportedColumnTypeError{
@@ -107,7 +107,7 @@ func parseType(name string, vType reflect.Type, values interface{}, isArray bool
 	return col.AppendRow(fmt.Sprint(values))
 }
 
-func parsePrimitive(name string, kind reflect.Kind, values interface{}, isArray bool, jCol JSONParent, numEmpty int) error {
+func parsePrimitive(name string, kind reflect.Kind, values any, isArray bool, jCol JSONParent, numEmpty int) error {
 	ct, ok := kindMappings[kind]
 	if !ok {
 		return &UnsupportedColumnTypeError{
@@ -117,7 +117,7 @@ func parsePrimitive(name string, kind reflect.Kind, values interface{}, isArray 
 	var err error
 	if isArray {
 		ct = fmt.Sprintf("Array(%s)", ct)
-		// if we have a []interface{} we will need to cast to the target column type - this will be based on the first
+		// if we have a []any we will need to cast to the target column type - this will be based on the first
 		// values types. Inconsistent slices will fail.
 		values, err = convertSlice(values)
 		if err != nil {
@@ -145,11 +145,11 @@ func parsePrimitive(name string, kind reflect.Kind, values interface{}, isArray 
 	return col.AppendRow(values)
 }
 
-// converts a []interface{} of primitives to a typed slice
+// converts a []any of primitives to a typed slice
 // maybe this can be done with reflection but likely slower. investigate.
 // this uses the first value to determine the type - subsequent values must currently be of the same type - we might cast later
 // but wider driver doesn't support e.g. int to int64
-func convertSlice(values interface{}) (interface{}, error) {
+func convertSlice(values any) (any, error) {
 	rValues := reflect.ValueOf(values)
 	if rValues.Len() == 0 || rValues.Index(0).Kind() != reflect.Interface {
 		return values, nil
@@ -163,7 +163,7 @@ func convertSlice(values interface{}) (interface{}, error) {
 		}
 	}
 	if fType == nil {
-		return []interface{}{}, nil
+		return []any{}, nil
 	}
 	typedSlice := reflect.MakeSlice(reflect.SliceOf(fType), 0, rValues.Len())
 	for i := 0; i < rValues.Len(); i++ {
@@ -225,7 +225,7 @@ func getMapFieldName(name string) string {
 	return colEscape.Replace(name)
 }
 
-func parseSlice(name string, values interface{}, jCol JSONParent, preFill int) error {
+func parseSlice(name string, values any, jCol JSONParent, preFill int) error {
 	fType := reflect.TypeOf(values).Elem()
 	sKind := fType.Kind()
 	rValues := reflect.ValueOf(values)
@@ -284,7 +284,7 @@ func parseSlice(name string, values interface{}, jCol JSONParent, preFill int) e
 					return err
 				}
 			default:
-				// only happens if slice has a primitive mixed with complex types in a []interface{}
+				// only happens if slice has a primitive mixed with complex types in a []any
 				return &Error{
 					ColumnType: fmt.Sprint(sKind),
 					Err:        fmt.Errorf("slices must be same dimension in column %s", col.Name()),
@@ -305,10 +305,10 @@ func parseStruct(name string, structVal reflect.Value, jCol JSONParent, preFill 
 }
 
 func iterateStruct(structVal reflect.Value, col JSONParent, preFill int) error {
-	// structs generally have consistent field counts but we ignore nil values that are interface{} as we can't infer from
+	// structs generally have consistent field counts but we ignore nil values that are any as we can't infer from
 	// these until they occur - so we might need to either backfill when to do occur or insert empty based on previous
 	if structVal.Kind() == reflect.Interface {
-		// can happen if passed from []interface{}
+		// can happen if passed from []any
 		structVal = structVal.Elem()
 	}
 
@@ -412,7 +412,7 @@ func iterateMap(mapVal reflect.Value, col JSONParent, preFill int) error {
 	// two inconsistent options - 1. new - map has new columns 2. massing - map has missing columns
 	// for (1) we need to update previous, for (2) we need to ensure we add a null entry
 	if mapVal.Kind() == reflect.Interface {
-		// can happen if passed from []interface{}
+		// can happen if passed from []any
 		mapVal = mapVal.Elem()
 	}
 
@@ -488,7 +488,7 @@ func iterateMap(mapVal reflect.Value, col JSONParent, preFill int) error {
 	return nil
 }
 
-func appendStructOrMap(jCol *JSONObject, data interface{}) error {
+func appendStructOrMap(jCol *JSONObject, data any) error {
 	vData := reflect.ValueOf(data)
 	kind := vData.Kind()
 	if kind == reflect.Struct {
@@ -618,7 +618,7 @@ func (jCol *JSONList) upsertValue(name string, ct string) (*JSONValue, error) {
 	vCol := &JSONValue{
 		Interface: col,
 	}
-	jCol.values.(*JSONObject).columns = append(cols, vCol)
+	jCol.values.(*JSONObject).columns = append(cols, vCol) // nolint:gocritic
 	return vCol, nil
 }
 
@@ -640,7 +640,7 @@ func (jCol *JSONList) upsertList(name string) (*JSONList, error) {
 		}
 	}
 	lCol := createJSONList(name, jObj.tz)
-	jCol.values.(*JSONObject).columns = append(cols, lCol)
+	jCol.values.(*JSONObject).columns = append(cols, lCol) // nolint:gocritic
 	return lCol, nil
 
 }
@@ -669,7 +669,7 @@ func (jCol *JSONList) upsertObject(name string) (*JSONObject, error) {
 		name: name,
 		tz:   jObj.tz,
 	}
-	jCol.values.(*JSONObject).columns = append(cols, oCol)
+	jCol.values.(*JSONObject).columns = append(cols, oCol) // nolint:gocritic
 	return oCol, nil
 }
 
@@ -848,15 +848,15 @@ func (jCol *JSONObject) Rows() int {
 
 // ClickHouse returns JSON as a tuple i.e. these will never be invoked
 
-func (jCol *JSONObject) Row(i int, ptr bool) interface{} {
+func (jCol *JSONObject) Row(i int, ptr bool) any {
 	panic("Not implemented")
 }
 
-func (jCol *JSONObject) ScanRow(dest interface{}, row int) error {
+func (jCol *JSONObject) ScanRow(dest any, row int) error {
 	panic("Not implemented")
 }
 
-func (jCol *JSONObject) Append(v interface{}) (nulls []uint8, err error) {
+func (jCol *JSONObject) Append(v any) (nulls []uint8, err error) {
 	jSlice := reflect.ValueOf(v)
 	if jSlice.Kind() != reflect.Slice {
 		return nil, &ColumnConverterError{
@@ -873,7 +873,7 @@ func (jCol *JSONObject) Append(v interface{}) (nulls []uint8, err error) {
 	return nil, nil
 }
 
-func (jCol *JSONObject) AppendRow(v interface{}) error {
+func (jCol *JSONObject) AppendRow(v any) error {
 	if reflect.ValueOf(v).Kind() == reflect.Struct || reflect.ValueOf(v).Kind() == reflect.Map {
 		if jCol.columns != nil && jCol.encoding == 1 {
 			return &Error{

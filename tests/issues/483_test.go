@@ -62,9 +62,9 @@ func TestIssue483(t *testing.T) {
 	require.NoError(t, batch.Send())
 	var (
 		col1 uint8
-		col2 []uint8           // steps.duration
-		col3 [][][]interface{} // steps.result
-		col4 []string          //  steps.keyword
+		col2 []uint8   // steps.duration
+		col3 [][][]any // steps.result
+		col4 []string  //  steps.keyword
 		col5 uint8
 	)
 	require.NoError(t, conn.QueryRow(ctx, `SELECT * FROM issue_483`).Scan(&col1, &col2, &col3, &col4, &col5))

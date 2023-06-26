@@ -20,12 +20,14 @@ package tests
 import (
 	"context"
 	"crypto/tls"
+	"database/sql"
 	"fmt"
-	"github.com/stretchr/testify/require"
 	"net"
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
@@ -77,4 +79,42 @@ func TestCustomDialContext(t *testing.T) {
 		assert.Equal(t, 1, dialCount)
 	}
 	assert.True(t, time.Since(start) < time.Second)
+}
+
+func TestCustomHTTPDialContext(t *testing.T) {
+	env, err := GetNativeTestEnvironment()
+	require.NoError(t, err)
+	var (
+		dialCount int
+	)
+	useSSL, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	port := env.HttpPort
+	var tlsConfig *tls.Config
+	if useSSL {
+		port = env.HttpsPort
+		tlsConfig = &tls.Config{}
+	}
+	connector := clickhouse.Connector(&clickhouse.Options{
+		Addr:     []string{fmt.Sprintf("%s:%d", env.Host, port)},
+		Protocol: clickhouse.HTTP,
+		Auth: clickhouse.Auth{
+			Database: "default",
+			Username: env.Username,
+			Password: env.Password,
+		},
+		DialContext: func(ctx context.Context, addr string) (net.Conn, error) {
+			dialCount++
+			var d net.Dialer
+			return d.DialContext(ctx, "tcp", addr)
+		},
+		TLS: tlsConfig,
+	})
+	conn, err := connector.Connect(context.Background())
+	require.NoError(t, err)
+	require.NotNil(t, conn)
+	db := sql.OpenDB(connector)
+	require.Equal(t, 1, dialCount)
+	err = db.Ping()
+	require.NoError(t, err)
 }

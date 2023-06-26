@@ -75,7 +75,7 @@ func TestReadOnlyUser(t *testing.T) {
 
 	env, err := GetTestEnvironment(testSet)
 	require.NoError(t, err)
-	client, err := testClientWithDefaultSettings(env)
+	client, err := TestClientWithDefaultSettings(env)
 	require.NoError(t, err)
 	defer client.Close()
 

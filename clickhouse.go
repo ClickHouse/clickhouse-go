@@ -79,11 +79,13 @@ func Open(opt *Options) (driver.Conn, error) {
 		opt = &Options{}
 	}
 	o := opt.setDefaults()
-	return &clickhouse{
+	conn := &clickhouse{
 		opt:  o,
 		idle: make(chan *connect, o.MaxIdleConns),
 		open: make(chan struct{}, o.MaxOpenConns),
-	}, nil
+	}
+	go conn.startAutoCloseIdleConnections()
+	return conn, nil
 }
 
 type clickhouse struct {
@@ -114,7 +116,7 @@ func (ch *clickhouse) ServerVersion() (*driver.ServerVersion, error) {
 	return &conn.server, nil
 }
 
-func (ch *clickhouse) Query(ctx context.Context, query string, args ...interface{}) (rows driver.Rows, err error) {
+func (ch *clickhouse) Query(ctx context.Context, query string, args ...any) (rows driver.Rows, err error) {
 	conn, err := ch.acquire(ctx)
 	if err != nil {
 		return nil, err
@@ -123,7 +125,7 @@ func (ch *clickhouse) Query(ctx context.Context, query string, args ...interface
 	return conn.query(ctx, ch.release, query, args...)
 }
 
-func (ch *clickhouse) QueryRow(ctx context.Context, query string, args ...interface{}) (rows driver.Row) {
+func (ch *clickhouse) QueryRow(ctx context.Context, query string, args ...any) (rows driver.Row) {
 	conn, err := ch.acquire(ctx)
 	if err != nil {
 		return &row{
@@ -134,7 +136,7 @@ func (ch *clickhouse) QueryRow(ctx context.Context, query string, args ...interf
 	return conn.queryRow(ctx, ch.release, query, args...)
 }
 
-func (ch *clickhouse) Exec(ctx context.Context, query string, args ...interface{}) error {
+func (ch *clickhouse) Exec(ctx context.Context, query string, args ...any) error {
 	conn, err := ch.acquire(ctx)
 	if err != nil {
 		return err
@@ -276,6 +278,39 @@ func (ch *clickhouse) acquire(ctx context.Context) (conn *connect, err error) {
 		return nil, err
 	}
 	return conn, nil
+}
+
+func (ch *clickhouse) startAutoCloseIdleConnections() {
+	ticker := time.NewTicker(ch.opt.ConnMaxLifetime)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			ch.closeIdleExpired()
+		}
+	}
+}
+
+func (ch *clickhouse) closeIdleExpired() {
+	cutoff := time.Now().Add(-ch.opt.ConnMaxLifetime)
+	for {
+		select {
+		case conn := <-ch.idle:
+			if conn.connectedAt.Before(cutoff) {
+				conn.close()
+			} else {
+				select {
+				case ch.idle <- conn:
+				default:
+					conn.close()
+				}
+				return
+			}
+		default:
+			return
+		}
+	}
 }
 
 func (ch *clickhouse) release(conn *connect, err error) {

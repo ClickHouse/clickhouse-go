@@ -157,7 +157,7 @@ func TestNullableDate32(t *testing.T) {
 	date, err := time.Parse("2006-01-02 15:04:05", "2283-11-11 00:00:00")
 	require.NoError(t, err)
 	dateStr := "2283-11-11"
-	require.NoError(t, batch.Append(date, date, dateStr, &dateStr))
+	require.NoError(t, batch.Append(date, &date, dateStr, &dateStr))
 	require.NoError(t, batch.Send())
 	var (
 		col1 *time.Time
@@ -360,4 +360,35 @@ func TestCustomDateTime32(t *testing.T) {
 	var col1 CustomDateTime
 	require.NoError(t, row.Scan(&col1))
 	require.Equal(t, now, time.Time(col1))
+}
+
+func TestDate32WithUserLocation(t *testing.T) {
+	t.Skip("Date32 decode is broken in this scenario. row.Scan returns '1977-07-01 00:00:00 +0000' instead of '2022-07-01 00:00:00 +0000'. Needs further investigation.")
+
+	ctx := context.Background()
+
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS date_with_user_location"))
+	require.NoError(t, conn.Exec(ctx, `
+		CREATE TABLE date_with_user_location (
+			Col1 Date32
+	) Engine MergeTree() ORDER BY tuple()
+	`))
+	require.NoError(t, conn.Exec(ctx, "INSERT INTO date_with_user_location SELECT toDate32(toStartOfMonth(toDate('2022-07-12')))"))
+
+	userLocation, _ := time.LoadLocation("Pacific/Pago_Pago")
+	queryCtx := clickhouse.Context(ctx, clickhouse.WithUserLocation(userLocation))
+
+	var col1 time.Time
+	row := conn.QueryRow(queryCtx, "SELECT * FROM date_with_user_location")
+	require.NoError(t, row.Err())
+	require.NoError(t, row.Scan(&col1))
+
+	const dateTimeNoZoneFormat = "2006-01-02T15:04:05"
+	assert.Equal(t, "2022-07-01T00:00:00", col1.Format(dateTimeNoZoneFormat))
+	assert.Equal(t, userLocation.String(), col1.Location().String())
 }

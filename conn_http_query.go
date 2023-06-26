@@ -21,15 +21,13 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"io"
-	"strings"
-
 	chproto "github.com/ClickHouse/ch-go/proto"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
+	"io"
 )
 
 // release is ignored, because http used by std with empty release function
-func (h *httpConnect) query(ctx context.Context, release func(*connect, error), query string, args ...interface{}) (*rows, error) {
+func (h *httpConnect) query(ctx context.Context, release func(*connect, error), query string, args ...any) (*rows, error) {
 	options := queryOptions(ctx)
 	query, err := bindQueryOrAppendParameters(true, &options, query, h.location, args...)
 	if err != nil {
@@ -48,7 +46,7 @@ func (h *httpConnect) query(ctx context.Context, release func(*connect, error), 
 		headers[k] = v
 	}
 
-	res, err := h.sendQuery(ctx, strings.NewReader(query), &options, headers)
+	res, err := h.sendQuery(ctx, query, &options, headers)
 	if err != nil {
 		return nil, err
 	}
@@ -90,14 +88,14 @@ func (h *httpConnect) query(ctx context.Context, release func(*connect, error), 
 	}
 	h.compressionPool.Put(rw)
 	reader := chproto.NewReader(bytes.NewReader(body))
-	block, err := h.readData(reader)
+	block, err := h.readData(ctx, reader)
 	if err != nil {
 		return nil, err
 	}
 
 	go func() {
 		for {
-			block, err := h.readData(reader)
+			block, err := h.readData(ctx, reader)
 			if err != nil {
 				// ch-go wraps EOF errors
 				if !errors.Is(err, io.EOF) {

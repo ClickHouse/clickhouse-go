@@ -20,6 +20,7 @@ package tests
 import (
 	"context"
 	"crypto/rand"
+	"fmt"
 	"github.com/stretchr/testify/require"
 	"testing"
 
@@ -53,6 +54,7 @@ func TestFixedString(t *testing.T) {
 				, Col3 Nullable(FixedString(10))
 				, Col4 Array(FixedString(10))
 				, Col5 Array(Nullable(FixedString(10)))
+			    , Col6 FixedString(12)
 			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
@@ -67,10 +69,11 @@ func TestFixedString(t *testing.T) {
 		col3Data = &col1Data
 		col4Data = []string{"ClickHouse", "ClickHouse", "ClickHouse"}
 		col5Data = []*string{&col1Data, nil, &col1Data}
+		col6Data = "clickhouse"
 	)
 	_, err = rand.Read(col2Data.data[:])
 	require.NoError(t, err)
-	require.NoError(t, batch.Append(col1Data, col2Data, col3Data, col4Data, col5Data))
+	require.NoError(t, batch.Append(col1Data, col2Data, col3Data, col4Data, col5Data, col6Data))
 	require.NoError(t, batch.Send())
 	var (
 		col1 string
@@ -78,13 +81,15 @@ func TestFixedString(t *testing.T) {
 		col3 *string
 		col4 []string
 		col5 []*string
+		col6 string
 	)
-	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_fixed_string").Scan(&col1, &col2, &col3, &col4, &col5))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_fixed_string").Scan(&col1, &col2, &col3, &col4, &col5, &col6))
 	assert.Equal(t, col1Data, col1)
 	assert.Equal(t, col2Data.data, col2.data)
 	assert.Equal(t, col3Data, col3)
 	assert.Equal(t, col4Data, col4)
 	assert.Equal(t, col5Data, col5)
+	assert.Equal(t, col6Data+string([]byte{0, 0}), col6)
 	rows, err := conn.Query(ctx, "SELECT CAST('RU' AS FixedString(2)) FROM system.numbers_mt LIMIT 10")
 	require.NoError(t, err)
 	var count int
@@ -357,4 +362,45 @@ func TestFixedStringFlush(t *testing.T) {
 		i += 1
 	}
 	require.Equal(t, 1000, i)
+}
+
+func TestFixedStringFromDriverValuerType(t *testing.T) {
+	conn, err := GetConnection("native", nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+
+	require.NoError(t, err)
+	require.NoError(t, conn.Ping(ctx))
+	if !CheckMinServerServerVersion(conn, 21, 9, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
+		return
+	}
+	const ddl = `
+		CREATE TABLE test_fixed_string (
+			  	  Col1 FixedString(5)
+		        , Col2 FixedString(5)
+		) Engine MergeTree() ORDER BY tuple()
+		`
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE test_fixed_string")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_fixed_string")
+	require.NoError(t, err)
+
+	type data struct {
+		Col1 string               `ch:"Col1"`
+		Col2 testStringSerializer `ch:"Col2"`
+	}
+	require.NoError(t, batch.AppendStruct(&data{
+		Col1: "Value",
+		Col2: testStringSerializer{"Value"},
+	}))
+	require.NoError(t, batch.Send())
+
+	var dest data
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_fixed_string").ScanStruct(&dest))
+	assert.Equal(t, "Value", dest.Col1)
+	assert.Equal(t, testStringSerializer{"Value"}, dest.Col2)
 }

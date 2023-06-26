@@ -59,7 +59,7 @@ func NestedUnFlattened() error {
 	var i int64
 	for i = 0; i < 10; i++ {
 		err := batch.Append(
-			[]map[string]interface{}{
+			[]map[string]any{
 				{
 					"Col1_1": strconv.Itoa(int(i)),
 					"Col1_2": uint8(i),
@@ -73,9 +73,9 @@ func NestedUnFlattened() error {
 					"Col1_2": uint8(i + 2),
 				},
 			},
-			[]map[string]interface{}{
+			[]map[string]any{
 				{
-					"Col2_2": []map[string]interface{}{
+					"Col2_2": []map[string]any{
 						{
 							"Col2_2_1": uint8(i),
 							"Col2_2_2": uint8(i + 1),
@@ -84,7 +84,7 @@ func NestedUnFlattened() error {
 					"Col2_1": uint8(i),
 				},
 				{
-					"Col2_2": []map[string]interface{}{
+					"Col2_2": []map[string]any{
 						{
 							"Col2_2_1": uint8(i + 2),
 							"Col2_2_2": uint8(i + 3),
@@ -102,8 +102,8 @@ func NestedUnFlattened() error {
 		return err
 	}
 	var (
-		col1 []map[string]interface{}
-		col2 []map[string]interface{}
+		col1 []map[string]any
+		col2 []map[string]any
 	)
 	rows, err := conn.Query(ctx, "SELECT * FROM example")
 	if err != nil {
@@ -154,7 +154,7 @@ func NestedFlattened() error {
 		col1_1_data := []string{strconv.Itoa(int(i)), strconv.Itoa(int(i + 1)), strconv.Itoa(int(i + 2))}
 		col1_2_data := []uint8{i, i + 1, i + 2}
 		col2_1_data := []uint8{i, i + 1, i + 2}
-		col2_2_data := [][][]interface{}{
+		col2_2_data := [][][]any{
 			{
 				{i, i + 1},
 			},

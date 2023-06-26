@@ -44,7 +44,7 @@ func PingWithSettings() error {
 			return d.DialContext(ctx, "tcp", addr)
 		},
 		Debug: true,
-		Debugf: func(format string, v ...interface{}) {
+		Debugf: func(format string, v ...any) {
 			fmt.Printf(format, v)
 		},
 		Settings: clickhouse.Settings{

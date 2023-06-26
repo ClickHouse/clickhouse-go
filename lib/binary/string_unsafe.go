@@ -20,6 +20,14 @@
 
 package binary
 
-func Str2Bytes(str string) []byte {
-	return unsafeStr2Bytes(str)
+func Str2Bytes(str string, expectedLen int) []byte {
+	b := unsafeStr2Bytes(str)
+
+	if len(str) < expectedLen {
+		extended := make([]byte, expectedLen)
+		copy(extended, b)
+		return extended
+	}
+
+	return b
 }

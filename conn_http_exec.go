@@ -21,17 +21,16 @@ import (
 	"context"
 	"io"
 	"io/ioutil"
-	"strings"
 )
 
-func (h *httpConnect) exec(ctx context.Context, query string, args ...interface{}) error {
+func (h *httpConnect) exec(ctx context.Context, query string, args ...any) error {
 	options := queryOptions(ctx)
 	query, err := bindQueryOrAppendParameters(true, &options, query, h.location, args...)
 	if err != nil {
 		return err
 	}
 
-	res, err := h.sendQuery(ctx, strings.NewReader(query), &options, h.headers)
+	res, err := h.sendQuery(ctx, query, &options, h.headers)
 	if res != nil {
 		defer res.Body.Close()
 		// we don't care about result, so just discard it to reuse connection

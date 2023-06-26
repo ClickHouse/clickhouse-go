@@ -49,18 +49,18 @@ func TupleInsertRead() error {
 		return err
 	}
 	// both named and unnamed can be added with slices. Note we can use strongly typed lists and maps if all elements are the same type
-	if err = batch.Append([]interface{}{"Clicky McClickHouse", uint8(42)}, []interface{}{"Clicky McClickHouse Snr", uint8(78)}, []string{"Dale", "521211"}); err != nil {
+	if err = batch.Append([]any{"Clicky McClickHouse", uint8(42)}, []any{"Clicky McClickHouse Snr", uint8(78)}, []string{"Dale", "521211"}); err != nil {
 		return err
 	}
-	if err = batch.Append(map[string]interface{}{"name": "Clicky McClickHouse Jnr", "age": uint8(20)}, []interface{}{"Baby Clicky McClickHouse", uint8(1)}, map[string]string{"name": "Geoff", "id": "12123"}); err != nil {
+	if err = batch.Append(map[string]any{"name": "Clicky McClickHouse Jnr", "age": uint8(20)}, []any{"Baby Clicky McClickHouse", uint8(1)}, map[string]string{"name": "Geoff", "id": "12123"}); err != nil {
 		return err
 	}
 	if err = batch.Send(); err != nil {
 		return err
 	}
 	var (
-		col1 map[string]interface{}
-		col2 []interface{}
+		col1 map[string]any
+		col2 []any
 		col3 map[string]string
 	)
 	// named tuples can be retrieved into a map or slices, unnamed just slices

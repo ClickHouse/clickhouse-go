@@ -114,7 +114,7 @@ func (b *batch) Abort() error {
 	return nil
 }
 
-func (b *batch) Append(v ...interface{}) error {
+func (b *batch) Append(v ...any) error {
 	if b.sent {
 		return ErrBatchAlreadySent
 	}
@@ -129,7 +129,7 @@ func (b *batch) Append(v ...interface{}) error {
 	return nil
 }
 
-func (b *batch) AppendStruct(v interface{}) error {
+func (b *batch) AppendStruct(v any) error {
 	if b.err != nil {
 		return b.err
 	}
@@ -224,7 +224,7 @@ type batchColumn struct {
 	release func(error)
 }
 
-func (b *batchColumn) Append(v interface{}) (err error) {
+func (b *batchColumn) Append(v any) (err error) {
 	if b.batch.IsSent() {
 		return ErrBatchAlreadySent
 	}
@@ -233,6 +233,21 @@ func (b *batchColumn) Append(v interface{}) (err error) {
 		return b.err
 	}
 	if _, err = b.column.Append(v); err != nil {
+		b.release(err)
+		return err
+	}
+	return nil
+}
+
+func (b *batchColumn) AppendRow(v any) (err error) {
+	if b.batch.IsSent() {
+		return ErrBatchAlreadySent
+	}
+	if b.err != nil {
+		b.release(b.err)
+		return b.err
+	}
+	if err = b.column.AppendRow(v); err != nil {
 		b.release(err)
 		return err
 	}

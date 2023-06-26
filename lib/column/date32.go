@@ -31,8 +31,9 @@ var (
 )
 
 type Date32 struct {
-	col  proto.ColDate32
-	name string
+	col      proto.ColDate32
+	name     string
+	location *time.Location
 }
 
 func (col *Date32) Reset() {
@@ -55,7 +56,7 @@ func (col *Date32) Rows() int {
 	return col.col.Rows()
 }
 
-func (col *Date32) Row(i int, ptr bool) interface{} {
+func (col *Date32) Row(i int, ptr bool) any {
 	value := col.row(i)
 	if ptr {
 		return &value
@@ -63,7 +64,7 @@ func (col *Date32) Row(i int, ptr bool) interface{} {
 	return value
 }
 
-func (col *Date32) ScanRow(dest interface{}, row int) error {
+func (col *Date32) ScanRow(dest any, row int) error {
 	switch d := dest.(type) {
 	case *time.Time:
 		*d = col.row(row)
@@ -85,7 +86,7 @@ func (col *Date32) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (col *Date32) Append(v interface{}) (nulls []uint8, err error) {
+func (col *Date32) Append(v any) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []time.Time:
 		for _, t := range v {
@@ -154,7 +155,7 @@ func (col *Date32) Append(v interface{}) (nulls []uint8, err error) {
 	return
 }
 
-func (col *Date32) AppendRow(v interface{}) error {
+func (col *Date32) AppendRow(v any) error {
 	switch v := v.(type) {
 	case time.Time:
 		if err := dateOverflow(minDate32, maxDate32, v, "2006-01-02"); err != nil {
@@ -218,7 +219,7 @@ func (col *Date32) AppendRow(v interface{}) error {
 }
 
 func (col *Date32) parseDate(value string) (datetime time.Time, err error) {
-	return parseDate(value, minDate32, maxDate32)
+	return parseDate(value, minDate32, maxDate32, col.location)
 }
 
 func (col *Date32) Decode(reader *proto.Reader, rows int) error {
@@ -230,7 +231,14 @@ func (col *Date32) Encode(buffer *proto.Buffer) {
 }
 
 func (col *Date32) row(i int) time.Time {
-	return col.col.Row(i)
+	t := col.col.Row(i)
+
+	if col.location != nil {
+		// proto.Date is normalized as time.Time with UTC timezone.
+		// We make sure Date return from ClickHouse matches server timezone or user defined location.
+		t = time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), col.location)
+	}
+	return t
 }
 
 var _ Interface = (*Date32)(nil)

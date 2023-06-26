@@ -95,9 +95,9 @@ func (t Type) Column(name string, tz *time.Location) (Interface, error) {
 	case "Bool", "Boolean":
 		return &Bool{name: name}, nil
 	case "Date":
-		return &Date{name: name}, nil
+		return &Date{name: name, location: tz}, nil
 	case "Date32":
-		return &Date32{name: name}, nil
+		return &Date32{name: name, location: tz}, nil
 	case "UUID":
 		return &UUID{name: name}, nil
 	case "Nothing":
@@ -247,8 +247,8 @@ var (
 	scanTypeTime         = reflect.TypeOf(time.Time{})
 	scanTypeRing         = reflect.TypeOf(orb.Ring{})
 	scanTypePoint        = reflect.TypeOf(orb.Point{})
-	scanTypeSlice        = reflect.TypeOf([]interface{}{})
-	scanTypeMap          = reflect.TypeOf(map[string]interface{}{})
+	scanTypeSlice        = reflect.TypeOf([]any{})
+	scanTypeMap          = reflect.TypeOf(map[string]any{})
 	scanTypeBigInt       = reflect.TypeOf(&big.Int{})
 	scanTypeString       = reflect.TypeOf("")
 	scanTypePolygon      = reflect.TypeOf(orb.Polygon{})
@@ -276,7 +276,7 @@ func (col *Float32) Reset() {
 	col.col.Reset()
 }
 
-func (col *Float32) ScanRow(dest interface{}, row int) error {
+func (col *Float32) ScanRow(dest any, row int) error {
 	value := col.col.Row(row)
 	switch d := dest.(type) {
 	case *float32:
@@ -298,7 +298,7 @@ func (col *Float32) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (col *Float32) Row(i int, ptr bool) interface{} {
+func (col *Float32) Row(i int, ptr bool) any {
 	value := col.col.Row(i)
 	if ptr {
 		return &value
@@ -306,7 +306,7 @@ func (col *Float32) Row(i int, ptr bool) interface{} {
 	return value
 }
 
-func (col *Float32) Append(v interface{}) (nulls []uint8, err error) {
+func (col *Float32) Append(v any) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []float32:
 		nulls = make([]uint8, len(v))
@@ -334,7 +334,7 @@ func (col *Float32) Append(v interface{}) (nulls []uint8, err error) {
 	return
 }
 
-func (col *Float32) AppendRow(v interface{}) error {
+func (col *Float32) AppendRow(v any) error {
 	switch v := v.(type) {
 	case float32:
 		col.col.Append(v)
@@ -389,7 +389,7 @@ func (col *Float64) Reset() {
 	col.col.Reset()
 }
 
-func (col *Float64) ScanRow(dest interface{}, row int) error {
+func (col *Float64) ScanRow(dest any, row int) error {
 	value := col.col.Row(row)
 	switch d := dest.(type) {
 	case *float64:
@@ -413,7 +413,7 @@ func (col *Float64) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (col *Float64) Row(i int, ptr bool) interface{} {
+func (col *Float64) Row(i int, ptr bool) any {
 	value := col.col.Row(i)
 	if ptr {
 		return &value
@@ -421,7 +421,7 @@ func (col *Float64) Row(i int, ptr bool) interface{} {
 	return value
 }
 
-func (col *Float64) Append(v interface{}) (nulls []uint8, err error) {
+func (col *Float64) Append(v any) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []float64:
 		nulls = make([]uint8, len(v))
@@ -462,7 +462,7 @@ func (col *Float64) Append(v interface{}) (nulls []uint8, err error) {
 	return
 }
 
-func (col *Float64) AppendRow(v interface{}) error {
+func (col *Float64) AppendRow(v any) error {
 	switch v := v.(type) {
 	case float64:
 		col.col.Append(v)
@@ -531,7 +531,7 @@ func (col *Int8) Reset() {
 	col.col.Reset()
 }
 
-func (col *Int8) ScanRow(dest interface{}, row int) error {
+func (col *Int8) ScanRow(dest any, row int) error {
 	value := col.col.Row(row)
 	switch d := dest.(type) {
 	case *int8:
@@ -560,7 +560,7 @@ func (col *Int8) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (col *Int8) Row(i int, ptr bool) interface{} {
+func (col *Int8) Row(i int, ptr bool) any {
 	value := col.col.Row(i)
 	if ptr {
 		return &value
@@ -568,7 +568,7 @@ func (col *Int8) Row(i int, ptr bool) interface{} {
 	return value
 }
 
-func (col *Int8) Append(v interface{}) (nulls []uint8, err error) {
+func (col *Int8) Append(v any) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []int8:
 		nulls = make([]uint8, len(v))
@@ -614,7 +614,7 @@ func (col *Int8) Append(v interface{}) (nulls []uint8, err error) {
 	return
 }
 
-func (col *Int8) AppendRow(v interface{}) error {
+func (col *Int8) AppendRow(v any) error {
 	switch v := v.(type) {
 	case int8:
 		col.col.Append(v)
@@ -681,7 +681,7 @@ func (col *Int16) Reset() {
 	col.col.Reset()
 }
 
-func (col *Int16) ScanRow(dest interface{}, row int) error {
+func (col *Int16) ScanRow(dest any, row int) error {
 	value := col.col.Row(row)
 	switch d := dest.(type) {
 	case *int16:
@@ -705,7 +705,7 @@ func (col *Int16) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (col *Int16) Row(i int, ptr bool) interface{} {
+func (col *Int16) Row(i int, ptr bool) any {
 	value := col.col.Row(i)
 	if ptr {
 		return &value
@@ -713,7 +713,7 @@ func (col *Int16) Row(i int, ptr bool) interface{} {
 	return value
 }
 
-func (col *Int16) Append(v interface{}) (nulls []uint8, err error) {
+func (col *Int16) Append(v any) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []int16:
 		nulls = make([]uint8, len(v))
@@ -754,7 +754,7 @@ func (col *Int16) Append(v interface{}) (nulls []uint8, err error) {
 	return
 }
 
-func (col *Int16) AppendRow(v interface{}) error {
+func (col *Int16) AppendRow(v any) error {
 	switch v := v.(type) {
 	case int16:
 		col.col.Append(v)
@@ -823,7 +823,7 @@ func (col *Int32) Reset() {
 	col.col.Reset()
 }
 
-func (col *Int32) ScanRow(dest interface{}, row int) error {
+func (col *Int32) ScanRow(dest any, row int) error {
 	value := col.col.Row(row)
 	switch d := dest.(type) {
 	case *int32:
@@ -847,7 +847,7 @@ func (col *Int32) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (col *Int32) Row(i int, ptr bool) interface{} {
+func (col *Int32) Row(i int, ptr bool) any {
 	value := col.col.Row(i)
 	if ptr {
 		return &value
@@ -855,7 +855,7 @@ func (col *Int32) Row(i int, ptr bool) interface{} {
 	return value
 }
 
-func (col *Int32) Append(v interface{}) (nulls []uint8, err error) {
+func (col *Int32) Append(v any) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []int32:
 		nulls = make([]uint8, len(v))
@@ -896,7 +896,7 @@ func (col *Int32) Append(v interface{}) (nulls []uint8, err error) {
 	return
 }
 
-func (col *Int32) AppendRow(v interface{}) error {
+func (col *Int32) AppendRow(v any) error {
 	switch v := v.(type) {
 	case int32:
 		col.col.Append(v)
@@ -965,7 +965,7 @@ func (col *Int64) Reset() {
 	col.col.Reset()
 }
 
-func (col *Int64) ScanRow(dest interface{}, row int) error {
+func (col *Int64) ScanRow(dest any, row int) error {
 	value := col.col.Row(row)
 	switch d := dest.(type) {
 	case *int64:
@@ -991,7 +991,7 @@ func (col *Int64) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (col *Int64) Row(i int, ptr bool) interface{} {
+func (col *Int64) Row(i int, ptr bool) any {
 	value := col.col.Row(i)
 	if ptr {
 		return &value
@@ -999,7 +999,7 @@ func (col *Int64) Row(i int, ptr bool) interface{} {
 	return value
 }
 
-func (col *Int64) Append(v interface{}) (nulls []uint8, err error) {
+func (col *Int64) Append(v any) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []int64:
 		nulls = make([]uint8, len(v))
@@ -1040,7 +1040,7 @@ func (col *Int64) Append(v interface{}) (nulls []uint8, err error) {
 	return
 }
 
-func (col *Int64) AppendRow(v interface{}) error {
+func (col *Int64) AppendRow(v any) error {
 	switch v := v.(type) {
 	case int64:
 		col.col.Append(v)
@@ -1113,7 +1113,7 @@ func (col *UInt8) Reset() {
 	col.col.Reset()
 }
 
-func (col *UInt8) ScanRow(dest interface{}, row int) error {
+func (col *UInt8) ScanRow(dest any, row int) error {
 	value := col.col.Row(row)
 	switch d := dest.(type) {
 	case *uint8:
@@ -1135,7 +1135,7 @@ func (col *UInt8) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (col *UInt8) Row(i int, ptr bool) interface{} {
+func (col *UInt8) Row(i int, ptr bool) any {
 	value := col.col.Row(i)
 	if ptr {
 		return &value
@@ -1143,7 +1143,7 @@ func (col *UInt8) Row(i int, ptr bool) interface{} {
 	return value
 }
 
-func (col *UInt8) Append(v interface{}) (nulls []uint8, err error) {
+func (col *UInt8) Append(v any) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []uint8:
 		nulls = make([]uint8, len(v))
@@ -1171,7 +1171,7 @@ func (col *UInt8) Append(v interface{}) (nulls []uint8, err error) {
 	return
 }
 
-func (col *UInt8) AppendRow(v interface{}) error {
+func (col *UInt8) AppendRow(v any) error {
 	switch v := v.(type) {
 	case uint8:
 		col.col.Append(v)
@@ -1232,7 +1232,7 @@ func (col *UInt16) Reset() {
 	col.col.Reset()
 }
 
-func (col *UInt16) ScanRow(dest interface{}, row int) error {
+func (col *UInt16) ScanRow(dest any, row int) error {
 	value := col.col.Row(row)
 	switch d := dest.(type) {
 	case *uint16:
@@ -1254,7 +1254,7 @@ func (col *UInt16) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (col *UInt16) Row(i int, ptr bool) interface{} {
+func (col *UInt16) Row(i int, ptr bool) any {
 	value := col.col.Row(i)
 	if ptr {
 		return &value
@@ -1262,7 +1262,7 @@ func (col *UInt16) Row(i int, ptr bool) interface{} {
 	return value
 }
 
-func (col *UInt16) Append(v interface{}) (nulls []uint8, err error) {
+func (col *UInt16) Append(v any) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []uint16:
 		nulls = make([]uint8, len(v))
@@ -1290,7 +1290,7 @@ func (col *UInt16) Append(v interface{}) (nulls []uint8, err error) {
 	return
 }
 
-func (col *UInt16) AppendRow(v interface{}) error {
+func (col *UInt16) AppendRow(v any) error {
 	switch v := v.(type) {
 	case uint16:
 		col.col.Append(v)
@@ -1345,7 +1345,7 @@ func (col *UInt32) Reset() {
 	col.col.Reset()
 }
 
-func (col *UInt32) ScanRow(dest interface{}, row int) error {
+func (col *UInt32) ScanRow(dest any, row int) error {
 	value := col.col.Row(row)
 	switch d := dest.(type) {
 	case *uint32:
@@ -1367,7 +1367,7 @@ func (col *UInt32) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (col *UInt32) Row(i int, ptr bool) interface{} {
+func (col *UInt32) Row(i int, ptr bool) any {
 	value := col.col.Row(i)
 	if ptr {
 		return &value
@@ -1375,7 +1375,7 @@ func (col *UInt32) Row(i int, ptr bool) interface{} {
 	return value
 }
 
-func (col *UInt32) Append(v interface{}) (nulls []uint8, err error) {
+func (col *UInt32) Append(v any) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []uint32:
 		nulls = make([]uint8, len(v))
@@ -1403,7 +1403,7 @@ func (col *UInt32) Append(v interface{}) (nulls []uint8, err error) {
 	return
 }
 
-func (col *UInt32) AppendRow(v interface{}) error {
+func (col *UInt32) AppendRow(v any) error {
 	switch v := v.(type) {
 	case uint32:
 		col.col.Append(v)
@@ -1458,7 +1458,7 @@ func (col *UInt64) Reset() {
 	col.col.Reset()
 }
 
-func (col *UInt64) ScanRow(dest interface{}, row int) error {
+func (col *UInt64) ScanRow(dest any, row int) error {
 	value := col.col.Row(row)
 	switch d := dest.(type) {
 	case *uint64:
@@ -1480,7 +1480,7 @@ func (col *UInt64) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (col *UInt64) Row(i int, ptr bool) interface{} {
+func (col *UInt64) Row(i int, ptr bool) any {
 	value := col.col.Row(i)
 	if ptr {
 		return &value
@@ -1488,7 +1488,7 @@ func (col *UInt64) Row(i int, ptr bool) interface{} {
 	return value
 }
 
-func (col *UInt64) Append(v interface{}) (nulls []uint8, err error) {
+func (col *UInt64) Append(v any) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []uint64:
 		nulls = make([]uint8, len(v))
@@ -1516,7 +1516,7 @@ func (col *UInt64) Append(v interface{}) (nulls []uint8, err error) {
 	return
 }
 
-func (col *UInt64) AppendRow(v interface{}) error {
+func (col *UInt64) AppendRow(v any) error {
 	switch v := v.(type) {
 	case uint64:
 		col.col.Append(v)

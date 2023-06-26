@@ -22,6 +22,7 @@ import (
 	"strings"
 )
 
+//go:generate bash -c "git log \"--pretty=%an <%ae>\" | sort -u > list"
 //go:embed list
 var source string
 

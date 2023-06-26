@@ -36,8 +36,14 @@ const (
 )
 
 type Date struct {
-	col  proto.ColDate
-	name string
+	col      proto.ColDate
+	name     string
+	location *time.Location
+}
+
+func (col *Date) parse(t Type, tz *time.Location) (_ *Date, err error) {
+	col.location = tz
+	return col, nil
 }
 
 func (col *Date) Reset() {
@@ -60,7 +66,7 @@ func (col *Date) Rows() int {
 	return col.col.Rows()
 }
 
-func (col *Date) Row(i int, ptr bool) interface{} {
+func (col *Date) Row(i int, ptr bool) any {
 	value := col.row(i)
 	if ptr {
 		return &value
@@ -68,7 +74,7 @@ func (col *Date) Row(i int, ptr bool) interface{} {
 	return value
 }
 
-func (col *Date) ScanRow(dest interface{}, row int) error {
+func (col *Date) ScanRow(dest any, row int) error {
 	switch d := dest.(type) {
 	case *time.Time:
 		*d = col.row(row)
@@ -90,7 +96,7 @@ func (col *Date) ScanRow(dest interface{}, row int) error {
 	return nil
 }
 
-func (col *Date) Append(v interface{}) (nulls []uint8, err error) {
+func (col *Date) Append(v any) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []time.Time:
 		for _, t := range v {
@@ -159,7 +165,7 @@ func (col *Date) Append(v interface{}) (nulls []uint8, err error) {
 	return
 }
 
-func (col *Date) AppendRow(v interface{}) error {
+func (col *Date) AppendRow(v any) error {
 	switch v := v.(type) {
 	case time.Time:
 		if err := dateOverflow(minDate, maxDate, v, defaultDateFormatNoZone); err != nil {
@@ -222,7 +228,11 @@ func (col *Date) AppendRow(v interface{}) error {
 	return nil
 }
 
-func parseDate(value string, minDate time.Time, maxDate time.Time) (tv time.Time, err error) {
+func parseDate(value string, minDate time.Time, maxDate time.Time, location *time.Location) (tv time.Time, err error) {
+	if location == nil {
+		location = time.Local
+	}
+
 	defer func() {
 		if err == nil {
 			err = dateOverflow(minDate, maxDate, tv, defaultDateFormatNoZone)
@@ -233,14 +243,14 @@ func parseDate(value string, minDate time.Time, maxDate time.Time) (tv time.Time
 	}
 	if tv, err = time.Parse(defaultDateFormatNoZone, value); err == nil {
 		return time.Date(
-			tv.Year(), tv.Month(), tv.Day(), tv.Hour(), tv.Minute(), tv.Second(), tv.Nanosecond(), time.Local,
+			tv.Year(), tv.Month(), tv.Day(), tv.Hour(), tv.Minute(), tv.Second(), tv.Nanosecond(), location,
 		), nil
 	}
 	return time.Time{}, err
 }
 
 func (col *Date) parseDate(value string) (tv time.Time, err error) {
-	return parseDate(value, minDate, maxDate)
+	return parseDate(value, minDate, maxDate, col.location)
 }
 
 func (col *Date) Decode(reader *proto.Reader, rows int) error {
@@ -252,7 +262,14 @@ func (col *Date) Encode(buffer *proto.Buffer) {
 }
 
 func (col *Date) row(i int) time.Time {
-	return col.col.Row(i)
+	t := col.col.Row(i)
+
+	if col.location != nil {
+		// proto.Date is normalized as time.Time with UTC timezone.
+		// We make sure Date return from ClickHouse matches server timezone or user defined location.
+		t = time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), col.location)
+	}
+	return t
 }
 
 var _ Interface = (*Date)(nil)

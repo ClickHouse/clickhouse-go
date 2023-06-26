@@ -1,3 +1,20 @@
+// Licensed to ClickHouse, Inc. under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. ClickHouse, Inc. licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package std
 
 import (
@@ -90,22 +107,22 @@ func JSONInsertRead() error {
 	if err = scope.Commit(); err != nil {
 		return err
 	}
-	// must pass interface{} - maps must be strongly typed so map[string]interface{} wont work - it wont convert
-	var event interface{}
+	// must pass any - maps must be strongly typed so map[string]any wont work - it wont convert
+	var event any
 	rows := conn.QueryRow("SELECT * FROM example")
 	if err = rows.Scan(&event); err != nil {
 		return err
 	}
 	fmt.Println(clickhouse_tests.ToJson(event))
-	// again pass interface{} for anthing other than primitives
+	// again pass any for anthing other than primitives
 	rows = conn.QueryRow("SELECT event.assignee.Achievement FROM example")
-	var achievement interface{}
+	var achievement any
 	if err = rows.Scan(&achievement); err != nil {
 		return err
 	}
 	fmt.Println(clickhouse_tests.ToJson(event))
 	rows = conn.QueryRow("SELECT event.assignee.Repositories FROM example")
-	var repositories interface{}
+	var repositories any
 	if err = rows.Scan(&repositories); err != nil {
 		return err
 	}

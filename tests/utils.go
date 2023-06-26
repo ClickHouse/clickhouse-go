@@ -30,6 +30,7 @@ import (
 	"github.com/docker/go-connections/nat"
 	"github.com/docker/go-units"
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 	"math/rand"
@@ -40,6 +41,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"testing"
 	"time"
 )
 
@@ -53,16 +55,17 @@ func GetClickHouseTestVersion() string {
 }
 
 type ClickHouseTestEnvironment struct {
-	Port      int
-	HttpPort  int
-	SslPort   int
-	HttpsPort int
-	Host      string
-	Username  string
-	Password  string
-	Database  string
-	Version   proto.Version
-	Container testcontainers.Container `json:"-"`
+	Port        int
+	HttpPort    int
+	SslPort     int
+	HttpsPort   int
+	Host        string
+	Username    string
+	Password    string
+	Database    string
+	Version     proto.Version
+	ContainerIP string
+	Container   testcontainers.Container `json:"-"`
 }
 
 func (env *ClickHouseTestEnvironment) setVersion() {
@@ -171,6 +174,7 @@ func CreateClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment,
 	hp, _ := clickhouseContainer.MappedPort(ctx, "8123")
 	sslPort, _ := clickhouseContainer.MappedPort(ctx, "9440")
 	hps, _ := clickhouseContainer.MappedPort(ctx, "8443")
+	ip, _ := clickhouseContainer.ContainerIP(ctx)
 	testEnv := ClickHouseTestEnvironment{
 		Port:      p.Int(),
 		HttpPort:  hp.Int(),
@@ -178,10 +182,11 @@ func CreateClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment,
 		HttpsPort: hps.Int(),
 		Host:      "127.0.0.1",
 		// we set this explicitly - note its also set in the /etc/clickhouse-server/users.d/admin.xml
-		Username:  "default",
-		Password:  "ClickHouse",
-		Container: clickhouseContainer,
-		Database:  GetEnv("CLICKHOUSE_DATABASE", getDatabaseName(testSet)),
+		Username:    "default",
+		Password:    "ClickHouse",
+		Container:   clickhouseContainer,
+		ContainerIP: ip,
+		Database:    GetEnv("CLICKHOUSE_DATABASE", getDatabaseName(testSet)),
 	}
 	testEnv.setVersion()
 	return testEnv, nil
@@ -245,7 +250,7 @@ func GetExternalTestEnvironment(testSet string) (ClickHouseTestEnvironment, erro
 	return env, nil
 }
 
-func clientOptionsFromEnv(env ClickHouseTestEnvironment, settings clickhouse.Settings) clickhouse.Options {
+func ClientOptionsFromEnv(env ClickHouseTestEnvironment, settings clickhouse.Settings) clickhouse.Options {
 	timeout, err := strconv.Atoi(GetEnv("CLICKHOUSE_DIAL_TIMEOUT", "10"))
 	if err != nil {
 		timeout = 10
@@ -279,11 +284,11 @@ func clientOptionsFromEnv(env ClickHouseTestEnvironment, settings clickhouse.Set
 }
 
 func testClientWithDefaultOptions(env ClickHouseTestEnvironment, settings clickhouse.Settings) (driver.Conn, error) {
-	opts := clientOptionsFromEnv(env, settings)
+	opts := ClientOptionsFromEnv(env, settings)
 	return clickhouse.Open(&opts)
 }
 
-func testClientWithDefaultSettings(env ClickHouseTestEnvironment) (driver.Conn, error) {
+func TestClientWithDefaultSettings(env ClickHouseTestEnvironment) (driver.Conn, error) {
 	settings := clickhouse.Settings{}
 
 	if proto.CheckMinVersion(proto.Version{
@@ -394,7 +399,7 @@ const (
 
 func createUserWithReadOnlySetting(conn driver.Conn, defaultDatabase string, readOnlyType int) (username, password string, err error) {
 	username = fmt.Sprintf("readonly_user_%s", RandAsciiString(6))
-	password = RandAsciiString(6)
+	password = RandAsciiString(10) + "1#"
 
 	createUserQuery := fmt.Sprintf(`
           CREATE USER IF NOT EXISTS %s 
@@ -518,4 +523,93 @@ func PrintMemUsage() {
 
 func bToMb(b uint64) uint64 {
 	return b / 1024 / 1024
+}
+
+type NginxReverseHTTPProxyTestEnvironment struct {
+	HttpPort       int
+	NginxContainer testcontainers.Container `json:"-"`
+}
+
+func CreateNginxReverseProxyTestEnvironment(clickhouseEnv ClickHouseTestEnvironment) (NginxReverseHTTPProxyTestEnvironment, error) {
+	// create a nginx Container as a reverse proxy
+	ctx := context.Background()
+	nginxReq := testcontainers.ContainerRequest{
+		Image:        "nginx",
+		Name:         fmt.Sprintf("nginx-clickhouse-go-%d", time.Now().UnixNano()),
+		ExposedPorts: []string{"80/tcp"},
+		WaitingFor:   wait.ForListeningPort("80/tcp").WithStartupTimeout(time.Second * time.Duration(120)),
+		Cmd:          []string{},
+	}
+	nginxContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: nginxReq,
+		Started:          true,
+	})
+	if err != nil {
+		return NginxReverseHTTPProxyTestEnvironment{}, err
+	}
+	_, b, _, _ := runtime.Caller(0)
+	basePath := filepath.Dir(b)
+	nginxConf, err := os.ReadFile(path.Join(basePath, "./resources/nginx.conf"))
+	if err != nil {
+		return NginxReverseHTTPProxyTestEnvironment{}, err
+	}
+	// replace upstream clickhouse endpoint
+	nginxConf = []byte(strings.Replace(string(nginxConf), "<upstream_http_endpoint>", fmt.Sprintf("%v:8123", clickhouseEnv.ContainerIP), -1))
+	err = nginxContainer.CopyToContainer(ctx, nginxConf, "/etc/nginx/nginx.conf", 700)
+	if err != nil {
+		return NginxReverseHTTPProxyTestEnvironment{}, err
+	}
+	// reload new nginx.conf and set http proxy upstream
+	_, _, err = nginxContainer.Exec(ctx, []string{"nginx", "-s", "reload"})
+	if err != nil {
+		return NginxReverseHTTPProxyTestEnvironment{}, err
+	}
+	nginxReloadWaiter := wait.ForHTTP("/clickhouse").WithStartupTimeout(time.Second * time.Duration(120))
+	err = nginxReloadWaiter.WaitUntilReady(ctx, nginxContainer)
+	if err != nil {
+		return NginxReverseHTTPProxyTestEnvironment{}, err
+	}
+	p, _ := nginxContainer.MappedPort(ctx, "80")
+	return NginxReverseHTTPProxyTestEnvironment{
+		HttpPort:       p.Int(),
+		NginxContainer: nginxContainer,
+	}, nil
+}
+
+type TinyProxyTestEnvironment struct {
+	HttpPort  int
+	Container testcontainers.Container `json:"-"`
+}
+
+func (e TinyProxyTestEnvironment) ProxyUrl(t *testing.T) string {
+	require.NotNil(t, e.Container)
+
+	host, err := e.Container.Host(context.Background())
+	require.NoError(t, err)
+
+	return fmt.Sprintf("http://%s:%d", host, e.HttpPort)
+}
+
+func CreateTinyProxyTestEnvironment(t *testing.T) (TinyProxyTestEnvironment, error) {
+	ctx := context.Background()
+
+	req := testcontainers.ContainerRequest{
+		Image:        "monokal/tinyproxy",
+		Name:         fmt.Sprintf("tinyproxy-clickhouse-go-%d", time.Now().UnixNano()),
+		ExposedPorts: []string{"8888/tcp"},
+		WaitingFor:   wait.ForListeningPort("8888/tcp").WithStartupTimeout(time.Second * time.Duration(120)),
+		Cmd:          []string{"--enable-debug", "ANY"},
+	}
+
+	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: req,
+		Started:          true,
+	})
+	require.NoError(t, err)
+
+	p, _ := container.MappedPort(ctx, "8888")
+	return TinyProxyTestEnvironment{
+		HttpPort:  p.Int(),
+		Container: container,
+	}, nil
 }

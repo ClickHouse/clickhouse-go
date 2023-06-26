@@ -42,7 +42,7 @@ func (bin *BinFixedString) UnmarshalBinary(b []byte) error {
 	return nil
 }
 
-func (bin *BinFixedString) Scan(src interface{}) error {
+func (bin *BinFixedString) Scan(src any) error {
 	return bin.UnmarshalBinary([]byte(src.(string)))
 }
 

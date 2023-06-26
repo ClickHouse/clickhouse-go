@@ -49,7 +49,7 @@ func main() {
 		log.Printf("Can't get column types")
 		log.Fatal(err)
 	}
-	vars := make([]interface{}, len(columnTypes), len(columnTypes))
+	vars := make([]any, len(columnTypes), len(columnTypes))
 	for i := range columnTypes {
 		value := reflect.Zero(columnTypes[i].ScanType()).Interface()
 		vars[i] = &value
