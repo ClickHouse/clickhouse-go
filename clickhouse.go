@@ -49,6 +49,7 @@ var (
 	ErrUnsupportedServerRevision = errors.New("clickhouse: unsupported server revision")
 	ErrBindMixedParamsFormats    = errors.New("clickhouse [bind]: mixed named, numeric or positional parameters")
 	ErrAcquireConnNoAddress      = errors.New("clickhouse: no valid address supplied")
+	ErrServer101                 = errors.New("code: 101, message: Unexpected packet Data received from client")
 )
 
 type OpError struct {
