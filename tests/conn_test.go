@@ -22,6 +22,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"os"
+	"runtime"
 	"strconv"
 	"sync"
 	"testing"
@@ -400,4 +401,25 @@ func getActiveConnections(t *testing.T, client clickhouse.Conn) (conns int64) {
 	require.NoError(t, r.Err())
 	require.NoError(t, r.Scan(&conns))
 	return conns
+}
+
+func TestConnectionCloseIdle(t *testing.T) {
+	runInDocker, _ := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_DOCKER", "true"))
+	if !runInDocker {
+		t.Skip("Skip test in cloud environment. This test is not stable in cloud environment, due to race conditions.")
+	}
+	testEnv, err := GetTestEnvironment(testSet)
+	require.NoError(t, err)
+	baseGoroutine := runtime.NumGoroutine()
+	for i := 0; i < 100; i++ {
+		ctx := context.Background()
+		conn, err := TestClientWithDefaultSettings(testEnv)
+		require.NoError(t, err)
+		err = conn.Ping(ctx)
+		conn.Close()
+		require.NoError(t, err)
+	}
+	time.Sleep(100 * time.Millisecond) // wait for all connections closed
+	finalGoroutine := runtime.NumGoroutine()
+	assert.Equal(t, baseGoroutine, finalGoroutine)
 }
