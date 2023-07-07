@@ -44,6 +44,9 @@ jobs:
 
   integration-tests-cloud:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./.github/terraform
     strategy:
       max-parallel: 1
       fail-fast: true
@@ -56,7 +59,6 @@ jobs:
       - uses: hashicorp/setup-terraform@v2
 
       - name: Terraform Init
-        working-dir: ./.github/terraform
         id: init
         run: terraform init
         env:
@@ -67,12 +69,10 @@ jobs:
           TF_VAR_cluster_password: ${{ secrets.INTEGRATIONS_TEAM_TESTS_CLOUD_PASSWORD }}
 
       - name: Terraform Validate
-        working-dir: ./.github/terraform
         id: validate
         run: terraform validate -no-color
 
       - name: Terraform Apply
-        working-dir: ./.github/terraform
         id: apply
         run: terraform apply -no-color
         env:
