@@ -58,6 +58,18 @@ jobs:
       - uses: actions/checkout@main
       - uses: hashicorp/setup-terraform@v2
 
+      - name: Setup Terraform variables
+        working-directory: ./.github/terraform
+        id: vars
+        run: |-
+          cat > pipeline.auto.tfvars <<EOF
+          token_key = "${{ secrets.INTEGRATIONS_TEAM_TESTS_TOKEN_KEY }}"
+          cluster_name = "go-client-test"
+          token_secret = "${{ secrets.INTEGRATIONS_TEAM_TESTS_TOKEN_SECRET }}"
+          cluster_password = "${{ secrets.INTEGRATIONS_TEAM_TESTS_CLOUD_PASSWORD }}"
+          organization_id = "${{ secrets.INTEGRATIONS_TEAM_TESTS_ORGANIZATION_ID }}"
+          EOF
+
       - name: Terraform Init
         id: init
         run: terraform init
