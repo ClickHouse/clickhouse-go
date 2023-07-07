@@ -58,7 +58,7 @@ jobs:
       - name: Terraform Init
         id: init
         run: terraform init
-          working-dir: ./.github/terraform
+        working-dir: ./.github/terraform
         env:
           TF_VAR_organization_id: ${{ secrets.INTEGRATIONS_TEAM_TESTS_ORGANIZATION_ID }}
           TF_VAR_token_key: ${{ secrets.INTEGRATIONS_TEAM_TESTS_TOKEN_KEY }}
@@ -69,12 +69,12 @@ jobs:
       - name: Terraform Validate
         id: validate
         run: terraform validate -no-color
-          working-dir: ./.github/terraform
+        working-dir: ./.github/terraform
 
       - name: Terraform Apply
         id: apply
         run: terraform apply -no-color
-          working-dir: ./.github/terraform
+        working-dir: ./.github/terraform
         env:
           TF_ACTION_WORKING_DIR: 'terraform'
           TF_VAR_organization_id:  ${{ secrets.INTEGRATIONS_TEAM_TESTS_ORGANIZATION_ID }}
