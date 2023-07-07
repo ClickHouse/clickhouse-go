@@ -1,5 +1,0 @@
-organization_id = ""
-token_key       = ""
-token_secret    = ""
-cluster_name    = ""
-cluster_password   = ""
