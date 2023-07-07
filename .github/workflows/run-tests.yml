@@ -54,12 +54,12 @@ jobs:
     steps:
       - uses: actions/checkout@main
       - uses: hashicorp/setup-terraform@v2
+        with:
+          working-dir: .github/terraform
 
       - name: Terraform Init
         id: init
         run: terraform init
-        with:
-          working-dir: .github/terraform
         env:
           TF_VAR_organization_id: ${{ secrets.INTEGRATIONS_TEAM_TESTS_ORGANIZATION_ID }}
           TF_VAR_token_key: ${{ secrets.INTEGRATIONS_TEAM_TESTS_TOKEN_KEY }}
@@ -69,15 +69,11 @@ jobs:
 
       - name: Terraform Validate
         id: validate
-        with:
-          working-dir: .github/terraform
         run: terraform validate -no-color
 
       - name: Terraform Apply
         id: apply
         run: terraform apply -no-color
-        with:
-          working-dir: .github/terraform
         env:
           TF_ACTION_WORKING_DIR: 'terraform'
           TF_VAR_organization_id:  ${{ secrets.INTEGRATIONS_TEAM_TESTS_ORGANIZATION_ID }}
