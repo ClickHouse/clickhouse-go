@@ -31,3 +31,6 @@ dev/*
 .run/**
 
 vendor
+
+**.tfstate*
+.terraform.lock.hcl
