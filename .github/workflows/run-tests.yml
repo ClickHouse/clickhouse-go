@@ -66,6 +66,14 @@ jobs:
           organization_id = "${{ secrets.INTEGRATIONS_TEAM_TESTS_ORGANIZATION_ID }}"
           EOF
 
+      - name: echo file
+        run: |-
+          cat pipeline.auto.tfvars
+
+      - name: Terraform Init
+        id: init
+        run: terraform init
+
       - name: Terraform Init
         id: init
         run: terraform init
