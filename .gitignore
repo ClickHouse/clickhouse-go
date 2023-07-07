@@ -34,3 +34,4 @@ vendor
 
 **.tfstate*
 .terraform.lock.hcl
+**/.terraform*
