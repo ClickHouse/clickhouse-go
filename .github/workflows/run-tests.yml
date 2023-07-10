@@ -71,6 +71,14 @@ jobs:
         id: validate
         run: terraform validate -no-color
 
+      - name: PrintEnv
+        id: print
+        run: printenv
+        env:
+          TF_VAR_organization_id: '369a3c9a-868e-437e-8bdc-e98b8bd180dd'
+          TF_VAR_test: ${{ secrets.TEST_SECRET }}
+          TF_VAR_cluster_name: 'go-client-test'
+
       - name: Terraform Apply
         id: apply
         run: terraform apply -no-color
