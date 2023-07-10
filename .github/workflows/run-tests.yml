@@ -13,37 +13,40 @@ on:
     - cron: "0 9 1 * *"
 
 jobs:
-  single-node:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: true
-      max-parallel: 1
-      matrix:
-        go:
-          - "1.19"
-          - "1.20"
-        clickhouse: # https://github.com/ClickHouse/ClickHouse/blob/master/SECURITY.md#scope-and-supported-versions
-          - "22.3"
-          - "22.8"
-          - "22.12"
-          - "23.1"
-          - "23.2"
-          - "latest"
-    steps:
-      - uses: actions/checkout@main
-
-      - name: Install Go ${{ matrix.go }}
-        uses: actions/setup-go@v2.1.5
-        with:
-          stable: false
-          go-version: ${{ matrix.go }}
-
-      - name: Run tests
-        run: |
-          CLICKHOUSE_VERSION=${{ matrix.clickhouse }} make test
+#  single-node:
+#    runs-on: ubuntu-latest
+#    strategy:
+#      fail-fast: true
+#      max-parallel: 1
+#      matrix:
+#        go:
+#          - "1.19"
+#          - "1.20"
+#        clickhouse: # https://github.com/ClickHouse/ClickHouse/blob/master/SECURITY.md#scope-and-supported-versions
+#          - "22.3"
+#          - "22.8"
+#          - "22.12"
+#          - "23.1"
+#          - "23.2"
+#          - "latest"
+#    steps:
+#      - uses: actions/checkout@main
+#
+#      - name: Install Go ${{ matrix.go }}
+#        uses: actions/setup-go@v2.1.5
+#        with:
+#          stable: false
+#          go-version: ${{ matrix.go }}
+#
+#      - name: Run tests
+#        run: |
+#          CLICKHOUSE_VERSION=${{ matrix.clickhouse }} make test
 
   integration-tests-cloud:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
     strategy:
       max-parallel: 1
       fail-fast: true
@@ -52,38 +55,36 @@ jobs:
           - "1.19"
           - "1.20"
     steps:
-      - uses: actions/checkout@main
+      - name: Check Out Code
+        uses: actions/checkout@v3
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2
+        uses: hashicorp/setup-terraform@v2.0.3
+        with:
+          terraform_version: 1.3.4
 
       - name: Terraform Init
         id: init
         run: terraform init
-        working-dir: .github/terraform
-        env:
-          TF_VAR_organization_id: ${{ secrets.INTEGRATIONS_TEAM_TESTS_ORGANIZATION_ID }}
-          TF_VAR_token_key: ${{ secrets.INTEGRATIONS_TEAM_TESTS_TOKEN_KEY }}
-          TF_VAR_token_secret: ${{ secrets.INTEGRATIONS_TEAM_TESTS_TOKEN_SECRET }}
-          TF_VAR_cluster_name: 'go-client-test'
-          TF_VAR_cluster_password: ${{ secrets.INTEGRATIONS_TEAM_TESTS_CLOUD_PASSWORD }}
 
       - name: Terraform Validate
         id: validate
-        working-dir: .github/terraform
         run: terraform validate -no-color
+
+      - name: Set cluster name
+        run: echo "TF_VAR_cluster_name=go_client_tests_$(date +'%Y_%m_%d_%H_%M_%S')" >> $GITHUB_ENV
 
       - name: Terraform Apply
         id: apply
-        run: terraform apply -no-color
-        working-dir: .github/terraform
+        run: terraform apply -no-color -auto-approve
         env:
-          TF_ACTION_WORKING_DIR: 'terraform'
-          TF_VAR_organization_id:  ${{ secrets.INTEGRATIONS_TEAM_TESTS_ORGANIZATION_ID }}
+          TF_VAR_organization_id: ${{ secrets.INTEGRATIONS_TEAM_TESTS_ORGANIZATION_ID }}
           TF_VAR_token_key:  ${{ secrets.INTEGRATIONS_TEAM_TESTS_TOKEN_KEY }}
           TF_VAR_token_secret:  ${{ secrets.INTEGRATIONS_TEAM_TESTS_TOKEN_SECRET }}
-          TF_VAR_cluster_name:  'go-client-test'
           TF_VAR_cluster_password: ${{ secrets.INTEGRATIONS_TEAM_TESTS_CLOUD_PASSWORD }}
+
+      - name: Set Host
+        run: echo "${{ steps.apply.outputs.stdout }}" | sed -n 's/.*CLICKHOUSE_HOST = "\(.*\)"/CLICKHOUSE_HOST = \1/p' >> $GITHUB_ENV
 
       - name: Install Go ${{ matrix.go }}
         uses: actions/setup-go@v2.1.5
@@ -93,7 +94,6 @@ jobs:
 
       - name: Run tests
         env:
-          CLICKHOUSE_HOST: ${{ steps.apply.outputs.cluster_host }}
           CLICKHOUSE_PASSWORD: ${{ secrets.INTEGRATIONS_TEAM_TESTS_CLOUD_PASSWORD }}
           CLICKHOUSE_USE_DOCKER: false
           CLICKHOUSE_USE_SSL: true

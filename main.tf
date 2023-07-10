@@ -54,6 +54,6 @@ resource "clickhouse_service" "service" {
   idle_timeout_minutes = 30
 }
 
-output "cluster_host" {
+output "CLICKHOUSE_HOST" {
   value = clickhouse_service.service.endpoints.0.host
 }
