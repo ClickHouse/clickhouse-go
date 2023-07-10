@@ -72,8 +72,8 @@ jobs:
         id: validate
         run: terraform validate -no-color
 
-      - name: Set Cluster Name
-        run: echo "TF_VAR_cluster_name=go_client_tests_$(date +'%Y_%m_%d_%H_%M_%S')" >> $GITHUB_ENV
+      - name: Set Service Name
+        run: echo "TF_VAR_service_name=go_client_tests_$(date +'%Y_%m_%d_%H_%M_%S')" >> $GITHUB_ENV
 
       - name: Terraform Apply
         id: apply
@@ -82,13 +82,13 @@ jobs:
           TF_VAR_organization_id: ${{ secrets.INTEGRATIONS_TEAM_TESTS_ORGANIZATION_ID }}
           TF_VAR_token_key:  ${{ secrets.INTEGRATIONS_TEAM_TESTS_TOKEN_KEY }}
           TF_VAR_token_secret:  ${{ secrets.INTEGRATIONS_TEAM_TESTS_TOKEN_SECRET }}
-          TF_VAR_cluster_password: ${{ secrets.INTEGRATIONS_TEAM_TESTS_CLOUD_PASSWORD }}
+          TF_VAR_service_password: ${{ secrets.INTEGRATIONS_TEAM_TESTS_CLOUD_PASSWORD }}
 
       - name: Set Host
         run: echo "CLICKHOUSE_HOST=$(terraform output -raw CLICKHOUSE_HOST)" >> $GITHUB_ENV
 
-      - name: Cluster Id
-        run: terraform output -raw CLUSTER_ID
+      - name: Service Id
+        run: terraform output -raw SERVICE_ID
 
       - name: Install Go ${{ matrix.go }}
         uses: actions/setup-go@v2.1.5
@@ -111,4 +111,4 @@ jobs:
           TF_VAR_organization_id: ${{ secrets.INTEGRATIONS_TEAM_TESTS_ORGANIZATION_ID }}
           TF_VAR_token_key:  ${{ secrets.INTEGRATIONS_TEAM_TESTS_TOKEN_KEY }}
           TF_VAR_token_secret:  ${{ secrets.INTEGRATIONS_TEAM_TESTS_TOKEN_SECRET }}
-          TF_VAR_cluster_password: ${{ secrets.INTEGRATIONS_TEAM_TESTS_CLOUD_PASSWORD }}
+          TF_VAR_service_password: ${{ secrets.INTEGRATIONS_TEAM_TESTS_CLOUD_PASSWORD }}

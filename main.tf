@@ -19,11 +19,11 @@ variable "token_secret" {
   type = string
 }
 
-variable "cluster_name" {
+variable "service_name" {
   type = string
 }
 
-variable "cluster_password" {
+variable "service_password" {
   type = string
 }
 
@@ -35,12 +35,12 @@ provider clickhouse {
 }
 
 resource "clickhouse_service" "service" {
-  name           = var.cluster_name
+  name           = var.service_name
   cloud_provider = "aws"
   region         = "us-east-2"
   tier           = "development"
   idle_scaling   = true
-  password  = var.cluster_password
+  password  = var.service_password
 
   ip_access = [
     {
@@ -54,6 +54,6 @@ output "CLICKHOUSE_HOST" {
   value = clickhouse_service.service.endpoints.0.host
 }
 
-output "CLUSTER_ID" {
+output "SERVICE_ID" {
   value = clickhouse_service.service.id
 }
