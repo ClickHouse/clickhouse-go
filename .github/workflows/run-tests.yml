@@ -66,12 +66,6 @@ jobs:
       - name: Terraform Init
         id: init
         run: terraform init
-        env:
-          TF_VAR_organization_id: ${{ secrets.INTEGRATIONS_TEAM_TESTS_ORGANIZATION_ID }}
-          TF_VAR_token_key: ${{ secrets.INTEGRATIONS_TEAM_TESTS_TOKEN_KEY }}
-          TF_VAR_token_secret: ${{ secrets.INTEGRATIONS_TEAM_TESTS_TOKEN_SECRET }}
-          TF_VAR_cluster_name: 'go-client-test'
-          TF_VAR_cluster_password: ${{ secrets.INTEGRATIONS_TEAM_TESTS_CLOUD_PASSWORD }}
 
       - name: Terraform Validate
         id: validate
@@ -81,7 +75,7 @@ jobs:
         id: apply
         run: terraform apply -no-color
         env:
-          TF_VAR_organization_id:  ${{ secrets.INTEGRATIONS_TEAM_TESTS_ORGANIZATION_ID }}
+          TF_VAR_organization_id: '369a3c9a-868e-437e-8bdc-e98b8bd180dd'
           TF_VAR_token_key:  ${{ secrets.INTEGRATIONS_TEAM_TESTS_TOKEN_KEY }}
           TF_VAR_token_secret:  ${{ secrets.INTEGRATIONS_TEAM_TESTS_TOKEN_SECRET }}
           TF_VAR_cluster_name:  'go-client-test'
