@@ -1,5 +1,5 @@
 name: run-tests
-permissions: write-all
+
 on:
   push:
     branches:
