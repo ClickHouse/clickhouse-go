@@ -1,5 +1,7 @@
 name: run-tests
 
+permissions: write-all
+
 on:
   push:
     branches:
@@ -44,6 +46,9 @@ jobs:
 
   integration-tests-cloud:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
     strategy:
       max-parallel: 1
       fail-fast: true
@@ -52,7 +57,40 @@ jobs:
           - "1.19"
           - "1.20"
     steps:
-      - uses: actions/checkout@main
+      - name: Check Out Code
+        uses: actions/checkout@v3
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2.0.3
+        with:
+          terraform_version: 1.3.4
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        id: init
+        run: terraform init
+
+      - name: Terraform Validate
+        id: validate
+        run: terraform validate -no-color
+
+      - name: Set Service Name
+        run: echo "TF_VAR_service_name=go_client_tests_$(date +'%Y_%m_%d_%H_%M_%S')" >> $GITHUB_ENV
+
+      - name: Terraform Apply
+        id: apply
+        run: terraform apply -no-color -auto-approve
+        env:
+          TF_VAR_organization_id: ${{ secrets.INTEGRATIONS_TEAM_TESTS_ORGANIZATION_ID }}
+          TF_VAR_token_key:  ${{ secrets.INTEGRATIONS_TEAM_TESTS_TOKEN_KEY }}
+          TF_VAR_token_secret:  ${{ secrets.INTEGRATIONS_TEAM_TESTS_TOKEN_SECRET }}
+          TF_VAR_service_password: ${{ secrets.INTEGRATIONS_TEAM_TESTS_CLOUD_PASSWORD }}
+
+      - name: Set Host
+        run: echo "CLICKHOUSE_HOST=$(terraform output -raw CLICKHOUSE_HOST)" >> $GITHUB_ENV
+
+      - name: Service Id
+        run: terraform output -raw SERVICE_ID
 
       - name: Install Go ${{ matrix.go }}
         uses: actions/setup-go@v2.1.5
@@ -62,9 +100,17 @@ jobs:
 
       - name: Run tests
         env:
-          CLICKHOUSE_HOST: ${{ secrets.INTEGRATIONS_TEAM_TESTS_CLOUD_HOST }}
           CLICKHOUSE_PASSWORD: ${{ secrets.INTEGRATIONS_TEAM_TESTS_CLOUD_PASSWORD }}
           CLICKHOUSE_USE_DOCKER: false
           CLICKHOUSE_USE_SSL: true
         run: |
-          CLICKHOUSE_DIAL_TIMEOUT=20 CLICKHOUSE_TEST_TIMEOUT=600s CLICKHOUSE_QUORUM_INSERT=3 make test
+          CLICKHOUSE_DIAL_TIMEOUT=20 CLICKHOUSE_TEST_TIMEOUT=600s CLICKHOUSE_QUORUM_INSERT=2 make test
+
+      - name: Cleanup
+        if: always()
+        run: terraform destroy -no-color -auto-approve
+        env:
+          TF_VAR_organization_id: ${{ secrets.INTEGRATIONS_TEAM_TESTS_ORGANIZATION_ID }}
+          TF_VAR_token_key:  ${{ secrets.INTEGRATIONS_TEAM_TESTS_TOKEN_KEY }}
+          TF_VAR_token_secret:  ${{ secrets.INTEGRATIONS_TEAM_TESTS_TOKEN_SECRET }}
+          TF_VAR_service_password: ${{ secrets.INTEGRATIONS_TEAM_TESTS_CLOUD_PASSWORD }}
