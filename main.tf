@@ -38,7 +38,7 @@ resource "clickhouse_service" "service" {
   name           = var.cluster_name
   cloud_provider = "aws"
   region         = "us-east-2"
-  tier           = "production"
+  tier           = "development"
   idle_scaling   = true
   password  = var.cluster_password
 
@@ -48,12 +48,12 @@ resource "clickhouse_service" "service" {
         description = "Anywhere"
     }
   ]
-
-  min_total_memory_gb  = 24
-  max_total_memory_gb  = 360
-  idle_timeout_minutes = 30
 }
 
 output "CLICKHOUSE_HOST" {
   value = clickhouse_service.service.endpoints.0.host
+}
+
+output "CLUSTER_ID" {
+  value = clickhouse_service.service.id
 }
