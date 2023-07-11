@@ -54,7 +54,7 @@ func Test798(t *testing.T) {
 	require.NoError(t, batch.Append(true, false, []bool{true, false, true}))
 	require.NoError(t, batch.Send())
 	// resend
-	require.ErrorAs(t, batch.Send(), &clickhouse.ErrServer101)
+	require.ErrorAs(t, batch.Send(), &clickhouse.ErrServerUnexpectedData)
 	batch, err = conn.PrepareBatch(ctx, "INSERT INTO test_issue_798")
 	require.NoError(t, err)
 	// test empty batch
