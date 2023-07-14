@@ -70,6 +70,11 @@ func (col *IPv6) ScanRow(dest any, row int) error {
 	case **net.IP:
 		*d = new(net.IP)
 		**d = col.row(row)
+	case *netip.Addr:
+		*d = col.rowAddr(row)
+	case **netip.Addr:
+		*d = new(netip.Addr)
+		**d = col.rowAddr(row)
 	case *[]byte:
 		*d = col.row(row)
 	case **[]byte:
@@ -338,6 +343,10 @@ func IPv6ToBytes(ip net.IP) [16]byte {
 func (col *IPv6) row(i int) net.IP {
 	src := col.col.Row(i)
 	return src[:]
+}
+
+func (col *IPv6) rowAddr(i int) netip.Addr {
+	return col.col.Row(i).ToIP()
 }
 
 var _ Interface = (*IPv6)(nil)
