@@ -252,6 +252,7 @@ func TestIPv4_Append_InvalidIP(t *testing.T) {
 
 func TestIPv4_AppendRow(t *testing.T) {
 	ip := getTestIPv4()[0]
+	ipAddr, _ := netip.AddrFromSlice(ip)
 	strIp := ip.String()
 	uint32Ip := binary.BigEndian.Uint32(ip.To4()[:])
 	col := column.IPv4{}
@@ -280,27 +281,43 @@ func TestIPv4_AppendRow(t *testing.T) {
 		require.Failf(t, "Invalid result of AppendRow", "Added %q instead of %q", col.Row(2, false), ip)
 	}
 
-	// appending string pointer
-	err = col.AppendRow(&strIp)
+	// appending netip.Addr pointer
+	err = col.AppendRow(&ipAddr)
 	require.NoError(t, err)
 	require.Equal(t, 4, col.Rows(), "AppendRow didn't add IP")
 	if !col.Row(3, false).(net.IP).Equal(ip) {
+		require.Failf(t, "Invalid result of AppendRow", "Added %q instead of %q", col.Row(1, false), ip)
+	}
+
+	// appending netip.Addr
+	err = col.AppendRow(ipAddr)
+	require.NoError(t, err)
+	require.Equal(t, 5, col.Rows(), "AppendRow didn't add IP")
+	if !col.Row(4, false).(net.IP).Equal(ip) {
+		require.Failf(t, "Invalid result of AppendRow", "Added %q instead of %q", col.Row(2, false), ip)
+	}
+
+	// appending string pointer
+	err = col.AppendRow(&strIp)
+	require.NoError(t, err)
+	require.Equal(t, 6, col.Rows(), "AppendRow didn't add IP")
+	if !col.Row(5, false).(net.IP).Equal(ip) {
 		require.Failf(t, "Invalid result of AppendRow", "Added %q instead of %q", col.Row(3, false), ip)
 	}
 
 	// appending uint32
 	err = col.AppendRow(uint32Ip)
 	require.NoError(t, err)
-	require.Equal(t, 5, col.Rows(), "AppendRow didn't add IP")
-	if !col.Row(4, false).(net.IP).Equal(ip) {
+	require.Equal(t, 7, col.Rows(), "AppendRow didn't add IP")
+	if !col.Row(6, false).(net.IP).Equal(ip) {
 		require.Failf(t, "Invalid result of AppendRow", "Added %q instead of %q", col.Row(4, false), ip)
 	}
 
 	// appending uint32 pointer
 	err = col.AppendRow(&uint32Ip)
 	require.NoError(t, err)
-	require.Equal(t, 6, col.Rows(), "AppendRow didn't add IP")
-	if !col.Row(5, false).(net.IP).Equal(ip) {
+	require.Equal(t, 8, col.Rows(), "AppendRow didn't add IP")
+	if !col.Row(7, false).(net.IP).Equal(ip) {
 		require.Failf(t, "Invalid result of AppendRow", "Added %q instead of %q", col.Row(5, false), ip)
 	}
 }
@@ -393,6 +410,26 @@ func TestIPv4_ScanRow(t *testing.T) {
 		err := col.ScanRow(&u, i)
 		require.NoError(t, err)
 		if !u.Equal(ips[i]) {
+			require.Failf(t, "Invalid result of ScanRow", "ScanRow resulted in %q instead of %q", u, ips[i])
+		}
+	}
+
+	// scanning netip.Addr
+	for i := range ips {
+		var u netip.Addr
+		err := col.ScanRow(&u, i)
+		require.NoError(t, err)
+		if !net.IP(u.AsSlice()[:]).Equal(ips[i]) {
+			require.Failf(t, "Invalid result of ScanRow", "ScanRow resulted in %q instead of %q", u, ips[i])
+		}
+	}
+
+	// scanning netip.Addr pointer
+	for i := range ips {
+		var u *netip.Addr
+		err := col.ScanRow(&u, i)
+		require.NoError(t, err)
+		if !net.IP(u.AsSlice()[:]).Equal(ips[i]) {
 			require.Failf(t, "Invalid result of ScanRow", "ScanRow resulted in %q instead of %q", u, ips[i])
 		}
 	}
