@@ -19,12 +19,13 @@ package issues
 
 import (
 	"context"
-	"github.com/ClickHouse/clickhouse-go/v2"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
-	"github.com/stretchr/testify/require"
 	"sync"
 	"sync/atomic"
 	"testing"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
+	"github.com/stretchr/testify/require"
 )
 
 func Test798(t *testing.T) {
@@ -52,8 +53,8 @@ func Test798(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, batch.Append(true, false, []bool{true, false, true}))
 	require.NoError(t, batch.Send())
-	// test resend
-	require.ErrorIs(t, batch.Send(), clickhouse.ErrBatchAlreadySent)
+	// resend
+	require.ErrorAs(t, batch.Send(), &clickhouse.ErrServerUnexpectedData)
 	batch, err = conn.PrepareBatch(ctx, "INSERT INTO test_issue_798")
 	require.NoError(t, err)
 	// test empty batch

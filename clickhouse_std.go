@@ -170,7 +170,7 @@ type stdConnect interface {
 	query(ctx context.Context, release func(*connect, error), query string, args ...any) (*rows, error)
 	exec(ctx context.Context, query string, args ...any) error
 	ping(ctx context.Context) (err error)
-	prepareBatch(ctx context.Context, query string, release func(*connect, error)) (ldriver.Batch, error)
+	prepareBatch(ctx context.Context, query string, release func(*connect, error), acquire func(context.Context) (*connect, error)) (ldriver.Batch, error)
 	asyncInsert(ctx context.Context, query string, wait bool) error
 }
 
@@ -273,7 +273,7 @@ func (std *stdDriver) Prepare(query string) (driver.Stmt, error) {
 }
 
 func (std *stdDriver) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
-	batch, err := std.conn.prepareBatch(ctx, query, func(*connect, error) {})
+	batch, err := std.conn.prepareBatch(ctx, query, func(*connect, error) {}, func(context.Context) (*connect, error) { return nil, nil })
 	if err != nil {
 		if isConnBrokenError(err) {
 			std.debugf("PrepareContext got a fatal error, resetting connection: %v\n", err)
