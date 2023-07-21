@@ -601,6 +601,7 @@ func CreateTinyProxyTestEnvironment(t *testing.T) (TinyProxyTestEnvironment, err
 		ExposedPorts: []string{"8888/tcp"},
 		WaitingFor:   wait.ForListeningPort("8888/tcp").WithStartupTimeout(time.Second * time.Duration(120)),
 		Cmd:          []string{"--enable-debug", "ANY"},
+		SkipReaper:   true,
 	}
 
 	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
