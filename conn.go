@@ -102,8 +102,6 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 
 	// warn only on the first connection in the pool
 	if num == 1 && !resources.ClientMeta.IsSupportedClickHouseVersion(connect.server.Version) {
-		// send to debugger and console
-		fmt.Printf("WARNING: version %v of ClickHouse is not supported by this client\n", connect.server.Version)
 		debugf("[handshake] WARNING: version %v of ClickHouse is not supported by this client - client supports %v", connect.server.Version, resources.ClientMeta.SupportedVersions())
 	}
 	return connect, nil
