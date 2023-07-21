@@ -162,6 +162,7 @@ func CreateClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment,
 		Resources: container.Resources{
 			Ulimits: expected,
 		},
+		SkipReaper: true,
 	}
 	clickhouseContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: req,
