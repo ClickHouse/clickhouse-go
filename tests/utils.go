@@ -540,6 +540,7 @@ func CreateNginxReverseProxyTestEnvironment(clickhouseEnv ClickHouseTestEnvironm
 		ExposedPorts: []string{"80/tcp"},
 		WaitingFor:   wait.ForListeningPort("80/tcp").WithStartupTimeout(time.Second * time.Duration(120)),
 		Cmd:          []string{},
+		SkipReaper:   true,
 	}
 	nginxContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: nginxReq,
