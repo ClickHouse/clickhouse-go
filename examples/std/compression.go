@@ -20,8 +20,9 @@ package std
 import (
 	"database/sql"
 	"fmt"
-	"github.com/ClickHouse/clickhouse-go/v2"
 	"strconv"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
 )
 
 func CompressOpenDB() error {
@@ -49,6 +50,7 @@ func CompressOpenDB() error {
 	if _, err := conn.Exec(`
 		CREATE TABLE example (
 			  Col1 Array(String)
+			, Col2 Uint64
 		) Engine Memory
 		`); err != nil {
 		return err
@@ -61,11 +63,11 @@ func CompressOpenDB() error {
 	if err != nil {
 		return err
 	}
-	if err != nil {
-		return err
-	}
 	for i := 0; i < 1000; i++ {
-		if _, err := batch.Exec([]string{strconv.Itoa(i), strconv.Itoa(i + 1), strconv.Itoa(i + 2), strconv.Itoa(i + 3)}); err != nil {
+		if _, err := batch.Exec(
+			[]string{strconv.Itoa(i), strconv.Itoa(i + 1), strconv.Itoa(i + 2), strconv.Itoa(i + 3)},
+			uint64(i),
+		); err != nil {
 			return err
 		}
 	}
@@ -89,6 +91,7 @@ func CompressOpen() error {
 	if _, err := conn.Exec(`
 		CREATE TABLE example (
 			  Col1 Array(String)
+			, Col2 Uint64
 		) Engine Memory
 		`); err != nil {
 		return err
@@ -101,11 +104,11 @@ func CompressOpen() error {
 	if err != nil {
 		return err
 	}
-	if err != nil {
-		return err
-	}
 	for i := 0; i < 1000; i++ {
-		if _, err := batch.Exec([]string{strconv.Itoa(i), strconv.Itoa(i + 1), strconv.Itoa(i + 2), strconv.Itoa(i + 3)}); err != nil {
+		if _, err := batch.Exec(
+			[]string{strconv.Itoa(i), strconv.Itoa(i + 1), strconv.Itoa(i + 2), strconv.Itoa(i + 3)},
+			uint64(i),
+		); err != nil {
 			return err
 		}
 	}
