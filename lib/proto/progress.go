@@ -67,13 +67,14 @@ func (p *Progress) Decode(reader *chproto.Reader, revision uint64) (err error) {
 
 func (p *Progress) String() string {
 	if !p.withClient {
-		return fmt.Sprintf("rows=%d, bytes=%d, total rows=%d", p.Rows, p.Bytes, p.TotalRows)
+		return fmt.Sprintf("rows=%d, bytes=%d, total rows=%d, elapsed=%s", p.Rows, p.Bytes, p.TotalRows, p.Elapsed.String())
 	}
-	return fmt.Sprintf("rows=%d, bytes=%d, total rows=%d, wrote rows=%d wrote bytes=%d",
+	return fmt.Sprintf("rows=%d, bytes=%d, total rows=%d, wrote rows=%d wrote bytes=%d elapsed=%s",
 		p.Rows,
 		p.Bytes,
 		p.TotalRows,
 		p.WroteRows,
 		p.WroteBytes,
+		p.Elapsed.String(),
 	)
 }
