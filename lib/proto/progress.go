@@ -19,6 +19,7 @@ package proto
 
 import (
 	"fmt"
+	"time"
 
 	chproto "github.com/ClickHouse/ch-go/proto"
 )
@@ -29,6 +30,7 @@ type Progress struct {
 	TotalRows  uint64
 	WroteRows  uint64
 	WroteBytes uint64
+	Elapsed    time.Duration
 	withClient bool
 }
 
@@ -51,6 +53,15 @@ func (p *Progress) Decode(reader *chproto.Reader, revision uint64) (err error) {
 			return err
 		}
 	}
+
+	if revision >= DBMS_MIN_PROTOCOL_VERSION_WITH_SERVER_QUERY_TIME_IN_PROGRES {
+		var n uint64
+		if n, err = reader.UVarInt(); err != nil {
+			return err
+		}
+		p.Elapsed = time.Duration(n) * time.Nanosecond
+	}
+
 	return nil
 }
 
