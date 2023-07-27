@@ -1,3 +1,16 @@
+# v2.12.0, 2023-07-27 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Enhancements 🎉
+* Implement elapsed time in query progress by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1039
+### Fixes 🐛
+* Release connection slot on connection acquire timeout by @sentanos in https://github.com/ClickHouse/clickhouse-go/pull/1042
+
+## New Contributors
+* @sentanos made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1042
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.11.0...v2.12
+
 # v2.11.0, 2023-07-20 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
