@@ -27,24 +27,6 @@
 * @djosephsen made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/941
 * @anjmao made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1029
 
-**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.10.1...v2.11
-
-<!-- Release notes generated using configuration in .github/release.yml at main -->
-
-## What's Changed
-### Enhancements 🎉
-* Retry for batch API by @djosephsen in https://github.com/ClickHouse/clickhouse-go/pull/941
-### Fixes 🐛
-* Fix startAutoCloseIdleConnections cause goroutine leak by @YenchangChan in https://github.com/ClickHouse/clickhouse-go/pull/1011
-* Fix netip.Addr pointer panic by @anjmao in https://github.com/ClickHouse/clickhouse-go/pull/1029
-### Other Changes 🛠
-* Git actions terraform by @gingerwizard in https://github.com/ClickHouse/clickhouse-go/pull/1023
-
-## New Contributors
-* @YenchangChan made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1011
-* @djosephsen made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/941
-* @anjmao made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1029
-
 **Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.10.1...v2.11.0
 
 # v2.10.1, 2023-06-06 <!-- Release notes generated using configuration in .github/release.yml at main -->
