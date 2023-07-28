@@ -9,7 +9,7 @@
 ## New Contributors
 * @sentanos made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1042
 
-**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.11.0...v2.12
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.11.0...v2.12.0
 
 # v2.11.0, 2023-07-20 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
