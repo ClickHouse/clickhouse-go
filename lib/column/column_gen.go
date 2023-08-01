@@ -1121,6 +1121,12 @@ func (col *UInt8) ScanRow(dest any, row int) error {
 	case **uint8:
 		*d = new(uint8)
 		**d = value
+	case *bool:
+		if value > 0 {
+			*d = true
+		} else {
+			*d = false
+		}
 	default:
 		if scan, ok := dest.(sql.Scanner); ok {
 			return scan.Scan(value)
