@@ -270,7 +270,7 @@ Usage examples for [native API](examples/clickhouse_api/client_info.go) and [dat
 
 ## Async insert
 
-[Asynchronous insert](https://clickhouse.com/docs/en/optimize/asynchronous-inserts#enabling-asynchronous-inserts) is supported via dedicated `InsertAsync` method. This allows to insert data with a non-blocking call.
+[Asynchronous insert](https://clickhouse.com/docs/en/optimize/asynchronous-inserts#enabling-asynchronous-inserts) is supported via dedicated `AsyncInsert` method. This allows to insert data with a non-blocking call.
 Effectively, it controls a `async_insert` setting for the query. 
 
 ### Using with batch API
