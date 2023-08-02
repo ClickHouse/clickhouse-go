@@ -235,7 +235,7 @@ func (col *IPv4) AppendRow(v any) (err error) {
 	case netip.Addr:
 		col.col.Append(proto.ToIPv4(v))
 	case *netip.Addr:
-		switch  {
+		switch {
 		case v != nil:
 			col.col.Append(proto.ToIPv4(*v))
 		default:

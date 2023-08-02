@@ -258,6 +258,10 @@ func (ch *clickhouse) acquire(ctx context.Context) (conn *connect, err error) {
 	}
 	select {
 	case <-timer.C:
+		select {
+		case <-ch.open:
+		default:
+		}
 		return nil, ErrAcquireConnTimeout
 	case conn := <-ch.idle:
 		if conn.isBad() {

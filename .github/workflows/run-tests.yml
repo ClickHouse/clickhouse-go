@@ -22,15 +22,14 @@ jobs:
       max-parallel: 1
       matrix:
         go:
-          - "1.19"
-          - "1.20"
+          - "1.19.10"
+          - "1.20.5"
         clickhouse: # https://github.com/ClickHouse/ClickHouse/blob/master/SECURITY.md#scope-and-supported-versions
-          - "22.3"
           - "22.8"
-          - "22.12"
-          - "23.1"
-          - "23.2"
-          - "latest"
+          - "23.3"
+          - "23.5"
+          - "23.6"
+#          - "23.7" - disabled due to backward-compatibility issues with sparse serialization for native protocol
     steps:
       - uses: actions/checkout@main
 
