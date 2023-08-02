@@ -147,12 +147,15 @@ func (b *batch) IsSent() bool {
 
 func (b *batch) Column(idx int) driver.BatchColumn {
 	if len(b.block.Columns) <= idx {
-		b.release(nil)
+		err := &OpError{
+			Op:  "batch.Column",
+			Err: fmt.Errorf("invalid column index %d", idx),
+		}
+
+		b.release(err)
+
 		return &batchColumn{
-			err: &OpError{
-				Op:  "batch.Column",
-				Err: fmt.Errorf("invalid column index %d", idx),
-			},
+			err: err,
 		}
 	}
 	return &batchColumn{
@@ -229,12 +232,11 @@ type batchColumn struct {
 }
 
 func (b *batchColumn) Append(v any) (err error) {
+	if b.err != nil {
+		return b.err
+	}
 	if b.batch.IsSent() {
 		return ErrBatchAlreadySent
-	}
-	if b.err != nil {
-		b.release(b.err)
-		return b.err
 	}
 	if _, err = b.column.Append(v); err != nil {
 		b.release(err)
@@ -244,12 +246,11 @@ func (b *batchColumn) Append(v any) (err error) {
 }
 
 func (b *batchColumn) AppendRow(v any) (err error) {
+	if b.err != nil {
+		return b.err
+	}
 	if b.batch.IsSent() {
 		return ErrBatchAlreadySent
-	}
-	if b.err != nil {
-		b.release(b.err)
-		return b.err
 	}
 	if err = b.column.AppendRow(v); err != nil {
 		b.release(err)
