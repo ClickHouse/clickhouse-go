@@ -53,8 +53,17 @@ func Test798(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, batch.Append(true, false, []bool{true, false, true}))
 	require.NoError(t, batch.Send())
-	// resend
-	require.ErrorAs(t, batch.Send(), &clickhouse.ErrServerUnexpectedData)
+	// resend, optimize and check rows count
+	require.NoError(t, batch.Send())
+	require.NoError(t, conn.Exec(ctx, `OPTIMIZE TABLE test_issue_798 DEDUPLICATE`)) // deduplicate table
+
+	var count uint64
+	err = conn.QueryRow(ctx, `SELECT COUNT(*) FROM test_issue_798`).Scan(&count)
+	require.NoError(t, err)
+
+	// after resend similar data with deduplicate call we must have only one row.
+	require.Equal(t, uint64(1), count)
+
 	batch, err = conn.PrepareBatch(ctx, "INSERT INTO test_issue_798")
 	require.NoError(t, err)
 	// test empty batch
