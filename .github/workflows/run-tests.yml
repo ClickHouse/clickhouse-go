@@ -29,7 +29,8 @@ jobs:
           - "23.3"
           - "23.5"
           - "23.6"
-#          - "23.7" - disabled due to backward-compatibility issues with sparse serialization for native protocol
+          - "latest"
+          - "head"
     steps:
       - uses: actions/checkout@main
 
