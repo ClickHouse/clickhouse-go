@@ -76,6 +76,7 @@ func (c *connect) prepareBatch(ctx context.Context, query string, release func(*
 	}
 	return &batch{
 		ctx:         ctx,
+		query:       query,
 		conn:        c,
 		block:       block,
 		released:    false,
@@ -88,6 +89,7 @@ func (c *connect) prepareBatch(ctx context.Context, query string, release func(*
 type batch struct {
 	err         error
 	ctx         context.Context
+	query       string
 	conn        *connect
 	sent        bool
 	released    bool
@@ -147,12 +149,15 @@ func (b *batch) IsSent() bool {
 
 func (b *batch) Column(idx int) driver.BatchColumn {
 	if len(b.block.Columns) <= idx {
-		b.release(nil)
+		err := &OpError{
+			Op:  "batch.Column",
+			Err: fmt.Errorf("invalid column index %d", idx),
+		}
+
+		b.release(err)
+
 		return &batchColumn{
-			err: &OpError{
-				Op:  "batch.Column",
-				Err: fmt.Errorf("invalid column index %d", idx),
-			},
+			err: err,
 		}
 	}
 	return &batchColumn{
@@ -196,13 +201,38 @@ func (b *batch) retry() (err error) {
 		return ErrBatchNotSent
 	}
 
+	if err = b.resetConnection(); err != nil {
+		return err
+	}
+
+	b.sent = false
+	b.released = false
+	return b.Send()
+}
+
+func (b *batch) resetConnection() (err error) {
 	// acquire a new conn
 	if b.conn, err = b.connAcquire(b.ctx); err != nil {
 		return err
 	}
-	b.sent = false
-	b.released = false
-	return b.Send()
+
+	options := queryOptions(b.ctx)
+	if deadline, ok := b.ctx.Deadline(); ok {
+		b.conn.conn.SetDeadline(deadline)
+		defer b.conn.conn.SetDeadline(time.Time{})
+	}
+
+	if err = b.conn.sendQuery(b.query, &options); err != nil {
+		b.release(err)
+		return err
+	}
+
+	if _, err = b.conn.firstBlock(b.ctx, b.onProcess); err != nil {
+		b.release(err)
+		return err
+	}
+
+	return nil
 }
 
 func (b *batch) Flush() error {
@@ -229,12 +259,11 @@ type batchColumn struct {
 }
 
 func (b *batchColumn) Append(v any) (err error) {
+	if b.err != nil {
+		return b.err
+	}
 	if b.batch.IsSent() {
 		return ErrBatchAlreadySent
-	}
-	if b.err != nil {
-		b.release(b.err)
-		return b.err
 	}
 	if _, err = b.column.Append(v); err != nil {
 		b.release(err)
@@ -244,12 +273,11 @@ func (b *batchColumn) Append(v any) (err error) {
 }
 
 func (b *batchColumn) AppendRow(v any) (err error) {
+	if b.err != nil {
+		return b.err
+	}
 	if b.batch.IsSent() {
 		return ErrBatchAlreadySent
-	}
-	if b.err != nil {
-		b.release(b.err)
-		return b.err
 	}
 	if err = b.column.AppendRow(v); err != nil {
 		b.release(err)
