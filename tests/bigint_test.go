@@ -52,6 +52,7 @@ func TestSimpleBigInt(t *testing.T) {
 	col1Data, ok := new(big.Int).SetString("170141183460469231731687303715884105727", 10)
 	require.True(t, ok)
 	require.NoError(t, batch.Append(col1Data))
+	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 	var (
 		col1 big.Int
@@ -111,6 +112,7 @@ func TestBigInt(t *testing.T) {
 		}
 	)
 	require.NoError(t, batch.Append(col1Data, col2Data, col3Data, col4Data, col5Data, col6Data, col7Data))
+	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 	var (
 		col1 big.Int
@@ -178,6 +180,7 @@ func TestNullableBigInt(t *testing.T) {
 		}
 	)
 	require.NoError(t, batch.Append(col1Data, col2Data, col3Data, col4Data, col5Data, col6Data))
+	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 	var (
 		col1 *big.Int
@@ -246,6 +249,7 @@ func TestBigIntUIntOverflow(t *testing.T) {
 		}
 	)
 	require.NoError(t, batch.Append(col1Data, col2Data, col3Data, col4Data, col5Data, col6Data))
+	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 	var (
 		col1 big.Int
@@ -287,8 +291,10 @@ func TestBigIntFlush(t *testing.T) {
 		bigUint128Val.SetString(RandIntString(20), 10)
 		vals[i] = bigUint128Val
 		batch.Append(vals[i])
+		require.Equal(t, 1, batch.Rows())
 		batch.Flush()
 	}
+	require.Equal(t, 0, batch.Rows())
 	batch.Send()
 	rows, err := conn.Query(ctx, "SELECT * FROM big_int_flush")
 	require.NoError(t, err)

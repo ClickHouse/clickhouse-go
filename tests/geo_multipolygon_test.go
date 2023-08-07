@@ -124,6 +124,7 @@ func TestGeoMultiPolygon(t *testing.T) {
 		}
 	)
 	require.NoError(t, batch.Append(col1Data, col2Data))
+	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 	var (
 		col1 orb.MultiPolygon

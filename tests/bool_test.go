@@ -64,6 +64,7 @@ func TestBool(t *testing.T) {
 		Bool:  false,
 		Valid: false,
 	}))
+	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 	var (
 		col1 bool
@@ -140,6 +141,7 @@ func TestColumnarBool(t *testing.T) {
 		require.NoError(t, batch.Column(3).Append(col3))
 		require.NoError(t, batch.Column(4).Append(col4))
 		require.NoError(t, batch.Column(5).Append(col5))
+		require.Equal(t, 1000, batch.Rows())
 		require.NoError(t, batch.Send())
 		var (
 			id   uint64
@@ -182,8 +184,10 @@ func TestBoolFlush(t *testing.T) {
 	for i := 0; i < 1000; i++ {
 		vals[i] = r.Intn(2) != 0
 		require.NoError(t, batch.Append(vals[i]))
+		require.Equal(t, 1, batch.Rows())
 		require.NoError(t, batch.Flush())
 	}
+	require.Equal(t, 0, batch.Rows())
 	batch.Send()
 	rows, err := conn.Query(ctx, "SELECT * FROM bool_flush")
 	require.NoError(t, err)

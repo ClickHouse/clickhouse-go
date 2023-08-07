@@ -49,5 +49,6 @@ func TestEmptyQuery(t *testing.T) {
 	defer cancel()
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_empty_query")
 	require.NoError(t, err)
+	require.Equal(t, 0, batch.Rows())
 	assert.NoError(t, batch.Send())
 }
