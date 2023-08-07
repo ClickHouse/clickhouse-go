@@ -84,6 +84,7 @@ type (
 		Flush() error
 		Send() error
 		IsSent() bool
+		ReleaseConnection() error
 	}
 	BatchColumn interface {
 		Append(any) error

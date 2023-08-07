@@ -78,6 +78,7 @@ func (c *connect) prepareBatch(ctx context.Context, query string, release func(*
 		ctx:         ctx,
 		query:       query,
 		conn:        c,
+		structMap:   c.structMap,
 		block:       block,
 		released:    false,
 		connRelease: release,
@@ -93,7 +94,9 @@ type batch struct {
 	conn        *connect
 	sent        bool
 	released    bool
+	flushed     bool
 	block       *proto.Block
+	structMap   *structMap
 	connRelease func(*connect, error)
 	connAcquire func(context.Context) (*connect, error)
 	onProcess   *onProcess
@@ -136,7 +139,7 @@ func (b *batch) AppendStruct(v any) error {
 	if b.err != nil {
 		return b.err
 	}
-	values, err := b.conn.structMap.Map("AppendStruct", b.block.ColumnsNames(), v, false)
+	values, err := b.structMap.Map("AppendStruct", b.block.ColumnsNames(), v, false)
 	if err != nil {
 		return err
 	}
@@ -175,39 +178,23 @@ func (b *batch) Send() (err error) {
 		b.sent = true
 		b.release(err)
 	}()
-	if b.sent {
-		return b.retry()
-	}
 	if b.err != nil {
 		return b.err
+	}
+	if b.sent || b.released {
+		if err = b.resetConnection(); err != nil {
+			return err
+		}
 	}
 	if b.block.Rows() != 0 {
 		if err = b.conn.sendData(b.block, ""); err != nil {
 			return err
 		}
 	}
-	if err = b.conn.sendData(&proto.Block{}, ""); err != nil {
-		return err
-	}
-	if err = b.conn.process(b.ctx, b.onProcess); err != nil {
+	if err = b.closeQuery(); err != nil {
 		return err
 	}
 	return nil
-}
-
-func (b *batch) retry() (err error) {
-	// exit early if Send() hasn't been attepted
-	if !b.sent {
-		return ErrBatchNotSent
-	}
-
-	if err = b.resetConnection(); err != nil {
-		return err
-	}
-
-	b.sent = false
-	b.released = false
-	return b.Send()
 }
 
 func (b *batch) resetConnection() (err error) {
@@ -215,6 +202,10 @@ func (b *batch) resetConnection() (err error) {
 	if b.conn, err = b.connAcquire(b.ctx); err != nil {
 		return err
 	}
+
+	defer func() {
+		b.released = false
+	}()
 
 	options := queryOptions(b.ctx)
 	if deadline, ok := b.ctx.Deadline(); ok {
@@ -242,12 +233,52 @@ func (b *batch) Flush() error {
 	if b.err != nil {
 		return b.err
 	}
+	if b.released {
+		if err := b.resetConnection(); err != nil {
+			return err
+		}
+	}
 	if b.block.Rows() != 0 {
 		if err := b.conn.sendData(b.block, ""); err != nil {
 			return err
 		}
+
+		b.flushed = true
 	}
 	b.block.Reset()
+	return nil
+}
+
+func (b *batch) ReleaseConnection() error {
+	if b.sent {
+		return ErrBatchAlreadySent
+	}
+	if b.err != nil {
+		return b.err
+	}
+	if b.released || b.flushed {
+		return ErrBatchUnexpectedRelease
+	}
+
+	if err := b.closeQuery(); err != nil {
+		b.release(err)
+		return err
+	}
+
+	b.release(nil)
+
+	return nil
+}
+
+func (b *batch) closeQuery() error {
+	if err := b.conn.sendData(&proto.Block{}, ""); err != nil {
+		return err
+	}
+
+	if err := b.conn.process(b.ctx, b.onProcess); err != nil {
+		return err
+	}
+
 	return nil
 }
 

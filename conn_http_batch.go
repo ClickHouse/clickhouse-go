@@ -118,6 +118,11 @@ func (b *httpBatch) Flush() error {
 	return nil
 }
 
+// ReleaseConnection doesn't support by HTTP batch.
+func (b *httpBatch) ReleaseConnection() error {
+	return nil
+}
+
 func (b *httpBatch) Abort() error {
 	defer func() {
 		b.sent = true

@@ -44,12 +44,11 @@ type (
 var (
 	ErrBatchInvalid              = errors.New("clickhouse: batch is invalid. check appended data is correct")
 	ErrBatchAlreadySent          = errors.New("clickhouse: batch has already been sent")
-	ErrBatchNotSent              = errors.New("clickhouse: invalid retry, batch not sent yet")
+	ErrBatchUnexpectedRelease    = errors.New("clickhouse: unexpected connection release")
 	ErrAcquireConnTimeout        = errors.New("clickhouse: acquire conn timeout. you can increase the number of max open conn or the dial timeout")
 	ErrUnsupportedServerRevision = errors.New("clickhouse: unsupported server revision")
 	ErrBindMixedParamsFormats    = errors.New("clickhouse [bind]: mixed named, numeric or positional parameters")
 	ErrAcquireConnNoAddress      = errors.New("clickhouse: no valid address supplied")
-	ErrServerUnexpectedData      = errors.New("code: 101, message: Unexpected packet Data received from client")
 )
 
 type OpError struct {

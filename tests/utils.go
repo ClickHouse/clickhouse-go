@@ -446,6 +446,17 @@ func getDatabaseName(testSet string) string {
 	return fmt.Sprintf("clickhouse-go-%s-%s-%d", testSet, testUUID, testTimestamp)
 }
 
+func getRowsCount(t *testing.T, conn driver.Conn, table string) uint64 {
+	var count uint64
+	err := conn.QueryRow(context.Background(), fmt.Sprintf(`SELECT COUNT(*) FROM %s`, table)).Scan(&count)
+	require.NoError(t, err)
+	return count
+}
+
+func deduplicateTable(t *testing.T, conn driver.Conn, table string) {
+	require.NoError(t, conn.Exec(context.Background(), fmt.Sprintf(`OPTIMIZE TABLE %s DEDUPLICATE`, table)))
+}
+
 func GetEnv(key, fallback string) string {
 	if value, ok := os.LookupEnv(key); ok {
 		return value
