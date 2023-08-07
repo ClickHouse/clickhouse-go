@@ -84,6 +84,7 @@ type (
 		Flush() error
 		Send() error
 		IsSent() bool
+		Rows() int
 	}
 	BatchColumn interface {
 		Append(any) error

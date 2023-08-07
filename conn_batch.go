@@ -221,6 +221,10 @@ func (b *batch) Flush() error {
 	return nil
 }
 
+func (b *batch) Rows() int {
+	return b.block.Rows()
+}
+
 type batchColumn struct {
 	err     error
 	batch   driver.Batch
