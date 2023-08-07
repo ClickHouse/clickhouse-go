@@ -78,7 +78,6 @@ func (c *connect) prepareBatch(ctx context.Context, query string, release func(*
 		ctx:         ctx,
 		query:       query,
 		conn:        c,
-		structMap:   c.structMap,
 		block:       block,
 		released:    false,
 		connRelease: release,
@@ -92,11 +91,10 @@ type batch struct {
 	ctx         context.Context
 	query       string
 	conn        *connect
-	sent        bool
-	released    bool
-	flushed     bool
+	sent        bool // sent signalize that batch is send to ClickHouse.
+	released    bool // released signalize that conn was returned to pool and can't be used.
+	flushed     bool // flushed signalize that Flush operation was called and user can't return conn to pool using ReleaseConnection.
 	block       *proto.Block
-	structMap   *structMap
 	connRelease func(*connect, error)
 	connAcquire func(context.Context) (*connect, error)
 	onProcess   *onProcess
@@ -139,7 +137,7 @@ func (b *batch) AppendStruct(v any) error {
 	if b.err != nil {
 		return b.err
 	}
-	values, err := b.structMap.Map("AppendStruct", b.block.ColumnsNames(), v, false)
+	values, err := b.conn.structMap.Map("AppendStruct", b.block.ColumnsNames(), v, false)
 	if err != nil {
 		return err
 	}
