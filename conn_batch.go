@@ -35,7 +35,7 @@ import (
 var splitInsertRe = regexp.MustCompile(`(?i)\sVALUES\s*\(`)
 var columnMatch = regexp.MustCompile(`.*\((?P<Columns>.+)\)$`)
 
-func (c *connect) prepareBatch(ctx context.Context, query string, release func(*connect, error), acquire func(context.Context) (*connect, error)) (driver.Batch, error) {
+func (c *connect) prepareBatch(ctx context.Context, query string, opts driver.PrepareBatchOptions, release func(*connect, error), acquire func(context.Context) (*connect, error)) (driver.Batch, error) {
 	//defer func() {
 	//	if err := recover(); err != nil {
 	//		fmt.Printf("panic occurred on %d:\n", c.num)
@@ -74,7 +74,8 @@ func (c *connect) prepareBatch(ctx context.Context, query string, release func(*
 	if err = block.SortColumns(columns); err != nil {
 		return nil, err
 	}
-	return &batch{
+
+	b := &batch{
 		ctx:         ctx,
 		query:       query,
 		conn:        c,
@@ -83,7 +84,13 @@ func (c *connect) prepareBatch(ctx context.Context, query string, release func(*
 		connRelease: release,
 		connAcquire: acquire,
 		onProcess:   onProcess,
-	}, nil
+	}
+
+	if opts.ReleaseConnection {
+		b.release(b.closeQuery())
+	}
+
+	return b, nil
 }
 
 type batch struct {
@@ -93,7 +100,6 @@ type batch struct {
 	conn        *connect
 	sent        bool // sent signalize that batch is send to ClickHouse.
 	released    bool // released signalize that conn was returned to pool and can't be used.
-	flushed     bool // flushed signalize that Flush operation was called and user can't return conn to pool using ReleaseConnection.
 	block       *proto.Block
 	connRelease func(*connect, error)
 	connAcquire func(context.Context) (*connect, error)
@@ -240,31 +246,8 @@ func (b *batch) Flush() error {
 		if err := b.conn.sendData(b.block, ""); err != nil {
 			return err
 		}
-
-		b.flushed = true
 	}
 	b.block.Reset()
-	return nil
-}
-
-func (b *batch) ReleaseConnection() error {
-	if b.sent {
-		return ErrBatchAlreadySent
-	}
-	if b.err != nil {
-		return b.err
-	}
-	if b.released || b.flushed {
-		return ErrBatchUnexpectedRelease
-	}
-
-	if err := b.closeQuery(); err != nil {
-		b.release(err)
-		return err
-	}
-
-	b.release(nil)
-
 	return nil
 }
 

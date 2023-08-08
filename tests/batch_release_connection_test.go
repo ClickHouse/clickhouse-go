@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/stretchr/testify/require"
 	"testing"
 )
@@ -27,13 +28,9 @@ func TestBatchReleaseConnection(t *testing.T) {
 		dropTable(conn, tableName)
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
-	batch, err := conn.PrepareBatch(ctx, fmt.Sprintf("INSERT INTO %s", tableName))
+	batch, err := conn.PrepareBatch(ctx, fmt.Sprintf("INSERT INTO %s", tableName), driver.WithReleaseConnection())
 	require.NoError(t, err)
 	require.NoError(t, batch.Append(uint64(1), "test"))
-
-	require.NoError(t, batch.ReleaseConnection())
-	require.Error(t, batch.ReleaseConnection())
-
 	require.NoError(t, batch.Send())
 	require.Equal(t, uint64(1), getRowsCount(t, conn, tableName))
 
@@ -63,13 +60,12 @@ func TestBatchReleaseConnectionFlush(t *testing.T) {
 		dropTable(conn, tableName)
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
-	batch, err := conn.PrepareBatch(ctx, fmt.Sprintf("INSERT INTO %s", tableName))
+	batch, err := conn.PrepareBatch(ctx, fmt.Sprintf("INSERT INTO %s", tableName), driver.WithReleaseConnection())
 	require.NoError(t, err)
-	require.NoError(t, batch.Append(uint64(1), "test"))
 
-	require.NoError(t, batch.ReleaseConnection())
+	require.NoError(t, batch.Append(uint64(1), "test"))
 	require.NoError(t, batch.Flush())
-	require.Error(t, batch.ReleaseConnection())
+
 	require.NoError(t, batch.Send())
 
 	require.Equal(t, uint64(1), getRowsCount(t, conn, tableName))

@@ -85,12 +85,8 @@ type YourBatch struct {
 }
 
 func New(ctx context.Context, conn driver.Conn, insertStatement string) (*YourBatch, error) {
-	batch, err := conn.PrepareBatch(ctx, insertStatement)
+	batch, err := conn.PrepareBatch(ctx, insertStatement, driver.WithReleaseConnection())
 	if err != nil {
-		return nil, err
-	}
-
-	if err = batch.ReleaseConnection(); err != nil {
 		return nil, err
 	}
 
@@ -118,12 +114,8 @@ func (b *YourBatch) Send() error {
 }
 
 func (b *YourBatch) reset() error {
-	batch, err := b.conn.PrepareBatch(b.ctx, b.insertStatement)
+	batch, err := b.conn.PrepareBatch(b.ctx, b.insertStatement, driver.WithReleaseConnection())
 	if err != nil {
-		return err
-	}
-
-	if err = batch.ReleaseConnection(); err != nil {
 		return err
 	}
 

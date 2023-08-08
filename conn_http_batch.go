@@ -33,8 +33,9 @@ import (
 // \x60 represents a backtick
 var httpInsertRe = regexp.MustCompile(`(?i)^INSERT INTO\s+\x60?([\w.^\(]+)\x60?\s*(\([^\)]*\))?`)
 
-// release is ignored, because http used by std with empty release function
-func (h *httpConnect) prepareBatch(ctx context.Context, query string, release func(*connect, error), acquire func(context.Context) (*connect, error)) (driver.Batch, error) {
+// release is ignored, because http used by std with empty release function.
+// Also opts ignored because all options unused in http batch.
+func (h *httpConnect) prepareBatch(ctx context.Context, query string, opts driver.PrepareBatchOptions, release func(*connect, error), acquire func(context.Context) (*connect, error)) (driver.Batch, error) {
 	matches := httpInsertRe.FindStringSubmatch(query)
 	if len(matches) < 3 {
 		return nil, errors.New("cannot get table name from query")
@@ -115,11 +116,6 @@ type httpBatch struct {
 
 // Flush TODO: noop on http currently - requires streaming to be implemented
 func (b *httpBatch) Flush() error {
-	return nil
-}
-
-// ReleaseConnection doesn't support by HTTP batch.
-func (b *httpBatch) ReleaseConnection() error {
 	return nil
 }
 
