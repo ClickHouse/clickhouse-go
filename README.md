@@ -34,6 +34,7 @@ The client is tested against the currently [supported versions](https://github.c
 * Connection pool
 * Failover and load balancing
 * [Bulk write support](examples/clickhouse_api/batch.go) (for `database/sql` [use](examples/std/batch.go) `begin->prepare->(in loop exec)->commit`)
+* [PrepareBatch options](#preparebatch-options)
 * [AsyncInsert](benchmark/v2/write-async/main.go) (more details in [Async insert](#async-insert) section)
 * Named and numeric placeholders support
 * LZ4/ZSTD compression support
@@ -281,6 +282,11 @@ HTTP protocol supports batching. It can be enabled by setting `async_insert` whe
 
 For more details please see [asynchronous inserts](https://clickhouse.com/docs/en/optimize/asynchronous-inserts#enabling-asynchronous-inserts) documentation.
 
+## PrepareBatch options
+
+Available options:
+- [WithReleaseConnection](examples/clickhouse_api/batch_release_connection.go) - after PrepareBatch connection will be returned to the pool. It can help you make a long-lived batch.
+
 ## Benchmark
 
 | [V1 (READ)](benchmark/v1/read/main.go) | [V2 (READ) std](benchmark/v2/read/main.go) | [V2 (READ) clickhouse API](benchmark/v2/read-native/main.go) |
@@ -305,6 +311,7 @@ go get -u github.com/ClickHouse/clickhouse-go/v2
 ### native interface
 
 * [batch](examples/clickhouse_api/batch.go)
+* [batch with release connection](examples/clickhouse_api/batch_release_connection.go)
 * [async insert](examples/clickhouse_api/async.go)
 * [batch struct](examples/clickhouse_api/append_struct.go)
 * [columnar](examples/clickhouse_api/columnar_insert.go)
