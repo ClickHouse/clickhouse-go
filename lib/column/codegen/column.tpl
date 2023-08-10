@@ -230,7 +230,7 @@ func (col *{{ .ChType }}) ScanRow(dest any, row int) error {
 	case *sql.Null{{ .ChType }}:
 		return d.Scan(value)
 	{{- end }}
-    {{- if eq .ChType "Int8" }}
+    {{- if or (eq .ChType "Int8") (eq .ChType "UInt8")  }}
 	case *bool:
 		switch value {
 		case 0:
