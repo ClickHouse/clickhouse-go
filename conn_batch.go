@@ -35,7 +35,7 @@ import (
 var splitInsertRe = regexp.MustCompile(`(?i)\sVALUES\s*\(`)
 var columnMatch = regexp.MustCompile(`.*\((?P<Columns>.+)\)$`)
 
-func (c *connect) prepareBatch(ctx context.Context, query string, release func(*connect, error), acquire func(context.Context) (*connect, error)) (driver.Batch, error) {
+func (c *connect) prepareBatch(ctx context.Context, query string, opts driver.PrepareBatchOptions, release func(*connect, error), acquire func(context.Context) (*connect, error)) (driver.Batch, error) {
 	//defer func() {
 	//	if err := recover(); err != nil {
 	//		fmt.Printf("panic occurred on %d:\n", c.num)
@@ -74,7 +74,8 @@ func (c *connect) prepareBatch(ctx context.Context, query string, release func(*
 	if err = block.SortColumns(columns); err != nil {
 		return nil, err
 	}
-	return &batch{
+
+	b := &batch{
 		ctx:         ctx,
 		query:       query,
 		conn:        c,
@@ -83,7 +84,13 @@ func (c *connect) prepareBatch(ctx context.Context, query string, release func(*
 		connRelease: release,
 		connAcquire: acquire,
 		onProcess:   onProcess,
-	}, nil
+	}
+
+	if opts.ReleaseConnection {
+		b.release(b.closeQuery())
+	}
+
+	return b, nil
 }
 
 type batch struct {
@@ -91,8 +98,8 @@ type batch struct {
 	ctx         context.Context
 	query       string
 	conn        *connect
-	sent        bool
-	released    bool
+	sent        bool // sent signalize that batch is send to ClickHouse.
+	released    bool // released signalize that conn was returned to pool and can't be used.
 	block       *proto.Block
 	connRelease func(*connect, error)
 	connAcquire func(context.Context) (*connect, error)
@@ -175,39 +182,23 @@ func (b *batch) Send() (err error) {
 		b.sent = true
 		b.release(err)
 	}()
-	if b.sent {
-		return b.retry()
-	}
 	if b.err != nil {
 		return b.err
+	}
+	if b.sent || b.released {
+		if err = b.resetConnection(); err != nil {
+			return err
+		}
 	}
 	if b.block.Rows() != 0 {
 		if err = b.conn.sendData(b.block, ""); err != nil {
 			return err
 		}
 	}
-	if err = b.conn.sendData(&proto.Block{}, ""); err != nil {
-		return err
-	}
-	if err = b.conn.process(b.ctx, b.onProcess); err != nil {
+	if err = b.closeQuery(); err != nil {
 		return err
 	}
 	return nil
-}
-
-func (b *batch) retry() (err error) {
-	// exit early if Send() hasn't been attepted
-	if !b.sent {
-		return ErrBatchNotSent
-	}
-
-	if err = b.resetConnection(); err != nil {
-		return err
-	}
-
-	b.sent = false
-	b.released = false
-	return b.Send()
 }
 
 func (b *batch) resetConnection() (err error) {
@@ -215,6 +206,10 @@ func (b *batch) resetConnection() (err error) {
 	if b.conn, err = b.connAcquire(b.ctx); err != nil {
 		return err
 	}
+
+	defer func() {
+		b.released = false
+	}()
 
 	options := queryOptions(b.ctx)
 	if deadline, ok := b.ctx.Deadline(); ok {
@@ -242,6 +237,11 @@ func (b *batch) Flush() error {
 	if b.err != nil {
 		return b.err
 	}
+	if b.released {
+		if err := b.resetConnection(); err != nil {
+			return err
+		}
+	}
 	if b.block.Rows() != 0 {
 		if err := b.conn.sendData(b.block, ""); err != nil {
 			return err
@@ -253,6 +253,18 @@ func (b *batch) Flush() error {
 
 func (b *batch) Rows() int {
 	return b.block.Rows()
+}
+
+func (b *batch) closeQuery() error {
+	if err := b.conn.sendData(&proto.Block{}, ""); err != nil {
+		return err
+	}
+
+	if err := b.conn.process(b.ctx, b.onProcess); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 type batchColumn struct {

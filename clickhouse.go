@@ -153,16 +153,26 @@ func (ch *clickhouse) Exec(ctx context.Context, query string, args ...any) error
 	return nil
 }
 
-func (ch *clickhouse) PrepareBatch(ctx context.Context, query string) (driver.Batch, error) {
+func (ch *clickhouse) PrepareBatch(ctx context.Context, query string, opts ...driver.PrepareBatchOption) (driver.Batch, error) {
 	conn, err := ch.acquire(ctx)
 	if err != nil {
 		return nil, err
 	}
-	batch, err := conn.prepareBatch(ctx, query, ch.release, ch.acquire)
+	batch, err := conn.prepareBatch(ctx, query, getPrepareBatchOptions(opts...), ch.release, ch.acquire)
 	if err != nil {
 		return nil, err
 	}
 	return batch, nil
+}
+
+func getPrepareBatchOptions(opts ...driver.PrepareBatchOption) driver.PrepareBatchOptions {
+	var options driver.PrepareBatchOptions
+
+	for _, opt := range opts {
+		opt(&options)
+	}
+
+	return options
 }
 
 func (ch *clickhouse) AsyncInsert(ctx context.Context, query string, wait bool, args ...any) error {

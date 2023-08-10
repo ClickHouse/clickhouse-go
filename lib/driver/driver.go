@@ -54,7 +54,7 @@ type (
 		Select(ctx context.Context, dest any, query string, args ...any) error
 		Query(ctx context.Context, query string, args ...any) (Rows, error)
 		QueryRow(ctx context.Context, query string, args ...any) Row
-		PrepareBatch(ctx context.Context, query string) (Batch, error)
+		PrepareBatch(ctx context.Context, query string, opts ...PrepareBatchOption) (Batch, error)
 		Exec(ctx context.Context, query string, args ...any) error
 		AsyncInsert(ctx context.Context, query string, wait bool, args ...any) error
 		Ping(context.Context) error
