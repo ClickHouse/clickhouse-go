@@ -331,6 +331,55 @@ func TestFormatMap(t *testing.T) {
 	assert.Equal(t, "map('a', 1)", val)
 }
 
+// a simple (non thread safe) ordered map, implementing the column.OrderedMap interface
+type OrderedMap struct {
+	keys   []any
+	values map[any]any
+}
+
+func NewOrderedMap() *OrderedMap {
+	om := OrderedMap{}
+	om.keys = []any{}
+	om.values = map[any]any{}
+	return &om
+}
+
+func (om *OrderedMap) Get(key any) (any, bool) {
+	if value, present := om.values[key]; present {
+		return value, present
+	}
+	return nil, false
+}
+
+func (om *OrderedMap) Put(key any, value any) {
+	if _, present := om.values[key]; present {
+		om.values[key] = value
+		return
+	}
+	om.keys = append(om.keys, key)
+	om.values[key] = value
+}
+
+func (om *OrderedMap) Keys() <-chan any {
+	ch := make(chan any)
+	go func() {
+		defer close(ch)
+		for _, key := range om.keys {
+			ch <- key
+		}
+	}()
+	return ch
+}
+
+func TestFormatMapOrdered(t *testing.T) {
+	om := NewOrderedMap()
+	om.Put("b", 2)
+	om.Put("a", 1)
+
+	val, _ := format(time.UTC, Seconds, om)
+	assert.Equal(t, "map('b', 2, 'a', 1)", val)
+}
+
 func TestBindNamedWithTernaryOperator(t *testing.T) {
 	sqls := []string{
 		`SELECT if(@arg1,@arg2,@arg3)`, // correct

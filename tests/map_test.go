@@ -83,6 +83,7 @@ func TestMap(t *testing.T) {
 		}
 	)
 	require.NoError(t, batch.Append(col1Data, col2Data, col3Data, col4Data, col5Data, col6Data))
+	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 	var (
 		col1 map[string]uint64
@@ -143,6 +144,7 @@ func TestColumnarMap(t *testing.T) {
 	require.NoError(t, batch.Column(0).Append(col1Data))
 	require.NoError(t, batch.Column(1).Append(col2Data))
 	require.NoError(t, batch.Column(2).Append(col3Data))
+	require.Equal(t, 100, batch.Rows())
 	require.NoError(t, batch.Send())
 	{
 		var (
@@ -193,8 +195,10 @@ func TestMapFlush(t *testing.T) {
 			"i": uint64(i),
 		}
 		require.NoError(t, batch.Append(vals[i]))
+		require.Equal(t, 1, batch.Rows())
 		require.NoError(t, batch.Flush())
 	}
+	require.Equal(t, 0, batch.Rows())
 	require.NoError(t, batch.Send())
 	rows, err := conn.Query(ctx, "SELECT * FROM test_map_flush")
 	require.NoError(t, err)

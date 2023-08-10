@@ -58,6 +58,7 @@ func TestUUID(t *testing.T) {
 	require.NoError(t, batch.Append(col1Data, col2Data, []uuid.UUID{col2Data, col1Data}, nil, []*uuid.UUID{
 		&col1Data, nil, &col2Data,
 	}))
+	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 	var (
 		col1 uuid.UUID
@@ -97,6 +98,7 @@ func TestStringerUUID(t *testing.T) {
 		col1Data = suuid.NewV4()
 	)
 	require.NoError(t, batch.Append(col1Data))
+	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 	var (
 		col1 suuid.UUID
@@ -128,6 +130,7 @@ func TestNullableUUID(t *testing.T) {
 		col2Data = uuid.New()
 	)
 	require.NoError(t, batch.Append(col1Data, col2Data))
+	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 	var (
 		col1 *uuid.UUID
@@ -142,6 +145,7 @@ func TestNullableUUID(t *testing.T) {
 	{
 		var col1Data = uuid.New()
 		require.NoError(t, batch.Append(col1Data, nil))
+		require.Equal(t, 1, batch.Rows())
 		require.NoError(t, batch.Send())
 		var (
 			col1 *uuid.UUID
@@ -194,6 +198,7 @@ func TestColumnarUUID(t *testing.T) {
 		require.NoError(t, batch.Column(3).Append(col4Data))
 		require.NoError(t, batch.Column(4).Append(col5Data))
 	}
+	require.Equal(t, 1000, batch.Rows())
 	require.NoError(t, batch.Send())
 	var (
 		col1 uuid.UUID
@@ -318,8 +323,10 @@ func TestUUIDFlush(t *testing.T) {
 	for i := 0; i < 1000; i++ {
 		vals[i] = uuid.New()
 		batch.Append(vals[i])
+		require.Equal(t, 1, batch.Rows())
 		batch.Flush()
 	}
+	require.Equal(t, 0, batch.Rows())
 	batch.Send()
 	rows, err := conn.Query(ctx, "SELECT * FROM uuid_flush")
 	require.NoError(t, err)

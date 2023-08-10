@@ -71,6 +71,7 @@ func TestUInt8(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, batch.Append(uint8(1), data, &data, []uint8{data}, []*uint8{&data, nil, &data}, customUint8(data)))
 	require.NoError(t, batch.Append(uint8(2), data, nil, []uint8{data}, []*uint8{nil, nil, &data}, customUint8(data)))
+	require.Equal(t, 2, batch.Rows())
 	require.NoError(t, batch.Send())
 	var (
 		result1 result
@@ -151,6 +152,7 @@ func TestColumnarUInt8(t *testing.T) {
 			return
 		}
 	}
+	require.Equal(t, 1000, batch.Rows())
 	require.NoError(t, batch.Send())
 	var result struct {
 		Col1 uint8
@@ -209,6 +211,7 @@ func TestNullableInt(t *testing.T) {
 	col5Data := sql.NullInt16{Int16: 3, Valid: true}
 	col6Data := sql.NullInt16{Int16: 0, Valid: false}
 	require.NoError(t, batch.Append(col1Data, col2Data, col3Data, col4Data, col5Data, col6Data))
+	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 	var (
 		col1 sql.NullInt64
@@ -250,9 +253,15 @@ func TestIntFlush(t *testing.T) {
 		vals[i] = uint8(i)
 		require.NoError(t, batch.Append(vals[i]))
 		if i%100 == 0 {
+			if i == 0 {
+				require.Equal(t, 1, batch.Rows())
+			} else {
+				require.Equal(t, 100, batch.Rows())
+			}
 			require.NoError(t, batch.Flush())
 		}
 	}
+	require.Equal(t, 99, batch.Rows())
 	batch.Send()
 	rows, err := conn.Query(ctx, "SELECT * FROM int_flush")
 	require.NoError(t, err)
