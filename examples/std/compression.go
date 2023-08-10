@@ -50,7 +50,7 @@ func CompressOpenDB() error {
 	if _, err := conn.Exec(`
 		CREATE TABLE example (
 			  Col1 Array(String)
-			, Col2 Uint64
+			, Col2 UInt64
 		) Engine Memory
 		`); err != nil {
 		return err
