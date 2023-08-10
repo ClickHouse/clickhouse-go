@@ -74,6 +74,7 @@ func TestFixedString(t *testing.T) {
 	_, err = rand.Read(col2Data.data[:])
 	require.NoError(t, err)
 	require.NoError(t, batch.Append(col1Data, col2Data, col3Data, col4Data, col5Data, col6Data))
+	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 	var (
 		col1 string
@@ -128,6 +129,7 @@ func TestEmptyFixedString(t *testing.T) {
 		col2Data = "US"
 	)
 	require.NoError(t, batch.Append(col1Data, col2Data))
+	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 	var (
 		col1 string
@@ -163,6 +165,7 @@ func TestNullableFixedString(t *testing.T) {
 	_, err = rand.Read(col2Data.data[:])
 	require.NoError(t, err)
 	require.NoError(t, batch.Append(col1Data, col2Data))
+	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 	var (
 		col1 string
@@ -176,6 +179,7 @@ func TestNullableFixedString(t *testing.T) {
 	require.NoError(t, err)
 	col1Data = "ClickHouse"
 	require.NoError(t, batch.Append(col1Data, nil))
+	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 	{
 		var (
@@ -231,6 +235,7 @@ func TestColumnarFixedString(t *testing.T) {
 	require.NoError(t, batch.Column(4).Append([][]*string{
 		col5Data, col5Data, col5Data, col5Data, col5Data,
 	}))
+	require.Equal(t, 5, batch.Rows())
 	require.NoError(t, batch.Send())
 	var (
 		col1 string

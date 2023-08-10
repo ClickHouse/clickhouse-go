@@ -86,6 +86,7 @@ func TestTuple(t *testing.T) {
 		col8Data = []any{&col8Val, (*string)(nil)}
 	)
 	require.NoError(t, batch.Append(col1Data, col2Data, col3Data, col4Data, col5Data, col6Data, col7Data, col8Data))
+	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 	var (
 		col1 []any
@@ -134,6 +135,7 @@ func TestNamedTupleWithSlice(t *testing.T) {
 		col1Data = []any{"A", int64(42)}
 	)
 	require.NoError(t, batch.Append(col1Data))
+	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 	var (
 		col1 []any
@@ -167,6 +169,7 @@ func TestNamedTupleWithTypedSlice(t *testing.T) {
 	)
 	require.NoError(t, batch.Append(col1Data, int32(0)))
 	require.NoError(t, batch.Append(col2Data, int32(1)))
+	require.Equal(t, 2, batch.Rows())
 	require.NoError(t, batch.Send())
 	var (
 		col1 []string
@@ -198,6 +201,7 @@ func TestNamedTupleWithMap(t *testing.T) {
 	batch, _ = conn.PrepareBatch(ctx, "INSERT INTO test_tuple")
 	col1Data := map[string]any{"name": "A", "id": int64(1)}
 	require.NoError(t, batch.Append(col1Data))
+	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 	var (
 		col1 map[string]any
@@ -229,6 +233,7 @@ func TestNamedTupleWithTypedMap(t *testing.T) {
 		col1Data = map[string]int64{"code": int64(1), "id": int64(2)}
 	)
 	require.NoError(t, batch.Append(col1Data))
+	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 	var (
 		col1 map[string]int64
@@ -258,6 +263,7 @@ func TestNamedTupleWithEscapedColumns(t *testing.T) {
 		col1Data = map[string]any{"56": "A", "a22`": int64(1)}
 	)
 	require.NoError(t, batch.Append(col1Data))
+	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 	var col1 map[string]any
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_tuple").Scan(&col1))
@@ -314,6 +320,7 @@ func TestUnNamedTupleWithMap(t *testing.T) {
 	batch, err = conn.PrepareBatch(ctx, "INSERT INTO test_tuple")
 	require.NoError(t, err)
 	require.NoError(t, batch.Append([]any{"A", int64(42)}))
+	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 	var col1 map[string]any
 	err = conn.QueryRow(ctx, "SELECT * FROM test_tuple").Scan(&col1)
@@ -374,6 +381,7 @@ func TestColumnarTuple(t *testing.T) {
 	require.NoError(t, batch.Column(2).Append(col2Data))
 	require.NoError(t, batch.Column(3).Append(col3Data))
 	require.NoError(t, batch.Column(4).Append(col4Data))
+	require.Equal(t, 1000, batch.Rows())
 	require.NoError(t, batch.Send())
 	{
 		var (
@@ -431,8 +439,10 @@ func TestTupleFlush(t *testing.T) {
 			"name": RandAsciiString(10),
 		}
 		require.NoError(t, batch.Append(vals[i]))
+		require.Equal(t, 1, batch.Rows())
 		require.NoError(t, batch.Flush())
 	}
+	require.Equal(t, 0, batch.Rows())
 	require.NoError(t, batch.Send())
 	rows, err := conn.Query(ctx, "SELECT * FROM test_tuple_flush")
 	require.NoError(t, err)

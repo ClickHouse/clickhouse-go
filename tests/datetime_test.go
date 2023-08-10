@@ -73,6 +73,7 @@ func TestDateTime(t *testing.T) {
 		&testStr{Col1: dateTimeStr},
 		iDateTime,
 	))
+	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 	var (
 		col1  time.Time
@@ -141,6 +142,7 @@ func TestNullableDateTime(t *testing.T) {
 	require.NoError(t, err)
 	datetime := time.Now().Truncate(time.Second)
 	require.NoError(t, batch.Append(datetime, datetime, datetime, datetime, datetime, datetime, datetime, datetime, datetime, datetime))
+	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 	var (
 		col1     time.Time
@@ -181,6 +183,7 @@ func TestNullableDateTime(t *testing.T) {
 			datetimeNilStr *string = nil
 		)
 		require.NoError(t, batch.Append(datetime, nil, datetime, nil, datetime, nil, datetimeStr, nil, datetimeStr, datetimeNilStr))
+		require.Equal(t, 1, batch.Rows())
 		require.NoError(t, batch.Send())
 		var (
 			col1     time.Time
@@ -294,6 +297,7 @@ func TestColumnarDateTime(t *testing.T) {
 		require.NoError(t, batch.Column(6).Append(col6Data))
 		require.NoError(t, batch.Column(7).Append(col7Data))
 	}
+	require.Equal(t, 1000, batch.Rows())
 	require.NoError(t, batch.Send())
 	var result struct {
 		Col1 time.Time
@@ -338,8 +342,10 @@ func TestDateTimeFlush(t *testing.T) {
 	for i := 0; i < 1000; i++ {
 		vals[i] = now.Add(time.Duration(i) * time.Hour).Truncate(time.Second)
 		batch.Append(vals[i])
+		require.Equal(t, 1, batch.Rows())
 		batch.Flush()
 	}
+	require.Equal(t, 0, batch.Rows())
 	batch.Send()
 	rows, err := conn.Query(ctx, "SELECT * FROM datetime_flush")
 	require.NoError(t, err)

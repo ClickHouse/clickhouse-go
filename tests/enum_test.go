@@ -49,6 +49,7 @@ func TestSimpleEnum(t *testing.T) {
 	require.NoError(t, batch.Append(
 		col1Data,
 	))
+	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 	var (
 		col1 string
@@ -86,6 +87,7 @@ func TestCustomEnum(t *testing.T) {
 		col2Data,
 		col3Data,
 	))
+	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 	var (
 		col1 customStr
@@ -139,6 +141,7 @@ func TestEnum(t *testing.T) {
 		col6Data,
 		col7Data,
 	))
+	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 	var (
 		col1 string
@@ -182,6 +185,7 @@ func TestNullableEnum(t *testing.T) {
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_enum")
 	require.NoError(t, err)
 	require.NoError(t, batch.Append("hello", "click", "value"))
+	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 	var (
 		col1 string
@@ -196,6 +200,7 @@ func TestNullableEnum(t *testing.T) {
 	batch, err = conn.PrepareBatch(ctx, "INSERT INTO test_enum")
 	require.NoError(t, err)
 	require.NoError(t, batch.Append("hello", nil, "value"))
+	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 	{
 		var (
@@ -264,6 +269,7 @@ func TestColumnarEnum(t *testing.T) {
 	require.NoError(t, batch.Column(6).Append([][]*string{
 		col7Data, col7Data, col7Data,
 	}))
+	require.Equal(t, 3, batch.Rows())
 	require.NoError(t, batch.Send())
 	var (
 		col1 string
