@@ -19,36 +19,45 @@ package tests
 
 import (
 	"context"
+	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/require"
 	"testing"
-	"time"
-
-	"github.com/ClickHouse/clickhouse-go/v2"
-	"github.com/stretchr/testify/assert"
 )
 
-func TestEmptyQuery(t *testing.T) {
-	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+func TestBoolUInt8(t *testing.T) {
+	ctx := context.Background()
+
+	conn, err := GetNativeConnection(clickhouse.Settings{
+		"max_execution_time": 60,
+	}, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
-	ctx := context.Background()
 	require.NoError(t, err)
+
 	const ddl = `
-		CREATE TEMPORARY TABLE test_empty_query (
-			  Col1 UInt8
-			, Col2 Array(UInt8)
-			, Col3 LowCardinality(String)
-			, NestedCol  Nested (
-				  First  UInt32
-				, Second UInt32
-			)
-		)
+			CREATE TABLE IF NOT EXISTS issue_1050 (
+				  Col1 UInt8
+				, Col2 UInt8                   
+			) Engine MergeTree() ORDER BY tuple()
 		`
 	require.NoError(t, conn.Exec(ctx, ddl))
-	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(10*time.Second))
-	defer cancel()
-	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_empty_query")
+	defer func() {
+		require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS issue_1050"))
+	}()
+
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO issue_1050 (Col1, Col2)")
 	require.NoError(t, err)
-	require.Equal(t, 0, batch.Rows())
-	assert.NoError(t, batch.Send())
+	require.NoError(t, batch.Append(true, false))
+	require.NoError(t, batch.Send())
+
+	row := conn.QueryRow(ctx, "SELECT Col1, Col2 from issue_1050")
+	require.NoError(t, err)
+
+	var (
+		col1 bool
+		col2 bool
+	)
+	require.NoError(t, row.Scan(&col1, &col2))
+	require.True(t, col1)
+	require.False(t, col2)
 }

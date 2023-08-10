@@ -53,6 +53,7 @@ func TestSimpleIPv4(t *testing.T) {
 		col1Data = net.ParseIP("127.0.0.1")
 	)
 	require.NoError(t, batch.Append(col1Data))
+	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 	var (
 		col1 net.IP

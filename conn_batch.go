@@ -251,6 +251,10 @@ func (b *batch) Flush() error {
 	return nil
 }
 
+func (b *batch) Rows() int {
+	return b.block.Rows()
+}
+
 func (b *batch) closeQuery() error {
 	if err := b.conn.sendData(&proto.Block{}, ""); err != nil {
 		return err

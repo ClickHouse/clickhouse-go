@@ -81,6 +81,7 @@ func TestDate32(t *testing.T) {
 	require.NoError(t, batch.Append(uint8(1), date1, &date2, []time.Time{date2}, []*time.Time{&date2, nil, &date1}, dateStr1, dateStrNil, []string{dateStr1, dateStr2, dateStr3}, []*string{dateStrNil, &dateStr1, dateStrNil}))
 	require.NoError(t, batch.Append(uint8(2), date2, nil, []time.Time{date1}, []*time.Time{nil, nil, &date2}, &testStr{Col1: dateStr1}, nil, []string{dateStr1, dateStr2, dateStr3}, []*string{nil, &dateStr1, dateStrNil}))
 	require.NoError(t, batch.Append(uint8(3), date3, nil, []time.Time{date3}, []*time.Time{nil, nil, &date3}, &testStr{Col1: dateStr1}, &dateStr1, []string{dateStr1, dateStr2, dateStr3}, []*string{nil, nil, dateStrNil}))
+	require.Equal(t, 3, batch.Rows())
 	require.NoError(t, batch.Send())
 	var (
 		result1 result
@@ -158,6 +159,7 @@ func TestNullableDate32(t *testing.T) {
 	require.NoError(t, err)
 	dateStr := "2283-11-11"
 	require.NoError(t, batch.Append(date, &date, dateStr, &dateStr))
+	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 	var (
 		col1 *time.Time
@@ -176,6 +178,7 @@ func TestNullableDate32(t *testing.T) {
 	date, err = time.Parse("2006-01-02 15:04:05", "1925-01-01 00:00:00")
 	require.NoError(t, err)
 	require.NoError(t, batch.Append(date, nil, &date, nil))
+	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 	col2 = nil
 	col4 = nil
@@ -245,6 +248,7 @@ func TestColumnarDate32(t *testing.T) {
 		require.NoError(t, batch.Column(3).Append(col3Data))
 		require.NoError(t, batch.Column(4).Append(col4Data))
 	}
+	require.Equal(t, 1000, batch.Rows())
 	require.NoError(t, batch.Send())
 	var result struct {
 		Col1 time.Time
@@ -286,8 +290,10 @@ func TestDate32Flush(t *testing.T) {
 	for i := 0; i < 1000; i++ {
 		vals[i] = now.Add(time.Duration(i) * time.Hour)
 		batch.Append(vals[i])
+		require.Equal(t, 1, batch.Rows())
 		batch.Flush()
 	}
+	require.Equal(t, 0, batch.Rows())
 	batch.Send()
 	rows, err := conn.Query(ctx, "SELECT * FROM date_32_flush")
 	require.NoError(t, err)
@@ -321,6 +327,7 @@ func TestDate32TZ(t *testing.T) {
 		"2022-07-20 +08:00",
 	))
 	require.NoError(t, err)
+	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 	var (
 		col15, col16 time.Time
@@ -355,6 +362,7 @@ func TestCustomDateTime32(t *testing.T) {
 	require.NoError(t, err)
 	now := time.Now().UTC().Truncate(time.Hour)
 	require.NoError(t, batch.Append(now))
+	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 	row := conn.QueryRow(ctx, "SELECT * FROM date32_custom")
 	var col1 CustomDateTime

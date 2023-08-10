@@ -19,7 +19,6 @@ package std
 
 import (
 	"context"
-	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
 )
 
@@ -45,9 +44,9 @@ func AsyncInsert() error {
 	ctx := clickhouse.Context(context.Background(), clickhouse.WithStdAsync(false))
 	{
 		for i := 0; i < 100; i++ {
-			_, err := conn.ExecContext(ctx, fmt.Sprintf(`INSERT INTO example VALUES (
-				%d, '%s', [1, 2, 3, 4, 5, 6, 7, 8, 9], now()
-			)`, i, "Golang SQL database driver"))
+			_, err := conn.ExecContext(ctx, `INSERT INTO example VALUES (
+				?, ?, ?, now()
+			)`, i, "Golang SQL database driver", []uint8{1, 2, 3, 4, 5, 6, 7, 8, 9})
 			if err != nil {
 				return err
 			}

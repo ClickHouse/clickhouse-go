@@ -77,6 +77,7 @@ func TestAppendStruct(t *testing.T) {
 			Col3: []string{"A", "B", "C", fmt.Sprint(i)},
 		}))
 	}
+	require.Equal(t, 100, batch.Rows())
 	require.NoError(t, batch.Send())
 	for i := 0; i < 100; i++ {
 		var result data

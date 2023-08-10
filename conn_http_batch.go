@@ -230,4 +230,8 @@ func (b *httpBatch) Send() (err error) {
 	return err
 }
 
+func (b *httpBatch) Rows() int {
+	return b.block.Rows()
+}
+
 var _ driver.Batch = (*httpBatch)(nil)

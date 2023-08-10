@@ -62,6 +62,7 @@ func TestDecimal(t *testing.T) {
 		decimal.New(135, 7),
 		decimal.New(256, 8),
 	))
+	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 	var (
 		col1 decimal.Decimal
@@ -109,6 +110,7 @@ func TestNegativeDecimal(t *testing.T) {
 		decimal.RequireFromString("-0.01171"),
 		decimal.RequireFromString("-3.0111"),
 		decimal.RequireFromString("-21111122.0111111111111111111171")))
+	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 	var (
 		col1 decimal.Decimal
@@ -149,6 +151,7 @@ func TestNullableDecimal(t *testing.T) {
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_decimal")
 	require.NoError(t, err)
 	require.NoError(t, batch.Append(decimal.New(25, 0), decimal.New(30, 0), decimal.New(35, 0)))
+	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 	var (
 		col1 *decimal.Decimal
@@ -163,6 +166,7 @@ func TestNullableDecimal(t *testing.T) {
 	batch, err = conn.PrepareBatch(ctx, "INSERT INTO test_decimal")
 	require.NoError(t, err)
 	require.NoError(t, batch.Append(decimal.New(25, 0), nil, decimal.New(35, 0)))
+	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 	{
 		var (
@@ -198,8 +202,10 @@ func TestDecimalFlush(t *testing.T) {
 	for i := 0; i < 1000; i++ {
 		vals[i] = decimal.RequireFromString(fmt.Sprintf("1.%s", RandIntString(5)))
 		batch.Append(vals[i])
+		require.Equal(t, 1, batch.Rows())
 		batch.Flush()
 	}
+	require.Equal(t, 0, batch.Rows())
 	batch.Send()
 	rows, err := conn.Query(ctx, "SELECT * FROM decimal_flush")
 	require.NoError(t, err)
@@ -253,9 +259,11 @@ func TestRoundDecimals(t *testing.T) {
 			decimal.NewFromFloat(601),    // this will make decimal 601*e^0
 			decimal.NewFromFloat(601.21), // check that normal case is working
 		}
-		for _, c := range checks {
+		for i, c := range checks {
 			batch.Append(c)
+			require.Equal(t, i+1, batch.Rows())
 		}
+		require.Equal(t, 3, batch.Rows())
 		batch.Send()
 		rows, err := conn.Query(ctx, "SELECT * FROM decimal_flush ORDER BY Col1 asc")
 		require.NoError(tt, err)

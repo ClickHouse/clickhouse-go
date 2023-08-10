@@ -59,6 +59,7 @@ func TestSimpleAggregateFunction(t *testing.T) {
 		}
 	)
 	require.NoError(t, batch.Append(col1Data, col2Data, col3Data))
+	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 	var result struct {
 		Col1 uint64

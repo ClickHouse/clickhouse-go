@@ -76,6 +76,7 @@ func TestColumnarInterface(t *testing.T) {
 	require.NoError(t, batch.Column(3).Append(col4Data))
 	require.NoError(t, batch.Column(4).Append(col5Data))
 	require.NoError(t, batch.Column(5).Append(col6Data))
+	require.Equal(t, 150, batch.Rows())
 	require.NoError(t, batch.Send())
 	var count uint64
 	require.NoError(t, conn.QueryRow(ctx, "SELECT COUNT() FROM test_column_interface").Scan(&count))
@@ -151,6 +152,7 @@ func TestNullableColumnarInterface(t *testing.T) {
 	require.NoError(t, batch.Column(1).Append(col2Data))
 	require.NoError(t, batch.Column(2).Append(col3Data))
 	require.NoError(t, batch.Column(3).Append(col4Data))
+	require.Equal(t, 150, batch.Rows())
 	require.NoError(t, batch.Send())
 	var count uint64
 	require.NoError(t, conn.QueryRow(ctx, "SELECT COUNT() FROM test_column_interface").Scan(&count))
@@ -210,6 +212,7 @@ func TestNullableColumnarInterface(t *testing.T) {
 		require.NoError(t, batch.Column(1).Append(col2Data))
 		require.NoError(t, batch.Column(2).Append(col3Data))
 		require.NoError(t, batch.Column(3).Append(col4Data))
+		require.Equal(t, 150, batch.Rows())
 		require.NoError(t, batch.Send())
 		var count uint64
 		require.NoError(t, conn.QueryRow(ctx, "SELECT COUNT() FROM test_column_interface").Scan(&count))
@@ -283,6 +286,7 @@ func TestColumnarAppendRowInterface(t *testing.T) {
 		require.NoError(t, batch.Column(4).AppendRow(sql.NullTime{Time: currentTime, Valid: true}))
 		require.NoError(t, batch.Column(5).AppendRow(sql.NullInt64{Int64: int64(i), Valid: true}))
 	}
+	require.Equal(t, 150, batch.Rows())
 	require.NoError(t, batch.Send())
 	var count uint64
 	require.NoError(t, conn.QueryRow(ctx, "SELECT COUNT() FROM test_column_interface").Scan(&count))
@@ -352,6 +356,7 @@ func TestNullableAppendRowColumnarInterface(t *testing.T) {
 			require.NoError(t, batch.Column(3).AppendRow(&decimalVal))
 		}
 	}
+	require.Equal(t, 150, batch.Rows())
 	require.NoError(t, batch.Send())
 	var count uint64
 	require.NoError(t, conn.QueryRow(ctx, "SELECT COUNT() FROM test_column_interface").Scan(&count))

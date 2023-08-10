@@ -171,7 +171,7 @@ type stdConnect interface {
 	exec(ctx context.Context, query string, args ...any) error
 	ping(ctx context.Context) (err error)
 	prepareBatch(ctx context.Context, query string, options ldriver.PrepareBatchOptions, release func(*connect, error), acquire func(context.Context) (*connect, error)) (ldriver.Batch, error)
-	asyncInsert(ctx context.Context, query string, wait bool) error
+	asyncInsert(ctx context.Context, query string, wait bool, args ...any) error
 }
 
 type stdDriver struct {
@@ -236,10 +236,7 @@ func (std *stdDriver) CheckNamedValue(nv *driver.NamedValue) error { return nil 
 
 func (std *stdDriver) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
 	if options := queryOptions(ctx); options.async.ok {
-		if len(args) != 0 {
-			return nil, errors.New("clickhouse: you can't use parameters in an asynchronous insert")
-		}
-		return driver.RowsAffected(0), std.conn.asyncInsert(ctx, query, options.async.wait)
+		return driver.RowsAffected(0), std.conn.asyncInsert(ctx, query, options.async.wait, rebind(args)...)
 	}
 	if err := std.conn.exec(ctx, query, rebind(args)...); err != nil {
 		if isConnBrokenError(err) {
