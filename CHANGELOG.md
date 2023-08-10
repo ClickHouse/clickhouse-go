@@ -1,3 +1,19 @@
+# v2.13.0, 2023-08-10 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Enhancements 🎉
+* Support scan from uint8 to bool by @ValManP in https://github.com/ClickHouse/clickhouse-go/pull/1051
+* Binding arguments for AsyncInsert interface by @mdonkers in https://github.com/ClickHouse/clickhouse-go/pull/1052
+* Batch rows count API by @EpicStep in https://github.com/ClickHouse/clickhouse-go/pull/1063
+* Implement release connection in batch by @EpicStep in https://github.com/ClickHouse/clickhouse-go/pull/1062
+### Other Changes 🛠
+* Restore test against CH 23.7 by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1059
+
+## New Contributors
+* @ValManP made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1051
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.12.1...v2.13.0
+
 # v2.12.1, 2023-08-02 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
