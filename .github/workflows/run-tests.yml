@@ -11,8 +11,6 @@ on:
     branches:
       - v1
       - main
-  schedule:
-    - cron: "0 9 1 * *"
 
 jobs:
   single-node:
@@ -29,7 +27,7 @@ jobs:
           - "23.3"
           - "23.5"
           - "23.6"
-          - "23.7"
+          - "latest"
     steps:
       - uses: actions/checkout@main
 
