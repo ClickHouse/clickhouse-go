@@ -31,4 +31,4 @@ jobs:
 
       - name: Run tests
         run: |
-          CLICKHOUSE_VERSION=${{ matrix.clickhouse }} make test
+          CLICKHOUSE_VERSION=head make test
