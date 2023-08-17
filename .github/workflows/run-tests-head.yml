@@ -5,10 +5,6 @@ permissions: write-all
 on:
   schedule:
     - cron: "0 0 * * *"
-  pull_request:
-    branches:
-      - v1
-      - main
 
 jobs:
   test-ch-head:
