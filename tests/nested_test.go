@@ -54,6 +54,7 @@ func TestSimpleNested(t *testing.T) {
 		col1Data = []string{"1", "2", "3"}
 	)
 	require.NoError(t, batch.Append(col1Data))
+	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 	var (
 		col1 []string
@@ -114,6 +115,7 @@ func TestNestedFlattened(t *testing.T) {
 		}
 	)
 	require.NoError(t, batch.Append(col1Data, col2Data, col3Data, col4Data))
+	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 	var (
 		col1 []uint8
@@ -168,6 +170,7 @@ func TestFlattenedSimpleNested(t *testing.T) {
 		}
 	)
 	require.NoError(t, batch.Append(col1Data))
+	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 	var (
 		col1 []map[string]any
@@ -247,6 +250,7 @@ func TestNestedUnFlattened(t *testing.T) {
 		}
 	)
 	require.NoError(t, batch.Append(col1Data, col2Data))
+	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 	var (
 		col1 []map[string]any
@@ -306,8 +310,10 @@ func TestNestedFlush(t *testing.T) {
 			},
 		}
 		require.NoError(t, batch.Append(vals[i]))
+		require.Equal(t, 1, batch.Rows())
 		require.NoError(t, batch.Flush())
 	}
+	require.Equal(t, 0, batch.Rows())
 	require.NoError(t, batch.Send())
 	rows, err := conn.Query(ctx, "SELECT * FROM test_nested_flush")
 	require.NoError(t, err)

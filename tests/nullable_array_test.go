@@ -99,6 +99,7 @@ func TestNullableArray(t *testing.T) {
 		[]*uuid.UUID{&uuidVal, nil, &uuidVal},
 	)
 	require.NoError(t, err)
+	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 	var result struct {
 		Col1  []*bool

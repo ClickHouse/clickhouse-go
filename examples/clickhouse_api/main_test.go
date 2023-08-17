@@ -87,6 +87,10 @@ func TestBatchInsert(t *testing.T) {
 	require.NoError(t, BatchInsert())
 }
 
+func TestBatchWithReleaseConnection(t *testing.T) {
+	require.NoError(t, BatchWithReleaseConnection())
+}
+
 func TestAuthConnect(t *testing.T) {
 	require.NoError(t, Auth())
 }

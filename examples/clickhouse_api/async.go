@@ -19,7 +19,6 @@ package clickhouse_api
 
 import (
 	"context"
-	"fmt"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 )
 
@@ -49,9 +48,9 @@ func AsyncInsert() error {
 		return err
 	}
 	for i := 0; i < 100; i++ {
-		if err := conn.AsyncInsert(ctx, fmt.Sprintf(`INSERT INTO example VALUES (
-			%d, '%s', [1, 2, 3, 4, 5, 6, 7, 8, 9], now()
-		)`, i, "Golang SQL database driver"), false); err != nil {
+		if err := conn.AsyncInsert(ctx, `INSERT INTO example VALUES (
+			?, ?, ?, now()
+		)`, false, i, "Golang SQL database driver", []uint8{1, 2, 3, 4, 5, 6, 7, 8, 9}); err != nil {
 			return err
 		}
 	}

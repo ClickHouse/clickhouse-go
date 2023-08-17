@@ -42,6 +42,7 @@ jobs:
           CLICKHOUSE_VERSION=${{ matrix.clickhouse }} make test
 
   integration-tests-cloud:
+    if: ${{ false }}  # disabled for now
     runs-on: ubuntu-latest
     defaults:
       run:

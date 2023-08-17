@@ -64,6 +64,7 @@ func TestSimpleString(t *testing.T) {
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_string")
 	require.NoError(t, err)
 	require.NoError(t, batch.Append("A", &testStr{"B"}))
+	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 }
 
@@ -114,6 +115,7 @@ func TestCustomString(t *testing.T) {
 		Col1: "A",
 		Col2: "B",
 	}))
+	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 
 	var dest data
@@ -172,6 +174,7 @@ func TestString(t *testing.T) {
 		&col10Data,
 		&col11Data,
 	))
+	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 	var (
 		col1  string
@@ -296,8 +299,10 @@ func TestStringFlush(t *testing.T) {
 	for i := 0; i < 1000; i++ {
 		vals[i] = RandAsciiString(10)
 		batch.Append(vals[i])
+		require.Equal(t, 1, batch.Rows())
 		batch.Flush()
 	}
+	require.Equal(t, 0, batch.Rows())
 	batch.Send()
 	rows, err := conn.Query(ctx, "SELECT * FROM string_flush")
 	require.NoError(t, err)
@@ -360,6 +365,7 @@ func TestStringFromDriverValuerType(t *testing.T) {
 		Col1: "Value",
 		Col2: testStringSerializer{"Value"},
 	}))
+	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 
 	var dest data

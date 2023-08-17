@@ -59,6 +59,7 @@ func TestSimpleFloat(t *testing.T) {
 		Float64: 0,
 		Valid:   false,
 	}))
+	require.Equal(t, 1, batch.Rows())
 	assert.NoError(t, batch.Send())
 	var (
 		col1 float32
@@ -120,6 +121,7 @@ func TestCustomFloat(t *testing.T) {
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_float")
 	require.NoError(t, err)
 	require.NoError(t, batch.Append(customFloat32(33.1221), customFloat64(22.1)))
+	require.Equal(t, 1, batch.Rows())
 	assert.NoError(t, batch.Send())
 	var (
 		col1 customFloat32
@@ -189,8 +191,10 @@ func TestFixedFloatFlush(t *testing.T) {
 		val32s[i] = rand.Float32()
 		val64s[i] = rand.Float64()
 		batch.Append(val32s[i], val64s[i])
+		require.Equal(t, 1, batch.Rows())
 		batch.Flush()
 	}
+	require.Equal(t, 0, batch.Rows())
 	require.NoError(t, batch.Send())
 	rows, err := conn.Query(ctx, "SELECT * FROM fixed_float_flush")
 	require.NoError(t, err)

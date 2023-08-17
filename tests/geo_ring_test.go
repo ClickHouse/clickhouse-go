@@ -69,6 +69,7 @@ func TestGeoRing(t *testing.T) {
 		}
 	)
 	require.NoError(t, batch.Append(col1Data, col2Data))
+	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 	var (
 		col1 orb.Ring
@@ -109,8 +110,10 @@ func TestGeoRingFlush(t *testing.T) {
 			orb.Point{1, 2},
 		}
 		require.NoError(t, batch.Append(vals[i]))
+		require.Equal(t, 1, batch.Rows())
 		require.NoError(t, batch.Flush())
 	}
+	require.Equal(t, 0, batch.Rows())
 	require.NoError(t, batch.Send())
 	rows, err := conn.Query(ctx, "SELECT * FROM test_geo_ring_flush")
 	require.NoError(t, err)

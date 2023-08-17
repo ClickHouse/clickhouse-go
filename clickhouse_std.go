@@ -170,8 +170,8 @@ type stdConnect interface {
 	query(ctx context.Context, release func(*connect, error), query string, args ...any) (*rows, error)
 	exec(ctx context.Context, query string, args ...any) error
 	ping(ctx context.Context) (err error)
-	prepareBatch(ctx context.Context, query string, release func(*connect, error), acquire func(context.Context) (*connect, error)) (ldriver.Batch, error)
-	asyncInsert(ctx context.Context, query string, wait bool) error
+	prepareBatch(ctx context.Context, query string, options ldriver.PrepareBatchOptions, release func(*connect, error), acquire func(context.Context) (*connect, error)) (ldriver.Batch, error)
+	asyncInsert(ctx context.Context, query string, wait bool, args ...any) error
 }
 
 type stdDriver struct {
@@ -236,10 +236,7 @@ func (std *stdDriver) CheckNamedValue(nv *driver.NamedValue) error { return nil 
 
 func (std *stdDriver) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
 	if options := queryOptions(ctx); options.async.ok {
-		if len(args) != 0 {
-			return nil, errors.New("clickhouse: you can't use parameters in an asynchronous insert")
-		}
-		return driver.RowsAffected(0), std.conn.asyncInsert(ctx, query, options.async.wait)
+		return driver.RowsAffected(0), std.conn.asyncInsert(ctx, query, options.async.wait, rebind(args)...)
 	}
 	if err := std.conn.exec(ctx, query, rebind(args)...); err != nil {
 		if isConnBrokenError(err) {
@@ -273,7 +270,7 @@ func (std *stdDriver) Prepare(query string) (driver.Stmt, error) {
 }
 
 func (std *stdDriver) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
-	batch, err := std.conn.prepareBatch(ctx, query, func(*connect, error) {}, func(context.Context) (*connect, error) { return nil, nil })
+	batch, err := std.conn.prepareBatch(ctx, query, ldriver.PrepareBatchOptions{}, func(*connect, error) {}, func(context.Context) (*connect, error) { return nil, nil })
 	if err != nil {
 		if isConnBrokenError(err) {
 			std.debugf("PrepareContext got a fatal error, resetting connection: %v\n", err)
