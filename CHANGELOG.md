@@ -1,3 +1,12 @@
+# v2.13.1, 2023-08-17 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Fixes 🐛
+* fix: native format Date32 representation by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1069
+
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.13.0...v2.13.1
+
 # v2.13.0, 2023-08-10 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
