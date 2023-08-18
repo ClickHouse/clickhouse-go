@@ -1,3 +1,14 @@
+# v2.13.2, 2023-08-18 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Fixes 🐛
+* fix: update ch-go to remove string length limit by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1071
+### Other Changes 🛠
+* Test against latest and head CH by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1060
+
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.13.1...v2.13.2
+
 # v2.13.1, 2023-08-17 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
