@@ -40,7 +40,7 @@ var kindMappings = map[reflect.Kind]string{
 	reflect.Uint64:  "UInt64",
 	reflect.Float32: "Float32",
 	reflect.Float64: "Float64",
-	reflect.Bool:    "Boolean",
+	reflect.Bool:    "Bool",
 }
 
 // complex types for which a mapping exists - currently we map to String but could enhance in the future for other types
