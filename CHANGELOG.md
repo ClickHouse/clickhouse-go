@@ -1,3 +1,12 @@
+# v2.13.3, 2023-08-23 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Fixes 🐛
+* fix(column.json): fix bool type handling by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1073
+
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.13.2...v2.13.3
+
 # v2.13.2, 2023-08-18 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
