@@ -27,6 +27,7 @@ jobs:
           - "23.3"
           - "23.5"
           - "23.6"
+          - "23.7"
           - "latest"
     steps:
       - uses: actions/checkout@main
