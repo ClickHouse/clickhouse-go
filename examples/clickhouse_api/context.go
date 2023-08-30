@@ -107,7 +107,7 @@ func UseContext() error {
 	type Number struct {
 		Number uint64 `ch:"number"`
 	}
-	for i := 1; i <= 6; i++ {
+	for i := 1; i <= 5; i++ {
 		var result []Number
 		if err = conn.Select(ctx, &result, "SELECT number FROM numbers(10)"); err != nil {
 			return err
