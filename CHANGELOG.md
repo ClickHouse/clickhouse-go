@@ -1,3 +1,12 @@
+# v2.13.4, 2023-08-30 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Fixes 🐛
+* fix(proto): add TCP protocol version in query packet by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1077
+
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.13.3...v2.13.4
+
 # v2.13.3, 2023-08-23 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
