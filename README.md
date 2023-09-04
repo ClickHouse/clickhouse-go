@@ -22,6 +22,7 @@ The client is tested against the currently [supported versions](https://github.c
 |----------------|-----------------|
 | => 2.0 <= 2.2  | 1.17, 1.18      |
 | >= 2.3         | 1.18.4+, 1.19   |
+| >= 2.14        | 1.20, 1.21      |
 
 ## Key features
 
