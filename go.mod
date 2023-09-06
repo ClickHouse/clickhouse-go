@@ -6,7 +6,7 @@ require (
 	github.com/ClickHouse/ch-go v0.58.2
 	github.com/ClickHouse/clickhouse-go v1.5.4
 	github.com/andybalholm/brotli v1.0.5
-	github.com/docker/docker v24.0.5+incompatible
+	github.com/docker/docker v24.0.6+incompatible
 	github.com/docker/go-connections v0.4.0
 	github.com/docker/go-units v0.5.0
 	github.com/google/uuid v1.3.1
