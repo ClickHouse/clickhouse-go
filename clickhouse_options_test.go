@@ -20,6 +20,7 @@ package clickhouse
 import (
 	"crypto/tls"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -442,6 +443,23 @@ func TestParseDSN(t *testing.T) {
 				TLS:      nil,
 				Addr:     []string{"127.0.0.1"},
 				Settings: Settings{},
+				Auth: Auth{
+					Database: "test_database",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
+			"client connection pool settings",
+			"clickhouse://127.0.0.1/test_database?max_open_conns=-1&max_idle_conns=0&conn_max_lifetime=1h",
+			&Options{
+				Protocol:        Native,
+				MaxOpenConns:    -1,
+				MaxIdleConns:    0,
+				ConnMaxLifetime: time.Hour,
+				Addr:            []string{"127.0.0.1"},
+				Settings:        Settings{},
 				Auth: Auth{
 					Database: "test_database",
 				},
