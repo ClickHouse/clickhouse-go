@@ -26,6 +26,7 @@ import (
 
 	_ "time/tzdata"
 
+	chproto "github.com/ClickHouse/ch-go/proto"
 	"github.com/ClickHouse/clickhouse-go/v2/contributors"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
@@ -345,6 +346,9 @@ func (ch *clickhouse) release(conn *connect, err error) {
 	if err != nil || time.Since(conn.connectedAt) >= ch.opt.ConnMaxLifetime {
 		conn.close()
 		return
+	}
+	if ch.opt.FreeBufOnConnRelease {
+		conn.buffer = new(chproto.Buffer)
 	}
 	select {
 	case ch.idle <- conn:
