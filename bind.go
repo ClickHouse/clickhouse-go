@@ -244,9 +244,11 @@ func formatTime(tz *time.Location, scale TimeUnit, value time.Time) (string, err
 	return fmt.Sprintf("toDateTime64('%s', %d, '%s')", value.Format(fmt.Sprintf("2006-01-02 15:04:05.%0*d", int(scale*3), 0)), int(scale*3), value.Location().String()), nil
 }
 
+var stringQuoteReplacer = strings.NewReplacer(`\`, `\\`, `'`, `\'`)
+
 func format(tz *time.Location, scale TimeUnit, v any) (string, error) {
 	quote := func(v string) string {
-		return "'" + strings.NewReplacer(`\`, `\\`, `'`, `\'`).Replace(v) + "'"
+		return "'" + stringQuoteReplacer.Replace(v) + "'"
 	}
 	switch v := v.(type) {
 	case nil:
