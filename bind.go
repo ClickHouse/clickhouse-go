@@ -155,6 +155,11 @@ func bindPositional(tz *time.Location, query string, args ...any) (_ string, err
 		}
 	}
 
+	// If there were no replacements, quick return without copying the string
+	if lastMatchIndex < 0 {
+		return query, nil
+	}
+
 	// Append the remainder
 	buf = append(buf, query[lastMatchIndex+1:]...)
 
