@@ -17,7 +17,6 @@ jobs:
     runs-on: [self-hosted, style-checker]
     strategy:
       fail-fast: true
-      max-parallel: 1
       matrix:
         go:
           - "1.20"
@@ -48,7 +47,6 @@ jobs:
       run:
         shell: bash
     strategy:
-      max-parallel: 1
       fail-fast: true
       matrix:
         go:
