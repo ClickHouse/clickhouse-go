@@ -555,7 +555,7 @@ func (h *httpConnect) executeRequest(req *http.Request) (*http.Response, error) 
 		msg, err := h.readRawResponse(resp)
 
 		if err != nil {
-			return nil, errors.Wrap(err, "clickhouse [execute]:: failed to read the response")
+			return nil, fmt.Errorf("clickhouse [execute]:: %d code: failed to read the response: %w", resp.StatusCode, err)
 		}
 
 		return nil, fmt.Errorf("clickhouse [execute]:: %d code: %s", resp.StatusCode, string(msg))
