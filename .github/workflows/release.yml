@@ -19,6 +19,8 @@ jobs:
 
       - name: Prepare release
         id: release_prep
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           go run internal/cmd/release_prep/main.go
 
