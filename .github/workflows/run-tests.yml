@@ -14,7 +14,7 @@ on:
 
 jobs:
   single-node:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, style-checker]
     strategy:
       fail-fast: true
       max-parallel: 1
@@ -43,7 +43,7 @@ jobs:
 
   integration-tests-cloud:
     if: ${{ false }}  # disabled for now
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, style-checker]
     defaults:
       run:
         shell: bash
