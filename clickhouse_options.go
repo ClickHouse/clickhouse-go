@@ -138,6 +138,7 @@ type Options struct {
 	MaxIdleConns         int           // default 5
 	ConnMaxLifetime      time.Duration // default 1 hour
 	ConnOpenStrategy     ConnOpenStrategy
+	FreeBufOnConnRelease bool              // drop preserved memory buffer after each query
 	HttpHeaders          map[string]string // set additional headers on HTTP requests
 	HttpUrlPath          string            // set additional URL path for HTTP requests
 	BlockBufferSize      uint8             // default 2 - can be overwritten on query
