@@ -6,8 +6,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  single-node:
-    runs-on: [self-hosted, style-checker]
+  publish:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@main
 
