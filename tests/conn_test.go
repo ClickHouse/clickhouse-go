@@ -427,3 +427,58 @@ func TestConnectionCloseIdle(t *testing.T) {
 	// + 4 is a value from the observation of the test failure in CI
 	assert.LessOrEqual(t, finalGoroutine, baseGoroutine+4)
 }
+
+func TestFreeBufOnConnRelease(t *testing.T) {
+	env, err := GetNativeTestEnvironment()
+	require.NoError(t, err)
+	useSSL, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	port := env.Port
+	var tlsConfig *tls.Config
+	if useSSL {
+		port = env.SslPort
+		tlsConfig = &tls.Config{}
+	}
+	conn, err := GetConnectionWithOptions(&clickhouse.Options{
+		Addr: []string{fmt.Sprintf("%s:%d", env.Host, port)},
+		Auth: clickhouse.Auth{
+			Database: "default",
+			Username: env.Username,
+			Password: env.Password,
+		},
+		Compression: &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		},
+		TLS:                  tlsConfig,
+		FreeBufOnConnRelease: true,
+		// ensure we'll reuse the underlying connection:
+		MaxOpenConns: 1,
+		MaxIdleConns: 1,
+	})
+	require.NoError(t, err)
+
+	err = conn.Exec(context.Background(), "CREATE TABLE TestFreeBufOnConnRelease (Col1 String) Engine MergeTree() ORDER BY tuple()")
+	require.NoError(t, err)
+
+	t.Run("InsertBatch", func(t *testing.T) {
+		batch, err := conn.PrepareBatch(context.Background(), "INSERT INTO TestFreeBufOnConnRelease (Col1) VALUES")
+		require.NoError(t, err)
+		err = batch.Append("abc")
+		require.NoError(t, err)
+		err = batch.Send()
+		require.NoError(t, err)
+	})
+
+	t.Run("ReuseConnection", func(t *testing.T) {
+		var result []struct {
+			Col1 string
+		}
+		err = conn.Select(context.Background(), &result, "SELECT Col1 FROM TestFreeBufOnConnRelease")
+		require.NoError(t, err)
+		require.Len(t, result, 1)
+		require.Equal(t, "abc", result[0].Col1)
+	})
+
+	err = conn.Exec(context.Background(), "DROP TABLE TestFreeBufOnConnRelease")
+	require.NoError(t, err)
+}
