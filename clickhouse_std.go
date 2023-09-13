@@ -46,7 +46,7 @@ type stdConnOpener struct {
 func (o *stdConnOpener) Driver() driver.Driver {
 	var debugf = func(format string, v ...any) {}
 	if o.opt.Debug {
-		debugf = log.New(os.Stdout, fmt.Sprintf("[clickhouse-std] "), 0).Printf
+		debugf = log.New(os.Stdout, "[clickhouse-std] ", 0).Printf
 	}
 	return &stdDriver{debugf: debugf}
 }
@@ -125,7 +125,7 @@ func Connector(opt *Options) driver.Connector {
 
 	var debugf = func(format string, v ...any) {}
 	if o.Debug {
-		debugf = log.New(os.Stdout, fmt.Sprintf("[clickhouse-std][opener] "), 0).Printf
+		debugf = log.New(os.Stdout, "[clickhouse-std][opener] ", 0).Printf
 	}
 	return &stdConnOpener{
 		opt:    o,
@@ -149,7 +149,7 @@ func OpenDB(opt *Options) *sql.DB {
 		settings = append(settings, "SetConnMaxLifetime")
 	}
 	if opt.Debug {
-		debugf = log.New(os.Stdout, fmt.Sprintf("[clickhouse-std][opener] "), 0).Printf
+		debugf = log.New(os.Stdout, "[clickhouse-std][opener] ", 0).Printf
 	}
 	if len(settings) != 0 {
 		return sql.OpenDB(&stdConnOpener{
@@ -189,7 +189,7 @@ func (std *stdDriver) Open(dsn string) (_ driver.Conn, err error) {
 	o := opt.setDefaults()
 	var debugf = func(format string, v ...any) {}
 	if o.Debug {
-		debugf = log.New(os.Stdout, fmt.Sprintf("[clickhouse-std][opener] "), 0).Printf
+		debugf = log.New(os.Stdout, "[clickhouse-std][opener] ", 0).Printf
 	}
 	o.ClientInfo.comment = []string{"database/sql"}
 	return (&stdConnOpener{opt: o, debugf: debugf}).Connect(context.Background())

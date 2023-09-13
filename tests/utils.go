@@ -94,6 +94,9 @@ func (env *ClickHouseTestEnvironment) setVersion() {
 		TLS:         tlsConfig,
 		DialTimeout: time.Duration(timeout) * time.Second,
 	})
+	if err != nil {
+		panic(err)
+	}
 	v, err := conn.ServerVersion()
 	if err != nil {
 		panic(err)

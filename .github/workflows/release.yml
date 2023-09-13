@@ -1,0 +1,39 @@
+name: publish draft release
+
+permissions: write-all
+
+on:
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@main
+
+      - name: Install Go 1.21
+        uses: actions/setup-go@v2.1.5
+        with:
+          stable: false
+          go-version: 1.21
+
+      - name: Prepare release
+        id: release_prep
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          go run internal/cmd/release_prep/main.go
+
+      - name: Commit and push hanges
+        run: |
+          git config --local user.email "ch-integrations-robot@clickhouse.com"
+          git config --local user.name "GitHub Action"
+          git add .
+          git commit -m "Update release notes"
+          git push
+
+      - name: Publish draft release
+        env:
+          RELEASE_API_URL: ${{ steps.release_prep.outputs.RELEASE_URL }}
+        run: |
+            curl -X PATCH -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -H "Accept: application/vnd.github.v3+json" $RELEASE_API_URL -d '{"draft": false}'

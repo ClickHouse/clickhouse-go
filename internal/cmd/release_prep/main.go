@@ -76,6 +76,35 @@ func main() {
 
 	runGoGenerate()
 	runGoFmt()
+
+	gitHubOutputReleaseURLIfAvailable(releaseURL)
+}
+
+func gitHubOutputReleaseURLIfAvailable(url string) {
+	if len(url) == 0 {
+		return
+	}
+
+	gitHubOutputFile, exists := os.LookupEnv("GITHUB_OUTPUT")
+	if !exists {
+		return
+	}
+
+	f, err := os.OpenFile(gitHubOutputFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Fatalln(err)
+		return
+	}
+
+	if _, err := f.WriteString(fmt.Sprintf("RELEASE_URL=%s\n", url)); err != nil {
+		log.Fatalln(err)
+		return
+	}
+
+	if err := f.Close(); err != nil {
+		log.Fatalln(err)
+		return
+	}
 }
 
 func runGoFmt() {
