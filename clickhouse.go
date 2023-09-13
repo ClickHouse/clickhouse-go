@@ -349,6 +349,7 @@ func (ch *clickhouse) release(conn *connect, err error) {
 	}
 	if ch.opt.FreeBufOnConnRelease {
 		conn.buffer = new(chproto.Buffer)
+		conn.compressor.Data = nil
 	}
 	select {
 	case ch.idle <- conn:
