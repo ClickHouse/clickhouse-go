@@ -11,7 +11,7 @@ jobs:
   test-ch-head:
     runs-on: [self-hosted, style-checker]
     strategy:
-      fail-fast: truek
+      fail-fast: true
       matrix:
         go:
           - "1.20"
