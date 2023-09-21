@@ -1,3 +1,14 @@
+# v2.14.1, 2023-09-14 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Enhancements 🎉
+* parseDSN: support connection pool settings (#1082) by @hanjm in https://github.com/ClickHouse/clickhouse-go/pull/1084
+
+## New Contributors
+* @hanjm made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1084
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.14.0...v2.14.1
+
 # v2.14.0, 2023-09-12 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
