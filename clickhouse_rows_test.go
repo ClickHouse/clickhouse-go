@@ -47,7 +47,6 @@ func TestReadWithEmptyBlock(t *testing.T) {
 					structMap: nil,
 				}
 			},
-			// e.g. clickhouse-go/2.5.1 (lv:go/1.19.5; os:darwin)
 			10,
 		},
 		"all empty": {
@@ -72,7 +71,6 @@ func TestReadWithEmptyBlock(t *testing.T) {
 					structMap: nil,
 				}
 			},
-			// e.g. clickhouse-go/2.5.1 (database/sql; lv:go/1.19.5; os:darwin)
 			0,
 		},
 		"some empty": {
@@ -100,7 +98,6 @@ func TestReadWithEmptyBlock(t *testing.T) {
 					structMap: nil,
 				}
 			},
-			// e.g. clickhouse-go/2.5.1 (database/sql; lv:go/1.19.5; os:darwin)
 			4,
 		},
 	}
