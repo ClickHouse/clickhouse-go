@@ -9,10 +9,9 @@ on:
 
 jobs:
   test-ch-head:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, style-checker]
     strategy:
       fail-fast: true
-      max-parallel: 1
       matrix:
         go:
           - "1.20"

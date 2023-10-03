@@ -320,7 +320,7 @@ go get -u github.com/ClickHouse/clickhouse-go/v2
 * [query parameters](examples/clickhouse_api/query_parameters.go) (deprecated in favour of native query parameters)
 * [bind params](examples/clickhouse_api/bind.go) (deprecated in favour of native query parameters)
 * [client info](examples/clickhouse_api/client_info.go)
-* 
+
 ### std `database/sql` interface
 
 * [batch](examples/std/batch.go)

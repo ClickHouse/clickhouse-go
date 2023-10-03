@@ -1,3 +1,36 @@
+# v2.14.1, 2023-09-14 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Enhancements 🎉
+* parseDSN: support connection pool settings (#1082) by @hanjm in https://github.com/ClickHouse/clickhouse-go/pull/1084
+
+## New Contributors
+* @hanjm made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1084
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.14.0...v2.14.1
+
+# v2.14.0, 2023-09-12 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Enhancements 🎉
+* Add FreeBufOnConnRelease to clickhouse.Options by @cergxx in https://github.com/ClickHouse/clickhouse-go/pull/1091
+* Improving object allocation for (positional) parameter binding by @mdonkers in https://github.com/ClickHouse/clickhouse-go/pull/1092
+### Fixes 🐛
+* Fix escaping double quote in SQL statement in prepare batch by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1083
+### Other Changes 🛠
+* Update Go & ClickHouse versions by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1079
+* Return status code from any http error by @RoryCrispin in https://github.com/ClickHouse/clickhouse-go/pull/1090
+* tests: fix dropped error by @alrs in https://github.com/ClickHouse/clickhouse-go/pull/1081
+* chore: unnecessary use of fmt.Sprintf by @testwill in https://github.com/ClickHouse/clickhouse-go/pull/1080
+* Run CI on self hosted runner by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1094
+
+## New Contributors
+* @cergxx made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1091
+* @alrs made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1081
+* @testwill made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1080
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.13.4...v2.14
+
 # v2.13.4, 2023-08-30 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
