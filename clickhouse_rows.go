@@ -52,7 +52,6 @@ next:
 				r.err = err
 				return false
 			}
-			goto next
 		case block := <-r.stream:
 			if block == nil {
 				return false
@@ -63,6 +62,7 @@ next:
 			}
 			r.row, r.block = 0, block
 		}
+		goto next
 	}
 	r.row++
 	return r.row <= r.block.Rows()
