@@ -17,11 +17,11 @@ require (
 	github.com/shopspring/decimal v1.3.1
 	github.com/stretchr/testify v1.8.4
 	github.com/testcontainers/testcontainers-go v0.25.0
-	go.opentelemetry.io/otel/trace v1.17.0
+	go.opentelemetry.io/otel/trace v1.19.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
-require go.opentelemetry.io/otel v1.17.0 // indirect
+require go.opentelemetry.io/otel v1.19.0 // indirect
 
 require (
 	dario.cat/mergo v1.0.0 // indirect
