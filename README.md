@@ -126,7 +126,7 @@ conn := clickhouse.OpenDB(&clickhouse.Options{
 	},
 	DialTimeout: time.Second * 30,
 	Compression: &clickhouse.Compression{
-		clickhouse.CompressionLZ4,
+		Method: clickhouse.CompressionLZ4,
 	},
 	Debug: true,
 	BlockBufferSize: 10,
