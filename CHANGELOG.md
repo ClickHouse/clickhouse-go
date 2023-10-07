@@ -1,3 +1,108 @@
+# v2.14.2, 2023-10-04 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Fixes 🐛
+* Fix: Block stream read process would be terminated by empty block with zero rows by @crisismaple in https://github.com/ClickHouse/clickhouse-go/pull/1104
+* Free compressor's buffer when FreeBufOnConnRelease enabled by @cergxx in https://github.com/ClickHouse/clickhouse-go/pull/1100
+* Fix truncate ` for HTTP adapter by @beck917 in https://github.com/ClickHouse/clickhouse-go/pull/1103
+### Other Changes 🛠
+* docs: update readme.md by @rfyiamcool in https://github.com/ClickHouse/clickhouse-go/pull/1068
+* Remove dependency on github.com/satori/go.uuid by @srikanthccv in https://github.com/ClickHouse/clickhouse-go/pull/1085
+
+## New Contributors
+* @rfyiamcool made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1068
+* @beck917 made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1103
+* @srikanthccv made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1085
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.14.1...v2.14.2
+
+# v2.14.1, 2023-09-14 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Enhancements 🎉
+* parseDSN: support connection pool settings (#1082) by @hanjm in https://github.com/ClickHouse/clickhouse-go/pull/1084
+
+## New Contributors
+* @hanjm made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1084
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.14.0...v2.14.1
+
+# v2.14.0, 2023-09-12 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Enhancements 🎉
+* Add FreeBufOnConnRelease to clickhouse.Options by @cergxx in https://github.com/ClickHouse/clickhouse-go/pull/1091
+* Improving object allocation for (positional) parameter binding by @mdonkers in https://github.com/ClickHouse/clickhouse-go/pull/1092
+### Fixes 🐛
+* Fix escaping double quote in SQL statement in prepare batch by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1083
+### Other Changes 🛠
+* Update Go & ClickHouse versions by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1079
+* Return status code from any http error by @RoryCrispin in https://github.com/ClickHouse/clickhouse-go/pull/1090
+* tests: fix dropped error by @alrs in https://github.com/ClickHouse/clickhouse-go/pull/1081
+* chore: unnecessary use of fmt.Sprintf by @testwill in https://github.com/ClickHouse/clickhouse-go/pull/1080
+* Run CI on self hosted runner by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1094
+
+## New Contributors
+* @cergxx made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1091
+* @alrs made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1081
+* @testwill made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1080
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.13.4...v2.14
+
+# v2.13.4, 2023-08-30 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Fixes 🐛
+* fix(proto): add TCP protocol version in query packet by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1077
+
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.13.3...v2.13.4
+
+# v2.13.3, 2023-08-23 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Fixes 🐛
+* fix(column.json): fix bool type handling by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1073
+
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.13.2...v2.13.3
+
+# v2.13.2, 2023-08-18 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Fixes 🐛
+* fix: update ch-go to remove string length limit by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1071
+### Other Changes 🛠
+* Test against latest and head CH by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1060
+
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.13.1...v2.13.2
+
+# v2.13.1, 2023-08-17 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Fixes 🐛
+* fix: native format Date32 representation by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1069
+
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.13.0...v2.13.1
+
+# v2.13.0, 2023-08-10 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Enhancements 🎉
+* Support scan from uint8 to bool by @ValManP in https://github.com/ClickHouse/clickhouse-go/pull/1051
+* Binding arguments for AsyncInsert interface by @mdonkers in https://github.com/ClickHouse/clickhouse-go/pull/1052
+* Batch rows count API by @EpicStep in https://github.com/ClickHouse/clickhouse-go/pull/1063
+* Implement release connection in batch by @EpicStep in https://github.com/ClickHouse/clickhouse-go/pull/1062
+### Other Changes 🛠
+* Restore test against CH 23.7 by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1059
+
+## New Contributors
+* @ValManP made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1051
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.12.1...v2.13.0
+
 # v2.12.1, 2023-08-02 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed

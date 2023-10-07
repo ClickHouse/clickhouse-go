@@ -22,6 +22,7 @@ The client is tested against the currently [supported versions](https://github.c
 |----------------|-----------------|
 | => 2.0 <= 2.2  | 1.17, 1.18      |
 | >= 2.3         | 1.18.4+, 1.19   |
+| >= 2.14        | 1.20, 1.21      |
 
 ## Key features
 
@@ -319,7 +320,7 @@ go get -u github.com/ClickHouse/clickhouse-go/v2
 * [query parameters](examples/clickhouse_api/query_parameters.go) (deprecated in favour of native query parameters)
 * [bind params](examples/clickhouse_api/bind.go) (deprecated in favour of native query parameters)
 * [client info](examples/clickhouse_api/client_info.go)
-* 
+
 ### std `database/sql` interface
 
 * [batch](examples/std/batch.go)

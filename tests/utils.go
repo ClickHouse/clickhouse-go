@@ -94,6 +94,9 @@ func (env *ClickHouseTestEnvironment) setVersion() {
 		TLS:         tlsConfig,
 		DialTimeout: time.Duration(timeout) * time.Second,
 	})
+	if err != nil {
+		panic(err)
+	}
 	v, err := conn.ServerVersion()
 	if err != nil {
 		panic(err)
@@ -148,8 +151,8 @@ func CreateClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment,
 		ExposedPorts: []string{"9000/tcp", "8123/tcp", "9440/tcp", "8443/tcp"},
 		WaitingFor: wait.ForAll(
 			wait.ForLog("Ready for connections").WithStartupTimeout(time.Second*time.Duration(120)),
-			wait.ForSQL("9000/tcp", "clickhouse", func(port nat.Port) string {
-				return fmt.Sprintf("clickhouse://default:ClickHouse@127.0.0.1:%s", port.Port())
+			wait.ForSQL("9000/tcp", "clickhouse", func(host string, port nat.Port) string {
+				return fmt.Sprintf("clickhouse://default:ClickHouse@%s:%s", host, port.Port())
 			}),
 		).WithStartupTimeout(time.Second * time.Duration(120)),
 		Mounts: []testcontainers.ContainerMount{

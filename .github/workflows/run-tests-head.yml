@@ -1,0 +1,30 @@
+name: run-tests-head
+
+permissions: write-all
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+jobs:
+  test-ch-head:
+    runs-on: [self-hosted, style-checker]
+    strategy:
+      fail-fast: true
+      matrix:
+        go:
+          - "1.20"
+          - "1.21"
+    steps:
+      - uses: actions/checkout@main
+
+      - name: Install Go ${{ matrix.go }}
+        uses: actions/setup-go@v2.1.5
+        with:
+          stable: false
+          go-version: ${{ matrix.go }}
+
+      - name: Run tests
+        run: |
+          CLICKHOUSE_VERSION=head make test
