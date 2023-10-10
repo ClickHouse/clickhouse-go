@@ -178,7 +178,12 @@ func (b *batch) Column(idx int) driver.BatchColumn {
 }
 
 func (b *batch) Send() (err error) {
+	stopCW := contextWatchdog(b.ctx, func() {
+		_ = b.conn.close()
+	})
+
 	defer func() {
+		stopCW()
 		b.sent = true
 		b.release(err)
 	}()
@@ -192,6 +197,9 @@ func (b *batch) Send() (err error) {
 	}
 	if b.block.Rows() != 0 {
 		if err = b.conn.sendData(b.block, ""); err != nil {
+			// todo: return context.DeadlineExceeded if deadline is exceeded
+			// use b.err ?
+
 			return err
 		}
 	}
