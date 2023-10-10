@@ -13,7 +13,6 @@ require (
 	github.com/mkevac/debugcharts v0.0.0-20191222103121-ae1c48aa8615
 	github.com/paulmach/orb v0.10.0
 	github.com/pkg/errors v0.9.1
-	github.com/satori/go.uuid v1.2.0
 	github.com/shopspring/decimal v1.3.1
 	github.com/stretchr/testify v1.8.4
 	github.com/testcontainers/testcontainers-go v0.25.0

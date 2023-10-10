@@ -19,10 +19,10 @@ package tests
 
 import (
 	"context"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
-	suuid "github.com/satori/go.uuid"
-	"github.com/stretchr/testify/require"
 	"testing"
+
+	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
+	"github.com/stretchr/testify/require"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/google/uuid"
@@ -95,13 +95,13 @@ func TestStringerUUID(t *testing.T) {
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_uuid")
 	require.NoError(t, err)
 	var (
-		col1Data = suuid.NewV4()
+		col1Data = uuid.New()
 	)
 	require.NoError(t, batch.Append(col1Data))
 	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 	var (
-		col1 suuid.UUID
+		col1 uuid.UUID
 	)
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_uuid").Scan(&col1))
 	assert.Equal(t, col1Data.String(), col1.String())
