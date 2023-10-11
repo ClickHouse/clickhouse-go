@@ -503,12 +503,17 @@ func appendStructOrMap(jCol *JSONObject, data any) error {
 		}
 
 		if vData.Len() == 0 {
-			// if map is empty, we need to create a dummy map to make ClickHouse Tuple happy
-			// this is exactly what ClickHouse does when it receives an empty `{}` object string
-			// JSON representation will become '{"_dummy":0}'
-			// JSON object type is experimental and may change in the future
-			vData = reflect.MakeMap(reflect.MapOf(reflect.TypeOf("_dummy"), reflect.TypeOf(uint8(0))))
-			vData.SetMapIndex(reflect.ValueOf("_dummy"), reflect.ValueOf(uint8(0)))
+			// if map is empty, we need to create an empty Tuple to make sure subcolumns protocol is happy
+			// _dummy is a ClickHouse internal name for empty Tuple subcolumn
+			// it has the same effect as `INSERT INTO single_json_type_table VALUES ('{}');`
+			emptyVal := &JSONValue{Interface: &UInt8{name: "_dummy"}}
+			if err := emptyVal.appendEmptyValue(); err != nil {
+				return err
+			}
+			jCol.columns = []JSON{
+				emptyVal,
+			}
+			return nil
 		}
 
 		return iterateMap(vData, jCol, 0)

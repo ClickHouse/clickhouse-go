@@ -19,12 +19,7 @@ func Test1113(t *testing.T) {
 	)
 	ctx := context.Background()
 	require.NoError(t, err)
-	const ddl = `
-		CREATE TABLE test_1113 (
-			col_1 JSON,
-			col_2 JSON
-		) Engine MergeTree() ORDER BY tuple()
-		`
+	const ddl = "CREATE TABLE test_1113 (col_1 JSON, col_2 JSON) Engine MergeTree() ORDER BY tuple()"
 	require.NoError(t, conn.Exec(ctx, ddl))
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE IF EXISTS test_1113")
