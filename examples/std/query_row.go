@@ -49,9 +49,6 @@ func QueryRow() error {
 		return err
 	}
 
-	if err != nil {
-		return err
-	}
 	scope, err := conn.Begin()
 	if err != nil {
 		return err
