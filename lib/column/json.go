@@ -501,6 +501,13 @@ func appendStructOrMap(jCol *JSONObject, data any) error {
 				Err:        fmt.Errorf("map keys must be string for column %s", jCol.Name()),
 			}
 		}
+		if jCol.columns == nil && vData.Len() == 0 {
+			// if map is empty, we need to create an empty Tuple to make sure subcolumns protocol is happy
+			// _dummy is a ClickHouse internal name for empty Tuple subcolumn
+			// it has the same effect as `INSERT INTO single_json_type_table VALUES ('{}');`
+			jCol.upsertValue("_dummy", "Int8")
+			return jCol.insertEmptyColumn("_dummy")
+		}
 		return iterateMap(vData, jCol, 0)
 	}
 	return &UnsupportedColumnTypeError{
