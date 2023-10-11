@@ -26,16 +26,27 @@ import (
 )
 
 func TestBatchContextCancellation(t *testing.T) {
-	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
-		Method: clickhouse.CompressionLZ4,
-	})
+	te, err := GetTestEnvironment(testSet)
+	require.NoError(t, err)
+	opts := ClientOptionsFromEnv(te, clickhouse.Settings{})
+	opts.MaxOpenConns = 1
+	conn, err := GetConnectionWithOptions(&opts)
 	require.NoError(t, err)
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Microsecond)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	b, err := conn.PrepareBatch(ctx, "INSERT INTO test_batch_ctx_cancellation (x)")
+	require.NoError(t, conn.Exec(context.Background(), "create table if not exists test_batch_cancellation (x String) engine=Memory"))
+	defer conn.Exec(context.Background(), "drop table if exists test_batch_cancellation")
+
+	b, err := conn.PrepareBatch(ctx, "insert into test_batch_cancellation")
 	require.NoError(t, err)
+	for i := 0; i < 1_000_000; i++ {
+		require.NoError(t, b.Append("value"))
+	}
 
 	require.Equal(t, context.DeadlineExceeded, b.Send())
+
+	// assert if connection is properly released after context cancellation
+	require.NoError(t, conn.Exec(context.Background(), "SELECT 1"))
 }

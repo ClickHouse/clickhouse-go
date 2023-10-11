@@ -179,7 +179,9 @@ func (b *batch) Column(idx int) driver.BatchColumn {
 
 func (b *batch) Send() (err error) {
 	stopCW := contextWatchdog(b.ctx, func() {
-		_ = b.conn.close()
+		// close TCP connection on context cancel. There is no other way simple way to interrupt underlying operations.
+		// as verified in the test, this is safe to do and cleanups resources later on
+		_ = b.conn.conn.Close()
 	})
 
 	defer func() {
@@ -197,8 +199,11 @@ func (b *batch) Send() (err error) {
 	}
 	if b.block.Rows() != 0 {
 		if err = b.conn.sendData(b.block, ""); err != nil {
-			// todo: return context.DeadlineExceeded if deadline is exceeded
-			// use b.err ?
+			// there might be an error caused by context cancellation
+			// in this case we should return context error instead of net.OpError
+			if ctxErr := b.ctx.Err(); ctxErr != nil {
+				return ctxErr
+			}
 
 			return err
 		}
