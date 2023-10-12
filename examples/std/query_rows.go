@@ -30,9 +30,6 @@ func QueryRows() error {
 	if err != nil {
 		return err
 	}
-	if err != nil {
-		return err
-	}
 	defer func() {
 		conn.Exec("DROP TABLE example")
 	}()
@@ -52,9 +49,6 @@ func QueryRows() error {
 		return err
 	}
 
-	if err != nil {
-		return err
-	}
 	scope, err := conn.Begin()
 	if err != nil {
 		return err

@@ -38,9 +38,6 @@ func Auth() error {
 	if err != nil {
 		return err
 	}
-	if err != nil {
-		return err
-	}
 	v, err := conn.ServerVersion()
 	fmt.Println(v)
 	if err != nil {
