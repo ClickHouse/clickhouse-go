@@ -333,6 +333,10 @@ func (col *IPv6) Encode(buffer *proto.Buffer) {
 }
 
 func IPv6ToBytes(ip net.IP) [16]byte {
+	if ip == nil {
+		return [16]byte{}
+	}
+
 	if len(ip) == 4 {
 		ip = ip.To16()
 	}

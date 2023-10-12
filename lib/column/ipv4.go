@@ -242,7 +242,12 @@ func (col *IPv4) AppendRow(v any) (err error) {
 			col.col.Append(0)
 		}
 	case net.IP:
-		col.col.Append(proto.ToIPv4(netIPToNetIPAddr(v)))
+		switch {
+		case len(v) == 0:
+			col.col.Append(0)
+		default:
+			col.col.Append(proto.ToIPv4(netIPToNetIPAddr(v)))
+		}
 	case *net.IP:
 		switch {
 		case v != nil:
