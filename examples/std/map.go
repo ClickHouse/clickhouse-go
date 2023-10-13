@@ -27,9 +27,6 @@ func MapInsertRead() error {
 	if err != nil {
 		return err
 	}
-	if err != nil {
-		return err
-	}
 	const ddl = `
 		CREATE TABLE example (
 			  Col1 Map(String, UInt64)

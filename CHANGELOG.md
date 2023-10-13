@@ -1,3 +1,19 @@
+# v2.14.3, 2023-10-12 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Fixes 🐛
+* Fix insertion of empty map into JSON column by using _dummy subcolumn by @leodido in https://github.com/ClickHouse/clickhouse-go/pull/1116
+### Other Changes 🛠
+* chore: specify method field on compression in example by @rdaniels6813 in https://github.com/ClickHouse/clickhouse-go/pull/1111
+* chore: remove extra error checks by @rutaka-n in https://github.com/ClickHouse/clickhouse-go/pull/1095
+
+## New Contributors
+* @leodido made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1116
+* @rdaniels6813 made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1111
+* @rutaka-n made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1095
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.14.2...v2.14.3
+
 # v2.14.2, 2023-10-04 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
