@@ -15,33 +15,33 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package clickhouse_api
+package clickhouse
 
-import (
-	"fmt"
-	"github.com/ClickHouse/clickhouse-go/v2"
-)
+import "context"
 
-func Auth() error {
-	env, err := GetNativeTestEnvironment()
-	if err != nil {
-		return err
+// contextWatchdog is a helper function to run a callback when the context is done.
+// it has a cancellation function to prevent the callback from running.
+// Useful for interrupting some logic when the context is done,
+// but you want to not bother about context cancellation if your logic is already done.
+// Example:
+// stopCW := contextWatchdog(ctx, func() { /* do something */ })
+// // do something else
+// defer stopCW()
+func contextWatchdog(ctx context.Context, callback func()) (cancel func()) {
+	exit := make(chan struct{})
+
+	go func() {
+		for {
+			select {
+			case <-exit:
+				return
+			case <-ctx.Done():
+				callback()
+			}
+		}
+	}()
+
+	return func() {
+		exit <- struct{}{}
 	}
-	conn, err := clickhouse.Open(&clickhouse.Options{
-		Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},
-		Auth: clickhouse.Auth{
-			Database: env.Database,
-			Username: env.Username,
-			Password: env.Password,
-		},
-	})
-	if err != nil {
-		return err
-	}
-	v, err := conn.ServerVersion()
-	fmt.Println(v)
-	if err != nil {
-		return err
-	}
-	return nil
 }

@@ -61,9 +61,6 @@ func CompressOpenDB() error {
 	if err != nil {
 		return err
 	}
-	if err != nil {
-		return err
-	}
 	for i := 0; i < 1000; i++ {
 		if _, err := batch.Exec([]string{strconv.Itoa(i), strconv.Itoa(i + 1), strconv.Itoa(i + 2), strconv.Itoa(i + 3)}); err != nil {
 			return err
@@ -98,9 +95,6 @@ func CompressOpen() error {
 		return err
 	}
 	batch, err := scope.Prepare("INSERT INTO example")
-	if err != nil {
-		return err
-	}
 	if err != nil {
 		return err
 	}

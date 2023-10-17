@@ -1,3 +1,48 @@
+# v2.14.3, 2023-10-12 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Fixes 🐛
+* Fix insertion of empty map into JSON column by using _dummy subcolumn by @leodido in https://github.com/ClickHouse/clickhouse-go/pull/1116
+### Other Changes 🛠
+* chore: specify method field on compression in example by @rdaniels6813 in https://github.com/ClickHouse/clickhouse-go/pull/1111
+* chore: remove extra error checks by @rutaka-n in https://github.com/ClickHouse/clickhouse-go/pull/1095
+
+## New Contributors
+* @leodido made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1116
+* @rdaniels6813 made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1111
+* @rutaka-n made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1095
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.14.2...v2.14.3
+
+# v2.14.2, 2023-10-04 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Fixes 🐛
+* Fix: Block stream read process would be terminated by empty block with zero rows by @crisismaple in https://github.com/ClickHouse/clickhouse-go/pull/1104
+* Free compressor's buffer when FreeBufOnConnRelease enabled by @cergxx in https://github.com/ClickHouse/clickhouse-go/pull/1100
+* Fix truncate ` for HTTP adapter by @beck917 in https://github.com/ClickHouse/clickhouse-go/pull/1103
+### Other Changes 🛠
+* docs: update readme.md by @rfyiamcool in https://github.com/ClickHouse/clickhouse-go/pull/1068
+* Remove dependency on github.com/satori/go.uuid by @srikanthccv in https://github.com/ClickHouse/clickhouse-go/pull/1085
+
+## New Contributors
+* @rfyiamcool made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1068
+* @beck917 made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1103
+* @srikanthccv made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1085
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.14.1...v2.14.2
+
+# v2.14.1, 2023-09-14 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Enhancements 🎉
+* parseDSN: support connection pool settings (#1082) by @hanjm in https://github.com/ClickHouse/clickhouse-go/pull/1084
+
+## New Contributors
+* @hanjm made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1084
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.14.0...v2.14.1
+
 # v2.14.0, 2023-09-12 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
