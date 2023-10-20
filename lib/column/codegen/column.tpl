@@ -382,7 +382,7 @@ func (col *{{ .ChType }}) AppendRow(v any) error {
         col.col.Append(val)
 	{{- end }}
 	default:
-		if rv := reflect.ValueOf(v); rv.Kind() == col.ScanType().Kind() && rv.CanConvert(col.ScanType()) {
+		if rv := reflect.ValueOf(v); rv.Kind() == col.ScanType().Kind() || rv.CanConvert(col.ScanType()) {
 			col.col.Append(rv.Convert(col.ScanType()).Interface().({{ .GoType }}))
 		} else {
 			return &ColumnConverterError{

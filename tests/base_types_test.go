@@ -184,7 +184,8 @@ func TestSimpleInt(t *testing.T) {
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_int")
 	require.NoError(t, err)
-	require.Error(t, batch.Append(222))
+	require.NoError(t, batch.Append(222))
+	require.NoError(t, batch.Send())
 }
 
 func TestNullableInt(t *testing.T) {
