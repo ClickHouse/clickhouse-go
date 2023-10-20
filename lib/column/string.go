@@ -112,7 +112,7 @@ func (col *String) AppendRow(v any) error {
 			col.col.Append("")
 		}
 	case []byte:
-		col.col.Append(string(v))
+		col.col.AppendBytes(v)
 	case nil:
 		col.col.Append("")
 	default:
