@@ -348,7 +348,7 @@ func (col *Float32) AppendRow(v any) error {
 	case nil:
 		col.col.Append(0)
 	default:
-		if rv := reflect.ValueOf(v); rv.Kind() == col.ScanType().Kind() && rv.CanConvert(col.ScanType()) {
+		if rv := reflect.ValueOf(v); rv.Kind() == col.ScanType().Kind() || rv.CanConvert(col.ScanType()) {
 			col.col.Append(rv.Convert(col.ScanType()).Interface().(float32))
 		} else {
 			return &ColumnConverterError{
@@ -490,7 +490,7 @@ func (col *Float64) AppendRow(v any) error {
 			col.col.Append(0)
 		}
 	default:
-		if rv := reflect.ValueOf(v); rv.Kind() == col.ScanType().Kind() && rv.CanConvert(col.ScanType()) {
+		if rv := reflect.ValueOf(v); rv.Kind() == col.ScanType().Kind() || rv.CanConvert(col.ScanType()) {
 			col.col.Append(rv.Convert(col.ScanType()).Interface().(float64))
 		} else {
 			return &ColumnConverterError{
@@ -640,7 +640,7 @@ func (col *Int8) AppendRow(v any) error {
 		}
 		col.col.Append(val)
 	default:
-		if rv := reflect.ValueOf(v); rv.Kind() == col.ScanType().Kind() && rv.CanConvert(col.ScanType()) {
+		if rv := reflect.ValueOf(v); rv.Kind() == col.ScanType().Kind() || rv.CanConvert(col.ScanType()) {
 			col.col.Append(rv.Convert(col.ScanType()).Interface().(int8))
 		} else {
 			return &ColumnConverterError{
@@ -782,7 +782,7 @@ func (col *Int16) AppendRow(v any) error {
 			col.col.Append(0)
 		}
 	default:
-		if rv := reflect.ValueOf(v); rv.Kind() == col.ScanType().Kind() && rv.CanConvert(col.ScanType()) {
+		if rv := reflect.ValueOf(v); rv.Kind() == col.ScanType().Kind() || rv.CanConvert(col.ScanType()) {
 			col.col.Append(rv.Convert(col.ScanType()).Interface().(int16))
 		} else {
 			return &ColumnConverterError{
@@ -924,7 +924,7 @@ func (col *Int32) AppendRow(v any) error {
 			col.col.Append(0)
 		}
 	default:
-		if rv := reflect.ValueOf(v); rv.Kind() == col.ScanType().Kind() && rv.CanConvert(col.ScanType()) {
+		if rv := reflect.ValueOf(v); rv.Kind() == col.ScanType().Kind() || rv.CanConvert(col.ScanType()) {
 			col.col.Append(rv.Convert(col.ScanType()).Interface().(int32))
 		} else {
 			return &ColumnConverterError{
@@ -1072,7 +1072,7 @@ func (col *Int64) AppendRow(v any) error {
 	case *time.Duration:
 		col.col.Append(int64(*v))
 	default:
-		if rv := reflect.ValueOf(v); rv.Kind() == col.ScanType().Kind() && rv.CanConvert(col.ScanType()) {
+		if rv := reflect.ValueOf(v); rv.Kind() == col.ScanType().Kind() || rv.CanConvert(col.ScanType()) {
 			col.col.Append(rv.Convert(col.ScanType()).Interface().(int64))
 		} else {
 			return &ColumnConverterError{
@@ -1198,7 +1198,7 @@ func (col *UInt8) AppendRow(v any) error {
 		}
 		col.col.Append(t)
 	default:
-		if rv := reflect.ValueOf(v); rv.Kind() == col.ScanType().Kind() && rv.CanConvert(col.ScanType()) {
+		if rv := reflect.ValueOf(v); rv.Kind() == col.ScanType().Kind() || rv.CanConvert(col.ScanType()) {
 			col.col.Append(rv.Convert(col.ScanType()).Interface().(uint8))
 		} else {
 			return &ColumnConverterError{
@@ -1311,7 +1311,7 @@ func (col *UInt16) AppendRow(v any) error {
 	case nil:
 		col.col.Append(0)
 	default:
-		if rv := reflect.ValueOf(v); rv.Kind() == col.ScanType().Kind() && rv.CanConvert(col.ScanType()) {
+		if rv := reflect.ValueOf(v); rv.Kind() == col.ScanType().Kind() || rv.CanConvert(col.ScanType()) {
 			col.col.Append(rv.Convert(col.ScanType()).Interface().(uint16))
 		} else {
 			return &ColumnConverterError{
@@ -1424,7 +1424,7 @@ func (col *UInt32) AppendRow(v any) error {
 	case nil:
 		col.col.Append(0)
 	default:
-		if rv := reflect.ValueOf(v); rv.Kind() == col.ScanType().Kind() && rv.CanConvert(col.ScanType()) {
+		if rv := reflect.ValueOf(v); rv.Kind() == col.ScanType().Kind() || rv.CanConvert(col.ScanType()) {
 			col.col.Append(rv.Convert(col.ScanType()).Interface().(uint32))
 		} else {
 			return &ColumnConverterError{
@@ -1537,7 +1537,7 @@ func (col *UInt64) AppendRow(v any) error {
 	case nil:
 		col.col.Append(0)
 	default:
-		if rv := reflect.ValueOf(v); rv.Kind() == col.ScanType().Kind() && rv.CanConvert(col.ScanType()) {
+		if rv := reflect.ValueOf(v); rv.Kind() == col.ScanType().Kind() || rv.CanConvert(col.ScanType()) {
 			col.col.Append(rv.Convert(col.ScanType()).Interface().(uint64))
 		} else {
 			return &ColumnConverterError{
