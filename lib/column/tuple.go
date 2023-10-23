@@ -18,14 +18,16 @@
 package column
 
 import (
+	"database/sql"
 	"fmt"
-	"github.com/ClickHouse/ch-go/proto"
-	"github.com/google/uuid"
-	"github.com/shopspring/decimal"
 	"net"
 	"reflect"
 	"strings"
 	"time"
+
+	"github.com/ClickHouse/ch-go/proto"
+	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 )
 
 type Tuple struct {
@@ -207,6 +209,15 @@ func setJSONFieldValue(field reflect.Value, value reflect.Value) error {
 	if value.CanConvert(field.Type()) {
 		field.Set(value.Convert(field.Type()))
 		return nil
+	}
+
+	// check if our target implements sql.Scanner
+	sqlScanner := reflect.TypeOf((*sql.Scanner)(nil)).Elem()
+	if fieldAddr := field.Addr(); field.Kind() != reflect.Ptr && fieldAddr.Type().Implements(sqlScanner) {
+		returns := fieldAddr.MethodByName("Scan").Call([]reflect.Value{value})
+		if len(returns) > 0 && returns[0].IsNil() {
+			return nil
+		}
 	}
 
 	return &ColumnConverterError{
