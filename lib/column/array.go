@@ -134,7 +134,7 @@ func (col *Array) Append(v any) (nulls []uint8, err error) {
 
 func (col *Array) AppendRow(v any) error {
 	if col.depth == 1 {
-		return col.appendRowFast(v)
+		return col.appendRowPlain(v)
 	}
 	return col.appendRowDefault(v)
 }
@@ -162,25 +162,20 @@ func (col *Array) appendRowDefault(v any) error {
 	return col.append(elem, 0)
 }
 
-func (col *Array) appendRowFast(v any) error {
+func (col *Array) appendRowPlain(v any) error {
 	switch tv := v.(type) {
 	case []string:
-		return appendPlain(col, tv)
+		return appendRowPlain(col, tv)
 	case []int:
-		return appendPlain(col, tv)
+		return appendRowPlain(col, tv)
 	/* ... */
 	default:
 		return col.appendRowDefault(v)
 	}
 }
 
-func appendPlain[T any](col *Array, arr []T) error {
-	level := 0
-	offset := uint64(len(arr))
-	if ln := col.offsets[level].values.Rows(); ln != 0 {
-		offset += col.offsets[level].values.col.Row(ln - 1)
-	}
-	col.offsets[level].values.col.Append(offset)
+func appendRowPlain[T any](col *Array, arr []T) error {
+	col.appendOffset(0, uint64(len(arr)))
 	for _, item := range arr {
 		if err := col.values.AppendRow(item); err != nil {
 			return err
@@ -191,11 +186,7 @@ func appendPlain[T any](col *Array, arr []T) error {
 
 func (col *Array) append(elem reflect.Value, level int) error {
 	if level < col.depth {
-		offset := uint64(elem.Len())
-		if ln := col.offsets[level].values.Rows(); ln != 0 {
-			offset += col.offsets[level].values.col.Row(ln - 1)
-		}
-		col.offsets[level].values.col.Append(offset)
+		col.appendOffset(level, uint64(elem.Len()))
 		for i := 0; i < elem.Len(); i++ {
 			if err := col.append(elem.Index(i), level+1); err != nil {
 				return err
@@ -207,6 +198,13 @@ func (col *Array) append(elem reflect.Value, level int) error {
 		return col.values.AppendRow(nil)
 	}
 	return col.values.AppendRow(elem.Interface())
+}
+
+func (col *Array) appendOffset(level int, offset uint64) {
+	if ln := col.offsets[level].values.Rows(); ln != 0 {
+		offset += col.offsets[level].values.col.Row(ln - 1)
+	}
+	col.offsets[level].values.col.Append(offset)
 }
 
 func (col *Array) Decode(reader *proto.Reader, rows int) error {
