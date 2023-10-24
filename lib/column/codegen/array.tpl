@@ -35,11 +35,11 @@ import (
 // appendRowPlain is a reflection-free realisation of append for plain arrays.
 func (col *Array) appendRowPlain(v any) error {
 	switch tv := v.(type) {
-    {{- range . }}
-    case {{ . }}:
-        return appendRowPlain(col, tv)
-    {{- end }}
-    default:
-        return col.appendRowDefault(v)
-    }
+	{{- range . }}
+	case {{ . }}:
+		return appendRowPlain(col, tv)
+	{{- end }}
+	default:
+		return col.appendRowDefault(v)
+	}
 }
