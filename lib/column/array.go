@@ -18,8 +18,15 @@
 package column
 
 import (
+	"database/sql"
 	"fmt"
 	"github.com/ClickHouse/ch-go/proto"
+	"github.com/google/uuid"
+	"github.com/paulmach/orb"
+	"github.com/shopspring/decimal"
+	"math/big"
+	"net"
+	"net/netip"
 	"reflect"
 	"strings"
 	"time"
@@ -134,6 +141,7 @@ func (col *Array) Append(v any) (nulls []uint8, err error) {
 
 func (col *Array) AppendRow(v any) error {
 	if col.depth == 1 {
+		// try to avoid using reflection.
 		return col.appendRowPlain(v)
 	}
 	return col.appendRowDefault(v)
@@ -162,13 +170,121 @@ func (col *Array) appendRowDefault(v any) error {
 	return col.append(elem, 0)
 }
 
+// appendRowPlain is a reflection-free realisation of append for plain arrays.
 func (col *Array) appendRowPlain(v any) error {
 	switch tv := v.(type) {
 	case []string:
 		return appendRowPlain(col, tv)
+	case []*string:
+		return appendRowPlain(col, tv)
+	case [][]byte:
+		return appendRowPlain(col, tv)
+	case []*[]byte:
+		return appendRowPlain(col, tv)
+	case [][16]byte:
+		return appendRowPlain(col, tv)
+	case []*[16]byte:
+		return appendRowPlain(col, tv)
+	case []sql.NullString:
+		return appendRowPlain(col, tv)
+	case []*sql.NullString:
+		return appendRowPlain(col, tv)
 	case []int:
 		return appendRowPlain(col, tv)
-	/* ... */
+	case []*int:
+		return appendRowPlain(col, tv)
+	case []uint:
+		return appendRowPlain(col, tv)
+	case []*uint:
+		return appendRowPlain(col, tv)
+	case []int8:
+		return appendRowPlain(col, tv)
+	case []*int8:
+		return appendRowPlain(col, tv)
+	case []uint8:
+		return appendRowPlain(col, tv)
+	case []*uint8:
+		return appendRowPlain(col, tv)
+	case []int16:
+		return appendRowPlain(col, tv)
+	case []*int16:
+		return appendRowPlain(col, tv)
+	case []uint16:
+		return appendRowPlain(col, tv)
+	case []*uint16:
+		return appendRowPlain(col, tv)
+	case []int32:
+		return appendRowPlain(col, tv)
+	case []*int32:
+		return appendRowPlain(col, tv)
+	case []uint32:
+		return appendRowPlain(col, tv)
+	case []*uint32:
+		return appendRowPlain(col, tv)
+	case []int64:
+		return appendRowPlain(col, tv)
+	case []*int64:
+		return appendRowPlain(col, tv)
+	case []uint64:
+		return appendRowPlain(col, tv)
+	case []*uint64:
+		return appendRowPlain(col, tv)
+	case []big.Int:
+		return appendRowPlain(col, tv)
+	case []*big.Int:
+		return appendRowPlain(col, tv)
+	case []decimal.Decimal:
+		return appendRowPlain(col, tv)
+	case []*decimal.Decimal:
+		return appendRowPlain(col, tv)
+	case []bool:
+		return appendRowPlain(col, tv)
+	case []*bool:
+		return appendRowPlain(col, tv)
+	case []sql.NullBool:
+		return appendRowPlain(col, tv)
+	case []*sql.NullBool:
+		return appendRowPlain(col, tv)
+	case []time.Time:
+		return appendRowPlain(col, tv)
+	case []*time.Time:
+		return appendRowPlain(col, tv)
+	case []sql.NullTime:
+		return appendRowPlain(col, tv)
+	case []*sql.NullTime:
+		return appendRowPlain(col, tv)
+	case []uuid.UUID:
+		return appendRowPlain(col, tv)
+	case []*uuid.UUID:
+		return appendRowPlain(col, tv)
+	case []netip.Addr:
+		return appendRowPlain(col, tv)
+	case []*netip.Addr:
+		return appendRowPlain(col, tv)
+	case []net.IP:
+		return appendRowPlain(col, tv)
+	case []*net.IP:
+		return appendRowPlain(col, tv)
+	case []proto.IPv6:
+		return appendRowPlain(col, tv)
+	case []*proto.IPv6:
+		return appendRowPlain(col, tv)
+	case []orb.Ring:
+		return appendRowPlain(col, tv)
+	case []*orb.Ring:
+		return appendRowPlain(col, tv)
+	case []orb.Polygon:
+		return appendRowPlain(col, tv)
+	case []*orb.Polygon:
+		return appendRowPlain(col, tv)
+	case []orb.Point:
+		return appendRowPlain(col, tv)
+	case []*orb.Point:
+		return appendRowPlain(col, tv)
+	case []orb.MultiPolygon:
+		return appendRowPlain(col, tv)
+	case []*orb.MultiPolygon:
+		return appendRowPlain(col, tv)
 	default:
 		return col.appendRowDefault(v)
 	}
