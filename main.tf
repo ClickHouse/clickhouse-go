@@ -2,9 +2,13 @@ terraform {
   required_providers {
     clickhouse = {
       source = "ClickHouse/clickhouse"
-      version = "~> 0.0.2"
+      version = "~> 0.0.3"
     }
   }
+}
+
+variable "api_url" {
+  type = string
 }
 
 variable "organization_id" {
@@ -28,6 +32,7 @@ variable "service_password" {
 }
 
 provider clickhouse {
+  api_url = var.api_url
   environment     = "production"
   organization_id = var.organization_id
   token_key       = var.token_key

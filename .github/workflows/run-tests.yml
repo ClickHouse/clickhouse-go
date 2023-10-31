@@ -41,7 +41,6 @@ jobs:
           CLICKHOUSE_VERSION=${{ matrix.clickhouse }} make test
 
   integration-tests-cloud:
-    if: ${{ false }}  # disabled for now
     runs-on: [self-hosted, style-checker]
     defaults:
       run:
@@ -106,6 +105,7 @@ jobs:
         if: always()
         run: terraform destroy -no-color -auto-approve
         env:
+          TF_VAR_api_url: ${{ secrets.INTEGRATIONS_TEAM_TESTS_API_URL }}
           TF_VAR_organization_id: ${{ secrets.INTEGRATIONS_TEAM_TESTS_ORGANIZATION_ID }}
           TF_VAR_token_key:  ${{ secrets.INTEGRATIONS_TEAM_TESTS_TOKEN_KEY }}
           TF_VAR_token_secret:  ${{ secrets.INTEGRATIONS_TEAM_TESTS_TOKEN_SECRET }}
