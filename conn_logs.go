@@ -40,7 +40,7 @@ func (c *connect) logs(ctx context.Context) ([]Log, error) {
 	if err != nil {
 		return nil, err
 	}
-	c.debugf("[logs] rows=%d", block.Rows())
+	c.debugf("[logs] rows=%d\n", block.Rows())
 	var (
 		logs  []Log
 		names = block.ColumnsNames()

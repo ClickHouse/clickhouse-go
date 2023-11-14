@@ -27,7 +27,7 @@ import (
 
 func (c *connect) handshake(database, username, password string) error {
 	defer c.buffer.Reset()
-	c.debugf("[handshake] -> %s", proto.ClientHandshake{})
+	c.debugf("[handshake] -> %s\n", proto.ClientHandshake{})
 	// set a read deadline - alternative to context.Read operation will fail if no data is received after deadline.
 	c.conn.SetReadDeadline(time.Now().Add(c.readTimeout))
 	defer c.conn.SetReadDeadline(time.Time{})
@@ -64,10 +64,10 @@ func (c *connect) handshake(database, username, password string) error {
 				return err
 			}
 		case proto.ServerEndOfStream:
-			c.debugf("[handshake] <- end of stream")
+			c.debugf("[handshake] <- end of stream\n")
 			return nil
 		default:
-			return fmt.Errorf("[handshake] unexpected packet [%d] from server", packet)
+			return fmt.Errorf("[handshake] unexpected packet [%d] from server\n", packet)
 		}
 	}
 	if c.server.Revision < proto.DBMS_MIN_REVISION_WITH_CLIENT_INFO {
@@ -76,9 +76,9 @@ func (c *connect) handshake(database, username, password string) error {
 
 	if c.revision > c.server.Revision {
 		c.revision = c.server.Revision
-		c.debugf("[handshake] downgrade client proto")
+		c.debugf("[handshake] downgrade client proto\n")
 	}
-	c.debugf("[handshake] <- %s", c.server)
+	c.debugf("[handshake] <- %s\n", c.server)
 	return nil
 }
 

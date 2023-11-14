@@ -126,7 +126,7 @@ func (ch *clickhouse) Query(ctx context.Context, query string, args ...any) (row
 	if err != nil {
 		return nil, err
 	}
-	conn.debugf("[acquired] connection [%d]", conn.id)
+	conn.debugf("[acquired] connection [%d]\n", conn.id)
 	return conn.query(ctx, ch.release, query, args...)
 }
 
@@ -137,7 +137,7 @@ func (ch *clickhouse) QueryRow(ctx context.Context, query string, args ...any) (
 			err: err,
 		}
 	}
-	conn.debugf("[acquired] connection [%d]", conn.id)
+	conn.debugf("[acquired] connection [%d]\n", conn.id)
 	return conn.queryRow(ctx, ch.release, query, args...)
 }
 

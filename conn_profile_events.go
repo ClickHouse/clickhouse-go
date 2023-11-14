@@ -39,7 +39,7 @@ func (c *connect) profileEvents(ctx context.Context) ([]ProfileEvent, error) {
 	if err != nil {
 		return nil, err
 	}
-	c.debugf("[profile events] rows=%d", block.Rows())
+	c.debugf("[profile events] rows=%d\n", block.Rows())
 	var (
 		events []ProfileEvent
 		names  = block.ColumnsNames()
