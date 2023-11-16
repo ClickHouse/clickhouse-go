@@ -162,30 +162,6 @@ func (col *Array) appendRowDefault(v any) error {
 		}
 	}
 	return col.append(elem, 0)
-	//switch elem.Kind() {
-	//// reflect.Value.Len() & reflect.Value.Index() is called in `append` method which is only valid for
-	//// Slice, Array and String that make sense here.
-	//case reflect.Slice, reflect.Array, reflect.String:
-	//	return col.append(elem, 0)
-	//default:
-	//	if valuer, ok := elem.Interface().(driver.Valuer); ok {
-	//		val, err := valuer.Value()
-	//		if err != nil {
-	//			return &ColumnConverterError{
-	//				Op:   "AppendRow",
-	//				To:   "Array",
-	//				From: fmt.Sprintf("%T", elem),
-	//				Hint: "could not get driver.Valuer value",
-	//			}
-	//		}
-	//		return col.AppendRow(val)
-	//	}
-	//}
-	//return &ColumnConverterError{
-	//	Op:   "AppendRow",
-	//	To:   "Array",
-	//	From: fmt.Sprintf("%T", elem),
-	//}
 }
 
 func appendRowPlain[T any](col *Array, arr []T) error {
