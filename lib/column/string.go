@@ -116,13 +116,13 @@ func (col *String) AppendRow(v any) error {
 	case nil:
 		col.col.Append("")
 	default:
-		if s, ok := v.(driver.Valuer); ok {
-			val, err := s.Value()
+		if valuer, ok := v.(driver.Valuer); ok {
+			val, err := valuer.Value()
 			if err != nil {
 				return &ColumnConverterError{
 					Op:   "AppendRow",
 					To:   "String",
-					From: fmt.Sprintf("%T", s),
+					From: fmt.Sprintf("%T", v),
 					Hint: "could not get driver.Valuer value",
 				}
 			}
@@ -177,6 +177,19 @@ func (col *String) Append(v any) (nulls []uint8, err error) {
 			col.col.Append(string(v[i]))
 		}
 	default:
+
+		if valuer, ok := v.(driver.Valuer); ok {
+			val, err := valuer.Value()
+			if err != nil {
+				return nil, &ColumnConverterError{
+					Op:   "Append",
+					To:   "String",
+					From: fmt.Sprintf("%T", v),
+					Hint: "could not get driver.Valuer value",
+				}
+			}
+			return col.Append(val)
+		}
 		return nil, &ColumnConverterError{
 			Op:   "Append",
 			To:   "String",

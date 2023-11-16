@@ -19,6 +19,7 @@ package tests
 
 import (
 	"context"
+	"database/sql/driver"
 	"fmt"
 	"github.com/stretchr/testify/require"
 	"testing"
@@ -445,6 +446,65 @@ func TestTupleFlush(t *testing.T) {
 	require.Equal(t, 0, batch.Rows())
 	require.NoError(t, batch.Send())
 	rows, err := conn.Query(ctx, "SELECT * FROM test_tuple_flush")
+	require.NoError(t, err)
+	i := 0
+	for rows.Next() {
+		var col1 map[string]any
+		require.NoError(t, rows.Scan(&col1))
+		require.Equal(t, vals[i], col1)
+		i += 1
+	}
+	require.Equal(t, 1000, i)
+}
+
+type testTupleSerializer struct {
+	val map[string]any
+}
+
+func (c testTupleSerializer) Value() (driver.Value, error) {
+	return c.val, nil
+}
+
+func (c *testTupleSerializer) Scan(src any) error {
+	if t, ok := src.(map[string]any); ok {
+		*c = testTupleSerializer{val: t}
+		return nil
+	}
+	return fmt.Errorf("cannot scan %T into testTupleSerializer", src)
+}
+
+func TestTupleValuer(t *testing.T) {
+	conn, err := GetNativeConnection(nil, nil, nil)
+	ctx := context.Background()
+	require.NoError(t, err)
+	if !CheckMinServerServerVersion(conn, 21, 9, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
+		return
+	}
+	const ddl = `
+		CREATE TABLE test_tuple_valuer (
+			Col1 Tuple(name String, id Int64)
+		) Engine MergeTree() ORDER BY tuple()
+		`
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_tuple_valuer")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_tuple_valuer")
+	require.NoError(t, err)
+	vals := [1000]map[string]any{}
+	for i := 0; i < 1000; i++ {
+		vals[i] = map[string]any{
+			"id":   int64(i),
+			"name": RandAsciiString(10),
+		}
+		require.NoError(t, batch.Append(testTupleSerializer{val: vals[i]}))
+		require.Equal(t, 1, batch.Rows())
+		require.NoError(t, batch.Flush())
+	}
+	require.Equal(t, 0, batch.Rows())
+	require.NoError(t, batch.Send())
+	rows, err := conn.Query(ctx, "SELECT * FROM test_tuple_valuer")
 	require.NoError(t, err)
 	i := 0
 	for rows.Next() {
