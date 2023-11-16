@@ -19,6 +19,7 @@ package column
 
 import (
 	"database/sql"
+	"database/sql/driver"
 	"fmt"
 	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
@@ -154,6 +155,18 @@ func (col *Enum8) Append(v any) (nulls []uint8, err error) {
 			}
 		}
 	default:
+		if valuer, ok := v.(driver.Valuer); ok {
+			val, err := valuer.Value()
+			if err != nil {
+				return nil, &ColumnConverterError{
+					Op:   "Append",
+					To:   "Enum8",
+					From: fmt.Sprintf("%T", v),
+					Hint: "could not get driver.Valuer value",
+				}
+			}
+			return col.Append(val)
+		}
 		return nil, &ColumnConverterError{
 			Op:   "Append",
 			To:   "Enum8",
@@ -220,6 +233,19 @@ func (col *Enum8) AppendRow(elem any) error {
 	case nil:
 		col.col.Append(0)
 	default:
+		if valuer, ok := elem.(driver.Valuer); ok {
+			val, err := valuer.Value()
+			if err != nil {
+				return &ColumnConverterError{
+					Op:   "AppendRow",
+					To:   "Enum8",
+					From: fmt.Sprintf("%T", elem),
+					Hint: "could not get driver.Valuer value",
+				}
+			}
+			return col.AppendRow(val)
+		}
+
 		if s, ok := elem.(fmt.Stringer); ok {
 			return col.AppendRow(s.String())
 		} else {

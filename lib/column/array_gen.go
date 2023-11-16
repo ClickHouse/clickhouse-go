@@ -156,6 +156,7 @@ func (col *Array) appendRowPlain(v any) error {
 	case []*orb.Ring:
 		return appendNullableRowPlain(col, tv)
 	default:
+
 		return col.appendRowDefault(v)
 	}
 }

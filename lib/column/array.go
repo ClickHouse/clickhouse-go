@@ -18,6 +18,7 @@
 package column
 
 import (
+	"database/sql/driver"
 	"fmt"
 	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
@@ -160,7 +161,28 @@ func (col *Array) appendRowDefault(v any) error {
 			Hint: fmt.Sprintf("try using %s", col.scanType),
 		}
 	}
-	return col.append(elem, 0)
+	switch elem.Kind() {
+	case reflect.Slice, reflect.Array, reflect.String:
+		return col.append(elem, 0)
+	default:
+		if valuer, ok := elem.Interface().(driver.Valuer); ok {
+			val, err := valuer.Value()
+			if err != nil {
+				return &ColumnConverterError{
+					Op:   "AppendRow",
+					To:   "Array",
+					From: fmt.Sprintf("%T", elem),
+					Hint: "could not get driver.Valuer value",
+				}
+			}
+			return col.AppendRow(val)
+		}
+	}
+	return &ColumnConverterError{
+		Op:   "AppendRow",
+		To:   "Array",
+		From: fmt.Sprintf("%T", elem),
+	}
 }
 
 func appendRowPlain[T any](col *Array, arr []T) error {
