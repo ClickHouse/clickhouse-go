@@ -19,6 +19,8 @@ package tests
 
 import (
 	"context"
+	"database/sql/driver"
+	"fmt"
 	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
@@ -360,4 +362,56 @@ func TestDateWithUserLocation(t *testing.T) {
 	const dateTimeNoZoneFormat = "2006-01-02T15:04:05"
 	assert.Equal(t, "2022-07-01T00:00:00", col1.Format(dateTimeNoZoneFormat))
 	assert.Equal(t, userLocation.String(), col1.Location().String())
+}
+
+type testDateSerializer struct {
+	val time.Time
+}
+
+func (c testDateSerializer) Value() (driver.Value, error) {
+	return c.val, nil
+}
+
+func (c *testDateSerializer) Scan(src any) error {
+	if t, ok := src.(time.Time); ok {
+		*c = testDateSerializer{val: t}
+		return nil
+	}
+	return fmt.Errorf("cannot scan %T into testDateSerializer", src)
+}
+
+func TestDateValuer(t *testing.T) {
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE IF EXISTS date_valuer")
+	}()
+	const ddl = `
+		CREATE TABLE date_valuer (
+			  Col1 Date
+		) Engine MergeTree() ORDER BY tuple()
+		`
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO date_valuer")
+	require.NoError(t, err)
+	vals := [1000]time.Time{}
+	var now = time.Now()
+
+	for i := 0; i < 1000; i++ {
+		vals[i] = now.Add(time.Duration(i) * time.Hour)
+		batch.Append(testDateSerializer{val: vals[i]})
+		batch.Flush()
+	}
+	batch.Send()
+	rows, err := conn.Query(ctx, "SELECT * FROM date_valuer")
+	require.NoError(t, err)
+	i := 0
+	for rows.Next() {
+		var col1 time.Time
+		require.NoError(t, rows.Scan(&col1))
+		assert.Equal(t, vals[i].Format("2016-02-01"), col1.Format("2016-02-01"))
+		i += 1
+	}
 }

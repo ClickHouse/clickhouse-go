@@ -19,6 +19,7 @@ package tests
 
 import (
 	"context"
+	"database/sql/driver"
 	"fmt"
 	"github.com/stretchr/testify/require"
 	"testing"
@@ -458,4 +459,56 @@ func TestCustomDateTime64(t *testing.T) {
 	var col1 CustomDateTime
 	require.NoError(t, row.Scan(&col1))
 	require.Equal(t, now, time.Time(col1))
+}
+
+type testDateTime64Serializer struct {
+	val time.Time
+}
+
+func (c testDateTime64Serializer) Value() (driver.Value, error) {
+	return c.val, nil
+}
+
+func (c *testDateTime64Serializer) Scan(src any) error {
+	if t, ok := src.(time.Time); ok {
+		*c = testDateTime64Serializer{val: t}
+		return nil
+	}
+	return fmt.Errorf("cannot scan %T into testDateTime64Serializer", src)
+}
+
+func TestDateTime64Valuer(t *testing.T) {
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+	require.NoError(t, err)
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE IF EXISTS datetime_64_valuer")
+	}()
+	const ddl = `
+		CREATE TABLE datetime_64_valuer (
+			  Col1 DateTime64(3)
+		) Engine MergeTree() ORDER BY tuple()
+		`
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO datetime_64_valuer")
+	require.NoError(t, err)
+	vals := [1000]time.Time{}
+	var now = time.Now()
+	for i := 0; i < 1000; i++ {
+		vals[i] = now.Add(time.Duration(i) * time.Hour).Truncate(time.Millisecond)
+		batch.Append(testDateTime64Serializer{val: vals[i]})
+		batch.Flush()
+	}
+	batch.Send()
+	rows, err := conn.Query(ctx, "SELECT * FROM datetime_64_valuer")
+	require.NoError(t, err)
+	i := 0
+	for rows.Next() {
+		var col1 time.Time
+		require.NoError(t, rows.Scan(&col1))
+		assert.Equal(t, vals[i].In(time.UTC), col1)
+		i += 1
+	}
 }
