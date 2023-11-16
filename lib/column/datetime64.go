@@ -198,7 +198,7 @@ func (col *DateTime64) Append(v any) (nulls []uint8, err error) {
 			val, err := valuer.Value()
 			if err != nil {
 				return nil, &ColumnConverterError{
-					Op:   "AppendRow",
+					Op:   "Append",
 					To:   "Datetime64",
 					From: fmt.Sprintf("%T", v),
 					Hint: "could not get driver.Valuer value",
