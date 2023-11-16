@@ -19,6 +19,7 @@ package tests
 
 import (
 	"context"
+	"database/sql/driver"
 	"fmt"
 	"github.com/stretchr/testify/require"
 	"math/rand"
@@ -183,6 +184,85 @@ func TestGeoMultiPolygonFlush(t *testing.T) {
 			},
 		}
 		require.NoError(t, batch.Append(vals[i]))
+		require.NoError(t, batch.Flush())
+	}
+	require.NoError(t, batch.Send())
+	rows, err := conn.Query(ctx, "SELECT * FROM test_geo_multipolygon_flush")
+	require.NoError(t, err)
+	i := 0
+	for rows.Next() {
+		var col1 orb.MultiPolygon
+		require.NoError(t, rows.Scan(&col1))
+		require.Equal(t, vals[i], col1)
+		i += 1
+	}
+	require.Equal(t, 1000, i)
+}
+
+type testMutiPolygonSerializer struct {
+	val orb.MultiPolygon
+}
+
+func (c testMutiPolygonSerializer) Value() (driver.Value, error) {
+	return c.val, nil
+}
+
+func (c *testMutiPolygonSerializer) Scan(src any) error {
+	if t, ok := src.(orb.MultiPolygon); ok {
+		*c = testMutiPolygonSerializer{val: t}
+		return nil
+	}
+	return fmt.Errorf("cannot scan %T into testIPv4Serializer", src)
+}
+
+func TestGeoMultiPolygonValuer(t *testing.T) {
+	conn, err := GetNativeConnection(clickhouse.Settings{
+		"allow_experimental_geo_types": 1,
+	}, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+	require.NoError(t, err)
+	if !CheckMinServerServerVersion(conn, 21, 12, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
+		return
+	}
+	const ddl = `
+		CREATE TABLE test_geo_multipolygon_flush (
+			  Col1 MultiPolygon
+		) Engine MergeTree() ORDER BY tuple()
+		`
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE test_geo_multipolygon_flush")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_geo_multipolygon_flush")
+	require.NoError(t, err)
+	vals := [1000]orb.MultiPolygon{}
+	for i := 0; i < 1000; i++ {
+		vals[i] = orb.MultiPolygon{
+			orb.Polygon{
+				orb.Ring{
+					orb.Point{rand.Float64(), rand.Float64()},
+					orb.Point{rand.Float64(), rand.Float64()},
+				},
+				orb.Ring{
+					orb.Point{rand.Float64(), rand.Float64()},
+					orb.Point{rand.Float64(), rand.Float64()},
+				},
+			},
+			orb.Polygon{
+				orb.Ring{
+					orb.Point{rand.Float64(), rand.Float64()},
+					orb.Point{rand.Float64(), rand.Float64()},
+				},
+				orb.Ring{
+					orb.Point{rand.Float64(), rand.Float64()},
+					orb.Point{rand.Float64(), rand.Float64()},
+				},
+			},
+		}
+		require.NoError(t, batch.Append(testMutiPolygonSerializer{val: vals[i]}))
 		require.NoError(t, batch.Flush())
 	}
 	require.NoError(t, batch.Send())
