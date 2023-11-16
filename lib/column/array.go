@@ -161,28 +161,31 @@ func (col *Array) appendRowDefault(v any) error {
 			Hint: fmt.Sprintf("try using %s", col.scanType),
 		}
 	}
-	switch elem.Kind() {
-	case reflect.Slice, reflect.Array, reflect.String:
-		return col.append(elem, 0)
-	default:
-		if valuer, ok := elem.Interface().(driver.Valuer); ok {
-			val, err := valuer.Value()
-			if err != nil {
-				return &ColumnConverterError{
-					Op:   "AppendRow",
-					To:   "Array",
-					From: fmt.Sprintf("%T", elem),
-					Hint: "could not get driver.Valuer value",
-				}
-			}
-			return col.AppendRow(val)
-		}
-	}
-	return &ColumnConverterError{
-		Op:   "AppendRow",
-		To:   "Array",
-		From: fmt.Sprintf("%T", elem),
-	}
+	return col.append(elem, 0)
+	//switch elem.Kind() {
+	//// reflect.Value.Len() & reflect.Value.Index() is called in `append` method which is only valid for
+	//// Slice, Array and String that make sense here.
+	//case reflect.Slice, reflect.Array, reflect.String:
+	//	return col.append(elem, 0)
+	//default:
+	//	if valuer, ok := elem.Interface().(driver.Valuer); ok {
+	//		val, err := valuer.Value()
+	//		if err != nil {
+	//			return &ColumnConverterError{
+	//				Op:   "AppendRow",
+	//				To:   "Array",
+	//				From: fmt.Sprintf("%T", elem),
+	//				Hint: "could not get driver.Valuer value",
+	//			}
+	//		}
+	//		return col.AppendRow(val)
+	//	}
+	//}
+	//return &ColumnConverterError{
+	//	Op:   "AppendRow",
+	//	To:   "Array",
+	//	From: fmt.Sprintf("%T", elem),
+	//}
 }
 
 func appendRowPlain[T any](col *Array, arr []T) error {
@@ -213,13 +216,36 @@ func appendNullableRowPlain[T any](col *Array, arr []*T) error {
 
 func (col *Array) append(elem reflect.Value, level int) error {
 	if level < col.depth {
-		col.appendOffset(level, uint64(elem.Len()))
-		for i := 0; i < elem.Len(); i++ {
-			if err := col.append(elem.Index(i), level+1); err != nil {
-				return err
+		switch elem.Kind() {
+		// reflect.Value.Len() & reflect.Value.Index() is called in `append` method which is only valid for
+		// Slice, Array and String that make sense here.
+		case reflect.Slice, reflect.Array, reflect.String:
+			col.appendOffset(level, uint64(elem.Len()))
+			for i := 0; i < elem.Len(); i++ {
+				if err := col.append(elem.Index(i), level+1); err != nil {
+					return err
+				}
+			}
+			return nil
+		default:
+			if valuer, ok := elem.Interface().(driver.Valuer); ok {
+				val, err := valuer.Value()
+				if err != nil {
+					return &ColumnConverterError{
+						Op:   "AppendRow",
+						To:   "Array",
+						From: fmt.Sprintf("%T", elem),
+						Hint: "could not get driver.Valuer value",
+					}
+				}
+				return col.AppendRow(val)
 			}
 		}
-		return nil
+		return &ColumnConverterError{
+			Op:   "AppendRow",
+			To:   "Array",
+			From: fmt.Sprintf("%T", elem),
+		}
 	}
 	if elem.Kind() == reflect.Ptr && elem.IsNil() {
 		return col.values.AppendRow(nil)
