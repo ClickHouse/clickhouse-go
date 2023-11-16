@@ -166,7 +166,7 @@ func (c *testPolygonSerializer) Scan(src any) error {
 		*c = testPolygonSerializer{val: t}
 		return nil
 	}
-	return fmt.Errorf("cannot scan %T into testIPv4Serializer", src)
+	return fmt.Errorf("cannot scan %T into testPolygonSerializer", src)
 }
 
 func TestGeoPolygonValuer(t *testing.T) {

@@ -141,7 +141,7 @@ func (c *testGeoRingSerializer) Scan(src any) error {
 		*c = testGeoRingSerializer{val: t}
 		return nil
 	}
-	return fmt.Errorf("cannot scan %T into testIPv4Serializer", src)
+	return fmt.Errorf("cannot scan %T into testGeoRingSerializer", src)
 }
 
 func TestGeoRingValuer(t *testing.T) {

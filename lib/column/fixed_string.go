@@ -126,6 +126,18 @@ func (col *FixedString) Append(v any) (nulls []uint8, err error) {
 		col.col.Append(data)
 		nulls = make([]uint8, len(data)/col.col.Size)
 	default:
+		if s, ok := v.(driver.Valuer); ok {
+			val, err := s.Value()
+			if err != nil {
+				return nil, &ColumnConverterError{
+					Op:   "Append",
+					To:   "FixedString",
+					From: fmt.Sprintf("%T", s),
+					Hint: "could not get driver.Valuer value",
+				}
+			}
+			return col.Append(val)
+		}
 		return nil, &ColumnConverterError{
 			Op:   "Append",
 			To:   "FixedString",
@@ -159,22 +171,12 @@ func (col *FixedString) AppendRow(v any) (err error) {
 			if err != nil {
 				return &ColumnConverterError{
 					Op:   "AppendRow",
-					To:   "String",
+					To:   "FixedString",
 					From: fmt.Sprintf("%T", s),
 					Hint: "could not get driver.Valuer value",
 				}
 			}
-
-			if s, ok := val.(string); ok {
-				return col.AppendRow(s)
-			}
-
-			return &ColumnConverterError{
-				Op:   "AppendRow",
-				To:   "String",
-				From: fmt.Sprintf("%T", v),
-				Hint: "driver.Valuer value is not a string",
-			}
+			return col.AppendRow(val)
 		}
 
 		if s, ok := v.(fmt.Stringer); ok {
@@ -183,7 +185,7 @@ func (col *FixedString) AppendRow(v any) (err error) {
 
 		return &ColumnConverterError{
 			Op:   "AppendRow",
-			To:   "String",
+			To:   "FixedString",
 			From: fmt.Sprintf("%T", v),
 		}
 	}

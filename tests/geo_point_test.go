@@ -129,7 +129,7 @@ func (c *testPointSerializer) Scan(src any) error {
 		*c = testPointSerializer{val: t}
 		return nil
 	}
-	return fmt.Errorf("cannot scan %T into testIPv4Serializer", src)
+	return fmt.Errorf("cannot scan %T into testPointSerializer", src)
 }
 
 func TestGeoPointValuer(t *testing.T) {
