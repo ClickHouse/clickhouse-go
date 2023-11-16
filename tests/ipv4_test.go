@@ -19,7 +19,9 @@ package tests
 
 import (
 	"context"
+	"database/sql/driver"
 	"encoding/binary"
+	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	"github.com/stretchr/testify/require"
 	"net"
@@ -494,6 +496,56 @@ func TestIPv4Flush(t *testing.T) {
 	}
 	require.NoError(t, batch.Send())
 	rows, err := conn.Query(ctx, "SELECT * FROM test_ipv4_ring_flush")
+	require.NoError(t, err)
+	i := 0
+	for rows.Next() {
+		var col1 net.IP
+		require.NoError(t, rows.Scan(&col1))
+		require.Equal(t, vals[i], col1.To4())
+		i += 1
+	}
+	require.Equal(t, 1000, i)
+}
+
+type testIPv4Serializer struct {
+	val net.IP
+}
+
+func (c testIPv4Serializer) Value() (driver.Value, error) {
+	return c.val, nil
+}
+
+func (c *testIPv4Serializer) Scan(src any) error {
+	if t, ok := src.(net.IP); ok {
+		*c = testIPv4Serializer{val: t}
+		return nil
+	}
+	return fmt.Errorf("cannot scan %T into testIPv4Serializer", src)
+}
+
+func TestIPv4Valuer(t *testing.T) {
+	conn, err := GetNativeConnection(nil, nil, nil)
+	ctx := context.Background()
+	require.NoError(t, err)
+	const ddl = `
+		CREATE TABLE test_ipv4_ring_valuer (
+			  Col1 IPv4
+		) Engine MergeTree() ORDER BY tuple()
+		`
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE test_ipv4_ring_valuer")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_ipv4_ring_valuer")
+	require.NoError(t, err)
+	vals := [1000]net.IP{}
+	for i := 0; i < 1000; i++ {
+		vals[i] = RandIPv4()
+		require.NoError(t, batch.Append(testIPv4Serializer{val: vals[i]}))
+		require.NoError(t, batch.Flush())
+	}
+	require.NoError(t, batch.Send())
+	rows, err := conn.Query(ctx, "SELECT * FROM test_ipv4_ring_valuer")
 	require.NoError(t, err)
 	i := 0
 	for rows.Next() {

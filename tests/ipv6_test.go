@@ -482,7 +482,7 @@ func (c *testIPv6Serializer) Scan(src any) error {
 		*c = testIPv6Serializer{val: t}
 		return nil
 	}
-	return fmt.Errorf("cannot scan %T into testTupleSerializer", src)
+	return fmt.Errorf("cannot scan %T into testIPv6Serializer", src)
 }
 
 func TestIPv6Valuer(t *testing.T) {
@@ -492,15 +492,15 @@ func TestIPv6Valuer(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, err)
 	const ddl = `
-		CREATE TABLE test_ipv6_ring_flush (
+		CREATE TABLE test_ipv6_ring_valuer (
 			  Col1 IPv6
 		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_ipv6_ring_flush")
+		conn.Exec(ctx, "DROP TABLE test_ipv6_ring_valuer")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
-	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_ipv6_ring_flush")
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_ipv6_ring_valuer")
 	require.NoError(t, err)
 	vals := [1000]net.IP{}
 	for i := 0; i < 1000; i++ {
@@ -509,7 +509,7 @@ func TestIPv6Valuer(t *testing.T) {
 		require.NoError(t, batch.Flush())
 	}
 	require.NoError(t, batch.Send())
-	rows, err := conn.Query(ctx, "SELECT * FROM test_ipv6_ring_flush")
+	rows, err := conn.Query(ctx, "SELECT * FROM test_ipv6_ring_valuer")
 	require.NoError(t, err)
 	i := 0
 	for rows.Next() {
