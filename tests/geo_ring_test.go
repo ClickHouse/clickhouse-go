@@ -19,6 +19,7 @@ package tests
 
 import (
 	"context"
+	"database/sql/driver"
 	"fmt"
 	"github.com/stretchr/testify/require"
 	"testing"
@@ -116,6 +117,69 @@ func TestGeoRingFlush(t *testing.T) {
 	require.Equal(t, 0, batch.Rows())
 	require.NoError(t, batch.Send())
 	rows, err := conn.Query(ctx, "SELECT * FROM test_geo_ring_flush")
+	require.NoError(t, err)
+	i := 0
+	for rows.Next() {
+		var col1 orb.Ring
+		require.NoError(t, rows.Scan(&col1))
+		require.Equal(t, vals[i], col1)
+		i += 1
+	}
+	require.Equal(t, 1000, i)
+}
+
+type testGeoRingSerializer struct {
+	val orb.Ring
+}
+
+func (c testGeoRingSerializer) Value() (driver.Value, error) {
+	return c.val, nil
+}
+
+func (c *testGeoRingSerializer) Scan(src any) error {
+	if t, ok := src.(orb.Ring); ok {
+		*c = testGeoRingSerializer{val: t}
+		return nil
+	}
+	return fmt.Errorf("cannot scan %T into testIPv4Serializer", src)
+}
+
+func TestGeoRingValuer(t *testing.T) {
+	conn, err := GetNativeConnection(clickhouse.Settings{
+		"allow_experimental_geo_types": 1,
+	}, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+	require.NoError(t, err)
+	if !CheckMinServerServerVersion(conn, 21, 12, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
+		return
+	}
+	const ddl = `
+		CREATE TABLE test_geo_ring_valuer (
+			  Col1 Ring
+		) Engine MergeTree() ORDER BY tuple()
+		`
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE test_geo_ring_valuer")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_geo_ring_valuer")
+	require.NoError(t, err)
+	vals := [1000]orb.Ring{}
+	for i := 0; i < 1000; i++ {
+		vals[i] = orb.Ring{
+			orb.Point{1, 2},
+			orb.Point{1, 2},
+		}
+		require.NoError(t, batch.Append(testGeoRingSerializer{val: vals[i]}))
+		require.Equal(t, 1, batch.Rows())
+		require.NoError(t, batch.Flush())
+	}
+	require.Equal(t, 0, batch.Rows())
+	require.NoError(t, batch.Send())
+	rows, err := conn.Query(ctx, "SELECT * FROM test_geo_ring_valuer")
 	require.NoError(t, err)
 	i := 0
 	for rows.Next() {
