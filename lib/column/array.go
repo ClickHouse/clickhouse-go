@@ -202,19 +202,6 @@ func (col *Array) append(elem reflect.Value, level int) error {
 				}
 			}
 			return nil
-			//default:
-			//	if valuer, ok := elem.Interface().(driver.Valuer); ok {
-			//		val, err := valuer.Value()
-			//		if err != nil {
-			//			return &ColumnConverterError{
-			//				Op:   "AppendRow",
-			//				To:   "Array",
-			//				From: fmt.Sprintf("%T", elem),
-			//				Hint: "could not get driver.Valuer value",
-			//			}
-			//		}
-			//		return col.AppendRow(val)
-			//	}
 		}
 		return &ColumnConverterError{
 			Op:   "AppendRow",
