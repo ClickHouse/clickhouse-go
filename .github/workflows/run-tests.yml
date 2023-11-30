@@ -66,15 +66,15 @@ jobs:
         run: terraform init
 
       - name: Set Service Name
-        run: echo "TF_VAR_service_name=go_client_tests_$(date +'%Y_%m_%d_%H_%M_%S')" >> $GITHUB_ENV
+        run: echo "TF_VAR_service_name=go_client_tests_$(date +'%Y_%m_%d_%H_%M_%S')_${{ matrix.go }}" >> $GITHUB_ENV
 
       - name: Terraform Validate
         id: validate
-        run: terraform validate -no-color
+        run: terraform validate -no-color -state=$TF_VAR_service_name.tfstate
 
       - name: Terraform Apply
         id: apply
-        run: terraform apply -no-color -auto-approve
+        run: terraform apply -no-color -auto-approve -state=$TF_VAR_service_name.tfstate
         env:
           TF_VAR_organization_id: ${{ secrets.INTEGRATIONS_TEAM_TESTS_ORGANIZATION_ID }}
           TF_VAR_token_key:  ${{ secrets.INTEGRATIONS_TEAM_TESTS_TOKEN_KEY }}
@@ -86,7 +86,7 @@ jobs:
         run: echo "CLICKHOUSE_HOST=$(terraform output -raw CLICKHOUSE_HOST)" >> $GITHUB_ENV
 
       - name: Service Id
-        run: terraform output -raw SERVICE_ID
+        run: terraform output -raw SERVICE_ID -state=$TF_VAR_service_name.tfstate
 
       - name: Install Go ${{ matrix.go }}
         uses: actions/setup-go@v2.1.5
@@ -104,7 +104,7 @@ jobs:
 
       - name: Cleanup
         if: always()
-        run: terraform destroy -no-color -auto-approve
+        run: terraform destroy -no-color -auto-approve -state=$TF_VAR_service_name.tfstate
         env:
           TF_VAR_api_url: ${{ secrets.INTEGRATIONS_TEAM_TESTS_API_URL }}
           TF_VAR_organization_id: ${{ secrets.INTEGRATIONS_TEAM_TESTS_ORGANIZATION_ID }}
