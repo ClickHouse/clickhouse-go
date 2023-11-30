@@ -83,7 +83,7 @@ jobs:
           TF_VAR_api_url: ${{ secrets.INTEGRATIONS_TEAM_TESTS_API_URL }}
 
       - name: Set Host
-        run: echo "CLICKHOUSE_HOST=$(terraform output -raw CLICKHOUSE_HOST)" >> $GITHUB_ENV
+        run: echo "CLICKHOUSE_HOST=$(terraform output -raw CLICKHOUSE_HOST -state=${{ matrix.go }}.tfstate)" >> $GITHUB_ENV
 
       - name: Service Id
         run: terraform output -raw SERVICE_ID -state=${{ matrix.go }}.tfstate
