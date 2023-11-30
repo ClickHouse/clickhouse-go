@@ -42,7 +42,7 @@ resource "clickhouse_service" "service" {
   name           = var.service_name
   cloud_provider = "aws"
   region         = "us-east-2"
-  tier           = "development"
+  tier           = "production"
   idle_scaling   = true
   password  = var.service_password
 
