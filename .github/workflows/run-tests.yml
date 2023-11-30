@@ -65,12 +65,12 @@ jobs:
         id: init
         run: terraform init
 
+      - name: Set Service Name
+        run: echo "TF_VAR_service_name=go_client_tests_$(date +'%Y_%m_%d_%H_%M_%S')" >> $GITHUB_ENV
+
       - name: Terraform Validate
         id: validate
         run: terraform validate -no-color
-
-      - name: Set Service Name
-        run: echo "TF_VAR_service_name=go_client_tests_$(date +'%Y_%m_%d_%H_%M_%S')" >> $GITHUB_ENV
 
       - name: Terraform Apply
         id: apply
