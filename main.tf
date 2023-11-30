@@ -32,8 +32,7 @@ variable "service_password" {
 }
 
 provider clickhouse {
-  api_url = var.api_url
-  environment     = "production"
+  api_url         = var.api_url
   organization_id = var.organization_id
   token_key       = var.token_key
   token_secret    = var.token_secret
