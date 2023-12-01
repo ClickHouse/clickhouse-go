@@ -20,6 +20,7 @@ package tests
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
@@ -184,6 +185,62 @@ func TestBoolFlush(t *testing.T) {
 	for i := 0; i < 1000; i++ {
 		vals[i] = r.Intn(2) != 0
 		require.NoError(t, batch.Append(vals[i]))
+		require.Equal(t, 1, batch.Rows())
+		require.NoError(t, batch.Flush())
+	}
+	require.Equal(t, 0, batch.Rows())
+	batch.Send()
+	rows, err := conn.Query(ctx, "SELECT * FROM bool_flush")
+	require.NoError(t, err)
+	i := 0
+	for rows.Next() {
+		var col1 bool
+		require.NoError(t, rows.Scan(&col1))
+		assert.Equal(t, vals[i], col1)
+		i += 1
+	}
+}
+
+type testBoolSerializer struct {
+	val bool
+}
+
+func (c testBoolSerializer) Value() (driver.Value, error) {
+	return c.val, nil
+}
+
+func (c *testBoolSerializer) Scan(src any) error {
+	if t, ok := src.(bool); ok {
+		*c = testBoolSerializer{val: t}
+		return nil
+	}
+	return fmt.Errorf("cannot scan %T into testBoolSerializer", src)
+}
+
+func TestBoolValuer(t *testing.T) {
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+	require.NoError(t, err)
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE IF EXISTS bool_flush")
+	}()
+	const ddl = `
+		CREATE TABLE bool_flush (
+			  Col1 Bool
+		) Engine MergeTree() ORDER BY tuple()
+		`
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO bool_flush")
+	require.NoError(t, err)
+	vals := [1000]bool{}
+	var src = rand.NewSource(time.Now().UnixNano())
+	var r = rand.New(src)
+
+	for i := 0; i < 1000; i++ {
+		vals[i] = r.Intn(2) != 0
+		require.NoError(t, batch.Append(testBoolSerializer{val: vals[i]}))
 		require.Equal(t, 1, batch.Rows())
 		require.NoError(t, batch.Flush())
 	}

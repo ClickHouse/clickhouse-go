@@ -191,13 +191,23 @@ func appendNullableRowPlain[T any](col *Array, arr []*T) error {
 
 func (col *Array) append(elem reflect.Value, level int) error {
 	if level < col.depth {
-		col.appendOffset(level, uint64(elem.Len()))
-		for i := 0; i < elem.Len(); i++ {
-			if err := col.append(elem.Index(i), level+1); err != nil {
-				return err
+		switch elem.Kind() {
+		// reflect.Value.Len() & reflect.Value.Index() is called in `append` method which is only valid for
+		// Slice, Array and String that make sense here.
+		case reflect.Slice, reflect.Array, reflect.String:
+			col.appendOffset(level, uint64(elem.Len()))
+			for i := 0; i < elem.Len(); i++ {
+				if err := col.append(elem.Index(i), level+1); err != nil {
+					return err
+				}
 			}
+			return nil
 		}
-		return nil
+		return &ColumnConverterError{
+			Op:   "AppendRow",
+			To:   "Array",
+			From: fmt.Sprintf("%T", elem),
+		}
 	}
 	if elem.Kind() == reflect.Ptr && elem.IsNil() {
 		return col.values.AppendRow(nil)

@@ -373,3 +373,62 @@ func TestStringFromDriverValuerType(t *testing.T) {
 	assert.Equal(t, "Value", dest.Col1)
 	assert.Equal(t, testStringSerializer{"Value"}, dest.Col2)
 }
+
+type testStringPtrSerializer struct {
+	val string
+}
+
+func (c testStringPtrSerializer) Value() (driver.Value, error) {
+	return &c.val, nil
+}
+
+func (c *testStringPtrSerializer) Scan(src any) error {
+	if t, ok := src.(string); ok {
+		*c = testStringPtrSerializer{val: t}
+		return nil
+	}
+	return fmt.Errorf("cannot scan %T into testStringPtrSerializer", src)
+}
+
+func TestStringFromDriverValuerTypeNonStdReturn(t *testing.T) {
+	conn, err := GetConnection("native", nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+
+	require.NoError(t, err)
+	require.NoError(t, conn.Ping(ctx))
+	if !CheckMinServerServerVersion(conn, 21, 9, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
+		return
+	}
+	const ddl = `
+		CREATE TABLE test_string (
+			  	  Col1 String
+		        , Col2 String
+		) Engine MergeTree() ORDER BY tuple()
+		`
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE test_string")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_string")
+	require.NoError(t, err)
+
+	type data struct {
+		Col1 string                  `ch:"Col1"`
+		Col2 testStringPtrSerializer `ch:"Col2"`
+	}
+	s := "Value"
+	require.NoError(t, batch.AppendStruct(&data{
+		Col1: s,
+		Col2: testStringPtrSerializer{s},
+	}))
+	require.Equal(t, 1, batch.Rows())
+	require.NoError(t, batch.Send())
+
+	var dest data
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_string").ScanStruct(&dest))
+	assert.Equal(t, "Value", dest.Col1)
+	assert.Equal(t, testStringPtrSerializer{s}, dest.Col2)
+}

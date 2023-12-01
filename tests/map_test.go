@@ -19,6 +19,7 @@ package tests
 
 import (
 	"context"
+	"database/sql/driver"
 	"fmt"
 	"github.com/stretchr/testify/require"
 	"testing"
@@ -289,6 +290,66 @@ func TestOrderedMap(t *testing.T) {
 		col1 := NewOrderedMap()
 		require.NoError(t, rows.Scan(col1))
 		require.Equal(t, values[i], col1)
+		i += 1
+	}
+	require.Equal(t, 1000, i)
+}
+
+type testMapSerializer struct {
+	val map[string]uint64
+}
+
+func (c testMapSerializer) Value() (driver.Value, error) {
+	return c.val, nil
+}
+
+func (c *testMapSerializer) Scan(src any) error {
+	if t, ok := src.(map[string]uint64); ok {
+		*c = testMapSerializer{val: t}
+		return nil
+	}
+	return fmt.Errorf("cannot scan %T into testTupleSerializer", src)
+}
+
+func TestMapValuer(t *testing.T) {
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+	require.NoError(t, err)
+	if !CheckMinServerServerVersion(conn, 21, 9, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
+		return
+	}
+	const ddl = `
+		CREATE TABLE test_map_flush (
+			  Col1 Map(String, UInt64)
+		) Engine MergeTree() ORDER BY tuple()
+		`
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_map_flush")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_map_flush")
+	require.NoError(t, err)
+	vals := [1000]map[string]uint64{}
+	for i := 0; i < 1000; i++ {
+		vals[i] = map[string]uint64{
+			"i": uint64(i),
+		}
+		require.NoError(t, batch.Append(testMapSerializer{val: vals[i]}))
+		require.Equal(t, 1, batch.Rows())
+		require.NoError(t, batch.Flush())
+	}
+	require.Equal(t, 0, batch.Rows())
+	require.NoError(t, batch.Send())
+	rows, err := conn.Query(ctx, "SELECT * FROM test_map_flush")
+	require.NoError(t, err)
+	i := 0
+	for rows.Next() {
+		var col1 map[string]uint64
+		require.NoError(t, rows.Scan(&col1))
+		require.Equal(t, vals[i], col1)
 		i += 1
 	}
 	require.Equal(t, 1000, i)

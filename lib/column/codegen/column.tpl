@@ -31,6 +31,7 @@ import (
 	"github.com/paulmach/orb"
 	"github.com/shopspring/decimal"
 	"database/sql"
+	"database/sql/driver"
 	"github.com/ClickHouse/ch-go/proto"
 )
 
@@ -315,6 +316,20 @@ func (col *{{ .ChType }}) Append(v any) (nulls []uint8,err error) {
 		}
 	{{- end }}
 	default:
+
+	    if valuer, ok := v.(driver.Valuer); ok {
+            val, err := valuer.Value()
+            if err != nil {
+                return nil, &ColumnConverterError{
+                    Op:   "Append",
+                    To:   "{{ .ChType }}",
+                    From: fmt.Sprintf("%T", v),
+                    Hint: "could not get driver.Valuer value",
+                }
+            }
+            return col.Append(val)
+        }
+
 		return nil, &ColumnConverterError{
 			Op:   "Append",
 			To:   "{{ .ChType }}",
@@ -382,6 +397,20 @@ func (col *{{ .ChType }}) AppendRow(v any) error {
         col.col.Append(val)
 	{{- end }}
 	default:
+
+	    if valuer, ok := v.(driver.Valuer); ok {
+            val, err := valuer.Value()
+            if err != nil {
+                return &ColumnConverterError{
+                    Op:   "AppendRow",
+                    To:   "{{ .ChType }}",
+                    From: fmt.Sprintf("%T", v),
+                    Hint: "could not get driver.Valuer value",
+                }
+            }
+            return col.AppendRow(val)
+        }
+
 		if rv := reflect.ValueOf(v); rv.Kind() == col.ScanType().Kind() || rv.CanConvert(col.ScanType()) {
 			col.col.Append(rv.Convert(col.ScanType()).Interface().({{ .GoType }}))
 		} else {

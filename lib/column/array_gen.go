@@ -22,6 +22,8 @@ package column
 
 import (
 	"database/sql"
+	"database/sql/driver"
+	"fmt"
 	"github.com/ClickHouse/ch-go/proto"
 	"github.com/google/uuid"
 	"github.com/paulmach/orb"
@@ -156,6 +158,18 @@ func (col *Array) appendRowPlain(v any) error {
 	case []*orb.Ring:
 		return appendNullableRowPlain(col, tv)
 	default:
+		if valuer, ok := v.(driver.Valuer); ok {
+			val, err := valuer.Value()
+			if err != nil {
+				return &ColumnConverterError{
+					Op:   "AppendRow",
+					To:   "Array",
+					From: fmt.Sprintf("%T", v),
+					Hint: "could not get driver.Valuer value",
+				}
+			}
+			return col.appendRowPlain(val)
+		}
 		return col.appendRowDefault(v)
 	}
 }

@@ -19,6 +19,7 @@ package column
 
 import (
 	"database/sql"
+	"database/sql/driver"
 	"fmt"
 	"github.com/ClickHouse/ch-go/proto"
 	"math"
@@ -193,6 +194,18 @@ func (col *DateTime64) Append(v any) (nulls []uint8, err error) {
 			col.AppendRow(v[i])
 		}
 	default:
+		if valuer, ok := v.(driver.Valuer); ok {
+			val, err := valuer.Value()
+			if err != nil {
+				return nil, &ColumnConverterError{
+					Op:   "Append",
+					To:   "Datetime64",
+					From: fmt.Sprintf("%T", v),
+					Hint: "could not get driver.Valuer value",
+				}
+			}
+			return col.Append(val)
+		}
 		return nil, &ColumnConverterError{
 			Op:   "Append",
 			To:   "Datetime64",
@@ -251,6 +264,18 @@ func (col *DateTime64) AppendRow(v any) error {
 	case nil:
 		col.col.Append(time.Time{})
 	default:
+		if valuer, ok := v.(driver.Valuer); ok {
+			val, err := valuer.Value()
+			if err != nil {
+				return &ColumnConverterError{
+					Op:   "AppendRow",
+					To:   "Datetime64",
+					From: fmt.Sprintf("%T", v),
+					Hint: "could not get driver.Valuer value",
+				}
+			}
+			return col.AppendRow(val)
+		}
 		s, ok := v.(fmt.Stringer)
 		if ok {
 			return col.AppendRow(s.String())

@@ -18,6 +18,7 @@
 package column
 
 import (
+	"database/sql/driver"
 	"encoding/binary"
 	"fmt"
 	"github.com/ClickHouse/ch-go/proto"
@@ -97,6 +98,18 @@ func (col *BigInt) Append(v any) (nulls []uint8, err error) {
 			}
 		}
 	default:
+		if valuer, ok := v.(driver.Valuer); ok {
+			val, err := valuer.Value()
+			if err != nil {
+				return nil, &ColumnConverterError{
+					Op:   "Append",
+					To:   string(col.chType),
+					From: fmt.Sprintf("%T", v),
+					Hint: "could not get driver.Valuer value",
+				}
+			}
+			return col.Append(val)
+		}
 		return nil, &ColumnConverterError{
 			Op:   "Append",
 			To:   string(col.chType),
@@ -120,6 +133,18 @@ func (col *BigInt) AppendRow(v any) error {
 	case nil:
 		col.append(big.NewInt(0))
 	default:
+		if valuer, ok := v.(driver.Valuer); ok {
+			val, err := valuer.Value()
+			if err != nil {
+				return &ColumnConverterError{
+					Op:   "AppendRow",
+					To:   string(col.chType),
+					From: fmt.Sprintf("%T", v),
+					Hint: "could not get driver.Valuer value",
+				}
+			}
+			return col.AppendRow(val)
+		}
 		return &ColumnConverterError{
 			Op:   "AppendRow",
 			To:   string(col.chType),

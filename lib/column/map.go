@@ -18,6 +18,7 @@
 package column
 
 import (
+	"database/sql/driver"
 	"fmt"
 	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
@@ -111,6 +112,18 @@ func (col *Map) ScanRow(dest any, i int) error {
 func (col *Map) Append(v any) (nulls []uint8, err error) {
 	value := reflect.Indirect(reflect.ValueOf(v))
 	if value.Kind() != reflect.Slice {
+		if valuer, ok := v.(driver.Valuer); ok {
+			val, err := valuer.Value()
+			if err != nil {
+				return nil, &ColumnConverterError{
+					Op:   "Append",
+					To:   string(col.chType),
+					From: fmt.Sprintf("%T", v),
+					Hint: fmt.Sprintf("could not get driver.Valuer value, try using %s", col.scanType),
+				}
+			}
+			return col.Append(val)
+		}
 		return nil, &ColumnConverterError{
 			Op:   "Append",
 			To:   string(col.chType),
@@ -171,6 +184,19 @@ func (col *Map) AppendRow(v any) error {
 		}
 		col.offsets.col.Append(prev + size)
 		return nil
+	}
+
+	if valuer, ok := v.(driver.Valuer); ok {
+		val, err := valuer.Value()
+		if err != nil {
+			return &ColumnConverterError{
+				Op:   "AppendRow",
+				To:   string(col.chType),
+				From: fmt.Sprintf("%T", v),
+				Hint: fmt.Sprintf("could not get driver.Valuer value, try using %s", col.scanType),
+			}
+		}
+		return col.AppendRow(val)
 	}
 
 	return &ColumnConverterError{

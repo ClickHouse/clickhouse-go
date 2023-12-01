@@ -19,6 +19,7 @@ package tests
 
 import (
 	"context"
+	"database/sql/driver"
 	"fmt"
 	"github.com/stretchr/testify/require"
 	"testing"
@@ -399,4 +400,63 @@ func TestDate32WithUserLocation(t *testing.T) {
 	const dateTimeNoZoneFormat = "2006-01-02T15:04:05"
 	assert.Equal(t, "2022-07-01T00:00:00", col1.Format(dateTimeNoZoneFormat))
 	assert.Equal(t, userLocation.String(), col1.Location().String())
+}
+
+type testDate32Serializer struct {
+	val time.Time
+}
+
+func (c testDate32Serializer) Value() (driver.Value, error) {
+	return c.val, nil
+}
+
+func (c *testDate32Serializer) Scan(src any) error {
+	if t, ok := src.(time.Time); ok {
+		*c = testDate32Serializer{val: t}
+		return nil
+	}
+	return fmt.Errorf("cannot scan %T into testDate32Serializer", src)
+}
+
+func TestDate32Valuer(t *testing.T) {
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+	if !CheckMinServerServerVersion(conn, 21, 9, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
+		return
+	}
+	require.NoError(t, err)
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE IF EXISTS date_32_valuer")
+	}()
+	const ddl = `
+		CREATE TABLE date_32_valuer (
+			  Col1 Date32
+		) Engine MergeTree() ORDER BY tuple()
+		`
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO date_32_valuer")
+	require.NoError(t, err)
+	vals := [1000]time.Time{}
+	var now = time.Now()
+
+	for i := 0; i < 1000; i++ {
+		vals[i] = now.Add(time.Duration(i) * time.Hour)
+		batch.Append(testDate32Serializer{val: vals[i]})
+		require.Equal(t, 1, batch.Rows())
+		batch.Flush()
+	}
+	require.Equal(t, 0, batch.Rows())
+	batch.Send()
+	rows, err := conn.Query(ctx, "SELECT * FROM date_32_valuer")
+	require.NoError(t, err)
+	i := 0
+	for rows.Next() {
+		var col1 time.Time
+		require.NoError(t, rows.Scan(&col1))
+		assert.Equal(t, vals[i].Format("2016-02-01"), col1.Format("2016-02-01"))
+		i += 1
+	}
 }

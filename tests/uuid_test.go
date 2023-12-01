@@ -19,6 +19,8 @@ package tests
 
 import (
 	"context"
+	"database/sql/driver"
+	"fmt"
 	"testing"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
@@ -329,6 +331,60 @@ func TestUUIDFlush(t *testing.T) {
 	require.Equal(t, 0, batch.Rows())
 	batch.Send()
 	rows, err := conn.Query(ctx, "SELECT * FROM uuid_flush")
+	require.NoError(t, err)
+	i := 0
+	for rows.Next() {
+		var col1 uuid.UUID
+		require.NoError(t, rows.Scan(&col1))
+		require.Equal(t, vals[i], col1)
+		i += 1
+	}
+	require.Equal(t, 1000, i)
+}
+
+type testUUIDValuer struct {
+	val uuid.UUID
+}
+
+func (c testUUIDValuer) Value() (driver.Value, error) {
+	return c.val, nil
+}
+
+func (c *testUUIDValuer) Scan(src any) error {
+	if t, ok := src.(string); ok {
+		*c = testUUIDValuer{val: uuid.MustParse(t)}
+		return nil
+	}
+	return fmt.Errorf("cannot scan %T into testUUIDValuer", src)
+}
+
+func TestUUIDValuer(t *testing.T) {
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+	require.NoError(t, err)
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE IF EXISTS uuid_valuer1")
+	}()
+	const ddl = `
+		CREATE TABLE uuid_valuer1 (
+			  Col1 UUID
+		) Engine MergeTree() ORDER BY tuple()
+		`
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO uuid_valuer1")
+	require.NoError(t, err)
+	vals := [1000]uuid.UUID{}
+	for i := 0; i < 1000; i++ {
+		vals[i] = uuid.New()
+		batch.Append(testUUIDValuer{val: vals[i]})
+		require.Equal(t, 1, batch.Rows())
+		batch.Flush()
+	}
+	require.Equal(t, 0, batch.Rows())
+	batch.Send()
+	rows, err := conn.Query(ctx, "SELECT * FROM uuid_valuer1")
 	require.NoError(t, err)
 	i := 0
 	for rows.Next() {

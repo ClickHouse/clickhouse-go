@@ -22,6 +22,7 @@ package column
 
 import (
 	"database/sql"
+    "database/sql/driver"
 	"github.com/ClickHouse/ch-go/proto"
 	"github.com/google/uuid"
 	"github.com/paulmach/orb"
@@ -30,6 +31,7 @@ import (
 	"net"
 	"net/netip"
 	"time"
+	"fmt"
 )
 
 // appendRowPlain is a reflection-free realisation of append for plain arrays.
@@ -42,6 +44,18 @@ func (col *Array) appendRowPlain(v any) error {
 		return appendNullableRowPlain(col, tv)
 	{{- end }}
 	default:
+	    if valuer, ok := v.(driver.Valuer); ok {
+            val, err := valuer.Value()
+            if err != nil {
+                return &ColumnConverterError{
+                    Op:   "AppendRow",
+                    To:   "Array",
+                    From: fmt.Sprintf("%T", v),
+                    Hint: "could not get driver.Valuer value",
+                }
+            }
+            return col.appendRowPlain(val)
+        }
 		return col.appendRowDefault(v)
 	}
 }

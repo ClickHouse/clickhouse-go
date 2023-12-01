@@ -19,6 +19,7 @@ package column
 
 import (
 	"database/sql"
+	"database/sql/driver"
 	"fmt"
 	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
@@ -110,6 +111,18 @@ func (col *Bool) Append(v any) (nulls []uint8, err error) {
 			col.Append(v[i])
 		}
 	default:
+		if valuer, ok := v.(driver.Valuer); ok {
+			val, err := valuer.Value()
+			if err != nil {
+				return nil, &ColumnConverterError{
+					Op:   "Append",
+					To:   "Bool",
+					From: fmt.Sprintf("%T", v),
+					Hint: "could not get driver.Valuer value",
+				}
+			}
+			return col.Append(val)
+		}
 		return nil, &ColumnConverterError{
 			Op:   "Append",
 			To:   "Bool",
@@ -140,6 +153,18 @@ func (col *Bool) AppendRow(v any) error {
 		}
 	case nil:
 	default:
+		if valuer, ok := v.(driver.Valuer); ok {
+			val, err := valuer.Value()
+			if err != nil {
+				return &ColumnConverterError{
+					Op:   "AppendRow",
+					To:   "Bool",
+					From: fmt.Sprintf("%T", v),
+					Hint: "could not get driver.Valuer value",
+				}
+			}
+			return col.AppendRow(val)
+		}
 		return &ColumnConverterError{
 			Op:   "AppendRow",
 			To:   "Bool",

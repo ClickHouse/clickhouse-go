@@ -19,6 +19,7 @@ package column
 
 import (
 	"database/sql"
+	"database/sql/driver"
 	"fmt"
 	"net"
 	"reflect"
@@ -491,6 +492,18 @@ func (col *Tuple) Append(v any) (nulls []uint8, err error) {
 		}
 		return nil, nil
 	}
+	if valuer, ok := v.(driver.Valuer); ok {
+		val, err := valuer.Value()
+		if err != nil {
+			return nil, &ColumnConverterError{
+				Op:   "Append",
+				To:   string(col.chType),
+				From: fmt.Sprintf("%T", v),
+				Hint: "could not get driver.Valuer value",
+			}
+		}
+		return col.Append(val)
+	}
 	return nil, &ColumnConverterError{
 		Op:   "Append",
 		To:   string(col.chType),
@@ -551,6 +564,19 @@ func (col *Tuple) AppendRow(v any) error {
 			}
 		}
 		return nil
+	}
+
+	if valuer, ok := v.(driver.Valuer); ok {
+		val, err := valuer.Value()
+		if err != nil {
+			return &ColumnConverterError{
+				Op:   "AppendRow",
+				To:   string(col.chType),
+				From: fmt.Sprintf("%T", v),
+				Hint: "could not get driver.Valuer value",
+			}
+		}
+		return col.AppendRow(val)
 	}
 
 	return &ColumnConverterError{

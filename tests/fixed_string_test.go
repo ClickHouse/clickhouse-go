@@ -20,6 +20,7 @@ package tests
 import (
 	"context"
 	"crypto/rand"
+	"database/sql/driver"
 	"fmt"
 	"github.com/stretchr/testify/require"
 	"testing"
@@ -408,4 +409,62 @@ func TestFixedStringFromDriverValuerType(t *testing.T) {
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_fixed_string").ScanStruct(&dest))
 	assert.Equal(t, "Value", dest.Col1)
 	assert.Equal(t, testStringSerializer{"Value"}, dest.Col2)
+}
+
+type testFixedStringPtrSerializer struct {
+	val string
+}
+
+func (c testFixedStringPtrSerializer) Value() (driver.Value, error) {
+	return &c.val, nil
+}
+
+func (c *testFixedStringPtrSerializer) Scan(src any) error {
+	if t, ok := src.(string); ok {
+		*c = testFixedStringPtrSerializer{val: t}
+		return nil
+	}
+	return fmt.Errorf("cannot scan %T into testFixedStringPtrSerializer", src)
+}
+
+func TestFixedStringFromDriverValuerTypeNonStdReturn(t *testing.T) {
+	conn, err := GetConnection("native", nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+
+	require.NoError(t, err)
+	require.NoError(t, conn.Ping(ctx))
+	if !CheckMinServerServerVersion(conn, 21, 9, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
+		return
+	}
+	const ddl = `
+		CREATE TABLE test_fixed_string (
+			  	  Col1 FixedString(5)
+		        , Col2 FixedString(5)
+		) Engine MergeTree() ORDER BY tuple()
+		`
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE test_fixed_string")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_fixed_string")
+	require.NoError(t, err)
+
+	s := "Value"
+	type data struct {
+		Col1 string                       `ch:"Col1"`
+		Col2 testFixedStringPtrSerializer `ch:"Col2"`
+	}
+	require.NoError(t, batch.AppendStruct(&data{
+		Col1: "Value",
+		Col2: testFixedStringPtrSerializer{s},
+	}))
+	require.NoError(t, batch.Send())
+
+	var dest data
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_fixed_string").ScanStruct(&dest))
+	assert.Equal(t, "Value", dest.Col1)
+	assert.Equal(t, testFixedStringPtrSerializer{"Value"}, dest.Col2)
 }

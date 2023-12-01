@@ -18,6 +18,7 @@
 package column
 
 import (
+	"database/sql/driver"
 	"encoding/binary"
 	"fmt"
 	"github.com/ClickHouse/ch-go/proto"
@@ -203,6 +204,18 @@ func (col *IPv4) Append(v any) (nulls []uint8, err error) {
 			}
 		}
 	default:
+		if valuer, ok := v.(driver.Valuer); ok {
+			val, err := valuer.Value()
+			if err != nil {
+				return nil, &ColumnConverterError{
+					Op:   "Append",
+					To:   "IPv4",
+					From: fmt.Sprintf("%T", v),
+					Hint: fmt.Sprintf("could not get driver.Valuer value, try using %s", col.Type()),
+				}
+			}
+			return col.Append(val)
+		}
 		return nil, &ColumnConverterError{
 			Op:   "Append",
 			To:   "IPv4",
@@ -267,6 +280,18 @@ func (col *IPv4) AppendRow(v any) (err error) {
 			col.col.Append(0)
 		}
 	default:
+		if valuer, ok := v.(driver.Valuer); ok {
+			val, err := valuer.Value()
+			if err != nil {
+				return &ColumnConverterError{
+					Op:   "AppendRow",
+					To:   "IPv4",
+					From: fmt.Sprintf("%T", v),
+					Hint: fmt.Sprintf("could not get driver.Valuer value, try using %s", col.Type()),
+				}
+			}
+			return col.AppendRow(val)
+		}
 		return &ColumnConverterError{
 			Op:   "AppendRow",
 			To:   "IPv4",

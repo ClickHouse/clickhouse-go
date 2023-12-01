@@ -19,6 +19,8 @@ package tests
 
 import (
 	"context"
+	"database/sql/driver"
+	"fmt"
 	"github.com/ClickHouse/ch-go/proto"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	"github.com/stretchr/testify/require"
@@ -456,6 +458,58 @@ func TestIPv6Flush(t *testing.T) {
 	}
 	require.NoError(t, batch.Send())
 	rows, err := conn.Query(ctx, "SELECT * FROM test_ipv6_ring_flush")
+	require.NoError(t, err)
+	i := 0
+	for rows.Next() {
+		var col1 net.IP
+		require.NoError(t, rows.Scan(&col1))
+		require.Equal(t, vals[i], col1)
+		i += 1
+	}
+	require.Equal(t, 1000, i)
+}
+
+type testIPv6Serializer struct {
+	val net.IP
+}
+
+func (c testIPv6Serializer) Value() (driver.Value, error) {
+	return c.val, nil
+}
+
+func (c *testIPv6Serializer) Scan(src any) error {
+	if t, ok := src.(net.IP); ok {
+		*c = testIPv6Serializer{val: t}
+		return nil
+	}
+	return fmt.Errorf("cannot scan %T into testIPv6Serializer", src)
+}
+
+func TestIPv6Valuer(t *testing.T) {
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+	require.NoError(t, err)
+	const ddl = `
+		CREATE TABLE test_ipv6_ring_valuer (
+			  Col1 IPv6
+		) Engine MergeTree() ORDER BY tuple()
+		`
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE test_ipv6_ring_valuer")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_ipv6_ring_valuer")
+	require.NoError(t, err)
+	vals := [1000]net.IP{}
+	for i := 0; i < 1000; i++ {
+		vals[i] = RandIPv6()
+		require.NoError(t, batch.Append(testIPv6Serializer{val: vals[i]}))
+		require.NoError(t, batch.Flush())
+	}
+	require.NoError(t, batch.Send())
+	rows, err := conn.Query(ctx, "SELECT * FROM test_ipv6_ring_valuer")
 	require.NoError(t, err)
 	i := 0
 	for rows.Next() {
