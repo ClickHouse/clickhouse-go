@@ -6,10 +6,16 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/stretchr/testify/require"
+	"strconv"
 	"testing"
 )
 
 func TestBatchReleaseConnection(t *testing.T) {
+	runInDocker, _ := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_DOCKER", "true"))
+	if !runInDocker {
+		t.Skip("Skip test in cloud environment.")
+	}
+
 	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
@@ -42,6 +48,11 @@ func TestBatchReleaseConnection(t *testing.T) {
 }
 
 func TestBatchReleaseConnectionFlush(t *testing.T) {
+	runInDocker, _ := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_DOCKER", "true"))
+	if !runInDocker {
+		t.Skip("Skip test in cloud environment.")
+	}
+
 	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})

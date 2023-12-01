@@ -29,6 +29,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"log"
 	"net"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -927,6 +928,11 @@ func TestJSONMapInconsistentMapWithInterface(t *testing.T) {
 }
 
 func TestJSONMapInconsistentComplexMap(t *testing.T) {
+	runInDocker, _ := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_DOCKER", "true"))
+	if !runInDocker {
+		t.Skip("Skip test in cloud environment. Not stable.")
+	}
+
 	conn, teardown := setupTest(t)
 	defer teardown(t)
 	ctx := context.Background()
