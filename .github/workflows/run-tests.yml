@@ -23,9 +23,9 @@ jobs:
           - "1.21"
         clickhouse: # https://github.com/ClickHouse/ClickHouse/blob/master/SECURITY.md#scope-and-supported-versions
           - "23.3"
-          - "23.6"
-          - "23.7"
           - "23.8"
+          - "23.9"
+          - "23.10"
           - "latest"
     steps:
       - uses: actions/checkout@main
