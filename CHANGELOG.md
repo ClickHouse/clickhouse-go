@@ -1,3 +1,17 @@
+# v2.16.0, 2023-12-01 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Enhancements 🎉
+* Add sql.Valuer support for all types by @deankarn in https://github.com/ClickHouse/clickhouse-go/pull/1144
+### Fixes 🐛
+* Fix DateTime64 range to actual supported range per ClickHouse documentation by @phil-schreiber in https://github.com/ClickHouse/clickhouse-go/pull/1148
+
+## New Contributors
+* @phil-schreiber made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1148
+* @deankarn made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1144
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.15.0...v2.16.0
+
 # v2.14.3, 2023-10-12 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
