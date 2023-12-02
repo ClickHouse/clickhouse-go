@@ -20,12 +20,12 @@ package clickhouse
 import (
 	std_driver "database/sql/driver"
 	"fmt"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	"reflect"
 	"regexp"
 	"strings"
 	"time"
 
+	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 )
 
@@ -308,6 +308,22 @@ func format(tz *time.Location, scale TimeUnit, v any) (string, error) {
 	case column.OrderedMap:
 		values := make([]string, 0)
 		for key := range v.Keys() {
+			name, err := format(tz, scale, key)
+			if err != nil {
+				return "", err
+			}
+			value, _ := v.Get(key)
+			val, err := format(tz, scale, value)
+			if err != nil {
+				return "", err
+			}
+			values = append(values, fmt.Sprintf("%s, %s", name, val))
+		}
+
+		return "map(" + strings.Join(values, ", ") + ")", nil
+	case column.OrderedMapV2:
+		values := make([]string, 0)
+		for _, key := range v.Keys() {
 			name, err := format(tz, scale, key)
 			if err != nil {
 				return "", err

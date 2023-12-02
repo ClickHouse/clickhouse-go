@@ -20,10 +20,11 @@ package column
 import (
 	"database/sql/driver"
 	"fmt"
-	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
 	"strings"
 	"time"
+
+	"github.com/ClickHouse/ch-go/proto"
 )
 
 // https://github.com/ClickHouse/ClickHouse/blob/master/src/Columns/ColumnMap.cpp
@@ -40,6 +41,12 @@ type OrderedMap interface {
 	Get(key any) (any, bool)
 	Put(key any, value any)
 	Keys() <-chan any
+}
+
+type OrderedMapV2 interface {
+	Get(key any) (any, bool)
+	Put(key any, value any)
+	Keys() []any
 }
 
 func (col *Map) Reset() {
@@ -92,6 +99,13 @@ func (col *Map) ScanRow(dest any, i int) error {
 	value := reflect.Indirect(reflect.ValueOf(dest))
 	if value.Type() == col.scanType {
 		value.Set(col.row(i))
+		return nil
+	}
+	if om, ok := dest.(OrderedMapV2); ok {
+		keys, values := col.orderedRow(i)
+		for i := range keys {
+			om.Put(keys[i], values[i])
+		}
 		return nil
 	}
 	if om, ok := dest.(OrderedMap); ok {
@@ -152,6 +166,29 @@ func (col *Map) AppendRow(v any) error {
 				return err
 			}
 			if err := col.values.AppendRow(iter.Value().Interface()); err != nil {
+				return err
+			}
+		}
+		var prev int64
+		if n := col.offsets.Rows(); n != 0 {
+			prev = col.offsets.col.Row(n - 1)
+		}
+		col.offsets.col.Append(prev + size)
+		return nil
+	}
+
+	if orderedMap, ok := v.(OrderedMapV2); ok {
+		var size int64
+		for _, key := range orderedMap.Keys() {
+			value, ok := orderedMap.Get(key)
+			if !ok {
+				return fmt.Errorf("ordered map has key %v but no corresponding value", key)
+			}
+			size++
+			if err := col.keys.AppendRow(key); err != nil {
+				return err
+			}
+			if err := col.values.AppendRow(value); err != nil {
 				return err
 			}
 		}

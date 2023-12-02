@@ -21,8 +21,9 @@ import (
 	"context"
 	"database/sql/driver"
 	"fmt"
-	"github.com/stretchr/testify/require"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
@@ -353,4 +354,59 @@ func TestMapValuer(t *testing.T) {
 		i += 1
 	}
 	require.Equal(t, 1000, i)
+}
+
+func (om *OrderedMap) KeysUseChanNoGo() <-chan any {
+	ch := make(chan any, len(om.keys))
+	for _, key := range om.keys {
+		ch <- key
+	}
+	close(ch)
+	return ch
+}
+
+func (om *OrderedMap) KeysUseSlice() []any {
+	return om.keys
+}
+
+func BenchmarkOrderedMapUseChanGo(b *testing.B) {
+	m := NewOrderedMap()
+	for i := 0; i < 10; i++ {
+		m.Put(i, i)
+	}
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		for key := range m.Keys() {
+			_, _ = m.Get(key)
+		}
+	}
+}
+
+func BenchmarkOrderedMapKeysUseChanNoGo(b *testing.B) {
+	m := NewOrderedMap()
+	for i := 0; i < 10; i++ {
+		m.Put(i, i)
+	}
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		for key := range m.KeysUseChanNoGo() {
+			_, _ = m.Get(key)
+		}
+	}
+}
+
+func BenchmarkOrderedMapKeysUseSlice(b *testing.B) {
+	m := NewOrderedMap()
+	for i := 0; i < 10; i++ {
+		m.Put(i, i)
+	}
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		for key := range m.KeysUseSlice() {
+			_, _ = m.Get(key)
+		}
+	}
 }
