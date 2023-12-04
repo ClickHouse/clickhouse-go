@@ -76,7 +76,7 @@ Support for the ClickHouse protocol advanced features using `Context`:
 		},
 		Debug: true,
 		Debugf: func(format string, v ...any) {
-			fmt.Printf(format, v)
+			fmt.Printf(format+"\n", v...)
 		},
 		Settings: clickhouse.Settings{
 			"max_execution_time": 60,
