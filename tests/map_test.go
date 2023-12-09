@@ -216,8 +216,9 @@ func TestMapFlush(t *testing.T) {
 
 // a simple (non thread safe) ordered map
 type OrderedMap struct {
-	keys   []any
-	values map[any]any
+	keys       []any
+	values     map[any]any
+	valuesIter []any
 }
 
 func NewOrderedMap() *OrderedMap {
@@ -237,10 +238,12 @@ func (om *OrderedMap) Get(key any) (any, bool) {
 func (om *OrderedMap) Put(key any, value any) {
 	if _, present := om.values[key]; present {
 		om.values[key] = value
+		om.valuesIter = append(om.valuesIter, value)
 		return
 	}
 	om.keys = append(om.keys, key)
 	om.values[key] = value
+	om.valuesIter = append(om.valuesIter, value)
 }
 
 func (om *OrderedMap) Keys() <-chan any {
@@ -369,6 +372,34 @@ func (om *OrderedMap) KeysUseSlice() []any {
 	return om.keys
 }
 
+func (om *OrderedMap) MapIter() MapIter {
+	return &mapIter{om: om, iterIndex: -1}
+}
+
+type MapIter interface {
+	Next() bool
+	Key() any
+	Value() any
+}
+
+type mapIter struct {
+	om        *OrderedMap
+	iterIndex int
+}
+
+func (i *mapIter) Next() bool {
+	i.iterIndex++
+	return i.iterIndex >= len(i.om.keys)
+}
+
+func (i *mapIter) Key() any {
+	return i.om.keys[i.iterIndex]
+}
+
+func (i *mapIter) Value() any {
+	return i.om.values[i.iterIndex]
+}
+
 func BenchmarkOrderedMapUseChanGo(b *testing.B) {
 	m := NewOrderedMap()
 	for i := 0; i < 10; i++ {
@@ -407,6 +438,22 @@ func BenchmarkOrderedMapKeysUseSlice(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		for key := range m.KeysUseSlice() {
 			_, _ = m.Get(key)
+		}
+	}
+}
+
+func BenchmarkOrderedMapKeysUseIter(b *testing.B) {
+	m := NewOrderedMap()
+	for i := 0; i < 10; i++ {
+		m.Put(i, i)
+	}
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		iter := m.MapIter()
+		for iter.Next() {
+			_ = iter.Key()
+			_ = iter.Value()
 		}
 	}
 }
