@@ -51,7 +51,7 @@ type MapIter interface {
 
 type OrderedMapV2 interface {
 	Put(key any, value any)
-	Range() MapIter
+	Iter() MapIter
 }
 
 func (col *Map) Reset() {
@@ -184,7 +184,7 @@ func (col *Map) AppendRow(v any) error {
 
 	if orderedMap, ok := v.(OrderedMapV2); ok {
 		var size int64
-		iter := orderedMap.Range()
+		iter := orderedMap.Iter()
 		for iter.Next() {
 			key, value := iter.Key(), iter.Value()
 			size++

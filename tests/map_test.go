@@ -372,7 +372,7 @@ func (om *OrderedMap) KeysUseSlice() []any {
 	return om.keys
 }
 
-func (om *OrderedMap) MapIter() MapIter {
+func (om *OrderedMap) Iter() MapIter {
 	return &mapIter{om: om, iterIndex: -1}
 }
 
@@ -450,7 +450,7 @@ func BenchmarkOrderedMapKeysUseIter(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		iter := m.MapIter()
+		iter := m.Iter()
 		for iter.Next() {
 			_ = iter.Key()
 			_ = iter.Value()
