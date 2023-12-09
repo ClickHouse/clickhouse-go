@@ -323,12 +323,13 @@ func format(tz *time.Location, scale TimeUnit, v any) (string, error) {
 		return "map(" + strings.Join(values, ", ") + ")", nil
 	case column.OrderedMapV2:
 		values := make([]string, 0)
-		for _, key := range v.Keys() {
+		iter := v.Range()
+		for iter.Next() {
+			key, value := iter.Key(), iter.Value()
 			name, err := format(tz, scale, key)
 			if err != nil {
 				return "", err
 			}
-			value, _ := v.Get(key)
 			val, err := format(tz, scale, value)
 			if err != nil {
 				return "", err

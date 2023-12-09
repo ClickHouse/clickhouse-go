@@ -43,10 +43,15 @@ type OrderedMap interface {
 	Keys() <-chan any
 }
 
+type MapIter interface {
+	Next() bool
+	Key() any
+	Value() any
+}
+
 type OrderedMapV2 interface {
-	Get(key any) (any, bool)
 	Put(key any, value any)
-	Keys() []any
+	Range() MapIter
 }
 
 func (col *Map) Reset() {
@@ -179,11 +184,9 @@ func (col *Map) AppendRow(v any) error {
 
 	if orderedMap, ok := v.(OrderedMapV2); ok {
 		var size int64
-		for _, key := range orderedMap.Keys() {
-			value, ok := orderedMap.Get(key)
-			if !ok {
-				return fmt.Errorf("ordered map has key %v but no corresponding value", key)
-			}
+		iter := orderedMap.Range()
+		for iter.Next() {
+			key, value := iter.Key(), iter.Value()
 			size++
 			if err := col.keys.AppendRow(key); err != nil {
 				return err
