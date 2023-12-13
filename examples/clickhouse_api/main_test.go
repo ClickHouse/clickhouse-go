@@ -20,13 +20,14 @@ package clickhouse_api
 import (
 	"context"
 	"fmt"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
-	"github.com/stretchr/testify/require"
 	"math/rand"
 	"os"
 	"strconv"
 	"testing"
 	"time"
+
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMain(m *testing.M) {
@@ -153,6 +154,10 @@ func TestGeo(t *testing.T) {
 
 func TestMapInsertRead(t *testing.T) {
 	require.NoError(t, MapInsertRead())
+}
+
+func TestIterableOrderedMapInsertRead(t *testing.T) {
+	require.NoError(t, IterableOrderedMapInsertRead())
 }
 
 func TestMultiHostConnect(t *testing.T) {
