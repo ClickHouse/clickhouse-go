@@ -21,8 +21,10 @@ import (
 	"context"
 	"database/sql/driver"
 	"fmt"
-	"github.com/stretchr/testify/require"
+	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
@@ -215,8 +217,9 @@ func TestMapFlush(t *testing.T) {
 
 // a simple (non thread safe) ordered map
 type OrderedMap struct {
-	keys   []any
-	values map[any]any
+	keys       []any
+	values     map[any]any
+	valuesIter []any
 }
 
 func NewOrderedMap() *OrderedMap {
@@ -240,6 +243,7 @@ func (om *OrderedMap) Put(key any, value any) {
 	}
 	om.keys = append(om.keys, key)
 	om.values[key] = value
+	om.valuesIter = append(om.valuesIter, value)
 }
 
 func (om *OrderedMap) Keys() <-chan any {
@@ -353,4 +357,120 @@ func TestMapValuer(t *testing.T) {
 		i += 1
 	}
 	require.Equal(t, 1000, i)
+}
+
+func (om *OrderedMap) KeysUseChanNoGo() <-chan any {
+	ch := make(chan any, len(om.keys))
+	for _, key := range om.keys {
+		ch <- key
+	}
+	close(ch)
+	return ch
+}
+
+func (om *OrderedMap) KeysUseSlice() []any {
+	return om.keys
+}
+
+func (om *OrderedMap) Iter() MapIter {
+	return &mapIter{om: om, iterIndex: -1}
+}
+
+type MapIter interface {
+	Next() bool
+	Key() any
+	Value() any
+}
+
+type mapIter struct {
+	om        *OrderedMap
+	iterIndex int
+}
+
+func (i *mapIter) Next() bool {
+	i.iterIndex++
+	return i.iterIndex < len(i.om.keys)
+}
+
+func (i *mapIter) Key() any {
+	return i.om.keys[i.iterIndex]
+}
+
+func (i *mapIter) Value() any {
+	return i.om.valuesIter[i.iterIndex]
+}
+
+func BenchmarkOrderedMapUseChanGo(b *testing.B) {
+	m := NewOrderedMap()
+	for i := 0; i < 10; i++ {
+		m.Put(i, i)
+	}
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		for key := range m.Keys() {
+			_, _ = m.Get(key)
+		}
+	}
+}
+
+func BenchmarkOrderedMapKeysUseChanNoGo(b *testing.B) {
+	m := NewOrderedMap()
+	for i := 0; i < 10; i++ {
+		m.Put(i, i)
+	}
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		for key := range m.KeysUseChanNoGo() {
+			_, _ = m.Get(key)
+		}
+	}
+}
+
+func BenchmarkOrderedMapKeysUseSlice(b *testing.B) {
+	m := NewOrderedMap()
+	for i := 0; i < 10; i++ {
+		m.Put(i, i)
+	}
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		for key := range m.KeysUseSlice() {
+			_, _ = m.Get(key)
+		}
+	}
+}
+
+func BenchmarkOrderedMapKeysUseIter(b *testing.B) {
+	m := NewOrderedMap()
+	for i := 0; i < 10; i++ {
+		m.Put(i, i)
+	}
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		iter := m.Iter()
+		for iter.Next() {
+			_ = iter.Key()
+			_ = iter.Value()
+		}
+	}
+}
+
+func BenchmarkOrderedMapReflectMapIter(b *testing.B) {
+	m := NewOrderedMap()
+	for i := 0; i < 10; i++ {
+		m.Put(i, i)
+	}
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		value := reflect.Indirect(reflect.ValueOf(m.values))
+		iter := value.MapRange()
+		for iter.Next() {
+			_ = iter.Key().Interface()
+			_ = iter.Value().Interface()
+		}
+	}
 }
