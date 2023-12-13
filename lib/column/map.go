@@ -53,6 +53,7 @@ type IterableOrderedMap interface {
 	Put(key any, value any)
 	Iterator() MapIterator
 }
+
 func (col *Map) Reset() {
 	col.keys.Reset()
 	col.values.Reset()
@@ -105,7 +106,7 @@ func (col *Map) ScanRow(dest any, i int) error {
 		value.Set(col.row(i))
 		return nil
 	}
-	if om, ok := dest.(OrderedMapV2); ok {
+	if om, ok := dest.(IterableOrderedMap); ok {
 		keys, values := col.orderedRow(i)
 		for i := range keys {
 			om.Put(keys[i], values[i])
@@ -181,9 +182,9 @@ func (col *Map) AppendRow(v any) error {
 		return nil
 	}
 
-	if orderedMap, ok := v.(OrderedMapV2); ok {
+	if orderedMap, ok := v.(IterableOrderedMap); ok {
 		var size int64
-		iter := orderedMap.Iter()
+		iter := orderedMap.Iterator()
 		for iter.Next() {
 			key, value := iter.Key(), iter.Value()
 			size++

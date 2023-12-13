@@ -321,9 +321,9 @@ func format(tz *time.Location, scale TimeUnit, v any) (string, error) {
 		}
 
 		return "map(" + strings.Join(values, ", ") + ")", nil
-	case column.OrderedMapV2:
+	case column.IterableOrderedMap:
 		values := make([]string, 0)
-		iter := v.Iter()
+		iter := v.Iterator()
 		for iter.Next() {
 			key, value := iter.Key(), iter.Value()
 			name, err := format(tz, scale, key)
