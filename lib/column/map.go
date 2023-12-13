@@ -49,11 +49,10 @@ type MapIterator interface {
 	Value() any
 }
 
-type OrderedMapV2 interface {
+type IterableOrderedMap interface {
 	Put(key any, value any)
-	Iter() MapIter
+	Iterator() MapIterator
 }
-
 func (col *Map) Reset() {
 	col.keys.Reset()
 	col.values.Reset()
