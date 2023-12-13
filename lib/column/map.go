@@ -43,7 +43,7 @@ type OrderedMap interface {
 	Keys() <-chan any
 }
 
-type MapIter interface {
+type MapIterator interface {
 	Next() bool
 	Key() any
 	Value() any
