@@ -256,3 +256,36 @@ func TestBoolValuer(t *testing.T) {
 		i += 1
 	}
 }
+
+type CustomBool bool
+
+func (cb *CustomBool) Scan(src any) error {
+	if t, ok := src.(bool); ok {
+		*cb = CustomBool(t)
+		return nil
+	}
+	return fmt.Errorf("cannot scan %T into CustomBool", src)
+}
+
+func TestCustomBool(t *testing.T) {
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+	const ddl = `
+		CREATE TABLE bool_custom (
+			  Col1 Bool
+		) Engine MergeTree() ORDER BY tuple()
+		`
+	conn.Exec(ctx, "DROP TABLE bool_custom")
+	require.NoError(t, conn.Exec(ctx, ddl))
+	require.NoError(t, err)
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO bool_custom")
+	require.NoError(t, err)
+	require.NoError(t, batch.Append(true))
+	require.NoError(t, batch.Send())
+	row := conn.QueryRow(ctx, "SELECT * FROM bool_custom")
+	var col1 CustomBool
+	require.NoError(t, row.Scan(&col1))
+	require.Equal(t, true, bool(col1))
+}
