@@ -65,12 +65,9 @@ func (col *Bool) ScanRow(dest any, row int) error {
 	case **bool:
 		*d = new(bool)
 		**d = col.row(row)
-	case *sql.NullBool:
+	case sql.Scanner:
 		return d.Scan(col.row(row))
 	default:
-		if scan, ok := dest.(sql.Scanner); ok {
-			return scan.Scan(col.row(row))
-		}
 		return &ColumnConverterError{
 			Op:   "ScanRow",
 			To:   fmt.Sprintf("%T", dest),
