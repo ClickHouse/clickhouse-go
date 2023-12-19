@@ -181,7 +181,7 @@ clickhouse://username:password@host1:9000,host2:9000/database?dial_timeout=200ms
 
 The native format can be used over the HTTP protocol. This is useful in scenarios where users need to proxy traffic e.g. using [ChProxy](https://www.chproxy.org/) or via load balancers.
 
-This can be achieved by modifying the DSN to specify the http protocol.
+This can be achieved by modifying the DSN to specify the HTTP protocol.
 
 ```sh
 http://host1:8123,host2:8123/database?dial_timeout=200ms&max_execution_time=60
@@ -207,6 +207,8 @@ conn := clickhouse.OpenDB(&clickhouse.Options{
 	Protocol:  clickhouse.HTTP,
 })
 ```
+
+**Note**: using HTTP protocol is possible only with `database/sql` interface.
 
 ## Compression
 
