@@ -1,3 +1,19 @@
+# v2.17.0, 2023-12-21 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Enhancements 🎉
+* Iterable ordered map alternative with improved performance by @hanjm in https://github.com/ClickHouse/clickhouse-go/pull/1152
+* Support bool alias type by @yogasw in https://github.com/ClickHouse/clickhouse-go/pull/1156
+### Fixes 🐛
+* Update README - mention HTTP protocol usable only with `database/sql` interface by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1160
+* Fix README example for Debugf by @aramperes in https://github.com/ClickHouse/clickhouse-go/pull/1153
+
+## New Contributors
+* @yogasw made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1156
+* @aramperes made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1153
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.16.0...v2.17.0
+
 # v2.16.0, 2023-12-01 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
