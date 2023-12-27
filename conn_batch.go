@@ -181,7 +181,9 @@ func (b *batch) Send() (err error) {
 	stopCW := contextWatchdog(b.ctx, func() {
 		// close TCP connection on context cancel. There is no other way simple way to interrupt underlying operations.
 		// as verified in the test, this is safe to do and cleanups resources later on
-		_ = b.conn.conn.Close()
+		if b.conn != nil {
+			_ = b.conn.conn.Close()
+		}
 	})
 
 	defer func() {
