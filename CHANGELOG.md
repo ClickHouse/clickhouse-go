@@ -1,3 +1,14 @@
+# v2.17.1, 2023-12-27 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Fixes 🐛
+* fix panic in contextWatchDog nil pointer check by @nityanandagohain in https://github.com/ClickHouse/clickhouse-go/pull/1168
+
+## New Contributors
+* @nityanandagohain made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1168
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.17.0...v2.17.1
+
 # v2.17.0, 2023-12-21 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
