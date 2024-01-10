@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"github.com/stretchr/testify/assert"
 	"strconv"
 	"testing"
 
@@ -23,11 +24,12 @@ func TestIssue1163(t *testing.T) {
 		tlsConfig = &tls.Config{}
 		port = env.SslPort
 	}
+	var debugfCalled bool
 	options := &clickhouse.Options{
 		Addr:  []string{fmt.Sprintf("%s:%d", env.Host, port)},
 		Debug: true,
 		Debugf: func(format string, v ...any) {
-
+			debugfCalled = true
 		},
 		Auth: clickhouse.Auth{
 			Database: "default",
@@ -40,4 +42,5 @@ func TestIssue1163(t *testing.T) {
 	c, err := conn.Connect(context.TODO())
 	require.NoError(t, err)
 	require.NotNil(t, c)
+	assert.True(t, debugfCalled)
 }
