@@ -46,7 +46,11 @@ type stdConnOpener struct {
 func (o *stdConnOpener) Driver() driver.Driver {
 	var debugf = func(format string, v ...any) {}
 	if o.opt.Debug {
-		debugf = log.New(os.Stdout, "[clickhouse-std] ", 0).Printf
+		if o.opt.Debugf != nil {
+			debugf = o.opt.Debugf
+		} else {
+			debugf = log.New(os.Stdout, "[clickhouse-std] ", 0).Printf
+		}
 	}
 	return &stdDriver{debugf: debugf}
 }
@@ -88,7 +92,11 @@ func (o *stdConnOpener) Connect(ctx context.Context) (_ driver.Conn, err error) 
 		if conn, err = dialFunc(ctx, o.opt.Addr[num], connID, o.opt); err == nil {
 			var debugf = func(format string, v ...any) {}
 			if o.opt.Debug {
-				debugf = log.New(os.Stdout, fmt.Sprintf("[clickhouse-std][conn=%d][%s] ", num, o.opt.Addr[num]), 0).Printf
+				if o.opt.Debugf != nil {
+					debugf = o.opt.Debugf
+				} else {
+					debugf = log.New(os.Stdout, fmt.Sprintf("[clickhouse-std][conn=%d][%s] ", num, o.opt.Addr[num]), 0).Printf
+				}
 			}
 			return &stdDriver{
 				conn:   conn,
@@ -125,7 +133,11 @@ func Connector(opt *Options) driver.Connector {
 
 	var debugf = func(format string, v ...any) {}
 	if o.Debug {
-		debugf = log.New(os.Stdout, "[clickhouse-std][opener] ", 0).Printf
+		if o.Debugf != nil {
+			debugf = o.Debugf
+		} else {
+			debugf = log.New(os.Stdout, "[clickhouse-std][opener] ", 0).Printf
+		}
 	}
 	return &stdConnOpener{
 		opt:    o,
@@ -149,7 +161,11 @@ func OpenDB(opt *Options) *sql.DB {
 		settings = append(settings, "SetConnMaxLifetime")
 	}
 	if opt.Debug {
-		debugf = log.New(os.Stdout, "[clickhouse-std][opener] ", 0).Printf
+		if opt.Debugf != nil {
+			debugf = opt.Debugf
+		} else {
+			debugf = log.New(os.Stdout, "[clickhouse-std][opener] ", 0).Printf
+		}
 	}
 	if len(settings) != 0 {
 		return sql.OpenDB(&stdConnOpener{
