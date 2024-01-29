@@ -5,7 +5,7 @@ go 1.20
 require (
 	github.com/ClickHouse/ch-go v0.58.2
 	github.com/ClickHouse/clickhouse-go v1.5.4
-	github.com/andybalholm/brotli v1.0.6
+	github.com/andybalholm/brotli v1.1.0
 	github.com/docker/docker v25.0.1+incompatible
 	github.com/docker/go-connections v0.5.0
 	github.com/docker/go-units v0.5.0
