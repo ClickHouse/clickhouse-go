@@ -264,9 +264,7 @@ func formatTime(tz *time.Location, scale TimeUnit, value time.Time) (string, err
 		return fmt.Sprintf("toDateTime64('%s', %d)", value.Format(fmt.Sprintf("2006-01-02 15:04:05.%0*d", int(scale*3), 0)), int(scale*3)), nil
 	}
 	if scale == Seconds {
-		preFormat := value.Format("toDateTime('2006-01-02 15:04:05',")
-		return preFormat + "'" + value.Location().String() + "')", nil
-		//		return value.Format(fmt.Sprintf("toDateTime('2006-01-02 15:04:05', '%s')", value.Location().String())), nil
+		return fmt.Sprintf("toDateTime('%s', '%s')", value.Format("2006-01-02 15:04:05"), value.Location().String()), nil
 	}
 	return fmt.Sprintf("toDateTime64('%s', %d, '%s')", value.Format(fmt.Sprintf("2006-01-02 15:04:05.%0*d", int(scale*3), 0)), int(scale*3), value.Location().String()), nil
 }
