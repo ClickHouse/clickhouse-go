@@ -1,3 +1,19 @@
+# v2.18.0, 2024-02-01 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Enhancements 🎉
+* Add WithAllocBufferColStrProvider string column allocator for batch insert performance boost by @hongker in https://github.com/ClickHouse/clickhouse-go/pull/1181
+### Fixes 🐛
+* Fix bind for seconds scale DateTime by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1184
+### Other Changes 🛠
+* resolves #1163 debugF function is not respected by @omurbekjk in https://github.com/ClickHouse/clickhouse-go/pull/1166
+
+## New Contributors
+* @omurbekjk made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1166
+* @hongker made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1181
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.17.1...v2.18.0
+
 # v2.17.1, 2023-12-27 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
