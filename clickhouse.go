@@ -265,6 +265,8 @@ func (ch *clickhouse) acquire(ctx context.Context) (conn *connect, err error) {
 	select {
 	case <-timer.C:
 		return nil, ErrAcquireConnTimeout
+	case <-ctx.Done():
+		return nil, ctx.Err()
 	case ch.open <- struct{}{}:
 	}
 	select {
