@@ -306,6 +306,11 @@ func format(tz *time.Location, scale TimeUnit, v any) (string, error) {
 		}
 		return fmt.Sprintf("[%s]", val), nil
 	case fmt.Stringer:
+		if v := reflect.ValueOf(v); v.Kind() == reflect.Pointer &&
+			v.IsNil() &&
+			v.Type().Elem().Implements(reflect.TypeOf((*fmt.Stringer)(nil)).Elem()) {
+			return "NULL", nil
+		}
 		return quote(v.String()), nil
 	case column.OrderedMap:
 		values := make([]string, 0)
