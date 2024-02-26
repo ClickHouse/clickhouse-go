@@ -1,8 +1,8 @@
 terraform {
   required_providers {
     clickhouse = {
-      source = "ClickHouse/clickhouse"
-      version = "~> 0.0.2"
+      source  = "ClickHouse/clickhouse"
+      version = "~> 0.0.5"
     }
   }
 }
@@ -21,17 +21,27 @@ variable "token_secret" {
 
 variable "service_name" {
   type = string
+  default = "clickhouse-go-tests"
 }
 
 variable "service_password" {
   type = string
 }
 
-provider clickhouse {
-  environment     = "production"
+variable "api_url" {
+  type = string
+}
+
+variable "allowed_cidr" {
+  type = string
+  default = "0.0.0.0/0"
+}
+
+provider "clickhouse" {
   organization_id = var.organization_id
   token_key       = var.token_key
   token_secret    = var.token_secret
+  api_url         = var.api_url
 }
 
 resource "clickhouse_service" "service" {
@@ -39,13 +49,12 @@ resource "clickhouse_service" "service" {
   cloud_provider = "aws"
   region         = "us-east-2"
   tier           = "development"
-  idle_scaling   = true
-  password  = var.service_password
+  password       = var.service_password
 
   ip_access = [
     {
-        source      = "0.0.0.0/0"
-        description = "Anywhere"
+      source      = var.allowed_cidr
+      description = "Allowed CIDR"
     }
   ]
 }
