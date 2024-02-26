@@ -19,14 +19,14 @@ jobs:
       fail-fast: true
       matrix:
         go:
-          - "1.20"
+          - "1.22"
           - "1.21"
         clickhouse: # https://github.com/ClickHouse/ClickHouse/blob/master/SECURITY.md#scope-and-supported-versions
-          - "23.3"
-          - "23.6"
-          - "23.7"
+          - "latest" # 24.1
+          - "23.12"
+          - "23.11"
           - "23.8"
-          - "latest"
+          - "23.3"
     steps:
       - uses: actions/checkout@main
 

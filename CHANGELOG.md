@@ -1,3 +1,19 @@
+# v2.19.0, 2024-02-26 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Enhancements 🎉
+* handle ctx.Done() in acquire by @threadedstream in https://github.com/ClickHouse/clickhouse-go/pull/1199
+### Fixes 🐛
+* Fix panic on format nil *fmt.Stringer type value by @zaneli in https://github.com/ClickHouse/clickhouse-go/pull/1200
+### Other Changes 🛠
+* Update Go/ClickHouse versions by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1201
+
+## New Contributors
+* @threadedstream made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1199
+* @zaneli made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1200
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.18.0...v2.19.0
+
 # v2.18.0, 2024-02-01 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
