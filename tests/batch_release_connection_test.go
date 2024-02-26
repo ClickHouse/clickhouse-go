@@ -3,14 +3,17 @@ package tests
 import (
 	"context"
 	"fmt"
+	"testing"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func TestBatchReleaseConnection(t *testing.T) {
-	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+	conn, err := GetNativeConnection(clickhouse.Settings{
+		"select_sequential_consistency": "1",
+	}, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	ctx := context.Background()

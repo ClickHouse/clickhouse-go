@@ -266,10 +266,7 @@ func TestConnCustomDialStrategy(t *testing.T) {
 }
 
 func TestEmptyDatabaseConfig(t *testing.T) {
-	runInDocker, _ := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_DOCKER", "true"))
-	if !runInDocker {
-		t.Skip("Skip test in cloud environment.")
-	}
+	SkipOnCloud(t)
 
 	env, err := GetNativeTestEnvironment()
 	require.NoError(t, err)
@@ -309,10 +306,7 @@ func TestEmptyDatabaseConfig(t *testing.T) {
 }
 
 func TestCustomSettings(t *testing.T) {
-	runInDocker, _ := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_DOCKER", "true"))
-	if !runInDocker {
-		t.Skip("Skip test in cloud environment.") // todo configure cloud instance with custom settings
-	}
+	SkipOnCloud(t)
 
 	conn, err := GetNativeConnection(clickhouse.Settings{
 		"custom_setting": clickhouse.CustomSetting{"custom_value"},
@@ -350,10 +344,7 @@ func TestCustomSettings(t *testing.T) {
 }
 
 func TestConnectionExpiresIdleConnection(t *testing.T) {
-	runInDocker, _ := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_DOCKER", "true"))
-	if !runInDocker {
-		t.Skip("Skip test in cloud environment. This test is not stable in cloud environment, due to race conditions.")
-	}
+	SkipOnCloud(t)
 
 	// given
 	ctx := context.Background()
@@ -404,10 +395,8 @@ func getActiveConnections(t *testing.T, client clickhouse.Conn) (conns int64) {
 }
 
 func TestConnectionCloseIdle(t *testing.T) {
-	runInDocker, _ := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_DOCKER", "true"))
-	if !runInDocker {
-		t.Skip("Skip test in cloud environment. This test is not stable in cloud environment, due to race conditions.")
-	}
+	SkipOnCloud(t)
+
 	testEnv, err := GetTestEnvironment(testSet)
 	require.NoError(t, err)
 	baseGoroutine := runtime.NumGoroutine()
