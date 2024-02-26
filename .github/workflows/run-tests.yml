@@ -41,7 +41,6 @@ jobs:
           CLICKHOUSE_VERSION=${{ matrix.clickhouse }} make test
 
   integration-tests-cloud:
-    if: ${{ false }}  # disabled for now
     runs-on: [self-hosted, style-checker]
     defaults:
       run:
@@ -50,8 +49,8 @@ jobs:
       fail-fast: true
       matrix:
         go:
-          - "1.19"
-          - "1.20"
+          - "1.22"
+          - "1.21"
     steps:
       - name: Check Out Code
         uses: actions/checkout@v3
