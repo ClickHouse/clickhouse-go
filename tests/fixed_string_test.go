@@ -22,8 +22,9 @@ import (
 	"crypto/rand"
 	"database/sql/driver"
 	"fmt"
-	"github.com/stretchr/testify/require"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
@@ -56,6 +57,8 @@ func TestFixedString(t *testing.T) {
 				, Col4 Array(FixedString(10))
 				, Col5 Array(Nullable(FixedString(10)))
 			    , Col6 FixedString(12)
+			    , Col7 FixedString(10)
+				, Col8 FixedString(10)
 			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
@@ -71,10 +74,12 @@ func TestFixedString(t *testing.T) {
 		col4Data = []string{"ClickHouse", "ClickHouse", "ClickHouse"}
 		col5Data = []*string{&col1Data, nil, &col1Data}
 		col6Data = "clickhouse"
+		col7Data = []byte("clickhouse")
+		col8Data = [10]byte{99, 108, 105, 99, 107, 104, 111, 117, 115, 101}
 	)
 	_, err = rand.Read(col2Data.data[:])
 	require.NoError(t, err)
-	require.NoError(t, batch.Append(col1Data, col2Data, col3Data, col4Data, col5Data, col6Data))
+	require.NoError(t, batch.Append(col1Data, col2Data, col3Data, col4Data, col5Data, col6Data, col7Data, col8Data))
 	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 	var (
@@ -84,14 +89,18 @@ func TestFixedString(t *testing.T) {
 		col4 []string
 		col5 []*string
 		col6 string
+		col7 []byte
+		col8 [10]byte
 	)
-	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_fixed_string").Scan(&col1, &col2, &col3, &col4, &col5, &col6))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_fixed_string").Scan(&col1, &col2, &col3, &col4, &col5, &col6, &col7, &col8))
 	assert.Equal(t, col1Data, col1)
 	assert.Equal(t, col2Data.data, col2.data)
 	assert.Equal(t, col3Data, col3)
 	assert.Equal(t, col4Data, col4)
 	assert.Equal(t, col5Data, col5)
 	assert.Equal(t, col6Data+string([]byte{0, 0}), col6)
+	assert.Equal(t, col7Data, col7)
+	assert.Equal(t, col8Data, col8)
 	rows, err := conn.Query(ctx, "SELECT CAST('RU' AS FixedString(2)) FROM system.numbers_mt LIMIT 10")
 	require.NoError(t, err)
 	var count int
@@ -206,6 +215,8 @@ func TestColumnarFixedString(t *testing.T) {
 			, Col3 Nullable(FixedString(10))
 			, Col4 Array(FixedString(10))
 			, Col5 Array(Nullable(FixedString(10)))
+			, Col6 FixedString(10)
+			, Col7 FixedString(10)
 		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
@@ -220,6 +231,8 @@ func TestColumnarFixedString(t *testing.T) {
 		col3Data = &col1Data
 		col4Data = []string{"ClickHouse", "ClickHouse", "ClickHouse"}
 		col5Data = []*string{&col1Data, nil, &col1Data}
+		col6Data = []byte("clickhouse")
+		col7Data = [10]byte{99, 108, 105, 99, 107, 104, 111, 117, 115, 101}
 	)
 	require.NoError(t, batch.Column(0).Append([]string{
 		col1Data, col1Data, col1Data, col1Data, col1Data,
@@ -236,6 +249,12 @@ func TestColumnarFixedString(t *testing.T) {
 	require.NoError(t, batch.Column(4).Append([][]*string{
 		col5Data, col5Data, col5Data, col5Data, col5Data,
 	}))
+	require.NoError(t, batch.Column(5).Append([][]byte{
+		col6Data, col6Data, col6Data, col6Data, col6Data,
+	}))
+	require.NoError(t, batch.Column(6).Append([][10]byte{
+		col7Data, col7Data, col7Data, col7Data, col7Data,
+	}))
 	require.Equal(t, 5, batch.Rows())
 	require.NoError(t, batch.Send())
 	var (
@@ -244,13 +263,17 @@ func TestColumnarFixedString(t *testing.T) {
 		col3 *string
 		col4 []string
 		col5 []*string
+		col6 []byte
+		col7 [10]byte
 	)
-	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_fixed_string LIMIT 1").Scan(&col1, &col2, &col3, &col4, &col5))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_fixed_string LIMIT 1").Scan(&col1, &col2, &col3, &col4, &col5, &col6, &col7))
 	assert.Equal(t, col1Data, col1)
 	assert.Equal(t, col2Data, col2)
 	assert.Equal(t, col3Data, col3)
 	assert.Equal(t, col4Data, col4)
 	assert.Equal(t, col5Data, col5)
+	assert.Equal(t, col6Data, col6)
+	assert.Equal(t, col7Data, col7)
 }
 
 func BenchmarkFixedString(b *testing.B) {
