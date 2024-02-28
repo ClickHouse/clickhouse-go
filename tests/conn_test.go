@@ -306,7 +306,7 @@ func TestEmptyDatabaseConfig(t *testing.T) {
 }
 
 func TestCustomSettings(t *testing.T) {
-	SkipOnCloud(t)
+	SkipOnCloud(t, "Custom settings are not supported on ClickHouse Cloud")
 
 	conn, err := GetNativeConnection(clickhouse.Settings{
 		"custom_setting": clickhouse.CustomSetting{"custom_value"},

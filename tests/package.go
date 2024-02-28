@@ -12,7 +12,8 @@ var CloudClickHouse = false
 
 func init() {
 	if host, found := os.LookupEnv("CLICKHOUSE_HOST"); found {
-		if strings.HasSuffix(host, "clickhouse.cloud") {
+		if strings.HasSuffix(host, "clickhouse.cloud") ||
+			strings.HasSuffix(host, "clickhouse-staging.com") {
 			CloudClickHouse = true
 		} else {
 			RemoteClickHouse = true

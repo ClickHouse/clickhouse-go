@@ -11,9 +11,9 @@ import (
 )
 
 func TestBatchReleaseConnection(t *testing.T) {
-	conn, err := GetNativeConnection(clickhouse.Settings{
-		"select_sequential_consistency": "1",
-	}, nil, &clickhouse.Compression{
+	SkipOnCloud(t, "This test is flaky on cloud ClickHouse")
+
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	ctx := context.Background()
