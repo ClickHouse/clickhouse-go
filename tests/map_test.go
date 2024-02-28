@@ -31,7 +31,9 @@ import (
 )
 
 func TestMap(t *testing.T) {
-	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+	conn, err := GetNativeConnection(clickhouse.Settings{
+		"allow_suspicious_low_cardinality_types": true,
+	}, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	ctx := context.Background()
