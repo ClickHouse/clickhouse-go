@@ -19,11 +19,12 @@ package std
 
 import (
 	"fmt"
+	"strconv"
+	"testing"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/require"
-	"strconv"
-	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -46,7 +47,7 @@ func TestStdMap(t *testing.T) {
 			, Col2 Map(String, UInt64)
 			, Col3 Map(String, UInt64)
 			, Col4 Array(Map(String, String))
-			, Col5 Map(LowCardinality(String), LowCardinality(UInt64))
+			, Col5 Map(LowCardinality(String), LowCardinality(String))
 		) Engine MergeTree() ORDER BY tuple()
 		`
 			defer func() {
@@ -72,9 +73,9 @@ func TestStdMap(t *testing.T) {
 					map[string]string{"A": "B"},
 					map[string]string{"C": "D"},
 				}
-				col5Data = map[string]uint64{
-					"key_col_5_1": 100,
-					"key_col_5_2": 200,
+				col5Data = map[string]string{
+					"key_col_5_1": "100",
+					"key_col_5_2": "200",
 				}
 			)
 			_, err = batch.Exec(col1Data, col2Data, col3Data, col4Data, col5Data)
@@ -85,7 +86,7 @@ func TestStdMap(t *testing.T) {
 				col2 map[string]uint64
 				col3 map[string]uint64
 				col4 []map[string]string
-				col5 map[string]uint64
+				col5 map[string]string
 			)
 			require.NoError(t, conn.QueryRow("SELECT * FROM test_map").Scan(&col1, &col2, &col3, &col4, &col5))
 			assert.Equal(t, col1Data, col1)
