@@ -1,3 +1,15 @@
+# v2.20.0, 2024-02-28 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Enhancements 🎉
+* Support [n]byte/[]byte type Scan/Append to FixedString column by @rogeryk in https://github.com/ClickHouse/clickhouse-go/pull/1205
+### Other Changes 🛠
+* Enable cloud tests by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1202
+* Removed LowCardinality(UInt64) tests that caused allow_suspicious_low_cardinality_types related error by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1206
+
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.19.0...v2.20.0
+
 # v2.19.0, 2024-02-26 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
