@@ -48,7 +48,7 @@ func TestMap(t *testing.T) {
 			, Col2 Map(String, UInt64)
 			, Col3 Map(String, UInt64)
 			, Col4 Array(Map(String, String))
-			, Col5 Map(LowCardinality(String), LowCardinality(UInt64))
+			, Col5 Map(LowCardinality(String), LowCardinality(String))
 			, Col6 Map(String, Map(String,UInt64))
 		) Engine MergeTree() ORDER BY tuple()
 		`
@@ -72,9 +72,9 @@ func TestMap(t *testing.T) {
 			map[string]string{"A": "B"},
 			map[string]string{"C": "D"},
 		}
-		col5Data = map[string]uint64{
-			"key_col_5_1": 100,
-			"key_col_5_2": 200,
+		col5Data = map[string]string{
+			"key_col_5_1": "100",
+			"key_col_5_2": "200",
 		}
 		col6Data = map[string]map[string]uint64{
 			"key_col_6_1": {
@@ -95,7 +95,7 @@ func TestMap(t *testing.T) {
 		col2 map[string]uint64
 		col3 map[string]uint64
 		col4 []map[string]string
-		col5 map[string]uint64
+		col5 map[string]string
 		col6 map[string]map[string]uint64
 	)
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_map").Scan(&col1, &col2, &col3, &col4, &col5, &col6))
