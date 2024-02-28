@@ -21,16 +21,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
+	"net"
+	"testing"
+	"time"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"log"
-	"net"
-	"testing"
-	"time"
 )
 
 type Releases struct {
@@ -67,6 +68,8 @@ type GithubEvent struct {
 var testDate, _ = time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", "2022-05-25 17:20:57 +0100 WEST")
 
 func setupConnection(t *testing.T) driver.Conn {
+	SkipOnCloud(t, "The JSON data type is an obsolete feature on Cloud.")
+
 	conn, err := GetNativeConnection(clickhouse.Settings{
 		"allow_experimental_object_type": 1,
 	}, nil, nil)
