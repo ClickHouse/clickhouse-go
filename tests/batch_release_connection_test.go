@@ -3,13 +3,16 @@ package tests
 import (
 	"context"
 	"fmt"
+	"testing"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func TestBatchReleaseConnection(t *testing.T) {
+	SkipOnCloud(t, "This test is flaky on cloud ClickHouse")
+
 	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})

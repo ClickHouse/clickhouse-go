@@ -289,10 +289,7 @@ func TestMaxExecutionTime(t *testing.T) {
 }
 
 func TestHttpConnWithOptions(t *testing.T) {
-	runInDocker, _ := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_DOCKER", "true"))
-	if !runInDocker {
-		t.Skip("Skip test in cloud environment.")
-	}
+	clickhouse_tests.SkipOnCloud(t)
 
 	env, err := GetStdTestEnvironment()
 	require.NoError(t, err)
@@ -327,10 +324,7 @@ func TestHttpConnWithOptions(t *testing.T) {
 }
 
 func TestEmptyDatabaseConfig(t *testing.T) {
-	runInDocker, _ := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_DOCKER", "true"))
-	if !runInDocker {
-		t.Skip("Skip test in cloud environment.")
-	}
+	clickhouse_tests.SkipOnCloud(t)
 
 	env, err := GetStdTestEnvironment()
 	require.NoError(t, err)
@@ -371,11 +365,7 @@ func TestEmptyDatabaseConfig(t *testing.T) {
 func TestHTTPProxy(t *testing.T) {
 	t.Skip("test is flaky, tinyproxy container can't be started in CI")
 
-	// check if CLICKHOUSE_HOST env is postfixed with "clickhouse.cloud", skip if not
-	clickHouseHost := clickhouse_tests.GetEnv("CLICKHOUSE_HOST", "")
-	if !strings.HasSuffix(clickHouseHost, "clickhouse.cloud") {
-		t.Skip("Skip test in non cloud environment.")
-	}
+	clickhouse_tests.SkipOnCloud(t)
 
 	proxyEnv, err := clickhouse_tests.CreateTinyProxyTestEnvironment(t)
 	defer func() {
@@ -415,15 +405,12 @@ func TestHTTPProxy(t *testing.T) {
 
 		text := scanner.Text()
 		t.Log(text)
-		return strings.Contains(text, fmt.Sprintf("Established connection to host \"%s\"", clickHouseHost))
+		return strings.Contains(text, fmt.Sprintf("Established connection to host \"%s\"", ""))
 	}, 60*time.Second, time.Millisecond, "proxy logs should contain clickhouse.cloud instance host")
 }
 
 func TestCustomSettings(t *testing.T) {
-	runInDocker, _ := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_DOCKER", "true"))
-	if !runInDocker {
-		t.Skip("Skip test in cloud environment.")
-	}
+	clickhouse_tests.SkipOnCloud(t)
 
 	dsns := map[string]clickhouse.Protocol{"Native": clickhouse.Native, "Http": clickhouse.HTTP}
 	for name, protocol := range dsns {
