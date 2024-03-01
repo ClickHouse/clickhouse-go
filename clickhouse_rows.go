@@ -95,7 +95,16 @@ func (r *rows) Columns() []string {
 }
 
 func (r *rows) Close() error {
-	active := 2
+	if r.errors == nil && r.stream == nil {
+		return r.err
+	}
+	active := 0
+	if r.errors != nil {
+		active++
+	}
+	if r.stream != nil {
+		active++
+	}
 	for {
 		select {
 		case _, ok := <-r.stream:
