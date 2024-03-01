@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"regexp"
 	"strings"
 
@@ -73,10 +72,11 @@ func (h *httpConnect) prepareBatch(ctx context.Context, query string, opts drive
 		if err = r.Scan(&colName, &colType, &default_type, &ignore, &ignore, &ignore, &ignore); err != nil {
 			return nil, err
 		}
-		// // these column types cannot be specified in INSERT queries
-		// if default_type == "MATERIALIZED" || default_type == "ALIAS" {
-		// 	continue
-		// }
+		// these column types cannot be specified in INSERT queries
+		
+    if default_type == "MATERIALIZED" || default_type == "ALIAS" {
+		 	continue
+		}
 		colNames = append(colNames, colName)
 		columns[colName] = colType
 	}
@@ -230,7 +230,7 @@ func (b *httpBatch) Send() (err error) {
 	if res != nil {
 		defer res.Body.Close()
 		// we don't care about result, so just discard it to reuse connection
-		_, _ = io.Copy(ioutil.Discard, res.Body)
+		_, _ = io.Copy(io.Discard, res.Body)
 	}
 
 	return err
