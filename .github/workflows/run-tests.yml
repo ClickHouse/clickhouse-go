@@ -38,7 +38,8 @@ jobs:
         run: |
           CLICKHOUSE_VERSION=${{ matrix.clickhouse }} make test
 
-  integration-tests-cloud:
+  cloud:
+    if: secrets.INTEGRATIONS_TEAM_TESTS_TOKEN_KEY
     runs-on: [self-hosted, style-checker]
     defaults:
       run:
