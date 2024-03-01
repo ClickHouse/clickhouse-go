@@ -73,8 +73,7 @@ func (h *httpConnect) prepareBatch(ctx context.Context, query string, opts drive
 			return nil, err
 		}
 		// these column types cannot be specified in INSERT queries
-		
-    if default_type == "MATERIALIZED" || default_type == "ALIAS" {
+                if default_type == "MATERIALIZED" || default_type == "ALIAS" {
 		 	continue
 		}
 		colNames = append(colNames, colName)
