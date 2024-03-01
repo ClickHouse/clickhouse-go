@@ -26,7 +26,6 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"mime/multipart"
 	"net"
@@ -86,7 +85,7 @@ func (rw HTTPReaderWriter) read(res *http.Response) ([]byte, error) {
 			if err := reader.Reset(res.Body); err != nil {
 				return nil, err
 			}
-			body, err := ioutil.ReadAll(reader)
+			body, err := io.ReadAll(reader)
 			if err != nil {
 				return nil, err
 			}
@@ -97,7 +96,7 @@ func (rw HTTPReaderWriter) read(res *http.Response) ([]byte, error) {
 			if err := rw.reader.(flate.Resetter).Reset(res.Body, nil); err != nil {
 				return nil, err
 			}
-			body, err := ioutil.ReadAll(reader)
+			body, err := io.ReadAll(reader)
 			if err != nil {
 				return nil, err
 			}
@@ -107,14 +106,14 @@ func (rw HTTPReaderWriter) read(res *http.Response) ([]byte, error) {
 			if err := reader.Reset(res.Body); err != nil {
 				return nil, err
 			}
-			body, err := ioutil.ReadAll(reader)
+			body, err := io.ReadAll(reader)
 			if err != nil {
 				return nil, err
 			}
 			return body, nil
 		}
 	}
-	body, err := ioutil.ReadAll(res.Body)
+	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		return nil, err
 	}

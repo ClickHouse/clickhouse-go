@@ -21,13 +21,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"regexp"
+	"strings"
+
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
-	"io"
-	"io/ioutil"
-	"regexp"
-	"strings"
 )
 
 // \x60 represents a backtick
@@ -224,7 +224,7 @@ func (b *httpBatch) Send() (err error) {
 	if res != nil {
 		defer res.Body.Close()
 		// we don't care about result, so just discard it to reuse connection
-		_, _ = io.Copy(ioutil.Discard, res.Body)
+		_, _ = io.Copy(io.Discard, res.Body)
 	}
 
 	return err
