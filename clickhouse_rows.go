@@ -46,6 +46,9 @@ func (r *rows) Next() (result bool) {
 	}
 next:
 	if r.row >= r.block.Rows() {
+		if r.stream == nil {
+			return false
+		}
 		select {
 		case err := <-r.errors:
 			if err != nil {

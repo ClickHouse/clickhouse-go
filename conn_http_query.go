@@ -51,6 +51,15 @@ func (h *httpConnect) query(ctx context.Context, release func(*connect, error), 
 		return nil, err
 	}
 
+	if res.ContentLength == 0 {
+		block := &proto.Block{}
+		return &rows{
+			block:     block,
+			columns:   block.ColumnsNames(),
+			structMap: &structMap{},
+		}, nil
+	}
+
 	rw := h.compressionPool.Get()
 	// The HTTPReaderWriter.NewReader will create a reader that will decompress it if needed,
 	// cause adding Accept-Encoding:gzip on your request means response won’t be automatically decompressed
@@ -65,7 +74,7 @@ func (h *httpConnect) query(ctx context.Context, release func(*connect, error), 
 	}
 	chReader := chproto.NewReader(reader)
 	block, err := h.readData(ctx, chReader)
-	if err != nil {
+	if err != nil && !errors.Is(err, io.EOF) {
 		res.Body.Close()
 		h.compressionPool.Put(rw)
 		return nil, err
@@ -103,6 +112,9 @@ func (h *httpConnect) query(ctx context.Context, release func(*connect, error), 
 		close(errCh)
 	}()
 
+	if block == nil {
+		block = &proto.Block{}
+	}
 	return &rows{
 		block:     block,
 		stream:    stream,
