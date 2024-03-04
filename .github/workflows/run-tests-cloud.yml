@@ -8,16 +8,7 @@ on:
       - main
 
 jobs:
-  single-node:
-    runs-on: [self-hosted, style-checker]
-    strategy:
-      fail-fast: true
-      matrix:
-        go:
-          - "1.22"
-          - "1.21"
   cloud:
-    if: secrets.INTEGRATIONS_TEAM_TESTS_TOKEN_KEY
     runs-on: [self-hosted, style-checker]
     defaults:
       run:
