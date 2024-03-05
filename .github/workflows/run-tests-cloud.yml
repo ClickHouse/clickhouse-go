@@ -9,7 +9,7 @@ on:
 
 jobs:
   cloud:
-    runs-on: [self-hosted, style-checker]
+    runs-on: ubuntu-latest
     defaults:
       run:
         shell: bash
