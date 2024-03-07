@@ -47,7 +47,9 @@ func (c *connect) prepareBatch(ctx context.Context, query string, opts driver.Pr
 	if len(colMatch) == 2 {
 		columns = strings.Split(colMatch[1], ",")
 		for i := range columns {
-			columns[i] = strings.Trim(strings.TrimSpace(columns[i]), "`\"")
+			// refers to https://clickhouse.com/docs/en/sql-reference/syntax#identifiers
+			// we can use identifiers with double quotes or backticks, for example: "id", `id`, but not both, like `"id"`.
+			columns[i] = strings.Trim(strings.Trim(strings.TrimSpace(columns[i]), "\""), "`")
 		}
 	}
 	if !strings.HasSuffix(strings.TrimSpace(strings.ToUpper(query)), "VALUES") {
