@@ -46,6 +46,9 @@ func (r *rows) Next() (result bool) {
 	}
 next:
 	if r.row >= r.block.Rows() {
+		if r.stream == nil {
+			return false
+		}
 		select {
 		case err := <-r.errors:
 			if err != nil {
@@ -95,7 +98,16 @@ func (r *rows) Columns() []string {
 }
 
 func (r *rows) Close() error {
-	active := 2
+	if r.errors == nil && r.stream == nil {
+		return r.err
+	}
+	active := 0
+	if r.errors != nil {
+		active++
+	}
+	if r.stream != nil {
+		active++
+	}
 	for {
 		select {
 		case _, ok := <-r.stream:

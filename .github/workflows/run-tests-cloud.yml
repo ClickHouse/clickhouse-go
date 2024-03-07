@@ -1,0 +1,97 @@
+name: run-tests-cloud
+
+permissions: write-all
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  cloud:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: true
+      matrix:
+        go:
+          - "1.22"
+          - "1.21"
+    steps:
+      - name: Check Out Code
+        uses: actions/checkout@v3
+
+      - name: Resolve runner IP
+        run: echo "TF_VAR_allowed_cidr=$(curl -s ifconfig.me)/32" >> $GITHUB_ENV
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2.0.3
+        with:
+          terraform_version: 1.3.4
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        id: init
+        working-directory: .github/cloud/
+        run: terraform init
+
+      - name: Terraform Validate
+        id: validate
+        working-directory: .github/cloud/
+        run: terraform validate -no-color
+
+      - name: Set service name for pull request
+        if: github.event_name == 'pull_request'
+        working-directory: .github/cloud/
+        run: echo "TF_VAR_service_name=clickhouse-go ${{ matrix.go }} PR${{ github.event.pull_request.number }} $(date +'%Y%m%d%H%M%S')" >> $GITHUB_ENV
+
+      - name: Set service name for push
+        if: github.event_name == 'push'
+        working-directory: .github/cloud/
+        run: echo "TF_VAR_service_name=clickhouse-go ${{ matrix.go }} $(git rev-parse --short HEAD) $(date +'%Y%m%d%H%M%S')" >> $GITHUB_ENV
+
+      - name: Terraform Apply
+        working-directory: .github/cloud/
+        id: apply
+        run: terraform apply -no-color -auto-approve -input=false -lock=false
+        env:
+          TF_VAR_organization_id: ${{ secrets.INTEGRATIONS_TEAM_TESTS_ORGANIZATION_ID }}
+          TF_VAR_token_key:  ${{ secrets.INTEGRATIONS_TEAM_TESTS_TOKEN_KEY }}
+          TF_VAR_token_secret:  ${{ secrets.INTEGRATIONS_TEAM_TESTS_TOKEN_SECRET }}
+          TF_VAR_service_password: ${{ secrets.INTEGRATIONS_TEAM_TESTS_CLOUD_PASSWORD }}
+          TF_VAR_api_url: ${{ secrets.INTEGRATIONS_TEAM_TESTS_CLOUD_API_URL }}
+
+      - name: Set Host
+        working-directory: .github/cloud/
+        run: echo "CLICKHOUSE_HOST=$(terraform output -raw CLICKHOUSE_HOST)" >> $GITHUB_ENV
+
+      - name: Service ID
+        working-directory: .github/cloud/
+        run: terraform output -raw SERVICE_ID
+
+      - name: Install Go ${{ matrix.go }}
+        uses: actions/setup-go@v2.1.5
+        with:
+          stable: false
+          go-version: ${{ matrix.go }}
+
+      - name: Run tests
+        env:
+          CLICKHOUSE_PASSWORD: ${{ secrets.INTEGRATIONS_TEAM_TESTS_CLOUD_PASSWORD }}
+          CLICKHOUSE_USE_DOCKER: false
+          CLICKHOUSE_USE_SSL: true
+        run: |
+          CLICKHOUSE_DIAL_TIMEOUT=20 CLICKHOUSE_TEST_TIMEOUT=600s CLICKHOUSE_QUORUM_INSERT=2 make test
+
+      - name: Cleanup
+        if: always()
+        working-directory: .github/cloud/
+        run: terraform destroy -no-color -auto-approve -input=false -lock=false
+        env:
+          TF_VAR_organization_id: ${{ secrets.INTEGRATIONS_TEAM_TESTS_ORGANIZATION_ID }}
+          TF_VAR_token_key:  ${{ secrets.INTEGRATIONS_TEAM_TESTS_TOKEN_KEY }}
+          TF_VAR_token_secret:  ${{ secrets.INTEGRATIONS_TEAM_TESTS_TOKEN_SECRET }}
+          TF_VAR_service_password: ${{ secrets.INTEGRATIONS_TEAM_TESTS_CLOUD_PASSWORD }}
+          TF_VAR_api_url: ${{ secrets.INTEGRATIONS_TEAM_TESTS_CLOUD_API_URL }}

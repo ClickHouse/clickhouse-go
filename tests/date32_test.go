@@ -21,9 +21,10 @@ import (
 	"context"
 	"database/sql/driver"
 	"fmt"
-	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/stretchr/testify/assert"
 
@@ -130,6 +131,36 @@ func TestDate32(t *testing.T) {
 	assert.Equal(t, dateStr1, result3.Col6.UTC().Format("2006-01-02"))
 	assert.Equal(t, []time.Time{date1, date2, date3}, result3.Col7)
 	assert.Equal(t, []*time.Time{nil, nil, nil}, result3.Col8)
+}
+
+func TestDate32Extremes(t *testing.T) {
+	ctx := context.Background()
+
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	require.NoError(t, err)
+
+	dateMin := time.Date(1900, 1, 1, 0, 0, 0, 0, time.UTC)
+	dateMax := time.Date(2299, 12, 31, 0, 0, 0, 0, time.UTC)
+
+	const ddl = `CREATE TABLE test_date32_extremes (min Date32, max Date32) Engine MergeTree() ORDER BY tuple()`
+	conn.Exec(ctx, "DROP TABLE IF EXISTS test_date32_extremes")
+	require.NoError(t, conn.Exec(ctx, ddl))
+
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_date32_extremes")
+	require.NoError(t, err)
+	require.NoError(t, batch.Append(dateMin, dateMax))
+	require.NoError(t, batch.Send())
+
+	var (
+		actualMin time.Time
+		actualMax time.Time
+	)
+
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_date32_extremes").Scan(&actualMin, &actualMax))
+	assert.Equal(t, dateMin, actualMin)
+	assert.Equal(t, dateMax, actualMax)
 }
 
 func TestNullableDate32(t *testing.T) {

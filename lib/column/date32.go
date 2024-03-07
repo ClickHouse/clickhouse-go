@@ -21,14 +21,15 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
-	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
 	"time"
+
+	"github.com/ClickHouse/ch-go/proto"
 )
 
 var (
-	minDate32, _ = time.Parse("2006-01-02 15:04:05", "1925-01-01 00:00:00")
-	maxDate32, _ = time.Parse("2006-01-02 15:04:05", "2283-11-11 00:00:00")
+	minDate32, _ = time.Parse("2006-01-02 15:04:05", "1900-01-01 00:00:00")
+	maxDate32, _ = time.Parse("2006-01-02 15:04:05", "2299-12-31 00:00:00")
 )
 
 type Date32 struct {
