@@ -21,14 +21,14 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/ClickHouse/clickhouse-go/v2"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
-	"github.com/stretchr/testify/require"
 	"strconv"
 	"testing"
 	"time"
 
+	"github.com/ClickHouse/clickhouse-go/v2"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestStdDate(t *testing.T) {
@@ -72,7 +72,7 @@ func TestStdDate(t *testing.T) {
 			require.NoError(t, err)
 			_, err = batch.Exec(uint8(1), date, &date, []time.Time{date}, []*time.Time{&date, nil, &date}, sql.NullTime{Time: date, Valid: true}, sql.NullTime{Time: time.Time{}, Valid: false})
 			require.NoError(t, err)
-			_, err = batch.Exec(uint8(2), date, nil, []time.Time{date}, []*time.Time{nil, nil, &date}, sql.NullTime{Time: date, Valid: true}, sql.NullTime{Time: time.Time{}, Valid: false})
+			_, err = batch.Exec(uint8(2), time.Time{}, nil, []time.Time{date}, []*time.Time{nil, nil, &date}, sql.NullTime{Time: date, Valid: true}, sql.NullTime{Time: time.Time{}, Valid: false})
 			require.NoError(t, err)
 			require.NoError(t, scope.Commit())
 			var (
@@ -104,7 +104,7 @@ func TestStdDate(t *testing.T) {
 				&result2.Col5,
 				&result2.Col6,
 			))
-			require.Equal(t, date, result2.Col1)
+			require.Equal(t, time.Unix(0, 0).UTC(), result2.Col1)
 			assert.Equal(t, "UTC", result2.Col1.Location().String())
 			require.Nil(t, result2.Col2)
 			assert.Equal(t, []time.Time{date}, result2.Col3)
