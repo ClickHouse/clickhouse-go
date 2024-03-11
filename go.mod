@@ -3,7 +3,7 @@ module github.com/ClickHouse/clickhouse-go/v2
 go 1.21
 
 require (
-	github.com/ClickHouse/ch-go v0.61.3
+	github.com/ClickHouse/ch-go v0.61.5
 	github.com/ClickHouse/clickhouse-go v1.5.4
 	github.com/andybalholm/brotli v1.1.0
 	github.com/docker/docker v25.0.3+incompatible
