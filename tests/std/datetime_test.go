@@ -20,14 +20,14 @@ package std
 import (
 	"database/sql"
 	"fmt"
-	"github.com/ClickHouse/clickhouse-go/v2"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
-	"github.com/stretchr/testify/require"
 	"strconv"
 	"testing"
 	"time"
 
+	"github.com/ClickHouse/clickhouse-go/v2"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestStdDateTime(t *testing.T) {
@@ -48,6 +48,7 @@ func TestStdDateTime(t *testing.T) {
 				, Col6 Array(Nullable(DateTime('Europe/Moscow')))
 			    , Col7 DateTime
 			    , Col8 Nullable(DateTime)
+				,Col9 DateTime
 			) Engine MergeTree() ORDER BY tuple()`
 			defer func() {
 				conn.Exec("DROP TABLE test_datetime")
@@ -74,6 +75,7 @@ func TestStdDateTime(t *testing.T) {
 					Time:  time.Time{},
 					Valid: false,
 				},
+				time.Time{},
 			)
 			require.NoError(t, err)
 			require.NoError(t, scope.Commit())
@@ -86,8 +88,9 @@ func TestStdDateTime(t *testing.T) {
 				col6 []*time.Time
 				col7 sql.NullTime
 				col8 sql.NullTime
+				col9 time.Time
 			)
-			require.NoError(t, conn.QueryRow("SELECT * FROM test_datetime").Scan(&col1, &col2, &col3, &col4, &col5, &col6, &col7, &col8))
+			require.NoError(t, conn.QueryRow("SELECT * FROM test_datetime").Scan(&col1, &col2, &col3, &col4, &col5, &col6, &col7, &col8, &col9))
 			assert.Equal(t, datetime.In(time.UTC), col1)
 			assert.Equal(t, datetime.Unix(), col2.Unix())
 			assert.Equal(t, datetime.Unix(), col3.Unix())
@@ -120,7 +123,7 @@ func TestStdDateTime(t *testing.T) {
 				Time:  time.Time{},
 				Valid: false,
 			}, col8)
-
+			assert.Equal(t, time.Unix(0, 0).UTC(), col9)
 		})
 	}
 }
