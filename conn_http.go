@@ -425,6 +425,9 @@ func (h *httpConnect) readRawResponse(response *http.Response) (body []byte, err
 	if err != nil {
 		return nil, err
 	}
+	if response.StatusCode == http.StatusForbidden {
+		return nil, errors.New(string(body))
+	}
 	if h.compression == CompressionLZ4 || h.compression == CompressionZSTD {
 		chReader := chproto.NewReader(reader)
 		chReader.EnableCompression()
