@@ -66,7 +66,17 @@ func (col *Map) Name() string {
 
 func (col *Map) parse(t Type, tz *time.Location) (_ Interface, err error) {
 	col.chType = t
-	if types := strings.SplitN(t.params(), ",", 2); len(types) == 2 {
+	types := make([]string, 2, 2)
+	typeParams := t.params()
+	idx := strings.Index(typeParams, ",")
+	if strings.HasPrefix(typeParams, "Enum") {
+		idx = strings.Index(typeParams, "),") + 1
+	}
+	if idx > 0 {
+		types[0] = typeParams[:idx]
+		types[1] = typeParams[idx+1:]
+	}
+	if types[0] != "" && types[1] != "" {
 		if col.keys, err = Type(strings.TrimSpace(types[0])).Column(col.name, tz); err != nil {
 			return nil, err
 		}
