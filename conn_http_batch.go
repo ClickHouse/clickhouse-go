@@ -63,13 +63,18 @@ func (h *httpConnect) prepareBatch(ctx context.Context, query string, opts drive
 	var colNames []string
 	for r.Next() {
 		var (
-			colName string
-			colType string
-			ignore  string
+			colName      string
+			colType      string
+			default_type string
+			ignore       string
 		)
 
-		if err = r.Scan(&colName, &colType, &ignore, &ignore, &ignore, &ignore, &ignore); err != nil {
+		if err = r.Scan(&colName, &colType, &default_type, &ignore, &ignore, &ignore, &ignore); err != nil {
 			return nil, err
+		}
+		// these column types cannot be specified in INSERT queries
+		if default_type == "MATERIALIZED" || default_type == "ALIAS" {
+			continue
 		}
 		colNames = append(colNames, colName)
 		columns[colName] = colType
