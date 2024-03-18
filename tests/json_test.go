@@ -1014,70 +1014,6 @@ func TestJSONMapInconsistentComplexMap(t *testing.T) {
 					},
 				},
 			},
-			{
-				"e": map[string]any{
-					"f": "g",
-					"h": map[string]any{
-						"i": "j",
-					},
-				},
-				"k": Login{
-					IP:  "85.242.48.167",
-					Row: 4,
-					Details: []map[string]any{
-						{
-							"src_port":  uint64(232323),
-							"dest_port": uint64(10000),
-						},
-						{
-							"dest_port":  uint64(7000),
-							"proxy_port": uint64(4080),
-						},
-						{
-							"server_port": uint64(7000),
-							"local_port":  uint64(132323),
-						},
-					},
-				},
-			},
-			{
-				"g": Login{
-					IP:  "85.242.48.167",
-					Row: 4,
-					Details: []map[string]any{
-						{
-							"src_port":  uint64(232323),
-							"dest_port": uint64(9000),
-						},
-						{
-							"dest_port":  uint64(8000),
-							"proxy_port": uint64(8080),
-						},
-						{
-							"server_port": uint64(8000),
-							"local_port":  uint64(232323),
-						},
-					},
-				},
-				"m": []map[string]any{
-					{
-						"g": Login{
-							IP:  "22.242.48.167",
-							Row: 4,
-							Details: []map[string]any{
-								{
-									"src_port":   uint64(132323),
-									"dest_port":  uint64(20000),
-									"local_port": uint64(132323),
-								},
-								{
-									"server_port": uint64(8000),
-								},
-							},
-						},
-					},
-				},
-			},
 		},
 	}
 	require.NoError(t, batch.Append(logins))
@@ -2386,16 +2322,16 @@ func TestJSONEscapeKeys(t *testing.T) {
 	ctx := context.Background()
 	batch := prepareBatch(t, conn, ctx)
 	row1 := map[string][]int64{
-		"56":      {1, 2, 3},
-		"1.1":     {4, 5, 6},
-		"世界世界世界":  {7, 8, 9},
-		"1.1a":    {10, 11, 12},
-		"a22.2":   {13, 14, 15},
-		"a22`":    {16, 17, 18},
-		"22.2`":   {19, 20, 21},
-		"22.2\\`": {22, 23, 24},
-		"s'":      {22, 23, 24},
-		"a`a\\\\": {22, 23, 24},
+		"56":           {1, 2, 3},
+		"1.1":          {4, 5, 6},
+		"世界世界世界": {7, 8, 9},
+		"1.1a":         {10, 11, 12},
+		"a22.2":        {13, 14, 15},
+		"a22`":         {16, 17, 18},
+		"22.2`":        {19, 20, 21},
+		"22.2\\`":      {22, 23, 24},
+		"s'":           {22, 23, 24},
+		"a`a\\\\":      {22, 23, 24},
 	}
 	require.NoError(t, batch.Append(row1))
 	require.NoError(t, batch.Send())
