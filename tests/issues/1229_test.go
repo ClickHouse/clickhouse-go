@@ -3,6 +3,7 @@ package issues
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -29,14 +30,26 @@ func Test1229(t *testing.T) {
 		require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS test_1229"))
 	}()
 
-	const query = "INSERT INTO test VALUES (`test1value%d`, `test2value%d`)"
+	const insertQuery = "INSERT INTO test_1229 VALUES ('test1value%d', 'test2value%d')"
 	for i := 0; i < 100; i++ {
-		go func(i int) {
-			withTimeoutCtx, cancel := context.WithTimeout(ctx, time.Millisecond*400)
-			require.NoError(t, conn.Exec(withTimeoutCtx, fmt.Sprintf(query, i, i)))
-			cancel()
-		}(i)
+		withTimeoutCtx, cancel := context.WithTimeout(ctx, time.Millisecond*100)
+		require.NoError(t, conn.Exec(withTimeoutCtx, fmt.Sprintf(insertQuery, i, i)))
+		cancel()
 	}
+
+	wg := new(sync.WaitGroup)
+	const selectQuery = "SELECT test1, test2 FROM test_1229"
+	for i := 0; i < 100; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			withTimeoutCtx, cancel := context.WithTimeout(ctx, time.Millisecond*10)
+			defer cancel()
+			_, _ = conn.Query(withTimeoutCtx, selectQuery)
+		}()
+	}
+
+	wg.Wait()
 
 	openConnections := conn.Stats().Open
 	require.Equal(t, 0, openConnections)
