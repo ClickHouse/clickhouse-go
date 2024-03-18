@@ -1,3 +1,14 @@
+# v2.22.2, 2024-03-18 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Fixes 🐛
+* Fix for Map columns with Enums by @leklund in https://github.com/ClickHouse/clickhouse-go/pull/1236
+
+## New Contributors
+* @leklund made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1236
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.22.1...v2.22.2
+
 # v2.22.1, 2024-03-18 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
