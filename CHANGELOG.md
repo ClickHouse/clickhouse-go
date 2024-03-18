@@ -1,3 +1,12 @@
+# v2.22.1, 2024-03-18 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Fixes 🐛
+* Make errors channel buffered inside query()  by @threadedstream in https://github.com/ClickHouse/clickhouse-go/pull/1237
+
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.22.0...v2.22.1
+
 # v2.20.0, 2024-02-28 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
