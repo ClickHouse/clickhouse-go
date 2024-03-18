@@ -122,6 +122,9 @@ func TestColumnarMap(t *testing.T) {
 			  Col1 Map(String, UInt64)
 			, Col2 Map(String, UInt64)
 			, Col3 Map(String, UInt64)
+			, Col4 Map(Enum16('one' = 1, 'two' = 2), UInt64)
+			, Col5 Map(String, Enum16('one' = 1, 'two' = 2))
+			, Col6 Map(Enum8('one' = 1, 'two' = 2), Enum8('red' = 1, 'blue' = 2))
 		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
@@ -134,6 +137,9 @@ func TestColumnarMap(t *testing.T) {
 		col1Data = []map[string]uint64{}
 		col2Data = []map[string]uint64{}
 		col3Data = []map[string]uint64{}
+		col4Data = []map[string]uint64{}
+		col5Data = []map[string]string{}
+		col6Data = []map[string]string{}
 	)
 	for i := 0; i < 100; i++ {
 		col1Data = append(col1Data, map[string]uint64{
@@ -145,10 +151,25 @@ func TestColumnarMap(t *testing.T) {
 			fmt.Sprintf("key_col_2_%d_2", i): uint64(i),
 		})
 		col3Data = append(col3Data, map[string]uint64{})
+		col4Data = append(col4Data, map[string]uint64{
+			"one": uint64(i),
+			"two": uint64(i),
+		})
+		col5Data = append(col5Data, map[string]string{
+			fmt.Sprintf("key_col_2_%d_1", i): "one",
+			fmt.Sprintf("key_col_2_%d_2", i): "two",
+		})
+		col6Data = append(col6Data, map[string]string{
+			"one": "red",
+			"two": "blue",
+		})
 	}
 	require.NoError(t, batch.Column(0).Append(col1Data))
 	require.NoError(t, batch.Column(1).Append(col2Data))
 	require.NoError(t, batch.Column(2).Append(col3Data))
+	require.NoError(t, batch.Column(3).Append(col4Data))
+	require.NoError(t, batch.Column(4).Append(col5Data))
+	require.NoError(t, batch.Column(5).Append(col6Data))
 	require.Equal(t, 100, batch.Rows())
 	require.NoError(t, batch.Send())
 	{
@@ -156,6 +177,9 @@ func TestColumnarMap(t *testing.T) {
 			col1     map[string]uint64
 			col2     map[string]uint64
 			col3     map[string]uint64
+			col4     map[string]uint64
+			col5     map[string]string
+			col6     map[string]string
 			col1Data = map[string]uint64{
 				"key_col_1_10_1": 10,
 				"key_col_1_10_2": 10,
@@ -165,11 +189,26 @@ func TestColumnarMap(t *testing.T) {
 				"key_col_2_10_2": 10,
 			}
 			col3Data = map[string]uint64{}
+			col4Data = map[string]uint64{
+				"one": 10,
+				"two": 10,
+			}
+			col5Data = map[string]string{
+				"key_col_2_10_1": "one",
+				"key_col_2_10_2": "two",
+			}
+			col6Data = map[string]string{
+				"one": "red",
+				"two": "blue",
+			}
 		)
-		require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_map WHERE Col1['key_col_1_10_1'] = $1", 10).Scan(&col1, &col2, &col3))
+		require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_map WHERE Col1['key_col_1_10_1'] = $1", 10).Scan(&col1, &col2, &col3, &col4, &col5, &col6))
 		assert.Equal(t, col1Data, col1)
 		assert.Equal(t, col2Data, col2)
 		assert.Equal(t, col3Data, col3)
+		assert.Equal(t, col4Data, col4)
+		assert.Equal(t, col5Data, col5)
+		assert.Equal(t, col6Data, col6)
 	}
 }
 
