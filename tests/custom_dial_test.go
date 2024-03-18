@@ -82,6 +82,8 @@ func TestCustomDialContext(t *testing.T) {
 }
 
 func TestCustomHTTPDialContext(t *testing.T) {
+	SkipOnCloud(t, "Unstable keep-alive on Cloud")
+
 	env, err := GetNativeTestEnvironment()
 	require.NoError(t, err)
 	var (
