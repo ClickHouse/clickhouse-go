@@ -258,6 +258,11 @@ func (ch *clickhouse) acquire(ctx context.Context) (conn *connect, err error) {
 	timer := time.NewTimer(ch.opt.DialTimeout)
 	defer timer.Stop()
 	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+	select {
 	case <-timer.C:
 		return nil, ErrAcquireConnTimeout
 	case <-ctx.Done():
