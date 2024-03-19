@@ -120,11 +120,12 @@ func JSONInsertRead() error {
 	if err = rows.Scan(&achievement); err != nil {
 		return err
 	}
-	fmt.Println(clickhouse_tests.ToJson(event))
+	fmt.Println(clickhouse_tests.ToJson(achievement))
 	rows = conn.QueryRow("SELECT event.assignee.Repositories FROM example")
 	var repositories any
 	if err = rows.Scan(&repositories); err != nil {
 		return err
 	}
+	fmt.Println(clickhouse_tests.ToJson(repositories))
 	return nil
 }
