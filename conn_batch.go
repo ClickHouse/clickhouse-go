@@ -20,9 +20,8 @@ package clickhouse
 import (
 	"context"
 	"fmt"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/parser_utils"
 	"os"
-	"regexp"
-	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -32,42 +31,29 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 
-var splitInsertRe = regexp.MustCompile(`(?i)\sVALUES\s*\(`)
-var columnMatch = regexp.MustCompile(`.*\((?P<Columns>.+)\)$`)
-
 func (c *connect) prepareBatch(ctx context.Context, query string, opts driver.PrepareBatchOptions, release func(*connect, error), acquire func(context.Context) (*connect, error)) (driver.Batch, error) {
 	//defer func() {
 	//	if err := recover(); err != nil {
 	//		fmt.Printf("panic occurred on %d:\n", c.num)
 	//	}
 	//}()
-	query = splitInsertRe.Split(query, -1)[0]
-	colMatch := columnMatch.FindStringSubmatch(query)
-	var columns []string
-	if len(colMatch) == 2 {
-		columns = strings.Split(colMatch[1], ",")
-		for i := range columns {
-			// refers to https://clickhouse.com/docs/en/sql-reference/syntax#identifiers
-			// we can use identifiers with double quotes or backticks, for example: "id", `id`, but not both, like `"id"`.
-			columns[i] = strings.Trim(strings.Trim(strings.TrimSpace(columns[i]), "\""), "`")
-		}
-	}
-	if !strings.HasSuffix(strings.TrimSpace(strings.ToUpper(query)), "VALUES") {
-		query += " VALUES"
+	batchQuery, columns, err := parser_utils.ExtractQueryAndColumns(query)
+	if err != nil {
+		return nil, err
 	}
 	options := queryOptions(ctx)
 	if deadline, ok := ctx.Deadline(); ok {
 		c.conn.SetDeadline(deadline)
 		defer c.conn.SetDeadline(time.Time{})
 	}
-	if err := c.sendQuery(query, &options); err != nil {
+	if err := c.sendQuery(batchQuery, &options); err != nil {
 		release(c, err)
 		return nil, err
 	}
-	var (
-		onProcess  = options.onProcess()
-		block, err = c.firstBlock(ctx, onProcess)
-	)
+
+	currOnProcess := options.onProcess()
+	block, err := c.firstBlock(ctx, currOnProcess)
+
 	if err != nil {
 		release(c, err)
 		return nil, err
@@ -79,13 +65,13 @@ func (c *connect) prepareBatch(ctx context.Context, query string, opts driver.Pr
 
 	b := &batch{
 		ctx:         ctx,
-		query:       query,
+		query:       batchQuery,
 		conn:        c,
 		block:       block,
 		released:    false,
 		connRelease: release,
 		connAcquire: acquire,
-		onProcess:   onProcess,
+		onProcess:   currOnProcess,
 	}
 
 	if opts.ReleaseConnection {
