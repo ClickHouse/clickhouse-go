@@ -26,6 +26,6 @@ func Test1247(t *testing.T) {
 		conn.Exec(ctx, "DROP TABLE IF EXISTS test_1247")
 	}()
 
-	_, err = conn.PrepareBatch(context.Background(), "INSERT INTO test_1247 (`ColumnNameWithParentheses(something)`) VALUES (\"test\")")
+	_, err = conn.PrepareBatch(context.Background(), "INSERT INTO test_1247 (`ColumnNameWithParentheses(something)`)")
 	require.NoError(t, err)
 }
