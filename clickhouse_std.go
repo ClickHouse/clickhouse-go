@@ -222,6 +222,9 @@ func (std *stdDriver) ResetSession(ctx context.Context) error {
 func (std *stdDriver) Ping(ctx context.Context) error { return std.conn.ping(ctx) }
 
 func (std *stdDriver) Begin() (driver.Tx, error) { return std, nil }
+func (std *stdDriver) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
+	return std, nil
+}
 
 func (std *stdDriver) Commit() error {
 	if std.commit == nil {
