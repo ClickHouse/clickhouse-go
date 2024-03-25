@@ -1,3 +1,16 @@
+# v2.22.3, 2024-03-25 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Fixes 🐛
+* Fix panic on tuple scan on []any by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1249
+### Other Changes 🛠
+* Error channel deadlock fix test case by @threadedstream in https://github.com/ClickHouse/clickhouse-go/pull/1239
+* Add a test case for #1127 by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1242
+* Run cloud/head jobs when label by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1250
+
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.22.2...v2.22.3
+
 # v2.22.2, 2024-03-18 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
