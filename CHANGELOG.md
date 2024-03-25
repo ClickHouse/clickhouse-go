@@ -1,3 +1,14 @@
+# v2.22.4, 2024-03-25 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Fixes 🐛
+* Fix column name with parantheses handle in prepare batch by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1252
+### Other Changes 🛠
+* Fix TestBatchAppendRows work different on cloud by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1251
+
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.22.3...v2.22.4
+
 # v2.22.3, 2024-03-25 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
