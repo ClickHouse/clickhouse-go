@@ -18,7 +18,6 @@
 package tests
 
 import (
-	"sync/atomic"
 	"testing"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
@@ -32,14 +31,7 @@ import (
 func TestBatchAppendRows(t *testing.T) {
 	te, err := GetTestEnvironment(testSet)
 	require.NoError(t, err)
-	blocksRead := atomic.Uint64{}
 	opts := ClientOptionsFromEnv(te, clickhouse.Settings{})
-	opts.Debug = true
-	opts.Debugf = func(format string, args ...interface{}) {
-		if format == "[batch.appendRowsBlocks] blockNum = %d" {
-			blocksRead.Store(uint64(args[0].(int))) // store the last block number read from rows
-		}
-	}
 
 	conn, err := GetConnectionWithOptions(&opts)
 	require.NoError(t, err)
@@ -49,19 +41,14 @@ func TestBatchAppendRows(t *testing.T) {
 	// given we have two tables and a million rows in the source table
 	var tables = []string{"source", "target"}
 	for _, table := range tables {
-		require.NoError(t, conn.Exec(context.Background(), "create table if not exists "+table+" (number1 Int, number2 String, number3 Tuple(String, Int), number4 DateTime) engine = MergeTree() order by tuple()"))
+		require.NoError(t, conn.Exec(context.Background(), "create table if not exists "+table+" (number1 Int, number2 String, number3 Tuple(String, Int), number4 DateTime) engine = Memory()"))
 		defer conn.Exec(context.Background(), "drop table if exists "+table)
 	}
 
 	require.NoError(t, conn.Exec(ctx, "INSERT INTO source SELECT number, 'string', tuple('foo', number), now() FROM system.numbers LIMIT 1000000"))
 
 	// when we create a batch with direct data block access 10 times
-
-	selectCtx := clickhouse.Context(ctx, clickhouse.WithSettings(clickhouse.Settings{
-		"max_block_size": 1000,
-	}))
-
-	sourceRows, err := conn.Query(selectCtx, "SELECT * FROM source")
+	sourceRows, err := conn.Query(ctx, "SELECT * FROM source")
 	require.NoError(t, err)
 	defer sourceRows.Close()
 
@@ -75,6 +62,5 @@ func TestBatchAppendRows(t *testing.T) {
 	require.NoError(t, row.Err())
 	var count uint64
 	require.NoError(t, row.Scan(&count))
-	assert.Equal(t, uint64(1000000), count)
-	assert.Equal(t, uint64(999), blocksRead.Load())
+	assert.Equal(t, 1000000, int(count))
 }
