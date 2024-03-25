@@ -6,9 +6,12 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    types: [labeled]
 
 jobs:
   cloud:
+    if: github.event.label.name == 'tests:run-cloud' || github.event_name == 'push'
     runs-on: ubuntu-latest
     defaults:
       run:
