@@ -447,7 +447,7 @@ func (col *Tuple) scan(targetType reflect.Type, row int) (reflect.Value, error) 
 		//tuples can be scanned into slices - specifically default for unnamed tuples
 		rSlice, err := col.scanSlice(targetType, row)
 		if err != nil {
-			return reflect.Value{}, nil
+			return reflect.Value{}, err
 		}
 		return rSlice, nil
 	case reflect.Interface:
