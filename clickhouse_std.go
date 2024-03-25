@@ -364,6 +364,7 @@ func (s *stdBatch) ExecContext(ctx context.Context, args []driver.NamedValue) (d
 var _ driver.StmtExecContext = (*stdBatch)(nil)
 
 func (s *stdBatch) Query(args []driver.Value) (driver.Rows, error) {
+	// Note: not implementing driver.StmtQueryContext accordingly
 	return nil, errors.New("only Exec method supported in batch mode")
 }
 
