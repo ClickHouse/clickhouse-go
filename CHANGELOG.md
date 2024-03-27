@@ -1,3 +1,17 @@
+# v2.23.0, 2024-03-27 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Enhancements 🎉
+* Implement `ConnBeginTx` as replacement for deprecated `Begin` by @FelipeLema in https://github.com/ClickHouse/clickhouse-go/pull/1255
+### Other Changes 🛠
+* Align error message assertion to new missing custom setting error formatting by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1256
+* CI chores by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1258
+
+## New Contributors
+* @FelipeLema made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1255
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.22.4...v2.23.0
+
 # v2.22.4, 2024-03-25 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
