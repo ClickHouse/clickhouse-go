@@ -430,13 +430,13 @@ func TestCustomSettings(t *testing.T) {
 				require.NoError(t, row.Err())
 
 				var setting string
-				require.NoError(t, row.Scan(&setting))
-				require.Equal(t, "custom_value", setting)
+				assert.NoError(t, row.Scan(&setting))
+				assert.Equal(t, "custom_value", setting)
 			})
 
 			t.Run("get non-existing custom setting value", func(t *testing.T) {
 				row := conn.QueryRowContext(context.Background(), "SELECT getSetting('custom_non_existing_setting')")
-				require.ErrorContains(t, row.Err(), "Unknown setting custom_non_existing_setting")
+				assert.Contains(t, strings.ReplaceAll(row.Err().Error(), "'", ""), "Unknown setting custom_non_existing_setting")
 			})
 
 			t.Run("get custom setting value from query context", func(t *testing.T) {
@@ -445,11 +445,11 @@ func TestCustomSettings(t *testing.T) {
 				}))
 
 				row := conn.QueryRowContext(ctx, "SELECT getSetting('custom_query_setting')")
-				require.NoError(t, row.Err())
+				assert.NoError(t, row.Err())
 
 				var setting string
-				require.NoError(t, row.Scan(&setting))
-				require.Equal(t, "custom_query_value", setting)
+				assert.NoError(t, row.Scan(&setting))
+				assert.Equal(t, "custom_query_value", setting)
 			})
 		})
 	}
