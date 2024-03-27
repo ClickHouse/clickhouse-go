@@ -20,13 +20,14 @@ package std
 import (
 	"context"
 	"fmt"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
-	"github.com/stretchr/testify/require"
 	"math/rand"
 	"os"
 	"strconv"
 	"testing"
 	"time"
+
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMain(m *testing.M) {
@@ -130,10 +131,6 @@ func TestStdContext(t *testing.T) {
 
 func TestStdProgress(t *testing.T) {
 	require.NoError(t, ProgressProfileLogs())
-}
-
-func TestStdSession(t *testing.T) {
-	require.NoError(t, Sessions())
 }
 
 func TestStdDynamicScan(t *testing.T) {

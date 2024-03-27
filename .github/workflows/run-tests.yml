@@ -20,7 +20,8 @@ jobs:
           - "1.22"
           - "1.21"
         clickhouse: # https://github.com/ClickHouse/ClickHouse/blob/master/SECURITY.md#scope-and-supported-versions
-          - "latest" # 24.2
+          - "latest" # 24.3
+          - "24.2"
           - "24.1"
           - "23.12"
           - "23.8"
