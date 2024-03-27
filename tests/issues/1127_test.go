@@ -22,26 +22,21 @@ func Test1127(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	progressTotalRows := uint64(0)
-	profileTotalRows := uint64(0)
+	progressHasTriggered := false
 	ctx := clickhouse.Context(context.Background(), clickhouse.WithProgress(func(p *clickhouse.Progress) {
 		fmt.Println("progress: ", p)
-		progressTotalRows += p.Rows
-	}), clickhouse.WithProfileInfo(func(p *clickhouse.ProfileInfo) {
-		fmt.Println("profile info: ", p)
-		profileTotalRows += p.Rows
+		progressHasTriggered = true
 	}), clickhouse.WithLogs(func(log *clickhouse.Log) {
 		fmt.Println("log info: ", log)
 	}))
 
-	rows, err := conn.Query(ctx, "SELECT number from numbers(10000000) LIMIT 10000000")
+	rows, err := conn.Query(ctx, "select throwIf(number = 1e6) from system.numbers settings max_block_size = 100")
 	require.NoError(t, err)
 
 	defer rows.Close()
 	for rows.Next() {
 	}
 
-	require.NoError(t, rows.Err())
-	assert.Equal(t, uint64(10000000), progressTotalRows)
-	assert.Equal(t, uint64(10000000), profileTotalRows)
+	assert.Error(t, rows.Err())
+	assert.True(t, progressHasTriggered)
 }
