@@ -18,9 +18,12 @@
 package tests
 
 import (
+	"bytes"
 	"context"
+	"crypto/md5"
 	"crypto/tls"
 	"database/sql"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -148,9 +151,16 @@ func CreateClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment,
 			Soft: 262144,
 		},
 	}
+
+	buf := new(bytes.Buffer)
+	if err := binary.Write(buf, binary.LittleEndian, time.Now().UnixNano()); err != nil {
+		return ClickHouseTestEnvironment{}, err
+	}
+	containerName := fmt.Sprintf("clickhouse-go-%x", md5.Sum(buf.Bytes()))
+
 	req := testcontainers.ContainerRequest{
 		Image:        fmt.Sprintf("clickhouse/clickhouse-server:%s", GetClickHouseTestVersion()),
-		Name:         fmt.Sprintf("clickhouse-go-%s-%d", strings.ToLower(testSet), time.Now().UnixNano()),
+		Name:         containerName,
 		ExposedPorts: []string{"9000/tcp", "8123/tcp", "9440/tcp", "8443/tcp"},
 		WaitingFor: wait.ForAll(
 			wait.ForLog("Ready for connections").WithStartupTimeout(time.Second*time.Duration(120)),
