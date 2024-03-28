@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
-      max-parallel: 4
+      max-parallel: 1
       matrix:
         go:
           - "1.22"
