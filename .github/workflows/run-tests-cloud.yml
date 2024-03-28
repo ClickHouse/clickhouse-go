@@ -18,6 +18,7 @@ jobs:
         shell: bash
     strategy:
       fail-fast: true
+      max-parallel: 1
       matrix:
         go:
           - "1.22"
