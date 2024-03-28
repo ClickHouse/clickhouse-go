@@ -247,6 +247,12 @@ func bindNamed(tz *time.Location, query string, args ...any) (_ string, err erro
 func formatTime(tz *time.Location, scale TimeUnit, value time.Time) (string, error) {
 	switch value.Location().String() {
 	case "Local", "":
+		// It's required to pass timestamp as string due to decimal overflow for higher precision,
+		// but zero-value string "toDateTime('0')" will be not parsed by ClickHouse.
+		if value.Unix() == 0 {
+			return "toDateTime(0)", nil
+		}
+
 		switch scale {
 		case Seconds:
 			return fmt.Sprintf("toDateTime('%d')", value.Unix()), nil
