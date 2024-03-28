@@ -1,3 +1,61 @@
+# v2.23.0, 2024-03-27 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Enhancements 🎉
+* Implement `ConnBeginTx` as replacement for deprecated `Begin` by @FelipeLema in https://github.com/ClickHouse/clickhouse-go/pull/1255
+### Other Changes 🛠
+* Align error message assertion to new missing custom setting error formatting by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1256
+* CI chores by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1258
+
+## New Contributors
+* @FelipeLema made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1255
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.22.4...v2.23.0
+
+# v2.22.4, 2024-03-25 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Fixes 🐛
+* Fix column name with parantheses handle in prepare batch by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1252
+### Other Changes 🛠
+* Fix TestBatchAppendRows work different on cloud by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1251
+
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.22.3...v2.22.4
+
+# v2.22.3, 2024-03-25 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Fixes 🐛
+* Fix panic on tuple scan on []any by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1249
+### Other Changes 🛠
+* Error channel deadlock fix test case by @threadedstream in https://github.com/ClickHouse/clickhouse-go/pull/1239
+* Add a test case for #1127 by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1242
+* Run cloud/head jobs when label by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1250
+
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.22.2...v2.22.3
+
+# v2.22.2, 2024-03-18 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Fixes 🐛
+* Fix for Map columns with Enums by @leklund in https://github.com/ClickHouse/clickhouse-go/pull/1236
+
+## New Contributors
+* @leklund made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1236
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.22.1...v2.22.2
+
+# v2.22.1, 2024-03-18 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Fixes 🐛
+* Make errors channel buffered inside query()  by @threadedstream in https://github.com/ClickHouse/clickhouse-go/pull/1237
+
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.22.0...v2.22.1
+
 # v2.20.0, 2024-02-28 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed

@@ -110,6 +110,8 @@ func (o *stdConnOpener) Connect(ctx context.Context) (_ driver.Conn, err error) 
 	return nil, err
 }
 
+var _ driver.Connector = (*stdConnOpener)(nil)
+
 func init() {
 	var debugf = func(format string, v ...any) {}
 	sql.Register("clickhouse", &stdDriver{debugf: debugf})
@@ -196,6 +198,12 @@ type stdDriver struct {
 	debugf func(format string, v ...any)
 }
 
+var _ driver.Conn = (*stdDriver)(nil)
+var _ driver.ConnBeginTx = (*stdDriver)(nil)
+var _ driver.ExecerContext = (*stdDriver)(nil)
+var _ driver.QueryerContext = (*stdDriver)(nil)
+var _ driver.ConnPrepareContext = (*stdDriver)(nil)
+
 func (std *stdDriver) Open(dsn string) (_ driver.Conn, err error) {
 	var opt Options
 	if err := opt.fromDSN(dsn); err != nil {
@@ -211,6 +219,8 @@ func (std *stdDriver) Open(dsn string) (_ driver.Conn, err error) {
 	return (&stdConnOpener{opt: o, debugf: debugf}).Connect(context.Background())
 }
 
+var _ driver.Driver = (*stdDriver)(nil)
+
 func (std *stdDriver) ResetSession(ctx context.Context) error {
 	if std.conn.isBad() {
 		std.debugf("Resetting session because connection is bad")
@@ -219,9 +229,16 @@ func (std *stdDriver) ResetSession(ctx context.Context) error {
 	return nil
 }
 
+var _ driver.SessionResetter = (*stdDriver)(nil)
+
 func (std *stdDriver) Ping(ctx context.Context) error { return std.conn.ping(ctx) }
 
+var _ driver.Pinger = (*stdDriver)(nil)
+
 func (std *stdDriver) Begin() (driver.Tx, error) { return std, nil }
+func (std *stdDriver) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
+	return std, nil
+}
 
 func (std *stdDriver) Commit() error {
 	if std.commit == nil {
@@ -248,7 +265,11 @@ func (std *stdDriver) Rollback() error {
 	return nil
 }
 
+var _ driver.Tx = (*stdDriver)(nil)
+
 func (std *stdDriver) CheckNamedValue(nv *driver.NamedValue) error { return nil }
+
+var _ driver.NamedValueChecker = (*stdDriver)(nil)
 
 func (std *stdDriver) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
 	if options := queryOptions(ctx); options.async.ok {
@@ -340,7 +361,10 @@ func (s *stdBatch) ExecContext(ctx context.Context, args []driver.NamedValue) (d
 	return s.Exec(values)
 }
 
+var _ driver.StmtExecContext = (*stdBatch)(nil)
+
 func (s *stdBatch) Query(args []driver.Value) (driver.Rows, error) {
+	// Note: not implementing driver.StmtQueryContext accordingly
 	return nil, errors.New("only Exec method supported in batch mode")
 }
 
@@ -358,6 +382,8 @@ func (r *stdRows) Columns() []string {
 func (r *stdRows) ColumnTypeScanType(idx int) reflect.Type {
 	return r.rows.block.Columns[idx].ScanType()
 }
+
+var _ driver.RowsColumnTypeScanType = (*stdRows)(nil)
 
 func (r *stdRows) ColumnTypeDatabaseTypeName(idx int) string {
 	return string(r.rows.block.Columns[idx].Type())
@@ -380,6 +406,12 @@ func (r *stdRows) ColumnTypePrecisionScale(idx int) (precision, scale int64, ok 
 	}
 	return 0, 0, false
 }
+
+var _ driver.Rows = (*stdRows)(nil)
+var _ driver.RowsNextResultSet = (*stdRows)(nil)
+var _ driver.RowsColumnTypeDatabaseTypeName = (*stdRows)(nil)
+var _ driver.RowsColumnTypeNullable = (*stdRows)(nil)
+var _ driver.RowsColumnTypePrecisionScale = (*stdRows)(nil)
 
 func (r *stdRows) Next(dest []driver.Value) error {
 	if len(r.rows.block.Columns) != len(dest) {
@@ -429,6 +461,8 @@ func (r *stdRows) NextResultSet() error {
 	return nil
 }
 
+var _ driver.RowsNextResultSet = (*stdRows)(nil)
+
 func (r *stdRows) Close() error {
 	err := r.rows.Close()
 	if err != nil {
@@ -436,3 +470,5 @@ func (r *stdRows) Close() error {
 	}
 	return err
 }
+
+var _ driver.Rows = (*stdRows)(nil)

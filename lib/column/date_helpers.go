@@ -25,7 +25,7 @@ import (
 const secInDay = 24 * 60 * 60
 
 func dateOverflow(min, max, v time.Time, format string) error {
-	if v.Before(min) || v.After(max) {
+	if !v.IsZero() && (v.Before(min) || v.After(max)) {
 		return &DateOverflowError{
 			Min:    min,
 			Max:    max,

@@ -18,11 +18,27 @@
 package tests
 
 import (
+	"bytes"
 	"context"
+	"crypto/md5"
 	"crypto/tls"
+	"database/sql"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/rand"
+	"net"
+	"net/url"
+	"os"
+	"path"
+	"path/filepath"
+	"runtime"
+	"strconv"
+	"strings"
+	"testing"
+	"time"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
@@ -33,16 +49,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
-	"math/rand"
-	"net"
-	"os"
-	"path"
-	"path/filepath"
-	"runtime"
-	"strconv"
-	"strings"
-	"testing"
-	"time"
 )
 
 var testUUID = uuid.NewString()[0:12]
@@ -145,9 +151,16 @@ func CreateClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment,
 			Soft: 262144,
 		},
 	}
+
+	buf := new(bytes.Buffer)
+	if err := binary.Write(buf, binary.LittleEndian, time.Now().UnixNano()); err != nil {
+		return ClickHouseTestEnvironment{}, err
+	}
+	containerName := fmt.Sprintf("clickhouse-go-%x", md5.Sum(buf.Bytes()))
+
 	req := testcontainers.ContainerRequest{
 		Image:        fmt.Sprintf("clickhouse/clickhouse-server:%s", GetClickHouseTestVersion()),
-		Name:         fmt.Sprintf("clickhouse-go-%s-%d", strings.ToLower(testSet), time.Now().UnixNano()),
+		Name:         containerName,
 		ExposedPorts: []string{"9000/tcp", "8123/tcp", "9440/tcp", "8443/tcp"},
 		WaitingFor: wait.ForAll(
 			wait.ForLog("Ready for connections").WithStartupTimeout(time.Second*time.Duration(120)),
@@ -291,7 +304,7 @@ func testClientWithDefaultOptions(env ClickHouseTestEnvironment, settings clickh
 	return clickhouse.Open(&opts)
 }
 
-func TestClientWithDefaultSettings(env ClickHouseTestEnvironment) (driver.Conn, error) {
+func TestClientDefaultSettings(env ClickHouseTestEnvironment) clickhouse.Settings {
 	settings := clickhouse.Settings{}
 
 	if proto.CheckMinVersion(proto.Version{
@@ -305,7 +318,20 @@ func TestClientWithDefaultSettings(env ClickHouseTestEnvironment) (driver.Conn, 
 	settings["insert_quorum_parallel"] = 0
 	settings["select_sequential_consistency"] = 1
 
-	return testClientWithDefaultOptions(env, settings)
+	return settings
+}
+
+func TestClientWithDefaultSettings(env ClickHouseTestEnvironment) (driver.Conn, error) {
+	return testClientWithDefaultOptions(env, TestClientDefaultSettings(env))
+}
+
+func TestDatabaseSQLClientWithDefaultOptions(env ClickHouseTestEnvironment, settings clickhouse.Settings) (*sql.DB, error) {
+	opts := ClientOptionsFromEnv(env, settings)
+	return sql.Open("clickhouse", optionsToDSN(&opts))
+}
+
+func TestDatabaseSQLClientWithDefaultSettings(env ClickHouseTestEnvironment) (*sql.DB, error) {
+	return TestDatabaseSQLClientWithDefaultOptions(env, TestClientDefaultSettings(env))
 }
 
 func GetConnection(testSet string, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (driver.Conn, error) {
@@ -626,4 +652,110 @@ func CreateTinyProxyTestEnvironment(t *testing.T) (TinyProxyTestEnvironment, err
 		HttpPort:  p.Int(),
 		Container: container,
 	}, nil
+}
+
+func optionsToDSN(o *clickhouse.Options) string {
+	var u url.URL
+
+	if o.Protocol == clickhouse.Native {
+		u.Scheme = "clickhouse"
+	} else {
+		if o.TLS != nil {
+			u.Scheme = "https"
+		} else {
+			u.Scheme = "http"
+		}
+	}
+
+	u.Host = strings.Join(o.Addr, ",")
+	u.User = url.UserPassword(o.Auth.Username, o.Auth.Password)
+	u.Path = fmt.Sprintf("/%s", o.Auth.Database)
+
+	params := u.Query()
+
+	if o.TLS != nil {
+		params.Set("secure", "true")
+	}
+
+	if o.TLS != nil && o.TLS.InsecureSkipVerify {
+		params.Set("skip_verify", "true")
+	}
+
+	if o.Debug {
+		params.Set("debug", "true")
+	}
+
+	if o.Compression != nil {
+		params.Set("compress", o.Compression.Method.String())
+		if o.Compression.Level > 0 {
+			params.Set("compress_level", strconv.Itoa(o.Compression.Level))
+		}
+	}
+
+	if o.MaxCompressionBuffer > 0 {
+		params.Set("max_compression_buffer", strconv.Itoa(o.MaxCompressionBuffer))
+	}
+
+	if o.DialTimeout > 0 {
+		params.Set("dial_timeout", o.DialTimeout.String())
+	}
+
+	if o.BlockBufferSize > 0 {
+		params.Set("block_buffer_size", strconv.Itoa(int(o.BlockBufferSize)))
+	}
+
+	if o.ReadTimeout > 0 {
+		params.Set("read_timeout", o.ReadTimeout.String())
+	}
+
+	if o.ConnOpenStrategy != 0 {
+		var strategy string
+		switch o.ConnOpenStrategy {
+		case clickhouse.ConnOpenInOrder:
+			strategy = "in_order"
+		case clickhouse.ConnOpenRoundRobin:
+			strategy = "round_robin"
+		}
+
+		params.Set("connection_open_strategy", strategy)
+	}
+
+	if o.MaxOpenConns > 0 {
+		params.Set("max_open_conns", strconv.Itoa(o.MaxOpenConns))
+	}
+
+	if o.MaxIdleConns > 0 {
+		params.Set("max_idle_conns", strconv.Itoa(o.MaxIdleConns))
+	}
+
+	if o.ConnMaxLifetime > 0 {
+		params.Set("conn_max_lifetime", o.ConnMaxLifetime.String())
+	}
+
+	if o.ClientInfo.Products != nil {
+		var products []string
+		for _, product := range o.ClientInfo.Products {
+			products = append(products, fmt.Sprintf("%s/%s", product.Name, product.Version))
+		}
+		params.Set("client_info_product", strings.Join(products, ","))
+	}
+
+	for k, v := range o.Settings {
+		switch v := v.(type) {
+		case bool:
+			if v {
+				params.Set(k, "true")
+			} else {
+				params.Set(k, "false")
+			}
+		case int:
+			params.Set(k, strconv.Itoa(v))
+		case string:
+			params.Set(k, v)
+		}
+	}
+
+	u.RawQuery = params.Encode()
+
+	return u.String()
 }
