@@ -6,14 +6,14 @@ require (
 	github.com/ClickHouse/ch-go v0.61.5
 	github.com/ClickHouse/clickhouse-go v1.5.4
 	github.com/andybalholm/brotli v1.1.0
-	github.com/docker/docker v26.0.0+incompatible
+	github.com/docker/docker v26.0.1+incompatible
 	github.com/docker/go-connections v0.5.0
 	github.com/docker/go-units v0.5.0
 	github.com/google/uuid v1.6.0
 	github.com/mkevac/debugcharts v0.0.0-20191222103121-ae1c48aa8615
 	github.com/paulmach/orb v0.11.1
 	github.com/pkg/errors v0.9.1
-	github.com/shopspring/decimal v1.3.1
+	github.com/shopspring/decimal v1.4.0
 	github.com/stretchr/testify v1.9.0
 	github.com/testcontainers/testcontainers-go v0.28.0
 	go.opentelemetry.io/otel/trace v1.24.0
