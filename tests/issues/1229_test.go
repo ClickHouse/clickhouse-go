@@ -48,7 +48,9 @@ func Test1229(t *testing.T) {
 			defer wg.Done()
 			withTimeoutCtx, cancel := context.WithTimeout(ctx, queryTimeout)
 			defer cancel()
-			_, _ = conn.Query(withTimeoutCtx, selectQuery)
+			rows, err := conn.Query(withTimeoutCtx, selectQuery)
+			require.NoError(t, err)
+			require.NoError(t, rows.Close())
 		}()
 	}
 

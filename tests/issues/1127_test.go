@@ -13,12 +13,7 @@ import (
 
 func Test1127(t *testing.T) {
 	var (
-		conn, err = clickhouse_tests.GetConnection("issues", clickhouse.Settings{
-			"max_execution_time":             60,
-			"allow_experimental_object_type": true,
-		}, nil, &clickhouse.Compression{
-			Method: clickhouse.CompressionLZ4,
-		})
+		conn, err = clickhouse_tests.GetConnection("issues", nil, nil, nil)
 	)
 	require.NoError(t, err)
 
@@ -30,11 +25,14 @@ func Test1127(t *testing.T) {
 		fmt.Println("log info: ", log)
 	}))
 
-	rows, err := conn.Query(ctx, "select throwIf(number = 1e6) from system.numbers settings max_block_size = 100")
+	rows, err := conn.Query(ctx, "select number, throwIf(number = 1e6) from system.numbers settings max_block_size = 100")
 	require.NoError(t, err)
-
 	defer rows.Close()
+
+	var number uint64
+	var throwIf uint8
 	for rows.Next() {
+		require.NoError(t, rows.Scan(&number, &throwIf))
 	}
 
 	assert.Error(t, rows.Err())
