@@ -13,8 +13,8 @@ func WithReleaseConnection() PrepareBatchOption {
 	}
 }
 
-// WithCloseQuery fix not generate QueryFinish log in system.query_log when use batch.Flush
-func WithCloseQuery() PrepareBatchOption {
+// WithCloseOnFlush closes batch INSERT query when Flush is executed
+func WithCloseOnFlush() PrepareBatchOption {
 	return func(options *PrepareBatchOptions) {
 		options.CloseQuery = true
 	}
