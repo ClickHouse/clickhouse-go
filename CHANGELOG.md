@@ -1,3 +1,16 @@
+# v2.23.1, 2024-04-15 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Fixes 🐛
+* Zero-value timestamp to be formatted as toDateTime(0) in bind by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1260
+### Other Changes 🛠
+* Update #1127 test case to reproduce a progress handle when exception is thrown by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1259
+* Set max parallel for GH jobs by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1261
+* Ensure test container termination by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1274
+
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.23.0...v2.23.1
+
 # v2.23.0, 2024-03-27 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
