@@ -46,7 +46,7 @@ func Test1271(t *testing.T) {
 	`)
 	require.NoError(t, err)
 
-	batch, err := conn.PrepareBatch(ctx, "INSERT INTO flush_with_close_query_example", driver.WithCloseQuery())
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO flush_with_close_query_example", driver.WithCloseOnFlush())
 	require.NoError(t, err)
 	// 1 million rows should only take < 1s on most desktops
 	for i := 0; i < 100_000; i++ {
