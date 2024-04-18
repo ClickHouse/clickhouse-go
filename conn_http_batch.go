@@ -239,4 +239,8 @@ func (b *httpBatch) Rows() int {
 	return b.block.Rows()
 }
 
+func (b *httpBatch) Block() proto.Block {
+	return *b.block
+}
+
 var _ driver.Batch = (*httpBatch)(nil)

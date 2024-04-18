@@ -85,6 +85,7 @@ type (
 		Send() error
 		IsSent() bool
 		Rows() int
+		Block() proto.Block
 	}
 	BatchColumn interface {
 		Append(any) error
