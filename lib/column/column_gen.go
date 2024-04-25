@@ -656,7 +656,9 @@ func (col *Int8) Append(v any) (nulls []uint8, err error) {
 		nulls = make([]uint8, len(v))
 		for i := range v {
 			val := int8(0)
-			if *v[i] {
+			if v[i] == nil {
+				nulls[i] = 1
+			} else if *v[i] {
 				val = 1
 			}
 			col.col.Append(val)

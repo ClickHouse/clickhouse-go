@@ -142,7 +142,7 @@ func (col *DateTime64) Append(v any) (nulls []uint8, err error) {
 		nulls = make([]uint8, len(v))
 		for i := range v {
 			switch {
-			case v != nil:
+			case v[i] != nil:
 				col.col.Append(time.UnixMilli(*v[i]))
 			default:
 				col.col.Append(time.UnixMilli(0))

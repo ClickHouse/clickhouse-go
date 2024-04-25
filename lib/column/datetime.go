@@ -121,7 +121,7 @@ func (col *DateTime) Append(v any) (nulls []uint8, err error) {
 		nulls = make([]uint8, len(v))
 		for i := range v {
 			switch {
-			case v != nil:
+			case v[i] != nil:
 				col.col.Append(time.Unix(*v[i], 0))
 			default:
 				col.col.Append(time.Time{})
