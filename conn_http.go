@@ -372,11 +372,10 @@ func (h *httpConnect) writeData(block *proto.Block) error {
 	return nil
 }
 
-func (h *httpConnect) readData(ctx context.Context, reader *chproto.Reader) (*proto.Block, error) {
-	opts := queryOptions(ctx)
+func (h *httpConnect) readData(reader *chproto.Reader, timezone *time.Location) (*proto.Block, error) {
 	location := h.location
-	if opts.userLocation != nil {
-		location = opts.userLocation
+	if timezone != nil {
+		location = timezone
 	}
 
 	block := proto.Block{Timezone: location}

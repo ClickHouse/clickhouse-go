@@ -73,7 +73,7 @@ func (h *httpConnect) query(ctx context.Context, release func(*connect, error), 
 		return nil, err
 	}
 	chReader := chproto.NewReader(reader)
-	block, err := h.readData(ctx, chReader)
+	block, err := h.readData(chReader, options.userLocation)
 	if err != nil && !errors.Is(err, io.EOF) {
 		res.Body.Close()
 		h.compressionPool.Put(rw)
@@ -91,7 +91,7 @@ func (h *httpConnect) query(ctx context.Context, release func(*connect, error), 
 	)
 	go func() {
 		for {
-			block, err := h.readData(ctx, chReader)
+			block, err := h.readData(chReader, options.userLocation)
 			if err != nil {
 				// ch-go wraps EOF errors
 				if !errors.Is(err, io.EOF) {
