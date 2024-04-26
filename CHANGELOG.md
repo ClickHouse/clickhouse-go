@@ -1,3 +1,16 @@
+# v2.23.2, 2024-04-25 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Fixes 🐛
+* Fixed panic on concurrent context key map write by @Wang in https://github.com/ClickHouse/clickhouse-go/pull/1284
+### Other Changes 🛠
+* Fix ClickHouse Terraform provider version by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1285
+
+## New Contributors
+* @Wang made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1284
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.23.1...v2.23.2
+
 # v2.23.1, 2024-04-15 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
