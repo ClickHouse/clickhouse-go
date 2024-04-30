@@ -45,7 +45,7 @@ func Test1280SplitInsertRe(t *testing.T) {
 			expected: []string{"INSERT INTO table_name", "1, 'hello')"},
 		},
 		{
-			input:    "INSERT INTO table_name  VALUES  (1, 'hello')",
+			input:    "INSERT INTO table_name  values  (1, 'hello')",
 			expected: []string{"INSERT INTO table_name ", "1, 'hello')"},
 		},
 		{
@@ -83,6 +83,10 @@ func Test1280SplitInsertRe(t *testing.T) {
 		{
 			input:    "INSERT INTO table_name",
 			expected: []string{"INSERT INTO table_name"},
+		},
+		{
+			input:    "INSERT INTO table_values",
+			expected: []string{"INSERT INTO table_values"},
 		},
 	}
 
