@@ -35,7 +35,6 @@ func Test1280(t *testing.T) {
 func Test1280SplitInsertRe(t *testing.T) {
 	var splitInsertRe = regexp.MustCompile(`(?i)\sVALUES\s*\(?`)
 
-	// 定义测试用例
 	testCases := []struct {
 		input    string
 		expected []string
@@ -90,7 +89,6 @@ func Test1280SplitInsertRe(t *testing.T) {
 		},
 	}
 
-	// 遍历测试用例并执行测试
 	for _, tc := range testCases {
 		result := splitInsertRe.Split(tc.input, -1)
 		if !reflect.DeepEqual(result, tc.expected) {
