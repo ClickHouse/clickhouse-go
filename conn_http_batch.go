@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
@@ -239,8 +240,8 @@ func (b *httpBatch) Rows() int {
 	return b.block.Rows()
 }
 
-func (b *httpBatch) Block() proto.Block {
-	return *b.block
+func (b *httpBatch) Columns() []column.Interface {
+	return slices.Clone(b.block.Columns)
 }
 
 var _ driver.Batch = (*httpBatch)(nil)
