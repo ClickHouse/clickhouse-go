@@ -32,7 +32,7 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 
-var splitInsertRe = regexp.MustCompile(`(?i)\sVALUES\s*\(`)
+var splitInsertRe = regexp.MustCompile(`(?i)\sVALUES\s*\(?`)
 var columnMatch = regexp.MustCompile(`INSERT INTO .+\s\((?P<Columns>.+)\)$`)
 
 func (c *connect) prepareBatch(ctx context.Context, query string, opts driver.PrepareBatchOptions, release func(*connect, error), acquire func(context.Context) (*connect, error)) (driver.Batch, error) {
@@ -41,7 +41,7 @@ func (c *connect) prepareBatch(ctx context.Context, query string, opts driver.Pr
 	//		fmt.Printf("panic occurred on %d:\n", c.num)
 	//	}
 	//}()
-	query = splitInsertRe.Split(query, -1)[0]
+	query = strings.TrimSpace(splitInsertRe.Split(query, -1)[0])
 	colMatch := columnMatch.FindStringSubmatch(query)
 	var columns []string
 	if len(colMatch) == 2 {
@@ -52,9 +52,8 @@ func (c *connect) prepareBatch(ctx context.Context, query string, opts driver.Pr
 			columns[i] = strings.Trim(strings.Trim(strings.TrimSpace(columns[i]), "\""), "`")
 		}
 	}
-	if !strings.HasSuffix(strings.TrimSpace(strings.ToUpper(query)), "VALUES") {
-		query += " VALUES"
-	}
+	query += " VALUES"
+
 	options := queryOptions(ctx)
 	if deadline, ok := ctx.Deadline(); ok {
 		c.conn.SetDeadline(deadline)
