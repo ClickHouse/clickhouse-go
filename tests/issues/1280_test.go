@@ -2,8 +2,6 @@ package issues
 
 import (
 	"context"
-	"reflect"
-	"regexp"
 	"testing"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
@@ -13,7 +11,7 @@ import (
 
 func Test1280(t *testing.T) {
 	var (
-		conn, err = clickhouse_tests.GetConnection("issues", clickhouse.Settings{
+		conn, err = clickhouse_tests.GetConnection(testSet, clickhouse.Settings{
 			"max_execution_time":             60,
 			"allow_experimental_object_type": true,
 		}, nil, &clickhouse.Compression{
@@ -22,77 +20,70 @@ func Test1280(t *testing.T) {
 	)
 	ctx := context.Background()
 	require.NoError(t, err)
-	const ddl = "CREATE TABLE test_1280_values (`id` Int32) Engine = Memory"
+
+	ddl := "CREATE TABLE values (`id` Int32, `values` Int32) Engine = Memory"
 	require.NoError(t, conn.Exec(ctx, ddl))
-	defer func() {
-		conn.Exec(ctx, "DROP TABLE IF EXISTS test_1280_values")
-	}()
+	defer conn.Exec(ctx, "DROP TABLE IF EXISTS values")
 
-	_, err = conn.PrepareBatch(context.Background(), "INSERT INTO test_1280_values")
-	require.NoError(t, err)
-}
-
-func Test1280SplitInsertRe(t *testing.T) {
-	var splitInsertRe = regexp.MustCompile(`(?i)\sVALUES\s*\(?`)
-
-	testCases := []struct {
-		input    string
-		expected []string
+	testCases1 := []struct {
+		input string
 	}{
 		{
-			input:    "INSERT INTO table_name VALUES (1, 'hello')",
-			expected: []string{"INSERT INTO table_name", "1, 'hello')"},
+			input: "INSERT INTO values (values)",
 		},
 		{
-			input:    "INSERT INTO table_name  values  (1, 'hello')",
-			expected: []string{"INSERT INTO table_name ", "1, 'hello')"},
+			input: "INSERT INTO values (values) values",
 		},
 		{
-			input:    "INSERT INTO table_name\tVALUES\t(2, 'world')",
-			expected: []string{"INSERT INTO table_name", "2, 'world')"},
-		},
-		{
-			input:    "INSERT INTO table_name\t\tVALUES\t\t(2, 'world')",
-			expected: []string{"INSERT INTO table_name\t", "2, 'world')"},
-		},
-		{
-			input:    "INSERT INTO table_name \tVALUES\t(2, 'world')",
-			expected: []string{"INSERT INTO table_name ", "2, 'world')"},
-		},
-		{
-			input:    "INSERT INTO table_name\t VALUES\t(2, 'world')",
-			expected: []string{"INSERT INTO table_name\t", "2, 'world')"},
-		},
-		{
-			input:    "INSERT INTO table_name\nVALUES\n(3, 'foo')",
-			expected: []string{"INSERT INTO table_name", "3, 'foo')"},
-		},
-		{
-			input:    "INSERT INTO table_name\rVALUES\r(4, 'bar')",
-			expected: []string{"INSERT INTO table_name", "4, 'bar')"},
-		},
-		{
-			input:    "INSERT INTO table_name VALUES",
-			expected: []string{"INSERT INTO table_name", ""},
-		},
-		{
-			input:    "INSERT INTO table_name ",
-			expected: []string{"INSERT INTO table_name "},
-		},
-		{
-			input:    "INSERT INTO table_name",
-			expected: []string{"INSERT INTO table_name"},
-		},
-		{
-			input:    "INSERT INTO table_values",
-			expected: []string{"INSERT INTO table_values"},
+			input: "INSERT INTO values (`values`) values",
 		},
 	}
 
-	for _, tc := range testCases {
-		result := splitInsertRe.Split(tc.input, -1)
-		if !reflect.DeepEqual(result, tc.expected) {
-			t.Errorf("Input: %q, \nExpected: %v Got: %v", tc.input, tc.expected, result)
-		}
+	for i, tc := range testCases1 {
+		batch, err := conn.PrepareBatch(context.Background(), tc.input)
+		require.NoError(t, err)
+		appendErr := batch.Append(i)
+		require.NoError(t, appendErr)
+		err = batch.Send()
+		require.NoError(t, err)
+	}
+
+	testCases2 := []struct {
+		input string
+	}{
+		{
+			input: `
+				INSERT
+				INTO
+				values
+				(
+					id,
+					values
+				)`,
+		},
+		{
+			input: `INSERT 
+					INTO
+					values
+					(id,
+						values)
+					values`,
+		},
+		{
+			input: `
+					INSERT
+					 INTO 
+					 values
+					  (id,values) values (1,2)`,
+		},
+	}
+
+	for i, tc := range testCases2 {
+		batch, err := conn.PrepareBatch(context.Background(), tc.input)
+		require.NoError(t, err)
+		appendErr := batch.Append(i, i)
+		require.NoError(t, appendErr)
+		err = batch.Send()
+		require.NoError(t, err)
 	}
 }

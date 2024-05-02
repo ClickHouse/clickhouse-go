@@ -32,7 +32,7 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 
-var splitInsertRe = regexp.MustCompile(`(?i)\sVALUES\s*\(?`)
+var insertMatch = regexp.MustCompile(`(?i)(INSERT\s+INTO\s+\S+(?:\s*\([^()]*(?:\([^()]*\)[^()]*)*\))?)(?:\s*VALUES)?`)
 var columnMatch = regexp.MustCompile(`INSERT INTO .+\s\((?P<Columns>.+)\)$`)
 
 func (c *connect) prepareBatch(ctx context.Context, query string, opts driver.PrepareBatchOptions, release func(*connect, error), acquire func(context.Context) (*connect, error)) (driver.Batch, error) {
@@ -41,7 +41,13 @@ func (c *connect) prepareBatch(ctx context.Context, query string, opts driver.Pr
 	//		fmt.Printf("panic occurred on %d:\n", c.num)
 	//	}
 	//}()
-	query = strings.TrimSpace(splitInsertRe.Split(query, -1)[0])
+	subMatches := insertMatch.FindStringSubmatch(query)
+	if len(subMatches) > 1 {
+		query = subMatches[1]
+	} else {
+		return nil, errors.New("invalid query")
+	}
+
 	colMatch := columnMatch.FindStringSubmatch(query)
 	var columns []string
 	if len(colMatch) == 2 {
