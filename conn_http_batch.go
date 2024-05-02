@@ -199,6 +199,7 @@ func (b *httpBatch) Send() (err error) {
 		headers["Content-Encoding"] = b.conn.compression.String()
 	case CompressionZSTD, CompressionLZ4:
 		options.settings["decompress"] = "1"
+		options.settings["compress"] = "1"
 	}
 
 	go func() {
