@@ -41,11 +41,11 @@ func TestBatchAppendRows(t *testing.T) {
 	// given we have two tables and a million rows in the source table
 	var tables = []string{"source", "target"}
 	for _, table := range tables {
-		require.NoError(t, conn.Exec(context.Background(), "create table if not exists "+table+" (number1 Int, number2 String, number3 Tuple(String, Int), number4 DateTime) engine = Memory()"))
+		require.NoError(t, conn.Exec(context.Background(), "create table if not exists "+table+" (number1 Int, number2 LowCardinality(String), number3 Tuple(String, Int), number4 DateTime) engine = Memory()"))
 		defer conn.Exec(context.Background(), "drop table if exists "+table)
 	}
 
-	require.NoError(t, conn.Exec(ctx, "INSERT INTO source SELECT number, 'string', tuple('foo', number), now() FROM system.numbers LIMIT 1000000"))
+	require.NoError(t, conn.Exec(ctx, "INSERT INTO source SELECT number, toString(number), tuple('foo', number), now() FROM system.numbers LIMIT 1000000"))
 
 	// when we create a batch with direct data block access 10 times
 	sourceRows, err := conn.Query(ctx, "SELECT * FROM source")
