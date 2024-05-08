@@ -83,14 +83,15 @@ func (c *connect) prepareBatch(ctx context.Context, query string, opts driver.Pr
 	}
 
 	b := &batch{
-		ctx:         ctx,
-		query:       query,
-		conn:        c,
-		block:       block,
-		released:    false,
-		connRelease: release,
-		connAcquire: acquire,
-		onProcess:   onProcess,
+		ctx:          ctx,
+		query:        query,
+		conn:         c,
+		block:        block,
+		released:     false,
+		connRelease:  release,
+		connAcquire:  acquire,
+		onProcess:    onProcess,
+		closeOnFlush: opts.CloseOnFlush,
 	}
 
 	if opts.ReleaseConnection {
@@ -101,16 +102,17 @@ func (c *connect) prepareBatch(ctx context.Context, query string, opts driver.Pr
 }
 
 type batch struct {
-	err         error
-	ctx         context.Context
-	query       string
-	conn        *connect
-	sent        bool // sent signalize that batch is send to ClickHouse.
-	released    bool // released signalize that conn was returned to pool and can't be used.
-	block       *proto.Block
-	connRelease func(*connect, error)
-	connAcquire func(context.Context) (*connect, error)
-	onProcess   *onProcess
+	err          error
+	ctx          context.Context
+	query        string
+	conn         *connect
+	sent         bool // sent signalize that batch is send to ClickHouse.
+	released     bool // released signalize that conn was returned to pool and can't be used.
+	closeOnFlush bool // closeOnFlush signalize that batch should close query and release conn when use Flush
+	block        *proto.Block
+	connRelease  func(*connect, error)
+	connAcquire  func(context.Context) (*connect, error)
+	onProcess    *onProcess
 }
 
 func (b *batch) release(err error) {
@@ -304,6 +306,9 @@ func (b *batch) Flush() error {
 	if b.block.Rows() != 0 {
 		if err := b.conn.sendData(b.block, ""); err != nil {
 			return err
+		}
+		if b.closeOnFlush {
+			b.release(b.closeQuery())
 		}
 	}
 	b.block.Reset()
