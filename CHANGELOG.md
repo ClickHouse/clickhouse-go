@@ -1,3 +1,20 @@
+# v2.24.0, 2024-05-08 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Enhancements 🎉
+* Always compress responses when the client compression is on by @zhkvia in https://github.com/ClickHouse/clickhouse-go/pull/1286
+* Optional flag to close query with flush by @hongker in https://github.com/ClickHouse/clickhouse-go/pull/1276
+### Fixes 🐛
+* Fix prepare batch does not break on `values` substring in table name by @Wang in https://github.com/ClickHouse/clickhouse-go/pull/1290
+* Fix nil checks when appending slices of pointers by @markandrus in https://github.com/ClickHouse/clickhouse-go/pull/1283
+### Other Changes 🛠
+* Don't recreate keys from LC columns from direct stream by @genzgd in https://github.com/ClickHouse/clickhouse-go/pull/1291
+
+## New Contributors
+* @zhkvia made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1286
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.23.2...v2.24.0
+
 # v2.23.2, 2024-04-25 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
