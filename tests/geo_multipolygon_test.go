@@ -199,20 +199,20 @@ func TestGeoMultiPolygonFlush(t *testing.T) {
 	require.Equal(t, 1000, i)
 }
 
-type testMutiPolygonSerializer struct {
+type testMultiPolygonSerializer struct {
 	val orb.MultiPolygon
 }
 
-func (c testMutiPolygonSerializer) Value() (driver.Value, error) {
+func (c testMultiPolygonSerializer) Value() (driver.Value, error) {
 	return c.val, nil
 }
 
-func (c *testMutiPolygonSerializer) Scan(src any) error {
+func (c *testMultiPolygonSerializer) Scan(src any) error {
 	if t, ok := src.(orb.MultiPolygon); ok {
-		*c = testMutiPolygonSerializer{val: t}
+		*c = testMultiPolygonSerializer{val: t}
 		return nil
 	}
-	return fmt.Errorf("cannot scan %T into testMutiPolygonSerializer", src)
+	return fmt.Errorf("cannot scan %T into testMultiPolygonSerializer", src)
 }
 
 func TestGeoMultiPolygonValuer(t *testing.T) {
@@ -262,7 +262,7 @@ func TestGeoMultiPolygonValuer(t *testing.T) {
 				},
 			},
 		}
-		require.NoError(t, batch.Append(testMutiPolygonSerializer{val: vals[i]}))
+		require.NoError(t, batch.Append(testMultiPolygonSerializer{val: vals[i]}))
 		require.NoError(t, batch.Flush())
 	}
 	require.NoError(t, batch.Send())

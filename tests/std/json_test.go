@@ -119,7 +119,7 @@ func TestStdJson(t *testing.T) {
 	rows := conn.QueryRow("SELECT * FROM json_std_test")
 	require.NoError(t, rows.Scan(&event))
 	assert.JSONEq(t, ToJson(col1Data), ToJson(event))
-	// again pass any for anthing other than primitives
+	// again pass any for anything other than primitives
 	rows = conn.QueryRow("SELECT event.assignee.Achievement FROM json_std_test")
 	var achievement any
 	require.NoError(t, rows.Scan(&achievement))

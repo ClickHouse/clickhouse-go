@@ -2200,7 +2200,7 @@ func TestInconsistentStructsOnQuery(t *testing.T) {
 	}
 
 	var event Issue
-	// this won't error - types are leniant - we will populate what we can
+	// this won't error - types are lenient - we will populate what we can
 	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM json_test").Scan(&event))
 	assert.JSONEq(t, `{"type":"Issue","title":"Document JSON support","assignee":{"city":""}}`, toJson(event))
 }
