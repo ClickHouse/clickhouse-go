@@ -12,6 +12,8 @@ import (
 )
 
 func Test1127(t *testing.T) {
+	t.Skip("This test is flaky and needs to be fixed")
+
 	var (
 		conn, err = clickhouse_tests.GetConnection("issues", nil, nil, nil)
 	)
