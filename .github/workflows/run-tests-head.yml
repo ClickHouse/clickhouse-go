@@ -26,7 +26,6 @@ jobs:
       - name: Install Go ${{ matrix.go }}
         uses: actions/setup-go@v2.1.5
         with:
-          stable: false
           go-version: ${{ matrix.go }}
 
       - name: Run tests
