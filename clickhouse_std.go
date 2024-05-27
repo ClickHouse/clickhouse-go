@@ -434,6 +434,21 @@ func (r *stdRows) Next(dest []driver.Value) error {
 				}
 				dest[i] = v
 			default:
+				// We don't know what is the destination type at this stage,
+				// but destination type might be a sql.Null* type that expects to receive a value
+				// instead of a pointer to a value. ClickHouse-go returns pointers to values for nullable columns.
+				//
+				// This is a compatibility layer to make sure that the driver works with the standard library.
+				// Due to reflection used it has a performance cost.
+				if nullable {
+					if value == nil {
+						dest[i] = nil
+						continue
+					}
+					rv := reflect.ValueOf(value)
+					value = rv.Elem().Interface()
+				}
+
 				dest[i] = value
 			}
 		}
