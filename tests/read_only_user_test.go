@@ -19,10 +19,11 @@ package tests
 
 import (
 	"context"
+	"testing"
+
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func TestReadOnlyUser(t *testing.T) {
@@ -95,7 +96,7 @@ func TestReadOnlyUser(t *testing.T) {
 	roEnv.Username = username
 	roEnv.Password = password
 
-	roClient, err := testClientWithDefaultOptions(roEnv, nil)
+	roClient, err := TestClientWithDefaultOptions(roEnv, nil)
 	require.NoError(t, err)
 	defer roClient.Close()
 

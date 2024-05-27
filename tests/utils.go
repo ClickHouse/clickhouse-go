@@ -122,7 +122,7 @@ func CheckMinServerServerVersion(conn driver.Conn, major, minor, patch uint64) b
 	}, v.Version)
 }
 
-func CreateClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment, error) {
+func CreateClickHouseTestEnvironment(testSet string, reuse bool) (ClickHouseTestEnvironment, error) {
 	// create a ClickHouse Container
 	ctx := context.Background()
 	// attempt use docker for CI
@@ -152,11 +152,14 @@ func CreateClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment,
 		},
 	}
 
-	buf := new(bytes.Buffer)
-	if err := binary.Write(buf, binary.LittleEndian, time.Now().UnixNano()); err != nil {
-		return ClickHouseTestEnvironment{}, err
+	containerName := fmt.Sprintf("clickhouse-go-%s", GetClickHouseTestVersion())
+	if !reuse {
+		buf := new(bytes.Buffer)
+		if err := binary.Write(buf, binary.LittleEndian, time.Now().UnixNano()); err != nil {
+			return ClickHouseTestEnvironment{}, err
+		}
+		containerName = fmt.Sprintf("clickhouse-go-%x", md5.Sum(buf.Bytes()))
 	}
-	containerName := fmt.Sprintf("clickhouse-go-%x", md5.Sum(buf.Bytes()))
 
 	req := testcontainers.ContainerRequest{
 		Image:        fmt.Sprintf("clickhouse/clickhouse-server:%s", GetClickHouseTestVersion()),
@@ -182,6 +185,7 @@ func CreateClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment,
 	clickhouseContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: req,
 		Started:          true,
+		Reuse:            reuse,
 	})
 	if err != nil {
 		return ClickHouseTestEnvironment{}, err
@@ -299,7 +303,7 @@ func ClientOptionsFromEnv(env ClickHouseTestEnvironment, settings clickhouse.Set
 	}
 }
 
-func testClientWithDefaultOptions(env ClickHouseTestEnvironment, settings clickhouse.Settings) (driver.Conn, error) {
+func TestClientWithDefaultOptions(env ClickHouseTestEnvironment, settings clickhouse.Settings) (driver.Conn, error) {
 	opts := ClientOptionsFromEnv(env, settings)
 	return clickhouse.Open(&opts)
 }
@@ -322,7 +326,7 @@ func TestClientDefaultSettings(env ClickHouseTestEnvironment) clickhouse.Setting
 }
 
 func TestClientWithDefaultSettings(env ClickHouseTestEnvironment) (driver.Conn, error) {
-	return testClientWithDefaultOptions(env, TestClientDefaultSettings(env))
+	return TestClientWithDefaultOptions(env, TestClientDefaultSettings(env))
 }
 
 func TestDatabaseSQLClientWithDefaultOptions(env ClickHouseTestEnvironment, settings clickhouse.Settings) (*sql.DB, error) {
@@ -773,15 +777,20 @@ func Runtime(m *testing.M, ts string) (exitCode int) {
 	var env ClickHouseTestEnvironment
 	switch useDocker {
 	case true:
-		env, err = CreateClickHouseTestEnvironment(ts)
+		reuse, _ := strconv.ParseBool(GetEnv("CLICKHOUSE_REUSE_CONTAINER", "false"))
+
+		env, err = CreateClickHouseTestEnvironment(ts, reuse)
 		if err != nil {
 			panic(err)
 		}
-		defer func() {
-			if err := env.Container.Terminate(context.Background()); err != nil {
-				panic(err)
-			}
-		}() //nolint
+
+		if !reuse {
+			defer func() {
+				if err := env.Container.Terminate(context.Background()); err != nil {
+					panic(err)
+				}
+			}() //nolint
+		}
 	case false:
 		env, err = GetExternalTestEnvironment(ts)
 		if err != nil {

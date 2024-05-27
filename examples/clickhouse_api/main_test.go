@@ -18,43 +18,15 @@
 package clickhouse_api
 
 import (
-	"context"
-	"fmt"
-	"math/rand"
 	"os"
-	"strconv"
 	"testing"
-	"time"
 
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/require"
 )
 
 func TestMain(m *testing.M) {
-	seed := time.Now().UnixNano()
-	fmt.Printf("using random seed %d for %s tests\n", seed, TestSet)
-	rand.Seed(seed)
-	useDocker, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_DOCKER", "true"))
-	if err != nil {
-		panic(err)
-	}
-	var env clickhouse_tests.ClickHouseTestEnvironment
-	switch useDocker {
-	case true:
-		env, err = clickhouse_tests.CreateClickHouseTestEnvironment(TestSet)
-		if err != nil {
-			panic(err)
-		}
-		defer env.Container.Terminate(context.Background()) //nolint
-	case false:
-		fmt.Printf("skipping %s tests as docker only\n", TestSet)
-		os.Exit(0)
-	}
-	clickhouse_tests.SetTestEnvironment(TestSet, env)
-	if err := clickhouse_tests.CreateDatabase(TestSet); err != nil {
-		panic(err)
-	}
-	os.Exit(m.Run())
+	os.Exit(clickhouse_tests.Runtime(m, TestSet))
 }
 
 // ClickHouse API tests

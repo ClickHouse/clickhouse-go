@@ -35,4 +35,4 @@ jobs:
 
       - name: Run tests
         run: |
-          CLICKHOUSE_VERSION=${{ matrix.clickhouse }} make test
+          CLICKHOUSE_VERSION=${{ matrix.clickhouse }} CLICKHOUSE_REUSE_CONTAINER=true make test
