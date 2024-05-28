@@ -1,3 +1,15 @@
+# v2.25.0, 2024-05-28 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Fixes 🐛
+* Add a compatibility layer for a database/sql driver to work with sql.NullString and ClickHouse nullable column by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1306
+### Other Changes 🛠
+* Use Go 1.22 in head tests by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1305
+* Skip flaky 1127 test by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1307
+
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.24.0...v2.25.0
+
 # v2.24.0, 2024-05-08 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
