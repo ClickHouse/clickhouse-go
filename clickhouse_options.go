@@ -87,6 +87,7 @@ type ConnOpenStrategy uint8
 const (
 	ConnOpenInOrder ConnOpenStrategy = iota
 	ConnOpenRoundRobin
+	ConnOpenRandom
 )
 
 type Protocol int
@@ -265,6 +266,8 @@ func (o *Options) fromDSN(in string) error {
 				o.ConnOpenStrategy = ConnOpenInOrder
 			case "round_robin":
 				o.ConnOpenStrategy = ConnOpenRoundRobin
+			case "random":
+				o.ConnOpenStrategy = ConnOpenRandom
 			}
 		case "max_open_conns":
 			maxOpenConns, err := strconv.Atoi(params.Get(v))
