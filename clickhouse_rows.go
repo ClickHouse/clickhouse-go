@@ -101,32 +101,39 @@ func (r *rows) Close() error {
 	if r.errors == nil && r.stream == nil {
 		return r.err
 	}
-	active := 0
-	if r.errors != nil {
-		active++
+
+	if r.errors == nil {
+		for range r.stream {
+		}
+		return nil
 	}
-	if r.stream != nil {
-		active++
+
+	if r.stream == nil {
+		for err := range r.errors {
+			r.err = err
+		}
+		return r.err
 	}
+
+	errorsClosed := false
+	streamClosed := false
 	for {
 		select {
 		case _, ok := <-r.stream:
 			if !ok {
-				active--
-				if active == 0 {
-					return r.err
-				}
+				streamClosed = true
 			}
 		case err, ok := <-r.errors:
 			if err != nil {
 				r.err = err
 			}
 			if !ok {
-				active--
-				if active == 0 {
-					return r.err
-				}
+				errorsClosed = true
 			}
+		}
+
+		if errorsClosed && streamClosed {
+			return r.err
 		}
 	}
 }
