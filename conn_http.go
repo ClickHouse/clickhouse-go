@@ -161,6 +161,9 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		headers["X-ClickHouse-User"] = opt.Auth.Username
 		if len(opt.Auth.Password) > 0 {
 			headers["X-ClickHouse-Key"] = opt.Auth.Password
+			headers["X-ClickHouse-SSL-Certificate-Auth"] = "off"
+		} else {
+			headers["X-ClickHouse-SSL-Certificate-Auth"] = "on"
 		}
 	}
 
