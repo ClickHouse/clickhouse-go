@@ -163,6 +163,7 @@ func TestIterableOrderedMapInsertRead(t *testing.T) {
 func TestMultiHostConnect(t *testing.T) {
 	require.NoError(t, MultiHostVersion())
 	require.NoError(t, MultiHostRoundRobinVersion())
+	require.NoError(t, MultiHostRandomVersion())
 }
 
 func TestNested(t *testing.T) {

@@ -51,42 +51,40 @@ func TestStdConn(t *testing.T) {
 }
 
 func TestStdConnFailover(t *testing.T) {
-	env, err := GetStdTestEnvironment()
-	require.NoError(t, err)
-	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
-	require.NoError(t, err)
-	dsns := map[string]string{"Native": fmt.Sprintf("clickhouse://%s:%s@127.0.0.1:9001,127.0.0.1:9002,%s:%d", env.Username, env.Password, env.Host, env.Port),
-		"Http": fmt.Sprintf("http://%s:%s@127.0.0.1:8124,127.0.0.1:8125,%s:%d", env.Username, env.Password, env.Host, env.HttpPort)}
-	if useSSL {
-		dsns = map[string]string{"Native": fmt.Sprintf("clickhouse://%s:%s@127.0.0.1:9001,127.0.0.1:9002,%s:%d?secure=true", env.Username, env.Password, env.Host, env.SslPort),
-			"Http": fmt.Sprintf("https://%s:%s@127.0.0.1:8124,127.0.0.1:8125,%s:%d?secure=true", env.Username, env.Password, env.Host, env.HttpsPort)}
-	}
-	for name, dsn := range dsns {
-		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
-
-			if conn, err := sql.Open("clickhouse", dsn); assert.NoError(t, err) {
-				if err := conn.PingContext(context.Background()); assert.NoError(t, err) {
-					t.Log(conn.PingContext(context.Background()))
-				}
-			}
-		})
-	}
+	testStdConnFailover(t, "")
 }
 
-func TestStdConnFailoverConnOpenRoundRobin(t *testing.T) {
+func TestStdConnFailoverRoundRobin(t *testing.T) {
+	testStdConnFailover(t, "round_robin")
+}
+
+func TestStdConnFailoverRandom(t *testing.T) {
+	testStdConnFailover(t, "random")
+}
+
+func testStdConnFailover(t *testing.T, openStrategy string) {
 	env, err := GetStdTestEnvironment()
 	require.NoError(t, err)
-	dsns := map[string]string{
-		"Native": fmt.Sprintf("clickhouse://%s:%s@127.0.0.1:9001,127.0.0.1:9002,127.0.0.1:9003,127.0.0.1:9004,127.0.0.1:9005,127.0.0.1:9006,%s:%d/?connection_open_strategy=round_robin", env.Username, env.Password, env.Host, env.Port),
-		"Http":   fmt.Sprintf("http://%s:%s@127.0.0.1:8124,127.0.0.1:8125,127.0.0.1:8126,127.0.0.1:8127,127.0.0.1:8128,127.0.0.1:8129,%s:%d/?connection_open_strategy=round_robin", env.Username, env.Password, env.Host, env.HttpPort),
-	}
 	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
 	require.NoError(t, err)
+	nativePort := env.Port
+	httpPort := env.HttpPort
+	argsList := []string{}
 	if useSSL {
-		dsns = map[string]string{
-			"Native": fmt.Sprintf("clickhouse://%s:%s@127.0.0.1:9001,127.0.0.1:9002,127.0.0.1:9003,127.0.0.1:9004,127.0.0.1:9005,127.0.0.1:9006,%s:%d/?connection_open_strategy=round_robin&secure=true", env.Username, env.Password, env.Host, env.SslPort),
-			"Http":   fmt.Sprintf("https://%s:%s@127.0.0.1:8124,127.0.0.1:8125,127.0.0.1:8126,127.0.0.1:8127,127.0.0.1:8128,127.0.0.1:8129,%s:%d/?connection_open_strategy=round_robin&secure=true", env.Username, env.Password, env.Host, env.HttpsPort),
-		}
+		nativePort = env.SslPort
+		httpPort = env.HttpsPort
+		argsList = append(argsList, "secure=true")
+	}
+	if len(openStrategy) > 0 {
+		argsList = append(argsList, fmt.Sprintf("connection_open_strategy=%s", openStrategy))
+	}
+	args := ""
+	if len(argsList) > 0 {
+		args = "?" + strings.Join(argsList, "&")
+	}
+	dsns := map[string]string{
+		"Native": fmt.Sprintf("clickhouse://%s:%s@127.0.0.1:9001,127.0.0.1:9002,127.0.0.1:9003,127.0.0.1:9004,127.0.0.1:9005,127.0.0.1:9006,%s:%d/%s", env.Username, env.Password, env.Host, nativePort, args),
+		"Http":   fmt.Sprintf("http://%s:%s@127.0.0.1:8124,127.0.0.1:8125,127.0.0.1:8126,127.0.0.1:8127,127.0.0.1:8128,127.0.0.1:8129,%s:%d/%s", env.Username, env.Password, env.Host, httpPort, args),
 	}
 	for name, dsn := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {

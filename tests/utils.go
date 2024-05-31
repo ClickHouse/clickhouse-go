@@ -715,6 +715,8 @@ func optionsToDSN(o *clickhouse.Options) string {
 			strategy = "in_order"
 		case clickhouse.ConnOpenRoundRobin:
 			strategy = "round_robin"
+		case clickhouse.ConnOpenRandom:
+			strategy = "random"
 		}
 
 		params.Set("connection_open_strategy", strategy)

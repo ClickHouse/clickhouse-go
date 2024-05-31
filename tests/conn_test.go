@@ -67,6 +67,20 @@ func TestBadConn(t *testing.T) {
 }
 
 func TestConnFailover(t *testing.T) {
+	testConnFailover(t, nil)
+}
+
+func TestConnFailoverRoundRobin(t *testing.T) {
+	strategy := clickhouse.ConnOpenRoundRobin
+	testConnFailover(t, &strategy)
+}
+
+func TestConnFailoverRandom(t *testing.T) {
+	strategy := clickhouse.ConnOpenRandom
+	testConnFailover(t, &strategy)
+}
+
+func testConnFailover(t *testing.T, connOpenStrategy *clickhouse.ConnOpenStrategy) {
 	env, err := GetNativeTestEnvironment()
 	require.NoError(t, err)
 	useSSL, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_SSL", "false"))
@@ -77,7 +91,7 @@ func TestConnFailover(t *testing.T) {
 		port = env.SslPort
 		tlsConfig = &tls.Config{}
 	}
-	conn, err := GetConnectionWithOptions(&clickhouse.Options{
+	options := clickhouse.Options{
 		Addr: []string{
 			"127.0.0.1:9001",
 			"127.0.0.1:9002",
@@ -92,41 +106,11 @@ func TestConnFailover(t *testing.T) {
 			Method: clickhouse.CompressionLZ4,
 		},
 		TLS: tlsConfig,
-	})
-	require.NoError(t, err)
-	require.NoError(t, conn.Ping(context.Background()))
-	t.Log(conn.ServerVersion())
-	t.Log(conn.Ping(context.Background()))
-}
-
-func TestConnFailoverConnOpenRoundRobin(t *testing.T) {
-	env, err := GetNativeTestEnvironment()
-	require.NoError(t, err)
-	useSSL, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_SSL", "false"))
-	require.NoError(t, err)
-	port := env.Port
-	var tlsConfig *tls.Config
-	if useSSL {
-		port = env.SslPort
-		tlsConfig = &tls.Config{}
 	}
-	conn, err := GetConnectionWithOptions(&clickhouse.Options{
-		Addr: []string{
-			"127.0.0.1:9001",
-			"127.0.0.1:9002",
-			fmt.Sprintf("%s:%d", env.Host, port),
-		},
-		Auth: clickhouse.Auth{
-			Database: "default",
-			Username: env.Username,
-			Password: env.Password,
-		},
-		Compression: &clickhouse.Compression{
-			Method: clickhouse.CompressionLZ4,
-		},
-		ConnOpenStrategy: clickhouse.ConnOpenRoundRobin,
-		TLS:              tlsConfig,
-	})
+	if connOpenStrategy != nil {
+		options.ConnOpenStrategy = *connOpenStrategy
+	}
+	conn, err := GetConnectionWithOptions(&options)
 	require.NoError(t, err)
 	require.NoError(t, conn.Ping(context.Background()))
 	t.Log(conn.ServerVersion())
