@@ -58,7 +58,12 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 	}
 	if opt.Debug {
 		if opt.Debugf != nil {
-			debugf = opt.Debugf
+			debugf = func(format string, v ...any) {
+				opt.Debugf(
+					"[clickhouse][conn=%d][%s] "+format,
+					append([]interface{}{num, conn.RemoteAddr()}, v...)...,
+				)
+			}
 		} else {
 			debugf = log.New(os.Stdout, fmt.Sprintf("[clickhouse][conn=%d][%s]", num, conn.RemoteAddr()), 0).Printf
 		}
