@@ -123,7 +123,12 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 	var debugf = func(format string, v ...any) {}
 	if opt.Debug {
 		if opt.Debugf != nil {
-			debugf = opt.Debugf
+			debugf = func(format string, v ...any) {
+				opt.Debugf(
+					"[clickhouse][conn=%d][%s] "+format,
+					append([]interface{}{num, addr}, v...)...,
+				)
+			}
 		} else {
 			debugf = log.New(os.Stdout, fmt.Sprintf("[clickhouse][conn=%d][%s]", num, addr), 0).Printf
 		}
