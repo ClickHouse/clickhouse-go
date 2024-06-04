@@ -21,9 +21,10 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
-	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
 	"time"
+
+	"github.com/ClickHouse/ch-go/proto"
 )
 
 var (
@@ -101,9 +102,6 @@ func (col *Date) Append(v any) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []time.Time:
 		for _, t := range v {
-			if err := dateOverflow(minDate, maxDate, t, defaultDateFormatNoZone); err != nil {
-				return nil, err
-			}
 			col.col.Append(t)
 		}
 	case []*time.Time:
@@ -111,9 +109,6 @@ func (col *Date) Append(v any) (nulls []uint8, err error) {
 		for i, v := range v {
 			switch {
 			case v != nil:
-				if err := dateOverflow(minDate, maxDate, *v, defaultDateFormatNoZone); err != nil {
-					return nil, err
-				}
 				col.col.Append(*v)
 			default:
 				nulls[i] = 1
@@ -181,16 +176,10 @@ func (col *Date) Append(v any) (nulls []uint8, err error) {
 func (col *Date) AppendRow(v any) error {
 	switch v := v.(type) {
 	case time.Time:
-		if err := dateOverflow(minDate, maxDate, v, defaultDateFormatNoZone); err != nil {
-			return err
-		}
 		col.col.Append(v)
 	case *time.Time:
 		switch {
 		case v != nil:
-			if err := dateOverflow(minDate, maxDate, *v, defaultDateFormatNoZone); err != nil {
-				return err
-			}
 			col.col.Append(*v)
 		default:
 			col.col.Append(time.Time{})
@@ -257,12 +246,6 @@ func parseDate(value string, minDate time.Time, maxDate time.Time, location *tim
 	if location == nil {
 		location = time.Local
 	}
-
-	defer func() {
-		if err == nil {
-			err = dateOverflow(minDate, maxDate, tv, defaultDateFormatNoZone)
-		}
-	}()
 	if tv, err = time.Parse(defaultDateFormatWithZone, value); err == nil {
 		return tv, nil
 	}
