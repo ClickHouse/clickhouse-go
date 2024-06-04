@@ -20,10 +20,12 @@ package tests
 import (
 	"testing"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/context"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 )
 
 // TestBatchAppendRows tests experimental batch rows blocks append feature.
@@ -63,4 +65,31 @@ func TestBatchAppendRows(t *testing.T) {
 	var count uint64
 	require.NoError(t, row.Scan(&count))
 	assert.Equal(t, 1000000, int(count))
+}
+
+// TestBatchColumns tests Batch.Columns() method functionality
+func TestBatchColumns(t *testing.T) {
+	ctx := context.Background()
+	conn, err := GetNativeConnection(nil, nil, nil)
+	require.NoError(t, err)
+	// Prepare test table
+	require.NoError(t, conn.Exec(ctx, `
+		CREATE TABLE test_table (
+		    Col1 Int,
+			Col2 String
+		) Engine MergeTree() ORDER BY tuple()
+	`))
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_table")
+	}()
+
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_table")
+	require.NoError(t, err)
+	columns := batch.Columns()
+	if assert.Len(t, columns, 2) {
+		assert.IsType(t, new(column.Int32), columns[0])
+		assert.Equal(t, "Col1", columns[0].Name())
+		assert.IsType(t, new(column.String), columns[1])
+		assert.Equal(t, "Col2", columns[1].Name())
+	}
 }
