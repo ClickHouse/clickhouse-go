@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -317,6 +318,10 @@ func (b *batch) Flush() error {
 
 func (b *batch) Rows() int {
 	return b.block.Rows()
+}
+
+func (b *batch) Columns() []column.Interface {
+	return slices.Clone(b.block.Columns)
 }
 
 func (b *batch) closeQuery() error {
