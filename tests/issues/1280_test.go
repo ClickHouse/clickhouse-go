@@ -37,6 +37,9 @@ func Test1280(t *testing.T) {
 		{
 			input: "INSERT INTO values (`values`) values",
 		},
+		{
+			input: "INSERT INTO values(values)",
+		},
 	}
 
 	for i, tc := range testCases1 {
@@ -75,6 +78,9 @@ func Test1280(t *testing.T) {
 					 INTO 
 					 values
 					  (id,values) values (1,2)`,
+		},
+		{
+			input: `INSERT INTO values(id, values) values (1,2)`,
 		},
 	}
 
