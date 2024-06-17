@@ -2,6 +2,7 @@ package issues
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
@@ -17,9 +18,11 @@ func Test1280(t *testing.T) {
 		}, nil, &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
 		})
+		env, errEnv = clickhouse_tests.GetTestEnvironment(testSet)
 	)
 	ctx := context.Background()
 	require.NoError(t, err)
+	require.NoError(t, errEnv)
 
 	ddl := "CREATE TABLE values (`id` Int32, `values` Int32) Engine = Memory"
 	require.NoError(t, conn.Exec(ctx, ddl))
@@ -39,6 +42,12 @@ func Test1280(t *testing.T) {
 		},
 		{
 			input: "INSERT INTO values(values)",
+		},
+		{
+			input: "INSERT INTO `values`(values)",
+		},
+		{
+			input: fmt.Sprintf("INSERT INTO `%s`.`values`(values)", env.Database),
 		},
 	}
 
@@ -81,6 +90,12 @@ func Test1280(t *testing.T) {
 		},
 		{
 			input: `INSERT INTO values(id, values) values (1,2)`,
+		},
+		{
+			input: fmt.Sprintf("INSERT INTO `%s`.`values`(id, values)", env.Database),
+		},
+		{
+			input: fmt.Sprintf("INSERT INTO `%s`.`values`", env.Database),
 		},
 	}
 
