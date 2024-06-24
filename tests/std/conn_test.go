@@ -70,10 +70,12 @@ func testStdConnFailover(t *testing.T, openStrategy string) {
 	nativePort := env.Port
 	httpPort := env.HttpPort
 	argsList := []string{}
+	scheme := "http"
 	if useSSL {
 		nativePort = env.SslPort
 		httpPort = env.HttpsPort
 		argsList = append(argsList, "secure=true")
+		scheme = "https"
 	}
 	if len(openStrategy) > 0 {
 		argsList = append(argsList, fmt.Sprintf("connection_open_strategy=%s", openStrategy))
@@ -84,7 +86,7 @@ func testStdConnFailover(t *testing.T, openStrategy string) {
 	}
 	dsns := map[string]string{
 		"Native": fmt.Sprintf("clickhouse://%s:%s@127.0.0.1:9001,127.0.0.1:9002,127.0.0.1:9003,127.0.0.1:9004,127.0.0.1:9005,127.0.0.1:9006,%s:%d/%s", env.Username, env.Password, env.Host, nativePort, args),
-		"Http":   fmt.Sprintf("http://%s:%s@127.0.0.1:8124,127.0.0.1:8125,127.0.0.1:8126,127.0.0.1:8127,127.0.0.1:8128,127.0.0.1:8129,%s:%d/%s", env.Username, env.Password, env.Host, httpPort, args),
+		"Http":   fmt.Sprintf("%s://%s:%s@127.0.0.1:8124,127.0.0.1:8125,127.0.0.1:8126,127.0.0.1:8127,127.0.0.1:8128,127.0.0.1:8129,%s:%d/%s", scheme, env.Username, env.Password, env.Host, httpPort, args),
 	}
 	for name, dsn := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
