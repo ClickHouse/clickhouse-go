@@ -10,6 +10,7 @@ import (
 )
 
 func Test1113(t *testing.T) {
+	clickhouse_tests.SkipOnCloud(t, "The JSON data type is an obsolete feature on Cloud.")
 	var (
 		conn, err = clickhouse_tests.GetConnection("issues", clickhouse.Settings{
 			"max_execution_time":             60,

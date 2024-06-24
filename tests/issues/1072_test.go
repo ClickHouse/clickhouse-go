@@ -2,13 +2,15 @@ package issues
 
 import (
 	"context"
+	"testing"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func Test1072(t *testing.T) {
+	clickhouse_tests.SkipOnCloud(t, "The JSON data type is an obsolete feature on Cloud.")
 	var (
 		conn, err = clickhouse_tests.GetConnection("issues", clickhouse.Settings{
 			"max_execution_time":             60,
