@@ -36,9 +36,7 @@ func TestStdMap(t *testing.T) {
 	require.NoError(t, err)
 	for name, protocol := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
-			conn, err := GetStdDSNConnection(protocol, useSSL, url.Values{
-				"allow_suspicious_low_cardinality_types": []string{"1"},
-			})
+			conn, err := GetStdDSNConnection(protocol, useSSL, url.Values{})
 			require.NoError(t, err)
 			if !CheckMinServerVersion(conn, 21, 9, 0) {
 				t.Skip(fmt.Errorf("unsupported clickhouse version"))

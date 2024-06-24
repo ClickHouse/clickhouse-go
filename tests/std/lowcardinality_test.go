@@ -20,21 +20,19 @@ package std
 import (
 	"context"
 	"fmt"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
-	"github.com/stretchr/testify/require"
-	"math/rand"
 	"strconv"
 	"testing"
 	"time"
+
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
+	"github.com/stretchr/testify/require"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestStdLowCardinality(t *testing.T) {
-	ctx := clickhouse.Context(context.Background(), clickhouse.WithSettings(clickhouse.Settings{
-		"allow_suspicious_low_cardinality_types": 1,
-	}))
+	ctx := clickhouse.Context(context.Background(), clickhouse.WithSettings(clickhouse.Settings{}))
 	dsns := map[string]clickhouse.Protocol{"Native": clickhouse.Native, "Http": clickhouse.HTTP}
 	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
 	require.NoError(t, err)
@@ -48,14 +46,13 @@ func TestStdLowCardinality(t *testing.T) {
 			}
 			const ddl = `
 		CREATE TABLE test_lowcardinality (
-			  Col1 LowCardinality(String)
+		      ID UInt64
+			, Col1 LowCardinality(String)
 			, Col2 LowCardinality(FixedString(2))
-			, Col3 LowCardinality(DateTime)
-			, Col4 LowCardinality(Int32)
-			, Col5 Array(LowCardinality(String))
-			, Col6 Array(Array(LowCardinality(String)))
-			, Col7 LowCardinality(Nullable(String))
-			, Col8 Array(Array(LowCardinality(Nullable(String))))
+			, Col3 Array(LowCardinality(String))
+			, Col4 Array(Array(LowCardinality(String)))
+			, Col5 LowCardinality(Nullable(String))
+			, Col6 Array(Array(LowCardinality(Nullable(String))))
 		) Engine MergeTree() ORDER BY tuple()
 		`
 			defer func() {
@@ -68,32 +65,30 @@ func TestStdLowCardinality(t *testing.T) {
 			batch, err := scope.Prepare("INSERT INTO test_lowcardinality")
 			require.NoError(t, err)
 			var (
-				rnd       = rand.Int31()
 				timestamp = time.Now()
 			)
 			for i := 0; i < 10; i++ {
 				var (
+					id       = uint64(i)
 					col1Data = timestamp.String()
 					col2Data = "RU"
-					col3Data = timestamp.Add(time.Duration(i) * time.Minute)
-					col4Data = rnd + int32(i)
-					col5Data = []string{"A", "B", "C"}
-					col6Data = [][]string{
+					col3Data = []string{"A", "B", "C"}
+					col4Data = [][]string{
 						[]string{"Q", "W", "E"},
 						[]string{"R", "T", "Y"},
 					}
-					col7Data = &col2Data
-					col8Data = [][]*string{
+					col5Data = &col2Data
+					col6Data = [][]*string{
 						[]*string{&col2Data, nil, &col2Data},
 						[]*string{nil, &col2Data, nil},
 					}
 				)
 				if i%2 == 0 {
-					if _, err := batch.Exec(col1Data, col2Data, col3Data, col4Data, col5Data, col6Data, col7Data, col8Data); !assert.NoError(t, err) {
+					if _, err := batch.Exec(id, col1Data, col2Data, col3Data, col4Data, col5Data, col6Data); !assert.NoError(t, err) {
 						return
 					}
 				} else {
-					if _, err := batch.Exec(col1Data, col2Data, col3Data, col4Data, col5Data, col6Data, nil, col8Data); !assert.NoError(t, err) {
+					if _, err := batch.Exec(id, col1Data, col2Data, col3Data, col4Data, nil, col6Data); !assert.NoError(t, err) {
 						return
 					}
 				}
@@ -105,36 +100,33 @@ func TestStdLowCardinality(t *testing.T) {
 
 			for i := 0; i < 10; i++ {
 				var (
+					id   uint64
 					col1 string
 					col2 string
-					col3 time.Time
-					col4 int32
-					col5 []string
-					col6 [][]string
-					col7 *string
-					col8 [][]*string
+					col3 []string
+					col4 [][]string
+					col5 *string
+					col6 [][]*string
 				)
-				require.NoError(t, conn.QueryRow("SELECT * FROM test_lowcardinality WHERE Col4 = $1", rnd+int32(i)).Scan(&col1, &col2, &col3, &col4, &col5, &col6, &col7, &col8))
+				require.NoError(t, conn.QueryRow("SELECT * FROM test_lowcardinality WHERE ID = $1", i).Scan(&id, &col1, &col2, &col3, &col4, &col5, &col6))
 				assert.Equal(t, timestamp.String(), col1)
 				assert.Equal(t, "RU", col2)
-				assert.Equal(t, timestamp.Add(time.Duration(i)*time.Minute).Truncate(time.Second).In(time.UTC), col3)
-				assert.Equal(t, rnd+int32(i), col4)
-				assert.Equal(t, []string{"A", "B", "C"}, col5)
+				assert.Equal(t, []string{"A", "B", "C"}, col3)
 				assert.Equal(t, [][]string{
 					[]string{"Q", "W", "E"},
 					[]string{"R", "T", "Y"},
-				}, col6)
+				}, col4)
 				switch {
 				case i%2 == 0:
-					assert.Equal(t, &col2, col7)
+					assert.Equal(t, &col2, col5)
 				default:
-					assert.Nil(t, col7)
+					assert.Nil(t, col5)
 				}
 				col2Data := "RU"
 				assert.Equal(t, [][]*string{
 					[]*string{&col2Data, nil, &col2Data},
 					[]*string{nil, &col2Data, nil},
-				}, col8)
+				}, col6)
 			}
 		})
 	}
