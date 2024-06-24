@@ -2,17 +2,17 @@ package issues
 
 import (
 	"context"
+	"testing"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func Test1049(t *testing.T) {
 	var (
 		conn, err = clickhouse_tests.GetConnection("issues", clickhouse.Settings{
-			"max_execution_time":             60,
-			"allow_experimental_object_type": true,
+			"max_execution_time": 60,
 		}, nil, &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
 		})

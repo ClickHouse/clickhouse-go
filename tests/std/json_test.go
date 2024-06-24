@@ -20,13 +20,14 @@ package std
 import (
 	"crypto/tls"
 	"fmt"
+	"strconv"
+	"testing"
+	"time"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"strconv"
-	"testing"
-	"time"
 )
 
 type Releases struct {
@@ -63,6 +64,8 @@ type GithubEvent struct {
 var testDate, _ = time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", "2022-05-25 17:20:57 +0100 WEST")
 
 func TestStdJson(t *testing.T) {
+	clickhouse_tests.SkipOnCloud(t, "The JSON data type is an obsolete feature on Cloud.")
+
 	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
 	require.NoError(t, err)
 	var tlsConfig *tls.Config
@@ -132,6 +135,8 @@ func TestStdJson(t *testing.T) {
 
 // https://github.com/ClickHouse/clickhouse-go/issues/645
 func TestStdJsonWithMap(t *testing.T) {
+	clickhouse_tests.SkipOnCloud(t, "The JSON data type is an obsolete feature on Cloud.")
+
 	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
 	require.NoError(t, err)
 	var tlsConfig *tls.Config

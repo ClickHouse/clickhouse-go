@@ -20,19 +20,17 @@ package tests
 import (
 	"context"
 	"fmt"
-	"github.com/stretchr/testify/require"
-	"math/rand"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestLowCardinality(t *testing.T) {
-	conn, err := GetNativeConnection(clickhouse.Settings{
-		"allow_suspicious_low_cardinality_types": 1,
-	}, nil, &clickhouse.Compression{
+	conn, err := GetNativeConnection(clickhouse.Settings{}, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	ctx := context.Background()
@@ -43,14 +41,13 @@ func TestLowCardinality(t *testing.T) {
 	}
 	const ddl = `
 		CREATE TABLE test_lowcardinality (
-			  Col1 LowCardinality(String)
+		      ID UInt64
+			, Col1 LowCardinality(String)
 			, Col2 LowCardinality(FixedString(2))
-			, Col3 LowCardinality(DateTime)
-			, Col4 LowCardinality(Int32)
-			, Col5 Array(LowCardinality(String))
-			, Col6 Array(Array(LowCardinality(String)))
-			, Col7 LowCardinality(Nullable(String))
-			, Col8 Array(Array(LowCardinality(Nullable(String))))
+			, Col3 Array(LowCardinality(String))
+			, Col4 Array(Array(LowCardinality(String)))
+			, Col5 LowCardinality(Nullable(String))
+			, Col6 Array(Array(LowCardinality(Nullable(String))))
 		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
@@ -60,30 +57,28 @@ func TestLowCardinality(t *testing.T) {
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_lowcardinality")
 	require.NoError(t, err)
 	var (
-		rnd       = rand.Int31()
 		timestamp = time.Now()
 	)
 	for i := 0; i < 10; i++ {
 		var (
+			id       = uint64(i)
 			col1Data = timestamp.String()
 			col2Data = "RU"
-			col3Data = timestamp.Add(time.Duration(i) * time.Minute)
-			col4Data = rnd + int32(i)
-			col5Data = []string{"A", "B", "C"}
-			col6Data = [][]string{
+			col3Data = []string{"A", "B", "C"}
+			col4Data = [][]string{
 				[]string{"Q", "W", "E"},
 				[]string{"R", "T", "Y"},
 			}
-			col7Data = &col2Data
-			col8Data = [][]*string{
+			col5Data = &col2Data
+			col6Data = [][]*string{
 				[]*string{&col2Data, nil, &col2Data},
 				[]*string{nil, &col2Data, nil},
 			}
 		)
 		if i%2 == 0 {
-			require.NoError(t, batch.Append(col1Data, col2Data, col3Data, col4Data, col5Data, col6Data, col7Data, col8Data))
+			require.NoError(t, batch.Append(id, col1Data, col2Data, col3Data, col4Data, col5Data, col6Data))
 		} else {
-			require.NoError(t, batch.Append(col1Data, col2Data, col3Data, col4Data, col5Data, col6Data, nil, col8Data))
+			require.NoError(t, batch.Append(id, col1Data, col2Data, col3Data, col4Data, nil, col6Data))
 		}
 	}
 	require.NoError(t, batch.Send())
@@ -92,43 +87,38 @@ func TestLowCardinality(t *testing.T) {
 	assert.Equal(t, uint64(10), count)
 	for i := 0; i < 10; i++ {
 		var (
+			id   uint64
 			col1 string
 			col2 string
-			col3 time.Time
-			col4 int32
-			col5 []string
-			col6 [][]string
-			col7 *string
-			col8 [][]*string
+			col3 []string
+			col4 [][]string
+			col5 *string
+			col6 [][]*string
 		)
-		require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_lowcardinality WHERE Col4 = $1", rnd+int32(i)).Scan(&col1, &col2, &col3, &col4, &col5, &col6, &col7, &col8))
+		require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_lowcardinality WHERE ID = $1", i).Scan(&id, &col1, &col2, &col3, &col4, &col5, &col6))
 		assert.Equal(t, timestamp.String(), col1)
 		assert.Equal(t, "RU", col2)
-		assert.Equal(t, timestamp.Add(time.Duration(i)*time.Minute).Truncate(time.Second).In(time.UTC), col3)
-		assert.Equal(t, rnd+int32(i), col4)
-		assert.Equal(t, []string{"A", "B", "C"}, col5)
+		assert.Equal(t, []string{"A", "B", "C"}, col3)
 		assert.Equal(t, [][]string{
 			[]string{"Q", "W", "E"},
 			[]string{"R", "T", "Y"},
-		}, col6)
+		}, col4)
 		switch {
 		case i%2 == 0:
-			assert.Equal(t, &col2, col7)
+			assert.Equal(t, &col2, col5)
 		default:
-			assert.Nil(t, col7)
+			assert.Nil(t, col5)
 		}
 		col2Data := "RU"
 		assert.Equal(t, [][]*string{
 			[]*string{&col2Data, nil, &col2Data},
 			[]*string{nil, &col2Data, nil},
-		}, col8)
+		}, col6)
 	}
 }
 
 func TestColmunarLowCardinality(t *testing.T) {
-	conn, err := GetNativeConnection(clickhouse.Settings{
-		"allow_suspicious_low_cardinality_types": 1,
-	}, nil, &clickhouse.Compression{
+	conn, err := GetNativeConnection(clickhouse.Settings{}, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	ctx := context.Background()
@@ -139,10 +129,9 @@ func TestColmunarLowCardinality(t *testing.T) {
 	}
 	const ddl = `
 		CREATE TABLE test_lowcardinality (
-			  Col1 LowCardinality(String)
+		      ID UInt64
+			, Col1 LowCardinality(String)
 			, Col2 LowCardinality(FixedString(2))
-			, Col3 LowCardinality(DateTime)
-			, Col4 LowCardinality(Int32)
 		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
@@ -152,45 +141,36 @@ func TestColmunarLowCardinality(t *testing.T) {
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_lowcardinality")
 	require.NoError(t, err)
 	var (
-		rnd       = rand.Int31()
 		timestamp = time.Now()
+		idData    []uint64
 		col1Data  []string
 		col2Data  []string
-		col3Data  []time.Time
-		col4Data  []int32
 	)
 	for i := 0; i < 10; i++ {
+		idData = append(idData, uint64(i))
 		col1Data = append(col1Data, timestamp.String())
 		col2Data = append(col2Data, "RU")
-		col3Data = append(col3Data, timestamp.Add(time.Duration(i)*time.Minute))
-		col4Data = append(col4Data, rnd+int32(i))
 	}
-	require.NoError(t, batch.Column(0).Append(col1Data))
-	require.NoError(t, batch.Column(1).Append(col2Data))
-	require.NoError(t, batch.Column(2).Append(col3Data))
-	require.NoError(t, batch.Column(3).Append(col4Data))
+	require.NoError(t, batch.Column(0).Append(idData))
+	require.NoError(t, batch.Column(1).Append(col1Data))
+	require.NoError(t, batch.Column(2).Append(col2Data))
 	require.NoError(t, batch.Send())
 	var count uint64
 	if err := conn.QueryRow(ctx, "SELECT COUNT() FROM test_lowcardinality").Scan(&count); assert.NoError(t, err) {
 		assert.Equal(t, uint64(10), count)
 	}
 	var (
+		id   uint64
 		col1 string
 		col2 string
-		col3 time.Time
-		col4 int32
 	)
-	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_lowcardinality WHERE Col4 = $1", rnd+6).Scan(&col1, &col2, &col3, &col4))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_lowcardinality WHERE ID = $1", 6).Scan(&id, &col1, &col2))
 	assert.Equal(t, timestamp.String(), col1)
 	assert.Equal(t, "RU", col2)
-	assert.Equal(t, timestamp.Add(time.Duration(6)*time.Minute).Truncate(time.Second).In(time.UTC), col3)
-	assert.Equal(t, int32(rnd+6), col4)
 }
 
 func TestLowCardinalityFlush(t *testing.T) {
-	conn, err := GetNativeConnection(clickhouse.Settings{
-		"allow_suspicious_low_cardinality_types": 1,
-	}, nil, &clickhouse.Compression{
+	conn, err := GetNativeConnection(clickhouse.Settings{}, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	ctx := context.Background()

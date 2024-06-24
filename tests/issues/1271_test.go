@@ -3,13 +3,14 @@ package issues
 import (
 	"context"
 	"fmt"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
-	"github.com/google/uuid"
 	"math/rand"
 	"runtime"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"github.com/google/uuid"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
@@ -20,8 +21,7 @@ import (
 func Test1271(t *testing.T) {
 	var (
 		conn, err = clickhouse_tests.GetConnection("issues", clickhouse.Settings{
-			"max_execution_time":             60,
-			"allow_experimental_object_type": true,
+			"max_execution_time": 60,
 		}, nil, &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
 		})

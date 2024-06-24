@@ -3,18 +3,18 @@ package issues
 import (
 	"context"
 	"fmt"
+	"testing"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func TestIssue1164(t *testing.T) {
 	var (
 		conn, err = clickhouse_tests.GetConnection("issues", clickhouse.Settings{
-			"max_execution_time":             60,
-			"allow_experimental_object_type": true,
+			"max_execution_time": 60,
 		}, nil, &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
 		})
@@ -57,8 +57,7 @@ func BenchmarkIssue1164(b *testing.B) {
 	b.Run("default-10000", func(b *testing.B) {
 		var (
 			conn, err = clickhouse_tests.GetConnection("issues", clickhouse.Settings{
-				"max_execution_time":             60,
-				"allow_experimental_object_type": true,
+				"max_execution_time": 60,
 			}, nil, &clickhouse.Compression{
 				Method: clickhouse.CompressionLZ4,
 			})
@@ -90,8 +89,7 @@ func BenchmarkIssue1164(b *testing.B) {
 	b.Run("preAlloc-10000", func(b *testing.B) {
 		var (
 			conn, err = clickhouse_tests.GetConnection("issues", clickhouse.Settings{
-				"max_execution_time":             60,
-				"allow_experimental_object_type": true,
+				"max_execution_time": 60,
 			}, nil, &clickhouse.Compression{
 				Method: clickhouse.CompressionLZ4,
 			})
@@ -125,8 +123,7 @@ func BenchmarkIssue1164(b *testing.B) {
 	b.Run("default-50000", func(b *testing.B) {
 		var (
 			conn, err = clickhouse_tests.GetConnection("issues", clickhouse.Settings{
-				"max_execution_time":             60,
-				"allow_experimental_object_type": true,
+				"max_execution_time": 60,
 			}, nil, &clickhouse.Compression{
 				Method: clickhouse.CompressionLZ4,
 			})
@@ -158,8 +155,7 @@ func BenchmarkIssue1164(b *testing.B) {
 	b.Run("preAlloc-50000", func(b *testing.B) {
 		var (
 			conn, err = clickhouse_tests.GetConnection("issues", clickhouse.Settings{
-				"max_execution_time":             60,
-				"allow_experimental_object_type": true,
+				"max_execution_time": 60,
 			}, nil, &clickhouse.Compression{
 				Method: clickhouse.CompressionLZ4,
 			})
