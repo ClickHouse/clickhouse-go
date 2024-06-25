@@ -1,3 +1,32 @@
+# v2.26.0, 2024-06-25 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Enhancements 🎉
+* Reintroduce the random connection strategy by @larry-cdn77 in https://github.com/ClickHouse/clickhouse-go/pull/1313
+* Make custom debug log function on-par with the built-in one by @vespian in https://github.com/ClickHouse/clickhouse-go/pull/1317
+* Remove date overflow check as it's normalised by ClickHouse server by @gogingersnap777 in https://github.com/ClickHouse/clickhouse-go/pull/1315
+* Batch: impl `Columns() []column.Interface` method by @egsam98 in https://github.com/ClickHouse/clickhouse-go/pull/1277
+### Fixes 🐛
+* Fix rows.Close do not return too early by @yujiarista in https://github.com/ClickHouse/clickhouse-go/pull/1314
+* Setting `X-Clickhouse-SSL-Certificate-Auth` header correctly given `X-ClickHouse-Key` by @gogingersnap777 in https://github.com/ClickHouse/clickhouse-go/pull/1316
+* Retry on network errors and fix retries on async inserts with `database/sql` interface by @tommyzli in https://github.com/ClickHouse/clickhouse-go/pull/1330
+* BatchInsert parentheses issue fix by @ramzes642 in https://github.com/ClickHouse/clickhouse-go/pull/1327
+### Other Changes 🛠
+* ClickHouse 24.5 by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1319
+* Align `allow_suspicious_low_cardinality_types` and `allow_suspicious_low_cardinality_types ` settings in tests due to ClickHouse Cloud incompatibility by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1331
+* Use HTTPs scheme in std connection failover tests by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1332
+
+## New Contributors
+* @larry-cdn77 made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1313
+* @vespian made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1317
+* @gogingersnap777 made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1315
+* @yujiarista made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1314
+* @egsam98 made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1277
+* @tommyzli made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1330
+* @ramzes642 made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1327
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.25.0...v2.26.0
+
 # v2.25.0, 2024-05-28 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
