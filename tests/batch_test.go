@@ -28,7 +28,7 @@ import (
 func TestBatchContextCancellation(t *testing.T) {
 	te, err := GetTestEnvironment(testSet)
 	require.NoError(t, err)
-	opts := ClientOptionsFromEnv(te, clickhouse.Settings{})
+	opts := ClientOptionsFromEnv(te, clickhouse.Settings{}, false)
 	opts.MaxOpenConns = 1
 	conn, err := GetConnectionWithOptions(&opts)
 	require.NoError(t, err)

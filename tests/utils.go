@@ -266,7 +266,7 @@ func GetExternalTestEnvironment(testSet string) (ClickHouseTestEnvironment, erro
 	return env, nil
 }
 
-func ClientOptionsFromEnv(env ClickHouseTestEnvironment, settings clickhouse.Settings) clickhouse.Options {
+func ClientOptionsFromEnv(env ClickHouseTestEnvironment, settings clickhouse.Settings, useHTTP bool) clickhouse.Options {
 	timeout, err := strconv.Atoi(GetEnv("CLICKHOUSE_DIAL_TIMEOUT", "10"))
 	if err != nil {
 		timeout = 10
@@ -276,15 +276,28 @@ func ClientOptionsFromEnv(env ClickHouseTestEnvironment, settings clickhouse.Set
 	if err != nil {
 		panic(err)
 	}
+
 	port := env.Port
+	if useHTTP {
+		port = env.HttpPort
+	}
 	var tlsConfig *tls.Config
 	if useSSL {
 		tlsConfig = &tls.Config{}
 		port = env.SslPort
+		if useHTTP {
+			port = env.HttpsPort
+		}
+	}
+
+	protocol := clickhouse.Native
+	if useHTTP {
+		protocol = clickhouse.HTTP
 	}
 
 	return clickhouse.Options{
 		Addr:     []string{fmt.Sprintf("%s:%d", env.Host, port)},
+		Protocol: protocol,
 		Settings: settings,
 		Auth: clickhouse.Auth{
 			Database: env.Database,
@@ -300,7 +313,7 @@ func ClientOptionsFromEnv(env ClickHouseTestEnvironment, settings clickhouse.Set
 }
 
 func testClientWithDefaultOptions(env ClickHouseTestEnvironment, settings clickhouse.Settings) (driver.Conn, error) {
-	opts := ClientOptionsFromEnv(env, settings)
+	opts := ClientOptionsFromEnv(env, settings, false)
 	return clickhouse.Open(&opts)
 }
 
@@ -326,8 +339,8 @@ func TestClientWithDefaultSettings(env ClickHouseTestEnvironment) (driver.Conn, 
 }
 
 func TestDatabaseSQLClientWithDefaultOptions(env ClickHouseTestEnvironment, settings clickhouse.Settings) (*sql.DB, error) {
-	opts := ClientOptionsFromEnv(env, settings)
-	return sql.Open("clickhouse", optionsToDSN(&opts))
+	opts := ClientOptionsFromEnv(env, settings, false)
+	return sql.Open("clickhouse", OptionsToDSN(&opts))
 }
 
 func TestDatabaseSQLClientWithDefaultSettings(env ClickHouseTestEnvironment) (*sql.DB, error) {
@@ -654,7 +667,7 @@ func CreateTinyProxyTestEnvironment(t *testing.T) (TinyProxyTestEnvironment, err
 	}, nil
 }
 
-func optionsToDSN(o *clickhouse.Options) string {
+func OptionsToDSN(o *clickhouse.Options) string {
 	var u url.URL
 
 	if o.Protocol == clickhouse.Native {

@@ -23,7 +23,6 @@ import (
 	"os"
 	"regexp"
 	"slices"
-	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -37,29 +36,10 @@ var insertMatch = regexp.MustCompile(`(?i)(INSERT\s+INTO\s+[^( ]+(?:\s*\([^()]*(
 var columnMatch = regexp.MustCompile(`INSERT INTO .+\s\((?P<Columns>.+)\)$`)
 
 func (c *connect) prepareBatch(ctx context.Context, query string, opts driver.PrepareBatchOptions, release func(*connect, error), acquire func(context.Context) (*connect, error)) (driver.Batch, error) {
-	//defer func() {
-	//	if err := recover(); err != nil {
-	//		fmt.Printf("panic occurred on %d:\n", c.num)
-	//	}
-	//}()
-	subMatches := insertMatch.FindStringSubmatch(query)
-	if len(subMatches) > 1 {
-		query = subMatches[1]
-	} else {
-		return nil, errors.New("invalid query")
+	query, _, queryColumns, verr := extractNormalizedInsertQueryAndColumns(query)
+	if verr != nil {
+		return nil, verr
 	}
-
-	colMatch := columnMatch.FindStringSubmatch(query)
-	var columns []string
-	if len(colMatch) == 2 {
-		columns = strings.Split(colMatch[1], ",")
-		for i := range columns {
-			// refers to https://clickhouse.com/docs/en/sql-reference/syntax#identifiers
-			// we can use identifiers with double quotes or backticks, for example: "id", `id`, but not both, like `"id"`.
-			columns[i] = strings.Trim(strings.Trim(strings.TrimSpace(columns[i]), "\""), "`")
-		}
-	}
-	query += " VALUES"
 
 	options := queryOptions(ctx)
 	if deadline, ok := ctx.Deadline(); ok {
@@ -79,7 +59,7 @@ func (c *connect) prepareBatch(ctx context.Context, query string, opts driver.Pr
 		return nil, err
 	}
 	// resort batch to specified columns
-	if err = block.SortColumns(columns); err != nil {
+	if err = block.SortColumns(queryColumns); err != nil {
 		return nil, err
 	}
 

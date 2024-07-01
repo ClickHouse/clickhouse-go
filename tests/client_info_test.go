@@ -20,12 +20,13 @@ package tests
 import (
 	"context"
 	"fmt"
+	"runtime"
+	"testing"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"runtime"
-	"testing"
 )
 
 func TestClientInfo(t *testing.T) {
@@ -89,7 +90,7 @@ func TestClientInfo(t *testing.T) {
 
 	for name, testCase := range testCases {
 		t.Run(name, func(t *testing.T) {
-			opts := ClientOptionsFromEnv(env, clickhouse.Settings{})
+			opts := ClientOptionsFromEnv(env, clickhouse.Settings{}, false)
 			opts.ClientInfo = testCase.clientInfo
 
 			conn, err := clickhouse.Open(&opts)
