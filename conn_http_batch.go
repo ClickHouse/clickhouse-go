@@ -19,47 +19,31 @@ package clickhouse
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
-	"regexp"
 	"slices"
-	"strings"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 
-// \x60 represents a backtick
-var httpInsertRe = regexp.MustCompile(`(?i)^INSERT INTO\s+\x60?([\w.^\(]+)\x60?\s*(\([^\)]*\))?`)
-
 // release is ignored, because http used by std with empty release function.
 // Also opts ignored because all options unused in http batch.
 func (h *httpConnect) prepareBatch(ctx context.Context, query string, opts driver.PrepareBatchOptions, release func(*connect, error), acquire func(context.Context) (*connect, error)) (driver.Batch, error) {
-	matches := httpInsertRe.FindStringSubmatch(query)
-	if len(matches) < 3 {
-		return nil, errors.New("cannot get table name from query")
+	query, tableName, queryColumns, err := extractNormalizedInsertQueryAndColumns(query)
+	if err != nil {
+		return nil, err
 	}
-	tableName := matches[1]
-	var rColumns []string
-	if matches[2] != "" {
-		colMatch := strings.TrimSuffix(strings.TrimPrefix(matches[2], "("), ")")
-		rColumns = strings.Split(colMatch, ",")
-		for i := range rColumns {
-			rColumns[i] = strings.Trim(strings.TrimSpace(rColumns[i]), "`")
-		}
-	}
-	query = "INSERT INTO " + tableName + " FORMAT Native"
-	queryTableSchema := "DESCRIBE TABLE " + tableName
-	r, err := h.query(ctx, release, queryTableSchema)
+
+	describeTableQuery := fmt.Sprintf("DESCRIBE TABLE %s", tableName)
+	r, err := h.query(ctx, release, describeTableQuery)
 	if err != nil {
 		return nil, err
 	}
 
 	block := &proto.Block{}
 
-	// get Table columns and types
 	columns := make(map[string]string)
 	var colNames []string
 	for r.Next() {
@@ -81,7 +65,7 @@ func (h *httpConnect) prepareBatch(ctx context.Context, query string, opts drive
 		columns[colName] = colType
 	}
 
-	switch len(rColumns) {
+	switch len(queryColumns) {
 	case 0:
 		for _, colName := range colNames {
 			if err = block.AddColumn(colName, column.Type(columns[colName])); err != nil {
@@ -90,7 +74,7 @@ func (h *httpConnect) prepareBatch(ctx context.Context, query string, opts drive
 		}
 	default:
 		// user has requested specific columns so only include these
-		for _, colName := range rColumns {
+		for _, colName := range queryColumns {
 			if colType, ok := columns[colName]; ok {
 				if err = block.AddColumn(colName, column.Type(colType)); err != nil {
 					return nil, err

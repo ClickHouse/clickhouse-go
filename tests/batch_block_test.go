@@ -33,7 +33,7 @@ import (
 func TestBatchAppendRows(t *testing.T) {
 	te, err := GetTestEnvironment(testSet)
 	require.NoError(t, err)
-	opts := ClientOptionsFromEnv(te, clickhouse.Settings{})
+	opts := ClientOptionsFromEnv(te, clickhouse.Settings{}, false)
 
 	conn, err := GetConnectionWithOptions(&opts)
 	require.NoError(t, err)

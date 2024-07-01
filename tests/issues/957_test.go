@@ -19,11 +19,12 @@ package issues
 
 import (
 	"context"
+	"testing"
+	"time"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/require"
-	"testing"
-	"time"
 )
 
 func Test957(t *testing.T) {
@@ -33,7 +34,7 @@ func Test957(t *testing.T) {
 	require.NoError(t, err)
 
 	// when the client is configured to use the test environment
-	opts := clickhouse_tests.ClientOptionsFromEnv(testEnv, clickhouse.Settings{})
+	opts := clickhouse_tests.ClientOptionsFromEnv(testEnv, clickhouse.Settings{}, false)
 	// and the client is configured to have only 1 connection
 	opts.MaxIdleConns = 2
 	opts.MaxOpenConns = 1

@@ -234,7 +234,7 @@ func TestConnCustomDialStrategy(t *testing.T) {
 	env, err := GetTestEnvironment(testSet)
 	require.NoError(t, err)
 
-	opts := ClientOptionsFromEnv(env, clickhouse.Settings{})
+	opts := ClientOptionsFromEnv(env, clickhouse.Settings{}, false)
 	validAddr := opts.Addr[0]
 	opts.Addr = []string{"invalid.host:9001"}
 
@@ -342,7 +342,7 @@ func TestConnectionExpiresIdleConnection(t *testing.T) {
 	expectedConnections := getActiveConnections(t, baseConn)
 
 	// when the client is configured to expire idle connections after 1/10 of a second
-	opts := ClientOptionsFromEnv(testEnv, clickhouse.Settings{})
+	opts := ClientOptionsFromEnv(testEnv, clickhouse.Settings{}, false)
 	opts.MaxIdleConns = 20
 	opts.MaxOpenConns = 20
 	opts.ConnMaxLifetime = time.Second / 10
