@@ -114,7 +114,7 @@ func JSONInsertRead() error {
 		return err
 	}
 	fmt.Println(clickhouse_tests.ToJson(event))
-	// again pass any for anthing other than primitives
+	// again pass any for anything other than primitives
 	rows = conn.QueryRow("SELECT event.assignee.Achievement FROM example")
 	var achievement any
 	if err = rows.Scan(&achievement); err != nil {

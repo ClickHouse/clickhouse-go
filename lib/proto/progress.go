@@ -54,7 +54,7 @@ func (p *Progress) Decode(reader *chproto.Reader, revision uint64) (err error) {
 		}
 	}
 
-	if revision >= DBMS_MIN_PROTOCOL_VERSION_WITH_SERVER_QUERY_TIME_IN_PROGRES {
+	if revision >= DBMS_MIN_PROTOCOL_VERSION_WITH_SERVER_QUERY_TIME_IN_PROGRESS {
 		var n uint64
 		if n, err = reader.UVarInt(); err != nil {
 			return err
