@@ -197,7 +197,17 @@ func (col *Array) append(elem reflect.Value, level int) error {
 		case reflect.Slice, reflect.Array, reflect.String:
 			col.appendOffset(level, uint64(elem.Len()))
 			for i := 0; i < elem.Len(); i++ {
-				if err := col.append(elem.Index(i), level+1); err != nil {
+				el := elem.Index(i)
+
+				if el.Kind() == reflect.Interface && !el.IsNil() {
+					el = el.Elem()
+				}
+
+				if el.Kind() == reflect.Ptr && !el.IsNil() {
+					el = el.Elem()
+				}
+
+				if err := col.append(el, level+1); err != nil {
 					return err
 				}
 			}
