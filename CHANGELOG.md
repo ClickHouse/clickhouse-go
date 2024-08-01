@@ -1,3 +1,25 @@
+# v2.27.0, 2024-08-01 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## Breaking change notice
+
+v2.25.0 was released with a breaking change in https://github.com/ClickHouse/clickhouse-go/pull/1306. Please review your implementation.
+
+## What's Changed
+### Enhancements 🎉
+* Unpack value of indirect types in array column to support nested structures in interfaced slices/arrays by @jmaicher in https://github.com/ClickHouse/clickhouse-go/pull/1350
+### Fixes 🐛
+* Common HTTP insert query normalization by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1341
+### Other Changes 🛠
+* Update examples std json by @xjeway in https://github.com/ClickHouse/clickhouse-go/pull/1240
+* ClickHouse 24.6 by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1352
+* ClickHouse 24.7 release by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1363
+* Update CHANGELOG with a breaking change note by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1364
+
+## New Contributors
+* @xjeway made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1240
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.26.0...v2.27.0
+
 # v2.26.0, 2024-06-25 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
