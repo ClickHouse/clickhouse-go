@@ -25,10 +25,15 @@ import (
 	"github.com/pkg/errors"
 )
 
-var normalizeInsertQueryMatch = regexp.MustCompile(`(?i)(INSERT\s+INTO\s+([^( ]+)(?:\s*\([^()]*(?:\([^()]*\)[^()]*)*\))?)(?:\s*VALUES)?`)
+var normalizeInsertQueryMatch = regexp.MustCompile(`(?i)(INSERT\s+INTO\s+([^(]+)(?:\s*\([^()]*(?:\([^()]*\)[^()]*)*\))?)(?:\s*VALUES)?`)
+var truncateFormat = regexp.MustCompile(`\sFORMAT\s+[^\s]+`)
+var truncateValues = regexp.MustCompile(`\sVALUES\s.*$`)
 var extractInsertColumnsMatch = regexp.MustCompile(`INSERT INTO .+\s\((?P<Columns>.+)\)$`)
 
 func extractNormalizedInsertQueryAndColumns(query string) (normalizedQuery string, tableName string, columns []string, err error) {
+	query = truncateFormat.ReplaceAllString(query, "")
+	query = truncateValues.ReplaceAllString(query, "")
+
 	matches := normalizeInsertQueryMatch.FindStringSubmatch(query)
 	if len(matches) == 0 {
 		err = errors.Errorf("invalid INSERT query: %s", query)
@@ -36,7 +41,7 @@ func extractNormalizedInsertQueryAndColumns(query string) (normalizedQuery strin
 	}
 
 	normalizedQuery = fmt.Sprintf("%s FORMAT Native", matches[1])
-	tableName = matches[2]
+	tableName = strings.TrimSpace(matches[2])
 
 	columns = make([]string, 0)
 	matches = extractInsertColumnsMatch.FindStringSubmatch(matches[1])
