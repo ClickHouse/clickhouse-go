@@ -1,3 +1,12 @@
+# v2.27.1, 2024-08-05 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Fixes 🐛
+* Fix INSERT statement normalization match backtick table name by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1366
+
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.27.0...v2.27.1
+
 # v2.27.0, 2024-08-01 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## Breaking change notice
