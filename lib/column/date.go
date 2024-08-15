@@ -250,9 +250,7 @@ func parseDate(value string, minDate time.Time, maxDate time.Time, location *tim
 		return tv, nil
 	}
 	if tv, err = time.Parse(defaultDateFormatNoZone, value); err == nil {
-		return time.Date(
-			tv.Year(), tv.Month(), tv.Day(), tv.Hour(), tv.Minute(), tv.Second(), tv.Nanosecond(), location,
-		), nil
+		return getTimeWithDifferentLocation(tv, location), nil
 	}
 	return time.Time{}, err
 }
@@ -272,10 +270,10 @@ func (col *Date) Encode(buffer *proto.Buffer) {
 func (col *Date) row(i int) time.Time {
 	t := col.col.Row(i)
 
-	if col.location != nil {
+	if col.location != nil && col.location != time.UTC {
 		// proto.Date is normalized as time.Time with UTC timezone.
 		// We make sure Date return from ClickHouse matches server timezone or user defined location.
-		t = time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), col.location)
+		t = getTimeWithDifferentLocation(t, col.location)
 	}
 	return t
 }

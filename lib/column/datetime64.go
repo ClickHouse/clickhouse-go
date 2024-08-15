@@ -307,9 +307,7 @@ func (col *DateTime64) parseDateTime(value string) (tv time.Time, err error) {
 		return tv, nil
 	}
 	if tv, err = time.Parse(defaultDateTime64FormatNoZone, value); err == nil {
-		return time.Date(
-			tv.Year(), tv.Month(), tv.Day(), tv.Hour(), tv.Minute(), tv.Second(), tv.Nanosecond(), time.Local,
-		), nil
+		return getTimeWithDifferentLocation(tv, time.Local), nil
 	}
 	return time.Time{}, err
 }
