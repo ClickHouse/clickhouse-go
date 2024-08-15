@@ -28,7 +28,7 @@ import (
 var normalizeInsertQueryMatch = regexp.MustCompile(`(?i)(INSERT\s+INTO\s+([^(]+)(?:\s*\([^()]*(?:\([^()]*\)[^()]*)*\))?)(?:\s*VALUES)?`)
 var truncateFormat = regexp.MustCompile(`\sFORMAT\s+[^\s]+`)
 var truncateValues = regexp.MustCompile(`\sVALUES\s.*$`)
-var extractInsertColumnsMatch = regexp.MustCompile(`INSERT INTO .+\s\((?P<Columns>.+)\)$`)
+var extractInsertColumnsMatch = regexp.MustCompile(`(?s)INSERT INTO .+\s\((?P<Columns>.+)\)$`)
 
 func extractNormalizedInsertQueryAndColumns(query string) (normalizedQuery string, tableName string, columns []string, err error) {
 	query = truncateFormat.ReplaceAllString(query, "")

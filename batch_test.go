@@ -39,6 +39,22 @@ func TestExtractNormalizedInsertQueryAndColumns(t *testing.T) {
 			expectedError:           false,
 		},
 		{
+			query: `INSERT INTO table_name (
+						col1,
+						col2
+					) VALUES (
+						1,
+						2
+					)`,
+			expectedNormalizedQuery: `INSERT INTO table_name (
+						col1,
+						col2
+					) FORMAT Native`,
+			expectedTableName: "table_name",
+			expectedColumns:   []string{"col1", "col2"},
+			expectedError:     false,
+		},
+		{
 			query:                   "INSERT INTO `db`.`table_name` (col1, col2) VALUES (1, 2)",
 			expectedNormalizedQuery: "INSERT INTO `db`.`table_name` (col1, col2) FORMAT Native",
 			expectedTableName:       "`db`.`table_name`",
