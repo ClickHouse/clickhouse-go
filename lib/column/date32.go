@@ -247,10 +247,10 @@ func (col *Date32) Encode(buffer *proto.Buffer) {
 func (col *Date32) row(i int) time.Time {
 	t := col.col.Row(i)
 
-	if col.location != nil {
+	if col.location != nil && col.location != time.UTC {
 		// proto.Date is normalized as time.Time with UTC timezone.
 		// We make sure Date return from ClickHouse matches server timezone or user defined location.
-		t = time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), col.location)
+		t = getTimeWithDifferentLocation(t, col.location)
 	}
 	return t
 }
