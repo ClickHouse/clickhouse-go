@@ -1,3 +1,17 @@
+# v2.27.2, 2024-08-20 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Enhancements 🎉
+* Optimize Date/Date32 scan by @ShoshinNikita in https://github.com/ClickHouse/clickhouse-go/pull/1374
+### Fixes 🐛
+* Fix column list parsing for multiline INSERT statements by @Fiery-Fenix in https://github.com/ClickHouse/clickhouse-go/pull/1373
+
+## New Contributors
+* @Fiery-Fenix made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1373
+* @ShoshinNikita made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1374
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.27.1...v2.27.2
+
 # v2.27.1, 2024-08-05 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
