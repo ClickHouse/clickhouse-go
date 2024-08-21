@@ -21,8 +21,8 @@ jobs:
       max-parallel: 1
       matrix:
         go:
+          - "1.23"
           - "1.22"
-          - "1.21"
     steps:
       - name: Check Out Code
         uses: actions/checkout@v3

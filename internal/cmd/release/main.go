@@ -199,7 +199,7 @@ func changelogFilePath() string {
 
 func getRootPath() string {
 	wd, _ := os.Getwd()
-	rootPath := strings.Replace(wd, "internal/cmd/release_prep", "", 1)
+	rootPath := strings.Replace(wd, "internal/cmd/release", "", 1)
 	return rootPath
 }
 
