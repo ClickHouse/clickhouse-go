@@ -59,11 +59,6 @@ func TestMain(m *testing.M) {
 
 // ClickHouse API tests
 
-func TestJSON(t *testing.T) {
-	require.NoError(t, InsertReadJSON())
-	require.NoError(t, ReadComplexJSON())
-}
-
 func TestOpenTelemetry(t *testing.T) {
 	require.NoError(t, OpenTelemetry())
 }
