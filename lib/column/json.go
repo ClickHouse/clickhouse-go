@@ -19,11 +19,21 @@ package column
 
 import (
 	"fmt"
-	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
 	"strings"
 	"time"
+
+	"github.com/ClickHouse/ch-go/proto"
 )
+
+// This JSON type implementation was done for an experimental Object('JSON') type:
+// https://clickhouse.com/docs/en/sql-reference/data-types/object-data-type
+// It's already deprecated in ClickHouse and will be removed in the future.
+// Since ClickHouse 24.8, the Object('JSON') type is no longer alias for JSON type.
+// The new JSON type has been introduced: https://clickhouse.com/docs/en/sql-reference/data-types/newjson
+// However, the new JSON type is not supported by the driver yet.
+//
+// This implementation is kept for backward compatibility and will be removed in the future. TODO: remove this
 
 // inverse mapping - go types to clickhouse types
 var kindMappings = map[reflect.Kind]string{
