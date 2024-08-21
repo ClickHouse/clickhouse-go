@@ -21,12 +21,15 @@ import (
 	"context"
 	"database/sql/driver"
 	"fmt"
-	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/stretchr/testify/assert"
 )
+
+var testDate, _ = time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", "2022-05-25 17:20:57 +0100 WEST")
 
 func TestTuple(t *testing.T) {
 	conn, err := GetNativeConnection(nil, nil, nil)
@@ -104,7 +107,7 @@ func TestTuple(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, col1Data, col1)
 	assert.Equal(t, col2Data, col2)
-	assert.JSONEq(t, toJson(col3Data), toJson(col3))
+	assert.Equal(t, col3Data, col3)
 	assert.Equal(t, col4Data, col4)
 	assert.Equal(t, col5Data, col5)
 	assert.Equal(t, col6Data, col6)

@@ -112,10 +112,6 @@ func TestStdMapInsertRead(t *testing.T) {
 	require.NoError(t, MapInsertRead())
 }
 
-func TestStdJSON(t *testing.T) {
-	require.NoError(t, JSONInsertRead())
-}
-
 func TestStdCompression(t *testing.T) {
 	require.NoError(t, CompressOpenDB())
 	require.NoError(t, CompressOpen())

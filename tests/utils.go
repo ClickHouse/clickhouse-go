@@ -179,13 +179,25 @@ func CreateClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment,
 			Ulimits: expected,
 		},
 	}
-	clickhouseContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
-		ContainerRequest: req,
-		Started:          true,
-	})
-	if err != nil {
+
+	var clickhouseContainer testcontainers.Container
+	for attempt := 0; attempt < 3; attempt++ {
+		clickhouseContainer, err = testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+			ContainerRequest: req,
+			Started:          true,
+		})
+		if err == nil {
+			break
+		}
+
+		if strings.Contains(err.Error(), "failed to start container") {
+			// retry
+			continue
+		}
+
 		return ClickHouseTestEnvironment{}, err
 	}
+
 	p, _ := clickhouseContainer.MappedPort(ctx, "9000")
 	hp, _ := clickhouseContainer.MappedPort(ctx, "8123")
 	sslPort, _ := clickhouseContainer.MappedPort(ctx, "9440")
