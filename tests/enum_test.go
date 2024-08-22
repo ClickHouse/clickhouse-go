@@ -21,8 +21,9 @@ import (
 	"context"
 	"database/sql/driver"
 	"fmt"
-	"github.com/stretchr/testify/require"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
@@ -110,7 +111,7 @@ func TestEnum(t *testing.T) {
 	require.NoError(t, err)
 	const ddl = `
 			CREATE TABLE test_enum (
-				  Col1 Enum  ('hello'   = 1,  'world' = 2)
+				  Col1 Enum  ('hello,hello'   = 1,  'world' = 2)
 				, Col2 Enum8 ('click'   = 5,  'house' = 25)
 				, Col3 Enum16('house' = 10,   'value' = 50)
 				, Col4 Array(Enum8  ('click' = 1, 'house' = 2))
@@ -126,7 +127,7 @@ func TestEnum(t *testing.T) {
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_enum")
 	require.NoError(t, err)
 	var (
-		col1Data = "hello"
+		col1Data = "hello,hello"
 		col2Data = "click"
 		col3Data = "house"
 		col4Data = []string{"click", "house"}
