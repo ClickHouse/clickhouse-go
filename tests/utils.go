@@ -163,11 +163,10 @@ func CreateClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment,
 		Name:         containerName,
 		ExposedPorts: []string{"9000/tcp", "8123/tcp", "9440/tcp", "8443/tcp"},
 		WaitingFor: wait.ForAll(
-			wait.ForLog("Ready for connections").WithStartupTimeout(time.Second*time.Duration(120)),
 			wait.ForSQL("9000/tcp", "clickhouse", func(host string, port nat.Port) string {
-				return fmt.Sprintf("clickhouse://default:ClickHouse@%s:%s", host, port.Port())
+				return fmt.Sprintf("clickhouse://default:ClickHouse@%s:%s?secure=false", host, port.Port())
 			}),
-		).WithStartupTimeout(time.Second * time.Duration(120)),
+		).WithDeadline(time.Second * 120),
 		Mounts: []testcontainers.ContainerMount{
 			testcontainers.BindMount(path.Join(basePath, "./resources/custom.xml"), "/etc/clickhouse-server/config.d/custom.xml"),
 			testcontainers.BindMount(path.Join(basePath, "./resources/admin.xml"), "/etc/clickhouse-server/users.d/admin.xml"),
