@@ -323,7 +323,7 @@ func ClientOptionsFromEnv(env ClickHouseTestEnvironment, settings clickhouse.Set
 	}
 }
 
-func testClientWithDefaultOptions(env ClickHouseTestEnvironment, settings clickhouse.Settings) (driver.Conn, error) {
+func TestClientWithDefaultOptions(env ClickHouseTestEnvironment, settings clickhouse.Settings) (driver.Conn, error) {
 	opts := ClientOptionsFromEnv(env, settings, false)
 	return clickhouse.Open(&opts)
 }
@@ -346,7 +346,7 @@ func TestClientDefaultSettings(env ClickHouseTestEnvironment) clickhouse.Setting
 }
 
 func TestClientWithDefaultSettings(env ClickHouseTestEnvironment) (driver.Conn, error) {
-	return testClientWithDefaultOptions(env, TestClientDefaultSettings(env))
+	return TestClientWithDefaultOptions(env, TestClientDefaultSettings(env))
 }
 
 func TestDatabaseSQLClientWithDefaultOptions(env ClickHouseTestEnvironment, settings clickhouse.Settings) (*sql.DB, error) {
