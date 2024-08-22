@@ -1,4 +1,4 @@
-name: publish draft release
+name: release
 
 permissions: write-all
 
@@ -10,19 +10,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@main
+        with:
+          ref: main
+          fetch-depth: 0 # required to generate contributor list
 
-      - name: Install Go 1.21
+      - name: Install Go
         uses: actions/setup-go@v2.1.5
         with:
           stable: false
-          go-version: 1.21
+          go-version: 1.22
 
       - name: Prepare release
-        id: release_prep
+        id: release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          go run internal/cmd/release_prep/main.go
+          go run internal/cmd/release/main.go
 
       - name: Commit and push hanges
         run: |
@@ -34,6 +37,6 @@ jobs:
 
       - name: Publish draft release
         env:
-          RELEASE_API_URL: ${{ steps.release_prep.outputs.RELEASE_URL }}
+          RELEASE_API_URL: ${{ steps.release.outputs.RELEASE_URL }}
         run: |
             curl -X PATCH -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -H "Accept: application/vnd.github.v3+json" $RELEASE_API_URL -d '{"draft": false}'
