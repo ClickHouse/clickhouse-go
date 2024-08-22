@@ -98,3 +98,35 @@ func TestStdMap(t *testing.T) {
 		})
 	}
 }
+
+func TestStdInsertNilMap(t *testing.T) {
+	dsns := map[string]clickhouse.Protocol{"Native": clickhouse.Native, "Http": clickhouse.HTTP}
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	for name, protocol := range dsns {
+		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
+			conn, err := GetStdDSNConnection(protocol, useSSL, url.Values{})
+			require.NoError(t, err)
+			if !CheckMinServerVersion(conn, 21, 9, 0) {
+				t.Skip(fmt.Errorf("unsupported clickhouse version"))
+				return
+			}
+			const ddl = `
+		CREATE TABLE test_map_nil (
+			  Col1 Map(String, UInt64)
+		) Engine MergeTree() ORDER BY tuple()
+		`
+			defer func() {
+				conn.Exec("DROP TABLE test_map_nil")
+			}()
+			_, err = conn.Exec(ddl)
+			require.NoError(t, err)
+			scope, err := conn.Begin()
+			require.NoError(t, err)
+			batch, err := scope.Prepare("INSERT INTO test_map_nil")
+			require.NoError(t, err)
+			_, err = batch.Exec(nil)
+			assert.ErrorContains(t, err, " converting <nil> to Map(String, UInt64) is unsupported")
+		})
+	}
+}

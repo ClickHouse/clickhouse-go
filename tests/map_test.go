@@ -338,6 +338,31 @@ func TestOrderedMap(t *testing.T) {
 	require.Equal(t, 1000, i)
 }
 
+func TestInsertMapNil(t *testing.T) {
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+	require.NoError(t, err)
+	if !CheckMinServerServerVersion(conn, 21, 9, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
+		return
+	}
+	const ddl = `
+		CREATE TABLE test_map_nil (
+			  Col1 Map(String, UInt64)
+		) Engine MergeTree() ORDER BY tuple()
+		`
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_map_nil")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_map_nil")
+	require.NoError(t, err)
+
+	assert.ErrorContains(t, batch.Append(nil), " converting <nil> to Map(String, UInt64) is unsupported")
+}
+
 type testMapSerializer struct {
 	val map[string]uint64
 }
