@@ -96,14 +96,14 @@ func TestExtractEnumNamedValues(t *testing.T) {
 				5: "b",
 			},
 		},
-		//{
-		//	name:         "Enum8 with escaped quotes",
-		//	chType:       "Enum8('a\\'b'=1)",
-		//	expectedType: "Enum8",
-		//	expectedValues: map[int]string{
-		//		1: "a'b",
-		//	},
-		//},
+		{
+			name:         "Enum8 with escaped quotes",
+			chType:       `Enum8('a\'b'=1)`,
+			expectedType: "Enum8",
+			expectedValues: map[int]string{
+				1: "a'b",
+			},
+		},
 		{
 			name:       "Enum8 with invalid index",
 			chType:     "Enum8('a'=1,'b'=256)",

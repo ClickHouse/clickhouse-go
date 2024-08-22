@@ -74,8 +74,9 @@ func extractEnumNamedValues(chType Type) (typ string, values []string, indexes [
 
 	var bracketOpen, stringOpen bool
 
-	var foundNameOffset int
-	var foundNameLen int
+	var foundValueOffset int
+	var foundValueLen int
+	var skippedValueTokens []int
 	var indexFound bool
 	var valueIndex = 0
 
@@ -96,17 +97,22 @@ func extractEnumNamedValues(chType Type) (typ string, values []string, indexes [
 			break
 		// when inside a bracket, we can start capture value inside single quotes
 		case bracketOpen && token == '\'' && !stringOpen:
-			foundNameOffset = c + 1
+			foundValueOffset = c + 1
 			stringOpen = true
 			break
 		// close the string and capture the value
 		case token == '\'' && stringOpen:
 			stringOpen = false
-			foundNameLen = c - foundNameOffset
+			foundValueLen = c - foundValueOffset
+			break
+		// escape character, skip the next character
+		case token == '\\' && stringOpen:
+			skippedValueTokens = append(skippedValueTokens, c-foundValueOffset)
+			c++
 			break
 		// capture optional index. `=` token is followed with an integer index
 		case token == '=' && !stringOpen:
-			if foundNameLen == 0 {
+			if foundValueLen == 0 {
 				return
 			}
 
@@ -125,9 +131,10 @@ func extractEnumNamedValues(chType Type) (typ string, values []string, indexes [
 			}
 			valueIndex = idx
 			indexFound = true
+			break
 		// capture the value and index when a comma or closing bracket is found
 		case (token == ',' || token == ')') && !stringOpen:
-			if foundNameLen == 0 {
+			if foundValueLen == 0 {
 				return
 			}
 
@@ -145,9 +152,15 @@ func extractEnumNamedValues(chType Type) (typ string, values []string, indexes [
 				return
 			}
 
+			foundName := src[foundValueOffset : foundValueOffset+foundValueLen]
+			for _, skipped := range skippedValueTokens {
+				foundName = append(foundName[:skipped], foundName[skipped+1:]...)
+			}
+
 			indexes = append(indexes, valueIndex)
-			values = append(values, string(src[foundNameOffset:foundNameOffset+foundNameLen]))
+			values = append(values, string(foundName))
 			indexFound = false
+			break
 		}
 	}
 
