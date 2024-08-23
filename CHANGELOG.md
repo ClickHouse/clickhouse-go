@@ -1,3 +1,19 @@
+# v2.28.0, 2024-08-23 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Fixes 🐛
+* Fix Enum column definition parse logic to match ClickHouse spec by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1380
+* Fix support custom serialization in Nested type by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1381
+* Fix panic on nil map append by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1383
+### Other Changes 🛠
+* Remove test coverage for deprecated Object('JSON') type by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1377
+* Remove JSON type use from a context use example by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1379
+* Make sure non-secure port is used during readiness check by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1382
+* Deprecate Go 1.21 ended support and require Go 1.22 by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1378
+
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.27.2...v2.28.0
+
 # v2.27.2, 2024-08-20 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
