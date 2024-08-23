@@ -169,6 +169,15 @@ func (col *Map) Append(v any) (nulls []uint8, err error) {
 }
 
 func (col *Map) AppendRow(v any) error {
+	if v == nil {
+		return &ColumnConverterError{
+			Op:   "Append",
+			To:   string(col.chType),
+			From: fmt.Sprintf("%T", v),
+			Hint: fmt.Sprintf("try using %s", col.scanType),
+		}
+	}
+
 	value := reflect.Indirect(reflect.ValueOf(v))
 	if value.Type() == col.scanType {
 		var (
