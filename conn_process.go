@@ -20,8 +20,9 @@ package clickhouse
 import (
 	"context"
 	"fmt"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 	"io"
+
+	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 
 type onProcess struct {
@@ -33,50 +34,110 @@ type onProcess struct {
 }
 
 func (c *connect) firstBlock(ctx context.Context, on *onProcess) (*proto.Block, error) {
+	byteChan := make(chan byte, 16)
+	errChan := make(chan error, 1)
+
+	go func() {
+		defer close(byteChan)
+		defer close(errChan)
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+
+			default:
+				packet, err := c.reader.ReadByte()
+				if err != nil {
+					errChan <- err
+					return
+				}
+				byteChan <- packet
+			}
+		}
+	}()
+
 	for {
 		select {
 		case <-ctx.Done():
 			c.cancel()
-			return nil, ctx.Err()
-		default:
-		}
-		packet, err := c.reader.ReadByte()
-		if err != nil {
-			return nil, err
-		}
-		switch packet {
-		case proto.ServerData:
-			return c.readData(ctx, packet, true)
-		case proto.ServerEndOfStream:
-			c.debugf("[end of stream]")
-			return nil, io.EOF
-		default:
-			if err := c.handle(ctx, packet, on); err != nil {
+			return nil, ctx.Err() // filter out cancelled queries
+
+		case err, ok := <-errChan:
+			if ok {
 				return nil, err
+			}
+
+		case packet, ok := <-byteChan:
+			if !ok {
+				return nil, nil
+			}
+
+			switch packet {
+			case proto.ServerData:
+				return c.readData(ctx, packet, true)
+
+			case proto.ServerEndOfStream:
+				c.debugf("[end of stream]")
+				return nil, io.EOF
+
+			default:
+				if err := c.handle(ctx, packet, on); err != nil {
+					return nil, err
+				}
 			}
 		}
 	}
 }
 
 func (c *connect) process(ctx context.Context, on *onProcess) error {
+	byteChan := make(chan byte, 16)
+	errChan := make(chan error, 1)
+
+	go func() {
+		defer close(byteChan)
+		defer close(errChan)
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+
+			default:
+				packet, err := c.reader.ReadByte()
+				if err != nil {
+					errChan <- err
+					return
+				}
+				byteChan <- packet
+			}
+		}
+	}()
+
 	for {
 		select {
 		case <-ctx.Done():
 			c.cancel()
 			return ctx.Err()
-		default:
-		}
-		packet, err := c.reader.ReadByte()
-		if err != nil {
-			return err
-		}
-		switch packet {
-		case proto.ServerEndOfStream:
-			c.debugf("[end of stream]")
-			return nil
-		}
-		if err := c.handle(ctx, packet, on); err != nil {
-			return err
+
+		case err, ok := <-errChan:
+			if ok {
+				return err
+			}
+
+		case packet, ok := <-byteChan:
+			if !ok {
+				return nil
+			}
+
+			if packet == proto.ServerEndOfStream {
+				c.debugf("[end of stream]")
+				return nil
+			}
+
+			if err := c.handle(ctx, packet, on); err != nil {
+				return err
+			}
 		}
 	}
 }

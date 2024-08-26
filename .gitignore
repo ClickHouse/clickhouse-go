@@ -27,6 +27,7 @@ _testmain.go
 
 coverage.txt
 .idea/**
+.vscode/**
 dev/*
 .run/**
 
