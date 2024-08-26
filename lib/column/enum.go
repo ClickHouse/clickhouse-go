@@ -78,6 +78,7 @@ func extractEnumNamedValues(chType Type) (typ string, values []string, indexes [
 	var foundValueLen int
 	var skippedValueTokens []int
 	var indexFound bool
+	var valueFound bool
 	var valueIndex = 0
 
 	for c := 0; c < len(src); c++ {
@@ -104,6 +105,7 @@ func extractEnumNamedValues(chType Type) (typ string, values []string, indexes [
 		case token == '\'' && stringOpen:
 			stringOpen = false
 			foundValueLen = c - foundValueOffset
+			valueFound = true
 			break
 		// escape character, skip the next character
 		case token == '\\' && stringOpen:
@@ -112,10 +114,9 @@ func extractEnumNamedValues(chType Type) (typ string, values []string, indexes [
 			break
 		// capture optional index. `=` token is followed with an integer index
 		case token == '=' && !stringOpen:
-			if foundValueLen == 0 {
+			if !valueFound {
 				return
 			}
-
 			indexStart := c + 1
 			// find the end of the index, it's either a comma or a closing bracket
 			for _, token := range src[indexStart:] {
@@ -134,10 +135,9 @@ func extractEnumNamedValues(chType Type) (typ string, values []string, indexes [
 			break
 		// capture the value and index when a comma or closing bracket is found
 		case (token == ',' || token == ')') && !stringOpen:
-			if foundValueLen == 0 {
+			if !valueFound {
 				return
 			}
-
 			// if no index was found for current value, increment the value index
 			// e.g. Enum8('a','b') is equivalent to Enum8('a'=1,'b'=2)
 			// or Enum8('a'=3,'b') is equivalent to Enum8('a'=3,'b'=4)
@@ -160,6 +160,7 @@ func extractEnumNamedValues(chType Type) (typ string, values []string, indexes [
 			indexes = append(indexes, valueIndex)
 			values = append(values, string(foundName))
 			indexFound = false
+			valueFound = false
 			break
 		}
 	}
