@@ -25,6 +25,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"sync"
 	"syscall"
 	"time"
 
@@ -131,6 +132,7 @@ type connect struct {
 	readTimeout          time.Duration
 	blockBufferSize      uint8
 	maxCompressionBuffer int
+	mutex                sync.Mutex
 }
 
 func (c *connect) settings(querySettings Settings) []proto.Setting {
@@ -218,6 +220,18 @@ func (c *connect) compressBuffer(start int) error {
 }
 
 func (c *connect) sendData(block *proto.Block, name string) error {
+	if c.closed {
+		err := errors.New("attempted sending on closed connection")
+		c.debugf("[send data] err: %v", err)
+		return err
+	}
+
+	if c.buffer == nil {
+		err := errors.New("attempted sending on nil buffer")
+		c.debugf("[send data] err: %v", err)
+		return err
+	}
+
 	c.debugf("[send data] compression=%q", c.compression)
 	c.buffer.PutByte(proto.ClientData)
 	c.buffer.PutString(name)
@@ -265,10 +279,23 @@ func (c *connect) sendData(block *proto.Block, name string) error {
 }
 
 func (c *connect) readData(ctx context.Context, packet byte, compressible bool) (*proto.Block, error) {
+	if c.closed {
+		err := errors.New("attempted reading on closed connection")
+		c.debugf("[read data] err: %v", err)
+		return nil, err
+	}
+
+	if c.reader == nil {
+		err := errors.New("attempted reading on nil reader")
+		c.debugf("[read data] err: %v", err)
+		return nil, err
+	}
+
 	if _, err := c.reader.Str(); err != nil {
 		c.debugf("[read data] str error: %v", err)
 		return nil, err
 	}
+
 	if compressible && c.compression != CompressionNone {
 		c.reader.EnableCompression()
 		defer c.reader.DisableCompression()
@@ -285,6 +312,7 @@ func (c *connect) readData(ctx context.Context, packet byte, compressible bool) 
 		c.debugf("[read data] decode error: %v", err)
 		return nil, err
 	}
+
 	block.Packet = packet
 	c.debugf("[read data] compression=%q. block: columns=%d, rows=%d", c.compression, len(block.Columns), block.Rows())
 	return &block, nil
