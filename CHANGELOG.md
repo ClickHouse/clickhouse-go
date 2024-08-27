@@ -1,3 +1,14 @@
+# v2.28.1, 2024-08-27 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Fixes 🐛
+* Recognize empty strings as a valid enum key by @genzgd in https://github.com/ClickHouse/clickhouse-go/pull/1387
+### Other Changes 🛠
+* ClickHouse 24.8 by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1385
+
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.28.0...v2.28.1
+
 # v2.28.0, 2024-08-23 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
