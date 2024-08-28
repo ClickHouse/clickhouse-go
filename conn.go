@@ -178,9 +178,13 @@ func (c *connect) isBad() bool {
 }
 
 func (c *connect) close() error {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
 	if c.closed {
 		return nil
 	}
+
 	c.closed = true
 	c.buffer = nil
 	c.reader = nil
