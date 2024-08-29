@@ -140,6 +140,7 @@ type connect struct {
 	blockBufferSize      uint8
 	maxCompressionBuffer int
 	mutex                sync.Mutex
+	mutexClose           sync.Mutex
 }
 
 func (c *connect) settings(querySettings Settings) []proto.Setting {
@@ -188,13 +189,13 @@ func (c *connect) isBad() bool {
 }
 
 func (c *connect) close() error {
-	c.mutex.Lock()
+	c.mutexClose.Lock()
 	if c.closed {
-		c.mutex.Unlock()
+		c.mutexClose.Unlock()
 		return nil
 	}
 	c.closed = true
-	c.mutex.Unlock()
+	c.mutexClose.Unlock()
 
 	c.buffer = nil
 	c.reader = nil
