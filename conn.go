@@ -210,15 +210,15 @@ func (c *connect) close() error {
 	c.closed = true
 	c.mutexClose.Unlock()
 
+	if err := c.conn.Close(); err != nil {
+		return err
+	}
+
 	c.buffer = nil
 
 	c.mutex.Lock()
 	c.reader = nil
 	c.mutex.Unlock()
-
-	if err := c.conn.Close(); err != nil {
-		return err
-	}
 
 	return nil
 }
