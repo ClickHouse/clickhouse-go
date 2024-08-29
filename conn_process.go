@@ -47,9 +47,6 @@ func (c *connect) firstBlock(ctx context.Context, on *onProcess) (*proto.Block, 
 	errCh := make(chan error, 1)
 
 	go func() {
-		c.mutex.Lock()
-		defer c.mutex.Unlock()
-
 		block, err := c.firstBlockImpl(ctx, on)
 		if err != nil {
 			errCh <- err
@@ -73,6 +70,9 @@ func (c *connect) firstBlock(ctx context.Context, on *onProcess) (*proto.Block, 
 }
 
 func (c *connect) firstBlockImpl(ctx context.Context, on *onProcess) (*proto.Block, error) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
 	for {
 		packet, err := c.reader.ReadByte()
 		if err != nil {
@@ -112,9 +112,6 @@ func (c *connect) process(ctx context.Context, on *onProcess) error {
 	doneCh := make(chan bool, 1)
 
 	go func() {
-		c.mutex.Lock()
-		defer c.mutex.Unlock()
-
 		err := c.processImpl(ctx, on)
 		if err != nil {
 			errCh <- err
@@ -139,6 +136,9 @@ func (c *connect) process(ctx context.Context, on *onProcess) error {
 }
 
 func (c *connect) processImpl(ctx context.Context, on *onProcess) error {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
 	for {
 		packet, err := c.reader.ReadByte()
 		if err != nil {
