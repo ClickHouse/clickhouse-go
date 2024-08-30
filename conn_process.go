@@ -23,6 +23,7 @@ import (
 	"io"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
+	"github.com/pkg/errors"
 )
 
 type onProcess struct {
@@ -70,10 +71,14 @@ func (c *connect) firstBlock(ctx context.Context, on *onProcess) (*proto.Block, 
 }
 
 func (c *connect) firstBlockImpl(ctx context.Context, on *onProcess) (*proto.Block, error) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
+	c.readerMutex.Lock()
+	defer c.readerMutex.Unlock()
 
 	for {
+		if c.reader == nil {
+			return nil, errors.New("unexpected state: c.reader is nil")
+		}
+
 		packet, err := c.reader.ReadByte()
 		if err != nil {
 			return nil, err
@@ -136,10 +141,14 @@ func (c *connect) process(ctx context.Context, on *onProcess) error {
 }
 
 func (c *connect) processImpl(ctx context.Context, on *onProcess) error {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
+	c.readerMutex.Lock()
+	defer c.readerMutex.Unlock()
 
 	for {
+		if c.reader == nil {
+			return errors.New("unexpected state: c.reader is nil")
+		}
+
 		packet, err := c.reader.ReadByte()
 		if err != nil {
 			return err

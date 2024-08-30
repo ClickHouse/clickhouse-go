@@ -139,8 +139,8 @@ type connect struct {
 	readTimeout          time.Duration
 	blockBufferSize      uint8
 	maxCompressionBuffer int
-	mutex                sync.Mutex
-	mutexClose           sync.Mutex
+	readerMutex          sync.Mutex
+	closeMutex           sync.Mutex
 }
 
 func (c *connect) settings(querySettings Settings) []proto.Setting {
@@ -188,27 +188,27 @@ func (c *connect) isBad() bool {
 }
 
 func (c *connect) isClosed() bool {
-	c.mutexClose.Lock()
-	defer c.mutexClose.Unlock()
+	c.closeMutex.Lock()
+	defer c.closeMutex.Unlock()
 
 	return c.closed
 }
 
 func (c *connect) setClosed() {
-	c.mutexClose.Lock()
-	defer c.mutexClose.Unlock()
+	c.closeMutex.Lock()
+	defer c.closeMutex.Unlock()
 
 	c.closed = true
 }
 
 func (c *connect) close() error {
-	c.mutexClose.Lock()
+	c.closeMutex.Lock()
 	if c.closed {
-		c.mutexClose.Unlock()
+		c.closeMutex.Unlock()
 		return nil
 	}
 	c.closed = true
-	c.mutexClose.Unlock()
+	c.closeMutex.Unlock()
 
 	if err := c.conn.Close(); err != nil {
 		return err
@@ -216,9 +216,9 @@ func (c *connect) close() error {
 
 	c.buffer = nil
 
-	c.mutex.Lock()
+	c.readerMutex.Lock()
 	c.reader = nil
-	c.mutex.Unlock()
+	c.readerMutex.Unlock()
 
 	return nil
 }
@@ -257,12 +257,6 @@ func (c *connect) compressBuffer(start int) error {
 func (c *connect) sendData(block *proto.Block, name string) error {
 	if c.isClosed() {
 		err := errors.New("attempted sending on closed connection")
-		c.debugf("[send data] err: %v", err)
-		return err
-	}
-
-	if c.buffer == nil {
-		err := errors.New("attempted sending on nil buffer")
 		c.debugf("[send data] err: %v", err)
 		return err
 	}
