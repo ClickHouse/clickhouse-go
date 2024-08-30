@@ -30,7 +30,7 @@ const ClientName = "clickhouse-go"
 const (
 	ClientVersionMajor       = 2
 	ClientVersionMinor       = 28
-	ClientVersionPatch       = 1
+	ClientVersionPatch       = 2
 	ClientTCPProtocolVersion = proto.DBMS_TCP_PROTOCOL_VERSION
 )
 

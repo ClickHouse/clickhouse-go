@@ -1,3 +1,14 @@
+# v2.28.2, 2024-08-30 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Fixes 🐛
+* Validate connection in bad state before query execution in the stdlib database/sql driver by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1396
+### Other Changes 🛠
+* Update README with newer Go versions by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1393
+
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.28.1...v2.28.2
+
 # v2.28.1, 2024-08-27 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
