@@ -65,7 +65,7 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 				)
 			}
 		} else {
-			debugf = log.New(os.Stdout, fmt.Sprintf("[clickhouse][conn=%d][%s]", num, conn.RemoteAddr()), 0).Printf
+			debugf = log.New(os.Stderr, fmt.Sprintf("[clickhouse][conn=%d][%s]", num, conn.RemoteAddr()), 0).Printf
 		}
 	}
 	compression := CompressionNone
