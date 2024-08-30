@@ -239,12 +239,32 @@ func (std *stdDriver) ResetSession(ctx context.Context) error {
 
 var _ driver.SessionResetter = (*stdDriver)(nil)
 
-func (std *stdDriver) Ping(ctx context.Context) error { return std.conn.ping(ctx) }
+func (std *stdDriver) Ping(ctx context.Context) error {
+	if std.conn.isBad() {
+		std.debugf("Ping: connection is bad")
+		return driver.ErrBadConn
+	}
+
+	return std.conn.ping(ctx)
+}
 
 var _ driver.Pinger = (*stdDriver)(nil)
 
-func (std *stdDriver) Begin() (driver.Tx, error) { return std, nil }
+func (std *stdDriver) Begin() (driver.Tx, error) {
+	if std.conn.isBad() {
+		std.debugf("Begin: connection is bad")
+		return nil, driver.ErrBadConn
+	}
+
+	return std, nil
+}
+
 func (std *stdDriver) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
+	if std.conn.isBad() {
+		std.debugf("BeginTx: connection is bad")
+		return nil, driver.ErrBadConn
+	}
+
 	return std, nil
 }
 
@@ -280,6 +300,11 @@ func (std *stdDriver) CheckNamedValue(nv *driver.NamedValue) error { return nil 
 var _ driver.NamedValueChecker = (*stdDriver)(nil)
 
 func (std *stdDriver) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
+	if std.conn.isBad() {
+		std.debugf("ExecContext: connection is bad")
+		return nil, driver.ErrBadConn
+	}
+
 	var err error
 	if options := queryOptions(ctx); options.async.ok {
 		err = std.conn.asyncInsert(ctx, query, options.async.wait, rebind(args)...)
@@ -299,6 +324,11 @@ func (std *stdDriver) ExecContext(ctx context.Context, query string, args []driv
 }
 
 func (std *stdDriver) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+	if std.conn.isBad() {
+		std.debugf("QueryContext: connection is bad")
+		return nil, driver.ErrBadConn
+	}
+
 	r, err := std.conn.query(ctx, func(*connect, error) {}, query, rebind(args)...)
 	if isConnBrokenError(err) {
 		std.debugf("QueryContext got a fatal error, resetting connection: %v\n", err)
@@ -319,6 +349,11 @@ func (std *stdDriver) Prepare(query string) (driver.Stmt, error) {
 }
 
 func (std *stdDriver) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
+	if std.conn.isBad() {
+		std.debugf("PrepareContext: connection is bad")
+		return nil, driver.ErrBadConn
+	}
+
 	batch, err := std.conn.prepareBatch(ctx, query, ldriver.PrepareBatchOptions{}, func(*connect, error) {}, func(context.Context) (*connect, error) { return nil, nil })
 	if err != nil {
 		if isConnBrokenError(err) {
