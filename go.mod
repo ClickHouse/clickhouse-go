@@ -1,6 +1,8 @@
 module github.com/ClickHouse/clickhouse-go/v2
 
-go 1.21
+go 1.22.0
+
+toolchain go1.23.1
 
 require (
 	github.com/ClickHouse/ch-go v0.63.1
@@ -17,6 +19,7 @@ require (
 	github.com/stretchr/testify v1.10.0
 	github.com/testcontainers/testcontainers-go v0.33.0
 	go.opentelemetry.io/otel/trace v1.26.0
+	golang.org/x/exp v0.0.0-20241009180824-f66d83c29e7c
 	golang.org/x/net v0.33.0
 	gopkg.in/yaml.v3 v3.0.1
 )
