@@ -31,6 +31,10 @@ type Enum8 struct {
 	chType Type
 	name   string
 	col    proto.ColEnum8
+
+	continuous bool
+	minEnum    int8
+	maxEnum    int8
 }
 
 func (col *Enum8) Reset() {
@@ -179,9 +183,17 @@ func (col *Enum8) Append(v any) (nulls []uint8, err error) {
 func (col *Enum8) AppendRow(elem any) error {
 	switch elem := elem.(type) {
 	case int8:
-		return col.AppendRow(int(elem))
+		if col.continuous && elem >= col.minEnum && elem <= col.maxEnum {
+			col.col.Append(proto.Enum8(elem))
+		} else {
+			return col.AppendRow(int(elem))
+		}
 	case *int8:
-		return col.AppendRow(int(*elem))
+		if col.continuous && *elem >= col.minEnum && *elem <= col.maxEnum {
+			col.col.Append(proto.Enum8(*elem))
+		} else {
+			return col.AppendRow(int(*elem))
+		}
 	case int:
 		v := proto.Enum8(elem)
 		_, ok := col.vi[v]
