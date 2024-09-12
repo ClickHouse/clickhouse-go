@@ -1,6 +1,6 @@
 module github.com/ClickHouse/clickhouse-go/v2
 
-go 1.22
+go 1.21
 
 require (
 	github.com/ClickHouse/ch-go v0.61.5
