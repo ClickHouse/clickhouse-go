@@ -19,7 +19,7 @@ package clickhouse_api
 
 import (
 	"fmt"
-	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/nuonco/clickhouse-go/v2"
 )
 
 func Auth() error {

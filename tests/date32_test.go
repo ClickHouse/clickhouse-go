@@ -28,7 +28,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/nuonco/clickhouse-go/v2"
 )
 
 func TestDate32(t *testing.T) {

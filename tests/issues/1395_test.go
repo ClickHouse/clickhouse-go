@@ -23,8 +23,8 @@ import (
 	"database/sql/driver"
 	"testing"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
+	"github.com/nuonco/clickhouse-go/v2"
+	clickhouse_tests "github.com/nuonco/clickhouse-go/v2/tests"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 )

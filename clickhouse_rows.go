@@ -21,7 +21,7 @@ import (
 	"database/sql"
 	"io"
 
-	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
+	"github.com/nuonco/clickhouse-go/v2/lib/proto"
 )
 
 type rows struct {

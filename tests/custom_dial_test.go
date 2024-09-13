@@ -29,7 +29,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/nuonco/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
 )
 

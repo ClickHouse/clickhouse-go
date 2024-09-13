@@ -30,7 +30,7 @@ func defaultColStrProvider() proto.ColStr {
 	return proto.ColStr{}
 }
 
-// issue: https://github.com/ClickHouse/clickhouse-go/issues/1164
+// issue: https://github.com/nuonco/clickhouse-go/issues/1164
 // WithAllocBufferColStrProvider allow pre alloc buffer cap for proto.ColStr
 //
 //	It is more suitable for scenarios where a lot of data is written in batches

@@ -23,7 +23,7 @@ import (
 	"io"
 
 	chproto "github.com/ClickHouse/ch-go/proto"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
+	"github.com/nuonco/clickhouse-go/v2/lib/proto"
 )
 
 // release is ignored, because http used by std with empty release function

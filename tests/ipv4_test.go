@@ -22,13 +22,13 @@ import (
 	"database/sql/driver"
 	"encoding/binary"
 	"fmt"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
+	"github.com/nuonco/clickhouse-go/v2/lib/column"
 	"github.com/stretchr/testify/require"
 	"net"
 	"net/netip"
 	"testing"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/nuonco/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
 )
 

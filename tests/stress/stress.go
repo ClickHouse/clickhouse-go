@@ -19,7 +19,7 @@ package main
 
 import (
 	"context"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
+	clickhouse_tests "github.com/nuonco/clickhouse-go/v2/tests"
 	"log"
 	"os"
 	"os/signal"
@@ -29,8 +29,8 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"github.com/nuonco/clickhouse-go/v2"
+	"github.com/nuonco/clickhouse-go/v2/lib/driver"
 	"github.com/google/uuid"
 	_ "github.com/mkevac/debugcharts"
 )

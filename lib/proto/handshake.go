@@ -25,7 +25,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/v2/lib/timezone"
+	"github.com/nuonco/clickhouse-go/v2/lib/timezone"
 )
 
 type ClientHandshake struct {

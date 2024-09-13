@@ -49,7 +49,7 @@ const (
 const sharedDictionariesWithAdditionalKeys = 1
 
 // https://github.com/ClickHouse/ClickHouse/blob/master/src/Columns/ColumnLowCardinality.cpp
-// https://github.com/ClickHouse/clickhouse-cpp/blob/master/clickhouse/columns/lowcardinality.cpp
+// https://github.com/nuonco/clickhouse-cpp/blob/master/clickhouse/columns/lowcardinality.cpp
 type LowCardinality struct {
 	key      byte
 	rows     int

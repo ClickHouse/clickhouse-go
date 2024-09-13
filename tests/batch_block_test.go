@@ -24,8 +24,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/context"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
+	"github.com/nuonco/clickhouse-go/v2"
+	"github.com/nuonco/clickhouse-go/v2/lib/column"
 )
 
 // TestBatchAppendRows tests experimental batch rows blocks append feature.

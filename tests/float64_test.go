@@ -21,7 +21,7 @@ import (
 	"context"
 	"database/sql/driver"
 	"fmt"
-	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/nuonco/clickhouse-go/v2"
 	"github.com/stretchr/testify/require"
 	"testing"
 )

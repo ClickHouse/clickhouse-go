@@ -33,8 +33,8 @@ import (
 	"sync/atomic"
 	"syscall"
 
-	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
-	ldriver "github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"github.com/nuonco/clickhouse-go/v2/lib/column"
+	ldriver "github.com/nuonco/clickhouse-go/v2/lib/driver"
 )
 
 var globalConnID int64

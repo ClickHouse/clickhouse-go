@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
+	"github.com/nuonco/clickhouse-go/v2/lib/column"
 )
 
 func MapInsertRead() error {

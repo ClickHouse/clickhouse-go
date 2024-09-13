@@ -23,9 +23,9 @@ import (
 	"io"
 	"slices"
 
-	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
+	"github.com/nuonco/clickhouse-go/v2/lib/column"
+	"github.com/nuonco/clickhouse-go/v2/lib/driver"
+	"github.com/nuonco/clickhouse-go/v2/lib/proto"
 )
 
 // release is ignored, because http used by std with empty release function.

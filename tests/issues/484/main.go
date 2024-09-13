@@ -21,8 +21,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests/std"
+	"github.com/nuonco/clickhouse-go/v2"
+	clickhouse_tests "github.com/nuonco/clickhouse-go/v2/tests/std"
 )
 
 func main() {
