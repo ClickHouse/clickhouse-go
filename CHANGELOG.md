@@ -1,3 +1,12 @@
+# v2.28.3, 2024-09-12 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Other Changes 🛠
+* Revert the minimum required Go version to 1.21 by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1405
+
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.28.2...v2.28.3
+
 # v2.28.2, 2024-08-30 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
