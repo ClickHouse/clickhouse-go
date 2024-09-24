@@ -1,3 +1,17 @@
+# v2.29.0, 2024-09-24 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Enhancements 🎉
+* Add ability to handle context cancellations for TCP protocol by @tinybit in https://github.com/ClickHouse/clickhouse-go/pull/1389
+### Other Changes 🛠
+* Add Examples for batch.Column(n).AppendRow in columnar_insert.go by @achmad-dev in https://github.com/ClickHouse/clickhouse-go/pull/1410
+
+## New Contributors
+* @achmad-dev made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1410
+* @tinybit made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1389
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.28.3...v2.29.0
+
 # v2.28.3, 2024-09-12 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
