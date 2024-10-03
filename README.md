@@ -327,6 +327,10 @@ go get -u github.com/ClickHouse/clickhouse-go/v2
 * [bind params](examples/std/bind.go) (deprecated in favour of native query parameters)
 * [client info](examples/std/client_info.go)
 
+## Third-party libraries
+
+* [clickhouse-go-rows-utils](https://github.com/EpicStep/clickhouse-go-rows-utils) - utilities that simplify working with rows.
+
 ## ClickHouse alternatives - ch-go
 
 Versions of this client >=2.3.x utilise [ch-go](https://github.com/ClickHouse/ch-go) for their low level encoding/decoding. This low lever client provides a high performance columnar interface and should be used in performance critical use cases. This client provides more familar row orientated and `database/sql` semantics at the cost of some performance.
