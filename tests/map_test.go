@@ -21,6 +21,7 @@ import (
 	"context"
 	"database/sql/driver"
 	"fmt"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	"reflect"
 	"testing"
 
@@ -436,14 +437,8 @@ func (om *OrderedMap) KeysUseSlice() []any {
 	return om.keys
 }
 
-func (om *OrderedMap) Iter() MapIter {
+func (om *OrderedMap) Iter() column.MapIterator {
 	return &mapIter{om: om, iterIndex: -1}
-}
-
-type MapIter interface {
-	Next() bool
-	Key() any
-	Value() any
 }
 
 type mapIter struct {
