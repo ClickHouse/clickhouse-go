@@ -61,6 +61,7 @@ func GetClickHouseTestVersion() string {
 }
 
 type ClickHouseTestEnvironment struct {
+	ContainerID string
 	Port        int
 	HttpPort    int
 	SslPort     int
@@ -203,11 +204,12 @@ func CreateClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment,
 	hps, _ := clickhouseContainer.MappedPort(ctx, "8443")
 	ip, _ := clickhouseContainer.ContainerIP(ctx)
 	testEnv := ClickHouseTestEnvironment{
-		Port:      p.Int(),
-		HttpPort:  hp.Int(),
-		SslPort:   sslPort.Int(),
-		HttpsPort: hps.Int(),
-		Host:      "127.0.0.1",
+		ContainerID: clickhouseContainer.GetContainerID(),
+		Port:        p.Int(),
+		HttpPort:    hp.Int(),
+		SslPort:     sslPort.Int(),
+		HttpsPort:   hps.Int(),
+		Host:        "127.0.0.1",
 		// we set this explicitly - note its also set in the /etc/clickhouse-server/users.d/admin.xml
 		Username:    "default",
 		Password:    "ClickHouse",
