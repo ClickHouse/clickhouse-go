@@ -1,31 +1,35 @@
-package tests
+package issues
 
 import (
 	"context"
 	"errors"
-	"github.com/ClickHouse/clickhouse-go/v2"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
-	"github.com/docker/docker/api/types/container"
-	"github.com/stretchr/testify/require"
-	"github.com/testcontainers/testcontainers-go"
 	"os"
 	"syscall"
 	"testing"
+
+	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"github.com/ClickHouse/clickhouse-go/v2/tests"
+	"github.com/docker/docker/api/types/container"
+	"github.com/stretchr/testify/require"
+	"github.com/testcontainers/testcontainers-go"
 )
 
 //goland:noinspection ALL
 const insertQry = "INSERT INTO test (foo, foo2)"
 
-func TestBatchFlushBrokenConn(t *testing.T) {
-	env, err := GetNativeTestEnvironment()
+func Test1421BatchFlushBrokenConn(t *testing.T) {
+	// create a dedicated test environment for this test
+	// note: test environment management is a bit messy, consider refactoring
+	env, err := tests.CreateClickHouseTestEnvironment(t.Name())
+	tests.SetTestEnvironment(t.Name(), env)
+	require.NoError(t, tests.CreateDatabase(t.Name()))
+
 	require.NoError(t, err)
 	require.NotNil(t, env)
 	ctx := context.Background()
 	client, err := testcontainers.NewDockerClientWithOpts(ctx)
 	require.NoError(t, err)
-	chClient, err := getConnection(env, env.Database, clickhouse.Settings{}, nil, &clickhouse.Compression{
-		Method: clickhouse.CompressionLZ4,
-	})
+	chClient, err := tests.TestClientWithDefaultSettings(env)
 
 	err = chClient.Exec(ctx, "CREATE TABLE test (foo String, foo2 String)  ENGINE = MergeTree ORDER BY (foo)")
 	require.NoError(t, err)
