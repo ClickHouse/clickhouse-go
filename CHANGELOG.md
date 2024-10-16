@@ -1,3 +1,20 @@
+# v2.30.0, 2024-10-16 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Enhancements 🎉
+* Extended support for HTTP proxy in driver options by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1424
+* Default implementation of column.IterableOrderedMap by @earwin in https://github.com/ClickHouse/clickhouse-go/pull/1417
+### Fixes 🐛
+* Fix serialization for slices of OrderedMap/IterableOrderedMap (#1365) by @earwin in https://github.com/ClickHouse/clickhouse-go/pull/1418
+* Retry on broken pipe in batch by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1423
+### Other Changes 🛠
+* Add 'clickhouse-go-rows-utils' to third-party libraries by @EpicStep in https://github.com/ClickHouse/clickhouse-go/pull/1413
+
+## New Contributors
+* @earwin made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1418
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.29.0...v2.30.0
+
 # v2.29.0, 2024-09-24 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
