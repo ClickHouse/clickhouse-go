@@ -160,6 +160,7 @@ conn.SetConnMaxLifetime(time.Hour)
 * read_timeout - a duration string is a possibly signed sequence of decimal numbers, each with optional fraction and a unit suffix such as "300ms", "1s". Valid time units are "ms", "s", "m" (default 5m).
 * max_compression_buffer - max size (bytes) of compression buffer during column by column compression (default 10MiB)
 * client_info_product - optional list (comma separated) of product name and version pair separated with `/`. This value will be pass a part of client info. e.g. `client_info_product=my_app/1.0,my_module/0.1` More details in [Client info](#client-info) section.
+* http_proxy - HTTP proxy address
 
 SSL/TLS parameters:
 
@@ -173,6 +174,8 @@ clickhouse://username:password@host1:9000,host2:9000/database?dial_timeout=200ms
 ```
 
 ### HTTP Support (Experimental)
+
+**Note**: using HTTP protocol is possible only with `database/sql` interface.
 
 The native format can be used over the HTTP protocol. This is useful in scenarios where users need to proxy traffic e.g. using [ChProxy](https://www.chproxy.org/) or via load balancers.
 
@@ -203,7 +206,19 @@ conn := clickhouse.OpenDB(&clickhouse.Options{
 })
 ```
 
-**Note**: using HTTP protocol is possible only with `database/sql` interface.
+#### Proxy support
+
+HTTP proxy can be set in the DSN string by specifying the `http_proxy` parameter.
+(make sure to URL encode the proxy address)
+
+```sh
+http://host1:8123,host2:8123/database?dial_timeout=200ms&max_execution_time=60&http_proxy=http%3A%2F%2Fproxy%3A8080
+```
+
+If you are using `clickhouse.OpenDB`, set the `HTTProxy` field in the `clickhouse.Options`.
+
+An alternative way is to enable proxy by setting the `HTTP_PROXY` (for HTTP) or `HTTPS_PROXY` (for HTTPS) environment variables.
+See more details in the [Go documentation](https://pkg.go.dev/net/http#ProxyFromEnvironment).
 
 ## Compression
 
