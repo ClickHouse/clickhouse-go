@@ -11,7 +11,7 @@ on:
       - main
 
 jobs:
-  single-node:
+  test:
     runs-on: [self-hosted, style-checker-aarch64]
     strategy:
       fail-fast: true
