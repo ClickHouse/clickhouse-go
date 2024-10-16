@@ -1,4 +1,4 @@
-name: run-tests
+name: Tests matrix
 
 permissions: write-all
 
@@ -11,30 +11,29 @@ on:
       - main
 
 jobs:
-  single-node:
-    runs-on: ubuntu-latest
+  test:
+    runs-on: [self-hosted, style-checker-aarch64]
     strategy:
-      fail-fast: true
-      max-parallel: 1
       matrix:
         go:
           - "1.23"
           - "1.22"
-          - "1.21"
         clickhouse: # https://github.com/ClickHouse/ClickHouse/blob/master/SECURITY.md#scope-and-supported-versions
+          - "24.9"
           - "24.8"
           - "24.7"
-          - "24.6"
           - "24.3"
     steps:
-      - uses: actions/checkout@main
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Install Go ${{ matrix.go }}
-        uses: actions/setup-go@v2.1.5
+        uses: actions/setup-go@v5
         with:
-          stable: false
           go-version: ${{ matrix.go }}
 
-      - name: Run tests
+      - name: Tests
+        env:
+          TESTCONTAINERS_RYUK_DISABLED: "true"
         run: |
           CLICKHOUSE_VERSION=${{ matrix.clickhouse }} make test

@@ -1,4 +1,4 @@
-name: run-tests-head
+name: Tests head
 
 permissions: write-all
 
@@ -10,24 +10,26 @@ on:
     types: [opened, labeled, synchronize, reopened]
 
 jobs:
-  test-ch-head:
+  test:
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'tests:run-head'))
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, style-checker-aarch64]
     strategy:
-      fail-fast: true
-      max-parallel: 1
       matrix:
         go:
           - "1.23"
+        clickhouse:
+          - "head"
     steps:
-      - uses: actions/checkout@main
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Install Go ${{ matrix.go }}
-        uses: actions/setup-go@v2.1.5
+        uses: actions/setup-go@v5
         with:
-          stable: false
           go-version: ${{ matrix.go }}
 
-      - name: Run tests
+      - name: Tests
+        env:
+          TESTCONTAINERS_RYUK_DISABLED: "true"
         run: |
-          CLICKHOUSE_VERSION=head make test
+          CLICKHOUSE_VERSION=${{ matrix.clickhouse }} make test
