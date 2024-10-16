@@ -2,7 +2,7 @@ terraform {
   required_providers {
     clickhouse = {
       source  = "ClickHouse/clickhouse"
-      version = "0.0.6"
+      version = "~> 1.2"
     }
   }
 }
@@ -50,6 +50,7 @@ resource "clickhouse_service" "service" {
   region         = "us-east-2"
   tier           = "development"
   password       = var.service_password
+  idle_scaling   = false
 
   ip_access = [
     {
