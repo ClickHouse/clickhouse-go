@@ -33,5 +33,7 @@ jobs:
           go-version: ${{ matrix.go }}
 
       - name: Tests
+        env:
+          TESTCONTAINERS_RYUK_DISABLED: "true"
         run: |
           CLICKHOUSE_VERSION=${{ matrix.clickhouse }} make test
