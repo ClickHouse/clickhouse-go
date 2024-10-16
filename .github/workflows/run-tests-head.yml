@@ -1,4 +1,4 @@
-name: run-tests-head
+name: Tests head
 
 permissions: write-all
 
@@ -10,7 +10,7 @@ on:
     types: [opened, labeled, synchronize, reopened]
 
 jobs:
-  head:
+  test:
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'tests:run-head'))
     runs-on: [self-hosted, style-checker-aarch64]
     strategy:

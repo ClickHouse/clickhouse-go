@@ -1,4 +1,4 @@
-name: run-tests-cloud
+name: Tests cloud
 
 permissions: write-all
 
@@ -10,7 +10,7 @@ on:
     types: [opened, labeled, synchronize, reopened]
 
 jobs:
-  cloud:
+  test:
     if: github.event_name == 'push' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'tests:run-cloud'))
     runs-on: [self-hosted, style-checker-aarch64]
     defaults:
