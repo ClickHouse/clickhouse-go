@@ -22,6 +22,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net"
+	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
@@ -121,6 +122,8 @@ type DialResult struct {
 	conn *connect
 }
 
+type HTTPProxy func(*http.Request) (*url.URL, error)
+
 type Options struct {
 	Protocol   Protocol
 	ClientInfo ClientInfo
@@ -143,7 +146,10 @@ type Options struct {
 	HttpHeaders          map[string]string // set additional headers on HTTP requests
 	HttpUrlPath          string            // set additional URL path for HTTP requests
 	BlockBufferSize      uint8             // default 2 - can be overwritten on query
-	MaxCompressionBuffer int               // default 10485760 - measured in bytes  i.e. 10MiB
+	MaxCompressionBuffer int               // default 10485760 - measured in bytes  i.e.
+
+	// HTTPProxy specifies an HTTP proxy URL to use for requests made by the client.
+	HTTPProxyURL *url.URL
 
 	scheme      string
 	ReadTimeout time.Duration
@@ -302,6 +308,12 @@ func (o *Options) fromDSN(in string) error {
 					version,
 				})
 			}
+		case "http_proxy":
+			proxyURL, err := url.Parse(params.Get(v))
+			if err != nil {
+				return fmt.Errorf("clickhouse [dsn parse]: http_proxy: %s", err)
+			}
+			o.HTTPProxyURL = proxyURL
 		default:
 			switch p := strings.ToLower(params.Get(v)); p {
 			case "true":
