@@ -31,11 +31,12 @@ jobs:
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
 
       - name: Create Cloud instance
         id: create
         working-directory: .github/cloud/
-
         run: |
           export TF_VAR_allowed_cidr="$(curl -s ifconfig.me)/32"
           export TF_VAR_service_name="clickhouse-go $(git rev-parse --short HEAD) $(date +'%Y%m%d%H%M%S')"
