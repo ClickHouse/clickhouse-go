@@ -18,6 +18,8 @@ import (
 const insertQry = "INSERT INTO test (foo, foo2)"
 
 func Test1421BatchFlushBrokenConn(t *testing.T) {
+	tests.SkipOnCloud(t, "This test requires container environment")
+
 	// create a dedicated test environment for this test
 	// note: test environment management is a bit messy, consider refactoring
 	env, err := tests.CreateClickHouseTestEnvironment(t.Name())
