@@ -17,7 +17,6 @@ jobs:
       run:
         shell: bash
     strategy:
-      fail-fast: true
       matrix:
         go:
           - "1.23"
@@ -36,9 +35,10 @@ jobs:
       - name: Create Cloud instance
         id: create
         working-directory: .github/cloud/
+
         run: |
-          export TF_VAR_allowed_cidr=$(curl -s ifconfig.me)/32
-          export TF_VAR_service_name=clickhouse-go $(git rev-parse --short HEAD) $(date +'%Y%m%d%H%M%S')
+          export TF_VAR_allowed_cidr="$(curl -s ifconfig.me)/32"
+          export TF_VAR_service_name="clickhouse-go $(git rev-parse --short HEAD) $(date +'%Y%m%d%H%M%S')"
           terraform init
           terraform validate
           terraform apply -auto-approve -input=false -lock=false

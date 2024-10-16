@@ -14,7 +14,6 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'tests:run-head'))
     runs-on: [self-hosted, style-checker-aarch64]
     strategy:
-      fail-fast: true
       matrix:
         go:
           - "1.23"
