@@ -136,7 +136,7 @@ func (t Type) Column(name string, tz *time.Location) (Interface, error) {
 	case "Point":
 		return &Point{name: name}, nil
 	case "String":
-		return &String{name: name, col: colStrProvider()}, nil
+		return &String{name: name, col: colStrProvider(name)}, nil
 	case "Object('json')":
 		return &JSONObject{name: name, root: true, tz: tz}, nil
 	}
