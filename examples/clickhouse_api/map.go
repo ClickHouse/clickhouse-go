@@ -20,8 +20,9 @@ package clickhouse_api
 import (
 	"context"
 	"fmt"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/column/orderedmap"
 	"strconv"
+
+	"github.com/ClickHouse/clickhouse-go/v2/lib/column/orderedmap"
 )
 
 func MapInsertRead() error {
@@ -72,13 +73,15 @@ func MapInsertRead() error {
 	if err != nil {
 		return err
 	}
+	defer rows.Close()
+
 	for rows.Next() {
 		if err := rows.Scan(&col1, &col2, &col3); err != nil {
 			return err
 		}
 		fmt.Printf("row: col1=%v, col2=%v, col3=%v\n", col1, col2, col3)
 	}
-	rows.Close()
+
 	return rows.Err()
 }
 
@@ -124,6 +127,8 @@ func IterableOrderedMapInsertRead() error {
 	if err != nil {
 		return err
 	}
+	defer rows.Close()
+
 	for rows.Next() {
 		var col1 orderedmap.Map[string, string]
 		if err := rows.Scan(&col1); err != nil {
@@ -131,6 +136,6 @@ func IterableOrderedMapInsertRead() error {
 		}
 		fmt.Printf("row: col1=%v\n", col1)
 	}
-	rows.Close()
+
 	return rows.Err()
 }
