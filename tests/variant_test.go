@@ -38,7 +38,7 @@ func TestVariant(t *testing.T) {
 
 	const ddl = `
 			CREATE TABLE IF NOT EXISTS test_variant (
-				  c Variant(Array(UInt8), Bool, Int64, String)                  
+				  c Variant(Array(Map(String, String)), Array(UInt8), Bool, Int64, String)                  
 			) Engine = MergeTree() ORDER BY tuple()
 		`
 	require.NoError(t, conn.Exec(ctx, ddl))
@@ -52,11 +52,13 @@ func TestVariant(t *testing.T) {
 	require.NoError(t, batch.Append(chcol.NewVariantWithType("test", "String")))
 	require.NoError(t, batch.Append(true))
 	require.NoError(t, batch.Append(chcol.NewVariant([]uint8{0xA, 0xB, 0xC}).WithType("Array(UInt8)")))
+	require.NoError(t, batch.Append([]map[string]string{{"key1": "value1", "key2": "value2"}, {"key3": "value3"}}))
 	require.NoError(t, batch.Append(nil))
 	require.NoError(t, batch.Append(84))
 	require.NoError(t, batch.Append(chcol.NewVariantWithType("test2", "String")))
 	require.NoError(t, batch.Append(true))
 	require.NoError(t, batch.Append(chcol.NewVariant([]uint8{0xD, 0xE, 0xF}).WithType("Array(UInt8)")))
+	require.NoError(t, batch.Append([]map[string]string{{"key1": "value1", "key2": "value2"}, {"key3": "value3"}}))
 	require.NoError(t, batch.Send())
 
 	rows, err := conn.Query(ctx, "SELECT c from test_variant")
@@ -87,6 +89,11 @@ func TestVariant(t *testing.T) {
 	require.True(t, rows.Next())
 	err = rows.Scan(&row)
 	require.NoError(t, err)
+	require.Equal(t, []map[string]string{{"key1": "value1", "key2": "value2"}, {"key3": "value3"}}, row.Any())
+
+	require.True(t, rows.Next())
+	err = rows.Scan(&row)
+	require.NoError(t, err)
 	require.Equal(t, nil, row.Any())
 
 	var i int64
@@ -112,5 +119,11 @@ func TestVariant(t *testing.T) {
 	err = rows.Scan(&u8s)
 	require.NoError(t, err)
 	require.Equal(t, []uint8{0xD, 0xE, 0xF}, u8s)
+
+	var arrStrMap []map[string]string
+	require.True(t, rows.Next())
+	err = rows.Scan(&arrStrMap)
+	require.NoError(t, err)
+	require.Equal(t, []map[string]string{{"key1": "value1", "key2": "value2"}, {"key3": "value3"}}, arrStrMap)
 
 }
