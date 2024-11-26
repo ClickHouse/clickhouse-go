@@ -130,6 +130,8 @@ func (t Type) Column(name string, tz *time.Location) (Interface, error) {
 		return (&Map{name: name}).parse(t, tz)
 	case strings.HasPrefix(string(t), "Tuple("):
 		return (&Tuple{name: name}).parse(t, tz)
+	case strings.HasPrefix(string(t), "Variant("):
+		return (&ColVariant{name: name}).parse(t, tz)
 	case strings.HasPrefix(string(t), "Decimal("):
 		return (&Decimal{name: name}).parse(t)
 	case strings.HasPrefix(strType, "Nested("):

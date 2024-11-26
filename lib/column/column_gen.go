@@ -136,7 +136,7 @@ func (t Type) Column(name string, tz *time.Location) (Interface, error) {
 	case "Point":
 		return &Point{name: name}, nil
 	case "String":
-		return &String{name: name, col: colStrProvider()}, nil
+		return &String{name: name}, nil
 	case "Object('json')":
 		return &JSONObject{name: name, root: true, tz: tz}, nil
 	}
@@ -146,6 +146,8 @@ func (t Type) Column(name string, tz *time.Location) (Interface, error) {
 		return (&Map{name: name}).parse(t, tz)
 	case strings.HasPrefix(string(t), "Tuple("):
 		return (&Tuple{name: name}).parse(t, tz)
+	case strings.HasPrefix(string(t), "Variant("):
+		return (&ColVariant{name: name}).parse(t, tz)
 	case strings.HasPrefix(string(t), "Decimal("):
 		return (&Decimal{name: name}).parse(t)
 	case strings.HasPrefix(strType, "Nested("):
