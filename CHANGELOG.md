@@ -732,7 +732,7 @@ This release includes a guard to prevent release from being called more than onc
 ## 2.4.2, 2022-11-24
 ### Bug Fixes
 - Don't panic on `Send()` on batch after invalid `Append`. [#830](https://github.com/ClickHouse/clickhouse-go/pull/830)
-- Fix JSON issue with `nil` if column order is inconsisent. [#824](https://github.com/ClickHouse/clickhouse-go/pull/824)
+- Fix JSON issue with `nil` if column order is inconsistent. [#824](https://github.com/ClickHouse/clickhouse-go/pull/824)
 
 ## 2.4.1, 2022-11-23
 ### Bug Fixes
