@@ -138,6 +138,8 @@ func (t Type) Column(name string, tz *time.Location) (Interface, error) {
 		return &Point{name: name}, nil
 	case "String":
 		return &String{name: name, col: colStrProvider()}, nil
+	case "SharedVariant":
+		return &SharedVariant{name: name}, nil
 	case "Object('json')":
 		return &JSONObject{name: name, root: true, tz: tz}, nil
 	}
@@ -149,6 +151,8 @@ func (t Type) Column(name string, tz *time.Location) (Interface, error) {
 		return (&Tuple{name: name}).parse(t, tz)
 	case strings.HasPrefix(string(t), "Variant("):
 		return (&Variant{name: name}).parse(t, tz)
+	case strings.HasPrefix(string(t), "Dynamic"):
+		return (&Dynamic{name: name}).parse(t, tz)
 	case strings.HasPrefix(string(t), "Decimal("):
 		return (&Decimal{name: name}).parse(t)
 	case strings.HasPrefix(strType, "Nested("):
@@ -259,6 +263,7 @@ var (
 	scanTypeDecimal      = reflect.TypeOf(decimal.Decimal{})
 	scanTypeMultiPolygon = reflect.TypeOf(orb.MultiPolygon{})
 	scanTypeVariant      = reflect.TypeOf(chcol.Variant{})
+	scanTypeDynamic      = reflect.TypeOf(chcol.Dynamic{})
 )
 
 func (col *Float32) Name() string {
