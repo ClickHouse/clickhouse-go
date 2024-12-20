@@ -213,3 +213,7 @@ func TestSSLNoVerify(t *testing.T) {
 func TestVariantExample(t *testing.T) {
 	require.NoError(t, VariantExample())
 }
+
+func TestDynamicExample(t *testing.T) {
+	require.NoError(t, DynamicExample())
+}
