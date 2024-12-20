@@ -66,6 +66,6 @@ linters:
   - gofmt
   - govet
   - ineffassign
-  - importas
+  - imports
   - misspell
   - staticcheck
