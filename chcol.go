@@ -26,6 +26,7 @@ type (
 	VariantWithType = chcol.VariantWithType
 	Dynamic         = chcol.Dynamic
 	DynamicWithType = chcol.DynamicWithType
+	JSON            = chcol.JSON
 )
 
 // NewVariant creates a new Variant with the given value
@@ -46,4 +47,9 @@ func NewDynamic(v any) Dynamic {
 // NewDynamicWithType creates a new Dynamic with the given value and ClickHouse type
 func NewDynamicWithType(v any, chType string) DynamicWithType {
 	return chcol.NewDynamicWithType(v, chType)
+}
+
+// NewJSON creates a new empty JSON value
+func NewJSON() *JSON {
+	return chcol.NewJSON()
 }
