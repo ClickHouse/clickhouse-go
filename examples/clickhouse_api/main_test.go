@@ -217,3 +217,16 @@ func TestVariantExample(t *testing.T) {
 func TestDynamicExample(t *testing.T) {
 	require.NoError(t, DynamicExample())
 }
+
+func TestJSONPathsExample(t *testing.T) {
+	require.NoError(t, JSONPathsExample())
+}
+
+func TestJSONStructExample(t *testing.T) {
+	require.NoError(t, JSONStructExample())
+}
+
+func TestJSONStringExample(t *testing.T) {
+	t.Skip("client cannot receive JSON strings")
+	require.NoError(t, JSONStringExample())
+}

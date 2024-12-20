@@ -153,6 +153,8 @@ func (t Type) Column(name string, tz *time.Location) (Interface, error) {
 		return (&Variant{name: name}).parse(t, tz)
 	case strings.HasPrefix(string(t), "Dynamic"):
 		return (&Dynamic{name: name}).parse(t, tz)
+	case strings.HasPrefix(string(t), "JSON"):
+		return (&JSON{name: name}).parse(t, tz)
 	case strings.HasPrefix(string(t), "Decimal("):
 		return (&Decimal{name: name}).parse(t)
 	case strings.HasPrefix(strType, "Nested("):
@@ -264,6 +266,7 @@ var (
 	scanTypeMultiPolygon = reflect.TypeOf(orb.MultiPolygon{})
 	scanTypeVariant      = reflect.TypeOf(chcol.Variant{})
 	scanTypeDynamic      = reflect.TypeOf(chcol.Dynamic{})
+	scanTypeJSON         = reflect.TypeOf(chcol.JSON{})
 )
 
 func (col *Float32) Name() string {
