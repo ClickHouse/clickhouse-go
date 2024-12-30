@@ -96,12 +96,13 @@ func gitHubOutputReleaseURLIfAvailable(url string) {
 		return
 	}
 
-	if _, err := f.WriteString(fmt.Sprintf("RELEASE_URL=%s\n", url)); err != nil {
-		log.Fatalln(err)
-		return
-	}
+	defer func() {
+		if err := f.Close(); err != nil {
+			log.Fatalln(err)
+		}
+	}()
 
-	if err := f.Close(); err != nil {
+	if _, err := f.WriteString(fmt.Sprintf("RELEASE_URL=%s\n", url)); err != nil {
 		log.Fatalln(err)
 		return
 	}
