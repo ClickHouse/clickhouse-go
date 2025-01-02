@@ -30,8 +30,17 @@ import (
 
 const testSet string = "std"
 
+var testEnv clickhouse_tests.ClickHouseTestEnvironment
+
 func TestMain(m *testing.M) {
-	os.Exit(clickhouse_tests.Runtime(m, testSet))
+	var err error
+
+	testEnv, err = clickhouse_tests.CreateClickHouseTestEnvironment(testSet)
+	if err != nil {
+		panic(err)
+	}
+
+	os.Exit(clickhouse_tests.Runtime(m, testSet, testEnv))
 }
 
 func GetStdDSNConnection(protocol clickhouse.Protocol, secure bool, opts url.Values) (*sql.DB, error) {
