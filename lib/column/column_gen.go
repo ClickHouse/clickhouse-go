@@ -25,6 +25,7 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"github.com/ClickHouse/ch-go/proto"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/chcol"
 	"github.com/google/uuid"
 	"github.com/paulmach/orb"
 	"github.com/shopspring/decimal"
@@ -146,6 +147,8 @@ func (t Type) Column(name string, tz *time.Location) (Interface, error) {
 		return (&Map{name: name}).parse(t, tz)
 	case strings.HasPrefix(string(t), "Tuple("):
 		return (&Tuple{name: name}).parse(t, tz)
+	case strings.HasPrefix(string(t), "Variant("):
+		return (&Variant{name: name}).parse(t, tz)
 	case strings.HasPrefix(string(t), "Decimal("):
 		return (&Decimal{name: name}).parse(t)
 	case strings.HasPrefix(strType, "Nested("):
@@ -255,6 +258,7 @@ var (
 	scanTypePolygon      = reflect.TypeOf(orb.Polygon{})
 	scanTypeDecimal      = reflect.TypeOf(decimal.Decimal{})
 	scanTypeMultiPolygon = reflect.TypeOf(orb.MultiPolygon{})
+	scanTypeVariant      = reflect.TypeOf(chcol.Variant{})
 )
 
 func (col *Float32) Name() string {

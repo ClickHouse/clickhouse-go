@@ -33,6 +33,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"github.com/ClickHouse/ch-go/proto"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/chcol"
 )
 
 func (t Type) Column(name string, tz *time.Location) (Interface, error) {
@@ -120,7 +121,7 @@ func (t Type) Column(name string, tz *time.Location) (Interface, error) {
 	case "Point":
 		return &Point{name: name}, nil
 	case "String":
-		return &String{name: name}, nil
+		return &String{name: name, col: colStrProvider()}, nil
 	case "Object('json')":
 	    return &JSONObject{name: name, root: true, tz: tz}, nil
 	}
@@ -130,6 +131,8 @@ func (t Type) Column(name string, tz *time.Location) (Interface, error) {
 		return (&Map{name: name}).parse(t, tz)
 	case strings.HasPrefix(string(t), "Tuple("):
 		return (&Tuple{name: name}).parse(t, tz)
+	case strings.HasPrefix(string(t), "Variant("):
+		return (&Variant{name: name}).parse(t, tz)
 	case strings.HasPrefix(string(t), "Decimal("):
 		return (&Decimal{name: name}).parse(t)
 	case strings.HasPrefix(strType, "Nested("):
@@ -191,6 +194,7 @@ var (
 		scanTypePolygon = reflect.TypeOf(orb.Polygon{})
 		scanTypeDecimal = reflect.TypeOf(decimal.Decimal{})
 		scanTypeMultiPolygon = reflect.TypeOf(orb.MultiPolygon{})
+		scanTypeVariant = reflect.TypeOf(chcol.Variant{})
 	)
 
 {{- range . }}
