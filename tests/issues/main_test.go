@@ -26,10 +26,19 @@ import (
 
 const testSet string = "issues"
 
+var testEnv clickhouse_tests.ClickHouseTestEnvironment
+
 func TestMain(m *testing.M) {
-	os.Exit(clickhouse_tests.Runtime(m, testSet))
+	var err error
+
+	testEnv, err = clickhouse_tests.CreateClickHouseTestEnvironment(testSet)
+	if err != nil {
+		panic(err)
+	}
+
+	os.Exit(clickhouse_tests.Runtime(m, testSet, testEnv))
 }
 
 func GetIssuesTestEnvironment() (clickhouse_tests.ClickHouseTestEnvironment, error) {
-	return clickhouse_tests.GetTestEnvironment(testSet)
+	return testEnv, nil
 }

@@ -788,7 +788,7 @@ func OptionsToDSN(o *clickhouse.Options) string {
 	return u.String()
 }
 
-func Runtime(m *testing.M, ts string) (exitCode int) {
+func Runtime(m *testing.M, ts string, testEnv ClickHouseTestEnvironment) (exitCode int) {
 	seed := time.Now().UnixNano()
 	rand.Seed(seed)
 	fmt.Printf("using random seed %d for %s tests\n", seed, ts)
@@ -801,10 +801,7 @@ func Runtime(m *testing.M, ts string) (exitCode int) {
 	var env ClickHouseTestEnvironment
 	switch useDocker {
 	case true:
-		env, err = CreateClickHouseTestEnvironment(ts)
-		if err != nil {
-			panic(err)
-		}
+		env = testEnv
 		defer func() {
 			if err := env.Container.Terminate(context.Background()); err != nil {
 				panic(err)
