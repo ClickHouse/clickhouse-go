@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/ClickHouse/clickhouse-go/v2/tests"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -50,19 +51,12 @@ func TestIssue1446(t *testing.T) {
 
 	failRow := sampleFailRow{}
 	err = conn.QueryRow(ctx, "SELECT * FROM issue_1446 LIMIT 1").ScanStruct(&failRow)
-	if err == nil {
-		t.Errorf("expected column convert error for tuple *string to string")
-	}
+	assert.EqualError(t, err, "clickhouse [ScanRow]: (my_tuple) converting *string to string is unsupported")
 
 	okRow := sampleOkRow{}
 	err = conn.QueryRow(ctx, "SELECT * FROM issue_1446 LIMIT 1").ScanStruct(&okRow)
 	require.NoError(t, err)
 
-	if *okRow.MyTuple.TupleOne != "one" {
-		t.Errorf("expected 'one' but got '%s'", *okRow.MyTuple.TupleOne)
-	}
-
-	if *okRow.MyTuple.TupleTwo != "two" {
-		t.Errorf("expected 'two' but got '%s'", *okRow.MyTuple.TupleTwo)
-	}
+	assert.Equal(t, "one", *okRow.MyTuple.TupleOne)
+	assert.Equal(t, "two", *okRow.MyTuple.TupleTwo)
 }
