@@ -20,11 +20,12 @@ package column
 import (
 	"bytes"
 	"errors"
-	"github.com/ClickHouse/ch-go/proto"
-	"golang.org/x/exp/maps"
 	"math"
 	"slices"
 	"strconv"
+
+	"github.com/ClickHouse/ch-go/proto"
+	"golang.org/x/exp/maps"
 )
 
 func Enum(chType Type, name string) (Interface, error) {
@@ -58,14 +59,22 @@ func Enum(chType Type, name string) (Interface, error) {
 		vi:     make(map[proto.Enum16]string, len(values)),
 		chType: chType,
 		name:   name,
+		// to be updated below, when ranging over all index/enum values
+		minEnum: math.MaxInt16,
+		maxEnum: math.MinInt16,
 	}
 
 	for i := range values {
-		enum.iv[values[i]] = proto.Enum16(indexes[i])
-		enum.vi[proto.Enum16(indexes[i])] = values[i]
+		k := int16(indexes[i])
+		enum.iv[values[i]] = proto.Enum16(k)
+		enum.vi[proto.Enum16(k)] = values[i]
+		if k < enum.minEnum {
+			enum.minEnum = k
+		}
+		if k > enum.maxEnum {
+			enum.maxEnum = k
+		}
 	}
-	enum.minEnum = int16(slices.Min(maps.Keys(enum.vi)))
-	enum.maxEnum = int16(slices.Max(maps.Keys(enum.vi)))
 	enum.continuous = (enum.maxEnum-enum.minEnum)+1 == int16(len(enum.vi))
 	return &enum, nil
 }
