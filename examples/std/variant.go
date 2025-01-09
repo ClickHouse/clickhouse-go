@@ -20,6 +20,7 @@ package std
 import (
 	"context"
 	"fmt"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
 )
 
@@ -28,6 +29,7 @@ func VariantExample() error {
 
 	conn, err := GetStdOpenDBConnection(clickhouse.Native, clickhouse.Settings{
 		"allow_experimental_variant_type": true,
+		"allow_suspicious_variant_types":  true,
 	}, nil, nil)
 	if err != nil {
 		return err

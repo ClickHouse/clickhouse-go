@@ -20,12 +20,13 @@ package tests
 import (
 	"context"
 	"fmt"
+	"testing"
+	"time"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/chcol"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/stretchr/testify/require"
-	"testing"
-	"time"
 )
 
 var variantTestDate, _ = time.Parse(time.RFC3339, "2024-12-13T02:09:30.123Z")
@@ -34,6 +35,7 @@ func setupVariantTest(t *testing.T) driver.Conn {
 	conn, err := GetNativeConnection(clickhouse.Settings{
 		"max_execution_time":              60,
 		"allow_experimental_variant_type": true,
+		"allow_suspicious_variant_types":  true,
 	}, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
