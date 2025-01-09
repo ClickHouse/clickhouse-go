@@ -41,7 +41,7 @@ func setupVariantTest(t *testing.T) driver.Conn {
 	})
 	require.NoError(t, err)
 
-	if !CheckMinServerServerVersion(conn, 24, 1, 0) {
+	if !CheckMinServerServerVersion(conn, 24, 4, 0) {
 		t.Skip(fmt.Errorf("unsupported clickhouse version for Variant type"))
 		return nil
 	}
