@@ -22,8 +22,7 @@ import "github.com/ClickHouse/clickhouse-go/v2/lib/chcol"
 // Re-export chcol types/funcs to top level clickhouse package
 
 type (
-	Variant         = chcol.Variant
-	VariantWithType = chcol.VariantWithType
+	Variant = chcol.Variant
 )
 
 // NewVariant creates a new Variant with the given value
@@ -32,6 +31,6 @@ func NewVariant(v any) Variant {
 }
 
 // NewVariantWithType creates a new Variant with the given value and ClickHouse type
-func NewVariantWithType(v any, chType string) VariantWithType {
+func NewVariantWithType(v any, chType string) Variant {
 	return chcol.NewVariantWithType(v, chType)
 }

@@ -1,6 +1,7 @@
 package column
 
 import (
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"testing"
 )
@@ -19,9 +20,7 @@ func TestColVariant_parse(t *testing.T) {
 
 	for i, c := range cases {
 		col, err := (&Variant{name: "vt"}).parse(c.typ, nil)
-		if err != nil {
-			t.Fatalf("case index %d failed to parse Variant column: %s", i, err)
-		}
+		require.NoError(t, err, "case index %d failed to parse Variant column", i)
 
 		require.Equal(t, "vt", col.Name())
 		require.Equal(t, c.typ, col.chType)
@@ -31,15 +30,11 @@ func TestColVariant_parse(t *testing.T) {
 		for j, subCol := range col.columns {
 			expectedType := c.expectedTypes[j]
 			actualType := subCol.Type()
-			if actualType != expectedType {
-				t.Fatalf("case index %d Variant type index %d column type does not match: expected: \"%s\" actual: \"%s\"", i, j, expectedType, actualType)
-			}
+			assert.Equal(t, expectedType, actualType, "case index %d Variant type index %d column type does not match", i, j)
 
 			expectedColumnTypeIndex := uint8(j)
 			actualColumnTypeIndex := col.columnTypeIndex[string(actualType)]
-			if actualColumnTypeIndex != expectedColumnTypeIndex {
-				t.Fatalf("case index %d Variant type index %d columnTypeIndex does not match: expected: %d actual: %d", i, j, expectedColumnTypeIndex, actualColumnTypeIndex)
-			}
+			assert.Equal(t, expectedColumnTypeIndex, actualColumnTypeIndex, "case index %d Variant type index %d columnTypeIndex does not match", i, j)
 		}
 	}
 }
@@ -54,9 +49,7 @@ func TestColVariant_parse_invalid(t *testing.T) {
 
 	for i, typeName := range cases {
 		_, err := (&Variant{name: "vt"}).parse(typeName, nil)
-		if err == nil {
-			t.Fatalf("expected error for case index %d (\"%s\"), but received nil", i, typeName)
-		}
+		require.Error(t, err, "expected error for case index %d (\"%s\"), but received nil", i, typeName)
 	}
 }
 

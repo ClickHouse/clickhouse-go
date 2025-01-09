@@ -175,7 +175,7 @@ func TestVariant_ScanWithType(t *testing.T) {
 	rows, err := conn.Query(ctx, "SELECT c FROM test_variant")
 	require.NoError(t, err)
 
-	var row chcol.VariantWithType
+	var row chcol.Variant
 
 	require.True(t, rows.Next())
 	err = rows.Scan(&row)
@@ -213,7 +213,7 @@ func TestVariant_BatchFlush(t *testing.T) {
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_variant (c)")
 	require.NoError(t, err)
 
-	vals := make([]clickhouse.VariantWithType, 0, 1000)
+	vals := make([]clickhouse.Variant, 0, 1000)
 	for i := 0; i < 1000; i++ {
 		if i%2 == 0 {
 			vals = append(vals, clickhouse.NewVariantWithType(int64(i), "Int64"))
@@ -231,7 +231,7 @@ func TestVariant_BatchFlush(t *testing.T) {
 
 	i := 0
 	for rows.Next() {
-		var row chcol.VariantWithType
+		var row chcol.Variant
 		err = rows.Scan(&row)
 
 		if i%2 == 0 {
