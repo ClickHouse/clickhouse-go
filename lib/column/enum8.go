@@ -32,9 +32,9 @@ type Enum8 struct {
 	name   string
 	col    proto.ColEnum8
 
-	continuous bool
-	minEnum    int8
-	maxEnum    int8
+	// Encoding of the enums that have been specified by the user.
+	// Using this when appending rows, to validate the enum is valud.
+	enumValuesBitset [4]uint64
 }
 
 func (col *Enum8) Reset() {
@@ -183,39 +183,29 @@ func (col *Enum8) Append(v any) (nulls []uint8, err error) {
 func (col *Enum8) AppendRow(elem any) error {
 	switch elem := elem.(type) {
 	case int8:
-		if col.continuous && elem >= col.minEnum && elem <= col.maxEnum {
-			col.col.Append(proto.Enum8(elem))
-		} else {
-			return col.AppendRow(int(elem))
-		}
+		return col.AppendRow(int(elem))
 	case *int8:
-		if col.continuous && *elem >= col.minEnum && *elem <= col.maxEnum {
-			col.col.Append(proto.Enum8(*elem))
-		} else {
-			return col.AppendRow(int(*elem))
-		}
+		return col.AppendRow(int(*elem))
 	case int:
-		v := proto.Enum8(elem)
-		_, ok := col.vi[v]
-		if !ok {
+		// Check if the enum value is defined
+		if col.enumValuesBitset[uint8(elem)>>6]&(1<<(elem&63)) == 0 {
 			return &Error{
 				Err:        fmt.Errorf("unknown element %v", elem),
 				ColumnType: string(col.chType),
 			}
 		}
-		col.col.Append(v)
+		col.col.Append(proto.Enum8(elem))
 	case *int:
 		switch {
 		case elem != nil:
-			v := proto.Enum8(*elem)
-			_, ok := col.vi[v]
-			if !ok {
+			// Check if the enum value is defined
+			if col.enumValuesBitset[uint8(*elem)>>6]&(1<<(*elem&63)) == 0 {
 				return &Error{
 					Err:        fmt.Errorf("unknown element %v", *elem),
 					ColumnType: string(col.chType),
 				}
 			}
-			col.col.Append(v)
+			col.col.Append(proto.Enum8(*elem))
 		default:
 			col.col.Append(0)
 		}

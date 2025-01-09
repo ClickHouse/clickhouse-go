@@ -21,11 +21,9 @@ import (
 	"bytes"
 	"errors"
 	"math"
-	"slices"
 	"strconv"
 
 	"github.com/ClickHouse/ch-go/proto"
-	"golang.org/x/exp/maps"
 )
 
 func Enum(chType Type, name string) (Interface, error) {
@@ -48,10 +46,9 @@ func Enum(chType Type, name string) (Interface, error) {
 			v := int8(indexes[i])
 			enum.iv[values[i]] = proto.Enum8(v)
 			enum.vi[proto.Enum8(v)] = values[i]
+
+			enum.enumValuesBitset[uint8(v)>>6] |= 1 << (v & 63)
 		}
-		enum.minEnum = int8(slices.Min(maps.Keys(enum.vi)))
-		enum.maxEnum = int8(slices.Max(maps.Keys(enum.vi)))
-		enum.continuous = (enum.maxEnum-enum.minEnum)+1 == int8(len(enum.vi))
 		return &enum, nil
 	}
 	enum := Enum16{
