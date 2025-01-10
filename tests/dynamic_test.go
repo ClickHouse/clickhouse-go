@@ -39,7 +39,7 @@ func setupDynamicTest(t *testing.T) driver.Conn {
 	})
 	require.NoError(t, err)
 
-	if !CheckMinServerServerVersion(conn, 24, 4, 0) {
+	if !CheckMinServerServerVersion(conn, 24, 8, 0) {
 		t.Skip(fmt.Errorf("unsupported clickhouse version for Dynamic type"))
 		return nil
 	}

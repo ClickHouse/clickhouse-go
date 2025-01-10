@@ -33,7 +33,7 @@ func DynamicExample() error {
 		return err
 	}
 
-	if !CheckMinServerVersion(conn, 24, 4, 0) {
+	if !CheckMinServerVersion(conn, 24, 8, 0) {
 		fmt.Print("unsupported clickhouse version for Dynamic type")
 		return nil
 	}
