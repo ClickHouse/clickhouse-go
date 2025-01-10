@@ -34,6 +34,12 @@ func VariantExample() error {
 	if err != nil {
 		return err
 	}
+
+	if !CheckMinServerVersion(conn, 24, 4, 0) {
+		fmt.Print("unsupported clickhouse version for Variant type")
+		return nil
+	}
+
 	defer func() {
 		conn.Exec("DROP TABLE go_variant_example")
 	}()
