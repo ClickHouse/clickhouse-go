@@ -22,10 +22,8 @@ import "github.com/ClickHouse/clickhouse-go/v2/lib/chcol"
 // Re-export chcol types/funcs to top level clickhouse package
 
 type (
-	Variant         = chcol.Variant
-	VariantWithType = chcol.VariantWithType
-	Dynamic         = chcol.Dynamic
-	DynamicWithType = chcol.DynamicWithType
+	Variant = chcol.Variant
+	Dynamic = chcol.Dynamic
 )
 
 // NewVariant creates a new Variant with the given value
@@ -34,7 +32,7 @@ func NewVariant(v any) Variant {
 }
 
 // NewVariantWithType creates a new Variant with the given value and ClickHouse type
-func NewVariantWithType(v any, chType string) VariantWithType {
+func NewVariantWithType(v any, chType string) Variant {
 	return chcol.NewVariantWithType(v, chType)
 }
 
@@ -44,6 +42,6 @@ func NewDynamic(v any) Dynamic {
 }
 
 // NewDynamicWithType creates a new Dynamic with the given value and ClickHouse type
-func NewDynamicWithType(v any, chType string) DynamicWithType {
+func NewDynamicWithType(v any, chType string) Dynamic {
 	return chcol.NewDynamicWithType(v, chType)
 }

@@ -148,3 +148,8 @@ func TestOpenDb(t *testing.T) {
 func TestConnectionSettings(t *testing.T) {
 	require.NoError(t, ConnectSettings())
 }
+
+func TestVariantExample(t *testing.T) {
+	t.Skip("unsupported version")
+	require.NoError(t, VariantExample())
+}

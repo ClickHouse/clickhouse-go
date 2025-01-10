@@ -154,15 +154,9 @@ func (c *Variant) ScanRow(dest any, row int) error {
 
 	switch v := dest.(type) {
 	case *chcol.Variant:
-		vt := chcol.NewVariant(value)
-		*v = vt
-	case **chcol.Variant:
-		vt := chcol.NewVariant(value)
-		**v = vt
-	case *chcol.VariantWithType:
 		vt := chcol.NewVariantWithType(value, chType)
 		*v = vt
-	case **chcol.VariantWithType:
+	case **chcol.Variant:
 		vt := chcol.NewVariantWithType(value, chType)
 		**v = vt
 	default:
@@ -179,9 +173,9 @@ func (c *Variant) ScanRow(dest any, row int) error {
 }
 
 func (c *Variant) Append(v any) (nulls []uint8, err error) {
-	switch v.(type) {
+	switch vv := v.(type) {
 	case []chcol.Variant:
-		for i, vt := range v.([]chcol.Variant) {
+		for i, vt := range vv {
 			err := c.AppendRow(vt)
 			if err != nil {
 				return nil, fmt.Errorf("failed to AppendRow at index %d: %w", i, err)
@@ -190,25 +184,7 @@ func (c *Variant) Append(v any) (nulls []uint8, err error) {
 
 		return nil, nil
 	case []*chcol.Variant:
-		for i, vt := range v.([]*chcol.Variant) {
-			err := c.AppendRow(vt)
-			if err != nil {
-				return nil, fmt.Errorf("failed to AppendRow at index %d: %w", i, err)
-			}
-		}
-
-		return nil, nil
-	case []chcol.VariantWithType:
-		for i, vt := range v.([]chcol.VariantWithType) {
-			err := c.AppendRow(vt)
-			if err != nil {
-				return nil, fmt.Errorf("failed to AppendRow at index %d: %w", i, err)
-			}
-		}
-
-		return nil, nil
-	case []*chcol.VariantWithType:
-		for i, vt := range v.([]*chcol.VariantWithType) {
+		for i, vt := range vv {
 			err := c.AppendRow(vt)
 			if err != nil {
 				return nil, fmt.Errorf("failed to AppendRow at index %d: %w", i, err)
@@ -241,33 +217,21 @@ func (c *Variant) Append(v any) (nulls []uint8, err error) {
 
 func (c *Variant) AppendRow(v any) error {
 	var requestedType string
-	switch v.(type) {
+	switch vv := v.(type) {
 	case nil:
 		c.appendNullRow()
 		return nil
 	case chcol.Variant:
-		v = v.(chcol.Variant).Any()
-		if v == nil {
+		requestedType = vv.Type()
+		v = vv.Any()
+		if vv.Nil() {
 			c.appendNullRow()
 			return nil
 		}
 	case *chcol.Variant:
-		v = v.(*chcol.Variant).Any()
-		if v == nil {
-			c.appendNullRow()
-			return nil
-		}
-	case chcol.VariantWithType:
-		requestedType = v.(chcol.VariantWithType).Type()
-		v = v.(chcol.VariantWithType).Any()
-		if v == nil {
-			c.appendNullRow()
-			return nil
-		}
-	case *chcol.VariantWithType:
-		requestedType = v.(*chcol.VariantWithType).Type()
-		v = v.(*chcol.VariantWithType).Any()
-		if v == nil {
+		requestedType = vv.Type()
+		v = vv.Any()
+		if vv.Nil() {
 			c.appendNullRow()
 			return nil
 		}
@@ -332,7 +296,9 @@ func (c *Variant) decodeHeader(reader *proto.Reader) error {
 	variantSerializationVersion, err := reader.UInt64()
 	if err != nil {
 		return fmt.Errorf("failed to read variant discriminator version: %w", err)
-	} else if variantSerializationVersion != SupportedVariantSerializationVersion {
+	}
+
+	if variantSerializationVersion != SupportedVariantSerializationVersion {
 		return fmt.Errorf("unsupported variant discriminator version: %d", variantSerializationVersion)
 	}
 

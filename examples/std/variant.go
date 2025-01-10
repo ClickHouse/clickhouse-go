@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package clickhouse_api
+package std
 
 import (
 	"context"
@@ -27,20 +27,23 @@ import (
 func VariantExample() error {
 	ctx := context.Background()
 
-	conn, err := GetNativeConnection(clickhouse.Settings{
+	conn, err := GetStdOpenDBConnection(clickhouse.Native, clickhouse.Settings{
 		"allow_experimental_variant_type": true,
 		"allow_suspicious_variant_types":  true,
 	}, nil, nil)
 	if err != nil {
 		return err
 	}
+	defer func() {
+		conn.Exec("DROP TABLE go_variant_example")
+	}()
 
-	err = conn.Exec(ctx, "DROP TABLE IF EXISTS go_variant_example")
+	_, err = conn.ExecContext(ctx, "DROP TABLE IF EXISTS go_variant_example")
 	if err != nil {
 		return err
 	}
 
-	err = conn.Exec(ctx, `
+	_, err = conn.ExecContext(ctx, `
 		CREATE TABLE go_variant_example (
 		    c Variant(Bool, Int64,  String)
 		) ENGINE = Memory
@@ -49,42 +52,47 @@ func VariantExample() error {
 		return err
 	}
 
-	batch, err := conn.PrepareBatch(ctx, "INSERT INTO go_variant_example (c)")
+	tx, err := conn.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 
-	if err = batch.Append(true); err != nil {
+	batch, err := tx.PrepareContext(ctx, "INSERT INTO go_variant_example (c)")
+	if err != nil {
 		return err
 	}
 
-	if err = batch.Append(int64(42)); err != nil {
+	if _, err = batch.ExecContext(ctx, true); err != nil {
 		return err
 	}
 
-	if err = batch.Append("example"); err != nil {
+	if _, err = batch.ExecContext(ctx, int64(42)); err != nil {
 		return err
 	}
 
-	if err = batch.Append(clickhouse.NewVariant("example variant")); err != nil {
+	if _, err = batch.ExecContext(ctx, "example"); err != nil {
 		return err
 	}
 
-	if err = batch.Append(clickhouse.NewVariantWithType("example variant with specific type", "String")); err != nil {
+	if _, err = batch.ExecContext(ctx, clickhouse.NewVariant("example variant")); err != nil {
 		return err
 	}
 
-	if err = batch.Append(nil); err != nil {
+	if _, err = batch.ExecContext(ctx, clickhouse.NewVariantWithType("example variant with specific type", "String")); err != nil {
 		return err
 	}
 
-	if err = batch.Send(); err != nil {
+	if _, err = batch.ExecContext(ctx, nil); err != nil {
+		return err
+	}
+
+	if err = tx.Commit(); err != nil {
 		return err
 	}
 
 	// Switch on Go Type
 
-	rows, err := conn.Query(ctx, "SELECT c FROM go_variant_example")
+	rows, err := conn.QueryContext(ctx, "SELECT c FROM go_variant_example")
 	if err != nil {
 		return err
 	}
@@ -110,7 +118,7 @@ func VariantExample() error {
 
 	// Switch on ClickHouse Type
 
-	rows, err = conn.Query(ctx, "SELECT c FROM go_variant_example")
+	rows, err = conn.QueryContext(ctx, "SELECT c FROM go_variant_example")
 	if err != nil {
 		return err
 	}

@@ -20,12 +20,13 @@ package tests
 import (
 	"context"
 	"fmt"
+	"testing"
+	"time"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/chcol"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/stretchr/testify/require"
-	"testing"
-	"time"
 )
 
 var variantTestDate, _ = time.Parse(time.RFC3339, "2024-12-13T02:09:30.123Z")
@@ -34,12 +35,13 @@ func setupVariantTest(t *testing.T) driver.Conn {
 	conn, err := GetNativeConnection(clickhouse.Settings{
 		"max_execution_time":              60,
 		"allow_experimental_variant_type": true,
+		"allow_suspicious_variant_types":  true,
 	}, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	require.NoError(t, err)
 
-	if !CheckMinServerServerVersion(conn, 24, 1, 0) {
+	if !CheckMinServerServerVersion(conn, 24, 4, 0) {
 		t.Skip(fmt.Errorf("unsupported clickhouse version for Variant type"))
 		return nil
 	}
@@ -175,7 +177,7 @@ func TestVariant_ScanWithType(t *testing.T) {
 	rows, err := conn.Query(ctx, "SELECT c FROM test_variant")
 	require.NoError(t, err)
 
-	var row chcol.VariantWithType
+	var row chcol.Variant
 
 	require.True(t, rows.Next())
 	err = rows.Scan(&row)
@@ -213,7 +215,7 @@ func TestVariant_BatchFlush(t *testing.T) {
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_variant (c)")
 	require.NoError(t, err)
 
-	vals := make([]clickhouse.VariantWithType, 0, 1000)
+	vals := make([]clickhouse.Variant, 0, 1000)
 	for i := 0; i < 1000; i++ {
 		if i%2 == 0 {
 			vals = append(vals, clickhouse.NewVariantWithType(int64(i), "Int64"))
@@ -231,7 +233,7 @@ func TestVariant_BatchFlush(t *testing.T) {
 
 	i := 0
 	for rows.Next() {
-		var row chcol.VariantWithType
+		var row chcol.Variant
 		err = rows.Scan(&row)
 
 		if i%2 == 0 {
