@@ -118,5 +118,26 @@ func TestStdDateTime64(t *testing.T) {
 			require.Equal(t, time.Date(1900, 01, 01, 0, 0, 0, 0, time.UTC), col9)
 			require.Equal(t, time.Unix(0, 0).UTC(), col10)
 		})
+
+		t.Run("DateTime64 precision", func(t *testing.T) {
+			conn, err := GetStdDSNConnection(protocol, useSSL, nil)
+			require.NoError(t, err)
+			if !CheckMinServerVersion(conn, 20, 3, 0) {
+				t.Skip(fmt.Errorf("unsupported clickhouse version"))
+				return
+			}
+
+			rows, err := conn.Query("SELECT toDateTime64(1546300800.123, 3)")
+			require.NoError(t, err)
+
+			columnTypes, err := rows.ColumnTypes()
+			require.NoError(t, err)
+			require.Len(t, columnTypes, 1)
+
+			precision, scale, ok := columnTypes[0].DecimalSize()
+			require.Equal(t, int64(3), precision)
+			require.Equal(t, int64(0), scale)
+			require.True(t, ok)
+		})
 	}
 }
