@@ -1,0 +1,99 @@
+// Licensed to ClickHouse, Inc. under one or more contributor
+// license agreements. See the NOTICE file distributed with
+// this work for additional information regarding copyright
+// ownership. ClickHouse, Inc. licenses this file to you under
+// the Apache License, Version 2.0 (the "License"); you may
+// not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
+package chcol
+
+import (
+	"database/sql/driver"
+	"encoding/json"
+)
+
+// Variant represents a ClickHouse Variant type that can hold multiple possible types
+type Variant struct {
+	value  any
+	chType string
+}
+
+// NewVariant creates a new Variant with the given value
+func NewVariant(v any) Variant {
+	return Variant{
+		value:  v,
+		chType: "",
+	}
+}
+
+// NewVariantWithType creates a new Variant with the given value and ClickHouse type
+func NewVariantWithType(v any, chType string) Variant {
+	return Variant{
+		value:  v,
+		chType: chType,
+	}
+}
+
+// WithType creates a new Variant with the current value and given ClickHouse type
+func (v Variant) WithType(chType string) Variant {
+	return Variant{
+		value:  v.value,
+		chType: chType,
+	}
+}
+
+// Type returns the ClickHouse type as a string.
+func (v Variant) Type() string {
+	return v.chType
+}
+
+// HasType returns true if the value has a type ClickHouse included.
+func (v Variant) HasType() bool {
+	return v.chType == ""
+}
+
+// Nil returns true if the underlying value is nil.
+func (v Variant) Nil() bool {
+	return v.value == nil
+}
+
+// Any returns the underlying value as any.
+func (v Variant) Any() any {
+	return v.value
+}
+
+// MarshalJSON implements the json.Marshaler interface
+func (v *Variant) MarshalJSON() ([]byte, error) {
+	return json.Marshal(v.value)
+}
+
+// Scan implements the sql.Scanner interface
+func (v *Variant) Scan(value interface{}) error {
+	switch vv := value.(type) {
+	case Variant:
+		v.value = vv.value
+		v.chType = vv.chType
+	case *Variant:
+		v.value = vv.value
+		v.chType = vv.chType
+	default:
+		v.value = value
+	}
+
+	return nil
+}
+
+// Value implements the driver.Valuer interface
+func (v Variant) Value() (driver.Value, error) {
+	return v, nil
+}
