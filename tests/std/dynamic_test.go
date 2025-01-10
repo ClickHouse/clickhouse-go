@@ -15,14 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package tests
+package std
 
 import (
 	"context"
+	"database/sql"
+
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/chcol"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
@@ -30,8 +31,8 @@ import (
 
 var dynamicTestDate, _ = time.Parse(time.RFC3339, "2024-12-13T02:09:30.123Z")
 
-func setupDynamicTest(t *testing.T) driver.Conn {
-	conn, err := GetNativeConnection(clickhouse.Settings{
+func setupDynamicTest(t *testing.T) *sql.DB {
+	conn, err := GetStdOpenDBConnection(clickhouse.Native, clickhouse.Settings{
 		"max_execution_time":              60,
 		"allow_experimental_dynamic_type": true,
 	}, nil, &clickhouse.Compression{
@@ -39,7 +40,7 @@ func setupDynamicTest(t *testing.T) driver.Conn {
 	})
 	require.NoError(t, err)
 
-	if !CheckMinServerServerVersion(conn, 24, 4, 0) {
+	if !CheckMinServerVersion(conn, 24, 4, 0) {
 		t.Skip(fmt.Errorf("unsupported clickhouse version for Dynamic type"))
 		return nil
 	}
@@ -56,33 +57,48 @@ func TestDynamic(t *testing.T) {
 				  c Dynamic                  
 			) Engine = MergeTree() ORDER BY tuple()
 		`
-	require.NoError(t, conn.Exec(ctx, ddl))
+	_, err := conn.ExecContext(ctx, ddl)
+	require.NoError(t, err)
 	defer func() {
-		require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS test_dynamic"))
+		_, err := conn.ExecContext(ctx, "DROP TABLE IF EXISTS test_dynamic")
+		require.NoError(t, err)
 	}()
 
-	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_dynamic (c)")
+	tx, err := conn.BeginTx(ctx, nil)
 	require.NoError(t, err)
 
-	require.NoError(t, batch.Append(clickhouse.NewDynamicWithType(true, "Bool")))
-	colInt64 := int64(42)
-	require.NoError(t, batch.Append(clickhouse.NewDynamicWithType(colInt64, "Int64")))
-	colString := "test"
-	require.NoError(t, batch.Append(clickhouse.NewDynamicWithType(colString, "String")))
-	require.NoError(t, batch.Append(clickhouse.NewDynamicWithType(dynamicTestDate, "DateTime64(3)")))
-	var colNil any = nil
-	require.NoError(t, batch.Append(colNil))
-	colSliceUInt8 := []uint8{0xA, 0xB, 0xC}
-	require.NoError(t, batch.Append(clickhouse.NewDynamicWithType(colSliceUInt8, "Array(UInt8)")))
-	colSliceMapStringString := []map[string]string{{"key1": "value1", "key2": "value2"}, {"key3": "value3"}}
-	require.NoError(t, batch.Append(clickhouse.NewDynamicWithType(colSliceMapStringString, "Array(Map(String, String))")))
-	colMapStringString := map[string]string{"key1": "value1", "key2": "value2"}
-	require.NoError(t, batch.Append(clickhouse.NewDynamicWithType(colMapStringString, "Map(String, String)")))
-	colMapStringInt64 := map[string]int64{"key1": 42, "key2": 84}
-	require.NoError(t, batch.Append(clickhouse.NewDynamicWithType(colMapStringInt64, "Map(String, Int64)")))
-	require.NoError(t, batch.Send())
+	batch, err := tx.PrepareContext(ctx, "INSERT INTO test_dynamic (c)")
+	require.NoError(t, err)
 
-	rows, err := conn.Query(ctx, "SELECT c FROM test_dynamic")
+	_, err = batch.ExecContext(ctx, clickhouse.NewDynamicWithType(true, "Bool"))
+	require.NoError(t, err)
+	colInt64 := int64(42)
+	_, err = batch.ExecContext(ctx, clickhouse.NewDynamicWithType(colInt64, "Int64"))
+	require.NoError(t, err)
+	colString := "test"
+	_, err = batch.ExecContext(ctx, clickhouse.NewDynamicWithType(colString, "String"))
+	require.NoError(t, err)
+	_, err = batch.ExecContext(ctx, clickhouse.NewDynamicWithType(dynamicTestDate, "DateTime64(3)"))
+	require.NoError(t, err)
+	var colNil any = nil
+	_, err = batch.ExecContext(ctx, colNil)
+	require.NoError(t, err)
+	colSliceUInt8 := []uint8{0xA, 0xB, 0xC}
+	_, err = batch.ExecContext(ctx, clickhouse.NewDynamicWithType(colSliceUInt8, "Array(UInt8)"))
+	require.NoError(t, err)
+	colSliceMapStringString := []map[string]string{{"key1": "value1", "key2": "value2"}, {"key3": "value3"}}
+	_, err = batch.ExecContext(ctx, clickhouse.NewDynamicWithType(colSliceMapStringString, "Array(Map(String, String))"))
+	require.NoError(t, err)
+	colMapStringString := map[string]string{"key1": "value1", "key2": "value2"}
+	_, err = batch.ExecContext(ctx, clickhouse.NewDynamicWithType(colMapStringString, "Map(String, String)"))
+	require.NoError(t, err)
+	colMapStringInt64 := map[string]int64{"key1": 42, "key2": 84}
+	_, err = batch.ExecContext(ctx, clickhouse.NewDynamicWithType(colMapStringInt64, "Map(String, Int64)"))
+	require.NoError(t, err)
+
+	require.NoError(t, tx.Commit())
+
+	rows, err := conn.QueryContext(ctx, "SELECT c FROM test_dynamic")
 	require.NoError(t, err)
 
 	var row chcol.Dynamic
@@ -142,20 +158,30 @@ func TestDynamic_ScanWithType(t *testing.T) {
 				  c Dynamic                 
 			) Engine = MergeTree() ORDER BY tuple()
 		`
-	require.NoError(t, conn.Exec(ctx, ddl))
-	defer func() {
-		require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS test_dynamic"))
-	}()
-
-	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_dynamic (c)")
+	_, err := conn.ExecContext(ctx, ddl)
 	require.NoError(t, err)
 
-	require.NoError(t, batch.Append(clickhouse.NewDynamicWithType(true, "Bool")))
-	require.NoError(t, batch.Append(clickhouse.NewDynamicWithType(int64(42), "Int64")))
-	require.NoError(t, batch.Append(nil))
-	require.NoError(t, batch.Send())
+	defer func() {
+		_, err := conn.ExecContext(ctx, "DROP TABLE IF EXISTS test_dynamic")
+		require.NoError(t, err)
+	}()
 
-	rows, err := conn.Query(ctx, "SELECT c FROM test_dynamic")
+	tx, err := conn.BeginTx(ctx, nil)
+	require.NoError(t, err)
+
+	batch, err := tx.PrepareContext(ctx, "INSERT INTO test_dynamic (c)")
+	require.NoError(t, err)
+
+	_, err = batch.ExecContext(ctx, clickhouse.NewDynamicWithType(true, "Bool"))
+	require.NoError(t, err)
+	_, err = batch.ExecContext(ctx, clickhouse.NewDynamicWithType(int64(42), "Int64"))
+	require.NoError(t, err)
+	_, err = batch.ExecContext(ctx, nil)
+	require.NoError(t, err)
+
+	require.NoError(t, tx.Commit())
+
+	rows, err := conn.QueryContext(ctx, "SELECT c FROM test_dynamic")
 	require.NoError(t, err)
 
 	var row chcol.Dynamic
@@ -177,57 +203,4 @@ func TestDynamic_ScanWithType(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, nil, row.Any())
 	require.Equal(t, "", row.Type())
-}
-
-func TestDynamic_BatchFlush(t *testing.T) {
-	t.Skip(fmt.Errorf("server-side Dynamic bug"))
-
-	ctx := context.Background()
-	conn := setupDynamicTest(t)
-
-	const ddl = `
-			CREATE TABLE IF NOT EXISTS test_dynamic (
-				  c Dynamic                 
-			) Engine = MergeTree() ORDER BY tuple()
-		`
-	require.NoError(t, conn.Exec(ctx, ddl))
-	defer func() {
-		require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS test_dynamic"))
-	}()
-
-	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_dynamic (c)")
-	require.NoError(t, err)
-
-	vals := make([]clickhouse.Dynamic, 0, 1000)
-	for i := 0; i < 1000; i++ {
-		if i%2 == 0 {
-			vals = append(vals, clickhouse.NewDynamicWithType(int64(i), "Int64"))
-		} else {
-			vals = append(vals, clickhouse.NewDynamicWithType(i%5 == 0, "Bool"))
-		}
-
-		require.NoError(t, batch.Append(vals[i]))
-		require.NoError(t, batch.Flush())
-	}
-	require.NoError(t, batch.Send())
-
-	rows, err := conn.Query(ctx, "SELECT c FROM test_dynamic")
-	require.NoError(t, err)
-
-	i := 0
-	for rows.Next() {
-		var row clickhouse.Dynamic
-		err = rows.Scan(&row)
-		require.NoError(t, err)
-
-		if i%2 == 0 {
-			require.Equal(t, int64(i), row.Any())
-			require.Equal(t, "Int64", row.Type())
-		} else {
-			require.Equal(t, i%5 == 0, row.Any())
-			require.Equal(t, "Bool", row.Type())
-		}
-
-		i++
-	}
 }

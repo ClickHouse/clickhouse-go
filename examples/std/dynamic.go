@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package clickhouse_api
+package std
 
 import (
 	"context"
@@ -26,7 +26,7 @@ import (
 func DynamicExample() error {
 	ctx := context.Background()
 
-	conn, err := GetNativeConnection(clickhouse.Settings{
+	conn, err := GetStdOpenDBConnection(clickhouse.Native, clickhouse.Settings{
 		"allow_experimental_dynamic_type": true,
 	}, nil, nil)
 	if err != nil {
@@ -38,12 +38,16 @@ func DynamicExample() error {
 		return nil
 	}
 
-	err = conn.Exec(ctx, "DROP TABLE IF EXISTS go_dynamic_example")
+	defer func() {
+		conn.Exec("DROP TABLE go_dynamic_example")
+	}()
+
+	_, err = conn.ExecContext(ctx, "DROP TABLE IF EXISTS go_dynamic_example")
 	if err != nil {
 		return err
 	}
 
-	err = conn.Exec(ctx, `
+	_, err = conn.ExecContext(ctx, `
 		CREATE TABLE go_dynamic_example (
 		    c Dynamic
 		) ENGINE = Memory
@@ -52,42 +56,47 @@ func DynamicExample() error {
 		return err
 	}
 
-	batch, err := conn.PrepareBatch(ctx, "INSERT INTO go_dynamic_example (c)")
+	tx, err := conn.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 
-	if err = batch.Append(true); err != nil {
+	batch, err := tx.PrepareContext(ctx, "INSERT INTO go_dynamic_example (c)")
+	if err != nil {
 		return err
 	}
 
-	if err = batch.Append(int64(42)); err != nil {
+	if _, err = batch.ExecContext(ctx, true); err != nil {
 		return err
 	}
 
-	if err = batch.Append("example"); err != nil {
+	if _, err = batch.ExecContext(ctx, int64(42)); err != nil {
 		return err
 	}
 
-	if err = batch.Append(clickhouse.NewDynamic("example dynamic")); err != nil {
+	if _, err = batch.ExecContext(ctx, "example"); err != nil {
 		return err
 	}
 
-	if err = batch.Append(clickhouse.NewDynamicWithType("example dynamic with specific type", "String")); err != nil {
+	if _, err = batch.ExecContext(ctx, clickhouse.NewDynamic("example dynamic")); err != nil {
 		return err
 	}
 
-	if err = batch.Append(nil); err != nil {
+	if _, err = batch.ExecContext(ctx, clickhouse.NewDynamicWithType("example dynamic with specific type", "String")); err != nil {
 		return err
 	}
 
-	if err = batch.Send(); err != nil {
+	if _, err = batch.ExecContext(ctx, nil); err != nil {
+		return err
+	}
+
+	if err = tx.Commit(); err != nil {
 		return err
 	}
 
 	// Switch on Go Type
 
-	rows, err := conn.Query(ctx, "SELECT c FROM go_dynamic_example")
+	rows, err := conn.QueryContext(ctx, "SELECT c FROM go_dynamic_example")
 	if err != nil {
 		return err
 	}
@@ -113,7 +122,7 @@ func DynamicExample() error {
 
 	// Switch on ClickHouse Type
 
-	rows, err = conn.Query(ctx, "SELECT c FROM go_dynamic_example")
+	rows, err = conn.QueryContext(ctx, "SELECT c FROM go_dynamic_example")
 	if err != nil {
 		return err
 	}
