@@ -132,17 +132,11 @@ func (c *Dynamic) ScanRow(dest any, row int) error {
 
 	switch v := dest.(type) {
 	case *chcol.Dynamic:
-		vt := chcol.NewDynamic(value)
-		*v = vt
+		dyn := chcol.NewDynamicWithType(value, chType)
+		*v = dyn
 	case **chcol.Dynamic:
-		vt := chcol.NewDynamic(value)
-		**v = vt
-	case *chcol.DynamicWithType:
-		vt := chcol.NewDynamicWithType(value, chType)
-		*v = vt
-	case **chcol.DynamicWithType:
-		vt := chcol.NewDynamicWithType(value, chType)
-		**v = vt
+		dyn := chcol.NewDynamicWithType(value, chType)
+		**v = dyn
 	default:
 		if typeIndex == NullVariantDiscriminator {
 			return nil
@@ -157,10 +151,10 @@ func (c *Dynamic) ScanRow(dest any, row int) error {
 }
 
 func (c *Dynamic) Append(v any) (nulls []uint8, err error) {
-	switch v.(type) {
+	switch vv := v.(type) {
 	case []chcol.Dynamic:
-		for i, vt := range v.([]chcol.Dynamic) {
-			err := c.AppendRow(vt)
+		for i, dyn := range vv {
+			err := c.AppendRow(dyn)
 			if err != nil {
 				return nil, fmt.Errorf("failed to AppendRow at index %d: %w", i, err)
 			}
@@ -168,26 +162,8 @@ func (c *Dynamic) Append(v any) (nulls []uint8, err error) {
 
 		return nil, nil
 	case []*chcol.Dynamic:
-		for i, vt := range v.([]*chcol.Dynamic) {
-			err := c.AppendRow(vt)
-			if err != nil {
-				return nil, fmt.Errorf("failed to AppendRow at index %d: %w", i, err)
-			}
-		}
-
-		return nil, nil
-	case []chcol.DynamicWithType:
-		for i, vt := range v.([]chcol.DynamicWithType) {
-			err := c.AppendRow(vt)
-			if err != nil {
-				return nil, fmt.Errorf("failed to AppendRow at index %d: %w", i, err)
-			}
-		}
-
-		return nil, nil
-	case []*chcol.DynamicWithType:
-		for i, vt := range v.([]*chcol.DynamicWithType) {
-			err := c.AppendRow(vt)
+		for i, dyn := range vv {
+			err := c.AppendRow(dyn)
 			if err != nil {
 				return nil, fmt.Errorf("failed to AppendRow at index %d: %w", i, err)
 			}
@@ -219,33 +195,21 @@ func (c *Dynamic) Append(v any) (nulls []uint8, err error) {
 
 func (c *Dynamic) AppendRow(v any) error {
 	var requestedType string
-	switch v.(type) {
+	switch vv := v.(type) {
 	case nil:
 		c.variant.appendNullRow()
 		return nil
 	case chcol.Dynamic:
-		v = v.(chcol.Dynamic).Any()
-		if v == nil {
+		requestedType = vv.Type()
+		v = vv.Any()
+		if vv.Nil() {
 			c.variant.appendNullRow()
 			return nil
 		}
 	case *chcol.Dynamic:
-		v = v.(*chcol.Dynamic).Any()
-		if v == nil {
-			c.variant.appendNullRow()
-			return nil
-		}
-	case chcol.DynamicWithType:
-		requestedType = v.(chcol.DynamicWithType).Type()
-		v = v.(chcol.DynamicWithType).Any()
-		if v == nil {
-			c.variant.appendNullRow()
-			return nil
-		}
-	case *chcol.DynamicWithType:
-		requestedType = v.(*chcol.DynamicWithType).Type()
-		v = v.(*chcol.DynamicWithType).Any()
-		if v == nil {
+		requestedType = vv.Type()
+		v = vv.Any()
+		if vv.Nil() {
 			c.variant.appendNullRow()
 			return nil
 		}
@@ -366,7 +330,9 @@ func (c *Dynamic) decodeHeader(reader *proto.Reader) error {
 	dynamicSerializationVersion, err := reader.UInt64()
 	if err != nil {
 		return fmt.Errorf("failed to read dynamic serialization version: %w", err)
-	} else if dynamicSerializationVersion != SupportedDynamicSerializationVersion {
+	}
+
+	if dynamicSerializationVersion != SupportedDynamicSerializationVersion {
 		return fmt.Errorf("unsupported dynamic serialization version: %d", dynamicSerializationVersion)
 	}
 
