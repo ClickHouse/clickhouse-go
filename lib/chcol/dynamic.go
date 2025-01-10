@@ -24,12 +24,10 @@ func NewDynamic(v any) Dynamic {
 	return Dynamic{value: v}
 }
 
-type DynamicWithType = VariantWithType
-
 // NewDynamicWithType creates a new Dynamic with the given value and ClickHouse type
-func NewDynamicWithType(v any, chType string) DynamicWithType {
-	return DynamicWithType{
-		Variant: Variant{value: v},
-		chType:  chType,
+func NewDynamicWithType(v any, chType string) Dynamic {
+	return Dynamic{
+		value:  v,
+		chType: chType,
 	}
 }

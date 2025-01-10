@@ -15,85 +15,103 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package clickhouse_api
+package std
 
 import (
 	"context"
 	"fmt"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
 )
 
-func DynamicExample() error {
+func VariantExample() error {
 	ctx := context.Background()
 
-	conn, err := GetNativeConnection(clickhouse.Settings{
-		"allow_experimental_dynamic_type": true,
-	}, nil, nil)
+	conn, err := GetStdOpenDBConnection(clickhouse.Native, nil, nil, nil)
 	if err != nil {
 		return err
 	}
 
-	if !CheckMinServerVersion(conn, 24, 8, 0) {
-		fmt.Print("unsupported clickhouse version for Dynamic type")
+	if !CheckMinServerVersion(conn, 24, 4, 0) {
+		fmt.Print("unsupported clickhouse version for Variant type")
 		return nil
 	}
 
-	err = conn.Exec(ctx, "DROP TABLE IF EXISTS go_dynamic_example")
+	_, err = conn.ExecContext(ctx, "SET allow_experimental_variant_type = 1")
 	if err != nil {
 		return err
 	}
 
-	err = conn.Exec(ctx, `
-		CREATE TABLE go_dynamic_example (
-		    c Dynamic
+	_, err = conn.ExecContext(ctx, "SET allow_suspicious_variant_types = 1")
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		conn.Exec("DROP TABLE go_variant_example")
+	}()
+
+	_, err = conn.ExecContext(ctx, "DROP TABLE IF EXISTS go_variant_example")
+	if err != nil {
+		return err
+	}
+
+	_, err = conn.ExecContext(ctx, `
+		CREATE TABLE go_variant_example (
+		    c Variant(Bool, Int64,  String)
 		) ENGINE = Memory
 	`)
 	if err != nil {
 		return err
 	}
 
-	batch, err := conn.PrepareBatch(ctx, "INSERT INTO go_dynamic_example (c)")
+	tx, err := conn.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 
-	if err = batch.Append(true); err != nil {
+	batch, err := tx.PrepareContext(ctx, "INSERT INTO go_variant_example (c)")
+	if err != nil {
 		return err
 	}
 
-	if err = batch.Append(int64(42)); err != nil {
+	if _, err = batch.ExecContext(ctx, true); err != nil {
 		return err
 	}
 
-	if err = batch.Append("example"); err != nil {
+	if _, err = batch.ExecContext(ctx, int64(42)); err != nil {
 		return err
 	}
 
-	if err = batch.Append(clickhouse.NewDynamic("example dynamic")); err != nil {
+	if _, err = batch.ExecContext(ctx, "example"); err != nil {
 		return err
 	}
 
-	if err = batch.Append(clickhouse.NewDynamicWithType("example dynamic with specific type", "String")); err != nil {
+	if _, err = batch.ExecContext(ctx, clickhouse.NewVariant("example variant")); err != nil {
 		return err
 	}
 
-	if err = batch.Append(nil); err != nil {
+	if _, err = batch.ExecContext(ctx, clickhouse.NewVariantWithType("example variant with specific type", "String")); err != nil {
 		return err
 	}
 
-	if err = batch.Send(); err != nil {
+	if _, err = batch.ExecContext(ctx, nil); err != nil {
+		return err
+	}
+
+	if err = tx.Commit(); err != nil {
 		return err
 	}
 
 	// Switch on Go Type
 
-	rows, err := conn.Query(ctx, "SELECT c FROM go_dynamic_example")
+	rows, err := conn.QueryContext(ctx, "SELECT c FROM go_variant_example")
 	if err != nil {
 		return err
 	}
 
 	for i := 0; rows.Next(); i++ {
-		var row clickhouse.Dynamic
+		var row clickhouse.Variant
 		err := rows.Scan(&row)
 		if err != nil {
 			return fmt.Errorf("failed to scan row index %d: %w", i, err)
@@ -113,13 +131,13 @@ func DynamicExample() error {
 
 	// Switch on ClickHouse Type
 
-	rows, err = conn.Query(ctx, "SELECT c FROM go_dynamic_example")
+	rows, err = conn.QueryContext(ctx, "SELECT c FROM go_variant_example")
 	if err != nil {
 		return err
 	}
 
 	for i := 0; rows.Next(); i++ {
-		var row clickhouse.Dynamic
+		var row clickhouse.Variant
 		err := rows.Scan(&row)
 		if err != nil {
 			return fmt.Errorf("failed to scan row index %d: %w", i, err)

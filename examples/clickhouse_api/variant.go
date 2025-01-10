@@ -20,6 +20,7 @@ package clickhouse_api
 import (
 	"context"
 	"fmt"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
 )
 
@@ -28,9 +29,15 @@ func VariantExample() error {
 
 	conn, err := GetNativeConnection(clickhouse.Settings{
 		"allow_experimental_variant_type": true,
+		"allow_suspicious_variant_types":  true,
 	}, nil, nil)
 	if err != nil {
 		return err
+	}
+
+	if !CheckMinServerVersion(conn, 24, 4, 0) {
+		fmt.Print("unsupported clickhouse version for Variant type")
+		return nil
 	}
 
 	err = conn.Exec(ctx, "DROP TABLE IF EXISTS go_variant_example")
@@ -114,7 +121,7 @@ func VariantExample() error {
 	}
 
 	for i := 0; rows.Next(); i++ {
-		var row clickhouse.VariantWithType
+		var row clickhouse.Variant
 		err := rows.Scan(&row)
 		if err != nil {
 			return fmt.Errorf("failed to scan row index %d: %w", i, err)

@@ -24,12 +24,42 @@ import (
 
 // Variant represents a ClickHouse Variant type that can hold multiple possible types
 type Variant struct {
-	value any
+	value  any
+	chType string
 }
 
 // NewVariant creates a new Variant with the given value
 func NewVariant(v any) Variant {
-	return Variant{value: v}
+	return Variant{
+		value:  v,
+		chType: "",
+	}
+}
+
+// NewVariantWithType creates a new Variant with the given value and ClickHouse type
+func NewVariantWithType(v any, chType string) Variant {
+	return Variant{
+		value:  v,
+		chType: chType,
+	}
+}
+
+// WithType creates a new Variant with the current value and given ClickHouse type
+func (v Variant) WithType(chType string) Variant {
+	return Variant{
+		value:  v.value,
+		chType: chType,
+	}
+}
+
+// Type returns the ClickHouse type as a string.
+func (v Variant) Type() string {
+	return v.chType
+}
+
+// HasType returns true if the value has a type ClickHouse included.
+func (v Variant) HasType() bool {
+	return v.chType == ""
 }
 
 // Nil returns true if the underlying value is nil.
@@ -37,50 +67,9 @@ func (v Variant) Nil() bool {
 	return v.value == nil
 }
 
-// Any returns the underlying value as any. Same as Interface.
+// Any returns the underlying value as any.
 func (v Variant) Any() any {
 	return v.value
-}
-
-// Interface returns the underlying value as interface{}. Same as Any.
-func (v Variant) Interface() interface{} {
-	return v.value
-}
-
-// Int returns the value as an int if possible
-func (v Variant) Int() (int, bool) {
-	if i, ok := v.value.(int); ok {
-		return i, true
-	}
-
-	return 0, false
-}
-
-// Int64 returns the value as an int64 if possible
-func (v Variant) Int64() (int64, bool) {
-	if i, ok := v.value.(int64); ok {
-		return i, true
-	}
-
-	return 0, false
-}
-
-// String returns the value as a string if possible
-func (v Variant) String() (string, bool) {
-	if s, ok := v.value.(string); ok {
-		return s, true
-	}
-
-	return "", false
-}
-
-// Bool returns the value as an bool if possible
-func (v Variant) Bool() (bool, bool) {
-	if b, ok := v.value.(bool); ok {
-		return b, true
-	}
-
-	return false, false
 }
 
 // MarshalJSON implements the json.Marshaler interface
@@ -90,37 +79,21 @@ func (v *Variant) MarshalJSON() ([]byte, error) {
 
 // Scan implements the sql.Scanner interface
 func (v *Variant) Scan(value interface{}) error {
-	v.value = value
+	switch vv := value.(type) {
+	case Variant:
+		v.value = vv.value
+		v.chType = vv.chType
+	case *Variant:
+		v.value = vv.value
+		v.chType = vv.chType
+	default:
+		v.value = value
+	}
+
 	return nil
 }
 
 // Value implements the driver.Valuer interface
 func (v Variant) Value() (driver.Value, error) {
-	return v.value, nil
-}
-
-func (v Variant) WithType(chType string) VariantWithType {
-	return VariantWithType{
-		Variant: v,
-		chType:  chType,
-	}
-}
-
-// VariantWithType is Variant with an extra value for specifying the preferred ClickHouse type for column encoding
-type VariantWithType struct {
-	Variant
-	chType string
-}
-
-// NewVariantWithType creates a new Variant with the given value and ClickHouse type
-func NewVariantWithType(v any, chType string) VariantWithType {
-	return VariantWithType{
-		Variant: Variant{value: v},
-		chType:  chType,
-	}
-}
-
-// Type returns the ClickHouse type as a string.
-func (v VariantWithType) Type() string {
-	return v.chType
+	return v, nil
 }
