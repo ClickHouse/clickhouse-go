@@ -15,34 +15,36 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package tests
+package std
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
-	"testing"
-	"time"
-
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/chcol"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/stretchr/testify/require"
+	"testing"
+	"time"
 )
 
 var jsonTestDate, _ = time.Parse(time.RFC3339, "2024-12-13T02:09:30.123Z")
 
-func setupJSONTest(t *testing.T) driver.Conn {
-	conn, err := GetNativeConnection(clickhouse.Settings{
-		"max_execution_time":           60,
-		"allow_experimental_json_type": true,
-	}, nil, &clickhouse.Compression{
+func setupJSONTest(t *testing.T) *sql.DB {
+	conn, err := GetStdOpenDBConnection(clickhouse.Native, nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	require.NoError(t, err)
 
-	if !CheckMinServerServerVersion(conn, 24, 9, 0) {
+	if !CheckMinServerVersion(conn, 24, 9, 0) {
 		t.Skip(fmt.Errorf("unsupported clickhouse version for JSON type"))
+		return nil
+	}
+
+	_, err = conn.ExecContext(context.Background(), "SET allow_experimental_json_type = 1")
+	if err != nil {
+		t.Fatal(err)
 		return nil
 	}
 
@@ -58,12 +60,17 @@ func TestJSONPaths(t *testing.T) {
 				  c JSON(Name String, Age Int64, KeysNumbers Map(String, Int64), SKIP fake.field)
 			) Engine = MergeTree() ORDER BY tuple()
 		`
-	require.NoError(t, conn.Exec(ctx, ddl))
+	_, err := conn.ExecContext(ctx, ddl)
+	require.NoError(t, err)
 	defer func() {
-		require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS test_json"))
+		_, err := conn.ExecContext(ctx, "DROP TABLE IF EXISTS test_json")
+		require.NoError(t, err)
 	}()
 
-	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_json (c)")
+	tx, err := conn.BeginTx(ctx, nil)
+	require.NoError(t, err)
+
+	batch, err := tx.PrepareContext(ctx, "INSERT INTO test_json (c)")
 	require.NoError(t, err)
 
 	jsonRow := chcol.NewJSON()
@@ -85,10 +92,12 @@ func TestJSONPaths(t *testing.T) {
 	jsonRow.SetValueAtPath("DynamicInt", clickhouse.NewDynamic(int64(48)))
 	jsonRow.SetValueAtPath("DynamicMap", clickhouse.NewDynamic(map[string]string{"a": "a", "b": "b"}))
 
-	require.NoError(t, batch.Append(jsonRow))
-	require.NoError(t, batch.Send())
+	_, err = batch.ExecContext(ctx, jsonRow)
+	require.NoError(t, err)
 
-	rows, err := conn.Query(ctx, "SELECT c FROM test_json")
+	require.NoError(t, tx.Commit())
+
+	rows, err := conn.QueryContext(ctx, "SELECT c FROM test_json")
 	require.NoError(t, err)
 
 	var row chcol.JSON
@@ -146,6 +155,8 @@ type TestStruct struct {
 }
 
 func TestJSONStruct(t *testing.T) {
+	t.Skip("scan skips struct reflection")
+
 	ctx := context.Background()
 	conn := setupJSONTest(t)
 
@@ -154,12 +165,17 @@ func TestJSONStruct(t *testing.T) {
 				  c JSON(Name String, Age Int64, KeysNumbers Map(String, Int64), SKIP fake.field)
 			) Engine = MergeTree() ORDER BY tuple()
 		`
-	require.NoError(t, conn.Exec(ctx, ddl))
+	_, err := conn.ExecContext(ctx, ddl)
+	require.NoError(t, err)
 	defer func() {
-		require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS test_json"))
+		_, err := conn.ExecContext(ctx, "DROP TABLE IF EXISTS test_json")
+		require.NoError(t, err)
 	}()
 
-	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_json (c)")
+	tx, err := conn.BeginTx(ctx, nil)
+	require.NoError(t, err)
+
+	batch, err := tx.PrepareContext(ctx, "INSERT INTO test_json (c)")
 	require.NoError(t, err)
 
 	inputRow := TestStruct{
@@ -187,7 +203,8 @@ func TestJSONStruct(t *testing.T) {
 		DynamicInt:    chcol.NewDynamic(int64(48)).WithType("Int64"),
 		DynamicMap:    chcol.NewDynamic(map[string]string{"a": "a", "b": "b"}).WithType("Map(String, String)"),
 	}
-	require.NoError(t, batch.Append(inputRow))
+	_, err = batch.ExecContext(ctx, inputRow)
+	require.NoError(t, err)
 
 	inputRow2 := TestStruct{
 		KeysNumbers: map[string]int64{},
@@ -203,11 +220,12 @@ func TestJSONStruct(t *testing.T) {
 			},
 		},
 	}
-	require.NoError(t, batch.Append(inputRow2))
+	_, err = batch.ExecContext(ctx, inputRow2)
+	require.NoError(t, err)
 
-	require.NoError(t, batch.Send())
+	require.NoError(t, tx.Commit())
 
-	rows, err := conn.Query(ctx, "SELECT c FROM test_json")
+	rows, err := conn.QueryContext(ctx, "SELECT c FROM test_json")
 	require.NoError(t, err)
 
 	var row TestStruct
@@ -238,19 +256,25 @@ func TestJSONString(t *testing.T) {
 	ctx := context.Background()
 	conn := setupJSONTest(t)
 
-	require.NoError(t, conn.Exec(ctx, "SET output_format_native_write_json_as_string=1"))
+	_, err := conn.ExecContext(ctx, "SET output_format_native_write_json_as_string = 1")
+	require.NoError(t, err)
 
 	const ddl = `
 			CREATE TABLE IF NOT EXISTS test_json (
 				  c JSON(Name String, Age Int64, KeysNumbers Map(String, Int64), SKIP fake.field)
 			) Engine = MergeTree() ORDER BY tuple()
 		`
-	require.NoError(t, conn.Exec(ctx, ddl))
+	_, err = conn.ExecContext(ctx, ddl)
+	require.NoError(t, err)
 	defer func() {
-		require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS test_json"))
+		_, err := conn.ExecContext(ctx, "DROP TABLE IF EXISTS test_json")
+		require.NoError(t, err)
 	}()
 
-	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_json (c)")
+	tx, err := conn.BeginTx(ctx, nil)
+	require.NoError(t, err)
+
+	batch, err := tx.PrepareContext(ctx, "INSERT INTO test_json (c)")
 	require.NoError(t, err)
 
 	inputRow := TestStruct{
@@ -281,10 +305,13 @@ func TestJSONString(t *testing.T) {
 
 	inputRowStr, err := json.Marshal(inputRow)
 	require.NoError(t, err)
-	require.NoError(t, batch.Append(inputRowStr))
-	require.NoError(t, batch.Send())
 
-	rows, err := conn.Query(ctx, "SELECT c FROM test_json")
+	_, err = batch.ExecContext(ctx, inputRowStr)
+	require.NoError(t, err)
+
+	require.NoError(t, tx.Commit())
+
+	rows, err := conn.QueryContext(ctx, "SELECT c FROM test_json")
 	require.NoError(t, err)
 
 	var row json.RawMessage
@@ -298,87 +325,4 @@ func TestJSONString(t *testing.T) {
 	var rowStruct TestStruct
 	err = json.Unmarshal(row, &rowStruct)
 	require.NoError(t, err)
-}
-
-func TestJSON_BatchFlush(t *testing.T) {
-	t.Skip(fmt.Errorf("server-side JSON bug"))
-
-	ctx := context.Background()
-	conn := setupJSONTest(t)
-
-	const ddl = `
-			CREATE TABLE IF NOT EXISTS test_json (
-				  c JSON
-			) Engine = MergeTree() ORDER BY tuple()
-		`
-	require.NoError(t, conn.Exec(ctx, ddl))
-	defer func() {
-		require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS test_json"))
-	}()
-
-	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_json (c)")
-	require.NoError(t, err)
-
-	vals := make([]*clickhouse.JSON, 0, 1000)
-	for i := 0; i < 1000; i++ {
-		row := clickhouse.NewJSON()
-		if i%2 == 0 {
-			row.SetValueAtPath("a", int64(i))
-			row.SetValueAtPath("b", i%5 == 0)
-		} else {
-			row.SetValueAtPath("c", int64(-i))
-			row.SetValueAtPath("d", i%5 != 0)
-		}
-
-		vals = append(vals, row)
-		require.NoError(t, batch.Append(vals[i]))
-		require.NoError(t, batch.Flush())
-	}
-	require.NoError(t, batch.Send())
-
-	rows, err := conn.Query(ctx, "SELECT c FROM test_json")
-	require.NoError(t, err)
-
-	i := 0
-	for rows.Next() {
-		var row clickhouse.JSON
-		err = rows.Scan(&row)
-		require.NoError(t, err)
-
-		if i%2 == 0 {
-			valA, ok := row.ValueAtPath("a")
-			require.Equal(t, true, ok)
-			_, ok = valA.(clickhouse.Dynamic)
-			require.Equal(t, true, ok)
-
-			require.Equal(t, int64(i), valA.(clickhouse.Dynamic).Any())
-			require.Equal(t, "Int64", valA.(clickhouse.Dynamic).Type())
-
-			valB, ok := row.ValueAtPath("b")
-			require.Equal(t, true, ok)
-			_, ok = valB.(clickhouse.Dynamic)
-			require.Equal(t, true, ok)
-
-			require.Equal(t, i%5 == 0, valB.(clickhouse.Dynamic).Any())
-			require.Equal(t, "Bool", valB.(clickhouse.Dynamic).Type())
-		} else {
-			valC, ok := row.ValueAtPath("c")
-			require.Equal(t, true, ok)
-			_, ok = valC.(clickhouse.Dynamic)
-			require.Equal(t, true, ok)
-
-			require.Equal(t, int64(-i), valC.(clickhouse.Dynamic).Any())
-			require.Equal(t, "Int64", valC.(clickhouse.Dynamic).Type())
-
-			valD, ok := row.ValueAtPath("d")
-			require.Equal(t, true, ok)
-			_, ok = valD.(clickhouse.Dynamic)
-			require.Equal(t, true, ok)
-
-			require.Equal(t, i%5 != 0, valD.(clickhouse.Dynamic).Any())
-			require.Equal(t, "Bool", valD.(clickhouse.Dynamic).Type())
-		}
-
-		i++
-	}
 }

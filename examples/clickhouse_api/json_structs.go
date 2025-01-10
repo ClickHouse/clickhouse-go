@@ -31,12 +31,12 @@ type ProductPricing struct {
 }
 
 type Product struct {
-	ID        clickhouse.DynamicWithType `json:"id"`
-	Name      string                     `json:"name"`
-	Tags      []string                   `json:"tags"`
-	Pricing   ProductPricing             `json:"pricing"`
-	Metadata  map[string]interface{}     `json:"metadata"`
-	CreatedAt time.Time                  `json:"created_at" chType:"DateTime64(3)"`
+	ID        clickhouse.Dynamic     `json:"id"`
+	Name      string                 `json:"name"`
+	Tags      []string               `json:"tags"`
+	Pricing   ProductPricing         `json:"pricing"`
+	Metadata  map[string]interface{} `json:"metadata"`
+	CreatedAt time.Time              `json:"created_at" chType:"DateTime64(3)"`
 }
 
 func NewExampleProduct() *Product {
@@ -64,6 +64,11 @@ func JSONStructExample() error {
 	}, nil, nil)
 	if err != nil {
 		return err
+	}
+
+	if !CheckMinServerVersion(conn, 24, 9, 0) {
+		fmt.Print("unsupported clickhouse version for JSON type")
+		return nil
 	}
 
 	err = conn.Exec(ctx, "DROP TABLE IF EXISTS go_json_example")

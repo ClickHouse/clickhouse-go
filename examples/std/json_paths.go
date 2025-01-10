@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package clickhouse_api
+package std
 
 import (
 	"context"
@@ -27,9 +27,7 @@ import (
 func JSONPathsExample() error {
 	ctx := context.Background()
 
-	conn, err := GetNativeConnection(clickhouse.Settings{
-		"allow_experimental_json_type": true,
-	}, nil, nil)
+	conn, err := GetStdOpenDBConnection(clickhouse.Native, nil, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -39,19 +37,35 @@ func JSONPathsExample() error {
 		return nil
 	}
 
-	err = conn.Exec(ctx, "DROP TABLE IF EXISTS go_json_example")
+	_, err = conn.ExecContext(ctx, "SET allow_experimental_json_type = 1")
 	if err != nil {
 		return err
 	}
 
-	err = conn.Exec(ctx, `
-		CREATE TABLE go_json_example (product JSON) ENGINE=Memory
-		`)
+	defer func() {
+		conn.Exec("DROP TABLE go_json_example")
+	}()
+
+	_, err = conn.ExecContext(ctx, "DROP TABLE IF EXISTS go_json_example")
 	if err != nil {
 		return err
 	}
 
-	batch, err := conn.PrepareBatch(ctx, "INSERT INTO go_json_example (product)")
+	_, err = conn.ExecContext(ctx, `
+		CREATE TABLE go_json_example (
+		    product JSON
+		) ENGINE = Memory
+	`)
+	if err != nil {
+		return err
+	}
+
+	tx, err := conn.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	batch, err := tx.PrepareContext(ctx, "INSERT INTO go_json_example (product)")
 	if err != nil {
 		return err
 	}
@@ -66,17 +80,17 @@ func JSONPathsExample() error {
 	insertProduct.SetValueAtPath("metadata.page_count", int64(852))
 	insertProduct.SetValueAtPath("created_at", clickhouse.NewDynamicWithType(time.Now().UTC().Truncate(time.Millisecond), "DateTime64(3)"))
 
-	if err = batch.Append(insertProduct); err != nil {
+	if _, err = batch.ExecContext(ctx, insertProduct); err != nil {
 		return err
 	}
 
-	if err = batch.Send(); err != nil {
+	if err = tx.Commit(); err != nil {
 		return err
 	}
 
 	var selectedProduct clickhouse.JSON
 
-	if err = conn.QueryRow(ctx, "SELECT product FROM go_json_example").Scan(&selectedProduct); err != nil {
+	if err = conn.QueryRowContext(ctx, "SELECT product FROM go_json_example").Scan(&selectedProduct); err != nil {
 		return err
 	}
 
