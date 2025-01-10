@@ -37,3 +37,7 @@ func GetNativeTestEnvironment() (clickhouse_tests.ClickHouseTestEnvironment, err
 func GetNativeConnectionWithOptions(settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (driver.Conn, error) {
 	return clickhouse_tests.GetConnection(TestSet, settings, tlsConfig, compression)
 }
+
+func CheckMinServerVersion(conn driver.Conn, major, minor, patch uint64) bool {
+	return clickhouse_tests.CheckMinServerServerVersion(conn, major, minor, patch)
+}

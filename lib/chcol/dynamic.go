@@ -15,33 +15,19 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package clickhouse
+package chcol
 
-import "github.com/ClickHouse/clickhouse-go/v2/lib/chcol"
-
-// Re-export chcol types/funcs to top level clickhouse package
-
-type (
-	Variant = chcol.Variant
-	Dynamic = chcol.Dynamic
-)
-
-// NewVariant creates a new Variant with the given value
-func NewVariant(v any) Variant {
-	return chcol.NewVariant(v)
-}
-
-// NewVariantWithType creates a new Variant with the given value and ClickHouse type
-func NewVariantWithType(v any, chType string) Variant {
-	return chcol.NewVariantWithType(v, chType)
-}
+type Dynamic = Variant
 
 // NewDynamic creates a new Dynamic with the given value
 func NewDynamic(v any) Dynamic {
-	return chcol.NewDynamic(v)
+	return Dynamic{value: v}
 }
 
 // NewDynamicWithType creates a new Dynamic with the given value and ClickHouse type
 func NewDynamicWithType(v any, chType string) Dynamic {
-	return chcol.NewDynamicWithType(v, chType)
+	return Dynamic{
+		value:  v,
+		chType: chType,
+	}
 }
