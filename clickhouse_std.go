@@ -445,10 +445,16 @@ func (r *stdRows) ColumnTypePrecisionScale(idx int) (precision, scale int64, ok 
 	switch col := r.rows.block.Columns[idx].(type) {
 	case *column.Decimal:
 		return col.Precision(), col.Scale(), true
+	case *column.DateTime64:
+		p, ok := col.Precision()
+		return p, 0, ok
 	case interface{ Base() column.Interface }:
 		switch col := col.Base().(type) {
 		case *column.Decimal:
 			return col.Precision(), col.Scale(), true
+		case *column.DateTime64:
+			p, ok := col.Precision()
+			return p, 0, ok
 		}
 	}
 	return 0, 0, false
