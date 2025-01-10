@@ -32,17 +32,25 @@ import (
 var variantTestDate, _ = time.Parse(time.RFC3339, "2024-12-13T02:09:30.123Z")
 
 func setupVariantTest(t *testing.T) *sql.DB {
-	conn, err := GetStdOpenDBConnection(clickhouse.Native, clickhouse.Settings{
-		"max_execution_time":              60,
-		"allow_experimental_variant_type": true,
-		"allow_suspicious_variant_types":  true,
-	}, nil, &clickhouse.Compression{
+	conn, err := GetStdOpenDBConnection(clickhouse.Native, nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	require.NoError(t, err)
 
 	if !CheckMinServerVersion(conn, 24, 4, 0) {
 		t.Skip(fmt.Errorf("unsupported clickhouse version for Variant type"))
+		return nil
+	}
+
+	_, err = conn.ExecContext(context.Background(), "SET allow_experimental_variant_type = 1")
+	if err != nil {
+		t.Fatal(err)
+		return nil
+	}
+
+	_, err = conn.ExecContext(context.Background(), "SET allow_suspicious_variant_types = 1")
+	if err != nil {
+		t.Fatal(err)
 		return nil
 	}
 

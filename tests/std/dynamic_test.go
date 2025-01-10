@@ -32,16 +32,19 @@ import (
 var dynamicTestDate, _ = time.Parse(time.RFC3339, "2024-12-13T02:09:30.123Z")
 
 func setupDynamicTest(t *testing.T) *sql.DB {
-	conn, err := GetStdOpenDBConnection(clickhouse.Native, clickhouse.Settings{
-		"max_execution_time":              60,
-		"allow_experimental_dynamic_type": true,
-	}, nil, &clickhouse.Compression{
+	conn, err := GetStdOpenDBConnection(clickhouse.Native, nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	require.NoError(t, err)
 
 	if !CheckMinServerVersion(conn, 24, 8, 0) {
 		t.Skip(fmt.Errorf("unsupported clickhouse version for Dynamic type"))
+		return nil
+	}
+
+	_, err = conn.ExecContext(context.Background(), "SET allow_experimental_dynamic_type = 1")
+	if err != nil {
+		t.Fatal(err)
 		return nil
 	}
 

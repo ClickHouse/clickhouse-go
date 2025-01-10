@@ -26,9 +26,7 @@ import (
 func DynamicExample() error {
 	ctx := context.Background()
 
-	conn, err := GetStdOpenDBConnection(clickhouse.Native, clickhouse.Settings{
-		"allow_experimental_dynamic_type": true,
-	}, nil, nil)
+	conn, err := GetStdOpenDBConnection(clickhouse.Native, nil, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -36,6 +34,11 @@ func DynamicExample() error {
 	if !CheckMinServerVersion(conn, 24, 8, 0) {
 		fmt.Print("unsupported clickhouse version for Dynamic type")
 		return nil
+	}
+
+	_, err = conn.ExecContext(ctx, "SET allow_experimental_dynamic_type = 1")
+	if err != nil {
+		return err
 	}
 
 	defer func() {

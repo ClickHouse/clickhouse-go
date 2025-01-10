@@ -27,10 +27,7 @@ import (
 func VariantExample() error {
 	ctx := context.Background()
 
-	conn, err := GetStdOpenDBConnection(clickhouse.Native, clickhouse.Settings{
-		"allow_experimental_variant_type": true,
-		"allow_suspicious_variant_types":  true,
-	}, nil, nil)
+	conn, err := GetStdOpenDBConnection(clickhouse.Native, nil, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -38,6 +35,16 @@ func VariantExample() error {
 	if !CheckMinServerVersion(conn, 24, 4, 0) {
 		fmt.Print("unsupported clickhouse version for Variant type")
 		return nil
+	}
+
+	_, err = conn.ExecContext(ctx, "SET allow_experimental_variant_type = 1")
+	if err != nil {
+		return err
+	}
+
+	_, err = conn.ExecContext(ctx, "SET allow_suspicious_variant_types = 1")
+	if err != nil {
+		return err
 	}
 
 	defer func() {
