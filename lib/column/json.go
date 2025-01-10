@@ -307,7 +307,16 @@ func (c *JSON) Append(v any) (nulls []uint8, err error) {
 	case JSONStringSerializationVersion:
 		return c.appendString(v)
 	default:
-		// Unset serialization preference, try string first
+		// Unset serialization preference, try string first unless its specifically JSON
+		switch v.(type) {
+		case []chcol.JSON:
+			c.serializationVersion = JSONObjectSerializationVersion
+			return c.appendObject(v)
+		case []*chcol.JSON:
+			c.serializationVersion = JSONObjectSerializationVersion
+			return c.appendObject(v)
+		}
+
 		var err error
 		if _, err = c.appendString(v); err == nil {
 			c.serializationVersion = JSONStringSerializationVersion
@@ -322,10 +331,10 @@ func (c *JSON) Append(v any) (nulls []uint8, err error) {
 }
 
 func (c *JSON) appendObject(v any) (nulls []uint8, err error) {
-	switch v.(type) {
+	switch vv := v.(type) {
 	case []chcol.JSON:
-		for i, vt := range v.([]chcol.JSON) {
-			err := c.AppendRow(vt)
+		for i, obj := range vv {
+			err := c.AppendRow(obj)
 			if err != nil {
 				return nil, fmt.Errorf("failed to AppendRow at index %d: %w", i, err)
 			}
@@ -333,8 +342,8 @@ func (c *JSON) appendObject(v any) (nulls []uint8, err error) {
 
 		return nil, nil
 	case []*chcol.JSON:
-		for i, vt := range v.([]*chcol.JSON) {
-			err := c.AppendRow(vt)
+		for i, obj := range vv {
+			err := c.AppendRow(obj)
 			if err != nil {
 				return nil, fmt.Errorf("failed to AppendRow at index %d: %w", i, err)
 			}
@@ -378,7 +387,16 @@ func (c *JSON) AppendRow(v any) error {
 	case JSONStringSerializationVersion:
 		return c.appendRowString(v)
 	default:
-		// Unset serialization preference, try string first
+		// Unset serialization preference, try string first unless its specifically JSON
+		switch v.(type) {
+		case chcol.JSON:
+			c.serializationVersion = JSONObjectSerializationVersion
+			return c.appendRowObject(v)
+		case *chcol.JSON:
+			c.serializationVersion = JSONObjectSerializationVersion
+			return c.appendRowObject(v)
+		}
+
 		var err error
 		if err = c.appendRowString(v); err == nil {
 			c.serializationVersion = JSONStringSerializationVersion
@@ -394,12 +412,11 @@ func (c *JSON) AppendRow(v any) error {
 
 func (c *JSON) appendRowObject(v any) error {
 	var obj *chcol.JSON
-	switch v.(type) {
+	switch vv := v.(type) {
 	case chcol.JSON:
-		vv := v.(chcol.JSON)
 		obj = &vv
 	case *chcol.JSON:
-		obj = v.(*chcol.JSON)
+		obj = vv
 	}
 
 	if obj == nil && v != nil {

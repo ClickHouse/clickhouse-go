@@ -204,8 +204,8 @@ func (c *JSON) fillMap(val reflect.Value, prefix string, row int) error {
 			} else {
 				if mapValueType.Kind() == reflect.Interface {
 					value := c.valueAtPath(fullPath, row, false)
-					if _, ok := value.(chcol.DynamicWithType); ok {
-						value = value.(chcol.DynamicWithType).Any()
+					if dyn, ok := value.(chcol.Dynamic); ok {
+						value = dyn.Any()
 					}
 
 					if value != nil {
@@ -340,19 +340,19 @@ func iterateStruct(val reflect.Value, prefix string, json *chcol.JSON) error {
 // iterateStructSkipTypes is a set of struct types that will not be iterated.
 // Instead, the value will be assigned directly for use within Dynamic row appending.
 var iterateStructSkipTypes = map[reflect.Type]struct{}{
-	scanTypeIP:                              {},
-	scanTypeUUID:                            {},
-	scanTypeTime:                            {},
-	scanTypeTime:                            {},
-	scanTypeRing:                            {},
-	scanTypePoint:                           {},
-	scanTypeBigInt:                          {},
-	scanTypePolygon:                         {},
-	scanTypeDecimal:                         {},
-	scanTypeMultiPolygon:                    {},
-	scanTypeVariant:                         {},
-	scanTypeJSON:                            {},
-	reflect.TypeOf(chcol.VariantWithType{}): {},
+	scanTypeIP:           {},
+	scanTypeUUID:         {},
+	scanTypeTime:         {},
+	scanTypeTime:         {},
+	scanTypeRing:         {},
+	scanTypePoint:        {},
+	scanTypeBigInt:       {},
+	scanTypePolygon:      {},
+	scanTypeDecimal:      {},
+	scanTypeMultiPolygon: {},
+	scanTypeVariant:      {},
+	scanTypeDynamic:      {},
+	scanTypeJSON:         {},
 }
 
 // handleValue processes a single value and adds it to the JSON data

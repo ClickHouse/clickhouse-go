@@ -55,16 +55,21 @@ func (o *JSON) MarshalJSON() ([]byte, error) {
 
 // Scan implements the sql.Scanner interface
 func (o *JSON) Scan(value interface{}) error {
-	valuesByPath, ok := value.(map[string]any)
-	if !ok {
-		return fmt.Errorf("JSON Scan value must be map[string]any")
+	switch vv := value.(type) {
+	case JSON:
+		o.valuesByPath = vv.valuesByPath
+	case *JSON:
+		o.valuesByPath = vv.valuesByPath
+	case map[string]any:
+		o.valuesByPath = vv
+	default:
+		return fmt.Errorf("JSON Scan value must be clickhouse.JSON or map[string]any")
 	}
 
-	o.valuesByPath = valuesByPath
 	return nil
 }
 
 // Value implements the driver.Valuer interface
 func (o *JSON) Value() (driver.Value, error) {
-	return o.valuesByPath, nil
+	return o, nil
 }
