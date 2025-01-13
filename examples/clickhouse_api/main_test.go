@@ -209,3 +209,8 @@ func TestSSL(t *testing.T) {
 func TestSSLNoVerify(t *testing.T) {
 	require.NoError(t, SSLNoVerifyVersion())
 }
+
+func TestVariantExample(t *testing.T) {
+	t.Skip("unsupported version")
+	require.NoError(t, VariantExample())
+}
