@@ -72,11 +72,6 @@ func (v Variant) Any() any {
 	return v.value
 }
 
-// MarshalJSON implements the json.Marshaler interface
-func (v *Variant) MarshalJSON() ([]byte, error) {
-	return json.Marshal(v.value)
-}
-
 // Scan implements the sql.Scanner interface
 func (v *Variant) Scan(value interface{}) error {
 	switch vv := value.(type) {
@@ -96,4 +91,56 @@ func (v *Variant) Scan(value interface{}) error {
 // Value implements the driver.Valuer interface
 func (v Variant) Value() (driver.Value, error) {
 	return v, nil
+}
+
+// MarshalJSON implements the json.Marshaler interface
+func (v Variant) MarshalJSON() ([]byte, error) {
+	if v.Nil() {
+		return []byte("null"), nil
+	}
+
+	return json.Marshal(v.value)
+}
+
+// UnmarshalJSON implements the json.Unmarshaler interface
+func (v *Variant) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		v.value = nil
+		return nil
+	}
+
+	if err := json.Unmarshal(data, &v.value); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// MarshalText implements the encoding.TextMarshaler interface
+func (v Variant) MarshalText() ([]byte, error) {
+	if v.Nil() {
+		return []byte(""), nil
+	}
+
+	switch vv := v.value.(type) {
+	case string:
+		return []byte(vv), nil
+	case []byte:
+		return vv, nil
+	case json.RawMessage:
+		return vv, nil
+	}
+
+	return json.Marshal(v.value)
+}
+
+// UnmarshalText implements the encoding.TextUnmarshaler interface
+func (v *Variant) UnmarshalText(text []byte) error {
+	if len(text) == 0 {
+		v.value = nil
+		return nil
+	}
+
+	v.value = string(text)
+	return nil
 }
