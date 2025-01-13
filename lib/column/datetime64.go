@@ -96,6 +96,10 @@ func (col *DateTime64) ScanType() reflect.Type {
 	return scanTypeTime
 }
 
+func (col *DateTime64) Precision() (int64, bool) {
+	return int64(col.col.Precision), col.col.PrecisionSet
+}
+
 func (col *DateTime64) Rows() int {
 	return col.col.Rows()
 }
