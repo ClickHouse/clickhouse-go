@@ -150,6 +150,9 @@ func TestConnectionSettings(t *testing.T) {
 }
 
 func TestVariantExample(t *testing.T) {
-	t.Skip("unsupported version")
 	require.NoError(t, VariantExample())
+}
+
+func TestDynamicExample(t *testing.T) {
+	require.NoError(t, DynamicExample())
 }
