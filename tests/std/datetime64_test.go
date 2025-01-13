@@ -38,10 +38,7 @@ func TestStdDateTime64(t *testing.T) {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
 			conn, err := GetStdDSNConnection(protocol, useSSL, nil)
 			require.NoError(t, err)
-			if !CheckMinServerVersion(conn, 20, 3, 0) {
-				t.Skip(fmt.Errorf("unsupported clickhouse version"))
-				return
-			}
+
 			const ddl = `
 			CREATE TABLE test_datetime64 (
 				  Col1 DateTime64(3)
@@ -122,10 +119,6 @@ func TestStdDateTime64(t *testing.T) {
 		t.Run("DateTime64 precision", func(t *testing.T) {
 			conn, err := GetStdDSNConnection(protocol, useSSL, nil)
 			require.NoError(t, err)
-			if !CheckMinServerVersion(conn, 20, 3, 0) {
-				t.Skip(fmt.Errorf("unsupported clickhouse version"))
-				return
-			}
 
 			rows, err := conn.Query("SELECT toDateTime64(1546300800.123, 3)")
 			require.NoError(t, err)
