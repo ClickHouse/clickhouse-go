@@ -21,6 +21,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 // JSON represents a ClickHouse JSON type that can hold multiple possible types
@@ -48,9 +49,33 @@ func (o *JSON) ValueAtPath(path string) (any, bool) {
 	return value, ok
 }
 
+// NestedMap converts the flattened JSON data into a nested structure
+func (o *JSON) NestedMap() map[string]any {
+	nested := make(map[string]any)
+
+	for key, value := range o.valuesByPath {
+		parts := strings.Split(key, ".")
+		current := nested
+
+		for i := 0; i < len(parts)-1; i++ {
+			part := parts[i]
+
+			if _, exists := current[part]; !exists {
+				current[part] = make(map[string]any)
+			}
+
+			current = current[part].(map[string]any)
+		}
+
+		current[parts[len(parts)-1]] = value
+	}
+
+	return nested
+}
+
 // MarshalJSON implements the json.Marshaler interface
-func (o *JSON) MarshalJSON() ([]byte, error) {
-	return json.Marshal(o.valuesByPath)
+func (o JSON) MarshalJSON() ([]byte, error) {
+	return json.Marshal(o.NestedMap())
 }
 
 // Scan implements the sql.Scanner interface
