@@ -1,3 +1,14 @@
+# v2.30.1, 2025-01-17 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Other Changes 🛠
+* [Chore] Use defer to close rows in examples by @hayotbisonai in https://github.com/ClickHouse/clickhouse-go/pull/1431
+
+## New Contributors
+* @hayotbisonai made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1431
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.30.0...v2.30.1
+
 # v2.30.0, 2024-10-16 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
