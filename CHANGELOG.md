@@ -1,11 +1,28 @@
-# v2.30.1, 2025-01-17 <!-- Release notes generated using configuration in .github/release.yml at main -->
+# v2.30.1, 2025-01-17 <!-- Release notes generated using configuration in .github/release.yml at v2.30.1 -->
 
 ## What's Changed
+### Enhancements 🎉
+* [improvement] Some performance related changes to evaluate by @mdonkers in https://github.com/ClickHouse/clickhouse-go/pull/1426
+* Add Variant Type by @SpencerTorres in https://github.com/ClickHouse/clickhouse-go/pull/1453
+* Add Dynamic Type by @SpencerTorres in https://github.com/ClickHouse/clickhouse-go/pull/1454
+* Add JSON Type by @SpencerTorres in https://github.com/ClickHouse/clickhouse-go/pull/1455
+* stdlib sql return precision for DateTime64 by @SpencerTorres in https://github.com/ClickHouse/clickhouse-go/pull/1469
+
+### Fixes 🐛 
+* [FIX] Minor updates by @barkhayot in https://github.com/ClickHouse/clickhouse-go/pull/1451
+* Fix file descriptor leak in release utility script by @fengjun2016 in https://github.com/ClickHouse/clickhouse-go/pull/1460
+* Remove forced string conversions for Tuple by @SpencerTorres in https://github.com/ClickHouse/clickhouse-go/pull/1465
+
 ### Other Changes 🛠
 * [Chore] Use defer to close rows in examples by @hayotbisonai in https://github.com/ClickHouse/clickhouse-go/pull/1431
+* Regenerate certificates used in tests by @jkaflik in https://github.com/ClickHouse/clickhouse-go/pull/1441
+
 
 ## New Contributors
 * @hayotbisonai made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1431
+* @barkhayot made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1451
+* @fengjun2016 made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1460
+* @SpencerTorres made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1453
 
 **Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.30.0...v2.30.1
 
