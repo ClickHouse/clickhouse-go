@@ -21,13 +21,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/ClickHouse/clickhouse-go/v2"
 	"time"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
 )
 
 type ProductPricing struct {
-	Price    int64  `json:"price"`
-	Currency string `json:"currency"`
+	Price    int64  `json:",omitempty"`
+	Currency string `json:",omitempty"`
 }
 
 type Product struct {

@@ -78,7 +78,7 @@ func (c *JSON) fillStruct(val reflect.Value, prefix string, row int) error {
 		}
 
 		name := fieldType.Tag.Get("json")
-		if name == "" {
+		if name == "" || name[0] == ',' {
 			name = fieldType.Name
 		} else {
 			name = strings.Split(name, ",")[0]
@@ -311,7 +311,7 @@ func iterateStruct(val reflect.Value, prefix string, json *chcol.JSON) error {
 		}
 
 		name := fieldType.Tag.Get("json")
-		if name == "" {
+		if name == "" || name[0] == ',' {
 			name = fieldType.Name
 		} else {
 			// handle `json:"name,omitempty"`
