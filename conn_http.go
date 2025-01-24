@@ -52,6 +52,11 @@ const (
 	queryIDParamName  = "query_id"
 )
 
+var (
+	dbExceptionMainPattern     = regexp.MustCompile(`Code:\s*(\d+)\.\s*DB::Exception:\s*(.*?)\s*\(([A-Z_]+)\)\s*\(version`)
+	dbExceptionFallbackPattern = regexp.MustCompile(`Code:\s*(\d+)\.\s*DB::Exception:\s*(.*)`)
+)
+
 type Pool[T any] struct {
 	pool *sync.Pool
 }
@@ -573,11 +578,6 @@ func (h *httpConnect) close() error {
 	h.client = nil
 	return nil
 }
-
-var (
-	dbExceptionMainPattern     = regexp.MustCompile(`Code:\s*(\d+)\.\s*DB::Exception:\s*(.*?)\s*\(([A-Z_]+)\)\s*\(version`)
-	dbExceptionFallbackPattern = regexp.MustCompile(`Code:\s*(\d+)\.\s*DB::Exception:\s*(.*)`)
-)
 
 type DBException struct {
 	Code         int
