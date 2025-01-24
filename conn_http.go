@@ -32,6 +32,8 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -569,5 +571,54 @@ func (h *httpConnect) close() error {
 	}
 	h.client.CloseIdleConnections()
 	h.client = nil
+	return nil
+}
+
+var (
+	dbExceptionMainPattern     = regexp.MustCompile(`Code:\s*(\d+)\.\s*DB::Exception:\s*(.*?)\s*\(([A-Z_]+)\)\s*\(version`)
+	dbExceptionFallbackPattern = regexp.MustCompile(`Code:\s*(\d+)\.\s*DB::Exception:\s*(.*)`)
+)
+
+type DBException struct {
+	Code         int
+	ErrorType    string
+	ErrorMessage string
+}
+
+func (e *DBException) Error() string {
+	return fmt.Sprintf("ClickHouse DB::Exception (Code: %d, Type: %s): %s",
+		e.Code, e.ErrorType, e.ErrorMessage)
+}
+
+func checkDBException(body []byte) error {
+	text := string(body)
+
+	matches := dbExceptionMainPattern.FindStringSubmatch(text)
+	if len(matches) == 4 {
+		code, err := strconv.Atoi(matches[1])
+		if err != nil {
+			return nil
+		}
+
+		return &DBException{
+			Code:         code,
+			ErrorType:    matches[3],
+			ErrorMessage: strings.TrimSpace(matches[2]),
+		}
+	}
+
+	fallbackMatches := dbExceptionFallbackPattern.FindStringSubmatch(text)
+	if len(fallbackMatches) == 3 {
+		code, err := strconv.Atoi(fallbackMatches[1])
+		if err != nil {
+			return nil
+		}
+
+		return &DBException{
+			Code:         code,
+			ErrorMessage: strings.TrimSpace(fallbackMatches[2]),
+		}
+	}
+
 	return nil
 }
