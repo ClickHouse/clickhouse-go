@@ -30,11 +30,27 @@ func (h *httpConnect) exec(ctx context.Context, query string, args ...any) error
 	}
 
 	res, err := h.sendQuery(ctx, query, &options, h.headers)
-	if res != nil {
-		defer res.Body.Close()
-		// we don't care about result, so just discard it to reuse connection
-		_, _ = io.Copy(io.Discard, res.Body)
+	if res == nil {
+		return err
 	}
 
-	return err
+	defer res.Body.Close()
+
+	if err != nil {
+		// we don't care about result, so just discard it to reuse connection
+		_, _ = io.Copy(io.Discard, res.Body)
+
+		return err
+	}
+
+	msg, err := h.readRawResponse(res)
+	if err != nil {
+		return err
+	}
+
+	if err = checkDBException(msg); err != nil {
+		return err
+	}
+
+	return nil
 }

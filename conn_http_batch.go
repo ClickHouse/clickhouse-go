@@ -211,14 +211,29 @@ func (b *httpBatch) Send() (err error) {
 		headers[k] = v
 	}
 	res, err := b.conn.sendStreamQuery(b.ctx, r, &options, headers)
-
-	if res != nil {
-		defer res.Body.Close()
-		// we don't care about result, so just discard it to reuse connection
-		_, _ = io.Copy(io.Discard, res.Body)
+	if res == nil {
+		return err
 	}
 
-	return err
+	defer res.Body.Close()
+
+	if err != nil {
+		// we don't care about result, so just discard it to reuse connection
+		_, _ = io.Copy(io.Discard, res.Body)
+
+		return err
+	}
+
+	msg, err := b.conn.readRawResponse(res)
+	if err != nil {
+		return err
+	}
+
+	if err = checkDBException(msg); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (b *httpBatch) Rows() int {
