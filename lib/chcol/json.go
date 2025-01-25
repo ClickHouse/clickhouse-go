@@ -21,6 +21,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -51,11 +52,22 @@ func (o *JSON) ValueAtPath(path string) (any, bool) {
 
 // NestedMap converts the flattened JSON data into a nested structure
 func (o *JSON) NestedMap() map[string]any {
-	nested := make(map[string]any)
+	result := make(map[string]any)
 
-	for key, value := range o.valuesByPath {
-		parts := strings.Split(key, ".")
-		current := nested
+	sortedPaths := make([]string, 0, len(o.valuesByPath))
+	for path := range o.valuesByPath {
+		sortedPaths = append(sortedPaths, path)
+	}
+	slices.Sort(sortedPaths)
+
+	for _, path := range sortedPaths {
+		value := o.valuesByPath[path]
+		if vt, ok := value.(Variant); ok && vt.Nil() {
+			continue
+		}
+
+		parts := strings.Split(path, ".")
+		current := result
 
 		for i := 0; i < len(parts)-1; i++ {
 			part := parts[i]
@@ -64,13 +76,14 @@ func (o *JSON) NestedMap() map[string]any {
 				current[part] = make(map[string]any)
 			}
 
-			current = current[part].(map[string]any)
+			if next, ok := current[part].(map[string]any); ok {
+				current = next
+			}
 		}
-
 		current[parts[len(parts)-1]] = value
 	}
 
-	return nested
+	return result
 }
 
 // MarshalJSON implements the json.Marshaler interface
