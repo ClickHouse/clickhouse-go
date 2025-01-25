@@ -1,8 +1,9 @@
 package chcol
 
 import (
-	"github.com/stretchr/testify/require"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestNestedMap(t *testing.T) {
@@ -38,7 +39,7 @@ func TestNestedMap(t *testing.T) {
 			},
 		},
 		{
-			name: "nested object with only top level key present",
+			name: "nested object with only top level path present",
 			input: &JSON{
 				valuesByPath: map[string]any{
 					"x":       NewVariant(42),
