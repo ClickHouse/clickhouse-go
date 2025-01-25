@@ -21,6 +21,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -53,12 +54,19 @@ func (o *JSON) ValueAtPath(path string) (any, bool) {
 func (o *JSON) NestedMap() map[string]any {
 	result := make(map[string]any)
 
-	for key, value := range o.valuesByPath {
+	sortedPaths := make([]string, 0, len(o.valuesByPath))
+	for path := range o.valuesByPath {
+		sortedPaths = append(sortedPaths, path)
+	}
+	slices.Sort(sortedPaths)
+
+	for _, path := range sortedPaths {
+		value := o.valuesByPath[path]
 		if vt, ok := value.(Variant); ok && vt.Nil() {
 			continue
 		}
 
-		parts := strings.Split(key, ".")
+		parts := strings.Split(path, ".")
 		current := result
 
 		for i := 0; i < len(parts)-1; i++ {
