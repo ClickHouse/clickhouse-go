@@ -1,3 +1,15 @@
+# v2.30.2, 2025-01-30 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Bug fixes 🐛 
+* Handle json tag without name override by @matevzmihalic in https://github.com/ClickHouse/clickhouse-go/pull/1478
+* fix: JSON NestedMap + add tests by @SpencerTorres in https://github.com/ClickHouse/clickhouse-go/pull/1482
+
+## New Contributors
+* @matevzmihalic made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1478
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.30.1...v2.30.2
+
 # v2.30.1, 2025-01-17 <!-- Release notes generated using configuration in .github/release.yml at v2.30.1 -->
 
 ## What's Changed
