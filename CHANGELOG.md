@@ -1,3 +1,14 @@
+# v2.30.3, 2025-02-03 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Other Changes 🛠
+* fix enum parse logic when its last index is zero by @lobachpavel in https://github.com/ClickHouse/clickhouse-go/pull/1487
+
+## New Contributors
+* @lobachpavel made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1487
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.30.2...v2.30.3
+
 # v2.30.2, 2025-01-30 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
