@@ -134,6 +134,15 @@ func TestExtractEnumNamedValues(t *testing.T) {
 				2: "",
 			},
 		},
+		{
+			name:         "Enum8 from negative to zero keys",
+			chType:       "Enum8('a'=-1, 'b'=0)",
+			expectedType: "Enum8",
+			expectedValues: map[int]string{
+				-1: "a",
+				0:  "b",
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
