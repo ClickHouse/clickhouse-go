@@ -33,6 +33,8 @@ import (
 var jsonTestDate, _ = time.Parse(time.RFC3339, "2024-12-13T02:09:30.123Z")
 
 func setupJSONTest(t *testing.T) driver.Conn {
+	SkipOnCloud(t, "cannot modify JSON settings on cloud")
+
 	conn, err := GetNativeConnection(clickhouse.Settings{
 		"max_execution_time":           60,
 		"allow_experimental_json_type": true,

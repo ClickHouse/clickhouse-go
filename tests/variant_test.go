@@ -32,6 +32,8 @@ import (
 var variantTestDate, _ = time.Parse(time.RFC3339, "2024-12-13T02:09:30.123Z")
 
 func setupVariantTest(t *testing.T) driver.Conn {
+	SkipOnCloud(t, "cannot modify Variant settings on cloud")
+
 	conn, err := GetNativeConnection(clickhouse.Settings{
 		"max_execution_time":              60,
 		"allow_experimental_variant_type": true,

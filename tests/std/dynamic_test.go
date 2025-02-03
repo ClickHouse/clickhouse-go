@@ -20,6 +20,7 @@ package std
 import (
 	"context"
 	"database/sql"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
@@ -32,6 +33,8 @@ import (
 var dynamicTestDate, _ = time.Parse(time.RFC3339, "2024-12-13T02:09:30.123Z")
 
 func setupDynamicTest(t *testing.T) *sql.DB {
+	clickhouse_tests.SkipOnCloud(t, "cannot modify Dynamic settings on cloud")
+
 	conn, err := GetStdOpenDBConnection(clickhouse.Native, nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})

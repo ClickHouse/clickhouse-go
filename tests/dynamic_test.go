@@ -31,6 +31,8 @@ import (
 var dynamicTestDate, _ = time.Parse(time.RFC3339, "2024-12-13T02:09:30.123Z")
 
 func setupDynamicTest(t *testing.T) driver.Conn {
+	SkipOnCloud(t, "cannot modify Dynamic settings on cloud")
+
 	conn, err := GetNativeConnection(clickhouse.Settings{
 		"max_execution_time":              60,
 		"allow_experimental_dynamic_type": true,
