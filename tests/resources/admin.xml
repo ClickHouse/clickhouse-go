@@ -1,16 +1,19 @@
 <clickhouse>
-    <!-- Profiles of settings. -->
     <profiles>
-        <!-- Default settings. -->
-        <default>
+        <tester>
             <max_threads>1</max_threads>
             <max_block_size>8000</max_block_size>
-        </default>
+        </tester>
     </profiles>
     <users>
-        <default>
+        <tester>
+            <profile>tester</profile>
             <password>ClickHouse</password>
+            <networks>
+                <ip>::/0</ip>
+            </networks>
+            <quota>default</quota>
             <access_management>1</access_management>
-        </default>
+        </tester>
     </users>
 </clickhouse>
