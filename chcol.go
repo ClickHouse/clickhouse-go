@@ -22,11 +22,19 @@ import "github.com/ClickHouse/clickhouse-go/v2/lib/chcol"
 // Re-export chcol types/funcs to top level clickhouse package
 
 type (
+	// Variant represents a ClickHouse Variant type that can hold multiple possible types
 	Variant = chcol.Variant
+	// Dynamic is an alias for the Variant type
 	Dynamic = chcol.Dynamic
-	JSON    = chcol.JSON
+	// JSON represents a ClickHouse JSON type that can hold multiple possible types
+	JSON = chcol.JSON
 
-	JSONSerializer   = chcol.JSONSerializer
+	// JSONSerializer interface allows a struct to be manually converted to an optimized JSON structure instead of relying
+	// on recursive reflection.
+	// Note that the struct must be a pointer in order for the interface to be matched, reflection will be used otherwise.
+	JSONSerializer = chcol.JSONSerializer
+	// JSONDeserializer interface allows a struct to load its data from an optimized JSON structure instead of relying
+	// on recursive reflection to set its fields.
 	JSONDeserializer = chcol.JSONDeserializer
 )
 
