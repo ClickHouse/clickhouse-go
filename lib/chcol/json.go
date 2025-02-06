@@ -27,6 +27,7 @@ import (
 
 // JSONSerializer interface allows a struct to be manually converted to an optimized JSON structure instead of relying
 // on recursive reflection.
+// Note that the struct must be a pointer in order for the interface to be matched, reflection will be used otherwise.
 type JSONSerializer interface {
 	ToClickHouseJSON() (*JSON, error)
 }
