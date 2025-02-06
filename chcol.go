@@ -25,6 +25,9 @@ type (
 	Variant = chcol.Variant
 	Dynamic = chcol.Dynamic
 	JSON    = chcol.JSON
+
+	JSONSerializer   = chcol.JSONSerializer
+	JSONDeserializer = chcol.JSONDeserializer
 )
 
 // NewVariant creates a new Variant with the given value
@@ -50,4 +53,10 @@ func NewDynamicWithType(v any, chType string) Dynamic {
 // NewJSON creates a new empty JSON value
 func NewJSON() *JSON {
 	return chcol.NewJSON()
+}
+
+// ExtractJSONPathAs is a convenience function for asserting a path to a specific type.
+// The underlying value is also extracted from its Dynamic wrapper if present.
+func ExtractJSONPathAs[T any](o *JSON, path string) (valueAs T, ok bool) {
+	return chcol.ExtractJSONPathAs[T](o, path)
 }

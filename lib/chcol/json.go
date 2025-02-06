@@ -25,6 +25,37 @@ import (
 	"strings"
 )
 
+// JSONSerializer interface allows a struct to be manually converted to an optimized JSON structure instead of relying
+// on recursive reflection.
+type JSONSerializer interface {
+	ToClickHouseJSON() (*JSON, error)
+}
+
+// JSONDeserializer interface allows a struct to load its data from an optimized JSON structure instead of relying
+// on recursive reflection to set its fields.
+type JSONDeserializer interface {
+	FromClickHouseJSON(*JSON) error
+}
+
+// ExtractJSONPathAs is a convenience function for asserting a path to a specific type.
+// The underlying value is also extracted from its Dynamic wrapper if present.
+func ExtractJSONPathAs[T any](o *JSON, path string) (T, bool) {
+	value, ok := o.valuesByPath[path]
+	if !ok || value == nil {
+		var empty T
+		return empty, false
+	}
+
+	dynValue, ok := value.(Dynamic)
+	if !ok {
+		valueAs, ok := value.(T)
+		return valueAs, ok
+	}
+
+	valueAs, ok := dynValue.value.(T)
+	return valueAs, ok
+}
+
 // JSON represents a ClickHouse JSON type that can hold multiple possible types
 type JSON struct {
 	valuesByPath map[string]any
