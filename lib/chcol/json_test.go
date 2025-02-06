@@ -1,6 +1,7 @@
 package chcol
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -81,4 +82,21 @@ func TestNestedMap(t *testing.T) {
 			require.Equal(t, c.expected, actual)
 		})
 	}
+}
+
+func TestJSONMarshal(t *testing.T) {
+	obj := &JSON{
+		valuesByPath: map[string]any{
+			"x.a":     NewVariant(42),
+			"x.b":     NewVariant(64),
+			"x.b.c.d": NewVariant(96),
+			"a.b.c":   NewVariant(128),
+		},
+	}
+
+	objStr := []byte("{\"a\":{\"b\":{\"c\":128}},\"x\":{\"a\":42,\"b\":64,\"c\":{\"d\":96}}}")
+
+	jsonStr, err := json.Marshal(obj)
+	require.NoError(t, err)
+	require.Equal(t, objStr, jsonStr)
 }

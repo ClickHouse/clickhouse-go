@@ -87,7 +87,7 @@ func (o *JSON) NestedMap() map[string]any {
 }
 
 // MarshalJSON implements the json.Marshaler interface
-func (o JSON) MarshalJSON() ([]byte, error) {
+func (o *JSON) MarshalJSON() ([]byte, error) {
 	return json.Marshal(o.NestedMap())
 }
 
