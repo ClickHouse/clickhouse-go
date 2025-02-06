@@ -323,6 +323,9 @@ func (c *JSON) Append(v any) (nulls []uint8, err error) {
 		case []*chcol.JSON:
 			c.serializationVersion = JSONObjectSerializationVersion
 			return c.appendObject(v)
+		case []chcol.JSONSerializer:
+			c.serializationVersion = JSONObjectSerializationVersion
+			return c.appendObject(v)
 		}
 
 		var err error
@@ -350,6 +353,15 @@ func (c *JSON) appendObject(v any) (nulls []uint8, err error) {
 
 		return nil, nil
 	case []*chcol.JSON:
+		for i, obj := range vv {
+			err := c.AppendRow(obj)
+			if err != nil {
+				return nil, fmt.Errorf("failed to AppendRow at index %d: %w", i, err)
+			}
+		}
+
+		return nil, nil
+	case []chcol.JSONSerializer:
 		for i, obj := range vv {
 			err := c.AppendRow(obj)
 			if err != nil {
@@ -403,6 +415,9 @@ func (c *JSON) AppendRow(v any) error {
 		case *chcol.JSON:
 			c.serializationVersion = JSONObjectSerializationVersion
 			return c.appendRowObject(v)
+		case chcol.JSONSerializer:
+			c.serializationVersion = JSONObjectSerializationVersion
+			return c.appendRowObject(v)
 		}
 
 		var err error
@@ -414,7 +429,7 @@ func (c *JSON) AppendRow(v any) error {
 			return nil
 		}
 
-		return fmt.Errorf("unsupported type \"%s\" for JSON column, must use string, []byte, struct, map, or *%s: %w", reflect.TypeOf(v).String(), scanTypeJSON.String(), err)
+		return fmt.Errorf("unsupported type \"%s\" for JSON column, must use string, []byte, *struct, map, or *clickhouse.JSON: %w", reflect.TypeOf(v).String(), err)
 	}
 }
 
