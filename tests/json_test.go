@@ -21,16 +21,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"testing"
-	"time"
-
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/chcol"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/stretchr/testify/require"
+	"testing"
 )
-
-var jsonTestDate, _ = time.Parse(time.RFC3339, "2024-12-13T02:09:30.123Z")
 
 func setupJSONTest(t *testing.T) driver.Conn {
 	SkipOnCloud(t, "cannot modify JSON settings on cloud")
@@ -68,24 +64,7 @@ func TestJSONPaths(t *testing.T) {
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_json (c)")
 	require.NoError(t, err)
 
-	jsonRow := chcol.NewJSON()
-	jsonRow.SetValueAtPath("Name", "JSON")
-	jsonRow.SetValueAtPath("Age", int64(42))
-	jsonRow.SetValueAtPath("Active", true)
-	jsonRow.SetValueAtPath("Score", 3.14)
-	jsonRow.SetValueAtPath("Tags", []string{"a", "b"})
-	jsonRow.SetValueAtPath("Numbers", []int64{20, 40})
-	jsonRow.SetValueAtPath("Address.Street", "Street")
-	jsonRow.SetValueAtPath("Address.City", "City")
-	jsonRow.SetValueAtPath("Address.Country", "Country")
-	jsonRow.SetValueAtPath("KeysNumbers", map[string]int64{"FieldA": 42, "FieldB": 32})
-	jsonRow.SetValueAtPath("Metadata.FieldA", "a")
-	jsonRow.SetValueAtPath("Metadata.FieldB", "b")
-	jsonRow.SetValueAtPath("Metadata.FieldC.FieldD", "d")
-	jsonRow.SetValueAtPath("Timestamp", jsonTestDate)
-	jsonRow.SetValueAtPath("DynamicString", clickhouse.NewDynamic("str"))
-	jsonRow.SetValueAtPath("DynamicInt", clickhouse.NewDynamic(int64(48)))
-	jsonRow.SetValueAtPath("DynamicMap", clickhouse.NewDynamic(map[string]string{"a": "a", "b": "b"}))
+	jsonRow := BuildTestJSONPaths()
 
 	require.NoError(t, batch.Append(jsonRow))
 	require.NoError(t, batch.Send())
@@ -120,33 +99,6 @@ func TestJSONPaths(t *testing.T) {
 	}
 }
 
-type Address struct {
-	Street  string `chType:"String"`
-	City    string `chType:"String"`
-	Country string `chType:"String"`
-}
-
-type TestStruct struct {
-	Name   string
-	Age    int64
-	Active bool
-	Score  float64
-
-	Tags    []string
-	Numbers []int64
-
-	Address Address
-
-	KeysNumbers map[string]int64
-	Metadata    map[string]interface{}
-
-	Timestamp time.Time `chType:"DateTime64(3)"`
-
-	DynamicString chcol.Dynamic
-	DynamicInt    chcol.Dynamic
-	DynamicMap    chcol.Dynamic
-}
-
 func TestJSONStruct(t *testing.T) {
 	ctx := context.Background()
 	conn := setupJSONTest(t)
@@ -164,36 +116,12 @@ func TestJSONStruct(t *testing.T) {
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_json (c)")
 	require.NoError(t, err)
 
-	inputRow := TestStruct{
-		Name:    "JSON",
-		Age:     42,
-		Active:  true,
-		Score:   3.14,
-		Tags:    []string{"a", "b"},
-		Numbers: []int64{20, 40},
-		Address: Address{
-			Street:  "Street",
-			City:    "City",
-			Country: "Country",
-		},
-		KeysNumbers: map[string]int64{"FieldA": 42, "FieldB": 32},
-		Metadata: map[string]interface{}{
-			"FieldA": "a",
-			"FieldB": "b",
-			"FieldC": map[string]interface{}{
-				"FieldD": "d",
-			},
-		},
-		Timestamp:     jsonTestDate,
-		DynamicString: chcol.NewDynamic("str").WithType("String"),
-		DynamicInt:    chcol.NewDynamic(int64(48)).WithType("Int64"),
-		DynamicMap:    chcol.NewDynamic(map[string]string{"a": "a", "b": "b"}).WithType("Map(String, String)"),
-	}
+	inputRow := BuildTestJSONStruct()
 	require.NoError(t, batch.Append(inputRow))
 
 	inputRow2 := TestStruct{
 		KeysNumbers: map[string]int64{},
-		Timestamp:   jsonTestDate,
+		Timestamp:   JSONTestDate,
 		Metadata: map[string]interface{}{
 			"FieldA": "a",
 			"FieldB": "b",
@@ -234,6 +162,39 @@ func TestJSONStruct(t *testing.T) {
 	require.Equal(t, inputRow2, row2)
 }
 
+func TestJSONFastStruct(t *testing.T) {
+	ctx := context.Background()
+	conn := setupJSONTest(t)
+
+	const ddl = `
+			CREATE TABLE IF NOT EXISTS test_json (
+				  c JSON(Name String, Age Int64, KeysNumbers Map(String, Int64), SKIP fake.field)
+			) Engine = MergeTree() ORDER BY tuple()
+		`
+	require.NoError(t, conn.Exec(ctx, ddl))
+	defer func() {
+		require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS test_json"))
+	}()
+
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_json (c)")
+	require.NoError(t, err)
+
+	inputRow := BuildFastTestJSONStruct()
+	require.NoError(t, batch.Append(&inputRow))
+
+	require.NoError(t, batch.Send())
+
+	rows, err := conn.Query(ctx, "SELECT c FROM test_json")
+	require.NoError(t, err)
+
+	var row TestStruct
+
+	require.True(t, rows.Next())
+	err = rows.Scan(&row)
+	require.NoError(t, err)
+	require.Equal(t, inputRow.ts, row)
+}
+
 func TestJSONString(t *testing.T) {
 	t.Skip("client cannot receive JSON strings")
 
@@ -255,31 +216,7 @@ func TestJSONString(t *testing.T) {
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_json (c)")
 	require.NoError(t, err)
 
-	inputRow := TestStruct{
-		Name:    "JSON",
-		Age:     42,
-		Active:  true,
-		Score:   3.14,
-		Tags:    []string{"a", "b"},
-		Numbers: []int64{20, 40},
-		Address: Address{
-			Street:  "Street",
-			City:    "City",
-			Country: "Country",
-		},
-		KeysNumbers: map[string]int64{"FieldA": 42, "FieldB": 32},
-		Metadata: map[string]interface{}{
-			"FieldA": "a",
-			"FieldB": "b",
-			"FieldC": map[string]interface{}{
-				"FieldD": "d",
-			},
-		},
-		Timestamp:     jsonTestDate,
-		DynamicString: chcol.NewDynamic("str").WithType("String"),
-		DynamicInt:    chcol.NewDynamic(int64(48)).WithType("Int64"),
-		DynamicMap:    chcol.NewDynamic(map[string]string{"a": "a", "b": "b"}).WithType("Map(String, String)"),
-	}
+	inputRow := BuildTestJSONStruct()
 
 	inputRowStr, err := json.Marshal(inputRow)
 	require.NoError(t, err)
