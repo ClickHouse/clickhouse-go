@@ -40,8 +40,8 @@ type FastProduct struct {
 	CreatedAt time.Time          `json:"created_at" chType:"DateTime64(3)"`
 }
 
-// ToClickHouseJSON implements clickhouse.JSONSerializer for faster struct appending
-func (p *FastProduct) ToClickHouseJSON() (*clickhouse.JSON, error) {
+// SerializeClickHouseJSON implements clickhouse.JSONSerializer for faster struct appending
+func (p *FastProduct) SerializeClickHouseJSON() (*clickhouse.JSON, error) {
 	obj := clickhouse.NewJSON()
 	obj.SetValueAtPath("id", p.ID)
 	obj.SetValueAtPath("name", p.Name)
@@ -55,8 +55,8 @@ func (p *FastProduct) ToClickHouseJSON() (*clickhouse.JSON, error) {
 	return obj, nil
 }
 
-// FromClickHouseJSON implements clickhouse.JSONDeserializer for faster struct scanning
-func (p *FastProduct) FromClickHouseJSON(obj *clickhouse.JSON) error {
+// DeserializeClickHouseJSON implements clickhouse.JSONDeserializer for faster struct scanning
+func (p *FastProduct) DeserializeClickHouseJSON(obj *clickhouse.JSON) error {
 	p.ID, _ = clickhouse.ExtractJSONPathAs[clickhouse.Dynamic](obj, "id")
 	p.Name, _ = clickhouse.ExtractJSONPathAs[string](obj, "name")
 	p.Tags, _ = clickhouse.ExtractJSONPathAs[[]string](obj, "tags")

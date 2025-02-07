@@ -284,9 +284,9 @@ func (c *JSON) scanRowObject(dest any, row int) error {
 		return nil
 	case chcol.JSONDeserializer:
 		obj := c.rowAsJSON(row)
-		err := v.FromClickHouseJSON(obj)
+		err := v.DeserializeClickHouseJSON(obj)
 		if err != nil {
-			return fmt.Errorf("failed to deserialize using FromClickHouseJSON: %w", err)
+			return fmt.Errorf("failed to deserialize using DeserializeClickHouseJSON: %w", err)
 		}
 
 		return nil
@@ -442,9 +442,9 @@ func (c *JSON) appendRowObject(v any) error {
 		obj = vv
 	case chcol.JSONSerializer:
 		var err error
-		obj, err = vv.ToClickHouseJSON()
+		obj, err = vv.SerializeClickHouseJSON()
 		if err != nil {
-			return fmt.Errorf("failed to serialize using ToClickHouseJSON: %w", err)
+			return fmt.Errorf("failed to serialize using SerializeClickHouseJSON: %w", err)
 		}
 	}
 

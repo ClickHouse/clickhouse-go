@@ -1,9 +1,10 @@
 package tests
 
 import (
+	"time"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/chcol"
-	"time"
 )
 
 var JSONTestDate, _ = time.Parse(time.RFC3339, "2024-12-13T02:09:30.123Z")
@@ -41,8 +42,8 @@ type FastTestStruct struct {
 	ts TestStruct
 }
 
-// ToClickHouseJSON implements clickhouse.JSONSerializer for faster struct appending
-func (fts *FastTestStruct) ToClickHouseJSON() (*clickhouse.JSON, error) {
+// SerializeClickHouseJSON implements clickhouse.JSONSerializer for faster struct appending
+func (fts *FastTestStruct) SerializeClickHouseJSON() (*clickhouse.JSON, error) {
 	obj := chcol.NewJSON()
 	obj.SetValueAtPath("Name", fts.ts.Name)
 	obj.SetValueAtPath("Age", fts.ts.Age)
@@ -65,8 +66,8 @@ func (fts *FastTestStruct) ToClickHouseJSON() (*clickhouse.JSON, error) {
 	return obj, nil
 }
 
-// FromClickHouseJSON implements clickhouse.JSONDeserializer for faster struct scanning
-func (fts *FastTestStruct) FromClickHouseJSON(obj *clickhouse.JSON) error {
+// DeserializeClickHouseJSON implements clickhouse.JSONDeserializer for faster struct scanning
+func (fts *FastTestStruct) DeserializeClickHouseJSON(obj *clickhouse.JSON) error {
 	fts.ts.Name, _ = clickhouse.ExtractJSONPathAs[string](obj, "Name")
 	fts.ts.Age, _ = clickhouse.ExtractJSONPathAs[int64](obj, "Age")
 	fts.ts.Active, _ = clickhouse.ExtractJSONPathAs[bool](obj, "Active")
@@ -93,7 +94,7 @@ func (fts *FastTestStruct) FromClickHouseJSON(obj *clickhouse.JSON) error {
 func BuildTestJSONPaths() *chcol.JSON {
 	ts := BuildTestJSONStruct()
 	fts := FastTestStruct{ts: ts}
-	jsonObj, _ := fts.ToClickHouseJSON()
+	jsonObj, _ := fts.SerializeClickHouseJSON()
 	return jsonObj
 }
 

@@ -29,13 +29,13 @@ import (
 // on recursive reflection.
 // Note that the struct must be a pointer in order for the interface to be matched, reflection will be used otherwise.
 type JSONSerializer interface {
-	ToClickHouseJSON() (*JSON, error)
+	SerializeClickHouseJSON() (*JSON, error)
 }
 
 // JSONDeserializer interface allows a struct to load its data from an optimized JSON structure instead of relying
 // on recursive reflection to set its fields.
 type JSONDeserializer interface {
-	FromClickHouseJSON(*JSON) error
+	DeserializeClickHouseJSON(*JSON) error
 }
 
 // ExtractJSONPathAs is a convenience function for asserting a path to a specific type.
