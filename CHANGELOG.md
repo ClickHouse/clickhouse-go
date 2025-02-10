@@ -1,3 +1,19 @@
+# v2.31.0, 2025-02-10 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+
+### Enhancements 🎉
+* `clickhouse.JSON` Serializer interface by @SpencerTorres in https://github.com/ClickHouse/clickhouse-go/pull/1491
+* use unsafe.Slice/unsafe.StringData by @serprex in https://github.com/ClickHouse/clickhouse-go/pull/1493
+
+### Other Changes 🛠
+* JSON read/write benchmarks by @SpencerTorres in https://github.com/ClickHouse/clickhouse-go/pull/1490
+
+## New Contributors
+* @serprex made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1493
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.30.3...2.31.0
+
 # v2.30.3, 2025-02-03 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
