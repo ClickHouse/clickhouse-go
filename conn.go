@@ -74,12 +74,10 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 	}
 
 	compression := CompressionNone
-	var compressor *compress.Writer
 	if opt.Compression != nil {
 		switch opt.Compression.Method {
 		case CompressionLZ4, CompressionZSTD, CompressionNone:
 			compression = opt.Compression.Method
-			compressor = compress.NewWriter()
 		default:
 			return nil, fmt.Errorf("unsupported compression method for native protocol")
 		}
@@ -97,7 +95,7 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 			structMap:            &structMap{},
 			compression:          compression,
 			connectedAt:          time.Now(),
-			compressor:           compressor,
+			compressor:           compress.NewWriterWithMethods(0, compress.Method(compression)),
 			readTimeout:          opt.ReadTimeout,
 			blockBufferSize:      opt.BlockBufferSize,
 			maxCompressionBuffer: opt.MaxCompressionBuffer,
