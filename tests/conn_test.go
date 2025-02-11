@@ -358,8 +358,7 @@ func TestConnectionExpiresIdleConnection(t *testing.T) {
 			defer wg.Done()
 			r, err := conn.Query(ctx, "SELECT 1")
 			require.NoError(t, err)
-
-			r.Close()
+			require.NoError(t, r.Close())
 		}()
 	}
 	wg.Wait()
@@ -390,8 +389,8 @@ func TestConnectionCloseIdle(t *testing.T) {
 		conn, err := TestClientWithDefaultSettings(testEnv)
 		require.NoError(t, err)
 		err = conn.Ping(ctx)
-		conn.Close()
 		require.NoError(t, err)
+		require.NoError(t, conn.Close())
 	}
 	time.Sleep(100 * time.Millisecond) // wait for all connections closed
 	finalGoroutine := runtime.NumGoroutine()
