@@ -1,3 +1,25 @@
+# v2.32.0, 2025-02-14 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+
+### Enhancements 🎉 
+* Add LZ4HC compression method by @SpencerTorres in https://github.com/ClickHouse/clickhouse-go/pull/1499
+
+### Performance 🏎️ 
+* Removed ~1MB of memory usage in compressor by @pablomatiasgomez and @SpencerTorres in https://github.com/ClickHouse/clickhouse-go/pull/1499
+
+### Bug fixes 🐛 
+* Fixed potential security vulnerability in compression block header length overflow by @santrancisco https://github.com/ClickHouse/clickhouse-go/pull/1499
+
+### Other Changes 🛠
+* update compressor functions by @SpencerTorres in https://github.com/ClickHouse/clickhouse-go/pull/1499
+* change container provider, verify close conn error in tests by @pablomatiasgomez in https://github.com/ClickHouse/clickhouse-go/pull/1497
+
+## New Contributors
+* @pablomatiasgomez made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1497
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.31.0...v2.32.0
+
 # v2.31.0, 2025-02-10 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
