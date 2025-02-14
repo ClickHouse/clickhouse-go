@@ -223,6 +223,7 @@ func (c *connect) close() error {
 	}
 
 	c.buffer = nil
+	c.compressor = nil
 
 	c.readerMutex.Lock()
 	c.reader = nil

@@ -127,7 +127,7 @@ func CreateClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment,
 	// create a ClickHouse Container
 	ctx := context.Background()
 	// attempt use docker for CI
-	provider, err := testcontainers.ProviderDocker.GetProvider()
+	provider, err := testcontainers.ProviderDefault.GetProvider()
 	if err != nil {
 		fmt.Printf("Docker is not running and no clickhouse connections details were provided. Skipping tests: %s\n", err)
 		os.Exit(0)
