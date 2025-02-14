@@ -28,12 +28,21 @@ import (
 
 const testSet string = "native"
 
+var testEnv ClickHouseTestEnvironment
+
 func TestMain(m *testing.M) {
-	os.Exit(Runtime(m, testSet))
+	var err error
+
+	testEnv, err = CreateClickHouseTestEnvironment(testSet)
+	if err != nil {
+		panic(err)
+	}
+
+	os.Exit(Runtime(m, testSet, testEnv))
 }
 
 func GetNativeTestEnvironment() (ClickHouseTestEnvironment, error) {
-	return GetTestEnvironment(testSet)
+	return testEnv, nil
 }
 
 func GetNativeConnection(settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (driver.Conn, error) {
