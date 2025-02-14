@@ -42,6 +42,8 @@ func (c CompressionMethod) String() string {
 		return "zstd"
 	case CompressionLZ4:
 		return "lz4"
+	case CompressionLZ4HC:
+		return "lz4hc"
 	case CompressionGZIP:
 		return "gzip"
 	case CompressionDeflate:
@@ -56,6 +58,7 @@ func (c CompressionMethod) String() string {
 const (
 	CompressionNone    = CompressionMethod(compress.None)
 	CompressionLZ4     = CompressionMethod(compress.LZ4)
+	CompressionLZ4HC   = CompressionMethod(compress.LZ4HC)
 	CompressionZSTD    = CompressionMethod(compress.ZSTD)
 	CompressionGZIP    = CompressionMethod(0x95)
 	CompressionDeflate = CompressionMethod(0x96)
@@ -66,6 +69,7 @@ var compressionMap = map[string]CompressionMethod{
 	"none":    CompressionNone,
 	"zstd":    CompressionZSTD,
 	"lz4":     CompressionLZ4,
+	"lz4hc":   CompressionLZ4HC,
 	"gzip":    CompressionGZIP,
 	"deflate": CompressionDeflate,
 	"br":      CompressionBrotli,
@@ -79,7 +83,7 @@ type Auth struct { // has_control_character
 
 type Compression struct {
 	Method CompressionMethod
-	// this only applies to zlib and brotli compression algorithms
+	// this only applies to lz4, lz4hc, zlib, and brotli compression algorithms
 	Level int
 }
 
