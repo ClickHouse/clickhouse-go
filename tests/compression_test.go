@@ -19,6 +19,7 @@ package tests
 
 import (
 	"context"
+	"github.com/ClickHouse/ch-go/compress"
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -26,20 +27,25 @@ import (
 )
 
 func TestZSTDCompression(t *testing.T) {
-	CompressionTest(t, clickhouse.CompressionZSTD)
+	CompressionTest(t, compress.LevelZero, clickhouse.CompressionZSTD)
 }
 
 func TestLZ4Compression(t *testing.T) {
-	CompressionTest(t, clickhouse.CompressionLZ4)
+	CompressionTest(t, compress.Level(3), clickhouse.CompressionLZ4)
+}
+
+func TestLZ4HCCompression(t *testing.T) {
+	CompressionTest(t, compress.LevelLZ4HCDefault, clickhouse.CompressionLZ4HC)
 }
 
 func TestNoCompression(t *testing.T) {
-	CompressionTest(t, clickhouse.CompressionNone)
+	CompressionTest(t, compress.LevelZero, clickhouse.CompressionNone)
 }
 
-func CompressionTest(t *testing.T, method clickhouse.CompressionMethod) {
+func CompressionTest(t *testing.T, level compress.Level, method clickhouse.CompressionMethod) {
 	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: method,
+		Level:  int(level),
 	})
 	ctx := context.Background()
 	require.NoError(t, err)
@@ -57,7 +63,7 @@ func CompressionTest(t *testing.T, method clickhouse.CompressionMethod) {
 	var (
 		col1Data = []string{"A", "b", "c"}
 	)
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 100; i++ {
 		require.NoError(t, batch.Append(col1Data))
 	}
 	require.NoError(t, batch.Send())

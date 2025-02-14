@@ -230,7 +230,7 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		url:             u,
 		buffer:          new(chproto.Buffer),
 		compression:     opt.Compression.Method,
-		blockCompressor: compress.NewWriter(),
+		blockCompressor: compress.NewWriter(compress.Level(opt.Compression.Level), compress.Method(opt.Compression.Method)),
 		compressionPool: compressionPool,
 		blockBufferSize: opt.BlockBufferSize,
 		headers:         headers,
@@ -256,7 +256,7 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		url:             u,
 		buffer:          new(chproto.Buffer),
 		compression:     opt.Compression.Method,
-		blockCompressor: compress.NewWriter(),
+		blockCompressor: compress.NewWriter(compress.Level(opt.Compression.Level), compress.Method(opt.Compression.Method)),
 		compressionPool: compressionPool,
 		location:        location,
 		blockBufferSize: opt.BlockBufferSize,
@@ -377,7 +377,7 @@ func (h *httpConnect) writeData(block *proto.Block) error {
 	if h.compression == CompressionLZ4 || h.compression == CompressionZSTD {
 		// Performing compression. Supported and requires
 		data := h.buffer.Buf[start:]
-		if err := h.blockCompressor.Compress(compress.Method(h.compression), data); err != nil {
+		if err := h.blockCompressor.Compress(data); err != nil {
 			return errors.Wrap(err, "compress")
 		}
 		h.buffer.Buf = append(h.buffer.Buf[:start], h.blockCompressor.Data...)
