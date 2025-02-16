@@ -38,7 +38,7 @@ func setupJSONTest(t *testing.T) driver.Conn {
 	})
 	require.NoError(t, err)
 
-	if !CheckMinServerServerVersion(conn, 24, 9, 0) {
+	if !CheckMinServerServerVersion(conn, 24, 10, 0) {
 		t.Skip(fmt.Errorf("unsupported clickhouse version for JSON type"))
 		return nil
 	}
