@@ -512,6 +512,19 @@ func (col *Tuple) AppendRow(v any) error {
 	}
 	switch value.Kind() {
 	case reflect.Struct:
+		if valuer, ok := v.(driver.Valuer); ok {
+			val, err := valuer.Value()
+			if err != nil {
+				return &ColumnConverterError{
+					Op:   "AppendRow",
+					To:   string(col.chType),
+					From: fmt.Sprintf("%T", v),
+					Hint: "could not get driver.Valuer value",
+				}
+			}
+			return col.AppendRow(val)
+		}
+
 		if !col.isNamed {
 			return &Error{
 				ColumnType: string(col.chType),
