@@ -31,8 +31,10 @@ func setupJSONTest(t *testing.T) driver.Conn {
 	SkipOnCloud(t, "cannot modify JSON settings on cloud")
 
 	conn, err := GetNativeConnection(clickhouse.Settings{
-		"max_execution_time":           60,
-		"allow_experimental_json_type": true,
+		"max_execution_time":              60,
+		"allow_experimental_variant_type": true,
+		"allow_experimental_dynamic_type": true,
+		"allow_experimental_json_type":    true,
 	}, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
@@ -414,4 +416,25 @@ func TestJSON_BatchFlush(t *testing.T) {
 
 		i++
 	}
+}
+
+// https://github.com/grafana/clickhouse-datasource/issues/1168
+func TestJSONArrayDynamic(t *testing.T) {
+	ctx := context.Background()
+	conn := setupJSONTest(t)
+
+	rows, err := conn.Query(ctx, `SELECT ['{"x":5}','{"y":6}']::Array(JSON)::Dynamic AS c`)
+	require.NoError(t, err)
+
+	require.True(t, rows.Next())
+}
+
+func TestJSONArrayVariant(t *testing.T) {
+	ctx := context.Background()
+	conn := setupJSONTest(t)
+
+	rows, err := conn.Query(ctx, `SELECT ['{"x":5}','{"y":6}']::Array(JSON)::Variant(Array(JSON)) AS c`)
+	require.NoError(t, err)
+
+	require.True(t, rows.Next())
 }
