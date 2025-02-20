@@ -307,6 +307,14 @@ func (c *Variant) decodeHeader(reader *proto.Reader) error {
 		return fmt.Errorf("unsupported variant discriminator version: %d", variantSerializationVersion)
 	}
 
+	for _, col := range c.columns {
+		if serialize, ok := col.(CustomSerialization); ok {
+			if err := serialize.ReadStatePrefix(reader); err != nil {
+				return fmt.Errorf("failed to read prefix for type %s in variant: %w", col.Type(), err)
+			}
+		}
+	}
+
 	return nil
 }
 
