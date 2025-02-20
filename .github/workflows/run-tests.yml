@@ -15,7 +15,6 @@ jobs:
     runs-on: [self-hosted, style-checker-aarch64]
     strategy:
       fail-fast: false
-      max-parallel: 2
       matrix:
         go:
           - "1.24"
