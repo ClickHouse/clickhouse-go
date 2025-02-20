@@ -1,3 +1,12 @@
+# v2.32.2, 2025-02-20 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Bug Fixes 🐛 
+* fix: decode prefix of nested columns in Variant by @SpencerTorres in https://github.com/ClickHouse/clickhouse-go/pull/1506
+
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.32.1...v2.32.2
+
 # v2.32.1, 2025-02-17 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
