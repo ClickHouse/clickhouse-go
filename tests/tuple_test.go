@@ -246,6 +246,174 @@ func TestNamedTupleWithTypedMap(t *testing.T) {
 	assert.Equal(t, col1Data, col1)
 }
 
+// named tuples work with typed structs
+func TestNamedTupleWithStruct(t *testing.T) {
+	conn, err := GetNativeConnection(nil, nil, nil)
+	ctx := context.Background()
+	require.NoError(t, err)
+	// https://github.com/ClickHouse/ClickHouse/pull/36544
+	if !CheckMinServerServerVersion(conn, 22, 5, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
+		return
+	}
+	const ddl = "CREATE TABLE test_tuple (Col1 Tuple(Id Int64, Code Int64)) Engine MergeTree() ORDER BY tuple()"
+
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_tuple")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_tuple")
+	require.NoError(t, err)
+	var (
+		col1Data = struct {
+			Code int64
+			Id   int64
+		}{
+			Code: 1,
+			Id:   2,
+		}
+	)
+	require.NoError(t, batch.Append(col1Data))
+	require.Equal(t, 1, batch.Rows())
+	require.NoError(t, batch.Send())
+	var (
+		col1 struct {
+			Code int64
+			Id   int64
+		}
+	)
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_tuple").Scan(&col1))
+	assert.Equal(t, col1Data, col1)
+}
+
+// named tuples work with typed structs tags
+func TestNamedTupleWithStructTags(t *testing.T) {
+	conn, err := GetNativeConnection(nil, nil, nil)
+	ctx := context.Background()
+	require.NoError(t, err)
+	// https://github.com/ClickHouse/ClickHouse/pull/36544
+	if !CheckMinServerServerVersion(conn, 22, 5, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
+		return
+	}
+	const ddl = "CREATE TABLE test_tuple (Col1 Tuple(id Int64, code Int64)) Engine MergeTree() ORDER BY tuple()"
+
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_tuple")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_tuple")
+	require.NoError(t, err)
+	var (
+		col1Data = struct {
+			Code int64 `ch:"code"`
+			Id   int64 `ch:"id"`
+		}{
+			Code: 1,
+			Id:   2,
+		}
+	)
+	require.NoError(t, batch.Append(col1Data))
+	require.Equal(t, 1, batch.Rows())
+	require.NoError(t, batch.Send())
+	var (
+		col1 struct {
+			Code int64 `ch:"code"`
+			Id   int64 `ch:"id"`
+		}
+	)
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_tuple").Scan(&col1))
+	assert.Equal(t, col1Data, col1)
+}
+
+// named tuples will not work with unexported fields
+func TestNamedTupleWithUnexportedStructField(t *testing.T) {
+	conn, err := GetNativeConnection(nil, nil, nil)
+	ctx := context.Background()
+	require.NoError(t, err)
+	// https://github.com/ClickHouse/ClickHouse/pull/36544
+	if !CheckMinServerServerVersion(conn, 22, 5, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
+		return
+	}
+	const ddl = "CREATE TABLE test_tuple (Col1 Tuple(id Int64, code Int64)) Engine MergeTree() ORDER BY tuple()"
+
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_tuple")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_tuple")
+	require.NoError(t, err)
+	var (
+		col1Data = struct {
+			foo int64 // unexported field shouldn't be counted.
+			Bar int64
+		}{}
+	)
+	err = batch.Append(col1Data)
+	require.Error(t, err)
+	require.Equal(t, "clickhouse [AppendRow]: (Col1 Tuple(id Int64, code Int64)) invalid size. expected 2 got 1", err.Error())
+}
+
+// named tuples will not work with too many fields
+func TestNamedTupleWithTooManyFields(t *testing.T) {
+	conn, err := GetNativeConnection(nil, nil, nil)
+	ctx := context.Background()
+	require.NoError(t, err)
+	// https://github.com/ClickHouse/ClickHouse/pull/36544
+	if !CheckMinServerServerVersion(conn, 22, 5, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
+		return
+	}
+	const ddl = "CREATE TABLE test_tuple (Col1 Tuple(id Int64, code Int64)) Engine MergeTree() ORDER BY tuple()"
+
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_tuple")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_tuple")
+	require.NoError(t, err)
+	var (
+		col1Data = struct {
+			Foo int64
+			Bar int64
+			Baz int64
+		}{}
+	)
+	err = batch.Append(col1Data)
+	require.Error(t, err)
+	require.Equal(t, "clickhouse [AppendRow]: (Col1 Tuple(id Int64, code Int64)) invalid size. expected 2 got 3", err.Error())
+}
+
+// named tuples will not work with invalid tags
+func TestNamedTupleWithDuplicateTags(t *testing.T) {
+	conn, err := GetNativeConnection(nil, nil, nil)
+	ctx := context.Background()
+	require.NoError(t, err)
+	// https://github.com/ClickHouse/ClickHouse/pull/36544
+	if !CheckMinServerServerVersion(conn, 22, 5, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
+		return
+	}
+	const ddl = "CREATE TABLE test_tuple (Col1 Tuple(id Int64, code Int64)) Engine MergeTree() ORDER BY tuple()"
+
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_tuple")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_tuple")
+	require.NoError(t, err)
+	var (
+		col1Data = struct {
+			Id   int64 `ch:"id"`
+			Code int64 `ch:"id"` // duplicate tag, should be counted only once.
+		}{}
+	)
+	err = batch.Append(col1Data)
+	require.Error(t, err)
+	require.Equal(t, "clickhouse [AppendRow]: (Col1 Tuple(id Int64, code Int64)) invalid size. expected 2 got 1", err.Error())
+}
+
 // test column names which need escaping
 func TestNamedTupleWithEscapedColumns(t *testing.T) {
 	conn, err := GetNativeConnection(nil, nil, nil)
@@ -330,6 +498,39 @@ func TestUnNamedTupleWithMap(t *testing.T) {
 	err = conn.QueryRow(ctx, "SELECT * FROM test_tuple").Scan(&col1)
 	require.Error(t, err)
 	require.Equal(t, "clickhouse [ScanRow]: (Col1) converting Tuple(String, Int64) to map[string]interface {} is unsupported. cannot use maps for unnamed tuples, use slice", err.Error())
+}
+
+// unnamed tuples will not work with structs - keys cannot be attributed to fields
+func TestUnNamedTupleWithStruct(t *testing.T) {
+	conn, err := GetNativeConnection(nil, nil, nil)
+	ctx := context.Background()
+	require.NoError(t, err)
+	// https://github.com/ClickHouse/ClickHouse/pull/36544
+	if !CheckMinServerServerVersion(conn, 22, 5, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
+		return
+	}
+	const ddl = "CREATE TABLE test_tuple (Col1 Tuple(String, Int64)) Engine MergeTree() ORDER BY tuple()"
+
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_tuple")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_tuple")
+	require.NoError(t, err)
+	var (
+		col1Data = struct {
+			Name string
+			Id   int64
+		}{
+			Name: "a",
+			Id:   1,
+		}
+	)
+	// this will fail - struct can't be used for unnamed tuples
+	err = batch.Append(col1Data)
+	require.Error(t, err)
+	require.Equal(t, "clickhouse [AppendRow]: (Col1 Tuple(String, Int64)) converting from struct { Name string; Id int64 } is not supported for unnamed tuples - use a slice", err.Error())
 }
 
 func TestColumnarTuple(t *testing.T) {
