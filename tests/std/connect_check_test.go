@@ -44,12 +44,12 @@ func TestStdConnCheck(t *testing.T) {
 	require.NoError(t, err)
 
 	dsns := map[clickhouse.Protocol]string{clickhouse.Native: fmt.Sprintf("clickhouse://%s:%d?username=%s&password=%s", env.Host, env.Port, env.Username, env.Password),
-		clickhouse.HTTP: fmt.Sprintf("http://%s:%d?username=%s&password=%s&session_id=session", env.Host, env.HttpPort, env.Username, env.Password)}
+		clickhouse.HTTP: fmt.Sprintf("http://%s:%d?username=%s&password=%s", env.Host, env.HttpPort, env.Username, env.Password)}
 	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
 	require.NoError(t, err)
 	if useSSL {
 		dsns = map[clickhouse.Protocol]string{clickhouse.Native: fmt.Sprintf("clickhouse://%s:%d?username=%s&password=%s&secure=true", env.Host, env.SslPort, env.Username, env.Password),
-			clickhouse.HTTP: fmt.Sprintf("https://%s:%d?username=%s&password=%s&session_id=session&secure=true", env.Host, env.HttpsPort, env.Username, env.Password)}
+			clickhouse.HTTP: fmt.Sprintf("https://%s:%d?username=%s&password=%s&secure=true", env.Host, env.HttpsPort, env.Username, env.Password)}
 	}
 	for name, dsn := range dsns {
 		if name == clickhouse.Native && useSSL {
@@ -57,7 +57,6 @@ func TestStdConnCheck(t *testing.T) {
 			continue
 		}
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
-
 			connect, err := GetConnectionFromDSN(dsn)
 			require.NoError(t, err)
 			// We can only change the settings at the connection level.
