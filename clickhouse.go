@@ -240,7 +240,7 @@ func DefaultDialStrategy(ctx context.Context, connID int, opt *Options, dial Dia
 		case ConnOpenInOrder:
 			num = i
 		case ConnOpenRoundRobin:
-			num = (int(connID) + i) % len(opt.Addr)
+			num = (connID + i) % len(opt.Addr)
 		case ConnOpenRandom:
 			random := rand.Int()
 			num = (random + i) % len(opt.Addr)

@@ -83,15 +83,15 @@ func (o *stdConnOpener) Connect(ctx context.Context) (_ driver.Conn, err error) 
 		return nil, ErrAcquireConnNoAddress
 	}
 
-	random := rand.Int()
 	for i := range o.opt.Addr {
 		var num int
 		switch o.opt.ConnOpenStrategy {
 		case ConnOpenInOrder:
 			num = i
 		case ConnOpenRoundRobin:
-			num = (int(connID) + i) % len(o.opt.Addr)
+			num = (connID + i) % len(o.opt.Addr)
 		case ConnOpenRandom:
+			random := rand.Int()
 			num = (random + i) % len(o.opt.Addr)
 		}
 		if conn, err = dialFunc(ctx, o.opt.Addr[num], connID, o.opt); err == nil {
