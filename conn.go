@@ -73,14 +73,22 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 		}
 	}
 
-	compression := CompressionNone
+	var (
+		compression CompressionMethod
+		compressor  *compress.Writer
+	)
 	if opt.Compression != nil {
 		switch opt.Compression.Method {
-		case CompressionLZ4, CompressionZSTD, CompressionNone:
+		case CompressionLZ4, CompressionLZ4HC, CompressionZSTD, CompressionNone:
 			compression = opt.Compression.Method
 		default:
 			return nil, fmt.Errorf("unsupported compression method for native protocol")
 		}
+
+		compressor = compress.NewWriter(compress.Level(opt.Compression.Level), compress.Method(opt.Compression.Method))
+	} else {
+		compression = CompressionNone
+		compressor = compress.NewWriter(compress.LevelZero, compress.None)
 	}
 
 	var (
@@ -95,7 +103,7 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 			structMap:            &structMap{},
 			compression:          compression,
 			connectedAt:          time.Now(),
-			compressor:           compress.NewWriter(),
+			compressor:           compressor,
 			readTimeout:          opt.ReadTimeout,
 			blockBufferSize:      opt.BlockBufferSize,
 			maxCompressionBuffer: opt.MaxCompressionBuffer,
@@ -215,6 +223,7 @@ func (c *connect) close() error {
 	}
 
 	c.buffer = nil
+	c.compressor = nil
 
 	c.readerMutex.Lock()
 	c.reader = nil
@@ -246,7 +255,7 @@ func (c *connect) exception() error {
 func (c *connect) compressBuffer(start int) error {
 	if c.compression != CompressionNone && len(c.buffer.Buf) > 0 {
 		data := c.buffer.Buf[start:]
-		if err := c.compressor.Compress(compress.Method(c.compression), data); err != nil {
+		if err := c.compressor.Compress(data); err != nil {
 			return errors.Wrap(err, "compress")
 		}
 		c.buffer.Buf = append(c.buffer.Buf[:start], c.compressor.Data...)

@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/chcol"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/stretchr/testify/require"
 )
@@ -32,6 +31,8 @@ import (
 var variantTestDate, _ = time.Parse(time.RFC3339, "2024-12-13T02:09:30.123Z")
 
 func setupVariantTest(t *testing.T) driver.Conn {
+	SkipOnCloud(t, "cannot modify Variant settings on cloud")
+
 	conn, err := GetNativeConnection(clickhouse.Settings{
 		"max_execution_time":              60,
 		"allow_experimental_variant_type": true,
@@ -99,7 +100,7 @@ func TestVariant(t *testing.T) {
 	rows, err := conn.Query(ctx, "SELECT c FROM test_variant")
 	require.NoError(t, err)
 
-	var row chcol.Variant
+	var row clickhouse.Variant
 
 	require.True(t, rows.Next())
 	err = rows.Scan(&row)
@@ -152,6 +153,74 @@ func TestVariant(t *testing.T) {
 	require.Equal(t, colMapStringInt64, row.Any())
 }
 
+func TestVariantArray(t *testing.T) {
+	ctx := context.Background()
+	conn := setupVariantTest(t)
+
+	const ddl = `
+			CREATE TABLE IF NOT EXISTS test_variant (
+				  c Array(Variant(Int64))                  
+			) Engine = MergeTree() ORDER BY tuple()
+		`
+	require.NoError(t, conn.Exec(ctx, ddl))
+	defer func() {
+		require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS test_variant"))
+	}()
+
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_variant (c)")
+	require.NoError(t, err)
+
+	batch.Append([]clickhouse.Variant{
+		clickhouse.NewVariantWithType(int64(42), "Int64"),
+		clickhouse.NewVariantWithType(int64(84), "Int64"),
+	})
+	require.NoError(t, batch.Send())
+
+	rows, err := conn.Query(ctx, "SELECT c FROM test_variant")
+	require.NoError(t, err)
+
+	var arrRow []clickhouse.Variant
+
+	require.True(t, rows.Next())
+	err = rows.Scan(&arrRow)
+	require.NoError(t, err)
+	require.Len(t, arrRow, 2)
+
+	require.Equal(t, int64(42), arrRow[0].Any())
+	require.Equal(t, int64(84), arrRow[1].Any())
+}
+
+func TestVariantEmptyArray(t *testing.T) {
+	ctx := context.Background()
+	conn := setupVariantTest(t)
+
+	const ddl = `
+			CREATE TABLE IF NOT EXISTS test_variant (
+				  c Array(Variant(Int64))                  
+			) Engine = MergeTree() ORDER BY tuple()
+		`
+	require.NoError(t, conn.Exec(ctx, ddl))
+	defer func() {
+		require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS test_variant"))
+	}()
+
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_variant (c)")
+	require.NoError(t, err)
+
+	batch.Append([]clickhouse.Variant{})
+	require.NoError(t, batch.Send())
+
+	rows, err := conn.Query(ctx, "SELECT c FROM test_variant")
+	require.NoError(t, err)
+
+	var arrRow []clickhouse.Variant
+
+	require.True(t, rows.Next())
+	err = rows.Scan(&arrRow)
+	require.NoError(t, err)
+	require.Len(t, arrRow, 0)
+}
+
 func TestVariant_ScanWithType(t *testing.T) {
 	ctx := context.Background()
 	conn := setupVariantTest(t)
@@ -177,7 +246,7 @@ func TestVariant_ScanWithType(t *testing.T) {
 	rows, err := conn.Query(ctx, "SELECT c FROM test_variant")
 	require.NoError(t, err)
 
-	var row chcol.Variant
+	var row clickhouse.Variant
 
 	require.True(t, rows.Next())
 	err = rows.Scan(&row)
@@ -233,7 +302,7 @@ func TestVariant_BatchFlush(t *testing.T) {
 
 	i := 0
 	for rows.Next() {
-		var row chcol.Variant
+		var row clickhouse.Variant
 		err = rows.Scan(&row)
 
 		if i%2 == 0 {

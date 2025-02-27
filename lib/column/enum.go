@@ -179,7 +179,7 @@ func extractEnumNamedValues(chType Type) (typ string, values []string, indexes [
 	}
 
 	// Enum type must have at least one value
-	if valueIndex == 0 {
+	if len(indexes) == 0 {
 		return
 	}
 

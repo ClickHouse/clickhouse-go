@@ -127,7 +127,7 @@ func CreateClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment,
 	// create a ClickHouse Container
 	ctx := context.Background()
 	// attempt use docker for CI
-	provider, err := testcontainers.ProviderDocker.GetProvider()
+	provider, err := testcontainers.ProviderDefault.GetProvider()
 	if err != nil {
 		fmt.Printf("Docker is not running and no clickhouse connections details were provided. Skipping tests: %s\n", err)
 		os.Exit(0)
@@ -165,7 +165,7 @@ func CreateClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment,
 		ExposedPorts: []string{"9000/tcp", "8123/tcp", "9440/tcp", "8443/tcp"},
 		WaitingFor: wait.ForAll(
 			wait.ForSQL("9000/tcp", "clickhouse", func(host string, port nat.Port) string {
-				return fmt.Sprintf("clickhouse://default:ClickHouse@%s:%s?secure=false", host, port.Port())
+				return fmt.Sprintf("clickhouse://tester:ClickHouse@%s:%s?secure=false", host, port.Port())
 			}),
 		).WithDeadline(time.Second * 120),
 		Mounts: []testcontainers.ContainerMount{
@@ -210,8 +210,7 @@ func CreateClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment,
 		SslPort:     sslPort.Int(),
 		HttpsPort:   hps.Int(),
 		Host:        "127.0.0.1",
-		// we set this explicitly - note its also set in the /etc/clickhouse-server/users.d/admin.xml
-		Username:    "default",
+		Username:    "tester",
 		Password:    "ClickHouse",
 		Container:   clickhouseContainer,
 		ContainerIP: ip,

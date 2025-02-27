@@ -21,27 +21,26 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"testing"
-	"time"
-
 	"github.com/ClickHouse/clickhouse-go/v2"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/chcol"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/stretchr/testify/require"
+	"testing"
 )
 
-var jsonTestDate, _ = time.Parse(time.RFC3339, "2024-12-13T02:09:30.123Z")
-
 func setupJSONTest(t *testing.T) driver.Conn {
+	SkipOnCloud(t, "cannot modify JSON settings on cloud")
+
 	conn, err := GetNativeConnection(clickhouse.Settings{
-		"max_execution_time":           60,
-		"allow_experimental_json_type": true,
+		"max_execution_time":              60,
+		"allow_experimental_variant_type": true,
+		"allow_experimental_dynamic_type": true,
+		"allow_experimental_json_type":    true,
 	}, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	require.NoError(t, err)
 
-	if !CheckMinServerServerVersion(conn, 24, 9, 0) {
+	if !CheckMinServerServerVersion(conn, 24, 10, 0) {
 		t.Skip(fmt.Errorf("unsupported clickhouse version for JSON type"))
 		return nil
 	}
@@ -66,24 +65,7 @@ func TestJSONPaths(t *testing.T) {
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_json (c)")
 	require.NoError(t, err)
 
-	jsonRow := chcol.NewJSON()
-	jsonRow.SetValueAtPath("Name", "JSON")
-	jsonRow.SetValueAtPath("Age", int64(42))
-	jsonRow.SetValueAtPath("Active", true)
-	jsonRow.SetValueAtPath("Score", 3.14)
-	jsonRow.SetValueAtPath("Tags", []string{"a", "b"})
-	jsonRow.SetValueAtPath("Numbers", []int64{20, 40})
-	jsonRow.SetValueAtPath("Address.Street", "Street")
-	jsonRow.SetValueAtPath("Address.City", "City")
-	jsonRow.SetValueAtPath("Address.Country", "Country")
-	jsonRow.SetValueAtPath("KeysNumbers", map[string]int64{"FieldA": 42, "FieldB": 32})
-	jsonRow.SetValueAtPath("Metadata.FieldA", "a")
-	jsonRow.SetValueAtPath("Metadata.FieldB", "b")
-	jsonRow.SetValueAtPath("Metadata.FieldC.FieldD", "d")
-	jsonRow.SetValueAtPath("Timestamp", jsonTestDate)
-	jsonRow.SetValueAtPath("DynamicString", clickhouse.NewDynamic("str"))
-	jsonRow.SetValueAtPath("DynamicInt", clickhouse.NewDynamic(int64(48)))
-	jsonRow.SetValueAtPath("DynamicMap", clickhouse.NewDynamic(map[string]string{"a": "a", "b": "b"}))
+	jsonRow := BuildTestJSONPaths()
 
 	require.NoError(t, batch.Append(jsonRow))
 	require.NoError(t, batch.Send())
@@ -91,7 +73,7 @@ func TestJSONPaths(t *testing.T) {
 	rows, err := conn.Query(ctx, "SELECT c FROM test_json")
 	require.NoError(t, err)
 
-	var row chcol.JSON
+	var row clickhouse.JSON
 
 	require.True(t, rows.Next())
 	err = rows.Scan(&row)
@@ -118,31 +100,99 @@ func TestJSONPaths(t *testing.T) {
 	}
 }
 
-type Address struct {
-	Street  string `chType:"String"`
-	City    string `chType:"String"`
-	Country string `chType:"String"`
+func TestJSONArray(t *testing.T) {
+	ctx := context.Background()
+	conn := setupJSONTest(t)
+
+	const ddl = `
+			CREATE TABLE IF NOT EXISTS test_json (
+				  c Array(JSON)
+			) Engine = MergeTree() ORDER BY tuple()
+		`
+	require.NoError(t, conn.Exec(ctx, ddl))
+	defer func() {
+		require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS test_json"))
+	}()
+
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_json (c)")
+	require.NoError(t, err)
+
+	arrJsonRow := []*clickhouse.JSON{clickhouse.NewJSON(), BuildTestJSONPaths()}
+
+	require.NoError(t, batch.Append(arrJsonRow))
+	require.NoError(t, batch.Send())
+
+	rows, err := conn.Query(ctx, "SELECT c FROM test_json")
+	require.NoError(t, err)
+
+	var arrRow []*clickhouse.JSON
+
+	require.True(t, rows.Next())
+	err = rows.Scan(&arrRow)
+	require.NoError(t, err)
+	require.Len(t, arrRow, 2)
+
+	actualValuesByPathEmpty := arrRow[0].ValuesByPath()
+	for _, actualValue := range actualValuesByPathEmpty {
+		// Allow Nil func to compare values without Dynamic wrapper
+		if v, ok := actualValue.(clickhouse.Dynamic); ok {
+			actualValue = v.Any()
+		}
+
+		require.Nil(t, actualValue)
+	}
+
+	expectedValuesByPath := arrJsonRow[1].ValuesByPath()
+	actualValuesByPath := arrRow[1].ValuesByPath()
+	for path, expectedValue := range expectedValuesByPath {
+		actualValue, ok := actualValuesByPath[path]
+		if !ok {
+			t.Fatalf("result JSON is missing path: %s", path)
+		}
+
+		// Allow Equal func to compare values without Dynamic wrapper
+		if v, ok := expectedValue.(clickhouse.Dynamic); ok {
+			expectedValue = v.Any()
+		}
+
+		if v, ok := actualValue.(clickhouse.Dynamic); ok {
+			actualValue = v.Any()
+		}
+
+		require.Equal(t, expectedValue, actualValue)
+	}
 }
 
-type TestStruct struct {
-	Name   string
-	Age    int64
-	Active bool
-	Score  float64
+func TestJSONEmptyArray(t *testing.T) {
+	ctx := context.Background()
+	conn := setupJSONTest(t)
 
-	Tags    []string
-	Numbers []int64
+	const ddl = `
+			CREATE TABLE IF NOT EXISTS test_json (
+				  c Array(JSON)
+			) Engine = MergeTree() ORDER BY tuple()
+		`
+	require.NoError(t, conn.Exec(ctx, ddl))
+	defer func() {
+		require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS test_json"))
+	}()
 
-	Address Address
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_json (c)")
+	require.NoError(t, err)
 
-	KeysNumbers map[string]int64
-	Metadata    map[string]interface{}
+	var arrJsonRow []*clickhouse.JSON
+	require.NoError(t, batch.Append(arrJsonRow))
+	require.NoError(t, batch.Send())
 
-	Timestamp time.Time `chType:"DateTime64(3)"`
+	rows, err := conn.Query(ctx, "SELECT c FROM test_json")
+	require.NoError(t, err)
 
-	DynamicString chcol.Dynamic
-	DynamicInt    chcol.Dynamic
-	DynamicMap    chcol.Dynamic
+	var arrRow []*clickhouse.JSON
+
+	require.True(t, rows.Next())
+	err = rows.Scan(&arrRow)
+	require.NoError(t, err)
+	require.Len(t, arrRow, 0)
 }
 
 func TestJSONStruct(t *testing.T) {
@@ -162,36 +212,12 @@ func TestJSONStruct(t *testing.T) {
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_json (c)")
 	require.NoError(t, err)
 
-	inputRow := TestStruct{
-		Name:    "JSON",
-		Age:     42,
-		Active:  true,
-		Score:   3.14,
-		Tags:    []string{"a", "b"},
-		Numbers: []int64{20, 40},
-		Address: Address{
-			Street:  "Street",
-			City:    "City",
-			Country: "Country",
-		},
-		KeysNumbers: map[string]int64{"FieldA": 42, "FieldB": 32},
-		Metadata: map[string]interface{}{
-			"FieldA": "a",
-			"FieldB": "b",
-			"FieldC": map[string]interface{}{
-				"FieldD": "d",
-			},
-		},
-		Timestamp:     jsonTestDate,
-		DynamicString: chcol.NewDynamic("str").WithType("String"),
-		DynamicInt:    chcol.NewDynamic(int64(48)).WithType("Int64"),
-		DynamicMap:    chcol.NewDynamic(map[string]string{"a": "a", "b": "b"}).WithType("Map(String, String)"),
-	}
+	inputRow := BuildTestJSONStruct()
 	require.NoError(t, batch.Append(inputRow))
 
 	inputRow2 := TestStruct{
 		KeysNumbers: map[string]int64{},
-		Timestamp:   jsonTestDate,
+		Timestamp:   JSONTestDate,
 		Metadata: map[string]interface{}{
 			"FieldA": "a",
 			"FieldB": "b",
@@ -232,6 +258,39 @@ func TestJSONStruct(t *testing.T) {
 	require.Equal(t, inputRow2, row2)
 }
 
+func TestJSONFastStruct(t *testing.T) {
+	ctx := context.Background()
+	conn := setupJSONTest(t)
+
+	const ddl = `
+			CREATE TABLE IF NOT EXISTS test_json (
+				  c JSON(Name String, Age Int64, KeysNumbers Map(String, Int64), SKIP fake.field)
+			) Engine = MergeTree() ORDER BY tuple()
+		`
+	require.NoError(t, conn.Exec(ctx, ddl))
+	defer func() {
+		require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS test_json"))
+	}()
+
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_json (c)")
+	require.NoError(t, err)
+
+	inputRow := BuildFastTestJSONStruct()
+	require.NoError(t, batch.Append(&inputRow))
+
+	require.NoError(t, batch.Send())
+
+	rows, err := conn.Query(ctx, "SELECT c FROM test_json")
+	require.NoError(t, err)
+
+	var row TestStruct
+
+	require.True(t, rows.Next())
+	err = rows.Scan(&row)
+	require.NoError(t, err)
+	require.Equal(t, inputRow.ts, row)
+}
+
 func TestJSONString(t *testing.T) {
 	t.Skip("client cannot receive JSON strings")
 
@@ -253,31 +312,7 @@ func TestJSONString(t *testing.T) {
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_json (c)")
 	require.NoError(t, err)
 
-	inputRow := TestStruct{
-		Name:    "JSON",
-		Age:     42,
-		Active:  true,
-		Score:   3.14,
-		Tags:    []string{"a", "b"},
-		Numbers: []int64{20, 40},
-		Address: Address{
-			Street:  "Street",
-			City:    "City",
-			Country: "Country",
-		},
-		KeysNumbers: map[string]int64{"FieldA": 42, "FieldB": 32},
-		Metadata: map[string]interface{}{
-			"FieldA": "a",
-			"FieldB": "b",
-			"FieldC": map[string]interface{}{
-				"FieldD": "d",
-			},
-		},
-		Timestamp:     jsonTestDate,
-		DynamicString: chcol.NewDynamic("str").WithType("String"),
-		DynamicInt:    chcol.NewDynamic(int64(48)).WithType("Int64"),
-		DynamicMap:    chcol.NewDynamic(map[string]string{"a": "a", "b": "b"}).WithType("Map(String, String)"),
-	}
+	inputRow := BuildTestJSONStruct()
 
 	inputRowStr, err := json.Marshal(inputRow)
 	require.NoError(t, err)
@@ -381,4 +416,25 @@ func TestJSON_BatchFlush(t *testing.T) {
 
 		i++
 	}
+}
+
+// https://github.com/grafana/clickhouse-datasource/issues/1168
+func TestJSONArrayDynamic(t *testing.T) {
+	ctx := context.Background()
+	conn := setupJSONTest(t)
+
+	rows, err := conn.Query(ctx, `SELECT ['{"x":5}','{"y":6}']::Array(JSON)::Dynamic AS c`)
+	require.NoError(t, err)
+
+	require.True(t, rows.Next())
+}
+
+func TestJSONArrayVariant(t *testing.T) {
+	ctx := context.Background()
+	conn := setupJSONTest(t)
+
+	rows, err := conn.Query(ctx, `SELECT ['{"x":5}','{"y":6}']::Array(JSON)::Variant(Array(JSON)) AS c`)
+	require.NoError(t, err)
+
+	require.True(t, rows.Next())
 }

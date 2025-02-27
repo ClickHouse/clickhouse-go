@@ -275,8 +275,13 @@ func (c *Variant) encodeData(buffer *proto.Buffer) {
 	}
 }
 
-func (c *Variant) Encode(buffer *proto.Buffer) {
+func (c *Variant) WriteStatePrefix(buffer *proto.Buffer) error {
 	c.encodeHeader(buffer)
+
+	return nil
+}
+
+func (c *Variant) Encode(buffer *proto.Buffer) {
 	c.encodeData(buffer)
 }
 
@@ -300,6 +305,14 @@ func (c *Variant) decodeHeader(reader *proto.Reader) error {
 
 	if variantSerializationVersion != SupportedVariantSerializationVersion {
 		return fmt.Errorf("unsupported variant discriminator version: %d", variantSerializationVersion)
+	}
+
+	for _, col := range c.columns {
+		if serialize, ok := col.(CustomSerialization); ok {
+			if err := serialize.ReadStatePrefix(reader); err != nil {
+				return fmt.Errorf("failed to read prefix for type %s in variant: %w", col.Type(), err)
+			}
+		}
 	}
 
 	return nil
@@ -336,13 +349,17 @@ func (c *Variant) decodeData(reader *proto.Reader, rows int) error {
 	return nil
 }
 
-func (c *Variant) Decode(reader *proto.Reader, rows int) error {
+func (c *Variant) ReadStatePrefix(reader *proto.Reader) error {
 	err := c.decodeHeader(reader)
 	if err != nil {
 		return fmt.Errorf("failed to decode variant header: %w", err)
 	}
 
-	err = c.decodeData(reader, rows)
+	return nil
+}
+
+func (c *Variant) Decode(reader *proto.Reader, rows int) error {
+	err := c.decodeData(reader, rows)
 	if err != nil {
 		return fmt.Errorf("failed to decode variant data: %w", err)
 	}

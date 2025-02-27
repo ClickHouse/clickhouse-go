@@ -282,6 +282,14 @@ func (c *JSON) scanRowObject(dest any, row int) error {
 		obj := c.rowAsJSON(row)
 		**v = *obj
 		return nil
+	case chcol.JSONDeserializer:
+		obj := c.rowAsJSON(row)
+		err := v.DeserializeClickHouseJSON(obj)
+		if err != nil {
+			return fmt.Errorf("failed to deserialize using DeserializeClickHouseJSON: %w", err)
+		}
+
+		return nil
 	}
 
 	switch val := reflect.ValueOf(dest); val.Kind() {
@@ -315,6 +323,9 @@ func (c *JSON) Append(v any) (nulls []uint8, err error) {
 		case []*chcol.JSON:
 			c.serializationVersion = JSONObjectSerializationVersion
 			return c.appendObject(v)
+		case []chcol.JSONSerializer:
+			c.serializationVersion = JSONObjectSerializationVersion
+			return c.appendObject(v)
 		}
 
 		var err error
@@ -342,6 +353,15 @@ func (c *JSON) appendObject(v any) (nulls []uint8, err error) {
 
 		return nil, nil
 	case []*chcol.JSON:
+		for i, obj := range vv {
+			err := c.AppendRow(obj)
+			if err != nil {
+				return nil, fmt.Errorf("failed to AppendRow at index %d: %w", i, err)
+			}
+		}
+
+		return nil, nil
+	case []chcol.JSONSerializer:
 		for i, obj := range vv {
 			err := c.AppendRow(obj)
 			if err != nil {
@@ -395,6 +415,9 @@ func (c *JSON) AppendRow(v any) error {
 		case *chcol.JSON:
 			c.serializationVersion = JSONObjectSerializationVersion
 			return c.appendRowObject(v)
+		case chcol.JSONSerializer:
+			c.serializationVersion = JSONObjectSerializationVersion
+			return c.appendRowObject(v)
 		}
 
 		var err error
@@ -406,7 +429,7 @@ func (c *JSON) AppendRow(v any) error {
 			return nil
 		}
 
-		return fmt.Errorf("unsupported type \"%s\" for JSON column, must use string, []byte, struct, map, or *%s: %w", reflect.TypeOf(v).String(), scanTypeJSON.String(), err)
+		return fmt.Errorf("unsupported type \"%s\" for JSON column, must use string, []byte, *struct, map, or *clickhouse.JSON: %w", reflect.TypeOf(v).String(), err)
 	}
 }
 
@@ -417,6 +440,12 @@ func (c *JSON) appendRowObject(v any) error {
 		obj = &vv
 	case *chcol.JSON:
 		obj = vv
+	case chcol.JSONSerializer:
+		var err error
+		obj, err = vv.SerializeClickHouseJSON()
+		if err != nil {
+			return fmt.Errorf("failed to serialize using SerializeClickHouseJSON: %w", err)
+		}
 	}
 
 	if obj == nil && v != nil {
@@ -547,15 +576,32 @@ func (c *JSON) encodeStringData(buffer *proto.Buffer) {
 	c.jsonStrings.Encode(buffer)
 }
 
-func (c *JSON) Encode(buffer *proto.Buffer) {
+func (c *JSON) WriteStatePrefix(buffer *proto.Buffer) error {
 	switch c.serializationVersion {
 	case JSONObjectSerializationVersion:
 		buffer.PutUInt64(JSONObjectSerializationVersion)
 		c.encodeObjectHeader(buffer)
+
+		return nil
+	case JSONStringSerializationVersion:
+		buffer.PutUInt64(JSONStringSerializationVersion)
+
+		return nil
+	default:
+		// If the column is an array, it can be empty but still require a prefix.
+		// Use string encoding since it's smaller
+		buffer.PutUInt64(JSONStringSerializationVersion)
+
+		return nil
+	}
+}
+
+func (c *JSON) Encode(buffer *proto.Buffer) {
+	switch c.serializationVersion {
+	case JSONObjectSerializationVersion:
 		c.encodeObjectData(buffer)
 		return
 	case JSONStringSerializationVersion:
-		buffer.PutUInt64(JSONStringSerializationVersion)
 		c.encodeStringData(buffer)
 		return
 	}
@@ -657,9 +703,7 @@ func (c *JSON) decodeStringData(reader *proto.Reader, rows int) error {
 	return c.jsonStrings.Decode(reader, rows)
 }
 
-func (c *JSON) Decode(reader *proto.Reader, rows int) error {
-	c.rows = rows
-
+func (c *JSON) ReadStatePrefix(reader *proto.Reader) error {
 	jsonSerializationVersion, err := reader.UInt64()
 	if err != nil {
 		return fmt.Errorf("failed to read json serialization version: %w", err)
@@ -674,20 +718,34 @@ func (c *JSON) Decode(reader *proto.Reader, rows int) error {
 			return fmt.Errorf("failed to decode json object header: %w", err)
 		}
 
-		err = c.decodeObjectData(reader, rows)
+		return nil
+	case JSONStringSerializationVersion:
+		return nil
+	default:
+		return fmt.Errorf("unsupported JSON serialization version for prefix decode: %d", jsonSerializationVersion)
+	}
+}
+
+func (c *JSON) Decode(reader *proto.Reader, rows int) error {
+	c.rows = rows
+
+	switch c.serializationVersion {
+	case JSONObjectSerializationVersion:
+		err := c.decodeObjectData(reader, rows)
 		if err != nil {
 			return fmt.Errorf("failed to decode json object data: %w", err)
 		}
 
 		return nil
 	case JSONStringSerializationVersion:
-		err = c.decodeStringData(reader, rows)
+		err := c.decodeStringData(reader, rows)
 		if err != nil {
 			return fmt.Errorf("failed to decode json string data: %w", err)
 		}
+
 		return nil
 	default:
-		return fmt.Errorf("unsupported JSON serialization version for decode: %d", jsonSerializationVersion)
+		return fmt.Errorf("unsupported JSON serialization version for decode: %d", c.serializationVersion)
 	}
 }
 

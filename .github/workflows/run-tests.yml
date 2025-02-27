@@ -14,14 +14,16 @@ jobs:
   test:
     runs-on: [self-hosted, style-checker-aarch64]
     strategy:
+      fail-fast: false
       matrix:
         go:
+          - "1.24"
           - "1.23"
-          - "1.22"
         clickhouse: # https://github.com/ClickHouse/ClickHouse/blob/master/SECURITY.md#scope-and-supported-versions
-          - "24.9"
+          - "25.1"
+          - "24.12"
+          - "24.11"
           - "24.8"
-          - "24.7"
           - "24.3"
     steps:
       - name: Checkout
