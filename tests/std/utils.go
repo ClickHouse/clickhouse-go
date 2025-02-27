@@ -117,6 +117,10 @@ func GetDSNConnection(environment string, protocol clickhouse.Protocol, secure b
 }
 
 func GetConnectionFromDSN(dsn string) (*sql.DB, error) {
+	return GetConnectionFromDSNWithSessionID(dsn, "")
+}
+
+func GetConnectionFromDSNWithSessionID(dsn string, sessionID string) (*sql.DB, error) {
 	conn, err := sql.Open("clickhouse", dsn)
 	if err != nil {
 		return conn, err
@@ -134,6 +138,12 @@ func GetConnectionFromDSN(dsn string) (*sql.DB, error) {
 	if strings.HasPrefix(dsn, "http") {
 		dsn = fmt.Sprintf("%s&wait_end_of_query=1", dsn)
 	}
+
+	// Optionally provide session ID after initial version check to prevent locking
+	if len(sessionID) > 0 {
+		dsn = fmt.Sprintf("%s&session_id=%s", dsn, sessionID)
+	}
+
 	return sql.Open("clickhouse", dsn)
 }
 
