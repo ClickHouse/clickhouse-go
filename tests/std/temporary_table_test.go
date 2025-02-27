@@ -20,10 +20,11 @@ package std
 import (
 	"context"
 	"fmt"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
-	"github.com/stretchr/testify/require"
 	"strconv"
 	"testing"
+
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
+	"github.com/stretchr/testify/require"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
@@ -36,11 +37,6 @@ func TestStdTemporaryTable(t *testing.T) {
 	for name, protocol := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
 			ctx := context.Background()
-			if name == "Http" {
-				ctx = clickhouse.Context(ctx, clickhouse.WithSettings(clickhouse.Settings{
-					"session_id": "test_session",
-				}))
-			}
 			conn, err := GetStdDSNConnection(protocol, useSSL, nil)
 			require.NoError(t, err)
 			conn.Exec("DROP TABLE IF EXISTS test_temporary_table")
