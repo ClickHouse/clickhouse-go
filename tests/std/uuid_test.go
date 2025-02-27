@@ -44,6 +44,8 @@ func TestStdUUID(t *testing.T) {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
 			conn, err := GetConnectionFromDSN(dsn)
 			require.NoError(t, err)
+			conn.SetMaxOpenConns(1)
+
 			const ddl = `
 			CREATE TEMPORARY TABLE test_uuid (
 				  Col1 UUID
@@ -85,15 +87,17 @@ func TestStdNullableUUID(t *testing.T) {
 	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
 	require.NoError(t, err)
 	dsns := map[string]string{"Native": fmt.Sprintf("clickhouse://%s:%d?username=%s&password=%s", env.Host, env.Port, env.Username, env.Password),
-		"Http": fmt.Sprintf("http://%s:%d?username=%s&password=%s&session_id=uuid_test_session", env.Host, env.HttpPort, env.Username, env.Password)}
+		"Http": fmt.Sprintf("http://%s:%d?username=%s&password=%s&session_id=nullable_uuid_test_session", env.Host, env.HttpPort, env.Username, env.Password)}
 	if useSSL {
 		dsns = map[string]string{"Native": fmt.Sprintf("clickhouse://%s:%d?username=%s&password=%s&secure=true", env.Host, env.SslPort, env.Username, env.Password),
-			"Http": fmt.Sprintf("https://%s:%d?username=%s&password=%s&session_id=uuid_test_session&secure=true", env.Host, env.HttpsPort, env.Username, env.Password)}
+			"Http": fmt.Sprintf("https://%s:%d?username=%s&password=%s&session_id=nullable_uuid_test_session&secure=true", env.Host, env.HttpsPort, env.Username, env.Password)}
 	}
 	for name, dsn := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
 			conn, err := GetConnectionFromDSN(dsn)
 			require.NoError(t, err)
+			conn.SetMaxOpenConns(1)
+
 			const ddl = `
 					CREATE TEMPORARY TABLE test_uuid (
 						  Col1 Nullable(UUID)
