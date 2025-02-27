@@ -44,7 +44,6 @@ func TestStdUUID(t *testing.T) {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
 			conn, err := GetConnectionFromDSN(dsn)
 			require.NoError(t, err)
-			conn.SetMaxOpenConns(1)
 
 			const ddl = `
 			CREATE TEMPORARY TABLE test_uuid (
@@ -96,7 +95,6 @@ func TestStdNullableUUID(t *testing.T) {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
 			conn, err := GetConnectionFromDSN(dsn)
 			require.NoError(t, err)
-			conn.SetMaxOpenConns(1)
 
 			const ddl = `
 					CREATE TEMPORARY TABLE test_uuid (

@@ -124,6 +124,11 @@ func GetConnectionFromDSN(dsn string) (*sql.DB, error) {
 	if CheckMinServerVersion(conn, 22, 8, 0) {
 		dsn = fmt.Sprintf("%s&database_replicated_enforce_synchronous_settings=1", dsn)
 	}
+	err = conn.Close()
+	if err != nil {
+		return conn, err
+	}
+
 	insertQuorum := clickhouse_tests.GetEnv("CLICKHOUSE_QUORUM_INSERT", "1")
 	dsn = fmt.Sprintf("%s&insert_quorum=%s&insert_quorum_parallel=0&select_sequential_consistency=1", dsn, insertQuorum)
 	if strings.HasPrefix(dsn, "http") {

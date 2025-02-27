@@ -44,12 +44,12 @@ func TestStdConnCheck(t *testing.T) {
 	require.NoError(t, err)
 
 	dsns := map[clickhouse.Protocol]string{clickhouse.Native: fmt.Sprintf("clickhouse://%s:%d?username=%s&password=%s", env.Host, env.Port, env.Username, env.Password),
-		clickhouse.HTTP: fmt.Sprintf("http://%s:%d?username=%s&password=%s&session_id=test_session", env.Host, env.HttpPort, env.Username, env.Password)}
+		clickhouse.HTTP: fmt.Sprintf("http://%s:%d?username=%s&password=%s&session_id=conn_test_session", env.Host, env.HttpPort, env.Username, env.Password)}
 	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
 	require.NoError(t, err)
 	if useSSL {
 		dsns = map[clickhouse.Protocol]string{clickhouse.Native: fmt.Sprintf("clickhouse://%s:%d?username=%s&password=%s&secure=true", env.Host, env.SslPort, env.Username, env.Password),
-			clickhouse.HTTP: fmt.Sprintf("https://%s:%d?username=%s&password=%s&session_id=test_session&secure=true", env.Host, env.HttpsPort, env.Username, env.Password)}
+			clickhouse.HTTP: fmt.Sprintf("https://%s:%d?username=%s&password=%s&session_id=conn_test_session&secure=true", env.Host, env.HttpsPort, env.Username, env.Password)}
 	}
 	for name, dsn := range dsns {
 		if name == clickhouse.Native && useSSL {
