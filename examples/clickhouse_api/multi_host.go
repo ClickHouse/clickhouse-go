@@ -19,8 +19,9 @@ package clickhouse_api
 
 import (
 	"fmt"
-	"github.com/ClickHouse/clickhouse-go/v2"
 	"math/rand"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
 )
 
 func MultiHostVersion() error {
@@ -34,6 +35,7 @@ func MultiHostRoundRobinVersion() error {
 
 func MultiHostRandomVersion() error {
 	rand.Seed(85206178671753423)
+	defer ResetRandSeed()
 	connOpenStrategy := clickhouse.ConnOpenRandom
 	return multiHostVersion(&connOpenStrategy)
 }

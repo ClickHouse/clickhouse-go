@@ -60,8 +60,8 @@ func TestStdConnFailoverRoundRobin(t *testing.T) {
 }
 
 func TestStdConnFailoverRandom(t *testing.T) {
-	// TODO: find better way to make test deterministic
 	rand.Seed(85206178671753423)
+	defer clickhouse_tests.ResetRandSeed()
 	testStdConnFailover(t, "random")
 }
 

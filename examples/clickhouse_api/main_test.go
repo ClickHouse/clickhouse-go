@@ -20,20 +20,17 @@ package clickhouse_api
 import (
 	"context"
 	"fmt"
-	"math/rand"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
+	"github.com/stretchr/testify/require"
 	"os"
 	"strconv"
 	"testing"
-	"time"
-
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
-	"github.com/stretchr/testify/require"
 )
 
 func TestMain(m *testing.M) {
-	seed := time.Now().UnixNano()
-	fmt.Printf("using random seed %d for %s tests\n", seed, TestSet)
-	rand.Seed(seed)
+	ResetRandSeed()
+	fmt.Printf("using random seed %d for %s tests\n", randSeed, TestSet)
+
 	useDocker, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_DOCKER", "true"))
 	if err != nil {
 		panic(err)

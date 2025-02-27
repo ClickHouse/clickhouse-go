@@ -22,6 +22,8 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
+	"math/rand"
+	"time"
 )
 
 const TestSet string = "examples_clickhouse_api"
@@ -40,4 +42,10 @@ func GetNativeConnectionWithOptions(settings clickhouse.Settings, tlsConfig *tls
 
 func CheckMinServerVersion(conn driver.Conn, major, minor, patch uint64) bool {
 	return clickhouse_tests.CheckMinServerServerVersion(conn, major, minor, patch)
+}
+
+var randSeed = time.Now().UnixNano()
+
+func ResetRandSeed() {
+	rand.Seed(randSeed)
 }
