@@ -5,10 +5,10 @@ go 1.22.0
 toolchain go1.23.5
 
 require (
-	github.com/ClickHouse/ch-go v0.65.0
+	github.com/ClickHouse/ch-go v0.65.1
 	github.com/ClickHouse/clickhouse-go v1.5.4
 	github.com/andybalholm/brotli v1.1.1
-	github.com/docker/docker v27.5.1+incompatible
+	github.com/docker/docker v28.0.1+incompatible
 	github.com/docker/go-connections v0.5.0
 	github.com/docker/go-units v0.5.0
 	github.com/google/uuid v1.6.0

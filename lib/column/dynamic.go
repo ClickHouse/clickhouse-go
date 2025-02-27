@@ -313,8 +313,13 @@ func (c *Dynamic) encodeData(buffer *proto.Buffer) {
 	c.variant.encodeData(buffer)
 }
 
-func (c *Dynamic) Encode(buffer *proto.Buffer) {
+func (c *Dynamic) WriteStatePrefix(buffer *proto.Buffer) error {
 	c.encodeHeader(buffer)
+
+	return nil
+}
+
+func (c *Dynamic) Encode(buffer *proto.Buffer) {
 	c.encodeData(buffer)
 }
 
@@ -393,13 +398,17 @@ func (c *Dynamic) decodeData(reader *proto.Reader, rows int) error {
 	return nil
 }
 
-func (c *Dynamic) Decode(reader *proto.Reader, rows int) error {
+func (c *Dynamic) ReadStatePrefix(reader *proto.Reader) error {
 	err := c.decodeHeader(reader)
 	if err != nil {
 		return fmt.Errorf("failed to decode dynamic header: %w", err)
 	}
 
-	err = c.decodeData(reader, rows)
+	return nil
+}
+
+func (c *Dynamic) Decode(reader *proto.Reader, rows int) error {
+	err := c.decodeData(reader, rows)
 	if err != nil {
 		return fmt.Errorf("failed to decode dynamic data: %w", err)
 	}

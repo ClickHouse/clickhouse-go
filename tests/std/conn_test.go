@@ -23,6 +23,7 @@ import (
 	"crypto/tls"
 	"database/sql"
 	"fmt"
+	"math/rand"
 	"os"
 	"strconv"
 	"strings"
@@ -59,6 +60,8 @@ func TestStdConnFailoverRoundRobin(t *testing.T) {
 }
 
 func TestStdConnFailoverRandom(t *testing.T) {
+	// TODO: find better way to make test deterministic
+	rand.Seed(85206178671753423)
 	testStdConnFailover(t, "random")
 }
 

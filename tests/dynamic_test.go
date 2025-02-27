@@ -21,7 +21,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/chcol"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/stretchr/testify/require"
 	"testing"
@@ -87,7 +86,7 @@ func TestDynamic(t *testing.T) {
 	rows, err := conn.Query(ctx, "SELECT c FROM test_dynamic")
 	require.NoError(t, err)
 
-	var row chcol.Dynamic
+	var row clickhouse.Dynamic
 
 	require.True(t, rows.Next())
 	err = rows.Scan(&row)
@@ -135,6 +134,74 @@ func TestDynamic(t *testing.T) {
 	require.Equal(t, colMapStringInt64, row.Any())
 }
 
+func TestDynamicArray(t *testing.T) {
+	ctx := context.Background()
+	conn := setupDynamicTest(t)
+
+	const ddl = `
+			CREATE TABLE IF NOT EXISTS test_dynamic (
+				  c Array(Dynamic)                  
+			) Engine = MergeTree() ORDER BY tuple()
+		`
+	require.NoError(t, conn.Exec(ctx, ddl))
+	defer func() {
+		require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS test_dynamic"))
+	}()
+
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_dynamic (c)")
+	require.NoError(t, err)
+
+	batch.Append([]clickhouse.Dynamic{
+		clickhouse.NewDynamicWithType(int64(42), "Int64"),
+		clickhouse.NewDynamicWithType(true, "Bool"),
+	})
+	require.NoError(t, batch.Send())
+
+	rows, err := conn.Query(ctx, "SELECT c FROM test_dynamic")
+	require.NoError(t, err)
+
+	var arrRow []clickhouse.Dynamic
+
+	require.True(t, rows.Next())
+	err = rows.Scan(&arrRow)
+	require.NoError(t, err)
+	require.Len(t, arrRow, 2)
+
+	require.Equal(t, int64(42), arrRow[0].Any())
+	require.Equal(t, true, arrRow[1].Any())
+}
+
+func TestDynamicEmptyArray(t *testing.T) {
+	ctx := context.Background()
+	conn := setupDynamicTest(t)
+
+	const ddl = `
+			CREATE TABLE IF NOT EXISTS test_dynamic (
+				  c Array(Dynamic)                  
+			) Engine = MergeTree() ORDER BY tuple()
+		`
+	require.NoError(t, conn.Exec(ctx, ddl))
+	defer func() {
+		require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS test_dynamic"))
+	}()
+
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_dynamic (c)")
+	require.NoError(t, err)
+
+	batch.Append([]clickhouse.Dynamic{})
+	require.NoError(t, batch.Send())
+
+	rows, err := conn.Query(ctx, "SELECT c FROM test_dynamic")
+	require.NoError(t, err)
+
+	var arrRow []clickhouse.Dynamic
+
+	require.True(t, rows.Next())
+	err = rows.Scan(&arrRow)
+	require.NoError(t, err)
+	require.Len(t, arrRow, 0)
+}
+
 func TestDynamic_ScanWithType(t *testing.T) {
 	ctx := context.Background()
 	conn := setupDynamicTest(t)
@@ -160,7 +227,7 @@ func TestDynamic_ScanWithType(t *testing.T) {
 	rows, err := conn.Query(ctx, "SELECT c FROM test_dynamic")
 	require.NoError(t, err)
 
-	var row chcol.Dynamic
+	var row clickhouse.Dynamic
 
 	require.True(t, rows.Next())
 	err = rows.Scan(&row)

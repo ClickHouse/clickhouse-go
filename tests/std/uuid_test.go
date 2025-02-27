@@ -34,25 +34,24 @@ func TestStdUUID(t *testing.T) {
 	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
 	require.NoError(t, err)
 	dsns := map[string]string{"Native": fmt.Sprintf("clickhouse://%s:%d?username=%s&password=%s", env.Host, env.Port, env.Username, env.Password),
-		"Http": fmt.Sprintf("http://%s:%d?username=%s&password=%s&session_id=session", env.Host, env.HttpPort, env.Username, env.Password)}
+		"Http": fmt.Sprintf("http://%s:%d?username=%s&password=%s&session_id=uuid_test_session", env.Host, env.HttpPort, env.Username, env.Password)}
 	if useSSL {
 		dsns = map[string]string{"Native": fmt.Sprintf("clickhouse://%s:%d?username=%s&password=%s&secure=true", env.Host, env.SslPort, env.Username, env.Password),
-			"Http": fmt.Sprintf("https://%s:%d?username=%s&password=%s&session_id=session&secure=true", env.Host, env.HttpsPort, env.Username, env.Password)}
+			"Http": fmt.Sprintf("https://%s:%d?username=%s&password=%s&session_id=uuid_test_session&secure=true", env.Host, env.HttpsPort, env.Username, env.Password)}
 	}
 
 	for name, dsn := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
 			conn, err := GetConnectionFromDSN(dsn)
 			require.NoError(t, err)
+
 			const ddl = `
 			CREATE TEMPORARY TABLE test_uuid (
 				  Col1 UUID
 				, Col2 UUID
 			) Engine Memory()
 		`
-			defer func() {
-				conn.Exec("DROP TABLE test_uuid")
-			}()
+
 			_, err = conn.Exec(ddl)
 			require.NoError(t, err)
 			scope, err := conn.Begin()
@@ -73,6 +72,10 @@ func TestStdUUID(t *testing.T) {
 			require.NoError(t, conn.QueryRow("SELECT * FROM test_uuid").Scan(&col1, &col2))
 			assert.Equal(t, col1Data, col1)
 			assert.Equal(t, col2Data, col2)
+
+			_, err = conn.Exec("DROP TABLE test_uuid")
+			require.NoError(t, err)
+			require.NoError(t, conn.Close())
 		})
 	}
 }
@@ -83,24 +86,23 @@ func TestStdNullableUUID(t *testing.T) {
 	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
 	require.NoError(t, err)
 	dsns := map[string]string{"Native": fmt.Sprintf("clickhouse://%s:%d?username=%s&password=%s", env.Host, env.Port, env.Username, env.Password),
-		"Http": fmt.Sprintf("http://%s:%d?username=%s&password=%s&session_id=session", env.Host, env.HttpPort, env.Username, env.Password)}
+		"Http": fmt.Sprintf("http://%s:%d?username=%s&password=%s&session_id=nullable_uuid_test_session", env.Host, env.HttpPort, env.Username, env.Password)}
 	if useSSL {
 		dsns = map[string]string{"Native": fmt.Sprintf("clickhouse://%s:%d?username=%s&password=%s&secure=true", env.Host, env.SslPort, env.Username, env.Password),
-			"Http": fmt.Sprintf("https://%s:%d?username=%s&password=%s&session_id=session&secure=true", env.Host, env.HttpsPort, env.Username, env.Password)}
+			"Http": fmt.Sprintf("https://%s:%d?username=%s&password=%s&session_id=nullable_uuid_test_session&secure=true", env.Host, env.HttpsPort, env.Username, env.Password)}
 	}
 	for name, dsn := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
 			conn, err := GetConnectionFromDSN(dsn)
 			require.NoError(t, err)
+
 			const ddl = `
 					CREATE TEMPORARY TABLE test_uuid (
 						  Col1 Nullable(UUID)
 						, Col2 Nullable(UUID)
 					)
 				`
-			defer func() {
-				conn.Exec("DROP TABLE test_uuid")
-			}()
+
 			_, err = conn.Exec(ddl)
 			require.NoError(t, err)
 			scope, err := conn.Begin()
@@ -140,6 +142,10 @@ func TestStdNullableUUID(t *testing.T) {
 				require.Nil(t, col2)
 				assert.Equal(t, col1Data, *col1)
 			}
+
+			_, err = conn.Exec("DROP TABLE IF EXISTS test_uuid")
+			require.NoError(t, err)
+			require.NoError(t, conn.Close())
 		})
 	}
 }

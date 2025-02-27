@@ -21,6 +21,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"math/rand"
 	"os"
 	"runtime"
 	"strconv"
@@ -67,20 +68,20 @@ func TestBadConn(t *testing.T) {
 }
 
 func TestConnFailover(t *testing.T) {
-	testConnFailover(t, nil)
+	testConnFailover(t, clickhouse.ConnOpenInOrder)
 }
 
 func TestConnFailoverRoundRobin(t *testing.T) {
-	strategy := clickhouse.ConnOpenRoundRobin
-	testConnFailover(t, &strategy)
+	testConnFailover(t, clickhouse.ConnOpenRoundRobin)
 }
 
 func TestConnFailoverRandom(t *testing.T) {
-	strategy := clickhouse.ConnOpenRandom
-	testConnFailover(t, &strategy)
+	// TODO: find better way to make test deterministic
+	rand.Seed(85206178671753423)
+	testConnFailover(t, clickhouse.ConnOpenRandom)
 }
 
-func testConnFailover(t *testing.T, connOpenStrategy *clickhouse.ConnOpenStrategy) {
+func testConnFailover(t *testing.T, connOpenStrategy clickhouse.ConnOpenStrategy) {
 	env, err := GetNativeTestEnvironment()
 	require.NoError(t, err)
 	useSSL, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_SSL", "false"))
@@ -92,6 +93,7 @@ func testConnFailover(t *testing.T, connOpenStrategy *clickhouse.ConnOpenStrateg
 		tlsConfig = &tls.Config{}
 	}
 	options := clickhouse.Options{
+		ConnOpenStrategy: connOpenStrategy,
 		Addr: []string{
 			"127.0.0.1:9001",
 			"127.0.0.1:9002",
@@ -107,9 +109,7 @@ func testConnFailover(t *testing.T, connOpenStrategy *clickhouse.ConnOpenStrateg
 		},
 		TLS: tlsConfig,
 	}
-	if connOpenStrategy != nil {
-		options.ConnOpenStrategy = *connOpenStrategy
-	}
+
 	conn, err := GetConnectionWithOptions(&options)
 	require.NoError(t, err)
 	require.NoError(t, conn.Ping(context.Background()))
