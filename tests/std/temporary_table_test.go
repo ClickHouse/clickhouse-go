@@ -37,12 +37,17 @@ func TestStdTemporaryTable(t *testing.T) {
 	for name, protocol := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
 			ctx := context.Background()
+			if name == "Http" {
+				ctx = clickhouse.Context(ctx, clickhouse.WithSettings(clickhouse.Settings{
+					"session_id": "temp_table_test_session",
+				}))
+			}
+
 			conn, err := GetStdDSNConnection(protocol, useSSL, nil)
 			require.NoError(t, err)
-			conn.Exec("DROP TABLE IF EXISTS test_temporary_table")
-			defer func() {
-				conn.Exec("DROP TABLE test_temporary_table")
-			}()
+
+			_, err = conn.Exec("DROP TABLE IF EXISTS test_temporary_table")
+			require.NoError(t, err)
 			const ddl = `CREATE TEMPORARY TABLE test_temporary_table (
 							ID UInt64
 						);`
@@ -74,9 +79,12 @@ func TestStdTemporaryTable(t *testing.T) {
 				require.True(t, ok)
 				assert.Equal(t, int32(60), exception.Code)
 			}
-			require.Equal(t, int(10), count)
+			require.Equal(t, 10, count)
 			require.NoError(t, tx.Commit())
-			assert.NoError(t, conn.Close())
+
+			_, err = conn.Exec("DROP TABLE IF EXISTS test_temporary_table")
+			require.NoError(t, err)
+			require.NoError(t, conn.Close())
 		})
 	}
 }
