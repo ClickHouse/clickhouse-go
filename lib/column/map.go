@@ -328,9 +328,19 @@ func (col *Map) row(n int) reflect.Value {
 		from = int(prev)
 	)
 	for next := 0; next < size; next++ {
+		mapValue := col.values.Row(from+next, false)
+		var mapReflectValue reflect.Value
+		if mapValue == nil {
+			// Convert interface{} nil to typed nil (such as nil *string) to preserve map element
+			// https://github.com/ClickHouse/clickhouse-go/issues/1515
+			mapReflectValue = reflect.New(value.Type().Elem()).Elem()
+		} else {
+			mapReflectValue = reflect.ValueOf(mapValue)
+		}
+
 		value.SetMapIndex(
 			reflect.ValueOf(col.keys.Row(from+next, false)),
-			reflect.ValueOf(col.values.Row(from+next, false)),
+			mapReflectValue,
 		)
 	}
 	return value
