@@ -29,14 +29,14 @@ import (
 // release is ignored, because http used by std with empty release function
 func (h *httpConnect) query(ctx context.Context, release func(*connect, error), query string, args ...any) (*rows, error) {
 	options := queryOptions(ctx)
-	query, err := bindQueryOrAppendParameters(true, &options, query, h.location, args...)
+	query, err := bindQueryOrAppendParameters(true, options, query, h.location, args...)
 	if err != nil {
 		return nil, err
 	}
 	headers := make(map[string]string)
 	switch h.compression {
 	case CompressionZSTD, CompressionLZ4:
-		options.settings["compress"] = "1"
+		options.SetSetting("compress", "1")
 	case CompressionGZIP, CompressionDeflate, CompressionBrotli:
 		// request encoding
 		headers["Accept-Encoding"] = h.compression.String()
@@ -46,7 +46,7 @@ func (h *httpConnect) query(ctx context.Context, release func(*connect, error), 
 		headers[k] = v
 	}
 
-	res, err := h.sendQuery(ctx, query, &options, headers)
+	res, err := h.sendQuery(ctx, query, options, headers)
 	if err != nil {
 		return nil, err
 	}

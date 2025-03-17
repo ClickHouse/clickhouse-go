@@ -468,7 +468,12 @@ func (h *httpConnect) createRequest(ctx context.Context, requestUrl string, read
 		if options.quotaKey != "" {
 			query.Set(quotaKeyParamName, options.quotaKey)
 		}
-		for key, value := range options.settings {
+
+		// Get thread-safe copies of settings and parameters
+		settings := options.GetSettings()
+		parameters := options.GetParameters()
+
+		for key, value := range settings {
 			// check that query doesn't change format
 			if key == "default_format" {
 				continue
@@ -478,7 +483,7 @@ func (h *httpConnect) createRequest(ctx context.Context, requestUrl string, read
 			}
 			query.Set(key, fmt.Sprint(value))
 		}
-		for key, value := range options.parameters {
+		for key, value := range parameters {
 			query.Set(fmt.Sprintf("param_%s", key), value)
 		}
 		req.URL.RawQuery = query.Encode()

@@ -32,7 +32,11 @@ var (
 
 func bindQueryOrAppendParameters(paramsProtocolSupport bool, options *QueryOptions, query string, timezone *time.Location, args ...any) (string, error) {
 	// prefer native query parameters over legacy bind if query parameters provided explicit
-	if len(options.parameters) > 0 {
+	options.mu.RLock()
+	hasParams := len(options.parameters) > 0
+	options.mu.RUnlock()
+	
+	if hasParams {
 		return query, nil
 	}
 
@@ -41,17 +45,24 @@ func bindQueryOrAppendParameters(paramsProtocolSupport bool, options *QueryOptio
 	if paramsProtocolSupport &&
 		len(args) > 0 &&
 		hasQueryParamsRe.MatchString(query) {
-		options.parameters = make(Parameters, len(args))
+		
+		// Create new parameters safely
+		newParams := make(Parameters, len(args))
 		for _, a := range args {
 			if p, ok := a.(driver.NamedValue); ok {
 				if str, ok := p.Value.(string); ok {
-					options.parameters[p.Name] = str
+					newParams[p.Name] = str
 					continue
 				}
 			}
 
 			return "", ErrExpectedStringValueInNamedValueForQueryParameter
 		}
+		
+		// Set the parameters safely
+		options.mu.Lock()
+		options.parameters = newParams
+		options.mu.Unlock()
 
 		return query, nil
 	}

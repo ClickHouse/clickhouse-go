@@ -26,6 +26,11 @@ import (
 func (c *connect) sendQuery(body string, o *QueryOptions) error {
 	c.debugf("[send query] compression=%q %s", c.compression, body)
 	c.buffer.PutByte(proto.ClientQuery)
+	
+	// Get thread-safe copies of settings and parameters
+	settings := o.GetSettings()
+	parameters := o.GetParameters()
+	
 	q := proto.Query{
 		ClientTCPProtocolVersion: ClientTCPProtocolVersion,
 		ClientName:               c.opt.ClientInfo.String(),
@@ -36,8 +41,8 @@ func (c *connect) sendQuery(body string, o *QueryOptions) error {
 		QuotaKey:                 o.quotaKey,
 		Compression:              c.compression != CompressionNone,
 		InitialAddress:           c.conn.LocalAddr().String(),
-		Settings:                 c.settings(o.settings),
-		Parameters:               parametersToProtoParameters(o.parameters),
+		Settings:                 c.settings(settings),
+		Parameters:               parametersToProtoParameters(parameters),
 	}
 	if err := q.Encode(c.buffer, c.revision); err != nil {
 		return err

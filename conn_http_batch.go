@@ -205,12 +205,12 @@ func (b *httpBatch) Send() (err error) {
 		}
 	}()
 
-	options.settings["query"] = b.query
+	options.SetSetting("query", b.query)
 	headers["Content-Type"] = "application/octet-stream"
 	for k, v := range b.conn.headers {
 		headers[k] = v
 	}
-	res, err := b.conn.sendStreamQuery(b.ctx, r, &options, headers)
+	res, err := b.conn.sendStreamQuery(b.ctx, r, options, headers)
 
 	if res != nil {
 		defer res.Body.Close()

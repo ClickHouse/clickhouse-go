@@ -47,7 +47,7 @@ func (c *connect) prepareBatch(ctx context.Context, query string, opts driver.Pr
 		c.conn.SetDeadline(deadline)
 		defer c.conn.SetDeadline(time.Time{})
 	}
-	if err := c.sendQuery(query, &options); err != nil {
+	if err := c.sendQuery(query, options); err != nil {
 		release(c, err)
 		return nil, err
 	}
@@ -260,7 +260,7 @@ func (b *batch) resetConnection() (err error) {
 		defer b.conn.conn.SetDeadline(time.Time{})
 	}
 
-	if err = b.conn.sendQuery(b.query, &options); err != nil {
+	if err = b.conn.sendQuery(b.query, options); err != nil {
 		b.release(err)
 		return err
 	}

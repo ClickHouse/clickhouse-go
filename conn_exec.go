@@ -27,7 +27,7 @@ func (c *connect) exec(ctx context.Context, query string, args ...any) error {
 	var (
 		options                    = queryOptions(ctx)
 		queryParamsProtocolSupport = c.revision >= proto.DBMS_MIN_PROTOCOL_VERSION_WITH_PARAMETERS
-		body, err                  = bindQueryOrAppendParameters(queryParamsProtocolSupport, &options, query, c.server.Timezone, args...)
+		body, err                  = bindQueryOrAppendParameters(queryParamsProtocolSupport, options, query, c.server.Timezone, args...)
 	)
 	if err != nil {
 		return err
@@ -40,7 +40,7 @@ func (c *connect) exec(ctx context.Context, query string, args ...any) error {
 		c.conn.SetDeadline(deadline)
 		defer c.conn.SetDeadline(time.Time{})
 	}
-	if err := c.sendQuery(body, &options); err != nil {
+	if err := c.sendQuery(body, options); err != nil {
 		return err
 	}
 	return c.process(ctx, options.onProcess())
