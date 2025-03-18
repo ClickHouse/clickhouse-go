@@ -306,8 +306,8 @@ func (std *stdDriver) ExecContext(ctx context.Context, query string, args []driv
 	}
 
 	var err error
-	if options := queryOptions(ctx); options.async.ok {
-		err = std.conn.asyncInsert(ctx, query, options.async.wait, rebind(args)...)
+	if asyncOpt := queryOptionsAsync(ctx); asyncOpt.ok {
+		err = std.conn.asyncInsert(ctx, query, asyncOpt.wait, rebind(args)...)
 	} else {
 		err = std.conn.exec(ctx, query, rebind(args)...)
 	}
