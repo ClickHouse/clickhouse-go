@@ -344,10 +344,10 @@ func (c *connect) readData(ctx context.Context, packet byte, compressible bool) 
 		defer c.reader.DisableCompression()
 	}
 
-	opts := queryOptions(ctx)
+	userLocation := queryOptionsUserLocation(ctx)
 	location := c.server.Timezone
-	if opts.userLocation != nil {
-		location = opts.userLocation
+	if userLocation != nil {
+		location = userLocation
 	}
 
 	block := proto.Block{Timezone: location}
