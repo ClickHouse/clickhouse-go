@@ -165,7 +165,8 @@ func ignoreExternalTables() QueryOption {
 	}
 }
 
-// Context applies ClickHouse QueryOptions to the current context.
+// Context returns a derived context with the given ClickHouse QueryOptions.
+// Existing QueryOptions will be overwritten per option if present.
 // The QueryOptions Settings map will be initialized if nil.
 func Context(parent context.Context, options ...QueryOption) context.Context {
 	var opt QueryOptions
