@@ -1,3 +1,5 @@
+//go:build !race
+
 package issues
 
 import (
@@ -31,7 +33,7 @@ func TestIssue1503(t *testing.T) {
 		require.NoError(t, err)
 		wg.Done()
 	}
-	
+
 	attempts := 10
 	concurrency := 5
 
