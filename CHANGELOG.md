@@ -1,3 +1,12 @@
+# v2.33.1, 2025-03-18 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Bug fixes 🐛 
+* fix concurrent map write errors with context by @SpencerTorres in https://github.com/ClickHouse/clickhouse-go/pull/1523
+
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.33.0...v2.33.1
+
 # v2.33.0, 2025-03-07 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
