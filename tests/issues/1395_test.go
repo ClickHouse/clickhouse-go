@@ -21,11 +21,11 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"fmt"
 	"testing"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 )
 
@@ -46,7 +46,7 @@ func Test1395(t *testing.T) {
 	tx1 := func(c *sql.Conn) error {
 		tx, err := c.BeginTx(ctx, nil)
 		if err != nil {
-			return errors.Wrap(err, "begin tx")
+			return fmt.Errorf("begin tx: %w", err)
 		}
 		defer tx.Rollback()
 
@@ -57,12 +57,12 @@ ON CLUSTER my
 ENGINE = MergeTree()
 ORDER BY id`)
 		if err != nil {
-			return errors.Wrap(err, "create table")
+			return fmt.Errorf("create table: %w", err)
 		}
 
 		err = tx.Commit()
 		if err != nil {
-			return errors.Wrap(err, "commit tx")
+			return fmt.Errorf("commit tx: %w", err)
 		}
 
 		return nil
@@ -74,17 +74,17 @@ ORDER BY id`)
 	tx2 := func(c *sql.Conn) error {
 		tx, err := c.BeginTx(ctx, nil)
 		if err != nil {
-			return errors.Wrap(err, "begin tx")
+			return fmt.Errorf("begin tx: %w", err)
 		}
 		defer tx.Rollback()
 
 		_, err = tx.ExecContext(ctx, "INSERT INTO test_table (id, name) VALUES (?, ?)", 1, "test_name")
 		if err != nil {
-			return errors.Wrap(err, "failed to insert record")
+			return fmt.Errorf("failed to insert record: %w", err)
 		}
 		err = tx.Commit()
 		if err != nil {
-			return errors.Wrap(err, "commit tx")
+			return fmt.Errorf("commit tx: %w", err)
 		}
 
 		return nil

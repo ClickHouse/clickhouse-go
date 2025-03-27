@@ -20,6 +20,7 @@ package clickhouse
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -29,7 +30,6 @@ import (
 	"time"
 
 	"github.com/ClickHouse/ch-go/compress"
-	"github.com/pkg/errors"
 )
 
 type CompressionMethod byte
@@ -211,7 +211,7 @@ func (o *Options) fromDSN(in string) error {
 		case "compress_level":
 			level, err := strconv.ParseInt(params.Get(v), 10, 8)
 			if err != nil {
-				return errors.Wrap(err, "compress_level invalid value")
+				return fmt.Errorf("compress_level invalid value: %w", err)
 			}
 
 			if o.Compression == nil {
@@ -227,7 +227,7 @@ func (o *Options) fromDSN(in string) error {
 		case "max_compression_buffer":
 			max, err := strconv.Atoi(params.Get(v))
 			if err != nil {
-				return errors.Wrap(err, "max_compression_buffer invalid value")
+				return fmt.Errorf("max_compression_buffer invalid value: %w", err)
 			}
 			o.MaxCompressionBuffer = max
 		case "dial_timeout":
@@ -283,19 +283,19 @@ func (o *Options) fromDSN(in string) error {
 		case "max_open_conns":
 			maxOpenConns, err := strconv.Atoi(params.Get(v))
 			if err != nil {
-				return errors.Wrap(err, "max_open_conns invalid value")
+				return fmt.Errorf("max_open_conns invalid value: %w", err)
 			}
 			o.MaxOpenConns = maxOpenConns
 		case "max_idle_conns":
 			maxIdleConns, err := strconv.Atoi(params.Get(v))
 			if err != nil {
-				return errors.Wrap(err, "max_idle_conns invalid value")
+				return fmt.Errorf("max_idle_conns invalid value: %w", err)
 			}
 			o.MaxIdleConns = maxIdleConns
 		case "conn_max_lifetime":
 			connMaxLifetime, err := time.ParseDuration(params.Get(v))
 			if err != nil {
-				return errors.Wrap(err, "conn_max_lifetime invalid value")
+				return fmt.Errorf("conn_max_lifetime invalid value: %w", err)
 			}
 			o.ConnMaxLifetime = connMaxLifetime
 		case "username":

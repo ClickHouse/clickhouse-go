@@ -19,14 +19,13 @@ package clickhouse
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"regexp"
 	"slices"
 	"syscall"
 	"time"
-
-	"github.com/pkg/errors"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
@@ -130,7 +129,7 @@ func (b *batch) Append(v ...any) error {
 	}
 
 	if err := b.block.Append(v...); err != nil {
-		b.err = errors.Wrap(ErrBatchInvalid, err.Error())
+		b.err = fmt.Errorf("%w: %w", ErrBatchInvalid, err)
 		b.release(err)
 		return err
 	}

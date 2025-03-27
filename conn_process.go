@@ -19,11 +19,11 @@ package clickhouse
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
-	"github.com/pkg/errors"
 )
 
 type onProcess struct {

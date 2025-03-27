@@ -21,8 +21,6 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-
-	"github.com/pkg/errors"
 )
 
 var normalizeInsertQueryMatch = regexp.MustCompile(`(?i)(INSERT\s+INTO\s+([^(]+)(?:\s*\([^()]*(?:\([^()]*\)[^()]*)*\))?)(?:\s*VALUES)?`)
@@ -36,7 +34,7 @@ func extractNormalizedInsertQueryAndColumns(query string) (normalizedQuery strin
 
 	matches := normalizeInsertQueryMatch.FindStringSubmatch(query)
 	if len(matches) == 0 {
-		err = errors.Errorf("invalid INSERT query: %s", query)
+		err = fmt.Errorf("invalid INSERT query: %s", query)
 		return
 	}
 

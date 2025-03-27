@@ -20,6 +20,7 @@ package clickhouse
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -30,7 +31,6 @@ import (
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2/resources"
-	"github.com/pkg/errors"
 
 	"github.com/ClickHouse/ch-go/compress"
 	chproto "github.com/ClickHouse/ch-go/proto"
@@ -256,7 +256,7 @@ func (c *connect) compressBuffer(start int) error {
 	if c.compression != CompressionNone && len(c.buffer.Buf) > 0 {
 		data := c.buffer.Buf[start:]
 		if err := c.compressor.Compress(data); err != nil {
-			return errors.Wrap(err, "compress")
+			return fmt.Errorf("compress: %w", err)
 		}
 		c.buffer.Buf = append(c.buffer.Buf[:start], c.compressor.Data...)
 	}
@@ -369,7 +369,7 @@ func (c *connect) flush() error {
 
 	n, err := c.conn.Write(c.buffer.Buf)
 	if err != nil {
-		return errors.Wrap(err, "write")
+		return fmt.Errorf("write: %w", err)
 	}
 
 	if n != len(c.buffer.Buf) {
