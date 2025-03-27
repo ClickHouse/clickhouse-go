@@ -24,6 +24,7 @@ import (
 	"compress/zlib"
 	"context"
 	"database/sql/driver"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -42,7 +43,6 @@ import (
 	chproto "github.com/ClickHouse/ch-go/proto"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 	"github.com/andybalholm/brotli"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -379,7 +379,7 @@ func (h *httpConnect) writeData(block *proto.Block) error {
 		// Performing compression. Supported and requires
 		data := h.buffer.Buf[start:]
 		if err := h.blockCompressor.Compress(data); err != nil {
-			return errors.Wrap(err, "compress")
+			return fmt.Errorf("compress: %w", err)
 		}
 		h.buffer.Buf = append(h.buffer.Buf[:start], h.blockCompressor.Data...)
 	}
