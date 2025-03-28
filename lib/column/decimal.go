@@ -201,6 +201,12 @@ func (col *Decimal) AppendRow(v any) error {
 		if v != nil {
 			value = *v
 		}
+	case string:
+		d, err := decimal.NewFromString(v)
+		if err != nil {
+			return err
+		}
+		value = d
 	case nil:
 	default:
 		if valuer, ok := v.(driver.Valuer); ok {
