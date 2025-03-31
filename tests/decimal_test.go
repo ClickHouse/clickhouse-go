@@ -352,3 +352,70 @@ func TestDecimalValuer(t *testing.T) {
 	assert.True(t, decimal.New(135, 7).Equal(col4))
 	assert.True(t, decimal.New(256, 8).Equal(col5))
 }
+
+type testDecimalStringSerializer struct {
+	val float64
+}
+
+func (c testDecimalStringSerializer) Value() (driver.Value, error) {
+	return fmt.Sprint(c.val), nil
+}
+
+func (c *testDecimalStringSerializer) Scan(src any) error {
+	if t, ok := src.(decimal.Decimal); ok {
+		fmt.Sscanf(t.String(), "%f", &c.val)
+		return nil
+	}
+	return fmt.Errorf("cannot scan %T into testDecimalStringSerializer", src)
+}
+
+func TestDecimalStringValuer(t *testing.T) {
+	conn, err := GetNativeConnection(clickhouse.Settings{
+		"allow_experimental_bigint_types": 1,
+	}, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+	require.NoError(t, err)
+	if !CheckMinServerServerVersion(conn, 21, 1, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
+		return
+	}
+	const ddl = `
+			CREATE TABLE test_decimal (
+				  Col1 Decimal32(3)
+				, Col2 Decimal(18,6)
+				, Col3 Decimal(15,7)
+				, Col4 Decimal128(8)
+				, Col5 Decimal256(9)
+			) Engine MergeTree() ORDER BY tuple()
+		`
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_decimal")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_decimal")
+	require.NoError(t, err)
+	require.NoError(t, batch.Append(
+		testDecimalStringSerializer{val: 25.4},
+		testDecimalStringSerializer{val: 30.5},
+		testDecimalStringSerializer{val: 35.6},
+		testDecimalStringSerializer{val: 135.7},
+		testDecimalStringSerializer{val: 256.8},
+	))
+	require.Equal(t, 1, batch.Rows())
+	require.NoError(t, batch.Send())
+	var (
+		col1 testDecimalStringSerializer
+		col2 testDecimalStringSerializer
+		col3 testDecimalStringSerializer
+		col4 testDecimalStringSerializer
+		col5 testDecimalStringSerializer
+	)
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_decimal").Scan(&col1, &col2, &col3, &col4, &col5))
+	assert.Equal(t, 25.4, col1.val)
+	assert.Equal(t, 30.5, col2.val)
+	assert.Equal(t, 35.6, col3.val)
+	assert.Equal(t, 135.7, col4.val)
+	assert.Equal(t, 256.8, col5.val)
+}
