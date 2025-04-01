@@ -330,7 +330,7 @@ func BenchmarkFixedString(b *testing.B) {
 	const rowsInBlock = 10_000_000
 
 	for n := 0; n < b.N; n++ {
-		batch, err := conn.PrepareBatch(ctx, "INSERT INTO benchmark_fixed_string VALUES")
+		batch, err := conn.PrepareBatch(ctx, "INSERT INTO benchmark_fixed_string")
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -368,7 +368,7 @@ func BenchmarkColumnarFixedString(b *testing.B) {
 		col2 []string
 	)
 	for n := 0; n < b.N; n++ {
-		batch, err := conn.PrepareBatch(ctx, "INSERT INTO benchmark_fixed_string VALUES")
+		batch, err := conn.PrepareBatch(ctx, "INSERT INTO benchmark_fixed_string")
 		if err != nil {
 			b.Fatal(err)
 		}
