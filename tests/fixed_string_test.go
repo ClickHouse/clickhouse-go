@@ -125,7 +125,8 @@ func TestEmptyFixedString(t *testing.T) {
 	const ddl = `
 			CREATE TABLE test_fixed_string_empty (
 				Col1 FixedString(2),
-				Col2 FixedString(2)
+				Col2 FixedString(2),
+				Col3 FixedString(2),
 			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
@@ -135,19 +136,51 @@ func TestEmptyFixedString(t *testing.T) {
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_fixed_string_empty")
 	require.NoError(t, err)
 	var (
-		col1Data = ""
-		col2Data = "US"
+		col1Data         = ""
+		col2Data         = "US"
+		col3Data *string = nil
 	)
-	require.NoError(t, batch.Append(col1Data, col2Data))
+	require.NoError(t, batch.Append(col1Data, col2Data, col3Data))
 	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 	var (
 		col1 string
 		col2 string
+		col3 string
 	)
-	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_fixed_string_empty").Scan(&col1, &col2))
-	assert.Equal(t, string([]byte{0x00, 0x00}), col1)
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_fixed_string_empty").Scan(&col1, &col2, &col3))
+	emptyVal := string([]byte{0, 0})
+	assert.Equal(t, emptyVal, col1)
 	assert.Equal(t, col2Data, col2)
+	assert.Equal(t, emptyVal, col3)
+}
+
+func TestOverflowFixedString(t *testing.T) {
+	conn, err := GetNativeConnection(nil, nil, nil)
+	ctx := context.Background()
+	require.NoError(t, err)
+
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO function null('x FixedString(16)')")
+	require.NoError(t, err)
+
+	input := "this is NOT the correct length."
+
+	err = batch.Append(input)
+	require.ErrorContains(t, err, "input value with length")
+	require.ErrorContains(t, err, "exceeds FixedString(16) capacity")
+}
+
+func TestPaddedFixedString(t *testing.T) {
+	conn, err := GetNativeConnection(nil, nil, nil)
+	ctx := context.Background()
+	require.NoError(t, err)
+
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO function null('x FixedString(16)')")
+	require.NoError(t, err)
+
+	input := "str too short"
+	err = batch.Append(input)
+	require.NoError(t, err)
 }
 
 func TestNullableFixedString(t *testing.T) {
@@ -157,16 +190,16 @@ func TestNullableFixedString(t *testing.T) {
 	ctx := context.Background()
 	require.NoError(t, err)
 	const ddl = `
-		CREATE TABLE test_fixed_string (
+		CREATE TABLE test_nullable_fixed_string (
 			  Col1 Nullable(FixedString(10))
 			, Col2 Nullable(FixedString(10))
 		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE IF EXISTS test_fixed_string")
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_nullable_fixed_string")
 	}()
 	require.NoError(t, conn.Exec(ctx, ddl))
-	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_fixed_string")
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_nullable_fixed_string")
 	require.NoError(t, err)
 	var (
 		col1Data = "ClickHouse"
@@ -181,11 +214,11 @@ func TestNullableFixedString(t *testing.T) {
 		col1 string
 		col2 BinFixedString
 	)
-	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_fixed_string").Scan(&col1, &col2))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_nullable_fixed_string").Scan(&col1, &col2))
 	assert.Equal(t, col1Data, col1)
 	assert.Equal(t, col2Data.data, col2.data)
-	require.NoError(t, conn.Exec(ctx, "TRUNCATE TABLE test_fixed_string"))
-	batch, err = conn.PrepareBatch(ctx, "INSERT INTO test_fixed_string")
+	require.NoError(t, conn.Exec(ctx, "TRUNCATE TABLE test_nullable_fixed_string"))
+	batch, err = conn.PrepareBatch(ctx, "INSERT INTO test_nullable_fixed_string")
 	require.NoError(t, err)
 	col1Data = "ClickHouse"
 	require.NoError(t, batch.Append(col1Data, nil))
@@ -196,7 +229,7 @@ func TestNullableFixedString(t *testing.T) {
 			col1 *string
 			col2 *string
 		)
-		require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_fixed_string").Scan(&col1, &col2))
+		require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_nullable_fixed_string").Scan(&col1, &col2))
 		require.Nil(t, col2)
 		assert.Equal(t, col1Data, *col1)
 	}
@@ -297,7 +330,7 @@ func BenchmarkFixedString(b *testing.B) {
 	const rowsInBlock = 10_000_000
 
 	for n := 0; n < b.N; n++ {
-		batch, err := conn.PrepareBatch(ctx, "INSERT INTO benchmark_fixed_string VALUES")
+		batch, err := conn.PrepareBatch(ctx, "INSERT INTO benchmark_fixed_string")
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -335,7 +368,7 @@ func BenchmarkColumnarFixedString(b *testing.B) {
 		col2 []string
 	)
 	for n := 0; n < b.N; n++ {
-		batch, err := conn.PrepareBatch(ctx, "INSERT INTO benchmark_fixed_string VALUES")
+		batch, err := conn.PrepareBatch(ctx, "INSERT INTO benchmark_fixed_string")
 		if err != nil {
 			b.Fatal(err)
 		}

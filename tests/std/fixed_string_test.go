@@ -55,22 +55,22 @@ func TestStdFixedString(t *testing.T) {
 			conn, err := GetStdDSNConnection(protocol, useSSL, nil)
 			require.NoError(t, err)
 			const ddl = `
-		CREATE TABLE test_fixed_string (
-				Col1 FixedString(10)
-			, Col2 FixedString(10)
-			, Col3 Nullable(FixedString(10))
-			, Col4 Array(FixedString(10))
-			, Col5 Array(Nullable(FixedString(10)))
-		) Engine MergeTree() ORDER BY tuple()
-		`
+				CREATE TABLE test_std_fixed_string (
+						Col1 FixedString(10)
+					, Col2 FixedString(10)
+					, Col3 Nullable(FixedString(10))
+					, Col4 Array(FixedString(10))
+					, Col5 Array(Nullable(FixedString(10)))
+				) Engine MergeTree() ORDER BY tuple()
+			`
 			defer func() {
-				conn.Exec("DROP TABLE test_fixed_string")
+				conn.Exec("DROP TABLE test_std_fixed_string")
 			}()
 			_, err = conn.Exec(ddl)
 			require.NoError(t, err)
 			scope, err := conn.Begin()
 			require.NoError(t, err)
-			batch, err := scope.Prepare("INSERT INTO test_fixed_string")
+			batch, err := scope.Prepare("INSERT INTO test_std_fixed_string")
 			require.NoError(t, err)
 			var (
 				col1Data = "ClickHouse"
@@ -91,7 +91,7 @@ func TestStdFixedString(t *testing.T) {
 				col4 []string
 				col5 []*string
 			)
-			require.NoError(t, conn.QueryRow("SELECT * FROM test_fixed_string").Scan(&col1, &col2, &col3, &col4, &col5))
+			require.NoError(t, conn.QueryRow("SELECT * FROM test_std_fixed_string").Scan(&col1, &col2, &col3, &col4, &col5))
 			assert.Equal(t, col1Data, col1)
 			assert.Equal(t, col2Data.data, col2.data)
 			assert.Equal(t, col3Data, col3)
