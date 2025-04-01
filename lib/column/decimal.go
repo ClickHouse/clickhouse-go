@@ -170,6 +170,32 @@ func (col *Decimal) Append(v any) (nulls []uint8, err error) {
 				col.append(&value)
 			}
 		}
+	case []string:
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			d, err := decimal.NewFromString(v[i])
+			if err != nil {
+				return nil, fmt.Errorf("could not convert \"%v\" to decimal: %w", v[i], err)
+			}
+			col.append(&d)
+		}
+	case []*string:
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			if v[i] == nil {
+				nulls[i] = 1
+				value := decimal.New(0, 0)
+				col.append(&value)
+
+				continue
+			}
+
+			d, err := decimal.NewFromString(*v[i])
+			if err != nil {
+				return nil, fmt.Errorf("could not convert \"%v\" to decimal: %w", *v[i], err)
+			}
+			col.append(&d)
+		}
 	default:
 		if valuer, ok := v.(driver.Valuer); ok {
 			val, err := valuer.Value()
@@ -204,9 +230,17 @@ func (col *Decimal) AppendRow(v any) error {
 	case string:
 		d, err := decimal.NewFromString(v)
 		if err != nil {
-			return fmt.Errorf("%v could not be converted to decimal %w", v, err)
+			return fmt.Errorf("could not convert \"%v\" to decimal: %w", v, err)
 		}
 		value = d
+	case *string:
+		if v != nil {
+			d, err := decimal.NewFromString(*v)
+			if err != nil {
+				return fmt.Errorf("could not convert \"%v\" to decimal: %w", *v, err)
+			}
+			value = d
+		}
 	case nil:
 	default:
 		if valuer, ok := v.(driver.Valuer); ok {

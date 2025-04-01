@@ -48,6 +48,8 @@ func TestDecimal(t *testing.T) {
 				, Col3 Decimal(15,7)
 				, Col4 Decimal128(8)
 				, Col5 Decimal256(9)
+				, Col6 Decimal(2, 2)
+				, Col7 Decimal(2, 2)
 			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
@@ -56,12 +58,15 @@ func TestDecimal(t *testing.T) {
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_decimal")
 	require.NoError(t, err)
+	col7Input := "6.28"
 	require.NoError(t, batch.Append(
 		decimal.New(25, 4),
 		decimal.New(30, 5),
 		decimal.New(35, 6),
 		decimal.New(135, 7),
 		decimal.New(256, 8),
+		"3.14",
+		&col7Input,
 	))
 	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
@@ -71,13 +76,17 @@ func TestDecimal(t *testing.T) {
 		col3 decimal.Decimal
 		col4 decimal.Decimal
 		col5 decimal.Decimal
+		col6 decimal.Decimal
+		col7 decimal.Decimal
 	)
-	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_decimal").Scan(&col1, &col2, &col3, &col4, &col5))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_decimal").Scan(&col1, &col2, &col3, &col4, &col5, &col6, &col7))
 	assert.True(t, decimal.New(25, 4).Equal(col1))
 	assert.True(t, decimal.New(30, 5).Equal(col2))
 	assert.True(t, decimal.New(35, 6).Equal(col3))
 	assert.True(t, decimal.New(135, 7).Equal(col4))
 	assert.True(t, decimal.New(256, 8).Equal(col5))
+	assert.True(t, decimal.RequireFromString("3.14").Equal(col6))
+	assert.True(t, decimal.RequireFromString("6.28").Equal(col7))
 }
 
 func TestNegativeDecimal(t *testing.T) {
@@ -143,6 +152,8 @@ func TestNullableDecimal(t *testing.T) {
 			  Col1 Nullable(Decimal32(5))
 			, Col2 Nullable(Decimal(18,5))
 			, Col3 Nullable(Decimal(15,3))
+			, Col4 Nullable(Decimal(2, 2))
+			, Col5 Nullable(Decimal(2, 2))
 		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
@@ -151,22 +162,34 @@ func TestNullableDecimal(t *testing.T) {
 	require.NoError(t, conn.Exec(ctx, ddl))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_decimal")
 	require.NoError(t, err)
-	require.NoError(t, batch.Append(decimal.New(25, 0), decimal.New(30, 0), decimal.New(35, 0)))
+	col5Input := "6.28"
+	require.NoError(t, batch.Append(
+		decimal.New(25, 0),
+		decimal.New(30, 0),
+		decimal.New(35, 0),
+		"3.14",
+		&col5Input,
+	))
 	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 	var (
 		col1 *decimal.Decimal
 		col2 *decimal.Decimal
 		col3 *decimal.Decimal
+		col4 *decimal.Decimal
+		col5 *decimal.Decimal
 	)
-	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_decimal").Scan(&col1, &col2, &col3))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_decimal").Scan(&col1, &col2, &col3, &col4, &col5))
 	assert.True(t, decimal.New(25, 0).Equal(*col1))
 	assert.True(t, decimal.New(30, 0).Equal(*col2))
 	assert.True(t, decimal.New(35, 0).Equal(*col3))
+	assert.True(t, decimal.New(35, 0).Equal(*col3))
+	assert.True(t, decimal.RequireFromString("3.14").Equal(*col4))
+	assert.True(t, decimal.RequireFromString("6.28").Equal(*col5))
 	require.NoError(t, conn.Exec(ctx, "TRUNCATE TABLE test_decimal"))
 	batch, err = conn.PrepareBatch(ctx, "INSERT INTO test_decimal")
 	require.NoError(t, err)
-	require.NoError(t, batch.Append(decimal.New(25, 0), nil, decimal.New(35, 0)))
+	require.NoError(t, batch.Append(decimal.New(25, 0), nil, decimal.New(35, 0), nil, nil))
 	require.Equal(t, 1, batch.Rows())
 	require.NoError(t, batch.Send())
 	{
@@ -174,11 +197,15 @@ func TestNullableDecimal(t *testing.T) {
 			col1 *decimal.Decimal
 			col2 *decimal.Decimal
 			col3 *decimal.Decimal
+			col4 *decimal.Decimal
+			col5 *decimal.Decimal
 		)
-		require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_decimal").Scan(&col1, &col2, &col3))
-		require.Nil(t, col2)
+		require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_decimal").Scan(&col1, &col2, &col3, &col4, &col5))
 		assert.True(t, decimal.New(25, 0).Equal(*col1))
+		require.Nil(t, col2)
 		assert.True(t, decimal.New(35, 0).Equal(*col3))
+		require.Nil(t, col4)
+		require.Nil(t, col5)
 	}
 }
 
