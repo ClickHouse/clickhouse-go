@@ -455,3 +455,24 @@ func TestFreeBufOnConnRelease(t *testing.T) {
 	err = conn.Exec(context.Background(), "DROP TABLE TestFreeBufOnConnRelease")
 	require.NoError(t, err)
 }
+
+func TestNativeJWTAuth(t *testing.T) {
+	SkipNotCloud(t)
+
+	conn, err := GetJWTConnection(testSet, nil, &tls.Config{}, 1000*time.Millisecond)
+	require.NoError(t, err)
+
+	// Token works
+	require.NoError(t, conn.Ping(context.Background()))
+
+	// Wait for connection to timeout
+	time.Sleep(1500 * time.Millisecond)
+
+	// Break the token
+	require.NoError(t, conn.UpdateJWT("broken_jwt"))
+
+	// Next ping should fail
+	require.Error(t, conn.Ping(context.Background()))
+
+	require.NoError(t, conn.Close())
+}

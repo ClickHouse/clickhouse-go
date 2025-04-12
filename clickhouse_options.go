@@ -77,8 +77,12 @@ var compressionMap = map[string]CompressionMethod{
 
 type Auth struct { // has_control_character
 	Database string
+
 	Username string
 	Password string
+
+	// JWT for ClickHouse Cloud. Use this instead of Username and Password if you're using JWT auth.
+	JWT string
 }
 
 type Compression struct {

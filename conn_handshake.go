@@ -25,7 +25,11 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 
-func (c *connect) handshake(database, username, password string) error {
+// jwtAuthMarker is the marker for JSON Web Token authentication in ClickHouse Cloud.
+// At the protocol level this is used in place of a username.
+const jwtAuthMarker = " JWT AUTHENTICATION "
+
+func (c *connect) handshake(auth Auth) error {
 	defer c.buffer.Reset()
 	c.debugf("[handshake] -> %s", proto.ClientHandshake{})
 	// set a read deadline - alternative to context.Read operation will fail if no data is received after deadline.
@@ -43,9 +47,15 @@ func (c *connect) handshake(database, username, password string) error {
 		}
 		handshake.Encode(c.buffer)
 		{
-			c.buffer.PutString(database)
-			c.buffer.PutString(username)
-			c.buffer.PutString(password)
+			c.buffer.PutString(auth.Database)
+
+			if auth.JWT != "" {
+				c.buffer.PutString(jwtAuthMarker)
+				c.buffer.PutString(auth.JWT)
+			} else {
+				c.buffer.PutString(auth.Username)
+				c.buffer.PutString(auth.Password)
+			}
 		}
 		if err := c.flush(); err != nil {
 			return err

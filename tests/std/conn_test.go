@@ -457,3 +457,33 @@ func TestCustomSettings(t *testing.T) {
 		})
 	}
 }
+
+func TestStdJWTAuth(t *testing.T) {
+	clickhouse_tests.SkipNotCloud(t)
+
+	protocols := map[string]clickhouse.Protocol{"Native": clickhouse.Native, "Http": clickhouse.HTTP}
+	for name, protocol := range protocols {
+		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
+			conn, err := GetOpenDBConnectionJWT(testSet, protocol, nil, &tls.Config{})
+			require.NoError(t, err)
+			conn.SetMaxOpenConns(1)
+			conn.SetConnMaxLifetime(1000 * time.Millisecond)
+			conn.SetConnMaxIdleTime(1000 * time.Millisecond)
+			conn.SetMaxIdleConns(1)
+
+			// Token works
+			require.NoError(t, conn.PingContext(context.Background()))
+
+			// Wait for connection to timeout
+			time.Sleep(1500 * time.Millisecond)
+
+			// Break the token
+			require.NoError(t, clickhouse.UpdateSqlJWT(conn, "broken_jwt"))
+
+			// Next ping should fail
+			require.Error(t, conn.PingContext(context.Background()))
+
+			require.NoError(t, conn.Close())
+		})
+	}
+}

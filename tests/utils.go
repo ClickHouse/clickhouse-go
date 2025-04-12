@@ -70,6 +70,7 @@ type ClickHouseTestEnvironment struct {
 	Host        string
 	Username    string
 	Password    string
+	JWT         string
 	Database    string
 	Version     proto.Version
 	ContainerIP string
@@ -272,6 +273,7 @@ func GetExternalTestEnvironment(testSet string) (ClickHouseTestEnvironment, erro
 		HttpsPort: httpsPort,
 		Username:  GetEnv("CLICKHOUSE_USERNAME", "default"),
 		Password:  GetEnv("CLICKHOUSE_PASSWORD", ""),
+		JWT:       GetEnv("CLICKHOUSE_JWT", ""),
 		Host:      GetEnv("CLICKHOUSE_HOST", "localhost"),
 		Database:  GetEnv("CLICKHOUSE_DATABASE", getDatabaseName(testSet)),
 	}
@@ -368,6 +370,14 @@ func GetConnection(testSet string, settings clickhouse.Settings, tlsConfig *tls.
 	return getConnection(env, env.Database, settings, tlsConfig, compression)
 }
 
+func GetJWTConnection(testSet string, settings clickhouse.Settings, tlsConfig *tls.Config, maxConnLifetime time.Duration) (driver.Conn, error) {
+	env, err := GetTestEnvironment(testSet)
+	if err != nil {
+		return nil, err
+	}
+	return getJWTConnection(env, env.Database, settings, tlsConfig, maxConnLifetime)
+}
+
 func GetConnectionWithOptions(options *clickhouse.Options) (driver.Conn, error) {
 	if options.Settings == nil {
 		options.Settings = clickhouse.Settings{}
@@ -419,6 +429,7 @@ func getConnection(env ClickHouseTestEnvironment, database string, settings clic
 	if err != nil {
 		return nil, err
 	}
+
 	conn, err := clickhouse.Open(&clickhouse.Options{
 		Addr:     []string{fmt.Sprintf("%s:%d", env.Host, port)},
 		Settings: settings,
@@ -430,6 +441,55 @@ func getConnection(env ClickHouseTestEnvironment, database string, settings clic
 		TLS:         tlsConfig,
 		Compression: compression,
 		DialTimeout: time.Duration(timeout) * time.Second,
+	})
+	return conn, err
+}
+
+func getJWTConnection(env ClickHouseTestEnvironment, database string, settings clickhouse.Settings, tlsConfig *tls.Config, maxConnLifetime time.Duration) (driver.Conn, error) {
+	useSSL, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	if err != nil {
+		panic(err)
+	}
+	port := env.Port
+	if useSSL && tlsConfig == nil {
+		tlsConfig = &tls.Config{}
+		port = env.SslPort
+	}
+	if settings == nil {
+		settings = clickhouse.Settings{}
+	}
+	if proto.CheckMinVersion(proto.Version{
+		Major: 22,
+		Minor: 8,
+		Patch: 0,
+	}, env.Version) {
+		settings["database_replicated_enforce_synchronous_settings"] = "1"
+	}
+	settings["insert_quorum"], err = strconv.Atoi(GetEnv("CLICKHOUSE_QUORUM_INSERT", "1"))
+	settings["insert_quorum_parallel"] = 0
+	settings["select_sequential_consistency"] = 1
+	if err != nil {
+		return nil, err
+	}
+
+	timeout, err := strconv.Atoi(GetEnv("CLICKHOUSE_DIAL_TIMEOUT", "10"))
+	if err != nil {
+		return nil, err
+	}
+
+	conn, err := clickhouse.Open(&clickhouse.Options{
+		Addr:     []string{fmt.Sprintf("%s:%d", env.Host, port)},
+		Settings: settings,
+		Auth: clickhouse.Auth{
+			Database: database,
+			JWT:      env.JWT,
+		},
+		MaxOpenConns:    1,
+		MaxIdleConns:    1,
+		ConnMaxLifetime: maxConnLifetime,
+		TLS:             tlsConfig,
+		Compression:     nil,
+		DialTimeout:     time.Duration(timeout) * time.Second,
 	})
 	return conn, err
 }

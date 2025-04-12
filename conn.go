@@ -110,7 +110,7 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 		}
 	)
 
-	if err := connect.handshake(opt.Auth.Database, opt.Auth.Username, opt.Auth.Password); err != nil {
+	if err := connect.handshake(opt.Auth); err != nil {
 		return nil, err
 	}
 

@@ -54,7 +54,10 @@ func (o *stdConnOpener) Driver() driver.Driver {
 			debugf = log.New(os.Stdout, "[clickhouse-std] ", 0).Printf
 		}
 	}
-	return &stdDriver{debugf: debugf}
+	return &stdDriver{
+		opt:    o.opt,
+		debugf: debugf,
+	}
 }
 
 func (o *stdConnOpener) Connect(ctx context.Context) (_ driver.Conn, err error) {
@@ -201,6 +204,7 @@ type stdConnect interface {
 }
 
 type stdDriver struct {
+	opt    *Options
 	conn   stdConnect
 	commit func() error
 	debugf func(format string, v ...any)
@@ -380,6 +384,11 @@ func (std *stdDriver) Close() error {
 		std.debugf("Close error: %v\n", err)
 	}
 	return err
+}
+
+func (std *stdDriver) UpdateJWT(jwt string) error {
+	std.opt.Auth.JWT = jwt
+	return nil
 }
 
 type stdBatch struct {

@@ -119,6 +119,34 @@ func (rw *HTTPReaderWriter) reset(pw *io.PipeWriter) io.WriteCloser {
 	}
 }
 
+// applyOptionsToRequest applies the client Options (such as auth, headers, client info) to the given http.Request
+func applyOptionsToRequest(req *http.Request, opt *Options) {
+	if opt.TLS != nil && len(opt.Auth.JWT) > 0 {
+		req.Header.Set("Authorization", "Bearer "+opt.Auth.JWT)
+	} else if opt.TLS != nil && len(opt.Auth.Username) > 0 {
+		req.Header.Set("X-ClickHouse-User", opt.Auth.Username)
+		if len(opt.Auth.Password) > 0 {
+			req.Header.Set("X-ClickHouse-Key", opt.Auth.Password)
+			req.Header.Set("X-ClickHouse-SSL-Certificate-Auth", "off")
+		} else {
+			req.Header.Set("X-ClickHouse-SSL-Certificate-Auth", "on")
+		}
+	} else if opt.TLS == nil && len(opt.Auth.Username) > 0 {
+		if len(opt.Auth.Password) > 0 {
+			req.URL.User = url.UserPassword(opt.Auth.Username, opt.Auth.Password)
+
+		} else {
+			req.URL.User = url.User(opt.Auth.Username)
+		}
+	}
+
+	req.Header.Set("User-Agent", opt.ClientInfo.String())
+
+	for k, v := range opt.HttpHeaders {
+		req.Header.Set(k, v)
+	}
+}
+
 func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpConnect, error) {
 	var debugf = func(format string, v ...any) {}
 	if opt.Debug {
@@ -150,29 +178,6 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		Host:   addr,
 		Path:   opt.HttpUrlPath,
 	}
-
-	headers := make(map[string]string)
-	for k, v := range opt.HttpHeaders {
-		headers[k] = v
-	}
-
-	if opt.TLS == nil && len(opt.Auth.Username) > 0 {
-		if len(opt.Auth.Password) > 0 {
-			u.User = url.UserPassword(opt.Auth.Username, opt.Auth.Password)
-		} else {
-			u.User = url.User(opt.Auth.Username)
-		}
-	} else if opt.TLS != nil && len(opt.Auth.Username) > 0 {
-		headers["X-ClickHouse-User"] = opt.Auth.Username
-		if len(opt.Auth.Password) > 0 {
-			headers["X-ClickHouse-Key"] = opt.Auth.Password
-			headers["X-ClickHouse-SSL-Certificate-Auth"] = "off"
-		} else {
-			headers["X-ClickHouse-SSL-Certificate-Auth"] = "on"
-		}
-	}
-
-	headers["User-Agent"] = opt.ClientInfo.String()
 
 	query := u.Query()
 	if len(opt.Auth.Database) > 0 {
@@ -225,6 +230,7 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 	}
 
 	conn := &httpConnect{
+		opt: opt,
 		client: &http.Client{
 			Transport: t,
 		},
@@ -234,7 +240,6 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		blockCompressor: compress.NewWriter(compress.Level(opt.Compression.Level), compress.Method(opt.Compression.Method)),
 		compressionPool: compressionPool,
 		blockBufferSize: opt.BlockBufferSize,
-		headers:         headers,
 	}
 	location, err := conn.readTimeZone(ctx)
 	if err != nil {
@@ -251,6 +256,7 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 	}
 
 	return &httpConnect{
+		opt: opt,
 		client: &http.Client{
 			Transport: t,
 		},
@@ -261,11 +267,11 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		compressionPool: compressionPool,
 		location:        location,
 		blockBufferSize: opt.BlockBufferSize,
-		headers:         headers,
 	}, nil
 }
 
 type httpConnect struct {
+	opt             *Options
 	url             *url.URL
 	client          *http.Client
 	location        *time.Location
@@ -274,7 +280,6 @@ type httpConnect struct {
 	blockCompressor *compress.Writer
 	compressionPool Pool[HTTPReaderWriter]
 	blockBufferSize uint8
-	headers         map[string]string
 }
 
 func (h *httpConnect) isBad() bool {
@@ -456,9 +461,12 @@ func (h *httpConnect) createRequest(ctx context.Context, requestUrl string, read
 	if err != nil {
 		return nil, err
 	}
+
+	applyOptionsToRequest(req, h.opt)
 	for k, v := range headers {
 		req.Header.Add(k, v)
 	}
+
 	var query url.Values
 	if options != nil {
 		query = req.URL.Query()

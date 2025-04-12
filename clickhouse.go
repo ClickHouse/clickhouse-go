@@ -375,3 +375,8 @@ func (ch *clickhouse) Close() error {
 		}
 	}
 }
+
+func (ch *clickhouse) UpdateJWT(jwt string) error {
+	ch.opt.Auth.JWT = jwt
+	return nil
+}
