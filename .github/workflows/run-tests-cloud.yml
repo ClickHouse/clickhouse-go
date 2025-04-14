@@ -6,7 +6,6 @@ on:
   push:
     branches:
       - main
-      - jwt-auth
   workflow_dispatch:
   pull_request:
     types: [opened, labeled, synchronize, reopened]
