@@ -516,7 +516,7 @@ func TestJWTAuthHTTPOverride(t *testing.T) {
 	require.Error(t, conn.PingContext(ctx))
 
 	// Next ping with client-level JWT should succeed
-	require.NoError(t, conn.PingContext(ctx))
+	require.NoError(t, conn.PingContext(context.Background()))
 
 	require.NoError(t, conn.Close())
 }

@@ -474,7 +474,7 @@ func TestNativeJWTAuth(t *testing.T) {
 		return jwt, nil
 	}
 
-	conn, err := GetJWTConnection(testSet, nil, &tls.Config{}, 1000*time.Millisecond, getJWT)
+	conn, err := GetJWTConnection(testSet, nil, nil, 1000*time.Millisecond, getJWT)
 	require.NoError(t, err)
 
 	// Token works
