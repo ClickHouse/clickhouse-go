@@ -464,7 +464,12 @@ func TestStdJWTAuth(t *testing.T) {
 	protocols := map[string]clickhouse.Protocol{"Native": clickhouse.Native, "Http": clickhouse.HTTP}
 	for name, protocol := range protocols {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
-			conn, err := GetOpenDBConnectionJWT(testSet, protocol, nil, &tls.Config{})
+			jwt := clickhouse_tests.GetEnv("CLICKHOUSE_JWT", "")
+			getJWT := func(ctx context.Context) (string, error) {
+				return jwt, nil
+			}
+
+			conn, err := GetOpenDBConnectionJWT(testSet, protocol, nil, &tls.Config{}, getJWT)
 			require.NoError(t, err)
 			conn.SetMaxOpenConns(1)
 			conn.SetConnMaxLifetime(1000 * time.Millisecond)
@@ -478,7 +483,7 @@ func TestStdJWTAuth(t *testing.T) {
 			time.Sleep(1500 * time.Millisecond)
 
 			// Break the token
-			require.NoError(t, clickhouse.UpdateSqlJWT(conn, "broken_jwt"))
+			jwt = "broken_jwt"
 
 			// Next ping should fail
 			require.Error(t, conn.PingContext(context.Background()))
@@ -486,4 +491,32 @@ func TestStdJWTAuth(t *testing.T) {
 			require.NoError(t, conn.Close())
 		})
 	}
+}
+
+func TestJWTAuthHTTPOverride(t *testing.T) {
+	clickhouse_tests.SkipNotCloud(t)
+
+	getJWT := func(ctx context.Context) (string, error) {
+		return clickhouse_tests.GetEnv("CLICKHOUSE_JWT", ""), nil
+	}
+
+	conn, err := GetOpenDBConnectionJWT(testSet, clickhouse.HTTP, nil, &tls.Config{}, getJWT)
+	require.NoError(t, err)
+	conn.SetMaxOpenConns(1)
+	conn.SetConnMaxLifetime(1000 * time.Millisecond)
+	conn.SetConnMaxIdleTime(1000 * time.Millisecond)
+	conn.SetMaxIdleConns(1)
+
+	// Token works
+	require.NoError(t, conn.PingContext(context.Background()))
+
+	// Break the token via temporary override
+	ctx := clickhouse.Context(context.Background(), clickhouse.WithJWT("broken_jwt"))
+	// Next ping with context should fail
+	require.Error(t, conn.PingContext(ctx))
+
+	// Next ping with client-level JWT should succeed
+	require.NoError(t, conn.PingContext(ctx))
+
+	require.NoError(t, conn.Close())
 }

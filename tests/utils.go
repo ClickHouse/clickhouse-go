@@ -370,12 +370,12 @@ func GetConnection(testSet string, settings clickhouse.Settings, tlsConfig *tls.
 	return getConnection(env, env.Database, settings, tlsConfig, compression)
 }
 
-func GetJWTConnection(testSet string, settings clickhouse.Settings, tlsConfig *tls.Config, maxConnLifetime time.Duration) (driver.Conn, error) {
+func GetJWTConnection(testSet string, settings clickhouse.Settings, tlsConfig *tls.Config, maxConnLifetime time.Duration, jwtFunc clickhouse.GetJWTFunc) (driver.Conn, error) {
 	env, err := GetTestEnvironment(testSet)
 	if err != nil {
 		return nil, err
 	}
-	return getJWTConnection(env, env.Database, settings, tlsConfig, maxConnLifetime)
+	return getJWTConnection(env, env.Database, settings, tlsConfig, maxConnLifetime, jwtFunc)
 }
 
 func GetConnectionWithOptions(options *clickhouse.Options) (driver.Conn, error) {
@@ -445,7 +445,7 @@ func getConnection(env ClickHouseTestEnvironment, database string, settings clic
 	return conn, err
 }
 
-func getJWTConnection(env ClickHouseTestEnvironment, database string, settings clickhouse.Settings, tlsConfig *tls.Config, maxConnLifetime time.Duration) (driver.Conn, error) {
+func getJWTConnection(env ClickHouseTestEnvironment, database string, settings clickhouse.Settings, tlsConfig *tls.Config, maxConnLifetime time.Duration, jwtFunc clickhouse.GetJWTFunc) (driver.Conn, error) {
 	useSSL, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_SSL", "false"))
 	if err != nil {
 		panic(err)
@@ -482,8 +482,8 @@ func getJWTConnection(env ClickHouseTestEnvironment, database string, settings c
 		Settings: settings,
 		Auth: clickhouse.Auth{
 			Database: database,
-			JWT:      env.JWT,
 		},
+		GetJWT:          jwtFunc,
 		MaxOpenConns:    1,
 		MaxIdleConns:    1,
 		ConnMaxLifetime: maxConnLifetime,

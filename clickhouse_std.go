@@ -386,11 +386,6 @@ func (std *stdDriver) Close() error {
 	return err
 }
 
-func (std *stdDriver) UpdateJWT(jwt string) error {
-	std.opt.Auth.JWT = jwt
-	return nil
-}
-
 type stdBatch struct {
 	batch  ldriver.Batch
 	debugf func(format string, v ...any)

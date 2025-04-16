@@ -120,9 +120,20 @@ func (rw *HTTPReaderWriter) reset(pw *io.PipeWriter) io.WriteCloser {
 }
 
 // applyOptionsToRequest applies the client Options (such as auth, headers, client info) to the given http.Request
-func applyOptionsToRequest(req *http.Request, opt *Options) {
-	if opt.TLS != nil && len(opt.Auth.JWT) > 0 {
-		req.Header.Set("Authorization", "Bearer "+opt.Auth.JWT)
+func applyOptionsToRequest(ctx context.Context, req *http.Request, opt *Options) error {
+	jwt := queryOptionsJWT(ctx)
+	useJWT := jwt != "" || useJWTAuth(opt)
+
+	if opt.TLS != nil && useJWT {
+		if jwt == "" {
+			var err error
+			jwt, err = opt.GetJWT(ctx)
+			if err != nil {
+				return fmt.Errorf("failed to get JWT: %w", err)
+			}
+		}
+
+		req.Header.Set("Authorization", "Bearer "+jwt)
 	} else if opt.TLS != nil && len(opt.Auth.Username) > 0 {
 		req.Header.Set("X-ClickHouse-User", opt.Auth.Username)
 		if len(opt.Auth.Password) > 0 {
@@ -145,6 +156,8 @@ func applyOptionsToRequest(req *http.Request, opt *Options) {
 	for k, v := range opt.HttpHeaders {
 		req.Header.Set(k, v)
 	}
+
+	return nil
 }
 
 func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpConnect, error) {
@@ -462,7 +475,11 @@ func (h *httpConnect) createRequest(ctx context.Context, requestUrl string, read
 		return nil, err
 	}
 
-	applyOptionsToRequest(req, h.opt)
+	err = applyOptionsToRequest(ctx, req, h.opt)
+	if err != nil {
+		return nil, err
+	}
+
 	for k, v := range headers {
 		req.Header.Add(k, v)
 	}

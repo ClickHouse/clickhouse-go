@@ -218,7 +218,7 @@ func GetOpenDBConnection(environment string, protocol clickhouse.Protocol, setti
 	}), nil
 }
 
-func GetOpenDBConnectionJWT(environment string, protocol clickhouse.Protocol, settings clickhouse.Settings, tlsConfig *tls.Config) (*sql.DB, error) {
+func GetOpenDBConnectionJWT(environment string, protocol clickhouse.Protocol, settings clickhouse.Settings, tlsConfig *tls.Config, jwtFunc clickhouse.GetJWTFunc) (*sql.DB, error) {
 	env, err := clickhouse_tests.GetTestEnvironment(environment)
 	if err != nil {
 		return nil, err
@@ -260,8 +260,8 @@ func GetOpenDBConnectionJWT(environment string, protocol clickhouse.Protocol, se
 		Addr: []string{fmt.Sprintf("%s:%d", env.Host, port)},
 		Auth: clickhouse.Auth{
 			Database: env.Database,
-			JWT:      env.JWT,
 		},
+		GetJWT:      jwtFunc,
 		Settings:    settings,
 		DialTimeout: 5 * time.Second,
 		Compression: nil,

@@ -18,29 +18,16 @@
 package clickhouse
 
 import (
-	"database/sql"
-	"fmt"
+	"context"
 )
 
-type jwtUpdater interface {
-	UpdateJWT(jwt string) error
-}
+// jwtAuthMarker is the marker for JSON Web Token authentication in ClickHouse Cloud.
+// At the protocol level this is used in place of a username.
+const jwtAuthMarker = " JWT AUTHENTICATION "
 
-// UpdateSqlJWT is a helper function that updates the JWT within the given sql.DB instance, useful for
-// updating expired tokens.
-// For the Native interface, the JWT is only updated for new connections.
-// For the HTTP interface, the JWT is updated immediately for subsequent requests.
-// Existing Native connections are unaffected, but may be forcibly closed by the server upon token expiry.
-// For a completely fresh set of connections you should open a new instance.
-func UpdateSqlJWT(db *sql.DB, jwt string) error {
-	if db == nil {
-		return nil
-	}
+type GetJWTFunc = func(ctx context.Context) (string, error)
 
-	chDriver, ok := db.Driver().(jwtUpdater)
-	if !ok {
-		return fmt.Errorf("failed to update JWT: db instance must be ClickHouse")
-	}
-
-	return chDriver.UpdateJWT(jwt)
+// useJWTAuth returns true if the client should use JWT auth
+func useJWTAuth(opt *Options) bool {
+	return opt.GetJWT != nil
 }

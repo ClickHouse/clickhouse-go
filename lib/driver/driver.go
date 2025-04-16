@@ -61,11 +61,6 @@ type (
 		Ping(context.Context) error
 		Stats() Stats
 		Close() error
-
-		// UpdateJWT updates the JWT used for new connections, useful for swapping expired tokens.
-		// Existing connections are unaffected, but may be forcibly closed by the server upon token expiry.
-		// For a completely fresh set of connections you should create a new Conn instance.
-		UpdateJWT(jwt string) error
 	}
 	Row interface {
 		Err() error

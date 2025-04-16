@@ -456,10 +456,25 @@ func TestFreeBufOnConnRelease(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestJWTError(t *testing.T) {
+	getJWT := func(ctx context.Context) (string, error) {
+		return "", fmt.Errorf("test error")
+	}
+
+	conn, err := GetJWTConnection(testSet, nil, nil, 1000*time.Millisecond, getJWT)
+	require.NoError(t, err)
+	require.ErrorContains(t, conn.Ping(context.Background()), "test error")
+}
+
 func TestNativeJWTAuth(t *testing.T) {
 	SkipNotCloud(t)
 
-	conn, err := GetJWTConnection(testSet, nil, &tls.Config{}, 1000*time.Millisecond)
+	jwt := GetEnv("CLICKHOUSE_JWT", "")
+	getJWT := func(ctx context.Context) (string, error) {
+		return jwt, nil
+	}
+
+	conn, err := GetJWTConnection(testSet, nil, &tls.Config{}, 1000*time.Millisecond, getJWT)
 	require.NoError(t, err)
 
 	// Token works
@@ -469,7 +484,7 @@ func TestNativeJWTAuth(t *testing.T) {
 	time.Sleep(1500 * time.Millisecond)
 
 	// Break the token
-	require.NoError(t, conn.UpdateJWT("broken_jwt"))
+	jwt = "broken_jwt"
 
 	// Next ping should fail
 	require.Error(t, conn.Ping(context.Background()))

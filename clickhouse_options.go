@@ -80,9 +80,6 @@ type Auth struct { // has_control_character
 
 	Username string
 	Password string
-
-	// JWT for ClickHouse Cloud. Use this instead of Username and Password if you're using JWT auth.
-	JWT string
 }
 
 type Compression struct {
@@ -159,6 +156,11 @@ type Options struct {
 
 	// HTTPProxy specifies an HTTP proxy URL to use for requests made by the client.
 	HTTPProxyURL *url.URL
+
+	// GetJWT should return a JWT for authentication with ClickHouse Cloud.
+	// This is called per connection/request, so you may cache the token in your app if needed.
+	// Use this instead of Auth.Username and Auth.Password if you're using JWT auth.
+	GetJWT GetJWTFunc
 
 	scheme      string
 	ReadTimeout time.Duration
