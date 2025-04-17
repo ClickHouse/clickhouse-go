@@ -53,6 +53,7 @@ type (
 		async    AsyncOptions
 		queryID  string
 		quotaKey string
+		jwt      string
 		events   struct {
 			logs          func(*Log)
 			progress      func(*Progress)
@@ -91,6 +92,15 @@ func WithBlockBufferSize(size uint8) QueryOption {
 func WithQuotaKey(quotaKey string) QueryOption {
 	return func(o *QueryOptions) error {
 		o.quotaKey = quotaKey
+		return nil
+	}
+}
+
+// WithJWT overrides the existing authentication with the given JWT.
+// This only applies for clients connected with HTTPS to ClickHouse Cloud.
+func WithJWT(jwt string) QueryOption {
+	return func(o *QueryOptions) error {
+		o.jwt = jwt
 		return nil
 	}
 }
@@ -209,6 +219,16 @@ func queryOptions(ctx context.Context) QueryOptions {
 	}
 
 	return opt
+}
+
+// queryOptionsJWT returns the JWT within the given context's QueryOptions.
+// Empty string if not present.
+func queryOptionsJWT(ctx context.Context) string {
+	if opt, ok := ctx.Value(_contextOptionKey).(QueryOptions); ok {
+		return opt.jwt
+	}
+
+	return ""
 }
 
 // queryOptionsAsync returns the AsyncOptions struct within the given context's QueryOptions.

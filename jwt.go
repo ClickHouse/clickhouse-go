@@ -6,7 +6,7 @@
 // not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing,
 // software distributed under the License is distributed on an
@@ -19,31 +19,15 @@ package clickhouse
 
 import (
 	"context"
-	"io"
 )
 
-func (h *httpConnect) asyncInsert(ctx context.Context, query string, wait bool, args ...any) error {
+// jwtAuthMarker is the marker for JSON Web Token authentication in ClickHouse Cloud.
+// At the protocol level this is used in place of a username.
+const jwtAuthMarker = " JWT AUTHENTICATION "
 
-	options := queryOptions(ctx)
-	options.settings["async_insert"] = 1
-	options.settings["wait_for_async_insert"] = 0
-	if wait {
-		options.settings["wait_for_async_insert"] = 1
-	}
-	if len(args) > 0 {
-		var err error
-		query, err = bindQueryOrAppendParameters(true, &options, query, h.location, args...)
-		if err != nil {
-			return err
-		}
-	}
+type GetJWTFunc = func(ctx context.Context) (string, error)
 
-	res, err := h.sendQuery(ctx, query, &options, nil)
-	if res != nil {
-		defer res.Body.Close()
-		// we don't care about result, so just discard it to reuse connection
-		_, _ = io.Copy(io.Discard, res.Body)
-	}
-
-	return err
+// useJWTAuth returns true if the client should use JWT auth
+func useJWTAuth(opt *Options) bool {
+	return opt.GetJWT != nil
 }

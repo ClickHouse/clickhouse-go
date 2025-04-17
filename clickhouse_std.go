@@ -54,7 +54,10 @@ func (o *stdConnOpener) Driver() driver.Driver {
 			debugf = log.New(os.Stdout, "[clickhouse-std] ", 0).Printf
 		}
 	}
-	return &stdDriver{debugf: debugf}
+	return &stdDriver{
+		opt:    o.opt,
+		debugf: debugf,
+	}
 }
 
 func (o *stdConnOpener) Connect(ctx context.Context) (_ driver.Conn, err error) {
@@ -201,6 +204,7 @@ type stdConnect interface {
 }
 
 type stdDriver struct {
+	opt    *Options
 	conn   stdConnect
 	commit func() error
 	debugf func(format string, v ...any)
