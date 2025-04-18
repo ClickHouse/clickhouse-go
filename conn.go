@@ -110,7 +110,18 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 		}
 	)
 
-	if err := connect.handshake(opt.Auth.Database, opt.Auth.Username, opt.Auth.Password); err != nil {
+	auth := opt.Auth
+	if useJWTAuth(opt) {
+		jwt, err := opt.GetJWT(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get JWT: %w", err)
+		}
+
+		auth.Username = jwtAuthMarker
+		auth.Password = jwt
+	}
+
+	if err := connect.handshake(auth); err != nil {
 		return nil, err
 	}
 

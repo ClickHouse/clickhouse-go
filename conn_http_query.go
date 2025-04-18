@@ -42,10 +42,6 @@ func (h *httpConnect) query(ctx context.Context, release func(*connect, error), 
 		headers["Accept-Encoding"] = h.compression.String()
 	}
 
-	for k, v := range h.headers {
-		headers[k] = v
-	}
-
 	res, err := h.sendQuery(ctx, query, &options, headers)
 	if err != nil {
 		return nil, err
