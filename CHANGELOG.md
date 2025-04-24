@@ -14,16 +14,12 @@
 ## New Contributors
 * @hazzik made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1530
 
-**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.33.1...v2.34.0
-
 # v2.33.1, 2025-03-18 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
 ### Bug fixes 🐛 
 * fix concurrent map write errors with context by @SpencerTorres in https://github.com/ClickHouse/clickhouse-go/pull/1523
 
-
-**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.33.0...v2.33.1
 
 # v2.33.0, 2025-03-07 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
@@ -42,8 +38,6 @@
 * @Exca-DK made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1500
 * @holycheater made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1517
 
-**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.32.2...v2.33.0
-
 # v2.32.2, 2025-02-20 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
@@ -51,16 +45,12 @@
 * fix: decode prefix of nested columns in Variant by @SpencerTorres in https://github.com/ClickHouse/clickhouse-go/pull/1506
 
 
-**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.32.1...v2.32.2
-
 # v2.32.1, 2025-02-17 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
 ### Bug Fixes 🐛  
 * fix: enable Array() support for Variant, Dynamic, JSON by @SpencerTorres in https://github.com/ClickHouse/clickhouse-go/pull/1501
 
-
-**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.32.0...v2.32.1
 
 # v2.32.0, 2025-02-14 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
@@ -82,8 +72,6 @@
 ## New Contributors
 * @pablomatiasgomez made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1497
 
-**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.31.0...v2.32.0
-
 # v2.31.0, 2025-02-10 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
@@ -98,8 +86,6 @@
 ## New Contributors
 * @serprex made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1493
 
-**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.30.3...2.31.0
-
 # v2.30.3, 2025-02-03 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
@@ -108,8 +94,6 @@
 
 ## New Contributors
 * @lobachpavel made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1487
-
-**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.30.2...v2.30.3
 
 # v2.30.2, 2025-01-30 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
@@ -120,8 +104,6 @@
 
 ## New Contributors
 * @matevzmihalic made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1478
-
-**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.30.1...v2.30.2
 
 # v2.30.1, 2025-01-17 <!-- Release notes generated using configuration in .github/release.yml at v2.30.1 -->
 
