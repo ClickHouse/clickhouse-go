@@ -497,6 +497,32 @@ func TestParseDSN(t *testing.T) {
 			},
 			"",
 		},
+		{
+			"clickhouse proxy with hosts as query string",
+			"tcp://127.0.0.1/?hosts=127.0.0.2",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"127.0.0.1", "127.0.0.2"},
+				Settings: Settings{},
+				Auth:     Auth{},
+				scheme:   "tcp",
+			},
+			"",
+		},
+		{
+			"clickhouse proxy with alt_hosts as query string",
+			"tcp://127.0.0.1/?alt_hosts=127.0.0.3",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"127.0.0.1", "127.0.0.3"},
+				Settings: Settings{},
+				Auth:     Auth{},
+				scheme:   "tcp",
+			},
+			"",
+		},
 	}
 
 	for _, testCase := range testCases {

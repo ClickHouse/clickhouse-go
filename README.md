@@ -141,7 +141,7 @@ conn.SetConnMaxLifetime(time.Hour)
 
 ## DSN
 
-* hosts  - comma-separated list of single address hosts for load-balancing and failover
+* hosts/alt_hosts  - comma-separated list of single address hosts for load-balancing and failover
 * username/password - auth credentials
 * database - select the current default database
 * dial_timeout -  a duration string is a possibly signed sequence of decimal numbers, each with optional fraction and a unit suffix such as "300ms", "1s". Valid time units are "ms", "s", "m". (default 30s)
