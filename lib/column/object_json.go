@@ -214,7 +214,8 @@ func getStructFieldName(field reflect.StructField) (string, bool) {
 		return name, true
 	}
 	if tag != "" {
-		return tag, false
+		// Some JSON tags contain omitempty after a comma but we don't want those in our field name.
+		return strings.Split(tag, ",")[0], false
 	}
 	// support ch tag as well as this is used elsewhere
 	tag = field.Tag.Get("ch")
