@@ -91,6 +91,10 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 		compressor = compress.NewWriter(compress.LevelZero, compress.None)
 	}
 
+	if opt.ClientTCPProtocolVersion < proto.DBMS_MIN_REVISION_WITH_CLIENT_INFO || opt.ClientTCPProtocolVersion > proto.DBMS_TCP_PROTOCOL_VERSION {
+		return nil, fmt.Errorf("unsupported protocol revision")
+	}
+
 	var (
 		connect = &connect{
 			id:                   num,
@@ -99,7 +103,7 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 			debugf:               debugf,
 			buffer:               new(chproto.Buffer),
 			reader:               chproto.NewReader(conn),
-			revision:             ClientTCPProtocolVersion,
+			revision:             opt.ClientTCPProtocolVersion,
 			structMap:            &structMap{},
 			compression:          compression,
 			connectedAt:          time.Now(),

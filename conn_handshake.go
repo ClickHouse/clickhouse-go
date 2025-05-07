@@ -60,7 +60,7 @@ func (c *connect) handshake(database, username, password string) error {
 		case proto.ServerException:
 			return c.exception()
 		case proto.ServerHello:
-			if err := c.server.Decode(c.reader); err != nil {
+			if err := c.server.Decode(c.reader, c.revision); err != nil {
 				return err
 			}
 		case proto.ServerEndOfStream:

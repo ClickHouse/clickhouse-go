@@ -85,7 +85,7 @@ func CheckMinVersion(constraint Version, version Version) bool {
 	return true
 }
 
-func (srv *ServerHandshake) Decode(reader *chproto.Reader) (err error) {
+func (srv *ServerHandshake) Decode(reader *chproto.Reader, clientRevision uint64) (err error) {
 	if srv.Name, err = reader.Str(); err != nil {
 		return fmt.Errorf("could not read server name: %v", err)
 	}
@@ -98,7 +98,8 @@ func (srv *ServerHandshake) Decode(reader *chproto.Reader) (err error) {
 	if srv.Revision, err = reader.UVarInt(); err != nil {
 		return fmt.Errorf("could not read server revision: %v", err)
 	}
-	if srv.Revision >= DBMS_MIN_REVISION_WITH_SERVER_TIMEZONE {
+	rev := min(clientRevision, srv.Revision)
+	if rev >= DBMS_MIN_REVISION_WITH_SERVER_TIMEZONE {
 		name, err := reader.Str()
 		if err != nil {
 			return fmt.Errorf("could not read server timezone: %v", err)
@@ -107,12 +108,12 @@ func (srv *ServerHandshake) Decode(reader *chproto.Reader) (err error) {
 			return fmt.Errorf("could not load time location: %v", err)
 		}
 	}
-	if srv.Revision >= DBMS_MIN_REVISION_WITH_SERVER_DISPLAY_NAME {
+	if rev >= DBMS_MIN_REVISION_WITH_SERVER_DISPLAY_NAME {
 		if srv.DisplayName, err = reader.Str(); err != nil {
 			return fmt.Errorf("could not read server display name: %v", err)
 		}
 	}
-	if srv.Revision >= DBMS_MIN_REVISION_WITH_VERSION_PATCH {
+	if rev >= DBMS_MIN_REVISION_WITH_VERSION_PATCH {
 		if srv.Version.Patch, err = reader.UVarInt(); err != nil {
 			return fmt.Errorf("could not read server patch: %v", err)
 		}

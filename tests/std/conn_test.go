@@ -31,6 +31,8 @@ import (
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -229,6 +231,80 @@ func TestStdConnector(t *testing.T) {
 	db := sql.OpenDB(connector)
 	err = db.Ping()
 	require.NoError(t, err)
+}
+
+func TestCustomProtocolRevision(t *testing.T) {
+	env, err := GetStdTestEnvironment()
+	require.NoError(t, err)
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	port := env.Port
+	var tlsConfig *tls.Config
+	if useSSL {
+		port = env.SslPort
+		tlsConfig = &tls.Config{}
+	}
+	baseOpts := clickhouse.Options{
+		Addr: []string{fmt.Sprintf("%s:%d", env.Host, port)},
+		Auth: clickhouse.Auth{
+			Database: "default",
+			Username: env.Username,
+			Password: env.Password,
+		},
+		Compression: &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		},
+		TLS: tlsConfig,
+	}
+	t.Run("unsupported proto versions", func(t *testing.T) {
+		badOpts := baseOpts
+		badOpts.ClientTCPProtocolVersion = proto.DBMS_MIN_REVISION_WITH_CLIENT_INFO - 1
+		conn, _ := clickhouse.Open(&badOpts)
+		require.NotNil(t, conn)
+		err = conn.Ping(t.Context())
+		require.Error(t, err)
+		badOpts.ClientTCPProtocolVersion = proto.DBMS_TCP_PROTOCOL_VERSION + 1
+		conn, _ = clickhouse.Open(&badOpts)
+		require.NotNil(t, conn)
+		err = conn.Ping(t.Context())
+		require.Error(t, err)
+	})
+
+	t.Run("minimal proto version", func(t *testing.T) {
+		opts := baseOpts
+		opts.ClientTCPProtocolVersion = proto.DBMS_MIN_REVISION_WITH_CLIENT_INFO
+		conn, err := clickhouse.Open(&opts)
+		require.NoError(t, err)
+		require.NotNil(t, conn)
+		err = conn.Ping(t.Context())
+		require.NoError(t, err)
+
+		defer func() {
+			_ = conn.Exec(t.Context(), "DROP TABLE insert_example")
+		}()
+		err = conn.Exec(t.Context(), "DROP TABLE IF EXISTS insert_example")
+
+		err = conn.Exec(t.Context(), `
+			CREATE TABLE insert_example (
+				  Col1 UInt64			
+			) Engine = MergeTree() ORDER BY tuple()
+		`)
+		require.NoError(t, err)
+		var batch driver.Batch
+		batch, err = conn.PrepareBatch(t.Context(), "INSERT INTO insert_example (Col1)")
+		require.NoError(t, err)
+		require.NoError(t, batch.Append(10))
+		require.NoError(t, batch.Send())
+
+		rows, err := conn.Query(t.Context(), "SELECT Col1 FROM insert_example")
+		require.NoError(t, err)
+		count := 0
+		for rows.Next() {
+			count++
+		}
+		assert.Equal(t, 1, count)
+	})
+
 }
 
 func TestBlockBufferSize(t *testing.T) {

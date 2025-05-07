@@ -158,6 +158,10 @@ type Options struct {
 
 	scheme      string
 	ReadTimeout time.Duration
+
+	// ClientTCPProtocolVersion specifies the custom protocol revision, as defined in lib/proto/const.go
+	// if not specified, the latest supported protocol revision, proto.DBMS_TCP_PROTOCOL_VERSION , is used.
+	ClientTCPProtocolVersion uint64
 }
 
 func (o *Options) fromDSN(in string) error {
@@ -391,5 +395,9 @@ func (o Options) setDefaults() *Options {
 			o.Addr = []string{"localhost:8123"}
 		}
 	}
+	if o.ClientTCPProtocolVersion == 0 {
+		o.ClientTCPProtocolVersion = ClientTCPProtocolVersion
+	}
+
 	return &o
 }
