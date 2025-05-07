@@ -37,7 +37,7 @@ func (c *connect) handshake(database, username, password string) error {
 	{
 		c.buffer.PutByte(proto.ClientHello)
 		handshake := &proto.ClientHandshake{
-			ProtocolVersion: ClientTCPProtocolVersion,
+			ProtocolVersion: c.revision,
 			ClientName:      c.opt.ClientInfo.String(),
 			ClientVersion:   proto.Version{ClientVersionMajor, ClientVersionMinor, ClientVersionPatch}, //nolint:govet
 		}
