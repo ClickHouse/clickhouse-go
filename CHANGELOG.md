@@ -9,6 +9,7 @@
 * Add length check to `FixedString` to prevent panic by @SpencerTorres in https://github.com/ClickHouse/clickhouse-go/pull/1534
 ### Other Changes 🛠
 * chore: replace github.com/pkg/errors with stdlib by @hazzik in https://github.com/ClickHouse/clickhouse-go/pull/1530
+* add database, hosts, alt_hosts query string DSN by @kokizzu in https://github.com/ClickHouse/clickhouse-go/pull/1541
 
 ## New Contributors
 * @hazzik made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1530
