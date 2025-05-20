@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
   pull_request:
     types: [opened, labeled, synchronize, reopened]
 
@@ -29,46 +30,13 @@ jobs:
         with:
           go-version: ${{ matrix.go }}
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_wrapper: false
-
-      - name: Create Cloud instance
-        id: create
-        working-directory: .github/cloud/
-        run: |
-          export TF_VAR_allowed_cidr="$(curl -s ifconfig.me)/32"
-          export TF_VAR_service_name="clickhouse-go $(git rev-parse --short HEAD) $(date +'%Y%m%d%H%M%S')"
-          terraform init
-          terraform validate
-          terraform apply -auto-approve -input=false -lock=false
-          terraform output
-          echo "CLICKHOUSE_HOST=$(terraform output -raw CLICKHOUSE_HOST)" >> $GITHUB_ENV
-        env:
-          TF_VAR_organization_id: ${{ secrets.INTEGRATIONS_TEAM_TESTS_ORGANIZATION_ID }}
-          TF_VAR_token_key: ${{ secrets.INTEGRATIONS_TEAM_TESTS_TOKEN_KEY }}
-          TF_VAR_token_secret: ${{ secrets.INTEGRATIONS_TEAM_TESTS_TOKEN_SECRET }}
-          TF_VAR_service_password: ${{ secrets.INTEGRATIONS_TEAM_TESTS_CLOUD_PASSWORD }}
-          TF_VAR_api_url: ${{ secrets.INTEGRATIONS_TEAM_TESTS_CLOUD_API_URL }}
-
       - name: Tests
         env:
-          CLICKHOUSE_PASSWORD: ${{ secrets.INTEGRATIONS_TEAM_TESTS_CLOUD_PASSWORD }}
           CLICKHOUSE_USE_DOCKER: false
           CLICKHOUSE_USE_SSL: true
+          CLICKHOUSE_HOST: ${{ secrets.INTEGRATIONS_TEAM_TESTS_CLOUD_HOST_SMT }}
+          CLICKHOUSE_PASSWORD: ${{ secrets.INTEGRATIONS_TEAM_TESTS_CLOUD_PASSWORD_SMT }}
+          CLICKHOUSE_JWT: ${{ secrets.INTEGRATIONS_TEAM_TESTS_CLOUD_JWT_DESERT_VM_43 }}
           TESTCONTAINERS_RYUK_DISABLED: "true"
         run: |
           CLICKHOUSE_DIAL_TIMEOUT=20 CLICKHOUSE_TEST_TIMEOUT=600s CLICKHOUSE_QUORUM_INSERT=2 make test
-
-      - name: Cleanup Cloud instance
-        if: always()
-        working-directory: .github/cloud/
-        run: |
-          terraform destroy -no-color -auto-approve -input=false -lock=false
-        env:
-          TF_VAR_organization_id: ${{ secrets.INTEGRATIONS_TEAM_TESTS_ORGANIZATION_ID }}
-          TF_VAR_token_key:  ${{ secrets.INTEGRATIONS_TEAM_TESTS_TOKEN_KEY }}
-          TF_VAR_token_secret:  ${{ secrets.INTEGRATIONS_TEAM_TESTS_TOKEN_SECRET }}
-          TF_VAR_service_password: ${{ secrets.INTEGRATIONS_TEAM_TESTS_CLOUD_PASSWORD }}
-          TF_VAR_api_url: ${{ secrets.INTEGRATIONS_TEAM_TESTS_CLOUD_API_URL }}

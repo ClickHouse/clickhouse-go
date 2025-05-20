@@ -533,3 +533,66 @@ func TestCustomSettings(t *testing.T) {
 		})
 	}
 }
+
+func TestStdJWTAuth(t *testing.T) {
+	clickhouse_tests.SkipNotCloud(t)
+
+	protocols := map[string]clickhouse.Protocol{"Native": clickhouse.Native, "Http": clickhouse.HTTP}
+	for name, protocol := range protocols {
+		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
+			jwt := clickhouse_tests.GetEnv("CLICKHOUSE_JWT", "")
+			getJWT := func(ctx context.Context) (string, error) {
+				return jwt, nil
+			}
+
+			conn, err := GetOpenDBConnectionJWT(testSet, protocol, nil, &tls.Config{}, getJWT)
+			require.NoError(t, err)
+			conn.SetMaxOpenConns(1)
+			conn.SetConnMaxLifetime(1000 * time.Millisecond)
+			conn.SetConnMaxIdleTime(1000 * time.Millisecond)
+			conn.SetMaxIdleConns(1)
+
+			// Token works
+			require.NoError(t, conn.PingContext(context.Background()))
+
+			// Wait for connection to timeout
+			time.Sleep(1500 * time.Millisecond)
+
+			// Break the token
+			jwt = "broken_jwt"
+
+			// Next ping should fail
+			require.Error(t, conn.PingContext(context.Background()))
+
+			require.NoError(t, conn.Close())
+		})
+	}
+}
+
+func TestJWTAuthHTTPOverride(t *testing.T) {
+	clickhouse_tests.SkipNotCloud(t)
+
+	getJWT := func(ctx context.Context) (string, error) {
+		return clickhouse_tests.GetEnv("CLICKHOUSE_JWT", ""), nil
+	}
+
+	conn, err := GetOpenDBConnectionJWT(testSet, clickhouse.HTTP, nil, &tls.Config{}, getJWT)
+	require.NoError(t, err)
+	conn.SetMaxOpenConns(1)
+	conn.SetConnMaxLifetime(1000 * time.Millisecond)
+	conn.SetConnMaxIdleTime(1000 * time.Millisecond)
+	conn.SetMaxIdleConns(1)
+
+	// Token works
+	require.NoError(t, conn.PingContext(context.Background()))
+
+	// Break the token via temporary override
+	ctx := clickhouse.Context(context.Background(), clickhouse.WithJWT("broken_jwt"))
+	// Next ping with context should fail
+	require.Error(t, conn.PingContext(ctx))
+
+	// Next ping with client-level JWT should succeed
+	require.NoError(t, conn.PingContext(context.Background()))
+
+	require.NoError(t, conn.Close())
+}

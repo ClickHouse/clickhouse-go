@@ -77,6 +77,7 @@ var compressionMap = map[string]CompressionMethod{
 
 type Auth struct { // has_control_character
 	Database string
+
 	Username string
 	Password string
 }
@@ -155,6 +156,11 @@ type Options struct {
 
 	// HTTPProxy specifies an HTTP proxy URL to use for requests made by the client.
 	HTTPProxyURL *url.URL
+
+	// GetJWT should return a JWT for authentication with ClickHouse Cloud.
+	// This is called per connection/request, so you may cache the token in your app if needed.
+	// Use this instead of Auth.Username and Auth.Password if you're using JWT auth.
+	GetJWT GetJWTFunc
 
 	scheme      string
 	ReadTimeout time.Duration
@@ -306,6 +312,8 @@ func (o *Options) fromDSN(in string) error {
 			o.Auth.Username = params.Get(v)
 		case "password":
 			o.Auth.Password = params.Get(v)
+		case "database":
+			o.Auth.Database = params.Get(v)
 		case "client_info_product":
 			chunks := strings.Split(params.Get(v), ",")
 
