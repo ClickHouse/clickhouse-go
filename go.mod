@@ -8,7 +8,7 @@ require (
 	github.com/ClickHouse/ch-go v0.66.0
 	github.com/ClickHouse/clickhouse-go v1.5.4
 	github.com/andybalholm/brotli v1.1.1
-	github.com/docker/docker v28.1.1+incompatible
+	github.com/docker/docker v28.2.1+incompatible
 	github.com/docker/go-connections v0.5.0
 	github.com/docker/go-units v0.5.0
 	github.com/google/uuid v1.6.0
@@ -30,6 +30,8 @@ require (
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cloudflare/golz4 v0.0.0-20150217214814-ef862a3cdc58 // indirect
+	github.com/containerd/errdefs v1.0.0 // indirect
+	github.com/containerd/errdefs/pkg v0.3.0 // indirect
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/containerd/platforms v0.2.1 // indirect
 	github.com/cpuguy83/dockercfg v0.3.2 // indirect
@@ -77,5 +79,4 @@ require (
 	golang.org/x/crypto v0.38.0 // indirect
 	golang.org/x/sys v0.33.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240318140521-94a12d6c2237 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20240318140521-94a12d6c2237 // indirect
 )
