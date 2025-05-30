@@ -254,7 +254,15 @@ func TestFormatTime(t *testing.T) {
 			val, _ = format(tz, Seconds, t1)
 			assert.Equal(t, "toDateTime('2022-01-12 15:00:00', 'UTC')", val)
 		}
+
+		// test with pointer to time.Time
+		val, _ = format(t1.Location(), Seconds, &t1)
+		assert.Equal(t, "toDateTime('2022-01-12 15:00:00')", val)
 	}
+
+	// test with nil pointer to time.Time
+	val, _ := format(time.UTC, Seconds, (*time.Time)(nil))
+	assert.Equal(t, "NULL", val)
 }
 
 func TestFormatScaledTime(t *testing.T) {
