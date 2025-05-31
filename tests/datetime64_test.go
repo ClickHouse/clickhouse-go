@@ -51,6 +51,8 @@ func TestDateTime64(t *testing.T) {
 				, Col8 DateTime64(6) 
 				, Col9 DateTime64(9)
 			    , Col10 DateTime64(9)
+			    , Col11 DateTime64(9)
+			    , Col12 DateTime64(6)
 			) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
@@ -78,6 +80,8 @@ func TestDateTime64(t *testing.T) {
 		datetime1.UTC().Format("2006-01-02 15:04:05.999 +00:00"),
 		datetime1.UTC().Format("2006-01-02 15:04:05.999 +00:00"),
 		datetimeStu,
+		datetime2,
+		datetime2,
 	))
 	require.NoError(t, batch.Send())
 	var (
@@ -91,8 +95,11 @@ func TestDateTime64(t *testing.T) {
 		col8  time.Time
 		col9  time.Time
 		col10 time.Time
+		col11 int64
+		col12 int64
 	)
-	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_datetime64").Scan(&col1, &col2, &col3, &col4, &col5, &col6, &col7, &col8, &col9, &col10))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_datetime64").Scan(&col1, &col2, &col3, &col4,
+		&col5, &col6, &col7, &col8, &col9, &col10, &col11, &col12))
 	assert.Equal(t, datetime1.In(time.UTC), col1)
 	assert.Equal(t, datetime2.UnixNano(), col2.UnixNano())
 	assert.Equal(t, datetime3.UnixNano(), col3.UnixNano())
@@ -110,6 +117,8 @@ func TestDateTime64(t *testing.T) {
 	assert.Equal(t, datetime1.In(time.UTC), col8)
 	assert.Equal(t, datetime1.In(time.UTC), col9)
 	assert.Equal(t, datetime1.In(time.UTC), col10)
+	assert.Equal(t, col11, datetime2.UnixNano())
+	assert.Equal(t, col12, datetime2.UnixMicro())
 }
 
 func TestDateTime64AsReference(t *testing.T) {

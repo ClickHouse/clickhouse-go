@@ -242,6 +242,7 @@ func TestColumnarDateTime(t *testing.T) {
 		    , Col5 Array(DateTime)
 		    , Col6 Array(Nullable(DateTime))
 			, Col7 DateTime
+			, Col8 DateTime
 		) Engine MergeTree() ORDER BY tuple()
 		`
 	defer func() {
@@ -297,6 +298,7 @@ func TestColumnarDateTime(t *testing.T) {
 		require.NoError(t, batch.Column(5).Append(col5Data))
 		require.NoError(t, batch.Column(6).Append(col6Data))
 		require.NoError(t, batch.Column(7).Append(col7Data))
+		require.NoError(t, batch.Column(8).Append(col1Data))
 	}
 	require.Equal(t, 1000, batch.Rows())
 	require.NoError(t, batch.Send())
@@ -308,8 +310,9 @@ func TestColumnarDateTime(t *testing.T) {
 		Col5 []time.Time
 		Col6 []*time.Time
 		Col7 time.Time
+		Col8 int64
 	}
-	require.NoError(t, conn.QueryRow(ctx, "SELECT Col1, Col2, Col3, Col4, Col5, Col6, Col7 FROM test_datetime WHERE ID = $1", 11).ScanStruct(&result))
+	require.NoError(t, conn.QueryRow(ctx, "SELECT Col1, Col2, Col3, Col4, Col5, Col6, Col7, Col8 FROM test_datetime WHERE ID = $1", 11).ScanStruct(&result))
 	require.Nil(t, result.Col2)
 	assert.Equal(t, datetime1.In(time.UTC), result.Col1)
 	assert.Equal(t, []time.Time{datetime1.In(time.UTC), datetime2.In(time.UTC), datetime1.In(time.UTC)}, result.Col3)
@@ -319,6 +322,7 @@ func TestColumnarDateTime(t *testing.T) {
 	assert.Equal(t, []time.Time{datetime2.In(time.UTC), datetime2.In(time.UTC), datetime2.In(time.UTC)}, result.Col5)
 	assert.Equal(t, []*time.Time{nil, nil, nil}, result.Col6)
 	assert.Equal(t, datetime1.In(time.UTC), result.Col7)
+	assert.Equal(t, datetime1.Truncate(time.Second).Unix(), result.Col8)
 }
 
 func TestDateTimeFlush(t *testing.T) {

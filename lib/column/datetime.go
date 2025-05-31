@@ -95,6 +95,11 @@ func (col *DateTime) ScanRow(dest any, row int) error {
 	case **time.Time:
 		*d = new(time.Time)
 		**d = col.row(row)
+	case *int64:
+		*d = col.row(row).Unix()
+	case **int64:
+		*d = new(int64)
+		**d = col.row(row).Unix()
 	case *sql.NullTime:
 		return d.Scan(col.row(row))
 	default:
