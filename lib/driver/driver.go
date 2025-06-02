@@ -87,6 +87,7 @@ type (
 		IsSent() bool
 		Rows() int
 		Columns() []column.Interface
+		Close() error
 	}
 	BatchColumn interface {
 		Append(any) error

@@ -320,6 +320,21 @@ func (b *batch) closeQuery() error {
 	return nil
 }
 
+func (b *batch) Close() error {
+	if b.sent || b.released {
+		return nil
+	}
+
+	if err := b.closeQuery(); err != nil {
+		return err
+	}
+	b.sent = true
+
+	b.release(nil)
+
+	return nil
+}
+
 type batchColumn struct {
 	err     error
 	batch   driver.Batch

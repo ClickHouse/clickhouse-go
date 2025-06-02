@@ -56,3 +56,25 @@ func TestAbort(t *testing.T) {
 		}
 	}
 }
+
+func TestBatchClose(t *testing.T) {
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	require.NoError(t, err)
+	ctx := context.Background()
+
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO function null('x UInt64') VALUES (1)")
+	require.NoError(t, err)
+	require.NoError(t, batch.Close())
+	require.NoError(t, batch.Close()) // No error on multiple calls
+
+	batch, err = conn.PrepareBatch(ctx, "INSERT INTO function null('x UInt64') VALUES (1)")
+	require.NoError(t, err)
+	if assert.NoError(t, batch.Append(uint8(1))) && assert.NoError(t, batch.Send()) {
+		var col1 uint8
+		if err := conn.QueryRow(ctx, "SELECT 1").Scan(&col1); assert.NoError(t, err) {
+			assert.Equal(t, uint8(1), col1)
+		}
+	}
+}
