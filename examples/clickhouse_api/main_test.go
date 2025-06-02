@@ -20,11 +20,13 @@ package clickhouse_api
 import (
 	"context"
 	"fmt"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
-	"github.com/stretchr/testify/require"
 	"os"
 	"strconv"
 	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 )
 
 func TestMain(m *testing.M) {
@@ -236,4 +238,8 @@ func TestJSONStringExample(t *testing.T) {
 	clickhouse_tests.SkipOnCloud(t, "cannot modify JSON settings on cloud")
 	t.Skip("client cannot receive JSON strings")
 	require.NoError(t, JSONStringExample())
+}
+
+func TestEndOfProcessAndGotBlock(t *testing.T) {
+	require.NoError(t, EndOfProcessAndGotData())
 }

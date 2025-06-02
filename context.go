@@ -22,8 +22,9 @@ import (
 	"maps"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/v2/ext"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/ClickHouse/clickhouse-go/v2/ext"
 )
 
 var _contextOptionKey = &QueryOptions{
@@ -59,6 +60,8 @@ type (
 			progress      func(*Progress)
 			profileInfo   func(*ProfileInfo)
 			profileEvents func([]ProfileEvent)
+			gotData       func()
+			endOfProcess  func()
 		}
 		settings        Settings
 		parameters      Parameters
@@ -143,6 +146,20 @@ func WithProfileInfo(fn func(*ProfileInfo)) QueryOption {
 func WithProfileEvents(fn func([]ProfileEvent)) QueryOption {
 	return func(o *QueryOptions) error {
 		o.events.profileEvents = fn
+		return nil
+	}
+}
+
+func WithGotData(fn func()) QueryOption {
+	return func(o *QueryOptions) error {
+		o.events.gotData = fn
+		return nil
+	}
+}
+
+func WithEndOfProcess(fn func()) QueryOption {
+	return func(o *QueryOptions) error {
+		o.events.endOfProcess = fn
 		return nil
 	}
 }
@@ -271,6 +288,16 @@ func (q *QueryOptions) onProcess() *onProcess {
 		profileEvents: func(events []ProfileEvent) {
 			if q.events.profileEvents != nil {
 				q.events.profileEvents(events)
+			}
+		},
+		gotData: func() {
+			if q.events.gotData != nil {
+				q.events.gotData()
+			}
+		},
+		endOfProcess: func() {
+			if q.events.endOfProcess != nil {
+				q.events.endOfProcess()
 			}
 		},
 	}
