@@ -122,6 +122,8 @@ func WithParameters(params Parameters) QueryOption {
 	}
 }
 
+// WithLogs sets a callback function to handle log events during query execution.
+// The provided function `fn` will be called synchronous in the handler goroutine so must not block.
 func WithLogs(fn func(*Log)) QueryOption {
 	return func(o *QueryOptions) error {
 		o.events.logs = fn
@@ -129,6 +131,8 @@ func WithLogs(fn func(*Log)) QueryOption {
 	}
 }
 
+// WithProgress sets a callback function to handle progress events during query execution.
+// The provided function `fn` will be called synchronous in the handler goroutine so must not block.
 func WithProgress(fn func(*Progress)) QueryOption {
 	return func(o *QueryOptions) error {
 		o.events.progress = fn
@@ -136,6 +140,8 @@ func WithProgress(fn func(*Progress)) QueryOption {
 	}
 }
 
+// WithProfileInfo sets a callback function to handle profile information events during query execution.
+// The provided function `fn` will be called synchronous in the handler goroutine so must not block.
 func WithProfileInfo(fn func(*ProfileInfo)) QueryOption {
 	return func(o *QueryOptions) error {
 		o.events.profileInfo = fn
@@ -143,6 +149,8 @@ func WithProfileInfo(fn func(*ProfileInfo)) QueryOption {
 	}
 }
 
+// WithProfileEvents sets a callback function to handle ClickHouse Profile Events during query execution.
+// The provided function `fn` will be called synchronous in the handler goroutine so must not block.
 func WithProfileEvents(fn func([]ProfileEvent)) QueryOption {
 	return func(o *QueryOptions) error {
 		o.events.profileEvents = fn
@@ -150,6 +158,8 @@ func WithProfileEvents(fn func([]ProfileEvent)) QueryOption {
 	}
 }
 
+// WithGotData sets a callback function to be executed when data is received during query execution.
+// The provided function `fn` will be called synchronous in the handler goroutine so must not block.
 func WithGotData(fn func()) QueryOption {
 	return func(o *QueryOptions) error {
 		o.events.gotData = fn
@@ -157,6 +167,8 @@ func WithGotData(fn func()) QueryOption {
 	}
 }
 
+// WithEndOfProcess sets a callback function to be executed at the end of the query execution process.
+// The provided function `fn` will be called synchronous in the handler goroutine so must not block.
 func WithEndOfProcess(fn func()) QueryOption {
 	return func(o *QueryOptions) error {
 		o.events.endOfProcess = fn
