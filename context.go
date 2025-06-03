@@ -22,8 +22,9 @@ import (
 	"maps"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/v2/ext"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/ClickHouse/clickhouse-go/v2/ext"
 )
 
 var _contextOptionKey = &QueryOptions{
@@ -59,6 +60,8 @@ type (
 			progress      func(*Progress)
 			profileInfo   func(*ProfileInfo)
 			profileEvents func([]ProfileEvent)
+			gotData       func()
+			endOfProcess  func()
 		}
 		settings        Settings
 		parameters      Parameters
@@ -119,6 +122,8 @@ func WithParameters(params Parameters) QueryOption {
 	}
 }
 
+// WithLogs sets a callback function to handle log events during query execution.
+// The provided function `fn` will be called synchronous in the handler goroutine so must not block.
 func WithLogs(fn func(*Log)) QueryOption {
 	return func(o *QueryOptions) error {
 		o.events.logs = fn
@@ -126,6 +131,8 @@ func WithLogs(fn func(*Log)) QueryOption {
 	}
 }
 
+// WithProgress sets a callback function to handle progress events during query execution.
+// The provided function `fn` will be called synchronous in the handler goroutine so must not block.
 func WithProgress(fn func(*Progress)) QueryOption {
 	return func(o *QueryOptions) error {
 		o.events.progress = fn
@@ -133,6 +140,8 @@ func WithProgress(fn func(*Progress)) QueryOption {
 	}
 }
 
+// WithProfileInfo sets a callback function to handle profile information events during query execution.
+// The provided function `fn` will be called synchronous in the handler goroutine so must not block.
 func WithProfileInfo(fn func(*ProfileInfo)) QueryOption {
 	return func(o *QueryOptions) error {
 		o.events.profileInfo = fn
@@ -140,9 +149,29 @@ func WithProfileInfo(fn func(*ProfileInfo)) QueryOption {
 	}
 }
 
+// WithProfileEvents sets a callback function to handle ClickHouse Profile Events during query execution.
+// The provided function `fn` will be called synchronous in the handler goroutine so must not block.
 func WithProfileEvents(fn func([]ProfileEvent)) QueryOption {
 	return func(o *QueryOptions) error {
 		o.events.profileEvents = fn
+		return nil
+	}
+}
+
+// WithGotData sets a callback function to be executed when data is received during query execution.
+// The provided function `fn` will be called synchronous in the handler goroutine so must not block.
+func WithGotData(fn func()) QueryOption {
+	return func(o *QueryOptions) error {
+		o.events.gotData = fn
+		return nil
+	}
+}
+
+// WithEndOfProcess sets a callback function to be executed at the end of the query execution process.
+// The provided function `fn` will be called synchronous in the handler goroutine so must not block.
+func WithEndOfProcess(fn func()) QueryOption {
+	return func(o *QueryOptions) error {
+		o.events.endOfProcess = fn
 		return nil
 	}
 }
@@ -271,6 +300,16 @@ func (q *QueryOptions) onProcess() *onProcess {
 		profileEvents: func(events []ProfileEvent) {
 			if q.events.profileEvents != nil {
 				q.events.profileEvents(events)
+			}
+		},
+		gotData: func() {
+			if q.events.gotData != nil {
+				q.events.gotData()
+			}
+		},
+		endOfProcess: func() {
+			if q.events.endOfProcess != nil {
+				q.events.endOfProcess()
 			}
 		},
 	}
