@@ -147,6 +147,8 @@ func (ch *clickhouse) Exec(ctx context.Context, query string, args ...any) error
 	if err != nil {
 		return err
 	}
+	conn.debugf("[acquired] connection [%d]", conn.id)
+
 	if err := conn.exec(ctx, query, args...); err != nil {
 		ch.release(conn, err)
 		return err
@@ -345,6 +347,8 @@ func (ch *clickhouse) release(conn *connect, err error) {
 		return
 	}
 	conn.released = true
+	conn.debugf("[released] connection [%d]", conn.id)
+
 	select {
 	case <-ch.open:
 	default:
