@@ -21,8 +21,9 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
-	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
+
+	"github.com/ClickHouse/ch-go/proto"
 )
 
 type Bool struct {
@@ -68,6 +69,8 @@ func (col *Bool) ScanRow(dest any, row int) error {
 	case sql.Scanner:
 		return d.Scan(col.row(row))
 	default:
+		// REVIEW: questo è già stato gestito? Pare esserci già anche un test
+		// sopra, 'TestCustomBool'. Indaga un attimo.
 		if scan, ok := dest.(sql.Scanner); ok {
 			return scan.Scan(col.row(row))
 		}
