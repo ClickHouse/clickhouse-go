@@ -93,12 +93,9 @@ func (col *IPv6) ScanRow(dest any, row int) error {
 	case **[16]byte:
 		*d = new([16]byte)
 		**d = col.col.Row(row)
+	case sql.Scanner:
+		return d.Scan(col.row(row))
 	default:
-		// REVIEW: valutare di inserire queste type assertion direttamente tra i
-		// case dello switch sul tipo.
-		if scan, ok := dest.(sql.Scanner); ok {
-			return scan.Scan(col.row(row))
-		}
 		return &ColumnConverterError{
 			Op:   "ScanRow",
 			To:   fmt.Sprintf("%T", dest),
