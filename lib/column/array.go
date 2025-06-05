@@ -18,6 +18,7 @@
 package column
 
 import (
+	"database/sql"
 	"fmt"
 	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
@@ -270,7 +271,7 @@ func (col *Array) WriteStatePrefix(buffer *proto.Buffer) error {
 }
 
 func (col *Array) ScanRow(dest any, row int) error {
-	if scanner, ok := dest.(interface{ Scan(any) error }); ok {
+	if scanner, ok := dest.(sql.Scanner); ok {
 		value, err := col.scan(scanTypeAny, row)
 		if err != nil {
 			return err
