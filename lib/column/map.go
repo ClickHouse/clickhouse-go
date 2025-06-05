@@ -18,8 +18,8 @@
 package column
 
 import (
-	"database/sql/driver"
 	"database/sql"
+	"database/sql/driver"
 	"fmt"
 	"reflect"
 	"strings"
