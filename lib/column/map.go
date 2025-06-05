@@ -114,6 +114,9 @@ func (col *Map) Row(i int, ptr bool) any {
 }
 
 func (col *Map) ScanRow(dest any, i int) error {
+	if scanner, ok := dest.(interface{ Scan(any) error }); ok {
+		return scanner.Scan(col.row(i).Interface())
+	}
 	value := reflect.Indirect(reflect.ValueOf(dest))
 	if value.Type() == col.scanType {
 		value.Set(col.row(i))
