@@ -21,9 +21,10 @@ import (
 	"context"
 	"database/sql/driver"
 	"fmt"
-	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
@@ -151,6 +152,56 @@ func TestInterfaceArray(t *testing.T) {
 	}
 	require.NoError(t, rows.Close())
 	require.NoError(t, rows.Err())
+}
+
+func TestSQLScannerArray(t *testing.T) {
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+	require.NoError(t, err)
+	const ddl = `
+		CREATE TABLE test_array (
+			  Col1 Array(String)
+		) Engine MergeTree() ORDER BY tuple()
+		`
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE test_array")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_array")
+	require.NoError(t, err)
+	var (
+		col1Data = []string{"A", "b", "c"}
+	)
+	for i := 0; i < 10; i++ {
+		require.NoError(t, batch.Append(col1Data))
+	}
+	require.Equal(t, 10, batch.Rows())
+	require.Nil(t, batch.Send())
+	rows, err := conn.Query(ctx, "SELECT * FROM test_array")
+	require.NoError(t, err)
+	for rows.Next() {
+		var (
+			col1 = sqlScannerArray{}
+		)
+		require.NoError(t, rows.Scan(&col1))
+		ok := assert.ObjectsAreEqual(col1Data, col1.value)
+		if !ok {
+			t.Fatalf("expected %#v, got %#v", col1Data, col1.value)
+		}
+	}
+	require.NoError(t, rows.Close())
+	require.NoError(t, rows.Err())
+}
+
+type sqlScannerArray struct {
+	value any
+}
+
+func (s *sqlScannerArray) Scan(src any) error {
+	s.value = src
+	return nil
 }
 
 func TestArray(t *testing.T) {
