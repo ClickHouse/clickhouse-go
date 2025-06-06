@@ -64,7 +64,6 @@ func TestSimpleIPv4(t *testing.T) {
 	assert.Equal(t, col1Data.To4(), col1)
 }
 
-
 func TestIPv4(t *testing.T) {
 	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
