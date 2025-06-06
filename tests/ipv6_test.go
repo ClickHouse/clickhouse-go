@@ -21,12 +21,13 @@ import (
 	"context"
 	"database/sql/driver"
 	"fmt"
-	"github.com/ClickHouse/ch-go/proto"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
-	"github.com/stretchr/testify/require"
 	"net"
 	"net/netip"
 	"testing"
+
+	"github.com/ClickHouse/ch-go/proto"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
+	"github.com/stretchr/testify/require"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
@@ -520,8 +521,6 @@ func TestIPv6Valuer(t *testing.T) {
 	}
 	require.Equal(t, 1000, i)
 }
-
-// REVIEW: move the tests in a consistent position.
 
 func TestSQLScannerIPv6(t *testing.T) {
 	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
