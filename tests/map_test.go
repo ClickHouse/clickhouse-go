@@ -21,10 +21,9 @@ import (
 	"context"
 	"database/sql/driver"
 	"fmt"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	"reflect"
 	"testing"
-
-	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 
 	"github.com/stretchr/testify/require"
 

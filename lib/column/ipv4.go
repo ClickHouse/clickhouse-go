@@ -22,11 +22,10 @@ import (
 	"database/sql/driver"
 	"encoding/binary"
 	"fmt"
+	"github.com/ClickHouse/ch-go/proto"
 	"net"
 	"net/netip"
 	"reflect"
-
-	"github.com/ClickHouse/ch-go/proto"
 )
 
 type IPv4 struct {

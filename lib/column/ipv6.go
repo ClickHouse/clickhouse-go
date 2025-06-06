@@ -21,11 +21,10 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
+	"github.com/ClickHouse/ch-go/proto"
 	"net"
 	"net/netip"
 	"reflect"
-
-	"github.com/ClickHouse/ch-go/proto"
 )
 
 type IPv6 struct {

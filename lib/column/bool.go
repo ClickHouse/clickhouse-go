@@ -21,9 +21,8 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
-	"reflect"
-
 	"github.com/ClickHouse/ch-go/proto"
+	"reflect"
 )
 
 type Bool struct {
