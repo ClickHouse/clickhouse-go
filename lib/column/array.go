@@ -18,12 +18,15 @@
 package column
 
 import (
+	"database/sql"
 	"fmt"
 	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
 	"strings"
 	"time"
 )
+
+var scanTypeAny = reflect.TypeOf((*interface{})(nil)).Elem()
 
 type offset struct {
 	values   UInt64
@@ -268,6 +271,13 @@ func (col *Array) WriteStatePrefix(buffer *proto.Buffer) error {
 }
 
 func (col *Array) ScanRow(dest any, row int) error {
+	if scanner, ok := dest.(sql.Scanner); ok {
+		value, err := col.scan(scanTypeAny, row)
+		if err != nil {
+			return err
+		}
+		return scanner.Scan(value.Interface())
+	}
 	elem := reflect.Indirect(reflect.ValueOf(dest))
 	value, err := col.scan(elem.Type(), row)
 	if err != nil {

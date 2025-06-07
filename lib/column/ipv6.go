@@ -18,6 +18,7 @@
 package column
 
 import (
+	"database/sql"
 	"database/sql/driver"
 	"fmt"
 	"github.com/ClickHouse/ch-go/proto"
@@ -91,6 +92,8 @@ func (col *IPv6) ScanRow(dest any, row int) error {
 	case **[16]byte:
 		*d = new([16]byte)
 		**d = col.col.Row(row)
+	case sql.Scanner:
+		return d.Scan(col.row(row))
 	default:
 		return &ColumnConverterError{
 			Op:   "ScanRow",

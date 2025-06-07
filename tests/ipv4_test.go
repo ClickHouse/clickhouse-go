@@ -556,3 +556,44 @@ func TestIPv4Valuer(t *testing.T) {
 	}
 	require.Equal(t, 1000, i)
 }
+
+func TestSQLScannerIPv4(t *testing.T) {
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+	require.NoError(t, err)
+	const ddl = `
+			CREATE TABLE test_ipv4 (
+				  Col1 IPv4
+			) Engine MergeTree() ORDER BY tuple()
+		`
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE test_ipv4")
+	}()
+
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_ipv4")
+	require.NoError(t, err)
+
+	var (
+		col1Data = net.ParseIP("127.0.0.1")
+	)
+	require.NoError(t, batch.Append(col1Data))
+	require.Equal(t, 1, batch.Rows())
+	require.NoError(t, batch.Send())
+	var (
+		col1 sqlScannerIPv4
+	)
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_ipv4").Scan(&col1))
+	assert.Equal(t, col1Data.To4(), col1.value)
+}
+
+type sqlScannerIPv4 struct {
+	value any
+}
+
+func (s *sqlScannerIPv4) Scan(src any) error {
+	s.value = src
+	return nil
+}

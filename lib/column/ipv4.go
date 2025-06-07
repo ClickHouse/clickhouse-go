@@ -18,6 +18,7 @@
 package column
 
 import (
+	"database/sql"
 	"database/sql/driver"
 	"encoding/binary"
 	"fmt"
@@ -98,6 +99,8 @@ func (col *IPv4) ScanRow(dest any, row int) error {
 		}
 		*d = new(uint32)
 		**d = binary.BigEndian.Uint32(ipV4[:])
+	case sql.Scanner:
+		return d.Scan(col.row(row))
 	default:
 		return &ColumnConverterError{
 			Op:   "ScanRow",

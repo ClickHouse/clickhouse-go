@@ -459,6 +459,52 @@ func (i *mapIter) Value() any {
 	return i.om.valuesIter[i.iterIndex]
 }
 
+func TestSQLScannerMap(t *testing.T) {
+	conn, err := GetNativeConnection(clickhouse.Settings{}, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+	require.NoError(t, err)
+	if !CheckMinServerServerVersion(conn, 21, 9, 0) {
+		t.Skip(fmt.Errorf("unsupported clickhouse version"))
+		return
+	}
+	const ddl = `
+		CREATE TABLE test_map (
+			  Col1 Map(String, UInt64)
+		) Engine MergeTree() ORDER BY tuple()
+		`
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE IF EXISTS test_map")
+	}()
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_map")
+	require.NoError(t, err)
+	var (
+		col1Data = map[string]uint64{
+			"key_col_1_1": 1,
+			"key_col_1_2": 2,
+		}
+	)
+	require.NoError(t, batch.Append(col1Data))
+	require.Equal(t, 1, batch.Rows())
+	require.NoError(t, batch.Send())
+	var (
+		col1 sqlScannerMap
+	)
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_map").Scan(&col1))
+	assert.Equal(t, col1Data, col1.value)
+}
+
+type sqlScannerMap struct {
+	value any
+}
+
+func (s *sqlScannerMap) Scan(src any) error {
+	s.value = src
+	return nil
+}
+
 func BenchmarkOrderedMapUseChanGo(b *testing.B) {
 	m := NewOrderedMap()
 	for i := 0; i < 10; i++ {
