@@ -405,10 +405,7 @@ func TestSQLScannerArray(t *testing.T) {
 			col1 = sqlScannerArray{}
 		)
 		require.NoError(t, rows.Scan(&col1))
-		ok := assert.ObjectsAreEqual(col1Data, col1.value)
-		if !ok {
-			t.Fatalf("expected %#v, got %#v", col1Data, col1.value)
-		}
+		assert.Equal(t, col1Data, col1.value)
 	}
 	require.NoError(t, rows.Close())
 	require.NoError(t, rows.Err())
