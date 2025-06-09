@@ -143,11 +143,10 @@ func TestInterfaceArray(t *testing.T) {
 	rows, err := conn.Query(ctx, "SELECT * FROM test_array")
 	require.NoError(t, err)
 	for rows.Next() {
-		var (
-			col1 any
-		)
+		var col1 []string
 		require.NoError(t, rows.Scan(&col1))
-		assert.ObjectsAreEqual(col1Data, col1)
+		require.Equal(t, col1Data, col1)
+
 	}
 	require.NoError(t, rows.Close())
 	require.NoError(t, rows.Err())
