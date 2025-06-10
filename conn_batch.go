@@ -320,6 +320,26 @@ func (b *batch) closeQuery() error {
 	return nil
 }
 
+// Close will end the current INSERT without sending the currently buffered rows, and release the connection.
+// This may result in zero row inserts if no rows were appended.
+// If a batch was already sent this does nothing.
+// This should be called via defer after a batch is opened to prevent
+// batches from falling out of scope and timing out.
+func (b *batch) Close() error {
+	if b.sent || b.released {
+		return nil
+	}
+
+	if err := b.closeQuery(); err != nil {
+		return err
+	}
+	b.sent = true
+
+	b.release(nil)
+
+	return nil
+}
+
 type batchColumn struct {
 	err     error
 	batch   driver.Batch

@@ -109,6 +109,11 @@ func (b *httpBatch) Flush() error {
 	return nil
 }
 
+func (b *httpBatch) Close() error {
+	b.sent = true
+	return nil
+}
+
 func (b *httpBatch) Abort() error {
 	defer func() {
 		b.sent = true

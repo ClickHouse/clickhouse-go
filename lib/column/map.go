@@ -83,11 +83,14 @@ func (col *Map) parse(t Type, tz *time.Location) (_ Interface, err error) {
 		if col.values, err = Type(strings.TrimSpace(types[1])).Column(col.name, tz); err != nil {
 			return nil, err
 		}
-		col.scanType = reflect.MapOf(
-			col.keys.ScanType(),
-			col.values.ScanType(),
-		)
-		return col, nil
+
+		if col.keys.ScanType().Comparable() {
+			col.scanType = reflect.MapOf(
+				col.keys.ScanType(),
+				col.values.ScanType(),
+			)
+			return col, nil
+		}
 	}
 	return nil, &UnsupportedColumnTypeError{
 		t: t,

@@ -53,6 +53,8 @@ func BatchInsert() error {
 	if err != nil {
 		return err
 	}
+	defer batch.Close()
+
 	for i := 0; i < 1000; i++ {
 		err := batch.Append(
 			uint8(42),
