@@ -27,6 +27,8 @@ import (
 
 var (
 	ErrExpectedStringValueInNamedValueForQueryParameter = errors.New("expected string value in NamedValue for query parameter")
+	ErrInvalidValueInNamedDateValue                     = errors.New("invalid value in NamedDateValue for query parameter")
+	ErrUnsupportedQueryParameter                        = errors.New("unsupported query parameter type")
 
 	hasQueryParamsRe = regexp.MustCompile("{.+:.+}")
 )
@@ -44,18 +46,42 @@ func bindQueryOrAppendParameters(paramsProtocolSupport bool, options *QueryOptio
 		hasQueryParamsRe.MatchString(query) {
 		options.parameters = make(Parameters, len(args))
 		for _, a := range args {
-			if p, ok := a.(driver.NamedValue); ok {
+			switch p := a.(type) {
+			case driver.NamedValue:
 				if str, ok := p.Value.(string); ok {
 					options.parameters[p.Name] = str
 					continue
 				}
-			}
+				return "", ErrExpectedStringValueInNamedValueForQueryParameter
 
-			return "", ErrExpectedStringValueInNamedValueForQueryParameter
+			case driver.NamedDateValue:
+				if !p.Value.IsZero() && p.Name != "" {
+					formatted := formatTimeWithScale(p.Value, TimeUnit(p.Scale))
+					options.parameters[p.Name] = formatted
+					continue
+				}
+				return "", ErrInvalidValueInNamedDateValue
+
+			default:
+				return "", ErrUnsupportedQueryParameter
+			}
 		}
 
 		return query, nil
 	}
 
 	return bind(timezone, query, args...)
+}
+
+func formatTimeWithScale(t time.Time, scale TimeUnit) string {
+	switch scale {
+	case MicroSeconds:
+		return t.Format("2006-01-02 15:04:05.000000")
+	case MilliSeconds:
+		return t.Format("2006-01-02 15:04:05.000")
+	case NanoSeconds:
+		return t.Format("2006-01-02 15:04:05.000000000")
+	default:
+		return t.Format("2006-01-02 15:04:05")
+	}
 }

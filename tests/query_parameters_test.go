@@ -20,6 +20,7 @@ package tests
 import (
 	"context"
 	"fmt"
+	"time"
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -108,7 +109,26 @@ func TestQueryParameters(t *testing.T) {
 			1234,
 			"String",
 		)
-		require.ErrorIs(t, row.Err(), clickhouse.ErrExpectedStringValueInNamedValueForQueryParameter)
+		require.ErrorIs(t, row.Err(), clickhouse.ErrUnsupportedQueryParameter)
+	})
+
+	t.Run("invalid NamedDateValue", func(t *testing.T) {
+		row := client.QueryRow(
+			ctx,
+			"SELECT {ts:DateTime}",
+			clickhouse.DateNamed("ts", time.Time{}, clickhouse.Seconds), // zero time
+		)
+		require.ErrorIs(t, row.Err(), clickhouse.ErrInvalidValueInNamedDateValue)
+	})
+
+	t.Run("valid named args", func(t *testing.T) {
+		row := client.QueryRow(
+			ctx,
+			"SELECT {str:String}, {ts:DateTime}",
+			clickhouse.Named("str", "hi"),
+			clickhouse.DateNamed("ts", time.Now(), clickhouse.Seconds),
+		)
+		require.NoError(t, row.Err())
 	})
 
 	t.Run("with bind backwards compatibility", func(t *testing.T) {
