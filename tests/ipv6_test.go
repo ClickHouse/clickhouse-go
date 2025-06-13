@@ -21,12 +21,13 @@ import (
 	"context"
 	"database/sql/driver"
 	"fmt"
-	"github.com/ClickHouse/ch-go/proto"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
-	"github.com/stretchr/testify/require"
 	"net"
 	"net/netip"
 	"testing"
+
+	"github.com/ClickHouse/ch-go/proto"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
+	"github.com/stretchr/testify/require"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
@@ -519,4 +520,45 @@ func TestIPv6Valuer(t *testing.T) {
 		i += 1
 	}
 	require.Equal(t, 1000, i)
+}
+
+func TestSQLScannerIPv6(t *testing.T) {
+	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+		Method: clickhouse.CompressionLZ4,
+	})
+	ctx := context.Background()
+	require.NoError(t, err)
+	const ddl = `
+			CREATE TABLE test_ipv6 (
+				  Col1 IPv6
+			) Engine MergeTree() ORDER BY tuple()
+		`
+	defer func() {
+		conn.Exec(ctx, "DROP TABLE test_ipv6")
+	}()
+
+	require.NoError(t, conn.Exec(ctx, ddl))
+	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_ipv6")
+	require.NoError(t, err)
+
+	var (
+		col1Data = net.ParseIP("2001:44c8:129:2632:33:0:252:2")
+	)
+	require.NoError(t, batch.Append(col1Data))
+	require.Equal(t, 1, batch.Rows())
+	require.NoError(t, batch.Send())
+	var (
+		col1 sqlScannerIPv6
+	)
+	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_ipv6").Scan(&col1))
+	assert.Equal(t, col1Data, col1.value)
+}
+
+type sqlScannerIPv6 struct {
+	value any
+}
+
+func (s *sqlScannerIPv6) Scan(src any) error {
+	s.value = src
+	return nil
 }
