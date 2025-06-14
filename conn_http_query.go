@@ -119,3 +119,16 @@ func (h *httpConnect) query(ctx context.Context, release func(*connect, error), 
 		structMap: &structMap{},
 	}, nil
 }
+
+func (h *httpConnect) queryRow(ctx context.Context, release func(*connect, error), query string, args ...any) *row {
+	rows, err := h.query(ctx, release, query, args...)
+	if err != nil {
+		return &row{
+			err: err,
+		}
+	}
+
+	return &row{
+		rows: rows,
+	}
+}

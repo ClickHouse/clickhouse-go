@@ -83,6 +83,16 @@ func Open(opt *Options) (driver.Conn, error) {
 		opt = &Options{}
 	}
 	o := opt.setDefaults()
+
+	if o.Protocol == HTTP {
+		httpConn, err := dialHttp(context.Background(), opt.Addr[0], 0, opt)
+		if err != nil {
+			return nil, err
+		}
+
+		return &clickhouseHTTP{conn: httpConn}, nil
+	}
+
 	conn := &clickhouse{
 		opt:  o,
 		idle: make(chan *connect, o.MaxIdleConns),
@@ -131,7 +141,7 @@ func (ch *clickhouse) Query(ctx context.Context, query string, args ...any) (row
 	return conn.query(ctx, ch.release, query, args...)
 }
 
-func (ch *clickhouse) QueryRow(ctx context.Context, query string, args ...any) (rows driver.Row) {
+func (ch *clickhouse) QueryRow(ctx context.Context, query string, args ...any) driver.Row {
 	conn, err := ch.acquire(ctx)
 	if err != nil {
 		return &row{
