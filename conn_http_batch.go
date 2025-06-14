@@ -37,7 +37,7 @@ func (h *httpConnect) prepareBatch(ctx context.Context, query string, opts drive
 	}
 
 	describeTableQuery := fmt.Sprintf("DESCRIBE TABLE %s", tableName)
-	r, err := h.query(ctx, release, describeTableQuery)
+	r, err := h.query(ctx, nil, describeTableQuery)
 	if err != nil {
 		return nil, err
 	}
