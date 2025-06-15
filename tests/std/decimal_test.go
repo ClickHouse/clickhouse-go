@@ -19,11 +19,12 @@ package std
 
 import (
 	"fmt"
+	"strconv"
+	"testing"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/require"
-	"strconv"
-	"testing"
 
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
@@ -126,6 +127,9 @@ func TestStdDecimal(t *testing.T) {
 				assert.True(t, decimal.New(30, 0).Equal(col2))
 				assert.True(t, decimal.New(35, 0).Equal(col3))
 			}
+
+			require.NoError(t, rows.Close())
+			require.NoError(t, rows.Err())
 		})
 	}
 }

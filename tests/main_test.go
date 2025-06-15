@@ -36,6 +36,12 @@ func GetNativeTestEnvironment() (ClickHouseTestEnvironment, error) {
 	return GetTestEnvironment(testSet)
 }
 
-func GetNativeConnection(settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (driver.Conn, error) {
-	return GetConnection(testSet, settings, tlsConfig, compression)
+func GetNativeConnection(t *testing.T, protocol clickhouse.Protocol, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (driver.Conn, error) {
+	conn, err := GetConnection(testSet, t, protocol, settings, tlsConfig, compression)
+	CleanupNativeConn(t, conn)
+	return conn, err
+}
+
+func GetNativeConnectionTCP(settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (driver.Conn, error) {
+	return GetConnection(testSet, nil, clickhouse.Native, settings, tlsConfig, compression)
 }

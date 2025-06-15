@@ -189,6 +189,8 @@ func TestStdHTTPEmptyResponse(t *testing.T) {
 			for rows.Next() {
 				count++
 			}
+			require.NoError(t, rows.Close())
+			require.NoError(t, rows.Err())
 			assert.Equal(t, 0, count)
 			var col1 uint64
 			// will return with no rows in result set
@@ -255,6 +257,8 @@ func TestBlockBufferSize(t *testing.T) {
 				require.NoError(t, rows.Scan(&count))
 				i++
 			}
+			require.NoError(t, rows.Close())
+			require.NoError(t, rows.Err())
 			require.Equal(t, 1000000, i)
 		})
 	}

@@ -34,12 +34,13 @@ import (
 )
 
 func TestIPv6(t *testing.T) {
-	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
-		Method: clickhouse.CompressionLZ4,
-	})
-	ctx := context.Background()
-	require.NoError(t, err)
-	const ddl = `
+	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		conn, err := GetNativeConnection(t, protocol, nil, nil, &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		})
+		ctx := context.Background()
+		require.NoError(t, err)
+		const ddl = `
 			CREATE TABLE test_ipv6 (
 				  Col1 IPv6
 				, Col2 IPv6
@@ -52,159 +53,164 @@ func TestIPv6(t *testing.T) {
 				, Col9 Nullable(IPv6)
 			) Engine MergeTree() ORDER BY tuple()
 		`
-	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_ipv6")
-	}()
-	require.NoError(t, conn.Exec(ctx, ddl))
-	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_ipv6")
-	require.NoError(t, err)
-	var (
-		col1Data = net.ParseIP("2001:44c8:129:2632:33:0:252:2")
-		col2Data = net.ParseIP("2a02:e980:1e::1")
-		col3Data = col1Data
-		col4Data = []net.IP{col1Data, col2Data}
-		col5Data = []*net.IP{&col1Data, nil, &col2Data}
-		col6Data = []*net.IP{&col1Data, &col2Data}
-		col7Data = []*net.IP{&col1Data, nil, &col2Data}
-		col8Data = &col1Data
-		col9Data = col2Data
-	)
-	require.NoError(t, batch.Append(col1Data, col2Data, col3Data, col4Data, col5Data, col6Data, col7Data, col8Data, col9Data))
-	require.NoError(t, batch.Send())
-	var (
-		col1 net.IP
-		col2 net.IP
-		col3 *net.IP
-		col4 []net.IP
-		col5 []*net.IP
-		col6 []net.IP
-		col7 []*net.IP
-		col8 [16]byte
-		col9 *[16]byte
-	)
-	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_ipv6").Scan(&col1, &col2, &col3, &col4, &col5, &col6, &col7, &col8, &col9))
-	assert.Equal(t, col1Data, col1)
-	assert.Equal(t, col2Data, col2)
-	assert.Equal(t, col3Data, *col3)
-	require.Len(t, col4, 2)
-	assert.Equal(t, col1Data, col4[0])
-	assert.Equal(t, col2Data, col4[1])
-	require.Len(t, col5, 3)
-	require.Nil(t, col5[1])
-	assert.Equal(t, col1Data, *col5[0])
-	assert.Equal(t, col2Data, *col5[2])
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_ipv6")
+		}()
+		require.NoError(t, conn.Exec(ctx, ddl))
+		batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_ipv6")
+		require.NoError(t, err)
+		var (
+			col1Data = net.ParseIP("2001:44c8:129:2632:33:0:252:2")
+			col2Data = net.ParseIP("2a02:e980:1e::1")
+			col3Data = col1Data
+			col4Data = []net.IP{col1Data, col2Data}
+			col5Data = []*net.IP{&col1Data, nil, &col2Data}
+			col6Data = []*net.IP{&col1Data, &col2Data}
+			col7Data = []*net.IP{&col1Data, nil, &col2Data}
+			col8Data = &col1Data
+			col9Data = col2Data
+		)
+		require.NoError(t, batch.Append(col1Data, col2Data, col3Data, col4Data, col5Data, col6Data, col7Data, col8Data, col9Data))
+		require.NoError(t, batch.Send())
+		var (
+			col1 net.IP
+			col2 net.IP
+			col3 *net.IP
+			col4 []net.IP
+			col5 []*net.IP
+			col6 []net.IP
+			col7 []*net.IP
+			col8 [16]byte
+			col9 *[16]byte
+		)
+		require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_ipv6").Scan(&col1, &col2, &col3, &col4, &col5, &col6, &col7, &col8, &col9))
+		assert.Equal(t, col1Data, col1)
+		assert.Equal(t, col2Data, col2)
+		assert.Equal(t, col3Data, *col3)
+		require.Len(t, col4, 2)
+		assert.Equal(t, col1Data, col4[0])
+		assert.Equal(t, col2Data, col4[1])
+		require.Len(t, col5, 3)
+		require.Nil(t, col5[1])
+		assert.Equal(t, col1Data, *col5[0])
+		assert.Equal(t, col2Data, *col5[2])
 
-	require.Len(t, col6, 2)
-	assert.Equal(t, col1Data, col4[0])
-	assert.Equal(t, col2Data, col4[1])
-	require.Len(t, col7, 3)
-	require.Nil(t, col7[1])
-	assert.Equal(t, col1Data, *col7[0])
-	assert.Equal(t, col2Data, *col7[2])
+		require.Len(t, col6, 2)
+		assert.Equal(t, col1Data, col4[0])
+		assert.Equal(t, col2Data, col4[1])
+		require.Len(t, col7, 3)
+		require.Nil(t, col7[1])
+		assert.Equal(t, col1Data, *col7[0])
+		assert.Equal(t, col2Data, *col7[2])
 
-	assert.Equal(t, col1Data, net.ParseIP(netip.AddrFrom16(col8).String()))
-	assert.Equal(t, col2Data, net.ParseIP(netip.AddrFrom16(*col9).String()))
-
+		assert.Equal(t, col1Data, net.ParseIP(netip.AddrFrom16(col8).String()))
+		assert.Equal(t, col2Data, net.ParseIP(netip.AddrFrom16(*col9).String()))
+	})
 }
 
 func TestIPv4InIPv6(t *testing.T) {
-	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
-		Method: clickhouse.CompressionLZ4,
-	})
-	ctx := context.Background()
-	require.NoError(t, err)
-	const ddl = `
+	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		conn, err := GetNativeConnection(t, protocol, nil, nil, &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		})
+		ctx := context.Background()
+		require.NoError(t, err)
+		const ddl = `
 			CREATE TABLE test_ipv6 (
 				  Col1 IPv6
 				, Col2 IPv6
 				, Col3 IPv6
 			) Engine MergeTree() ORDER BY tuple()
 		`
-	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_ipv6")
-	}()
-	require.NoError(t, conn.Exec(ctx, ddl))
-	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_ipv6")
-	require.NoError(t, err)
-	var (
-		col1Data = net.ParseIP("127.0.0.1").To4()
-		col2Data = net.ParseIP("85.242.48.167").To4()
-		col3Data = net.ParseIP("85.242.48.167").To4()
-	)
-	require.NoError(t, batch.Append(col1Data, col2Data, col3Data))
-	require.NoError(t, batch.Send())
-	var (
-		col1 net.IP
-		col2 net.IP
-		col3 [16]byte
-	)
-	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_ipv6").Scan(&col1, &col2, &col3))
-	assert.Equal(t, col1Data.To16(), col1)
-	assert.Equal(t, col2Data.To16(), col2)
-	assert.Equal(t, col3Data.To16(), net.ParseIP(netip.AddrFrom16(col3).String()))
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_ipv6")
+		}()
+		require.NoError(t, conn.Exec(ctx, ddl))
+		batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_ipv6")
+		require.NoError(t, err)
+		var (
+			col1Data = net.ParseIP("127.0.0.1").To4()
+			col2Data = net.ParseIP("85.242.48.167").To4()
+			col3Data = net.ParseIP("85.242.48.167").To4()
+		)
+		require.NoError(t, batch.Append(col1Data, col2Data, col3Data))
+		require.NoError(t, batch.Send())
+		var (
+			col1 net.IP
+			col2 net.IP
+			col3 [16]byte
+		)
+		require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_ipv6").Scan(&col1, &col2, &col3))
+		assert.Equal(t, col1Data.To16(), col1)
+		assert.Equal(t, col2Data.To16(), col2)
+		assert.Equal(t, col3Data.To16(), net.ParseIP(netip.AddrFrom16(col3).String()))
+	})
 }
 
 func TestNullableIPv6(t *testing.T) {
-	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
-		Method: clickhouse.CompressionLZ4,
-	})
-	ctx := context.Background()
-	require.NoError(t, err)
-	const ddl = `
+	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		conn, err := GetNativeConnection(t, protocol, nil, nil, &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		})
+		ctx := context.Background()
+		require.NoError(t, err)
+		const ddl = `
 			CREATE TABLE test_ipv6 (
 				  Col1 Nullable(IPv6)
 				, Col2 Nullable(IPv6)
 				, Col3 Nullable(IPv6)
 			) Engine MergeTree() ORDER BY tuple()
 		`
-	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_ipv6")
-	}()
-	require.NoError(t, conn.Exec(ctx, ddl))
-	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_ipv6")
-	require.NoError(t, err)
-	var (
-		col1Data = net.ParseIP("2a02:aa08:e000:3100::2")
-		col2Data = net.ParseIP("2001:44c8:129:2632:33:0:252:2")
-		col3Data = net.ParseIP("2001:44c8:129:2632:33:0:252:2")
-	)
-	require.NoError(t, batch.Append(col1Data, col2Data, col3Data))
-	require.NoError(t, batch.Send())
-	var (
-		col1 *net.IP
-		col2 *net.IP
-		col3 *[16]byte
-	)
-	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_ipv6").Scan(&col1, &col2, &col3))
-	assert.Equal(t, col1Data, *col1)
-	assert.Equal(t, col2Data, *col2)
-	assert.Equal(t, col3Data, net.ParseIP(netip.AddrFrom16(*col3).String()))
-	require.NoError(t, conn.Exec(ctx, "TRUNCATE TABLE test_ipv6"))
-	batch, err = conn.PrepareBatch(ctx, "INSERT INTO test_ipv6")
-	require.NoError(t, err)
-	col1Data = net.ParseIP("2001:44c8:129:2632:33:0:252:2")
-	require.NoError(t, batch.Append(col1Data, nil, nil))
-	require.NoError(t, batch.Send())
-	{
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_ipv6")
+		}()
+		require.NoError(t, conn.Exec(ctx, ddl))
+		batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_ipv6")
+		require.NoError(t, err)
+		var (
+			col1Data = net.ParseIP("2a02:aa08:e000:3100::2")
+			col2Data = net.ParseIP("2001:44c8:129:2632:33:0:252:2")
+			col3Data = net.ParseIP("2001:44c8:129:2632:33:0:252:2")
+		)
+		require.NoError(t, batch.Append(col1Data, col2Data, col3Data))
+		require.NoError(t, batch.Send())
 		var (
 			col1 *net.IP
 			col2 *net.IP
 			col3 *[16]byte
 		)
 		require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_ipv6").Scan(&col1, &col2, &col3))
-		require.Nil(t, col2)
-		require.Nil(t, col3)
 		assert.Equal(t, col1Data, *col1)
-	}
+		assert.Equal(t, col2Data, *col2)
+		assert.Equal(t, col3Data, net.ParseIP(netip.AddrFrom16(*col3).String()))
+		require.NoError(t, conn.Exec(ctx, "TRUNCATE TABLE test_ipv6"))
+		batch, err = conn.PrepareBatch(ctx, "INSERT INTO test_ipv6")
+		require.NoError(t, err)
+		col1Data = net.ParseIP("2001:44c8:129:2632:33:0:252:2")
+		require.NoError(t, batch.Append(col1Data, nil, nil))
+		require.NoError(t, batch.Send())
+		{
+			var (
+				col1 *net.IP
+				col2 *net.IP
+				col3 *[16]byte
+			)
+			require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_ipv6").Scan(&col1, &col2, &col3))
+			require.Nil(t, col2)
+			require.Nil(t, col3)
+			assert.Equal(t, col1Data, *col1)
+		}
+	})
 }
 
 func TestColumnarIPv6(t *testing.T) {
-	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
-		Method: clickhouse.CompressionLZ4,
-	})
-	ctx := context.Background()
-	require.NoError(t, err)
-	const ddl = `
+	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		conn, err := GetNativeConnection(t, protocol, nil, nil, &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		})
+		ctx := context.Background()
+		require.NoError(t, err)
+		const ddl = `
 			CREATE TABLE test_ipv6 (
 				  Col1 IPv6
 				, Col2 IPv6
@@ -213,47 +219,48 @@ func TestColumnarIPv6(t *testing.T) {
 				, Col5 Nullable(IPv6)
 			) Engine MergeTree() ORDER BY tuple()
 		`
-	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_ipv6")
-	}()
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_ipv6")
+		}()
 
-	require.NoError(t, conn.Exec(ctx, ddl))
-	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_ipv6")
-	require.NoError(t, err)
-	var (
-		col1Data []*net.IP
-		col2Data []*net.IP
-		col3Data []*net.IP
-		col4Data []*[16]byte
-		col5Data []*[16]byte
-		v1, v2   = net.ParseIP("2001:44c8:129:2632:33:0:252:2"), net.ParseIP("192.168.1.1").To4()
-	)
-	col1Data = append(col1Data, &v1)
-	col2Data = append(col2Data, &v2)
-	col3Data = append(col3Data, nil)
-	col4Data = append(col4Data, &[][16]byte{netip.MustParseAddr(v1.String()).As16()}[0])
-	col5Data = append(col5Data, nil)
-	{
-		batch.Column(0).Append(col1Data)
-		batch.Column(1).Append(col2Data)
-		batch.Column(2).Append(col3Data)
-		batch.Column(3).Append(col4Data)
-		batch.Column(4).Append(col5Data)
-	}
-	require.NoError(t, batch.Send())
-	var (
-		col1 *net.IP
-		col2 *net.IP
-		col3 *net.IP
-		col4 *[16]byte
-		col5 *[16]byte
-	)
-	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_ipv6").Scan(&col1, &col2, &col3, &col4, &col5))
-	require.Nil(t, col3)
-	require.Nil(t, col5)
-	require.Equal(t, v1, *col1)
-	require.Equal(t, v2.To16(), *col2)
-	require.Equal(t, v1.To16(), net.ParseIP(netip.AddrFrom16(*col4).String()).To16())
+		require.NoError(t, conn.Exec(ctx, ddl))
+		batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_ipv6")
+		require.NoError(t, err)
+		var (
+			col1Data []*net.IP
+			col2Data []*net.IP
+			col3Data []*net.IP
+			col4Data []*[16]byte
+			col5Data []*[16]byte
+			v1, v2   = net.ParseIP("2001:44c8:129:2632:33:0:252:2"), net.ParseIP("192.168.1.1").To4()
+		)
+		col1Data = append(col1Data, &v1)
+		col2Data = append(col2Data, &v2)
+		col3Data = append(col3Data, nil)
+		col4Data = append(col4Data, &[][16]byte{netip.MustParseAddr(v1.String()).As16()}[0])
+		col5Data = append(col5Data, nil)
+		{
+			batch.Column(0).Append(col1Data)
+			batch.Column(1).Append(col2Data)
+			batch.Column(2).Append(col3Data)
+			batch.Column(3).Append(col4Data)
+			batch.Column(4).Append(col5Data)
+		}
+		require.NoError(t, batch.Send())
+		var (
+			col1 *net.IP
+			col2 *net.IP
+			col3 *net.IP
+			col4 *[16]byte
+			col5 *[16]byte
+		)
+		require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_ipv6").Scan(&col1, &col2, &col3, &col4, &col5))
+		require.Nil(t, col3)
+		require.Nil(t, col5)
+		require.Equal(t, v1, *col1)
+		require.Equal(t, v2.To16(), *col2)
+		require.Equal(t, v1.To16(), net.ParseIP(netip.AddrFrom16(*col4).String()).To16())
+	})
 }
 
 const invalidIPv6Str = "0:0:0:piyiy:0:0:0:1"
@@ -435,39 +442,43 @@ func TestIPv6ScanRow(t *testing.T) {
 }
 
 func TestIPv6Flush(t *testing.T) {
-	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
-		Method: clickhouse.CompressionLZ4,
-	})
-	ctx := context.Background()
-	require.NoError(t, err)
-	const ddl = `
+	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		conn, err := GetNativeConnection(t, protocol, nil, nil, &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		})
+		ctx := context.Background()
+		require.NoError(t, err)
+		const ddl = `
 		CREATE TABLE test_ipv6_ring_flush (
 			  Col1 IPv6
 		) Engine MergeTree() ORDER BY tuple()
 		`
-	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_ipv6_ring_flush")
-	}()
-	require.NoError(t, conn.Exec(ctx, ddl))
-	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_ipv6_ring_flush")
-	require.NoError(t, err)
-	vals := [1000]net.IP{}
-	for i := 0; i < 1000; i++ {
-		vals[i] = RandIPv6()
-		require.NoError(t, batch.Append(vals[i]))
-		require.NoError(t, batch.Flush())
-	}
-	require.NoError(t, batch.Send())
-	rows, err := conn.Query(ctx, "SELECT * FROM test_ipv6_ring_flush")
-	require.NoError(t, err)
-	i := 0
-	for rows.Next() {
-		var col1 net.IP
-		require.NoError(t, rows.Scan(&col1))
-		require.Equal(t, vals[i], col1)
-		i += 1
-	}
-	require.Equal(t, 1000, i)
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_ipv6_ring_flush")
+		}()
+		require.NoError(t, conn.Exec(ctx, ddl))
+		batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_ipv6_ring_flush")
+		require.NoError(t, err)
+		vals := [1000]net.IP{}
+		for i := 0; i < 1000; i++ {
+			vals[i] = RandIPv6()
+			require.NoError(t, batch.Append(vals[i]))
+			require.NoError(t, batch.Flush())
+		}
+		require.NoError(t, batch.Send())
+		rows, err := conn.Query(ctx, "SELECT * FROM test_ipv6_ring_flush")
+		require.NoError(t, err)
+		i := 0
+		for rows.Next() {
+			var col1 net.IP
+			require.NoError(t, rows.Scan(&col1))
+			require.Equal(t, vals[i], col1)
+			i += 1
+		}
+		require.NoError(t, rows.Close())
+		require.NoError(t, rows.Err())
+		require.Equal(t, 1000, i)
+	})
 }
 
 type testIPv6Serializer struct {
@@ -487,71 +498,77 @@ func (c *testIPv6Serializer) Scan(src any) error {
 }
 
 func TestIPv6Valuer(t *testing.T) {
-	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
-		Method: clickhouse.CompressionLZ4,
-	})
-	ctx := context.Background()
-	require.NoError(t, err)
-	const ddl = `
+	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		conn, err := GetNativeConnection(t, protocol, nil, nil, &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		})
+		ctx := context.Background()
+		require.NoError(t, err)
+		const ddl = `
 		CREATE TABLE test_ipv6_ring_valuer (
 			  Col1 IPv6
 		) Engine MergeTree() ORDER BY tuple()
 		`
-	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_ipv6_ring_valuer")
-	}()
-	require.NoError(t, conn.Exec(ctx, ddl))
-	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_ipv6_ring_valuer")
-	require.NoError(t, err)
-	vals := [1000]net.IP{}
-	for i := 0; i < 1000; i++ {
-		vals[i] = RandIPv6()
-		require.NoError(t, batch.Append(testIPv6Serializer{val: vals[i]}))
-		require.NoError(t, batch.Flush())
-	}
-	require.NoError(t, batch.Send())
-	rows, err := conn.Query(ctx, "SELECT * FROM test_ipv6_ring_valuer")
-	require.NoError(t, err)
-	i := 0
-	for rows.Next() {
-		var col1 net.IP
-		require.NoError(t, rows.Scan(&col1))
-		require.Equal(t, vals[i], col1)
-		i += 1
-	}
-	require.Equal(t, 1000, i)
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_ipv6_ring_valuer")
+		}()
+		require.NoError(t, conn.Exec(ctx, ddl))
+		batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_ipv6_ring_valuer")
+		require.NoError(t, err)
+		vals := [1000]net.IP{}
+		for i := 0; i < 1000; i++ {
+			vals[i] = RandIPv6()
+			require.NoError(t, batch.Append(testIPv6Serializer{val: vals[i]}))
+			require.NoError(t, batch.Flush())
+		}
+		require.NoError(t, batch.Send())
+		rows, err := conn.Query(ctx, "SELECT * FROM test_ipv6_ring_valuer")
+		require.NoError(t, err)
+		i := 0
+		for rows.Next() {
+			var col1 net.IP
+			require.NoError(t, rows.Scan(&col1))
+			require.Equal(t, vals[i], col1)
+			i += 1
+		}
+		require.NoError(t, rows.Close())
+		require.NoError(t, rows.Err())
+		require.Equal(t, 1000, i)
+	})
 }
 
 func TestSQLScannerIPv6(t *testing.T) {
-	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
-		Method: clickhouse.CompressionLZ4,
-	})
-	ctx := context.Background()
-	require.NoError(t, err)
-	const ddl = `
+	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		conn, err := GetNativeConnection(t, protocol, nil, nil, &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		})
+		ctx := context.Background()
+		require.NoError(t, err)
+		const ddl = `
 			CREATE TABLE test_ipv6 (
 				  Col1 IPv6
 			) Engine MergeTree() ORDER BY tuple()
 		`
-	defer func() {
-		conn.Exec(ctx, "DROP TABLE test_ipv6")
-	}()
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE test_ipv6")
+		}()
 
-	require.NoError(t, conn.Exec(ctx, ddl))
-	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_ipv6")
-	require.NoError(t, err)
+		require.NoError(t, conn.Exec(ctx, ddl))
+		batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_ipv6")
+		require.NoError(t, err)
 
-	var (
-		col1Data = net.ParseIP("2001:44c8:129:2632:33:0:252:2")
-	)
-	require.NoError(t, batch.Append(col1Data))
-	require.Equal(t, 1, batch.Rows())
-	require.NoError(t, batch.Send())
-	var (
-		col1 sqlScannerIPv6
-	)
-	require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_ipv6").Scan(&col1))
-	assert.Equal(t, col1Data, col1.value)
+		var (
+			col1Data = net.ParseIP("2001:44c8:129:2632:33:0:252:2")
+		)
+		require.NoError(t, batch.Append(col1Data))
+		require.Equal(t, 1, batch.Rows())
+		require.NoError(t, batch.Send())
+		var (
+			col1 sqlScannerIPv6
+		)
+		require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_ipv6").Scan(&col1))
+		assert.Equal(t, col1Data, col1.value)
+	})
 }
 
 type sqlScannerIPv6 struct {

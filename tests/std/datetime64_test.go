@@ -131,6 +131,9 @@ func TestStdDateTime64(t *testing.T) {
 			require.Equal(t, int64(3), precision)
 			require.Equal(t, int64(0), scale)
 			require.True(t, ok)
+
+			require.NoError(t, rows.Close())
+			require.NoError(t, rows.Err())
 		})
 	}
 }

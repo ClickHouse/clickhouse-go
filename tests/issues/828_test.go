@@ -20,15 +20,16 @@ package issues
 import (
 	"context"
 	"fmt"
+	"testing"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func Test828(t *testing.T) {
 	var (
-		conn, err = clickhouse_tests.GetConnection("issues", clickhouse.Settings{
+		conn, err = clickhouse_tests.GetConnectionTCP("issues", clickhouse.Settings{
 			"max_execution_time": 60,
 			"flatten_nested":     0,
 		}, nil, &clickhouse.Compression{

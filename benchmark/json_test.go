@@ -18,7 +18,7 @@ func TestMain(m *testing.M) {
 }
 
 func GetNativeConnection(settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (driver.Conn, error) {
-	return clickhouse_tests.GetConnection(testSet, settings, tlsConfig, compression)
+	return clickhouse_tests.GetConnectionTCP(testSet, settings, tlsConfig, compression)
 }
 
 func prepareJSONTest(ctx context.Context, b *testing.B) driver.Conn {

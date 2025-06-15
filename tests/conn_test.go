@@ -36,15 +36,16 @@ import (
 )
 
 func TestConn(t *testing.T) {
-	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
-		Method: clickhouse.CompressionLZ4,
+	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		conn, err := GetNativeConnection(t, protocol, nil, nil, &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		})
+		require.NoError(t, err)
+		require.NoError(t, conn.Ping(context.Background()))
+		t.Log(conn.Stats())
+		t.Log(conn.ServerVersion())
+		require.NoError(t, conn.Close())
 	})
-	require.NoError(t, err)
-	require.NoError(t, conn.Ping(context.Background()))
-	require.NoError(t, conn.Close())
-	t.Log(conn.Stats())
-	t.Log(conn.ServerVersion())
-	t.Log(conn.Ping(context.Background()))
 }
 
 func TestBadConn(t *testing.T) {
@@ -118,15 +119,17 @@ func testConnFailover(t *testing.T, connOpenStrategy clickhouse.ConnOpenStrategy
 }
 
 func TestPingDeadline(t *testing.T) {
-	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
-		Method: clickhouse.CompressionLZ4,
+	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		conn, err := GetNativeConnection(t, protocol, nil, nil, &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		})
+		require.NoError(t, err)
+		ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+		defer cancel()
+		err = conn.Ping(ctx)
+		require.Error(t, err)
+		assert.ErrorIs(t, err, context.DeadlineExceeded)
 	})
-	require.NoError(t, err)
-	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
-	defer cancel()
-	err = conn.Ping(ctx)
-	require.Error(t, err)
-	assert.Equal(t, context.DeadlineExceeded, err)
 }
 
 func TestReadDeadline(t *testing.T) {
@@ -227,6 +230,8 @@ func TestBlockBufferSize(t *testing.T) {
 		require.NoError(t, rows.Scan(&count))
 		i++
 	}
+	require.NoError(t, rows.Close())
+	require.NoError(t, rows.Err())
 	require.Equal(t, 10000000, i)
 }
 
@@ -293,38 +298,40 @@ func TestEmptyDatabaseConfig(t *testing.T) {
 func TestCustomSettings(t *testing.T) {
 	SkipOnCloud(t, "Custom settings are not supported on ClickHouse Cloud")
 
-	conn, err := GetNativeConnection(clickhouse.Settings{
-		"custom_setting": clickhouse.CustomSetting{"custom_value"},
-	}, nil, &clickhouse.Compression{
-		Method: clickhouse.CompressionLZ4,
-	})
-	require.NoError(t, err)
+	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		conn, err := GetNativeConnection(t, protocol, clickhouse.Settings{
+			"custom_setting": clickhouse.CustomSetting{"custom_value"},
+		}, nil, &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		})
+		require.NoError(t, err)
 
-	t.Run("get existing custom setting value", func(t *testing.T) {
-		row := conn.QueryRow(context.Background(), "SELECT getSetting('custom_setting')")
-		require.NoError(t, row.Err())
+		t.Run("get existing custom setting value", func(t *testing.T) {
+			row := conn.QueryRow(context.Background(), "SELECT getSetting('custom_setting')")
+			require.NoError(t, row.Err())
 
-		var setting string
-		assert.NoError(t, row.Scan(&setting))
-		assert.Equal(t, "custom_value", setting)
-	})
+			var setting string
+			assert.NoError(t, row.Scan(&setting))
+			assert.Equal(t, "custom_value", setting)
+		})
 
-	t.Run("get non-existing custom setting value", func(t *testing.T) {
-		row := conn.QueryRow(context.Background(), "SELECT getSetting('custom_non_existing_setting')")
-		assert.Contains(t, strings.ReplaceAll(row.Err().Error(), "'", ""), "Unknown setting custom_non_existing_setting")
-	})
+		t.Run("get non-existing custom setting value", func(t *testing.T) {
+			row := conn.QueryRow(context.Background(), "SELECT getSetting('custom_non_existing_setting')")
+			assert.Contains(t, strings.ReplaceAll(row.Err().Error(), "'", ""), "Unknown setting custom_non_existing_setting")
+		})
 
-	t.Run("get custom setting value from query context", func(t *testing.T) {
-		ctx := clickhouse.Context(context.Background(), clickhouse.WithSettings(clickhouse.Settings{
-			"custom_query_setting": clickhouse.CustomSetting{"custom_query_value"},
-		}))
+		t.Run("get custom setting value from query context", func(t *testing.T) {
+			ctx := clickhouse.Context(context.Background(), clickhouse.WithSettings(clickhouse.Settings{
+				"custom_query_setting": clickhouse.CustomSetting{"custom_query_value"},
+			}))
 
-		row := conn.QueryRow(ctx, "SELECT getSetting('custom_query_setting')")
-		assert.NoError(t, row.Err())
+			row := conn.QueryRow(ctx, "SELECT getSetting('custom_query_setting')")
+			assert.NoError(t, row.Err())
 
-		var setting string
-		assert.NoError(t, row.Scan(&setting))
-		assert.Equal(t, "custom_query_value", setting)
+			var setting string
+			assert.NoError(t, row.Scan(&setting))
+			assert.Equal(t, "custom_query_value", setting)
+		})
 	})
 }
 
@@ -359,6 +366,7 @@ func TestConnectionExpiresIdleConnection(t *testing.T) {
 			r, err := conn.Query(ctx, "SELECT 1")
 			require.NoError(t, err)
 			require.NoError(t, r.Close())
+			require.NoError(t, r.Err())
 		}()
 	}
 	wg.Wait()

@@ -2,10 +2,11 @@ package issues
 
 import (
 	"context"
+	"testing"
+
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	"github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 type T1365OrderedMap int
@@ -23,7 +24,7 @@ func (t *T1365OrderedMap) Value() any                   { return "V" }
 func TestIssue1365(t *testing.T) {
 	ctx := context.Background()
 
-	conn, err := tests.GetConnection("issues", nil, nil, nil)
+	conn, err := tests.GetConnectionTCP("issues", nil, nil, nil)
 	require.NoError(t, err)
 	defer conn.Close()
 
@@ -53,6 +54,9 @@ func TestIssue1365(t *testing.T) {
 	require.NoError(t, err)
 
 	require.True(t, rows.Next())
+
+	require.NoError(t, rows.Close())
+	require.NoError(t, rows.Err())
 
 	//var readMaps []*T1365OrderedMap
 	//

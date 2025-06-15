@@ -21,12 +21,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"reflect"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 
-func (ch *clickhouse) Select(ctx context.Context, dest any, query string, args ...any) error {
+type scanSelectQueryFunc func(ctx context.Context, query string, args ...any) (driver.Rows, error)
+
+func scanSelect(queryFunc scanSelectQueryFunc, ctx context.Context, dest any, query string, args ...any) error {
 	value := reflect.ValueOf(dest)
 	if value.Kind() != reflect.Ptr {
 		return &OpError{
@@ -51,7 +54,7 @@ func (ch *clickhouse) Select(ctx context.Context, dest any, query string, args .
 	}
 	var (
 		base      = direct.Type().Elem()
-		rows, err = ch.Query(ctx, query, args...)
+		rows, err = queryFunc(ctx, query, args...)
 	)
 	if err != nil {
 		return err
@@ -67,7 +70,12 @@ func (ch *clickhouse) Select(ctx context.Context, dest any, query string, args .
 	if err := rows.Close(); err != nil {
 		return err
 	}
+
 	return rows.Err()
+}
+
+func (ch *clickhouse) Select(ctx context.Context, dest any, query string, args ...any) error {
+	return scanSelect(ch.Query, ctx, dest, query, args...)
 }
 
 func scan(block *proto.Block, row int, dest ...any) error {

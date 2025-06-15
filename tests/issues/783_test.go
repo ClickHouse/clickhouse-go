@@ -19,17 +19,18 @@ package issues
 
 import (
 	"context"
+	"strconv"
+	"testing"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	clickhouse_std_tests "github.com/ClickHouse/clickhouse-go/v2/tests/std"
 	"github.com/stretchr/testify/require"
-	"strconv"
-	"testing"
 )
 
 func Test783(t *testing.T) {
 	var (
-		conn, err = clickhouse_tests.GetConnection("issues", clickhouse.Settings{
+		conn, err = clickhouse_tests.GetConnectionTCP("issues", clickhouse.Settings{
 			"flatten_nested": 1,
 		}, nil, &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,

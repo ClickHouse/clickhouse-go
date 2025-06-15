@@ -69,27 +69,30 @@ func TestBatchAppendRows(t *testing.T) {
 
 // TestBatchColumns tests Batch.Columns() method functionality
 func TestBatchColumns(t *testing.T) {
-	ctx := context.Background()
-	conn, err := GetNativeConnection(nil, nil, nil)
-	require.NoError(t, err)
-	// Prepare test table
-	require.NoError(t, conn.Exec(ctx, `
+	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		conn, err := GetNativeConnection(t, protocol, nil, nil, nil)
+		require.NoError(t, err)
+
+		ctx := context.Background()
+		// Prepare test table
+		require.NoError(t, conn.Exec(ctx, `
 		CREATE TABLE test_table (
 		    Col1 Int,
 			Col2 String
 		) Engine MergeTree() ORDER BY tuple()
 	`))
-	defer func() {
-		conn.Exec(ctx, "DROP TABLE IF EXISTS test_table")
-	}()
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE IF EXISTS test_table")
+		}()
 
-	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_table")
-	require.NoError(t, err)
-	columns := batch.Columns()
-	if assert.Len(t, columns, 2) {
-		assert.IsType(t, new(column.Int32), columns[0])
-		assert.Equal(t, "Col1", columns[0].Name())
-		assert.IsType(t, new(column.String), columns[1])
-		assert.Equal(t, "Col2", columns[1].Name())
-	}
+		batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_table")
+		require.NoError(t, err)
+		columns := batch.Columns()
+		if assert.Len(t, columns, 2) {
+			assert.IsType(t, new(column.Int32), columns[0])
+			assert.Equal(t, "Col1", columns[0].Name())
+			assert.IsType(t, new(column.String), columns[1])
+			assert.Equal(t, "Col2", columns[1].Name())
+		}
+	})
 }

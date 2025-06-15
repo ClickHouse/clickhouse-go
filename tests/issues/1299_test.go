@@ -11,7 +11,7 @@ import (
 
 func TestIssue1299(t *testing.T) {
 	ctx := context.Background()
-	conn, err := tests.GetConnection("issues", nil, nil, nil)
+	conn, err := tests.GetConnectionTCP("issues", nil, nil, nil)
 	require.NoError(t, err)
 	defer conn.Close()
 

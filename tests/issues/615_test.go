@@ -20,17 +20,18 @@ package issues
 import (
 	"context"
 	"fmt"
+	"testing"
+	"time"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"testing"
-	"time"
 )
 
 func TestIssue615(t *testing.T) {
 	var (
-		conn, err = clickhouse_tests.GetConnection("issues", clickhouse.Settings{
+		conn, err = clickhouse_tests.GetConnectionTCP("issues", clickhouse.Settings{
 			"max_execution_time": 60,
 		}, nil, &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
@@ -75,6 +76,8 @@ func TestIssue615(t *testing.T) {
 		require.NoError(t, rows.Scan(&id, &ts))
 		i += 1
 	}
+	require.NoError(t, rows.Close())
+	require.NoError(t, rows.Err())
 	// loss of precision - should only get 1 result
 	assert.Equal(t, 2, i)
 	// use DateNamed to guarantee precision
@@ -91,6 +94,8 @@ func TestIssue615(t *testing.T) {
 		require.Equal(t, ts3.In(time.UTC), ts)
 		i += 1
 	}
+	require.NoError(t, rows.Close())
+	require.NoError(t, rows.Err())
 	assert.Equal(t, 1, i)
 	// test with timezone
 	loc, _ := time.LoadLocation("Asia/Shanghai")
@@ -106,5 +111,7 @@ func TestIssue615(t *testing.T) {
 		require.Equal(t, ts3.In(time.UTC), ts)
 		i += 1
 	}
+	require.NoError(t, rows.Close())
+	require.NoError(t, rows.Err())
 	assert.Equal(t, 1, i)
 }

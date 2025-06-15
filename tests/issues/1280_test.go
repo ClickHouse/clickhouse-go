@@ -12,7 +12,7 @@ import (
 
 func Test1280(t *testing.T) {
 	var (
-		conn, err = clickhouse_tests.GetConnection(testSet, clickhouse.Settings{
+		conn, err = clickhouse_tests.GetConnectionTCP(testSet, clickhouse.Settings{
 			"max_execution_time": 60,
 		}, nil, &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,

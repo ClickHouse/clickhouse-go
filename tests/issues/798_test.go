@@ -30,7 +30,7 @@ import (
 
 func Test798(t *testing.T) {
 	var (
-		conn, err = clickhouse_tests.GetConnection("issues", clickhouse.Settings{
+		conn, err = clickhouse_tests.GetConnectionTCP("issues", clickhouse.Settings{
 			"max_execution_time": 60,
 		}, nil, &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
@@ -100,7 +100,7 @@ func writeRows(prepareSQL string, rows [][]any, conn clickhouse.Conn) (err error
 func Test798Concurrent(t *testing.T) {
 
 	var (
-		conn, err = clickhouse_tests.GetConnection("issues", clickhouse.Settings{
+		conn, err = clickhouse_tests.GetConnectionTCP("issues", clickhouse.Settings{
 			"max_execution_time": 60,
 		}, nil, &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
