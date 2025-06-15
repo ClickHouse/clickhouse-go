@@ -223,6 +223,7 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		IdleConnTimeout:       opt.ConnMaxLifetime,
 		ResponseHeaderTimeout: opt.ReadTimeout,
 		TLSClientConfig:       opt.TLS,
+		DisableKeepAlives:     opt.HttpDisableKeepAlives,
 	}
 
 	if opt.DialContext != nil {

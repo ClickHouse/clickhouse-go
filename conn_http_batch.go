@@ -202,7 +202,12 @@ func (b *httpBatch) Flush() error {
 	if err != nil {
 		return err
 	}
-	defer discardAndClose(res.Body)
+	defer res.Body.Close()
+	// TODO: Is the connection being leaked here?
+	// Something about discarding the body causes this to break
+	// HTTP flushing, but may leak connections if body isn't fully read.
+	// The goroutine above this seems to handle this. See flush_test.go for example.
+	//defer discardAndClose(res.Body)
 
 	b.block.Reset()
 	wg.Wait()
