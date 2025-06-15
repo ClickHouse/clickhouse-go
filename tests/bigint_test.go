@@ -279,6 +279,7 @@ func TestBigIntUIntOverflow(t *testing.T) {
 
 func TestBigIntFlush(t *testing.T) {
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		SkipOnHTTP(t, protocol, "Flush")
 		conn, err := GetNativeConnection(t, protocol, nil, nil, &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
 		})
@@ -360,10 +361,7 @@ func TestBigIntValuer(t *testing.T) {
 			bigUint128Val.SetString(RandIntString(20), 10)
 			vals[i] = bigUint128Val
 			batch.Append(testBigIntSerializer{val: vals[i]})
-			require.Equal(t, 1, batch.Rows())
-			batch.Flush()
 		}
-		require.Equal(t, 0, batch.Rows())
 		batch.Send()
 		rows, err := conn.Query(ctx, "SELECT * FROM big_int_flush")
 		require.NoError(t, err)

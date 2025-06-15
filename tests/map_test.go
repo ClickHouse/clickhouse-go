@@ -218,6 +218,7 @@ func TestColumnarMap(t *testing.T) {
 
 func TestMapFlush(t *testing.T) {
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		SkipOnHTTP(t, protocol, "Flush")
 		conn, err := GetNativeConnection(t, protocol, nil, nil, &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
 		})
@@ -423,10 +424,7 @@ func TestMapValuer(t *testing.T) {
 				"i": uint64(i),
 			}
 			require.NoError(t, batch.Append(testMapSerializer{val: vals[i]}))
-			require.Equal(t, 1, batch.Rows())
-			require.NoError(t, batch.Flush())
 		}
-		require.Equal(t, 0, batch.Rows())
 		require.NoError(t, batch.Send())
 		rows, err := conn.Query(ctx, "SELECT * FROM test_map_flush")
 		require.NoError(t, err)

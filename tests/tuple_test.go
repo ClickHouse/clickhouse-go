@@ -664,6 +664,7 @@ func TestColumnarTuple(t *testing.T) {
 
 func TestTupleFlush(t *testing.T) {
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		SkipOnHTTP(t, protocol, "Flush")
 		conn, err := GetNativeConnection(t, protocol, nil, nil, nil)
 		ctx := context.Background()
 		require.NoError(t, err)
@@ -752,10 +753,7 @@ func TestTupleValuer(t *testing.T) {
 				"name": RandAsciiString(10),
 			}
 			require.NoError(t, batch.Append(testTupleSerializer{val: vals[i]}))
-			require.Equal(t, 1, batch.Rows())
-			require.NoError(t, batch.Flush())
 		}
-		require.Equal(t, 0, batch.Rows())
 		require.NoError(t, batch.Send())
 		rows, err := conn.Query(ctx, "SELECT * FROM test_tuple_valuer")
 		require.NoError(t, err)

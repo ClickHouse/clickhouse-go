@@ -168,6 +168,7 @@ func TestColumnarBool(t *testing.T) {
 
 func TestBoolFlush(t *testing.T) {
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		SkipOnHTTP(t, protocol, "Flush")
 		conn, err := GetNativeConnection(t, protocol, nil, nil, &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
 		})
@@ -251,10 +252,7 @@ func TestBoolValuer(t *testing.T) {
 		for i := 0; i < 1000; i++ {
 			vals[i] = r.Intn(2) != 0
 			require.NoError(t, batch.Append(testBoolSerializer{val: vals[i]}))
-			require.Equal(t, 1, batch.Rows())
-			require.NoError(t, batch.Flush())
 		}
-		require.Equal(t, 0, batch.Rows())
 		batch.Send()
 		rows, err := conn.Query(ctx, "SELECT * FROM bool_flush")
 		require.NoError(t, err)

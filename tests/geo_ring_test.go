@@ -86,6 +86,7 @@ func TestGeoRing(t *testing.T) {
 
 func TestGeoRingFlush(t *testing.T) {
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		SkipOnHTTP(t, protocol, "Flush")
 		conn, err := GetNativeConnection(t, protocol, clickhouse.Settings{
 			"allow_experimental_geo_types": 1,
 		}, nil, &clickhouse.Compression{
@@ -182,10 +183,7 @@ func TestGeoRingValuer(t *testing.T) {
 				orb.Point{1, 2},
 			}
 			require.NoError(t, batch.Append(testGeoRingSerializer{val: vals[i]}))
-			require.Equal(t, 1, batch.Rows())
-			require.NoError(t, batch.Flush())
 		}
-		require.Equal(t, 0, batch.Rows())
 		require.NoError(t, batch.Send())
 		rows, err := conn.Query(ctx, "SELECT * FROM test_geo_ring_valuer")
 		require.NoError(t, err)

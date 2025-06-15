@@ -52,8 +52,6 @@ func TestSimpleArray(t *testing.T) {
 		)
 		for i := 0; i < 10; i++ {
 			require.NoError(t, batch.Append(col1Data))
-			require.Equal(t, 1, batch.Rows())
-			batch.Flush()
 		}
 		require.NoError(t, batch.Send())
 		rows, err := conn.Query(ctx, "SELECT * FROM test_array")
@@ -98,10 +96,7 @@ func TestCustomArray(t *testing.T) {
 		)
 		for i := 0; i < 10; i++ {
 			require.NoError(t, batch.Append(col1Data, col2Data))
-			require.Equal(t, 1, batch.Rows())
-			require.NoError(t, batch.Flush())
 		}
-		require.Equal(t, 0, batch.Rows())
 		require.NoError(t, batch.Send())
 		rows, err := conn.Query(ctx, "SELECT * FROM test_array")
 		require.NoError(t, err)
@@ -212,10 +207,7 @@ func TestArray(t *testing.T) {
 		)
 		for i := 0; i < 10; i++ {
 			require.NoError(t, batch.Append(col1Data, col2Data, col3Data, col4Data))
-			require.Equal(t, 1, batch.Rows())
-			batch.Flush()
 		}
-		require.Equal(t, 0, batch.Rows())
 		require.NoError(t, batch.Send())
 		rows, err := conn.Query(ctx, "SELECT * FROM test_array")
 		require.NoError(t, err)
@@ -366,8 +358,6 @@ func TestSimpleArrayValuer(t *testing.T) {
 		)
 		for i := 0; i < 10; i++ {
 			require.NoError(t, batch.Append(testArraySerializer{val: col1Data}))
-			require.Equal(t, 1, batch.Rows())
-			batch.Flush()
 		}
 		require.NoError(t, batch.Send())
 		rows, err := conn.Query(ctx, "SELECT * FROM test_array_valuer")

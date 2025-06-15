@@ -287,10 +287,6 @@ func TestVariant_ScanWithType(t *testing.T) {
 
 func TestVariant_BatchFlush(t *testing.T) {
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
-		if protocol == clickhouse.HTTP {
-			t.Skip("Batch flush is called too frequently for HTTP testing")
-		}
-
 		conn := setupVariantTest(t, protocol)
 		ctx := context.Background()
 

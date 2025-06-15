@@ -334,6 +334,7 @@ func TestColumnarDateTime(t *testing.T) {
 
 func TestDateTimeFlush(t *testing.T) {
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		SkipOnHTTP(t, protocol, "Flush")
 		conn, err := GetNativeConnection(t, protocol, nil, nil, &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
 		})
@@ -516,10 +517,7 @@ func TestDateTimeValuer(t *testing.T) {
 		for i := 0; i < 1000; i++ {
 			vals[i] = now.Add(time.Duration(i) * time.Hour).Truncate(time.Second)
 			batch.Append(testDateTimeSerializer{val: vals[i]})
-			require.Equal(t, 1, batch.Rows())
-			batch.Flush()
 		}
-		require.Equal(t, 0, batch.Rows())
 		batch.Send()
 		rows, err := conn.Query(ctx, "SELECT * FROM datetime_valuer")
 		require.NoError(t, err)

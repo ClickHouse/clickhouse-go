@@ -516,6 +516,7 @@ func getHTTPConnection(t *testing.T, env ClickHouseTestEnvironment, database str
 		MaxOpenConns:          1,
 		MaxIdleConns:          1,
 		HttpDisableKeepAlives: true,
+		HttpIgnoreFlush:       true,
 	})
 	return conn, err
 }

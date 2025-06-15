@@ -148,7 +148,7 @@ type httpBatch struct {
 	block     *proto.Block
 }
 
-func (b *httpBatch) Flush() error {
+func (b *httpBatch) sendBatch() error {
 	if b.sent {
 		return ErrBatchAlreadySent
 	}
@@ -215,6 +215,14 @@ func (b *httpBatch) Flush() error {
 	return nil
 }
 
+func (b *httpBatch) Flush() error {
+	if b.conn.ignoreFlush {
+		return nil
+	}
+
+	return b.sendBatch()
+}
+
 func (b *httpBatch) Close() error {
 	b.sent = true
 	return nil
@@ -275,7 +283,7 @@ func (b *httpBatch) Send() (err error) {
 		b.sent = true
 	}()
 
-	return b.Flush()
+	return b.sendBatch()
 }
 
 func (b *httpBatch) Rows() int {

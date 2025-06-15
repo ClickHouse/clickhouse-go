@@ -152,6 +152,7 @@ type Options struct {
 	HttpUrlPath           string            // set additional URL path for HTTP requests
 	HttpMaxConnsPerHost   int               // MaxConnsPerHost for http.Transport
 	HttpDisableKeepAlives bool              // DisableKeepAlives for http.Transport
+	HttpIgnoreFlush       bool              // If enabled, calling Flush on a batch will do nothing. Send must be called to send.
 	BlockBufferSize       uint8             // default 2 - can be overwritten on query
 	MaxCompressionBuffer  int               // default 10485760 - measured in bytes  i.e.
 

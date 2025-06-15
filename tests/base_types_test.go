@@ -242,6 +242,7 @@ func TestNullableInt(t *testing.T) {
 
 func TestIntFlush(t *testing.T) {
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		SkipOnHTTP(t, protocol, "Flush")
 		conn, err := GetNativeConnection(t, protocol, nil, nil, &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
 		})

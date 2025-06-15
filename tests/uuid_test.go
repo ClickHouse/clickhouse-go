@@ -314,10 +314,7 @@ func TestUuid_ScanRow(t *testing.T) {
 
 func TestUUIDFlush(t *testing.T) {
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
-		if protocol == clickhouse.HTTP {
-			t.Skip("Batch flush is called too frequently for HTTP testing")
-		}
-
+		SkipOnHTTP(t, protocol, "Flush")
 		conn, err := GetNativeConnection(t, protocol, nil, nil, &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
 		})
@@ -376,10 +373,6 @@ func (c *testUUIDValuer) Scan(src any) error {
 
 func TestUUIDValuer(t *testing.T) {
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
-		if protocol == clickhouse.HTTP {
-			t.Skip("Batch flush is called too frequently for HTTP testing")
-		}
-
 		conn, err := GetNativeConnection(t, protocol, nil, nil, &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
 		})
@@ -400,10 +393,7 @@ func TestUUIDValuer(t *testing.T) {
 		for i := 0; i < 1000; i++ {
 			vals[i] = uuid.New()
 			require.NoError(t, batch.Append(testUUIDValuer{val: vals[i]}))
-			require.Equal(t, 1, batch.Rows())
-			require.NoError(t, batch.Flush())
 		}
-		require.Equal(t, 0, batch.Rows())
 		batch.Send()
 		rows, err := conn.Query(ctx, "SELECT * FROM uuid_valuer1")
 		require.NoError(t, err)

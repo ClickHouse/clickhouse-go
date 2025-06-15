@@ -273,6 +273,7 @@ func TestNestedUnFlattened(t *testing.T) {
 
 func TestNestedFlush(t *testing.T) {
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		SkipOnHTTP(t, protocol, "Flush")
 		conn, err := GetNativeConnection(t, protocol, clickhouse.Settings{
 			"flatten_nested": 0,
 		}, nil, &clickhouse.Compression{
