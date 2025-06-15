@@ -18,11 +18,12 @@
 package std
 
 import (
+	"strconv"
+	"testing"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/require"
-	"strconv"
-	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -63,5 +64,7 @@ func TestStdWithTotals(t *testing.T) {
 		assert.Equal(t, uint64(0), n)
 		assert.Equal(t, uint64(100), totals)
 	}
+	require.NoError(t, rows.Close())
+	require.NoError(t, rows.Err())
 	assert.Equal(t, 1, count)
 }

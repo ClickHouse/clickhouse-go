@@ -384,7 +384,12 @@ func (ch *clickhouse) Close() error {
 		case c := <-ch.idle:
 			c.close()
 		default:
-			ch.exit <- struct{}{}
+			// In rare cases, close may be called multiple times, don't block
+			//TODO: add proper close flag to indicate this pool is unusable after Close
+			select {
+			case ch.exit <- struct{}{}:
+			default:
+			}
 			return nil
 		}
 	}

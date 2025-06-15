@@ -20,14 +20,15 @@ package issues
 import (
 	"context"
 	"database/sql"
+	"testing"
+
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func TestIssue751(t *testing.T) {
-	conn, err := clickhouse_tests.GetConnection("issues", nil, nil, nil)
+	conn, err := clickhouse_tests.GetConnectionTCP("issues", nil, nil, nil)
 	require.NoError(t, err)
 	ctx := context.Background()
 	conn.Exec(ctx, "DROP TABLE IF EXISTS issue_751")
@@ -82,4 +83,6 @@ func TestIssue751(t *testing.T) {
 		c++
 	}
 	assert.Equal(t, 2, c)
+	require.NoError(t, rows.Close())
+	require.NoError(t, rows.Err())
 }

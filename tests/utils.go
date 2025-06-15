@@ -362,11 +362,28 @@ func TestDatabaseSQLClientWithDefaultSettings(env ClickHouseTestEnvironment) (*s
 	return TestDatabaseSQLClientWithDefaultOptions(env, TestClientDefaultSettings(env))
 }
 
-func GetConnection(testSet string, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (driver.Conn, error) {
+func GetConnection(testSet string, t *testing.T, protocol clickhouse.Protocol, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (driver.Conn, error) {
 	env, err := GetTestEnvironment(testSet)
 	if err != nil {
 		return nil, err
 	}
+
+	switch protocol {
+	case clickhouse.Native:
+		return getConnection(env, env.Database, settings, tlsConfig, compression)
+	case clickhouse.HTTP:
+		return getHTTPConnection(t, env, env.Database, settings, tlsConfig, compression)
+	default:
+		return nil, fmt.Errorf("unknown protocol: %s", protocol)
+	}
+}
+
+func GetConnectionTCP(testSet string, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (driver.Conn, error) {
+	env, err := GetTestEnvironment(testSet)
+	if err != nil {
+		return nil, err
+	}
+
 	return getConnection(env, env.Database, settings, tlsConfig, compression)
 }
 
@@ -384,8 +401,9 @@ func GetConnectionWithOptions(options *clickhouse.Options) (driver.Conn, error) 
 	}
 	conn, err := clickhouse.Open(options)
 	if err != nil {
-		return conn, err
+		return nil, err
 	}
+	defer conn.Close()
 	if CheckMinServerServerVersion(conn, 22, 8, 0) {
 		options.Settings["database_replicated_enforce_synchronous_settings"] = "1"
 	}
@@ -441,6 +459,61 @@ func getConnection(env ClickHouseTestEnvironment, database string, settings clic
 		TLS:         tlsConfig,
 		Compression: compression,
 		DialTimeout: time.Duration(timeout) * time.Second,
+	})
+	return conn, err
+}
+
+func getHTTPConnection(t *testing.T, env ClickHouseTestEnvironment, database string, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (driver.Conn, error) {
+	useSSL, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	if err != nil {
+		panic(err)
+	}
+	port := env.HttpPort
+	if useSSL && tlsConfig == nil {
+		tlsConfig = &tls.Config{}
+		port = env.HttpsPort
+	}
+	if settings == nil {
+		settings = clickhouse.Settings{}
+	}
+	if proto.CheckMinVersion(proto.Version{
+		Major: 22,
+		Minor: 8,
+		Patch: 0,
+	}, env.Version) {
+		settings["database_replicated_enforce_synchronous_settings"] = "1"
+	}
+	settings["insert_quorum"], err = strconv.Atoi(GetEnv("CLICKHOUSE_QUORUM_INSERT", "1"))
+	settings["insert_quorum_parallel"] = 0
+	settings["select_sequential_consistency"] = 1
+	if err != nil {
+		return nil, err
+	}
+
+	timeout, err := strconv.Atoi(GetEnv("CLICKHOUSE_DIAL_TIMEOUT", "10"))
+	if err != nil {
+		return nil, err
+	}
+
+	// Each test uses its own session ID.
+	// This may be problematic on some tests, but overall it is more consistent.
+	settings["session_id"] = t.Name()
+
+	conn, err := clickhouse.Open(&clickhouse.Options{
+		Protocol: clickhouse.HTTP,
+		Addr:     []string{fmt.Sprintf("%s:%d", env.Host, port)},
+		Settings: settings,
+		Auth: clickhouse.Auth{
+			Database: database,
+			Username: env.Username,
+			Password: env.Password,
+		},
+		TLS:                 tlsConfig,
+		Compression:         compression,
+		DialTimeout:         time.Duration(timeout) * time.Second,
+		HttpMaxConnsPerHost: 1,
+		MaxOpenConns:        1,
+		MaxIdleConns:        1,
 	})
 	return conn, err
 }
@@ -635,7 +708,7 @@ func randString(n int, bytes string) string {
 }
 
 // PrintMemUsage outputs the current, total and OS memory being used. As well as the number
-// of garage collection cycles completed.
+// of garbage collection cycles completed.
 // thanks to https://golangcode.com/print-the-current-memory-usage/
 func PrintMemUsage() {
 	var m runtime.MemStats
@@ -738,6 +811,27 @@ func CreateTinyProxyTestEnvironment(t *testing.T) (TinyProxyTestEnvironment, err
 		HttpPort:  p.Int(),
 		Container: container,
 	}, nil
+}
+
+func TestProtocols(rootT *testing.T, testFunc func(t *testing.T, protocol clickhouse.Protocol)) {
+	rootT.Run("Native", func(t *testing.T) {
+		testFunc(t, clickhouse.Native)
+	})
+	rootT.Run("HTTP", func(t *testing.T) {
+		testFunc(t, clickhouse.HTTP)
+	})
+}
+
+func CleanupNativeConn(t *testing.T, conn driver.Conn) {
+	t.Cleanup(func() {
+		if conn == nil {
+			return
+		}
+
+		if err := conn.Close(); err != nil {
+			t.Log(fmt.Errorf("failed to close connection: %w", err))
+		}
+	})
 }
 
 func OptionsToDSN(o *clickhouse.Options) string {

@@ -27,37 +27,27 @@ import (
 	"time"
 )
 
-func TestNoFlushWithCompression(t *testing.T) {
-	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
-		Method: clickhouse.CompressionLZ4,
+func TestBatchNoFlush(t *testing.T) {
+	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		conn, err := GetNativeConnection(t, protocol, nil, nil, &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		})
+		require.NoError(t, err)
+		insertWithFlush(t, conn, false)
 	})
-	require.NoError(t, err)
-	require.NoError(t, err)
-	insertWithFlush(t, conn, false)
 }
 
-func TestFlushWithCompression(t *testing.T) {
-	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
-		Method: clickhouse.CompressionLZ4,
+func TestBatchFlush(t *testing.T) {
+	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		conn, err := GetNativeConnection(t, protocol, nil, nil, &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		})
+		require.NoError(t, err)
+		insertWithFlush(t, conn, true)
 	})
-	require.NoError(t, err)
-	require.NoError(t, err)
-	insertWithFlush(t, conn, true)
-}
-
-func TestFlush(t *testing.T) {
-	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
-		Method: clickhouse.CompressionLZ4,
-	})
-	require.NoError(t, err)
-	insertWithFlush(t, conn, true)
 }
 
 func insertWithFlush(t *testing.T, conn driver.Conn, flush bool) {
-	defer func() {
-		conn.Exec(context.Background(), "DROP TABLE flush_example")
-	}()
-	conn.Exec(context.Background(), "DROP TABLE IF EXISTS flush_example")
 	ctx := context.Background()
 	err := conn.Exec(ctx, `
 		CREATE TABLE IF NOT EXISTS flush_example (
@@ -72,6 +62,9 @@ func insertWithFlush(t *testing.T, conn driver.Conn, flush bool) {
 		) Engine = MergeTree() ORDER BY tuple()
 	`)
 	require.NoError(t, err)
+	defer func() {
+		conn.Exec(context.Background(), "DROP TABLE flush_example")
+	}()
 
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO flush_example")
 	require.NoError(t, err)
@@ -101,8 +94,11 @@ func insertWithFlush(t *testing.T, conn driver.Conn, flush bool) {
 		}
 	}
 	require.NoError(t, batch.Send())
+
 	// confirm we have the right count
+	row := conn.QueryRow(ctx, "SELECT count() FROM flush_example")
+	require.NoError(t, row.Err())
 	var col1 uint64
-	require.NoError(t, conn.QueryRow(ctx, "SELECT count() FROM flush_example").Scan(&col1))
+	require.NoError(t, row.Scan(&col1))
 	require.Equal(t, uint64(100_000), col1)
 }

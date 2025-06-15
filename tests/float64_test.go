@@ -27,41 +27,42 @@ import (
 )
 
 func TestFloat64(t *testing.T) {
-	ctx := context.Background()
+	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		conn, err := GetNativeConnection(t, protocol, clickhouse.Settings{
+			"max_execution_time": 60,
+		}, nil, &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		})
+		require.NoError(t, err)
 
-	conn, err := GetNativeConnection(clickhouse.Settings{
-		"max_execution_time": 60,
-	}, nil, &clickhouse.Compression{
-		Method: clickhouse.CompressionLZ4,
-	})
-	require.NoError(t, err)
-
-	const ddl = `
+		ctx := context.Background()
+		const ddl = `
 			CREATE TABLE IF NOT EXISTS test_float64 (
 				  Col1 Float64
 				, Col2 Float64                   
 			) Engine MergeTree() ORDER BY tuple()
 		`
-	require.NoError(t, conn.Exec(ctx, ddl))
-	defer func() {
-		require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS test_float64"))
-	}()
+		require.NoError(t, conn.Exec(ctx, ddl))
+		defer func() {
+			require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS test_float64"))
+		}()
 
-	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_float64 (Col1, Col2)")
-	require.NoError(t, err)
-	require.NoError(t, batch.Append(1.1, 2.1))
-	require.NoError(t, batch.Send())
+		batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_float64 (Col1, Col2)")
+		require.NoError(t, err)
+		require.NoError(t, batch.Append(1.1, 2.1))
+		require.NoError(t, batch.Send())
 
-	row := conn.QueryRow(ctx, "SELECT Col1, Col2 from test_float64")
-	require.NoError(t, err)
+		row := conn.QueryRow(ctx, "SELECT Col1, Col2 from test_float64")
+		require.NoError(t, err)
 
-	var (
-		col1 float64
-		col2 float64
-	)
-	require.NoError(t, row.Scan(&col1, &col2))
-	require.Equal(t, float64(1.1), col1)
-	require.Equal(t, float64(2.1), col2)
+		var (
+			col1 float64
+			col2 float64
+		)
+		require.NoError(t, row.Scan(&col1, &col2))
+		require.Equal(t, float64(1.1), col1)
+		require.Equal(t, float64(2.1), col2)
+	})
 }
 
 type testFloat64Serializer struct {
@@ -81,39 +82,41 @@ func (c *testFloat64Serializer) Scan(src any) error {
 }
 
 func TestFloat64Valuer(t *testing.T) {
-	ctx := context.Background()
 
-	conn, err := GetNativeConnection(clickhouse.Settings{
-		"max_execution_time": 60,
-	}, nil, &clickhouse.Compression{
-		Method: clickhouse.CompressionLZ4,
-	})
-	require.NoError(t, err)
+	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		conn, err := GetNativeConnection(t, protocol, clickhouse.Settings{
+			"max_execution_time": 60,
+		}, nil, &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		})
+		require.NoError(t, err)
 
-	const ddl = `
+		ctx := context.Background()
+		const ddl = `
 			CREATE TABLE IF NOT EXISTS test_float64_valuer (
 				  Col1 Float64
 				, Col2 Float64                   
 			) Engine MergeTree() ORDER BY tuple()
 		`
-	require.NoError(t, conn.Exec(ctx, ddl))
-	defer func() {
-		require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS test_float64_valuer"))
-	}()
+		require.NoError(t, conn.Exec(ctx, ddl))
+		defer func() {
+			require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS test_float64_valuer"))
+		}()
 
-	batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_float64_valuer (Col1, Col2)")
-	require.NoError(t, err)
-	require.NoError(t, batch.Append(testFloat64Serializer{val: 1.1}, testFloat64Serializer{val: 2.1}))
-	require.NoError(t, batch.Send())
+		batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_float64_valuer (Col1, Col2)")
+		require.NoError(t, err)
+		require.NoError(t, batch.Append(testFloat64Serializer{val: 1.1}, testFloat64Serializer{val: 2.1}))
+		require.NoError(t, batch.Send())
 
-	row := conn.QueryRow(ctx, "SELECT Col1, Col2 from test_float64_valuer")
-	require.NoError(t, err)
+		row := conn.QueryRow(ctx, "SELECT Col1, Col2 from test_float64_valuer")
+		require.NoError(t, err)
 
-	var (
-		col1 float64
-		col2 float64
-	)
-	require.NoError(t, row.Scan(&col1, &col2))
-	require.Equal(t, float64(1.1), col1)
-	require.Equal(t, float64(2.1), col2)
+		var (
+			col1 float64
+			col2 float64
+		)
+		require.NoError(t, row.Scan(&col1, &col2))
+		require.Equal(t, float64(1.1), col1)
+		require.Equal(t, float64(2.1), col2)
+	})
 }

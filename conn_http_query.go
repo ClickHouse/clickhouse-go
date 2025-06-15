@@ -29,7 +29,7 @@ import (
 // release is ignored, because http used by std with empty release function
 func (h *httpConnect) query(ctx context.Context, release func(*connect, error), query string, args ...any) (*rows, error) {
 	options := queryOptions(ctx)
-	query, err := bindQueryOrAppendParameters(true, &options, query, h.location, args...)
+	query, err := bindQueryOrAppendParameters(true, &options, query, h.handshake.Timezone, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -48,6 +48,7 @@ func (h *httpConnect) query(ctx context.Context, release func(*connect, error), 
 	}
 
 	if res.ContentLength == 0 {
+		discardAndClose(res.Body)
 		block := &proto.Block{}
 		return &rows{
 			block:     block,
@@ -64,21 +65,21 @@ func (h *httpConnect) query(ctx context.Context, release func(*connect, error), 
 	// automatically as they might not have permissions.
 	reader, err := rw.NewReader(res)
 	if err != nil {
-		res.Body.Close()
+		discardAndClose(res.Body)
 		h.compressionPool.Put(rw)
 		return nil, err
 	}
 	chReader := chproto.NewReader(reader)
 	block, err := h.readData(chReader, options.userLocation)
 	if err != nil && !errors.Is(err, io.EOF) {
-		res.Body.Close()
+		discardAndClose(res.Body)
 		h.compressionPool.Put(rw)
 		return nil, err
 	}
 
 	bufferSize := h.blockBufferSize
 	if options.blockBufferSize > 0 {
-		// allow block buffer sze to be overridden per query
+		// allow block buffer size to be overridden per query
 		bufferSize = options.blockBufferSize
 	}
 	var (
@@ -102,7 +103,7 @@ func (h *httpConnect) query(ctx context.Context, release func(*connect, error), 
 			case stream <- block:
 			}
 		}
-		res.Body.Close()
+		discardAndClose(res.Body)
 		h.compressionPool.Put(rw)
 		close(stream)
 		close(errCh)

@@ -19,17 +19,18 @@ package issues
 
 import (
 	"context"
+	"testing"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 // Test655 confirms an agreed semantic on failing batch append results with entire batch cancellation.
 func Test655(t *testing.T) {
 	var (
-		conn, err = clickhouse_tests.GetConnection("issues", clickhouse.Settings{
+		conn, err = clickhouse_tests.GetConnectionTCP("issues", clickhouse.Settings{
 			"max_execution_time": 60,
 		}, nil, &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,

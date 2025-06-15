@@ -21,7 +21,6 @@ import (
 	"context"
 	"github.com/ClickHouse/clickhouse-go/v2/contributors"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 
 type clickhouseHTTP struct {
@@ -38,29 +37,7 @@ func (c *clickhouseHTTP) Contributors() []string {
 }
 
 func (c *clickhouseHTTP) ServerVersion() (*driver.ServerVersion, error) {
-	// TODO: optimize + verify implementation
-	ctx := context.Background()
-	version, err := c.conn.readVersion(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	timezone, err := c.conn.readTimeZone(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return &driver.ServerVersion{
-		Name:        "",
-		DisplayName: "",
-		Revision:    version.Patch,
-		Version: proto.Version{
-			Major: version.Major,
-			Minor: version.Minor,
-			Patch: version.Patch,
-		},
-		Timezone: timezone,
-	}, nil
+	return &c.conn.handshake, nil
 }
 
 func (c *clickhouseHTTP) Select(ctx context.Context, dest any, query string, args ...any) error {
@@ -92,12 +69,12 @@ func (c *clickhouseHTTP) Ping(ctx context.Context) error {
 }
 
 func (c *clickhouseHTTP) Stats() driver.Stats {
-	//TODO: implement me
+	//TODO: proper implementation
 	return driver.Stats{
-		MaxOpenConns: 2,
-		MaxIdleConns: 2,
+		MaxOpenConns: 1,
+		MaxIdleConns: 1,
 		Open:         1,
-		Idle:         1,
+		Idle:         0,
 	}
 }
 

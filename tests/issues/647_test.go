@@ -22,11 +22,12 @@ import (
 	"crypto/tls"
 	"database/sql"
 	"fmt"
+	"strconv"
+	"testing"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/require"
-	"strconv"
-	"testing"
 )
 
 func TestIssue647(t *testing.T) {

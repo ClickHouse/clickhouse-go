@@ -20,6 +20,7 @@ package clickhouse
 import (
 	"context"
 	"maps"
+	"slices"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2/ext"
@@ -41,6 +42,12 @@ type CustomSetting struct {
 	Value string
 }
 
+// ColumnNameAndType represents a column name and type
+type ColumnNameAndType struct {
+	Name string
+	Type string
+}
+
 type Parameters map[string]string
 type (
 	QueryOption  func(*QueryOptions) error
@@ -60,11 +67,12 @@ type (
 			profileInfo   func(*ProfileInfo)
 			profileEvents func([]ProfileEvent)
 		}
-		settings        Settings
-		parameters      Parameters
-		external        []*ext.Table
-		blockBufferSize uint8
-		userLocation    *time.Location
+		settings            Settings
+		parameters          Parameters
+		external            []*ext.Table
+		blockBufferSize     uint8
+		userLocation        *time.Location
+		columnNamesAndTypes []ColumnNameAndType
 	}
 )
 
@@ -101,6 +109,17 @@ func WithQuotaKey(quotaKey string) QueryOption {
 func WithJWT(jwt string) QueryOption {
 	return func(o *QueryOptions) error {
 		o.jwt = jwt
+		return nil
+	}
+}
+
+// WithColumnNamesAndTypes is used to provide a predetermined list of
+// column names and types for HTTP inserts.
+// Without this, the HTTP implementation will parse the query and run a
+// DESCRIBE TABLE request to fetch and validate column names.
+func WithColumnNamesAndTypes(columnNamesAndTypes []ColumnNameAndType) QueryOption {
+	return func(o *QueryOptions) error {
+		o.columnNamesAndTypes = columnNamesAndTypes
 		return nil
 	}
 }
@@ -279,26 +298,29 @@ func (q *QueryOptions) onProcess() *onProcess {
 // clone returns a copy of QueryOptions where Settings and Parameters are safely mutable.
 func (q *QueryOptions) clone() QueryOptions {
 	c := QueryOptions{
-		span:            q.span,
-		async:           q.async,
-		queryID:         q.queryID,
-		quotaKey:        q.quotaKey,
-		events:          q.events,
-		settings:        nil,
-		parameters:      nil,
-		external:        q.external,
-		blockBufferSize: q.blockBufferSize,
-		userLocation:    q.userLocation,
+		span:                q.span,
+		async:               q.async,
+		queryID:             q.queryID,
+		quotaKey:            q.quotaKey,
+		events:              q.events,
+		settings:            nil,
+		parameters:          nil,
+		external:            q.external,
+		blockBufferSize:     q.blockBufferSize,
+		userLocation:        q.userLocation,
+		columnNamesAndTypes: nil,
 	}
 
 	if q.settings != nil {
-		c.settings = make(Settings, len(q.settings))
-		maps.Copy(c.settings, q.settings)
+		c.settings = maps.Clone(q.settings)
 	}
 
 	if q.parameters != nil {
-		c.parameters = make(Parameters, len(q.parameters))
-		maps.Copy(c.parameters, q.parameters)
+		c.parameters = maps.Clone(q.parameters)
+	}
+
+	if q.columnNamesAndTypes != nil {
+		c.columnNamesAndTypes = slices.Clone(q.columnNamesAndTypes)
 	}
 
 	return c
