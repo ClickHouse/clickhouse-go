@@ -121,9 +121,10 @@ func newBlock(h *httpConnect, release nativeTransportRelease, ctx context.Contex
 }
 
 func (h *httpConnect) prepareBatch(ctx context.Context, release nativeTransportRelease, acquire nativeTransportAcquire, query string, opts driver.PrepareBatchOptions) (driver.Batch, error) {
-	// release is not used for newBlock since the connection is held for the batch.
+	// release is not used within newBlock since the connection is held for the batch.
 	query, block, err := newBlock(h, func(nativeTransport, error) {}, ctx, query)
 	if err != nil {
+		release(h, err)
 		return nil, fmt.Errorf("failed to init block for HTTP batch: %w", err)
 	}
 
