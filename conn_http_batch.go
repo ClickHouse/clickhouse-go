@@ -128,104 +128,28 @@ func (h *httpConnect) prepareBatch(ctx context.Context, query string, opts drive
 	}
 
 	return &httpBatch{
-		ctx:         ctx,
-		conn:        h,
-		structMap:   &structMap{},
-		block:       block,
-		query:       query,
-		sendOnFlush: opts.HTTPSendOnFlush,
+		ctx:       ctx,
+		conn:      h,
+		structMap: &structMap{},
+		block:     block,
+		query:     query,
 	}, nil
 }
 
 type httpBatch struct {
-	query       string
-	err         error
-	ctx         context.Context
-	conn        *httpConnect
-	structMap   *structMap
-	sent        bool
-	block       *proto.Block
-	sendOnFlush bool
-}
-
-func (b *httpBatch) sendBatch() error {
-	if b.sent {
-		return ErrBatchAlreadySent
-	}
-	if b.err != nil {
-		return b.err
-	}
-	if b.block.Rows() == 0 {
-		return nil
-	}
-
-	options := queryOptions(b.ctx)
-	headers := make(map[string]string)
-	switch b.conn.compression {
-	case CompressionGZIP, CompressionDeflate, CompressionBrotli:
-		headers["Content-Encoding"] = b.conn.compression.String()
-	case CompressionZSTD, CompressionLZ4:
-		options.settings["decompress"] = "1"
-		options.settings["compress"] = "1"
-	}
-
-	compressionWriter := b.conn.compressionPool.Get()
-	defer b.conn.compressionPool.Put(compressionWriter)
-	pipeReader, pipeWriter := io.Pipe()
-	connWriter := compressionWriter.reset(pipeWriter)
-
-	//var wg sync.WaitGroup
-	//wg.Add(1)
-	go func() {
-		//defer wg.Done()
-		var err error = nil
-		defer pipeWriter.CloseWithError(err)
-		defer connWriter.Close()
-		b.conn.buffer.Reset()
-		if b.block.Rows() != 0 {
-			if err = b.conn.writeData(b.block); err != nil {
-				return
-			}
-		}
-		if err = b.conn.writeData(&proto.Block{}); err != nil {
-			return
-		}
-		if _, err = connWriter.Write(b.conn.buffer.Buf); err != nil {
-			return
-		}
-	}()
-
-	options.settings["query"] = b.query
-	headers["Content-Type"] = "application/octet-stream"
-
-	res, err := b.conn.sendStreamQuery(b.ctx, pipeReader, &options, headers)
-	if err != nil {
-		return err
-	}
-	// TODO: Is the connection being leaked here?
-	// Something about discarding the body causes this to break
-	// HTTP flushing, but may leak connections if body isn't fully read.
-	// The goroutine above this seems to handle this. See flush_test.go for example.
-	defer func() {
-		if b.sendOnFlush {
-			res.Body.Close()
-		} else {
-			discardAndClose(res.Body)
-		}
-	}()
-
-	b.block.Reset()
-	//wg.Wait()
-
-	return nil
+	query     string
+	err       error
+	ctx       context.Context
+	conn      *httpConnect
+	structMap *structMap
+	sent      bool
+	block     *proto.Block
 }
 
 func (b *httpBatch) Flush() error {
-	if !b.sendOnFlush {
-		return nil
-	}
-
-	return b.sendBatch()
+	// Flush and Send are effectively the same for HTTP, but users should just use Send until we
+	// figure out a way to do proper streaming.
+	return nil
 }
 
 func (b *httpBatch) Close() error {
@@ -288,7 +212,61 @@ func (b *httpBatch) Send() (err error) {
 		b.sent = true
 	}()
 
-	return b.sendBatch()
+	if b.sent {
+		return ErrBatchAlreadySent
+	}
+	if b.err != nil {
+		return b.err
+	}
+	if b.block.Rows() == 0 {
+		return nil
+	}
+
+	options := queryOptions(b.ctx)
+	headers := make(map[string]string)
+	switch b.conn.compression {
+	case CompressionGZIP, CompressionDeflate, CompressionBrotli:
+		headers["Content-Encoding"] = b.conn.compression.String()
+	case CompressionZSTD, CompressionLZ4:
+		options.settings["decompress"] = "1"
+		options.settings["compress"] = "1"
+	}
+
+	compressionWriter := b.conn.compressionPool.Get()
+	defer b.conn.compressionPool.Put(compressionWriter)
+	pipeReader, pipeWriter := io.Pipe()
+	connWriter := compressionWriter.reset(pipeWriter)
+
+	go func() {
+		var err error = nil
+		defer pipeWriter.CloseWithError(err)
+		defer connWriter.Close()
+		b.conn.buffer.Reset()
+		if b.block.Rows() != 0 {
+			if err = b.conn.writeData(b.block); err != nil {
+				return
+			}
+		}
+		if err = b.conn.writeData(&proto.Block{}); err != nil {
+			return
+		}
+		if _, err = connWriter.Write(b.conn.buffer.Buf); err != nil {
+			return
+		}
+	}()
+
+	options.settings["query"] = b.query
+	headers["Content-Type"] = "application/octet-stream"
+
+	res, err := b.conn.sendStreamQuery(b.ctx, pipeReader, &options, headers)
+	if err != nil {
+		return err
+	}
+	discardAndClose(res.Body)
+
+	b.block.Reset()
+
+	return nil
 }
 
 func (b *httpBatch) Rows() int {

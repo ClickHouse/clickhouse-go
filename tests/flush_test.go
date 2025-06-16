@@ -76,13 +76,7 @@ func insertWithFlush(t *testing.T, protocol clickhouse.Protocol, conn driver.Con
 		conn.Exec(context.Background(), fmt.Sprintf("DROP TABLE %s", tableName))
 	}()
 
-	var batch driver.Batch
-	if protocol == clickhouse.Native {
-		batch, err = conn.PrepareBatch(ctx, fmt.Sprintf("INSERT INTO %s", tableName))
-	} else if protocol == clickhouse.HTTP {
-		// Send an HTTP request every time Flush is called
-		batch, err = conn.PrepareBatch(ctx, fmt.Sprintf("INSERT INTO %s", tableName), driver.WithHTTPSendOnFlush())
-	}
+	batch, err := conn.PrepareBatch(ctx, fmt.Sprintf("INSERT INTO %s", tableName))
 	require.NoError(t, err)
 
 	// 1 million rows should only take < 1s on most desktops
