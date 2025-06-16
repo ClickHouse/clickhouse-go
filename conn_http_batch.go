@@ -77,11 +77,7 @@ func fetchColumnNamesAndTypesForInsert(h *httpConnect, release nativeTransportRe
 	} else {
 		// Use all columns
 		for _, colName := range allColumns {
-			colType, ok := columnsToTypes[colName]
-			if !ok {
-				return nil, fmt.Errorf("column %s is not present in the table %s", colName, tableName)
-			}
-
+			colType := columnsToTypes[colName]
 			insertColumns = append(insertColumns, ColumnNameAndType{
 				Name: colName,
 				Type: colType,
@@ -124,8 +120,9 @@ func (h *httpConnect) prepareBatch(ctx context.Context, release nativeTransportR
 	// release is not used within newBlock since the connection is held for the batch.
 	query, block, err := newBlock(h, func(nativeTransport, error) {}, ctx, query)
 	if err != nil {
+		err = fmt.Errorf("failed to init block for HTTP batch: %w", err)
 		release(h, err)
-		return nil, fmt.Errorf("failed to init block for HTTP batch: %w", err)
+		return nil, err
 	}
 
 	return &httpBatch{
@@ -266,10 +263,12 @@ func (b *httpBatch) Send() (err error) {
 
 	go func() {
 		var err error = nil
+		defer b.release(err)
 		defer pipeWriter.CloseWithError(err)
 		defer connWriter.Close()
 		b.conn.buffer.Reset()
-		if b.block.Rows() != 0 {
+		rowCount := b.block.Rows()
+		if rowCount != 0 {
 			if err = b.conn.writeData(b.block); err != nil {
 				return
 			}
@@ -280,19 +279,19 @@ func (b *httpBatch) Send() (err error) {
 		if _, err = connWriter.Write(b.conn.buffer.Buf); err != nil {
 			return
 		}
-		b.release(nil)
+
+		b.conn.debugf("[batch send complete] rows=%d", rowCount)
 	}()
 
 	options.settings["query"] = b.query
 	headers["Content-Type"] = "application/octet-stream"
 
+	b.conn.debugf("[batch send started] rows=%d", b.block.Rows())
 	res, err := b.conn.sendStreamQuery(b.ctx, pipeReader, &options, headers)
 	if err != nil {
-		return err
+		return fmt.Errorf("sendStreamQuery: %w", err)
 	}
 	discardAndClose(res.Body)
-
-	b.block.Reset()
 
 	return nil
 }
