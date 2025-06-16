@@ -165,12 +165,12 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		if opt.Debugf != nil {
 			debugf = func(format string, v ...any) {
 				opt.Debugf(
-					"[clickhouse-http][conn=%d] "+format,
-					append([]interface{}{num}, v...)...,
+					"[clickhouse-http][conn=%d][%s] "+format,
+					append([]interface{}{num, addr}, v...)...,
 				)
 			}
 		} else {
-			debugf = log.New(os.Stdout, fmt.Sprintf("[clickhouse-http][conn=%d]", num), 0).Printf
+			debugf = log.New(os.Stdout, fmt.Sprintf("[clickhouse-http][conn=%d][%s]", num, addr), 0).Printf
 		}
 	}
 
