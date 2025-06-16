@@ -312,8 +312,13 @@ func TestConnAcquireRelease(t *testing.T) {
 			require.NoError(t, conn.Exec(context.Background(), "SELECT sleep(1)"))
 			finishedWg.Done()
 		}()
+		// Wait for goroutine to start
 		startedWg.Wait()
+		// Wait for query to start
+		time.Sleep(100 * time.Millisecond)
+		// Try to acquire another connection, expecting an error
 		require.Error(t, conn.Exec(context.Background(), "SELECT 1"))
+		// Wait for goroutine to exit
 		finishedWg.Wait()
 
 		require.NoError(t, conn.Close())
