@@ -24,12 +24,13 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 	"io"
+	"os"
 	"slices"
 )
 
-func (h *httpConnect) fetchColumnNamesAndTypesForInsert(ctx context.Context, tableName string, requestedColumnNames []string) ([]ColumnNameAndType, error) {
+func fetchColumnNamesAndTypesForInsert(h *httpConnect, release nativeTransportRelease, ctx context.Context, tableName string, requestedColumnNames []string) ([]ColumnNameAndType, error) {
 	describeTableQuery := fmt.Sprintf("DESCRIBE TABLE %s", tableName)
-	r, err := h.query(ctx, nil, describeTableQuery)
+	r, err := h.query(ctx, release, describeTableQuery)
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +92,7 @@ func (h *httpConnect) fetchColumnNamesAndTypesForInsert(ctx context.Context, tab
 	return insertColumns, nil
 }
 
-func (h *httpConnect) newBlock(ctx context.Context, query string) (string, *proto.Block, error) {
+func newBlock(h *httpConnect, release nativeTransportRelease, ctx context.Context, query string) (string, *proto.Block, error) {
 	normalizedQuery, tableName, requestedColumnNames, err := extractNormalizedInsertQueryAndColumns(query)
 	if err != nil {
 		return "", nil, err
@@ -102,7 +103,7 @@ func (h *httpConnect) newBlock(ctx context.Context, query string) (string, *prot
 
 	// If the user didn't supply known column names/types, do expensive DESC TABLE logic
 	if opt.columnNamesAndTypes == nil {
-		fetchedColumns, err := h.fetchColumnNamesAndTypesForInsert(ctx, tableName, requestedColumnNames)
+		fetchedColumns, err := fetchColumnNamesAndTypesForInsert(h, release, ctx, tableName, requestedColumnNames)
 		if err != nil {
 			return "", nil, fmt.Errorf("failed to determine columns for HTTP insert: %w", err)
 		}
@@ -119,31 +120,40 @@ func (h *httpConnect) newBlock(ctx context.Context, query string) (string, *prot
 	return normalizedQuery, &block, nil
 }
 
-// release is ignored, because http used by std with empty release function.
-// Also opts ignored because all options unused in http batch.
-func (h *httpConnect) prepareBatch(ctx context.Context, query string, opts driver.PrepareBatchOptions, release func(*connect, error), acquire func(context.Context) (*connect, error)) (driver.Batch, error) {
-	query, block, err := h.newBlock(ctx, query)
+func (h *httpConnect) prepareBatch(ctx context.Context, release nativeTransportRelease, acquire nativeTransportAcquire, query string, opts driver.PrepareBatchOptions) (driver.Batch, error) {
+	// release is not used for newBlock since the connection is held for the batch.
+	query, block, err := newBlock(h, func(nativeTransport, error) {}, ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init block for HTTP batch: %w", err)
 	}
 
 	return &httpBatch{
-		ctx:       ctx,
-		conn:      h,
-		structMap: &structMap{},
-		block:     block,
-		query:     query,
+		ctx:         ctx,
+		conn:        h,
+		connRelease: release,
+		structMap:   &structMap{},
+		block:       block,
+		query:       query,
 	}, nil
 }
 
 type httpBatch struct {
-	query     string
-	err       error
-	ctx       context.Context
-	conn      *httpConnect
-	structMap *structMap
-	sent      bool
-	block     *proto.Block
+	query       string
+	err         error
+	ctx         context.Context
+	conn        *httpConnect
+	released    bool
+	connRelease nativeTransportRelease
+	structMap   *structMap
+	sent        bool
+	block       *proto.Block
+}
+
+func (b *httpBatch) release(err error) {
+	if !b.released {
+		b.released = true
+		b.connRelease(b.conn, err)
+	}
 }
 
 func (b *httpBatch) Flush() error {
@@ -153,13 +163,20 @@ func (b *httpBatch) Flush() error {
 }
 
 func (b *httpBatch) Close() error {
+	if b.sent || b.released {
+		return nil
+	}
+
 	b.sent = true
+	b.release(nil)
+
 	return nil
 }
 
 func (b *httpBatch) Abort() error {
 	defer func() {
 		b.sent = true
+		b.release(os.ErrProcessDone)
 	}()
 	if b.sent {
 		return ErrBatchAlreadySent
@@ -171,13 +188,23 @@ func (b *httpBatch) Append(v ...any) error {
 	if b.sent {
 		return ErrBatchAlreadySent
 	}
+	if b.err != nil {
+		return b.err
+	}
+
 	if err := b.block.Append(v...); err != nil {
+		b.err = fmt.Errorf("%w: %w", ErrBatchInvalid, err)
+		b.release(err)
 		return err
 	}
+
 	return nil
 }
 
 func (b *httpBatch) AppendStruct(v any) error {
+	if b.err != nil {
+		return b.err
+	}
 	values, err := b.structMap.Map("AppendStruct", b.block.ColumnsNames(), v, false)
 	if err != nil {
 		return err
@@ -211,7 +238,6 @@ func (b *httpBatch) Send() (err error) {
 	defer func() {
 		b.sent = true
 	}()
-
 	if b.sent {
 		return ErrBatchAlreadySent
 	}
@@ -253,6 +279,7 @@ func (b *httpBatch) Send() (err error) {
 		if _, err = connWriter.Write(b.conn.buffer.Buf); err != nil {
 			return
 		}
+		b.release(nil)
 	}()
 
 	options.settings["query"] = b.query

@@ -38,7 +38,7 @@ func SkipOnCloud(t *testing.T, reasons ...string) {
 func SkipNotCloud(t *testing.T, reasons ...string) {
 	if !CloudClickHouse {
 		t.Skip(append(
-			[]string{"Skipping test for non-cloud ClickHouse"},
+			[]string{"Skipping test for non-cloud ClickHouse:"},
 			reasons...,
 		))
 	}
@@ -48,7 +48,7 @@ func SkipNotCloud(t *testing.T, reasons ...string) {
 func SkipOnHTTP(t *testing.T, protocol clickhouse.Protocol, reasons ...string) {
 	if protocol == clickhouse.HTTP {
 		t.Skip(append(
-			[]string{"Skipping HTTP test"},
+			[]string{"Skipping HTTP test:"},
 			reasons...,
 		))
 	}

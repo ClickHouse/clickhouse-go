@@ -23,14 +23,16 @@ import (
 	"compress/gzip"
 	"compress/zlib"
 	"context"
-	"database/sql/driver"
+	sqldriver "database/sql/driver"
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"mime/multipart"
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -158,6 +160,20 @@ func applyOptionsToRequest(ctx context.Context, req *http.Request, opt *Options)
 }
 
 func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpConnect, error) {
+	debugf := func(format string, v ...any) {}
+	if opt.Debug {
+		if opt.Debugf != nil {
+			debugf = func(format string, v ...any) {
+				opt.Debugf(
+					"[clickhouse-http][conn=%d] "+format,
+					append([]interface{}{num}, v...)...,
+				)
+			}
+		} else {
+			debugf = log.New(os.Stdout, fmt.Sprintf("[clickhouse-http][conn=%d]", num), 0).Printf
+		}
+	}
+
 	if opt.scheme == "" {
 		switch opt.Protocol {
 		case HTTP:
@@ -207,19 +223,13 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		httpProxy = http.ProxyURL(opt.HTTPProxyURL)
 	}
 
-	maxOpenConns := opt.MaxOpenConns
-	if opt.HttpMaxConnsPerHost != 0 {
-		// TODO: deprecate opt.HttpMaxConnsPerHost and re-use opt.MaxOpenConns
-		maxOpenConns = opt.HttpMaxConnsPerHost
-	}
-
 	t := &http.Transport{
 		Proxy: httpProxy,
 		DialContext: (&net.Dialer{
 			Timeout: opt.DialTimeout,
 		}).DialContext,
 		MaxIdleConns:          opt.MaxIdleConns,
-		MaxConnsPerHost:       maxOpenConns,
+		MaxConnsPerHost:       opt.HttpMaxConnsPerHost,
 		IdleConnTimeout:       opt.ConnMaxLifetime,
 		ResponseHeaderTimeout: opt.ReadTimeout,
 		TLSClientConfig:       opt.TLS,
@@ -245,7 +255,7 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		blockBufferSize: opt.BlockBufferSize,
 	}
 
-	handshake, err := conn.queryHello(ctx)
+	handshake, err := conn.queryHello(ctx, func(nativeTransport, error) {})
 	if err != nil {
 		return nil, fmt.Errorf("failed to query server hello: %w", err)
 	}
@@ -257,7 +267,11 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 	u.RawQuery = query.Encode()
 
 	return &httpConnect{
-		opt: opt,
+		id:          num,
+		connectedAt: time.Now(),
+		released:    false,
+		debugfFunc:  debugf,
+		opt:         opt,
 		client: &http.Client{
 			Transport: t,
 		},
@@ -272,6 +286,10 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 }
 
 type httpConnect struct {
+	id              int
+	connectedAt     time.Time
+	released        bool
+	debugfFunc      func(format string, v ...any)
 	opt             *Options
 	url             *url.URL
 	client          *http.Client
@@ -283,14 +301,41 @@ type httpConnect struct {
 	handshake       proto.ServerHandshake
 }
 
+func (h *httpConnect) serverVersion() (*ServerVersion, error) {
+	return &h.handshake, nil
+}
+
+func (h *httpConnect) connID() int {
+	return h.id
+}
+
+func (h *httpConnect) connectedAtTime() time.Time {
+	return h.connectedAt
+}
+
+func (h *httpConnect) isReleased() bool {
+	return h.released
+}
+
+func (h *httpConnect) setReleased(released bool) {
+	h.released = released
+}
+
+func (h *httpConnect) debugf(format string, v ...any) {
+	h.debugfFunc(format, v...)
+}
+
+func (h *httpConnect) freeBuffer() {
+}
+
 func (h *httpConnect) isBad() bool {
 	return h.client == nil
 }
 
-func (h *httpConnect) queryHello(ctx context.Context) (proto.ServerHandshake, error) {
+func (h *httpConnect) queryHello(ctx context.Context, release nativeTransportRelease) (proto.ServerHandshake, error) {
 	ctx = Context(ctx, ignoreExternalTables())
 	query := "SELECT displayName(), version(), revision(), timezone()"
-	rows, err := h.query(ctx, func(*connect, error) {}, query)
+	rows, err := h.query(ctx, release, query)
 	if err != nil {
 		return proto.ServerHandshake{}, fmt.Errorf("failed to query server hello info: %w", err)
 	}
@@ -543,7 +588,7 @@ func (h *httpConnect) createRequestWithExternalTables(ctx context.Context, query
 
 func (h *httpConnect) executeRequest(req *http.Request) (*http.Response, error) {
 	if h.client == nil {
-		return nil, driver.ErrBadConn
+		return nil, sqldriver.ErrBadConn
 	}
 	resp, err := h.client.Do(req)
 	if err != nil {
@@ -562,10 +607,13 @@ func (h *httpConnect) executeRequest(req *http.Request) (*http.Response, error) 
 }
 
 func (h *httpConnect) ping(ctx context.Context) error {
-	rows, err := h.query(Context(ctx, ignoreExternalTables()), nil, "SELECT 1")
+	ctx = Context(ctx, ignoreExternalTables())
+	// release func is called by connection pool
+	rows, err := h.query(ctx, func(nativeTransport, error) {}, "SELECT 1")
 	if err != nil {
 		return err
 	}
+	defer rows.Close()
 	column := rows.Columns()
 	// check that we got column 1
 	if len(column) == 1 && column[0] == "1" {

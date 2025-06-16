@@ -96,7 +96,7 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 			id:                   num,
 			opt:                  opt,
 			conn:                 conn,
-			debugf:               debugf,
+			debugfFunc:           debugf,
 			buffer:               new(chproto.Buffer),
 			reader:               chproto.NewReader(conn),
 			revision:             ClientTCPProtocolVersion,
@@ -144,7 +144,7 @@ type connect struct {
 	id                   int
 	opt                  *Options
 	conn                 net.Conn
-	debugf               func(format string, v ...any)
+	debugfFunc           func(format string, v ...any)
 	server               ServerVersion
 	closed               bool
 	buffer               *chproto.Buffer
@@ -160,6 +160,22 @@ type connect struct {
 	maxCompressionBuffer int
 	readerMutex          sync.Mutex
 	closeMutex           sync.Mutex
+}
+
+func (c *connect) debugf(format string, v ...any) {
+	c.debugfFunc(format, v...)
+}
+
+func (c *connect) connID() int {
+	return c.id
+}
+
+func (c *connect) connectedAtTime() time.Time {
+	return c.connectedAt
+}
+
+func (c *connect) serverVersion() (*ServerVersion, error) {
+	return &c.server, nil
 }
 
 func (c *connect) settings(querySettings Settings) []proto.Setting {
@@ -204,6 +220,14 @@ func (c *connect) isBad() bool {
 	}
 
 	return false
+}
+
+func (c *connect) isReleased() bool {
+	return c.released
+}
+
+func (c *connect) setReleased(released bool) {
+	c.released = released
 }
 
 func (c *connect) isClosed() bool {
@@ -370,6 +394,11 @@ func (c *connect) readData(ctx context.Context, packet byte, compressible bool) 
 	block.Packet = packet
 	c.debugf("[read data] compression=%q. block: columns=%d, rows=%d", c.compression, len(block.Columns), block.Rows())
 	return &block, nil
+}
+
+func (c *connect) freeBuffer() {
+	c.buffer = new(chproto.Buffer)
+	c.compressor.Data = nil
 }
 
 func (c *connect) flush() error {

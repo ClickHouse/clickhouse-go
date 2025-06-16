@@ -27,10 +27,11 @@ import (
 )
 
 // release is ignored, because http used by std with empty release function
-func (h *httpConnect) query(ctx context.Context, release func(*connect, error), query string, args ...any) (*rows, error) {
+func (h *httpConnect) query(ctx context.Context, release nativeTransportRelease, query string, args ...any) (*rows, error) {
 	options := queryOptions(ctx)
 	query, err := bindQueryOrAppendParameters(true, &options, query, h.handshake.Timezone, args...)
 	if err != nil {
+		release(h, err)
 		return nil, err
 	}
 	headers := make(map[string]string)
@@ -44,12 +45,14 @@ func (h *httpConnect) query(ctx context.Context, release func(*connect, error), 
 
 	res, err := h.sendQuery(ctx, query, &options, headers)
 	if err != nil {
+		release(h, err)
 		return nil, err
 	}
 
 	if res.ContentLength == 0 {
 		discardAndClose(res.Body)
 		block := &proto.Block{}
+		release(h, nil)
 		return &rows{
 			block:     block,
 			columns:   block.ColumnsNames(),
@@ -67,6 +70,7 @@ func (h *httpConnect) query(ctx context.Context, release func(*connect, error), 
 	if err != nil {
 		discardAndClose(res.Body)
 		h.compressionPool.Put(rw)
+		release(h, err)
 		return nil, err
 	}
 	chReader := chproto.NewReader(reader)
@@ -74,6 +78,7 @@ func (h *httpConnect) query(ctx context.Context, release func(*connect, error), 
 	if err != nil && !errors.Is(err, io.EOF) {
 		discardAndClose(res.Body)
 		h.compressionPool.Put(rw)
+		release(h, err)
 		return nil, err
 	}
 
@@ -107,11 +112,13 @@ func (h *httpConnect) query(ctx context.Context, release func(*connect, error), 
 		h.compressionPool.Put(rw)
 		close(stream)
 		close(errCh)
+		release(h, nil)
 	}()
 
 	if block == nil {
 		block = &proto.Block{}
 	}
+
 	return &rows{
 		block:     block,
 		stream:    stream,
@@ -121,7 +128,7 @@ func (h *httpConnect) query(ctx context.Context, release func(*connect, error), 
 	}, nil
 }
 
-func (h *httpConnect) queryRow(ctx context.Context, release func(*connect, error), query string, args ...any) *row {
+func (h *httpConnect) queryRow(ctx context.Context, release nativeTransportRelease, query string, args ...any) *row {
 	rows, err := h.query(ctx, release, query, args...)
 	if err != nil {
 		return &row{

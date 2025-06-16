@@ -83,39 +83,52 @@ func TestConnFailoverRandom(t *testing.T) {
 }
 
 func testConnFailover(t *testing.T, connOpenStrategy clickhouse.ConnOpenStrategy) {
-	env, err := GetNativeTestEnvironment()
-	require.NoError(t, err)
-	useSSL, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_SSL", "false"))
-	require.NoError(t, err)
-	port := env.Port
-	var tlsConfig *tls.Config
-	if useSSL {
-		port = env.SslPort
-		tlsConfig = &tls.Config{}
-	}
-	options := clickhouse.Options{
-		ConnOpenStrategy: connOpenStrategy,
-		Addr: []string{
-			"127.0.0.1:9001",
-			"127.0.0.1:9002",
-			fmt.Sprintf("%s:%d", env.Host, port),
-		},
-		Auth: clickhouse.Auth{
-			Database: "default",
-			Username: env.Username,
-			Password: env.Password,
-		},
-		Compression: &clickhouse.Compression{
-			Method: clickhouse.CompressionLZ4,
-		},
-		TLS: tlsConfig,
-	}
+	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		if connOpenStrategy == clickhouse.ConnOpenRandom {
+			SkipOnHTTP(t, protocol, "random seed")
+		}
 
-	conn, err := GetConnectionWithOptions(&options)
-	require.NoError(t, err)
-	require.NoError(t, conn.Ping(context.Background()))
-	t.Log(conn.ServerVersion())
-	t.Log(conn.Ping(context.Background()))
+		env, err := GetNativeTestEnvironment()
+		require.NoError(t, err)
+		useSSL, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_SSL", "false"))
+		require.NoError(t, err)
+		port := env.Port
+		if protocol == clickhouse.HTTP {
+			port = env.HttpPort
+		}
+		var tlsConfig *tls.Config
+		if useSSL {
+			tlsConfig = &tls.Config{}
+			port = env.SslPort
+			if protocol == clickhouse.HTTP {
+				port = env.HttpsPort
+			}
+		}
+		options := clickhouse.Options{
+			Protocol:         protocol,
+			ConnOpenStrategy: connOpenStrategy,
+			Addr: []string{
+				"127.0.0.1:9001",
+				"127.0.0.1:9002",
+				fmt.Sprintf("%s:%d", env.Host, port),
+			},
+			Auth: clickhouse.Auth{
+				Database: "default",
+				Username: env.Username,
+				Password: env.Password,
+			},
+			Compression: &clickhouse.Compression{
+				Method: clickhouse.CompressionLZ4,
+			},
+			TLS: tlsConfig,
+		}
+
+		conn, err := GetConnectionWithOptions(&options)
+		require.NoError(t, err)
+		require.NoError(t, conn.Ping(context.Background()))
+		t.Log(conn.ServerVersion())
+		t.Log(conn.Ping(context.Background()))
+	})
 }
 
 func TestPingDeadline(t *testing.T) {
@@ -164,6 +177,7 @@ func TestReadDeadline(t *testing.T) {
 	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Second*time.Duration(10)))
 	defer cancel()
 	require.NoError(t, conn.Ping(ctx))
+	require.NoError(t, conn.Close())
 }
 
 func TestQueryDeadline(t *testing.T) {
@@ -195,44 +209,115 @@ func TestQueryDeadline(t *testing.T) {
 	err = conn.QueryRow(context.Background(), "SELECT count() FROM numbers(10000000)").Scan(&count)
 	require.Error(t, err)
 	assert.ErrorIs(t, err, os.ErrDeadlineExceeded)
+	require.NoError(t, conn.Close())
 }
 
 func TestBlockBufferSize(t *testing.T) {
-	env, err := GetNativeTestEnvironment()
-	require.NoError(t, err)
-	useSSL, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_SSL", "false"))
-	require.NoError(t, err)
-	port := env.Port
-	var tlsConfig *tls.Config
-	if useSSL {
-		port = env.SslPort
-		tlsConfig = &tls.Config{}
-	}
-	conn, err := GetConnectionWithOptions(&clickhouse.Options{
-		Addr: []string{fmt.Sprintf("%s:%d", env.Host, port)},
-		Auth: clickhouse.Auth{
-			Database: "default",
-			Username: env.Username,
-			Password: env.Password,
-		},
-		Compression: &clickhouse.Compression{
-			Method: clickhouse.CompressionLZ4,
-		},
-		TLS:             tlsConfig,
-		BlockBufferSize: 100,
+	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		env, err := GetNativeTestEnvironment()
+		require.NoError(t, err)
+		useSSL, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_SSL", "false"))
+		require.NoError(t, err)
+		port := env.Port
+		if protocol == clickhouse.HTTP {
+			port = env.HttpPort
+		}
+		var tlsConfig *tls.Config
+		if useSSL {
+			tlsConfig = &tls.Config{}
+			port = env.SslPort
+			if protocol == clickhouse.HTTP {
+				port = env.HttpsPort
+			}
+		}
+		conn, err := GetConnectionWithOptions(&clickhouse.Options{
+			Protocol: protocol,
+			Addr:     []string{fmt.Sprintf("%s:%d", env.Host, port)},
+			Auth: clickhouse.Auth{
+				Database: "default",
+				Username: env.Username,
+				Password: env.Password,
+			},
+			Compression: &clickhouse.Compression{
+				Method: clickhouse.CompressionLZ4,
+			},
+			TLS:             tlsConfig,
+			BlockBufferSize: 100,
+		})
+		require.NoError(t, err)
+		var count uint64
+		rows, err := conn.Query(clickhouse.Context(context.Background(), clickhouse.WithBlockBufferSize(50)), "SELECT number FROM numbers(1000000)")
+		require.NoError(t, err)
+		i := 0
+		for rows.Next() {
+			require.NoError(t, rows.Scan(&count))
+			i++
+		}
+		require.NoError(t, rows.Close())
+		require.NoError(t, rows.Err())
+		require.Equal(t, 1000000, i)
+		require.NoError(t, conn.Close())
 	})
-	require.NoError(t, err)
-	var count uint64
-	rows, err := conn.Query(clickhouse.Context(context.Background(), clickhouse.WithBlockBufferSize(50)), "SELECT number FROM numbers(10000000)")
-	require.NoError(t, err)
-	i := 0
-	for rows.Next() {
-		require.NoError(t, rows.Scan(&count))
-		i++
-	}
-	require.NoError(t, rows.Close())
-	require.NoError(t, rows.Err())
-	require.Equal(t, 10000000, i)
+}
+
+func TestConnAcquireRelease(t *testing.T) {
+	SkipOnCloud(t, "requires low latency")
+
+	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		env, err := GetNativeTestEnvironment()
+		require.NoError(t, err)
+		useSSL, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_SSL", "false"))
+		require.NoError(t, err)
+		port := env.Port
+		if protocol == clickhouse.HTTP {
+			port = env.HttpPort
+		}
+		var tlsConfig *tls.Config
+		if useSSL {
+			tlsConfig = &tls.Config{}
+			port = env.SslPort
+			if protocol == clickhouse.HTTP {
+				port = env.HttpsPort
+			}
+		}
+		conn, err := GetConnectionWithOptions(&clickhouse.Options{
+			Protocol: protocol,
+			Addr:     []string{fmt.Sprintf("%s:%d", env.Host, port)},
+			Auth: clickhouse.Auth{
+				Database: "default",
+				Username: env.Username,
+				Password: env.Password,
+			},
+			Compression: &clickhouse.Compression{
+				Method: clickhouse.CompressionLZ4,
+			},
+			TLS:          tlsConfig,
+			DialTimeout:  1 * time.Millisecond, // Fast acquire failure
+			MaxIdleConns: 1,
+			MaxOpenConns: 1, // Force one connection
+		})
+		require.NoError(t, err)
+
+		// 2 sequential calls
+		require.NoError(t, conn.Exec(context.Background(), "SELECT 1"))
+		require.NoError(t, conn.Exec(context.Background(), "SELECT 1"))
+
+		// 2 concurrent calls
+		var startedWg sync.WaitGroup
+		var finishedWg sync.WaitGroup
+		startedWg.Add(1)
+		finishedWg.Add(1)
+		go func() {
+			startedWg.Done()
+			require.NoError(t, conn.Exec(context.Background(), "SELECT sleep(0.3)"))
+			finishedWg.Done()
+		}()
+		startedWg.Wait()
+		require.Error(t, conn.Exec(context.Background(), "SELECT 1"))
+		finishedWg.Wait()
+
+		require.NoError(t, conn.Close())
+	})
 }
 
 func TestConnCustomDialStrategy(t *testing.T) {
@@ -277,6 +362,7 @@ func TestEmptyDatabaseConfig(t *testing.T) {
 		TLS: tlsConfig,
 	}
 	conn, err := GetConnectionWithOptions(options)
+	defer conn.Close()
 	require.NoError(t, err)
 
 	// Setup
@@ -290,6 +376,7 @@ func TestEmptyDatabaseConfig(t *testing.T) {
 	}()
 
 	anotherConn, err := GetConnectionWithOptions(options)
+	defer anotherConn.Close()
 	require.NoError(t, err)
 	err = anotherConn.Ping(context.Background())
 	require.NoError(t, err)

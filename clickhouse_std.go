@@ -34,7 +34,7 @@ import (
 	"syscall"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
-	ldriver "github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	chdriver "github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 )
 
 var globalConnID int64
@@ -196,10 +196,10 @@ func OpenDB(opt *Options) *sql.DB {
 type stdConnect interface {
 	isBad() bool
 	close() error
-	query(ctx context.Context, release func(*connect, error), query string, args ...any) (*rows, error)
+	query(ctx context.Context, release nativeTransportRelease, query string, args ...any) (*rows, error)
 	exec(ctx context.Context, query string, args ...any) error
 	ping(ctx context.Context) (err error)
-	prepareBatch(ctx context.Context, query string, options ldriver.PrepareBatchOptions, release func(*connect, error), acquire func(context.Context) (*connect, error)) (ldriver.Batch, error)
+	prepareBatch(ctx context.Context, release nativeTransportRelease, acquire nativeTransportAcquire, query string, options chdriver.PrepareBatchOptions) (chdriver.Batch, error)
 	asyncInsert(ctx context.Context, query string, wait bool, args ...any) error
 }
 
@@ -333,7 +333,7 @@ func (std *stdDriver) QueryContext(ctx context.Context, query string, args []dri
 		return nil, driver.ErrBadConn
 	}
 
-	r, err := std.conn.query(ctx, func(*connect, error) {}, query, rebind(args)...)
+	r, err := std.conn.query(ctx, func(nativeTransport, error) {}, query, rebind(args)...)
 	if isConnBrokenError(err) {
 		std.debugf("QueryContext got a fatal error, resetting connection: %v\n", err)
 		return nil, driver.ErrBadConn
@@ -358,7 +358,7 @@ func (std *stdDriver) PrepareContext(ctx context.Context, query string) (driver.
 		return nil, driver.ErrBadConn
 	}
 
-	batch, err := std.conn.prepareBatch(ctx, query, ldriver.PrepareBatchOptions{}, func(*connect, error) {}, func(context.Context) (*connect, error) { return nil, nil })
+	batch, err := std.conn.prepareBatch(ctx, func(nativeTransport, error) {}, func(context.Context) (nativeTransport, error) { return nil, nil }, query, chdriver.PrepareBatchOptions{})
 	if err != nil {
 		if isConnBrokenError(err) {
 			std.debugf("PrepareContext got a fatal error, resetting connection: %v\n", err)
@@ -387,7 +387,7 @@ func (std *stdDriver) Close() error {
 }
 
 type stdBatch struct {
-	batch  ldriver.Batch
+	batch  chdriver.Batch
 	debugf func(format string, v ...any)
 }
 
