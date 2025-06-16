@@ -29,6 +29,8 @@ import (
 
 func TestContextCancellationOfHeavyGeneratedInsert(t *testing.T) {
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		SkipOnHTTP(t, protocol, "context cancel")
+
 		var (
 			heavyQuery = `INSERT INTO test_query_cancellation.trips
 			SELECT
@@ -62,6 +64,8 @@ func TestContextCancellationOfHeavyGeneratedInsert(t *testing.T) {
 
 func TestContextCancellationOfHeavyOptimizeFinal(t *testing.T) {
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		SkipOnHTTP(t, protocol, "context cancel")
+
 		var (
 			heavyQuery = "OPTIMIZE TABLE test_query_cancellation.trips FINAL"
 		)
@@ -76,6 +80,8 @@ func TestContextCancellationOfHeavyOptimizeFinal(t *testing.T) {
 
 func TestContextCancellationOfHeavyInsertFromS3(t *testing.T) {
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		SkipOnHTTP(t, protocol, "context cancel")
+
 		var (
 			heavyQuery = `INSERT INTO test_query_cancellation.trips
 		SELECT
