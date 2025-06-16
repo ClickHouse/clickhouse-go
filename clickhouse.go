@@ -150,7 +150,7 @@ func (ch *clickhouse) Query(ctx context.Context, query string, args ...any) (row
 	if err != nil {
 		return nil, err
 	}
-	conn.debugf("[acquired] connection [%d]", conn.connID())
+	conn.debugf("[query] \"%s\"", query)
 	return conn.query(ctx, ch.release, query, args...)
 }
 
@@ -161,7 +161,8 @@ func (ch *clickhouse) QueryRow(ctx context.Context, query string, args ...any) d
 			err: err,
 		}
 	}
-	conn.debugf("[acquired] connection [%d]", conn.connID())
+
+	conn.debugf("[query row] \"%s\"", query)
 	return conn.queryRow(ctx, ch.release, query, args...)
 }
 
@@ -170,8 +171,7 @@ func (ch *clickhouse) Exec(ctx context.Context, query string, args ...any) error
 	if err != nil {
 		return err
 	}
-	conn.debugf("[acquired] connection [%d]", conn.connID())
-
+	conn.debugf("[exec] \"%s\"", query)
 	if err := conn.exec(ctx, query, args...); err != nil {
 		ch.release(conn, err)
 		return err
@@ -185,6 +185,7 @@ func (ch *clickhouse) PrepareBatch(ctx context.Context, query string, opts ...dr
 	if err != nil {
 		return nil, err
 	}
+	conn.debugf("[prepare batch] \"%s\"", query)
 	batch, err := conn.prepareBatch(ctx, ch.release, ch.acquire, query, getPrepareBatchOptions(opts...))
 	if err != nil {
 		return nil, err
@@ -207,6 +208,7 @@ func (ch *clickhouse) AsyncInsert(ctx context.Context, query string, wait bool, 
 	if err != nil {
 		return err
 	}
+	conn.debugf("[async insert] \"%s\"", query)
 	if err := conn.asyncInsert(ctx, query, wait, args...); err != nil {
 		ch.release(conn, err)
 		return err
@@ -220,6 +222,7 @@ func (ch *clickhouse) Ping(ctx context.Context) (err error) {
 	if err != nil {
 		return err
 	}
+	conn.debugf("[ping]")
 	if err := conn.ping(ctx); err != nil {
 		ch.release(conn, err)
 		return err
@@ -324,6 +327,7 @@ func (ch *clickhouse) acquire(ctx context.Context) (conn nativeTransport, err er
 			}
 		}
 		conn.setReleased(false)
+		conn.debugf("[acquired from pool]")
 		return conn, nil
 	default:
 	}
@@ -334,6 +338,7 @@ func (ch *clickhouse) acquire(ctx context.Context) (conn nativeTransport, err er
 		}
 		return nil, err
 	}
+	conn.debugf("[acquired new]")
 	return conn, nil
 }
 
@@ -377,22 +382,37 @@ func (ch *clickhouse) release(conn nativeTransport, err error) {
 		return
 	}
 	conn.setReleased(true)
-	conn.debugf("[released] connection [%d]", conn.connID())
+
+	if err != nil {
+		conn.debugf("[released with error]")
+	} else {
+		conn.debugf("[released]")
+	}
 
 	select {
 	case <-ch.open:
 	default:
 	}
-	if err != nil || time.Since(conn.connectedAtTime()) >= ch.opt.ConnMaxLifetime {
+
+	if err != nil {
+		conn.debugf("[close: error] %s", err.Error())
+		conn.close()
+		return
+	} else if time.Since(conn.connectedAtTime()) >= ch.opt.ConnMaxLifetime {
+		conn.debugf("[close: lifetime expired]")
 		conn.close()
 		return
 	}
+
 	if ch.opt.FreeBufOnConnRelease {
+		conn.debugf("[free buffer]")
 		conn.freeBuffer()
 	}
+
 	select {
 	case ch.idle <- conn:
 	default:
+		conn.debugf("[close: idle pool full %d/%d]", len(ch.idle), cap(ch.idle))
 		conn.close()
 	}
 }
@@ -400,8 +420,9 @@ func (ch *clickhouse) release(conn nativeTransport, err error) {
 func (ch *clickhouse) Close() error {
 	for {
 		select {
-		case c := <-ch.idle:
-			c.close()
+		case conn := <-ch.idle:
+			conn.debugf("[close: closing pool]")
+			conn.close()
 		default:
 			// In rare cases, close may be called multiple times, don't block
 			//TODO: add proper close flag to indicate this pool is unusable after Close

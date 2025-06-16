@@ -20,6 +20,7 @@ package clickhouse
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 
 	chproto "github.com/ClickHouse/ch-go/proto"
@@ -28,9 +29,11 @@ import (
 
 // release is ignored, because http used by std with empty release function
 func (h *httpConnect) query(ctx context.Context, release nativeTransportRelease, query string, args ...any) (*rows, error) {
+	h.debugf("[query] %s", query)
 	options := queryOptions(ctx)
 	query, err := bindQueryOrAppendParameters(true, &options, query, h.handshake.Timezone, args...)
 	if err != nil {
+		err = fmt.Errorf("bindQueryOrAppendParameters: %w", err)
 		release(h, err)
 		return nil, err
 	}
@@ -45,6 +48,7 @@ func (h *httpConnect) query(ctx context.Context, release nativeTransportRelease,
 
 	res, err := h.sendQuery(ctx, query, &options, headers)
 	if err != nil {
+		err = fmt.Errorf("sendQuery: %w", err)
 		release(h, err)
 		return nil, err
 	}
@@ -68,6 +72,7 @@ func (h *httpConnect) query(ctx context.Context, release nativeTransportRelease,
 	// automatically as they might not have permissions.
 	reader, err := rw.NewReader(res)
 	if err != nil {
+		err = fmt.Errorf("NewReader: %w", err)
 		discardAndClose(res.Body)
 		h.compressionPool.Put(rw)
 		release(h, err)
@@ -76,6 +81,7 @@ func (h *httpConnect) query(ctx context.Context, release nativeTransportRelease,
 	chReader := chproto.NewReader(reader)
 	block, err := h.readData(chReader, options.userLocation)
 	if err != nil && !errors.Is(err, io.EOF) {
+		err = fmt.Errorf("readData: %w", err)
 		discardAndClose(res.Body)
 		h.compressionPool.Put(rw)
 		release(h, err)
@@ -97,7 +103,7 @@ func (h *httpConnect) query(ctx context.Context, release nativeTransportRelease,
 			if err != nil {
 				// ch-go wraps EOF errors
 				if !errors.Is(err, io.EOF) {
-					errCh <- err
+					errCh <- fmt.Errorf("readData stream: %w", err)
 				}
 				break
 			}

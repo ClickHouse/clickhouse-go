@@ -165,12 +165,12 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		if opt.Debugf != nil {
 			debugf = func(format string, v ...any) {
 				opt.Debugf(
-					"[clickhouse-http][conn=%d][%s] "+format,
-					append([]interface{}{num, addr}, v...)...,
+					"[clickhouse-http][%s][id=%d] "+format,
+					append([]interface{}{addr, num}, v...)...,
 				)
 			}
 		} else {
-			debugf = log.New(os.Stdout, fmt.Sprintf("[clickhouse-http][conn=%d][%s]", num, addr), 0).Printf
+			debugf = log.New(os.Stdout, fmt.Sprintf("[clickhouse-http][%s][id=%d]", addr, num), 0).Printf
 		}
 	}
 
@@ -333,6 +333,7 @@ func (h *httpConnect) isBad() bool {
 }
 
 func (h *httpConnect) queryHello(ctx context.Context, release nativeTransportRelease) (proto.ServerHandshake, error) {
+	h.debugf("[query hello]")
 	ctx = Context(ctx, ignoreExternalTables())
 	query := "SELECT displayName(), version(), revision(), timezone()"
 	rows, err := h.query(ctx, release, query)
@@ -446,7 +447,7 @@ func (h *httpConnect) readData(reader *chproto.Reader, timezone *time.Location) 
 		defer reader.DisableCompression()
 	}
 	if err := block.Decode(reader, h.handshake.Revision); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("block decode: %w", err)
 	}
 	return &block, nil
 }
@@ -597,11 +598,12 @@ func (h *httpConnect) executeRequest(req *http.Request) (*http.Response, error) 
 
 	if resp.StatusCode != http.StatusOK {
 		defer discardAndClose(resp.Body)
-		msg, err := h.readRawResponse(resp)
+		msgBytes, err := h.readRawResponse(resp)
 		if err != nil {
-			return nil, fmt.Errorf("clickhouse [execute]:: %d code: failed to read the response: %w", resp.StatusCode, err)
+			return nil, fmt.Errorf("[HTTP %d] failed to read response: %w", resp.StatusCode, err)
 		}
-		return nil, fmt.Errorf("clickhouse [execute]:: %d code: %s", resp.StatusCode, string(msg))
+
+		return nil, fmt.Errorf("[HTTP %d] response body: \"%s\"", resp.StatusCode, string(msgBytes))
 	}
 	return resp, nil
 }
