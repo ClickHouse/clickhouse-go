@@ -245,7 +245,7 @@ func (ch *clickhouse) dial(ctx context.Context) (conn nativeTransport, err error
 		var err error
 		switch opt.Protocol {
 		case HTTP:
-			conn, err = dialHttp(context.Background(), addr, connID, opt)
+			conn, err = dialHttp(ctx, addr, connID, opt)
 		default:
 			conn, err = dial(ctx, addr, connID, opt)
 		}
