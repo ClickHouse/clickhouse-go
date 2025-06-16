@@ -19,9 +19,10 @@ package issues
 
 import (
 	"context"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"testing"
 	"time"
+
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
@@ -29,7 +30,7 @@ import (
 
 func TestIssue548(t *testing.T) {
 	var (
-		conn, err = clickhouse_tests.GetConnection("issues", nil, nil, &clickhouse.Compression{
+		conn, err = clickhouse_tests.GetConnectionTCP("issues", nil, nil, &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
 		})
 	)

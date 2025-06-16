@@ -46,7 +46,7 @@ func TestStdUUID(t *testing.T) {
 			require.NoError(t, err)
 
 			const ddl = `
-			CREATE TEMPORARY TABLE test_uuid (
+			CREATE TEMPORARY TABLE std_test_uuid (
 				  Col1 UUID
 				, Col2 UUID
 			) Engine Memory()
@@ -56,7 +56,7 @@ func TestStdUUID(t *testing.T) {
 			require.NoError(t, err)
 			scope, err := conn.Begin()
 			require.NoError(t, err)
-			batch, err := scope.Prepare("INSERT INTO test_uuid")
+			batch, err := scope.Prepare("INSERT INTO std_test_uuid")
 			require.NoError(t, err)
 			var (
 				col1Data = uuid.New()
@@ -69,11 +69,11 @@ func TestStdUUID(t *testing.T) {
 				col1 uuid.UUID
 				col2 uuid.UUID
 			)
-			require.NoError(t, conn.QueryRow("SELECT * FROM test_uuid").Scan(&col1, &col2))
+			require.NoError(t, conn.QueryRow("SELECT * FROM std_test_uuid").Scan(&col1, &col2))
 			assert.Equal(t, col1Data, col1)
 			assert.Equal(t, col2Data, col2)
 
-			_, err = conn.Exec("DROP TABLE test_uuid")
+			_, err = conn.Exec("DROP TABLE std_test_uuid")
 			require.NoError(t, err)
 			require.NoError(t, conn.Close())
 		})
@@ -97,7 +97,7 @@ func TestStdNullableUUID(t *testing.T) {
 			require.NoError(t, err)
 
 			const ddl = `
-					CREATE TEMPORARY TABLE test_uuid (
+					CREATE TEMPORARY TABLE std_test_nullable_uuid (
 						  Col1 Nullable(UUID)
 						, Col2 Nullable(UUID)
 					)
@@ -107,7 +107,7 @@ func TestStdNullableUUID(t *testing.T) {
 			require.NoError(t, err)
 			scope, err := conn.Begin()
 			require.NoError(t, err)
-			batch, err := scope.Prepare("INSERT INTO test_uuid")
+			batch, err := scope.Prepare("INSERT INTO std_test_nullable_uuid")
 			require.NoError(t, err)
 			var (
 				col1Data = uuid.New()
@@ -120,14 +120,14 @@ func TestStdNullableUUID(t *testing.T) {
 				col1 *uuid.UUID
 				col2 *uuid.UUID
 			)
-			require.NoError(t, conn.QueryRow("SELECT * FROM test_uuid").Scan(&col1, &col2))
+			require.NoError(t, conn.QueryRow("SELECT * FROM std_test_nullable_uuid").Scan(&col1, &col2))
 			assert.Equal(t, col1Data, *col1)
 			assert.Equal(t, col2Data, *col2)
-			_, err = conn.Exec("TRUNCATE TABLE test_uuid")
+			_, err = conn.Exec("TRUNCATE TABLE std_test_nullable_uuid")
 			require.NoError(t, err)
 			scope, err = conn.Begin()
 			require.NoError(t, err)
-			batch, err = scope.Prepare("INSERT INTO test_uuid")
+			batch, err = scope.Prepare("INSERT INTO std_test_nullable_uuid")
 			require.NoError(t, err)
 			col1Data = uuid.New()
 			_, err = batch.Exec(col1Data, nil)
@@ -138,12 +138,12 @@ func TestStdNullableUUID(t *testing.T) {
 					col1 *uuid.UUID
 					col2 *uuid.UUID
 				)
-				require.NoError(t, conn.QueryRow("SELECT * FROM test_uuid").Scan(&col1, &col2))
+				require.NoError(t, conn.QueryRow("SELECT * FROM std_test_nullable_uuid").Scan(&col1, &col2))
 				require.Nil(t, col2)
 				assert.Equal(t, col1Data, *col1)
 			}
 
-			_, err = conn.Exec("DROP TABLE IF EXISTS test_uuid")
+			_, err = conn.Exec("DROP TABLE IF EXISTS std_test_nullable_uuid")
 			require.NoError(t, err)
 			require.NoError(t, conn.Close())
 		})

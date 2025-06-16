@@ -19,10 +19,11 @@ package issues
 
 import (
 	"context"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
-	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
+
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
+	"github.com/stretchr/testify/require"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -30,7 +31,7 @@ import (
 func TestIssue260(t *testing.T) {
 	var (
 		ctx       = context.Background()
-		conn, err = clickhouse_tests.GetConnection("issues", nil, nil, nil)
+		conn, err = clickhouse_tests.GetConnectionTCP("issues", nil, nil, nil)
 	)
 	require.NoError(t, err)
 	require.NoError(t, err)

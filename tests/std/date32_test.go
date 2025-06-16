@@ -44,7 +44,7 @@ func TestStdDate32(t *testing.T) {
 				return
 			}
 			const ddl = `
-			CREATE TABLE test_date32 (
+			CREATE TABLE std_test_date32 (
 				  ID   UInt8
 				, Col1 Date32
 				, Col2 Nullable(Date32)
@@ -55,7 +55,7 @@ func TestStdDate32(t *testing.T) {
 			) Engine MergeTree() ORDER BY tuple()
 		`
 			defer func() {
-				conn.Exec("DROP TABLE test_date32")
+				conn.Exec("DROP TABLE std_test_date32")
 			}()
 			type result struct {
 				ColID uint8 `ch:"ID"`
@@ -70,7 +70,7 @@ func TestStdDate32(t *testing.T) {
 			require.NoError(t, err)
 			scope, err := conn.Begin()
 			require.NoError(t, err)
-			batch, err := scope.Prepare("INSERT INTO test_date32")
+			batch, err := scope.Prepare("INSERT INTO std_test_date32")
 			require.NoError(t, err)
 			var (
 				date1, _ = time.Parse("2006-01-02 15:04:05", "2283-11-11 00:00:00")
@@ -85,7 +85,7 @@ func TestStdDate32(t *testing.T) {
 				result1 result
 				result2 result
 			)
-			require.NoError(t, conn.QueryRow("SELECT * FROM test_date32 WHERE ID = $1", 1).Scan(
+			require.NoError(t, conn.QueryRow("SELECT * FROM std_test_date32 WHERE ID = $1", 1).Scan(
 				&result1.ColID,
 				&result1.Col1,
 				&result1.Col2,
@@ -101,7 +101,7 @@ func TestStdDate32(t *testing.T) {
 			assert.Equal(t, []*time.Time{&date2, nil, &date1}, result1.Col4)
 			assert.Equal(t, sql.NullTime{Time: time.Time{}, Valid: false}, result1.Col5)
 			assert.Equal(t, sql.NullTime{Time: date1, Valid: true}, result1.Col6)
-			require.NoError(t, conn.QueryRow("SELECT * FROM test_date32 WHERE ID = $1", 2).Scan(
+			require.NoError(t, conn.QueryRow("SELECT * FROM std_test_date32 WHERE ID = $1", 2).Scan(
 				&result2.ColID,
 				&result2.Col1,
 				&result2.Col2,

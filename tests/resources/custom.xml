@@ -33,4 +33,19 @@
     </openSSL>
     <display_name>clickhouse</display_name>
     <custom_settings_prefixes>custom_</custom_settings_prefixes>
+
+    <!-- UNLIMITED POWER! -->
+    <max_connections>10000</max_connections>
+    <max_concurrent_queries>50000</max_concurrent_queries>
+    <max_concurrent_insert_queries>50000</max_concurrent_insert_queries>
+    <max_concurrent_select_queries>50000</max_concurrent_select_queries>
+    <!--broken?-->
+    <!--<max_concurrent_queries_for_user>0</max_concurrent_queries_for_user>-->
+    <!--<max_concurrent_queries_for_all_users>0</max_concurrent_queries_for_all_users>-->
+    <max_keep_alive_requests>50000</max_keep_alive_requests>
+    <keep_alive_timeout>10</keep_alive_timeout>
+    <http_connections_soft_limit>50000</http_connections_soft_limit>
+    <http_connections_store_limit>50000</http_connections_store_limit>
+    <http_connections_warn_limit>50000</http_connections_warn_limit>
+
 </clickhouse>

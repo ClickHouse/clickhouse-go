@@ -19,11 +19,12 @@ package std
 
 import (
 	"fmt"
+	"strconv"
+	"testing"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/require"
-	"strconv"
-	"testing"
 
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
@@ -42,7 +43,7 @@ func TestStdDecimal(t *testing.T) {
 				return
 			}
 			const ddl = `
-			CREATE TABLE test_decimal (
+			CREATE TABLE std_test_decimal (
 				Col1 Decimal32(5)
 				, Col2 Decimal(18,5)
 				, Col3 Nullable(Decimal(15,3))
@@ -50,13 +51,13 @@ func TestStdDecimal(t *testing.T) {
 			) Engine MergeTree() ORDER BY tuple()
 		`
 			defer func() {
-				conn.Exec("DROP TABLE test_decimal")
+				conn.Exec("DROP TABLE std_test_decimal")
 			}()
 			_, err = conn.Exec(ddl)
 			require.NoError(t, err)
 			scope, err := conn.Begin()
 			require.NoError(t, err)
-			batch, err := scope.Prepare("INSERT INTO test_decimal")
+			batch, err := scope.Prepare("INSERT INTO std_test_decimal")
 			require.NoError(t, err)
 			_, err = batch.Exec(
 				decimal.New(25, 0),
@@ -76,7 +77,7 @@ func TestStdDecimal(t *testing.T) {
 				col3 decimal.Decimal
 				col4 []decimal.Decimal
 			)
-			rows, err := conn.Query("SELECT * FROM test_decimal")
+			rows, err := conn.Query("SELECT * FROM std_test_decimal")
 			require.NoError(t, err)
 			columnTypes, err := rows.ColumnTypes()
 			require.NoError(t, err)
@@ -126,6 +127,9 @@ func TestStdDecimal(t *testing.T) {
 				assert.True(t, decimal.New(30, 0).Equal(col2))
 				assert.True(t, decimal.New(35, 0).Equal(col3))
 			}
+
+			require.NoError(t, rows.Close())
+			require.NoError(t, rows.Err())
 		})
 	}
 }

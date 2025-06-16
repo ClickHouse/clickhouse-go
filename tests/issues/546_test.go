@@ -20,10 +20,11 @@ package issues
 import (
 	"context"
 	"fmt"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
-	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
+
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
+	"github.com/stretchr/testify/require"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
@@ -31,7 +32,7 @@ import (
 
 func TestIssue546(t *testing.T) {
 	var (
-		conn, err = clickhouse_tests.GetConnection("issues", nil, nil, &clickhouse.Compression{
+		conn, err = clickhouse_tests.GetConnectionTCP("issues", nil, nil, &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
 		})
 	)
@@ -62,7 +63,7 @@ func TestIssue546(t *testing.T) {
 		}
 		i += 1
 	}
-	assert.NoError(t, rows.Err())
+	require.NoError(t, rows.Close())
+	require.NoError(t, rows.Err())
 	assert.Equal(t, 2000000, i)
-	rows.Close()
 }

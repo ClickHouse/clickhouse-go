@@ -47,19 +47,19 @@ func TestStdGeoPolygon(t *testing.T) {
 				return
 			}
 			const ddl = `
-				CREATE TABLE test_geo_polygon (
+				CREATE TABLE std_test_geo_polygon (
 					  Col1 Polygon
 					, Col2 Array(Polygon)
 				) Engine MergeTree() ORDER BY tuple()
 				`
 			defer func() {
-				conn.Exec("DROP TABLE test_geo_polygon")
+				conn.Exec("DROP TABLE std_test_geo_polygon")
 			}()
 			_, err = conn.ExecContext(ctx, ddl)
 			require.NoError(t, err)
 			scope, err := conn.Begin()
 			require.NoError(t, err)
-			batch, err := scope.Prepare("INSERT INTO test_geo_polygon")
+			batch, err := scope.Prepare("INSERT INTO std_test_geo_polygon")
 			require.NoError(t, err)
 			var (
 				col1Data = orb.Polygon{
@@ -102,7 +102,7 @@ func TestStdGeoPolygon(t *testing.T) {
 				col1 orb.Polygon
 				col2 []orb.Polygon
 			)
-			require.NoError(t, conn.QueryRow("SELECT * FROM test_geo_polygon").Scan(&col1, &col2))
+			require.NoError(t, conn.QueryRow("SELECT * FROM std_test_geo_polygon").Scan(&col1, &col2))
 			assert.Equal(t, col1Data, col1)
 			assert.Equal(t, col2Data, col2)
 		})

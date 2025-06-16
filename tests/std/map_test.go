@@ -43,7 +43,7 @@ func TestStdMap(t *testing.T) {
 				return
 			}
 			const ddl = `
-		CREATE TABLE test_map (
+		CREATE TABLE std_test_map (
 			  Col1 Map(String, UInt64)
 			, Col2 Map(String, UInt64)
 			, Col3 Map(String, UInt64)
@@ -52,13 +52,13 @@ func TestStdMap(t *testing.T) {
 		) Engine MergeTree() ORDER BY tuple()
 		`
 			defer func() {
-				conn.Exec("DROP TABLE test_map")
+				conn.Exec("DROP TABLE std_test_map")
 			}()
 			_, err = conn.Exec(ddl)
 			require.NoError(t, err)
 			scope, err := conn.Begin()
 			require.NoError(t, err)
-			batch, err := scope.Prepare("INSERT INTO test_map")
+			batch, err := scope.Prepare("INSERT INTO std_test_map")
 			require.NoError(t, err)
 			var (
 				col1Data = map[string]uint64{
@@ -89,7 +89,7 @@ func TestStdMap(t *testing.T) {
 				col4 []map[string]string
 				col5 map[string]string
 			)
-			require.NoError(t, conn.QueryRow("SELECT * FROM test_map").Scan(&col1, &col2, &col3, &col4, &col5))
+			require.NoError(t, conn.QueryRow("SELECT * FROM std_test_map").Scan(&col1, &col2, &col3, &col4, &col5))
 			assert.Equal(t, col1Data, col1)
 			assert.Equal(t, col2Data, col2)
 			assert.Equal(t, col3Data, col3)
@@ -112,18 +112,18 @@ func TestStdInsertNilMap(t *testing.T) {
 				return
 			}
 			const ddl = `
-		CREATE TABLE test_map_nil (
+		CREATE TABLE std_test_map_nil (
 			  Col1 Map(String, UInt64)
 		) Engine MergeTree() ORDER BY tuple()
 		`
 			defer func() {
-				conn.Exec("DROP TABLE test_map_nil")
+				conn.Exec("DROP TABLE std_test_map_nil")
 			}()
 			_, err = conn.Exec(ddl)
 			require.NoError(t, err)
 			scope, err := conn.Begin()
 			require.NoError(t, err)
-			batch, err := scope.Prepare("INSERT INTO test_map_nil")
+			batch, err := scope.Prepare("INSERT INTO std_test_map_nil")
 			require.NoError(t, err)
 			_, err = batch.Exec(nil)
 			assert.ErrorContains(t, err, " converting <nil> to Map(String, UInt64) is unsupported")

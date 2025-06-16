@@ -2,15 +2,16 @@ package issues
 
 import (
 	"context"
+	"testing"
+
 	"github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func TestIssue1515(t *testing.T) {
 	ctx := context.Background()
 
-	conn, err := tests.GetConnection("issues", nil, nil, nil)
+	conn, err := tests.GetConnectionTCP("issues", nil, nil, nil)
 	require.NoError(t, err)
 	defer conn.Close()
 

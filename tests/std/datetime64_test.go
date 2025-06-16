@@ -40,7 +40,7 @@ func TestStdDateTime64(t *testing.T) {
 			require.NoError(t, err)
 
 			const ddl = `
-			CREATE TABLE test_datetime64 (
+			CREATE TABLE std_test_datetime64 (
 				  Col1 DateTime64(3)
 				, Col2 DateTime64(9, 'Europe/Moscow')
 				, Col3 DateTime64(0, 'Europe/London')
@@ -54,13 +54,13 @@ func TestStdDateTime64(t *testing.T) {
 			) Engine MergeTree() ORDER BY tuple()
 		`
 			defer func() {
-				conn.Exec("DROP TABLE test_datetime64")
+				conn.Exec("DROP TABLE std_test_datetime64")
 			}()
 			_, err = conn.Exec(ddl)
 			require.NoError(t, err)
 			scope, err := conn.Begin()
 			require.NoError(t, err)
-			batch, err := scope.Prepare("INSERT INTO test_datetime64")
+			batch, err := scope.Prepare("INSERT INTO std_test_datetime64")
 			require.NoError(t, err)
 			var (
 				datetime1 = time.Now().Truncate(time.Millisecond)
@@ -95,7 +95,7 @@ func TestStdDateTime64(t *testing.T) {
 				col9  time.Time
 				col10 time.Time
 			)
-			require.NoError(t, conn.QueryRow("SELECT * FROM test_datetime64").Scan(&col1, &col2, &col3, &col4, &col5, &col6, &col7, &col8, &col9, &col10))
+			require.NoError(t, conn.QueryRow("SELECT * FROM std_test_datetime64").Scan(&col1, &col2, &col3, &col4, &col5, &col6, &col7, &col8, &col9, &col10))
 			assert.Equal(t, datetime1.In(time.UTC), col1)
 			assert.Equal(t, datetime2.UnixNano(), col2.UnixNano())
 			assert.Equal(t, datetime3.UnixNano(), col3.UnixNano())
@@ -131,6 +131,9 @@ func TestStdDateTime64(t *testing.T) {
 			require.Equal(t, int64(3), precision)
 			require.Equal(t, int64(0), scale)
 			require.True(t, ok)
+
+			require.NoError(t, rows.Close())
+			require.NoError(t, rows.Err())
 		})
 	}
 }

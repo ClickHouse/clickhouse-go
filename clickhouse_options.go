@@ -124,7 +124,7 @@ func ParseDSN(dsn string) (*Options, error) {
 
 type Dial func(ctx context.Context, addr string, opt *Options) (DialResult, error)
 type DialResult struct {
-	conn *connect
+	conn nativeTransport
 }
 
 type HTTPProxy func(*http.Request) (*url.URL, error)

@@ -27,7 +27,6 @@ import (
 
 	_ "time/tzdata"
 
-	chproto "github.com/ClickHouse/ch-go/proto"
 	"github.com/ClickHouse/clickhouse-go/v2/contributors"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
@@ -83,9 +82,10 @@ func Open(opt *Options) (driver.Conn, error) {
 		opt = &Options{}
 	}
 	o := opt.setDefaults()
+
 	conn := &clickhouse{
 		opt:  o,
-		idle: make(chan *connect, o.MaxIdleConns),
+		idle: make(chan nativeTransport, o.MaxIdleConns),
 		open: make(chan struct{}, o.MaxOpenConns),
 		exit: make(chan struct{}),
 	}
@@ -93,9 +93,32 @@ func Open(opt *Options) (driver.Conn, error) {
 	return conn, nil
 }
 
+// nativeTransport represents an implementation (TCP or HTTP) that can be pooled by the main clickhouse struct.
+// Implementations are not expected to be thread safe, which is why we provide acquire/release functions.
+type nativeTransport interface {
+	serverVersion() (*ServerVersion, error)
+	query(ctx context.Context, release nativeTransportRelease, query string, args ...any) (*rows, error)
+	queryRow(ctx context.Context, release nativeTransportRelease, query string, args ...any) *row
+	prepareBatch(ctx context.Context, release nativeTransportRelease, acquire nativeTransportAcquire, query string, opts driver.PrepareBatchOptions) (driver.Batch, error)
+	exec(ctx context.Context, query string, args ...any) error
+	asyncInsert(ctx context.Context, query string, wait bool, args ...any) error
+	ping(context.Context) error
+	isBad() bool
+	connID() int
+	connectedAtTime() time.Time
+	isReleased() bool
+	setReleased(released bool)
+	debugf(format string, v ...any)
+	// freeBuffer is called if Options.FreeBufOnConnRelease is set
+	freeBuffer()
+	close() error
+}
+type nativeTransportAcquire func(context.Context) (nativeTransport, error)
+type nativeTransportRelease func(nativeTransport, error)
+
 type clickhouse struct {
 	opt    *Options
-	idle   chan *connect
+	idle   chan nativeTransport
 	open   chan struct{}
 	exit   chan struct{}
 	connID int64
@@ -118,8 +141,8 @@ func (ch *clickhouse) ServerVersion() (*driver.ServerVersion, error) {
 	if err != nil {
 		return nil, err
 	}
-	ch.release(conn, nil)
-	return &conn.server, nil
+	defer ch.release(conn, nil)
+	return conn.serverVersion()
 }
 
 func (ch *clickhouse) Query(ctx context.Context, query string, args ...any) (rows driver.Rows, err error) {
@@ -127,18 +150,18 @@ func (ch *clickhouse) Query(ctx context.Context, query string, args ...any) (row
 	if err != nil {
 		return nil, err
 	}
-	conn.debugf("[acquired] connection [%d]", conn.id)
+	conn.debugf("[acquired] connection [%d]", conn.connID())
 	return conn.query(ctx, ch.release, query, args...)
 }
 
-func (ch *clickhouse) QueryRow(ctx context.Context, query string, args ...any) (rows driver.Row) {
+func (ch *clickhouse) QueryRow(ctx context.Context, query string, args ...any) driver.Row {
 	conn, err := ch.acquire(ctx)
 	if err != nil {
 		return &row{
 			err: err,
 		}
 	}
-	conn.debugf("[acquired] connection [%d]", conn.id)
+	conn.debugf("[acquired] connection [%d]", conn.connID())
 	return conn.queryRow(ctx, ch.release, query, args...)
 }
 
@@ -147,7 +170,7 @@ func (ch *clickhouse) Exec(ctx context.Context, query string, args ...any) error
 	if err != nil {
 		return err
 	}
-	conn.debugf("[acquired] connection [%d]", conn.id)
+	conn.debugf("[acquired] connection [%d]", conn.connID())
 
 	if err := conn.exec(ctx, query, args...); err != nil {
 		ch.release(conn, err)
@@ -162,7 +185,7 @@ func (ch *clickhouse) PrepareBatch(ctx context.Context, query string, opts ...dr
 	if err != nil {
 		return nil, err
 	}
-	batch, err := conn.prepareBatch(ctx, query, getPrepareBatchOptions(opts...), ch.release, ch.acquire)
+	batch, err := conn.prepareBatch(ctx, ch.release, ch.acquire, query, getPrepareBatchOptions(opts...))
 	if err != nil {
 		return nil, err
 	}
@@ -214,11 +237,18 @@ func (ch *clickhouse) Stats() driver.Stats {
 	}
 }
 
-func (ch *clickhouse) dial(ctx context.Context) (conn *connect, err error) {
+func (ch *clickhouse) dial(ctx context.Context) (conn nativeTransport, err error) {
 	connID := int(atomic.AddInt64(&ch.connID, 1))
 
 	dialFunc := func(ctx context.Context, addr string, opt *Options) (DialResult, error) {
-		conn, err := dial(ctx, addr, connID, opt)
+		var conn nativeTransport
+		var err error
+		switch opt.Protocol {
+		case HTTP:
+			conn, err = dialHttp(ctx, addr, connID, opt)
+		default:
+			conn, err = dial(ctx, addr, connID, opt)
+		}
 
 		return DialResult{conn}, err
 	}
@@ -260,7 +290,7 @@ func DefaultDialStrategy(ctx context.Context, connID int, opt *Options, dial Dia
 	return r, err
 }
 
-func (ch *clickhouse) acquire(ctx context.Context) (conn *connect, err error) {
+func (ch *clickhouse) acquire(ctx context.Context) (conn nativeTransport, err error) {
 	timer := time.NewTimer(ch.opt.DialTimeout)
 	defer timer.Stop()
 	select {
@@ -293,7 +323,7 @@ func (ch *clickhouse) acquire(ctx context.Context) (conn *connect, err error) {
 				return nil, err
 			}
 		}
-		conn.released = false
+		conn.setReleased(false)
 		return conn, nil
 	default:
 	}
@@ -326,7 +356,7 @@ func (ch *clickhouse) closeIdleExpired() {
 	for {
 		select {
 		case conn := <-ch.idle:
-			if conn.connectedAt.Before(cutoff) {
+			if conn.connectedAtTime().Before(cutoff) {
 				conn.close()
 			} else {
 				select {
@@ -342,24 +372,23 @@ func (ch *clickhouse) closeIdleExpired() {
 	}
 }
 
-func (ch *clickhouse) release(conn *connect, err error) {
-	if conn.released {
+func (ch *clickhouse) release(conn nativeTransport, err error) {
+	if conn.isReleased() {
 		return
 	}
-	conn.released = true
-	conn.debugf("[released] connection [%d]", conn.id)
+	conn.setReleased(true)
+	conn.debugf("[released] connection [%d]", conn.connID())
 
 	select {
 	case <-ch.open:
 	default:
 	}
-	if err != nil || time.Since(conn.connectedAt) >= ch.opt.ConnMaxLifetime {
+	if err != nil || time.Since(conn.connectedAtTime()) >= ch.opt.ConnMaxLifetime {
 		conn.close()
 		return
 	}
 	if ch.opt.FreeBufOnConnRelease {
-		conn.buffer = new(chproto.Buffer)
-		conn.compressor.Data = nil
+		conn.freeBuffer()
 	}
 	select {
 	case ch.idle <- conn:
@@ -374,7 +403,12 @@ func (ch *clickhouse) Close() error {
 		case c := <-ch.idle:
 			c.close()
 		default:
-			ch.exit <- struct{}{}
+			// In rare cases, close may be called multiple times, don't block
+			//TODO: add proper close flag to indicate this pool is unusable after Close
+			select {
+			case ch.exit <- struct{}{}:
+			default:
+			}
 			return nil
 		}
 	}

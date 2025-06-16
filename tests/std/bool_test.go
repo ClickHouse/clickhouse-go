@@ -40,7 +40,7 @@ func TestStdBool(t *testing.T) {
 					return
 				}
 				const ddl = `
-			CREATE TABLE test_bool (
+			CREATE TABLE std_test_bool (
 				    Col1 Bool
 				  , Col2 Bool
 				  , Col3 Array(Bool)
@@ -49,13 +49,13 @@ func TestStdBool(t *testing.T) {
 			) Engine MergeTree() ORDER BY tuple()
 		`
 				defer func() {
-					conn.Exec("DROP TABLE test_bool")
+					conn.Exec("DROP TABLE std_test_bool")
 				}()
 				_, err := conn.Exec(ddl)
 				require.NoError(t, err)
 				scope, err := conn.Begin()
 				require.NoError(t, err)
-				batch, err := scope.Prepare("INSERT INTO test_bool")
+				batch, err := scope.Prepare("INSERT INTO std_test_bool")
 				require.NoError(t, err)
 				var val bool
 				_, err = batch.Exec(true, false, []bool{true, false, true}, nil, []*bool{&val, nil, &val})
@@ -68,7 +68,7 @@ func TestStdBool(t *testing.T) {
 					col4 *bool
 					col5 []*bool
 				)
-				require.NoError(t, conn.QueryRow("SELECT * FROM test_bool").Scan(&col1, &col2, &col3, &col4, &col5))
+				require.NoError(t, conn.QueryRow("SELECT * FROM std_test_bool").Scan(&col1, &col2, &col3, &col4, &col5))
 				assert.Equal(t, true, col1)
 				assert.Equal(t, false, col2)
 				assert.Equal(t, []bool{true, false, true}, col3)

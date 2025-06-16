@@ -25,12 +25,14 @@ import (
 )
 
 func TestContributors(t *testing.T) {
-	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
-		Method: clickhouse.CompressionLZ4,
-	})
-	if assert.NoError(t, err) {
-		for _, contributor := range conn.Contributors() {
-			t.Log(contributor)
+	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		conn, err := GetNativeConnection(t, protocol, nil, nil, &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		})
+		if assert.NoError(t, err) {
+			for _, contributor := range conn.Contributors() {
+				t.Log(contributor)
+			}
 		}
-	}
+	})
 }

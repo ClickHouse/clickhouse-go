@@ -13,7 +13,7 @@ import (
 func TestBatchReleaseConnection(t *testing.T) {
 	SkipOnCloud(t, "This test is flaky on cloud ClickHouse")
 
-	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+	conn, err := GetNativeConnectionTCP(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	ctx := context.Background()
@@ -45,7 +45,7 @@ func TestBatchReleaseConnection(t *testing.T) {
 }
 
 func TestBatchReleaseConnectionFlush(t *testing.T) {
-	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+	conn, err := GetNativeConnectionTCP(nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	ctx := context.Background()

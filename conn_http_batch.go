@@ -20,103 +20,163 @@ package clickhouse
 import (
 	"context"
 	"fmt"
-	"io"
-	"slices"
-
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
+	"io"
+	"os"
+	"slices"
 )
 
-// release is ignored, because http used by std with empty release function.
-// Also opts ignored because all options unused in http batch.
-func (h *httpConnect) prepareBatch(ctx context.Context, query string, opts driver.PrepareBatchOptions, release func(*connect, error), acquire func(context.Context) (*connect, error)) (driver.Batch, error) {
-	query, tableName, queryColumns, err := extractNormalizedInsertQueryAndColumns(query)
-	if err != nil {
-		return nil, err
-	}
-
+func fetchColumnNamesAndTypesForInsert(h *httpConnect, release nativeTransportRelease, ctx context.Context, tableName string, requestedColumnNames []string) ([]ColumnNameAndType, error) {
 	describeTableQuery := fmt.Sprintf("DESCRIBE TABLE %s", tableName)
 	r, err := h.query(ctx, release, describeTableQuery)
 	if err != nil {
 		return nil, err
 	}
+	defer r.Close()
 
-	block := &proto.Block{}
-
-	columns := make(map[string]string)
-	var colNames []string
+	columnsToTypes := make(map[string]string)
+	var allColumns []string
 	for r.Next() {
 		var (
-			colName      string
-			colType      string
-			default_type string
-			ignore       string
+			colName     string
+			colType     string
+			defaultType string
+			ignore      string
 		)
 
-		if err = r.Scan(&colName, &colType, &default_type, &ignore, &ignore, &ignore, &ignore); err != nil {
+		if err = r.Scan(&colName, &colType, &defaultType, &ignore, &ignore, &ignore, &ignore); err != nil {
 			return nil, err
 		}
 		// these column types cannot be specified in INSERT queries
-		if default_type == "MATERIALIZED" || default_type == "ALIAS" {
+		if defaultType == "MATERIALIZED" || defaultType == "ALIAS" {
 			continue
 		}
-		colNames = append(colNames, colName)
-		columns[colName] = colType
+
+		columnsToTypes[colName] = colType
+		allColumns = append(allColumns, colName)
 	}
 
-	switch len(queryColumns) {
-	case 0:
-		for _, colName := range colNames {
-			if err = block.AddColumn(colName, column.Type(columns[colName])); err != nil {
-				return nil, err
-			}
-		}
-	default:
-		// user has requested specific columns so only include these
-		for _, colName := range queryColumns {
-			if colType, ok := columns[colName]; ok {
-				if err = block.AddColumn(colName, column.Type(colType)); err != nil {
-					return nil, err
-				}
-			} else {
+	// The order of the columns must match the INSERT list, or the DESC table if no insert list was provided
+	insertColumns := make([]ColumnNameAndType, 0, len(allColumns))
+
+	if len(requestedColumnNames) > 0 {
+		// Validate requested columns present
+		for _, colName := range requestedColumnNames {
+			colType, ok := columnsToTypes[colName]
+			if !ok {
 				return nil, fmt.Errorf("column %s is not present in the table %s", colName, tableName)
 			}
+
+			insertColumns = append(insertColumns, ColumnNameAndType{
+				Name: colName,
+				Type: colType,
+			})
 		}
+	} else {
+		// Use all columns
+		for _, colName := range allColumns {
+			colType, ok := columnsToTypes[colName]
+			if !ok {
+				return nil, fmt.Errorf("column %s is not present in the table %s", colName, tableName)
+			}
+
+			insertColumns = append(insertColumns, ColumnNameAndType{
+				Name: colName,
+				Type: colType,
+			})
+		}
+	}
+
+	return insertColumns, nil
+}
+
+func newBlock(h *httpConnect, release nativeTransportRelease, ctx context.Context, query string) (string, *proto.Block, error) {
+	normalizedQuery, tableName, requestedColumnNames, err := extractNormalizedInsertQueryAndColumns(query)
+	if err != nil {
+		return "", nil, err
+	}
+
+	opt := queryOptions(ctx)
+	columns := opt.columnNamesAndTypes
+
+	// If the user didn't supply known column names/types, do expensive DESC TABLE logic
+	if opt.columnNamesAndTypes == nil {
+		fetchedColumns, err := fetchColumnNamesAndTypesForInsert(h, release, ctx, tableName, requestedColumnNames)
+		if err != nil {
+			return "", nil, fmt.Errorf("failed to determine columns for HTTP insert: %w", err)
+		}
+		columns = fetchedColumns
+	}
+
+	var block proto.Block
+	for _, col := range columns {
+		if err := block.AddColumn(col.Name, column.Type(col.Type)); err != nil {
+			return "", nil, err
+		}
+	}
+
+	return normalizedQuery, &block, nil
+}
+
+func (h *httpConnect) prepareBatch(ctx context.Context, release nativeTransportRelease, acquire nativeTransportAcquire, query string, opts driver.PrepareBatchOptions) (driver.Batch, error) {
+	// release is not used for newBlock since the connection is held for the batch.
+	query, block, err := newBlock(h, func(nativeTransport, error) {}, ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to init block for HTTP batch: %w", err)
 	}
 
 	return &httpBatch{
-		ctx:       ctx,
-		conn:      h,
-		structMap: &structMap{},
-		block:     block,
-		query:     query,
+		ctx:         ctx,
+		conn:        h,
+		connRelease: release,
+		structMap:   &structMap{},
+		block:       block,
+		query:       query,
 	}, nil
 }
 
 type httpBatch struct {
-	query     string
-	err       error
-	ctx       context.Context
-	conn      *httpConnect
-	structMap *structMap
-	sent      bool
-	block     *proto.Block
+	query       string
+	err         error
+	ctx         context.Context
+	conn        *httpConnect
+	released    bool
+	connRelease nativeTransportRelease
+	structMap   *structMap
+	sent        bool
+	block       *proto.Block
 }
 
-// Flush TODO: noop on http currently - requires streaming to be implemented
+func (b *httpBatch) release(err error) {
+	if !b.released {
+		b.released = true
+		b.connRelease(b.conn, err)
+	}
+}
+
 func (b *httpBatch) Flush() error {
+	// Flush and Send are effectively the same for HTTP, but users should just use Send until we
+	// figure out a way to do proper streaming.
 	return nil
 }
 
 func (b *httpBatch) Close() error {
+	if b.sent || b.released {
+		return nil
+	}
+
 	b.sent = true
+	b.release(nil)
+
 	return nil
 }
 
 func (b *httpBatch) Abort() error {
 	defer func() {
 		b.sent = true
+		b.release(os.ErrProcessDone)
 	}()
 	if b.sent {
 		return ErrBatchAlreadySent
@@ -128,13 +188,23 @@ func (b *httpBatch) Append(v ...any) error {
 	if b.sent {
 		return ErrBatchAlreadySent
 	}
+	if b.err != nil {
+		return b.err
+	}
+
 	if err := b.block.Append(v...); err != nil {
+		b.err = fmt.Errorf("%w: %w", ErrBatchInvalid, err)
+		b.release(err)
 		return err
 	}
+
 	return nil
 }
 
 func (b *httpBatch) AppendStruct(v any) error {
+	if b.err != nil {
+		return b.err
+	}
 	values, err := b.structMap.Map("AppendStruct", b.block.ColumnsNames(), v, false)
 	if err != nil {
 		return err
@@ -174,16 +244,12 @@ func (b *httpBatch) Send() (err error) {
 	if b.err != nil {
 		return b.err
 	}
+	if b.block.Rows() == 0 {
+		return nil
+	}
+
 	options := queryOptions(b.ctx)
-
 	headers := make(map[string]string)
-
-	r, pw := io.Pipe()
-	crw := b.conn.compressionPool.Get()
-	w := crw.reset(pw)
-
-	defer b.conn.compressionPool.Put(crw)
-
 	switch b.conn.compression {
 	case CompressionGZIP, CompressionDeflate, CompressionBrotli:
 		headers["Content-Encoding"] = b.conn.compression.String()
@@ -192,10 +258,15 @@ func (b *httpBatch) Send() (err error) {
 		options.settings["compress"] = "1"
 	}
 
+	compressionWriter := b.conn.compressionPool.Get()
+	defer b.conn.compressionPool.Put(compressionWriter)
+	pipeReader, pipeWriter := io.Pipe()
+	connWriter := compressionWriter.reset(pipeWriter)
+
 	go func() {
 		var err error = nil
-		defer pw.CloseWithError(err)
-		defer w.Close()
+		defer pipeWriter.CloseWithError(err)
+		defer connWriter.Close()
 		b.conn.buffer.Reset()
 		if b.block.Rows() != 0 {
 			if err = b.conn.writeData(b.block); err != nil {
@@ -205,23 +276,24 @@ func (b *httpBatch) Send() (err error) {
 		if err = b.conn.writeData(&proto.Block{}); err != nil {
 			return
 		}
-		if _, err = w.Write(b.conn.buffer.Buf); err != nil {
+		if _, err = connWriter.Write(b.conn.buffer.Buf); err != nil {
 			return
 		}
+		b.release(nil)
 	}()
 
 	options.settings["query"] = b.query
 	headers["Content-Type"] = "application/octet-stream"
 
-	res, err := b.conn.sendStreamQuery(b.ctx, r, &options, headers)
-
-	if res != nil {
-		defer res.Body.Close()
-		// we don't care about result, so just discard it to reuse connection
-		_, _ = io.Copy(io.Discard, res.Body)
+	res, err := b.conn.sendStreamQuery(b.ctx, pipeReader, &options, headers)
+	if err != nil {
+		return err
 	}
+	discardAndClose(res.Body)
 
-	return err
+	b.block.Reset()
+
+	return nil
 }
 
 func (b *httpBatch) Rows() int {

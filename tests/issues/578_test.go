@@ -19,16 +19,17 @@ package issues
 
 import (
 	"context"
+	"testing"
+
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func TestIssue578(t *testing.T) {
 	var (
 		ctx       = context.Background()
-		conn, err = clickhouse_tests.GetConnection("issues", nil, nil, nil)
+		conn, err = clickhouse_tests.GetConnectionTCP("issues", nil, nil, nil)
 	)
 	require.NoError(t, err)
 	assert.NoError(t, err)

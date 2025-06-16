@@ -19,17 +19,18 @@ package issues
 
 import (
 	"context"
+	"strconv"
+	"testing"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	clickhouse_std_tests "github.com/ClickHouse/clickhouse-go/v2/tests/std"
 	"github.com/stretchr/testify/require"
-	"strconv"
-	"testing"
 )
 
 func Test762(t *testing.T) {
 	var (
-		conn, err = clickhouse_tests.GetConnection("issues", nil, nil, &clickhouse.Compression{
+		conn, err = clickhouse_tests.GetConnectionTCP("issues", nil, nil, &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
 		})
 	)
@@ -43,6 +44,8 @@ func Test762(t *testing.T) {
 		require.Equal(t, []any{(*any)(nil), (*any)(nil)}, n)
 	}
 
+	require.NoError(t, rows.Close())
+	require.NoError(t, rows.Err())
 }
 
 func Test762Std(t *testing.T) {
@@ -59,4 +62,7 @@ func Test762Std(t *testing.T) {
 		expected := []any{(*any)(nil)}
 		require.Equal(t, expected, n)
 	}
+
+	require.NoError(t, rows.Close())
+	require.NoError(t, rows.Err())
 }

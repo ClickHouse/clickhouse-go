@@ -35,7 +35,7 @@ import (
 var insertMatch = regexp.MustCompile(`(?i)(INSERT\s+INTO\s+[^( ]+(?:\s*\([^()]*(?:\([^()]*\)[^()]*)*\))?)(?:\s*VALUES)?`)
 var columnMatch = regexp.MustCompile(`INSERT INTO .+\s\((?P<Columns>.+)\)$`)
 
-func (c *connect) prepareBatch(ctx context.Context, query string, opts driver.PrepareBatchOptions, release func(*connect, error), acquire func(context.Context) (*connect, error)) (driver.Batch, error) {
+func (c *connect) prepareBatch(ctx context.Context, release nativeTransportRelease, acquire nativeTransportAcquire, query string, opts driver.PrepareBatchOptions) (driver.Batch, error) {
 	query, _, queryColumns, verr := extractNormalizedInsertQueryAndColumns(query)
 	if verr != nil {
 		return nil, verr
@@ -60,7 +60,19 @@ func (c *connect) prepareBatch(ctx context.Context, query string, opts driver.Pr
 	}
 	// resort batch to specified columns
 	if err = block.SortColumns(queryColumns); err != nil {
+		release(c, err)
 		return nil, err
+	}
+
+	connRelease := func(conn *connect, err error) {
+		release(conn, err)
+	}
+	connAcquire := func(ctx context.Context) (*connect, error) {
+		conn, err := acquire(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return conn.(*connect), nil
 	}
 
 	b := &batch{
@@ -69,8 +81,8 @@ func (c *connect) prepareBatch(ctx context.Context, query string, opts driver.Pr
 		conn:         c,
 		block:        block,
 		released:     false,
-		connRelease:  release,
-		connAcquire:  acquire,
+		connRelease:  connRelease,
+		connAcquire:  connAcquire,
 		onProcess:    onProcess,
 		closeOnFlush: opts.CloseOnFlush,
 	}

@@ -40,7 +40,7 @@ func TestStdDate(t *testing.T) {
 			conn, err := GetStdDSNConnection(protocol, useSSL, nil)
 			require.NoError(t, err)
 			const ddl = `
-			CREATE TABLE test_date (
+			CREATE TABLE std_test_date (
 				  ID   UInt8
 				, Col1 Date
 				, Col2 Nullable(Date)
@@ -51,7 +51,7 @@ func TestStdDate(t *testing.T) {
 			) Engine MergeTree() ORDER BY tuple()
 		`
 			defer func() {
-				conn.Exec("DROP TABLE test_date")
+				conn.Exec("DROP TABLE std_test_date")
 			}()
 			type result struct {
 				ColID uint8 `ch:"ID"`
@@ -66,7 +66,7 @@ func TestStdDate(t *testing.T) {
 			require.NoError(t, err)
 			scope, err := conn.Begin()
 			require.NoError(t, err)
-			batch, err := scope.Prepare("INSERT INTO test_date")
+			batch, err := scope.Prepare("INSERT INTO std_test_date")
 			require.NoError(t, err)
 			date, err := time.Parse("2006-01-02 15:04:05", "2022-01-12 00:00:00")
 			require.NoError(t, err)
@@ -79,7 +79,7 @@ func TestStdDate(t *testing.T) {
 				result1 result
 				result2 result
 			)
-			require.NoError(t, conn.QueryRow("SELECT * FROM test_date WHERE ID = $1", 1).Scan(
+			require.NoError(t, conn.QueryRow("SELECT * FROM std_test_date WHERE ID = $1", 1).Scan(
 				&result1.ColID,
 				&result1.Col1,
 				&result1.Col2,
@@ -95,7 +95,7 @@ func TestStdDate(t *testing.T) {
 			assert.Equal(t, []*time.Time{&date, nil, &date}, result1.Col4)
 			assert.Equal(t, sql.NullTime{Time: date, Valid: true}, result1.Col5)
 			assert.Equal(t, sql.NullTime{Time: time.Time{}, Valid: false}, result1.Col6)
-			require.NoError(t, conn.QueryRow("SELECT * FROM test_date WHERE ID = $1", 2).Scan(
+			require.NoError(t, conn.QueryRow("SELECT * FROM std_test_date WHERE ID = $1", 2).Scan(
 				&result2.ColID,
 				&result2.Col1,
 				&result2.Col2,

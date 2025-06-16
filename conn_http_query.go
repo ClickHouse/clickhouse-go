@@ -27,10 +27,11 @@ import (
 )
 
 // release is ignored, because http used by std with empty release function
-func (h *httpConnect) query(ctx context.Context, release func(*connect, error), query string, args ...any) (*rows, error) {
+func (h *httpConnect) query(ctx context.Context, release nativeTransportRelease, query string, args ...any) (*rows, error) {
 	options := queryOptions(ctx)
-	query, err := bindQueryOrAppendParameters(true, &options, query, h.location, args...)
+	query, err := bindQueryOrAppendParameters(true, &options, query, h.handshake.Timezone, args...)
 	if err != nil {
+		release(h, err)
 		return nil, err
 	}
 	headers := make(map[string]string)
@@ -44,11 +45,14 @@ func (h *httpConnect) query(ctx context.Context, release func(*connect, error), 
 
 	res, err := h.sendQuery(ctx, query, &options, headers)
 	if err != nil {
+		release(h, err)
 		return nil, err
 	}
 
 	if res.ContentLength == 0 {
+		discardAndClose(res.Body)
 		block := &proto.Block{}
+		release(h, nil)
 		return &rows{
 			block:     block,
 			columns:   block.ColumnsNames(),
@@ -64,21 +68,23 @@ func (h *httpConnect) query(ctx context.Context, release func(*connect, error), 
 	// automatically as they might not have permissions.
 	reader, err := rw.NewReader(res)
 	if err != nil {
-		res.Body.Close()
+		discardAndClose(res.Body)
 		h.compressionPool.Put(rw)
+		release(h, err)
 		return nil, err
 	}
 	chReader := chproto.NewReader(reader)
 	block, err := h.readData(chReader, options.userLocation)
 	if err != nil && !errors.Is(err, io.EOF) {
-		res.Body.Close()
+		discardAndClose(res.Body)
 		h.compressionPool.Put(rw)
+		release(h, err)
 		return nil, err
 	}
 
 	bufferSize := h.blockBufferSize
 	if options.blockBufferSize > 0 {
-		// allow block buffer sze to be overridden per query
+		// allow block buffer size to be overridden per query
 		bufferSize = options.blockBufferSize
 	}
 	var (
@@ -102,15 +108,17 @@ func (h *httpConnect) query(ctx context.Context, release func(*connect, error), 
 			case stream <- block:
 			}
 		}
-		res.Body.Close()
+		discardAndClose(res.Body)
 		h.compressionPool.Put(rw)
 		close(stream)
 		close(errCh)
+		release(h, nil)
 	}()
 
 	if block == nil {
 		block = &proto.Block{}
 	}
+
 	return &rows{
 		block:     block,
 		stream:    stream,
@@ -118,4 +126,17 @@ func (h *httpConnect) query(ctx context.Context, release func(*connect, error), 
 		columns:   block.ColumnsNames(),
 		structMap: &structMap{},
 	}, nil
+}
+
+func (h *httpConnect) queryRow(ctx context.Context, release nativeTransportRelease, query string, args ...any) *row {
+	rows, err := h.query(ctx, release, query, args...)
+	if err != nil {
+		return &row{
+			err: err,
+		}
+	}
+
+	return &row{
+		rows: rows,
+	}
 }

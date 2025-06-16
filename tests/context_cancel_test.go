@@ -28,8 +28,11 @@ import (
 )
 
 func TestContextCancellationOfHeavyGeneratedInsert(t *testing.T) {
-	var (
-		heavyQuery = `INSERT INTO test_query_cancellation.trips
+	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		SkipOnHTTP(t, protocol, "context cancel")
+
+		var (
+			heavyQuery = `INSERT INTO test_query_cancellation.trips
 			SELECT
 				number + 1 AS trip_id,
 				now() - INTERVAL intDiv(number, 100) SECOND AS pickup_datetime,
@@ -49,30 +52,38 @@ func TestContextCancellationOfHeavyGeneratedInsert(t *testing.T) {
 				'Neighborhood ' || toString(rand() % 100 + 1) AS pickup_ntaname,
 				'Neighborhood ' || toString(rand() % 100 + 1) AS dropoff_ntaname
 			FROM numbers(100000000);`
-	)
+		)
 
-	conn, err := SetupTestContextCancellationType1(t, false)
-	assert.Nil(t, err)
-	assert.NotNil(t, conn)
+		conn, err := SetupTestContextCancellationType1(t, protocol, false)
+		assert.Nil(t, err)
+		assert.NotNil(t, conn)
 
-	ExecuteTestContextCancellation(t, conn, heavyQuery)
+		ExecuteTestContextCancellation(t, conn, heavyQuery)
+	})
 }
 
 func TestContextCancellationOfHeavyOptimizeFinal(t *testing.T) {
-	var (
-		heavyQuery = "OPTIMIZE TABLE test_query_cancellation.trips FINAL"
-	)
+	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		SkipOnHTTP(t, protocol, "context cancel")
 
-	conn, err := SetupTestContextCancellationType1(t, true)
-	assert.Nil(t, err)
-	assert.NotNil(t, conn)
+		var (
+			heavyQuery = "OPTIMIZE TABLE test_query_cancellation.trips FINAL"
+		)
 
-	ExecuteTestContextCancellation(t, conn, heavyQuery)
+		conn, err := SetupTestContextCancellationType1(t, protocol, true)
+		assert.Nil(t, err)
+		assert.NotNil(t, conn)
+
+		ExecuteTestContextCancellation(t, conn, heavyQuery)
+	})
 }
 
 func TestContextCancellationOfHeavyInsertFromS3(t *testing.T) {
-	var (
-		heavyQuery = `INSERT INTO test_query_cancellation.trips
+	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		SkipOnHTTP(t, protocol, "context cancel")
+
+		var (
+			heavyQuery = `INSERT INTO test_query_cancellation.trips
 		SELECT
 			trip_id,
 			pickup_datetime,
@@ -95,16 +106,17 @@ func TestContextCancellationOfHeavyInsertFromS3(t *testing.T) {
 			'https://datasets-documentation.s3.eu-west-3.amazonaws.com/nyc-taxi/trips_{0..2}.gz',
 			'TabSeparatedWithNames'
 		);`
-	)
+		)
 
-	conn, err := SetupTestContextCancellationType1(t, true)
-	assert.Nil(t, err)
-	assert.NotNil(t, conn)
+		conn, err := SetupTestContextCancellationType1(t, protocol, true)
+		assert.Nil(t, err)
+		assert.NotNil(t, conn)
 
-	ExecuteTestContextCancellation(t, conn, heavyQuery)
+		ExecuteTestContextCancellation(t, conn, heavyQuery)
+	})
 }
 
-func SetupTestContextCancellationType1(t *testing.T, fillTableWithRandomData bool) (clickhouse.Conn, error) {
+func SetupTestContextCancellationType1(t *testing.T, protocol clickhouse.Protocol, fillTableWithRandomData bool) (clickhouse.Conn, error) {
 	var (
 		q1 = "CREATE DATABASE IF NOT EXISTS test_query_cancellation"
 		q2 = "DROP TABLE IF EXISTS test_query_cancellation.trips"
@@ -156,7 +168,7 @@ func SetupTestContextCancellationType1(t *testing.T, fillTableWithRandomData boo
 		prepareQueries = append(prepareQueries, q4)
 	}
 
-	conn, err := GetNativeConnection(nil, nil, &clickhouse.Compression{
+	conn, err := GetNativeConnection(t, protocol, nil, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 

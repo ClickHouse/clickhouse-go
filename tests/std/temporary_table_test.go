@@ -46,19 +46,19 @@ func TestStdTemporaryTable(t *testing.T) {
 			conn, err := GetStdDSNConnection(protocol, useSSL, nil)
 			require.NoError(t, err)
 
-			_, err = conn.Exec("DROP TABLE IF EXISTS test_temporary_table")
+			_, err = conn.Exec("DROP TABLE IF EXISTS std_test_temporary_table")
 			require.NoError(t, err)
-			const ddl = `CREATE TEMPORARY TABLE test_temporary_table (
+			const ddl = `CREATE TEMPORARY TABLE std_test_temporary_table (
 							ID UInt64
 						);`
 			tx, err := conn.Begin()
 			require.NoError(t, err)
-			conn.ExecContext(ctx, "DROP TABLE IF EXISTS test_temporary_table")
+			conn.ExecContext(ctx, "DROP TABLE IF EXISTS std_test_temporary_table")
 			_, err = tx.ExecContext(ctx, ddl)
 			require.NoError(t, err)
-			_, err = tx.ExecContext(ctx, "INSERT INTO test_temporary_table (ID) SELECT number AS ID FROM system.numbers LIMIT 10")
+			_, err = tx.ExecContext(ctx, "INSERT INTO std_test_temporary_table (ID) SELECT number AS ID FROM system.numbers LIMIT 10")
 			require.NoError(t, err)
-			rows, err := tx.QueryContext(ctx, "SELECT ID AS ID FROM test_temporary_table")
+			rows, err := tx.QueryContext(ctx, "SELECT ID AS ID FROM std_test_temporary_table")
 			require.NoError(t, err)
 			var count int
 			for rows.Next() {
@@ -68,9 +68,9 @@ func TestStdTemporaryTable(t *testing.T) {
 				}
 				count++
 			}
-			_, err = tx.QueryContext(ctx, "SELECT ID AS ID1 FROM test_temporary_table")
+			_, err = tx.QueryContext(ctx, "SELECT ID AS ID1 FROM std_test_temporary_table")
 			require.NoError(t, err)
-			_, err = conn.Query("SELECT ID AS ID2 FROM test_temporary_table")
+			_, err = conn.Query("SELECT ID AS ID2 FROM std_test_temporary_table")
 			require.Error(t, err)
 			if name == "Http" {
 				assert.Contains(t, err.Error(), "Code: 60")
@@ -82,7 +82,7 @@ func TestStdTemporaryTable(t *testing.T) {
 			require.Equal(t, 10, count)
 			require.NoError(t, tx.Commit())
 
-			_, err = conn.Exec("DROP TABLE IF EXISTS test_temporary_table")
+			_, err = conn.Exec("DROP TABLE IF EXISTS std_test_temporary_table")
 			require.NoError(t, err)
 			require.NoError(t, conn.Close())
 		})
