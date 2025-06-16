@@ -37,7 +37,7 @@ func TestStdEnum(t *testing.T) {
 			conn, err := GetStdDSNConnection(protocol, useSSL, nil)
 			require.NoError(t, err)
 			const ddl = `
-			CREATE TABLE test_enum (
+			CREATE TABLE std_test_enum (
 				  Col1 Enum  ('hello'   = 1,  'world' = 2)
 				, Col2 Enum8 ('click'   = 5,  'house' = 25)
 				, Col3 Enum16('house' = 10,   'value' = 50)
@@ -48,13 +48,13 @@ func TestStdEnum(t *testing.T) {
 			) Engine MergeTree() ORDER BY tuple()
 		`
 			defer func() {
-				conn.Exec("DROP TABLE test_enum")
+				conn.Exec("DROP TABLE std_test_enum")
 			}()
 			_, err = conn.Exec(ddl)
 			require.NoError(t, err)
 			scope, err := conn.Begin()
 			require.NoError(t, err)
-			batch, err := scope.Prepare("INSERT INTO test_enum")
+			batch, err := scope.Prepare("INSERT INTO std_test_enum")
 			require.NoError(t, err)
 			var (
 				col1Data = "hello"
@@ -85,7 +85,7 @@ func TestStdEnum(t *testing.T) {
 				col6 []*string
 				col7 []*string
 			)
-			require.NoError(t, conn.QueryRow("SELECT * FROM test_enum").Scan(
+			require.NoError(t, conn.QueryRow("SELECT * FROM std_test_enum").Scan(
 				&col1, &col2, &col3, &col4,
 				&col5, &col6, &col7,
 			))
@@ -109,7 +109,7 @@ func TestStdEnumInsertAsInt(t *testing.T) {
 			conn, err := GetStdDSNConnection(protocol, useSSL, nil)
 			require.NoError(t, err)
 			const ddl = `
-			CREATE TABLE test_enum_int (
+			CREATE TABLE std_test_enum_int (
 				  Col1 Enum  ('hello' = 1,  'world' = 2)
 				, Col2 Enum8 ('click' = 5,  'house' = 25)
 				, Col3 Enum16('house' = 10,   'value' = 50)
@@ -120,13 +120,13 @@ func TestStdEnumInsertAsInt(t *testing.T) {
 			) Engine MergeTree() ORDER BY tuple()
 		`
 			defer func() {
-				conn.Exec("DROP TABLE test_enum_int")
+				conn.Exec("DROP TABLE std_test_enum_int")
 			}()
 			_, err = conn.Exec(ddl)
 			require.NoError(t, err)
 			scope, err := conn.Begin()
 			require.NoError(t, err)
-			batch, err := scope.Prepare("INSERT INTO test_enum_int")
+			batch, err := scope.Prepare("INSERT INTO std_test_enum_int")
 			require.NoError(t, err)
 			var (
 				col6Int8Val  = int8(2)
@@ -167,7 +167,7 @@ func TestStdEnumInsertAsInt(t *testing.T) {
 					, Col5
 					, Col6
 					, Col7
-					FROM test_enum_int`).Scan(
+					FROM std_test_enum_int`).Scan(
 				&col1, &col2, &col3, &col4,
 				&col5, &col6, &col7,
 			))
@@ -183,7 +183,7 @@ func TestStdEnumInsertAsInt(t *testing.T) {
 			// Error should be thrown for invalid Enum value
 			scopeFail, err := conn.Begin()
 			require.NoError(t, err)
-			batchFail, err := scopeFail.Prepare("INSERT INTO test_enum_int")
+			batchFail, err := scopeFail.Prepare("INSERT INTO std_test_enum_int")
 			require.NoError(t, err)
 			_, err = batchFail.Exec(
 				col1Data,

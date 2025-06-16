@@ -45,7 +45,7 @@ func TestStdLowCardinality(t *testing.T) {
 				return
 			}
 			const ddl = `
-		CREATE TABLE test_lowcardinality (
+		CREATE TABLE std_test_lowcardinality (
 		      ID UInt64
 			, Col1 LowCardinality(String)
 			, Col2 LowCardinality(FixedString(2))
@@ -56,13 +56,13 @@ func TestStdLowCardinality(t *testing.T) {
 		) Engine MergeTree() ORDER BY tuple()
 		`
 			defer func() {
-				conn.Exec("DROP TABLE test_lowcardinality")
+				conn.Exec("DROP TABLE std_test_lowcardinality")
 			}()
 			_, err = conn.ExecContext(ctx, ddl)
 			require.NoError(t, err)
 			scope, err := conn.Begin()
 			require.NoError(t, err)
-			batch, err := scope.Prepare("INSERT INTO test_lowcardinality")
+			batch, err := scope.Prepare("INSERT INTO std_test_lowcardinality")
 			require.NoError(t, err)
 			var (
 				timestamp = time.Now()
@@ -95,7 +95,7 @@ func TestStdLowCardinality(t *testing.T) {
 			}
 			require.NoError(t, scope.Commit())
 			var count uint64
-			require.NoError(t, conn.QueryRow("SELECT COUNT() FROM test_lowcardinality").Scan(&count))
+			require.NoError(t, conn.QueryRow("SELECT COUNT() FROM std_test_lowcardinality").Scan(&count))
 			assert.Equal(t, uint64(10), count)
 
 			for i := 0; i < 10; i++ {
@@ -108,7 +108,7 @@ func TestStdLowCardinality(t *testing.T) {
 					col5 *string
 					col6 [][]*string
 				)
-				require.NoError(t, conn.QueryRow("SELECT * FROM test_lowcardinality WHERE ID = $1", i).Scan(&id, &col1, &col2, &col3, &col4, &col5, &col6))
+				require.NoError(t, conn.QueryRow("SELECT * FROM std_test_lowcardinality WHERE ID = $1", i).Scan(&id, &col1, &col2, &col3, &col4, &col5, &col6))
 				assert.Equal(t, timestamp.String(), col1)
 				assert.Equal(t, "RU", col2)
 				assert.Equal(t, []string{"A", "B", "C"}, col3)

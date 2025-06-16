@@ -57,28 +57,28 @@ func TestCompressionStd(t *testing.T) {
 					Level:  3,
 				})
 				require.NoError(t, err)
-				conn.Exec("DROP TABLE IF EXISTS test_array_compress")
+				conn.Exec("DROP TABLE IF EXISTS std_test_array_compress")
 				const ddl = `
-					CREATE TABLE test_array_compress (
+					CREATE TABLE std_test_array_compress (
 						  Col1 Array(Int32),
 					      Col2 Int32         
 					) Engine MergeTree() ORDER BY tuple()
 					`
 				defer func() {
-					conn.Exec("DROP TABLE test_array_compress")
+					conn.Exec("DROP TABLE std_test_array_compress")
 				}()
 				_, err = conn.Exec(ddl)
 				require.NoError(t, err)
 				scope, err := conn.Begin()
 				require.NoError(t, err)
-				batch, err := scope.Prepare("INSERT INTO test_array_compress")
+				batch, err := scope.Prepare("INSERT INTO std_test_array_compress")
 				require.NoError(t, err)
 				for i := int32(0); i < 100; i++ {
 					_, err := batch.Exec([]int32{i, i + 1, i + 2}, i)
 					require.NoError(t, err)
 				}
 				require.NoError(t, scope.Commit())
-				rows, err := conn.Query("SELECT * FROM test_array_compress ORDER BY Col2 ASC")
+				rows, err := conn.Query("SELECT * FROM std_test_array_compress ORDER BY Col2 ASC")
 				require.NoError(t, err)
 				i := int32(0)
 				for rows.Next() {
@@ -95,7 +95,7 @@ func TestCompressionStd(t *testing.T) {
 				require.NoError(t, rows.Err())
 				scope, err = conn.Begin()
 				require.NoError(t, err)
-				batch, err = scope.Prepare("INSERT INTO test_array_compress")
+				batch, err = scope.Prepare("INSERT INTO std_test_array_compress")
 				require.NoError(t, err)
 				for i := int32(100); i < 200; i++ {
 					_, err := batch.Exec([]int32{i, i + 1, i + 2}, i)
@@ -127,20 +127,20 @@ func TestCompressionStdDSN(t *testing.T) {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
 			conn, err := GetStdDSNConnection(protocol, useSSL, url.Values{"compress": []string{"true"}})
 			require.NoError(t, err)
-			conn.Exec("DROP TABLE IF EXISTS test_array_compress")
+			conn.Exec("DROP TABLE IF EXISTS std_test_dsn_array_compress")
 			const ddl = `
-				CREATE TABLE test_array_compress (
+				CREATE TABLE std_test_dsn_array_compress (
 					  Col1 Array(String)
 				) Engine MergeTree() ORDER BY tuple()
 				`
 			defer func() {
-				conn.Exec("DROP TABLE test_array_compress")
+				conn.Exec("DROP TABLE std_test_dsn_array_compress")
 			}()
 			_, err = conn.Exec(ddl)
 			require.NoError(t, err)
 			scope, err := conn.Begin()
 			require.NoError(t, err)
-			batch, err := scope.Prepare("INSERT INTO test_array_compress")
+			batch, err := scope.Prepare("INSERT INTO std_test_dsn_array_compress")
 			require.NoError(t, err)
 			var (
 				col1Data = []string{"A", "b", "c"}
@@ -150,7 +150,7 @@ func TestCompressionStdDSN(t *testing.T) {
 				require.NoError(t, err)
 			}
 			require.NoError(t, scope.Commit())
-			rows, err := conn.Query("SELECT * FROM test_array_compress")
+			rows, err := conn.Query("SELECT * FROM std_test_dsn_array_compress")
 			require.NoError(t, err)
 			for rows.Next() {
 				var (
@@ -186,20 +186,20 @@ func TestCompressionStdDSNWithLevel(t *testing.T) {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
 			conn, err := GetStdDSNConnection(protocol.protocol, useSSL, nil)
 			require.NoError(t, err)
-			conn.Exec("DROP TABLE IF EXISTS test_array_compress")
+			conn.Exec("DROP TABLE IF EXISTS std_test_array_compress_with_level")
 			const ddl = `
-				CREATE TABLE test_array_compress (
+				CREATE TABLE std_test_array_compress_with_level (
 					  Col1 Array(String)
 				) Engine MergeTree() ORDER BY tuple()
 				`
 			defer func() {
-				conn.Exec("DROP TABLE test_array_compress")
+				conn.Exec("DROP TABLE std_test_array_compress_with_level")
 			}()
 			_, err = conn.Exec(ddl)
 			require.NoError(t, err)
 			scope, err := conn.Begin()
 			require.NoError(t, err)
-			batch, err := scope.Prepare("INSERT INTO test_array_compress")
+			batch, err := scope.Prepare("INSERT INTO std_test_array_compress_with_level")
 			require.NoError(t, err)
 			var (
 				col1Data = []string{"A", "b", "c"}
@@ -209,7 +209,7 @@ func TestCompressionStdDSNWithLevel(t *testing.T) {
 				require.NoError(t, err)
 			}
 			require.NoError(t, scope.Commit())
-			rows, err := conn.Query("SELECT * FROM test_array_compress")
+			rows, err := conn.Query("SELECT * FROM std_test_array_compress_with_level")
 			require.NoError(t, err)
 			for rows.Next() {
 				var (
@@ -248,7 +248,7 @@ func TestCompressionStdDSNInvalid(t *testing.T) {
 					"compress_level": []string{dsn.level},
 				})
 				const ddl = `
-				CREATE TABLE test_array_compress (
+				CREATE TABLE std_test_invalid_dsn_array_compress (
 					  Col1 Array(String)
 				) Engine MergeTree() ORDER BY tuple()
 				`

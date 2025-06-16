@@ -38,21 +38,21 @@ func TestStdArray(t *testing.T) {
 			conn, err := GetStdDSNConnection(protocol, useSSL, nil)
 			require.NoError(t, err)
 			const ddl = `
-		CREATE TABLE test_array (
+		CREATE TABLE std_test_array (
 			  Col1 Array(String)
 			, Col2 Array(Array(UInt32))
 			, Col3 Array(Array(Array(DateTime)))
 		) Engine MergeTree() ORDER BY tuple()
 		`
-			conn.Exec("DROP TABLE test_array")
+			conn.Exec("DROP TABLE std_test_array")
 			defer func() {
-				conn.Exec("DROP TABLE test_array")
+				conn.Exec("DROP TABLE std_test_array")
 			}()
 			_, err = conn.Exec(ddl)
 			require.NoError(t, err)
 			scope, err := conn.Begin()
 			require.NoError(t, err)
-			batch, err := scope.Prepare("INSERT INTO test_array")
+			batch, err := scope.Prepare("INSERT INTO std_test_array")
 			require.NoError(t, err)
 			var (
 				timestamp = time.Now().Truncate(time.Second).In(time.UTC)
@@ -89,7 +89,7 @@ func TestStdArray(t *testing.T) {
 				require.NoError(t, err)
 			}
 			require.NoError(t, scope.Commit())
-			rows, err := conn.Query("SELECT * FROM test_array")
+			rows, err := conn.Query("SELECT * FROM std_test_array")
 			require.NoError(t, err)
 			for rows.Next() {
 				var (

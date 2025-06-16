@@ -41,19 +41,19 @@ func TestMaterializedColumnInsert(t *testing.T) {
 					return
 				}
 				const ddl = `
-		CREATE TABLE test_mat_cols (
+		CREATE TABLE std_test_mat_cols (
 			  Col1 Int128
 			, Col2 MATERIALIZED Col1 * 2
 		) Engine MergeTree() ORDER BY tuple()
 		`
 				defer func() {
-					conn.Exec("DROP TABLE test_mat_cols")
+					conn.Exec("DROP TABLE std_test_mat_cols")
 				}()
 				_, err := conn.Exec(ddl)
 				require.NoError(t, err)
 				scope, err := conn.Begin()
 				require.NoError(t, err)
-				batch, err := scope.Prepare("INSERT INTO test_mat_cols")
+				batch, err := scope.Prepare("INSERT INTO std_test_mat_cols")
 				require.NoError(t, err)
 				var (
 					col1Data = big.NewInt(128)
@@ -66,9 +66,9 @@ func TestMaterializedColumnInsert(t *testing.T) {
 					col1 big.Int
 					col2 big.Int
 				)
-				require.NoError(t, conn.QueryRow("SELECT * FROM test_mat_cols").Scan(&col1))
+				require.NoError(t, conn.QueryRow("SELECT * FROM std_test_mat_cols").Scan(&col1))
 				assert.Equal(t, *col1Data, col1)
-				require.NoError(t, conn.QueryRow("SELECT Col1, Col2 from test_mat_cols").Scan(&col1, &col2))
+				require.NoError(t, conn.QueryRow("SELECT Col1, Col2 from std_test_mat_cols").Scan(&col1, &col2))
 				assert.Equal(t, *col1Data, col1)
 				assert.Equal(t, *col2Data, col2)
 			}

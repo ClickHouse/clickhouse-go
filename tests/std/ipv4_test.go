@@ -39,7 +39,7 @@ func TestStdIPv4(t *testing.T) {
 			require.NoError(t, err)
 
 			const ddl = `
-			CREATE TABLE test_ipv4 (
+			CREATE TABLE std_test_ipv4 (
 				  Col1 IPv4
 				, Col2 IPv4
 				, Col3 Nullable(IPv4)
@@ -48,13 +48,13 @@ func TestStdIPv4(t *testing.T) {
 			) Engine MergeTree() ORDER BY tuple()
 		`
 			defer func() {
-				conn.Exec("DROP TABLE test_ipv4")
+				conn.Exec("DROP TABLE std_test_ipv4")
 			}()
 			_, err = conn.Exec(ddl)
 			require.NoError(t, err)
 			scope, err := conn.Begin()
 			require.NoError(t, err)
-			batch, err := scope.Prepare("INSERT INTO test_ipv4")
+			batch, err := scope.Prepare("INSERT INTO std_test_ipv4")
 			require.NoError(t, err)
 			var (
 				col1Data = net.ParseIP("127.0.0.1")
@@ -73,7 +73,7 @@ func TestStdIPv4(t *testing.T) {
 				col4 []net.IP
 				col5 []*net.IP
 			)
-			require.NoError(t, conn.QueryRow("SELECT * FROM test_ipv4").Scan(&col1, &col2, &col3, &col4, &col5))
+			require.NoError(t, conn.QueryRow("SELECT * FROM std_test_ipv4").Scan(&col1, &col2, &col3, &col4, &col5))
 			assert.Equal(t, col1Data.To4(), col1)
 			assert.Equal(t, col2Data.To4(), col2)
 			assert.Equal(t, col3Data.To4(), *col3)

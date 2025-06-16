@@ -33,11 +33,11 @@ import (
 func TestStdConnCheck(t *testing.T) {
 	const (
 		ddl = `
-		CREATE TABLE clickhouse_test_conn_check (
+		CREATE TABLE std_clickhouse_test_conn_check (
 			Value String
 		) Engine MergeTree() ORDER BY tuple()
 		`
-		dml = "INSERT INTO `clickhouse_test_conn_check` VALUES "
+		dml = "INSERT INTO `std_clickhouse_test_conn_check` VALUES "
 	)
 
 	env, err := GetStdTestEnvironment()
@@ -62,7 +62,7 @@ func TestStdConnCheck(t *testing.T) {
 			// We can only change the settings at the connection level.
 			// If we have only one connection, we change the settings specifically for that connection.
 			connect.SetMaxOpenConns(1)
-			_, err = connect.Exec("DROP TABLE IF EXISTS clickhouse_test_conn_check")
+			_, err = connect.Exec("DROP TABLE IF EXISTS std_clickhouse_test_conn_check")
 			require.NoError(t, err)
 			_, err = connect.Exec(ddl)
 			require.NoError(t, err)
@@ -81,7 +81,7 @@ func TestStdConnCheck(t *testing.T) {
 			assert.NoError(t, err)
 			assert.NoError(t, tx.Commit())
 
-			_, err = connect.Exec("DROP TABLE IF EXISTS clickhouse_test_conn_check")
+			_, err = connect.Exec("DROP TABLE IF EXISTS std_clickhouse_test_conn_check")
 			require.NoError(t, err)
 			require.NoError(t, connect.Close())
 		})

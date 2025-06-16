@@ -518,9 +518,13 @@ func getHTTPConnection(env ClickHouseTestEnvironment, t *testing.T, database str
 			Username: env.Username,
 			Password: env.Password,
 		},
-		TLS:         tlsConfig,
-		Compression: compression,
-		DialTimeout: time.Duration(timeout) * time.Second,
+		TLS:                 tlsConfig,
+		Compression:         compression,
+		DialTimeout:         time.Duration(timeout) * time.Second,
+		ConnMaxLifetime:     1 * time.Second,
+		MaxOpenConns:        1,
+		MaxIdleConns:        1,
+		HttpMaxConnsPerHost: 1,
 	})
 	return conn, err
 }

@@ -46,19 +46,19 @@ func TestStdGeoRing(t *testing.T) {
 				return
 			}
 			const ddl = `
-				CREATE TABLE test_geo_ring (
+				CREATE TABLE std_test_geo_ring (
 					Col1 Ring
 					, Col2 Array(Ring)
 				) Engine MergeTree() ORDER BY tuple()
 				`
 			defer func() {
-				conn.Exec("DROP TABLE test_geo_ring")
+				conn.Exec("DROP TABLE std_test_geo_ring")
 			}()
 			_, err = conn.ExecContext(ctx, ddl)
 			require.NoError(t, err)
 			scope, err := conn.Begin()
 			require.NoError(t, err)
-			batch, err := scope.Prepare("INSERT INTO test_geo_ring")
+			batch, err := scope.Prepare("INSERT INTO std_test_geo_ring")
 			require.NoError(t, err)
 			var (
 				col1Data = orb.Ring{
@@ -83,7 +83,7 @@ func TestStdGeoRing(t *testing.T) {
 				col1 orb.Ring
 				col2 []orb.Ring
 			)
-			require.NoError(t, conn.QueryRow("SELECT * FROM test_geo_ring").Scan(&col1, &col2))
+			require.NoError(t, conn.QueryRow("SELECT * FROM std_test_geo_ring").Scan(&col1, &col2))
 			assert.Equal(t, col1Data, col1)
 			assert.Equal(t, col2Data, col2)
 		})

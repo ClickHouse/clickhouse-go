@@ -39,7 +39,7 @@ func TestStdDateTime(t *testing.T) {
 			conn, err := GetStdDSNConnection(protocol, useSSL, nil)
 			require.NoError(t, err)
 			const ddl = `
-			CREATE TABLE test_datetime (
+			CREATE TABLE std_test_datetime (
 				  Col1 DateTime
 				, Col2 DateTime('Europe/Moscow')
 				, Col3 DateTime('Europe/London')
@@ -51,13 +51,13 @@ func TestStdDateTime(t *testing.T) {
 				,Col9 DateTime
 			) Engine MergeTree() ORDER BY tuple()`
 			defer func() {
-				conn.Exec("DROP TABLE test_datetime")
+				conn.Exec("DROP TABLE std_test_datetime")
 			}()
 			_, err = conn.Exec(ddl)
 			require.NoError(t, err)
 			scope, err := conn.Begin()
 			require.NoError(t, err)
-			batch, err := scope.Prepare("INSERT INTO test_datetime")
+			batch, err := scope.Prepare("INSERT INTO std_test_datetime")
 			require.NoError(t, err)
 			datetime := time.Now().Truncate(time.Second)
 			_, err = batch.Exec(
@@ -90,7 +90,7 @@ func TestStdDateTime(t *testing.T) {
 				col8 sql.NullTime
 				col9 time.Time
 			)
-			require.NoError(t, conn.QueryRow("SELECT * FROM test_datetime").Scan(&col1, &col2, &col3, &col4, &col5, &col6, &col7, &col8, &col9))
+			require.NoError(t, conn.QueryRow("SELECT * FROM std_test_datetime").Scan(&col1, &col2, &col3, &col4, &col5, &col6, &col7, &col8, &col9))
 			assert.Equal(t, datetime.In(time.UTC), col1)
 			assert.Equal(t, datetime.Unix(), col2.Unix())
 			assert.Equal(t, datetime.Unix(), col3.Unix())

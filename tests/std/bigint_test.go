@@ -41,7 +41,7 @@ func TestStdBigInt(t *testing.T) {
 					return
 				}
 				const ddl = `
-		CREATE TABLE test_bigint (
+		CREATE TABLE std_test_bigint (
 			  Col1 Int128
 			, Col2 Array(Int128)
 			, Col3 Int256
@@ -51,13 +51,13 @@ func TestStdBigInt(t *testing.T) {
 		) Engine MergeTree() ORDER BY tuple()
 		`
 				defer func() {
-					conn.Exec("DROP TABLE test_bigint")
+					conn.Exec("DROP TABLE std_test_bigint")
 				}()
 				_, err := conn.Exec(ddl)
 				require.NoError(t, err)
 				scope, err := conn.Begin()
 				require.NoError(t, err)
-				batch, err := scope.Prepare("INSERT INTO test_bigint")
+				batch, err := scope.Prepare("INSERT INTO std_test_bigint")
 				require.NoError(t, err)
 				var (
 					col1Data = big.NewInt(128)
@@ -90,7 +90,7 @@ func TestStdBigInt(t *testing.T) {
 					col5 big.Int
 					col6 []*big.Int
 				)
-				require.NoError(t, conn.QueryRow("SELECT * FROM test_bigint").Scan(&col1, &col2, &col3, &col4, &col5, &col6))
+				require.NoError(t, conn.QueryRow("SELECT * FROM std_test_bigint").Scan(&col1, &col2, &col3, &col4, &col5, &col6))
 				assert.Equal(t, *col1Data, col1)
 				assert.Equal(t, col2Data, col2)
 				assert.Equal(t, *col3Data, col3)

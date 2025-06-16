@@ -65,7 +65,7 @@ func TestVariant(t *testing.T) {
 	conn := setupVariantTest(t)
 
 	const ddl = `
-			CREATE TABLE IF NOT EXISTS test_variant (
+			CREATE TABLE IF NOT EXISTS std_test_variant (
 				  c Variant(
 			    	Bool,
 			    	Int64,
@@ -82,14 +82,14 @@ func TestVariant(t *testing.T) {
 	_, err := conn.ExecContext(ctx, ddl)
 	require.NoError(t, err)
 	defer func() {
-		_, err := conn.ExecContext(ctx, "DROP TABLE IF EXISTS test_variant")
+		_, err := conn.ExecContext(ctx, "DROP TABLE IF EXISTS std_test_variant")
 		require.NoError(t, err)
 	}()
 
 	tx, err := conn.BeginTx(ctx, nil)
 	require.NoError(t, err)
 
-	batch, err := tx.PrepareContext(ctx, "INSERT INTO test_variant (c)")
+	batch, err := tx.PrepareContext(ctx, "INSERT INTO std_test_variant (c)")
 	require.NoError(t, err)
 
 	_, err = batch.ExecContext(ctx, true)
@@ -123,7 +123,7 @@ func TestVariant(t *testing.T) {
 
 	require.NoError(t, tx.Commit())
 
-	rows, err := conn.QueryContext(ctx, "SELECT c FROM test_variant")
+	rows, err := conn.QueryContext(ctx, "SELECT c FROM std_test_variant")
 	require.NoError(t, err)
 
 	var row chcol.Variant
@@ -184,21 +184,21 @@ func TestVariant_ScanWithType(t *testing.T) {
 	conn := setupVariantTest(t)
 
 	const ddl = `
-			CREATE TABLE IF NOT EXISTS test_variant (
+			CREATE TABLE IF NOT EXISTS std_test_variant_scan_with_type (
 				  c Variant(Bool, Int64)                  
 			) Engine = MergeTree() ORDER BY tuple()
 		`
 	_, err := conn.ExecContext(ctx, ddl)
 	require.NoError(t, err)
 	defer func() {
-		_, err := conn.ExecContext(ctx, "DROP TABLE IF EXISTS test_variant")
+		_, err := conn.ExecContext(ctx, "DROP TABLE IF EXISTS std_test_variant_scan_with_type")
 		require.NoError(t, err)
 	}()
 
 	tx, err := conn.BeginTx(ctx, nil)
 	require.NoError(t, err)
 
-	batch, err := tx.PrepareContext(ctx, "INSERT INTO test_variant (c)")
+	batch, err := tx.PrepareContext(ctx, "INSERT INTO std_test_variant_scan_with_type (c)")
 	require.NoError(t, err)
 
 	_, err = batch.ExecContext(ctx, true)
@@ -210,7 +210,7 @@ func TestVariant_ScanWithType(t *testing.T) {
 
 	require.NoError(t, tx.Commit())
 
-	rows, err := conn.QueryContext(ctx, "SELECT c FROM test_variant")
+	rows, err := conn.QueryContext(ctx, "SELECT c FROM std_test_variant_scan_with_type")
 	require.NoError(t, err)
 
 	var row chcol.Variant

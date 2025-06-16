@@ -46,19 +46,19 @@ func TestStdGeoPoint(t *testing.T) {
 				return
 			}
 			const ddl = `
-				CREATE TABLE test_geo_point (
+				CREATE TABLE std_test_geo_point (
 					Col1 Point
 					, Col2 Array(Point)
 				) Engine MergeTree() ORDER BY tuple()
 				`
 			defer func() {
-				conn.Exec("DROP TABLE test_geo_point")
+				conn.Exec("DROP TABLE std_test_geo_point")
 			}()
 			_, err = conn.ExecContext(ctx, ddl)
 			require.NoError(t, err)
 			scope, err := conn.Begin()
 			require.NoError(t, err)
-			batch, err := scope.Prepare("INSERT INTO test_geo_point")
+			batch, err := scope.Prepare("INSERT INTO std_test_geo_point")
 			require.NoError(t, err)
 			_, err = batch.Exec(
 				orb.Point{11, 22},
@@ -73,7 +73,7 @@ func TestStdGeoPoint(t *testing.T) {
 				col1 orb.Point
 				col2 []orb.Point
 			)
-			require.NoError(t, conn.QueryRow("SELECT * FROM test_geo_point").Scan(&col1, &col2))
+			require.NoError(t, conn.QueryRow("SELECT * FROM std_test_geo_point").Scan(&col1, &col2))
 			assert.Equal(t, orb.Point{11, 22}, col1)
 			assert.Equal(t, []orb.Point{
 				{1, 2},

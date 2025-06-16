@@ -42,16 +42,16 @@ func TestSimpleStdString(t *testing.T) {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
 			conn, err := GetConnectionFromDSN(dsn)
 			require.NoError(t, err)
-			const ddl = `CREATE TABLE test_array (Col1 String, Col2 Nullable(String)) Engine MergeTree() ORDER BY tuple()`
-			conn.Exec("DROP TABLE test_array")
+			const ddl = `CREATE TABLE std_test_string (Col1 String, Col2 Nullable(String)) Engine MergeTree() ORDER BY tuple()`
+			conn.Exec("DROP TABLE std_test_string")
 			defer func() {
-				conn.Exec("DROP TABLE test_array")
+				conn.Exec("DROP TABLE std_test_string")
 			}()
 			_, err = conn.Exec(ddl)
 			require.NoError(t, err)
 			scope, err := conn.Begin()
 			require.NoError(t, err)
-			batch, err := scope.Prepare("INSERT INTO test_array")
+			batch, err := scope.Prepare("INSERT INTO std_test_string")
 			require.NoError(t, err)
 			var (
 				col1Data = "A"
@@ -61,7 +61,7 @@ func TestSimpleStdString(t *testing.T) {
 				require.NoError(t, err)
 			}
 			require.NoError(t, scope.Commit())
-			rows, err := conn.Query("SELECT * FROM test_array")
+			rows, err := conn.Query("SELECT * FROM std_test_string")
 			require.NoError(t, err)
 			for rows.Next() {
 				var (

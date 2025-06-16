@@ -59,21 +59,21 @@ func TestDynamic(t *testing.T) {
 	conn := setupDynamicTest(t)
 
 	const ddl = `
-			CREATE TABLE IF NOT EXISTS test_dynamic (
+			CREATE TABLE IF NOT EXISTS std_test_dynamic (
 				  c Dynamic                  
 			) Engine = MergeTree() ORDER BY tuple()
 		`
 	_, err := conn.ExecContext(ctx, ddl)
 	require.NoError(t, err)
 	defer func() {
-		_, err := conn.ExecContext(ctx, "DROP TABLE IF EXISTS test_dynamic")
+		_, err := conn.ExecContext(ctx, "DROP TABLE IF EXISTS std_test_dynamic")
 		require.NoError(t, err)
 	}()
 
 	tx, err := conn.BeginTx(ctx, nil)
 	require.NoError(t, err)
 
-	batch, err := tx.PrepareContext(ctx, "INSERT INTO test_dynamic (c)")
+	batch, err := tx.PrepareContext(ctx, "INSERT INTO std_test_dynamic (c)")
 	require.NoError(t, err)
 
 	_, err = batch.ExecContext(ctx, clickhouse.NewDynamicWithType(true, "Bool"))
@@ -104,7 +104,7 @@ func TestDynamic(t *testing.T) {
 
 	require.NoError(t, tx.Commit())
 
-	rows, err := conn.QueryContext(ctx, "SELECT c FROM test_dynamic")
+	rows, err := conn.QueryContext(ctx, "SELECT c FROM std_test_dynamic")
 	require.NoError(t, err)
 
 	var row chcol.Dynamic
@@ -160,7 +160,7 @@ func TestDynamic_ScanWithType(t *testing.T) {
 	conn := setupDynamicTest(t)
 
 	const ddl = `
-			CREATE TABLE IF NOT EXISTS test_dynamic (
+			CREATE TABLE IF NOT EXISTS std_test_dynamic_scan_with_type (
 				  c Dynamic                 
 			) Engine = MergeTree() ORDER BY tuple()
 		`
@@ -168,14 +168,14 @@ func TestDynamic_ScanWithType(t *testing.T) {
 	require.NoError(t, err)
 
 	defer func() {
-		_, err := conn.ExecContext(ctx, "DROP TABLE IF EXISTS test_dynamic")
+		_, err := conn.ExecContext(ctx, "DROP TABLE IF EXISTS std_test_dynamic_scan_with_type")
 		require.NoError(t, err)
 	}()
 
 	tx, err := conn.BeginTx(ctx, nil)
 	require.NoError(t, err)
 
-	batch, err := tx.PrepareContext(ctx, "INSERT INTO test_dynamic (c)")
+	batch, err := tx.PrepareContext(ctx, "INSERT INTO std_test_dynamic_scan_with_type (c)")
 	require.NoError(t, err)
 
 	_, err = batch.ExecContext(ctx, clickhouse.NewDynamicWithType(true, "Bool"))
@@ -187,7 +187,7 @@ func TestDynamic_ScanWithType(t *testing.T) {
 
 	require.NoError(t, tx.Commit())
 
-	rows, err := conn.QueryContext(ctx, "SELECT c FROM test_dynamic")
+	rows, err := conn.QueryContext(ctx, "SELECT c FROM std_test_dynamic_scan_with_type")
 	require.NoError(t, err)
 
 	var row chcol.Dynamic
