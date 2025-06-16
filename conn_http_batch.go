@@ -20,13 +20,11 @@ package clickhouse
 import (
 	"context"
 	"fmt"
-	"io"
-	"slices"
-	"sync"
-
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
+	"io"
+	"slices"
 )
 
 func (h *httpConnect) fetchColumnNamesAndTypesForInsert(ctx context.Context, tableName string, requestedColumnNames []string) ([]ColumnNameAndType, error) {
@@ -176,10 +174,10 @@ func (b *httpBatch) sendBatch() error {
 	pipeReader, pipeWriter := io.Pipe()
 	connWriter := compressionWriter.reset(pipeWriter)
 
-	var wg sync.WaitGroup
-	wg.Add(1)
+	//var wg sync.WaitGroup
+	//wg.Add(1)
 	go func() {
-		defer wg.Done()
+		//defer wg.Done()
 		var err error = nil
 		defer pipeWriter.CloseWithError(err)
 		defer connWriter.Close()
@@ -204,15 +202,20 @@ func (b *httpBatch) sendBatch() error {
 	if err != nil {
 		return err
 	}
-	defer res.Body.Close()
 	// TODO: Is the connection being leaked here?
 	// Something about discarding the body causes this to break
 	// HTTP flushing, but may leak connections if body isn't fully read.
 	// The goroutine above this seems to handle this. See flush_test.go for example.
-	//defer discardAndClose(res.Body)
+	defer func() {
+		if b.sendOnFlush {
+			res.Body.Close()
+		} else {
+			discardAndClose(res.Body)
+		}
+	}()
 
 	b.block.Reset()
-	wg.Wait()
+	//wg.Wait()
 
 	return nil
 }
