@@ -228,7 +228,7 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		DialContext: (&net.Dialer{
 			Timeout: opt.DialTimeout,
 		}).DialContext,
-		MaxIdleConns:          opt.MaxIdleConns,
+		MaxIdleConns:          1,
 		MaxConnsPerHost:       opt.HttpMaxConnsPerHost,
 		IdleConnTimeout:       opt.ConnMaxLifetime,
 		ResponseHeaderTimeout: opt.ReadTimeout,
