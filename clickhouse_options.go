@@ -133,28 +133,26 @@ type Options struct {
 	Protocol   Protocol
 	ClientInfo ClientInfo
 
-	TLS                   *tls.Config
-	Addr                  []string
-	Auth                  Auth
-	DialContext           func(ctx context.Context, addr string) (net.Conn, error)
-	DialStrategy          func(ctx context.Context, connID int, options *Options, dial Dial) (DialResult, error)
-	Debug                 bool
-	Debugf                func(format string, v ...any) // only works when Debug is true
-	Settings              Settings
-	Compression           *Compression
-	DialTimeout           time.Duration // default 30 second
-	MaxOpenConns          int           // default MaxIdleConns + 5
-	MaxIdleConns          int           // default 5
-	ConnMaxLifetime       time.Duration // default 1 hour
-	ConnOpenStrategy      ConnOpenStrategy
-	FreeBufOnConnRelease  bool              // drop preserved memory buffer after each query
-	HttpHeaders           map[string]string // set additional headers on HTTP requests
-	HttpUrlPath           string            // set additional URL path for HTTP requests
-	HttpMaxConnsPerHost   int               // MaxConnsPerHost for http.Transport
-	HttpDisableKeepAlives bool              // DisableKeepAlives for http.Transport
-	HttpIgnoreFlush       bool              // If enabled, calling Flush on a batch will do nothing. Send must be called to send.
-	BlockBufferSize       uint8             // default 2 - can be overwritten on query
-	MaxCompressionBuffer  int               // default 10485760 - measured in bytes  i.e.
+	TLS                  *tls.Config
+	Addr                 []string
+	Auth                 Auth
+	DialContext          func(ctx context.Context, addr string) (net.Conn, error)
+	DialStrategy         func(ctx context.Context, connID int, options *Options, dial Dial) (DialResult, error)
+	Debug                bool
+	Debugf               func(format string, v ...any) // only works when Debug is true
+	Settings             Settings
+	Compression          *Compression
+	DialTimeout          time.Duration // default 30 second
+	MaxOpenConns         int           // default MaxIdleConns + 5
+	MaxIdleConns         int           // default 5
+	ConnMaxLifetime      time.Duration // default 1 hour
+	ConnOpenStrategy     ConnOpenStrategy
+	FreeBufOnConnRelease bool              // drop preserved memory buffer after each query
+	HttpHeaders          map[string]string // set additional headers on HTTP requests
+	HttpUrlPath          string            // set additional URL path for HTTP requests
+	HttpMaxConnsPerHost  int               // MaxConnsPerHost for http.Transport
+	BlockBufferSize      uint8             // default 2 - can be overwritten on query
+	MaxCompressionBuffer int               // default 10485760 - measured in bytes  i.e.
 
 	// HTTPProxy specifies an HTTP proxy URL to use for requests made by the client.
 	HTTPProxyURL *url.URL

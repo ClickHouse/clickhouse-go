@@ -130,22 +130,24 @@ func (h *httpConnect) prepareBatch(ctx context.Context, query string, opts drive
 	}
 
 	return &httpBatch{
-		ctx:       ctx,
-		conn:      h,
-		structMap: &structMap{},
-		block:     block,
-		query:     query,
+		ctx:         ctx,
+		conn:        h,
+		structMap:   &structMap{},
+		block:       block,
+		query:       query,
+		sendOnFlush: opts.HTTPSendOnFlush,
 	}, nil
 }
 
 type httpBatch struct {
-	query     string
-	err       error
-	ctx       context.Context
-	conn      *httpConnect
-	structMap *structMap
-	sent      bool
-	block     *proto.Block
+	query       string
+	err         error
+	ctx         context.Context
+	conn        *httpConnect
+	structMap   *structMap
+	sent        bool
+	block       *proto.Block
+	sendOnFlush bool
 }
 
 func (b *httpBatch) sendBatch() error {
@@ -216,7 +218,7 @@ func (b *httpBatch) sendBatch() error {
 }
 
 func (b *httpBatch) Flush() error {
-	if b.conn.ignoreFlush {
+	if !b.sendOnFlush {
 		return nil
 	}
 

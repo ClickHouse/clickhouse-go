@@ -34,7 +34,7 @@ func TestBatchNoFlush(t *testing.T) {
 			Method: clickhouse.CompressionLZ4,
 		})
 		require.NoError(t, err)
-		insertWithFlush(t, conn, false)
+		insertWithFlush(t, protocol, conn, false)
 	})
 }
 
@@ -44,11 +44,11 @@ func TestBatchFlush(t *testing.T) {
 			Method: clickhouse.CompressionLZ4,
 		})
 		require.NoError(t, err)
-		insertWithFlush(t, conn, true)
+		insertWithFlush(t, protocol, conn, true)
 	})
 }
 
-func insertWithFlush(t *testing.T, conn driver.Conn, flush bool) {
+func insertWithFlush(t *testing.T, protocol clickhouse.Protocol, conn driver.Conn, flush bool) {
 	ctx := context.Background()
 	tableName := "batch_flush_example"
 	if !flush {
@@ -72,8 +72,15 @@ func insertWithFlush(t *testing.T, conn driver.Conn, flush bool) {
 		conn.Exec(context.Background(), fmt.Sprintf("DROP TABLE %s", tableName))
 	}()
 
-	batch, err := conn.PrepareBatch(ctx, fmt.Sprintf("INSERT INTO %s", tableName))
+	var batch driver.Batch
+	if protocol == clickhouse.Native {
+		batch, err = conn.PrepareBatch(ctx, fmt.Sprintf("INSERT INTO %s", tableName))
+	} else if protocol == clickhouse.HTTP {
+		// Send an HTTP request every time Flush is called
+		batch, err = conn.PrepareBatch(ctx, fmt.Sprintf("INSERT INTO %s", tableName), driver.WithHTTPSendOnFlush())
+	}
 	require.NoError(t, err)
+
 	// 1 million rows should only take < 1s on most desktops
 	for i := 0; i < 100_000; i++ {
 		require.NoError(t, batch.Append(
@@ -93,10 +100,12 @@ func insertWithFlush(t *testing.T, conn driver.Conn, flush bool) {
 			time.Now().Add(time.Duration(i)*time.Second),
 		))
 		if i > 0 && i%10_000 == 0 {
+			fmt.Printf("Rows = %d\t", batch.Rows())
+			PrintMemUsage()
+
 			if flush {
 				require.NoError(t, batch.Flush())
 			}
-			PrintMemUsage()
 		}
 	}
 	require.NoError(t, batch.Send())

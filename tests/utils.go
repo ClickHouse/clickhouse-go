@@ -372,7 +372,7 @@ func GetConnection(testSet string, t *testing.T, protocol clickhouse.Protocol, s
 	case clickhouse.Native:
 		return getConnection(env, env.Database, settings, tlsConfig, compression)
 	case clickhouse.HTTP:
-		return getHTTPConnection(t, env, env.Database, settings, tlsConfig, compression)
+		return getHTTPConnection(env, t, env.Database, settings, tlsConfig, compression)
 	default:
 		return nil, fmt.Errorf("unknown protocol: %s", protocol)
 	}
@@ -385,6 +385,15 @@ func GetConnectionTCP(testSet string, settings clickhouse.Settings, tlsConfig *t
 	}
 
 	return getConnection(env, env.Database, settings, tlsConfig, compression)
+}
+
+func GetConnectionHTTP(testSet string, t *testing.T, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (driver.Conn, error) {
+	env, err := GetTestEnvironment(testSet)
+	if err != nil {
+		return nil, err
+	}
+
+	return getHTTPConnection(env, t, env.Database, settings, tlsConfig, compression)
 }
 
 func GetJWTConnection(testSet string, settings clickhouse.Settings, tlsConfig *tls.Config, maxConnLifetime time.Duration, jwtFunc clickhouse.GetJWTFunc) (driver.Conn, error) {
@@ -449,6 +458,7 @@ func getConnection(env ClickHouseTestEnvironment, database string, settings clic
 	}
 
 	conn, err := clickhouse.Open(&clickhouse.Options{
+		Protocol: clickhouse.Native,
 		Addr:     []string{fmt.Sprintf("%s:%d", env.Host, port)},
 		Settings: settings,
 		Auth: clickhouse.Auth{
@@ -463,7 +473,7 @@ func getConnection(env ClickHouseTestEnvironment, database string, settings clic
 	return conn, err
 }
 
-func getHTTPConnection(t *testing.T, env ClickHouseTestEnvironment, database string, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (driver.Conn, error) {
+func getHTTPConnection(env ClickHouseTestEnvironment, t *testing.T, database string, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (driver.Conn, error) {
 	useSSL, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_SSL", "false"))
 	if err != nil {
 		panic(err)
@@ -508,15 +518,9 @@ func getHTTPConnection(t *testing.T, env ClickHouseTestEnvironment, database str
 			Username: env.Username,
 			Password: env.Password,
 		},
-		TLS:                   tlsConfig,
-		Compression:           compression,
-		DialTimeout:           time.Duration(timeout) * time.Second,
-		ConnMaxLifetime:       1 * time.Second,
-		HttpMaxConnsPerHost:   1,
-		MaxOpenConns:          1,
-		MaxIdleConns:          1,
-		HttpDisableKeepAlives: true,
-		HttpIgnoreFlush:       true,
+		TLS:         tlsConfig,
+		Compression: compression,
+		DialTimeout: time.Duration(timeout) * time.Second,
 	})
 	return conn, err
 }

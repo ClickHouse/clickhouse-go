@@ -223,7 +223,6 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		IdleConnTimeout:       opt.ConnMaxLifetime,
 		ResponseHeaderTimeout: opt.ReadTimeout,
 		TLSClientConfig:       opt.TLS,
-		DisableKeepAlives:     opt.HttpDisableKeepAlives,
 	}
 
 	if opt.DialContext != nil {
@@ -269,7 +268,6 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		compressionPool: compressionPool,
 		blockBufferSize: opt.BlockBufferSize,
 		handshake:       handshake,
-		ignoreFlush:     opt.HttpIgnoreFlush,
 	}, nil
 }
 
@@ -283,7 +281,6 @@ type httpConnect struct {
 	compressionPool Pool[HTTPReaderWriter]
 	blockBufferSize uint8
 	handshake       proto.ServerHandshake
-	ignoreFlush     bool
 }
 
 func (h *httpConnect) isBad() bool {
