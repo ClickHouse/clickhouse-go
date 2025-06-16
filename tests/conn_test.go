@@ -292,7 +292,7 @@ func TestConnAcquireRelease(t *testing.T) {
 				Method: clickhouse.CompressionLZ4,
 			},
 			TLS:          tlsConfig,
-			DialTimeout:  1 * time.Millisecond, // Fast acquire failure
+			DialTimeout:  100 * time.Millisecond, // Fast acquire failure
 			MaxIdleConns: 1,
 			MaxOpenConns: 1, // Force one connection
 		})
@@ -309,7 +309,7 @@ func TestConnAcquireRelease(t *testing.T) {
 		finishedWg.Add(1)
 		go func() {
 			startedWg.Done()
-			require.NoError(t, conn.Exec(context.Background(), "SELECT sleep(0.3)"))
+			require.NoError(t, conn.Exec(context.Background(), "SELECT sleep(1)"))
 			finishedWg.Done()
 		}()
 		startedWg.Wait()
