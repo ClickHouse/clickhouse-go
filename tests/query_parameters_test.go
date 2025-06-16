@@ -20,11 +20,11 @@ package tests
 import (
 	"context"
 	"fmt"
-	"time"
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"testing"
+	"time"
 )
 
 func TestQueryParameters(t *testing.T) {

@@ -1,3 +1,31 @@
+# v2.37.0, 2025-06-16 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Enhancements 🎉 
+* Scanning Datetime and Datetime64 into int64 by @vaibhav-kt in https://github.com/ClickHouse/clickhouse-go/pull/1560
+* Supports scanning of Array, IPv4, IPv6, and Map types into Go values that implement the `sql.Scanner` interface. by @zapateo in https://github.com/ClickHouse/clickhouse-go/pull/1570
+* Support HTTP connnections in Native Go interface by @SpencerTorres in https://github.com/ClickHouse/clickhouse-go/pull/1577 (see details at bottom of release notes!)
+
+### Bug fixes 🐛  
+* fix: Prevent panic on slice map keys by @disq in https://github.com/ClickHouse/clickhouse-go/pull/1567
+* object_json: split JSON tag to remove any trailing omitempty by @dschofie in https://github.com/ClickHouse/clickhouse-go/pull/1547
+* fix: namedValue namedDatevalue usage error by @tosolveit in https://github.com/ClickHouse/clickhouse-go/pull/1575
+* Fix false positives in TestInterfaceArray by @tosolveit in https://github.com/ClickHouse/clickhouse-go/pull/1572
+
+### HTTP in ClickHouse API
+
+This release includes a bug fix / enhancement for the "ClickHouse API" interface. Previously the only way to use HTTP was through the `database/sql` interface, but now you can use `Protocol: clickhouse.HTTP` in your `clickhouse.Open` options.
+HTTP still has some limitations to be aware of for things like batch flushing and session context, so be cautious when switching over code to this protocol. Please report any issues you may have with this change. Native protocol shouldn't be affected, but you can downgrade to v2.36.x if you notice any issues.
+
+## New Contributors
+* @disq made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1567
+* @vaibhav-kt made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1560
+* @tosolveit made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1572
+* @dschofie made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1547
+* @zapateo made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1570
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.36.0...v2.37.0
+
 # v2.36.0, 2025-06-03 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
