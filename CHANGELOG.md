@@ -1,3 +1,15 @@
+# v2.37.1, 2025-06-17 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Bug fixes 🐛 
+* Fix Native API HTTP bugs by @SpencerTorres in https://github.com/ClickHouse/clickhouse-go/pull/1578
+* Fixed critical bug with the new HTTP Native API where connections were not being released.
+* Also fixed random HTTP 400 errors with large batches over HTTP 
+
+
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.37.0...v2.37.1
+
 # v2.37.0, 2025-06-16 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
