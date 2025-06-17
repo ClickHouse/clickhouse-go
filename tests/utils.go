@@ -43,7 +43,6 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 	"github.com/docker/docker/api/types/container"
-	"github.com/docker/go-connections/nat"
 	"github.com/docker/go-units"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -139,7 +138,7 @@ func CreateClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment,
 		fmt.Printf("Docker is not running and no clickhouse connections details were provided. Skipping IT tests: %s\n", err)
 		os.Exit(0)
 	}
-	fmt.Printf("Using Docker for IT tests\n")
+	fmt.Println("Using Docker for integration tests")
 	_, b, _, _ := runtime.Caller(0)
 	basePath := filepath.Dir(b)
 	if err != nil {
@@ -166,9 +165,8 @@ func CreateClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment,
 		Name:         containerName,
 		ExposedPorts: []string{"9000/tcp", "8123/tcp", "9440/tcp", "8443/tcp"},
 		WaitingFor: wait.ForAll(
-			wait.ForSQL("9000/tcp", "clickhouse", func(host string, port nat.Port) string {
-				return fmt.Sprintf("clickhouse://tester:ClickHouse@%s:%s?secure=false", host, port.Port())
-			}),
+			wait.ForListeningPort("9000/tcp"),
+			wait.ForListeningPort("8123/tcp"),
 		).WithDeadline(time.Second * 120),
 		Mounts: []testcontainers.ContainerMount{
 			testcontainers.BindMount(path.Join(basePath, "./resources/custom.xml"), "/etc/clickhouse-server/config.d/custom.xml"),
@@ -219,6 +217,10 @@ func CreateClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment,
 		Database:    GetEnv("CLICKHOUSE_DATABASE", getDatabaseName(testSet)),
 	}
 	testEnv.setVersion()
+
+	fmt.Printf("ClickHouse %s ready: Container=%s Host=%s TCP=%d HTTP=%d SSL=%d HTTPS=%d \n",
+		testEnv.Version.String(), testEnv.ContainerID[:12], testEnv.Host, testEnv.Port, testEnv.HttpPort, testEnv.SslPort, testEnv.HttpsPort)
+
 	return testEnv, nil
 }
 
