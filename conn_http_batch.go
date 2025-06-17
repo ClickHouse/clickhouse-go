@@ -235,6 +235,7 @@ func (b *httpBatch) IsSent() bool {
 func (b *httpBatch) Send() (err error) {
 	defer func() {
 		b.sent = true
+		b.release(err)
 	}()
 	if b.sent {
 		return ErrBatchAlreadySent
@@ -262,36 +263,30 @@ func (b *httpBatch) Send() (err error) {
 	connWriter := compressionWriter.reset(pipeWriter)
 
 	go func() {
-		var err error = nil
-		defer b.release(err)
+		var err error
 		defer pipeWriter.CloseWithError(err)
 		defer connWriter.Close()
 		b.conn.buffer.Reset()
-		rowCount := b.block.Rows()
-		if rowCount != 0 {
-			if err = b.conn.writeData(b.block); err != nil {
-				return
-			}
-		}
-		if err = b.conn.writeData(&proto.Block{}); err != nil {
+		if err = b.conn.writeData(b.block); err != nil {
 			return
 		}
 		if _, err = connWriter.Write(b.conn.buffer.Buf); err != nil {
 			return
 		}
-
-		b.conn.debugf("[batch send complete] rows=%d", rowCount)
 	}()
 
 	options.settings["query"] = b.query
 	headers["Content-Type"] = "application/octet-stream"
 
-	b.conn.debugf("[batch send started] rows=%d", b.block.Rows())
+	b.conn.debugf("[batch send start] columns=%d rows=%d", len(b.block.Columns), b.block.Rows())
 	res, err := b.conn.sendStreamQuery(b.ctx, pipeReader, &options, headers)
 	if err != nil {
-		return fmt.Errorf("sendStreamQuery: %w", err)
+		return fmt.Errorf("batch sendStreamQuery: %w", err)
 	}
 	discardAndClose(res.Body)
+
+	b.conn.debugf("[batch send complete]")
+	b.block.Reset()
 
 	return nil
 }
