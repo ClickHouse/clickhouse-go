@@ -33,7 +33,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -165,12 +164,12 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		if opt.Debugf != nil {
 			debugf = func(format string, v ...any) {
 				opt.Debugf(
-					"[clickhouse-http][conn=%d][%s] "+format,
-					append([]interface{}{num, addr}, v...)...,
+					"[clickhouse-http][%s][id=%d] "+format,
+					append([]interface{}{addr, num}, v...)...,
 				)
 			}
 		} else {
-			debugf = log.New(os.Stdout, fmt.Sprintf("[clickhouse-http][conn=%d][%s]", num, addr), 0).Printf
+			debugf = log.New(os.Stdout, fmt.Sprintf("[clickhouse-http][%s][id=%d]", addr, num), 0).Printf
 		}
 	}
 
@@ -216,6 +215,8 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 	}
 
 	query.Set("default_format", "Native")
+	// TODO: we support newer revisions but for some reason this completely breaks Native format
+	//query.Set("client_protocol_version", strconv.Itoa(ClientTCPProtocolVersion))
 	u.RawQuery = query.Encode()
 
 	httpProxy := http.ProxyFromEnvironment
@@ -241,13 +242,18 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		}
 	}
 
-	// Temporary conn for determining timezone + version
-	conn := &httpConnect{
-		opt: opt,
+	conn := httpConnect{
+		id:          num,
+		connectedAt: time.Now(),
+		released:    false,
+		debugfFunc:  debugf,
+		opt:         opt,
 		client: &http.Client{
 			Transport: t,
 		},
-		url:             u,
+		url: u,
+		// TODO: learn more about why revision is broken
+		//revision:        ClientTCPProtocolVersion,
 		buffer:          new(chproto.Buffer),
 		compression:     opt.Compression.Method,
 		blockCompressor: compress.NewWriter(compress.Level(opt.Compression.Level), compress.Method(opt.Compression.Method)),
@@ -259,30 +265,9 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 	if err != nil {
 		return nil, fmt.Errorf("failed to query server hello: %w", err)
 	}
-	// Close temp connection, important for freeing session_id if set
-	_ = conn.close()
+	conn.handshake = handshake
 
-	// Set client revision so we can decode updated versions of Native format
-	query.Set("client_protocol_version", strconv.Itoa(int(handshake.Revision)))
-	u.RawQuery = query.Encode()
-
-	return &httpConnect{
-		id:          num,
-		connectedAt: time.Now(),
-		released:    false,
-		debugfFunc:  debugf,
-		opt:         opt,
-		client: &http.Client{
-			Transport: t,
-		},
-		url:             u,
-		buffer:          new(chproto.Buffer),
-		compression:     opt.Compression.Method,
-		blockCompressor: compress.NewWriter(compress.Level(opt.Compression.Level), compress.Method(opt.Compression.Method)),
-		compressionPool: compressionPool,
-		blockBufferSize: opt.BlockBufferSize,
-		handshake:       handshake,
-	}, nil
+	return &conn, nil
 }
 
 type httpConnect struct {
@@ -291,6 +276,7 @@ type httpConnect struct {
 	released        bool
 	debugfFunc      func(format string, v ...any)
 	opt             *Options
+	revision        uint64
 	url             *url.URL
 	client          *http.Client
 	buffer          *chproto.Buffer
@@ -333,6 +319,7 @@ func (h *httpConnect) isBad() bool {
 }
 
 func (h *httpConnect) queryHello(ctx context.Context, release nativeTransportRelease) (proto.ServerHandshake, error) {
+	h.debugf("[query hello]")
 	ctx = Context(ctx, ignoreExternalTables())
 	query := "SELECT displayName(), version(), revision(), timezone()"
 	rows, err := h.query(ctx, release, query)
@@ -420,8 +407,8 @@ func createCompressionPool(compression *Compression) (Pool[HTTPReaderWriter], er
 func (h *httpConnect) writeData(block *proto.Block) error {
 	// Saving offset of compressible data
 	start := len(h.buffer.Buf)
-	if err := block.Encode(h.buffer, 0); err != nil {
-		return err
+	if err := block.Encode(h.buffer, h.revision); err != nil {
+		return fmt.Errorf("block encode: %w", err)
 	}
 	if h.compression == CompressionLZ4 || h.compression == CompressionZSTD {
 		// Performing compression. Supported and requires
@@ -445,8 +432,8 @@ func (h *httpConnect) readData(reader *chproto.Reader, timezone *time.Location) 
 		reader.EnableCompression()
 		defer reader.DisableCompression()
 	}
-	if err := block.Decode(reader, h.handshake.Revision); err != nil {
-		return nil, err
+	if err := block.Decode(reader, h.revision); err != nil {
+		return nil, fmt.Errorf("block decode: %w", err)
 	}
 	return &block, nil
 }
@@ -564,7 +551,7 @@ func (h *httpConnect) createRequestWithExternalTables(ctx context.Context, query
 			return nil, err
 		}
 		buf.Reset()
-		err = table.Block().Encode(buf, 0)
+		err = table.Block().Encode(buf, h.revision)
 		if err != nil {
 			return nil, err
 		}
@@ -597,11 +584,12 @@ func (h *httpConnect) executeRequest(req *http.Request) (*http.Response, error) 
 
 	if resp.StatusCode != http.StatusOK {
 		defer discardAndClose(resp.Body)
-		msg, err := h.readRawResponse(resp)
+		msgBytes, err := h.readRawResponse(resp)
 		if err != nil {
-			return nil, fmt.Errorf("clickhouse [execute]:: %d code: failed to read the response: %w", resp.StatusCode, err)
+			return nil, fmt.Errorf("[HTTP %d] failed to read response: %w", resp.StatusCode, err)
 		}
-		return nil, fmt.Errorf("clickhouse [execute]:: %d code: %s", resp.StatusCode, string(msg))
+
+		return nil, fmt.Errorf("[HTTP %d] response body: \"%s\"", resp.StatusCode, string(msgBytes))
 	}
 	return resp, nil
 }

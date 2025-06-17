@@ -77,11 +77,7 @@ func fetchColumnNamesAndTypesForInsert(h *httpConnect, release nativeTransportRe
 	} else {
 		// Use all columns
 		for _, colName := range allColumns {
-			colType, ok := columnsToTypes[colName]
-			if !ok {
-				return nil, fmt.Errorf("column %s is not present in the table %s", colName, tableName)
-			}
-
+			colType := columnsToTypes[colName]
 			insertColumns = append(insertColumns, ColumnNameAndType{
 				Name: colName,
 				Type: colType,
@@ -121,10 +117,12 @@ func newBlock(h *httpConnect, release nativeTransportRelease, ctx context.Contex
 }
 
 func (h *httpConnect) prepareBatch(ctx context.Context, release nativeTransportRelease, acquire nativeTransportAcquire, query string, opts driver.PrepareBatchOptions) (driver.Batch, error) {
-	// release is not used for newBlock since the connection is held for the batch.
+	// release is not used within newBlock since the connection is held for the batch.
 	query, block, err := newBlock(h, func(nativeTransport, error) {}, ctx, query)
 	if err != nil {
-		return nil, fmt.Errorf("failed to init block for HTTP batch: %w", err)
+		err = fmt.Errorf("failed to init block for HTTP batch: %w", err)
+		release(h, err)
+		return nil, err
 	}
 
 	return &httpBatch{
@@ -237,6 +235,7 @@ func (b *httpBatch) IsSent() bool {
 func (b *httpBatch) Send() (err error) {
 	defer func() {
 		b.sent = true
+		b.release(err)
 	}()
 	if b.sent {
 		return ErrBatchAlreadySent
@@ -264,33 +263,29 @@ func (b *httpBatch) Send() (err error) {
 	connWriter := compressionWriter.reset(pipeWriter)
 
 	go func() {
-		var err error = nil
+		var err error
 		defer pipeWriter.CloseWithError(err)
 		defer connWriter.Close()
 		b.conn.buffer.Reset()
-		if b.block.Rows() != 0 {
-			if err = b.conn.writeData(b.block); err != nil {
-				return
-			}
-		}
-		if err = b.conn.writeData(&proto.Block{}); err != nil {
+		if err = b.conn.writeData(b.block); err != nil {
 			return
 		}
 		if _, err = connWriter.Write(b.conn.buffer.Buf); err != nil {
 			return
 		}
-		b.release(nil)
 	}()
 
 	options.settings["query"] = b.query
 	headers["Content-Type"] = "application/octet-stream"
 
+	b.conn.debugf("[batch send start] columns=%d rows=%d", len(b.block.Columns), b.block.Rows())
 	res, err := b.conn.sendStreamQuery(b.ctx, pipeReader, &options, headers)
 	if err != nil {
-		return err
+		return fmt.Errorf("batch sendStreamQuery: %w", err)
 	}
 	discardAndClose(res.Body)
 
+	b.conn.debugf("[batch send complete]")
 	b.block.Reset()
 
 	return nil
