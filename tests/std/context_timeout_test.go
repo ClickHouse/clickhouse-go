@@ -52,7 +52,7 @@ func TestStdContextStdTimeout(t *testing.T) {
 						case *url.Error:
 							assert.Equal(t, context.DeadlineExceeded, err.Err)
 						default:
-							assert.Equal(t, context.DeadlineExceeded, err)
+							assert.ErrorIs(t, err, context.DeadlineExceeded)
 						}
 					}
 				}
