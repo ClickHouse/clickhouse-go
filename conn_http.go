@@ -33,7 +33,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -216,7 +215,8 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 	}
 
 	query.Set("default_format", "Native")
-	query.Set("client_protocol_version", strconv.Itoa(ClientTCPProtocolVersion))
+	// TODO: we support newer revisions but for some reason this completely breaks Native format
+	//query.Set("client_protocol_version", strconv.Itoa(ClientTCPProtocolVersion))
 	u.RawQuery = query.Encode()
 
 	httpProxy := http.ProxyFromEnvironment
@@ -251,8 +251,9 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		client: &http.Client{
 			Transport: t,
 		},
-		url:             u,
-		revision:        ClientTCPProtocolVersion,
+		url: u,
+		// TODO: learn more about why revision is broken
+		//revision:        ClientTCPProtocolVersion,
 		buffer:          new(chproto.Buffer),
 		compression:     opt.Compression.Method,
 		blockCompressor: compress.NewWriter(compress.Level(opt.Compression.Level), compress.Method(opt.Compression.Method)),
@@ -407,7 +408,7 @@ func (h *httpConnect) writeData(block *proto.Block) error {
 	// Saving offset of compressible data
 	start := len(h.buffer.Buf)
 	if err := block.Encode(h.buffer, h.revision); err != nil {
-		return err
+		return fmt.Errorf("block encode: %w", err)
 	}
 	if h.compression == CompressionLZ4 || h.compression == CompressionZSTD {
 		// Performing compression. Supported and requires
