@@ -1,3 +1,12 @@
+# v2.37.2, 2025-06-23 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Other Changes 🛠
+* remove dependency on v1, update ch-go by @SpencerTorres in https://github.com/ClickHouse/clickhouse-go/pull/1580
+
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.37.1...v2.37.2
+
 # v2.37.1, 2025-06-17 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
