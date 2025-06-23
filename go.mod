@@ -5,11 +5,9 @@ go 1.23.0
 toolchain go1.24.1
 
 require (
-	github.com/ClickHouse/ch-go v0.66.0
-	github.com/ClickHouse/clickhouse-go v1.5.4
+	github.com/ClickHouse/ch-go v0.66.1
 	github.com/andybalholm/brotli v1.1.1
 	github.com/docker/docker v28.2.2+incompatible
-	github.com/docker/go-connections v0.5.0
 	github.com/docker/go-units v0.5.0
 	github.com/google/uuid v1.6.0
 	github.com/mkevac/debugcharts v0.0.0-20191222103121-ae1c48aa8615
@@ -29,7 +27,6 @@ require (
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
-	github.com/cloudflare/golz4 v0.0.0-20150217214814-ef862a3cdc58 // indirect
 	github.com/containerd/errdefs v1.0.0 // indirect
 	github.com/containerd/errdefs/pkg v0.3.0 // indirect
 	github.com/containerd/log v0.1.0 // indirect
@@ -37,6 +34,7 @@ require (
 	github.com/cpuguy83/dockercfg v0.3.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/distribution/reference v0.6.0 // indirect
+	github.com/docker/go-connections v0.5.0 // indirect
 	github.com/ebitengine/purego v0.8.2 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/go-faster/city v1.0.1 // indirect
