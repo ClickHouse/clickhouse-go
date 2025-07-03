@@ -288,6 +288,11 @@ func format(tz *time.Location, scale TimeUnit, v any) (string, error) {
 		return quote(v), nil
 	case time.Time:
 		return formatTime(tz, scale, v)
+	case *time.Time:
+		if v == nil {
+			return "NULL", nil
+		}
+		return formatTime(tz, scale, *v)
 	case bool:
 		if v {
 			return "1", nil
