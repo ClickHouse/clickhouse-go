@@ -321,7 +321,7 @@ func (c *Dynamic) decodeHeader(reader *proto.Reader) error {
 	}
 
 	if dynamicSerializationVersion == DeprecatedSupportedDynamicSerializationVersion {
-		return fmt.Errorf("deprecated dynamic serialization version: %d, enable \"output_format_native_use_flattened_dynamic_and_json_serialization\" in your settings.", dynamicSerializationVersion)
+		return fmt.Errorf("deprecated dynamic serialization version: %d, enable \"output_format_native_use_flattened_dynamic_and_json_serialization\" in your settings", dynamicSerializationVersion)
 	} else if dynamicSerializationVersion != SupportedDynamicSerializationVersion {
 		return fmt.Errorf("unsupported dynamic serialization version: %d", dynamicSerializationVersion)
 	}
