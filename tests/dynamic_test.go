@@ -19,6 +19,7 @@ package tests
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -200,6 +201,46 @@ func TestDynamicMaxTypes(t *testing.T) {
 		require.NoError(t, rows.Close())
 		require.NoError(t, rows.Err())
 	})
+}
+
+// Discriminator precision must grow dynamically depending on the number of types within the Dynamic.
+// This test confirms that we can go beyond UInt8/255 types.
+func TestDynamicExceededTypes(t *testing.T) {
+	conn := setupDynamicTest(t, clickhouse.Native)
+	ctx := context.Background()
+
+	const ddl = `
+		CREATE TABLE IF NOT EXISTS test_dynamic_exceeded_types (
+			  c Dynamic
+		) Engine = MergeTree() ORDER BY tuple()
+	`
+	require.NoError(t, conn.Exec(ctx, ddl))
+	defer func() {
+		require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS test_dynamic_exceeded_types"))
+	}()
+
+	testTypeCount := func(typeCount int) func(t *testing.T) {
+		return func(t *testing.T) {
+			batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_dynamic_exceeded_types (c)")
+			require.NoError(t, err)
+
+			for i := 0; i < typeCount; i++ {
+				typeName := fmt.Sprintf("Tuple(\"%d\" Int64)", i)
+				require.NoError(t, batch.Append(clickhouse.NewDynamicWithType([]int64{int64(i)}, typeName)))
+			}
+			require.NoError(t, batch.Send())
+
+			rows, err := conn.Query(ctx, "SELECT c FROM test_dynamic_exceeded_types")
+			require.NoError(t, err)
+
+			require.NoError(t, rows.Close())
+			require.NoError(t, rows.Err())
+		}
+	}
+
+	t.Run("less than UInt8", testTypeCount(16))
+	t.Run("UInt8 bounds", testTypeCount(255))
+	t.Run("UInt16 range", testTypeCount(300))
 }
 
 func TestDynamicArray(t *testing.T) {
