@@ -76,6 +76,8 @@ func TestDynamic(t *testing.T) {
 		require.NoError(t, batch.Append(colNil))
 		colSliceUInt8 := []uint8{0xA, 0xB, 0xC}
 		require.NoError(t, batch.Append(clickhouse.NewDynamicWithType(colSliceUInt8, "Array(UInt8)")))
+		colSliceSliceUInt8 := [][]uint8{{0xA, 0xB}, {0xC, 0xD}}
+		require.NoError(t, batch.Append(clickhouse.NewDynamicWithType(colSliceSliceUInt8, "Array(Array(UInt8))")))
 		colSliceMapStringString := []map[string]string{{"key1": "value1", "key2": "value2"}, {"key3": "value3"}}
 		require.NoError(t, batch.Append(clickhouse.NewDynamicWithType(colSliceMapStringString, "Array(Map(String, String))")))
 		colMapStringString := map[string]string{"key1": "value1", "key2": "value2"}
@@ -118,6 +120,11 @@ func TestDynamic(t *testing.T) {
 		err = rows.Scan(&row)
 		require.NoError(t, err)
 		require.Equal(t, colSliceUInt8, row.Any())
+
+		require.True(t, rows.Next())
+		err = rows.Scan(&row)
+		require.NoError(t, err)
+		require.Equal(t, colSliceSliceUInt8, row.Any())
 
 		require.True(t, rows.Next())
 		err = rows.Scan(&row)

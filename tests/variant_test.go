@@ -156,6 +156,43 @@ func TestVariant(t *testing.T) {
 	})
 }
 
+func TestVariantPrefix(t *testing.T) {
+	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		conn := setupVariantTest(t, protocol)
+		ctx := context.Background()
+
+		const ddl = `
+			CREATE TABLE IF NOT EXISTS test_variant_prefix (
+				  c Variant(LowCardinality(String))                  
+			) Engine = MergeTree() ORDER BY tuple()
+		`
+		require.NoError(t, conn.Exec(ctx, ddl))
+		defer func() {
+			require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS test_variant_prefix"))
+		}()
+
+		batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_variant_prefix (c)")
+		require.NoError(t, err)
+
+		val := "a"
+		require.NoError(t, batch.Append(clickhouse.NewVariantWithType(val, "LowCardinality(String)")))
+		require.NoError(t, batch.Send())
+
+		rows, err := conn.Query(ctx, "SELECT c FROM test_variant_prefix")
+		require.NoError(t, err)
+
+		var row clickhouse.Variant
+
+		require.True(t, rows.Next())
+		err = rows.Scan(&row)
+		require.NoError(t, err)
+		require.Equal(t, val, row.Any())
+
+		require.NoError(t, rows.Close())
+		require.NoError(t, rows.Err())
+	})
+}
+
 func TestVariantArray(t *testing.T) {
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
 		conn := setupVariantTest(t, protocol)
