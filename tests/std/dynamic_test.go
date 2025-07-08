@@ -40,7 +40,7 @@ func setupDynamicTest(t *testing.T) *sql.DB {
 	})
 	require.NoError(t, err)
 
-	if !CheckMinServerVersion(conn, 24, 8, 0) {
+	if !CheckMinServerVersion(conn, 25, 6, 0) {
 		t.Skip(fmt.Errorf("unsupported clickhouse version for Dynamic type"))
 		return nil
 	}
