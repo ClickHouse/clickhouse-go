@@ -36,7 +36,6 @@ func setupDynamicTest(t *testing.T, protocol clickhouse.Protocol) driver.Conn {
 	conn, err := GetNativeConnection(t, protocol, clickhouse.Settings{
 		"max_execution_time":              60,
 		"allow_experimental_dynamic_type": true,
-		"output_format_native_use_flattened_dynamic_and_json_serialization": true,
 	}, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})

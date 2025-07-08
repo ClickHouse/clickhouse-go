@@ -31,11 +31,10 @@ func setupJSONTest(t *testing.T, protocol clickhouse.Protocol) driver.Conn {
 	SkipOnCloud(t, "cannot modify JSON settings on cloud")
 
 	conn, err := GetNativeConnection(t, protocol, clickhouse.Settings{
-		"max_execution_time":                                                60,
-		"allow_experimental_variant_type":                                   true,
-		"allow_experimental_dynamic_type":                                   true,
-		"allow_experimental_json_type":                                      true,
-		"output_format_native_use_flattened_dynamic_and_json_serialization": true,
+		"max_execution_time":              60,
+		"allow_experimental_variant_type": true,
+		"allow_experimental_dynamic_type": true,
+		"allow_experimental_json_type":    true,
 	}, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
