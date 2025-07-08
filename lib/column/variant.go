@@ -263,8 +263,18 @@ func (c *Variant) AppendRow(v any) error {
 	return fmt.Errorf("value \"%v\" cannot be stored in variant column: no compatible types", v)
 }
 
-func (c *Variant) encodeHeader(buffer *proto.Buffer) {
+func (c *Variant) encodeHeader(buffer *proto.Buffer) error {
 	buffer.PutUInt64(SupportedVariantSerializationVersion)
+
+	for _, col := range c.columns {
+		if serialize, ok := col.(CustomSerialization); ok {
+			if err := serialize.WriteStatePrefix(buffer); err != nil {
+				return fmt.Errorf("failed to write prefix for type %s in variant: %w", col.Type(), err)
+			}
+		}
+	}
+
+	return nil
 }
 
 func (c *Variant) encodeData(buffer *proto.Buffer) {
@@ -276,9 +286,7 @@ func (c *Variant) encodeData(buffer *proto.Buffer) {
 }
 
 func (c *Variant) WriteStatePrefix(buffer *proto.Buffer) error {
-	c.encodeHeader(buffer)
-
-	return nil
+	return c.encodeHeader(buffer)
 }
 
 func (c *Variant) Encode(buffer *proto.Buffer) {
