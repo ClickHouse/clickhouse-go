@@ -27,13 +27,14 @@ func DynamicExample() error {
 	ctx := context.Background()
 
 	conn, err := GetNativeConnection(clickhouse.Settings{
-		"allow_experimental_dynamic_type": true,
+		"allow_experimental_dynamic_type":                                   true,
+		"output_format_native_use_flattened_dynamic_and_json_serialization": true,
 	}, nil, nil)
 	if err != nil {
 		return err
 	}
 
-	if !CheckMinServerVersion(conn, 24, 8, 0) {
+	if !CheckMinServerVersion(conn, 25, 6, 0) {
 		fmt.Print("unsupported clickhouse version for Dynamic type")
 		return nil
 	}

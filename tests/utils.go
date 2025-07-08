@@ -447,6 +447,13 @@ func getConnection(env ClickHouseTestEnvironment, database string, settings clic
 	}, env.Version) {
 		settings["database_replicated_enforce_synchronous_settings"] = "1"
 	}
+	if proto.CheckMinVersion(proto.Version{
+		Major: 25,
+		Minor: 6,
+		Patch: 0,
+	}, env.Version) {
+		settings["output_format_native_use_flattened_dynamic_and_json_serialization"] = "1"
+	}
 	settings["insert_quorum"], err = strconv.Atoi(GetEnv("CLICKHOUSE_QUORUM_INSERT", "1"))
 	settings["insert_quorum_parallel"] = 0
 	settings["select_sequential_consistency"] = 1
@@ -494,6 +501,13 @@ func getHTTPConnection(env ClickHouseTestEnvironment, t *testing.T, database str
 		Patch: 0,
 	}, env.Version) {
 		settings["database_replicated_enforce_synchronous_settings"] = "1"
+	}
+	if proto.CheckMinVersion(proto.Version{
+		Major: 25,
+		Minor: 6,
+		Patch: 0,
+	}, env.Version) {
+		settings["output_format_native_use_flattened_dynamic_and_json_serialization"] = "1"
 	}
 	settings["insert_quorum"], err = strconv.Atoi(GetEnv("CLICKHOUSE_QUORUM_INSERT", "1"))
 	settings["insert_quorum_parallel"] = 0

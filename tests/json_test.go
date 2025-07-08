@@ -20,7 +20,6 @@ package tests
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"testing"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
@@ -30,10 +29,6 @@ import (
 
 func setupJSONTest(t *testing.T, protocol clickhouse.Protocol) driver.Conn {
 	SkipOnCloud(t, "cannot modify JSON settings on cloud")
-
-	if protocol == clickhouse.HTTP {
-		t.Skip("unsupported serialization version 2 on HTTP")
-	}
 
 	conn, err := GetNativeConnection(t, protocol, clickhouse.Settings{
 		"max_execution_time":              60,
@@ -45,7 +40,7 @@ func setupJSONTest(t *testing.T, protocol clickhouse.Protocol) driver.Conn {
 	})
 	require.NoError(t, err)
 
-	if !CheckMinServerServerVersion(conn, 24, 10, 0) {
+	if !CheckMinServerServerVersion(conn, 25, 6, 0) {
 		t.Skip("unsupported clickhouse version for JSON type")
 	}
 
@@ -58,16 +53,16 @@ func TestJSONPaths(t *testing.T) {
 		ctx := context.Background()
 
 		const ddl = `
-			CREATE TABLE IF NOT EXISTS test_json (
+			CREATE TABLE IF NOT EXISTS test_json_paths (
 				  c JSON(Name String, Age Int64, KeysNumbers Map(String, Int64), SKIP fake.field)
 			) Engine = MergeTree() ORDER BY tuple()
 		`
 		require.NoError(t, conn.Exec(ctx, ddl))
 		defer func() {
-			require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS test_json"))
+			require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS test_json_paths"))
 		}()
 
-		batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_json (c)")
+		batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_json_paths (c)")
 		require.NoError(t, err)
 
 		jsonRow := BuildTestJSONPaths()
@@ -75,7 +70,7 @@ func TestJSONPaths(t *testing.T) {
 		require.NoError(t, batch.Append(jsonRow))
 		require.NoError(t, batch.Send())
 
-		rows, err := conn.Query(ctx, "SELECT c FROM test_json")
+		rows, err := conn.Query(ctx, "SELECT c FROM test_json_paths")
 		require.NoError(t, err)
 
 		var row clickhouse.JSON
@@ -115,16 +110,16 @@ func TestJSONArray(t *testing.T) {
 		ctx := context.Background()
 
 		const ddl = `
-			CREATE TABLE IF NOT EXISTS test_json (
+			CREATE TABLE IF NOT EXISTS test_json_array (
 				  c Array(JSON)
 			) Engine = MergeTree() ORDER BY tuple()
 		`
 		require.NoError(t, conn.Exec(ctx, ddl))
 		defer func() {
-			require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS test_json"))
+			require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS test_json_array"))
 		}()
 
-		batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_json (c)")
+		batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_json_array (c)")
 		require.NoError(t, err)
 
 		arrJsonRow := []*clickhouse.JSON{clickhouse.NewJSON(), BuildTestJSONPaths()}
@@ -132,7 +127,7 @@ func TestJSONArray(t *testing.T) {
 		require.NoError(t, batch.Append(arrJsonRow))
 		require.NoError(t, batch.Send())
 
-		rows, err := conn.Query(ctx, "SELECT c FROM test_json")
+		rows, err := conn.Query(ctx, "SELECT c FROM test_json_array")
 		require.NoError(t, err)
 
 		var arrRow []*clickhouse.JSON
@@ -183,23 +178,23 @@ func TestJSONEmptyArray(t *testing.T) {
 		ctx := context.Background()
 
 		const ddl = `
-			CREATE TABLE IF NOT EXISTS test_json (
+			CREATE TABLE IF NOT EXISTS test_json_empty_array (
 				  c Array(JSON)
 			) Engine = MergeTree() ORDER BY tuple()
 		`
 		require.NoError(t, conn.Exec(ctx, ddl))
 		defer func() {
-			require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS test_json"))
+			require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS test_json_empty_array"))
 		}()
 
-		batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_json (c)")
+		batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_json_empty_array (c)")
 		require.NoError(t, err)
 
 		var arrJsonRow []*clickhouse.JSON
 		require.NoError(t, batch.Append(arrJsonRow))
 		require.NoError(t, batch.Send())
 
-		rows, err := conn.Query(ctx, "SELECT c FROM test_json")
+		rows, err := conn.Query(ctx, "SELECT c FROM test_json_empty_array")
 		require.NoError(t, err)
 
 		var arrRow []*clickhouse.JSON
@@ -220,16 +215,16 @@ func TestJSONStruct(t *testing.T) {
 		ctx := context.Background()
 
 		const ddl = `
-			CREATE TABLE IF NOT EXISTS test_json (
+			CREATE TABLE IF NOT EXISTS test_json_struct (
 				  c JSON(Name String, Age Int64, KeysNumbers Map(String, Int64), SKIP fake.field)
 			) Engine = MergeTree() ORDER BY tuple()
 		`
 		require.NoError(t, conn.Exec(ctx, ddl))
 		defer func() {
-			require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS test_json"))
+			require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS test_json_struct"))
 		}()
 
-		batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_json (c)")
+		batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_json_struct (c)")
 		require.NoError(t, err)
 
 		inputRow := BuildTestJSONStruct()
@@ -253,7 +248,7 @@ func TestJSONStruct(t *testing.T) {
 
 		require.NoError(t, batch.Send())
 
-		rows, err := conn.Query(ctx, "SELECT c FROM test_json")
+		rows, err := conn.Query(ctx, "SELECT c FROM test_json_struct")
 		require.NoError(t, err)
 
 		var row TestStruct
@@ -288,16 +283,16 @@ func TestJSONFastStruct(t *testing.T) {
 		ctx := context.Background()
 
 		const ddl = `
-			CREATE TABLE IF NOT EXISTS test_json (
+			CREATE TABLE IF NOT EXISTS test_json_fast_struct (
 				  c JSON(Name String, Age Int64, KeysNumbers Map(String, Int64), SKIP fake.field)
 			) Engine = MergeTree() ORDER BY tuple()
 		`
 		require.NoError(t, conn.Exec(ctx, ddl))
 		defer func() {
-			require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS test_json"))
+			require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS test_json_fast_struct"))
 		}()
 
-		batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_json (c)")
+		batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_json_fast_struct (c)")
 		require.NoError(t, err)
 
 		inputRow := BuildFastTestJSONStruct()
@@ -305,7 +300,7 @@ func TestJSONFastStruct(t *testing.T) {
 
 		require.NoError(t, batch.Send())
 
-		rows, err := conn.Query(ctx, "SELECT c FROM test_json")
+		rows, err := conn.Query(ctx, "SELECT c FROM test_json_fast_struct")
 		require.NoError(t, err)
 
 		var row TestStruct
@@ -321,25 +316,24 @@ func TestJSONFastStruct(t *testing.T) {
 }
 
 func TestJSONString(t *testing.T) {
-	t.Skip("client cannot receive JSON strings")
-
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
 		conn := setupJSONTest(t, protocol)
 		ctx := context.Background()
 
 		require.NoError(t, conn.Exec(ctx, "SET output_format_native_write_json_as_string=1"))
+		require.NoError(t, conn.Exec(ctx, "SET output_format_json_quote_64bit_integers=0"))
 
 		const ddl = `
-			CREATE TABLE IF NOT EXISTS test_json (
+			CREATE TABLE IF NOT EXISTS test_json_string (
 				  c JSON(Name String, Age Int64, KeysNumbers Map(String, Int64), SKIP fake.field)
 			) Engine = MergeTree() ORDER BY tuple()
 		`
 		require.NoError(t, conn.Exec(ctx, ddl))
 		defer func() {
-			require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS test_json"))
+			require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS test_json_string"))
 		}()
 
-		batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_json (c)")
+		batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_json_string (c)")
 		require.NoError(t, err)
 
 		inputRow := BuildTestJSONStruct()
@@ -349,7 +343,7 @@ func TestJSONString(t *testing.T) {
 		require.NoError(t, batch.Append(inputRowStr))
 		require.NoError(t, batch.Send())
 
-		rows, err := conn.Query(ctx, "SELECT c FROM test_json")
+		rows, err := conn.Query(ctx, "SELECT c FROM test_json_string")
 		require.NoError(t, err)
 
 		var row json.RawMessage
@@ -358,11 +352,14 @@ func TestJSONString(t *testing.T) {
 		err = rows.Scan(&row)
 		require.NoError(t, err)
 
-		require.Equal(t, string(inputRowStr), string(row))
-
 		var rowStruct TestStruct
 		err = json.Unmarshal(row, &rowStruct)
 		require.NoError(t, err)
+
+		// Re-Marshal to get properties in the same order
+		rowStructStr, err := json.Marshal(rowStruct)
+		require.NoError(t, err)
+		require.Equal(t, inputRowStr, rowStructStr)
 
 		require.NoError(t, rows.Close())
 		require.NoError(t, rows.Err())
@@ -370,23 +367,22 @@ func TestJSONString(t *testing.T) {
 }
 
 func TestJSON_BatchFlush(t *testing.T) {
-	t.Skip(fmt.Errorf("server-side JSON bug"))
-
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		SkipOnHTTP(t, protocol, "Flush")
 		conn := setupJSONTest(t, protocol)
 		ctx := context.Background()
 
 		const ddl = `
-			CREATE TABLE IF NOT EXISTS test_json (
+			CREATE TABLE IF NOT EXISTS test_json_batch_flush (
 				  c JSON
 			) Engine = MergeTree() ORDER BY tuple()
 		`
 		require.NoError(t, conn.Exec(ctx, ddl))
 		defer func() {
-			require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS test_json"))
+			require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS test_json_batch_flush"))
 		}()
 
-		batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_json (c)")
+		batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_json_batch_flush (c)")
 		require.NoError(t, err)
 
 		vals := make([]*clickhouse.JSON, 0, 1000)
@@ -406,7 +402,7 @@ func TestJSON_BatchFlush(t *testing.T) {
 		}
 		require.NoError(t, batch.Send())
 
-		rows, err := conn.Query(ctx, "SELECT c FROM test_json")
+		rows, err := conn.Query(ctx, "SELECT c FROM test_json_batch_flush")
 		require.NoError(t, err)
 
 		i := 0

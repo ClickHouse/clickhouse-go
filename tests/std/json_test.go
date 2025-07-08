@@ -40,12 +40,18 @@ func setupJSONTest(t *testing.T) *sql.DB {
 	})
 	require.NoError(t, err)
 
-	if !CheckMinServerVersion(conn, 24, 9, 0) {
+	if !CheckMinServerVersion(conn, 25, 6, 0) {
 		t.Skip(fmt.Errorf("unsupported clickhouse version for JSON type"))
 		return nil
 	}
 
 	_, err = conn.ExecContext(context.Background(), "SET allow_experimental_json_type = 1")
+	if err != nil {
+		t.Fatal(err)
+		return nil
+	}
+
+	_, err = conn.ExecContext(context.Background(), "SET output_format_native_use_flattened_dynamic_and_json_serialization = 1")
 	if err != nil {
 		t.Fatal(err)
 		return nil
@@ -254,7 +260,7 @@ func TestJSONStruct(t *testing.T) {
 }
 
 func TestJSONString(t *testing.T) {
-	t.Skip("client cannot receive JSON strings")
+	t.Skip("cannot scan JSON strings")
 
 	ctx := context.Background()
 	conn := setupJSONTest(t)

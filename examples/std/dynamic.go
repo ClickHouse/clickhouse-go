@@ -31,12 +31,17 @@ func DynamicExample() error {
 		return err
 	}
 
-	if !CheckMinServerVersion(conn, 24, 8, 0) {
+	if !CheckMinServerVersion(conn, 25, 6, 0) {
 		fmt.Print("unsupported clickhouse version for Dynamic type")
 		return nil
 	}
 
 	_, err = conn.ExecContext(ctx, "SET allow_experimental_dynamic_type = 1")
+	if err != nil {
+		return err
+	}
+
+	_, err = conn.ExecContext(ctx, "SET output_format_native_use_flattened_dynamic_and_json_serialization = 1")
 	if err != nil {
 		return err
 	}

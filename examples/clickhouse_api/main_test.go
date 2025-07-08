@@ -234,6 +234,5 @@ func TestJSONFastStructExample(t *testing.T) {
 
 func TestJSONStringExample(t *testing.T) {
 	clickhouse_tests.SkipOnCloud(t, "cannot modify JSON settings on cloud")
-	t.Skip("client cannot receive JSON strings")
 	require.NoError(t, JSONStringExample())
 }
