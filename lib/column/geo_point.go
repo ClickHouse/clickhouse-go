@@ -20,8 +20,9 @@ package column
 import (
 	"database/sql/driver"
 	"fmt"
-	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
+
+	"github.com/ClickHouse/ch-go/proto"
 
 	"github.com/paulmach/orb"
 )
@@ -155,11 +156,11 @@ func (col *Point) AppendRow(v any) error {
 	return nil
 }
 
-func (col *Point) Decode(reader *proto.Reader, rows int) error {
+func (col *Point) Decode(reader *proto.Reader, revision uint64, rows int) error {
 	return col.col.DecodeColumn(reader, rows)
 }
 
-func (col *Point) Encode(buffer *proto.Buffer) {
+func (col *Point) Encode(buffer *proto.Buffer, revision uint64) {
 	col.col.EncodeColumn(buffer)
 }
 

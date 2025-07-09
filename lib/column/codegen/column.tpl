@@ -436,11 +436,11 @@ func (col *{{ .ChType }}) AppendRow(v any) error {
 	return nil
 }
 
-func (col *{{ .ChType }}) Decode(reader *proto.Reader, rows int) error {
+func (col *{{ .ChType }}) Decode(reader *proto.Reader, revision uint64, rows int) error {
 	return col.col.DecodeColumn(reader, rows)
 }
 
-func (col *{{ .ChType }}) Encode(buffer *proto.Buffer) {
+func (col *{{ .ChType }}) Encode(buffer *proto.Buffer, revision uint64) {
 	col.col.EncodeColumn(buffer)
 }
 

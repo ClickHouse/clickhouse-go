@@ -88,18 +88,18 @@ func nestedColumns(raw string) (columns []namedCol) {
 	return
 }
 
-func (col *Nested) ReadStatePrefix(reader *proto.Reader) error {
+func (col *Nested) ReadStatePrefix(reader *proto.Reader, revision uint64) error {
 	if serialize, ok := col.Interface.(CustomSerialization); ok {
-		if err := serialize.ReadStatePrefix(reader); err != nil {
+		if err := serialize.ReadStatePrefix(reader, revision); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (col *Nested) WriteStatePrefix(buffer *proto.Buffer) error {
+func (col *Nested) WriteStatePrefix(buffer *proto.Buffer, revision uint64) error {
 	if serialize, ok := col.Interface.(CustomSerialization); ok {
-		if err := serialize.WriteStatePrefix(buffer); err != nil {
+		if err := serialize.WriteStatePrefix(buffer, revision); err != nil {
 			return err
 		}
 	}

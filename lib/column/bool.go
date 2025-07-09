@@ -21,8 +21,9 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
-	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
+
+	"github.com/ClickHouse/ch-go/proto"
 )
 
 type Bool struct {
@@ -175,11 +176,11 @@ func (col *Bool) AppendRow(v any) error {
 	return nil
 }
 
-func (col *Bool) Decode(reader *proto.Reader, rows int) error {
+func (col *Bool) Decode(reader *proto.Reader, revision uint64, rows int) error {
 	return col.col.DecodeColumn(reader, rows)
 }
 
-func (col *Bool) Encode(buffer *proto.Buffer) {
+func (col *Bool) Encode(buffer *proto.Buffer, revision uint64) {
 	col.col.EncodeColumn(buffer)
 }
 

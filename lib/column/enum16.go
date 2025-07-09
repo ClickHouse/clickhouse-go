@@ -21,8 +21,9 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
-	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
+
+	"github.com/ClickHouse/ch-go/proto"
 )
 
 type Enum16 struct {
@@ -270,11 +271,11 @@ func (col *Enum16) AppendRow(elem any) error {
 	return nil
 }
 
-func (col *Enum16) Decode(reader *proto.Reader, rows int) error {
+func (col *Enum16) Decode(reader *proto.Reader, revision uint64, rows int) error {
 	return col.col.DecodeColumn(reader, rows)
 }
 
-func (col *Enum16) Encode(buffer *proto.Buffer) {
+func (col *Enum16) Encode(buffer *proto.Buffer, revision uint64) {
 	col.col.EncodeColumn(buffer)
 }
 

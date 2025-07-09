@@ -20,10 +20,11 @@ package column
 import (
 	"errors"
 	"fmt"
-	"github.com/ClickHouse/ch-go/proto"
 	"math"
 	"reflect"
 	"time"
+
+	"github.com/ClickHouse/ch-go/proto"
 )
 
 const indexTypeMask = 0b11111111
@@ -167,7 +168,7 @@ func (col *LowCardinality) AppendRow(v any) error {
 	return nil
 }
 
-func (col *LowCardinality) Decode(reader *proto.Reader, rows int) error {
+func (col *LowCardinality) Decode(reader *proto.Reader, revision uint64, rows int) error {
 	if rows == 0 {
 		return nil
 	}
@@ -200,7 +201,7 @@ func (col *LowCardinality) Decode(reader *proto.Reader, rows int) error {
 	if err != nil {
 		return err
 	}
-	if err := col.index.Decode(reader, int(indexRows)); err != nil {
+	if err := col.index.Decode(reader, revision, int(indexRows)); err != nil {
 		return err
 	}
 	keysRows, err := reader.Int64()
@@ -208,10 +209,10 @@ func (col *LowCardinality) Decode(reader *proto.Reader, rows int) error {
 		return err
 	}
 	col.rows = int(keysRows)
-	return col.keys().Decode(reader, col.rows)
+	return col.keys().Decode(reader, revision, col.rows)
 }
 
-func (col *LowCardinality) Encode(buffer *proto.Buffer) {
+func (col *LowCardinality) Encode(buffer *proto.Buffer, revision uint64) {
 	if col.rows == 0 {
 		return
 	}
@@ -246,13 +247,13 @@ func (col *LowCardinality) Encode(buffer *proto.Buffer) {
 	}
 	buffer.PutUInt64(updateAll | uint64(col.key))
 	buffer.PutInt64(int64(col.index.Rows()))
-	col.index.Encode(buffer)
+	col.index.Encode(buffer, revision)
 	keys := col.keys()
 	buffer.PutInt64(int64(keys.Rows()))
-	keys.Encode(buffer)
+	keys.Encode(buffer, revision)
 }
 
-func (col *LowCardinality) ReadStatePrefix(reader *proto.Reader) error {
+func (col *LowCardinality) ReadStatePrefix(reader *proto.Reader, revision uint64) error {
 	keyVersion, err := reader.UInt64()
 	if err != nil {
 		return err
@@ -266,7 +267,7 @@ func (col *LowCardinality) ReadStatePrefix(reader *proto.Reader) error {
 	return nil
 }
 
-func (col *LowCardinality) WriteStatePrefix(buffer *proto.Buffer) error {
+func (col *LowCardinality) WriteStatePrefix(buffer *proto.Buffer, revision uint64) error {
 	buffer.PutUInt64(sharedDictionariesWithAdditionalKeys)
 	return nil
 }

@@ -400,11 +400,11 @@ func (col *Float32) AppendRow(v any) error {
 	return nil
 }
 
-func (col *Float32) Decode(reader *proto.Reader, rows int) error {
+func (col *Float32) Decode(reader *proto.Reader, revision uint64, rows int) error {
 	return col.col.DecodeColumn(reader, rows)
 }
 
-func (col *Float32) Encode(buffer *proto.Buffer) {
+func (col *Float32) Encode(buffer *proto.Buffer, revision uint64) {
 	col.col.EncodeColumn(buffer)
 }
 
@@ -570,11 +570,11 @@ func (col *Float64) AppendRow(v any) error {
 	return nil
 }
 
-func (col *Float64) Decode(reader *proto.Reader, rows int) error {
+func (col *Float64) Decode(reader *proto.Reader, revision uint64, rows int) error {
 	return col.col.DecodeColumn(reader, rows)
 }
 
-func (col *Float64) Encode(buffer *proto.Buffer) {
+func (col *Float64) Encode(buffer *proto.Buffer, revision uint64) {
 	col.col.EncodeColumn(buffer)
 }
 
@@ -750,11 +750,11 @@ func (col *Int8) AppendRow(v any) error {
 	return nil
 }
 
-func (col *Int8) Decode(reader *proto.Reader, rows int) error {
+func (col *Int8) Decode(reader *proto.Reader, revision uint64, rows int) error {
 	return col.col.DecodeColumn(reader, rows)
 }
 
-func (col *Int8) Encode(buffer *proto.Buffer) {
+func (col *Int8) Encode(buffer *proto.Buffer, revision uint64) {
 	col.col.EncodeColumn(buffer)
 }
 
@@ -920,11 +920,11 @@ func (col *Int16) AppendRow(v any) error {
 	return nil
 }
 
-func (col *Int16) Decode(reader *proto.Reader, rows int) error {
+func (col *Int16) Decode(reader *proto.Reader, revision uint64, rows int) error {
 	return col.col.DecodeColumn(reader, rows)
 }
 
-func (col *Int16) Encode(buffer *proto.Buffer) {
+func (col *Int16) Encode(buffer *proto.Buffer, revision uint64) {
 	col.col.EncodeColumn(buffer)
 }
 
@@ -1090,11 +1090,11 @@ func (col *Int32) AppendRow(v any) error {
 	return nil
 }
 
-func (col *Int32) Decode(reader *proto.Reader, rows int) error {
+func (col *Int32) Decode(reader *proto.Reader, revision uint64, rows int) error {
 	return col.col.DecodeColumn(reader, rows)
 }
 
-func (col *Int32) Encode(buffer *proto.Buffer) {
+func (col *Int32) Encode(buffer *proto.Buffer, revision uint64) {
 	col.col.EncodeColumn(buffer)
 }
 
@@ -1266,11 +1266,11 @@ func (col *Int64) AppendRow(v any) error {
 	return nil
 }
 
-func (col *Int64) Decode(reader *proto.Reader, rows int) error {
+func (col *Int64) Decode(reader *proto.Reader, revision uint64, rows int) error {
 	return col.col.DecodeColumn(reader, rows)
 }
 
-func (col *Int64) Encode(buffer *proto.Buffer) {
+func (col *Int64) Encode(buffer *proto.Buffer, revision uint64) {
 	col.col.EncodeColumn(buffer)
 }
 
@@ -1420,11 +1420,11 @@ func (col *UInt8) AppendRow(v any) error {
 	return nil
 }
 
-func (col *UInt8) Decode(reader *proto.Reader, rows int) error {
+func (col *UInt8) Decode(reader *proto.Reader, revision uint64, rows int) error {
 	return col.col.DecodeColumn(reader, rows)
 }
 
-func (col *UInt8) Encode(buffer *proto.Buffer) {
+func (col *UInt8) Encode(buffer *proto.Buffer, revision uint64) {
 	col.col.EncodeColumn(buffer)
 }
 
@@ -1561,11 +1561,11 @@ func (col *UInt16) AppendRow(v any) error {
 	return nil
 }
 
-func (col *UInt16) Decode(reader *proto.Reader, rows int) error {
+func (col *UInt16) Decode(reader *proto.Reader, revision uint64, rows int) error {
 	return col.col.DecodeColumn(reader, rows)
 }
 
-func (col *UInt16) Encode(buffer *proto.Buffer) {
+func (col *UInt16) Encode(buffer *proto.Buffer, revision uint64) {
 	col.col.EncodeColumn(buffer)
 }
 
@@ -1702,11 +1702,11 @@ func (col *UInt32) AppendRow(v any) error {
 	return nil
 }
 
-func (col *UInt32) Decode(reader *proto.Reader, rows int) error {
+func (col *UInt32) Decode(reader *proto.Reader, revision uint64, rows int) error {
 	return col.col.DecodeColumn(reader, rows)
 }
 
-func (col *UInt32) Encode(buffer *proto.Buffer) {
+func (col *UInt32) Encode(buffer *proto.Buffer, revision uint64) {
 	col.col.EncodeColumn(buffer)
 }
 
@@ -1843,10 +1843,10 @@ func (col *UInt64) AppendRow(v any) error {
 	return nil
 }
 
-func (col *UInt64) Decode(reader *proto.Reader, rows int) error {
+func (col *UInt64) Decode(reader *proto.Reader, revision uint64, rows int) error {
 	return col.col.DecodeColumn(reader, rows)
 }
 
-func (col *UInt64) Encode(buffer *proto.Buffer) {
+func (col *UInt64) Encode(buffer *proto.Buffer, revision uint64) {
 	col.col.EncodeColumn(buffer)
 }

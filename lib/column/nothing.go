@@ -19,8 +19,9 @@ package column
 
 import (
 	"errors"
-	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
+
+	"github.com/ClickHouse/ch-go/proto"
 )
 
 type Nothing struct {
@@ -56,11 +57,11 @@ func (col Nothing) AppendRow(any) error {
 	}
 }
 
-func (col Nothing) Decode(reader *proto.Reader, rows int) error {
+func (col Nothing) Decode(reader *proto.Reader, revision uint64, rows int) error {
 	return col.col.DecodeColumn(reader, rows)
 }
 
-func (Nothing) Encode(buffer *proto.Buffer) {
+func (Nothing) Encode(buffer *proto.Buffer, revision uint64) {
 }
 
 var _ Interface = (*Nothing)(nil)

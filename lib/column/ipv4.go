@@ -22,10 +22,11 @@ import (
 	"database/sql/driver"
 	"encoding/binary"
 	"fmt"
-	"github.com/ClickHouse/ch-go/proto"
 	"net"
 	"net/netip"
 	"reflect"
+
+	"github.com/ClickHouse/ch-go/proto"
 )
 
 type IPv4 struct {
@@ -305,11 +306,11 @@ func (col *IPv4) AppendRow(v any) (err error) {
 	return
 }
 
-func (col *IPv4) Decode(reader *proto.Reader, rows int) error {
+func (col *IPv4) Decode(reader *proto.Reader, revision uint64, rows int) error {
 	return col.col.DecodeColumn(reader, rows)
 }
 
-func (col *IPv4) Encode(buffer *proto.Buffer) {
+func (col *IPv4) Encode(buffer *proto.Buffer, revision uint64) {
 	col.col.EncodeColumn(buffer)
 }
 

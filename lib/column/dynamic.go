@@ -247,7 +247,7 @@ func (c *Dynamic) AppendRow(v any) error {
 	return fmt.Errorf("value \"%v\" cannot be stored in dynamic column: no compatible types. hint: use clickhouse.DynamicWithType to wrap the value", v)
 }
 
-func (c *Dynamic) encodeHeader(buffer *proto.Buffer) error {
+func (c *Dynamic) encodeHeader(buffer *proto.Buffer, revision uint64) error {
 	buffer.PutUInt64(SupportedDynamicSerializationVersion)
 	buffer.PutUVarInt(uint64(c.totalTypes))
 
@@ -257,7 +257,7 @@ func (c *Dynamic) encodeHeader(buffer *proto.Buffer) error {
 
 	for _, col := range c.columns {
 		if serialize, ok := col.(CustomSerialization); ok {
-			if err := serialize.WriteStatePrefix(buffer); err != nil {
+			if err := serialize.WriteStatePrefix(buffer, revision); err != nil {
 				return fmt.Errorf("failed to write prefix for type %s in dynamic: %w", string(col.Type()), err)
 			}
 		}
@@ -279,7 +279,7 @@ func discriminatorWriter(totalTypes int, buffer *proto.Buffer) func(int) {
 	}
 }
 
-func (c *Dynamic) encodeData(buffer *proto.Buffer) {
+func (c *Dynamic) encodeData(buffer *proto.Buffer, revision uint64) {
 	writeDiscriminator := discriminatorWriter(c.totalTypes, buffer)
 	for _, typeIndex := range c.discriminators {
 		if typeIndex == DynamicNullDiscriminator {
@@ -290,16 +290,16 @@ func (c *Dynamic) encodeData(buffer *proto.Buffer) {
 	}
 
 	for _, col := range c.columns {
-		col.Encode(buffer)
+		col.Encode(buffer, revision)
 	}
 }
 
-func (c *Dynamic) WriteStatePrefix(buffer *proto.Buffer) error {
-	return c.encodeHeader(buffer)
+func (c *Dynamic) WriteStatePrefix(buffer *proto.Buffer, revision uint64) error {
+	return c.encodeHeader(buffer, revision)
 }
 
-func (c *Dynamic) Encode(buffer *proto.Buffer) {
-	c.encodeData(buffer)
+func (c *Dynamic) Encode(buffer *proto.Buffer, revision uint64) {
+	c.encodeData(buffer, revision)
 }
 
 func (c *Dynamic) ScanType() reflect.Type {
@@ -314,7 +314,7 @@ func (c *Dynamic) Reset() {
 	}
 }
 
-func (c *Dynamic) decodeHeader(reader *proto.Reader) error {
+func (c *Dynamic) decodeHeader(reader *proto.Reader, revision uint64) error {
 	dynamicSerializationVersion, err := reader.UInt64()
 	if err != nil {
 		return fmt.Errorf("failed to read dynamic serialization version: %w", err)
@@ -349,7 +349,7 @@ func (c *Dynamic) decodeHeader(reader *proto.Reader) error {
 
 	for _, col := range c.columns {
 		if serialize, ok := col.(CustomSerialization); ok {
-			if err := serialize.ReadStatePrefix(reader); err != nil {
+			if err := serialize.ReadStatePrefix(reader, revision); err != nil {
 				return fmt.Errorf("failed to read prefix for type %s in dynamic: %w", col.Type(), err)
 			}
 		}
@@ -383,7 +383,7 @@ func discriminatorReader(totalTypes int, reader *proto.Reader) func() (int, erro
 	}
 }
 
-func (c *Dynamic) decodeData(reader *proto.Reader, rows int) error {
+func (c *Dynamic) decodeData(reader *proto.Reader, revision uint64, rows int) error {
 	c.discriminators = make([]int, rows)
 	c.offsets = make([]int, rows)
 	rowCountByType := make([]int, len(c.columns))
@@ -404,7 +404,7 @@ func (c *Dynamic) decodeData(reader *proto.Reader, rows int) error {
 
 	for i, col := range c.columns {
 		cRows := rowCountByType[i]
-		if err := col.Decode(reader, cRows); err != nil {
+		if err := col.Decode(reader, revision, cRows); err != nil {
 			return fmt.Errorf("failed to decode dynamic column with %s type: %w", col.Type(), err)
 		}
 	}
@@ -412,8 +412,8 @@ func (c *Dynamic) decodeData(reader *proto.Reader, rows int) error {
 	return nil
 }
 
-func (c *Dynamic) ReadStatePrefix(reader *proto.Reader) error {
-	err := c.decodeHeader(reader)
+func (c *Dynamic) ReadStatePrefix(reader *proto.Reader, revision uint64) error {
+	err := c.decodeHeader(reader, revision)
 	if err != nil {
 		return fmt.Errorf("failed to decode dynamic header: %w", err)
 	}
@@ -421,8 +421,8 @@ func (c *Dynamic) ReadStatePrefix(reader *proto.Reader) error {
 	return nil
 }
 
-func (c *Dynamic) Decode(reader *proto.Reader, rows int) error {
-	err := c.decodeData(reader, rows)
+func (c *Dynamic) Decode(reader *proto.Reader, revision uint64, rows int) error {
+	err := c.decodeData(reader, revision, rows)
 	if err != nil {
 		return fmt.Errorf("failed to decode dynamic data: %w", err)
 	}

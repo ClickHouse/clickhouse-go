@@ -82,13 +82,13 @@ type Interface interface {
 	ScanRow(dest any, row int) error
 	Append(v any) (nulls []uint8, err error)
 	AppendRow(v any) error
-	Decode(reader *proto.Reader, rows int) error
-	Encode(buffer *proto.Buffer)
+	Decode(reader *proto.Reader, revision uint64, rows int) error
+	Encode(buffer *proto.Buffer, revision uint64)
 	ScanType() reflect.Type
 	Reset()
 }
 
 type CustomSerialization interface {
-	ReadStatePrefix(*proto.Reader) error
-	WriteStatePrefix(*proto.Buffer) error
+	ReadStatePrefix(reader *proto.Reader, revision uint64) error
+	WriteStatePrefix(buffer *proto.Buffer, revision uint64) error
 }
