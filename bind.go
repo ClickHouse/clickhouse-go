@@ -82,8 +82,9 @@ func bind(tz *time.Location, query string, args ...any) (string, error) {
 		return bindNamed(tz, query, args...)
 	}
 
-	haveNumeric = bindNumericRe.MatchString(query)
-	havePositional = bindPositionalRe.MatchString(query)
+	cleanQuery := stripLineComments(query)
+	haveNumeric = bindNumericRe.MatchString(cleanQuery)
+	havePositional = bindPositionalRe.MatchString(cleanQuery)
 	if haveNumeric && havePositional {
 		return "", ErrBindMixedParamsFormats
 	}
@@ -91,6 +92,18 @@ func bind(tz *time.Location, query string, args ...any) (string, error) {
 		return bindNumeric(tz, query, args...)
 	}
 	return bindPositional(tz, query, args...)
+}
+
+// stripLineComments removes `--` style line comments from SQL queries.
+// This avoids false-positive placeholder matches (e.g. `?` or `$1`) inside comments during bind() processing.
+func stripLineComments(query string) string {
+	lines := strings.Split(query, "\n")
+	for i, line := range lines {
+		if idx := strings.Index(line, "--"); idx != -1 {
+			lines[i] = line[:idx]
+		}
+	}
+	return strings.Join(lines, "\n")
 }
 
 func checkAllNamedArguments(args ...any) (bool, error) {
