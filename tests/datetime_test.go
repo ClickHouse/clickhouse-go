@@ -96,14 +96,8 @@ func TestDateTime(t *testing.T) {
 		assert.Equal(t, datetime.In(time.UTC), col1)
 		assert.Equal(t, datetime.Unix(), col2.Unix())
 		assert.Equal(t, datetime.Unix(), col3.Unix())
-		if protocol == clickhouse.HTTP {
-			// TODO: investigate client_protocol_version HTTP param
-			assert.Equal(t, "UTC", col2.Location().String())
-			assert.Equal(t, "UTC", col3.Location().String())
-		} else {
-			assert.Equal(t, "Europe/Moscow", col2.Location().String())
-			assert.Equal(t, "Europe/London", col3.Location().String())
-		}
+		assert.Equal(t, "Europe/Moscow", col2.Location().String())
+		assert.Equal(t, "Europe/London", col3.Location().String())
 		assert.Equal(t, datetime.Unix(), col4.Unix())
 		require.Len(t, col5, 2)
 		assert.Equal(t, "Europe/Moscow", col5[0].Location().String())
@@ -115,12 +109,7 @@ func TestDateTime(t *testing.T) {
 		assert.Equal(t, datetime.In(time.UTC), col7)
 		assert.Equal(t, datetime.Unix(), col8.Unix())
 		assert.Equal(t, datetime.Unix(), col9.Unix())
-		if protocol == clickhouse.HTTP {
-			// TODO: investigate client_protocol_version HTTP param
-			assert.Equal(t, "UTC", col8.Location().String())
-		} else {
-			assert.Equal(t, "Asia/Shanghai", col8.Location().String())
-		}
+		assert.Equal(t, "Asia/Shanghai", col8.Location().String())
 		require.Len(t, col10, 2)
 		assert.Equal(t, "Asia/Shanghai", col10[0].Location().String())
 		assert.Equal(t, "Asia/Shanghai", col10[1].Location().String())
@@ -224,33 +213,18 @@ func TestNullableDateTime(t *testing.T) {
 			assert.Equal(t, datetime.In(time.UTC), col1)
 			assert.Equal(t, datetime.Unix(), col1.Unix())
 			require.Nil(t, col2Null)
-			if protocol == clickhouse.HTTP {
-				// TODO: investigate client_protocol_version HTTP param
-				require.Equal(t, "UTC", col2.Location().String())
-			} else {
-				require.Equal(t, "Europe/Moscow", col2.Location().String())
-			}
+			require.Equal(t, "Europe/Moscow", col2.Location().String())
 			assert.Equal(t, datetime.Unix(), col2.Unix())
 			assert.Equal(t, datetime.Unix(), col2.Unix())
 			require.Nil(t, col3Null)
-			if protocol == clickhouse.HTTP {
-				// TODO: investigate client_protocol_version HTTP param
-				require.Equal(t, "UTC", col3.Location().String())
-			} else {
-				require.Equal(t, "Europe/London", col3.Location().String())
-			}
+			require.Equal(t, "Europe/London", col3.Location().String())
 			assert.Equal(t, datetime.Unix(), col3.Unix())
 			assert.Equal(t, datetime.Unix(), col3.Unix())
 			require.Nil(t, col4Null)
 			assert.Equal(t, datetime.In(time.UTC), col4)
 			assert.Equal(t, datetime.Unix(), col4.Unix())
 			require.Nil(t, col5Null)
-			if protocol == clickhouse.HTTP {
-				// TODO: investigate client_protocol_version HTTP param
-				require.Equal(t, "UTC", col5.Location().String())
-			} else {
-				require.Equal(t, "Asia/Shanghai", col5.Location().String())
-			}
+			require.Equal(t, "Asia/Shanghai", col5.Location().String())
 			assert.Equal(t, datetime.Unix(), col5.Unix())
 			assert.Equal(t, datetime.Unix(), col5.Unix())
 		}
@@ -454,12 +428,7 @@ func TestDateTimeTZ(t *testing.T) {
 		assert.Equal(t, col8Expected.UTC(), col8)
 		col9Expected, err := time.ParseInLocation("2006-01-02 15:04:05", "2022-07-20 17:42:48", time.Local)
 		require.NoError(t, err)
-		if protocol == clickhouse.HTTP {
-			// TODO: investigate client_protocol_version HTTP param
-			assert.Equal(t, col9Expected.UTC(), col9)
-		} else {
-			assert.Equal(t, col9Expected.In(asiaLoc), col9)
-		}
+		assert.Equal(t, col9Expected.In(asiaLoc), col9)
 		// datetime - with tz
 		col10Expected, err := time.ParseInLocation("2006-01-02 15:04:05", "2022-07-20 17:42:48", asiaLoc)
 		require.NoError(t, err)
@@ -469,12 +438,7 @@ func TestDateTimeTZ(t *testing.T) {
 		assert.Equal(t, col11Expected.UTC(), col11)
 		col12Expected, err := time.ParseInLocation("2006-01-02 15:04:05", "2022-07-20 17:42:48", asiaLoc)
 		require.NoError(t, err)
-		if protocol == clickhouse.HTTP {
-			// TODO: investigate client_protocol_version HTTP param
-			assert.Equal(t, col12Expected.UTC(), col12)
-		} else {
-			assert.Equal(t, col12Expected.In(asiaLoc), col12)
-		}
+		assert.Equal(t, col12Expected.In(asiaLoc), col12)
 	})
 }
 

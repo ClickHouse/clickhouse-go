@@ -33,6 +33,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -215,8 +216,7 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 	}
 
 	query.Set("default_format", "Native")
-	// TODO: we support newer revisions but for some reason this completely breaks Native format
-	//query.Set("client_protocol_version", strconv.Itoa(ClientTCPProtocolVersion))
+	query.Set("client_protocol_version", strconv.Itoa(ClientTCPProtocolVersion))
 	u.RawQuery = query.Encode()
 
 	httpProxy := http.ProxyFromEnvironment
@@ -251,9 +251,9 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		client: &http.Client{
 			Transport: t,
 		},
-		url: u,
-		// TODO: learn more about why revision is broken
-		//revision:        ClientTCPProtocolVersion,
+		url:             u,
+		revision:        ClientTCPProtocolVersion, // Preflight uses hardcoded revision, may break older versions.
+		encodeRevision:  0,                        // Encoding data over HTTP must use 0. client_protocol_version does not apply to inserts.
 		buffer:          new(chproto.Buffer),
 		compression:     opt.Compression.Method,
 		blockCompressor: compress.NewWriter(compress.Level(opt.Compression.Level), compress.Method(opt.Compression.Method)),
@@ -266,6 +266,7 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		return nil, fmt.Errorf("failed to query server hello: %w", err)
 	}
 	conn.handshake = handshake
+	conn.revision = conn.handshake.Revision
 
 	return &conn, nil
 }
@@ -277,6 +278,7 @@ type httpConnect struct {
 	debugfFunc      func(format string, v ...any)
 	opt             *Options
 	revision        uint64
+	encodeRevision  uint64
 	url             *url.URL
 	client          *http.Client
 	buffer          *chproto.Buffer
@@ -407,7 +409,7 @@ func createCompressionPool(compression *Compression) (Pool[HTTPReaderWriter], er
 func (h *httpConnect) writeData(block *proto.Block) error {
 	// Saving offset of compressible data
 	start := len(h.buffer.Buf)
-	if err := block.Encode(h.buffer, h.revision); err != nil {
+	if err := block.Encode(h.buffer, h.encodeRevision); err != nil {
 		return fmt.Errorf("block encode: %w", err)
 	}
 	if h.compression == CompressionLZ4 || h.compression == CompressionZSTD {
@@ -551,7 +553,7 @@ func (h *httpConnect) createRequestWithExternalTables(ctx context.Context, query
 			return nil, err
 		}
 		buf.Reset()
-		err = table.Block().Encode(buf, h.revision)
+		err = table.Block().Encode(buf, h.encodeRevision)
 		if err != nil {
 			return nil, err
 		}
