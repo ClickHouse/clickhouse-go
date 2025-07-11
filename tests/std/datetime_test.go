@@ -94,14 +94,8 @@ func TestStdDateTime(t *testing.T) {
 			assert.Equal(t, datetime.In(time.UTC), col1)
 			assert.Equal(t, datetime.Unix(), col2.Unix())
 			assert.Equal(t, datetime.Unix(), col3.Unix())
-			if protocol == clickhouse.HTTP {
-				// TODO: investigate client_protocol_version HTTP param
-				assert.Equal(t, "UTC", col2.Location().String())
-				assert.Equal(t, "UTC", col3.Location().String())
-			} else {
-				assert.Equal(t, "Europe/Moscow", col2.Location().String())
-				assert.Equal(t, "Europe/London", col3.Location().String())
-			}
+			assert.Equal(t, "Europe/Moscow", col2.Location().String())
+			assert.Equal(t, "Europe/London", col3.Location().String())
 			assert.Equal(t, datetime.Unix(), col4.Unix())
 			require.Len(t, col5, 2)
 			assert.Equal(t, "Europe/Moscow", col5[0].Location().String())
