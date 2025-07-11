@@ -236,11 +236,11 @@ func (col *Date32) parseDate(value string) (datetime time.Time, err error) {
 	return parseDate(value, minDate32, maxDate32, col.location)
 }
 
-func (col *Date32) Decode(reader *proto.Reader, rows int) error {
+func (col *Date32) Decode(reader *proto.Reader, revision uint64, rows int) error {
 	return col.col.DecodeColumn(reader, rows)
 }
 
-func (col *Date32) Encode(buffer *proto.Buffer) {
+func (col *Date32) Encode(buffer *proto.Buffer, revision uint64) {
 	col.col.EncodeColumn(buffer)
 }
 

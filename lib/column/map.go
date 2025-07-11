@@ -274,48 +274,48 @@ func (col *Map) AppendRow(v any) error {
 
 }
 
-func (col *Map) Decode(reader *proto.Reader, rows int) error {
+func (col *Map) Decode(reader *proto.Reader, revision uint64, rows int) error {
 	if err := col.offsets.col.DecodeColumn(reader, rows); err != nil {
 		return err
 	}
 	if i := col.offsets.Rows(); i != 0 {
 		size := int(col.offsets.col.Row(i - 1))
-		if err := col.keys.Decode(reader, size); err != nil {
+		if err := col.keys.Decode(reader, revision, size); err != nil {
 			return err
 		}
-		return col.values.Decode(reader, size)
+		return col.values.Decode(reader, revision, size)
 	}
 	return nil
 }
 
-func (col *Map) Encode(buffer *proto.Buffer) {
+func (col *Map) Encode(buffer *proto.Buffer, revision uint64) {
 	col.offsets.col.EncodeColumn(buffer)
-	col.keys.Encode(buffer)
-	col.values.Encode(buffer)
+	col.keys.Encode(buffer, revision)
+	col.values.Encode(buffer, revision)
 }
 
-func (col *Map) ReadStatePrefix(reader *proto.Reader) error {
+func (col *Map) ReadStatePrefix(reader *proto.Reader, revision uint64) error {
 	if serialize, ok := col.keys.(CustomSerialization); ok {
-		if err := serialize.ReadStatePrefix(reader); err != nil {
+		if err := serialize.ReadStatePrefix(reader, revision); err != nil {
 			return err
 		}
 	}
 	if serialize, ok := col.values.(CustomSerialization); ok {
-		if err := serialize.ReadStatePrefix(reader); err != nil {
+		if err := serialize.ReadStatePrefix(reader, revision); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (col *Map) WriteStatePrefix(encoder *proto.Buffer) error {
+func (col *Map) WriteStatePrefix(encoder *proto.Buffer, revision uint64) error {
 	if serialize, ok := col.keys.(CustomSerialization); ok {
-		if err := serialize.WriteStatePrefix(encoder); err != nil {
+		if err := serialize.WriteStatePrefix(encoder, revision); err != nil {
 			return err
 		}
 	}
 	if serialize, ok := col.values.(CustomSerialization); ok {
-		if err := serialize.WriteStatePrefix(encoder); err != nil {
+		if err := serialize.WriteStatePrefix(encoder, revision); err != nil {
 			return err
 		}
 	}

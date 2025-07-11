@@ -324,11 +324,11 @@ func (col *FixedString) AppendRow(v any) error {
 	return nil
 }
 
-func (col *FixedString) Decode(reader *proto.Reader, rows int) error {
+func (col *FixedString) Decode(reader *proto.Reader, revision uint64, rows int) error {
 	return col.col.DecodeColumn(reader, rows)
 }
 
-func (col *FixedString) Encode(buffer *proto.Buffer) {
+func (col *FixedString) Encode(buffer *proto.Buffer, revision uint64) {
 	col.col.EncodeColumn(buffer)
 }
 

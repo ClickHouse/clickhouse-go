@@ -21,9 +21,10 @@ import (
 	"database/sql/driver"
 	"encoding/binary"
 	"fmt"
-	"github.com/ClickHouse/ch-go/proto"
 	"math/big"
 	"reflect"
+
+	"github.com/ClickHouse/ch-go/proto"
 )
 
 type BigInt struct {
@@ -154,11 +155,11 @@ func (col *BigInt) AppendRow(v any) error {
 	return nil
 }
 
-func (col *BigInt) Decode(reader *proto.Reader, rows int) error {
+func (col *BigInt) Decode(reader *proto.Reader, revision uint64, rows int) error {
 	return col.col.DecodeColumn(reader, rows)
 }
 
-func (col *BigInt) Encode(buffer *proto.Buffer) {
+func (col *BigInt) Encode(buffer *proto.Buffer, revision uint64) {
 	col.col.EncodeColumn(buffer)
 }
 

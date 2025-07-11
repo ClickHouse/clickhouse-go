@@ -42,11 +42,11 @@ func (b *Block) Rows() int {
 }
 
 func (b *Block) AddColumn(name string, ct column.Type) error {
-	column, err := ct.Column(name, b.Timezone)
+	col, err := ct.Column(name, b.Timezone)
 	if err != nil {
 		return err
 	}
-	b.names, b.Columns = append(b.names, name), append(b.Columns, column)
+	b.names, b.Columns = append(b.names, name), append(b.Columns, col)
 	return nil
 }
 
@@ -150,7 +150,7 @@ func (b *Block) EncodeColumn(buffer *proto.Buffer, revision uint64, i int) (err 
 		}
 
 		if serialize, ok := c.(column.CustomSerialization); ok {
-			if err := serialize.WriteStatePrefix(buffer); err != nil {
+			if err := serialize.WriteStatePrefix(buffer, revision); err != nil {
 				return &BlockError{
 					Op:         "Encode",
 					Err:        err,
@@ -158,7 +158,7 @@ func (b *Block) EncodeColumn(buffer *proto.Buffer, revision uint64, i int) (err 
 				}
 			}
 		}
-		c.Encode(buffer)
+		c.Encode(buffer, revision)
 		return nil
 	}
 	return &BlockError{
@@ -201,8 +201,8 @@ func (b *Block) Decode(reader *proto.Reader, revision uint64) (err error) {
 			Err: errors.New("more then 1 billion rows in block - suspiciously big - preventing OOM"),
 		}
 	}
-	b.Columns = make([]column.Interface, numCols, numCols)
-	b.names = make([]string, numCols, numCols)
+	b.Columns = make([]column.Interface, numCols)
+	b.names = make([]string, numCols)
 	for i := 0; i < int(numCols); i++ {
 		var (
 			columnName string
@@ -234,7 +234,7 @@ func (b *Block) Decode(reader *proto.Reader, revision uint64) (err error) {
 
 		if numRows != 0 {
 			if serialize, ok := c.(column.CustomSerialization); ok {
-				if err := serialize.ReadStatePrefix(reader); err != nil {
+				if err := serialize.ReadStatePrefix(reader, revision); err != nil {
 					return &BlockError{
 						Op:         "Decode",
 						Err:        err,
@@ -242,7 +242,7 @@ func (b *Block) Decode(reader *proto.Reader, revision uint64) (err error) {
 					}
 				}
 			}
-			if err := c.Decode(reader, int(numRows)); err != nil {
+			if err := c.Decode(reader, revision, int(numRows)); err != nil {
 				return &BlockError{
 					Op:         "Decode",
 					Err:        err,

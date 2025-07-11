@@ -21,8 +21,9 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
-	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
+
+	"github.com/ClickHouse/ch-go/proto"
 
 	"github.com/google/uuid"
 )
@@ -208,11 +209,11 @@ func (col *UUID) AppendRow(v any) error {
 	return nil
 }
 
-func (col *UUID) Decode(reader *proto.Reader, rows int) error {
+func (col *UUID) Decode(reader *proto.Reader, revision uint64, rows int) error {
 	return col.col.DecodeColumn(reader, rows)
 }
 
-func (col *UUID) Encode(buffer *proto.Buffer) {
+func (col *UUID) Encode(buffer *proto.Buffer, revision uint64) {
 	col.col.EncodeColumn(buffer)
 }
 

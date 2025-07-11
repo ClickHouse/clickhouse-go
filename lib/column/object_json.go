@@ -925,25 +925,25 @@ func (jCol *JSONObject) AppendRow(v any) error {
 	return nil
 }
 
-func (jCol *JSONObject) Decode(reader *proto.Reader, rows int) error {
+func (jCol *JSONObject) Decode(reader *proto.Reader, revision uint64, rows int) error {
 	panic("Not implemented")
 }
 
-func (jCol *JSONObject) Encode(buffer *proto.Buffer) {
+func (jCol *JSONObject) Encode(buffer *proto.Buffer, revision uint64) {
 	if jCol.root && jCol.encoding == 0 {
 		buffer.PutString(string(jCol.FullType()))
 	}
 	for _, c := range jCol.columns {
-		c.Encode(buffer)
+		c.Encode(buffer, revision)
 	}
 }
 
-func (jCol *JSONObject) ReadStatePrefix(reader *proto.Reader) error {
+func (jCol *JSONObject) ReadStatePrefix(reader *proto.Reader, revision uint64) error {
 	_, err := reader.UInt8()
 	return err
 }
 
-func (jCol *JSONObject) WriteStatePrefix(buffer *proto.Buffer) error {
+func (jCol *JSONObject) WriteStatePrefix(buffer *proto.Buffer, revision uint64) error {
 	buffer.PutUInt8(jCol.encoding)
 	return nil
 }

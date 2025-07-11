@@ -20,9 +20,10 @@ package column
 import (
 	"errors"
 	"fmt"
-	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
 	"strings"
+
+	"github.com/ClickHouse/ch-go/proto"
 )
 
 type Interval struct {
@@ -90,11 +91,11 @@ func (Interval) AppendRow(any) error {
 	}
 }
 
-func (col *Interval) Decode(reader *proto.Reader, rows int) error {
+func (col *Interval) Decode(reader *proto.Reader, revision uint64, rows int) error {
 	return col.col.DecodeColumn(reader, rows)
 }
 
-func (Interval) Encode(buffer *proto.Buffer) {
+func (Interval) Encode(buffer *proto.Buffer, revision uint64) {
 }
 
 func (col *Interval) row(i int) string {

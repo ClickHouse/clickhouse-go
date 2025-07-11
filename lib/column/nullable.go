@@ -20,9 +20,10 @@ package column
 import (
 	"database/sql"
 	"database/sql/driver"
-	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
 	"time"
+
+	"github.com/ClickHouse/ch-go/proto"
 )
 
 type Nullable struct {
@@ -164,23 +165,23 @@ func (col *Nullable) AppendRow(v any) error {
 	return col.base.AppendRow(v)
 }
 
-func (col *Nullable) Decode(reader *proto.Reader, rows int) error {
+func (col *Nullable) Decode(reader *proto.Reader, revision uint64, rows int) error {
 	if col.enable {
 		if err := col.nulls.DecodeColumn(reader, rows); err != nil {
 			return err
 		}
 	}
-	if err := col.base.Decode(reader, rows); err != nil {
+	if err := col.base.Decode(reader, revision, rows); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (col *Nullable) Encode(buffer *proto.Buffer) {
+func (col *Nullable) Encode(buffer *proto.Buffer, revision uint64) {
 	if col.enable {
 		col.nulls.EncodeColumn(buffer)
 	}
-	col.base.Encode(buffer)
+	col.base.Encode(buffer, revision)
 }
 
 var _ Interface = (*Nullable)(nil)

@@ -20,8 +20,9 @@ package column
 import (
 	"database/sql/driver"
 	"fmt"
-	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
+
+	"github.com/ClickHouse/ch-go/proto"
 
 	"github.com/paulmach/orb"
 )
@@ -145,12 +146,12 @@ func (col *MultiPolygon) AppendRow(v any) error {
 	}
 }
 
-func (col *MultiPolygon) Decode(reader *proto.Reader, rows int) error {
-	return col.set.Decode(reader, rows)
+func (col *MultiPolygon) Decode(reader *proto.Reader, revision uint64, rows int) error {
+	return col.set.Decode(reader, revision, rows)
 }
 
-func (col *MultiPolygon) Encode(buffer *proto.Buffer) {
-	col.set.Encode(buffer)
+func (col *MultiPolygon) Encode(buffer *proto.Buffer, revision uint64) {
+	col.set.Encode(buffer, revision)
 }
 
 func (col *MultiPolygon) row(i int) orb.MultiPolygon {

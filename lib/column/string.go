@@ -23,8 +23,9 @@ import (
 	"encoding"
 	"encoding/json"
 	"fmt"
-	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
+
+	"github.com/ClickHouse/ch-go/proto"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
 )
@@ -219,11 +220,11 @@ func (col *String) Append(v any) (nulls []uint8, err error) {
 	return
 }
 
-func (col *String) Decode(reader *proto.Reader, rows int) error {
+func (col *String) Decode(reader *proto.Reader, revision uint64, rows int) error {
 	return col.col.DecodeColumn(reader, rows)
 }
 
-func (col *String) Encode(buffer *proto.Buffer) {
+func (col *String) Encode(buffer *proto.Buffer, revision uint64) {
 	col.col.EncodeColumn(buffer)
 }
 

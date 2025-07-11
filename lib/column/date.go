@@ -259,11 +259,11 @@ func (col *Date) parseDate(value string) (tv time.Time, err error) {
 	return parseDate(value, minDate, maxDate, col.location)
 }
 
-func (col *Date) Decode(reader *proto.Reader, rows int) error {
+func (col *Date) Decode(reader *proto.Reader, revision uint64, rows int) error {
 	return col.col.DecodeColumn(reader, rows)
 }
 
-func (col *Date) Encode(buffer *proto.Buffer) {
+func (col *Date) Encode(buffer *proto.Buffer, revision uint64) {
 	col.col.EncodeColumn(buffer)
 }
 

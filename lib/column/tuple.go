@@ -641,25 +641,25 @@ func (col *Tuple) AppendRow(v any) error {
 	}
 }
 
-func (col *Tuple) Decode(reader *proto.Reader, rows int) error {
+func (col *Tuple) Decode(reader *proto.Reader, revision uint64, rows int) error {
 	for _, c := range col.columns {
-		if err := c.Decode(reader, rows); err != nil {
+		if err := c.Decode(reader, revision, rows); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (col *Tuple) Encode(buffer *proto.Buffer) {
+func (col *Tuple) Encode(buffer *proto.Buffer, revision uint64) {
 	for _, c := range col.columns {
-		c.Encode(buffer)
+		c.Encode(buffer, revision)
 	}
 }
 
-func (col *Tuple) ReadStatePrefix(reader *proto.Reader) error {
+func (col *Tuple) ReadStatePrefix(reader *proto.Reader, revision uint64) error {
 	for _, c := range col.columns {
 		if serialize, ok := c.(CustomSerialization); ok {
-			if err := serialize.ReadStatePrefix(reader); err != nil {
+			if err := serialize.ReadStatePrefix(reader, revision); err != nil {
 				return err
 			}
 		}
@@ -667,10 +667,10 @@ func (col *Tuple) ReadStatePrefix(reader *proto.Reader) error {
 	return nil
 }
 
-func (col *Tuple) WriteStatePrefix(buffer *proto.Buffer) error {
+func (col *Tuple) WriteStatePrefix(buffer *proto.Buffer, revision uint64) error {
 	for _, c := range col.columns {
 		if serialize, ok := c.(CustomSerialization); ok {
-			if err := serialize.WriteStatePrefix(buffer); err != nil {
+			if err := serialize.WriteStatePrefix(buffer, revision); err != nil {
 				return err
 			}
 		}

@@ -289,11 +289,11 @@ func (col *DateTime) AppendRow(v any) error {
 	return nil
 }
 
-func (col *DateTime) Decode(reader *proto.Reader, rows int) error {
+func (col *DateTime) Decode(reader *proto.Reader, revision uint64, rows int) error {
 	return col.col.DecodeColumn(reader, rows)
 }
 
-func (col *DateTime) Encode(buffer *proto.Buffer) {
+func (col *DateTime) Encode(buffer *proto.Buffer, revision uint64) {
 	col.col.EncodeColumn(buffer)
 }
 

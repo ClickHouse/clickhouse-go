@@ -20,10 +20,11 @@ package column
 import (
 	"database/sql/driver"
 	"fmt"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/chcol"
 	"reflect"
 	"strings"
 	"time"
+
+	"github.com/ClickHouse/clickhouse-go/v2/lib/chcol"
 
 	"github.com/ClickHouse/ch-go/proto"
 )
@@ -263,12 +264,12 @@ func (c *Variant) AppendRow(v any) error {
 	return fmt.Errorf("value \"%v\" cannot be stored in variant column: no compatible types", v)
 }
 
-func (c *Variant) encodeHeader(buffer *proto.Buffer) error {
+func (c *Variant) encodeHeader(buffer *proto.Buffer, revision uint64) error {
 	buffer.PutUInt64(SupportedVariantSerializationVersion)
 
 	for _, col := range c.columns {
 		if serialize, ok := col.(CustomSerialization); ok {
-			if err := serialize.WriteStatePrefix(buffer); err != nil {
+			if err := serialize.WriteStatePrefix(buffer, revision); err != nil {
 				return fmt.Errorf("failed to write prefix for type %s in variant: %w", col.Type(), err)
 			}
 		}
@@ -277,20 +278,20 @@ func (c *Variant) encodeHeader(buffer *proto.Buffer) error {
 	return nil
 }
 
-func (c *Variant) encodeData(buffer *proto.Buffer) {
+func (c *Variant) encodeData(buffer *proto.Buffer, revision uint64) {
 	buffer.PutRaw(c.discriminators)
 
 	for _, col := range c.columns {
-		col.Encode(buffer)
+		col.Encode(buffer, revision)
 	}
 }
 
-func (c *Variant) WriteStatePrefix(buffer *proto.Buffer) error {
-	return c.encodeHeader(buffer)
+func (c *Variant) WriteStatePrefix(buffer *proto.Buffer, revision uint64) error {
+	return c.encodeHeader(buffer, revision)
 }
 
-func (c *Variant) Encode(buffer *proto.Buffer) {
-	c.encodeData(buffer)
+func (c *Variant) Encode(buffer *proto.Buffer, revision uint64) {
+	c.encodeData(buffer, revision)
 }
 
 func (c *Variant) ScanType() reflect.Type {
@@ -305,7 +306,7 @@ func (c *Variant) Reset() {
 	}
 }
 
-func (c *Variant) decodeHeader(reader *proto.Reader) error {
+func (c *Variant) decodeHeader(reader *proto.Reader, revision uint64) error {
 	variantSerializationVersion, err := reader.UInt64()
 	if err != nil {
 		return fmt.Errorf("failed to read variant discriminator version: %w", err)
@@ -317,7 +318,7 @@ func (c *Variant) decodeHeader(reader *proto.Reader) error {
 
 	for _, col := range c.columns {
 		if serialize, ok := col.(CustomSerialization); ok {
-			if err := serialize.ReadStatePrefix(reader); err != nil {
+			if err := serialize.ReadStatePrefix(reader, revision); err != nil {
 				return fmt.Errorf("failed to read prefix for type %s in variant: %w", col.Type(), err)
 			}
 		}
@@ -326,7 +327,7 @@ func (c *Variant) decodeHeader(reader *proto.Reader) error {
 	return nil
 }
 
-func (c *Variant) decodeData(reader *proto.Reader, rows int) error {
+func (c *Variant) decodeData(reader *proto.Reader, revision uint64, rows int) error {
 	c.discriminators = make([]uint8, rows)
 	c.offsets = make([]int, rows)
 	rowCountByType := make(map[uint8]int, len(c.columns))
@@ -349,7 +350,7 @@ func (c *Variant) decodeData(reader *proto.Reader, rows int) error {
 
 	for i, col := range c.columns {
 		cRows := rowCountByType[uint8(i)]
-		if err := col.Decode(reader, cRows); err != nil {
+		if err := col.Decode(reader, revision, cRows); err != nil {
 			return fmt.Errorf("failed to decode variant column with %s type: %w", col.Type(), err)
 		}
 	}
@@ -357,8 +358,8 @@ func (c *Variant) decodeData(reader *proto.Reader, rows int) error {
 	return nil
 }
 
-func (c *Variant) ReadStatePrefix(reader *proto.Reader) error {
-	err := c.decodeHeader(reader)
+func (c *Variant) ReadStatePrefix(reader *proto.Reader, revision uint64) error {
+	err := c.decodeHeader(reader, revision)
 	if err != nil {
 		return fmt.Errorf("failed to decode variant header: %w", err)
 	}
@@ -366,8 +367,8 @@ func (c *Variant) ReadStatePrefix(reader *proto.Reader) error {
 	return nil
 }
 
-func (c *Variant) Decode(reader *proto.Reader, rows int) error {
-	err := c.decodeData(reader, rows)
+func (c *Variant) Decode(reader *proto.Reader, revision uint64, rows int) error {
+	err := c.decodeData(reader, revision, rows)
 	if err != nil {
 		return fmt.Errorf("failed to decode variant data: %w", err)
 	}

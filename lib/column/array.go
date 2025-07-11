@@ -20,10 +20,11 @@ package column
 import (
 	"database/sql"
 	"fmt"
-	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
 	"strings"
 	"time"
+
+	"github.com/ClickHouse/ch-go/proto"
 )
 
 var scanTypeAny = reflect.TypeOf((*interface{})(nil)).Elem()
@@ -230,7 +231,7 @@ func (col *Array) appendOffset(level int, offset uint64) {
 	col.offsets[level].values.col.Append(offset)
 }
 
-func (col *Array) Decode(reader *proto.Reader, rows int) error {
+func (col *Array) Decode(reader *proto.Reader, revision uint64, rows int) error {
 	for _, offset := range col.offsets {
 		if err := offset.values.col.DecodeColumn(reader, rows); err != nil {
 			return err
@@ -242,28 +243,28 @@ func (col *Array) Decode(reader *proto.Reader, rows int) error {
 			rows = 0
 		}
 	}
-	return col.values.Decode(reader, rows)
+	return col.values.Decode(reader, revision, rows)
 }
 
-func (col *Array) Encode(buffer *proto.Buffer) {
+func (col *Array) Encode(buffer *proto.Buffer, revision uint64) {
 	for _, offset := range col.offsets {
 		offset.values.col.EncodeColumn(buffer)
 	}
-	col.values.Encode(buffer)
+	col.values.Encode(buffer, revision)
 }
 
-func (col *Array) ReadStatePrefix(reader *proto.Reader) error {
+func (col *Array) ReadStatePrefix(reader *proto.Reader, revision uint64) error {
 	if serialize, ok := col.values.(CustomSerialization); ok {
-		if err := serialize.ReadStatePrefix(reader); err != nil {
+		if err := serialize.ReadStatePrefix(reader, revision); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (col *Array) WriteStatePrefix(buffer *proto.Buffer) error {
+func (col *Array) WriteStatePrefix(buffer *proto.Buffer, revision uint64) error {
 	if serialize, ok := col.values.(CustomSerialization); ok {
-		if err := serialize.WriteStatePrefix(buffer); err != nil {
+		if err := serialize.WriteStatePrefix(buffer, revision); err != nil {
 			return err
 		}
 	}

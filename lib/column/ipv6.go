@@ -21,10 +21,11 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
-	"github.com/ClickHouse/ch-go/proto"
 	"net"
 	"net/netip"
 	"reflect"
+
+	"github.com/ClickHouse/ch-go/proto"
 )
 
 type IPv6 struct {
@@ -352,11 +353,11 @@ func (col *IPv6) AppendRow(v any) (err error) {
 	return
 }
 
-func (col *IPv6) Decode(reader *proto.Reader, rows int) error {
+func (col *IPv6) Decode(reader *proto.Reader, revision uint64, rows int) error {
 	return col.col.DecodeColumn(reader, rows)
 }
 
-func (col *IPv6) Encode(buffer *proto.Buffer) {
+func (col *IPv6) Encode(buffer *proto.Buffer, revision uint64) {
 	col.col.EncodeColumn(buffer)
 }
 

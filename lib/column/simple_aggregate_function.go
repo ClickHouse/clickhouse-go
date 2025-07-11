@@ -18,10 +18,11 @@
 package column
 
 import (
-	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
 	"strings"
 	"time"
+
+	"github.com/ClickHouse/ch-go/proto"
 )
 
 type SimpleAggregateFunction struct {
@@ -70,11 +71,11 @@ func (col *SimpleAggregateFunction) Append(v any) ([]uint8, error) {
 func (col *SimpleAggregateFunction) AppendRow(v any) error {
 	return col.base.AppendRow(v)
 }
-func (col *SimpleAggregateFunction) Decode(reader *proto.Reader, rows int) error {
-	return col.base.Decode(reader, rows)
+func (col *SimpleAggregateFunction) Decode(reader *proto.Reader, revision uint64, rows int) error {
+	return col.base.Decode(reader, revision, rows)
 }
-func (col *SimpleAggregateFunction) Encode(buffer *proto.Buffer) {
-	col.base.Encode(buffer)
+func (col *SimpleAggregateFunction) Encode(buffer *proto.Buffer, revision uint64) {
+	col.base.Encode(buffer, revision)
 }
 
 var _ Interface = (*SimpleAggregateFunction)(nil)

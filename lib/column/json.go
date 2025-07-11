@@ -19,12 +19,13 @@ package column
 
 import (
 	"fmt"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/chcol"
 	"math"
 	"reflect"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/ClickHouse/clickhouse-go/v2/lib/chcol"
 
 	"github.com/ClickHouse/ch-go/proto"
 )
@@ -545,7 +546,7 @@ func (c *JSON) appendRowString(v any) error {
 	return nil
 }
 
-func (c *JSON) encodeObjectHeader(buffer *proto.Buffer) error {
+func (c *JSON) encodeObjectHeader(buffer *proto.Buffer, revision uint64) error {
 	buffer.PutUVarInt(uint64(c.totalDynamicPaths))
 
 	for _, dynamicPath := range c.dynamicPaths {
@@ -554,14 +555,14 @@ func (c *JSON) encodeObjectHeader(buffer *proto.Buffer) error {
 
 	for i, col := range c.typedColumns {
 		if serialize, ok := col.(CustomSerialization); ok {
-			if err := serialize.WriteStatePrefix(buffer); err != nil {
+			if err := serialize.WriteStatePrefix(buffer, revision); err != nil {
 				return fmt.Errorf("failed to write prefix for typed path \"%s\" in json with type %s: %w", c.typedPaths[i], string(col.Type()), err)
 			}
 		}
 	}
 
 	for i, col := range c.dynamicColumns {
-		err := col.encodeHeader(buffer)
+		err := col.encodeHeader(buffer, revision)
 		if err != nil {
 			return fmt.Errorf("failed to encode header for json dynamic path \"%s\": %w", c.dynamicPaths[i], err)
 		}
@@ -570,25 +571,25 @@ func (c *JSON) encodeObjectHeader(buffer *proto.Buffer) error {
 	return nil
 }
 
-func (c *JSON) encodeObjectData(buffer *proto.Buffer) {
+func (c *JSON) encodeObjectData(buffer *proto.Buffer, revision uint64) {
 	for _, col := range c.typedColumns {
-		col.Encode(buffer)
+		col.Encode(buffer, revision)
 	}
 
 	for _, col := range c.dynamicColumns {
-		col.encodeData(buffer)
+		col.encodeData(buffer, revision)
 	}
 }
 
-func (c *JSON) encodeStringData(buffer *proto.Buffer) {
-	c.jsonStrings.Encode(buffer)
+func (c *JSON) encodeStringData(buffer *proto.Buffer, revision uint64) {
+	c.jsonStrings.Encode(buffer, revision)
 }
 
-func (c *JSON) WriteStatePrefix(buffer *proto.Buffer) error {
+func (c *JSON) WriteStatePrefix(buffer *proto.Buffer, revision uint64) error {
 	switch c.serializationVersion {
 	case JSONObjectSerializationVersion:
 		buffer.PutUInt64(JSONObjectSerializationVersion)
-		return c.encodeObjectHeader(buffer)
+		return c.encodeObjectHeader(buffer, revision)
 	case JSONStringSerializationVersion:
 		buffer.PutUInt64(JSONStringSerializationVersion)
 
@@ -602,13 +603,13 @@ func (c *JSON) WriteStatePrefix(buffer *proto.Buffer) error {
 	}
 }
 
-func (c *JSON) Encode(buffer *proto.Buffer) {
+func (c *JSON) Encode(buffer *proto.Buffer, revision uint64) {
 	switch c.serializationVersion {
 	case JSONObjectSerializationVersion:
-		c.encodeObjectData(buffer)
+		c.encodeObjectData(buffer, revision)
 		return
 	case JSONStringSerializationVersion:
-		c.encodeStringData(buffer)
+		c.encodeStringData(buffer, revision)
 		return
 	}
 }
@@ -637,7 +638,7 @@ func (c *JSON) Reset() {
 	}
 }
 
-func (c *JSON) decodeObjectHeader(reader *proto.Reader) error {
+func (c *JSON) decodeObjectHeader(reader *proto.Reader, revision uint64) error {
 	totalDynamicPaths, err := reader.UVarInt()
 	if err != nil {
 		return fmt.Errorf("failed to read total dynamic paths for json column: %w", err)
@@ -657,7 +658,7 @@ func (c *JSON) decodeObjectHeader(reader *proto.Reader) error {
 
 	for i, col := range c.typedColumns {
 		if serialize, ok := col.(CustomSerialization); ok {
-			if err := serialize.ReadStatePrefix(reader); err != nil {
+			if err := serialize.ReadStatePrefix(reader, revision); err != nil {
 				return fmt.Errorf("failed to read prefix for typed path \"%s\" with type %s in json: %w", c.typedPaths[i], string(col.Type()), err)
 			}
 		}
@@ -668,7 +669,7 @@ func (c *JSON) decodeObjectHeader(reader *proto.Reader) error {
 		parsedColDynamic, _ := Type("Dynamic").Column("", c.tz)
 		colDynamic := parsedColDynamic.(*Dynamic)
 
-		err := colDynamic.decodeHeader(reader)
+		err := colDynamic.decodeHeader(reader, revision)
 		if err != nil {
 			return fmt.Errorf("failed to decode dynamic header at path \"%s\" for json column: %w", dynamicPath, err)
 		}
@@ -679,11 +680,11 @@ func (c *JSON) decodeObjectHeader(reader *proto.Reader) error {
 	return nil
 }
 
-func (c *JSON) decodeObjectData(reader *proto.Reader, rows int) error {
+func (c *JSON) decodeObjectData(reader *proto.Reader, revision uint64, rows int) error {
 	for i, col := range c.typedColumns {
 		typedPath := c.typedPaths[i]
 
-		err := col.Decode(reader, rows)
+		err := col.Decode(reader, revision, rows)
 		if err != nil {
 			return fmt.Errorf("failed to decode %s typed path \"%s\" for json column: %w", col.Type(), typedPath, err)
 		}
@@ -692,7 +693,7 @@ func (c *JSON) decodeObjectData(reader *proto.Reader, rows int) error {
 	for i, col := range c.dynamicColumns {
 		dynamicPath := c.dynamicPaths[i]
 
-		err := col.decodeData(reader, rows)
+		err := col.decodeData(reader, revision, rows)
 		if err != nil {
 			return fmt.Errorf("failed to decode dynamic path \"%s\" for json column: %w", dynamicPath, err)
 		}
@@ -701,11 +702,11 @@ func (c *JSON) decodeObjectData(reader *proto.Reader, rows int) error {
 	return nil
 }
 
-func (c *JSON) decodeStringData(reader *proto.Reader, rows int) error {
-	return c.jsonStrings.Decode(reader, rows)
+func (c *JSON) decodeStringData(reader *proto.Reader, revision uint64, rows int) error {
+	return c.jsonStrings.Decode(reader, revision, rows)
 }
 
-func (c *JSON) ReadStatePrefix(reader *proto.Reader) error {
+func (c *JSON) ReadStatePrefix(reader *proto.Reader, revision uint64) error {
 	jsonSerializationVersion, err := reader.UInt64()
 	if err != nil {
 		return fmt.Errorf("failed to read json serialization version: %w", err)
@@ -717,7 +718,7 @@ func (c *JSON) ReadStatePrefix(reader *proto.Reader) error {
 	case JSONDeprecatedObjectSerializationVersion:
 		return fmt.Errorf("deprecated json serialization version: %d, enable \"output_format_native_use_flattened_dynamic_and_json_serialization\" in your settings", jsonSerializationVersion)
 	case JSONObjectSerializationVersion:
-		err := c.decodeObjectHeader(reader)
+		err := c.decodeObjectHeader(reader, revision)
 		if err != nil {
 			return fmt.Errorf("failed to decode json object header: %w", err)
 		}
@@ -730,19 +731,19 @@ func (c *JSON) ReadStatePrefix(reader *proto.Reader) error {
 	}
 }
 
-func (c *JSON) Decode(reader *proto.Reader, rows int) error {
+func (c *JSON) Decode(reader *proto.Reader, revision uint64, rows int) error {
 	c.rows = rows
 
 	switch c.serializationVersion {
 	case JSONObjectSerializationVersion:
-		err := c.decodeObjectData(reader, rows)
+		err := c.decodeObjectData(reader, revision, rows)
 		if err != nil {
 			return fmt.Errorf("failed to decode json object data: %w", err)
 		}
 
 		return nil
 	case JSONStringSerializationVersion:
-		err := c.decodeStringData(reader, rows)
+		err := c.decodeStringData(reader, revision, rows)
 		if err != nil {
 			return fmt.Errorf("failed to decode json string data: %w", err)
 		}

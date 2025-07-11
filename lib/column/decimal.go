@@ -302,11 +302,11 @@ func (col *Decimal) append(v *decimal.Decimal) {
 	}
 }
 
-func (col *Decimal) Decode(reader *proto.Reader, rows int) error {
+func (col *Decimal) Decode(reader *proto.Reader, revision uint64, rows int) error {
 	return col.col.DecodeColumn(reader, rows)
 }
 
-func (col *Decimal) Encode(buffer *proto.Buffer) {
+func (col *Decimal) Encode(buffer *proto.Buffer, revision uint64) {
 	col.col.EncodeColumn(buffer)
 }
 
