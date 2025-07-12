@@ -24,16 +24,17 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
-	"github.com/ClickHouse/ch-go/proto"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/chcol"
-	"github.com/google/uuid"
-	"github.com/paulmach/orb"
-	"github.com/shopspring/decimal"
 	"math/big"
 	"net"
 	"reflect"
 	"strings"
 	"time"
+
+	"github.com/ClickHouse/ch-go/proto"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/chcol"
+	"github.com/google/uuid"
+	"github.com/paulmach/orb"
+	"github.com/shopspring/decimal"
 )
 
 func (t Type) Column(name string, tz *time.Location) (Interface, error) {
@@ -175,6 +176,10 @@ func (t Type) Column(name string, tz *time.Location) (Interface, error) {
 		return (&DateTime64{name: name}).parse(t, tz)
 	case strings.HasPrefix(strType, "DateTime") && !strings.HasPrefix(strType, "DateTime64"):
 		return (&DateTime{name: name}).parse(t, tz)
+	case strings.HasPrefix(string(t), "Time64"):
+		return (&Time64{name: name}).parse(t, tz)
+	case strings.HasPrefix(string(t), "Time"):
+		return (&Time{name: name}).parse(t, tz)
 	}
 	return nil, &UnsupportedColumnTypeError{
 		t: t,

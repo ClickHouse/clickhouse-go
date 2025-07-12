@@ -22,6 +22,10 @@ require (
 
 require go.opentelemetry.io/otel v1.37.0 // indirect
 
+replace github.com/ClickHouse/ch-go => ../ch-go
+
+replace github.com/ClickHouse/clickhouse-go/v2 => ./
+
 require (
 	dario.cat/mergo v1.0.1 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
