@@ -210,6 +210,115 @@ type stdDriver struct {
 	debugf func(format string, v ...any)
 }
 
+// stdSession represents a stateful connection for the standard SQL driver
+type stdSession struct {
+	conn   stdConnect
+	debugf func(format string, v ...any)
+	closed bool
+}
+
+// stdSessionRow represents a single row result for session queries
+type stdSessionRow struct {
+	err  error
+	rows *rows
+}
+
+func (r *stdSessionRow) Err() error {
+	return r.err
+}
+
+func (r *stdSessionRow) Scan(dest ...any) error {
+	if r.err != nil {
+		return r.err
+	}
+	if !r.rows.Next() {
+		r.rows.Close()
+		if err := r.rows.Err(); err != nil {
+			return err
+		}
+		return sql.ErrNoRows
+	}
+	if err := r.rows.Scan(dest...); err != nil {
+		return err
+	}
+	return r.rows.Close()
+}
+
+func (r *stdSessionRow) ScanStruct(dest any) error {
+	if r.err != nil {
+		return r.err
+	}
+	values, err := r.rows.structMap.Map("ScanStruct", r.rows.columns, dest, true)
+	if err != nil {
+		return err
+	}
+	return r.Scan(values...)
+}
+
+func (s *stdSession) Exec(ctx context.Context, query string, args ...any) error {
+	if s.closed {
+		return ErrSessionClosed
+	}
+	s.debugf("[std session exec] \"%s\"", query)
+	return s.conn.exec(ctx, query, args...)
+}
+
+func (s *stdSession) Query(ctx context.Context, query string, args ...any) (chdriver.Rows, error) {
+	if s.closed {
+		return nil, ErrSessionClosed
+	}
+	s.debugf("[std session query] \"%s\"", query)
+	r, err := s.conn.query(ctx, func(nativeTransport, error) {}, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	return &sessionRows{
+		stdRows: &stdRows{
+			rows:   r,
+			debugf: s.debugf,
+		},
+	}, nil
+}
+
+func (s *stdSession) QueryRow(ctx context.Context, query string, args ...any) chdriver.Row {
+	if s.closed {
+		return &stdSessionRow{err: ErrSessionClosed}
+	}
+	s.debugf("[std session query row] \"%s\"", query)
+	r, err := s.conn.query(ctx, func(nativeTransport, error) {}, query, args...)
+	if err != nil {
+		return &stdSessionRow{err: err}
+	}
+	return &stdSessionRow{rows: r}
+}
+
+func (s *stdSession) PrepareBatch(ctx context.Context, query string, opts ...chdriver.PrepareBatchOption) (chdriver.Batch, error) {
+	if s.closed {
+		return nil, ErrSessionClosed
+	}
+	s.debugf("[std session prepare batch] \"%s\"", query)
+
+	// PrepareBatch is not supported in std driver sessions
+	return nil, ErrSessionNotSupported
+}
+
+func (s *stdSession) Ping(ctx context.Context) error {
+	if s.closed {
+		return ErrSessionClosed
+	}
+	s.debugf("[std session ping]")
+	return s.conn.ping(ctx)
+}
+
+func (s *stdSession) Close() error {
+	if s.closed {
+		return nil
+	}
+	s.closed = true
+	s.debugf("[std session close]")
+	return s.conn.close()
+}
+
 var _ driver.Conn = (*stdDriver)(nil)
 var _ driver.ConnBeginTx = (*stdDriver)(nil)
 var _ driver.ExecerContext = (*stdDriver)(nil)
@@ -229,6 +338,18 @@ func (std *stdDriver) Open(dsn string) (_ driver.Conn, err error) {
 	}
 	o.ClientInfo.comment = []string{"database/sql"}
 	return (&stdConnOpener{opt: o, debugf: debugf}).Connect(context.Background())
+}
+
+func (std *stdDriver) AcquireSession(ctx context.Context) (chdriver.Session, error) {
+	if std.conn.isBad() {
+		std.debugf("AcquireSession: connection is bad")
+		return nil, driver.ErrBadConn
+	}
+
+	return &stdSession{
+		conn:   std.conn,
+		debugf: std.debugf,
+	}, nil
 }
 
 var _ driver.Driver = (*stdDriver)(nil)
@@ -544,3 +665,49 @@ func (r *stdRows) Close() error {
 }
 
 var _ driver.Rows = (*stdRows)(nil)
+
+// sessionRows wraps stdRows to implement chdriver.Rows interface
+type sessionRows struct {
+	*stdRows
+}
+
+func (r *sessionRows) Next() bool {
+	return r.stdRows.Next([]driver.Value{}) == nil
+}
+
+func (r *sessionRows) Scan(dest ...any) error {
+	// Convert dest to driver.Value slice
+	values := make([]driver.Value, len(dest))
+	for i, d := range dest {
+		values[i] = d
+	}
+	return r.stdRows.Next(values)
+}
+
+func (r *sessionRows) ScanStruct(dest any) error {
+	// ScanStruct is not implemented for session rows in std driver
+	return errors.New("ScanStruct not implemented for session rows")
+}
+
+func (r *sessionRows) ColumnTypes() []chdriver.ColumnType {
+	// ColumnTypes is not implemented for session rows in std driver
+	return nil
+}
+
+func (r *sessionRows) Totals(dest ...any) error {
+	// Totals is not implemented for session rows in std driver
+	return errors.New("Totals not implemented for session rows")
+}
+
+func (r *sessionRows) Columns() []string {
+	return r.stdRows.Columns()
+}
+
+func (r *sessionRows) Close() error {
+	return r.stdRows.Close()
+}
+
+func (r *sessionRows) Err() error {
+	// This would need to be implemented based on the error handling
+	return nil
+}

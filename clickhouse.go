@@ -51,6 +51,8 @@ var (
 	ErrBindMixedParamsFormats    = errors.New("clickhouse [bind]: mixed named, numeric or positional parameters")
 	ErrAcquireConnNoAddress      = errors.New("clickhouse: no valid address supplied")
 	ErrServerUnexpectedData      = errors.New("code: 101, message: Unexpected packet Data received from client")
+	ErrSessionClosed             = errors.New("clickhouse: session is closed")
+	ErrSessionNotSupported       = errors.New("clickhouse: session operations not supported in this context")
 )
 
 type OpError struct {
@@ -122,6 +124,68 @@ type clickhouse struct {
 	open   chan struct{}
 	exit   chan struct{}
 	connID int64
+}
+
+type session struct {
+	conn    nativeTransport
+	release nativeTransportRelease
+	debugf  func(format string, v ...any)
+	closed  bool
+}
+
+func (s *session) Exec(ctx context.Context, query string, args ...any) error {
+	if s.closed {
+		return ErrSessionClosed
+	}
+	s.debugf("[session exec] \"%s\"", query)
+	return s.conn.exec(ctx, query, args...)
+}
+
+func (s *session) Query(ctx context.Context, query string, args ...any) (driver.Rows, error) {
+	if s.closed {
+		return nil, ErrSessionClosed
+	}
+	s.debugf("[session query] \"%s\"", query)
+	return s.conn.query(ctx, func(nativeTransport, error) {}, query, args...)
+}
+
+func (s *session) QueryRow(ctx context.Context, query string, args ...any) driver.Row {
+	if s.closed {
+		return &row{err: ErrSessionClosed}
+	}
+	s.debugf("[session query row] \"%s\"", query)
+	return s.conn.queryRow(ctx, func(nativeTransport, error) {}, query, args...)
+}
+
+func (s *session) PrepareBatch(ctx context.Context, query string, opts ...driver.PrepareBatchOption) (driver.Batch, error) {
+	if s.closed {
+		return nil, ErrSessionClosed
+	}
+	s.debugf("[session prepare batch] \"%s\"", query)
+
+	acquire := func(ctx context.Context) (nativeTransport, error) {
+		return s.conn, nil
+	}
+
+	return s.conn.prepareBatch(ctx, func(nativeTransport, error) {}, acquire, query, getPrepareBatchOptions(opts...))
+}
+
+func (s *session) Ping(ctx context.Context) error {
+	if s.closed {
+		return ErrSessionClosed
+	}
+	s.debugf("[session ping]")
+	return s.conn.ping(ctx)
+}
+
+func (s *session) Close() error {
+	if s.closed {
+		return nil
+	}
+	s.closed = true
+	s.debugf("[session close]")
+	s.release(s.conn, nil)
+	return nil
 }
 
 func (clickhouse) Contributors() []string {
@@ -229,6 +293,19 @@ func (ch *clickhouse) Ping(ctx context.Context) (err error) {
 	}
 	ch.release(conn, nil)
 	return nil
+}
+
+func (ch *clickhouse) AcquireSession(ctx context.Context) (driver.Session, error) {
+	conn, err := ch.acquire(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &session{
+		conn:    conn,
+		release: ch.release,
+		debugf:  conn.debugf,
+	}, nil
 }
 
 func (ch *clickhouse) Stats() driver.Stats {
