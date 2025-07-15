@@ -19,14 +19,12 @@ package column
 
 import (
 	"fmt"
+	"github.com/ClickHouse/ch-go/proto"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/chcol"
 	"math"
 	"reflect"
 	"strconv"
 	"strings"
-	"time"
-
-	"github.com/ClickHouse/ch-go/proto"
 )
 
 const JSONDeprecatedObjectSerializationVersion uint64 = 0
@@ -37,7 +35,7 @@ const DefaultMaxDynamicPaths = 1024
 
 type JSON struct {
 	chType Type
-	tz     *time.Location
+	sc     *ServerContext
 	name   string
 	rows   int
 
@@ -61,9 +59,9 @@ type JSON struct {
 	maxDynamicTypes int
 }
 
-func (c *JSON) parse(t Type, tz *time.Location) (_ *JSON, err error) {
+func (c *JSON) parse(t Type, sc *ServerContext) (_ *JSON, err error) {
 	c.chType = t
-	c.tz = tz
+	c.sc = sc
 	tStr := string(t)
 
 	c.serializationVersion = JSONUnsetSerializationVersion
@@ -135,7 +133,7 @@ func (c *JSON) parse(t Type, tz *time.Location) (_ *JSON, err error) {
 		c.typedPaths = append(c.typedPaths, typedPath)
 		c.typedPathsIndex[typedPath] = len(c.typedPaths) - 1
 
-		col, err := Type(typeName).Column("", tz)
+		col, err := Type(typeName).Column("", sc)
 		if err != nil {
 			return nil, fmt.Errorf("failed to init column of type \"%s\" at path \"%s\": %w", typeName, typedPath, err)
 		}
@@ -508,7 +506,7 @@ func (c *JSON) appendRowObject(v any) error {
 			}
 		} else {
 			// Path doesn't exist, add new dynamic path + column
-			parsedColDynamic, _ := Type("Dynamic").Column("", c.tz)
+			parsedColDynamic, _ := Type("Dynamic").Column("", c.sc)
 			colDynamic := parsedColDynamic.(*Dynamic)
 
 			// New path must back-fill nils for each row
@@ -665,7 +663,7 @@ func (c *JSON) decodeObjectHeader(reader *proto.Reader) error {
 
 	c.dynamicColumns = make([]*Dynamic, 0, c.totalDynamicPaths)
 	for _, dynamicPath := range c.dynamicPaths {
-		parsedColDynamic, _ := Type("Dynamic").Column("", c.tz)
+		parsedColDynamic, _ := Type("Dynamic").Column("", c.sc)
 		colDynamic := parsedColDynamic.(*Dynamic)
 
 		err := colDynamic.decodeHeader(reader)

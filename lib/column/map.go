@@ -21,11 +21,9 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
+	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
 	"strings"
-	"time"
-
-	"github.com/ClickHouse/ch-go/proto"
 )
 
 // https://github.com/ClickHouse/ClickHouse/blob/master/src/Columns/ColumnMap.cpp
@@ -65,7 +63,7 @@ func (col *Map) Name() string {
 	return col.name
 }
 
-func (col *Map) parse(t Type, tz *time.Location) (_ Interface, err error) {
+func (col *Map) parse(t Type, sc *ServerContext) (_ Interface, err error) {
 	col.chType = t
 	types := make([]string, 2, 2)
 	typeParams := t.params()
@@ -78,10 +76,10 @@ func (col *Map) parse(t Type, tz *time.Location) (_ Interface, err error) {
 		types[1] = typeParams[idx+1:]
 	}
 	if types[0] != "" && types[1] != "" {
-		if col.keys, err = Type(strings.TrimSpace(types[0])).Column(col.name, tz); err != nil {
+		if col.keys, err = Type(strings.TrimSpace(types[0])).Column(col.name, sc); err != nil {
 			return nil, err
 		}
-		if col.values, err = Type(strings.TrimSpace(types[1])).Column(col.name, tz); err != nil {
+		if col.values, err = Type(strings.TrimSpace(types[1])).Column(col.name, sc); err != nil {
 			return nil, err
 		}
 

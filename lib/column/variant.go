@@ -20,12 +20,10 @@ package column
 import (
 	"database/sql/driver"
 	"fmt"
+	"github.com/ClickHouse/ch-go/proto"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/chcol"
 	"reflect"
 	"strings"
-	"time"
-
-	"github.com/ClickHouse/ch-go/proto"
 )
 
 const SupportedVariantSerializationVersion = 0
@@ -42,7 +40,7 @@ type Variant struct {
 	columnTypeIndex map[string]uint8
 }
 
-func (c *Variant) parse(t Type, tz *time.Location) (_ *Variant, err error) {
+func (c *Variant) parse(t Type, sc *ServerContext) (_ *Variant, err error) {
 	c.chType = t
 	var (
 		element       []rune
@@ -82,7 +80,7 @@ func (c *Variant) parse(t Type, tz *time.Location) (_ *Variant, err error) {
 
 	c.columnTypeIndex = make(map[string]uint8, len(elements))
 	for _, columnType := range elements {
-		column, err := columnType.Column("", tz)
+		column, err := columnType.Column("", sc)
 		if err != nil {
 			return nil, err
 		}
