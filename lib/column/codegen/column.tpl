@@ -122,6 +122,8 @@ func (t Type) Column(name string, sc *ServerContext) (Interface, error) {
 		return &Point{name: name}, nil
 	case "String":
 		return &String{name: name, col: colStrProvider(name)}, nil
+	case "SharedVariant":
+		return &SharedVariant{name: name}, nil
 	case "Object('json')":
 	    return &JSONObject{name: name, root: true, sc: sc}, nil
 	}
@@ -134,9 +136,17 @@ func (t Type) Column(name string, sc *ServerContext) (Interface, error) {
 	case strings.HasPrefix(string(t), "Variant("):
 		return (&Variant{name: name}).parse(t, sc)
 	case strings.HasPrefix(string(t), "Dynamic"):
-		return (&Dynamic{name: name}).parse(t, sc)
+		if sc.VersionMajor >= 25 && sc.VersionMinor >= 6 {
+			return (&Dynamic{name: name}).parse(t, sc)
+		} else {
+			return (&Dynamic_v1{name: name}).parse(t, sc)
+		}
 	case strings.HasPrefix(string(t), "JSON"):
-		return (&JSON{name: name}).parse(t, sc)
+		if sc.VersionMajor >= 25 && sc.VersionMinor >= 6 {
+			return (&JSON{name: name}).parse(t, sc)
+		} else {
+			return (&JSON_v1{name: name}).parse(t, sc)
+		}
 	case strings.HasPrefix(string(t), "Decimal("):
 		return (&Decimal{name: name}).parse(t)
 	case strings.HasPrefix(strType, "Nested("):

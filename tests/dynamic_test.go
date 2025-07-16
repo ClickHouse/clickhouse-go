@@ -41,7 +41,7 @@ func setupDynamicTest(t *testing.T, protocol clickhouse.Protocol) driver.Conn {
 	})
 	require.NoError(t, err)
 
-	if !CheckMinServerServerVersion(conn, 25, 6, 0) {
+	if !CheckMinServerServerVersion(conn, 24, 8, 0) {
 		t.Skip("unsupported clickhouse version for Dynamic type")
 	}
 
@@ -214,6 +214,10 @@ func TestDynamicMaxTypes(t *testing.T) {
 func TestDynamicExceededTypes(t *testing.T) {
 	conn := setupDynamicTest(t, clickhouse.Native)
 	ctx := context.Background()
+
+	if !CheckMinServerServerVersion(conn, 25, 6, 0) {
+		t.Skip("Dynamic serialization version 3 required")
+	}
 
 	const ddl = `
 		CREATE TABLE IF NOT EXISTS test_dynamic_exceeded_types (
