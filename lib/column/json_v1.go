@@ -21,18 +21,14 @@ import (
 	"fmt"
 	"github.com/ClickHouse/ch-go/proto"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/chcol"
-	"math"
 	"reflect"
 	"strconv"
 	"strings"
 )
 
-const JSONStringSerializationVersion uint64 = 1
-const JSONObjectSerializationVersion uint64 = 3
-const JSONUnsetSerializationVersion uint64 = math.MaxUint64
-const DefaultMaxDynamicPaths = 1024
+const JSONDeprecatedObjectSerializationVersion uint64 = 0
 
-type JSON struct {
+type JSON_v1 struct {
 	chType Type
 	sc     *ServerContext
 	name   string
@@ -49,16 +45,16 @@ type JSON struct {
 	skipPaths      []string
 	skipPathsIndex map[string]int
 
-	totalDynamicPaths int
 	dynamicPaths      []string
 	dynamicPathsIndex map[string]int
-	dynamicColumns    []*Dynamic
+	dynamicColumns    []*Dynamic_v1
 
-	maxDynamicPaths int
-	maxDynamicTypes int
+	maxDynamicPaths   int
+	maxDynamicTypes   int
+	totalDynamicPaths int
 }
 
-func (c *JSON) parse(t Type, sc *ServerContext) (_ *JSON, err error) {
+func (c *JSON_v1) parse(t Type, sc *ServerContext) (_ *JSON_v1, err error) {
 	c.chType = t
 	c.sc = sc
 	tStr := string(t)
@@ -143,23 +139,23 @@ func (c *JSON) parse(t Type, sc *ServerContext) (_ *JSON, err error) {
 	return c, nil
 }
 
-func (c *JSON) hasTypedPath(path string) bool {
+func (c *JSON_v1) hasTypedPath(path string) bool {
 	_, ok := c.typedPathsIndex[path]
 	return ok
 }
 
-func (c *JSON) hasDynamicPath(path string) bool {
+func (c *JSON_v1) hasDynamicPath(path string) bool {
 	_, ok := c.dynamicPathsIndex[path]
 	return ok
 }
 
-func (c *JSON) hasSkipPath(path string) bool {
+func (c *JSON_v1) hasSkipPath(path string) bool {
 	_, ok := c.skipPathsIndex[path]
 	return ok
 }
 
 // pathHasNestedValues returns true if the provided path has child paths in typed or dynamic paths
-func (c *JSON) pathHasNestedValues(path string) bool {
+func (c *JSON_v1) pathHasNestedValues(path string) bool {
 	for _, typedPath := range c.typedPaths {
 		if strings.HasPrefix(typedPath, path+".") {
 			return true
@@ -176,7 +172,7 @@ func (c *JSON) pathHasNestedValues(path string) bool {
 }
 
 // valueAtPath returns the row value at the specified path, typed or dynamic
-func (c *JSON) valueAtPath(path string, row int, ptr bool) any {
+func (c *JSON_v1) valueAtPath(path string, row int, ptr bool) any {
 	if colIndex, ok := c.typedPathsIndex[path]; ok {
 		return c.typedColumns[colIndex].Row(row, ptr)
 	}
@@ -189,7 +185,7 @@ func (c *JSON) valueAtPath(path string, row int, ptr bool) any {
 }
 
 // scanTypedPathToValue scans the provided typed path into a `reflect.Value`
-func (c *JSON) scanTypedPathToValue(path string, row int, value reflect.Value) error {
+func (c *JSON_v1) scanTypedPathToValue(path string, row int, value reflect.Value) error {
 	colIndex, ok := c.typedPathsIndex[path]
 	if !ok {
 		return fmt.Errorf("typed path \"%s\" does not exist in JSON column", path)
@@ -205,7 +201,7 @@ func (c *JSON) scanTypedPathToValue(path string, row int, value reflect.Value) e
 }
 
 // scanDynamicPathToValue scans the provided typed path into a `reflect.Value`
-func (c *JSON) scanDynamicPathToValue(path string, row int, value reflect.Value) error {
+func (c *JSON_v1) scanDynamicPathToValue(path string, row int, value reflect.Value) error {
 	colIndex, ok := c.dynamicPathsIndex[path]
 	if !ok {
 		return fmt.Errorf("dynamic path \"%s\" does not exist in JSON column", path)
@@ -220,7 +216,7 @@ func (c *JSON) scanDynamicPathToValue(path string, row int, value reflect.Value)
 	return nil
 }
 
-func (c *JSON) rowAsJSON(row int) *chcol.JSON {
+func (c *JSON_v1) rowAsJSON(row int) *chcol.JSON {
 	obj := chcol.NewJSON()
 
 	for i, path := range c.typedPaths {
@@ -236,21 +232,21 @@ func (c *JSON) rowAsJSON(row int) *chcol.JSON {
 	return obj
 }
 
-func (c *JSON) Name() string {
+func (c *JSON_v1) Name() string {
 	return c.name
 }
 
-func (c *JSON) Type() Type {
+func (c *JSON_v1) Type() Type {
 	return c.chType
 }
 
-func (c *JSON) Rows() int {
+func (c *JSON_v1) Rows() int {
 	return c.rows
 }
 
-func (c *JSON) Row(row int, ptr bool) any {
+func (c *JSON_v1) Row(row int, ptr bool) any {
 	switch c.serializationVersion {
-	case JSONObjectSerializationVersion:
+	case JSONDeprecatedObjectSerializationVersion:
 		return c.rowAsJSON(row)
 	case JSONStringSerializationVersion:
 		return c.jsonStrings.Row(row, ptr)
@@ -259,9 +255,9 @@ func (c *JSON) Row(row int, ptr bool) any {
 	}
 }
 
-func (c *JSON) ScanRow(dest any, row int) error {
+func (c *JSON_v1) ScanRow(dest any, row int) error {
 	switch c.serializationVersion {
-	case JSONObjectSerializationVersion:
+	case JSONDeprecatedObjectSerializationVersion:
 		return c.scanRowObject(dest, row)
 	case JSONStringSerializationVersion:
 		return c.scanRowString(dest, row)
@@ -270,7 +266,7 @@ func (c *JSON) ScanRow(dest any, row int) error {
 	}
 }
 
-func (c *JSON) scanRowObject(dest any, row int) error {
+func (c *JSON_v1) scanRowObject(dest any, row int) error {
 	switch v := dest.(type) {
 	case *chcol.JSON:
 		obj := c.rowAsJSON(row)
@@ -302,13 +298,13 @@ func (c *JSON) scanRowObject(dest any, row int) error {
 	return fmt.Errorf("destination must be a pointer to struct or map, or %s. hint: enable \"output_format_native_write_json_as_string\" setting for string decoding", scanTypeJSON.String())
 }
 
-func (c *JSON) scanRowString(dest any, row int) error {
+func (c *JSON_v1) scanRowString(dest any, row int) error {
 	return c.jsonStrings.ScanRow(dest, row)
 }
 
-func (c *JSON) Append(v any) (nulls []uint8, err error) {
+func (c *JSON_v1) Append(v any) (nulls []uint8, err error) {
 	switch c.serializationVersion {
-	case JSONObjectSerializationVersion:
+	case JSONDeprecatedObjectSerializationVersion:
 		return c.appendObject(v)
 	case JSONStringSerializationVersion:
 		return c.appendString(v)
@@ -316,13 +312,13 @@ func (c *JSON) Append(v any) (nulls []uint8, err error) {
 		// Unset serialization preference, try string first unless its specifically JSON
 		switch v.(type) {
 		case []chcol.JSON:
-			c.serializationVersion = JSONObjectSerializationVersion
+			c.serializationVersion = JSONDeprecatedObjectSerializationVersion
 			return c.appendObject(v)
 		case []*chcol.JSON:
-			c.serializationVersion = JSONObjectSerializationVersion
+			c.serializationVersion = JSONDeprecatedObjectSerializationVersion
 			return c.appendObject(v)
 		case []chcol.JSONSerializer:
-			c.serializationVersion = JSONObjectSerializationVersion
+			c.serializationVersion = JSONDeprecatedObjectSerializationVersion
 			return c.appendObject(v)
 		}
 
@@ -331,7 +327,7 @@ func (c *JSON) Append(v any) (nulls []uint8, err error) {
 			c.serializationVersion = JSONStringSerializationVersion
 			return nil, nil
 		} else if _, err = c.appendObject(v); err == nil {
-			c.serializationVersion = JSONObjectSerializationVersion
+			c.serializationVersion = JSONDeprecatedObjectSerializationVersion
 			return nil, nil
 		}
 
@@ -339,7 +335,7 @@ func (c *JSON) Append(v any) (nulls []uint8, err error) {
 	}
 }
 
-func (c *JSON) appendObject(v any) (nulls []uint8, err error) {
+func (c *JSON_v1) appendObject(v any) (nulls []uint8, err error) {
 	switch vv := v.(type) {
 	case []chcol.JSON:
 		for i, obj := range vv {
@@ -388,7 +384,7 @@ func (c *JSON) appendObject(v any) (nulls []uint8, err error) {
 	return nil, nil
 }
 
-func (c *JSON) appendString(v any) (nulls []uint8, err error) {
+func (c *JSON_v1) appendString(v any) (nulls []uint8, err error) {
 	nulls, err = c.jsonStrings.Append(v)
 	if err != nil {
 		return nil, err
@@ -398,9 +394,9 @@ func (c *JSON) appendString(v any) (nulls []uint8, err error) {
 	return nulls, nil
 }
 
-func (c *JSON) AppendRow(v any) error {
+func (c *JSON_v1) AppendRow(v any) error {
 	switch c.serializationVersion {
-	case JSONObjectSerializationVersion:
+	case JSONDeprecatedObjectSerializationVersion:
 		return c.appendRowObject(v)
 	case JSONStringSerializationVersion:
 		return c.appendRowString(v)
@@ -408,13 +404,13 @@ func (c *JSON) AppendRow(v any) error {
 		// Unset serialization preference, try string first unless its specifically JSON
 		switch v.(type) {
 		case chcol.JSON:
-			c.serializationVersion = JSONObjectSerializationVersion
+			c.serializationVersion = JSONDeprecatedObjectSerializationVersion
 			return c.appendRowObject(v)
 		case *chcol.JSON:
-			c.serializationVersion = JSONObjectSerializationVersion
+			c.serializationVersion = JSONDeprecatedObjectSerializationVersion
 			return c.appendRowObject(v)
 		case chcol.JSONSerializer:
-			c.serializationVersion = JSONObjectSerializationVersion
+			c.serializationVersion = JSONDeprecatedObjectSerializationVersion
 			return c.appendRowObject(v)
 		}
 
@@ -423,7 +419,7 @@ func (c *JSON) AppendRow(v any) error {
 			c.serializationVersion = JSONStringSerializationVersion
 			return nil
 		} else if err = c.appendRowObject(v); err == nil {
-			c.serializationVersion = JSONObjectSerializationVersion
+			c.serializationVersion = JSONDeprecatedObjectSerializationVersion
 			return nil
 		}
 
@@ -431,7 +427,7 @@ func (c *JSON) AppendRow(v any) error {
 	}
 }
 
-func (c *JSON) appendRowObject(v any) error {
+func (c *JSON_v1) appendRowObject(v any) error {
 	var obj *chcol.JSON
 	switch vv := v.(type) {
 	case chcol.JSON:
@@ -506,7 +502,7 @@ func (c *JSON) appendRowObject(v any) error {
 		} else {
 			// Path doesn't exist, add new dynamic path + column
 			parsedColDynamic, _ := Type("Dynamic").Column("", c.sc)
-			colDynamic := parsedColDynamic.(*Dynamic)
+			colDynamic := parsedColDynamic.(*Dynamic_v1)
 
 			// New path must back-fill nils for each row
 			for i := 0; i < c.rows; i++ {
@@ -532,7 +528,7 @@ func (c *JSON) appendRowObject(v any) error {
 	return nil
 }
 
-func (c *JSON) appendRowString(v any) error {
+func (c *JSON_v1) appendRowString(v any) error {
 	err := c.jsonStrings.AppendRow(v)
 	if err != nil {
 		return err
@@ -542,32 +538,20 @@ func (c *JSON) appendRowString(v any) error {
 	return nil
 }
 
-func (c *JSON) encodeObjectHeader(buffer *proto.Buffer) error {
+func (c *JSON_v1) encodeObjectHeader(buffer *proto.Buffer) {
+	buffer.PutUVarInt(uint64(c.maxDynamicPaths))
 	buffer.PutUVarInt(uint64(c.totalDynamicPaths))
 
 	for _, dynamicPath := range c.dynamicPaths {
 		buffer.PutString(dynamicPath)
 	}
 
-	for i, col := range c.typedColumns {
-		if serialize, ok := col.(CustomSerialization); ok {
-			if err := serialize.WriteStatePrefix(buffer); err != nil {
-				return fmt.Errorf("failed to write prefix for typed path \"%s\" in json with type %s: %w", c.typedPaths[i], string(col.Type()), err)
-			}
-		}
+	for _, col := range c.dynamicColumns {
+		col.encodeHeader(buffer)
 	}
-
-	for i, col := range c.dynamicColumns {
-		err := col.encodeHeader(buffer)
-		if err != nil {
-			return fmt.Errorf("failed to encode header for json dynamic path \"%s\": %w", c.dynamicPaths[i], err)
-		}
-	}
-
-	return nil
 }
 
-func (c *JSON) encodeObjectData(buffer *proto.Buffer) {
+func (c *JSON_v1) encodeObjectData(buffer *proto.Buffer) {
 	for _, col := range c.typedColumns {
 		col.Encode(buffer)
 	}
@@ -575,17 +559,24 @@ func (c *JSON) encodeObjectData(buffer *proto.Buffer) {
 	for _, col := range c.dynamicColumns {
 		col.encodeData(buffer)
 	}
+
+	// SharedData per row, empty for now.
+	for i := 0; i < c.rows; i++ {
+		buffer.PutUInt64(0)
+	}
 }
 
-func (c *JSON) encodeStringData(buffer *proto.Buffer) {
+func (c *JSON_v1) encodeStringData(buffer *proto.Buffer) {
 	c.jsonStrings.Encode(buffer)
 }
 
-func (c *JSON) WriteStatePrefix(buffer *proto.Buffer) error {
+func (c *JSON_v1) WriteStatePrefix(buffer *proto.Buffer) error {
 	switch c.serializationVersion {
-	case JSONObjectSerializationVersion:
-		buffer.PutUInt64(JSONObjectSerializationVersion)
-		return c.encodeObjectHeader(buffer)
+	case JSONDeprecatedObjectSerializationVersion:
+		buffer.PutUInt64(JSONDeprecatedObjectSerializationVersion)
+		c.encodeObjectHeader(buffer)
+
+		return nil
 	case JSONStringSerializationVersion:
 		buffer.PutUInt64(JSONStringSerializationVersion)
 
@@ -599,9 +590,9 @@ func (c *JSON) WriteStatePrefix(buffer *proto.Buffer) error {
 	}
 }
 
-func (c *JSON) Encode(buffer *proto.Buffer) {
+func (c *JSON_v1) Encode(buffer *proto.Buffer) {
 	switch c.serializationVersion {
-	case JSONObjectSerializationVersion:
+	case JSONDeprecatedObjectSerializationVersion:
 		c.encodeObjectData(buffer)
 		return
 	case JSONStringSerializationVersion:
@@ -610,15 +601,15 @@ func (c *JSON) Encode(buffer *proto.Buffer) {
 	}
 }
 
-func (c *JSON) ScanType() reflect.Type {
+func (c *JSON_v1) ScanType() reflect.Type {
 	return scanTypeJSON
 }
 
-func (c *JSON) Reset() {
+func (c *JSON_v1) Reset() {
 	c.rows = 0
 
 	switch c.serializationVersion {
-	case JSONObjectSerializationVersion:
+	case JSONDeprecatedObjectSerializationVersion:
 		for _, col := range c.typedColumns {
 			col.Reset()
 		}
@@ -634,15 +625,21 @@ func (c *JSON) Reset() {
 	}
 }
 
-func (c *JSON) decodeObjectHeader(reader *proto.Reader) error {
+func (c *JSON_v1) decodeObjectHeader(reader *proto.Reader) error {
+	maxDynamicPaths, err := reader.UVarInt()
+	if err != nil {
+		return fmt.Errorf("failed to read max dynamic paths for json column: %w", err)
+	}
+	c.maxDynamicPaths = int(maxDynamicPaths)
+
 	totalDynamicPaths, err := reader.UVarInt()
 	if err != nil {
 		return fmt.Errorf("failed to read total dynamic paths for json column: %w", err)
 	}
 	c.totalDynamicPaths = int(totalDynamicPaths)
 
-	c.dynamicPaths = make([]string, 0, c.totalDynamicPaths)
-	for i := 0; i < c.totalDynamicPaths; i++ {
+	c.dynamicPaths = make([]string, 0, totalDynamicPaths)
+	for i := 0; i < int(totalDynamicPaths); i++ {
 		dynamicPath, err := reader.Str()
 		if err != nil {
 			return fmt.Errorf("failed to read dynamic path name bytes at index %d for json column: %w", i, err)
@@ -652,22 +649,14 @@ func (c *JSON) decodeObjectHeader(reader *proto.Reader) error {
 		c.dynamicPathsIndex[dynamicPath] = len(c.dynamicPaths) - 1
 	}
 
-	for i, col := range c.typedColumns {
-		if serialize, ok := col.(CustomSerialization); ok {
-			if err := serialize.ReadStatePrefix(reader); err != nil {
-				return fmt.Errorf("failed to read prefix for typed path \"%s\" with type %s in json: %w", c.typedPaths[i], string(col.Type()), err)
-			}
-		}
-	}
-
-	c.dynamicColumns = make([]*Dynamic, 0, c.totalDynamicPaths)
+	c.dynamicColumns = make([]*Dynamic_v1, 0, totalDynamicPaths)
 	for _, dynamicPath := range c.dynamicPaths {
 		parsedColDynamic, _ := Type("Dynamic").Column("", c.sc)
-		colDynamic := parsedColDynamic.(*Dynamic)
+		colDynamic := parsedColDynamic.(*Dynamic_v1)
 
 		err := colDynamic.decodeHeader(reader)
 		if err != nil {
-			return fmt.Errorf("failed to decode dynamic header at path \"%s\" for json column: %w", dynamicPath, err)
+			return fmt.Errorf("failed to decode dynamic header at path %s for json column: %w", dynamicPath, err)
 		}
 
 		c.dynamicColumns = append(c.dynamicColumns, colDynamic)
@@ -676,13 +665,13 @@ func (c *JSON) decodeObjectHeader(reader *proto.Reader) error {
 	return nil
 }
 
-func (c *JSON) decodeObjectData(reader *proto.Reader, rows int) error {
+func (c *JSON_v1) decodeObjectData(reader *proto.Reader, rows int) error {
 	for i, col := range c.typedColumns {
 		typedPath := c.typedPaths[i]
 
 		err := col.Decode(reader, rows)
 		if err != nil {
-			return fmt.Errorf("failed to decode %s typed path \"%s\" for json column: %w", col.Type(), typedPath, err)
+			return fmt.Errorf("failed to decode %s typed path %s for json column: %w", col.Type(), typedPath, err)
 		}
 	}
 
@@ -691,18 +680,24 @@ func (c *JSON) decodeObjectData(reader *proto.Reader, rows int) error {
 
 		err := col.decodeData(reader, rows)
 		if err != nil {
-			return fmt.Errorf("failed to decode dynamic path \"%s\" for json column: %w", dynamicPath, err)
+			return fmt.Errorf("failed to decode dynamic path %s for json column: %w", dynamicPath, err)
 		}
+	}
+
+	// SharedData per row, ignored for now. May cause stream offset issues if present
+	_, err := reader.ReadRaw(8 * rows) // one UInt64 per row
+	if err != nil {
+		return fmt.Errorf("failed to read shared data for json column: %w", err)
 	}
 
 	return nil
 }
 
-func (c *JSON) decodeStringData(reader *proto.Reader, rows int) error {
+func (c *JSON_v1) decodeStringData(reader *proto.Reader, rows int) error {
 	return c.jsonStrings.Decode(reader, rows)
 }
 
-func (c *JSON) ReadStatePrefix(reader *proto.Reader) error {
+func (c *JSON_v1) ReadStatePrefix(reader *proto.Reader) error {
 	jsonSerializationVersion, err := reader.UInt64()
 	if err != nil {
 		return fmt.Errorf("failed to read json serialization version: %w", err)
@@ -711,7 +706,7 @@ func (c *JSON) ReadStatePrefix(reader *proto.Reader) error {
 	c.serializationVersion = jsonSerializationVersion
 
 	switch jsonSerializationVersion {
-	case JSONObjectSerializationVersion:
+	case JSONDeprecatedObjectSerializationVersion:
 		err := c.decodeObjectHeader(reader)
 		if err != nil {
 			return fmt.Errorf("failed to decode json object header: %w", err)
@@ -725,11 +720,11 @@ func (c *JSON) ReadStatePrefix(reader *proto.Reader) error {
 	}
 }
 
-func (c *JSON) Decode(reader *proto.Reader, rows int) error {
+func (c *JSON_v1) Decode(reader *proto.Reader, rows int) error {
 	c.rows = rows
 
 	switch c.serializationVersion {
-	case JSONObjectSerializationVersion:
+	case JSONDeprecatedObjectSerializationVersion:
 		err := c.decodeObjectData(reader, rows)
 		if err != nil {
 			return fmt.Errorf("failed to decode json object data: %w", err)
@@ -746,41 +741,4 @@ func (c *JSON) Decode(reader *proto.Reader, rows int) error {
 	default:
 		return fmt.Errorf("unsupported JSON serialization version for decode: %d", c.serializationVersion)
 	}
-}
-
-// splitWithDelimiters splits the string while considering backticks and parentheses
-func splitWithDelimiters(s string) []string {
-	var parts []string
-	var currentPart strings.Builder
-	var brackets int
-	inBackticks := false
-
-	for i := 0; i < len(s); i++ {
-		switch s[i] {
-		case '`':
-			inBackticks = !inBackticks
-			currentPart.WriteByte(s[i])
-		case '(':
-			brackets++
-			currentPart.WriteByte(s[i])
-		case ')':
-			brackets--
-			currentPart.WriteByte(s[i])
-		case ',':
-			if !inBackticks && brackets == 0 {
-				parts = append(parts, currentPart.String())
-				currentPart.Reset()
-			} else {
-				currentPart.WriteByte(s[i])
-			}
-		default:
-			currentPart.WriteByte(s[i])
-		}
-	}
-
-	if currentPart.Len() > 0 {
-		parts = append(parts, currentPart.String())
-	}
-
-	return parts
 }

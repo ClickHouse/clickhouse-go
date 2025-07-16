@@ -28,7 +28,6 @@ import (
 )
 
 const SupportedDynamicSerializationVersion = 3
-const DeprecatedSupportedDynamicSerializationVersion = 1
 const DefaultMaxDynamicTypes = 32
 const DynamicNullDiscriminator = -1 // The Null index changes as data is being built, use -1 as placeholder for writes.
 
@@ -318,9 +317,7 @@ func (c *Dynamic) decodeHeader(reader *proto.Reader) error {
 		return fmt.Errorf("failed to read dynamic serialization version: %w", err)
 	}
 
-	if dynamicSerializationVersion == DeprecatedSupportedDynamicSerializationVersion {
-		return fmt.Errorf("deprecated dynamic serialization version: %d, enable \"output_format_native_use_flattened_dynamic_and_json_serialization\" in your settings", dynamicSerializationVersion)
-	} else if dynamicSerializationVersion != SupportedDynamicSerializationVersion {
+	if dynamicSerializationVersion != SupportedDynamicSerializationVersion {
 		return fmt.Errorf("unsupported dynamic serialization version: %d", dynamicSerializationVersion)
 	}
 

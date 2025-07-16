@@ -40,7 +40,7 @@ func setupJSONTest(t *testing.T, protocol clickhouse.Protocol) driver.Conn {
 	})
 	require.NoError(t, err)
 
-	if !CheckMinServerServerVersion(conn, 25, 6, 0) {
+	if !CheckMinServerServerVersion(conn, 24, 8, 0) {
 		t.Skip("unsupported clickhouse version for JSON type")
 	}
 
@@ -176,6 +176,10 @@ func TestJSONEmptyArray(t *testing.T) {
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
 		conn := setupJSONTest(t, protocol)
 		ctx := context.Background()
+
+		if !CheckMinServerServerVersion(conn, 24, 9, 0) {
+			t.Skip("Empty Array(JSON) depends on JSON strings for empty payload")
+		}
 
 		const ddl = `
 			CREATE TABLE IF NOT EXISTS test_json_empty_array (
@@ -319,6 +323,10 @@ func TestJSONString(t *testing.T) {
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
 		conn := setupJSONTest(t, protocol)
 		ctx := context.Background()
+
+		if !CheckMinServerServerVersion(conn, 24, 9, 0) {
+			t.Skip("JSON strings not supported")
+		}
 
 		require.NoError(t, conn.Exec(ctx, "SET output_format_native_write_json_as_string=1"))
 		require.NoError(t, conn.Exec(ctx, "SET output_format_json_quote_64bit_integers=0"))
