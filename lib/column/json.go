@@ -711,6 +711,8 @@ func (c *JSON) ReadStatePrefix(reader *proto.Reader) error {
 	c.serializationVersion = jsonSerializationVersion
 
 	switch jsonSerializationVersion {
+	case JSONDeprecatedObjectSerializationVersion:
+		return fmt.Errorf("deprecated json serialization version: %d, enable \"output_format_native_use_flattened_dynamic_and_json_serialization\" in your settings", jsonSerializationVersion)
 	case JSONObjectSerializationVersion:
 		err := c.decodeObjectHeader(reader)
 		if err != nil {
