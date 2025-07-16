@@ -184,7 +184,7 @@ func (s *session) Close() error {
 	}
 	s.closed = true
 	s.debugf("[session close]")
-	s.release(s.conn, nil)
+	s.conn.close()
 	return nil
 }
 
