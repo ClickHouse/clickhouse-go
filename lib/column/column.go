@@ -23,6 +23,7 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+	"time"
 )
 
 // column names which match this must be escaped - see https://clickhouse.com/docs/en/sql-reference/syntax/#identifiers
@@ -91,4 +92,12 @@ type Interface interface {
 type CustomSerialization interface {
 	ReadStatePrefix(*proto.Reader) error
 	WriteStatePrefix(*proto.Buffer) error
+}
+
+type ServerContext struct {
+	Revision     uint64
+	VersionMajor uint64
+	VersionMinor uint64
+	VersionPatch uint64
+	Timezone     *time.Location
 }

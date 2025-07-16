@@ -23,7 +23,6 @@ import (
 	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
 	"strings"
-	"time"
 )
 
 var scanTypeAny = reflect.TypeOf((*interface{})(nil)).Elem()
@@ -53,7 +52,7 @@ func (col *Array) Name() string {
 	return col.name
 }
 
-func (col *Array) parse(t Type, tz *time.Location) (_ *Array, err error) {
+func (col *Array) parse(t Type, sc *ServerContext) (_ *Array, err error) {
 	col.chType = t
 	var typeStr = string(t)
 
@@ -69,7 +68,7 @@ parse:
 		}
 	}
 	if col.depth != 0 {
-		if col.values, err = Type(typeStr).Column(col.name, tz); err != nil {
+		if col.values, err = Type(typeStr).Column(col.name, sc); err != nil {
 			return nil, err
 		}
 		offsetScanTypes := make([]reflect.Type, 0, col.depth)

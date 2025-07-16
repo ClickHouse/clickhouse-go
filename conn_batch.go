@@ -321,7 +321,7 @@ func (b *batch) Columns() []column.Interface {
 }
 
 func (b *batch) closeQuery() error {
-	if err := b.conn.sendData(&proto.Block{}, ""); err != nil {
+	if err := b.conn.sendData(proto.NewBlock(), ""); err != nil {
 		return err
 	}
 
