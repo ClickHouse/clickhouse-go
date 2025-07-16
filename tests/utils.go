@@ -167,6 +167,7 @@ func CreateClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment,
 		WaitingFor: wait.ForAll(
 			wait.ForListeningPort("9000/tcp"),
 			wait.ForListeningPort("8123/tcp"),
+			wait.ForHTTP("/").WithPort("8123/tcp"),
 		).WithDeadline(time.Second * 120),
 		Mounts: []testcontainers.ContainerMount{
 			testcontainers.BindMount(path.Join(basePath, "./resources/custom.xml"), "/etc/clickhouse-server/config.d/custom.xml"),
