@@ -47,7 +47,7 @@ func (c *connect) sendQuery(body string, o *QueryOptions) error {
 			return err
 		}
 	}
-	if err := c.sendData(&proto.Block{}, ""); err != nil {
+	if err := c.sendData(proto.NewBlock(), ""); err != nil {
 		return err
 	}
 	return c.flush()

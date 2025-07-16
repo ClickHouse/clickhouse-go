@@ -1,6 +1,7 @@
 package clickhouse
 
 import (
+	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 	"github.com/stretchr/testify/assert"
 	"strconv"
@@ -10,9 +11,9 @@ import (
 func TestReadWithEmptyBlock(t *testing.T) {
 	blockInitFunc := func() *proto.Block {
 		retVal := &proto.Block{
-			Packet:   0,
-			Columns:  nil,
-			Timezone: nil,
+			Packet:        0,
+			Columns:       nil,
+			ServerContext: &column.ServerContext{},
 		}
 		retVal.AddColumn("col1", ("Int64"))
 		retVal.AddColumn("col2", ("String"))
