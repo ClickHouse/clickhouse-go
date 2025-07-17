@@ -60,7 +60,7 @@ func (c *Dynamic) sortColumnsForEncoding() {
 func (c *Dynamic) encodeHeader_v1(buffer *proto.Buffer) error {
 	c.sortColumnsForEncoding()
 
-	buffer.PutUInt64(DeprecatedDynamicSerializationVersion)
+	buffer.PutUInt64(DynamicDeprecatedSerializationVersion)
 	buffer.PutUVarInt(uint64(c.deprecated.maxTypes))
 	buffer.PutUVarInt(uint64(c.totalTypes))
 

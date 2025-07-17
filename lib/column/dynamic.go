@@ -29,10 +29,10 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/chcol"
 )
 
-const SupportedDynamicSerializationVersion = 3
-const DeprecatedDynamicSerializationVersion = 1
-const DefaultMaxDynamicTypes = 32
+const DynamicSerializationVersion = 3
+const DynamicDeprecatedSerializationVersion = 1
 const DynamicNullDiscriminator = -1 // The Null index changes as data is being built, use -1 as placeholder for writes.
+const DefaultMaxDynamicTypes = 32
 
 func supportsFlatDynamicJSON(sc *ServerContext) bool {
 	return sc.VersionMajor >= 25 && sc.VersionMinor >= 6
@@ -123,7 +123,7 @@ func (c *Dynamic) Row(i int, ptr bool) any {
 	offsetIndex := c.offsets[i]
 	var value any
 	var chType string
-	if c.serializationVersion == DeprecatedDynamicSerializationVersion {
+	if c.serializationVersion == DynamicDeprecatedSerializationVersion {
 		if typeIndex != DynamicNullDiscriminator {
 			value = c.columns[typeIndex].Row(offsetIndex, ptr)
 			chType = string(c.columns[typeIndex].Type())
@@ -148,7 +148,7 @@ func (c *Dynamic) ScanRow(dest any, row int) error {
 	offsetIndex := c.offsets[row]
 	var value any
 	var chType string
-	if c.serializationVersion == DeprecatedDynamicSerializationVersion {
+	if c.serializationVersion == DynamicDeprecatedSerializationVersion {
 		if typeIndex != DynamicNullDiscriminator {
 			value = c.columns[typeIndex].Row(offsetIndex, false)
 			chType = string(c.columns[typeIndex].Type())
@@ -168,8 +168,14 @@ func (c *Dynamic) ScanRow(dest any, row int) error {
 		dyn := chcol.NewDynamicWithType(value, chType)
 		**v = dyn
 	default:
-		if typeIndex == c.totalTypes {
-			return nil
+		if c.serializationVersion == DynamicDeprecatedSerializationVersion {
+			if typeIndex == DynamicNullDiscriminator {
+				return nil
+			}
+		} else {
+			if typeIndex == c.totalTypes {
+				return nil
+			}
 		}
 
 		if err := c.columns[typeIndex].ScanRow(dest, offsetIndex); err != nil {
@@ -299,7 +305,7 @@ func (c *Dynamic) AppendRow(v any) error {
 }
 
 func (c *Dynamic) encodeHeader(buffer *proto.Buffer) error {
-	buffer.PutUInt64(SupportedDynamicSerializationVersion)
+	buffer.PutUInt64(DynamicSerializationVersion)
 	buffer.PutUVarInt(uint64(c.totalTypes))
 
 	for _, col := range c.columns {
@@ -469,9 +475,9 @@ func (c *Dynamic) ReadStatePrefix(reader *proto.Reader) error {
 	c.serializationVersion = dynamicSerializationVersion
 
 	switch c.serializationVersion {
-	case SupportedDynamicSerializationVersion:
+	case DynamicSerializationVersion:
 		return c.decodeHeader(reader)
-	case DeprecatedDynamicSerializationVersion:
+	case DynamicDeprecatedSerializationVersion:
 		return c.decodeHeader_v1(reader)
 	default:
 		return fmt.Errorf("unsupported dynamic serialization version: %d", dynamicSerializationVersion)
@@ -480,9 +486,9 @@ func (c *Dynamic) ReadStatePrefix(reader *proto.Reader) error {
 
 func (c *Dynamic) Decode(reader *proto.Reader, rows int) error {
 	switch c.serializationVersion {
-	case SupportedDynamicSerializationVersion:
+	case DynamicSerializationVersion:
 		return c.decodeData(reader, rows)
-	case DeprecatedDynamicSerializationVersion:
+	case DynamicDeprecatedSerializationVersion:
 		return c.decodeData_v1(reader, rows)
 	default:
 		return fmt.Errorf("unsupported dynamic serialization version: %d", c.serializationVersion)
