@@ -20,28 +20,39 @@ package column
 import (
 	"database/sql/driver"
 	"fmt"
-	"github.com/ClickHouse/ch-go/proto"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/chcol"
 	"math"
 	"reflect"
+	"strconv"
 	"strings"
+
+	"github.com/ClickHouse/ch-go/proto"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/chcol"
 )
 
 const SupportedDynamicSerializationVersion = 3
+const DeprecatedDynamicSerializationVersion = 1
 const DefaultMaxDynamicTypes = 32
 const DynamicNullDiscriminator = -1 // The Null index changes as data is being built, use -1 as placeholder for writes.
+
+func supportsFlatDynamicJSON(sc *ServerContext) bool {
+	return sc.VersionMajor >= 25 && sc.VersionMinor >= 6
+}
 
 type Dynamic struct {
 	chType Type
 	sc     *ServerContext
 	name   string
 
+	serializationVersion uint64
+
 	totalTypes     int // Null is last type index + 1, so this doubles as the Null type index for reads.
 	discriminators []int
 	offsets        []int
 
 	columns           []Interface
-	columnIndexByName map[string]int
+	columnIndexByType map[string]int
+
+	deprecated deprecatedDynamic
 }
 
 func (c *Dynamic) parse(t Type, sc *ServerContext) (_ *Dynamic, err error) {
@@ -49,7 +60,16 @@ func (c *Dynamic) parse(t Type, sc *ServerContext) (_ *Dynamic, err error) {
 	c.sc = sc
 	tStr := string(t)
 
-	c.columnIndexByName = make(map[string]int)
+	c.columnIndexByType = make(map[string]int)
+
+	if !supportsFlatDynamicJSON(sc) {
+		// SharedVariant is special, and does not count against totalTypes
+		sv, _ := Type("SharedVariant").Column("", sc)
+		c.addColumn(sv)
+
+		c.deprecated.maxTypes = DefaultMaxDynamicTypes
+		c.totalTypes = 0 // Reset to 0 after adding SharedVariant
+	}
 
 	if tStr == "Dynamic" {
 		return c, nil
@@ -59,13 +79,28 @@ func (c *Dynamic) parse(t Type, sc *ServerContext) (_ *Dynamic, err error) {
 		return nil, &UnsupportedColumnTypeError{t: t}
 	}
 
+	if !supportsFlatDynamicJSON(sc) {
+		typeParamsStr := strings.TrimPrefix(tStr, "Dynamic(")
+		typeParamsStr = strings.TrimSuffix(typeParamsStr, ")")
+
+		if strings.HasPrefix(typeParamsStr, "max_types=") {
+			v := strings.TrimPrefix(typeParamsStr, "max_types=")
+			if maxTypes, err := strconv.Atoi(v); err == nil {
+				c.deprecated.maxTypes = maxTypes
+			}
+		}
+	}
+
 	return c, nil
 }
 
 func (c *Dynamic) addColumn(col Interface) int {
-	colIndex := len(c.columns)
+	typeName := string(col.Type())
+	c.deprecated.typeNames = append(c.deprecated.typeNames, typeName)
+
+	colIndex := len(c.deprecated.typeNames) - 1
 	c.columns = append(c.columns, col)
-	c.columnIndexByName[string(col.Type())] = colIndex
+	c.columnIndexByType[typeName] = colIndex
 	c.totalTypes++
 
 	return colIndex
@@ -88,9 +123,16 @@ func (c *Dynamic) Row(i int, ptr bool) any {
 	offsetIndex := c.offsets[i]
 	var value any
 	var chType string
-	if typeIndex != c.totalTypes {
-		value = c.columns[typeIndex].Row(offsetIndex, ptr)
-		chType = string(c.columns[typeIndex].Type())
+	if c.serializationVersion == DeprecatedDynamicSerializationVersion {
+		if typeIndex != DynamicNullDiscriminator {
+			value = c.columns[typeIndex].Row(offsetIndex, ptr)
+			chType = string(c.columns[typeIndex].Type())
+		}
+	} else {
+		if typeIndex != c.totalTypes {
+			value = c.columns[typeIndex].Row(offsetIndex, ptr)
+			chType = string(c.columns[typeIndex].Type())
+		}
 	}
 
 	dyn := chcol.NewDynamicWithType(value, chType)
@@ -106,9 +148,16 @@ func (c *Dynamic) ScanRow(dest any, row int) error {
 	offsetIndex := c.offsets[row]
 	var value any
 	var chType string
-	if typeIndex != c.totalTypes {
-		value = c.columns[typeIndex].Row(offsetIndex, false)
-		chType = string(c.columns[typeIndex].Type())
+	if c.serializationVersion == DeprecatedDynamicSerializationVersion {
+		if typeIndex != DynamicNullDiscriminator {
+			value = c.columns[typeIndex].Row(offsetIndex, false)
+			chType = string(c.columns[typeIndex].Type())
+		}
+	} else {
+		if typeIndex != c.totalTypes {
+			value = c.columns[typeIndex].Row(offsetIndex, false)
+			chType = string(c.columns[typeIndex].Type())
+		}
 	}
 
 	switch v := dest.(type) {
@@ -206,7 +255,7 @@ func (c *Dynamic) AppendRow(v any) error {
 
 	if requestedType != "" {
 		var col Interface
-		colIndex, ok := c.columnIndexByName[requestedType]
+		colIndex, ok := c.columnIndexByType[requestedType]
 		if ok {
 			col = c.columns[colIndex]
 		} else {
@@ -229,6 +278,11 @@ func (c *Dynamic) AppendRow(v any) error {
 
 	// If preferred type wasn't provided, try each column
 	for i, col := range c.columns {
+		if c.deprecated.typeNames[i] == "SharedVariant" {
+			// Do not try to fit into SharedVariant
+			continue
+		}
+
 		if err := col.AppendRow(v); err == nil {
 			c.appendDiscriminatorRow(i)
 			return nil
@@ -292,11 +346,20 @@ func (c *Dynamic) encodeData(buffer *proto.Buffer) {
 }
 
 func (c *Dynamic) WriteStatePrefix(buffer *proto.Buffer) error {
-	return c.encodeHeader(buffer)
+	if supportsFlatDynamicJSON(c.sc) {
+		return c.encodeHeader(buffer)
+	}
+
+	return c.encodeHeader_v1(buffer)
 }
 
 func (c *Dynamic) Encode(buffer *proto.Buffer) {
-	c.encodeData(buffer)
+	if supportsFlatDynamicJSON(c.sc) {
+		c.encodeData(buffer)
+		return
+	}
+
+	c.encodeData_v1(buffer)
 }
 
 func (c *Dynamic) ScanType() reflect.Type {
@@ -312,24 +375,13 @@ func (c *Dynamic) Reset() {
 }
 
 func (c *Dynamic) decodeHeader(reader *proto.Reader) error {
-	dynamicSerializationVersion, err := reader.UInt64()
-	if err != nil {
-		return fmt.Errorf("failed to read dynamic serialization version: %w", err)
-	}
-
-	if dynamicSerializationVersion == DeprecatedDynamicSerializationVersion {
-		return fmt.Errorf("deprecated dynamic serialization version: %d, enable \"output_format_native_use_flattened_dynamic_and_json_serialization\" in your settings", dynamicSerializationVersion)
-	} else if dynamicSerializationVersion != SupportedDynamicSerializationVersion {
-		return fmt.Errorf("unsupported dynamic serialization version: %d", dynamicSerializationVersion)
-	}
-
 	totalTypes, err := reader.UVarInt()
 	if err != nil {
 		return fmt.Errorf("failed to read total types for dynamic column: %w", err)
 	}
 
 	c.columns = make([]Interface, 0, totalTypes)
-	c.columnIndexByName = make(map[string]int, totalTypes)
+	c.columnIndexByType = make(map[string]int, totalTypes)
 	for i := uint64(0); i < totalTypes; i++ {
 		typeName, err := reader.Str()
 		if err != nil {
@@ -383,7 +435,7 @@ func discriminatorReader(totalTypes int, reader *proto.Reader) func() (int, erro
 func (c *Dynamic) decodeData(reader *proto.Reader, rows int) error {
 	c.discriminators = make([]int, rows)
 	c.offsets = make([]int, rows)
-	rowCountByType := make([]int, len(c.columns))
+	rowCountByType := make([]int, c.totalTypes)
 
 	readDiscriminator := discriminatorReader(c.totalTypes, reader)
 	for i := 0; i < rows; i++ {
@@ -410,19 +462,29 @@ func (c *Dynamic) decodeData(reader *proto.Reader, rows int) error {
 }
 
 func (c *Dynamic) ReadStatePrefix(reader *proto.Reader) error {
-	err := c.decodeHeader(reader)
+	dynamicSerializationVersion, err := reader.UInt64()
 	if err != nil {
-		return fmt.Errorf("failed to decode dynamic header: %w", err)
+		return fmt.Errorf("failed to read dynamic serialization version: %w", err)
 	}
+	c.serializationVersion = dynamicSerializationVersion
 
-	return nil
+	switch c.serializationVersion {
+	case SupportedDynamicSerializationVersion:
+		return c.decodeHeader(reader)
+	case DeprecatedDynamicSerializationVersion:
+		return c.decodeHeader_v1(reader)
+	default:
+		return fmt.Errorf("unsupported dynamic serialization version: %d", dynamicSerializationVersion)
+	}
 }
 
 func (c *Dynamic) Decode(reader *proto.Reader, rows int) error {
-	err := c.decodeData(reader, rows)
-	if err != nil {
-		return fmt.Errorf("failed to decode dynamic data: %w", err)
+	switch c.serializationVersion {
+	case SupportedDynamicSerializationVersion:
+		return c.decodeData(reader, rows)
+	case DeprecatedDynamicSerializationVersion:
+		return c.decodeData_v1(reader, rows)
+	default:
+		return fmt.Errorf("unsupported dynamic serialization version: %d", c.serializationVersion)
 	}
-
-	return nil
 }

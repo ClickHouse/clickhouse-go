@@ -27,6 +27,7 @@ import (
 	"strings"
 )
 
+const JSONDeprecatedObjectSerializationVersion uint64 = 0
 const JSONStringSerializationVersion uint64 = 1
 const JSONObjectSerializationVersion uint64 = 3
 const JSONUnsetSerializationVersion uint64 = math.MaxUint64
