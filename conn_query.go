@@ -44,7 +44,6 @@ func (c *connect) query(ctx context.Context, release nativeTransportRelease, que
 	// context level deadlines override any read deadline
 	if deadline, ok := ctx.Deadline(); ok {
 		c.conn.SetDeadline(deadline)
-		defer c.conn.SetDeadline(time.Time{})
 	}
 
 	if err = c.sendQuery(body, &options); err != nil {
@@ -80,6 +79,8 @@ func (c *connect) query(ctx context.Context, release nativeTransportRelease, que
 		}
 		close(stream)
 		close(errors)
+
+		c.conn.SetDeadline(time.Time{})
 		release(c, err)
 	}()
 
