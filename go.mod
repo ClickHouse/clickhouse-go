@@ -5,7 +5,7 @@ go 1.23.0
 toolchain go1.24.1
 
 require (
-	github.com/ClickHouse/ch-go v0.66.1
+	github.com/ClickHouse/ch-go v0.67.0
 	github.com/andybalholm/brotli v1.2.0
 	github.com/docker/docker v28.3.2+incompatible
 	github.com/docker/go-units v0.5.0
