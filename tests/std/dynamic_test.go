@@ -40,7 +40,7 @@ func setupDynamicTest(t *testing.T) *sql.DB {
 	})
 	require.NoError(t, err)
 
-	if !CheckMinServerVersion(conn, 25, 6, 0) {
+	if !CheckMinServerVersion(conn, 24, 8, 0) {
 		t.Skip(fmt.Errorf("unsupported clickhouse version for Dynamic type"))
 		return nil
 	}
@@ -51,10 +51,12 @@ func setupDynamicTest(t *testing.T) *sql.DB {
 		return nil
 	}
 
-	_, err = conn.ExecContext(context.Background(), "SET output_format_native_use_flattened_dynamic_and_json_serialization = 1")
-	if err != nil {
-		t.Fatal(err)
-		return nil
+	if CheckMinServerVersion(conn, 25, 6, 0) {
+		_, err = conn.ExecContext(context.Background(), "SET output_format_native_use_flattened_dynamic_and_json_serialization = 1")
+		if err != nil {
+			t.Fatal(err)
+			return nil
+		}
 	}
 
 	return conn

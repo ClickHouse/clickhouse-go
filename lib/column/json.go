@@ -19,14 +19,16 @@ package column
 
 import (
 	"fmt"
-	"github.com/ClickHouse/ch-go/proto"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/chcol"
 	"math"
 	"reflect"
 	"strconv"
 	"strings"
+
+	"github.com/ClickHouse/ch-go/proto"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/chcol"
 )
 
+const JSONDeprecatedObjectSerializationVersion uint64 = 0
 const JSONStringSerializationVersion uint64 = 1
 const JSONObjectSerializationVersion uint64 = 3
 const JSONUnsetSerializationVersion uint64 = math.MaxUint64
@@ -558,7 +560,7 @@ func (c *JSON) encodeObjectHeader(buffer *proto.Buffer) error {
 	}
 
 	for i, col := range c.dynamicColumns {
-		err := col.encodeHeader(buffer)
+		err := col.WriteStatePrefix(buffer)
 		if err != nil {
 			return fmt.Errorf("failed to encode header for json dynamic path \"%s\": %w", c.dynamicPaths[i], err)
 		}
@@ -573,7 +575,7 @@ func (c *JSON) encodeObjectData(buffer *proto.Buffer) {
 	}
 
 	for _, col := range c.dynamicColumns {
-		col.encodeData(buffer)
+		col.Encode(buffer)
 	}
 }
 
@@ -584,8 +586,13 @@ func (c *JSON) encodeStringData(buffer *proto.Buffer) {
 func (c *JSON) WriteStatePrefix(buffer *proto.Buffer) error {
 	switch c.serializationVersion {
 	case JSONObjectSerializationVersion:
-		buffer.PutUInt64(JSONObjectSerializationVersion)
-		return c.encodeObjectHeader(buffer)
+		if supportsFlatDynamicJSON(c.sc) {
+			buffer.PutUInt64(JSONObjectSerializationVersion)
+			return c.encodeObjectHeader(buffer)
+		}
+
+		buffer.PutUInt64(JSONDeprecatedObjectSerializationVersion)
+		return c.encodeObjectHeader_v1(buffer)
 	case JSONStringSerializationVersion:
 		buffer.PutUInt64(JSONStringSerializationVersion)
 
@@ -602,7 +609,11 @@ func (c *JSON) WriteStatePrefix(buffer *proto.Buffer) error {
 func (c *JSON) Encode(buffer *proto.Buffer) {
 	switch c.serializationVersion {
 	case JSONObjectSerializationVersion:
-		c.encodeObjectData(buffer)
+		if supportsFlatDynamicJSON(c.sc) {
+			c.encodeObjectData(buffer)
+		} else {
+			c.encodeObjectData_v1(buffer)
+		}
 		return
 	case JSONStringSerializationVersion:
 		c.encodeStringData(buffer)
@@ -665,7 +676,7 @@ func (c *JSON) decodeObjectHeader(reader *proto.Reader) error {
 		parsedColDynamic, _ := Type("Dynamic").Column("", c.sc)
 		colDynamic := parsedColDynamic.(*Dynamic)
 
-		err := colDynamic.decodeHeader(reader)
+		err := colDynamic.ReadStatePrefix(reader)
 		if err != nil {
 			return fmt.Errorf("failed to decode dynamic header at path \"%s\" for json column: %w", dynamicPath, err)
 		}
@@ -689,7 +700,7 @@ func (c *JSON) decodeObjectData(reader *proto.Reader, rows int) error {
 	for i, col := range c.dynamicColumns {
 		dynamicPath := c.dynamicPaths[i]
 
-		err := col.decodeData(reader, rows)
+		err := col.Decode(reader, rows)
 		if err != nil {
 			return fmt.Errorf("failed to decode dynamic path \"%s\" for json column: %w", dynamicPath, err)
 		}
@@ -712,7 +723,13 @@ func (c *JSON) ReadStatePrefix(reader *proto.Reader) error {
 
 	switch jsonSerializationVersion {
 	case JSONDeprecatedObjectSerializationVersion:
-		return fmt.Errorf("deprecated json serialization version: %d, enable \"output_format_native_use_flattened_dynamic_and_json_serialization\" in your settings", jsonSerializationVersion)
+		err := c.decodeObjectHeader_v1(reader)
+		if err != nil {
+			return fmt.Errorf("failed to decode json object header v1: %w", err)
+		}
+
+		// c.serializationVersion is still in deprecated state until c.Decode()
+		return nil
 	case JSONObjectSerializationVersion:
 		err := c.decodeObjectHeader(reader)
 		if err != nil {
@@ -731,6 +748,14 @@ func (c *JSON) Decode(reader *proto.Reader, rows int) error {
 	c.rows = rows
 
 	switch c.serializationVersion {
+	case JSONDeprecatedObjectSerializationVersion:
+		err := c.decodeObjectData_v1(reader, rows)
+		if err != nil {
+			return fmt.Errorf("failed to decode json object data v1: %w", err)
+		}
+
+		c.serializationVersion = JSONObjectSerializationVersion // Ensure the rest of the append/scan logic uses object mode
+		return nil
 	case JSONObjectSerializationVersion:
 		err := c.decodeObjectData(reader, rows)
 		if err != nil {

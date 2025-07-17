@@ -65,6 +65,13 @@ func NewJSON() *JSON {
 
 // ExtractJSONPathAs is a convenience function for asserting a path to a specific type.
 // The underlying value is also extracted from its Dynamic wrapper if present.
+// T cannot be a Dynamic, if you want a Dynamic simply use ExtractJSONPathAsDynamic.
 func ExtractJSONPathAs[T any](o *JSON, path string) (valueAs T, ok bool) {
 	return chcol.ExtractJSONPathAs[T](o, path)
+}
+
+// ExtractJSONPathAsDynamic is a convenience function for asserting a path to a Dynamic.
+// If the value is not a Dynamic, the value is wrapped in an untyped Dynamic with false returned.
+func ExtractJSONPathAsDynamic(o *JSON, path string) (Dynamic, bool) {
+	return chcol.ExtractJSONPathAsDynamic(o, path)
 }

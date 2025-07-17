@@ -57,7 +57,7 @@ func (p *FastProduct) SerializeClickHouseJSON() (*clickhouse.JSON, error) {
 
 // DeserializeClickHouseJSON implements clickhouse.JSONDeserializer for faster struct scanning
 func (p *FastProduct) DeserializeClickHouseJSON(obj *clickhouse.JSON) error {
-	p.ID, _ = clickhouse.ExtractJSONPathAs[clickhouse.Dynamic](obj, "id")
+	p.ID, _ = clickhouse.ExtractJSONPathAsDynamic(obj, "id")
 	p.Name, _ = clickhouse.ExtractJSONPathAs[string](obj, "name")
 	p.Tags, _ = clickhouse.ExtractJSONPathAs[[]string](obj, "tags")
 	p.Pricing.Price, _ = clickhouse.ExtractJSONPathAs[int64](obj, "pricing.price")
