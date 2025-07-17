@@ -55,7 +55,7 @@ func (h *httpConnect) query(ctx context.Context, release nativeTransportRelease,
 
 	if res.ContentLength == 0 {
 		discardAndClose(res.Body)
-		block := &proto.Block{}
+		block := proto.NewBlock()
 		release(h, nil)
 		return &rows{
 			block:     block,
@@ -122,7 +122,7 @@ func (h *httpConnect) query(ctx context.Context, release nativeTransportRelease,
 	}()
 
 	if block == nil {
-		block = &proto.Block{}
+		block = proto.NewBlock()
 	}
 
 	return &rows{

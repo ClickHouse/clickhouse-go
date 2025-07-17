@@ -150,27 +150,64 @@ conn.SetConnMaxLifetime(time.Hour)
     * round_robin - choose a round-robin server from the set
     * in_order    - first live server is chosen in specified order
 * debug - enable debug output (boolean value)
-* compress - compress - specify the compression algorithm - “none” (default), `zstd`, `lz4`, `gzip`, `deflate`, `br`. If set to `true`, `lz4` will be used.
-* compress_level - Level of compression (default is 0). This is algorithm specific:
-  - `gzip` - `-2` (Best Speed) to `9` (Best Compression)
-  - `deflate` - `-2` (Best Speed) to `9` (Best Compression)
-  - `br` - `0` (Best Speed) to `11` (Best Compression)
-  - `zstd`, `lz4` - ignored
+* compress - specify the compression algorithm: `none` (default), `zstd`, `lz4`, `lz4hc`, `gzip`, `deflate`, `br`. If set to `true`, `lz4` will be used.
+* compress_level - Level of compression (algorithm-specific, default is 3 when compression is enabled):
+  - `gzip`/`deflate`: `-2` (Best Speed) to `9` (Best Compression)
+  - `br`: `0` (Best Speed) to `11` (Best Compression)
+  - `zstd`/`lz4`/`lz4hc`: ignored
 * block_buffer_size - size of block buffer (default 2)
 * read_timeout - a duration string is a possibly signed sequence of decimal numbers, each with optional fraction and a unit suffix such as "300ms", "1s". Valid time units are "ms", "s", "m" (default 5m).
 * max_compression_buffer - max size (bytes) of compression buffer during column by column compression (default 10MiB)
 * client_info_product - optional list (comma separated) of product name and version pair separated with `/`. This value will be pass a part of client info. e.g. `client_info_product=my_app/1.0,my_module/0.1` More details in [Client info](#client-info) section.
 * http_proxy - HTTP proxy address
 
-SSL/TLS parameters:
+## Connection Settings Reference
 
-* secure - establish secure connection (default is false)
-* skip_verify - skip certificate verification (default is false)
+The following connection settings are available in both DSN strings and the `clickhouse.Options` struct:
+
+### Timeout Settings
+* **dial_timeout** - Connection timeout for establishing a connection to the server (default: 30s)
+* **read_timeout** - Timeout for reading server responses (default: 5m)
+
+### Connection Pool Settings
+* **max_open_conns** - Maximum number of open connections to the database (default: MaxIdleConns + 5)
+* **max_idle_conns** - Maximum number of idle connections in the pool (default: 5)
+* **conn_max_lifetime** - Maximum amount of time a connection may be reused (default: 1h)
+
+### Connection Strategy
+* **connection_open_strategy** - Strategy for selecting servers from the connection pool:
+  * `in_order` - Choose the first available server in the specified order (default)
+  * `round_robin` - Choose servers in a round-robin fashion
+  * `random` - Choose a random server from the pool
+
+### Compression Settings
+* **compress** - Enable compression with a specific algorithm: `none`, `zstd`, `lz4`, `lz4hc`, `gzip`, `deflate`, `br`. If set to `true`, `lz4` will be used (default: `none`)
+* **compress_level** - Compression level (algorithm-specific):
+  * `gzip`/`deflate`: `-2` (Best Speed) to `9` (Best Compression)
+  * `br`: `0` (Best Speed) to `11` (Best Compression)
+  * `zstd`/`lz4`: ignored
+* **max_compression_buffer** - Maximum size of compression buffer in bytes (default: 10MiB)
+
+### Buffer Settings
+* **block_buffer_size** - Size of block buffer (default: 2)
+
+### Debug Settings
+* **debug** - Enable debug output (boolean value)
+
+### SSL/TLS Settings
+* **secure** - Establish secure connection (default: false)
+* **skip_verify** - Skip certificate verification (default: false)
+
+### Client Information
+* **client_info_product** - Comma-separated list of product name and version pairs (e.g., `my_app/1.0,my_module/0.1`)
+
+### HTTP Settings
+* **http_proxy** - HTTP proxy address for HTTP protocol connections
 
 Example:
 
 ```sh
-clickhouse://username:password@host1:9000,host2:9000/database?dial_timeout=200ms&max_execution_time=60
+clickhouse://username:password@host1:9000,host2:9000/database?dial_timeout=200ms&read_timeout=30s&max_execution_time=60
 ```
 
 ### HTTP Support (Experimental)

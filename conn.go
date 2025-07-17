@@ -22,6 +22,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	"io"
 	"log"
 	"net"
@@ -356,6 +357,16 @@ func (c *connect) sendData(block *proto.Block, name string) error {
 	return nil
 }
 
+func serverVersionToContext(v ServerVersion) column.ServerContext {
+	return column.ServerContext{
+		Revision:     v.Revision,
+		VersionMajor: v.Version.Major,
+		VersionMinor: v.Version.Minor,
+		VersionPatch: v.Version.Patch,
+		Timezone:     v.Timezone,
+	}
+}
+
 func (c *connect) readData(ctx context.Context, packet byte, compressible bool) (*proto.Block, error) {
 	if c.isClosed() {
 		err := errors.New("attempted reading on closed connection")
@@ -385,7 +396,9 @@ func (c *connect) readData(ctx context.Context, packet byte, compressible bool) 
 		location = userLocation
 	}
 
-	block := proto.Block{Timezone: location}
+	serverContext := serverVersionToContext(c.server)
+	serverContext.Timezone = location
+	block := proto.Block{ServerContext: &serverContext}
 	if err := block.Decode(c.reader, c.revision); err != nil {
 		c.debugf("[read data] decode error: %v", err)
 		return nil, err

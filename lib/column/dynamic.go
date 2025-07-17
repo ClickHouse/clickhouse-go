@@ -20,23 +20,20 @@ package column
 import (
 	"database/sql/driver"
 	"fmt"
+	"github.com/ClickHouse/ch-go/proto"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/chcol"
 	"math"
 	"reflect"
 	"strings"
-	"time"
-
-	"github.com/ClickHouse/ch-go/proto"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/chcol"
 )
 
 const SupportedDynamicSerializationVersion = 3
-const DeprecatedSupportedDynamicSerializationVersion = 1
 const DefaultMaxDynamicTypes = 32
 const DynamicNullDiscriminator = -1 // The Null index changes as data is being built, use -1 as placeholder for writes.
 
 type Dynamic struct {
 	chType Type
-	tz     *time.Location
+	sc     *ServerContext
 	name   string
 
 	totalTypes     int // Null is last type index + 1, so this doubles as the Null type index for reads.
@@ -47,9 +44,9 @@ type Dynamic struct {
 	columnIndexByName map[string]int
 }
 
-func (c *Dynamic) parse(t Type, tz *time.Location) (_ *Dynamic, err error) {
+func (c *Dynamic) parse(t Type, sc *ServerContext) (_ *Dynamic, err error) {
 	c.chType = t
-	c.tz = tz
+	c.sc = sc
 	tStr := string(t)
 
 	c.columnIndexByName = make(map[string]int)
@@ -213,7 +210,7 @@ func (c *Dynamic) AppendRow(v any) error {
 		if ok {
 			col = c.columns[colIndex]
 		} else {
-			newCol, err := Type(requestedType).Column("", c.tz)
+			newCol, err := Type(requestedType).Column("", c.sc)
 			if err != nil {
 				return fmt.Errorf("value \"%v\" cannot be stored in dynamic column %s with requested type %s: unable to append type: %w", v, c.chType, requestedType, err)
 			}
@@ -320,7 +317,7 @@ func (c *Dynamic) decodeHeader(reader *proto.Reader) error {
 		return fmt.Errorf("failed to read dynamic serialization version: %w", err)
 	}
 
-	if dynamicSerializationVersion == DeprecatedSupportedDynamicSerializationVersion {
+	if dynamicSerializationVersion == DeprecatedDynamicSerializationVersion {
 		return fmt.Errorf("deprecated dynamic serialization version: %d, enable \"output_format_native_use_flattened_dynamic_and_json_serialization\" in your settings", dynamicSerializationVersion)
 	} else if dynamicSerializationVersion != SupportedDynamicSerializationVersion {
 		return fmt.Errorf("unsupported dynamic serialization version: %d", dynamicSerializationVersion)
@@ -339,7 +336,7 @@ func (c *Dynamic) decodeHeader(reader *proto.Reader) error {
 			return fmt.Errorf("failed to read type name at index %d for dynamic column: %w", i, err)
 		}
 
-		col, err := Type(typeName).Column("", c.tz)
+		col, err := Type(typeName).Column("", c.sc)
 		if err != nil {
 			return fmt.Errorf("failed to add dynamic column with type %s: %w", typeName, err)
 		}

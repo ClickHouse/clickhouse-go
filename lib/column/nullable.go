@@ -42,9 +42,9 @@ func (col *Nullable) Name() string {
 	return col.name
 }
 
-func (col *Nullable) parse(t Type, tz *time.Location) (_ *Nullable, err error) {
+func (col *Nullable) parse(t Type, sc *ServerContext) (_ *Nullable, err error) {
 	col.enable = true
-	if col.base, err = Type(t.params()).Column(col.name, tz); err != nil {
+	if col.base, err = Type(t.params()).Column(col.name, sc); err != nil {
 		return nil, err
 	}
 	switch base := col.base.ScanType(); {
