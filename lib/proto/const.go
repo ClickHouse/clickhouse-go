@@ -41,11 +41,13 @@ const (
 )
 
 const (
-	ClientHello  = 0
-	ClientQuery  = 1
-	ClientData   = 2
-	ClientCancel = 3
-	ClientPing   = 4
+	ClientHello                = 0
+	ClientQuery                = 1
+	ClientData                 = 2
+	ClientCancel               = 3
+	ClientPing                 = 4
+	ClientSSHChallengeRequest  = 11
+	ClientSSHChallengeResponse = 12
 )
 
 const (
@@ -80,4 +82,5 @@ const (
 	ServerReadTaskRequest     = 13
 	ServerProfileEvents       = 14
 	ServerTreeReadTaskRequest = 15
+	ServerSSHChallenge        = 18
 )

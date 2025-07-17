@@ -5,7 +5,7 @@ go 1.23.0
 toolchain go1.24.1
 
 require (
-	github.com/ClickHouse/ch-go v0.66.1
+	github.com/ClickHouse/ch-go v0.67.0
 	github.com/andybalholm/brotli v1.2.0
 	github.com/docker/docker v28.3.2+incompatible
 	github.com/docker/go-units v0.5.0
@@ -16,6 +16,7 @@ require (
 	github.com/stretchr/testify v1.10.0
 	github.com/testcontainers/testcontainers-go v0.38.0
 	go.opentelemetry.io/otel/trace v1.37.0
+	golang.org/x/crypto v0.40.0
 	golang.org/x/net v0.42.0
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -73,6 +74,5 @@ require (
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.19.0 // indirect
 	go.opentelemetry.io/otel/metric v1.37.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.0.0 // indirect
-	golang.org/x/crypto v0.40.0 // indirect
 	golang.org/x/sys v0.34.0 // indirect
 )
