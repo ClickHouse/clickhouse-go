@@ -84,9 +84,9 @@ func (fts *FastTestStruct) DeserializeClickHouseJSON(obj *clickhouse.JSON) error
 	fts.ts.Metadata["FieldC"] = make(map[string]any)
 	fts.ts.Metadata["FieldC"].(map[string]any)["FieldD"], _ = clickhouse.ExtractJSONPathAs[string](obj, "Metadata.FieldC.FieldD")
 	fts.ts.Timestamp, _ = clickhouse.ExtractJSONPathAs[time.Time](obj, "Timestamp")
-	fts.ts.DynamicString, _ = clickhouse.ExtractJSONPathAs[clickhouse.Dynamic](obj, "DynamicString")
-	fts.ts.DynamicInt, _ = clickhouse.ExtractJSONPathAs[clickhouse.Dynamic](obj, "DynamicInt")
-	fts.ts.DynamicMap, _ = clickhouse.ExtractJSONPathAs[clickhouse.Dynamic](obj, "DynamicMap")
+	fts.ts.DynamicString, _ = clickhouse.ExtractJSONPathAsDynamic(obj, "DynamicString")
+	fts.ts.DynamicInt, _ = clickhouse.ExtractJSONPathAsDynamic(obj, "DynamicInt")
+	fts.ts.DynamicMap, _ = clickhouse.ExtractJSONPathAsDynamic(obj, "DynamicMap")
 
 	return nil
 }
@@ -114,7 +114,7 @@ func BuildTestJSONStruct() TestStruct {
 		KeysNumbers: map[string]int64{"FieldA": 42, "FieldB": 32},
 		Metadata: map[string]interface{}{
 			"FieldA": "a",
-			"FieldB": "b",
+			"FieldB": int64(123),
 			"FieldC": map[string]interface{}{
 				"FieldD": "d",
 			},

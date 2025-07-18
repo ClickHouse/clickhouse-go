@@ -307,12 +307,12 @@ func TestJSONFastStruct(t *testing.T) {
 		rows, err := conn.Query(ctx, "SELECT c FROM test_json_fast_struct")
 		require.NoError(t, err)
 
-		var row TestStruct
+		var row FastTestStruct
 
 		require.True(t, rows.Next())
 		err = rows.Scan(&row)
 		require.NoError(t, err)
-		require.Equal(t, inputRow.ts, row)
+		require.Equal(t, inputRow, row)
 
 		require.NoError(t, rows.Close())
 		require.NoError(t, rows.Err())
