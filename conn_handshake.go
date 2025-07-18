@@ -37,7 +37,7 @@ func (c *connect) handshake(auth Auth) error {
 	{
 		c.buffer.PutByte(proto.ClientHello)
 		handshake := &proto.ClientHandshake{
-			ProtocolVersion: ClientTCPProtocolVersion,
+			ProtocolVersion: c.revision,
 			ClientName:      c.opt.ClientInfo.String(),
 			ClientVersion:   proto.Version{ClientVersionMajor, ClientVersionMinor, ClientVersionPatch}, //nolint:govet
 		}
@@ -60,7 +60,7 @@ func (c *connect) handshake(auth Auth) error {
 		case proto.ServerException:
 			return c.exception()
 		case proto.ServerHello:
-			if err := c.server.Decode(c.reader); err != nil {
+			if err := c.server.Decode(c.reader, c.revision); err != nil {
 				return err
 			}
 		case proto.ServerEndOfStream:
