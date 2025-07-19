@@ -308,6 +308,77 @@ conn := clickhouse.OpenDB(&clickhouse.Options{
 })
 ```
 
+## SSH Authentication (Native Protocol)
+
+ClickHouse-go supports SSH key-based authentication (requires ClickHouse server with SSH auth enabled).
+
+**Options struct:**
+```go
+conn, err := clickhouse.Open(&clickhouse.Options{
+    Addr: []string{"127.0.0.1:9000"},
+    Auth: clickhouse.Auth{
+        Database: "default",
+        Username: "default",
+    },
+    SSHKeyFile:       "/path/to/id_ed25519",
+    SSHKeyPassphrase: "your_passphrase_if_any",
+})
+```
+
+**DSN parameters:**
+- `ssh_key_file` — path to SSH private key (RSA, ECDSA, Ed25519)
+- `ssh_key_passphrase` — passphrase for encrypted key (optional)
+
+Example DSN:
+```
+clickhouse://default@127.0.0.1:9000/default?ssh_key_file=/path/to/id_ed25519&ssh_key_passphrase=your_passphrase_if_any
+```
+
+See [`examples/ssh_auth.go`](examples/ssh_auth.go) for a complete example.
+
+## SSH Key Authentication
+
+ClickHouse SSH key authentication is supported for users configured with SSH keys on the server. You can authenticate using either a file-based SSH private key or an in-memory/custom SSH signer.
+
+### File-based SSH key
+
+```go
+conn, err := clickhouse.Open(&clickhouse.Options{
+    Addr: []string{"127.0.0.1:9000"},
+    Auth: clickhouse.Auth{
+        Database: "default",
+        Username: "default",
+    },
+    SSHKeyFile:       "/path/to/id_ed25519",
+    SSHKeyPassphrase: "your_passphrase_if_any",
+})
+```
+
+Or via DSN:
+
+```
+clickhouse://default@127.0.0.1:9000/default?ssh_key_file=/path/to/id_ed25519&ssh_key_passphrase=your_passphrase_if_any
+```
+
+### In-memory or custom SSH signer
+
+```go
+keyData, err := os.ReadFile("/path/to/id_ed25519")
+signer, err := ssh.ParsePrivateKey(keyData)
+conn, err := clickhouse.Open(&clickhouse.Options{
+    Addr: []string{"127.0.0.1:9000"},
+    Auth: clickhouse.Auth{
+        Database: "default",
+        Username: "default",
+    },
+    SSHSigner: signer,
+})
+```
+
+If both `SSHSigner` and `SSHKeyFile` are set, `SSHSigner` takes precedence.
+
+---
+
 ## Client info
 
 

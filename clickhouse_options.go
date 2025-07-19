@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"github.com/ClickHouse/ch-go/compress"
+	"golang.org/x/crypto/ssh"
 )
 
 type CompressionMethod byte
@@ -161,6 +162,11 @@ type Options struct {
 	// This is called per connection/request, so you may cache the token in your app if needed.
 	// Use this instead of Auth.Username and Auth.Password if you're using JWT auth.
 	GetJWT GetJWTFunc
+
+	// SSH authentication.
+	SSHKeyFile       string     // Path to SSH private key file (optional)
+	SSHKeyPassphrase string     // Passphrase for SSH key (if encrypted, optional)
+	SSHSigner        ssh.Signer // In-memory or custom SSH signer (takes precedence if set)
 
 	scheme      string
 	ReadTimeout time.Duration
@@ -327,6 +333,10 @@ func (o *Options) fromDSN(in string) error {
 				return fmt.Errorf("clickhouse [dsn parse]: http_proxy: %s", err)
 			}
 			o.HTTPProxyURL = proxyURL
+		case "ssh_key_file":
+			o.SSHKeyFile = params.Get(v)
+		case "ssh_key_passphrase":
+			o.SSHKeyPassphrase = params.Get(v)
 		default:
 			switch p := strings.ToLower(params.Get(v)); p {
 			case "true":

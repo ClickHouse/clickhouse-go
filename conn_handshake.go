@@ -19,10 +19,13 @@ package clickhouse
 
 import (
 	_ "embed"
+	"encoding/base64"
 	"fmt"
 	"time"
 
+	chssh "github.com/ClickHouse/ch-go/ssh"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
+	"golang.org/x/crypto/ssh"
 )
 
 func (c *connect) handshake(auth Auth) error {
@@ -79,6 +82,63 @@ func (c *connect) handshake(auth Auth) error {
 		c.debugf("[handshake] downgrade client proto")
 	}
 	c.debugf("[handshake] <- %s", c.server)
+
+	// Handle SSH authentication if configured
+	if c.opt.SSHKeyFile != "" {
+		if err := c.performSSHAuthentication(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (c *connect) performSSHAuthentication() error {
+	var sshKey ssh.Signer
+	if c.opt.SSHSigner != nil {
+		sshKey = c.opt.SSHSigner
+	} else if c.opt.SSHKeyFile != "" {
+		var err error
+		sshKey, err = chssh.LoadPrivateKeyFromFile(c.opt.SSHKeyFile, c.opt.SSHKeyPassphrase)
+		if err != nil {
+			return fmt.Errorf("failed to load SSH key: %w", err)
+		}
+	} else {
+		return fmt.Errorf("no SSH key provided: set SSHSigner or SSHKeyFile")
+	}
+
+	c.buffer.Reset()
+	c.buffer.PutByte(proto.ClientSSHChallengeRequest)
+	if err := c.flush(); err != nil {
+		return fmt.Errorf("send SSH challenge request: %w", err)
+	}
+
+	packet, err := c.reader.ReadByte()
+	if err != nil {
+		return fmt.Errorf("read SSH challenge response: %w", err)
+	}
+	if packet != proto.ServerSSHChallenge {
+		return fmt.Errorf("unexpected packet [%d] from server during SSH authentication", packet)
+	}
+
+	challenge, err := c.reader.Str()
+	if err != nil {
+		return fmt.Errorf("read SSH challenge string: %w", err)
+	}
+
+	sig, err := sshKey.Sign(nil, []byte(challenge))
+	if err != nil {
+		return fmt.Errorf("sign SSH challenge: %w", err)
+	}
+	signature := base64.StdEncoding.EncodeToString(sig.Blob)
+
+	c.buffer.Reset()
+	c.buffer.PutByte(proto.ClientSSHChallengeResponse)
+	c.buffer.PutString(signature)
+	if err := c.flush(); err != nil {
+		return fmt.Errorf("send SSH challenge response: %w", err)
+	}
+
 	return nil
 }
 
