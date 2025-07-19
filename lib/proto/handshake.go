@@ -19,11 +19,12 @@ package proto
 
 import (
 	"fmt"
-	chproto "github.com/ClickHouse/ch-go/proto"
-	"gopkg.in/yaml.v3"
 	"strconv"
 	"strings"
 	"time"
+
+	chproto "github.com/ClickHouse/ch-go/proto"
+	"gopkg.in/yaml.v3"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/timezone"
 )
@@ -40,6 +41,22 @@ func (h ClientHandshake) Encode(buffer *chproto.Buffer) {
 	buffer.PutUVarInt(h.ClientVersion.Major)
 	buffer.PutUVarInt(h.ClientVersion.Minor)
 	buffer.PutUVarInt(h.ProtocolVersion)
+}
+
+func (h *ClientHandshake) Decode(reader *chproto.Reader) (err error) {
+	if h.ClientName, err = reader.Str(); err != nil {
+		return fmt.Errorf("could not read client name: %v", err)
+	}
+	if h.ClientVersion.Major, err = reader.UVarInt(); err != nil {
+		return fmt.Errorf("could not read client major version: %v", err)
+	}
+	if h.ClientVersion.Minor, err = reader.UVarInt(); err != nil {
+		return fmt.Errorf("could not read client minor version: %v", err)
+	}
+	if h.ProtocolVersion, err = reader.UVarInt(); err != nil {
+		return fmt.Errorf("could not read protocol version: %v", err)
+	}
+	return nil
 }
 
 func (h ClientHandshake) String() string {
@@ -83,6 +100,22 @@ func CheckMinVersion(constraint Version, version Version) bool {
 		return false
 	}
 	return true
+}
+
+func (srv *ServerHandshake) Encode(buffer *chproto.Buffer) {
+	buffer.PutString(srv.Name)
+	buffer.PutUVarInt(srv.Version.Major)
+	buffer.PutUVarInt(srv.Version.Minor)
+	buffer.PutUVarInt(srv.Revision)
+	if srv.Revision >= DBMS_MIN_REVISION_WITH_SERVER_TIMEZONE {
+		buffer.PutString(srv.Timezone.String())
+	}
+	if srv.Revision >= DBMS_MIN_REVISION_WITH_SERVER_DISPLAY_NAME {
+		buffer.PutString(srv.DisplayName)
+	}
+	if srv.Revision >= DBMS_MIN_REVISION_WITH_VERSION_PATCH {
+		buffer.PutUVarInt(srv.Version.Patch)
+	}
 }
 
 func (srv *ServerHandshake) Decode(reader *chproto.Reader) (err error) {
