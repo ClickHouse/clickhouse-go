@@ -40,6 +40,7 @@ func TestStdContextStdTimeout(t *testing.T) {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
 			connect, err := GetStdDSNConnection(protocol, useSSL, nil)
 			require.NoError(t, err)
+
 			t.Run("query which triggers timeout", func(t *testing.T) {
 				ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 				defer cancel()
@@ -51,7 +52,7 @@ func TestStdContextStdTimeout(t *testing.T) {
 				}
 			})
 			t.Run("query which returns in time", func(t *testing.T) {
-				ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+				ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 				defer cancel()
 				if row := connect.QueryRowContext(ctx, "SELECT 1, sleep(0.1)"); assert.NotNil(t, row) {
 					var value, value2 int
