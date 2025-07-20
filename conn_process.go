@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
@@ -73,6 +74,15 @@ func (c *connect) firstBlock(ctx context.Context, on *onProcess) (*proto.Block, 
 func (c *connect) firstBlockImpl(ctx context.Context, on *onProcess) (*proto.Block, error) {
 	c.readerMutex.Lock()
 	defer c.readerMutex.Unlock()
+
+	// set a read deadline - alternative to context.Read operation will fail if no data is received after deadline.
+	c.conn.SetReadDeadline(time.Now().Add(c.readTimeout))
+	defer c.conn.SetReadDeadline(time.Time{})
+	// context level deadlines override any read deadline
+	if deadline, ok := ctx.Deadline(); ok {
+		c.conn.SetDeadline(deadline)
+		defer c.conn.SetDeadline(time.Time{})
+	}
 
 	for {
 		if c.reader == nil {
@@ -143,6 +153,15 @@ func (c *connect) process(ctx context.Context, on *onProcess) error {
 func (c *connect) processImpl(ctx context.Context, on *onProcess) error {
 	c.readerMutex.Lock()
 	defer c.readerMutex.Unlock()
+
+	// set a read deadline - alternative to context.Read operation will fail if no data is received after deadline.
+	c.conn.SetReadDeadline(time.Now().Add(c.readTimeout))
+	defer c.conn.SetReadDeadline(time.Time{})
+	// context level deadlines override any read deadline
+	if deadline, ok := ctx.Deadline(); ok {
+		c.conn.SetDeadline(deadline)
+		defer c.conn.SetDeadline(time.Time{})
+	}
 
 	for {
 		if c.reader == nil {
