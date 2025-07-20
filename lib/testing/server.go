@@ -241,7 +241,7 @@ func (ts *TestServer) handleClientHandshake(reader *chproto.Reader, writer *chpr
 	return err
 }
 
-func (ts *TestServer) handleQuery(reader *chproto.Reader, writer *chproto.Writer) (err error) {
+func (ts *TestServer) handleQuery(reader *chproto.Reader, writer *chproto.Writer) error {
 	query := &proto.Query{}
 	if err := query.Decode(reader, proto.DBMS_MIN_REVISION_WITH_VERSION_PATCH); err != nil {
 		return fmt.Errorf("handling query: %w", err)
@@ -261,21 +261,23 @@ func (ts *TestServer) handleQuery(reader *chproto.Reader, writer *chproto.Writer
 	}()
 
 	for block := range outBlocks {
+		var berr error
 		writer.ChainBuffer(func(b *chproto.Buffer) {
 			b.PutUVarInt(ServerCodeData)
 			b.PutString("") // is this where TableColumns would be sent?
-			err = block.Encode(b, proto.DBMS_MIN_REVISION_WITH_VERSION_PATCH)
+			berr = block.Encode(b, proto.DBMS_MIN_REVISION_WITH_VERSION_PATCH)
 		})
 		if _, werr := writer.Flush(); werr != nil {
 			return werr
 		}
-		if err != nil {
-			return
+		if berr != nil {
+			return berr
 		}
 	}
 
+	// now we can check error from query as outBlocks is closed
 	if err != nil {
-		return
+		return err
 	}
 
 	// Send end of stream
