@@ -2,7 +2,6 @@ package clickhouse
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"os"
 	"testing"
@@ -118,20 +117,6 @@ func TestConn_Query_ReadTimeout(t *testing.T) {
 
 	t.Run("second row timeout", func(t *testing.T) {
 		assert.False(t, rows.Next())
-		err := rows.Err()
-		assert.True(t, isDeadlineExceededError(err), "error is not a timeout error: %#v", err)
+		chtesting.AssertIsTimeoutError(t, rows.Err())
 	})
-}
-
-type timeout interface {
-	Timeout() bool
-}
-
-func isDeadlineExceededError(err error) bool {
-	nerr, ok := errors.Unwrap(err).(timeout)
-	if !ok {
-		return false
-	}
-
-	return nerr.Timeout()
 }

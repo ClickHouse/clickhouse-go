@@ -20,14 +20,14 @@ package std
 import (
 	"context"
 	"fmt"
-	"github.com/ClickHouse/clickhouse-go/v2"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
-	"github.com/stretchr/testify/require"
-	"net"
-	"net/url"
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
+	chtesting "github.com/ClickHouse/clickhouse-go/v2/lib/testing"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
+	"github.com/stretchr/testify/require"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -46,14 +46,7 @@ func TestStdContextStdTimeout(t *testing.T) {
 				if row := connect.QueryRowContext(ctx, "SELECT 1, sleep(3)"); assert.NotNil(t, row) {
 					var a, b int
 					if err := row.Scan(&a, &b); assert.Error(t, err) {
-						switch err := err.(type) {
-						case *net.OpError:
-							assert.Equal(t, "read", err.Op)
-						case *url.Error:
-							assert.Equal(t, context.DeadlineExceeded, err.Err)
-						default:
-							assert.ErrorIs(t, err, context.DeadlineExceeded)
-						}
+						chtesting.AssertIsTimeoutError(t, err)
 					}
 				}
 			}
@@ -67,7 +60,6 @@ func TestStdContextStdTimeout(t *testing.T) {
 					}
 				}
 			}
-
 		})
 	}
 }
