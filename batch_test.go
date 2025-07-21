@@ -201,6 +201,14 @@ func TestExtractNormalizedInsertQueryAndColumns(t *testing.T) {
 			query:         "SELECT * FROM table_name",
 			expectedError: true,
 		},
+		{
+			name:                    "Insert with backtick quoted table name and nested columns",
+			query:                   "INSERT INTO `table_name` (`col1`.`nested1`, `col1`.`nested2`) VALUES ((1, 2), (1, 2))",
+			expectedNormalizedQuery: "INSERT INTO `table_name` (`col1`.`nested1`, `col1`.`nested2`) FORMAT Native",
+			expectedTableName:       "`table_name`",
+			expectedColumns:         []string{"col1.nested1", "col1.nested2"},
+			expectedError:           false,
+		},
 	}
 
 	for _, tc := range testCases {
