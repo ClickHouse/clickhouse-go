@@ -432,3 +432,36 @@ func (c *connect) flush() error {
 	c.buffer.Reset()
 	return nil
 }
+
+// startReadWriteTimeout applies the configured read timeout to conn.
+// If a context deadline is provided, a read and write deadline is set.
+// This should be matched with a deferred call to clearReadWriteTimeout.
+func (c *connect) startReadWriteTimeout(ctx context.Context) error {
+	err := c.conn.SetReadDeadline(time.Now().Add(c.readTimeout))
+	if err != nil {
+		return err
+	}
+
+	// context level deadlines override configured read timeout
+	if deadline, ok := ctx.Deadline(); ok {
+		return c.conn.SetDeadline(deadline)
+	}
+
+	return nil
+}
+
+// clearReadWriteTimeout removes the read timeout from conn.
+// If a context deadline is provided, the read and write timeout is cleared too.
+func (c *connect) clearReadWriteTimeout(ctx context.Context) error {
+	err := c.conn.SetReadDeadline(time.Time{})
+	if err != nil {
+		return err
+	}
+
+	// context level deadlines should clear read + write deadlines.
+	if _, ok := ctx.Deadline(); ok {
+		return c.conn.SetDeadline(time.Time{})
+	}
+
+	return nil
+}
