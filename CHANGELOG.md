@@ -1,3 +1,17 @@
+# v2.39.0, 2025-07-23 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Bug fixes 🐛 
+* Fix `ReadTimeout` so that it applies to each call to `conn.Read` not just the first read block by @GeorgeMac in https://github.com/ClickHouse/clickhouse-go/pull/1616, @SpencerTorres https://github.com/ClickHouse/clickhouse-go/pull/1617
+
+## Read Timeout behavior changes
+This bug fix has potential to affect longer running queries, ensure you're setting `clickhouse.Options` `ReadTimeout` to a reasonable value, and that your `context.WithDeadline` is also set to a reasonable value. The read timeout will now be applied to all blocks, previously it was only set for the first block.
+
+## New Contributors
+* @GeorgeMac made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1616
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.38.1...v2.39.0
+
 # v2.38.1, 2025-07-23 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
