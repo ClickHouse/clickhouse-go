@@ -323,27 +323,27 @@ func (c *Dynamic) encodeHeader(buffer *proto.Buffer) error {
 	return nil
 }
 
-func discriminatorWriter(totalTypes int, buffer *proto.Buffer) func(int) {
+func discriminatorWriter(totalTypes uint64, buffer *proto.Buffer) func(uint64) {
 	switch {
 	case totalTypes <= math.MaxUint8:
-		return func(d int) { buffer.PutUInt8(uint8(d)) }
+		return func(d uint64) { buffer.PutUInt8(uint8(d)) }
 	case totalTypes <= math.MaxUint16:
-		return func(d int) { buffer.PutUInt16(uint16(d)) }
+		return func(d uint64) { buffer.PutUInt16(uint16(d)) }
 	case totalTypes <= math.MaxUint32:
-		return func(d int) { buffer.PutUInt32(uint32(d)) }
+		return func(d uint64) { buffer.PutUInt32(uint32(d)) }
 	default:
-		return func(d int) { buffer.PutUInt64(uint64(d)) }
+		return func(d uint64) { buffer.PutUInt64(d) }
 	}
 }
 
 func (c *Dynamic) encodeData(buffer *proto.Buffer) {
-	writeDiscriminator := discriminatorWriter(c.totalTypes, buffer)
+	writeDiscriminator := discriminatorWriter(uint64(c.totalTypes), buffer)
 	for _, typeIndex := range c.discriminators {
 		if typeIndex == DynamicNullDiscriminator {
 			typeIndex = c.totalTypes
 		}
 
-		writeDiscriminator(typeIndex)
+		writeDiscriminator(uint64(typeIndex))
 	}
 
 	for _, col := range c.columns {
@@ -413,27 +413,26 @@ func (c *Dynamic) decodeHeader(reader *proto.Reader) error {
 	return nil
 }
 
-func discriminatorReader(totalTypes int, reader *proto.Reader) func() (int, error) {
+func discriminatorReader(totalTypes uint64, reader *proto.Reader) func() (uint64, error) {
 	switch {
 	case totalTypes <= math.MaxUint8:
-		return func() (int, error) {
+		return func() (uint64, error) {
 			v, err := reader.UInt8()
-			return int(v), err
+			return uint64(v), err
 		}
 	case totalTypes <= math.MaxUint16:
-		return func() (int, error) {
+		return func() (uint64, error) {
 			v, err := reader.UInt16()
-			return int(v), err
+			return uint64(v), err
 		}
 	case totalTypes <= math.MaxUint32:
-		return func() (int, error) {
+		return func() (uint64, error) {
 			v, err := reader.UInt32()
-			return int(v), err
+			return uint64(v), err
 		}
 	default:
-		return func() (int, error) {
-			v, err := reader.UInt64()
-			return int(v), err
+		return func() (uint64, error) {
+			return reader.UInt64()
 		}
 	}
 }
@@ -443,15 +442,15 @@ func (c *Dynamic) decodeData(reader *proto.Reader, rows int) error {
 	c.offsets = make([]int, rows)
 	rowCountByType := make([]int, c.totalTypes)
 
-	readDiscriminator := discriminatorReader(c.totalTypes, reader)
+	readDiscriminator := discriminatorReader(uint64(c.totalTypes), reader)
 	for i := 0; i < rows; i++ {
 		disc, err := readDiscriminator()
 		if err != nil {
 			return fmt.Errorf("failed to read discriminator at index %d: %w", i, err)
 		}
 
-		c.discriminators[i] = disc
-		if disc != c.totalTypes {
+		c.discriminators[i] = int(disc)
+		if int(disc) != c.totalTypes {
 			c.offsets[i] = rowCountByType[disc]
 			rowCountByType[disc]++
 		}
