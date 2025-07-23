@@ -74,6 +74,9 @@ func (c *connect) firstBlockImpl(ctx context.Context, on *onProcess) (*proto.Blo
 	c.readerMutex.Lock()
 	defer c.readerMutex.Unlock()
 
+	c.startReadWriteTimeout(ctx)
+	defer c.clearReadWriteTimeout(ctx)
+
 	for {
 		if c.reader == nil {
 			return nil, errors.New("unexpected state: c.reader is nil")
@@ -143,6 +146,9 @@ func (c *connect) process(ctx context.Context, on *onProcess) error {
 func (c *connect) processImpl(ctx context.Context, on *onProcess) error {
 	c.readerMutex.Lock()
 	defer c.readerMutex.Unlock()
+
+	c.startReadWriteTimeout(ctx)
+	defer c.clearReadWriteTimeout(ctx)
 
 	for {
 		if c.reader == nil {
