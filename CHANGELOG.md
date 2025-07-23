@@ -1,3 +1,12 @@
+# v2.38.1, 2025-07-23 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Bug fixes 🐛 
+* fix: build failure due to 32-bit integer overflow on 386 arch by @SpencerTorres in https://github.com/ClickHouse/clickhouse-go/pull/1616
+
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.38.0...v2.38.1
+
 # v2.38.0, 2025-07-22 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
