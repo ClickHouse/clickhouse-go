@@ -41,7 +41,7 @@ func (col *Interval) Name() string {
 
 func (col *Interval) parse(t Type) (Interface, error) {
 	switch col.chType = t; col.chType {
-	case "IntervalSecond", "IntervalMinute", "IntervalHour", "IntervalDay", "IntervalWeek", "IntervalMonth", "IntervalYear":
+	case "IntervalNanosecond", "IntervalMicrosecond", "IntervalMillisecond", "IntervalSecond", "IntervalMinute", "IntervalHour", "IntervalDay", "IntervalWeek", "IntervalMonth", "IntervalQuarter", "IntervalYear":
 		return col, nil
 	}
 	return nil, &UnsupportedColumnTypeError{

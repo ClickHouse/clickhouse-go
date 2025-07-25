@@ -48,7 +48,7 @@ func extractNormalizedInsertQueryAndColumns(query string) (normalizedQuery strin
 		for i := range columns {
 			// refers to https://clickhouse.com/docs/en/sql-reference/syntax#identifiers
 			// we can use identifiers with double quotes or backticks, for example: "id", `id`, but not both, like `"id"`.
-			columns[i] = strings.Trim(strings.Trim(strings.TrimSpace(columns[i]), "\""), "`")
+			columns[i] = strings.ReplaceAll(strings.Trim(strings.TrimSpace(columns[i]), "\""), "`", "")
 		}
 	}
 

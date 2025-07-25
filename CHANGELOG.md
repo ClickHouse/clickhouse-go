@@ -1,3 +1,70 @@
+# v2.39.0, 2025-07-23 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Bug fixes 🐛 
+* Fix `ReadTimeout` so that it applies to each call to `conn.Read` not just the first read block by @GeorgeMac in https://github.com/ClickHouse/clickhouse-go/pull/1616, @SpencerTorres https://github.com/ClickHouse/clickhouse-go/pull/1617
+
+## Read Timeout behavior changes
+This bug fix has potential to affect longer running queries, ensure you're setting `clickhouse.Options` `ReadTimeout` to a reasonable value, and that your `context.WithDeadline` is also set to a reasonable value. The read timeout will now be applied to all blocks, previously it was only set for the first block.
+
+## New Contributors
+* @GeorgeMac made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1616
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.38.1...v2.39.0
+
+# v2.38.1, 2025-07-23 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Bug fixes 🐛 
+* fix: build failure due to 32-bit integer overflow on 386 arch by @SpencerTorres in https://github.com/ClickHouse/clickhouse-go/pull/1616
+
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.38.0...v2.38.1
+
+# v2.38.0, 2025-07-22 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Enhancements 🎉
+* `Dynamic` serialization version 3 by @SpencerTorres in https://github.com/ClickHouse/clickhouse-go/pull/1588
+* `JSON` serialization version 3 by @SpencerTorres in https://github.com/ClickHouse/clickhouse-go/pull/1589
+* Add `client_protocol_version` param for HTTP interface by @SpencerTorres in https://github.com/ClickHouse/clickhouse-go/pull/1594
+* Add missing interval types by @marcboeker in https://github.com/ClickHouse/clickhouse-go/pull/1613
+### Bug fixes 🐛 
+* fix format function to handle pointer of time.Time by @KimMachineGun in https://github.com/ClickHouse/clickhouse-go/pull/1559
+* Fix variant prefix by @SpencerTorres in https://github.com/ClickHouse/clickhouse-go/pull/1591
+* fix(batch): nested column name parsing #1587 by @RuslanSibgatulin in https://github.com/ClickHouse/clickhouse-go/pull/1614
+### Other Changes 🛠
+* Bump github.com/andybalholm/brotli from 1.1.1 to 1.2.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1581
+* Bump github.com/docker/docker from 28.2.2+incompatible to 28.3.0+incompatible by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1583
+* Bump go.opentelemetry.io/otel/trace from 1.36.0 to 1.37.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1584
+* Bump github.com/docker/docker from 28.3.0+incompatible to 28.3.1+incompatible by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1585
+* Bump github.com/docker/docker from 28.3.1+incompatible to 28.3.2+incompatible by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1593
+* Bump golang.org/x/net from 0.41.0 to 0.42.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1595
+* add HTTP wait condition for container tests by @SpencerTorres in https://github.com/ClickHouse/clickhouse-go/pull/1604
+* include server revision in block/column parsing by @SpencerTorres in https://github.com/ClickHouse/clickhouse-go/pull/1605
+* Bump github.com/testcontainers/testcontainers-go from 0.37.0 to 0.38.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1603
+* docs: add client configuration options by @shivanshuraj1333 in https://github.com/ClickHouse/clickhouse-go/pull/1598
+* Bump github.com/ClickHouse/ch-go from 0.66.1 to 0.67.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1609
+
+## Upgrades for Dynamic / JSON
+
+Dynamic and JSON were never fully functional in previous versions. If you exceeded the maximum types for `Dynamic`, the data would become unreadable since it was encoded as a single `SharedVariant` type. Same for JSON, if you exceeded the maximum dynamic paths the data would also become unreadable since it was stored in a `SharedData` structure.
+
+In ClickHouse 25.6, a setting was added that abstracts these structures away so that clients don't have to implement them.
+To begin using Dynamic and JSON to their fullest ability, upgrade to ClickHouse 25.6 along with clickhouse-go v2.38.0, and enable `output_format_native_use_flattened_dynamic_and_json_serialization` in your connection settings. This will allow you to read all Dynamic and JSON data, even the portions that are stored in the SharedVariant and SharedData blobs on the server.
+
+If you are using older versions of ClickHouse, things will continue to work as before (with the previously mentioned limitations).
+
+Feel free to create an issue in the clickhouse-go repository to report any concerns or bugs with this change.
+
+## New Contributors
+* @KimMachineGun made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1559
+* @shivanshuraj1333 made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1598
+* @RuslanSibgatulin made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1614
+* @marcboeker made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1613
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.37.2...v2.38.0
+
 # v2.37.2, 2025-06-23 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
