@@ -270,6 +270,10 @@ func TestJSONString(t *testing.T) {
 	ctx := context.Background()
 	conn := setupJSONTest(t)
 
+	if !CheckMinServerVersion(conn, 24, 10, 0) {
+		t.Skip("JSON strings not supported")
+	}
+
 	_, err := conn.ExecContext(ctx, "SET output_format_native_write_json_as_string = 1")
 	require.NoError(t, err)
 	_, err = conn.ExecContext(ctx, "SET output_format_json_quote_64bit_integers = 0")
@@ -355,6 +359,10 @@ func TestJSONString(t *testing.T) {
 func TestJSONStringScanTypes(t *testing.T) {
 	ctx := context.Background()
 	conn := setupJSONTest(t)
+
+	if !CheckMinServerVersion(conn, 24, 10, 0) {
+		t.Skip("JSON strings not supported")
+	}
 
 	_, err := conn.ExecContext(ctx, "SET output_format_native_write_json_as_string = 1")
 	require.NoError(t, err)

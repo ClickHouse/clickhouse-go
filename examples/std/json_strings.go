@@ -32,7 +32,7 @@ func JSONStringExample() error {
 		return err
 	}
 
-	if !CheckMinServerVersion(conn, 24, 9, 0) {
+	if !CheckMinServerVersion(conn, 24, 10, 0) {
 		fmt.Print("unsupported clickhouse version for JSON type")
 		return nil
 	}
@@ -74,7 +74,7 @@ func JSONStringExample() error {
 	if err != nil {
 		return err
 	}
-	
+
 	insertProductString := "{\"created_at\":\"2024-12-19T11:20:04.146Z\",\"id\":\"1234\"," +
 		"\"metadata\":{\"page_count\":\"852\",\"region\":\"us\"},\"name\":\"Book\",\"pricing\":{\"currency\":\"usd\"," +
 		"\"price\":\"750\"},\"tags\":[\"library\",\"fiction\"]}"
