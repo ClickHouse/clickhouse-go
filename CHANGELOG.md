@@ -1,3 +1,16 @@
+# v2.40.0, 2025-07-30 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Enhancements 🎉 
+* support `database/sql` scanning json into `string`/`[]byte`/`json.RawMessage` by @SpencerTorres in https://github.com/ClickHouse/clickhouse-go/pull/1623
+### Bug fixes 🐛 
+* fix: json v1 encoding/decoding for prefixed types by @SpencerTorres in https://github.com/ClickHouse/clickhouse-go/pull/1622
+* fix: Nullable base types with prefix by @SpencerTorres in https://github.com/ClickHouse/clickhouse-go/pull/1624
+### Other Changes 🛠
+* Bump github.com/docker/docker from 28.3.2+incompatible to 28.3.3+incompatible by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1621
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.39.0...v2.40.0
+
 # v2.39.0, 2025-07-23 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
