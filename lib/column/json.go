@@ -256,14 +256,13 @@ func (c *JSON) Row(row int, ptr bool) any {
 	case JSONObjectSerializationVersion:
 		return c.rowAsJSON(row)
 	case JSONStringSerializationVersion:
-		var str string
+		str := c.jsonStrings.Row(row, false).(string)
+		strBytes := binary.Str2Bytes(str, len(str))
 		if ptr {
-			str = *c.jsonStrings.Row(row, ptr).(*string)
-		} else {
-			str = c.jsonStrings.Row(row, ptr).(string)
+			return &strBytes
 		}
 
-		return binary.Str2Bytes(str, len(str))
+		return strBytes
 	default:
 		return nil
 	}

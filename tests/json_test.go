@@ -512,7 +512,7 @@ func TestJSONLowCardinalityNullableString(t *testing.T) {
 	})
 }
 
-func TestJSONNullable(t *testing.T) {
+func TestJSONNullableObjectScan(t *testing.T) {
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
 		conn := setupJSONTest(t, protocol)
 
@@ -533,6 +533,44 @@ func TestJSONNullable(t *testing.T) {
 		xStr, ok := clickhouse.ExtractJSONPathAs[string](&row, "x")
 		require.True(t, ok)
 		require.Equal(t, "test", xStr)
+
+		require.NoError(t, rows.Close())
+		require.NoError(t, rows.Err())
+	})
+}
+
+func TestJSONNullableStringsScan(t *testing.T) {
+	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		conn := setupJSONTest(t, protocol)
+
+		if !CheckMinServerServerVersion(conn, 25, 2, 0) {
+			t.Skip("Nullable(JSON) unsupported")
+		}
+
+		ctx := context.Background()
+		require.NoError(t, conn.Exec(ctx, "SET output_format_native_write_json_as_string=1"))
+		require.NoError(t, conn.Exec(ctx, "SET output_format_json_quote_64bit_integers=0"))
+
+		rows, err := conn.Query(ctx, `SELECT arrayJoin(['{"x": 1}', '{"x": 2}', '{"x": 3}']::Array(Nullable(JSON)))`)
+		require.NoError(t, err)
+
+		var rowStr string
+		require.True(t, rows.Next())
+		err = rows.Scan(&rowStr)
+		require.NoError(t, err)
+		require.Equal(t, "{\"x\":1}", rowStr)
+
+		var rowBytes []byte
+		require.True(t, rows.Next())
+		err = rows.Scan(&rowBytes)
+		require.NoError(t, err)
+		require.Equal(t, []byte("{\"x\":2}"), rowBytes)
+
+		var rowJSONRawMessage json.RawMessage
+		require.True(t, rows.Next())
+		err = rows.Scan(&rowJSONRawMessage)
+		require.NoError(t, err)
+		require.Equal(t, json.RawMessage("{\"x\":3}"), rowJSONRawMessage)
 
 		require.NoError(t, rows.Close())
 		require.NoError(t, rows.Err())
