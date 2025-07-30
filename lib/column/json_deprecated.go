@@ -19,6 +19,7 @@ package column
 
 import (
 	"fmt"
+
 	"github.com/ClickHouse/ch-go/proto"
 )
 
@@ -28,6 +29,14 @@ func (c *JSON) encodeObjectHeader_v1(buffer *proto.Buffer) error {
 
 	for _, dynamicPath := range c.dynamicPaths {
 		buffer.PutString(dynamicPath)
+	}
+
+	for i, col := range c.typedColumns {
+		if serialize, ok := col.(CustomSerialization); ok {
+			if err := serialize.WriteStatePrefix(buffer); err != nil {
+				return fmt.Errorf("failed to write prefix for typed path \"%s\" in json with type %s: %w", c.typedPaths[i], string(col.Type()), err)
+			}
+		}
 	}
 
 	for i, col := range c.dynamicColumns {
@@ -77,6 +86,14 @@ func (c *JSON) decodeObjectHeader_v1(reader *proto.Reader) error {
 
 		c.dynamicPaths = append(c.dynamicPaths, dynamicPath)
 		c.dynamicPathsIndex[dynamicPath] = len(c.dynamicPaths) - 1
+	}
+
+	for i, col := range c.typedColumns {
+		if serialize, ok := col.(CustomSerialization); ok {
+			if err := serialize.ReadStatePrefix(reader); err != nil {
+				return fmt.Errorf("failed to read prefix for typed path \"%s\" with type %s in json: %w", c.typedPaths[i], string(col.Type()), err)
+			}
+		}
 	}
 
 	c.dynamicColumns = make([]*Dynamic, 0, totalDynamicPaths)
