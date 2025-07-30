@@ -515,8 +515,12 @@ func TestJSONLowCardinalityNullableString(t *testing.T) {
 func TestJSONNullable(t *testing.T) {
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
 		conn := setupJSONTest(t, protocol)
-		ctx := context.Background()
 
+		if !CheckMinServerServerVersion(conn, 25, 2, 0) {
+			t.Skip("Nullable(JSON) unsupported")
+		}
+
+		ctx := context.Background()
 		rows, err := conn.Query(ctx, `SELECT '{"x": "test"}'::Nullable(JSON)`)
 		require.NoError(t, err)
 
