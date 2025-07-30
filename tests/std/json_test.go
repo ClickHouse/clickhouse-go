@@ -22,12 +22,13 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"testing"
+	"time"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/chcol"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/require"
-	"testing"
-	"time"
 )
 
 var jsonTestDate, _ = time.Parse(time.RFC3339, "2024-12-13T02:09:30.123Z")
@@ -136,6 +137,8 @@ func TestJSONPaths(t *testing.T) {
 
 		require.Equal(t, expectedValue, actualValue)
 	}
+
+	require.NoError(t, rows.Close())
 }
 
 type Address struct {
@@ -259,15 +262,17 @@ func TestJSONStruct(t *testing.T) {
 	inputRow2.Tags = make([]string, 0)
 	inputRow2.Numbers = make([]int64, 0)
 	require.Equal(t, inputRow2, row2)
+
+	require.NoError(t, rows.Close())
 }
 
 func TestJSONString(t *testing.T) {
-	t.Skip("cannot scan JSON strings")
-
 	ctx := context.Background()
 	conn := setupJSONTest(t)
 
 	_, err := conn.ExecContext(ctx, "SET output_format_native_write_json_as_string = 1")
+	require.NoError(t, err)
+	_, err = conn.ExecContext(ctx, "SET output_format_json_quote_64bit_integers = 0")
 	require.NoError(t, err)
 
 	const ddl = `
@@ -325,15 +330,57 @@ func TestJSONString(t *testing.T) {
 	rows, err := conn.QueryContext(ctx, "SELECT c FROM std_test_json_string")
 	require.NoError(t, err)
 
-	var row json.RawMessage
+	var row string
 
 	require.True(t, rows.Next())
 	err = rows.Scan(&row)
 	require.NoError(t, err)
 
-	require.Equal(t, string(inputRowStr), string(row))
-
+	// ClickHouse server will sort JSON fields differently.
+	// In order to do a proper string comparison, we unmarshal and remarshal
+	// to our test struct to get Go's ordering of the fields.
+	// Then they should be equal.
 	var rowStruct TestStruct
-	err = json.Unmarshal(row, &rowStruct)
+	err = json.Unmarshal([]byte(row), &rowStruct)
 	require.NoError(t, err)
+
+	remarshalBytes, err := json.Marshal(rowStruct)
+	require.NoError(t, err)
+
+	require.Equal(t, inputRowStr, remarshalBytes)
+
+	require.NoError(t, rows.Close())
+}
+
+func TestJSONStringScanTypes(t *testing.T) {
+	ctx := context.Background()
+	conn := setupJSONTest(t)
+
+	_, err := conn.ExecContext(ctx, "SET output_format_native_write_json_as_string = 1")
+	require.NoError(t, err)
+	_, err = conn.ExecContext(ctx, "SET output_format_json_quote_64bit_integers = 0")
+	require.NoError(t, err)
+
+	rows, err := conn.QueryContext(ctx, "SELECT arrayJoin(['{\"x\": 1}', '{\"x\": 2}', '{\"x\": 3}']::Array(JSON))")
+	require.NoError(t, err)
+
+	var rowStr string
+	require.True(t, rows.Next())
+	err = rows.Scan(&rowStr)
+	require.NoError(t, err)
+	require.Equal(t, "{\"x\":1}", rowStr)
+
+	var rowBytes []byte
+	require.True(t, rows.Next())
+	err = rows.Scan(&rowBytes)
+	require.NoError(t, err)
+	require.Equal(t, []byte("{\"x\":2}"), rowBytes)
+
+	var rowJSONRawMessage json.RawMessage
+	require.True(t, rows.Next())
+	err = rows.Scan(&rowJSONRawMessage)
+	require.NoError(t, err)
+	require.Equal(t, json.RawMessage("{\"x\":3}"), rowJSONRawMessage)
+
+	require.NoError(t, rows.Close())
 }

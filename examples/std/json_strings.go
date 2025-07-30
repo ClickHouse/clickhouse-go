@@ -20,6 +20,7 @@ package std
 import (
 	"context"
 	"fmt"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
 )
 
@@ -73,10 +74,10 @@ func JSONStringExample() error {
 	if err != nil {
 		return err
 	}
-
-	insertProductString := "{\"id\":1234,\"name\":\"Book\",\"tags\":[\"library\",\"fiction\"]," +
-		"\"pricing\":{\"price\":750,\"currency\":\"usd\"},\"metadata\":{\"page_count\":852,\"region\":\"us\"}," +
-		"\"created_at\":\"2024-12-19T11:20:04.146Z\"}"
+	
+	insertProductString := "{\"created_at\":\"2024-12-19T11:20:04.146Z\",\"id\":\"1234\"," +
+		"\"metadata\":{\"page_count\":\"852\",\"region\":\"us\"},\"name\":\"Book\",\"pricing\":{\"currency\":\"usd\"," +
+		"\"price\":\"750\"},\"tags\":[\"library\",\"fiction\"]}"
 
 	if _, err = batch.ExecContext(ctx, insertProductString); err != nil {
 		return err
