@@ -343,7 +343,6 @@ func TestJSONString(t *testing.T) {
 	// ClickHouse server will sort JSON fields differently.
 	// In order to do a proper string comparison, we unmarshal and remarshal
 	// to our test struct to get Go's ordering of the fields.
-	// Then they should be equal.
 	var rowStruct TestStruct
 	err = json.Unmarshal([]byte(row), &rowStruct)
 	require.NoError(t, err)
@@ -370,6 +369,66 @@ func TestJSONStringScanTypes(t *testing.T) {
 	require.NoError(t, err)
 
 	rows, err := conn.QueryContext(ctx, "SELECT arrayJoin(['{\"x\": 1}', '{\"x\": 2}', '{\"x\": 3}']::Array(JSON))")
+	require.NoError(t, err)
+
+	var rowStr string
+	require.True(t, rows.Next())
+	err = rows.Scan(&rowStr)
+	require.NoError(t, err)
+	require.Equal(t, "{\"x\":1}", rowStr)
+
+	var rowBytes []byte
+	require.True(t, rows.Next())
+	err = rows.Scan(&rowBytes)
+	require.NoError(t, err)
+	require.Equal(t, []byte("{\"x\":2}"), rowBytes)
+
+	var rowJSONRawMessage json.RawMessage
+	require.True(t, rows.Next())
+	err = rows.Scan(&rowJSONRawMessage)
+	require.NoError(t, err)
+	require.Equal(t, json.RawMessage("{\"x\":3}"), rowJSONRawMessage)
+
+	require.NoError(t, rows.Close())
+}
+
+func TestJSONNullableObjectScan(t *testing.T) {
+	ctx := context.Background()
+	conn := setupJSONTest(t)
+
+	if !CheckMinServerVersion(conn, 25, 2, 0) {
+		t.Skip("Nullable(JSON) unsupported")
+	}
+
+	rows, err := conn.QueryContext(ctx, "SELECT '{\"x\": 1}'::Nullable(JSON)")
+	require.NoError(t, err)
+
+	var row clickhouse.JSON
+	require.True(t, rows.Next())
+	err = rows.Scan(&row)
+	require.NoError(t, err)
+
+	val, ok := clickhouse.ExtractJSONPathAs[int64](&row, "x")
+	require.True(t, ok)
+	require.Equal(t, int64(1), val)
+
+	require.NoError(t, rows.Close())
+}
+
+func TestJSONNullableStringScan(t *testing.T) {
+	ctx := context.Background()
+	conn := setupJSONTest(t)
+
+	if !CheckMinServerVersion(conn, 25, 2, 0) {
+		t.Skip("Nullable(JSON) unsupported")
+	}
+
+	_, err := conn.ExecContext(ctx, "SET output_format_native_write_json_as_string = 1")
+	require.NoError(t, err)
+	_, err = conn.ExecContext(ctx, "SET output_format_json_quote_64bit_integers = 0")
+	require.NoError(t, err)
+
+	rows, err := conn.QueryContext(ctx, "SELECT arrayJoin(['{\"x\": 1}', '{\"x\": 2}', '{\"x\": 3}']::Array(Nullable(JSON)))")
 	require.NoError(t, err)
 
 	var rowStr string
