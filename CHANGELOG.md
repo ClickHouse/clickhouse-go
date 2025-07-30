@@ -1,3 +1,12 @@
+# v2.40.1, 2025-07-30 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Bug fixes 🐛 
+* fix: `database/sql` Nullable(JSON) string scan by @SpencerTorres in https://github.com/ClickHouse/clickhouse-go/pull/1625
+
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.40.0...v2.40.1
+
 # v2.40.0, 2025-07-30 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
