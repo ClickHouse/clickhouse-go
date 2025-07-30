@@ -20,9 +20,11 @@ package column
 import (
 	"database/sql"
 	"database/sql/driver"
-	"github.com/ClickHouse/ch-go/proto"
+	"fmt"
 	"reflect"
 	"time"
+
+	"github.com/ClickHouse/ch-go/proto"
 )
 
 type Nullable struct {
@@ -181,6 +183,26 @@ func (col *Nullable) Encode(buffer *proto.Buffer) {
 		col.nulls.EncodeColumn(buffer)
 	}
 	col.base.Encode(buffer)
+}
+
+func (col *Nullable) ReadStatePrefix(reader *proto.Reader) error {
+	if serialize, ok := col.base.(CustomSerialization); ok {
+		if err := serialize.ReadStatePrefix(reader); err != nil {
+			return fmt.Errorf("failed to read prefix for Nullable base type %s: %w", col.base.Type(), err)
+		}
+	}
+
+	return nil
+}
+
+func (col *Nullable) WriteStatePrefix(buffer *proto.Buffer) error {
+	if serialize, ok := col.base.(CustomSerialization); ok {
+		if err := serialize.WriteStatePrefix(buffer); err != nil {
+			return fmt.Errorf("failed to write prefix for Nullable base type %s: %w", col.base.Type(), err)
+		}
+	}
+
+	return nil
 }
 
 var _ Interface = (*Nullable)(nil)
