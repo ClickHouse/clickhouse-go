@@ -324,7 +324,7 @@ func TestJSONString(t *testing.T) {
 		conn := setupJSONTest(t, protocol)
 		ctx := context.Background()
 
-		if !CheckMinServerServerVersion(conn, 24, 9, 0) {
+		if !CheckMinServerServerVersion(conn, 24, 10, 0) {
 			t.Skip("JSON strings not supported")
 		}
 

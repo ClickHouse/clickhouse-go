@@ -267,6 +267,7 @@ var (
 	scanTypeVariant      = reflect.TypeOf(chcol.Variant{})
 	scanTypeDynamic      = reflect.TypeOf(chcol.Dynamic{})
 	scanTypeJSON         = reflect.TypeOf(chcol.JSON{})
+	scanTypeJSONString   = reflect.TypeOf("")
 )
 
 func (col *Float32) Name() string {
