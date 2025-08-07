@@ -60,7 +60,7 @@ func TestQueryParameters(t *testing.T) {
 				assert.Equal(t, "hello", actualStr)
 			})
 
-			t.Run("named args with only strings supported", func(t *testing.T) {
+			t.Run("named args with string and interface supported", func(t *testing.T) {
 				var actualNum uint64
 				var actualStr string
 				row := conn.QueryRow(
