@@ -61,12 +61,17 @@ func TestQueryParameters(t *testing.T) {
 			})
 
 			t.Run("named args with only strings supported", func(t *testing.T) {
+				var actualNum uint64
+				var actualStr string
 				row := conn.QueryRow(
 					"SELECT {num:UInt64}, {str:String}",
 					clickhouse.Named("num", 42),
 					clickhouse.Named("str", "hello"),
 				)
-				require.ErrorIs(t, row.Err(), clickhouse.ErrExpectedStringValueInNamedValueForQueryParameter)
+				require.NoError(t, row.Scan(&actualNum, &actualStr))
+
+				assert.Equal(t, uint64(42), actualNum)
+				assert.Equal(t, "hello", actualStr)
 			})
 
 			t.Run("with identifier type", func(t *testing.T) {
