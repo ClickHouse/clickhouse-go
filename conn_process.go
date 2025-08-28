@@ -32,6 +32,8 @@ type onProcess struct {
 	progress      func(*Progress)
 	profileInfo   func(*ProfileInfo)
 	profileEvents func([]ProfileEvent)
+	gotData       func()
+	endOfProcess  func()
 }
 
 func (c *connect) firstBlock(ctx context.Context, on *onProcess) (*proto.Block, error) {
@@ -146,6 +148,9 @@ func (c *connect) process(ctx context.Context, on *onProcess) error {
 func (c *connect) processImpl(ctx context.Context, on *onProcess) error {
 	c.readerMutex.Lock()
 	defer c.readerMutex.Unlock()
+	if on.endOfProcess != nil {
+		defer on.endOfProcess()
+	}
 
 	c.startReadWriteTimeout(ctx)
 	defer c.clearReadWriteTimeout(ctx)
@@ -184,6 +189,9 @@ func (c *connect) handle(ctx context.Context, packet byte, on *onProcess) error 
 		}
 		if block.Rows() != 0 && on.data != nil {
 			on.data(block)
+			if on.gotData != nil {
+				on.gotData()
+			}
 		}
 	case proto.ServerException:
 		return c.exception()
