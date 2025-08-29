@@ -17,8 +17,8 @@ jobs:
       fail-fast: false
       matrix:
         go:
+          - "1.25"
           - "1.24"
-          - "1.23"
         clickhouse: # https://github.com/ClickHouse/ClickHouse/blob/master/SECURITY.md#scope-and-supported-versions
           - "25.7"
           - "25.6"
