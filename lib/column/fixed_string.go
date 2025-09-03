@@ -178,7 +178,11 @@ func (col *FixedString) Append(v any) (nulls []uint8, err error) {
 			return nil, err
 		}
 
-		nulls = make([]uint8, len(data)/col.col.Size)
+		if col.col.Size == 0 {
+			nulls = make([]uint8, 0)
+		} else {
+			nulls = make([]uint8, len(data)/col.col.Size)
+		}
 	case [][]byte:
 		nulls = make([]uint8, len(v))
 		for i, v := range v {
