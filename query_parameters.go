@@ -26,8 +26,8 @@ import (
 )
 
 var (
-	ErrInvalidValueInNamedDateValue                     = errors.New("invalid value in NamedDateValue for query parameter")
-	ErrUnsupportedQueryParameter                        = errors.New("unsupported query parameter type")
+	ErrInvalidValueInNamedDateValue = errors.New("invalid value in NamedDateValue for query parameter")
+	ErrUnsupportedQueryParameter    = errors.New("unsupported query parameter type")
 
 	hasQueryParamsRe = regexp.MustCompile("{.+:.+}")
 )
@@ -51,6 +51,7 @@ func bindQueryOrAppendParameters(paramsProtocolSupport bool, options *QueryOptio
 					options.parameters[p.Name] = str
 					continue
 				}
+				// using the same format logic for NamedValue typed value in function bindNamed
 				strVal, err := format(timezone, Seconds, p.Value)
 				if err != nil {
 					return "", err
