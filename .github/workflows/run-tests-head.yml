@@ -16,7 +16,7 @@ jobs:
     strategy:
       matrix:
         go:
-          - "1.24"
+          - "1.25"
         clickhouse:
           - "head"
     steps:

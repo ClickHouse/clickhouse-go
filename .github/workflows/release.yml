@@ -18,7 +18,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           stable: false
-          go-version: 1.24
+          go-version: 1.25
 
       - name: Prepare release
         id: release
