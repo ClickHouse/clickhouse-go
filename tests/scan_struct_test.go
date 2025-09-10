@@ -99,3 +99,56 @@ func TestSelectScanStruct(t *testing.T) {
 		}
 	})
 }
+
+func TestArrayTupleNullableFieldPanic(t *testing.T) {
+	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		conn, err := GetNativeConnection(t, protocol, nil, nil, &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		})
+		require.NoError(t, err)
+
+		ctx := context.Background()
+		require.NoError(t, conn.Exec(ctx, `
+		CREATE TABLE test_table (
+		    c1 Int32,
+			c2 Array(Tuple(c3 String, c4 Nullable(Int32)))
+		) Engine MergeTree() ORDER BY tuple()
+	`))
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE IF EXISTS test_table")
+		}()
+		type subRowType struct {
+			Col3 string `ch:"c3"`
+			Col4 *int32 `ch:"c4"`
+		}
+		type rowType struct {
+			Col1 int32        `ch:"c1"`
+			Col2 []subRowType `ch:"c2"`
+		}
+		nonNull := int32(42)
+		element1 := rowType{
+			Col1: 1,
+			Col2: []subRowType{
+				{Col3: "a", Col4: &nonNull},
+				{Col3: "b", Col4: nil},
+			},
+		}
+
+		batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_table")
+		require.NoError(t, err)
+		require.NoError(t, batch.AppendStruct(&element1))
+		require.NoError(t, batch.Send())
+
+		rows, err := conn.Query(ctx, "SELECT c1, c2 FROM test_table;")
+		require.NoError(t, err)
+		var results []rowType
+		for rows.Next() {
+			var result rowType
+			assert.NoError(t, rows.ScanStruct(&result))
+			results = append(results, result)
+		}
+		require.ElementsMatch(t, results, []rowType{element1})
+		require.NoError(t, rows.Close())
+		require.NoError(t, rows.Err())
+	})
+}
