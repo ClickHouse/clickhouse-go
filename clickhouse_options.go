@@ -168,6 +168,10 @@ type Options struct {
 	// to respond to a single Read call for bytes over the connection.
 	// Can be overridden with context.WithDeadline.
 	ReadTimeout time.Duration
+
+	// Set a custom transport for the http client.
+	// The default transport configured by the library is passed in as an argument.
+	TransportFunc func(*http.Transport) (http.RoundTripper, error)
 }
 
 func (o *Options) fromDSN(in string) error {

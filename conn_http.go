@@ -224,7 +224,7 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		httpProxy = http.ProxyURL(opt.HTTPProxyURL)
 	}
 
-	t := &http.Transport{
+	tr := &http.Transport{
 		Proxy: httpProxy,
 		DialContext: (&net.Dialer{
 			Timeout: opt.DialTimeout,
@@ -237,9 +237,20 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 	}
 
 	if opt.DialContext != nil {
-		t.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+		tr.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
 			return opt.DialContext(ctx, addr)
 		}
+	}
+
+	var rt http.RoundTripper
+
+	if opt.TransportFunc != nil {
+		rt, err = opt.TransportFunc(tr)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		rt = tr
 	}
 
 	conn := httpConnect{
@@ -249,7 +260,7 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		debugfFunc:  debugf,
 		opt:         opt,
 		client: &http.Client{
-			Transport: t,
+			Transport: rt,
 		},
 		url:             u,
 		revision:        ClientTCPProtocolVersion, // Preflight uses hardcoded revision, may break older versions.
