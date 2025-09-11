@@ -20,7 +20,7 @@ package proto
 import (
 	"fmt"
 	chproto "github.com/ClickHouse/ch-go/proto"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 	"strconv"
 	"strings"
 	"time"
