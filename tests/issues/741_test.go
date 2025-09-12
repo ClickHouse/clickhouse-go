@@ -146,7 +146,7 @@ func TestIssue741RandomOrder(t *testing.T) {
 			ddl, insertStatement, values := generateRandomInsert("issue_741_random")
 			_, err = conn.Exec(ddl)
 			require.NoError(t, err)
-			stmt, err := conn.Prepare(fmt.Sprintf(insertStatement))
+			stmt, err := conn.Prepare(insertStatement)
 			require.NoError(t, err)
 			_, err = stmt.Exec(values...)
 			require.NoError(t, err)
