@@ -3,7 +3,6 @@
 ## What's Changed
 ### Bug fixes 🐛 
 * fix: `database/sql` Nullable(JSON) string scan by @SpencerTorres in https://github.com/ClickHouse/clickhouse-go/pull/1625
-* fix: assignment to entry in nil map with HTTP protocol @r0bobo in https://github.com/ClickHouse/clickhouse-go/pull/1650
 
 
 **Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.40.0...v2.40.1
