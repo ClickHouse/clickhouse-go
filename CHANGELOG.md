@@ -1,3 +1,15 @@
+# v2.40.3, 2025-09-13 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Other Changes 🛠
+* bug: deserializing into nullable field by @rbroggi in https://github.com/ClickHouse/clickhouse-go/pull/1649
+* Fixes for #1649 by @SpencerTorres in https://github.com/ClickHouse/clickhouse-go/pull/1654
+
+## New Contributors
+* @rbroggi made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1649
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.40.2...v2.40.3
+
 # v2.40.2, 2025-09-13 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
