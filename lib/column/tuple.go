@@ -366,7 +366,15 @@ func (col *Tuple) scanStruct(targetStruct reflect.Value, row int) error {
 			}
 			sField.Set(subSlice)
 		default:
-			value := reflect.ValueOf(c.Row(row, false))
+			// --- PROPOSED FIX ---
+			v := c.Row(row, false)
+			// If the database value is NULL, the corresponding struct field
+			// is already its zero-value (e.g. nil for a pointer), which is correct.
+			if v == nil {
+				continue
+			}
+			// Only create a reflect.Value if v is not nil.
+			value := reflect.ValueOf(v)
 			if err := setJSONFieldValue(sField, value); err != nil {
 				return err
 			}
