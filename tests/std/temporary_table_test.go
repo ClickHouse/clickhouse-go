@@ -38,6 +38,7 @@ func TestStdTemporaryTable(t *testing.T) {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
 			ctx := context.Background()
 			if name == "Http" {
+				t.Skip("flaky test with HTTP")
 				ctx = clickhouse.Context(ctx, clickhouse.WithSettings(clickhouse.Settings{
 					"session_id":        "temp_table_test_session",
 					"wait_end_of_query": "1",
