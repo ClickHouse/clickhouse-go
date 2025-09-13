@@ -366,7 +366,13 @@ func (col *Tuple) scanStruct(targetStruct reflect.Value, row int) error {
 			}
 			sField.Set(subSlice)
 		default:
-			value := reflect.ValueOf(c.Row(row, false))
+			v := c.Row(row, false)
+			if v == nil {
+				continue
+			}
+
+			value := reflect.ValueOf(v)
+
 			if err := setJSONFieldValue(sField, value); err != nil {
 				return err
 			}
