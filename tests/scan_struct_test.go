@@ -109,13 +109,13 @@ func TestArrayTupleNullableFieldPanic(t *testing.T) {
 
 		ctx := context.Background()
 		require.NoError(t, conn.Exec(ctx, `
-		CREATE TABLE test_table (
+		CREATE TABLE test_array_tuple_nullable_field_panic (
 		    c1 Int32,
 			c2 Array(Tuple(c3 String, c4 Nullable(Int32)))
 		) Engine MergeTree() ORDER BY tuple()
 	`))
 		defer func() {
-			conn.Exec(ctx, "DROP TABLE IF EXISTS test_table")
+			conn.Exec(ctx, "DROP TABLE IF EXISTS test_array_tuple_nullable_field_panic")
 		}()
 		type subRowType struct {
 			Col3 string `ch:"c3"`
@@ -135,12 +135,12 @@ func TestArrayTupleNullableFieldPanic(t *testing.T) {
 			},
 		}
 
-		batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_table")
+		batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_array_tuple_nullable_field_panic")
 		require.NoError(t, err)
 		require.NoError(t, batch.AppendStruct(&element1))
 		require.NoError(t, batch.Send())
 
-		rows, err := conn.Query(ctx, "SELECT c1, c2 FROM test_table;")
+		rows, err := conn.Query(ctx, "SELECT c1, c2 FROM test_array_tuple_nullable_field_panic")
 		require.NoError(t, err)
 		var results []rowType
 		for rows.Next() {
@@ -163,13 +163,13 @@ func TestArrayTupleNonNull(t *testing.T) {
 
 		ctx := context.Background()
 		require.NoError(t, conn.Exec(ctx, `
-		CREATE TABLE test_table (
+		CREATE TABLE test_array_tuple_non_null (
 		    c1 Int32,
 			c2 Array(Tuple(c3 String, c4 Int32))
 		) Engine MergeTree() ORDER BY tuple()
 	`))
 		defer func() {
-			conn.Exec(ctx, "DROP TABLE IF EXISTS test_table")
+			conn.Exec(ctx, "DROP TABLE IF EXISTS test_array_tuple_non_null")
 		}()
 		type subRowType struct {
 			Col3 string `ch:"c3"`
@@ -187,12 +187,12 @@ func TestArrayTupleNonNull(t *testing.T) {
 			},
 		}
 
-		batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_table")
+		batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_array_tuple_non_null")
 		require.NoError(t, err)
 		require.NoError(t, batch.AppendStruct(&element1))
 		require.NoError(t, batch.Send())
 
-		rows, err := conn.Query(ctx, "SELECT c1, c2 FROM test_table;")
+		rows, err := conn.Query(ctx, "SELECT c1, c2 FROM test_array_tuple_non_null")
 		require.NoError(t, err)
 		var results []rowType
 		for rows.Next() {
