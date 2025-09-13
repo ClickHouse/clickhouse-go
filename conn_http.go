@@ -573,7 +573,12 @@ func (h *httpConnect) createRequestWithExternalTables(ctx context.Context, query
 	if err != nil {
 		return nil, err
 	}
+
+	if headers == nil {
+		headers = make(map[string]string)
+	}
 	headers["Content-Type"] = w.FormDataContentType()
+
 	return h.createRequest(ctx, currentUrl.String(), bytes.NewReader(payload.Bytes()), options, headers)
 }
 
