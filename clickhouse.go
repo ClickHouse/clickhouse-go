@@ -269,6 +269,7 @@ func (ch *clickhouse) dial(ctx context.Context) (conn nativeTransport, err error
 }
 
 func DefaultDialStrategy(ctx context.Context, connID int, opt *Options, dial Dial) (r DialResult, err error) {
+	random := rand.Int()
 	for i := range opt.Addr {
 		var num int
 		switch opt.ConnOpenStrategy {
@@ -277,7 +278,6 @@ func DefaultDialStrategy(ctx context.Context, connID int, opt *Options, dial Dia
 		case ConnOpenRoundRobin:
 			num = (connID + i) % len(opt.Addr)
 		case ConnOpenRandom:
-			random := rand.Int()
 			num = (random + i) % len(opt.Addr)
 		}
 

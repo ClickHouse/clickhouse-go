@@ -160,7 +160,7 @@ func TestMultiHostConnect(t *testing.T) {
 		require.NoError(t, MultiHostRoundRobinVersion())
 	})
 	t.Run("Random", func(t *testing.T) {
-		t.Skip("Go 1.25 math/random changes")
+		// t.Skip("Go 1.25 math/random changes")
 		require.NoError(t, MultiHostRandomVersion())
 	})
 }
