@@ -28,9 +28,6 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	ResetRandSeed()
-	fmt.Printf("using random seed %d for %s tests\n", randSeed, TestSet)
-
 	useDocker, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_DOCKER", "true"))
 	if err != nil {
 		panic(err)

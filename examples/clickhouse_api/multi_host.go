@@ -34,8 +34,6 @@ func MultiHostRoundRobinVersion() error {
 }
 
 func MultiHostRandomVersion() error {
-	rand.Seed(85206178671753424)
-	defer ResetRandSeed()
 	connOpenStrategy := clickhouse.ConnOpenRandom
 	return multiHostVersion(&connOpenStrategy)
 }
