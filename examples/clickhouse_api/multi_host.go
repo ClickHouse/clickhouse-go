@@ -19,7 +19,6 @@ package clickhouse_api
 
 import (
 	"fmt"
-	"math/rand"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 )
