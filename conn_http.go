@@ -219,38 +219,9 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 	query.Set("client_protocol_version", strconv.Itoa(ClientTCPProtocolVersion))
 	u.RawQuery = query.Encode()
 
-	httpProxy := http.ProxyFromEnvironment
-	if opt.HTTPProxyURL != nil {
-		httpProxy = http.ProxyURL(opt.HTTPProxyURL)
-	}
-
-	tr := &http.Transport{
-		Proxy: httpProxy,
-		DialContext: (&net.Dialer{
-			Timeout: opt.DialTimeout,
-		}).DialContext,
-		MaxIdleConns:          1,
-		MaxConnsPerHost:       opt.HttpMaxConnsPerHost,
-		IdleConnTimeout:       opt.ConnMaxLifetime,
-		ResponseHeaderTimeout: opt.ReadTimeout,
-		TLSClientConfig:       opt.TLS,
-	}
-
-	if opt.DialContext != nil {
-		tr.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-			return opt.DialContext(ctx, addr)
-		}
-	}
-
-	var rt http.RoundTripper
-
-	if opt.TransportFunc != nil {
-		rt, err = opt.TransportFunc(tr)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		rt = tr
+	rt, err := createHTTPRoundTripper(opt)
+	if err != nil {
+		return nil, err
 	}
 
 	conn := httpConnect{
@@ -280,6 +251,37 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 	conn.revision = conn.handshake.Revision
 
 	return &conn, nil
+}
+
+func createHTTPRoundTripper(opt *Options) (http.RoundTripper, error) {
+	httpProxy := http.ProxyFromEnvironment
+	if opt.HTTPProxyURL != nil {
+		httpProxy = http.ProxyURL(opt.HTTPProxyURL)
+	}
+
+	rt := &http.Transport{
+		Proxy: httpProxy,
+		DialContext: (&net.Dialer{
+			Timeout: opt.DialTimeout,
+		}).DialContext,
+		MaxIdleConns:          1,
+		MaxConnsPerHost:       opt.HttpMaxConnsPerHost,
+		IdleConnTimeout:       opt.ConnMaxLifetime,
+		ResponseHeaderTimeout: opt.ReadTimeout,
+		TLSClientConfig:       opt.TLS,
+	}
+
+	if opt.DialContext != nil {
+		rt.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+			return opt.DialContext(ctx, addr)
+		}
+	}
+
+	if opt.TransportFunc == nil {
+		return rt, nil
+	}
+
+	return opt.TransportFunc(rt)
 }
 
 type httpConnect struct {
