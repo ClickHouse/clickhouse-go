@@ -1,19 +1,3 @@
-// Licensed to ClickHouse, Inc. under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. ClickHouse, Inc. licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
 
 package clickhouse
 
@@ -219,27 +203,9 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 	query.Set("client_protocol_version", strconv.Itoa(ClientTCPProtocolVersion))
 	u.RawQuery = query.Encode()
 
-	httpProxy := http.ProxyFromEnvironment
-	if opt.HTTPProxyURL != nil {
-		httpProxy = http.ProxyURL(opt.HTTPProxyURL)
-	}
-
-	t := &http.Transport{
-		Proxy: httpProxy,
-		DialContext: (&net.Dialer{
-			Timeout: opt.DialTimeout,
-		}).DialContext,
-		MaxIdleConns:          1,
-		MaxConnsPerHost:       opt.HttpMaxConnsPerHost,
-		IdleConnTimeout:       opt.ConnMaxLifetime,
-		ResponseHeaderTimeout: opt.ReadTimeout,
-		TLSClientConfig:       opt.TLS,
-	}
-
-	if opt.DialContext != nil {
-		t.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-			return opt.DialContext(ctx, addr)
-		}
+	rt, err := createHTTPRoundTripper(opt)
+	if err != nil {
+		return nil, err
 	}
 
 	conn := httpConnect{
@@ -249,7 +215,7 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		debugfFunc:  debugf,
 		opt:         opt,
 		client: &http.Client{
-			Transport: t,
+			Transport: rt,
 		},
 		url:             u,
 		revision:        ClientTCPProtocolVersion, // Preflight uses hardcoded revision, may break older versions.
@@ -269,6 +235,37 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 	conn.revision = conn.handshake.Revision
 
 	return &conn, nil
+}
+
+func createHTTPRoundTripper(opt *Options) (http.RoundTripper, error) {
+	httpProxy := http.ProxyFromEnvironment
+	if opt.HTTPProxyURL != nil {
+		httpProxy = http.ProxyURL(opt.HTTPProxyURL)
+	}
+
+	rt := &http.Transport{
+		Proxy: httpProxy,
+		DialContext: (&net.Dialer{
+			Timeout: opt.DialTimeout,
+		}).DialContext,
+		MaxIdleConns:          1,
+		MaxConnsPerHost:       opt.HttpMaxConnsPerHost,
+		IdleConnTimeout:       opt.ConnMaxLifetime,
+		ResponseHeaderTimeout: opt.ReadTimeout,
+		TLSClientConfig:       opt.TLS,
+	}
+
+	if opt.DialContext != nil {
+		rt.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+			return opt.DialContext(ctx, addr)
+		}
+	}
+
+	if opt.TransportFunc == nil {
+		return rt, nil
+	}
+
+	return opt.TransportFunc(rt)
 }
 
 type httpConnect struct {
@@ -573,7 +570,12 @@ func (h *httpConnect) createRequestWithExternalTables(ctx context.Context, query
 	if err != nil {
 		return nil, err
 	}
+
+	if headers == nil {
+		headers = make(map[string]string)
+	}
 	headers["Content-Type"] = w.FormDataContentType()
+
 	return h.createRequest(ctx, currentUrl.String(), bytes.NewReader(payload.Bytes()), options, headers)
 }
 
