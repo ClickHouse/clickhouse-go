@@ -2,6 +2,8 @@
 version: '3.9'
 services:
   clickhouse:
+    environment:
+      CLICKHOUSE_SKIP_USER_SETUP: 1
     networks:
       - clickhouse
     container_name: clickhouse
