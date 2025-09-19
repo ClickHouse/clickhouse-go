@@ -2,9 +2,11 @@
 package column
 
 import (
-	"github.com/ClickHouse/ch-go/proto"
+	"fmt"
 	"reflect"
 	"strings"
+
+	"github.com/ClickHouse/ch-go/proto"
 )
 
 type SimpleAggregateFunction struct {
@@ -60,4 +62,25 @@ func (col *SimpleAggregateFunction) Encode(buffer *proto.Buffer) {
 	col.base.Encode(buffer)
 }
 
+func (col *SimpleAggregateFunction) ReadStatePrefix(reader *proto.Reader) error {
+	if serialize, ok := col.base.(CustomSerialization); ok {
+		if err := serialize.ReadStatePrefix(reader); err != nil {
+			return fmt.Errorf("failed to read prefix for SimpleAggregateFunction base type %s: %w", col.base.Type(), err)
+		}
+	}
+
+	return nil
+}
+
+func (col *SimpleAggregateFunction) WriteStatePrefix(buffer *proto.Buffer) error {
+	if serialize, ok := col.base.(CustomSerialization); ok {
+		if err := serialize.WriteStatePrefix(buffer); err != nil {
+			return fmt.Errorf("failed to write prefix for SimpleAggregateFunction base type %s: %w", col.base.Type(), err)
+		}
+	}
+
+	return nil
+}
+
 var _ Interface = (*SimpleAggregateFunction)(nil)
+var _ CustomSerialization = (*SimpleAggregateFunction)(nil)
