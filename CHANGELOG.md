@@ -8,6 +8,7 @@
 * bug: deserializing into nullable field by @rbroggi in https://github.com/ClickHouse/clickhouse-go/pull/1649
 * Fixes for #1649 by @SpencerTorres in https://github.com/ClickHouse/clickhouse-go/pull/1654
 * bug: Fix potential Divide by Zero panic by @artemseleznev and @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1665
+* bug: Fix `Nullable(JSON)` with `nil` map. Inserting Null into a Nullable(JSON) column via a batch insert non-null value before by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1667
 
 ## New Contributors
 * @rbroggi made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1649
