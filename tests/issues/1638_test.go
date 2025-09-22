@@ -2,6 +2,7 @@ package issues
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
@@ -14,6 +15,11 @@ func TestIssue1638_NullableJSON(t *testing.T) {
 	conn, err := clickhouse_tests.GetConnectionTCP("issues", nil, nil, nil)
 	require.NoError(t, err)
 	require.NoError(t, err, "open clickhouse")
+	if !clickhouse_tests.CheckMinServerServerVersion(conn, 25, 2, 0) {
+		// https://clickhouse.com/docs/ru/whats-new/changelog#new-feature-3
+		t.Skip(fmt.Errorf("unsupported clickhouse version. JSON not supported in Nullable"))
+		return
+	}
 
 	// Fresh table for the test.
 	_ = conn.Exec(ctx, `DROP TABLE IF EXISTS test_nullable_json`)
