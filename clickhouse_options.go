@@ -185,6 +185,8 @@ func (o *Options) fromDSN(in string) error {
 
 	for v := range params {
 		switch v {
+		case "hosts", "alt_hosts":
+			o.Addr = append(o.Addr, strings.Split(params.Get(v), ",")...)
 		case "debug":
 			o.Debug, _ = strconv.ParseBool(params.Get(v))
 		case "compress":
