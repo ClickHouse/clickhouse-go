@@ -1,4 +1,3 @@
-
 package column
 
 import (
@@ -131,7 +130,7 @@ func (col *Nullable) AppendRow(v any) error {
 		rv = reflect.ValueOf(v)
 	}
 
-	if v == nil || (rv.Kind() == reflect.Pointer && rv.IsNil()) {
+	if v == nil || ((rv.Kind() == reflect.Pointer || rv.Kind() == reflect.Map) && rv.IsNil()) {
 		col.nulls.Append(1)
 		// used to detect sql.Null* types
 	} else if val, ok := v.(driver.Valuer); ok {
