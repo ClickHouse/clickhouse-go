@@ -1,4 +1,3 @@
-
 package std
 
 import (
@@ -110,7 +109,9 @@ func TestStdInsertNilMap(t *testing.T) {
 			batch, err := scope.Prepare("INSERT INTO std_test_map_nil")
 			require.NoError(t, err)
 			_, err = batch.Exec(nil)
-			assert.ErrorContains(t, err, " converting <nil> to Map(String, UInt64) is unsupported")
+			// We started supporting nil to Map
+			// see https://github.com/ClickHouse/clickhouse-go/pull/1667
+			require.NoError(t, err)
 		})
 	}
 }
