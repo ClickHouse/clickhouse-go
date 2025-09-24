@@ -1,3 +1,39 @@
+# v2.40.3, 2025-09-13 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Enhancements 🎉
+* Add option to set custom http transport @r0bobo in https://github.com/ClickHouse/clickhouse-go/pull/1656
+
+### Other Changes 🛠
+* bug: deserializing into nullable field by @rbroggi in https://github.com/ClickHouse/clickhouse-go/pull/1649
+* Fixes for #1649 by @SpencerTorres in https://github.com/ClickHouse/clickhouse-go/pull/1654
+* bug: Fix potential Divide by Zero panic by @artemseleznev and @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1665
+
+## New Contributors
+* @rbroggi made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1649
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.40.2...v2.40.3
+
+# v2.40.2, 2025-09-13 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Other Changes 🛠
+* Bump golang.org/x/net from 0.42.0 to 0.43.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1634
+* Bump github.com/ClickHouse/ch-go from 0.67.0 to 0.68.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1639
+* Bump github.com/stretchr/testify from 1.10.0 to 1.11.1 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1641
+* Bump go.opentelemetry.io/otel/trace from 1.37.0 to 1.38.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1642
+* Bump github.com/docker/docker from 28.3.3+incompatible to 28.4.0+incompatible by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1646
+* Bump golang.org/x/net from 0.43.0 to 0.44.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1647
+* chore: migrate to maintained YAML library by @joschi in https://github.com/ClickHouse/clickhouse-go/pull/1651
+* skip random tests on Go 1.25 by @SpencerTorres in https://github.com/ClickHouse/clickhouse-go/pull/1652
+* bug: headers map can be nil by @r0bobo in https://github.com/ClickHouse/clickhouse-go/pull/1650
+
+## New Contributors
+* @joschi made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1651
+* @r0bobo made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1650
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.40.1...v2.40.2
+
 # v2.40.1, 2025-07-30 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
