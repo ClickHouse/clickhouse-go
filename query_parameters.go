@@ -10,9 +10,8 @@ import (
 )
 
 var (
-	ErrExpectedStringValueInNamedValueForQueryParameter = errors.New("expected string value in NamedValue for query parameter")
-	ErrInvalidValueInNamedDateValue                     = errors.New("invalid value in NamedDateValue for query parameter")
-	ErrUnsupportedQueryParameter                        = errors.New("unsupported query parameter type")
+	ErrInvalidValueInNamedDateValue = errors.New("invalid value in NamedDateValue for query parameter")
+	ErrUnsupportedQueryParameter    = errors.New("unsupported query parameter type")
 
 	hasQueryParamsRe = regexp.MustCompile("{.+:.+}")
 )
@@ -36,7 +35,12 @@ func bindQueryOrAppendParameters(paramsProtocolSupport bool, options *QueryOptio
 					options.parameters[p.Name] = str
 					continue
 				}
-				return "", ErrExpectedStringValueInNamedValueForQueryParameter
+				// using the same format logic for NamedValue typed value in function bindNamed
+				strVal, err := format(timezone, Seconds, p.Value)
+				if err != nil {
+					return "", err
+				}
+				options.parameters[p.Name] = strVal
 
 			case driver.NamedDateValue:
 				if !p.Value.IsZero() && p.Name != "" {
