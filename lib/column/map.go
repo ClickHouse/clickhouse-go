@@ -1,4 +1,3 @@
-
 package column
 
 import (
@@ -159,12 +158,9 @@ func (col *Map) Append(v any) (nulls []uint8, err error) {
 
 func (col *Map) AppendRow(v any) error {
 	if v == nil {
-		return &ColumnConverterError{
-			Op:   "Append",
-			To:   string(col.chType),
-			From: fmt.Sprintf("%T", v),
-			Hint: fmt.Sprintf("try using %s", col.scanType),
-		}
+		// NOTE: successful Map.parse() make sure we have
+		// valid col.scanType
+		v = reflect.Zero(col.scanType).Interface()
 	}
 
 	value := reflect.Indirect(reflect.ValueOf(v))

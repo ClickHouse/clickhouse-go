@@ -1,4 +1,3 @@
-
 package tests
 
 import (
@@ -359,8 +358,9 @@ func TestInsertMapNil(t *testing.T) {
 		require.NoError(t, conn.Exec(ctx, ddl))
 		batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_map_nil")
 		require.NoError(t, err)
-
-		assert.ErrorContains(t, batch.Append(nil), " converting <nil> to Map(String, UInt64) is unsupported")
+		// NOTE: We support ingesting nil for Map type.
+		// see https://github.com/ClickHouse/clickhouse-go/pull/1667
+		assert.NoError(t, batch.Append(nil))
 	})
 }
 
