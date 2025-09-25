@@ -212,14 +212,6 @@ type (
 		name string
 		col  proto.ColUInt64
 	}
-	Time struct {
-		name string
-		col  proto.ColTime
-	}
-	Time64 struct {
-		name string
-		col  proto.ColTime64
-	}
 )
 
 var (
