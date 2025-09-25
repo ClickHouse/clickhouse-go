@@ -338,11 +338,3 @@ func (col *Time) parseTime(value string) (tv time.Time, err error) {
 
 	return time.Time{}, fmt.Errorf("cannot parse time value: %s", value)
 }
-
-func (col *Time) WriteStatePrefix(buffer *proto.Buffer) error {
-	return nil
-}
-
-func (col *Time) ReadStatePrefix(reader *proto.Reader) error {
-	return nil
-}

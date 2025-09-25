@@ -142,6 +142,10 @@ func (t Type) Column(name string, sc *ServerContext) (Interface, error) {
 		return &SharedVariant{name: name}, nil
 	case "Object('json')":
 		return &JSONObject{name: name, root: true, sc: sc}, nil
+	case "Time":
+		return &Time{name: name}, nil
+	case "Time64":
+		return &Time64{name: name}, nil
 	}
 
 	switch strType := string(t); {
@@ -224,6 +228,14 @@ type (
 		name string
 		col  proto.ColUInt64
 	}
+	Time struct {
+		name string
+		col  proto.ColTime
+	}
+	Time64 struct {
+		name string
+		col  proto.ColTime64
+	}
 )
 
 var (
@@ -237,6 +249,8 @@ var (
 	_ Interface = (*UInt16)(nil)
 	_ Interface = (*UInt32)(nil)
 	_ Interface = (*UInt64)(nil)
+	_ Interface = (*Time)(nil)
+	_ Interface = (*Time64)(nil)
 )
 
 var (
