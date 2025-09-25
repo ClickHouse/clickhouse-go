@@ -8,9 +8,9 @@ This effort is ongoing and can be separated in to insertion (`Append`/`AppendRow
 
 All types can be inserted as a value or pointer.
 
-|               | **ClickHouse Type** | String | Decimal | Bool | FixedString | UInt8 | UInt16 | UInt32 | UInt64 | UInt128 | UInt256 | Int8 | Int16 | Int32 | Int64 | Int128 | Int256 | Float32 | Float64 | UUID | Date | Date32 | DateTime | DateTime64 | Enum8 | Enum16 | Point | Ring | Polygon | MultiPolygon |
-|---------------|---------------------|--------|---------|------|-------------|-------|--------|--------|--------|---------|---------|------|-------|-------|-------|--------|--------|---------|---------|------|------|--------|----------|------------|-------|--------|-------|------|---------|--------------|
-| **Golang Type** |                     |        |         |      |             |       |        |        |        |         |         |      |       |       |       |        |        |         |         |      |      |        |          |            |       |        |       |      |         |              |
+|               | **ClickHouse Type** | String | Decimal | Bool | FixedString | UInt8 | UInt16 | UInt32 | UInt64 | UInt128 | UInt256 | Int8 | Int16 | Int32 | Int64 | Int128 | Int256 | Float32 | Float64 | UUID | Date | Date32 | DateTime | DateTime64 | Time | Time64 | Enum8 | Enum16 | Point | Ring | Polygon | MultiPolygon |
+|---------------|---------------------|--------|---------|------|-------------|-------|--------|--------|--------|---------|---------|------|-------|-------|-------|--------|--------|---------|---------|------|------|--------|----------|------------|------|--------|-------|--------|-------|------|---------|--------------|
+| **Golang Type** |                     |        |         |      |             |       |        |        |        |         |         |      |       |       |       |        |        |         |         |      |      |        |          |            |      |        |       |        |       |      |         |              |
 | uint          |                     |        |         |      |             |       |        |        |        |         |         |      |       |       |       |        |        |         |         |      |      |        |          |            |       |        |       |      |         |              |
 | unit64        |                     |        |         |      |             |       |        |        |    X   |         |         |      |       |       |       |        |        |         |         |      |      |        |          |            |       |        |       |      |         |              |
 | uint32        |                     |        |         |      |             |       |        |    X   |        |         |         |      |       |       |       |        |        |         |         |      |      |        |          |            |       |        |       |      |         |              |
@@ -25,7 +25,7 @@ All types can be inserted as a value or pointer.
 | float64       |                     |        |         |      |             |       |        |        |        |         |         |      |       |       |       |        |        |         |    X    |      |      |        |          |            |       |        |       |      |         |              |
 | string        |                     |    X   |         |      |      X      |       |        |        |        |         |         |      |       |       |       |        |        |         |         |   X  |   X  |    X   |     X    |      X     |   X   |    X   |       |      |         |              |
 | bool          |                     |        |         | X    |             |       |        |        |        |         |         |      |       |       |       |        |        |         |         |      |      |        |          |            |       |        |       |      |         |              |
-| time.Time     |                     |        |         |      |             |       |        |        |        |         |         |      |       |       |       |        |        |         |         |      |   X  |    X   |     X    |      X     |       |        |       |      |         |              |
+| time.Time     |                     |        |         |      |             |       |        |        |        |         |         |      |       |       |       |        |        |         |         |      |   X  |    X   |     X    |      X     |  X   |   X    |       |        |       |      |         |              |
 | big.Int       |                     |        |         |      |             |       |        |        |        |    X    |    X    |      |       |       |       |    X   |    X   |         |         |      |      |        |          |            |       |        |       |      |         |              |
 | decimal.Decimal |                     |        |    X    |      |             |       |        |        |        |         |         |      |       |       |       |        |        |         |         |      |      |        |          |            |       |        |       |      |         |              |
 | uuid.UUID     |                     |        |         |      |             |       |        |        |        |         |         |      |       |       |       |        |        |         |         |   X  |      |        |          |            |       |        |       |      |         |              |
@@ -36,7 +36,7 @@ All types can be inserted as a value or pointer.
 | []byte        |                     |        |         |      |             |       |        |        |        |         |         |      |       |       |       |        |        |         |         |      |      |        |          |            |       |        |       |      |         |       X      |
  | fmt.Stringer  |                     |        |         |      |             |       |        |        |        |         |         |      |       |       |       |        |        |         |         |      |      |        |          |            |       |        |       |      |         |              |
 | sql.NullString |                     |    X   |         |      |             |       |        |        |        |         |         |      |       |       |       |        |        |         |         |      |      |        |          |            |       |        |       |      |         |              |
-| sql.NullTime  |                     |        |         |      |             |       |        |        |        |         |         |      |       |       |       |        |        |         |         |      |   X  |    X   |     X    |      X     |       |        |       |      |         |              |
+| sql.NullTime  |                     |        |         |      |             |       |        |        |        |         |         |      |       |       |       |        |        |         |         |      |   X  |    X   |     X    |      X     |  X   |   X    |       |        |       |      |         |              |
 | sql.NullFloat64 |                     |        |         |      |             |       |        |        |        |         |         |      |       |       |       |        |        |         |    X    |      |      |        |          |            |       |        |       |      |         |              |
 | sql.NullInt64 |                     |        |         |      |             |       |        |        |        |         |         |      |       |       |   X   |        |        |         |         |      |      |        |          |            |       |        |       |      |         |              |
 | sql.NullInt32 |                     |        |         |      |             |       |        |        |        |         |         |      |       |   X   |       |        |        |         |         |      |      |        |          |            |       |        |       |      |         |              |
@@ -47,9 +47,9 @@ All types can be inserted as a value or pointer.
 
 All types can be read into a pointer or pointer to a pointer.
 
-|               | **ClickHouse Type** | String | Decimal | Bool | FixedString | UInt8 | UInt16 | UInt32 | UInt64 | UInt128 | UInt256 | Int8 | Int16 | Int32 | Int64 | Int128 | Int256 | Float32 | Float64 | UUID | Date | Date32 | DateTime | DateTime64 | Enum8 | Enum16 | Point | Ring | Polygon | MultiPolygon |
-|---------------|---------------------|--------|---------|------|-------------|-------|--------|--------|--------|---------|---------|------|-------|-------|-------|--------|--------|---------|---------|------|------|--------|----------|------------|-------|--------|-------|------|---------|--------------|
-| **Golang Type** |                     |        |         |      |             |       |        |        |        |         |         |      |       |       |       |        |        |         |         |      |      |        |          |            |       |        |       |      |         |              |
+|               | **ClickHouse Type** | String | Decimal | Bool | FixedString | UInt8 | UInt16 | UInt32 | UInt64 | UInt128 | UInt256 | Int8 | Int16 | Int32 | Int64 | Int128 | Int256 | Float32 | Float64 | UUID | Date | Date32 | DateTime | DateTime64 | Time | Time64 | Enum8 | Enum16 | Point | Ring | Polygon | MultiPolygon |
+|---------------|---------------------|--------|---------|------|-------------|-------|--------|--------|--------|---------|---------|------|-------|-------|-------|--------|--------|---------|---------|------|------|--------|----------|------------|------|--------|-------|--------|-------|------|---------|--------------|
+| **Golang Type** |                     |        |         |      |             |       |        |        |        |         |         |      |       |       |       |        |        |         |         |      |      |        |          |            |      |        |       |        |       |      |         |              |
 | uint          |                     |        |         |      |             |       |        |        |        |         |         |      |       |       |       |        |        |         |         |      |      |        |          |            |       |        |       |      |         |              |
 | unit64        |                     |        |         |      |             |       |        |        |    X   |         |         |      |       |       |       |        |        |         |         |      |      |        |          |            |       |        |       |      |         |              |
 | uint32        |                     |        |         |      |             |       |        |    X   |        |         |         |      |       |       |       |        |        |         |         |      |      |        |          |            |       |        |       |      |         |              |
@@ -64,7 +64,7 @@ All types can be read into a pointer or pointer to a pointer.
 | float64       |                     |        |         |      |             |       |        |        |        |         |         |      |       |       |       |        |        |         |    X    |      |      |        |          |            |       |        |       |      |         |              |
 | string        |                     |    X   |         |      |      X      |       |        |        |        |         |         |      |       |       |       |        |        |         |         |   X  |      |        |          |            |   X   |    X   |       |      |         |              |
 | bool          |                     |        |         | X    |             |       |        |        |        |         |         |      |       |       |       |        |        |         |         |      |      |        |          |            |       |        |       |      |         |              |
-| time.Time     |                     |        |         |      |             |       |        |        |        |         |         |      |       |       |       |        |        |         |         |      |   X  |    X   |     X    |      X     |       |        |       |      |         |              |
+| time.Time     |                     |        |         |      |             |       |        |        |        |         |         |      |       |       |       |        |        |         |         |      |   X  |    X   |     X    |      X     |  X   |   X    |       |        |       |      |         |              |
 | big.Int       |                     |        |         |      |             |       |        |        |        |    X    |    X    |      |       |       |       |    X   |    X   |         |         |      |      |        |          |            |       |        |       |      |         |              |
 | decimal.Decimal |                     |        |    X    |      |             |       |        |        |        |         |         |      |       |       |       |        |        |         |         |      |      |        |          |            |       |        |       |      |         |              |
 | uuid.UUID     |                     |        |         |      |             |       |        |        |        |         |         |      |       |       |       |        |        |         |         |   X  |      |        |          |            |       |        |       |      |         |              |
@@ -74,9 +74,49 @@ All types can be read into a pointer or pointer to a pointer.
 | orb.MultiPolygon |                     |        |         |      |             |       |        |        |        |         |         |      |       |       |       |        |        |         |         |      |      |        |          |            |       |        |       |      |         |       X      |
 | sql.Scan      |                     |        |         |      |             |       |        |        |        |         |         |      |       |       |       |        |        |         |         |   X  |   X  |    X   |     X    |      X     |       |        |       |      |         |              |
 | sql.NullString |                     |    X   |         |      |             |       |        |        |        |         |         |      |       |       |       |        |        |         |         |      |      |        |          |            |       |        |       |      |         |              |
-| sql.NullTime  |                     |        |         |      |             |       |        |        |        |         |         |      |       |       |       |        |        |         |         |      |   X  |    X   |     X    |      X     |       |        |       |      |         |              |
+| sql.NullTime  |                     |        |         |      |             |       |        |        |        |         |         |      |       |       |       |        |        |         |         |      |   X  |    X   |     X    |      X     |  X   |   X    |       |        |       |      |         |              |
 | sql.NullFloat64 |                     |        |         |      |             |       |        |        |        |         |         |      |       |       |       |        |        |         |    X    |      |      |        |          |            |       |        |       |      |         |              |
 | sql.NullInt64 |                     |        |         |      |             |       |        |        |        |         |         |      |       |       |   X   |        |        |         |         |      |      |        |          |            |       |        |       |      |         |              |
 | sql.NullInt32 |                     |        |         |      |             |       |        |        |        |         |         |      |       |   X   |       |        |        |         |         |      |      |        |          |            |       |        |       |      |         |              |
 | sql.NullInt16 |                     |        |         |      |             |       |        |        |        |         |         |      |   X   |       |       |        |        |         |         |      |      |        |          |            |       |        |       |      |         |              |
 | sql.NullBool  |                     |        |         | X    |             |       |        |        |        |         |         |      |       |       |       |        |        |         |         |      |      |        |          |            |       |        |       |      |         |              |
+
+---
+
+## Time and Time64 Example
+
+```go
+// Insert and read Time and Time64 columns
+colTime := &column.Time{name: "t"}
+colTime64 := &column.Time64{name: "t64"}
+colTime64.col.WithPrecision(9)
+
+// Append values
+colTime.AppendRow(time.Date(2024, 7, 11, 12, 34, 56, 0, time.UTC))
+colTime64.AppendRow(time.Date(2024, 7, 11, 12, 34, 56, 789000000, time.UTC))
+
+// Append int64 values (seconds since midnight for Time, milliseconds for Time64)
+colTime.AppendRow(int64(12*3600 + 34*60 + 56))  // 12:34:56
+colTime64.AppendRow(int64(123456789))  // milliseconds
+
+// Append negative values
+colTime.AppendRow("-12:30:45") // negative time
+colTime64.AppendRow("-23:45:12.123456789")
+
+// Timezone-aware columns
+colTimeTZ := &column.Time{name: "tz_time"}
+colTimeTZ.parse("Time('UTC')", time.UTC)
+colTime64TZ := &column.Time64{name: "tz_time64"}
+colTime64TZ.parse("Time64(3, 'Europe/Moscow')", time.UTC)
+
+// Scan values
+var t time.Time
+var t64 time.Time
+var tInt int64
+
+// Supported input formats:
+// - "HH:MM:SS", "HHH:MM:SS", "H:MM:SS"
+// - "HH:MM:SS.sss..." (up to nanoseconds)
+// - Numeric seconds/milliseconds since midnight
+// - Negative values (e.g., "-12:30:45")
+```
