@@ -1,19 +1,3 @@
-// Licensed to ClickHouse, Inc. under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. ClickHouse, Inc. licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
 
 package std
 
@@ -60,13 +44,18 @@ func TestQueryParameters(t *testing.T) {
 				assert.Equal(t, "hello", actualStr)
 			})
 
-			t.Run("named args with only strings supported", func(t *testing.T) {
+			t.Run("named args with string and interface supported", func(t *testing.T) {
+				var actualNum uint64
+				var actualStr string
 				row := conn.QueryRow(
 					"SELECT {num:UInt64}, {str:String}",
 					clickhouse.Named("num", 42),
 					clickhouse.Named("str", "hello"),
 				)
-				require.ErrorIs(t, row.Err(), clickhouse.ErrExpectedStringValueInNamedValueForQueryParameter)
+				require.NoError(t, row.Scan(&actualNum, &actualStr))
+
+				assert.Equal(t, uint64(42), actualNum)
+				assert.Equal(t, "hello", actualStr)
 			})
 
 			t.Run("with identifier type", func(t *testing.T) {

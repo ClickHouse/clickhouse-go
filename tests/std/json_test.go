@@ -1,19 +1,3 @@
-// Licensed to ClickHouse, Inc. under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. ClickHouse, Inc. licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
 
 package std
 
@@ -22,12 +6,13 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"testing"
+	"time"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/chcol"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/require"
-	"testing"
-	"time"
 )
 
 var jsonTestDate, _ = time.Parse(time.RFC3339, "2024-12-13T02:09:30.123Z")
@@ -136,6 +121,8 @@ func TestJSONPaths(t *testing.T) {
 
 		require.Equal(t, expectedValue, actualValue)
 	}
+
+	require.NoError(t, rows.Close())
 }
 
 type Address struct {
@@ -259,15 +246,21 @@ func TestJSONStruct(t *testing.T) {
 	inputRow2.Tags = make([]string, 0)
 	inputRow2.Numbers = make([]int64, 0)
 	require.Equal(t, inputRow2, row2)
+
+	require.NoError(t, rows.Close())
 }
 
 func TestJSONString(t *testing.T) {
-	t.Skip("cannot scan JSON strings")
-
 	ctx := context.Background()
 	conn := setupJSONTest(t)
 
+	if !CheckMinServerVersion(conn, 24, 10, 0) {
+		t.Skip("JSON strings not supported")
+	}
+
 	_, err := conn.ExecContext(ctx, "SET output_format_native_write_json_as_string = 1")
+	require.NoError(t, err)
+	_, err = conn.ExecContext(ctx, "SET output_format_json_quote_64bit_integers = 0")
 	require.NoError(t, err)
 
 	const ddl = `
@@ -325,15 +318,120 @@ func TestJSONString(t *testing.T) {
 	rows, err := conn.QueryContext(ctx, "SELECT c FROM std_test_json_string")
 	require.NoError(t, err)
 
-	var row json.RawMessage
+	var row string
 
 	require.True(t, rows.Next())
 	err = rows.Scan(&row)
 	require.NoError(t, err)
 
-	require.Equal(t, string(inputRowStr), string(row))
-
+	// ClickHouse server will sort JSON fields differently.
+	// In order to do a proper string comparison, we unmarshal and remarshal
+	// to our test struct to get Go's ordering of the fields.
 	var rowStruct TestStruct
-	err = json.Unmarshal(row, &rowStruct)
+	err = json.Unmarshal([]byte(row), &rowStruct)
 	require.NoError(t, err)
+
+	remarshalBytes, err := json.Marshal(rowStruct)
+	require.NoError(t, err)
+
+	require.Equal(t, inputRowStr, remarshalBytes)
+
+	require.NoError(t, rows.Close())
+}
+
+func TestJSONStringScanTypes(t *testing.T) {
+	ctx := context.Background()
+	conn := setupJSONTest(t)
+
+	if !CheckMinServerVersion(conn, 24, 10, 0) {
+		t.Skip("JSON strings not supported")
+	}
+
+	_, err := conn.ExecContext(ctx, "SET output_format_native_write_json_as_string = 1")
+	require.NoError(t, err)
+	_, err = conn.ExecContext(ctx, "SET output_format_json_quote_64bit_integers = 0")
+	require.NoError(t, err)
+
+	rows, err := conn.QueryContext(ctx, "SELECT arrayJoin(['{\"x\": 1}', '{\"x\": 2}', '{\"x\": 3}']::Array(JSON))")
+	require.NoError(t, err)
+
+	var rowStr string
+	require.True(t, rows.Next())
+	err = rows.Scan(&rowStr)
+	require.NoError(t, err)
+	require.Equal(t, "{\"x\":1}", rowStr)
+
+	var rowBytes []byte
+	require.True(t, rows.Next())
+	err = rows.Scan(&rowBytes)
+	require.NoError(t, err)
+	require.Equal(t, []byte("{\"x\":2}"), rowBytes)
+
+	var rowJSONRawMessage json.RawMessage
+	require.True(t, rows.Next())
+	err = rows.Scan(&rowJSONRawMessage)
+	require.NoError(t, err)
+	require.Equal(t, json.RawMessage("{\"x\":3}"), rowJSONRawMessage)
+
+	require.NoError(t, rows.Close())
+}
+
+func TestJSONNullableObjectScan(t *testing.T) {
+	ctx := context.Background()
+	conn := setupJSONTest(t)
+
+	if !CheckMinServerVersion(conn, 25, 2, 0) {
+		t.Skip("Nullable(JSON) unsupported")
+	}
+
+	rows, err := conn.QueryContext(ctx, "SELECT '{\"x\": 1}'::Nullable(JSON)")
+	require.NoError(t, err)
+
+	var row clickhouse.JSON
+	require.True(t, rows.Next())
+	err = rows.Scan(&row)
+	require.NoError(t, err)
+
+	val, ok := clickhouse.ExtractJSONPathAs[int64](&row, "x")
+	require.True(t, ok)
+	require.Equal(t, int64(1), val)
+
+	require.NoError(t, rows.Close())
+}
+
+func TestJSONNullableStringScan(t *testing.T) {
+	ctx := context.Background()
+	conn := setupJSONTest(t)
+
+	if !CheckMinServerVersion(conn, 25, 2, 0) {
+		t.Skip("Nullable(JSON) unsupported")
+	}
+
+	_, err := conn.ExecContext(ctx, "SET output_format_native_write_json_as_string = 1")
+	require.NoError(t, err)
+	_, err = conn.ExecContext(ctx, "SET output_format_json_quote_64bit_integers = 0")
+	require.NoError(t, err)
+
+	rows, err := conn.QueryContext(ctx, "SELECT arrayJoin(['{\"x\": 1}', '{\"x\": 2}', '{\"x\": 3}']::Array(Nullable(JSON)))")
+	require.NoError(t, err)
+
+	var rowStr string
+	require.True(t, rows.Next())
+	err = rows.Scan(&rowStr)
+	require.NoError(t, err)
+	require.Equal(t, "{\"x\":1}", rowStr)
+
+	var rowBytes []byte
+	require.True(t, rows.Next())
+	err = rows.Scan(&rowBytes)
+	require.NoError(t, err)
+	require.Equal(t, []byte("{\"x\":2}"), rowBytes)
+
+	var rowJSONRawMessage json.RawMessage
+	require.True(t, rows.Next())
+	err = rows.Scan(&rowJSONRawMessage)
+	require.NoError(t, err)
+	require.Equal(t, json.RawMessage("{\"x\":3}"), rowJSONRawMessage)
+
+	require.NoError(t, rows.Close())
 }

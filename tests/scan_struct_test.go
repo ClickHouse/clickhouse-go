@@ -1,19 +1,3 @@
-// Licensed to ClickHouse, Inc. under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. ClickHouse, Inc. licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
 
 package tests
 
@@ -97,5 +81,111 @@ func TestSelectScanStruct(t *testing.T) {
 				assert.Equal(t, fmt.Sprintf("ABC_%d", i), v.Col2)
 			}
 		}
+	})
+}
+
+func TestArrayTupleNullableFieldPanic(t *testing.T) {
+	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		conn, err := GetNativeConnection(t, protocol, nil, nil, &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		})
+		require.NoError(t, err)
+
+		ctx := context.Background()
+		require.NoError(t, conn.Exec(ctx, `
+		CREATE TABLE test_array_tuple_nullable_field_panic (
+		    c1 Int32,
+			c2 Array(Tuple(c3 String, c4 Nullable(Int32)))
+		) Engine MergeTree() ORDER BY tuple()
+	`))
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE IF EXISTS test_array_tuple_nullable_field_panic")
+		}()
+		type subRowType struct {
+			Col3 string `ch:"c3"`
+			// THIS FIELD causes PANIC IF IT'S NULLABLE
+			Col4 *int32 `ch:"c4"`
+		}
+		type rowType struct {
+			Col1 int32        `ch:"c1"`
+			Col2 []subRowType `ch:"c2"`
+		}
+		nonNull := int32(42)
+		element1 := rowType{
+			Col1: 1,
+			Col2: []subRowType{
+				{Col3: "a", Col4: &nonNull},
+				{Col3: "b", Col4: nil},
+			},
+		}
+
+		batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_array_tuple_nullable_field_panic")
+		require.NoError(t, err)
+		require.NoError(t, batch.AppendStruct(&element1))
+		require.NoError(t, batch.Send())
+
+		rows, err := conn.Query(ctx, "SELECT c1, c2 FROM test_array_tuple_nullable_field_panic")
+		require.NoError(t, err)
+		var results []rowType
+		for rows.Next() {
+			var result rowType
+			assert.NoError(t, rows.ScanStruct(&result))
+			results = append(results, result)
+		}
+		require.ElementsMatch(t, results, []rowType{element1})
+		require.NoError(t, rows.Close())
+		require.NoError(t, rows.Err())
+	})
+}
+
+func TestArrayTupleNonNull(t *testing.T) {
+	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		conn, err := GetNativeConnection(t, protocol, nil, nil, &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		})
+		require.NoError(t, err)
+
+		ctx := context.Background()
+		require.NoError(t, conn.Exec(ctx, `
+		CREATE TABLE test_array_tuple_non_null (
+		    c1 Int32,
+			c2 Array(Tuple(c3 String, c4 Int32))
+		) Engine MergeTree() ORDER BY tuple()
+	`))
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE IF EXISTS test_array_tuple_non_null")
+		}()
+		type subRowType struct {
+			Col3 string `ch:"c3"`
+			Col4 int32  `ch:"c4"`
+		}
+		type rowType struct {
+			Col1 int32        `ch:"c1"`
+			Col2 []subRowType `ch:"c2"`
+		}
+		element1 := rowType{
+			Col1: 1,
+			Col2: []subRowType{
+				{Col3: "a", Col4: 42},
+				{Col3: "b", Col4: 52},
+			},
+		}
+
+		batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_array_tuple_non_null")
+		require.NoError(t, err)
+		require.NoError(t, batch.AppendStruct(&element1))
+		require.NoError(t, batch.Send())
+
+		rows, err := conn.Query(ctx, "SELECT c1, c2 FROM test_array_tuple_non_null")
+		require.NoError(t, err)
+		var results []rowType
+		for rows.Next() {
+			var result rowType
+			assert.NoError(t, rows.ScanStruct(&result))
+			results = append(results, result)
+		}
+		require.ElementsMatch(t, results, []rowType{element1})
+		require.NoError(t, rows.Close())
+		require.NoError(t, rows.Err())
 	})
 }

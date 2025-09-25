@@ -1,19 +1,3 @@
-// Licensed to ClickHouse, Inc. under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. ClickHouse, Inc. licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
 
 package tests
 
@@ -324,7 +308,7 @@ func TestJSONString(t *testing.T) {
 		conn := setupJSONTest(t, protocol)
 		ctx := context.Background()
 
-		if !CheckMinServerServerVersion(conn, 24, 9, 0) {
+		if !CheckMinServerServerVersion(conn, 24, 10, 0) {
 			t.Skip("JSON strings not supported")
 		}
 
@@ -484,6 +468,94 @@ func TestJSONArrayVariant(t *testing.T) {
 		require.NoError(t, err)
 
 		require.True(t, rows.Next())
+		require.NoError(t, rows.Close())
+		require.NoError(t, rows.Err())
+	})
+}
+
+func TestJSONLowCardinalityNullableString(t *testing.T) {
+	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		conn := setupJSONTest(t, protocol)
+		ctx := context.Background()
+
+		rows, err := conn.Query(ctx, `SELECT '{"x": "test"}'::JSON(x LowCardinality(Nullable(String)))`)
+		require.NoError(t, err)
+
+		require.True(t, rows.Next())
+
+		var row clickhouse.JSON
+		err = rows.Scan(&row)
+		require.NoError(t, err)
+
+		xStr, ok := clickhouse.ExtractJSONPathAs[*string](&row, "x")
+		require.True(t, ok)
+		require.Equal(t, "test", *xStr)
+
+		require.NoError(t, rows.Close())
+		require.NoError(t, rows.Err())
+	})
+}
+
+func TestJSONNullableObjectScan(t *testing.T) {
+	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		conn := setupJSONTest(t, protocol)
+
+		if !CheckMinServerServerVersion(conn, 25, 2, 0) {
+			t.Skip("Nullable(JSON) unsupported")
+		}
+
+		ctx := context.Background()
+		rows, err := conn.Query(ctx, `SELECT '{"x": "test"}'::Nullable(JSON)`)
+		require.NoError(t, err)
+
+		require.True(t, rows.Next())
+
+		var row clickhouse.JSON
+		err = rows.Scan(&row)
+		require.NoError(t, err)
+
+		xStr, ok := clickhouse.ExtractJSONPathAs[string](&row, "x")
+		require.True(t, ok)
+		require.Equal(t, "test", xStr)
+
+		require.NoError(t, rows.Close())
+		require.NoError(t, rows.Err())
+	})
+}
+
+func TestJSONNullableStringsScan(t *testing.T) {
+	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		conn := setupJSONTest(t, protocol)
+
+		if !CheckMinServerServerVersion(conn, 25, 2, 0) {
+			t.Skip("Nullable(JSON) unsupported")
+		}
+
+		ctx := context.Background()
+		require.NoError(t, conn.Exec(ctx, "SET output_format_native_write_json_as_string=1"))
+		require.NoError(t, conn.Exec(ctx, "SET output_format_json_quote_64bit_integers=0"))
+
+		rows, err := conn.Query(ctx, `SELECT arrayJoin(['{"x": 1}', '{"x": 2}', '{"x": 3}']::Array(Nullable(JSON)))`)
+		require.NoError(t, err)
+
+		var rowStr string
+		require.True(t, rows.Next())
+		err = rows.Scan(&rowStr)
+		require.NoError(t, err)
+		require.Equal(t, "{\"x\":1}", rowStr)
+
+		var rowBytes []byte
+		require.True(t, rows.Next())
+		err = rows.Scan(&rowBytes)
+		require.NoError(t, err)
+		require.Equal(t, []byte("{\"x\":2}"), rowBytes)
+
+		var rowJSONRawMessage json.RawMessage
+		require.True(t, rows.Next())
+		err = rows.Scan(&rowJSONRawMessage)
+		require.NoError(t, err)
+		require.Equal(t, json.RawMessage("{\"x\":3}"), rowJSONRawMessage)
+
 		require.NoError(t, rows.Close())
 		require.NoError(t, rows.Err())
 	})

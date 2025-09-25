@@ -1,19 +1,3 @@
-// Licensed to ClickHouse, Inc. under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. ClickHouse, Inc. licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
 
 package clickhouse
 
@@ -26,9 +10,8 @@ import (
 )
 
 var (
-	ErrExpectedStringValueInNamedValueForQueryParameter = errors.New("expected string value in NamedValue for query parameter")
-	ErrInvalidValueInNamedDateValue                     = errors.New("invalid value in NamedDateValue for query parameter")
-	ErrUnsupportedQueryParameter                        = errors.New("unsupported query parameter type")
+	ErrInvalidValueInNamedDateValue = errors.New("invalid value in NamedDateValue for query parameter")
+	ErrUnsupportedQueryParameter    = errors.New("unsupported query parameter type")
 
 	hasQueryParamsRe = regexp.MustCompile("{.+:.+}")
 )
@@ -52,7 +35,12 @@ func bindQueryOrAppendParameters(paramsProtocolSupport bool, options *QueryOptio
 					options.parameters[p.Name] = str
 					continue
 				}
-				return "", ErrExpectedStringValueInNamedValueForQueryParameter
+				// using the same format logic for NamedValue typed value in function bindNamed
+				strVal, err := format(timezone, Seconds, p.Value)
+				if err != nil {
+					return "", err
+				}
+				options.parameters[p.Name] = strVal
 
 			case driver.NamedDateValue:
 				if !p.Value.IsZero() && p.Name != "" {

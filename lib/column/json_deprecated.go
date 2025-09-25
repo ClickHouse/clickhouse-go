@@ -1,24 +1,9 @@
-// Licensed to ClickHouse, Inc. under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. ClickHouse, Inc. licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
 
 package column
 
 import (
 	"fmt"
+
 	"github.com/ClickHouse/ch-go/proto"
 )
 
@@ -28,6 +13,14 @@ func (c *JSON) encodeObjectHeader_v1(buffer *proto.Buffer) error {
 
 	for _, dynamicPath := range c.dynamicPaths {
 		buffer.PutString(dynamicPath)
+	}
+
+	for i, col := range c.typedColumns {
+		if serialize, ok := col.(CustomSerialization); ok {
+			if err := serialize.WriteStatePrefix(buffer); err != nil {
+				return fmt.Errorf("failed to write prefix for typed path \"%s\" in json with type %s: %w", c.typedPaths[i], string(col.Type()), err)
+			}
+		}
 	}
 
 	for i, col := range c.dynamicColumns {
@@ -77,6 +70,14 @@ func (c *JSON) decodeObjectHeader_v1(reader *proto.Reader) error {
 
 		c.dynamicPaths = append(c.dynamicPaths, dynamicPath)
 		c.dynamicPathsIndex[dynamicPath] = len(c.dynamicPaths) - 1
+	}
+
+	for i, col := range c.typedColumns {
+		if serialize, ok := col.(CustomSerialization); ok {
+			if err := serialize.ReadStatePrefix(reader); err != nil {
+				return fmt.Errorf("failed to read prefix for typed path \"%s\" with type %s in json: %w", c.typedPaths[i], string(col.Type()), err)
+			}
+		}
 	}
 
 	c.dynamicColumns = make([]*Dynamic, 0, totalDynamicPaths)
