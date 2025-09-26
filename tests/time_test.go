@@ -1,4 +1,3 @@
-
 package tests
 
 import (
@@ -8,24 +7,24 @@ import (
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/require"
 )
 
-func setupTimeTest(t *testing.T) (context.Context, func(), clickhouse.Conn) {
+func setupTimeTest(t *testing.T, protocol clickhouse.Protocol) (context.Context, func(), clickhouse.Conn) {
 	ctx := context.Background()
-	conn := clickhouse_tests.GetNativeConnection(t, map[string]any{
-		"enable_time_timet64_type": 1,
-	})
-	if !clickhouse_tests.CheckMinServerServerVersion(conn, 24, 6, 1) {
+	conn, err := GetNativeConnection(t, protocol, map[string]any{
+		"enable_time_time64_type": 1,
+	}, nil, nil)
+	require.NoError(t, err)
+	if !CheckMinServerServerVersion(conn, 25, 6, 0) {
 		t.Skip("Time/Time64 not supported on this ClickHouse version")
 	}
 	return ctx, func() {}, conn
 }
 
 func TestTimeAndTime64(t *testing.T) {
-	clickhouse_tests.TestProtocols(t, func(t *testing.T, protocol string) {
-		ctx, cleanup, conn := setupTimeTest(t)
+	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		ctx, cleanup, conn := setupTimeTest(t, protocol)
 		defer cleanup()
 		tableName := fmt.Sprintf("test_time_types_%d", time.Now().UnixNano())
 		require.NoError(t, conn.Exec(ctx, fmt.Sprintf(`
@@ -41,7 +40,7 @@ func TestTimeAndTime64(t *testing.T) {
 		t2 := time.Date(0, 1, 1, 23, 59, 59, 123456789, time.UTC)
 		t3 := []time.Time{t1, t2}
 		t4 := []time.Time{t2, t1}
-		batch, err := conn.PrepareBatch(ctx, fmt.Sprintf("INSERT INTO %s (t1, t2, t3, t4)", tableName))
+		batch, err := conn.PrepareBatch(ctx, fmt.Sprintf("INSERT INTO %s (t1, t2, t3, t4) VALUES (?, ?, ?, ?)", tableName))
 		require.NoError(t, err)
 		require.NoError(t, batch.Append(t1, t2, t3, t4))
 		require.NoError(t, batch.Send())

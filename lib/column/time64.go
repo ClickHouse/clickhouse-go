@@ -10,16 +10,14 @@ import (
 	"time"
 
 	"github.com/ClickHouse/ch-go/proto"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/timezone"
 )
 
 const defaultTime64Format = "15:04:05.999999999"
 
 type Time64 struct {
-	chType   Type
-	timezone *time.Location
-	name     string
-	col      proto.ColTime64
+	chType Type
+	name   string
+	col    proto.ColTime64
 }
 
 func (col *Time64) Reset() {
@@ -30,43 +28,23 @@ func (col *Time64) Name() string {
 	return col.name
 }
 
-func (col *Time64) parse(t Type, tz *time.Location) (_ Interface, err error) {
+func (col *Time64) parse(t Type) (_ Interface, err error) {
 	col.chType = t
+	// if no precision is given say just Time64 (instead of Time64(3|6|9))
+	// it is treated as 3 (milliseconds)
+	precision := int64(3)
+
 	if strings.HasPrefix(string(t), "Time64(") {
-		if strings.Contains(string(t), ",") {
-			parts := strings.Split(string(t), ",")
-			if len(parts) != 2 {
-				return nil, &UnsupportedColumnTypeError{t: t}
-			}
-
-			precisionStr := strings.TrimSuffix(strings.TrimPrefix(parts[0], "Time64("), ")")
-			precision, err := strconv.ParseInt(precisionStr, 10, 8)
-			if err != nil {
-				return nil, err
-			}
-			p := byte(precision)
-			col.col.WithPrecision(proto.Precision(p))
-
-			timezoneName := strings.TrimSuffix(strings.TrimPrefix(parts[1], " '"), "')")
-			timezone, err := timezone.Load(timezoneName)
-			if err != nil {
-				return nil, err
-			}
-			col.timezone = timezone
-			return col, nil
-		} else {
-			params := strings.TrimSuffix(strings.TrimPrefix(string(t), "Time64("), ")")
-			precision, err := strconv.ParseInt(params, 10, 8)
-			if err != nil {
-				return nil, err
-			}
-			p := byte(precision)
-			col.col.WithPrecision(proto.Precision(p))
-			col.timezone = tz
-			return col, nil
+		params := strings.TrimSuffix(strings.TrimPrefix(string(t), "Time64("), ")")
+		precision, err = strconv.ParseInt(params, 10, 8)
+		if err != nil {
+			return nil, err
 		}
 	}
-	return nil, &UnsupportedColumnTypeError{t: t}
+	p := byte(precision)
+	col.col.WithPrecision(proto.Precision(p))
+	return col, nil
+
 }
 
 func (col *Time64) Type() Type {
@@ -330,11 +308,7 @@ func (col *Time64) parseTime(value string) (tv time.Time, err error) {
 
 	for _, format := range formats {
 		if tv, err = time.Parse(format, value); err == nil {
-			timezone := time.UTC
-			if col.timezone != nil {
-				timezone = col.timezone
-			}
-			return time.Date(1970, 1, 1, tv.Hour(), tv.Minute(), tv.Second(), tv.Nanosecond(), timezone), nil
+			return time.Date(1970, 1, 1, tv.Hour(), tv.Minute(), tv.Second(), tv.Nanosecond(), time.UTC), nil
 		}
 	}
 
@@ -344,20 +318,8 @@ func (col *Time64) parseTime(value string) (tv time.Time, err error) {
 		minutes := (seconds % 3600) / 60
 		secs := seconds % 60
 		nsecs := (milliseconds % 1000) * 1000000
-		timezone := time.UTC
-		if col.timezone != nil {
-			timezone = col.timezone
-		}
-		return time.Date(1970, 1, 1, int(hours), int(minutes), int(secs), int(nsecs), timezone), nil
+		return time.Date(1970, 1, 1, int(hours), int(minutes), int(secs), int(nsecs), time.UTC), nil
 	}
 
 	return time.Time{}, fmt.Errorf("cannot parse time64 value: %s", value)
-}
-
-func (col *Time64) WriteStatePrefix(buffer *proto.Buffer) error {
-	return nil
-}
-
-func (col *Time64) ReadStatePrefix(reader *proto.Reader) error {
-	return nil
 }

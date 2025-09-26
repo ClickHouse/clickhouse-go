@@ -1,4 +1,3 @@
-
 package column
 
 import (
@@ -11,16 +10,14 @@ import (
 	"time"
 
 	"github.com/ClickHouse/ch-go/proto"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/timezone"
 )
 
 const defaultTimeFormat = "15:04:05"
 
 type Time struct {
-	chType   Type
-	timezone *time.Location
-	name     string
-	col      proto.ColTime
+	chType Type
+	name   string
+	col    proto.ColTime
 }
 
 func (col *Time) Reset() {
@@ -31,19 +28,9 @@ func (col *Time) Name() string {
 	return col.name
 }
 
-func (col *Time) parse(t Type, tz *time.Location) (_ Interface, err error) {
+func (col *Time) parse(t Type) (_ Interface, err error) {
 	col.chType = t
-	if strings.HasPrefix(string(t), "Time('") {
-		timezoneName := strings.TrimSuffix(strings.TrimPrefix(string(t), "Time('"), "')")
-		timezone, err := timezone.Load(timezoneName)
-		if err != nil {
-			return nil, err
-		}
-		col.timezone = timezone
-		return col, nil
-	}
 	if string(t) == "Time" {
-		col.timezone = tz
 		return col, nil
 	}
 	return nil, &UnsupportedColumnTypeError{t: t}
@@ -301,11 +288,7 @@ func (col *Time) parseTime(value string) (tv time.Time, err error) {
 
 	for _, format := range formats {
 		if tv, err = time.Parse(format, value); err == nil {
-			timezone := time.UTC
-			if col.timezone != nil {
-				timezone = col.timezone
-			}
-			return time.Date(1970, 1, 1, tv.Hour(), tv.Minute(), tv.Second(), tv.Nanosecond(), timezone), nil
+			return time.Date(1970, 1, 1, tv.Hour(), tv.Minute(), tv.Second(), tv.Nanosecond(), time.UTC), nil
 		}
 	}
 
@@ -313,11 +296,7 @@ func (col *Time) parseTime(value string) (tv time.Time, err error) {
 		hours := seconds / 3600
 		minutes := (seconds % 3600) / 60
 		secs := seconds % 60
-		timezone := time.UTC
-		if col.timezone != nil {
-			timezone = col.timezone
-		}
-		return time.Date(1970, 1, 1, int(hours), int(minutes), int(secs), 0, timezone), nil
+		return time.Date(1970, 1, 1, int(hours), int(minutes), int(secs), 0, time.UTC), nil
 	}
 
 	return time.Time{}, fmt.Errorf("cannot parse time value: %s", value)
