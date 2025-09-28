@@ -13,9 +13,7 @@ import (
 
 func setupTimeTest(t *testing.T, protocol clickhouse.Protocol) (context.Context, func(), clickhouse.Conn) {
 	ctx := context.Background()
-	conn, err := GetNativeConnection(t, protocol, map[string]any{
-		"enable_time_time64_type": 1,
-	}, nil, nil)
+	conn, err := GetNativeConnection(t, protocol, nil, nil, nil)
 	require.NoError(t, err)
 	if !CheckMinServerServerVersion(conn, 25, 6, 0) {
 		t.Skip("Time/Time64 not supported on this ClickHouse version")
@@ -27,6 +25,11 @@ func TestTimeAndTime64(t *testing.T) {
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
 		ctx, cleanup, conn := setupTimeTest(t, protocol)
 		defer cleanup()
+
+		ctx = clickhouse.Context(ctx, clickhouse.WithSettings(clickhouse.Settings{
+			"enable_time_time64_type": 1,
+		}))
+
 		tableName := fmt.Sprintf("test_time_types_%d", time.Now().UnixNano())
 		require.NoError(t, conn.Exec(ctx, fmt.Sprintf(`
 			CREATE TABLE %s (
