@@ -103,11 +103,15 @@ colTime64.AppendRow(int64(123456789))  // milliseconds
 colTime.AppendRow("-12:30:45") // negative time
 colTime64.AppendRow("-23:45:12.123456789")
 
-// Timezone-aware columns
-colTimeTZ := &column.Time{name: "tz_time"}
-colTimeTZ.parse("Time('UTC')", time.UTC)
-colTime64TZ := &column.Time64{name: "tz_time64"}
-colTime64TZ.parse("Time64(3, 'Europe/Moscow')", time.UTC)
+// Timezone is not supported in time and time64.
+// It's always UTC in Go's time types.
+col := &column.Time{name:"test"}
+tt, _ := col.parse("Time")
+tt.Zone() // UTC
+
+col2 := &column.Time64{name:"test64"}
+tt2, _ := col2.parse("Time64")
+tt2.Zone() // UTC
 
 // Scan values
 var t time.Time

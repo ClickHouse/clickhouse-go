@@ -80,11 +80,11 @@ func (col *Time64) ScanRow(dest any, row int) error {
 		**d = col.row(row)
 	case *int64:
 		t := col.row(row)
-		*d = int64(t.Hour()*3600000 + t.Minute()*60000 + t.Second()*1000 + t.Nanosecond()/1000000)
+		*d = toMilliSeconds(t)
 	case **int64:
 		*d = new(int64)
 		t := col.row(row)
-		**d = int64(t.Hour()*3600000 + t.Minute()*60000 + t.Second()*1000 + t.Nanosecond()/1000000)
+		**d = toMilliSeconds(t)
 	case *sql.NullTime:
 		return d.Scan(col.row(row))
 	default:
@@ -105,26 +105,14 @@ func (col *Time64) Append(v any) (nulls []uint8, err error) {
 	case []int64:
 		nulls = make([]uint8, len(v))
 		for i := range v {
-			milliseconds := v[i]
-			seconds := milliseconds / 1000
-			hours := seconds / 3600
-			minutes := (seconds % 3600) / 60
-			secs := seconds % 60
-			nsecs := (milliseconds % 1000) * 1000000
-			col.col.Append(proto.FromTime64(time.Date(1970, 1, 1, int(hours), int(minutes), int(secs), int(nsecs), time.UTC)))
+			col.col.Append(proto.FromTime64(msToTime(v[i])))
 		}
 	case []*int64:
 		nulls = make([]uint8, len(v))
 		for i := range v {
 			switch {
 			case v[i] != nil:
-				milliseconds := *v[i]
-				seconds := milliseconds / 1000
-				hours := seconds / 3600
-				minutes := (seconds % 3600) / 60
-				secs := seconds % 60
-				nsecs := (milliseconds % 1000) * 1000000
-				col.col.Append(proto.FromTime64(time.Date(1970, 1, 1, int(hours), int(minutes), int(secs), int(nsecs), time.UTC)))
+				col.col.Append(proto.FromTime64(msToTime(*v[i])))
 			default:
 				col.col.Append(proto.FromTime64(time.Time{}))
 				nulls[i] = 1
@@ -193,23 +181,11 @@ func (col *Time64) Append(v any) (nulls []uint8, err error) {
 func (col *Time64) AppendRow(v any) error {
 	switch v := v.(type) {
 	case int64:
-		milliseconds := v
-		seconds := milliseconds / 1000
-		hours := seconds / 3600
-		minutes := (seconds % 3600) / 60
-		secs := seconds % 60
-		nsecs := (milliseconds % 1000) * 1000000
-		col.col.Append(proto.FromTime64(time.Date(1970, 1, 1, int(hours), int(minutes), int(secs), int(nsecs), time.UTC)))
+		col.col.Append(proto.FromTime64(msToTime(v)))
 	case *int64:
 		switch {
 		case v != nil:
-			milliseconds := *v
-			seconds := milliseconds / 1000
-			hours := seconds / 3600
-			minutes := (seconds % 3600) / 60
-			secs := seconds % 60
-			nsecs := (milliseconds % 1000) * 1000000
-			col.col.Append(proto.FromTime64(time.Date(1970, 1, 1, int(hours), int(minutes), int(secs), int(nsecs), time.UTC)))
+			col.col.Append(proto.FromTime64(msToTime(*v)))
 		default:
 			col.col.Append(proto.FromTime64(time.Time{}))
 		}
@@ -313,13 +289,23 @@ func (col *Time64) parseTime(value string) (tv time.Time, err error) {
 	}
 
 	if milliseconds, err := strconv.ParseInt(value, 10, 64); err == nil {
-		seconds := milliseconds / 1000
-		hours := seconds / 3600
-		minutes := (seconds % 3600) / 60
-		secs := seconds % 60
-		nsecs := (milliseconds % 1000) * 1000000
-		return time.Date(1970, 1, 1, int(hours), int(minutes), int(secs), int(nsecs), time.UTC), nil
+		return msToTime(milliseconds), nil
 	}
 
 	return time.Time{}, fmt.Errorf("cannot parse time64 value: %s", value)
+}
+
+// helpers
+func msToTime(ms int64) time.Time {
+	seconds := ms / 1000
+	hours := seconds / 3600
+	minutes := (seconds % 3600) / 60
+	secs := seconds % 60
+	nsecs := (ms % 1000) * 1000000
+
+	return time.Date(1970, 1, 1, int(hours), int(minutes), int(secs), int(nsecs), time.UTC)
+}
+
+func toMilliSeconds(t time.Time) int64 {
+	return int64(t.Hour()*3600000 + t.Minute()*60000 + t.Second()*1000 + t.Nanosecond()/1000000)
 }

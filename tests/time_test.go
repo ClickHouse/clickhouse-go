@@ -38,7 +38,7 @@ func TestTimeAndTime64(t *testing.T) {
 				t3 Array(Time),
 				t4 Array(Time64(9))
 			) ENGINE = MergeTree() ORDER BY tuple()`, tableName)))
-		// defer conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", tableName))
+		defer conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", tableName))
 
 		// NOTE: Discuss with @spencer if year is given as 0, ch-go would still set it as 1970.
 		t1 := time.Date(1970, 1, 1, 12, 34, 56, 0, time.UTC)

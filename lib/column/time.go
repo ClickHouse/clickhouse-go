@@ -65,11 +65,11 @@ func (col *Time) ScanRow(dest any, row int) error {
 		**d = col.row(row)
 	case *int64:
 		t := col.row(row)
-		*d = int64(t.Hour()*3600 + t.Minute()*60 + t.Second())
+		*d = timeToSeconds(t)
 	case **int64:
 		*d = new(int64)
 		t := col.row(row)
-		**d = int64(t.Hour()*3600 + t.Minute()*60 + t.Second())
+		**d = timeToSeconds(t)
 	case *sql.NullTime:
 		return d.Scan(col.row(row))
 	case *string:
@@ -300,4 +300,9 @@ func (col *Time) parseTime(value string) (tv time.Time, err error) {
 	}
 
 	return time.Time{}, fmt.Errorf("cannot parse time value: %s", value)
+}
+
+// helpers
+func timeToSeconds(t time.Time) int64 {
+	return int64(t.Hour()*3600 + t.Minute()*60 + t.Second())
 }
