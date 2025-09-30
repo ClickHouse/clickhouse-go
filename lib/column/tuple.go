@@ -1,4 +1,3 @@
-
 package column
 
 import (
@@ -672,3 +671,33 @@ var (
 	_ Interface           = (*Tuple)(nil)
 	_ CustomSerialization = (*Tuple)(nil)
 )
+
+func getStructFieldName(field reflect.StructField) (string, bool) {
+	name := field.Name
+	tag := field.Tag.Get("json")
+	// not a standard but we allow - to omit fields
+	if tag == "-" {
+		return name, true
+	}
+	if tag != "" {
+		// Some JSON tags contain omitempty after a comma but we don't want those in our field name.
+		return strings.Split(tag, ",")[0], false
+	}
+	// support ch tag as well as this is used elsewhere
+	tag = field.Tag.Get("ch")
+	if tag == "-" {
+		return name, true
+	}
+	if tag != "" {
+		return tag, false
+	}
+	return name, false
+}
+
+// ensures numeric keys and ` are escaped properly
+func getMapFieldName(name string) string {
+	if !escapeColRegex.MatchString(name) {
+		return fmt.Sprintf("`%s`", colEscape.Replace(name))
+	}
+	return colEscape.Replace(name)
+}
