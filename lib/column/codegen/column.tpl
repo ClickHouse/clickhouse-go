@@ -111,9 +111,7 @@ func (t Type) Column(name string, sc *ServerContext) (Interface, error) {
 	case "Object('json')":
 	    return &JSONObject{name: name, root: true, sc: sc}, nil
 	case "Time":
-		return &Time{name: name}, nil
-	case "Time64":
-		return &Time64{name: name}, nil
+		return &Time{name: name, chType: "Time"}, nil
 	}
 
 	switch strType := string(t); {
@@ -149,6 +147,8 @@ func (t Type) Column(name string, sc *ServerContext) (Interface, error) {
 		return (&DateTime64{name: name}).parse(t, sc.Timezone)
 	case strings.HasPrefix(strType, "DateTime") && !strings.HasPrefix(strType, "DateTime64"):
 		return (&DateTime{name: name}).parse(t, sc.Timezone)
+	case strings.HasPrefix(strType, "Time64"):
+		return (&Time64{name: name}).parse(t)
 	}
 	return nil, &UnsupportedColumnTypeError{
 		t: t,
