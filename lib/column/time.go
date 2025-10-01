@@ -28,14 +28,6 @@ func (col *Time) Name() string {
 	return col.name
 }
 
-func (col *Time) parse(t Type) (_ Interface, err error) {
-	col.chType = t
-	if string(t) == "Time" {
-		return col, nil
-	}
-	return nil, &UnsupportedColumnTypeError{t: t}
-}
-
 func (col *Time) Type() Type {
 	return col.chType
 }
