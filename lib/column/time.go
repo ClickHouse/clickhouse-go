@@ -171,19 +171,11 @@ func (col *Time) Append(v any) (nulls []uint8, err error) {
 func (col *Time) AppendRow(v any) error {
 	switch v := v.(type) {
 	case int64:
-		seconds := v
-		hours := seconds / 3600
-		minutes := (seconds % 3600) / 60
-		secs := seconds % 60
-		col.col.Append(proto.FromTime32(time.Date(1970, 1, 1, int(hours), int(minutes), int(secs), 0, time.UTC)))
+		col.col.Append(proto.FromTime32(secondsToTime(v)))
 	case *int64:
 		switch {
 		case v != nil:
-			seconds := *v
-			hours := seconds / 3600
-			minutes := (seconds % 3600) / 60
-			secs := seconds % 60
-			col.col.Append(proto.FromTime32(time.Date(1970, 1, 1, int(hours), int(minutes), int(secs), 0, time.UTC)))
+			col.col.Append(proto.FromTime32(secondsToTime(*v)))
 		default:
 			col.col.Append(proto.FromTime32(time.Time{}))
 		}
@@ -295,6 +287,15 @@ func (col *Time) parseTime(value string) (tv time.Time, err error) {
 }
 
 // helpers
+
 func timeToSeconds(t time.Time) int64 {
 	return int64(t.Hour()*3600 + t.Minute()*60 + t.Second())
+}
+
+func secondsToTime(v int64) time.Time {
+	seconds := v
+	hours := seconds / 3600
+	minutes := (seconds % 3600) / 60
+	secs := seconds % 60
+	return time.Date(1970, 1, 1, int(hours), int(minutes), int(secs), 0, time.UTC)
 }

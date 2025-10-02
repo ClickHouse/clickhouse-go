@@ -80,11 +80,11 @@ func (col *Time64) ScanRow(dest any, row int) error {
 		**d = col.row(row)
 	case *int64:
 		t := col.row(row)
-		*d = toMilliSeconds(t)
+		*d = timeToMilliSeconds(t)
 	case **int64:
 		*d = new(int64)
 		t := col.row(row)
-		**d = toMilliSeconds(t)
+		**d = timeToMilliSeconds(t)
 	case *sql.NullTime:
 		return d.Scan(col.row(row))
 	default:
@@ -105,14 +105,14 @@ func (col *Time64) Append(v any) (nulls []uint8, err error) {
 	case []int64:
 		nulls = make([]uint8, len(v))
 		for i := range v {
-			col.col.Append(proto.FromTime64(msToTime(v[i])))
+			col.col.Append(proto.FromTime64(milliSecondsToTime(v[i])))
 		}
 	case []*int64:
 		nulls = make([]uint8, len(v))
 		for i := range v {
 			switch {
 			case v[i] != nil:
-				col.col.Append(proto.FromTime64(msToTime(*v[i])))
+				col.col.Append(proto.FromTime64(milliSecondsToTime(*v[i])))
 			default:
 				col.col.Append(proto.FromTime64(time.Time{}))
 				nulls[i] = 1
@@ -181,11 +181,11 @@ func (col *Time64) Append(v any) (nulls []uint8, err error) {
 func (col *Time64) AppendRow(v any) error {
 	switch v := v.(type) {
 	case int64:
-		col.col.Append(proto.FromTime64(msToTime(v)))
+		col.col.Append(proto.FromTime64(milliSecondsToTime(v)))
 	case *int64:
 		switch {
 		case v != nil:
-			col.col.Append(proto.FromTime64(msToTime(*v)))
+			col.col.Append(proto.FromTime64(milliSecondsToTime(*v)))
 		default:
 			col.col.Append(proto.FromTime64(time.Time{}))
 		}
@@ -289,14 +289,14 @@ func (col *Time64) parseTime(value string) (tv time.Time, err error) {
 	}
 
 	if milliseconds, err := strconv.ParseInt(value, 10, 64); err == nil {
-		return msToTime(milliseconds), nil
+		return milliSecondsToTime(milliseconds), nil
 	}
 
 	return time.Time{}, fmt.Errorf("cannot parse time64 value: %s", value)
 }
 
 // helpers
-func msToTime(ms int64) time.Time {
+func milliSecondsToTime(ms int64) time.Time {
 	seconds := ms / 1000
 	hours := seconds / 3600
 	minutes := (seconds % 3600) / 60
@@ -306,6 +306,6 @@ func msToTime(ms int64) time.Time {
 	return time.Date(1970, 1, 1, int(hours), int(minutes), int(secs), int(nsecs), time.UTC)
 }
 
-func toMilliSeconds(t time.Time) int64 {
+func timeToMilliSeconds(t time.Time) int64 {
 	return int64(t.Hour()*3600000 + t.Minute()*60000 + t.Second()*1000 + t.Nanosecond()/1000000)
 }
