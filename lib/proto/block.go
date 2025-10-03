@@ -1,4 +1,3 @@
-
 package proto
 
 import (
@@ -213,12 +212,9 @@ func (b *Block) Decode(reader *proto.Reader, revision uint64) (err error) {
 				return err
 			}
 			if hasCustom {
-				// Allow Time and Time64 columns with custom serialization
-				if columnType != "Time" && columnType != "Time64" {
-					return &BlockError{
-						Op:  "Decode",
-						Err: errors.New(fmt.Sprintf("custom serialization for column %s. not supported by clickhouse-go driver", columnName)),
-					}
+				return &BlockError{
+					Op:  "Decode",
+					Err: fmt.Errorf("custom serialization for column %s. not supported by clickhouse-go driver", columnName),
 				}
 			}
 		}
