@@ -1,4 +1,3 @@
-
 package clickhouse
 
 import (
@@ -13,7 +12,6 @@ import (
 	"net"
 	"os"
 	"reflect"
-	"strings"
 	"sync/atomic"
 	"syscall"
 
@@ -147,34 +145,28 @@ func OpenDB(opt *Options) *sql.DB {
 	if opt == nil {
 		opt = &Options{}
 	}
-	var settings []string
-	if opt.MaxIdleConns > 0 {
-		settings = append(settings, "SetMaxIdleConns")
-	}
-	if opt.MaxOpenConns > 0 {
-		settings = append(settings, "SetMaxOpenConns")
-	}
-	if opt.ConnMaxLifetime > 0 {
-		settings = append(settings, "SetConnMaxLifetime")
-	}
-	if opt.Debug {
-		if opt.Debugf != nil {
-			debugf = opt.Debugf
+
+	o := opt.setDefaults()
+	db := sql.OpenDB(&stdConnOpener{
+		opt:    o,
+		debugf: debugf,
+	})
+
+	// Ok to set these configs irrespective of values in opt.
+	// Because opt.setDefaults() would have set some sane values
+	// for these configs.
+	db.SetMaxIdleConns(o.MaxIdleConns)
+	db.SetMaxOpenConns(o.MaxOpenConns)
+	db.SetConnMaxLifetime(o.ConnMaxLifetime)
+	if o.Debug {
+		if o.Debugf != nil {
+			debugf = o.Debugf
 		} else {
 			debugf = log.New(os.Stdout, "[clickhouse-std][opener] ", 0).Printf
 		}
 	}
-	if len(settings) != 0 {
-		return sql.OpenDB(&stdConnOpener{
-			err:    fmt.Errorf("cannot connect. invalid settings. use %s (see https://pkg.go.dev/database/sql)", strings.Join(settings, ",")),
-			debugf: debugf,
-		})
-	}
-	o := opt.setDefaults()
-	return sql.OpenDB(&stdConnOpener{
-		opt:    o,
-		debugf: debugf,
-	})
+
+	return db
 }
 
 type stdConnect interface {

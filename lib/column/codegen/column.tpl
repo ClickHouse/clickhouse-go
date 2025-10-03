@@ -108,8 +108,6 @@ func (t Type) Column(name string, sc *ServerContext) (Interface, error) {
 		return &String{name: name, col: colStrProvider(name)}, nil
 	case "SharedVariant":
 		return &SharedVariant{name: name}, nil
-	case "Object('json')":
-	    return &JSONObject{name: name, root: true, sc: sc}, nil
 	case "Time":
 		return &Time{name: name, chType: "Time"}, nil
 	}
