@@ -5,14 +5,11 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"reflect"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/ClickHouse/ch-go/proto"
 )
-
-const defaultTimeFormat = "15:04:05"
 
 type Time struct {
 	chType Type
@@ -48,27 +45,13 @@ func (col *Time) Row(i int, ptr bool) any {
 	return value
 }
 
+// ScanRow implements column.Interface.
+// It is used to read a single column value of the row and store in
+// `dest` Go variable.
 func (col *Time) ScanRow(dest any, row int) error {
 	switch d := dest.(type) {
-	case *time.Time:
+	case *time.Duration:
 		*d = col.row(row)
-	case **time.Time:
-		*d = new(time.Time)
-		**d = col.row(row)
-	case *int64:
-		t := col.row(row)
-		*d = timeToSeconds(t)
-	case **int64:
-		*d = new(int64)
-		t := col.row(row)
-		**d = timeToSeconds(t)
-	case *sql.NullTime:
-		return d.Scan(col.row(row))
-	case *string:
-		*d = col.row(row).Format(defaultTimeFormat)
-	case **string:
-		*d = new(string)
-		**d = col.row(row).Format(defaultTimeFormat)
 	default:
 		if scan, ok := dest.(sql.Scanner); ok {
 			return scan.Scan(col.row(row))
@@ -82,69 +65,26 @@ func (col *Time) ScanRow(dest any, row int) error {
 	return nil
 }
 
+// Append implements column.Interface.
+// It is used for columnar inserts. Insert multiple Go value for
+// single ClickHouse Time type.
 func (col *Time) Append(v any) (nulls []uint8, err error) {
 	switch v := v.(type) {
-	case []int64:
-		nulls = make([]uint8, len(v))
+	case []time.Duration:
+		nulls = make([]uint8, len(v)) // default all zeros, meaning no null values
 		for i := range v {
-			seconds := v[i]
-			hours := seconds / 3600
-			minutes := (seconds % 3600) / 60
-			secs := seconds % 60
-			col.col.Append(proto.FromTime32(time.Date(1970, 1, 1, int(hours), int(minutes), int(secs), 0, time.UTC)))
+			col.col.Append(proto.IntoTime32(v[i]))
 		}
-	case []*int64:
+	case []*time.Duration:
 		nulls = make([]uint8, len(v))
 		for i := range v {
 			switch {
 			case v[i] != nil:
-				seconds := *v[i]
-				hours := seconds / 3600
-				minutes := (seconds % 3600) / 60
-				secs := seconds % 60
-				col.col.Append(proto.FromTime32(time.Date(1970, 1, 1, int(hours), int(minutes), int(secs), 0, time.UTC)))
+				col.col.Append(proto.IntoTime32(*v[i]))
 			default:
-				col.col.Append(proto.FromTime32(time.Time{}))
+				col.col.Append(proto.IntoTime32(time.Duration(0)))
 				nulls[i] = 1
 			}
-		}
-	case []time.Time:
-		nulls = make([]uint8, len(v))
-		for i := range v {
-			col.col.Append(proto.FromTime32(v[i]))
-		}
-	case []*time.Time:
-		nulls = make([]uint8, len(v))
-		for i := range v {
-			switch {
-			case v[i] != nil:
-				col.col.Append(proto.FromTime32(*v[i]))
-			default:
-				col.col.Append(proto.FromTime32(time.Time{}))
-				nulls[i] = 1
-			}
-		}
-	case []sql.NullTime:
-		nulls = make([]uint8, len(v))
-		for i := range v {
-			col.AppendRow(v[i])
-		}
-	case []*sql.NullTime:
-		nulls = make([]uint8, len(v))
-		for i := range v {
-			if v[i] == nil {
-				nulls[i] = 1
-			}
-			col.AppendRow(v[i])
-		}
-	case []string:
-		nulls = make([]uint8, len(v))
-		for i := range v {
-			value, err := col.parseTime(v[i])
-			if err != nil {
-				return nil, err
-			}
-			col.col.Append(proto.FromTime32(value))
 		}
 	default:
 		if valuer, ok := v.(driver.Valuer); ok {
@@ -168,55 +108,19 @@ func (col *Time) Append(v any) (nulls []uint8, err error) {
 	return
 }
 
+// AppendRow implements column.Interface.
+// It is used to insert column value in a row.
+// Converts Go type into ClickHouse type to be inserted.
 func (col *Time) AppendRow(v any) error {
 	switch v := v.(type) {
-	case int64:
-		col.col.Append(proto.FromTime32(secondsToTime(v)))
-	case *int64:
+	case time.Duration:
+		col.col.Append(proto.IntoTime32(v))
+	case *time.Duration:
 		switch {
 		case v != nil:
-			col.col.Append(proto.FromTime32(secondsToTime(*v)))
+			col.col.Append(proto.IntoTime32(*v))
 		default:
-			col.col.Append(proto.FromTime32(time.Time{}))
-		}
-	case time.Time:
-		col.col.Append(proto.FromTime32(v))
-	case *time.Time:
-		switch {
-		case v != nil:
-			col.col.Append(proto.FromTime32(*v))
-		default:
-			col.col.Append(proto.FromTime32(time.Time{}))
-		}
-	case sql.NullTime:
-		if v.Valid {
-			col.col.Append(proto.FromTime32(v.Time))
-		} else {
-			col.col.Append(proto.FromTime32(time.Time{}))
-		}
-	case *sql.NullTime:
-		switch {
-		case v != nil && v.Valid:
-			col.col.Append(proto.FromTime32(v.Time))
-		default:
-			col.col.Append(proto.FromTime32(time.Time{}))
-		}
-	case string:
-		value, err := col.parseTime(v)
-		if err != nil {
-			return err
-		}
-		col.col.Append(proto.FromTime32(value))
-	case *string:
-		switch {
-		case v != nil:
-			value, err := col.parseTime(*v)
-			if err != nil {
-				return err
-			}
-			col.col.Append(proto.FromTime32(value))
-		default:
-			col.col.Append(proto.FromTime32(time.Time{}))
+			col.col.Append(proto.IntoTime32(time.Duration(0)))
 		}
 	default:
 		if valuer, ok := v.(driver.Valuer); ok {
@@ -248,54 +152,21 @@ func (col *Time) Encode(buffer *proto.Buffer) {
 	col.col.EncodeColumn(buffer)
 }
 
-func (col *Time) row(i int) time.Time {
-	return col.col.Row(i).ToTime32()
+func (col *Time) row(i int) time.Duration {
+	return col.col.Row(i).Duration()
 }
 
-func (col *Time) parseTime(value string) (tv time.Time, err error) {
-	value = strings.TrimSpace(value)
-	if value == "" {
-		return time.Time{}, nil
-	}
-
-	formats := []string{
-		"15:04:05",
-		"15:04",
-		"15:04:05.999",
-		"15:04:05.999999",
-		"15:04:05.999999999",
-		"3:04:05 PM",
-		"3:04 PM",
-		"15:04:05 -07:00",
-		"15:04:05.999 -07:00",
-	}
-
-	for _, format := range formats {
-		if tv, err = time.Parse(format, value); err == nil {
-			return time.Date(1970, 1, 1, tv.Hour(), tv.Minute(), tv.Second(), tv.Nanosecond(), time.UTC), nil
-		}
-	}
-
-	if seconds, err := strconv.ParseInt(value, 10, 64); err == nil {
-		hours := seconds / 3600
-		minutes := (seconds % 3600) / 60
-		secs := seconds % 60
-		return time.Date(1970, 1, 1, int(hours), int(minutes), int(secs), 0, time.UTC), nil
-	}
-
-	return time.Time{}, fmt.Errorf("cannot parse time value: %s", value)
+func (col *Time) parseTime(value string) (time.Duration, error) {
+	return parseDuration(value)
 }
 
 // helpers
 
-func timeToSeconds(t time.Time) int64 {
-	return int64(t.Hour()*3600 + t.Minute()*60 + t.Second())
-}
+func parseDuration(value string) (time.Duration, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return time.Duration(0), nil
+	}
 
-func secondsToTime(v int64) time.Time {
-	seconds := v
-	hours := seconds / 3600
-	minutes := (seconds % 3600) / 60
-	secs := seconds % 60
-	return time.Date(1970, 1, 1, int(hours), int(minutes), int(secs), 0, time.UTC)
+	return time.ParseDuration(value)
 }
