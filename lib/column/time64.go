@@ -76,6 +76,9 @@ func (col *Time64) ScanRow(dest any, row int) error {
 	switch d := dest.(type) {
 	case *time.Duration:
 		*d = col.row(row)
+	case **time.Duration:
+		*d = new(time.Duration)
+		**d = col.row(row)
 	default:
 		if scan, ok := dest.(sql.Scanner); ok {
 			return scan.Scan(col.row(row))
@@ -177,7 +180,7 @@ func (col *Time64) Encode(buffer *proto.Buffer) {
 }
 
 func (col *Time64) row(i int) time.Duration {
-	return col.col.Row(i).Duration()
+	return col.col.Row(i).ToDurationWithPrecision(col.col.Precision)
 }
 
 func (col *Time64) parseTime(value string) (time.Duration, error) {

@@ -52,6 +52,9 @@ func (col *Time) ScanRow(dest any, row int) error {
 	switch d := dest.(type) {
 	case *time.Duration:
 		*d = col.row(row)
+	case **time.Duration:
+		*d = new(time.Duration)
+		**d = col.row(row)
 	default:
 		if scan, ok := dest.(sql.Scanner); ok {
 			return scan.Scan(col.row(row))
