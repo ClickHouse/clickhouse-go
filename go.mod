@@ -17,7 +17,7 @@ require (
 	github.com/testcontainers/testcontainers-go v0.39.0
 	go.opentelemetry.io/otel/trace v1.38.0
 	go.yaml.in/yaml/v3 v3.0.4
-	golang.org/x/net v0.44.0
+	golang.org/x/net v0.45.0
 )
 
 require go.opentelemetry.io/otel v1.38.0 // indirect
