@@ -74,6 +74,10 @@ func (i *idlePool) Get(ctx context.Context) nativeTransport {
 			return nil
 		}
 
+		if i.closed() {
+			return nil
+		}
+
 		if len(i.conns) == 0 {
 			return nil
 		}
@@ -83,11 +87,11 @@ func (i *idlePool) Get(ctx context.Context) nativeTransport {
 			return nil
 		}
 
-		if i.expired(conn) {
-			continue
+		if !i.expired(conn) {
+			return conn
 		}
 
-		return conn
+		conn.close()
 	}
 }
 
@@ -165,6 +169,8 @@ func (i *idlePool) drainPool() {
 			heap.Push(&i.conns, conn)
 			return
 		}
+
+		conn.close()
 	}
 }
 
