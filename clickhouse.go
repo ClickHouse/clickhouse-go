@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -34,6 +35,7 @@ var (
 	ErrBindMixedParamsFormats    = errors.New("clickhouse [bind]: mixed named, numeric or positional parameters")
 	ErrAcquireConnNoAddress      = errors.New("clickhouse: no valid address supplied")
 	ErrServerUnexpectedData      = errors.New("code: 101, message: Unexpected packet Data received from client")
+	ErrConnectionClosed          = errors.New("clickhouse: connection is closed")
 )
 
 type OpError struct {
@@ -67,12 +69,12 @@ func Open(opt *Options) (driver.Conn, error) {
 	o := opt.setDefaults()
 
 	conn := &clickhouse{
-		opt:  o,
-		idle: make(chan nativeTransport, o.MaxIdleConns),
-		open: make(chan struct{}, o.MaxOpenConns),
-		exit: make(chan struct{}),
+		opt:       o,
+		idle:      newIdlePool(o.ConnMaxLifetime, o.MaxIdleConns),
+		open:      make(chan struct{}, o.MaxOpenConns),
+		closeOnce: &sync.Once{},
 	}
-	go conn.startAutoCloseIdleConnections()
+
 	return conn, nil
 }
 
@@ -101,10 +103,12 @@ type nativeTransportRelease func(nativeTransport, error)
 
 type clickhouse struct {
 	opt    *Options
-	idle   chan nativeTransport
-	open   chan struct{}
-	exit   chan struct{}
 	connID int64
+
+	idle      *idlePool
+	open      chan struct{}
+	closeOnce *sync.Once
+	closed    bool
 }
 
 func (clickhouse) Contributors() []string {
@@ -226,9 +230,10 @@ func (ch *clickhouse) Ping(ctx context.Context) (err error) {
 func (ch *clickhouse) Stats() driver.Stats {
 	return driver.Stats{
 		Open:         len(ch.open),
-		Idle:         len(ch.idle),
 		MaxOpenConns: cap(ch.open),
-		MaxIdleConns: cap(ch.idle),
+
+		Idle:         ch.idle.Length(),
+		MaxIdleConns: ch.idle.Capacity(),
 	}
 }
 
@@ -286,43 +291,30 @@ func DefaultDialStrategy(ctx context.Context, connID int, opt *Options, dial Dia
 }
 
 func (ch *clickhouse) acquire(ctx context.Context) (conn nativeTransport, err error) {
-	timer := time.NewTimer(ch.opt.DialTimeout)
-	defer timer.Stop()
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	default:
+	if ch.closed {
+		return nil, ErrConnectionClosed
 	}
+
+	ctx, cancel := context.WithTimeout(ctx, ch.opt.DialTimeout)
+	defer cancel()
+
 	select {
-	case <-timer.C:
-		return nil, ErrAcquireConnTimeout
-	case <-ctx.Done():
-		return nil, ctx.Err()
 	case ch.open <- struct{}{}:
-	}
-	select {
-	case <-timer.C:
-		select {
-		case <-ch.open:
-		default:
-		}
+	case <-ctx.Done():
 		return nil, ErrAcquireConnTimeout
-	case conn := <-ch.idle:
-		if conn.isBad() {
-			conn.close()
-			if conn, err = ch.dial(ctx); err != nil {
-				select {
-				case <-ch.open:
-				default:
-				}
-				return nil, err
-			}
-		}
-		conn.setReleased(false)
-		conn.debugf("[acquired from pool]")
-		return conn, nil
-	default:
 	}
+
+	conn = ch.idle.Get(ctx)
+	if conn != nil {
+		if !conn.isBad() {
+			conn.setReleased(false)
+			conn.debugf("[acquired from pool]")
+			return conn, nil
+		}
+
+		conn.close()
+	}
+
 	if conn, err = ch.dial(ctx); err != nil {
 		select {
 		case <-ch.open:
@@ -330,43 +322,10 @@ func (ch *clickhouse) acquire(ctx context.Context) (conn nativeTransport, err er
 		}
 		return nil, err
 	}
+
 	conn.debugf("[acquired new]")
 	return conn, nil
-}
 
-func (ch *clickhouse) startAutoCloseIdleConnections() {
-	ticker := time.NewTicker(ch.opt.ConnMaxLifetime)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ticker.C:
-			ch.closeIdleExpired()
-		case <-ch.exit:
-			return
-		}
-	}
-}
-
-func (ch *clickhouse) closeIdleExpired() {
-	cutoff := time.Now().Add(-ch.opt.ConnMaxLifetime)
-	for {
-		select {
-		case conn := <-ch.idle:
-			if conn.connectedAtTime().Before(cutoff) {
-				conn.close()
-			} else {
-				select {
-				case ch.idle <- conn:
-				default:
-					conn.close()
-				}
-				return
-			}
-		default:
-			return
-		}
-	}
 }
 
 func (ch *clickhouse) release(conn nativeTransport, err error) {
@@ -401,28 +360,18 @@ func (ch *clickhouse) release(conn nativeTransport, err error) {
 		conn.freeBuffer()
 	}
 
-	select {
-	case ch.idle <- conn:
-	default:
-		conn.debugf("[close: idle pool full %d/%d]", len(ch.idle), cap(ch.idle))
-		conn.close()
+	if ch.closed {
+		return
 	}
+
+	ch.idle.Put(conn)
 }
 
-func (ch *clickhouse) Close() error {
-	for {
-		select {
-		case conn := <-ch.idle:
-			conn.debugf("[close: closing pool]")
-			conn.close()
-		default:
-			// In rare cases, close may be called multiple times, don't block
-			//TODO: add proper close flag to indicate this pool is unusable after Close
-			select {
-			case ch.exit <- struct{}{}:
-			default:
-			}
-			return nil
-		}
-	}
+func (ch *clickhouse) Close() (err error) {
+	ch.closeOnce.Do(func() {
+		err = ch.idle.Close()
+		ch.closed = true
+	})
+
+	return
 }
