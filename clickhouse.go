@@ -303,7 +303,7 @@ func (ch *clickhouse) acquire(ctx context.Context) (conn nativeTransport, err er
 	select {
 	case ch.open <- struct{}{}:
 	case <-ctx.Done():
-		return nil, ErrAcquireConnTimeout
+		return nil, ctx.Err()
 	}
 
 	conn = ch.idle.Get(ctx)
