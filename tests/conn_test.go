@@ -1,4 +1,3 @@
-
 package tests
 
 import (
@@ -421,6 +420,10 @@ func TestConnectionExpiresIdleConnection(t *testing.T) {
 
 	baseConn, err := TestClientWithDefaultSettings(testEnv)
 	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		baseConn.Close()
+	})
 
 	expectedConnections := getActiveConnections(t, baseConn)
 
