@@ -56,10 +56,14 @@ func TestIdlePool_Length(t *testing.T) {
 
 	// Remove connection
 	ctx := context.Background()
-	pool.Get(ctx)
+	conn, err := pool.Get(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, conn)
 	assert.Equal(t, 1, pool.Length())
 
-	pool.Get(ctx)
+	conn, err = pool.Get(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, conn)
 	assert.Equal(t, 0, pool.Length())
 }
 
@@ -68,7 +72,8 @@ func TestIdlePool_GetEmpty(t *testing.T) {
 	defer pool.Close()
 
 	ctx := context.Background()
-	conn := pool.Get(ctx)
+	conn, err := pool.Get(ctx)
+	require.NoError(t, err)
 	assert.Nil(t, conn, "getting from empty pool should return nil")
 }
 
@@ -91,20 +96,24 @@ func TestIdlePool_PutAndGet(t *testing.T) {
 	ctx := context.Background()
 
 	// Get should return oldest connection first (heap min)
-	retrieved := pool.Get(ctx)
+	retrieved, err := pool.Get(ctx)
+	require.NoError(t, err)
 	require.NotNil(t, retrieved)
 	assert.Equal(t, 1, retrieved.connID(), "should get oldest connection first")
 
-	retrieved = pool.Get(ctx)
+	retrieved, err = pool.Get(ctx)
+	require.NoError(t, err)
 	require.NotNil(t, retrieved)
 	assert.Equal(t, 2, retrieved.connID())
 
-	retrieved = pool.Get(ctx)
+	retrieved, err = pool.Get(ctx)
+	require.NoError(t, err)
 	require.NotNil(t, retrieved)
 	assert.Equal(t, 3, retrieved.connID())
 
 	// Pool should be empty now
-	retrieved = pool.Get(ctx)
+	retrieved, err = pool.Get(ctx)
+	require.NoError(t, err)
 	assert.Nil(t, retrieved)
 }
 
@@ -132,7 +141,8 @@ func TestIdlePool_CapacityLimit(t *testing.T) {
 	// Expect the pool to return connections [3, 4, 5] in order
 	// connections (1) and (2) will have been evicted due to capacity
 	for i := 0; i < 3; i++ {
-		retrieved := pool.Get(ctx)
+		retrieved, err := pool.Get(ctx)
+		require.NoError(t, err)
 		require.NotNil(t, retrieved)
 
 		assert.True(t, retrieved.connID() == 3+i, "unexpected connection ID")
@@ -162,12 +172,14 @@ func TestIdlePool_ExpiredConnectionNotReturned(t *testing.T) {
 	ctx := context.Background()
 
 	// Get should skip expired connection and return fresh one
-	retrieved := pool.Get(ctx)
+	retrieved, err := pool.Get(ctx)
+	require.NoError(t, err)
 	require.NotNil(t, retrieved)
 	assert.Equal(t, 2, retrieved.connID(), "should skip expired connection")
 
 	// Pool should be empty now
-	retrieved = pool.Get(ctx)
+	retrieved, err = pool.Get(ctx)
+	require.NoError(t, err)
 	assert.Nil(t, retrieved)
 }
 
@@ -205,7 +217,8 @@ func TestIdlePool_PutOlderThanMinimumWithCapacity(t *testing.T) {
 	assert.Equal(t, 2, pool.Length())
 
 	ctx := context.Background()
-	retrieved := pool.Get(ctx)
+	retrieved, err := pool.Get(ctx)
+	require.NoError(t, err)
 	require.NotNil(t, retrieved)
 	assert.Equal(t, 2, retrieved.connID(), "should retrieve the oldest connection")
 }
@@ -222,8 +235,10 @@ func TestIdlePool_GetWithCancelledContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	// Get with cancelled context should return nil
-	retrieved := pool.Get(ctx)
+	// Get with cancelled context should return context error
+	retrieved, err := pool.Get(ctx)
+	assert.Error(t, err)
+	assert.Equal(t, context.Canceled, err)
 	assert.Nil(t, retrieved)
 
 	// Connection should still be in pool
@@ -251,9 +266,11 @@ func TestIdlePool_Close(t *testing.T) {
 	// Verify pool is closed
 	assert.True(t, pool.closed())
 
-	// Get should return nil from closed pool
+	// Get should return ErrConnectionClosed from closed pool
 	ctx := context.Background()
-	conn := pool.Get(ctx)
+	conn, err := pool.Get(ctx)
+	assert.Error(t, err)
+	assert.Equal(t, ErrConnectionClosed, err)
 	assert.Nil(t, conn)
 
 	// Put should be ignored on closed pool
@@ -293,7 +310,9 @@ func TestIdlePool_CloseWithDrain(t *testing.T) {
 
 	// Verify no connections can be retrieved
 	ctx := context.Background()
-	conn := pool.Get(ctx)
+	conn, err := pool.Get(ctx)
+	assert.Error(t, err)
+	assert.Equal(t, ErrConnectionClosed, err)
 	assert.Nil(t, conn, "get should return nil after pool is closed and drained")
 }
 
@@ -355,7 +374,7 @@ func TestIdlePool_ConcurrentAccess(t *testing.T) {
 	// Concurrent gets
 	go func() {
 		for i := 0; i < 20; i++ {
-			pool.Get(ctx)
+			_, _ = pool.Get(ctx)
 			time.Sleep(time.Millisecond)
 		}
 	}()
@@ -408,7 +427,8 @@ func TestIdlePool_HeapOrdering(t *testing.T) {
 
 	// Get all connections and verify they come out in time order (oldest first)
 	for i := 0; i < expectedCount; i++ {
-		conn := pool.Get(ctx)
+		conn, err := pool.Get(ctx)
+		require.NoError(t, err)
 		require.NotNil(t, conn, "should get connection %d", i)
 
 		if i > 0 {
