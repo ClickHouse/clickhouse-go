@@ -73,6 +73,7 @@ func Open(opt *Options) (driver.Conn, error) {
 		idle:      newIdlePool(o.ConnMaxLifetime, o.MaxIdleConns),
 		open:      make(chan struct{}, o.MaxOpenConns),
 		closeOnce: &sync.Once{},
+		closed:    &atomic.Bool{},
 	}
 
 	return conn, nil
@@ -105,10 +106,11 @@ type clickhouse struct {
 	opt    *Options
 	connID int64
 
-	idle      *idlePool
-	open      chan struct{}
+	idle *idlePool
+	open chan struct{}
+
 	closeOnce *sync.Once
-	closed    bool
+	closed    *atomic.Bool
 }
 
 func (clickhouse) Contributors() []string {
@@ -291,7 +293,7 @@ func DefaultDialStrategy(ctx context.Context, connID int, opt *Options, dial Dia
 }
 
 func (ch *clickhouse) acquire(ctx context.Context) (conn nativeTransport, err error) {
-	if ch.closed {
+	if ch.closed.Load() {
 		return nil, ErrConnectionClosed
 	}
 
@@ -360,7 +362,7 @@ func (ch *clickhouse) release(conn nativeTransport, err error) {
 		conn.freeBuffer()
 	}
 
-	if ch.closed {
+	if ch.closed.Load() {
 		return
 	}
 
@@ -370,7 +372,7 @@ func (ch *clickhouse) release(conn nativeTransport, err error) {
 func (ch *clickhouse) Close() (err error) {
 	ch.closeOnce.Do(func() {
 		err = ch.idle.Close()
-		ch.closed = true
+		ch.closed.Store(true)
 	})
 
 	return
