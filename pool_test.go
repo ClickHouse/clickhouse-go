@@ -129,12 +129,14 @@ func TestIdlePool_CapacityLimit(t *testing.T) {
 
 	ctx := context.Background()
 
-	// Should get the newest connections (oldest ones were evicted)
-	retrieved := pool.Get(ctx)
-	require.NotNil(t, retrieved)
-	// With capacity 3 and 5 connections added, conn1 and conn2 should be evicted
-	// We should have conn3, conn4, conn5
-	assert.True(t, retrieved.connID() >= 3, "should only contain newer connections")
+	// Expect the pool to return connections [3, 4, 5] in order
+	// connections (1) and (2) will have been evicted due to capacity
+	for i := 0; i < 3; i++ {
+		retrieved := pool.Get(ctx)
+		require.NotNil(t, retrieved)
+
+		assert.True(t, retrieved.connID() == 3+i, "unexpected connection ID")
+	}
 }
 
 func TestIdlePool_ExpiredConnectionNotReturned(t *testing.T) {
@@ -185,7 +187,7 @@ func TestIdlePool_PutExpiredConnection(t *testing.T) {
 	assert.Equal(t, 0, pool.Length())
 }
 
-func TestIdlePool_PutOlderThanMinimum(t *testing.T) {
+func TestIdlePool_PutOlderThanMinimumWithCapacity(t *testing.T) {
 	pool := newIdlePool(time.Hour, 5)
 	defer pool.Close()
 
@@ -195,17 +197,17 @@ func TestIdlePool_PutOlderThanMinimum(t *testing.T) {
 	conn1 := &mockTransport{connectedAt: now, id: 1}
 	pool.Put(conn1)
 
-	// Try to add an older connection
+	// Try to add an older connection that current minimum
 	olderConn := &mockTransport{connectedAt: now.Add(-time.Minute), id: 2}
 	pool.Put(olderConn)
 
-	// Pool should reject the older connection
-	assert.Equal(t, 1, pool.Length())
+	// Pool should insert connection into min
+	assert.Equal(t, 2, pool.Length())
 
 	ctx := context.Background()
 	retrieved := pool.Get(ctx)
 	require.NotNil(t, retrieved)
-	assert.Equal(t, 1, retrieved.connID(), "should only have the newer connection")
+	assert.Equal(t, 2, retrieved.connID(), "should retrieve the oldest connection")
 }
 
 func TestIdlePool_GetWithCancelledContext(t *testing.T) {
