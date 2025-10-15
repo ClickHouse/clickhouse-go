@@ -40,3 +40,4 @@ pipeline.auto.tfvars
 *.tfvars
 
 .env
+go.work
