@@ -11,6 +11,7 @@ type idlePool struct {
 	mu    sync.RWMutex
 	conns conns
 
+	ticker   *time.Ticker
 	finish   chan struct{}
 	finished chan struct{}
 
@@ -20,30 +21,14 @@ type idlePool struct {
 func newIdlePool(lifetime time.Duration, capacity int) *idlePool {
 	pool := &idlePool{
 		conns:    make(conns, 0, capacity),
+		ticker:   time.NewTicker(lifetime),
 		finish:   make(chan struct{}),
 		finished: make(chan struct{}),
 
 		maxConnLifetime: lifetime,
 	}
 
-	go func() {
-		ticker := time.NewTicker(lifetime)
-		defer func() {
-			ticker.Stop()
-			close(pool.finished)
-		}()
-
-		for {
-			select {
-			case <-ticker.C:
-				pool.mu.Lock()
-				pool.drainPool()
-				pool.mu.Unlock()
-			case <-pool.finish:
-				return
-			}
-		}
-	}()
+	go pool.runDrainPool()
 
 	return pool
 }
@@ -87,7 +72,7 @@ func (i *idlePool) Get(ctx context.Context) nativeTransport {
 			return nil
 		}
 
-		if !i.expired(conn) {
+		if !i.isExpired(conn) {
 			return conn
 		}
 
@@ -96,7 +81,7 @@ func (i *idlePool) Get(ctx context.Context) nativeTransport {
 }
 
 func (i *idlePool) Put(conn nativeTransport) {
-	if i.expired(conn) {
+	if i.isExpired(conn) || conn.isBad() {
 		return
 	}
 
@@ -107,12 +92,23 @@ func (i *idlePool) Put(conn nativeTransport) {
 		return
 	}
 
-	// skip adding the connection if it is older
-	// than the earliest connected at in the pool
-	if len(i.conns) > 0 && conn.connectedAtTime().
-		Before(i.conns[0].connectedAtTime()) {
+	// quick path: if connections is empty then
+	// simply insert it as the new minimum
+	if len(i.conns) == 0 {
+		i.conns = append(i.conns, conn)
+		i.updateTicker()
 		return
 	}
+
+	// skip adding the connection if it is older
+	// than the earliest connected at in the pool
+	if conn.connectedAtTime().
+		Before(i.conns[0].connectedAtTime()) {
+		conn.close()
+		return
+	}
+
+	curMinConnected := i.conns[0].connectedAtTime()
 
 	// remove the current minimum if the pool
 	// is at capacity
@@ -121,6 +117,11 @@ func (i *idlePool) Put(conn nativeTransport) {
 	}
 
 	heap.Push(&i.conns, conn)
+
+	// update ticker if the pools minimum has changed
+	if curMinConnected != i.conns[0].connectedAtTime() {
+		i.updateTicker()
+	}
 }
 
 func (i *idlePool) Close() error {
@@ -150,18 +151,38 @@ func (i *idlePool) closed() bool {
 	}
 }
 
+func (i *idlePool) runDrainPool() {
+	defer func() {
+		i.ticker.Stop()
+		close(i.finished)
+	}()
+
+	for {
+		select {
+		case <-i.ticker.C:
+			i.mu.Lock()
+			i.drainPool()
+			i.mu.Unlock()
+		case <-i.finish:
+			return
+		}
+	}
+}
+
 // drainPool removes connections from the pool.
 // If the pool is closed, it removes all connections.
 // Otherwise, it only removes expired connections.
 // Must be called with i.mu held.
 func (i *idlePool) drainPool() {
+	defer i.updateTicker()
+
 	closed := i.closed()
 
 	for i.conns.Len() > 0 {
 		// If pool is closed, drain all connections
 		// Otherwise, continue to drain until the oldest
 		// connection is non-expired
-		if !closed && !i.expired(i.conns[0]) {
+		if !closed && !i.isExpired(i.conns[0]) {
 			return
 		}
 
@@ -174,9 +195,26 @@ func (i *idlePool) drainPool() {
 	}
 }
 
-func (i *idlePool) expired(conn nativeTransport) bool {
-	cutoff := conn.connectedAtTime().Add(i.maxConnLifetime)
-	return time.Now().After(cutoff)
+// updateTicker resets the tickers next tick to be when the
+// current minimum connection is due to expire.
+// Must be called with i.mu held.
+func (i *idlePool) updateTicker() {
+	if len(i.conns) == 0 {
+		i.ticker.Reset(i.maxConnLifetime)
+		return
+	}
+
+	if expiresIn := i.expires(i.conns[0]).Sub(time.Now()); expiresIn > 0 {
+		i.ticker.Reset(expiresIn)
+	}
+}
+
+func (i *idlePool) isExpired(conn nativeTransport) bool {
+	return time.Now().After(i.expires(conn))
+}
+
+func (i *idlePool) expires(conn nativeTransport) time.Time {
+	return conn.connectedAtTime().Add(i.maxConnLifetime)
 }
 
 type conns []nativeTransport
