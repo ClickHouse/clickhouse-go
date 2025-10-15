@@ -1,4 +1,3 @@
-
 package clickhouse
 
 import (
@@ -117,6 +116,11 @@ func (c *connect) process(ctx context.Context, on *onProcess) error {
 	select {
 	case <-ctx.Done():
 		c.cancel()
+		// Wait for goroutine to finish before returning
+		select {
+		case <-errCh:
+		case <-doneCh:
+		}
 		return ctx.Err()
 
 	case err := <-errCh:
