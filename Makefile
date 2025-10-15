@@ -3,7 +3,7 @@ CLICKHOUSE_TEST_TIMEOUT ?= 240s
 CLICKHOUSE_QUORUM_INSERT ?= 1
 
 up:
-	@docker compose up -d
+	@docker compose up --wait
 down:
 	@docker compose down
 
