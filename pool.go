@@ -100,20 +100,20 @@ func (i *idlePool) Put(conn nativeTransport) {
 		return
 	}
 
-	// skip adding the connection if it is older
-	// than the earliest connected at in the pool
-	if conn.connectedAtTime().
-		Before(i.conns[0].connectedAtTime()) {
-		conn.close()
-		return
-	}
-
 	curMinConnected := i.conns[0].connectedAtTime()
-
-	// remove the current minimum if the pool
-	// is at capacity
 	if len(i.conns) == cap(i.conns) {
-		heap.Pop(&i.conns)
+		// skip adding the connection to a full pool if it is
+		// older than the current oldest connected in the pool
+		if conn.connectedAtTime().Before(curMinConnected) {
+			conn.close()
+			return
+		}
+
+		// remove the current minimum if the pool
+		// is at capacity
+		if toExpire, _ := heap.Pop(&i.conns).(nativeTransport); toExpire != nil {
+			toExpire.close()
+		}
 	}
 
 	heap.Push(&i.conns, conn)
