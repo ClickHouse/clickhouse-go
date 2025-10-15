@@ -158,15 +158,15 @@ func (i *idlePool) drainPool() {
 	closed := i.closed()
 
 	for i.conns.Len() > 0 {
-		conn, ok := heap.Pop(&i.conns).(nativeTransport)
-		if !ok {
+		// If pool is closed, drain all connections
+		// Otherwise, continue to drain until the oldest
+		// connection is non-expired
+		if !closed && !i.expired(i.conns[0]) {
 			return
 		}
 
-		// If pool is closed, drain all connections
-		// Otherwise, push back non-expired connection and return
-		if !closed && !i.expired(conn) {
-			heap.Push(&i.conns, conn)
+		conn, ok := heap.Pop(&i.conns).(nativeTransport)
+		if !ok {
 			return
 		}
 
