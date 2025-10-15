@@ -4,7 +4,8 @@
 
 The easiest way to run tests is to use Docker Compose:
 
-```
-docker-compose up
-make
+```bash
+make up
+make test
+make down
 ```
