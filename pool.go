@@ -45,35 +45,35 @@ func (i *idlePool) Capacity() int {
 	return cap(i.conns)
 }
 
-func (i *idlePool) Get(ctx context.Context) nativeTransport {
+func (i *idlePool) Get(ctx context.Context) (nativeTransport, error) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 
 	if i.closed() {
-		return nil
+		return nil, ErrConnectionClosed
 	}
 
 	for {
 		if err := ctx.Err(); err != nil {
 			// context has been cancelled
-			return nil
+			return nil, err
 		}
 
 		if i.closed() {
-			return nil
+			return nil, ErrConnectionClosed
 		}
 
 		if len(i.conns) == 0 {
-			return nil
+			return nil, nil
 		}
 
 		conn, ok := heap.Pop(&i.conns).(nativeTransport)
 		if !ok {
-			return nil
+			return nil, nil
 		}
 
 		if !i.isExpired(conn) {
-			return conn
+			return conn, nil
 		}
 
 		conn.close()

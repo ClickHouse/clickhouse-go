@@ -288,16 +288,20 @@ func (ch *clickhouse) acquire(ctx context.Context) (conn nativeTransport, err er
 		return nil, ErrConnectionClosed
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, ch.opt.DialTimeout)
+	ctx, cancel := context.WithTimeoutCause(ctx, ch.opt.DialTimeout, ErrAcquireConnTimeout)
 	defer cancel()
 
 	select {
 	case ch.open <- struct{}{}:
 	case <-ctx.Done():
-		return nil, ctx.Err()
+		return nil, context.Cause(ctx)
 	}
 
-	conn = ch.idle.Get(ctx)
+	conn, err = ch.idle.Get(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	if conn != nil {
 		if !conn.isBad() {
 			conn.setReleased(false)
@@ -313,6 +317,7 @@ func (ch *clickhouse) acquire(ctx context.Context) (conn nativeTransport, err er
 		case <-ch.open:
 		default:
 		}
+
 		return nil, err
 	}
 
