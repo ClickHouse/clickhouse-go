@@ -1,15 +1,16 @@
 package clickhouse
 
 import (
-	"container/heap"
 	"context"
 	"sync"
 	"time"
+
+	"github.com/ClickHouse/clickhouse-go/v2/internal/circular"
 )
 
 type idlePool struct {
 	mu    sync.RWMutex
-	conns conns
+	conns *circular.Queue[nativeTransport]
 
 	ticker   *time.Ticker
 	finish   chan struct{}
@@ -20,11 +21,10 @@ type idlePool struct {
 
 func newIdlePool(lifetime time.Duration, capacity int) *idlePool {
 	pool := &idlePool{
-		conns:    make(conns, 0, capacity),
-		ticker:   time.NewTicker(lifetime),
-		finish:   make(chan struct{}),
-		finished: make(chan struct{}),
-
+		conns:           circular.New[nativeTransport](capacity),
+		ticker:          time.NewTicker(lifetime),
+		finish:          make(chan struct{}),
+		finished:        make(chan struct{}),
 		maxConnLifetime: lifetime,
 	}
 
@@ -33,16 +33,16 @@ func newIdlePool(lifetime time.Duration, capacity int) *idlePool {
 	return pool
 }
 
-func (i *idlePool) Length() int {
+func (i *idlePool) Len() int {
 	i.mu.RLock()
 	defer i.mu.RUnlock()
 	return i.conns.Len()
 }
 
-func (i *idlePool) Capacity() int {
+func (i *idlePool) Cap() int {
 	i.mu.RLock()
 	defer i.mu.RUnlock()
-	return cap(i.conns)
+	return i.conns.Cap()
 }
 
 func (i *idlePool) Get(ctx context.Context) (nativeTransport, error) {
@@ -56,20 +56,17 @@ func (i *idlePool) Get(ctx context.Context) (nativeTransport, error) {
 	for {
 		if err := ctx.Err(); err != nil {
 			// context has been cancelled
-			return nil, err
+			return nil, context.Cause(ctx)
 		}
 
 		if i.closed() {
 			return nil, ErrConnectionClosed
 		}
 
-		if len(i.conns) == 0 {
-			return nil, nil
-		}
-
-		conn, ok := heap.Pop(&i.conns).(nativeTransport)
+		// Try to pull a connection
+		conn, ok := i.conns.Pull()
 		if !ok {
-			return nil, nil
+			return nil, nil // queue is empty
 		}
 
 		if !i.isExpired(conn) {
@@ -92,35 +89,10 @@ func (i *idlePool) Put(conn nativeTransport) {
 		return
 	}
 
-	// quick path: if connections is empty then
-	// simply insert it as the new minimum
-	if len(i.conns) == 0 {
-		i.conns = append(i.conns, conn)
-		i.updateTicker()
-		return
-	}
-
-	curMinConnected := i.conns[0].connectedAtTime()
-	if len(i.conns) == cap(i.conns) {
-		// skip adding the connection to a full pool if it is
-		// older than the current oldest connected in the pool
-		if conn.connectedAtTime().Before(curMinConnected) {
-			conn.close()
-			return
-		}
-
-		// remove the current minimum if the pool
-		// is at capacity
-		if toExpire, _ := heap.Pop(&i.conns).(nativeTransport); toExpire != nil {
-			toExpire.close()
-		}
-	}
-
-	heap.Push(&i.conns, conn)
-
-	// update ticker if the pools minimum has changed
-	if curMinConnected != i.conns[0].connectedAtTime() {
-		i.updateTicker()
+	// Try to push the connection
+	if !i.conns.Push(conn) {
+		// Buffer is full, close the connection
+		conn.close()
 	}
 }
 
@@ -174,38 +146,19 @@ func (i *idlePool) runDrainPool() {
 // Otherwise, it only removes expired connections.
 // Must be called with i.mu held.
 func (i *idlePool) drainPool() {
-	defer i.updateTicker()
-
-	closed := i.closed()
-
-	for i.conns.Len() > 0 {
-		// If pool is closed, drain all connections
-		// Otherwise, continue to drain until the oldest
-		// connection is non-expired
-		if !closed && !i.isExpired(i.conns[0]) {
-			return
+	if i.closed() {
+		// Close all connections
+		for conn := range i.conns.Clear() {
+			conn.close()
 		}
-
-		conn, ok := heap.Pop(&i.conns).(nativeTransport)
-		if !ok {
-			return
-		}
-
-		conn.close()
-	}
-}
-
-// updateTicker resets the tickers next tick to be when the
-// current minimum connection is due to expire.
-// Must be called with i.mu held.
-func (i *idlePool) updateTicker() {
-	if len(i.conns) == 0 {
-		i.ticker.Reset(i.maxConnLifetime)
 		return
 	}
 
-	if expiresIn := i.expires(i.conns[0]).Sub(time.Now()); expiresIn > 0 {
-		i.ticker.Reset(expiresIn)
+	// Remove only expired connections
+	for conn := range i.conns.Compact(func(conn nativeTransport) bool {
+		return i.isExpired(conn)
+	}) {
+		conn.close()
 	}
 }
 
@@ -215,36 +168,4 @@ func (i *idlePool) isExpired(conn nativeTransport) bool {
 
 func (i *idlePool) expires(conn nativeTransport) time.Time {
 	return conn.connectedAtTime().Add(i.maxConnLifetime)
-}
-
-type conns []nativeTransport
-
-// Len is the number of elements in the collection.
-func (c conns) Len() int {
-	return len(c)
-}
-
-// Less reports whether the element with index i
-// must sort before the element with index j.
-func (c conns) Less(i int, j int) bool {
-	return c[i].connectedAtTime().Before(c[j].connectedAtTime())
-}
-
-// Swap swaps the elements with indexes i and j.
-func (c conns) Swap(i int, j int) {
-	c[i], c[j] = c[j], c[i]
-}
-
-// Push appends the entry to the end of the underlying slice.
-func (c *conns) Push(x any) {
-	*c = append(*c, x.(nativeTransport))
-}
-
-// Pop removes and returns the last element in the underlying slice.
-func (c *conns) Pop() any {
-	old := *c
-	n := len(old)
-	x := old[n-1]
-	*c = old[0 : n-1]
-	return x
 }

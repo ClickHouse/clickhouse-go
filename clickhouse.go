@@ -234,8 +234,8 @@ func (ch *clickhouse) Stats() driver.Stats {
 		Open:         len(ch.open),
 		MaxOpenConns: cap(ch.open),
 
-		Idle:         ch.idle.Length(),
-		MaxIdleConns: ch.idle.Capacity(),
+		Idle:         ch.idle.Len(),
+		MaxIdleConns: ch.idle.Cap(),
 	}
 }
 
