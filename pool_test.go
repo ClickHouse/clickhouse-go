@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestIdlePool_Capacity(t *testing.T) {
+func TestIdlePool_Cap(t *testing.T) {
 	tests := []struct {
 		name     string
 		capacity int
@@ -34,37 +34,37 @@ func TestIdlePool_Capacity(t *testing.T) {
 			pool := newIdlePool(time.Hour, tt.capacity)
 			defer pool.Close()
 
-			assert.Equal(t, tt.capacity, pool.Capacity())
+			assert.Equal(t, tt.capacity, pool.Cap())
 		})
 	}
 }
 
-func TestIdlePool_Length(t *testing.T) {
+func TestIdlePool_Len(t *testing.T) {
 	pool := newIdlePool(time.Hour, 5)
 	defer pool.Close()
 
-	assert.Equal(t, 0, pool.Length(), "new pool should have length 0")
+	assert.Equal(t, 0, pool.Len(), "new pool should have length 0")
 
 	// Add connections
 	conn1 := &mockTransport{connectedAt: time.Now(), id: 1}
 	pool.Put(conn1)
-	assert.Equal(t, 1, pool.Length())
+	assert.Equal(t, 1, pool.Len())
 
 	conn2 := &mockTransport{connectedAt: time.Now(), id: 2}
 	pool.Put(conn2)
-	assert.Equal(t, 2, pool.Length())
+	assert.Equal(t, 2, pool.Len())
 
 	// Remove connection
 	ctx := context.Background()
 	conn, err := pool.Get(ctx)
 	require.NoError(t, err)
 	require.NotNil(t, conn)
-	assert.Equal(t, 1, pool.Length())
+	assert.Equal(t, 1, pool.Len())
 
 	conn, err = pool.Get(ctx)
 	require.NoError(t, err)
 	require.NotNil(t, conn)
-	assert.Equal(t, 0, pool.Length())
+	assert.Equal(t, 0, pool.Len())
 }
 
 func TestIdlePool_GetEmpty(t *testing.T) {
@@ -91,7 +91,7 @@ func TestIdlePool_PutAndGet(t *testing.T) {
 	pool.Put(conn2)
 	pool.Put(conn3)
 
-	assert.Equal(t, 3, pool.Length())
+	assert.Equal(t, 3, pool.Len())
 
 	ctx := context.Background()
 
@@ -125,27 +125,36 @@ func TestIdlePool_CapacityLimit(t *testing.T) {
 	now := time.Now()
 
 	// Add more connections than capacity
+	allConns := make([]*mockTransport, 5)
 	for i := 0; i < 5; i++ {
 		conn := &mockTransport{
 			connectedAt: now.Add(time.Duration(i) * time.Second),
 			id:          i + 1,
 		}
+		allConns[i] = conn
 		pool.Put(conn)
 	}
 
 	// Pool should not exceed capacity
-	assert.Equal(t, capacity, pool.Length())
+	assert.Equal(t, capacity, pool.Len())
+
+	// Connections 4 and 5 should have been closed (rejected when pool at capacity)
+	assert.True(t, allConns[3].closed, "connection 4 should be closed when pool is full")
+	assert.True(t, allConns[4].closed, "connection 5 should be closed when pool is full")
+	assert.False(t, allConns[0].closed, "connection 1 should not be closed")
+	assert.False(t, allConns[1].closed, "connection 2 should not be closed")
+	assert.False(t, allConns[2].closed, "connection 3 should not be closed")
 
 	ctx := context.Background()
 
-	// Expect the pool to return connections [3, 4, 5] in order
-	// connections (1) and (2) will have been evicted due to capacity
+	// With FIFO insertion order, the first 3 connections are kept [1, 2, 3]
+	// connections (4) and (5) are rejected when pool is at capacity
 	for i := 0; i < 3; i++ {
 		retrieved, err := pool.Get(ctx)
 		require.NoError(t, err)
 		require.NotNil(t, retrieved)
 
-		assert.True(t, retrieved.connID() == 3+i, "unexpected connection ID")
+		assert.Equal(t, i+1, retrieved.connID(), "should get connections in FIFO order")
 	}
 }
 
@@ -155,9 +164,9 @@ func TestIdlePool_ExpiredConnectionNotReturned(t *testing.T) {
 	pool := newIdlePool(lifetime, 5)
 	defer pool.Close()
 
-	// Add connection that will expire
+	// Add connection that is not yet expired (but close to expiration)
 	oldConn := &mockTransport{
-		connectedAt: time.Now().Add(-200 * time.Millisecond),
+		connectedAt: time.Now().Add(-50 * time.Millisecond),
 		id:          1,
 	}
 	pool.Put(oldConn)
@@ -169,6 +178,9 @@ func TestIdlePool_ExpiredConnectionNotReturned(t *testing.T) {
 	}
 	pool.Put(freshConn)
 
+	// Wait for the old connection to expire
+	time.Sleep(60 * time.Millisecond)
+
 	ctx := context.Background()
 
 	// Get should skip expired connection and return fresh one
@@ -176,6 +188,10 @@ func TestIdlePool_ExpiredConnectionNotReturned(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, retrieved)
 	assert.Equal(t, 2, retrieved.connID(), "should skip expired connection")
+
+	// The expired connection should have been closed during Get()
+	assert.True(t, oldConn.closed, "expired connection should be closed")
+	assert.False(t, freshConn.closed, "fresh connection should not be closed")
 
 	// Pool should be empty now
 	retrieved, err = pool.Get(ctx)
@@ -196,7 +212,7 @@ func TestIdlePool_PutExpiredConnection(t *testing.T) {
 	pool.Put(expiredConn)
 
 	// Pool should not accept expired connection
-	assert.Equal(t, 0, pool.Length())
+	assert.Equal(t, 0, pool.Len())
 }
 
 func TestIdlePool_PutOlderThanMinimumWithCapacity(t *testing.T) {
@@ -209,18 +225,19 @@ func TestIdlePool_PutOlderThanMinimumWithCapacity(t *testing.T) {
 	conn1 := &mockTransport{connectedAt: now, id: 1}
 	pool.Put(conn1)
 
-	// Try to add an older connection that current minimum
+	// Add an older connection (but inserted second)
 	olderConn := &mockTransport{connectedAt: now.Add(-time.Minute), id: 2}
 	pool.Put(olderConn)
 
-	// Pool should insert connection into min
-	assert.Equal(t, 2, pool.Length())
+	// Both connections should be in the pool
+	assert.Equal(t, 2, pool.Len())
 
 	ctx := context.Background()
 	retrieved, err := pool.Get(ctx)
 	require.NoError(t, err)
 	require.NotNil(t, retrieved)
-	assert.Equal(t, 2, retrieved.connID(), "should retrieve the oldest connection")
+	// With FIFO insertion order, we get the first inserted connection
+	assert.Equal(t, 1, retrieved.connID(), "should retrieve the first inserted connection")
 }
 
 func TestIdlePool_GetWithCancelledContext(t *testing.T) {
@@ -242,7 +259,7 @@ func TestIdlePool_GetWithCancelledContext(t *testing.T) {
 	assert.Nil(t, retrieved)
 
 	// Connection should still be in pool
-	assert.Equal(t, 1, pool.Length())
+	assert.Equal(t, 1, pool.Len())
 }
 
 func TestIdlePool_Close(t *testing.T) {
@@ -257,7 +274,7 @@ func TestIdlePool_Close(t *testing.T) {
 		pool.Put(conn)
 	}
 
-	assert.Equal(t, 3, pool.Length())
+	assert.Equal(t, 3, pool.Len())
 
 	// Close the pool
 	err := pool.Close()
@@ -274,10 +291,10 @@ func TestIdlePool_Close(t *testing.T) {
 	assert.Nil(t, conn)
 
 	// Put should be ignored on closed pool
-	initialLen := pool.Length()
+	initialLen := pool.Len()
 	newConn := &mockTransport{connectedAt: time.Now(), id: 99}
 	pool.Put(newConn)
-	assert.Equal(t, initialLen, pool.Length(), "closed pool should not accept new connections")
+	assert.Equal(t, initialLen, pool.Len(), "closed pool should not accept new connections")
 
 	// Closing again should be safe
 	err = pool.Close()
@@ -288,15 +305,17 @@ func TestIdlePool_CloseWithDrain(t *testing.T) {
 	pool := newIdlePool(time.Hour, 5)
 
 	// Add connections
+	allConns := make([]*mockTransport, 3)
 	for i := 0; i < 3; i++ {
 		mock := &mockTransport{
 			connectedAt: time.Now(),
 			id:          i + 1,
 		}
+		allConns[i] = mock
 		pool.Put(mock)
 	}
 
-	assert.Equal(t, 3, pool.Length(), "pool should have 3 connections before close")
+	assert.Equal(t, 3, pool.Len(), "pool should have 3 connections before close")
 
 	// Close the pool
 	err := pool.Close()
@@ -306,7 +325,12 @@ func TestIdlePool_CloseWithDrain(t *testing.T) {
 	assert.True(t, pool.closed())
 
 	// Verify all connections are drained from the pool
-	assert.Equal(t, 0, pool.Length(), "pool should be empty after close (all connections drained)")
+	assert.Equal(t, 0, pool.Len(), "pool should be empty after close (all connections drained)")
+
+	// Verify all connections were closed
+	for i, conn := range allConns {
+		assert.True(t, conn.closed, "connection %d should be closed after pool close", i+1)
+	}
 
 	// Verify no connections can be retrieved
 	ctx := context.Background()
@@ -323,22 +347,29 @@ func TestIdlePool_DrainExpiredConnections(t *testing.T) {
 
 	// Add connections that are already old (so they will definitely expire)
 	oldTime := time.Now().Add(-50 * time.Millisecond)
+	expiredConns := make([]*mockTransport, 3)
 	for i := 0; i < 3; i++ {
 		conn := &mockTransport{
 			connectedAt: oldTime.Add(time.Duration(i) * time.Millisecond),
 			id:          i + 1,
 		}
+		expiredConns[i] = conn
 		pool.Put(conn)
 	}
 
-	assert.Equal(t, 3, pool.Length())
+	assert.Equal(t, 3, pool.Len())
 
 	// Wait for connections to expire and drain cycle to run
 	// The connections will be 50ms + 100ms (sleep) = 150ms old, exceeding the 100ms lifetime
 	time.Sleep(lifetime + 50*time.Millisecond)
 
 	// At this point the drain should have run and removed the expired connections
-	assert.Equal(t, 0, pool.Length(), "all expired connections should be drained")
+	assert.Equal(t, 0, pool.Len(), "all expired connections should be drained")
+
+	// Verify all expired connections were closed
+	for i, conn := range expiredConns {
+		assert.True(t, conn.closed, "expired connection %d should be closed", i+1)
+	}
 
 	// Add a fresh connection to verify pool still works after drain
 	freshConn := &mockTransport{
@@ -348,7 +379,8 @@ func TestIdlePool_DrainExpiredConnections(t *testing.T) {
 	pool.Put(freshConn)
 
 	// Fresh connection should be in the pool
-	assert.Equal(t, 1, pool.Length(), "fresh connection should be added after drain")
+	assert.Equal(t, 1, pool.Len(), "fresh connection should be added after drain")
+	assert.False(t, freshConn.closed, "fresh connection should not be closed")
 }
 
 func TestIdlePool_ConcurrentAccess(t *testing.T) {
@@ -386,17 +418,17 @@ func TestIdlePool_ConcurrentAccess(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 
 	// Pool should not exceed capacity
-	assert.LessOrEqual(t, pool.Length(), pool.Capacity())
+	assert.LessOrEqual(t, pool.Len(), pool.Cap())
 }
 
-func TestIdlePool_HeapOrdering(t *testing.T) {
+func TestIdlePool_FIFOOrdering(t *testing.T) {
 	pool := newIdlePool(time.Hour, 10)
 	defer pool.Close()
 
 	now := time.Now()
 
-	// Add connections with incrementing timestamps
-	// Adding them in non-chronological order to test heap sorting
+	// Add connections with varying timestamps in non-chronological order
+	// to test that FIFO is based on insertion order, not connection age
 	connections := []struct {
 		time time.Time
 		id   int
@@ -417,26 +449,18 @@ func TestIdlePool_HeapOrdering(t *testing.T) {
 		pool.Put(conn)
 	}
 
-	// Due to "older than minimum" logic, only connections >= first added will be kept
-	// First added was "1 second", so all should be accepted
 	expectedCount := 5
-	assert.Equal(t, expectedCount, pool.Length())
+	assert.Equal(t, expectedCount, pool.Len())
 
 	ctx := context.Background()
-	var previousTime time.Time
 
-	// Get all connections and verify they come out in time order (oldest first)
-	for i := 0; i < expectedCount; i++ {
+	// Get all connections and verify they come out in insertion order (FIFO)
+	for _, id := range []int{1, 5, 2, 4, 3} {
 		conn, err := pool.Get(ctx)
 		require.NoError(t, err)
-		require.NotNil(t, conn, "should get connection %d", i)
-
-		if i > 0 {
-			assert.True(t, conn.connectedAtTime().After(previousTime) || conn.connectedAtTime().Equal(previousTime),
-				"connections should be returned in time order (oldest first), got %v after %v",
-				conn.connectedAtTime(), previousTime)
-		}
-		previousTime = conn.connectedAtTime()
+		require.NotNil(t, conn, "should get connection %d", id)
+		assert.Equal(t, id, conn.connID(),
+			"connections should be returned in FIFO insertion order")
 	}
 }
 
@@ -445,6 +469,7 @@ type mockTransport struct {
 	connectedAt time.Time
 	id          int
 	released    bool
+	closed      bool
 }
 
 func (m *mockTransport) serverVersion() (*ServerVersion, error) {
@@ -504,5 +529,6 @@ func (m *mockTransport) freeBuffer() {
 }
 
 func (m *mockTransport) close() error {
+	m.closed = true
 	return nil
 }
