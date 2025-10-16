@@ -359,6 +359,7 @@ func (ch *clickhouse) release(conn nativeTransport, err error) {
 	}
 
 	if ch.closed.Load() {
+		conn.close()
 		return
 	}
 

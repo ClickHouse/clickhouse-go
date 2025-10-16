@@ -79,6 +79,7 @@ func (i *idlePool) Get(ctx context.Context) (nativeTransport, error) {
 
 func (i *idlePool) Put(conn nativeTransport) {
 	if i.isExpired(conn) || conn.isBad() {
+		conn.close()
 		return
 	}
 
