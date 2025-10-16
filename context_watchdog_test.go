@@ -4,9 +4,6 @@ package clickhouse
 
 import (
 	"context"
-	"runtime"
-	"strconv"
-	"strings"
 	"sync/atomic"
 	"testing"
 	"testing/synctest"
