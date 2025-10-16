@@ -2,6 +2,9 @@ package clickhouse
 
 import (
 	"context"
+	"runtime"
+	"strconv"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"testing/synctest"
@@ -45,6 +48,10 @@ func TestContextWatchdog(t *testing.T) {
 	})
 
 	t.Run("No goroutines should be left out after stopping ContextWatchdog", func(t *testing.T) {
+		if isGo124OrLess(t) {
+			t.Skipf("Skipping test as it involves incompatible Go version %s to use `synctest` package", runtime.Version())
+		}
+
 		synctest.Test(t, func(t *testing.T) {
 			// when context is cancelled
 			called := atomic.Int32{}
@@ -84,6 +91,26 @@ func TestContextWatchdog(t *testing.T) {
 			synctest.Wait()
 		})
 	})
+}
 
-	// No goroutines should be left out after stopping context watch dog
+func isGo124OrLess(t *testing.T) bool {
+	t.Helper()
+
+	// always in "go1.[minor]" format.
+	v := runtime.Version()
+	parts := strings.FieldsFunc(v, func(r rune) bool {
+		return r == '.'
+	})
+
+	if len(parts) != 2 {
+		return false
+	}
+
+	minor, err := strconv.Atoi(parts[0])
+	assert.NoError(t, err)
+	if minor <= 24 {
+		return true
+	}
+
+	return false
 }
