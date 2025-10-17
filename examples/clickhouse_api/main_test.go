@@ -1,4 +1,3 @@
-
 package clickhouse_api
 
 import (
@@ -57,7 +56,8 @@ func TestArrayInsertRead(t *testing.T) {
 }
 
 func TestAsyncInsert(t *testing.T) {
-	require.NoError(t, AsyncInsert())
+	require.NoError(t, AsyncInsertNative())
+	require.NoError(t, AsyncInsertHTTP())
 }
 
 func TestBatchInsert(t *testing.T) {

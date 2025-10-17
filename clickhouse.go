@@ -1,4 +1,3 @@
-
 package clickhouse
 
 import (
@@ -156,10 +155,18 @@ func (ch *clickhouse) Exec(ctx context.Context, query string, args ...any) error
 		return err
 	}
 	conn.debugf("[exec] \"%s\"", query)
-	if err := conn.exec(ctx, query, args...); err != nil {
+
+	if asyncOpt := queryOptionsAsync(ctx); asyncOpt.ok {
+		err = conn.asyncInsert(ctx, query, asyncOpt.wait, args...)
+	} else {
+		err = conn.exec(ctx, query, args...)
+	}
+
+	if err != nil {
 		ch.release(conn, err)
 		return err
 	}
+
 	ch.release(conn, nil)
 	return nil
 }
@@ -187,6 +194,7 @@ func getPrepareBatchOptions(opts ...driver.PrepareBatchOption) driver.PrepareBat
 	return options
 }
 
+// Deprecated: use context aware `WithAsync()` for any async operations
 func (ch *clickhouse) AsyncInsert(ctx context.Context, query string, wait bool, args ...any) error {
 	conn, err := ch.acquire(ctx)
 	if err != nil {

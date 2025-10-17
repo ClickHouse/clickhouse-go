@@ -1,4 +1,3 @@
-
 package tests
 
 import (
@@ -359,7 +358,7 @@ func GetConnection(testSet string, t *testing.T, protocol clickhouse.Protocol, s
 	case clickhouse.Native:
 		return getConnection(env, env.Database, settings, tlsConfig, compression)
 	case clickhouse.HTTP:
-		return getHTTPConnection(env, t, env.Database, settings, tlsConfig, compression)
+		return getHTTPConnection(env, t.Name(), env.Database, settings, tlsConfig, compression)
 	default:
 		return nil, fmt.Errorf("unknown protocol: %s", protocol)
 	}
@@ -374,13 +373,13 @@ func GetConnectionTCP(testSet string, settings clickhouse.Settings, tlsConfig *t
 	return getConnection(env, env.Database, settings, tlsConfig, compression)
 }
 
-func GetConnectionHTTP(testSet string, t *testing.T, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (driver.Conn, error) {
+func GetConnectionHTTP(testSet string, sessionName string, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (driver.Conn, error) {
 	env, err := GetTestEnvironment(testSet)
 	if err != nil {
 		return nil, err
 	}
 
-	return getHTTPConnection(env, t, env.Database, settings, tlsConfig, compression)
+	return getHTTPConnection(env, sessionName, env.Database, settings, tlsConfig, compression)
 }
 
 func GetJWTConnection(testSet string, settings clickhouse.Settings, tlsConfig *tls.Config, maxConnLifetime time.Duration, jwtFunc clickhouse.GetJWTFunc) (driver.Conn, error) {
@@ -467,7 +466,7 @@ func getConnection(env ClickHouseTestEnvironment, database string, settings clic
 	return conn, err
 }
 
-func getHTTPConnection(env ClickHouseTestEnvironment, t *testing.T, database string, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (driver.Conn, error) {
+func getHTTPConnection(env ClickHouseTestEnvironment, sessionName string, database string, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (driver.Conn, error) {
 	useSSL, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_SSL", "false"))
 	if err != nil {
 		panic(err)
@@ -508,7 +507,7 @@ func getHTTPConnection(env ClickHouseTestEnvironment, t *testing.T, database str
 
 	// Each test uses its own session ID.
 	// This may be problematic on some tests, but overall it is more consistent.
-	settings["session_id"] = t.Name()
+	settings["session_id"] = sessionName
 
 	conn, err := clickhouse.Open(&clickhouse.Options{
 		Protocol: clickhouse.HTTP,
