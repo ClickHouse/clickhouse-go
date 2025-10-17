@@ -89,7 +89,9 @@ func TestStdQueryWithParameters(t *testing.T) {
 
 func TestStdAsyncInsert(t *testing.T) {
 	require.NoError(t, AsyncInsertNative())
+	require.NoError(t, AsyncInsertNative_WithPrepare())
 	require.NoError(t, AsyncInsertHTTP())
+	require.NoError(t, AsyncInsertHTTP_WithPrepare())
 }
 
 func TestStdMapInsertRead(t *testing.T) {
