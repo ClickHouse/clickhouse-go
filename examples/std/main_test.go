@@ -1,4 +1,3 @@
-
 package std
 
 import (
@@ -89,7 +88,8 @@ func TestStdQueryWithParameters(t *testing.T) {
 }
 
 func TestStdAsyncInsert(t *testing.T) {
-	require.NoError(t, AsyncInsert())
+	require.NoError(t, AsyncInsertNative())
+	require.NoError(t, AsyncInsertHTTP())
 }
 
 func TestStdMapInsertRead(t *testing.T) {
