@@ -1,13 +1,14 @@
-
 package clickhouse_api
 
 import (
 	"context"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 )
 
-func AsyncInsert() error {
-	conn, err := GetNativeConnection(nil, nil, nil)
+func AsyncInsertHTTP() error {
+	conn, err := GetHTTPConnection("session-async-insert-http-example", nil, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -31,11 +32,16 @@ func AsyncInsert() error {
 	if err := conn.Exec(ctx, ddl); err != nil {
 		return err
 	}
-	for i := 0; i < 100; i++ {
-		if err := conn.AsyncInsert(ctx, `INSERT INTO example VALUES (
-			?, ?, ?, now()
-		)`, false, i, "Golang SQL database driver", []uint8{1, 2, 3, 4, 5, 6, 7, 8, 9}); err != nil {
-			return err
+
+	ctx = clickhouse.Context(ctx, clickhouse.WithAsync(false))
+	{
+		for i := 0; i < 100; i++ {
+			err := conn.Exec(ctx, `INSERT INTO example VALUES (
+				?, ?, ?, now()
+			)`, i, "Golang SQL database driver", []uint8{1, 2, 3, 4, 5, 6, 7, 8, 9})
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil

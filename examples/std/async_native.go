@@ -1,4 +1,3 @@
-
 package std
 
 import (
@@ -6,7 +5,7 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2"
 )
 
-func AsyncInsert() error {
+func AsyncInsertNative() error {
 	conn, err := GetStdOpenDBConnection(clickhouse.Native, nil, nil, nil)
 	if err != nil {
 		return err
@@ -25,7 +24,7 @@ func AsyncInsert() error {
 	if _, err := conn.Exec(ddl); err != nil {
 		return err
 	}
-	ctx := clickhouse.Context(context.Background(), clickhouse.WithStdAsync(false))
+	ctx := clickhouse.Context(context.Background(), clickhouse.WithAsync(false))
 	{
 		for i := 0; i < 100; i++ {
 			_, err := conn.ExecContext(ctx, `INSERT INTO example VALUES (
