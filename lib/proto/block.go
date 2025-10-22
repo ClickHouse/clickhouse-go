@@ -1,4 +1,3 @@
-
 package proto
 
 import (
@@ -215,7 +214,7 @@ func (b *Block) Decode(reader *proto.Reader, revision uint64) (err error) {
 			if hasCustom {
 				return &BlockError{
 					Op:  "Decode",
-					Err: errors.New(fmt.Sprintf("custom serialization for column %s. not supported by clickhouse-go driver", columnName)),
+					Err: fmt.Errorf("custom serialization for column %s. not supported by clickhouse-go driver", columnName),
 				}
 			}
 		}
