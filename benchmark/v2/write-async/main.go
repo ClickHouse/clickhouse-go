@@ -1,4 +1,3 @@
-
 package main
 
 import (
@@ -22,8 +21,10 @@ CREATE TABLE benchmark_async (
 func benchmark(conn clickhouse.Conn) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+
+	ctx = clickhouse.Context(ctx, clickhouse.WithAsync(true))
 	for i := 0; i < 10_000; i++ {
-		err := conn.AsyncInsert(ctx, fmt.Sprintf(`INSERT INTO benchmark_async VALUES (
+		err := conn.Exec(ctx, fmt.Sprintf(`INSERT INTO benchmark_async VALUES (
 			%d, '%s', [1, 2, 3, 4, 5, 6, 7, 8, 9], now()
 		)`, i, "Golang SQL database driver"), false)
 		if err != nil {

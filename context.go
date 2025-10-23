@@ -156,6 +156,14 @@ func WithExternalTable(t ...*ext.Table) QueryOption {
 	}
 }
 
+func WithAsync(wait bool) QueryOption {
+	return func(o *QueryOptions) error {
+		o.async.ok, o.async.wait = true, wait
+		return nil
+	}
+}
+
+// Deprecated: use `WithAsync` instead.
 func WithStdAsync(wait bool) QueryOption {
 	return func(o *QueryOptions) error {
 		o.async.ok, o.async.wait = true, wait
