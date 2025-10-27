@@ -1,4 +1,3 @@
-
 package clickhouse
 
 import (
@@ -319,6 +318,12 @@ func (o *Options) fromDSN(in string) error {
 				return fmt.Errorf("clickhouse [dsn parse]: http_proxy: %s", err)
 			}
 			o.HTTPProxyURL = proxyURL
+		case "http_path":
+			path := params.Get(v)
+			if path != "" && !strings.HasPrefix(path, "/") {
+				path = "/" + path
+			}
+			o.HttpUrlPath = path
 		default:
 			switch p := strings.ToLower(params.Get(v)); p {
 			case "true":
