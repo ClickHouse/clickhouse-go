@@ -2,7 +2,6 @@ package issues
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
