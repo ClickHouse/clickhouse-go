@@ -12,9 +12,9 @@ import (
 
 func benchmark1685(ctx context.Context, conn clickhouse.Conn) error {
 	for i := 0; i < 10_000; i++ {
-		err := conn.Exec(ctx, fmt.Sprintf(`INSERT INTO test_xxxx VALUES (
-			%d, '%s', [1, 2, 3, 4, 5, 6, 7, 8, 9], now()
-		)`, i, "Golang SQL database driver"), false)
+		err := conn.Exec(ctx,
+			"INSERT INTO test_xxxx VALUES (?, ?, [1, 2, 3, 4, 5, 6, 7, 8, 9], now())",
+			i, "Golang SQL database driver", false)
 		if err != nil {
 			return err
 		}
