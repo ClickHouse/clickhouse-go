@@ -156,6 +156,9 @@ type Options struct {
 	// Set a custom transport for the http client.
 	// The default transport configured by the library is passed in as an argument.
 	TransportFunc func(*http.Transport) (http.RoundTripper, error)
+
+	// OpenTelemetry options for tracing
+	OpenTelemetryOptions []OtelOption
 }
 
 func (o *Options) fromDSN(in string) error {

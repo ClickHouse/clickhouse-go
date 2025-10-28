@@ -14,6 +14,8 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type Conn = driver.Conn
@@ -66,11 +68,19 @@ func Open(opt *Options) (driver.Conn, error) {
 	}
 	o := opt.setDefaults()
 
+	// Initialize OpenTelemetry configuration
+	var otelCfg *otelConfig
+	if len(o.OpenTelemetryOptions) > 0 {
+		otelCfg = applyOtelOptions(o.OpenTelemetryOptions)
+	}
+
 	conn := &clickhouse{
-		opt:  o,
-		idle: make(chan nativeTransport, o.MaxIdleConns),
-		open: make(chan struct{}, o.MaxOpenConns),
-		exit: make(chan struct{}),
+		opt:     o,
+		opts:    o, // backwards compatibility
+		otelCfg: otelCfg,
+		idle:    make(chan nativeTransport, o.MaxIdleConns),
+		open:    make(chan struct{}, o.MaxOpenConns),
+		exit:    make(chan struct{}),
 	}
 	go conn.startAutoCloseIdleConnections()
 	return conn, nil
@@ -100,11 +110,13 @@ type nativeTransportAcquire func(context.Context) (nativeTransport, error)
 type nativeTransportRelease func(nativeTransport, error)
 
 type clickhouse struct {
-	opt    *Options
-	idle   chan nativeTransport
-	open   chan struct{}
-	exit   chan struct{}
-	connID int64
+	opt     *Options
+	otelCfg *otelConfig
+	opts    *Options // backwards compatibility - will remove later
+	idle    chan nativeTransport
+	open    chan struct{}
+	exit    chan struct{}
+	connID  int64
 }
 
 func (clickhouse) Contributors() []string {
@@ -129,6 +141,13 @@ func (ch *clickhouse) ServerVersion() (*driver.ServerVersion, error) {
 }
 
 func (ch *clickhouse) Query(ctx context.Context, query string, args ...any) (rows driver.Rows, err error) {
+	// Create span for the entire query operation
+	if ch.isTracingEnabled() {
+		var span trace.Span
+		ctx, span = ch.createQuerySpan(ctx, "query", query)
+		defer endSpan(span, &err)
+	}
+
 	conn, err := ch.acquire(ctx)
 	if err != nil {
 		return nil, err
@@ -138,6 +157,15 @@ func (ch *clickhouse) Query(ctx context.Context, query string, args ...any) (row
 }
 
 func (ch *clickhouse) QueryRow(ctx context.Context, query string, args ...any) driver.Row {
+	// Create span for the queryRow operation
+	if ch.isTracingEnabled() {
+		var span trace.Span
+		ctx, span = ch.createQuerySpan(ctx, "query_row", query)
+		// Note: span will be ended in the row.Scan() method or when row is closed
+		// For now, we'll end it here as we can't easily propagate it
+		defer span.End()
+	}
+
 	conn, err := ch.acquire(ctx)
 	if err != nil {
 		return &row{
@@ -149,7 +177,14 @@ func (ch *clickhouse) QueryRow(ctx context.Context, query string, args ...any) d
 	return conn.queryRow(ctx, ch.release, query, args...)
 }
 
-func (ch *clickhouse) Exec(ctx context.Context, query string, args ...any) error {
+func (ch *clickhouse) Exec(ctx context.Context, query string, args ...any) (err error) {
+	// Create span for the exec operation
+	if ch.isTracingEnabled() {
+		var span trace.Span
+		ctx, span = ch.createQuerySpan(ctx, "exec", query)
+		defer endSpan(span, &err)
+	}
+
 	conn, err := ch.acquire(ctx)
 	if err != nil {
 		return err
@@ -171,7 +206,15 @@ func (ch *clickhouse) Exec(ctx context.Context, query string, args ...any) error
 	return nil
 }
 
-func (ch *clickhouse) PrepareBatch(ctx context.Context, query string, opts ...driver.PrepareBatchOption) (driver.Batch, error) {
+func (ch *clickhouse) PrepareBatch(ctx context.Context, query string, opts ...driver.PrepareBatchOption) (b driver.Batch, err error) {
+	// Create span for the prepare batch operation
+	// Note: The actual batch send will create a child span
+	if ch.isTracingEnabled() {
+		var span trace.Span
+		ctx, span = ch.createQuerySpan(ctx, "prepare_batch", query)
+		defer endSpan(span, &err)
+	}
+
 	conn, err := ch.acquire(ctx)
 	if err != nil {
 		return nil, err
@@ -195,7 +238,14 @@ func getPrepareBatchOptions(opts ...driver.PrepareBatchOption) driver.PrepareBat
 }
 
 // Deprecated: use context aware `WithAsync()` for any async operations
-func (ch *clickhouse) AsyncInsert(ctx context.Context, query string, wait bool, args ...any) error {
+func (ch *clickhouse) AsyncInsert(ctx context.Context, query string, wait bool, args ...any) (err error) {
+	// Create span for the async insert operation
+	if ch.isTracingEnabled() {
+		var span trace.Span
+		ctx, span = ch.createQuerySpan(ctx, "async_insert", query)
+		defer endSpan(span, &err)
+	}
+
 	conn, err := ch.acquire(ctx)
 	if err != nil {
 		return err
@@ -210,6 +260,17 @@ func (ch *clickhouse) AsyncInsert(ctx context.Context, query string, wait bool, 
 }
 
 func (ch *clickhouse) Ping(ctx context.Context) (err error) {
+	// Create span for the ping operation
+	if ch.isTracingEnabled() {
+		var span trace.Span
+		ctx, span = startSpan(ctx, "clickhouse.ping", trace.WithAttributes(
+			attribute.String("db.system", "clickhouse"),
+			attribute.String("db.operation", "ping"),
+			attribute.String("db.server.address", ch.getServerAddress()),
+		))
+		defer endSpan(span, &err)
+	}
+
 	conn, err := ch.acquire(ctx)
 	if err != nil {
 		return err
