@@ -46,7 +46,18 @@ type (
 		Ping(context.Context) error
 		Stats() Stats
 		Close() error
+		AcquireSession(ctx context.Context) (Session, error)
 	}
+
+	Session interface {
+		Exec(ctx context.Context, query string, args ...any) error
+		Query(ctx context.Context, query string, args ...any) (Rows, error)
+		QueryRow(ctx context.Context, query string, args ...any) Row
+		PrepareBatch(ctx context.Context, query string, opts ...PrepareBatchOption) (Batch, error)
+		Ping(ctx context.Context) error
+		Close() error
+	}
+
 	Row interface {
 		Err() error
 		Scan(dest ...any) error
