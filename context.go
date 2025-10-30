@@ -1,4 +1,3 @@
-
 package clickhouse
 
 import (
@@ -157,6 +156,14 @@ func WithExternalTable(t ...*ext.Table) QueryOption {
 	}
 }
 
+func WithAsync(wait bool) QueryOption {
+	return func(o *QueryOptions) error {
+		o.async.ok, o.async.wait = true, wait
+		return nil
+	}
+}
+
+// Deprecated: use `WithAsync` instead.
 func WithStdAsync(wait bool) QueryOption {
 	return func(o *QueryOptions) error {
 		o.async.ok, o.async.wait = true, wait
@@ -253,7 +260,7 @@ func queryOptionsUserLocation(ctx context.Context) *time.Location {
 }
 
 func (q *QueryOptions) onProcess() *onProcess {
-	return &onProcess{
+	onProcess := &onProcess{
 		logs: func(logs []Log) {
 			if q.events.logs != nil {
 				for _, l := range logs {
@@ -271,12 +278,16 @@ func (q *QueryOptions) onProcess() *onProcess {
 				q.events.profileInfo(p)
 			}
 		},
-		profileEvents: func(events []ProfileEvent) {
-			if q.events.profileEvents != nil {
-				q.events.profileEvents(events)
-			}
-		},
 	}
+
+	profileEventsHandler := q.events.profileEvents
+	if profileEventsHandler != nil {
+		onProcess.profileEvents = func(events []ProfileEvent) {
+			profileEventsHandler(events)
+		}
+	}
+
+	return onProcess
 }
 
 // clone returns a copy of QueryOptions where Settings and Parameters are safely mutable.

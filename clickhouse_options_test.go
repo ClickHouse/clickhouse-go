@@ -1,4 +1,3 @@
-
 package clickhouse
 
 import (
@@ -478,6 +477,24 @@ func TestParseDSN(t *testing.T) {
 					Database: `bla`,
 				},
 				scheme: "tcp",
+			},
+			"",
+		},
+		{
+			"http protocol with custom http_path",
+			"https://127.0.0.1/clickhouse?secure=true&skip_verify=true&http_path=/clickhouse",
+			&Options{
+				Protocol: HTTP,
+				TLS: &tls.Config{
+					InsecureSkipVerify: true,
+				},
+				Addr:     []string{"127.0.0.1"},
+				Settings: Settings{},
+				Auth: Auth{
+					Database: "clickhouse",
+				},
+				HttpUrlPath: "/clickhouse",
+				scheme:      "https",
 			},
 			"",
 		},

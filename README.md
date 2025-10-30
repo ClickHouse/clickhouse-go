@@ -321,16 +321,17 @@ Usage examples for [native API](examples/clickhouse_api/client_info.go) and [dat
 
 ## Async insert
 
-[Asynchronous insert](https://clickhouse.com/docs/en/optimize/asynchronous-inserts#enabling-asynchronous-inserts) is supported via dedicated `AsyncInsert` method. This allows to insert data with a non-blocking call.
-Effectively, it controls a `async_insert` setting for the query. 
+[Async insert](https://clickhouse.com/docs/optimize/asynchronous-inserts) is supported via `WithAsync()` helper on both Native and HTTP protocols. You can use it for both Go standard interface `OpenDB` and also ClickHouse interface `Open()`.
 
-### Using with batch API
+**NOTE**: You can use `WithSettings()` manually to add any async related settings. `WithAsync()` is just a simple wrapper that does that for you.
 
-Using native protocol, asynchronous insert does not support batching. It means, only inline query data is supported. Please see an example [here](examples/std/async.go).
+We have following examples to show Async Insert in action.
+1. [Native with OpenDB](examples/clickhouse_api/async_native.go)
+1. [HTTP with OpenDB](examples/clickhouse_api/async_http.go)
+1. [Native with Open](examples/std/async_native.go)
+1. [HTTP with Open](examples/std/async_http.go)
 
-HTTP protocol supports batching. It can be enabled by setting `async_insert` when using standard `Prepare` method.
-
-For more details please see [asynchronous inserts](https://clickhouse.com/docs/en/optimize/asynchronous-inserts#enabling-asynchronous-inserts) documentation.
+**NOTE**: The old `AsyncInsert()` api is deprecated and will be removed in future versions. We highly recommend to use `WithAsync()` api for all the Async Insert use cases.
 
 ## PrepareBatch options
 

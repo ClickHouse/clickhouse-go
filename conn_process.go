@@ -189,11 +189,14 @@ func (c *connect) handle(ctx context.Context, packet byte, on *onProcess) error 
 		}
 		c.debugf("[table columns]")
 	case proto.ServerProfileEvents:
-		events, err := c.profileEvents(ctx)
+		scanEvents := on.profileEvents != nil
+		events, err := c.profileEvents(ctx, scanEvents)
 		if err != nil {
 			return err
 		}
-		on.profileEvents(events)
+		if scanEvents {
+			on.profileEvents(events)
+		}
 	case proto.ServerLog:
 		logs, err := c.logs(ctx)
 		if err != nil {

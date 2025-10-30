@@ -1,4 +1,3 @@
-
 package clickhouse
 
 import (
@@ -18,12 +17,16 @@ type ProfileEvent struct {
 	Value       int64
 }
 
-func (c *connect) profileEvents(ctx context.Context) ([]ProfileEvent, error) {
+func (c *connect) profileEvents(ctx context.Context, scanEvents bool) ([]ProfileEvent, error) {
 	block, err := c.readData(ctx, proto.ServerProfileEvents, false)
 	if err != nil {
 		return nil, err
 	}
 	c.debugf("[profile events] rows=%d", block.Rows())
+	if !scanEvents {
+		c.debugf("[profile events] skipping scan")
+		return nil, nil
+	}
 	var (
 		events []ProfileEvent
 		names  = block.ColumnsNames()
