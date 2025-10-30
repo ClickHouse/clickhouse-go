@@ -260,7 +260,7 @@ func queryOptionsUserLocation(ctx context.Context) *time.Location {
 }
 
 func (q *QueryOptions) onProcess() *onProcess {
-	return &onProcess{
+	onProcess := &onProcess{
 		logs: func(logs []Log) {
 			if q.events.logs != nil {
 				for _, l := range logs {
@@ -278,12 +278,16 @@ func (q *QueryOptions) onProcess() *onProcess {
 				q.events.profileInfo(p)
 			}
 		},
-		profileEvents: func(events []ProfileEvent) {
-			if q.events.profileEvents != nil {
-				q.events.profileEvents(events)
-			}
-		},
 	}
+
+	profileEventsHandler := q.events.profileEvents
+	if profileEventsHandler != nil {
+		onProcess.profileEvents = func(events []ProfileEvent) {
+			profileEventsHandler(events)
+		}
+	}
+
+	return onProcess
 }
 
 // clone returns a copy of QueryOptions where Settings and Parameters are safely mutable.
