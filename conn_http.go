@@ -433,10 +433,123 @@ func (h *httpConnect) readData(reader *chproto.Reader, timezone *time.Location) 
 		reader.EnableCompression()
 		defer reader.DisableCompression()
 	}
+
+	// Try to decode the block
 	if err := block.Decode(reader, h.revision); err != nil {
+		// Decode failed - this might be an exception block
+		// The decode error typically happens because it tries to read the
+		// "__exception__" marker as binary data
+		// Try to read remaining data to check if it's an exception
+
+		// Read all remaining data
+		var remainingData bytes.Buffer
+		if _, readErr := io.Copy(&remainingData, &limitedReader{reader: reader, limit: 100 * 1024}); readErr != nil && readErr != io.EOF {
+			// If we can't even read the data, return the original decode error
+			return nil, fmt.Errorf("block decode: %w", err)
+		}
+
+		// Check if the data contains the exception marker
+		if bytes.Contains(remainingData.Bytes(), []byte("__exception__")) {
+			// This is an exception block, parse it
+			return nil, parseExceptionFromBytes(remainingData.Bytes())
+		}
+
+		// Not an exception, return the original decode error
 		return nil, fmt.Errorf("block decode: %w", err)
 	}
 	return &block, nil
+}
+
+// limitedReader is a helper to read from chproto.Reader up to a limit
+type limitedReader struct {
+	reader *chproto.Reader
+	limit  int64
+	read   int64
+}
+
+func (lr *limitedReader) Read(p []byte) (n int, err error) {
+	if lr.read >= lr.limit {
+		return 0, io.EOF
+	}
+	if int64(len(p)) > lr.limit-lr.read {
+		p = p[0 : lr.limit-lr.read]
+	}
+	n, err = lr.reader.Read(p)
+	lr.read += int64(n)
+	return
+}
+
+// parseExceptionFromBytes parses ClickHouse exception block
+// Format from ClickHouse server (WriteBufferFromHTTPServerResponse.cpp):
+//
+//	\r\n
+//	__exception__
+//	\r\n
+//	<TAG>  (16 bytes)
+//	\r\n
+//	<error message>
+//	\n
+//	<message_length> <TAG>
+//	\r\n
+//	__exception__
+//	\r\n
+func parseExceptionFromBytes(data []byte) error {
+	dataStr := string(data)
+
+	// Verify exception marker exists
+	if !strings.Contains(dataStr, "__exception__") {
+		return fmt.Errorf("exception marker not found in response")
+	}
+
+	// Find the first __exception__ marker
+	firstMarker := strings.Index(dataStr, "__exception__")
+	if firstMarker < 0 {
+		return fmt.Errorf("exception marker not found")
+	}
+
+	// Skip past first __exception__\r\n
+	pos := firstMarker + len("__exception__")
+	// Skip \r\n after first marker
+	if pos+2 < len(dataStr) && dataStr[pos:pos+2] == "\r\n" {
+		pos += 2
+	}
+
+	// Skip the exception tag (16 bytes) + \r\n
+	if pos+16+2 < len(dataStr) {
+		pos += 16 + 2 // tag + \r\n
+	}
+
+	// Now we're at the start of the error message
+	// Find the second __exception__ marker
+	secondMarker := strings.Index(dataStr[pos:], "__exception__")
+	if secondMarker < 0 {
+		// If we can't find second marker, just extract what we can
+		errorMsg := strings.TrimSpace(dataStr[pos:])
+		if len(errorMsg) > 0 {
+			return fmt.Errorf("ClickHouse exception: %s", errorMsg)
+		}
+		return fmt.Errorf("ClickHouse exception occurred but could not parse details")
+	}
+
+	// Extract error message between tag and second marker
+	// The error message ends with: \n<message_length> <TAG>\r\n__exception__
+	errorContent := dataStr[pos : pos+secondMarker]
+
+	// Find the last line which contains "<message_length> <TAG>"
+	lines := strings.Split(strings.TrimRight(errorContent, "\r\n"), "\n")
+	if len(lines) == 0 {
+		return fmt.Errorf("ClickHouse exception occurred but could not parse details")
+	}
+
+	// The last line is "<message_length> <TAG>", error message is everything before it
+	errorMsg := strings.Join(lines[:len(lines)-1], "\n")
+	errorMsg = strings.TrimSpace(errorMsg)
+
+	if len(errorMsg) == 0 {
+		return fmt.Errorf("ClickHouse exception occurred but message is empty")
+	}
+
+	return fmt.Errorf("ClickHouse exception: %s", errorMsg)
 }
 
 func (h *httpConnect) sendStreamQuery(ctx context.Context, r io.Reader, options *QueryOptions, headers map[string]string) (*http.Response, error) {

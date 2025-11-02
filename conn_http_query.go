@@ -1,6 +1,7 @@
 package clickhouse
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -49,7 +50,6 @@ func (h *httpConnect) query(ctx context.Context, release nativeTransportRelease,
 
 	rw := h.compressionPool.Get()
 	// The HTTPReaderWriter.NewReader will create a reader that will decompress it if needed,
-	// cause adding Accept-Encoding:gzip on your request means response won’t be automatically decompressed
 	reader, err := rw.NewReader(res)
 	if err != nil {
 		err = fmt.Errorf("NewReader: %w", err)
@@ -58,7 +58,10 @@ func (h *httpConnect) query(ctx context.Context, release nativeTransportRelease,
 		release(h, err)
 		return nil, err
 	}
-	chReader := chproto.NewReader(reader)
+
+	// Wrap reader with buffered reader to allow peeking for exception marker
+	bufferedReader := bufio.NewReader(reader)
+	chReader := chproto.NewReader(bufferedReader)
 	block, err := h.readData(chReader, options.userLocation)
 	if err != nil && !errors.Is(err, io.EOF) {
 		err = fmt.Errorf("readData: %w", err)
