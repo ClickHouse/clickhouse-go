@@ -420,7 +420,7 @@ func (h *httpConnect) writeData(block *proto.Block) error {
 	return nil
 }
 
-func (h *httpConnect) readData(reader *chproto.Reader, timezone *time.Location) (*proto.Block, error) {
+func (h *httpConnect) readData(reader *chproto.Reader, timezone *time.Location, captureBuffer *bytes.Buffer) (*proto.Block, error) {
 	location := h.handshake.Timezone
 	if timezone != nil {
 		location = timezone
@@ -436,22 +436,27 @@ func (h *httpConnect) readData(reader *chproto.Reader, timezone *time.Location) 
 
 	// Try to decode the block
 	if err := block.Decode(reader, h.revision); err != nil {
-		// Decode failed - this might be an exception block
+		// Decode failed - check if captured data contains exception marker
 		// The decode error typically happens because it tries to read the
 		// "__exception__" marker as binary data
-		// Try to read remaining data to check if it's an exception
 
-		// Read all remaining data
-		var remainingData bytes.Buffer
-		if _, readErr := io.Copy(&remainingData, &limitedReader{reader: reader, limit: 100 * 1024}); readErr != nil && readErr != io.EOF {
-			// If we can't even read the data, return the original decode error
-			return nil, fmt.Errorf("block decode: %w", err)
+		// Try to read any remaining data
+		lr := &limitedReader{reader: reader, limit: 100 * 1024}
+		buf := make([]byte, 4096)
+		for {
+			n, readErr := lr.Read(buf)
+			if n > 0 && captureBuffer != nil {
+				captureBuffer.Write(buf[:n])
+			}
+			if readErr != nil {
+				break
+			}
 		}
 
-		// Check if the data contains the exception marker
-		if bytes.Contains(remainingData.Bytes(), []byte("__exception__")) {
+		// Check if the captured data contains the exception marker
+		if captureBuffer != nil && bytes.Contains(captureBuffer.Bytes(), []byte("__exception__")) {
 			// This is an exception block, parse it
-			return nil, parseExceptionFromBytes(remainingData.Bytes())
+			return nil, parseExceptionFromBytes(captureBuffer.Bytes())
 		}
 
 		// Not an exception, return the original decode error
