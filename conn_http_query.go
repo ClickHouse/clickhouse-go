@@ -2,6 +2,7 @@ package clickhouse
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -10,6 +11,20 @@ import (
 	chproto "github.com/ClickHouse/ch-go/proto"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
+
+// capturingReader wraps a reader and captures all data that passes through it
+type capturingReader struct {
+	reader io.Reader
+	buffer bytes.Buffer
+}
+
+func (r *capturingReader) Read(p []byte) (n int, err error) {
+	n, err = r.reader.Read(p)
+	if n > 0 {
+		r.buffer.Write(p[:n])
+	}
+	return n, err
+}
 
 // release is ignored, because http used by std with empty release function
 func (h *httpConnect) query(ctx context.Context, release nativeTransportRelease, query string, args ...any) (*rows, error) {
@@ -59,10 +74,11 @@ func (h *httpConnect) query(ctx context.Context, release nativeTransportRelease,
 		return nil, err
 	}
 
-	// Wrap reader with buffered reader to allow peeking for exception marker
-	bufferedReader := bufio.NewReader(reader)
+	// Wrap reader with capturing reader to detect exceptions
+	capturingRdr := &capturingReader{reader: reader}
+	bufferedReader := bufio.NewReader(capturingRdr)
 	chReader := chproto.NewReader(bufferedReader)
-	block, err := h.readData(chReader, options.userLocation)
+	block, err := h.readData(chReader, options.userLocation, &capturingRdr.buffer)
 	if err != nil && !errors.Is(err, io.EOF) {
 		err = fmt.Errorf("readData: %w", err)
 		discardAndClose(res.Body)
@@ -82,7 +98,7 @@ func (h *httpConnect) query(ctx context.Context, release nativeTransportRelease,
 	)
 	go func() {
 		for {
-			block, err := h.readData(chReader, options.userLocation)
+			block, err := h.readData(chReader, options.userLocation, &capturingRdr.buffer)
 			if err != nil {
 				// ch-go wraps EOF errors
 				if !errors.Is(err, io.EOF) {
