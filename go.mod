@@ -12,7 +12,7 @@ require (
 	github.com/paulmach/orb v0.12.0
 	github.com/shopspring/decimal v1.4.0
 	github.com/stretchr/testify v1.11.1
-	github.com/testcontainers/testcontainers-go v0.39.0
+	github.com/testcontainers/testcontainers-go v0.40.0
 	go.opentelemetry.io/otel/trace v1.38.0
 	go.yaml.in/yaml/v3 v3.0.4
 	golang.org/x/net v0.46.0
