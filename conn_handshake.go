@@ -1,7 +1,7 @@
-
 package clickhouse
 
 import (
+	"context"
 	_ "embed"
 	"fmt"
 	"time"
@@ -9,15 +9,17 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 
-func (c *connect) handshake(auth Auth) error {
+func (c *connect) handshake(ctx context.Context, auth Auth) error {
 	defer c.buffer.Reset()
 	c.debugf("[handshake] -> %s", proto.ClientHandshake{})
 	// set a read deadline - alternative to context.Read operation will fail if no data is received after deadline.
 	c.conn.SetReadDeadline(time.Now().Add(c.readTimeout))
 	defer c.conn.SetReadDeadline(time.Time{})
 	// context level deadlines override any read deadline
-	c.conn.SetDeadline(time.Now().Add(c.opt.DialTimeout))
-	defer c.conn.SetDeadline(time.Time{})
+	if deadline, ok := ctx.Deadline(); ok {
+		c.conn.SetDeadline(deadline)
+		defer c.conn.SetDeadline(time.Time{})
+	}
 	{
 		c.buffer.PutByte(proto.ClientHello)
 		handshake := &proto.ClientHandshake{
