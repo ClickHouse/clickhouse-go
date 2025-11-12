@@ -1,4 +1,4 @@
-package tests
+package std
 
 import (
 	"context"
@@ -9,8 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestHTTPExceptionHandling(t *testing.T) {
-	conn, err := GetNativeConnection(t, clickhouse.HTTP, nil, nil, nil)
+func TestHTTPExceptionHandlingDB(t *testing.T) {
+	conn, err := GetStdOpenDBConnection(clickhouse.HTTP, nil, nil, nil)
 	require.NoError(t, err)
 
 	ctx := context.Background()
@@ -24,7 +24,7 @@ func TestHTTPExceptionHandling(t *testing.T) {
 		"http_response_buffer_size":             1,
 	}))
 
-	rows, err := conn.Query(ctx, `SELECT throwIf(number=3, 'there is an exception') FROM system.numbers`)
+	rows, err := conn.QueryContext(ctx, `SELECT throwIf(number=3, 'there is an exception') FROM system.numbers`)
 	require.NoError(t, err) // query shouldn't fail with 500 status code.
 
 	occured := false
