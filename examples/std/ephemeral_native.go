@@ -15,14 +15,16 @@ func EphemeralColumnNative() error {
 	defer conn.Close()
 
 	ctx := context.Background()
-	ddl := `CREATE OR REPLACE TABLE test
-(
-    id UInt64,
-    unhexed String EPHEMERAL,
-    hexed FixedString(4) DEFAULT unhex(unhexed)
-)
-ENGINE = MergeTree
-ORDER BY id;`
+	ddl := `
+	CREATE OR REPLACE TABLE test
+	(
+		id UInt64,
+		unhexed String EPHEMERAL,
+		hexed FixedString(4) DEFAULT unhex(unhexed)
+	)
+	ENGINE = MergeTree
+	ORDER BY id;`
+
 	_, err = conn.ExecContext(ctx, ddl)
 	if err != nil {
 		return err
@@ -35,11 +37,12 @@ ORDER BY id;`
 		return err
 	}
 
-	query := `SELECT
-    id,
-    hexed,
-    hex(hexed)
-FROM test;`
+	query := `
+	SELECT
+		id,
+		hexed,
+		hex(hexed)
+	FROM test;`
 
 	rows, err := conn.QueryContext(ctx, query)
 	if err != nil {
