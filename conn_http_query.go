@@ -1,4 +1,3 @@
-
 package clickhouse
 
 import (
@@ -51,9 +50,6 @@ func (h *httpConnect) query(ctx context.Context, release nativeTransportRelease,
 	rw := h.compressionPool.Get()
 	// The HTTPReaderWriter.NewReader will create a reader that will decompress it if needed,
 	// cause adding Accept-Encoding:gzip on your request means response won’t be automatically decompressed
-	// per https://github.com/golang/go/blob/master/src/net/http/transport.go#L182-L190.
-	// Note user will need to have set enable_http_compression for CH to respond with compressed data. we don't set this
-	// automatically as they might not have permissions.
 	reader, err := rw.NewReader(res)
 	if err != nil {
 		err = fmt.Errorf("NewReader: %w", err)
