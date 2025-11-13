@@ -12,6 +12,8 @@ func EphemeralColumnNative() error {
 	if err != nil {
 		return fmt.Errorf("Failed to connect: %v\n", err)
 	}
+
+	//NOTE: never forget to close the connection at the end.
 	defer conn.Close()
 
 	ctx := context.Background()
@@ -29,6 +31,7 @@ func EphemeralColumnNative() error {
 	if err != nil {
 		return err
 	}
+	fmt.Println("Created table 'test'")
 
 	i := `INSERT INTO test (id, unhexed) VALUES (1, '5a90b714');`
 
@@ -36,6 +39,7 @@ func EphemeralColumnNative() error {
 	if err != nil {
 		return err
 	}
+	fmt.Println("Inserted rows into 'test'")
 
 	query := `
 	SELECT
@@ -49,6 +53,7 @@ func EphemeralColumnNative() error {
 		return err
 	}
 
+	fmt.Println("Query Results:")
 	for rows.Next() {
 		var (
 			id  uint64
