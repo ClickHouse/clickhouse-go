@@ -35,7 +35,6 @@ import (
 
 var testUUID = uuid.NewString()[0:12]
 var testTimestamp = time.Now().UnixMilli()
-var randSeed = time.Now().UnixNano()
 
 const defaultClickHouseVersion = "latest"
 
@@ -953,14 +952,7 @@ func OptionsToDSN(o *clickhouse.Options) string {
 	return u.String()
 }
 
-func ResetRandSeed() {
-	rand.Seed(randSeed)
-}
-
 func Runtime(m *testing.M, ts string) (exitCode int) {
-	ResetRandSeed()
-	fmt.Printf("using random seed %d for %s tests\n", randSeed, ts)
-
 	useDocker, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_DOCKER", "true"))
 	if err != nil {
 		panic(err)
