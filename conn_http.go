@@ -1,4 +1,3 @@
-
 package clickhouse
 
 import (
@@ -253,6 +252,7 @@ func createHTTPRoundTripper(opt *Options) (http.RoundTripper, error) {
 		IdleConnTimeout:       opt.ConnMaxLifetime,
 		ResponseHeaderTimeout: opt.ReadTimeout,
 		TLSClientConfig:       opt.TLS,
+		DisableCompression:    true,
 	}
 
 	if opt.DialContext != nil {

@@ -94,6 +94,11 @@ func TestStdAsyncInsert(t *testing.T) {
 	require.NoError(t, AsyncInsertHTTP_WithPrepare())
 }
 
+func TestStdEphemeralColumn(t *testing.T) {
+	require.NoError(t, EphemeralColumnNative())
+	require.NoError(t, EphemeralColumnHTTP())
+}
+
 func TestStdMapInsertRead(t *testing.T) {
 	require.NoError(t, MapInsertRead())
 }

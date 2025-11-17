@@ -60,6 +60,11 @@ func TestAsyncInsert(t *testing.T) {
 	require.NoError(t, AsyncInsertHTTP())
 }
 
+func TestEphemeralColumn(t *testing.T) {
+	require.NoError(t, EphemeralColumnNative())
+	require.NoError(t, EphemeralColumnNative())
+}
+
 func TestBatchInsert(t *testing.T) {
 	require.NoError(t, BatchInsert())
 }

@@ -1,4 +1,3 @@
-
 package clickhouse
 
 import (
@@ -7,7 +6,7 @@ import (
 	"strings"
 )
 
-var normalizeInsertQueryMatch = regexp.MustCompile(`(?i)(INSERT\s+INTO\s+([^(]+)(?:\s*\([^()]*(?:\([^()]*\)[^()]*)*\))?)(?:\s*VALUES)?`)
+var normalizeInsertQueryMatch = regexp.MustCompile(`(?i)(?:(?:--[^\n]*|#![^\n]*|#\s[^\n]*)\n\s*)*(INSERT\s+INTO\s+([^(]+)(?:\s*\([^()]*(?:\([^()]*\)[^()]*)*\))?)(?:\s*VALUES)?`)
 var truncateFormat = regexp.MustCompile(`(?i)\sFORMAT\s+[^\s]+`)
 var truncateValues = regexp.MustCompile(`\sVALUES\s.*$`)
 var extractInsertColumnsMatch = regexp.MustCompile(`(?si)INSERT INTO .+\s\((?P<Columns>.+)\)$`)
