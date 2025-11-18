@@ -10,12 +10,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"mime/multipart"
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -143,19 +141,12 @@ func applyOptionsToRequest(ctx context.Context, req *http.Request, opt *Options)
 }
 
 func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpConnect, error) {
-	debugf := func(format string, v ...any) {}
-	if opt.Debug {
-		if opt.Debugf != nil {
-			debugf = func(format string, v ...any) {
-				opt.Debugf(
-					"[clickhouse-http][%s][id=%d] "+format,
-					append([]interface{}{addr, num}, v...)...,
-				)
-			}
-		} else {
-			debugf = log.New(os.Stdout, fmt.Sprintf("[clickhouse-http][%s][id=%d]", addr, num), 0).Printf
-		}
+	common := []any{
+		"driver", "clickhouse-http",
+		"addr", addr,
+		"id", num,
 	}
+	logbase := initLogger(opt.LogLevel, common)
 
 	if opt.scheme == "" {
 		switch opt.Protocol {
@@ -211,7 +202,7 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		id:          num,
 		connectedAt: time.Now(),
 		released:    false,
-		debugfFunc:  debugf,
+		logb:        logbase,
 		opt:         opt,
 		client: &http.Client{
 			Transport: rt,
@@ -272,7 +263,7 @@ type httpConnect struct {
 	id              int
 	connectedAt     time.Time
 	released        bool
-	debugfFunc      func(format string, v ...any)
+	logb            *logbase
 	opt             *Options
 	revision        uint64
 	encodeRevision  uint64
@@ -306,8 +297,20 @@ func (h *httpConnect) setReleased(released bool) {
 	h.released = released
 }
 
-func (h *httpConnect) debugf(format string, v ...any) {
-	h.debugfFunc(format, v...)
+func (h *httpConnect) logInfo(message string, args ...any) {
+	h.logb.logger.Info(message, append(h.logb.common, args...)...)
+}
+
+func (h *httpConnect) logDebug(message string, args ...any) {
+	h.logb.logger.Debug(message, append(h.logb.common, args...)...)
+}
+
+func (h *httpConnect) logWarn(message string, args ...any) {
+	h.logb.logger.Warn(message, append(h.logb.common, args...)...)
+}
+
+func (h *httpConnect) logError(message string, args ...any) {
+	h.logb.logger.Error(message, append(h.logb.common, args...)...)
 }
 
 func (h *httpConnect) freeBuffer() {
@@ -318,7 +321,7 @@ func (h *httpConnect) isBad() bool {
 }
 
 func (h *httpConnect) queryHello(ctx context.Context, release nativeTransportRelease) (proto.ServerHandshake, error) {
-	h.debugf("[query hello]")
+	h.logDebug("query hello")
 	ctx = Context(ctx, ignoreExternalTables())
 	query := "SELECT displayName(), version(), revision(), timezone()"
 	rows, err := h.query(ctx, release, query)

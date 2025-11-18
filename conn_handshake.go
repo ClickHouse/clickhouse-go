@@ -1,4 +1,3 @@
-
 package clickhouse
 
 import (
@@ -11,7 +10,7 @@ import (
 
 func (c *connect) handshake(auth Auth) error {
 	defer c.buffer.Reset()
-	c.debugf("[handshake] -> %s", proto.ClientHandshake{})
+	c.logDebug("handshake: send", "handshake", proto.ClientHandshake{})
 	// set a read deadline - alternative to context.Read operation will fail if no data is received after deadline.
 	c.conn.SetReadDeadline(time.Now().Add(c.readTimeout))
 	defer c.conn.SetReadDeadline(time.Time{})
@@ -48,7 +47,7 @@ func (c *connect) handshake(auth Auth) error {
 				return err
 			}
 		case proto.ServerEndOfStream:
-			c.debugf("[handshake] <- end of stream")
+			c.logDebug("handshake: receive end of stream")
 			return nil
 		default:
 			return fmt.Errorf("[handshake] unexpected packet [%d] from server", packet)
@@ -60,9 +59,9 @@ func (c *connect) handshake(auth Auth) error {
 
 	if c.revision > c.server.Revision {
 		c.revision = c.server.Revision
-		c.debugf("[handshake] downgrade client proto")
+		c.logDebug("handshake: downgrade client proto")
 	}
-	c.debugf("[handshake] <- %s", c.server)
+	c.logDebug("handshake: receive", "server", c.server)
 	return nil
 }
 
