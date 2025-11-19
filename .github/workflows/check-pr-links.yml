@@ -1,4 +1,4 @@
-name: PR Links
+name: check PR Links
 
 on:
   pull_request:
@@ -11,21 +11,17 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Build site
-        uses: withastro/action@v5
-        with:
-          package-manager: pnpm@latest
-
       - name: Check links
         uses: lycheeverse/lychee-action@v2
         with:
           # Remap live URLs to build directory because the links are potentially not live (not yet on master)
           args: |
-            --root-dir $PWD/dist
+            --verbose 
+            --no-progress
             --exclude-all-private
-            --remap 'https://lychee\.cli\.rs/(.*)/ file://'$PWD'/dist/$1/index.html'
-            dist/
-            src/
+            --max-concurrency 1
+            --retry-wait-time 5
+            ./
           fail: true
 
       - name: Suggestions
