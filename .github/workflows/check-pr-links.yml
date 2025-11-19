@@ -19,7 +19,6 @@ jobs:
             --verbose 
             --no-progress
             --exclude-all-private
-            --max-concurrency 1
             --retry-wait-time 5
             ./
           fail: true
