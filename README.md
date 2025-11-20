@@ -340,14 +340,14 @@ Available options:
 
 ## Benchmark
 
-| [V1 (READ)](benchmark/v1/read/main.go) | [V2 (READ) std](benchmark/v2/read/main.go) | [V2 (READ) clickhouse API](benchmark/v2/read-native/main.go) |
-| -------------------------------------- | ------------------------------------------ |--------------------------------------------------------------|
-| 1.218s                                 | 924.390ms                                  | 675.721ms                                                    |
+| [V2 (READ) std](benchmark/v2/read/main.go) | [V2 (READ) clickhouse API](benchmark/v2/read-native/main.go) |
+| ------------------------------------------ |--------------------------------------------------------------|
+| 924.390ms                                  | 675.721ms                                                    |
 
 
-| [V1 (WRITE)](benchmark/v1/write/main.go) | [V2 (WRITE) std](benchmark/v2/write/main.go) | [V2 (WRITE) clickhouse API](benchmark/v2/write-native/main.go) | [V2 (WRITE) by column](benchmark/v2/write-native-columnar/main.go) |
-| ---------------------------------------- | -------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------ |
-| 1.899s                                   | 1.177s                                       | 699.203ms                                              | 661.973ms                                                          |
+| [V2 (WRITE) std](benchmark/v2/write/main.go) | [V2 (WRITE) clickhouse API](benchmark/v2/write-native/main.go) | [V2 (WRITE) by column](benchmark/v2/write-native-columnar/main.go) |
+| -------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------ |
+| 1.177s                                       | 699.203ms                                              | 661.973ms                                                          |
 
 
 
@@ -363,7 +363,8 @@ go get -u github.com/ClickHouse/clickhouse-go/v2
 
 * [batch](examples/clickhouse_api/batch.go)
 * [batch with release connection](examples/clickhouse_api/batch_release_connection.go)
-* [async insert](examples/clickhouse_api/async.go)
+* [native async insert](examples/clickhouse_api/async_native.go)
+* [http async insert](examples/clickhouse_api/async_http.go)
 * [batch struct](examples/clickhouse_api/append_struct.go)
 * [columnar](examples/clickhouse_api/columnar_insert.go)
 * [scan struct](examples/clickhouse_api/scan_struct.go)
@@ -374,7 +375,8 @@ go get -u github.com/ClickHouse/clickhouse-go/v2
 ### std `database/sql` interface
 
 * [batch](examples/std/batch.go)
-* [async insert](examples/std/async.go)
+* [native async insert](examples/std/async_native.go)
+* [http async insert](examples/std/async_http.go)
 * [open db](examples/std/connect.go)
 * [query parameters](examples/std/query_parameters.go)
 * [bind params](examples/std/bind.go) (deprecated in favour of native query parameters)
