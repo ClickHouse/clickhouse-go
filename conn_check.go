@@ -1,4 +1,3 @@
-
 //go:build linux || darwin || dragonfly || freebsd || netbsd || openbsd || solaris || illumos
 // +build linux darwin dragonfly freebsd netbsd openbsd solaris illumos
 
