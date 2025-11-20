@@ -363,7 +363,8 @@ go get -u github.com/ClickHouse/clickhouse-go/v2
 
 * [batch](examples/clickhouse_api/batch.go)
 * [batch with release connection](examples/clickhouse_api/batch_release_connection.go)
-* [async insert](examples/clickhouse_api/async.go)
+* [native async insert](examples/clickhouse_api/async_native.go)
+* [http async insert](examples/clickhouse_api/async_http.go)
 * [batch struct](examples/clickhouse_api/append_struct.go)
 * [columnar](examples/clickhouse_api/columnar_insert.go)
 * [scan struct](examples/clickhouse_api/scan_struct.go)
@@ -374,7 +375,8 @@ go get -u github.com/ClickHouse/clickhouse-go/v2
 ### std `database/sql` interface
 
 * [batch](examples/std/batch.go)
-* [async insert](examples/std/async.go)
+* [native async insert](examples/std/async_native.go)
+* [http async insert](examples/std/async_http.go)
 * [open db](examples/std/connect.go)
 * [query parameters](examples/std/query_parameters.go)
 * [bind params](examples/std/bind.go) (deprecated in favour of native query parameters)
