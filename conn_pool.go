@@ -19,7 +19,7 @@ type connPool struct {
 	maxConnLifetime time.Duration
 }
 
-func newIdlePool(lifetime time.Duration, capacity int) *connPool {
+func newConnPool(lifetime time.Duration, capacity int) *connPool {
 	pool := &connPool{
 		conns:           circular.New[nativeTransport](capacity),
 		ticker:          time.NewTicker(lifetime),

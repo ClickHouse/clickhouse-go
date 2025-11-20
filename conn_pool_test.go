@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestIdlePool_Cap(t *testing.T) {
+func TestConnPool_Cap(t *testing.T) {
 	tests := []struct {
 		name     string
 		capacity int
@@ -31,7 +31,7 @@ func TestIdlePool_Cap(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			pool := newIdlePool(time.Hour, tt.capacity)
+			pool := newConnPool(time.Hour, tt.capacity)
 			defer pool.Close()
 
 			assert.Equal(t, tt.capacity, pool.Cap())
@@ -39,8 +39,8 @@ func TestIdlePool_Cap(t *testing.T) {
 	}
 }
 
-func TestIdlePool_Len(t *testing.T) {
-	pool := newIdlePool(time.Hour, 5)
+func TestConnPool_Len(t *testing.T) {
+	pool := newConnPool(time.Hour, 5)
 	defer pool.Close()
 
 	assert.Equal(t, 0, pool.Len(), "new pool should have length 0")
@@ -67,8 +67,8 @@ func TestIdlePool_Len(t *testing.T) {
 	assert.Equal(t, 0, pool.Len())
 }
 
-func TestIdlePool_GetEmpty(t *testing.T) {
-	pool := newIdlePool(time.Hour, 5)
+func TestConnPool_GetEmpty(t *testing.T) {
+	pool := newConnPool(time.Hour, 5)
 	defer pool.Close()
 
 	ctx := context.Background()
@@ -77,8 +77,8 @@ func TestIdlePool_GetEmpty(t *testing.T) {
 	assert.Nil(t, conn, "getting from empty pool should return nil")
 }
 
-func TestIdlePool_PutAndGet(t *testing.T) {
-	pool := newIdlePool(time.Hour, 5)
+func TestConnPool_PutAndGet(t *testing.T) {
+	pool := newConnPool(time.Hour, 5)
 	defer pool.Close()
 
 	now := time.Now()
@@ -117,9 +117,9 @@ func TestIdlePool_PutAndGet(t *testing.T) {
 	assert.Nil(t, retrieved)
 }
 
-func TestIdlePool_CapacityLimit(t *testing.T) {
+func TestConnPool_CapacityLimit(t *testing.T) {
 	capacity := 3
-	pool := newIdlePool(time.Hour, capacity)
+	pool := newConnPool(time.Hour, capacity)
 	defer pool.Close()
 
 	now := time.Now()
@@ -158,10 +158,10 @@ func TestIdlePool_CapacityLimit(t *testing.T) {
 	}
 }
 
-func TestIdlePool_ExpiredConnectionNotReturned(t *testing.T) {
+func TestConnPool_ExpiredConnectionNotReturned(t *testing.T) {
 	// Pool with very short lifetime
 	lifetime := 100 * time.Millisecond
-	pool := newIdlePool(lifetime, 5)
+	pool := newConnPool(lifetime, 5)
 	defer pool.Close()
 
 	// Add connection that is not yet expired (but close to expiration)
@@ -199,9 +199,9 @@ func TestIdlePool_ExpiredConnectionNotReturned(t *testing.T) {
 	assert.Nil(t, retrieved)
 }
 
-func TestIdlePool_PutExpiredConnection(t *testing.T) {
+func TestConnPool_PutExpiredConnection(t *testing.T) {
 	lifetime := 100 * time.Millisecond
-	pool := newIdlePool(lifetime, 5)
+	pool := newConnPool(lifetime, 5)
 	defer pool.Close()
 
 	// Try to put already expired connection
@@ -215,8 +215,8 @@ func TestIdlePool_PutExpiredConnection(t *testing.T) {
 	assert.Equal(t, 0, pool.Len())
 }
 
-func TestIdlePool_PutOlderThanMinimumWithCapacity(t *testing.T) {
-	pool := newIdlePool(time.Hour, 5)
+func TestConnPool_PutOlderThanMinimumWithCapacity(t *testing.T) {
+	pool := newConnPool(time.Hour, 5)
 	defer pool.Close()
 
 	now := time.Now()
@@ -240,8 +240,8 @@ func TestIdlePool_PutOlderThanMinimumWithCapacity(t *testing.T) {
 	assert.Equal(t, 1, retrieved.connID(), "should retrieve the first inserted connection")
 }
 
-func TestIdlePool_GetWithCancelledContext(t *testing.T) {
-	pool := newIdlePool(time.Hour, 5)
+func TestConnPool_GetWithCancelledContext(t *testing.T) {
+	pool := newConnPool(time.Hour, 5)
 	defer pool.Close()
 
 	// Add a connection
@@ -262,8 +262,8 @@ func TestIdlePool_GetWithCancelledContext(t *testing.T) {
 	assert.Equal(t, 1, pool.Len())
 }
 
-func TestIdlePool_Close(t *testing.T) {
-	pool := newIdlePool(time.Hour, 5)
+func TestConnPool_Close(t *testing.T) {
+	pool := newConnPool(time.Hour, 5)
 
 	// Add connections
 	for i := 0; i < 3; i++ {
@@ -301,8 +301,8 @@ func TestIdlePool_Close(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestIdlePool_CloseWithDrain(t *testing.T) {
-	pool := newIdlePool(time.Hour, 5)
+func TestConnPool_CloseWithDrain(t *testing.T) {
+	pool := newConnPool(time.Hour, 5)
 
 	// Add connections
 	allConns := make([]*mockTransport, 3)
@@ -340,9 +340,9 @@ func TestIdlePool_CloseWithDrain(t *testing.T) {
 	assert.Nil(t, conn, "get should return nil after pool is closed and drained")
 }
 
-func TestIdlePool_DrainExpiredConnections(t *testing.T) {
+func TestConnPool_DrainExpiredConnections(t *testing.T) {
 	lifetime := 100 * time.Millisecond
-	pool := newIdlePool(lifetime, 5)
+	pool := newConnPool(lifetime, 5)
 	defer pool.Close()
 
 	// Add connections that are already old (so they will definitely expire)
@@ -383,8 +383,8 @@ func TestIdlePool_DrainExpiredConnections(t *testing.T) {
 	assert.False(t, freshConn.closed, "fresh connection should not be closed")
 }
 
-func TestIdlePool_ConcurrentAccess(t *testing.T) {
-	pool := newIdlePool(time.Hour, 10)
+func TestConnPool_ConcurrentAccess(t *testing.T) {
+	pool := newConnPool(time.Hour, 10)
 	defer pool.Close()
 
 	ctx := context.Background()
@@ -421,8 +421,8 @@ func TestIdlePool_ConcurrentAccess(t *testing.T) {
 	assert.LessOrEqual(t, pool.Len(), pool.Cap())
 }
 
-func TestIdlePool_FIFOOrdering(t *testing.T) {
-	pool := newIdlePool(time.Hour, 10)
+func TestConnPool_FIFOOrdering(t *testing.T) {
+	pool := newConnPool(time.Hour, 10)
 	defer pool.Close()
 
 	now := time.Now()

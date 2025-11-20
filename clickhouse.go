@@ -70,7 +70,7 @@ func Open(opt *Options) (driver.Conn, error) {
 
 	conn := &clickhouse{
 		opt:       o,
-		idle:      newIdlePool(o.ConnMaxLifetime, o.MaxIdleConns),
+		idle:      newConnPool(o.ConnMaxLifetime, o.MaxIdleConns),
 		open:      make(chan struct{}, o.MaxOpenConns),
 		closeOnce: &sync.Once{},
 		closed:    &atomic.Bool{},

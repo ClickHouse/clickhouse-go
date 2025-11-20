@@ -45,8 +45,7 @@ func TestIdleConnectionCleanupLeakConcurrent(t *testing.T) {
 
 		var wg sync.WaitGroup
 		for range 100 {
-			wg.Add(1)
-			go func() {
+			wg.Go(func() {
 				defer wg.Done()
 				conn, err := Open(&Options{
 					Addr: []string{"localhost:9000"},
@@ -59,7 +58,7 @@ func TestIdleConnectionCleanupLeakConcurrent(t *testing.T) {
 				if err := conn.Close(); err != nil {
 					errs <- fmt.Errorf("failed to close connection: %w", err)
 				}
-			}()
+			})
 		}
 
 		go func() {
