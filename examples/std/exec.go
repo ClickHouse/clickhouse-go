@@ -1,4 +1,3 @@
-
 package std
 
 import "github.com/ClickHouse/clickhouse-go/v2"

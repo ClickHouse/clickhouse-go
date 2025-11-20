@@ -1,4 +1,3 @@
-
 package proto
 
 // see https://github.com/ClickHouse/ClickHouse/blob/master/src/Core/Protocol.h
