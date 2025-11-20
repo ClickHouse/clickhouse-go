@@ -421,6 +421,10 @@ func TestConnectionExpiresIdleConnection(t *testing.T) {
 	baseConn, err := TestClientWithDefaultSettings(testEnv)
 	require.NoError(t, err)
 
+	t.Cleanup(func() {
+		baseConn.Close()
+	})
+
 	expectedConnections := getActiveConnections(t, baseConn)
 
 	// when the client is configured to expire idle connections after 1/10 of a second
