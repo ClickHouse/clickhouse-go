@@ -9,12 +9,9 @@ import (
 	"testing/synctest"
 )
 
-// ConnectionPoolCleanupLeak demonstrates that drainPool
-// goroutines are not leaked when connections are opened and closed.
-//
-// This test uses Go's synctest package (stably available in Go 1.25+) to deterministically
-// detect the leaked goroutine without relying on timing or sleep calls.
-func TestConnectionPoolCleanupLeak(t *testing.T) {
+// TestConnectionPool_Open demonstrates that drainPool goroutines
+// are not leaked when connections are opened and closed.
+func TestConnectionPool_Open(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		conn, err := Open(&Options{
 			Addr: []string{"localhost:9000"},
@@ -29,17 +26,14 @@ func TestConnectionPoolCleanupLeak(t *testing.T) {
 		}
 
 		// Wait for all goroutines in this synctest bubble to exit
-		// This will hang if background goroutines are left behind.
+		// This will panic if background goroutines are left behind.
 		synctest.Wait()
 	})
 }
 
-// TestConnectionPoolCleanupLeakConcurrent demonstrates that drainPool
-// goroutines are not leaked when connections are opened and closed.
-//
-// This test uses Go's synctest package (stably available in Go 1.25+) to deterministically
-// detect the leaked goroutine without relying on timing or sleep calls.
-func TestConnectionPoolCleanupLeakConcurrent(t *testing.T) {
+// TestConnectionPool_OpenConcurrent demonstrates that drainPool goroutines
+// are not leaked when connections are opened and closed.
+func TestConnectionPool_OpenConcurrent(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		errs := make(chan error)
 
@@ -71,7 +65,7 @@ func TestConnectionPoolCleanupLeakConcurrent(t *testing.T) {
 		}
 
 		// Wait for all goroutines in this synctest bubble to exit
-		// This will hang if background goroutines are left behind.
+		// This will panic if background goroutines are left behind.
 		synctest.Wait()
 	})
 }

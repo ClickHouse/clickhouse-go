@@ -53,6 +53,11 @@ func (i *connPool) Get(ctx context.Context) (nativeTransport, error) {
 		return nil, ErrConnectionClosed
 	}
 
+	// this loop continues until either:
+	// a) the provided context is cancelled
+	// b) the pool is closed
+	// c) the underlying circular queue is empty
+	// d) it finds a non-expired connection
 	for {
 		if err := ctx.Err(); err != nil {
 			// context has been cancelled
