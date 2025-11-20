@@ -1,4 +1,3 @@
-
 package chcol
 
 type Dynamic = Variant

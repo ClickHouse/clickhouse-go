@@ -1,4 +1,3 @@
-
 package clickhouse_api
 
 import (

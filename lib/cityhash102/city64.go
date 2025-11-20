@@ -1,4 +1,3 @@
-
 package cityhash102
 
 import (
