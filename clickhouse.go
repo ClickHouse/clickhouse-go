@@ -106,7 +106,7 @@ type clickhouse struct {
 	opt    *Options
 	connID int64
 
-	idle *idlePool
+	idle *connPool
 	open chan struct{}
 
 	closeOnce *sync.Once

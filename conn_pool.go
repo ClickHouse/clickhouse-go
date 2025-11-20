@@ -8,7 +8,7 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/internal/circular"
 )
 
-type idlePool struct {
+type connPool struct {
 	mu    sync.RWMutex
 	conns *circular.Queue[nativeTransport]
 
@@ -19,8 +19,8 @@ type idlePool struct {
 	maxConnLifetime time.Duration
 }
 
-func newIdlePool(lifetime time.Duration, capacity int) *idlePool {
-	pool := &idlePool{
+func newIdlePool(lifetime time.Duration, capacity int) *connPool {
+	pool := &connPool{
 		conns:           circular.New[nativeTransport](capacity),
 		ticker:          time.NewTicker(lifetime),
 		finish:          make(chan struct{}),
@@ -33,19 +33,19 @@ func newIdlePool(lifetime time.Duration, capacity int) *idlePool {
 	return pool
 }
 
-func (i *idlePool) Len() int {
+func (i *connPool) Len() int {
 	i.mu.RLock()
 	defer i.mu.RUnlock()
 	return i.conns.Len()
 }
 
-func (i *idlePool) Cap() int {
+func (i *connPool) Cap() int {
 	i.mu.RLock()
 	defer i.mu.RUnlock()
 	return i.conns.Cap()
 }
 
-func (i *idlePool) Get(ctx context.Context) (nativeTransport, error) {
+func (i *connPool) Get(ctx context.Context) (nativeTransport, error) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 
@@ -77,7 +77,7 @@ func (i *idlePool) Get(ctx context.Context) (nativeTransport, error) {
 	}
 }
 
-func (i *idlePool) Put(conn nativeTransport) {
+func (i *connPool) Put(conn nativeTransport) {
 	if i.isExpired(conn) || conn.isBad() {
 		conn.close()
 		return
@@ -97,7 +97,7 @@ func (i *idlePool) Put(conn nativeTransport) {
 	}
 }
 
-func (i *idlePool) Close() error {
+func (i *connPool) Close() error {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 
@@ -115,7 +115,7 @@ func (i *idlePool) Close() error {
 	return nil
 }
 
-func (i *idlePool) closed() bool {
+func (i *connPool) closed() bool {
 	select {
 	case <-i.finished:
 		return true
@@ -124,7 +124,7 @@ func (i *idlePool) closed() bool {
 	}
 }
 
-func (i *idlePool) runDrainPool() {
+func (i *connPool) runDrainPool() {
 	defer func() {
 		i.ticker.Stop()
 		close(i.finished)
@@ -146,7 +146,7 @@ func (i *idlePool) runDrainPool() {
 // If the pool is closed, it removes all connections.
 // Otherwise, it only removes expired connections.
 // Must be called with i.mu held.
-func (i *idlePool) drainPool() {
+func (i *connPool) drainPool() {
 	if i.closed() {
 		// Close all connections
 		for conn := range i.conns.Clear() {
@@ -163,10 +163,10 @@ func (i *idlePool) drainPool() {
 	}
 }
 
-func (i *idlePool) isExpired(conn nativeTransport) bool {
+func (i *connPool) isExpired(conn nativeTransport) bool {
 	return time.Now().After(i.expires(conn))
 }
 
-func (i *idlePool) expires(conn nativeTransport) time.Time {
+func (i *connPool) expires(conn nativeTransport) time.Time {
 	return conn.connectedAtTime().Add(i.maxConnLifetime)
 }
