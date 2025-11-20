@@ -9,12 +9,12 @@ import (
 	"testing/synctest"
 )
 
-// TestIdleConnectionCleanupLeak demonstrates that startAutoCloseIdleConnections
-// goroutines are leaked when connections are opened and closed.
+// ConnectionPoolCleanupLeak demonstrates that drainPool
+// goroutines are not leaked when connections are opened and closed.
 //
 // This test uses Go's synctest package (stably available in Go 1.25+) to deterministically
 // detect the leaked goroutine without relying on timing or sleep calls.
-func TestIdleConnectionCleanupLeak(t *testing.T) {
+func TestConnectionPoolCleanupLeak(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		conn, err := Open(&Options{
 			Addr: []string{"localhost:9000"},
@@ -34,19 +34,18 @@ func TestIdleConnectionCleanupLeak(t *testing.T) {
 	})
 }
 
-// TestIdleConnectionCleanupLeak demonstrates that startAutoCloseIdleConnections
-// goroutines are leaked when connections are opened and closed.
+// TestConnectionPoolCleanupLeakConcurrent demonstrates that drainPool
+// goroutines are not leaked when connections are opened and closed.
 //
 // This test uses Go's synctest package (stably available in Go 1.25+) to deterministically
 // detect the leaked goroutine without relying on timing or sleep calls.
-func TestIdleConnectionCleanupLeakConcurrent(t *testing.T) {
+func TestConnectionPoolCleanupLeakConcurrent(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		errs := make(chan error)
 
 		var wg sync.WaitGroup
 		for range 100 {
 			wg.Go(func() {
-				defer wg.Done()
 				conn, err := Open(&Options{
 					Addr: []string{"localhost:9000"},
 				})
