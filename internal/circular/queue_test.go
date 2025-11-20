@@ -103,29 +103,6 @@ func TestQueue_WrapAround(t *testing.T) {
 	}
 }
 
-func TestQueue_All(t *testing.T) {
-	b := New[int](5)
-	b.Push(10)
-	b.Push(20)
-	b.Push(30)
-
-	expected := []int{10, 20, 30}
-	i := 0
-	for index, value := range b.All() {
-		if index != i {
-			t.Errorf("expected index %d, got %d", i, index)
-		}
-		if value != expected[i] {
-			t.Errorf("expected value %d, got %d", expected[i], value)
-		}
-		i++
-	}
-
-	if i != 3 {
-		t.Errorf("expected 3 iterations, got %d", i)
-	}
-}
-
 func TestQueue_DeleteFunc(t *testing.T) {
 	b := New[int](7)
 	b.Push(0)
@@ -151,7 +128,7 @@ func TestQueue_DeleteFunc(t *testing.T) {
 	}
 
 	expected := []int{1, 3, 5}
-	for i, val := range b.All() {
+	for i, val := range b.all() {
 		if i >= len(expected) {
 			t.Errorf("unexpected extra value at index %d: %d", i, val)
 			break
@@ -224,7 +201,7 @@ func TestQueue_DeleteFuncWithWrapAround(t *testing.T) {
 	}
 
 	expected := []int{4, 5, 7}
-	for i, val := range b.All() {
+	for i, val := range b.all() {
 		if i >= len(expected) {
 			t.Errorf("unexpected extra value at index %d: %d", i, val)
 			break

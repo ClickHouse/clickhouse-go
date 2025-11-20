@@ -115,7 +115,7 @@ func BenchmarkQueue_All(b *testing.B) {
 			b.ReportAllocs()
 
 			for i := 0; i < b.N; i++ {
-				for range queue.All() {
+				for range queue.all() {
 				}
 			}
 		})

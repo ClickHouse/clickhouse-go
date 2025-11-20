@@ -65,9 +65,9 @@ func (q *Queue[T]) Pull() (value T, ok bool) {
 	return value, true
 }
 
-// All returns an iterator over all elements in the queue in FIFO order.
+// all returns an iterator over all elements in the queue in FIFO order.
 // The iterator yields (index, value) pairs where index is 0-based from the head.
-func (q *Queue[T]) All() iter.Seq2[int, T] {
+func (q *Queue[T]) all() iter.Seq2[int, T] {
 	return func(yield func(int, T) bool) {
 		if q.IsEmpty() {
 			return
