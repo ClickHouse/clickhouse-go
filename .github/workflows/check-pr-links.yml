@@ -26,7 +26,7 @@ jobs:
       - name: Suggestions
         if: failure()
         run: |
-          echo -e "\nPlease review the links reported in the 'Check links in PR changes' step above."
+          echo -e "\nPlease review the links reported in the 'Check links' step above."
           echo -e "If a link is valid but fails due to a CAPTCHA challenge, IP blocking, login requirements, etc.,"
           echo -e "consider adding such links to .lycheeignore file to bypass future checks.\n"
           exit 1
