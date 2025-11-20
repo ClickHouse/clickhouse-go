@@ -164,7 +164,7 @@ func (i *connPool) drainPool() {
 }
 
 func (i *connPool) isExpired(conn nativeTransport) bool {
-	return time.Now().After(i.expires(conn))
+	return !time.Now().Before(i.expires(conn))
 }
 
 func (i *connPool) expires(conn nativeTransport) time.Time {
