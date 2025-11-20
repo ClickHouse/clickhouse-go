@@ -83,10 +83,10 @@ func (q *Queue[T]) All() iter.Seq2[int, T] {
 	}
 }
 
-// Compact removes elements from the queue based on a predicate function.
+// DeleteFunc removes elements from the queue based on a predicate function.
 // Returns an iterator over the removed elements.
 // Elements for which shouldRemove returns true are removed from the queue.
-func (q *Queue[T]) Compact(shouldRemove func(T) bool) iter.Seq[T] {
+func (q *Queue[T]) DeleteFunc(shouldRemove func(T) bool) (removed iter.Seq[T]) {
 	return func(yield func(T) bool) {
 		if q.IsEmpty() {
 			return

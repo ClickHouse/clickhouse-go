@@ -156,7 +156,7 @@ func (i *connPool) drainPool() {
 	}
 
 	// Remove only expired connections
-	for conn := range i.conns.Compact(func(conn nativeTransport) bool {
+	for conn := range i.conns.DeleteFunc(func(conn nativeTransport) bool {
 		return i.isExpired(conn)
 	}) {
 		conn.close()

@@ -126,7 +126,7 @@ func TestQueue_All(t *testing.T) {
 	}
 }
 
-func TestQueue_Compact(t *testing.T) {
+func TestQueue_DeleteFunc(t *testing.T) {
 	b := New[int](7)
 	b.Push(0)
 	b.Push(1)
@@ -138,7 +138,7 @@ func TestQueue_Compact(t *testing.T) {
 
 	// Remove even numbers
 	removed := []int{}
-	for val := range b.Compact(func(val int) bool { return val%2 == 0 }) {
+	for val := range b.DeleteFunc(func(val int) bool { return val%2 == 0 }) {
 		removed = append(removed, val)
 	}
 
@@ -189,7 +189,7 @@ func TestQueue_Clear(t *testing.T) {
 	}
 }
 
-func TestQueue_CompactWithWrapAround(t *testing.T) {
+func TestQueue_DeleteFuncWithWrapAround(t *testing.T) {
 	b := New[int](5)
 
 	// Fill queue
@@ -209,7 +209,7 @@ func TestQueue_CompactWithWrapAround(t *testing.T) {
 
 	// Remove values divisible by 3
 	removed := []int{}
-	for val := range b.Compact(func(val int) bool { return val%3 == 0 }) {
+	for val := range b.DeleteFunc(func(val int) bool { return val%3 == 0 }) {
 		removed = append(removed, val)
 	}
 

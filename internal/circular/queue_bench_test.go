@@ -61,8 +61,8 @@ func BenchmarkQueue_PushPull(b *testing.B) {
 	}
 }
 
-// BenchmarkQueue_Compact measures compaction performance
-func BenchmarkQueue_Compact(b *testing.B) {
+// BenchmarkQueue_DeleteFunc measures compaction performance
+func BenchmarkQueue_DeleteFunc(b *testing.B) {
 	sizes := []struct {
 		name string
 		size int
@@ -86,7 +86,7 @@ func BenchmarkQueue_Compact(b *testing.B) {
 				b.StartTimer()
 
 				// Remove even numbers
-				for range queue.Compact(func(val int) bool { return val%2 == 0 }) {
+				for range queue.DeleteFunc(func(val int) bool { return val%2 == 0 }) {
 				}
 			}
 		})
