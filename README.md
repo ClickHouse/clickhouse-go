@@ -340,14 +340,14 @@ Available options:
 
 ## Benchmark
 
-| [V1 (READ)](benchmark/v1/read/main.go) | [V2 (READ) std](benchmark/v2/read/main.go) | [V2 (READ) clickhouse API](benchmark/v2/read-native/main.go) |
-| -------------------------------------- | ------------------------------------------ |--------------------------------------------------------------|
-| 1.218s                                 | 924.390ms                                  | 675.721ms                                                    |
+| [V2 (READ) std](benchmark/v2/read/main.go) | [V2 (READ) clickhouse API](benchmark/v2/read-native/main.go) |
+| ------------------------------------------ |--------------------------------------------------------------|
+| 924.390ms                                  | 675.721ms                                                    |
 
 
-| [V1 (WRITE)](benchmark/v1/write/main.go) | [V2 (WRITE) std](benchmark/v2/write/main.go) | [V2 (WRITE) clickhouse API](benchmark/v2/write-native/main.go) | [V2 (WRITE) by column](benchmark/v2/write-native-columnar/main.go) |
-| ---------------------------------------- | -------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------ |
-| 1.899s                                   | 1.177s                                       | 699.203ms                                              | 661.973ms                                                          |
+| [V2 (WRITE) std](benchmark/v2/write/main.go) | [V2 (WRITE) clickhouse API](benchmark/v2/write-native/main.go) | [V2 (WRITE) by column](benchmark/v2/write-native-columnar/main.go) |
+| -------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------ |
+| 1.177s                                       | 699.203ms                                              | 661.973ms                                                          |
 
 
 
