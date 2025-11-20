@@ -240,6 +240,10 @@ func (ch *clickhouse) Stats() driver.Stats {
 }
 
 func (ch *clickhouse) dial(ctx context.Context) (conn nativeTransport, err error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
 	connID := int(atomic.AddInt64(&ch.connID, 1))
 
 	dialFunc := func(ctx context.Context, addr string, opt *Options) (DialResult, error) {
