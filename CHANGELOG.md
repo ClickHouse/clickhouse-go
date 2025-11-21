@@ -340,7 +340,7 @@ HTTP still has some limitations to be aware of for things like batch flushing an
 ## New Contributors
 * @serprex made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1493
 
-**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.30.3...2.31.0
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.30.3...v2.31.0
 
 # v2.30.3, 2025-02-03 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
@@ -808,7 +808,7 @@ v2.25.0 was released with a breaking change in https://github.com/ClickHouse/cli
 * @alrs made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1081
 * @testwill made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1080
 
-**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.13.4...v2.14
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.13.4...v2.14.0
 
 # v2.13.4, 2023-08-30 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
