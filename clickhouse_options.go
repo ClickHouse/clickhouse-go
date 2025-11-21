@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
@@ -121,8 +122,9 @@ type Options struct {
 	Auth                 Auth
 	DialContext          func(ctx context.Context, addr string) (net.Conn, error)
 	DialStrategy         func(ctx context.Context, connID int, options *Options, dial Dial) (DialResult, error)
-	Debug                bool
-	Debugf               func(format string, v ...any) // only works when Debug is true
+	Debug                bool                          // deprecated
+	Debugf               func(format string, v ...any) // deprecated: Use LogLevel
+	LogLevel             slog.Level                    // controls the minimum level emitted by Logger. default is slog.LevelInfo.
 	Settings             Settings
 	Compression          *Compression
 	DialTimeout          time.Duration // default 30 second
@@ -395,6 +397,9 @@ func (o Options) setDefaults() *Options {
 		case HTTP:
 			o.Addr = []string{"localhost:8123"}
 		}
+	}
+	if o.LogLevel == 0 {
+		o.LogLevel = slog.LevelInfo
 	}
 	return &o
 }
