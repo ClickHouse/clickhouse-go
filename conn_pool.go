@@ -49,23 +49,22 @@ func (i *connPool) Get(ctx context.Context) (nativeTransport, error) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 
+	// check if pool was closed while we waited on the lock
+	// return early if pool already closed
+	// otherwise, pool wont close again while we hold lock
+	// and so we continue
 	if i.closed() {
 		return nil, ErrConnectionClosed
 	}
 
 	// this loop continues until either:
 	// a) the provided context is cancelled
-	// b) the pool is closed
-	// c) the underlying circular queue is empty
-	// d) it finds a non-expired connection
+	// b) the underlying circular queue is empty
+	// c) it finds a non-expired connection
 	for {
 		if err := ctx.Err(); err != nil {
 			// context has been cancelled
 			return nil, context.Cause(ctx)
-		}
-
-		if i.closed() {
-			return nil, ErrConnectionClosed
 		}
 
 		// Try to pull a connection
