@@ -2,6 +2,8 @@ package clickhouse
 
 import (
 	"context"
+	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -466,10 +468,14 @@ func TestConnPool_FIFOOrdering(t *testing.T) {
 
 // mockTransport implements nativeTransport for testing
 type mockTransport struct {
-	connectedAt time.Time
-	id          int
-	released    bool
-	closed      bool
+	connectedAt   time.Time
+	id            int
+	released      bool
+	closed        bool
+	bad           bool
+	bufferFreed   bool
+	debugMessages []string
+	mu            sync.Mutex
 }
 
 func (m *mockTransport) serverVersion() (*ServerVersion, error) {
@@ -501,7 +507,9 @@ func (m *mockTransport) ping(ctx context.Context) error {
 }
 
 func (m *mockTransport) isBad() bool {
-	return false
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.bad
 }
 
 func (m *mockTransport) connID() int {
@@ -513,22 +521,58 @@ func (m *mockTransport) connectedAtTime() time.Time {
 }
 
 func (m *mockTransport) isReleased() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	return m.released
 }
 
 func (m *mockTransport) setReleased(released bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.released = released
 }
 
 func (m *mockTransport) debugf(format string, v ...any) {
-	// no-op for testing
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.debugMessages = append(m.debugMessages, fmt.Sprintf(format, v...))
 }
 
 func (m *mockTransport) freeBuffer() {
-	// no-op for testing
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.bufferFreed = true
 }
 
 func (m *mockTransport) close() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.closed = true
 	return nil
+}
+
+// Helper methods for testing
+func newMockTransport(id int) *mockTransport {
+	return &mockTransport{
+		connectedAt: time.Now(),
+		id:          id,
+	}
+}
+
+func (m *mockTransport) setBad(bad bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.bad = bad
+}
+
+func (m *mockTransport) isClosed() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.closed
+}
+
+func (m *mockTransport) wasBufferFreed() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.bufferFreed
 }
