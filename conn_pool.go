@@ -2,11 +2,14 @@ package clickhouse
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2/internal/circular"
 )
+
+var errQueueEmpty = errors.New("clickhouse: connection pool queue is empty")
 
 type connPool struct {
 	mu    sync.RWMutex
@@ -70,7 +73,7 @@ func (i *connPool) Get(ctx context.Context) (nativeTransport, error) {
 		// Try to pull a connection
 		conn, ok := i.conns.Pull()
 		if !ok {
-			return nil, nil // queue is empty
+			return nil, errQueueEmpty // queue is empty
 		}
 
 		if !i.isExpired(conn) {

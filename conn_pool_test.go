@@ -75,7 +75,7 @@ func TestConnPool_GetEmpty(t *testing.T) {
 
 	ctx := context.Background()
 	conn, err := pool.Get(ctx)
-	require.NoError(t, err)
+	require.ErrorIs(t, err, errQueueEmpty)
 	assert.Nil(t, conn, "getting from empty pool should return nil")
 }
 
@@ -115,7 +115,7 @@ func TestConnPool_PutAndGet(t *testing.T) {
 
 	// Pool should be empty now
 	retrieved, err = pool.Get(ctx)
-	require.NoError(t, err)
+	require.ErrorIs(t, err, errQueueEmpty)
 	assert.Nil(t, retrieved)
 }
 
@@ -197,7 +197,7 @@ func TestConnPool_ExpiredConnectionNotReturned(t *testing.T) {
 
 	// Pool should be empty now
 	retrieved, err = pool.Get(ctx)
-	require.NoError(t, err)
+	require.ErrorIs(t, err, errQueueEmpty)
 	assert.Nil(t, retrieved)
 }
 

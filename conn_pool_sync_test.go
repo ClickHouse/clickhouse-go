@@ -60,7 +60,7 @@ func TestConnPool_ExpiredConnectionsAreDrained(t *testing.T) {
 
 		// Pool should be empty now
 		retrieved, err = pool.Get(ctx)
-		require.NoError(t, err)
+		require.ErrorIs(t, err, errQueueEmpty)
 		assert.Nil(t, retrieved)
 
 		assert.Nil(t, pool.Close())

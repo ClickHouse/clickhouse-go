@@ -311,11 +311,11 @@ func (ch *clickhouse) acquire(ctx context.Context) (conn nativeTransport, err er
 	}
 
 	conn, err = ch.idle.Get(ctx)
-	if err != nil {
+	if err != nil && !errors.Is(err, errQueueEmpty) {
 		return nil, err
 	}
 
-	if conn != nil {
+	if err == nil && conn != nil {
 		if !conn.isBad() {
 			conn.setReleased(false)
 			conn.debugf("[acquired from pool]")
