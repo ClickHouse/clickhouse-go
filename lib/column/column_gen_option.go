@@ -1,4 +1,3 @@
-
 package column
 
 import "github.com/ClickHouse/ch-go/proto"

@@ -1,4 +1,3 @@
-
 package timezone
 
 import (

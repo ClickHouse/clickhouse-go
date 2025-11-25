@@ -1,4 +1,3 @@
-
 /*
 * COPY from https://github.com/zentures/cityhash/
 
