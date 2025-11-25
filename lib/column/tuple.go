@@ -495,10 +495,25 @@ func (col *Tuple) Append(v any) (nulls []uint8, err error) {
 
 func (col *Tuple) AppendRow(v any) error {
 	// allows support of tuples where map or slice is typed and NOT any. Will fail if tuple isn't consistent
-	value := reflect.ValueOf(v)
-	if value.Kind() == reflect.Pointer {
-		value = value.Elem()
+	var value reflect.Value
+	switch v := v.(type) {
+	case reflect.Value:
+		value = v
+	default:
+		value = reflect.ValueOf(v)
 	}
+
+	// Handle nil pointers gracefully
+	if value.Kind() == reflect.Ptr {
+		if value.IsNil() {
+			// Instead of returning an error, create a zero value
+			// for the underlying type
+			value = reflect.New(value.Type().Elem()).Elem()
+		} else {
+			value = value.Elem()
+		}
+	}
+
 	switch value.Kind() {
 	case reflect.Struct:
 		if valuer, ok := v.(driver.Valuer); ok {
