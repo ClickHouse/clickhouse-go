@@ -69,4 +69,3 @@ func TestFixedStringAppendBinaryMarshaler(t *testing.T) {
 		})
 	}
 }
-

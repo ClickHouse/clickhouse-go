@@ -36,5 +36,6 @@ jobs:
       - name: Tests
         env:
           TESTCONTAINERS_RYUK_DISABLED: "true"
+          GOTOOLCHAIN: "local"
         run: |
           CLICKHOUSE_VERSION=${{ matrix.clickhouse }} make test

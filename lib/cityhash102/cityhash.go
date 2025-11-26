@@ -1,4 +1,3 @@
-
 /*
  * Go implementation of Google city hash (MIT license)
  * https://code.google.com/p/cityhash/

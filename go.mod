@@ -1,6 +1,8 @@
 module github.com/ClickHouse/clickhouse-go/v2
 
-go 1.25.3
+go 1.24.0
+
+toolchain go1.25.4
 
 require (
 	github.com/ClickHouse/ch-go v0.69.0
@@ -70,7 +72,7 @@ require (
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.19.0 // indirect
 	go.opentelemetry.io/otel/metric v1.38.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.0.0 // indirect
-	golang.org/x/crypto v0.44.0 // indirect
+	golang.org/x/crypto v0.45.0 // indirect
 	golang.org/x/sys v0.38.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

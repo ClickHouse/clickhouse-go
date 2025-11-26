@@ -1,4 +1,3 @@
-
 package column
 
 // difference returns the elements in `a` that aren't in `b`.

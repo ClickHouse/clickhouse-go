@@ -1,4 +1,3 @@
-
 package contributors
 
 import (
