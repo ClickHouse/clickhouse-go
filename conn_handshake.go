@@ -10,6 +10,7 @@ import (
 
 func (c *connect) handshake(auth Auth) error {
 	defer c.buffer.Reset()
+	c.debugf("[handshake] -> %s", proto.ClientHandshake{})
 	c.logDebug("handshake: send", "handshake", proto.ClientHandshake{})
 	// set a read deadline - alternative to context.Read operation will fail if no data is received after deadline.
 	c.conn.SetReadDeadline(time.Now().Add(c.readTimeout))
@@ -47,6 +48,7 @@ func (c *connect) handshake(auth Auth) error {
 				return err
 			}
 		case proto.ServerEndOfStream:
+			c.debugf("[handshake] <- end of stream")
 			c.logDebug("handshake: receive end of stream")
 			return nil
 		default:
@@ -59,9 +61,18 @@ func (c *connect) handshake(auth Auth) error {
 
 	if c.revision > c.server.Revision {
 		c.revision = c.server.Revision
+		c.debugf("[handshake] downgrade client proto")
 		c.logDebug("handshake: downgrade client proto")
 	}
-	c.logDebug("handshake: receive", "server", c.server)
+
+	c.debugf("[handshake] <- %s", c.server)
+	c.logDebug("handshake: receive",
+		"name", c.server.Name,
+		"display", c.server.DisplayName,
+		"version", c.server.Version,
+		"timezone", c.server.Timezone,
+	)
+
 	return nil
 }
 

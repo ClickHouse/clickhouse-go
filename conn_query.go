@@ -15,6 +15,7 @@ func (c *connect) query(ctx context.Context, release nativeTransportRelease, que
 	)
 
 	if err != nil {
+		c.debugf("[bindQuery] error: %v", err)
 		c.logError("bindQuery: error", "err", err)
 		release(c, err)
 		return nil, err
@@ -28,6 +29,7 @@ func (c *connect) query(ctx context.Context, release nativeTransportRelease, que
 	init, err := c.firstBlock(ctx, onProcess)
 
 	if err != nil {
+		c.debugf("[query] first block error: %v", err)
 		c.logError("query: first block error", "err", err)
 		release(c, err)
 		return nil, err
@@ -48,6 +50,7 @@ func (c *connect) query(ctx context.Context, release nativeTransportRelease, que
 		}
 		err := c.process(ctx, onProcess)
 		if err != nil {
+			c.debugf("[query] process error: %v", err)
 			c.logError("query: process error", "err", err)
 			errors <- err
 		}

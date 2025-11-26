@@ -23,6 +23,7 @@ func (c *connect) logs(ctx context.Context) ([]Log, error) {
 	if err != nil {
 		return nil, err
 	}
+	c.debugf("[logs] rows=%d", block.Rows())
 	c.logDebug("logs", "rows", block.Rows())
 	var (
 		logs  []Log

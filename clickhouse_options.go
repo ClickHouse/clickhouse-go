@@ -124,7 +124,7 @@ type Options struct {
 	DialStrategy         func(ctx context.Context, connID int, options *Options, dial Dial) (DialResult, error)
 	Debug                bool                          // deprecated
 	Debugf               func(format string, v ...any) // deprecated: Use LogLevel
-	LogLevel             slog.Level                    // controls the minimum level emitted by Logger. default is slog.LevelInfo.
+	LogLevel             *slog.Level                   // nil means unset; default resolves to slog.LevelInfo
 	Settings             Settings
 	Compression          *Compression
 	DialTimeout          time.Duration // default 30 second
@@ -398,8 +398,9 @@ func (o Options) setDefaults() *Options {
 			o.Addr = []string{"localhost:8123"}
 		}
 	}
-	if o.LogLevel == 0 {
-		o.LogLevel = slog.LevelInfo
+	if o.LogLevel == nil && !o.Debug {
+		level := slog.LevelInfo
+		o.LogLevel = &level
 	}
 	return &o
 }

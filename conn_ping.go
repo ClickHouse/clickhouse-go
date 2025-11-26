@@ -19,6 +19,7 @@ func (c *connect) ping(ctx context.Context) (err error) {
 		c.conn.SetDeadline(deadline)
 		defer c.conn.SetDeadline(time.Time{})
 	}
+	c.debugf("[ping] -> ping")
 	c.logDebug("ping request", "payload", "ping")
 	c.buffer.PutByte(proto.ClientPing)
 	if err := c.flush(); err != nil {
@@ -38,6 +39,7 @@ func (c *connect) ping(ctx context.Context) (err error) {
 				return err
 			}
 		case proto.ServerPong:
+			c.debugf("[ping] <- pong")
 			c.logDebug("ping response", "result", "pong")
 			return nil
 		default:

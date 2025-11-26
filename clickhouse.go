@@ -64,6 +64,11 @@ func Open(opt *Options) (driver.Conn, error) {
 	if opt == nil {
 		opt = &Options{}
 	}
+
+	if opt.Debug && opt.LogLevel != nil {
+		return nil, fmt.Errorf("clickhouse: Debug is deprecated; use LogLevel instead (cannot set both)")
+	}
+
 	o := opt.setDefaults()
 
 	conn := &clickhouse{
@@ -91,6 +96,7 @@ type nativeTransport interface {
 	connectedAtTime() time.Time
 	isReleased() bool
 	setReleased(released bool)
+	debugf(format string, v ...any)
 	logInfo(message string, args ...any)
 	logDebug(message string, args ...any)
 	logWarn(message string, args ...any)
@@ -136,6 +142,7 @@ func (ch *clickhouse) Query(ctx context.Context, query string, args ...any) (row
 	if err != nil {
 		return nil, err
 	}
+	conn.debugf("[query] \"%s\"", query)
 	conn.logDebug("query", "query", query)
 	return conn.query(ctx, ch.release, query, args...)
 }
@@ -148,6 +155,7 @@ func (ch *clickhouse) QueryRow(ctx context.Context, query string, args ...any) d
 		}
 	}
 
+	conn.debugf("[query row] \"%s\"", query)
 	conn.logDebug("query row", "query", query)
 	return conn.queryRow(ctx, ch.release, query, args...)
 }
@@ -157,6 +165,7 @@ func (ch *clickhouse) Exec(ctx context.Context, query string, args ...any) error
 	if err != nil {
 		return err
 	}
+	conn.debugf("[exec] \"%s\"", query)
 	conn.logDebug("exec", "query", query)
 
 	if asyncOpt := queryOptionsAsync(ctx); asyncOpt.ok {
@@ -179,6 +188,7 @@ func (ch *clickhouse) PrepareBatch(ctx context.Context, query string, opts ...dr
 	if err != nil {
 		return nil, err
 	}
+	conn.debugf("[prepare batch] \"%s\"", query)
 	conn.logDebug("prepare batch", "query", query)
 	batch, err := conn.prepareBatch(ctx, ch.release, ch.acquire, query, getPrepareBatchOptions(opts...))
 	if err != nil {
@@ -203,6 +213,7 @@ func (ch *clickhouse) AsyncInsert(ctx context.Context, query string, wait bool, 
 	if err != nil {
 		return err
 	}
+	conn.debugf("[async insert] \"%s\"", query)
 	conn.logDebug("async insert", "query", query)
 	if err := conn.asyncInsert(ctx, query, wait, args...); err != nil {
 		ch.release(conn, err)
@@ -217,6 +228,7 @@ func (ch *clickhouse) Ping(ctx context.Context) (err error) {
 	if err != nil {
 		return err
 	}
+	conn.debugf("[ping]")
 	conn.logDebug("ping")
 	if err := conn.ping(ctx); err != nil {
 		ch.release(conn, err)
@@ -322,7 +334,8 @@ func (ch *clickhouse) acquire(ctx context.Context) (conn nativeTransport, err er
 			}
 		}
 		conn.setReleased(false)
-		conn.logDebug("acquired from pool")
+		conn.debugf("[acquired from pool]")
+		conn.logInfo("acquired from pool")
 		return conn, nil
 	default:
 	}
@@ -333,7 +346,8 @@ func (ch *clickhouse) acquire(ctx context.Context) (conn nativeTransport, err er
 		}
 		return nil, err
 	}
-	conn.logDebug("acquired new")
+	conn.debugf("[acquired new]")
+	conn.logInfo("acquired new")
 	return conn, nil
 }
 
@@ -379,8 +393,10 @@ func (ch *clickhouse) release(conn nativeTransport, err error) {
 	conn.setReleased(true)
 
 	if err != nil {
+		conn.debugf("[released with error]")
 		conn.logDebug("released", "err", err)
 	} else {
+		conn.debugf("[released]")
 		conn.logDebug("released")
 	}
 
@@ -390,16 +406,19 @@ func (ch *clickhouse) release(conn nativeTransport, err error) {
 	}
 
 	if err != nil {
+		conn.debugf("[close: error] %s", err.Error())
 		conn.logDebug("close: error", "err", err)
 		conn.close()
 		return
 	} else if time.Since(conn.connectedAtTime()) >= ch.opt.ConnMaxLifetime {
-		conn.logDebug("close: lifetime expired")
+		conn.debugf("[close: lifetime expired]")
+		conn.logInfo("close: lifetime expired")
 		conn.close()
 		return
 	}
 
 	if ch.opt.FreeBufOnConnRelease {
+		conn.debugf("[free buffer]")
 		conn.logDebug("free buffer")
 		conn.freeBuffer()
 	}
@@ -407,7 +426,8 @@ func (ch *clickhouse) release(conn nativeTransport, err error) {
 	select {
 	case ch.idle <- conn:
 	default:
-		conn.logDebug("close: idle pool full", "idle", len(ch.idle), "capacity", cap(ch.idle))
+		conn.debugf("[close: idle pool full %d/%d]", len(ch.idle), cap(ch.idle))
+		conn.logInfo("close: idle pool full", "idle", len(ch.idle), "capacity", cap(ch.idle))
 		conn.close()
 	}
 }
@@ -416,6 +436,7 @@ func (ch *clickhouse) Close() error {
 	for {
 		select {
 		case conn := <-ch.idle:
+			conn.debugf("[close: closing pool]")
 			conn.logInfo("close: closing pool")
 			conn.close()
 		default:

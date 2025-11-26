@@ -264,6 +264,7 @@ func (b *httpBatch) Send() (err error) {
 	options.settings["query"] = b.query
 	headers["Content-Type"] = "application/octet-stream"
 
+	b.conn.debugf("[batch send start] columns=%d rows=%d", len(b.block.Columns), b.block.Rows())
 	b.conn.logDebug("batch send start", "columns", len(b.block.Columns), "rows", b.block.Rows())
 	res, err := b.conn.sendStreamQuery(b.ctx, pipeReader, &options, headers)
 	if err != nil {
@@ -271,6 +272,7 @@ func (b *httpBatch) Send() (err error) {
 	}
 	discardAndClose(res.Body)
 
+	b.conn.debugf("[batch send complete]")
 	b.conn.logDebug("batch send complete")
 	b.block.Reset()
 
