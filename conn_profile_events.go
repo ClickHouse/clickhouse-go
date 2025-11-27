@@ -23,8 +23,10 @@ func (c *connect) profileEvents(ctx context.Context, scanEvents bool) ([]Profile
 		return nil, err
 	}
 	c.debugf("[profile events] rows=%d", block.Rows())
+	c.logDebug("profile events", "rows", block.Rows())
 	if !scanEvents {
 		c.debugf("[profile events] skipping scan")
+		c.logDebug("profile events: skipping scan")
 		return nil, nil
 	}
 	var (

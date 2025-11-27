@@ -66,6 +66,11 @@ func Open(opt *Options) (driver.Conn, error) {
 	if opt == nil {
 		opt = &Options{}
 	}
+
+	if opt.Debug && opt.LogLevel != nil {
+		return nil, fmt.Errorf("clickhouse: Debug is deprecated; use LogLevel instead (cannot set both)")
+	}
+
 	o := opt.setDefaults()
 
 	conn := &clickhouse{
@@ -95,6 +100,10 @@ type nativeTransport interface {
 	isReleased() bool
 	setReleased(released bool)
 	debugf(format string, v ...any)
+	logInfo(message string, args ...any)
+	logDebug(message string, args ...any)
+	logWarn(message string, args ...any)
+	logError(message string, args ...any)
 	// freeBuffer is called if Options.FreeBufOnConnRelease is set
 	freeBuffer()
 	close() error
@@ -140,6 +149,7 @@ func (ch *clickhouse) Query(ctx context.Context, query string, args ...any) (row
 		return nil, err
 	}
 	conn.debugf("[query] \"%s\"", query)
+	conn.logDebug("query", "query", query)
 	return conn.query(ctx, ch.release, query, args...)
 }
 
@@ -152,6 +162,7 @@ func (ch *clickhouse) QueryRow(ctx context.Context, query string, args ...any) d
 	}
 
 	conn.debugf("[query row] \"%s\"", query)
+	conn.logDebug("query row", "query", query)
 	return conn.queryRow(ctx, ch.release, query, args...)
 }
 
@@ -161,6 +172,7 @@ func (ch *clickhouse) Exec(ctx context.Context, query string, args ...any) error
 		return err
 	}
 	conn.debugf("[exec] \"%s\"", query)
+	conn.logDebug("exec", "query", query)
 
 	if asyncOpt := queryOptionsAsync(ctx); asyncOpt.ok {
 		err = conn.asyncInsert(ctx, query, asyncOpt.wait, args...)
@@ -183,6 +195,7 @@ func (ch *clickhouse) PrepareBatch(ctx context.Context, query string, opts ...dr
 		return nil, err
 	}
 	conn.debugf("[prepare batch] \"%s\"", query)
+	conn.logDebug("prepare batch", "query", query)
 	batch, err := conn.prepareBatch(ctx, ch.release, ch.acquire, query, getPrepareBatchOptions(opts...))
 	if err != nil {
 		return nil, err
@@ -207,6 +220,7 @@ func (ch *clickhouse) AsyncInsert(ctx context.Context, query string, wait bool, 
 		return err
 	}
 	conn.debugf("[async insert] \"%s\"", query)
+	conn.logDebug("async insert", "query", query)
 	if err := conn.asyncInsert(ctx, query, wait, args...); err != nil {
 		ch.release(conn, err)
 		return err
@@ -221,6 +235,7 @@ func (ch *clickhouse) Ping(ctx context.Context) (err error) {
 		return err
 	}
 	conn.debugf("[ping]")
+	conn.logDebug("ping")
 	if err := conn.ping(ctx); err != nil {
 		ch.release(conn, err)
 		return err
@@ -335,6 +350,7 @@ func (ch *clickhouse) acquire(ctx context.Context) (conn nativeTransport, err er
 	}
 
 	conn.debugf("[acquired new]")
+	conn.logInfo("acquired new")
 	return conn, nil
 
 }
@@ -347,8 +363,10 @@ func (ch *clickhouse) release(conn nativeTransport, err error) {
 
 	if err != nil {
 		conn.debugf("[released with error]")
+		conn.logDebug("released", "err", err)
 	} else {
 		conn.debugf("[released]")
+		conn.logDebug("released")
 	}
 
 	select {
@@ -358,16 +376,19 @@ func (ch *clickhouse) release(conn nativeTransport, err error) {
 
 	if err != nil {
 		conn.debugf("[close: error] %s", err.Error())
+		conn.logDebug("close: error", "err", err)
 		conn.close()
 		return
 	} else if time.Since(conn.connectedAtTime()) >= ch.opt.ConnMaxLifetime {
 		conn.debugf("[close: lifetime expired]")
+		conn.logInfo("close: lifetime expired")
 		conn.close()
 		return
 	}
 
 	if ch.opt.FreeBufOnConnRelease {
 		conn.debugf("[free buffer]")
+		conn.logDebug("free buffer")
 		conn.freeBuffer()
 	}
 

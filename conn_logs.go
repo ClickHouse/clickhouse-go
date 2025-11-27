@@ -24,6 +24,7 @@ func (c *connect) logs(ctx context.Context) ([]Log, error) {
 		return nil, err
 	}
 	c.debugf("[logs] rows=%d", block.Rows())
+	c.logDebug("logs", "rows", block.Rows())
 	var (
 		logs  []Log
 		names = block.ColumnsNames()
