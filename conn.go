@@ -296,12 +296,12 @@ func (c *connect) sendData(block *proto.Block, name string) error {
 	compressionOffset := len(c.buffer.Buf)
 
 	if err := block.EncodeHeader(c.buffer, c.revision); err != nil {
-		return err
+		return fmt.Errorf("send data: failed to encode block header (conn_id=%d): %w", c.id, err)
 	}
 
 	for i := range block.Columns {
 		if err := block.EncodeColumn(c.buffer, c.revision, i); err != nil {
-			return err
+			return fmt.Errorf("send data: failed to encode column %d (conn_id=%d): %w", i, c.id, err)
 		}
 		if len(c.buffer.Buf) >= c.maxCompressionBuffer {
 			if err := c.compressBuffer(compressionOffset); err != nil {
@@ -309,7 +309,7 @@ func (c *connect) sendData(block *proto.Block, name string) error {
 			}
 			c.debugf("[buff compress] buffer size: %d", len(c.buffer.Buf))
 			if err := c.flush(); err != nil {
-				return err
+				return fmt.Errorf("send data: failed to flush partial block (conn_id=%d, col=%d): %w", c.id, i, err)
 			}
 			compressionOffset = 0
 		}
@@ -324,13 +324,18 @@ func (c *connect) sendData(block *proto.Block, name string) error {
 		case errors.Is(err, syscall.EPIPE):
 			c.debugf("[send data] pipe is broken, closing connection")
 			c.setClosed()
+			return fmt.Errorf("send data: connection broken (EPIPE) to %s (conn_id=%d, block_cols=%d, block_rows=%d): %w",
+				c.conn.RemoteAddr(), c.id, len(block.Columns), block.Rows(), err)
 		case errors.Is(err, io.EOF):
 			c.debugf("[send data] unexpected EOF, closing connection")
 			c.setClosed()
+			return fmt.Errorf("send data: unexpected EOF to %s (conn_id=%d, block_cols=%d, block_rows=%d): %w",
+				c.conn.RemoteAddr(), c.id, len(block.Columns), block.Rows(), err)
 		default:
 			c.debugf("[send data] unexpected error: %v", err)
+			return fmt.Errorf("send data: write error to %s (conn_id=%d, block_cols=%d, block_rows=%d): %w",
+				c.conn.RemoteAddr(), c.id, len(block.Columns), block.Rows(), err)
 		}
-		return err
 	}
 
 	defer func() {
@@ -365,7 +370,8 @@ func (c *connect) readData(ctx context.Context, packet byte, compressible bool) 
 
 	if _, err := c.reader.Str(); err != nil {
 		c.debugf("[read data] str error: %v", err)
-		return nil, err
+		return nil, fmt.Errorf("read data: failed to read block name from %s (conn_id=%d): %w",
+			c.conn.RemoteAddr(), c.id, err)
 	}
 
 	if compressible && c.compression != CompressionNone {
@@ -384,7 +390,8 @@ func (c *connect) readData(ctx context.Context, packet byte, compressible bool) 
 	block := proto.Block{ServerContext: &serverContext}
 	if err := block.Decode(c.reader, c.revision); err != nil {
 		c.debugf("[read data] decode error: %v", err)
-		return nil, err
+		return nil, fmt.Errorf("read data: failed to decode block from %s (conn_id=%d, compression=%s): %w",
+			c.conn.RemoteAddr(), c.id, c.compression, err)
 	}
 
 	block.Packet = packet
