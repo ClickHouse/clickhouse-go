@@ -440,17 +440,22 @@ func (h *httpConnect) readData(reader *chproto.Reader, timezone *time.Location, 
 		// The decode error typically happens because it tries to read the
 		// "__exception__" marker as binary data
 
+		// Exception block size can be up to 16KiB max.
+		// https://clickhouse.com/docs/interfaces/http#http_response_codes_caveats
+		// NOTE: When exception happens, a dedicated block is allocated for exception and only
+		// that exception will be present in the block. So safe to assume whole block size is same
+		// exception block max size 16KiB.
+		maxSize := int64(16 * 1024)
+
 		// Try to read any remaining data
-		lr := &limitedReader{reader: reader, limit: 100 * 1024}
-		buf := make([]byte, 4096)
-		for {
-			n, readErr := lr.Read(buf)
-			if n > 0 && captureBuffer != nil {
-				captureBuffer.Write(buf[:n])
-			}
-			if readErr != nil {
-				break
-			}
+		lr := &limitedReader{reader: reader, limit: 2 * maxSize} // allocating 2 * maxSize for just in case
+		buf := make([]byte, maxSize)
+		n, readErr := lr.Read(buf)
+		if n > 0 && captureBuffer != nil {
+			captureBuffer.Write(buf[:n])
+		}
+		if readErr != nil {
+			h.debugf("[readData]: decoding block failed when parsing exception block: %w", err)
 		}
 
 		// Check if the captured data contains the exception marker
@@ -460,7 +465,7 @@ func (h *httpConnect) readData(reader *chproto.Reader, timezone *time.Location, 
 		}
 
 		// Not an exception, return the original decode error
-		return nil, fmt.Errorf("block decode: %w", err)
+		return nil, fmt.Errorf("block decode for exception: %w", err)
 	}
 	return &block, nil
 }
@@ -499,34 +504,35 @@ func (lr *limitedReader) Read(p []byte) (n int, err error) {
 //	__exception__
 //	\r\n
 func parseExceptionFromBytes(data []byte) error {
+	const (
+		exceptionMarker    = "__exception__"
+		exceptionMarkerLen = len(exceptionMarker)
+		exceptionTagLen    = 16 // bytes
+	)
+
 	dataStr := string(data)
 
-	// Verify exception marker exists
-	if !strings.Contains(dataStr, "__exception__") {
-		return fmt.Errorf("exception marker not found in response")
-	}
-
 	// Find the first __exception__ marker
-	firstMarker := strings.Index(dataStr, "__exception__")
+	firstMarker := strings.Index(dataStr, exceptionMarker)
 	if firstMarker < 0 {
 		return fmt.Errorf("exception marker not found")
 	}
 
 	// Skip past first __exception__\r\n
-	pos := firstMarker + len("__exception__")
+	pos := firstMarker + exceptionMarkerLen
 	// Skip \r\n after first marker
 	if pos+2 < len(dataStr) && dataStr[pos:pos+2] == "\r\n" {
 		pos += 2
 	}
 
 	// Skip the exception tag (16 bytes) + \r\n
-	if pos+16+2 < len(dataStr) {
-		pos += 16 + 2 // tag + \r\n
+	if pos+exceptionTagLen+2 < len(dataStr) {
+		pos += exceptionTagLen + 2 // tag + \r\n
 	}
 
 	// Now we're at the start of the error message
 	// Find the second __exception__ marker
-	secondMarker := strings.Index(dataStr[pos:], "__exception__")
+	secondMarker := strings.Index(dataStr[pos:], exceptionMarker)
 	if secondMarker < 0 {
 		// If we can't find second marker, just extract what we can
 		errorMsg := strings.TrimSpace(dataStr[pos:])
