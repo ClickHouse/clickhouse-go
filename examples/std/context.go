@@ -92,5 +92,8 @@ func UseContext() error {
 			cancel()
 		}
 	}
+	if err := rows.Err(); err != nil {
+		return err	
+	}
 	return nil
 }
