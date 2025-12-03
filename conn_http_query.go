@@ -29,6 +29,7 @@ func (r *capturingReader) Read(p []byte) (n int, err error) {
 // release is ignored, because http used by std with empty release function
 func (h *httpConnect) query(ctx context.Context, release nativeTransportRelease, query string, args ...any) (*rows, error) {
 	h.debugf("[http query] \"%s\"", query)
+	h.logDebug("http query", "query", query)
 	options := queryOptions(ctx)
 	query, err := bindQueryOrAppendParameters(true, &options, query, h.handshake.Timezone, args...)
 	if err != nil {

@@ -538,6 +538,30 @@ func (m *mockTransport) debugf(format string, v ...any) {
 	m.debugMessages = append(m.debugMessages, fmt.Sprintf(format, v...))
 }
 
+func (m *mockTransport) logInfo(message string, args ...any) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.debugMessages = append(m.debugMessages, fmt.Sprintf("[info] %s: %v", message, args))
+}
+
+func (m *mockTransport) logDebug(message string, args ...any) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.debugMessages = append(m.debugMessages, fmt.Sprintf("[debug] %s: %v", message, args))
+}
+
+func (m *mockTransport) logWarn(message string, args ...any) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.debugMessages = append(m.debugMessages, fmt.Sprintf("[warn] %s: %v", message, args))
+}
+
+func (m *mockTransport) logError(message string, args ...any) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.debugMessages = append(m.debugMessages, fmt.Sprintf("[error] %s: %v", message, args))
+}
+
 func (m *mockTransport) freeBuffer() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
