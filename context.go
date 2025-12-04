@@ -32,6 +32,25 @@ type ColumnNameAndType struct {
 }
 
 type Parameters map[string]string
+
+// Parameter wraps a value with its ClickHouse type for server-side parameter binding.
+// Use Param() to create Parameter instances.
+type Parameter struct {
+	Value  any
+	CHType string
+}
+
+// Param creates a Parameter with the given value and ClickHouse type.
+// This enables server-side parameter binding when used with ? or $N placeholders.
+//
+// Example:
+//
+//	conn.Query("SELECT * FROM test WHERE id = ?", clickhouse.Param(123, "Int64"))
+//	conn.Query("SELECT * FROM test WHERE name = $1", clickhouse.Param("John", "String"))
+func Param(value any, chType string) Parameter {
+	return Parameter{Value: value, CHType: chType}
+}
+
 type (
 	QueryOption  func(*QueryOptions) error
 	AsyncOptions struct {
