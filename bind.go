@@ -252,10 +252,14 @@ func formatTime(tz *time.Location, scale TimeUnit, value time.Time) (string, err
 		}
 		return fmt.Sprintf("toDateTime64('%s', %d)", value.Format(fmt.Sprintf("2006-01-02 15:04:05.%0*d", int(scale*3), 0)), int(scale*3)), nil
 	}
+
+	// Escape the timezone string (timezone may contain malicious SQL query)
+	escapedTimezone := stringQuoteReplacer.Replace(value.Location().String())
+	// escapedTimezone := value.Location().String()
 	if scale == Seconds {
-		return fmt.Sprintf("toDateTime('%s', '%s')", value.Format("2006-01-02 15:04:05"), value.Location().String()), nil
+		return fmt.Sprintf("toDateTime('%s', '%s')", value.Format("2006-01-02 15:04:05"), escapedTimezone), nil
 	}
-	return fmt.Sprintf("toDateTime64('%s', %d, '%s')", value.Format(fmt.Sprintf("2006-01-02 15:04:05.%0*d", int(scale*3), 0)), int(scale*3), value.Location().String()), nil
+	return fmt.Sprintf("toDateTime64('%s', %d, '%s')", value.Format(fmt.Sprintf("2006-01-02 15:04:05.%0*d", int(scale*3), 0)), int(scale*3), escapedTimezone), nil
 }
 
 var stringQuoteReplacer = strings.NewReplacer(`\`, `\\`, `'`, `\'`)
