@@ -137,6 +137,11 @@ type Options struct {
 	BlockBufferSize      uint8             // default 2 - can be overwritten on query
 	MaxCompressionBuffer int               // default 10485760 - measured in bytes  i.e.
 
+	// PreferServerSideBinding enables server-side parameter binding when using ? or $N placeholders
+	// with Parameter-wrapped values. When true, queries will be converted to use {name:Type} syntax
+	// and sent to the server for binding. This will be the default in future versions.
+	PreferServerSideBinding bool
+
 	// HTTPProxy specifies an HTTP proxy URL to use for requests made by the client.
 	HTTPProxyURL *url.URL
 
@@ -324,6 +329,8 @@ func (o *Options) fromDSN(in string) error {
 				path = "/" + path
 			}
 			o.HttpUrlPath = path
+		case "prefer_server_side_binding":
+			o.PreferServerSideBinding, _ = strconv.ParseBool(params.Get(v))
 		default:
 			switch p := strings.ToLower(params.Get(v)); p {
 			case "true":
