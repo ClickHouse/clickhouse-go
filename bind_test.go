@@ -333,19 +333,13 @@ func TestFormatMap(t *testing.T) {
 func TestTimezoneSQLEscaping(t *testing.T) {
 	t.Run("prevent SQL injection via timezone name", func(t *testing.T) {
 		maliciousLoc := time.FixedZone("UTC') UNION ALL SELECT 1,2,3 --", 0)
+		time.LoadLocation(maliciousLoc.String())
 		maliciousTime := time.Now().In(maliciousLoc)
 
 		val, err := format(time.UTC, Seconds, maliciousTime)
-		require.NoError(t, err)
-
-		// The single quote should be escaped with backslash
-		// Expected format: toDateTime('...', 'UTC\') UNION ALL SELECT 1,2,3 --')
-		// The \' makes it part of the string literal, not SQL code
-		expectedEscaped := `'UTC\') UNION ALL SELECT 1,2,3 --'`
-		assert.Contains(t, val, expectedEscaped, "Single quotes in timezone name should be escaped with backslash")
-
-		// Verify it's in a toDateTime function call
-		assert.Contains(t, val, "toDateTime(")
+		require.Error(t, err)
+		assert.Equal(t, "", val)
+		assert.ErrorIs(t, err, ErrInvalidTimezone)
 	})
 
 	t.Run("prevent SQL injection via timezone name with milliseconds", func(t *testing.T) {
@@ -353,14 +347,9 @@ func TestTimezoneSQLEscaping(t *testing.T) {
 		maliciousTime := time.Now().In(maliciousLoc)
 
 		val, err := format(time.UTC, MilliSeconds, maliciousTime)
-		require.NoError(t, err)
-
-		// Should be properly escaped: 'America/New_York\'); DROP TABLE users; --'
-		expectedEscaped := `'America/New_York\'); DROP TABLE users; --'`
-		assert.Contains(t, val, expectedEscaped, "Single quotes should be escaped")
-
-		// Verify it's in a toDateTime64 function call
-		assert.Contains(t, val, "toDateTime64(")
+		require.Error(t, err)
+		assert.Equal(t, "", val)
+		assert.ErrorIs(t, err, ErrInvalidTimezone)
 	})
 
 	t.Run("prevent SQL injection via timezone with backslashes", func(t *testing.T) {
@@ -368,12 +357,10 @@ func TestTimezoneSQLEscaping(t *testing.T) {
 		maliciousTime := time.Now().In(maliciousLoc)
 
 		val, err := format(time.UTC, Seconds, maliciousTime)
-		require.NoError(t, err)
-
-		// Backslashes should be escaped to \\ and quotes to \'
-		// Expected: 'UTC\\\' OR 1=1 --'
-		expectedEscaped := `'UTC\\\' OR 1=1 --'`
-		assert.Contains(t, val, expectedEscaped, "Backslashes and quotes should both be escaped")
+		// require.NoError(t, err)
+		require.Error(t, err)
+		assert.Equal(t, "", val)
+		assert.ErrorIs(t, err, ErrInvalidTimezone)
 	})
 
 	t.Run("normal timezone names remain unaffected", func(t *testing.T) {
@@ -387,6 +374,7 @@ func TestTimezoneSQLEscaping(t *testing.T) {
 		// Should contain the timezone name without any escaping
 		assert.Contains(t, val, "'America/New_York'")
 		assert.NotContains(t, val, `\'`, "Normal timezone names should not have escaped quotes")
+		assert.Contains(t, val, "toDateTime(")
 	})
 }
 
