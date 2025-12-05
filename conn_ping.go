@@ -22,13 +22,15 @@ func (c *connect) ping(ctx context.Context) (err error) {
 	c.debugf("[ping] -> ping")
 	c.buffer.PutByte(proto.ClientPing)
 	if err := c.flush(); err != nil {
-		return err
+		return fmt.Errorf("ping: failed to send ping to %s (conn_id=%d): %w",
+			c.conn.RemoteAddr(), c.id, err)
 	}
 
 	var packet byte
 	for {
 		if packet, err = c.reader.ReadByte(); err != nil {
-			return err
+			return fmt.Errorf("ping: failed to read packet from %s (conn_id=%d, age=%s): %w",
+				c.conn.RemoteAddr(), c.id, time.Since(c.connectedAt).Round(time.Second), err)
 		}
 		switch packet {
 		case proto.ServerException:

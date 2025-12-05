@@ -67,7 +67,8 @@ func (c *connect) firstBlockImpl(ctx context.Context, on *onProcess) (*proto.Blo
 
 		packet, err := c.reader.ReadByte()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("query processing: failed to read first block packet from %s (conn_id=%d): %w",
+				c.conn.RemoteAddr(), c.id, err)
 		}
 
 		switch packet {
@@ -140,7 +141,8 @@ func (c *connect) processImpl(ctx context.Context, on *onProcess) error {
 
 		packet, err := c.reader.ReadByte()
 		if err != nil {
-			return err
+			return fmt.Errorf("query processing: failed to read packet from %s (conn_id=%d): %w",
+				c.conn.RemoteAddr(), c.id, err)
 		}
 
 		switch packet {

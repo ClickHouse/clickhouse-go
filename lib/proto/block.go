@@ -185,7 +185,7 @@ func (b *Block) Decode(reader *proto.Reader, revision uint64) (err error) {
 	if numRows > 1_000_000_000 {
 		return &BlockError{
 			Op:  "Decode",
-			Err: errors.New("more then 1 billion rows in block - suspiciously big - preventing OOM"),
+			Err: errors.New("more than 1 billion rows in block - suspiciously big - preventing OOM"),
 		}
 	}
 	b.Columns = make([]column.Interface, numCols, numCols)
