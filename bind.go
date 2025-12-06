@@ -2,6 +2,7 @@ package clickhouse
 
 import (
 	std_driver "database/sql/driver"
+	"errors"
 	"fmt"
 	"reflect"
 	"regexp"
@@ -10,6 +11,10 @@ import (
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+)
+
+var (
+	ErrInvalidTimezone = errors.New("invalid timezone value")
 )
 
 func Named(name string, value any) driver.NamedValue {
@@ -228,7 +233,9 @@ func bindNamed(tz *time.Location, query string, args ...any) (_ string, err erro
 }
 
 func formatTime(tz *time.Location, scale TimeUnit, value time.Time) (string, error) {
-	switch value.Location().String() {
+	locVal := value.Location().String()
+
+	switch locVal {
 	case "Local", "":
 		// It's required to pass timestamp as string due to decimal overflow for higher precision,
 		// but zero-value string "toDateTime('0')" will be not parsed by ClickHouse.
@@ -252,10 +259,17 @@ func formatTime(tz *time.Location, scale TimeUnit, value time.Time) (string, err
 		}
 		return fmt.Sprintf("toDateTime64('%s', %d)", value.Format(fmt.Sprintf("2006-01-02 15:04:05.%0*d", int(scale*3), 0)), int(scale*3)), nil
 	}
-	if scale == Seconds {
-		return fmt.Sprintf("toDateTime('%s', '%s')", value.Format("2006-01-02 15:04:05"), value.Location().String()), nil
+
+	// Escape the timezone string (timezone may contain malicious SQL query)
+	escapedTimezone := stringQuoteReplacer.Replace(locVal)
+	if locVal != escapedTimezone {
+		return "", fmt.Errorf("%w: %q", ErrInvalidTimezone, locVal)
 	}
-	return fmt.Sprintf("toDateTime64('%s', %d, '%s')", value.Format(fmt.Sprintf("2006-01-02 15:04:05.%0*d", int(scale*3), 0)), int(scale*3), value.Location().String()), nil
+
+	if scale == Seconds {
+		return fmt.Sprintf("toDateTime('%s', '%s')", value.Format("2006-01-02 15:04:05"), escapedTimezone), nil
+	}
+	return fmt.Sprintf("toDateTime64('%s', %d, '%s')", value.Format(fmt.Sprintf("2006-01-02 15:04:05.%0*d", int(scale*3), 0)), int(scale*3), escapedTimezone), nil
 }
 
 var stringQuoteReplacer = strings.NewReplacer(`\`, `\\`, `'`, `\'`)
