@@ -330,6 +330,54 @@ func TestFormatMap(t *testing.T) {
 	assert.Equal(t, "map('a', 1)", val)
 }
 
+func TestTimezoneSQLEscaping(t *testing.T) {
+	t.Run("prevent SQL injection via timezone name", func(t *testing.T) {
+		maliciousLoc := time.FixedZone("UTC') UNION ALL SELECT 1,2,3 --", 0)
+		time.LoadLocation(maliciousLoc.String())
+		maliciousTime := time.Now().In(maliciousLoc)
+
+		val, err := format(time.UTC, Seconds, maliciousTime)
+		require.Error(t, err)
+		assert.Equal(t, "", val)
+		assert.ErrorIs(t, err, ErrInvalidTimezone)
+	})
+
+	t.Run("prevent SQL injection via timezone name with milliseconds", func(t *testing.T) {
+		maliciousLoc := time.FixedZone("America/New_York'); DROP TABLE users; --", 0)
+		maliciousTime := time.Now().In(maliciousLoc)
+
+		val, err := format(time.UTC, MilliSeconds, maliciousTime)
+		require.Error(t, err)
+		assert.Equal(t, "", val)
+		assert.ErrorIs(t, err, ErrInvalidTimezone)
+	})
+
+	t.Run("prevent SQL injection via timezone with backslashes", func(t *testing.T) {
+		maliciousLoc := time.FixedZone(`UTC\' OR 1=1 --`, 0)
+		maliciousTime := time.Now().In(maliciousLoc)
+
+		val, err := format(time.UTC, Seconds, maliciousTime)
+		// require.NoError(t, err)
+		require.Error(t, err)
+		assert.Equal(t, "", val)
+		assert.ErrorIs(t, err, ErrInvalidTimezone)
+	})
+
+	t.Run("normal timezone names remain unaffected", func(t *testing.T) {
+		// Test that normal, safe timezone names still work correctly
+		normalLoc := time.FixedZone("America/New_York", -5*3600)
+		normalTime := time.Now().In(normalLoc)
+
+		val, err := format(time.UTC, Seconds, normalTime)
+		require.NoError(t, err)
+
+		// Should contain the timezone name without any escaping
+		assert.Contains(t, val, "'America/New_York'")
+		assert.NotContains(t, val, `\'`, "Normal timezone names should not have escaped quotes")
+		assert.Contains(t, val, "toDateTime(")
+	})
+}
+
 // a simple (non thread safe) ordered map, implementing the column.OrderedMap interface
 type OrderedMap struct {
 	keys   []any
