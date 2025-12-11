@@ -19,6 +19,7 @@ func (c *connect) connCheck() error {
 	var sysErr error
 	sysConn, ok := conn.(syscall.Conn)
 	if !ok {
+		c.debugf("[connCheck] success: from %s -> %s", conn.LocalAddr(), conn.RemoteAddr())
 		return nil
 	}
 	rawConn, err := sysConn.SyscallConn()
