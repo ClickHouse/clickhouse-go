@@ -103,7 +103,9 @@ func (rw *HTTPReaderWriter) reset(pw *io.PipeWriter) io.WriteCloser {
 
 // applyOptionsToRequest applies the client Options (such as auth, headers, client info) to the given http.Request
 func applyOptionsToRequest(ctx context.Context, req *http.Request, opt *Options) error {
-	jwt := queryOptionsJWT(ctx)
+	queryOpt := queryOptions(ctx)
+
+	jwt := queryOpt.jwt
 	useJWT := jwt != "" || useJWTAuth(opt)
 
 	if opt.TLS != nil && useJWT {
@@ -133,7 +135,7 @@ func applyOptionsToRequest(ctx context.Context, req *http.Request, opt *Options)
 		}
 	}
 
-	req.Header.Set("User-Agent", opt.ClientInfo.String())
+	req.Header.Set("User-Agent", opt.ClientInfo.Append(queryOpt.clientInfo).String())
 
 	for k, v := range opt.HttpHeaders {
 		req.Header.Set(k, v)
