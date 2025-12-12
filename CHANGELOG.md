@@ -1,3 +1,31 @@
+# v2.42.0, 2025-12-12 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+
+### Enhancements 🎉
+* Add context option to append more ClientInfo to the system.query_log by @SpencerTorres in https://github.com/ClickHouse/clickhouse-go/pull/1736
+* refactor: idle pool and fix non-deterministic teardown of idle cleanup goroutine by @GeorgeMac in https://github.com/ClickHouse/clickhouse-go/pull/1687
+* chore: Improve EOF error messages. by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1723
+* feat: Add support for proper exception handling by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1694
+
+### Bug Fixes :bug: 
+* bug: Fix `formatTime` escaping by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1727
+
+### Other Changes 🛠
+* chore(release): Workflow Authentication by @juliojimenez in https://github.com/ClickHouse/clickhouse-go/pull/1718
+* Bump golang.org/x/crypto from 0.44.0 to 0.45.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1717
+* Fix #1719: Fix invalid links and add link checking for PRs by @tsics in https://github.com/ClickHouse/clickhouse-go/pull/1720
+* fix: restore minimal Go version to 1.24 by @vincentbernat in https://github.com/ClickHouse/clickhouse-go/pull/172
+* chore(deps): bump golang.org/x/net from 0.47.0 to 0.48.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1733
+* chore(deps): bump go.opentelemetry.io/otel/trace from 1.38.0 to 1.39.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1734
+
+## New Contributors
+* @juliojimenez made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1718
+* @tsics made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1720
+* @GeorgeMac made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1687
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.41.0...v2.42.0
+
 # v2.41.0, 2025-11-20 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed

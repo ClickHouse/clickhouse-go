@@ -13,7 +13,7 @@ const ClientName = "clickhouse-go"
 
 const (
 	ClientVersionMajor       = 2
-	ClientVersionMinor       = 41
+	ClientVersionMinor       = 42
 	ClientVersionPatch       = 0
 	ClientTCPProtocolVersion = proto.DBMS_TCP_PROTOCOL_VERSION
 )
@@ -73,7 +73,7 @@ func (o ClientInfo) String() string {
 	lvMeta := "lv:go/" + runtime.Version()[2:]
 	osMeta := "os:" + runtime.GOOS
 
-	chunks := make([]string, 0, len(info.Comment) + 2)
+	chunks := make([]string, 0, len(info.Comment)+2)
 	chunks = append(chunks, info.Comment...)
 	chunks = append(chunks, lvMeta, osMeta)
 
