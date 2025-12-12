@@ -11,7 +11,7 @@ func (c *connect) sendQuery(body string, o *QueryOptions) error {
 	c.buffer.PutByte(proto.ClientQuery)
 	q := proto.Query{
 		ClientTCPProtocolVersion: ClientTCPProtocolVersion,
-		ClientName:               c.opt.ClientInfo.String(),
+		ClientName:               c.opt.ClientInfo.Append(o.clientInfo).String(),
 		ClientVersion:            proto.Version{ClientVersionMajor, ClientVersionMinor, ClientVersionPatch}, //nolint:govet
 		ID:                       o.queryID,
 		Body:                     body,

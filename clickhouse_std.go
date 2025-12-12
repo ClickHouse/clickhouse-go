@@ -203,7 +203,7 @@ func (std *stdDriver) Open(dsn string) (_ driver.Conn, err error) {
 	if o.Debug {
 		debugf = log.New(os.Stdout, "[clickhouse-std][opener] ", 0).Printf
 	}
-	o.ClientInfo.comment = []string{"database/sql"}
+	o.ClientInfo.Comment = []string{"database/sql"}
 	return (&stdConnOpener{opt: o, debugf: debugf}).Connect(context.Background())
 }
 
