@@ -2,6 +2,7 @@ package std
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -93,8 +94,12 @@ func UseContext() error {
 		}
 	}
 	// query is cancelled using Context, so rows.Err() will return context canceled error
-	if err := rows.Err(); err == nil {
-		return fmt.Errorf("expected cancel")
+	if err := rows.Err(); err != nil {
+		if errors.Is(err, context.Canceled) {
+			// expected cancellation after col2 == 3
+			return nil
+		}
+		return err
 	}
 	return nil
 }
