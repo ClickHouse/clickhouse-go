@@ -92,8 +92,9 @@ func UseContext() error {
 			cancel()
 		}
 	}
-	if err := rows.Err(); err != nil {
-		return err	
+	// query is cancelled using Context, so rows.Err() will return context canceled error
+	if err := rows.Err(); err == nil {
+		return fmt.Errorf("expected cancel")
 	}
 	return nil
 }
