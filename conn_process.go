@@ -77,6 +77,7 @@ func (c *connect) firstBlockImpl(ctx context.Context, on *onProcess) (*proto.Blo
 
 		case proto.ServerEndOfStream:
 			c.debugf("[end of stream]")
+			c.logDebug("end of stream")
 			return nil, io.EOF
 
 		default:
@@ -148,6 +149,7 @@ func (c *connect) processImpl(ctx context.Context, on *onProcess) error {
 		switch packet {
 		case proto.ServerEndOfStream:
 			c.debugf("[end of stream]")
+			c.logDebug("end of stream")
 			return nil
 		}
 
@@ -177,7 +179,17 @@ func (c *connect) handle(ctx context.Context, packet byte, on *onProcess) error 
 		if err := info.Decode(c.reader, c.revision); err != nil {
 			return err
 		}
+
 		c.debugf("[profile info] %s", &info)
+		c.logDebug("profile info",
+			"rows", info.Rows,
+			"bytes", info.Bytes,
+			"blocks", info.Blocks,
+			"applied_limit", info.AppliedLimit,
+			"rows_before_limit", info.RowsBeforeLimit,
+			"calculated_rows_before_limit", info.CalculatedRowsBeforeLimit,
+		)
+
 		on.profileInfo(&info)
 	case proto.ServerTableColumns:
 		var info proto.TableColumns
@@ -185,6 +197,7 @@ func (c *connect) handle(ctx context.Context, packet byte, on *onProcess) error 
 			return err
 		}
 		c.debugf("[table columns]")
+		c.logDebug("table columns")
 	case proto.ServerProfileEvents:
 		scanEvents := on.profileEvents != nil
 		events, err := c.profileEvents(ctx, scanEvents)
@@ -206,6 +219,14 @@ func (c *connect) handle(ctx context.Context, packet byte, on *onProcess) error 
 			return err
 		}
 		c.debugf("[progress] %s", progress)
+		c.logDebug("progress",
+			"rows", progress.Rows,
+			"bytes", progress.Bytes,
+			"total_rows", progress.TotalRows,
+			"wrote_rows", progress.WroteRows,
+			"wrote_bytes", progress.WroteBytes,
+			"elapsed", progress.Elapsed,
+		)
 		on.progress(progress)
 	default:
 		return &OpError{
@@ -218,6 +239,7 @@ func (c *connect) handle(ctx context.Context, packet byte, on *onProcess) error 
 
 func (c *connect) cancel() error {
 	c.debugf("[cancel]")
+	c.logDebug("cancel")
 	c.buffer.PutUVarInt(proto.ClientCancel)
 	wErr := c.flush()
 	// don't reuse a cancelled query as we don't drain the connection

@@ -3,12 +3,13 @@ package clickhouse
 import (
 	"context"
 	"fmt"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 	"io"
 	"os"
 	"slices"
+
+	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 
 func fetchColumnNamesAndTypesForInsert(h *httpConnect, release nativeTransportRelease, ctx context.Context, tableName string, requestedColumnNames []string) ([]ColumnNameAndType, error) {
@@ -264,6 +265,7 @@ func (b *httpBatch) Send() (err error) {
 	headers["Content-Type"] = "application/octet-stream"
 
 	b.conn.debugf("[batch send start] columns=%d rows=%d", len(b.block.Columns), b.block.Rows())
+	b.conn.logDebug("batch send start", "columns", len(b.block.Columns), "rows", b.block.Rows())
 	res, err := b.conn.sendStreamQuery(b.ctx, pipeReader, &options, headers)
 	if err != nil {
 		return fmt.Errorf("batch sendStreamQuery: %w", err)
@@ -271,6 +273,7 @@ func (b *httpBatch) Send() (err error) {
 	discardAndClose(res.Body)
 
 	b.conn.debugf("[batch send complete]")
+	b.conn.logDebug("batch send complete")
 	b.block.Reset()
 
 	return nil

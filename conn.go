@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	"io"
 	"log"
 	"net"
@@ -13,6 +12,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 
 	"github.com/ClickHouse/clickhouse-go/v2/resources"
 
@@ -23,9 +24,10 @@ import (
 
 func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, error) {
 	var (
-		err    error
-		conn   net.Conn
-		debugf = func(format string, v ...any) {}
+		err     error
+		conn    net.Conn
+		debugf  = func(format string, v ...any) {}
+		logcore *logCore
 	)
 
 	switch {
@@ -43,7 +45,6 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 	if err != nil {
 		return nil, err
 	}
-
 	if opt.Debug {
 		if opt.Debugf != nil {
 			debugf = func(format string, v ...any) {
@@ -55,6 +56,14 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 		} else {
 			debugf = log.New(os.Stdout, fmt.Sprintf("[clickhouse][%s][id=%d]", conn.RemoteAddr(), num), 0).Printf
 		}
+	} else {
+		common := []any{
+			"driver", "clickhouse",
+			"addr", conn.RemoteAddr().String(),
+			"id", num,
+		}
+
+		logcore = initLogger(*opt.LogLevel, common)
 	}
 
 	var (
@@ -81,6 +90,7 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 			opt:                  opt,
 			conn:                 conn,
 			debugfFunc:           debugf,
+			logc:                 logcore,
 			buffer:               new(chproto.Buffer),
 			reader:               chproto.NewReader(conn),
 			revision:             ClientTCPProtocolVersion,
@@ -118,6 +128,7 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 	// warn only on the first connection in the pool
 	if num == 1 && !resources.ClientMeta.IsSupportedClickHouseVersion(connect.server.Version) {
 		debugf("[handshake] WARNING: version %v of ClickHouse is not supported by this client - client supports %v", connect.server.Version, resources.ClientMeta.SupportedVersions())
+		connect.logWarn("handshake: unsupported server version", "server_version", connect.server.Version, "supported_versions", resources.ClientMeta.SupportedVersions())
 	}
 
 	return connect, nil
@@ -129,6 +140,7 @@ type connect struct {
 	opt                  *Options
 	conn                 net.Conn
 	debugfFunc           func(format string, v ...any)
+	logc                 *logCore
 	server               ServerVersion
 	closed               bool
 	buffer               *chproto.Buffer
@@ -144,6 +156,30 @@ type connect struct {
 	maxCompressionBuffer int
 	readerMutex          sync.Mutex
 	closeMutex           sync.Mutex
+}
+
+func (c *connect) logInfo(message string, args ...any) {
+	if c.logc != nil {
+		c.logc.logger.Info(message, append(c.logc.common, args...)...)
+	}
+}
+
+func (c *connect) logDebug(message string, args ...any) {
+	if c.logc != nil {
+		c.logc.logger.Debug(message, append(c.logc.common, args...)...)
+	}
+}
+
+func (c *connect) logWarn(message string, args ...any) {
+	if c.logc != nil {
+		c.logc.logger.Warn(message, append(c.logc.common, args...)...)
+	}
+}
+
+func (c *connect) logError(message string, args ...any) {
+	if c.logc != nil {
+		c.logc.logger.Error(message, append(c.logc.common, args...)...)
+	}
 }
 
 func (c *connect) debugf(format string, v ...any) {
@@ -258,6 +294,14 @@ func (c *connect) progress() (*Progress, error) {
 	}
 
 	c.debugf("[progress] %s", &progress)
+	c.logDebug("progress",
+		"rows", progress.Rows,
+		"bytes", progress.Bytes,
+		"total_rows", progress.TotalRows,
+		"wrote_rows", progress.WroteRows,
+		"wrote_bytes", progress.WroteBytes,
+		"elapsed", progress.Elapsed,
+	)
 	return &progress, nil
 }
 
@@ -268,6 +312,7 @@ func (c *connect) exception() error {
 	}
 
 	c.debugf("[exception] %s", e.Error())
+	c.logDebug("exception", "err", e.Error())
 	return &e
 }
 
@@ -286,10 +331,12 @@ func (c *connect) sendData(block *proto.Block, name string) error {
 	if c.isClosed() {
 		err := errors.New("attempted sending on closed connection")
 		c.debugf("[send data] err: %v", err)
+		c.logError("send data error", "err", err)
 		return err
 	}
 
 	c.debugf("[send data] compression=%q", c.compression)
+	c.logDebug("send data", "compression", c.compression)
 	c.buffer.PutByte(proto.ClientData)
 	c.buffer.PutString(name)
 
@@ -308,6 +355,7 @@ func (c *connect) sendData(block *proto.Block, name string) error {
 				return err
 			}
 			c.debugf("[buff compress] buffer size: %d", len(c.buffer.Buf))
+			c.logDebug("buff compress", "buffer_size", len(c.buffer.Buf))
 			if err := c.flush(); err != nil {
 				return fmt.Errorf("send data: failed to flush partial block (conn_id=%d, col=%d): %w", c.id, i, err)
 			}
@@ -323,16 +371,19 @@ func (c *connect) sendData(block *proto.Block, name string) error {
 		switch {
 		case errors.Is(err, syscall.EPIPE):
 			c.debugf("[send data] pipe is broken, closing connection")
+			c.logError("send data pipe is broken, closing connection")
 			c.setClosed()
 			return fmt.Errorf("send data: connection broken (EPIPE) to %s (conn_id=%d, block_cols=%d, block_rows=%d): %w",
 				c.conn.RemoteAddr(), c.id, len(block.Columns), block.Rows(), err)
 		case errors.Is(err, io.EOF):
 			c.debugf("[send data] unexpected EOF, closing connection")
+			c.logError("send data unexpected EOF, closing connection")
 			c.setClosed()
 			return fmt.Errorf("send data: unexpected EOF to %s (conn_id=%d, block_cols=%d, block_rows=%d): %w",
 				c.conn.RemoteAddr(), c.id, len(block.Columns), block.Rows(), err)
 		default:
 			c.debugf("[send data] unexpected error: %v", err)
+      c.logError("send data unexpected error", "err", err)
 			return fmt.Errorf("send data: write error to %s (conn_id=%d, block_cols=%d, block_rows=%d): %w",
 				c.conn.RemoteAddr(), c.id, len(block.Columns), block.Rows(), err)
 		}
@@ -359,17 +410,20 @@ func (c *connect) readData(ctx context.Context, packet byte, compressible bool) 
 	if c.isClosed() {
 		err := errors.New("attempted reading on closed connection")
 		c.debugf("[read data] err: %v", err)
+		c.logError("read data error", "err", err)
 		return nil, err
 	}
 
 	if c.reader == nil {
 		err := errors.New("attempted reading on nil reader")
 		c.debugf("[read data] err: %v", err)
+		c.logError("read data error", "err", err)
 		return nil, err
 	}
 
 	if _, err := c.reader.Str(); err != nil {
 		c.debugf("[read data] str error: %v", err)
+    c.logError("read data str error", "err", err)
 		return nil, fmt.Errorf("read data: failed to read block name from %s (conn_id=%d): %w",
 			c.conn.RemoteAddr(), c.id, err)
 	}
@@ -390,12 +444,14 @@ func (c *connect) readData(ctx context.Context, packet byte, compressible bool) 
 	block := proto.Block{ServerContext: &serverContext}
 	if err := block.Decode(c.reader, c.revision); err != nil {
 		c.debugf("[read data] decode error: %v", err)
+    c.logError("read data decode error", "err", err)
 		return nil, fmt.Errorf("read data: failed to decode block from %s (conn_id=%d, compression=%s): %w",
 			c.conn.RemoteAddr(), c.id, c.compression, err)
 	}
 
 	block.Packet = packet
 	c.debugf("[read data] compression=%q. block: columns=%d, rows=%d", c.compression, len(block.Columns), block.Rows())
+	c.logDebug("read data", "compression", c.compression, "block", len(block.Columns), "rows", block.Rows())
 	return &block, nil
 }
 
