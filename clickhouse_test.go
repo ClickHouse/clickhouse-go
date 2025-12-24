@@ -208,6 +208,60 @@ func TestAcquire_RoundRobinCreatesPoolForLoadBalancing(t *testing.T) {
 	ch.release(transport, nil)
 }
 
+// TestAcquire_ShouldDialForStrategyLimitsConcurrentDials testing concurrent callers are capped by max idle.
+func TestAcquire_ShouldDialForStrategyLimitsConcurrentDials(t *testing.T) {
+	conn, err := Open(&Options{
+		Addr:             []string{"localhost:9000"},
+		DialTimeout:      time.Second,
+		MaxOpenConns:     10,
+		MaxIdleConns:     2,
+		ConnMaxLifetime:  time.Hour,
+		ConnOpenStrategy: ConnOpenRoundRobin,
+	})
+	if err != nil {
+		t.Fatalf("Open failed: %v", err)
+	}
+	defer conn.Close()
+
+	ch := conn.(*clickhouse)
+
+	const callers = 10
+	start := make(chan struct{})
+	hold := make(chan struct{})
+	var (
+		wg        sync.WaitGroup
+		attempted sync.WaitGroup
+		allowed   atomic.Int32
+	)
+
+	wg.Add(callers)
+	attempted.Add(callers)
+	for i := 0; i < callers; i++ {
+		go func() {
+			defer wg.Done()
+			<-start
+
+			ok := ch.shouldDialForStrategy(1)
+			attempted.Done()
+
+			if ok {
+				allowed.Add(1)
+				<-hold
+				ch.strategyDialing.Add(-1)
+			}
+		}()
+	}
+
+	close(start)
+	attempted.Wait()
+	close(hold)
+	wg.Wait()
+
+	if got := allowed.Load(); got != int32(ch.opt.MaxIdleConns) {
+		t.Fatalf("expected %d concurrent dials, got %d", ch.opt.MaxIdleConns, got)
+	}
+}
+
 // TestAcquire_BadConnection tests acquiring when pool has a bad connection
 func TestAcquire_BadConnection(t *testing.T) {
 	dialCount := atomic.Int32{}

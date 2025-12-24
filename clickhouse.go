@@ -111,6 +111,8 @@ type clickhouse struct {
 
 	closeOnce *sync.Once
 	closed    *atomic.Bool
+
+	strategyDialing atomic.Int32
 }
 
 func (clickhouse) Contributors() []string {
@@ -310,7 +312,16 @@ func (ch *clickhouse) shouldDialForStrategy(currentConns int) bool {
 	if inUse > 0 {
 		inUse--
 	}
-	return inUse+ch.idle.Len() < maxIdle
+
+	for {
+		dialing := int(ch.strategyDialing.Load())
+		if inUse+ch.idle.Len()+dialing >= maxIdle {
+			return false
+		}
+		if ch.strategyDialing.CompareAndSwap(int32(dialing), int32(dialing+1)) {
+			return true
+		}
+	}
 }
 
 func (ch *clickhouse) acquire(ctx context.Context) (conn nativeTransport, err error) {
@@ -328,7 +339,9 @@ func (ch *clickhouse) acquire(ctx context.Context) (conn nativeTransport, err er
 	}
 
 	if ch.shouldDialForStrategy(len(ch.open)) {
-		if conn, err = ch.dial(ctx); err == nil {
+		conn, err = ch.dial(ctx)
+		ch.strategyDialing.Add(-1)
+		if err == nil {
 			conn.debugf("[acquired new]")
 			return conn, nil
 		}
