@@ -8,9 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"go.opentelemetry.io/otel/trace"
-
 	"github.com/ClickHouse/clickhouse-go/v2/ext"
+	"go.opentelemetry.io/otel/trace"
 )
 
 var _contextOptionKey = &QueryOptions{
