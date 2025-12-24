@@ -296,6 +296,23 @@ func DefaultDialStrategy(ctx context.Context, connID int, opt *Options, dial Dia
 	return r, err
 }
 
+func (ch *clickhouse) shouldDialForStrategy(currentConns int) bool {
+	if ch.opt.ConnOpenStrategy == ConnOpenInOrder {
+		return false
+	}
+
+	maxIdle := ch.opt.MaxIdleConns
+	if maxIdle <= 1 {
+		return false
+	}
+
+	inUse := currentConns
+	if inUse > 0 {
+		inUse--
+	}
+	return inUse+ch.idle.Len() < maxIdle
+}
+
 func (ch *clickhouse) acquire(ctx context.Context) (conn nativeTransport, err error) {
 	if ch.closed.Load() {
 		return nil, ErrConnectionClosed
@@ -308,6 +325,13 @@ func (ch *clickhouse) acquire(ctx context.Context) (conn nativeTransport, err er
 	case ch.open <- struct{}{}:
 	case <-ctx.Done():
 		return nil, context.Cause(ctx)
+	}
+
+	if ch.shouldDialForStrategy(len(ch.open)) {
+		if conn, err = ch.dial(ctx); err == nil {
+			conn.debugf("[acquired new]")
+			return conn, nil
+		}
 	}
 
 	conn, err = ch.idle.Get(ctx)

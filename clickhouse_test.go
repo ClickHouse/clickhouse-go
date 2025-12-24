@@ -157,6 +157,57 @@ func TestAcquire_ReuseIdleConnection(t *testing.T) {
 	}
 }
 
+// TestAcquire_RoundRobinCreatesPoolForLoadBalancing testing round robin dials new connections
+// until the idle pool is filled.
+func TestAcquire_RoundRobinCreatesPoolForLoadBalancing(t *testing.T) {
+	dialCount := atomic.Int32{}
+
+	conn, err := Open(&Options{
+		Addr:             []string{"localhost:9000", "localhost:9001"},
+		DialTimeout:      time.Second,
+		MaxOpenConns:     4,
+		MaxIdleConns:     4,
+		ConnMaxLifetime:  time.Hour,
+		ConnOpenStrategy: ConnOpenRoundRobin,
+		DialStrategy: func(ctx context.Context, connID int, opt *Options, dial Dial) (DialResult, error) {
+			dialCount.Add(1)
+			return DialResult{conn: newMockTransport(connID)}, nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("Open failed: %v", err)
+	}
+	defer conn.Close()
+
+	ch := conn.(*clickhouse)
+
+	for i := 0; i < 4; i++ {
+		transport, err := ch.acquire(context.Background())
+		if err != nil {
+			t.Fatalf("acquire %d failed: %v", i+1, err)
+		}
+		ch.release(transport, nil)
+	}
+
+	if got := dialCount.Load(); got != 4 {
+		t.Fatalf("expected 4 dial calls while filling pool, got %d", got)
+	}
+
+	transport, err := ch.acquire(context.Background())
+	if err != nil {
+		t.Fatalf("acquire after warmup failed: %v", err)
+	}
+
+	// After warmup, round robin should reuse idle connections.
+	if dialCount.Load() != 4 {
+		t.Fatalf("expected to reuse pooled connection after warmup, got %d dials", dialCount.Load())
+	}
+	if transport.connID() != 1 {
+		t.Fatalf("expected to reuse first pooled connection, got id %d", transport.connID())
+	}
+	ch.release(transport, nil)
+}
+
 // TestAcquire_BadConnection tests acquiring when pool has a bad connection
 func TestAcquire_BadConnection(t *testing.T) {
 	dialCount := atomic.Int32{}
