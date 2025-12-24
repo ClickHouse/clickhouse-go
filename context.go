@@ -59,9 +59,9 @@ type (
 		blockBufferSize     uint8
 		userLocation        *time.Location
 		columnNamesAndTypes []ColumnNameAndType
-		clientInfo      ClientInfo
-		fileContentType string
-		fileEncoding    string
+		clientInfo          ClientInfo
+		fileContentType     string
+		fileEncoding        string
 	}
 )
 
@@ -194,7 +194,7 @@ func WithUserLocation(location *time.Location) QueryOption {
 	}
 }
 
-// WithFileContentType set the format of uploaded file: (e.g. "TSV")
+// WithFileContentType set Content-Type for upload HTTP requests: (e.g. "text/tab-separated-values")
 func WithFileContentType(ct string) QueryOption {
 	return func(o *QueryOptions) error {
 		o.fileContentType = strings.ToLower(ct)
@@ -202,7 +202,7 @@ func WithFileContentType(ct string) QueryOption {
 	}
 }
 
-// WithFileEncoding contentEncoding of uploaded file: HTTP "Content-Encoding" (e.g. "zstd", "gzip")
+// WithFileEncoding set Content-Encoding for upload HTTP requests (e.g. "zstd", "gzip")
 func WithFileEncoding(encoding string) QueryOption {
 	return func(o *QueryOptions) error {
 		enc := strings.ToLower(encoding)
