@@ -338,6 +338,25 @@ We have following examples to show Async Insert in action.
 Available options:
 - [WithReleaseConnection](examples/clickhouse_api/batch_release_connection.go) - after PrepareBatch connection will be returned to the pool. It can help you make a long-lived batch.
 
+## File upload
+
+The `InsertFile` method allows uploading a file directly to ClickHouse without re-packing or parsing its contents.
+If the file is already compressed using a ClickHouse-supported compression algorithm, it will be sent as-is.
+
+This method is supported only by the HTTP connector. Attempts to use it with the native protocol will return an error.
+
+In most cases, providing just the file path and an INSERT query is sufficient:
+```
+INSERT INTO <table> FORMAT <format>
+```
+or the extended form:
+```
+INSERT INTO <table> (col1, col2) SETTINGS <setting>=<value> FORMAT <format>
+```
+
+If needed, `Content-Type` and `Content-Encoding` can be explicitly overridden using
+`WithFileContentType()` and `WithFileEncoding()`.
+
 ## Benchmark
 
 | [V2 (READ) std](benchmark/v2/read/main.go) | [V2 (READ) clickhouse API](benchmark/v2/read-native/main.go) |

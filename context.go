@@ -2,12 +2,15 @@ package clickhouse
 
 import (
 	"context"
+	"fmt"
 	"maps"
 	"slices"
+	"strings"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/v2/ext"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/ClickHouse/clickhouse-go/v2/ext"
 )
 
 var _contextOptionKey = &QueryOptions{
@@ -56,7 +59,9 @@ type (
 		blockBufferSize     uint8
 		userLocation        *time.Location
 		columnNamesAndTypes []ColumnNameAndType
-		clientInfo          ClientInfo
+		clientInfo      ClientInfo
+		fileContentType string
+		fileEncoding    string
 	}
 )
 
@@ -185,6 +190,26 @@ func WithStdAsync(wait bool) QueryOption {
 func WithUserLocation(location *time.Location) QueryOption {
 	return func(o *QueryOptions) error {
 		o.userLocation = location
+		return nil
+	}
+}
+
+// WithFileContentType set the format of uploaded file: (e.g. "TSV")
+func WithFileContentType(ct string) QueryOption {
+	return func(o *QueryOptions) error {
+		o.fileContentType = strings.ToLower(ct)
+		return nil
+	}
+}
+
+// WithFileEncoding contentEncoding of uploaded file: HTTP "Content-Encoding" (e.g. "zstd", "gzip")
+func WithFileEncoding(encoding string) QueryOption {
+	return func(o *QueryOptions) error {
+		enc := strings.ToLower(encoding)
+		if _, ok := contentEncodingExtensions[enc]; !ok {
+			return fmt.Errorf("unsupported file content encoding: %s", encoding)
+		}
+		o.fileEncoding = enc
 		return nil
 	}
 }
