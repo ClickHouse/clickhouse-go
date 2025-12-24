@@ -343,6 +343,9 @@ Available options:
 The `InsertFile` method allows uploading a file directly to ClickHouse without re-packing or parsing its contents.
 If the file is already compressed using a ClickHouse-supported compression algorithm, it will be sent as-is.
 
+This upload method significantly reduces client-side resource usage and is designed for data processing pipelines 
+where a pre-generated file is received and must be ingested into ClickHouse with minimal overhead.
+
 This method is supported only by the HTTP connector. Attempts to use it with the native protocol will return an error.
 
 In most cases, providing just the file path and an INSERT query is sufficient:
