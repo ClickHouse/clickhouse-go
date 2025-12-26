@@ -498,6 +498,10 @@ func (m *mockTransport) exec(ctx context.Context, query string, args ...any) err
 	return nil
 }
 
+func (m *mockTransport) insertFile(ctx context.Context, file string, query string) error {
+	return nil
+}
+
 func (m *mockTransport) asyncInsert(ctx context.Context, query string, wait bool, args ...any) error {
 	return nil
 }

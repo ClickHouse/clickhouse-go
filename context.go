@@ -2,8 +2,10 @@ package clickhouse
 
 import (
 	"context"
+	"fmt"
 	"maps"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2/ext"
@@ -57,6 +59,8 @@ type (
 		userLocation        *time.Location
 		columnNamesAndTypes []ColumnNameAndType
 		clientInfo          ClientInfo
+		fileContentType     string
+		fileEncoding        string
 	}
 )
 
@@ -185,6 +189,26 @@ func WithStdAsync(wait bool) QueryOption {
 func WithUserLocation(location *time.Location) QueryOption {
 	return func(o *QueryOptions) error {
 		o.userLocation = location
+		return nil
+	}
+}
+
+// WithFileContentType set Content-Type for upload HTTP requests: (e.g. "text/tab-separated-values")
+func WithFileContentType(ct string) QueryOption {
+	return func(o *QueryOptions) error {
+		o.fileContentType = strings.ToLower(ct)
+		return nil
+	}
+}
+
+// WithFileEncoding set Content-Encoding for upload HTTP requests (e.g. "zstd", "gzip")
+func WithFileEncoding(encoding string) QueryOption {
+	return func(o *QueryOptions) error {
+		enc := strings.ToLower(encoding)
+		if _, ok := contentEncodingExtensions[enc]; !ok {
+			return fmt.Errorf("unsupported file content encoding: %s", encoding)
+		}
+		o.fileEncoding = enc
 		return nil
 	}
 }
