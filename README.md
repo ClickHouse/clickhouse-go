@@ -146,8 +146,8 @@ conn.SetConnMaxLifetime(time.Hour)
 * database - select the current default database
 * dial_timeout -  a duration string is a possibly signed sequence of decimal numbers, each with optional fraction and a unit suffix such as "300ms", "1s". Valid time units are "ms", "s", "m". (default 30s)
 * connection_open_strategy - random/round_robin/in_order (default in_order).
-    * random      - choose random server from the set
-    * round_robin - choose a round-robin server from the set
+    * random      - choose random server from the set; while the pool size is below `max_idle_conns` (and `max_idle_conns` > 1), a new connection is dialed before reusing idle ones
+    * round_robin - choose a round-robin server from the set; while the pool size is below `max_idle_conns` (and `max_idle_conns` > 1), a new connection is dialed before reusing idle ones
     * in_order    - first live server is chosen in specified order
 * debug - enable debug output (boolean value)
 * compress - specify the compression algorithm: `none` (default), `zstd`, `lz4`, `lz4hc`, `gzip`, `deflate`, `br`. If set to `true`, `lz4` will be used.
@@ -177,8 +177,8 @@ The following connection settings are available in both DSN strings and the `cli
 ### Connection Strategy
 * **connection_open_strategy** - Strategy for selecting servers from the connection pool:
   * `in_order` - Choose the first available server in the specified order (default)
-  * `round_robin` - Choose servers in a round-robin fashion
-  * `random` - Choose a random server from the pool
+  * `round_robin` - Choose servers in a round-robin fashion; while the pool size is below `max_idle_conns` (and `max_idle_conns` > 1), a new connection is dialed before reusing idle ones
+  * `random` - Choose a random server from the pool; while the pool size is below `max_idle_conns` (and `max_idle_conns` > 1), a new connection is dialed before reusing idle ones
 
 ### Compression Settings
 * **compress** - Enable compression with a specific algorithm: `none`, `zstd`, `lz4`, `lz4hc`, `gzip`, `deflate`, `br`. If set to `true`, `lz4` will be used (default: `none`)
