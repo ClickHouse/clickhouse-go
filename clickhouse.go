@@ -240,14 +240,15 @@ func (ch *clickhouse) AsyncInsert(ctx context.Context, query string, wait bool, 
 // err := conn.InsertFile(ctx, "data.tsv.zstd", "INSERT INTO db.table FORMAT TSV")
 //
 // On success, the file contents are fully consumed and the request body is discarded.
-func (ch *clickhouse) InsertFile(ctx context.Context, filePath string, query string) error {
+func (ch *clickhouse) InsertFile(ctx context.Context, filePath string, query string) (err error) {
 	conn, err := ch.acquire(ctx)
 	if err != nil {
 		return err
 	}
-	defer ch.release(conn, nil)
+	defer ch.release(conn, err)
 	conn.debugf("[insertFile] \"%s\" with \"%s\"", filePath, query)
-	return conn.insertFile(ctx, filePath, query)
+	err = conn.insertFile(ctx, filePath, query)
+	return err
 }
 
 func (ch *clickhouse) Ping(ctx context.Context) (err error) {

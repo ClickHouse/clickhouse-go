@@ -51,6 +51,12 @@ func (h *httpConnect) insertFile(ctx context.Context, filePath string, query str
 	}
 	defer f.Close()
 
+	st, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	st.Mode().IsRegular()
+
 	options := queryOptions(ctx)
 	options.settings["query"] = query
 
