@@ -291,3 +291,7 @@ func (e *BlockError) Error() string {
 	}
 	return fmt.Sprintf("clickhouse [%s]: %s %s", e.Op, e.ColumnName, e.Err)
 }
+
+func (e *BlockError) Unwrap() error {
+	return e.Err
+}
