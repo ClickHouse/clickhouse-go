@@ -50,19 +50,19 @@ func TestFileInsert(t *testing.T) {
 			Count       uint64
 		}{
 			{
-				Filename: "./resources/file_insert.tsv.zstd",
+				Filename: "./testdata/file_insert.tsv.zstd",
 				Format:   "tsV",
 				Count:    3,
 			},
 			{
-				Filename:    "./resources/file_insert.csv.gz",
+				Filename:    "./testdata/file_insert.csv.gz",
 				Format:      "CSV",
 				ContentType: "text/plain; charset=utf-8",
 				Encoding:    "gzip",
 				Count:       4,
 			},
 			{
-				Filename:    "./resources/file_insert.json",
+				Filename:    "./testdata/file_insert.json",
 				Format:      "JSONEachRow",
 				ContentType: "application/json; charset=utf-8",
 				Count:       5,
