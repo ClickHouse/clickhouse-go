@@ -64,7 +64,7 @@ func (o *stdConnOpener) Connect(ctx context.Context) (_ driver.Conn, err error) 
 		}
 	}
 
-	if o.opt.Addr == nil || len(o.opt.Addr) == 0 {
+	if len(o.opt.Addr) == 0 {
 		return nil, ErrAcquireConnNoAddress
 	}
 
@@ -334,19 +334,31 @@ func (std *stdDriver) PrepareContext(ctx context.Context, query string) (driver.
 		return nil, driver.ErrBadConn
 	}
 
-	batch, err := std.conn.prepareBatch(ctx, func(nativeTransport, error) {}, func(context.Context) (nativeTransport, error) { return nil, nil }, query, chdriver.PrepareBatchOptions{})
-	if err != nil {
-		if isConnBrokenError(err) {
-			std.debugf("PrepareContext got a fatal error, resetting connection: %v\n", err)
-			return nil, driver.ErrBadConn
+	// Detect INSERT to decide between batch mode and read/exec prepared stmt
+	// We keep the heuristic simple and case-insensitive: leading non-space must start with INSERT
+	trimmed := strings.TrimLeft(query, " \t\n\r")
+	if len(trimmed) >= 6 && strings.EqualFold(trimmed[:6], "insert") {
+		batch, err := std.conn.prepareBatch(ctx, func(nativeTransport, error) {}, func(context.Context) (nativeTransport, error) { return nil, nil }, query, chdriver.PrepareBatchOptions{})
+		if err != nil {
+			if isConnBrokenError(err) {
+				std.debugf("PrepareContext got a fatal error, resetting connection: %v\n", err)
+				return nil, driver.ErrBadConn
+			}
+			std.debugf("PrepareContext error: %v\n", err)
+			return nil, err
 		}
-		std.debugf("PrepareContext error: %v\n", err)
-		return nil, err
+		std.commit = batch.Send
+		return &stdBatch{
+			batch:  batch,
+			debugf: std.debugf,
+		}, nil
 	}
-	std.commit = batch.Send
-	return &stdBatch{
-		batch:  batch,
+
+	// For non-INSERT, return stdStmt that supports QueryContext and ExecContext
+	return &stdStmt{
+		query:  query,
 		debugf: std.debugf,
+		conn:   std.conn,
 	}, nil
 }
 
@@ -396,6 +408,92 @@ func (s *stdBatch) Query(args []driver.Value) (driver.Rows, error) {
 }
 
 func (s *stdBatch) Close() error { return nil }
+
+// stdStmt supports prepared statements for non-INSERT queries using the same connection.
+type stdStmt struct {
+	query  string
+	debugf func(format string, v ...any)
+	conn   stdConnect
+}
+
+func (s *stdStmt) NumInput() int { return -1 }
+
+// Exec executes non-INSERT statements prepared via stdStmt.
+func (s *stdStmt) Exec(args []driver.Value) (driver.Result, error) {
+	values := make([]any, 0, len(args))
+	for _, v := range args {
+		values = append(values, v)
+	}
+	if s.conn.isBad() {
+		s.debugf("[stmt][exec] connection is bad")
+		return nil, driver.ErrBadConn
+	}
+	if err := s.conn.exec(context.Background(), s.query, values...); err != nil {
+		if isConnBrokenError(err) {
+			s.debugf("[stmt][exec] fatal error, resetting connection: %v", err)
+			return nil, driver.ErrBadConn
+		}
+		s.debugf("[stmt][exec] error: %v", err)
+		return nil, err
+	}
+	return driver.RowsAffected(0), nil
+}
+
+func (s *stdStmt) ExecContext(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
+	if s.conn.isBad() {
+		s.debugf("[stmt][execctx] connection is bad")
+		return nil, driver.ErrBadConn
+	}
+	if err := s.conn.exec(ctx, s.query, rebind(args)...); err != nil {
+		if isConnBrokenError(err) {
+			s.debugf("[stmt][execctx] fatal error, resetting connection: %v", err)
+			return nil, driver.ErrBadConn
+		}
+		s.debugf("[stmt][execctx] error: %v", err)
+		return nil, err
+	}
+	return driver.RowsAffected(0), nil
+}
+
+func (s *stdStmt) Query(args []driver.Value) (driver.Rows, error) {
+	values := make([]any, 0, len(args))
+	for _, v := range args {
+		values = append(values, v)
+	}
+	if s.conn.isBad() {
+		s.debugf("[stmt][query] connection is bad")
+		return nil, driver.ErrBadConn
+	}
+	r, err := s.conn.query(context.Background(), func(nativeTransport, error) {}, s.query, values...)
+	if isConnBrokenError(err) {
+		s.debugf("[stmt][query] fatal error, resetting connection: %v", err)
+		return nil, driver.ErrBadConn
+	}
+	if err != nil {
+		s.debugf("[stmt][query] error: %v", err)
+		return nil, err
+	}
+	return &stdRows{rows: r, debugf: s.debugf}, nil
+}
+
+func (s *stdStmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driver.Rows, error) {
+	if s.conn.isBad() {
+		s.debugf("[stmt][queryctx] connection is bad")
+		return nil, driver.ErrBadConn
+	}
+	r, err := s.conn.query(ctx, func(nativeTransport, error) {}, s.query, rebind(args)...)
+	if isConnBrokenError(err) {
+		s.debugf("[stmt][queryctx] fatal error, resetting connection: %v", err)
+		return nil, driver.ErrBadConn
+	}
+	if err != nil {
+		s.debugf("[stmt][queryctx] error: %v", err)
+		return nil, err
+	}
+	return &stdRows{rows: r, debugf: s.debugf}, nil
+}
+
+func (s *stdStmt) Close() error { return nil }
 
 type stdRows struct {
 	rows   *rows
