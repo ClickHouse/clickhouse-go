@@ -119,6 +119,26 @@ func (t Type) Column(name string, sc *ServerContext) (Interface, error) {
 		}, nil
 	case "Point":
 		return &Point{name: name}, nil
+	case "LineString":
+		set, err := (&Array{name: name}).parse("Array(Point)", sc)
+		if err != nil {
+			return nil, err
+		}
+		set.chType = "LineString"
+		return &LineString{
+			set:  set,
+			name: name,
+		}, nil
+	case "MultiLineString":
+		set, err := (&Array{name: name}).parse("Array(LineString)", sc)
+		if err != nil {
+			return nil, err
+		}
+		set.chType = "MultiLineString"
+		return &MultiLineString{
+			set:  set,
+			name: name,
+		}, nil
 	case "String":
 		return &String{name: name, col: colStrProvider(name)}, nil
 	case "SharedVariant":
@@ -227,34 +247,36 @@ var (
 )
 
 var (
-	scanTypeFloat32      = reflect.TypeOf(float32(0))
-	scanTypeFloat64      = reflect.TypeOf(float64(0))
-	scanTypeInt8         = reflect.TypeOf(int8(0))
-	scanTypeInt16        = reflect.TypeOf(int16(0))
-	scanTypeInt32        = reflect.TypeOf(int32(0))
-	scanTypeInt64        = reflect.TypeOf(int64(0))
-	scanTypeUInt8        = reflect.TypeOf(uint8(0))
-	scanTypeUInt16       = reflect.TypeOf(uint16(0))
-	scanTypeUInt32       = reflect.TypeOf(uint32(0))
-	scanTypeUInt64       = reflect.TypeOf(uint64(0))
-	scanTypeIP           = reflect.TypeOf(net.IP{})
-	scanTypeBool         = reflect.TypeOf(true)
-	scanTypeByte         = reflect.TypeOf([]byte{})
-	scanTypeUUID         = reflect.TypeOf(uuid.UUID{})
-	scanTypeTime         = reflect.TypeOf(time.Time{})
-	scanTypeRing         = reflect.TypeOf(orb.Ring{})
-	scanTypePoint        = reflect.TypeOf(orb.Point{})
-	scanTypeSlice        = reflect.TypeOf([]any{})
-	scanTypeMap          = reflect.TypeOf(map[string]any{})
-	scanTypeBigInt       = reflect.TypeOf(&big.Int{})
-	scanTypeString       = reflect.TypeOf("")
-	scanTypePolygon      = reflect.TypeOf(orb.Polygon{})
-	scanTypeDecimal      = reflect.TypeOf(decimal.Decimal{})
-	scanTypeMultiPolygon = reflect.TypeOf(orb.MultiPolygon{})
-	scanTypeVariant      = reflect.TypeOf(chcol.Variant{})
-	scanTypeDynamic      = reflect.TypeOf(chcol.Dynamic{})
-	scanTypeJSON         = reflect.TypeOf(chcol.JSON{})
-	scanTypeJSONString   = reflect.TypeOf("")
+	scanTypeFloat32         = reflect.TypeOf(float32(0))
+	scanTypeFloat64         = reflect.TypeOf(float64(0))
+	scanTypeInt8            = reflect.TypeOf(int8(0))
+	scanTypeInt16           = reflect.TypeOf(int16(0))
+	scanTypeInt32           = reflect.TypeOf(int32(0))
+	scanTypeInt64           = reflect.TypeOf(int64(0))
+	scanTypeUInt8           = reflect.TypeOf(uint8(0))
+	scanTypeUInt16          = reflect.TypeOf(uint16(0))
+	scanTypeUInt32          = reflect.TypeOf(uint32(0))
+	scanTypeUInt64          = reflect.TypeOf(uint64(0))
+	scanTypeIP              = reflect.TypeOf(net.IP{})
+	scanTypeBool            = reflect.TypeOf(true)
+	scanTypeByte            = reflect.TypeOf([]byte{})
+	scanTypeUUID            = reflect.TypeOf(uuid.UUID{})
+	scanTypeTime            = reflect.TypeOf(time.Time{})
+	scanTypeRing            = reflect.TypeOf(orb.Ring{})
+	scanTypePoint           = reflect.TypeOf(orb.Point{})
+	scanTypeSlice           = reflect.TypeOf([]any{})
+	scanTypeMap             = reflect.TypeOf(map[string]any{})
+	scanTypeBigInt          = reflect.TypeOf(&big.Int{})
+	scanTypeString          = reflect.TypeOf("")
+	scanTypePolygon         = reflect.TypeOf(orb.Polygon{})
+	scanTypeDecimal         = reflect.TypeOf(decimal.Decimal{})
+	scanTypeMultiPolygon    = reflect.TypeOf(orb.MultiPolygon{})
+	scanTypeLineString      = reflect.TypeOf(orb.LineString{})
+	scanTypeMultiLineString = reflect.TypeOf(orb.MultiLineString{})
+	scanTypeVariant         = reflect.TypeOf(chcol.Variant{})
+	scanTypeDynamic         = reflect.TypeOf(chcol.Dynamic{})
+	scanTypeJSON            = reflect.TypeOf(chcol.JSON{})
+	scanTypeJSONString      = reflect.TypeOf("")
 )
 
 func (col *Float32) Name() string {
