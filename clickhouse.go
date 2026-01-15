@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"math/rand"
 	"sync"
 	"sync/atomic"
@@ -87,7 +88,7 @@ type nativeTransport interface {
 	prepareBatch(ctx context.Context, release nativeTransportRelease, acquire nativeTransportAcquire, query string, opts driver.PrepareBatchOptions) (driver.Batch, error)
 	exec(ctx context.Context, query string, args ...any) error
 	asyncInsert(ctx context.Context, query string, wait bool, args ...any) error
-	insertFile(ctx context.Context, filePath string, query string) error
+	uploadFile(ctx context.Context, reader io.Reader, query string) error
 	ping(context.Context) error
 	isBad() bool
 	connID() int
@@ -215,7 +216,7 @@ func (ch *clickhouse) AsyncInsert(ctx context.Context, query string, wait bool, 
 	return nil
 }
 
-// InsertFile streams a local file directly to ClickHouse over HTTP as the request body.
+// UploadFile streams a local file directly to ClickHouse over HTTP as the request body.
 //
 // The file is sent "as-is" without any decompression or recompression on the client side.
 // This method is intended for INSERT ... FORMAT <fmt> queries where the payload is already
@@ -237,17 +238,17 @@ func (ch *clickhouse) AsyncInsert(ctx context.Context, query string, wait bool, 
 //   - This method is available only for the HTTP transport.
 //
 // Typical usage:
-// err := conn.InsertFile(ctx, "data.tsv.zstd", "INSERT INTO db.table FORMAT TSV")
+// err := conn.UploadFile(ctx, "data.tsv.zstd", "INSERT INTO db.table FORMAT TSV")
 //
 // On success, the file contents are fully consumed and the request body is discarded.
-func (ch *clickhouse) InsertFile(ctx context.Context, filePath string, query string) (err error) {
+func (ch *clickhouse) UploadFile(ctx context.Context, reader io.Reader, query string) (err error) {
 	conn, err := ch.acquire(ctx)
 	if err != nil {
 		return err
 	}
 	defer ch.release(conn, err)
-	conn.debugf("[insertFile] \"%s\" with \"%s\"", filePath, query)
-	err = conn.insertFile(ctx, filePath, query)
+	conn.debugf("[uploadFile] \"%s\"", query)
+	err = conn.uploadFile(ctx, reader, query)
 	return err
 }
 

@@ -3,13 +3,15 @@ package clickhouse
 import (
 	"context"
 	"fmt"
+	"io"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 )
 
 func TestConnPool_Cap(t *testing.T) {
@@ -498,7 +500,7 @@ func (m *mockTransport) exec(ctx context.Context, query string, args ...any) err
 	return nil
 }
 
-func (m *mockTransport) insertFile(ctx context.Context, file string, query string) error {
+func (m *mockTransport) uploadFile(ctx context.Context, reader io.Reader, query string) error {
 	return nil
 }
 

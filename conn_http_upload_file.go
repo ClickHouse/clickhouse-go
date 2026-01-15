@@ -3,7 +3,7 @@ package clickhouse
 import (
 	"context"
 	"fmt"
-	"os"
+	"io"
 	"regexp"
 	"strings"
 )
@@ -19,7 +19,7 @@ var contentEncodingExtensions = map[string][]string{
 	"snappy":  {".snappy"},
 }
 
-// insertFile streams a local file directly to ClickHouse over HTTP as the request body.
+// uploadFile streams a local file directly to ClickHouse over HTTP as the request body.
 //
 // The file is sent "as-is" without any decompression or recompression on the client side.
 // This method is intended for INSERT ... FORMAT <fmt> queries where the payload is already
@@ -41,30 +41,15 @@ var contentEncodingExtensions = map[string][]string{
 //   - This method is available only for the HTTP transport.
 //
 // Typical usage:
-// err := conn.insertFile(ctx, "data.tsv.zst", "text/tab-separated-values", "zstd", "INSERT INTO db.table FORMAT TSV")
+// err := conn.uploadFile(ctx, "data.tsv.zst", "text/tab-separated-values", "zstd", "INSERT INTO db.table FORMAT TSV")
 //
 // On success, the file contents are fully consumed and the request body is discarded.
-func (h *httpConnect) insertFile(ctx context.Context, filePath string, query string) error {
-	f, err := os.OpenFile(filePath, os.O_RDONLY, 0644)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	st, err := f.Stat()
-	if err != nil {
-		return err
-	}
-	st.Mode().IsRegular()
-
+func (h *httpConnect) uploadFile(ctx context.Context, reader io.Reader, query string) error {
 	options := queryOptions(ctx)
 	options.settings["query"] = query
 
 	if len(options.external) > 0 {
 		return fmt.Errorf("external tables are not supported for file upload")
-	}
-	if options.fileEncoding == "" {
-		options.fileEncoding = encodingFromFileName(f.Name())
 	}
 	if options.fileContentType == "" {
 		options.fileContentType = contentTypeFromFormat(parseFormatFromSQL(query))
@@ -86,7 +71,12 @@ func (h *httpConnect) insertFile(ctx context.Context, filePath string, query str
 		headers["Accept-Encoding"] = h.compression.String()
 	}
 
-	req, err := h.createRequest(ctx, h.url.String(), f, &options, headers)
+	fmt.Printf("HEADERS: %v\n", headers)
+	fmt.Printf("ENCODING: +%v+\n", options.fileEncoding)
+	fmt.Printf("OPTIONS: %v\n", options)
+
+
+	req, err := h.createRequest(ctx, h.url.String(), reader, &options, headers)
 	if err != nil {
 		return err
 	}
@@ -100,31 +90,10 @@ func (h *httpConnect) insertFile(ctx context.Context, filePath string, query str
 	return nil
 }
 
-func encodingFromFileName(fileName string) string {
-	extentions := map[string][]string{
-		"gzip":    {".gz", ".gzip"},
-		"br":      {".br", ".brotli"},
-		"deflate": {".deflate"},
-		"xz":      {".xz"},
-		"zstd":    {".zst", ".zstd"},
-		"lz4":     {".lz", ".lz4"},
-		"bz2":     {".bz2"},
-		"snappy":  {".snappy"},
-	}
 
-	for encoding, extention := range extentions {
-		for _, ext := range extention {
-			if strings.HasSuffix(fileName, ext) {
-				return encoding
-			}
-		}
-	}
-
-	return ""
-}
 
 func parseFormatFromSQL(query string) string {
-	re := regexp.MustCompile(`(?i)\bformat\b\s*([A-Za-z0-9_]+)`)
+	var re = regexp.MustCompile(`(?i)\bformat\b\s*([A-Za-z0-9_]+)`)
 	m := re.FindStringSubmatch(query)
 	if len(m) > 1 {
 		return m[1]

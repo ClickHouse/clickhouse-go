@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"path/filepath"
 	"slices"
 	"strings"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/v2/ext"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/ClickHouse/clickhouse-go/v2/ext"
 )
 
 var _contextOptionKey = &QueryOptions{
@@ -202,7 +204,7 @@ func WithFileContentType(ct string) QueryOption {
 }
 
 // WithFileEncoding set Content-Encoding for upload HTTP requests (e.g. "zstd", "gzip")
-func WithFileEncoding(encoding string) QueryOption {
+func WithEncoding(encoding string) QueryOption {
 	return func(o *QueryOptions) error {
 		enc := strings.ToLower(encoding)
 		if _, ok := contentEncodingExtensions[enc]; !ok {
@@ -210,6 +212,32 @@ func WithFileEncoding(encoding string) QueryOption {
 		}
 		o.fileEncoding = enc
 		return nil
+	}
+}
+
+func WithFileEncoding(filename string) QueryOption {
+	return func(o *QueryOptions) error {
+		extMapping := map[string][]string{
+			"gzip":    {".gz", ".gzip"},
+			"br":      {".br", ".brotli"},
+			"deflate": {".deflate"},
+			"xz":      {".xz"},
+			"zstd":    {".zst", ".zstd"},
+			"lz4":     {".lz", ".lz4"},
+			"bz2":     {".bz2"},
+			"snappy":  {".snappy"},
+		}
+
+		for encoding, extentions := range extMapping {
+			for _, ext := range extentions {
+				if strings.HasSuffix(filename, ext) {
+					o.fileEncoding = encoding
+					return nil
+				}
+			}
+		}
+
+		return fmt.Errorf("unsupported content encoding ext: %s", filepath.Base(filename))
 	}
 }
 
@@ -339,6 +367,8 @@ func (q *QueryOptions) clone() QueryOptions {
 		blockBufferSize:     q.blockBufferSize,
 		userLocation:        q.userLocation,
 		columnNamesAndTypes: nil,
+		fileContentType:     q.fileContentType,
+		fileEncoding:        q.fileEncoding,
 	}
 
 	if q.settings != nil {

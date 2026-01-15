@@ -24,12 +24,9 @@ func TestFileInsert(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		d, _ := os.Getwd()
-		fmt.Println("PWD: " + d)
-
 		ctx := context.Background()
 		const ddl = `
-			CREATE TABLE test_file_insert (
+			CREATE TABLE test_upload_file (
 				  File LowCardinality(FixedString(32))
 			    , ID   UInt32
 			    , Data Nullable(FixedString(32))
@@ -39,7 +36,7 @@ func TestFileInsert(t *testing.T) {
 
 		require.NoError(t, conn.Exec(ctx, ddl))
 		defer func() {
-			conn.Exec(ctx, "DROP TABLE IF EXISTS test_file_insert")
+			conn.Exec(ctx, "DROP TABLE IF EXISTS test_upload_file")
 		}()
 
 		tests := []struct {
@@ -50,19 +47,19 @@ func TestFileInsert(t *testing.T) {
 			Count       uint64
 		}{
 			{
-				Filename: "./testdata/file_insert.tsv.zstd",
+				Filename: "./testdata/upload_file.tsv.zstd",
 				Format:   "tsV",
 				Count:    3,
 			},
 			{
-				Filename:    "./testdata/file_insert.csv.gz",
+				Filename:    "./testdata/upload_file.csv.gz",
 				Format:      "CSV",
 				ContentType: "text/plain; charset=utf-8",
 				Encoding:    "gzip",
 				Count:       4,
 			},
 			{
-				Filename:    "./testdata/file_insert.json",
+				Filename:    "./testdata/upload_file.json",
 				Format:      "JSONEachRow",
 				ContentType: "application/json; charset=utf-8",
 				Count:       5,
@@ -74,14 +71,21 @@ func TestFileInsert(t *testing.T) {
 				opts = append(opts, clickhouse.WithFileContentType(test.ContentType))
 			}
 			if test.Encoding != "" {
-				opts = append(opts, clickhouse.WithFileEncoding(test.Encoding))
+				opts = append(opts, clickhouse.WithEncoding(test.Encoding))
+			} else {
+				opts = append(opts, clickhouse.WithFileEncoding(test.Filename))
 			}
-			ctx = clickhouse.Context(ctx, opts...)
-			err := conn.InsertFile(ctx, test.Filename, fmt.Sprintf("INSERT INTO test_file_insert FORMAT %s", test.Format))
+			f, err := os.Open(test.Filename)
+			require.NoError(t, err, test)
+			defer f.Close()
+
+			cc := clickhouse.Context(ctx, opts...)
+
+			err = conn.UploadFile(cc, f, fmt.Sprintf("INSERT INTO test_upload_file FORMAT %s", test.Format))
 			require.NoError(t, err, test)
 
 			var count uint64
-			require.NoError(t, conn.QueryRow(ctx, "SELECT Count(*) FROM test_file_insert WHERE File = ?", filepath.Base(test.Filename)).Scan(&count))
+			require.NoError(t, conn.QueryRow(cc, "SELECT Count(*) FROM test_upload_file WHERE File = ?", filepath.Base(test.Filename)).Scan(&count))
 			assert.Equal(t, test.Count, count, "Wrong lines count for file", test.Filename)
 		}
 	})
