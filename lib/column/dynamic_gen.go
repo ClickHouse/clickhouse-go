@@ -94,6 +94,14 @@ func inferClickHouseTypeFromGoType(v any) string {
 		return "IPv6"
 	case *proto.IPv6:
 		return "IPv6"
+	case orb.LineString:
+		return "LineString"
+	case *orb.LineString:
+		return "LineString"
+	case orb.MultiLineString:
+		return "MultiLineString"
+	case *orb.MultiLineString:
+		return "MultiLineString"
 	case orb.MultiPolygon:
 		return "MultiPolygon"
 	case *orb.MultiPolygon:
@@ -184,6 +192,14 @@ func inferClickHouseTypeFromGoType(v any) string {
 		return "Array(IPv6)"
 	case []*proto.IPv6:
 		return "Array(IPv6)"
+	case []orb.LineString:
+		return "Array(LineString)"
+	case []*orb.LineString:
+		return "Array(LineString)"
+	case []orb.MultiLineString:
+		return "Array(MultiLineString)"
+	case []*orb.MultiLineString:
+		return "Array(MultiLineString)"
 	case []orb.MultiPolygon:
 		return "Array(MultiPolygon)"
 	case []*orb.MultiPolygon:
@@ -238,6 +254,10 @@ func inferClickHouseTypeFromGoType(v any) string {
 		return "Map(String, UUID)"
 	case map[string]proto.IPv6:
 		return "Map(String, IPv6)"
+	case map[string]orb.LineString:
+		return "Map(String, LineString)"
+	case map[string]orb.MultiLineString:
+		return "Map(String, MultiLineString)"
 	case map[string]orb.MultiPolygon:
 		return "Map(String, MultiPolygon)"
 	case map[string]orb.Point:

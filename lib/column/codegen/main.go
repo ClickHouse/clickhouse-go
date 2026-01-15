@@ -69,6 +69,7 @@ func init() {
 		"time.Time", "sql.NullTime",
 		"uuid.UUID",
 		"netip.Addr", "net.IP", "proto.IPv6", "[16]byte",
+		"orb.LineString", "orb.MultiLineString",
 		"orb.MultiPolygon", "orb.Point", "orb.Polygon", "orb.Ring",
 	)
 
@@ -96,6 +97,8 @@ func init() {
 		{ChType: "DateTime64(3)", GoType: "sql.NullTime"},
 		{ChType: "UUID", GoType: "uuid.UUID"},
 		{ChType: "IPv6", GoType: "proto.IPv6"},
+		{ChType: "LineString", GoType: "orb.LineString"},
+		{ChType: "MultiLineString", GoType: "orb.MultiLineString"},
 		{ChType: "MultiPolygon", GoType: "orb.MultiPolygon"},
 		{ChType: "Point", GoType: "orb.Point"},
 		{ChType: "Polygon", GoType: "orb.Polygon"},
