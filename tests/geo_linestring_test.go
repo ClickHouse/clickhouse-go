@@ -183,3 +183,77 @@ func TestGeoLineStringValuer(t *testing.T) {
 		require.Equal(t, 1000, i)
 	})
 }
+
+func TestGeoLineStringEmpty(t *testing.T) {
+	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		conn, err := GetNativeConnection(t, protocol, clickhouse.Settings{
+			"allow_experimental_geo_types": 1,
+		}, nil, &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		})
+		ctx := context.Background()
+		require.NoError(t, err)
+		if !CheckMinServerServerVersion(conn, 21, 12, 0) {
+			t.Skip(fmt.Errorf("unsupported clickhouse version"))
+			return
+		}
+		const ddl = `
+		CREATE TABLE test_geo_linestring_empty (
+			Col1 LineString
+		) Engine MergeTree() ORDER BY tuple()
+		`
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE IF EXISTS test_geo_linestring_empty")
+		}()
+		require.NoError(t, conn.Exec(ctx, ddl))
+		batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_geo_linestring_empty")
+		require.NoError(t, err)
+		var (
+			col1Data = orb.LineString{}
+		)
+		require.NoError(t, batch.Append(col1Data))
+		require.NoError(t, batch.Send())
+		var (
+			col1 orb.LineString
+		)
+		require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_geo_linestring_empty").Scan(&col1))
+		assert.Equal(t, col1Data, col1)
+	})
+}
+
+func TestGeoLineStringSinglePoint(t *testing.T) {
+	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		conn, err := GetNativeConnection(t, protocol, clickhouse.Settings{
+			"allow_experimental_geo_types": 1,
+		}, nil, &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		})
+		ctx := context.Background()
+		require.NoError(t, err)
+		if !CheckMinServerServerVersion(conn, 21, 12, 0) {
+			t.Skip(fmt.Errorf("unsupported clickhouse version"))
+			return
+		}
+		const ddl = `
+		CREATE TABLE test_geo_linestring_single_point (
+			Col1 LineString
+		) Engine MergeTree() ORDER BY tuple()
+		`
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE IF EXISTS test_geo_linestring_single_point")
+		}()
+		require.NoError(t, conn.Exec(ctx, ddl))
+		batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_geo_linestring_single_point")
+		require.NoError(t, err)
+		var (
+			col1Data = orb.LineString{orb.Point{1, 2}}
+		)
+		require.NoError(t, batch.Append(col1Data))
+		require.NoError(t, batch.Send())
+		var (
+			col1 orb.LineString
+		)
+		require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_geo_linestring_single_point").Scan(&col1))
+		assert.Equal(t, col1Data, col1)
+	})
+}

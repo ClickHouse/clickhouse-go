@@ -159,3 +159,7 @@ func TestJSONStringExample(t *testing.T) {
 	clickhouse_tests.SkipOnCloud(t, "cannot modify JSON settings on cloud")
 	require.NoError(t, JSONStringExample())
 }
+
+func TestStdGeoInsertRead(t *testing.T) {
+	require.NoError(t, GeoInsertRead())
+}
