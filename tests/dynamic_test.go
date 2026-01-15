@@ -231,7 +231,8 @@ func TestDynamicExceededTypes(t *testing.T) {
 	}
 
 	t.Run("less than UInt8", testTypeCount(16))
-	t.Run("UInt8 bounds", testTypeCount(254))
+	t.Run("UInt8 bounds", testTypeCount(255))
+	t.Run("UInt16 range", testTypeCount(300))
 }
 
 func TestDynamicArray(t *testing.T) {
