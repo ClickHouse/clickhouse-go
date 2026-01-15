@@ -193,7 +193,6 @@ func TestDynamicMaxTypes(t *testing.T) {
 }
 
 // Discriminator precision must grow dynamically depending on the number of types within the Dynamic.
-// This test confirms that we can go beyond UInt8/255 types.
 func TestDynamicExceededTypes(t *testing.T) {
 	conn := setupDynamicTest(t, clickhouse.Native)
 	ctx := context.Background()
@@ -217,7 +216,7 @@ func TestDynamicExceededTypes(t *testing.T) {
 			batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_dynamic_exceeded_types (c)")
 			require.NoError(t, err)
 
-			for i := 0; i < typeCount; i++ {
+			for i := range typeCount {
 				typeName := fmt.Sprintf("Tuple(\"%d\" Int64)", i)
 				require.NoError(t, batch.Append(clickhouse.NewDynamicWithType([]int64{int64(i)}, typeName)))
 			}

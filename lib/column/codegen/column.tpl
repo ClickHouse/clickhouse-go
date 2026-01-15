@@ -104,6 +104,26 @@ func (t Type) Column(name string, sc *ServerContext) (Interface, error) {
         }, nil
 	case "Point":
 		return &Point{name: name}, nil
+	case "LineString":
+		set, err := (&Array{name: name}).parse("Array(Point)", sc)
+		if err != nil {
+			return nil, err
+		}
+		set.chType = "LineString"
+		return &LineString{
+			set:  set,
+			name: name,
+		}, nil
+	case "MultiLineString":
+		set, err := (&Array{name: name}).parse("Array(LineString)", sc)
+		if err != nil {
+			return nil, err
+		}
+		set.chType = "MultiLineString"
+		return &MultiLineString{
+			set:  set,
+			name: name,
+		}, nil
 	case "String":
 		return &String{name: name, col: colStrProvider(name)}, nil
 	case "SharedVariant":
@@ -188,6 +208,8 @@ var (
 		scanTypePolygon = reflect.TypeOf(orb.Polygon{})
 		scanTypeDecimal = reflect.TypeOf(decimal.Decimal{})
 		scanTypeMultiPolygon = reflect.TypeOf(orb.MultiPolygon{})
+		scanTypeLineString = reflect.TypeOf(orb.LineString{})
+		scanTypeMultiLineString = reflect.TypeOf(orb.MultiLineString{})
 		scanTypeVariant = reflect.TypeOf(chcol.Variant{})
 		scanTypeDynamic = reflect.TypeOf(chcol.Dynamic{})
 		scanTypeJSON    = reflect.TypeOf(chcol.JSON{})
