@@ -7,10 +7,10 @@ Golang SQL database client for [ClickHouse](https://clickhouse.com/).
 * Uses ClickHouse native format for optimal performance. Utilises low level [ch-go](https://github.com/ClickHouse/ch-go) client for encoding/decoding and compression (versions >= 2.3.0).
 * Supports native ClickHouse TCP client-server protocol
 * Compatibility with [`database/sql`](#std-databasesql-interface) ([slower](#benchmark) than [native interface](#native-interface)!)
-* [`database/sql`](#std-databasesql-interface) supports http protocol for transport. (Experimental)
+* [`database/sql`](#std-databasesql-interface) supports http protocol for transport.
 * Marshal rows into structs ([ScanStruct](examples/clickhouse_api/scan_struct.go), [Select](examples/clickhouse_api/select_struct.go))
 * Unmarshal struct to row ([AppendStruct](benchmark/v2/write-native-struct/main.go))
-* Connection pool
+* Connection pool (for both TCP-Native and HTTP)
 * Failover and load balancing
 * [Bulk write support](examples/clickhouse_api/batch.go) (for `database/sql` [use](examples/std/batch.go) `begin->prepare->(in loop exec)->commit`)
 * [PrepareBatch options](#preparebatch-options)
@@ -210,9 +210,7 @@ Example:
 clickhouse://username:password@host1:9000,host2:9000/database?dial_timeout=200ms&read_timeout=30s&max_execution_time=60
 ```
 
-### HTTP Support (Experimental)
-
-**Note**: using HTTP protocol is possible only with `database/sql` interface.
+### HTTP Support
 
 The native format can be used over the HTTP protocol. This is useful in scenarios where users need to proxy traffic e.g. using [ChProxy](https://www.chproxy.org/) or via load balancers.
 
@@ -284,7 +282,7 @@ This minimal tls.Config is normally all that is necessary to connect to the secu
 
 If additional TLS parameters are necessary the application code should set the desired fields in the tls.Config struct. That can include specific cipher suites, forcing a particular TLS version (like 1.2 or 1.3), adding an internal CA certificate chain, adding a client certificate (and private key) if required by the ClickHouse server, and most of the other options that come with a more specialized security setup.
 
-### HTTPS (Experimental)
+### HTTPS
 
 To connect using HTTPS either:
 
