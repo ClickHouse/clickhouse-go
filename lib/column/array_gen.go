@@ -124,6 +124,14 @@ func (col *Array) appendRowPlain(v any) error {
 		return appendRowPlain(col, tv)
 	case []*[16]byte:
 		return appendNullableRowPlain(col, tv)
+	case []orb.LineString:
+		return appendRowPlain(col, tv)
+	case []*orb.LineString:
+		return appendNullableRowPlain(col, tv)
+	case []orb.MultiLineString:
+		return appendRowPlain(col, tv)
+	case []*orb.MultiLineString:
+		return appendNullableRowPlain(col, tv)
 	case []orb.MultiPolygon:
 		return appendRowPlain(col, tv)
 	case []*orb.MultiPolygon:

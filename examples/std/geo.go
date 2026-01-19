@@ -1,4 +1,4 @@
-package clickhouse_api
+package std
 
 import (
 	"context"
@@ -9,16 +9,16 @@ import (
 )
 
 func GeoInsertRead() error {
-	conn, err := GetNativeConnection(clickhouse.Settings{
+	conn, err := GetStdOpenDBConnection(clickhouse.Native, clickhouse.Settings{
 		"allow_experimental_geo_types": 1,
 	}, nil, nil)
 	if err != nil {
 		return err
 	}
 	ctx := context.Background()
-	conn.Exec(ctx, "DROP TABLE IF EXISTS example")
+	conn.ExecContext(ctx, "DROP TABLE IF EXISTS example")
 
-	if err = conn.Exec(ctx, `
+	_, err = conn.ExecContext(ctx, `
 		CREATE TABLE example (
 				point Point,
 				ring Ring,
@@ -28,16 +28,21 @@ func GeoInsertRead() error {
 				mLineString MultiLineString
 			)
 			Engine Memory
-		`); err != nil {
-		return err
-	}
-
-	batch, err := conn.PrepareBatch(ctx, "INSERT INTO example")
+		`)
 	if err != nil {
 		return err
 	}
 
-	if err = batch.Append(
+	scope, err := conn.Begin()
+	if err != nil {
+		return err
+	}
+	batch, err := scope.Prepare("INSERT INTO example")
+	if err != nil {
+		return err
+	}
+
+	_, err = batch.Exec(
 		orb.Point{11, 22},
 		orb.Ring{
 			orb.Point{1, 2},
@@ -90,11 +95,12 @@ func GeoInsertRead() error {
 				orb.Point{7, 8},
 			},
 		},
-	); err != nil {
+	)
+	if err != nil {
 		return err
 	}
 
-	if err = batch.Send(); err != nil {
+	if err = scope.Commit(); err != nil {
 		return err
 	}
 
@@ -107,7 +113,7 @@ func GeoInsertRead() error {
 		mLineString orb.MultiLineString
 	)
 
-	if err = conn.QueryRow(ctx, "SELECT * FROM example").Scan(&point, &ring, &lineString, &polygon, &mPolygon, &mLineString); err != nil {
+	if err = conn.QueryRow("SELECT * FROM example").Scan(&point, &ring, &lineString, &polygon, &mPolygon, &mLineString); err != nil {
 		return err
 	}
 	fmt.Printf("point=%v, ring=%v, lineString=%v, polygon=%v, mPolygon=%v, mLineString=%v\n", point, ring, lineString, polygon, mPolygon, mLineString)

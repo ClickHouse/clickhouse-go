@@ -56,6 +56,12 @@ func TestArrayInsertRead(t *testing.T) {
 }
 
 func TestAsyncInsert(t *testing.T) {
+	// Rationale: ClickHouser server added a validation that
+	// "insert_quoram" and "async_insert" setting cannot be used together.
+	// https://github.com/ClickHouse/ClickHouse/pull/89140/changes#diff-ff8ad4aed4cf07fe29cb5344d2ab79bc24efd97d054aa112c3a05b5ab853cc44R1558-R1562
+	// NOTE: using t.Setenv also cleanups and restore old value after end of the test. So no need
+	// to manually unset the envs.
+	t.Setenv("CLICKHOUSE_QUORUM_INSERT", "0")
 	require.NoError(t, AsyncInsertNative())
 	require.NoError(t, AsyncInsertHTTP())
 }
