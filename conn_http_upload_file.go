@@ -71,11 +71,6 @@ func (h *httpConnect) uploadFile(ctx context.Context, reader io.Reader, query st
 		headers["Accept-Encoding"] = h.compression.String()
 	}
 
-	fmt.Printf("HEADERS: %v\n", headers)
-	fmt.Printf("ENCODING: +%v+\n", options.fileEncoding)
-	fmt.Printf("OPTIONS: %v\n", options)
-
-
 	req, err := h.createRequest(ctx, h.url.String(), reader, &options, headers)
 	if err != nil {
 		return err

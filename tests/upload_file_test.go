@@ -13,7 +13,7 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2"
 )
 
-func TestFileInsert(t *testing.T) {
+func TestUploadFile(t *testing.T) {
 
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
 		if protocol == clickhouse.Native {
