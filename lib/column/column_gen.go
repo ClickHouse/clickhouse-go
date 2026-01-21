@@ -21,6 +21,8 @@ import (
 
 func (t Type) Column(name string, sc *ServerContext) (Interface, error) {
 	switch t {
+	case "BFloat16":
+		return &BFloat16{name: name}, nil
 	case "Float32":
 		return &Float32{name: name}, nil
 	case "Float64":
@@ -189,6 +191,10 @@ func (t Type) Column(name string, sc *ServerContext) (Interface, error) {
 }
 
 type (
+	BFloat16 struct {
+		name string
+		col  proto.ColBFloat16
+	}
 	Float32 struct {
 		name string
 		col  proto.ColFloat32
@@ -232,6 +238,7 @@ type (
 )
 
 var (
+	_ Interface = (*BFloat16)(nil)
 	_ Interface = (*Float32)(nil)
 	_ Interface = (*Float64)(nil)
 	_ Interface = (*Int8)(nil)
@@ -247,6 +254,7 @@ var (
 )
 
 var (
+	scanTypeBFloat16        = reflect.TypeOf(float32(0))
 	scanTypeFloat32         = reflect.TypeOf(float32(0))
 	scanTypeFloat64         = reflect.TypeOf(float64(0))
 	scanTypeInt8            = reflect.TypeOf(int8(0))
@@ -278,6 +286,147 @@ var (
 	scanTypeJSON            = reflect.TypeOf(chcol.JSON{})
 	scanTypeJSONString      = reflect.TypeOf("")
 )
+
+func (col *BFloat16) Name() string {
+	return col.name
+}
+
+func (col *BFloat16) Type() Type {
+	return "BFloat16"
+}
+
+func (col *BFloat16) ScanType() reflect.Type {
+	return scanTypeBFloat16
+}
+
+func (col *BFloat16) Rows() int {
+	return col.col.Rows()
+}
+
+func (col *BFloat16) Reset() {
+	col.col.Reset()
+}
+
+func (col *BFloat16) ScanRow(dest any, row int) error {
+	value := col.col.Row(row)
+	switch d := dest.(type) {
+	case *float32:
+		*d = value
+	case **float32:
+		*d = new(float32)
+		**d = value
+	default:
+		if scan, ok := dest.(sql.Scanner); ok {
+			return scan.Scan(value)
+		}
+		return &ColumnConverterError{
+			Op:   "ScanRow",
+			To:   fmt.Sprintf("%T", dest),
+			From: "BFloat16",
+			Hint: fmt.Sprintf("try using *%s", scanTypeBFloat16),
+		}
+	}
+	return nil
+}
+
+func (col *BFloat16) Row(i int, ptr bool) any {
+	value := col.col.Row(i)
+	if ptr {
+		return &value
+	}
+	return value
+}
+
+func (col *BFloat16) Append(v any) (nulls []uint8, err error) {
+	switch v := v.(type) {
+	case []float32:
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			col.col.Append(v[i])
+		}
+	case []*float32:
+		nulls = make([]uint8, len(v))
+		for i := range v {
+			switch {
+			case v[i] != nil:
+				col.col.Append(*v[i])
+			default:
+				col.col.Append(0)
+				nulls[i] = 1
+			}
+		}
+	default:
+
+		if valuer, ok := v.(driver.Valuer); ok {
+			val, err := valuer.Value()
+			if err != nil {
+				return nil, &ColumnConverterError{
+					Op:   "Append",
+					To:   "BFloat16",
+					From: fmt.Sprintf("%T", v),
+					Hint: "could not get driver.Valuer value",
+				}
+			}
+			return col.Append(val)
+		}
+
+		return nil, &ColumnConverterError{
+			Op:   "Append",
+			To:   "BFloat16",
+			From: fmt.Sprintf("%T", v),
+		}
+	}
+	return
+}
+
+func (col *BFloat16) AppendRow(v any) error {
+	switch v := v.(type) {
+	case float32:
+		col.col.Append(v)
+	case *float32:
+		switch {
+		case v != nil:
+			col.col.Append(*v)
+		default:
+			col.col.Append(0)
+		}
+	case nil:
+		col.col.Append(0)
+	default:
+
+		if valuer, ok := v.(driver.Valuer); ok {
+			val, err := valuer.Value()
+			if err != nil {
+				return &ColumnConverterError{
+					Op:   "AppendRow",
+					To:   "BFloat16",
+					From: fmt.Sprintf("%T", v),
+					Hint: "could not get driver.Valuer value",
+				}
+			}
+			return col.AppendRow(val)
+		}
+
+		if rv := reflect.ValueOf(v); rv.Kind() == col.ScanType().Kind() || rv.CanConvert(col.ScanType()) {
+			col.col.Append(rv.Convert(col.ScanType()).Interface().(float32))
+		} else {
+			return &ColumnConverterError{
+				Op:   "AppendRow",
+				To:   "BFloat16",
+				From: fmt.Sprintf("%T", v),
+			}
+		}
+	}
+	return nil
+}
+
+func (col *BFloat16) Decode(reader *proto.Reader, rows int) error {
+	return col.col.DecodeColumn(reader, rows)
+}
+
+func (col *BFloat16) Encode(buffer *proto.Buffer) {
+	col.col.EncodeColumn(buffer)
+}
 
 func (col *Float32) Name() string {
 	return col.name
