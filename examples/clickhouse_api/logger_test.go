@@ -1,0 +1,101 @@
+package clickhouse_api_test
+
+import (
+	"fmt"
+	"log/slog"
+	"os"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
+)
+
+func ExampleOptions_logger() {
+	// Create a structured logger with JSON output
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	}))
+
+	conn, err := clickhouse.Open(&clickhouse.Options{
+		Addr: []string{"localhost:9000"},
+		Auth: clickhouse.Auth{
+			Database: "default",
+			Username: "default",
+			Password: "",
+		},
+		Logger: logger,
+	})
+	if err != nil {
+		fmt.Printf("Failed to connect: %v\n", err)
+		return
+	}
+	defer conn.Close()
+
+	// All connection operations will now be logged with structured fields
+	// Output will include fields like: conn_id, remote_addr, protocol, etc.
+}
+
+func ExampleOptions_legacyDebug() {
+	conn, err := clickhouse.Open(&clickhouse.Options{
+		Addr: []string{"localhost:9000"},
+		Auth: clickhouse.Auth{
+			Database: "default",
+			Username: "default",
+			Password: "",
+		},
+		Debug: true,
+		Debugf: func(format string, v ...any) {
+			fmt.Printf("[LEGACY] "+format+"\n", v...)
+		},
+	})
+	if err != nil {
+		fmt.Printf("Failed to connect: %v\n", err)
+		return
+	}
+	defer conn.Close()
+
+	// Legacy Debugf will be called for all log messages
+}
+
+func ExampleOptions_textLogger() {
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	}))
+
+	conn, err := clickhouse.Open(&clickhouse.Options{
+		Addr:   []string{"localhost:9000"},
+		Logger: logger,
+	})
+	if err != nil {
+		fmt.Printf("Failed to connect: %v\n", err)
+		return
+	}
+	defer conn.Close()
+
+	// Logs will be output in human-readable text format
+	// Example: time=2024-01-21T10:00:00.000Z level=DEBUG msg="query" sql="SELECT 1" conn_id=1
+}
+
+func ExampleOptions_enrichedLogger() {
+	baseLogger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	}))
+
+	// Add application-level context
+	enrichedLogger := baseLogger.With(
+		slog.String("service", "my-service"),
+		slog.String("environment", "production"),
+		slog.String("version", "1.0.0"),
+	)
+
+	conn, err := clickhouse.Open(&clickhouse.Options{
+		Addr:   []string{"localhost:9000"},
+		Logger: enrichedLogger,
+	})
+	if err != nil {
+		fmt.Printf("Failed to connect: %v\n", err)
+		return
+	}
+	defer conn.Close()
+
+	// All logs will include service, environment, and version fields
+	// in addition to the connection-specific fields
+}

@@ -289,16 +289,16 @@ func (h *httpConnect) connectedAtTime() time.Time {
 	return h.connectedAt
 }
 
+func (h *httpConnect) getLogger() *slog.Logger {
+	return h.logger
+}
+
 func (h *httpConnect) isReleased() bool {
 	return h.released
 }
 
 func (h *httpConnect) setReleased(released bool) {
 	h.released = released
-}
-
-func (h *httpConnect) debugf(format string, v ...any) {
-	h.logger.Debug(fmt.Sprintf(format, v...))
 }
 
 func (h *httpConnect) freeBuffer() {
@@ -309,7 +309,7 @@ func (h *httpConnect) isBad() bool {
 }
 
 func (h *httpConnect) queryHello(ctx context.Context, release nativeTransportRelease) (proto.ServerHandshake, error) {
-	h.debugf("[query hello]")
+	h.logger.Debug("querying server info via HTTP")
 	ctx = Context(ctx, ignoreExternalTables())
 	query := "SELECT displayName(), version(), revision(), timezone()"
 	rows, err := h.query(ctx, release, query)
@@ -446,7 +446,7 @@ func (h *httpConnect) readData(reader *chproto.Reader, timezone *time.Location, 
 			captureBuffer.Write(buf[:n])
 		}
 		if readErr != nil {
-			h.debugf("[readData]: decoding block failed when parsing exception block: %v", err)
+			h.logger.Error("HTTP read data: decode error while parsing exception block", slog.Any("error", err))
 		}
 
 		// Check if the captured data contains the exception marker
