@@ -7,9 +7,8 @@ import (
 	"fmt"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	"io"
-	"log"
+	"log/slog"
 	"net"
-	"os"
 	"sync"
 	"syscall"
 	"time"
@@ -23,9 +22,8 @@ import (
 
 func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, error) {
 	var (
-		err    error
-		conn   net.Conn
-		debugf = func(format string, v ...any) {}
+		err  error
+		conn net.Conn
 	)
 
 	switch {
@@ -44,18 +42,9 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 		return nil, err
 	}
 
-	if opt.Debug {
-		if opt.Debugf != nil {
-			debugf = func(format string, v ...any) {
-				opt.Debugf(
-					"[clickhouse][%s][id=%d] "+format,
-					append([]interface{}{conn.RemoteAddr(), num}, v...)...,
-				)
-			}
-		} else {
-			debugf = log.New(os.Stdout, fmt.Sprintf("[clickhouse][%s][id=%d]", conn.RemoteAddr(), num), 0).Printf
-		}
-	}
+	// Get base logger and enrich with connection-specific context
+	baseLogger := opt.logger()
+	logger := prepareConnLogger(baseLogger, num, conn.RemoteAddr().String(), "native")
 
 	var (
 		compression CompressionMethod
@@ -80,7 +69,7 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 			id:                   num,
 			opt:                  opt,
 			conn:                 conn,
-			debugfFunc:           debugf,
+			logger:               logger,
 			buffer:               new(chproto.Buffer),
 			reader:               chproto.NewReader(conn),
 			revision:             ClientTCPProtocolVersion,
@@ -117,7 +106,9 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 
 	// warn only on the first connection in the pool
 	if num == 1 && !resources.ClientMeta.IsSupportedClickHouseVersion(connect.server.Version) {
-		debugf("[handshake] WARNING: version %v of ClickHouse is not supported by this client - client supports %v", connect.server.Version, resources.ClientMeta.SupportedVersions())
+		connect.logger.Warn("unsupported clickhouse version",
+			slog.String("version", connect.server.Version.String()),
+			slog.String("supported_versions", resources.ClientMeta.SupportedVersions()))
 	}
 
 	return connect, nil
@@ -128,7 +119,7 @@ type connect struct {
 	id                   int
 	opt                  *Options
 	conn                 net.Conn
-	debugfFunc           func(format string, v ...any)
+	logger               *slog.Logger
 	server               ServerVersion
 	closed               bool
 	buffer               *chproto.Buffer
@@ -147,7 +138,7 @@ type connect struct {
 }
 
 func (c *connect) debugf(format string, v ...any) {
-	c.debugfFunc(format, v...)
+	c.logger.Debug(fmt.Sprintf(format, v...))
 }
 
 func (c *connect) connID() int {

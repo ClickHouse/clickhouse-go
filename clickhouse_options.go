@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
@@ -116,13 +117,36 @@ type Options struct {
 	Protocol   Protocol
 	ClientInfo ClientInfo
 
-	TLS                  *tls.Config
-	Addr                 []string
-	Auth                 Auth
-	DialContext          func(ctx context.Context, addr string) (net.Conn, error)
-	DialStrategy         func(ctx context.Context, connID int, options *Options, dial Dial) (DialResult, error)
-	Debug                bool
-	Debugf               func(format string, v ...any) // only works when Debug is true
+	TLS          *tls.Config
+	Addr         []string
+	Auth         Auth
+	DialContext  func(ctx context.Context, addr string) (net.Conn, error)
+	DialStrategy func(ctx context.Context, connID int, options *Options, dial Dial) (DialResult, error)
+
+	// Deprecated: Use Logger instead. Debug enables legacy debug logging to stdout.
+	// For structured logging with levels, use the Logger field.
+	Debug bool
+
+	// Deprecated: Use Logger instead. Debugf provides a custom debug logging function.
+	// For structured logging with levels and custom handlers, use the Logger field with
+	// a custom slog.Handler.
+	Debugf func(format string, v ...any)
+
+	// Logger provides structured logging using Go's standard log/slog package.
+	// If nil, no logging occurs (default). To enable logging, provide a configured
+	// slog.Logger:
+	//
+	//   logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+	//       Level: slog.LevelDebug,
+	//   }))
+	//   opts := &clickhouse.Options{
+	//       Logger: logger,
+	//   }
+	//
+	// For backward compatibility, if Debug=true and Debugf is set, those will be used
+	// instead of Logger.
+	Logger *slog.Logger
+
 	Settings             Settings
 	Compression          *Compression
 	DialTimeout          time.Duration // default 30 second
@@ -397,4 +421,24 @@ func (o Options) setDefaults() *Options {
 		}
 	}
 	return &o
+}
+
+// logger returns the appropriate logger based on the Options configuration.
+// Priority order:
+// 1. If Debug=true and Debugf is set, use legacy Debugf (backward compatibility)
+// 2. If Logger is set, use the provided logger
+// 3. Otherwise, use a noop logger (no logging)
+func (o *Options) logger() *slog.Logger {
+	// Backward compatibility: if legacy Debug/Debugf is set, use it
+	if o.Debug && o.Debugf != nil {
+		return newDebugfLogger(o.Debugf)
+	}
+
+	// If user provided a custom logger, use it
+	if o.Logger != nil {
+		return o.Logger
+	}
+
+	// Default: no logging
+	return newNoopLogger()
 }

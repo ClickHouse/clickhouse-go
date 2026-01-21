@@ -71,7 +71,7 @@ func createMockConnect(mockConn *mockNetConn) *connect {
 		compression:          CompressionLZ4,
 		compressor:           compressor,
 		maxCompressionBuffer: 1024 * 1024,
-		debugfFunc:           func(format string, v ...any) {},
+		logger:               newNoopLogger(),
 		opt:                  &Options{},
 		revision:             ClientTCPProtocolVersion,
 	}
