@@ -163,3 +163,7 @@ func TestJSONStringExample(t *testing.T) {
 func TestStdGeoInsertRead(t *testing.T) {
 	require.NoError(t, GeoInsertRead())
 }
+
+func TestStdBFloat16(t *testing.T) {
+	require.NoError(t, BFloat16())
+}
