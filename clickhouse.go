@@ -312,6 +312,10 @@ func (ch *clickhouse) acquire(ctx context.Context) (conn nativeTransport, err er
 
 	conn, err = ch.idle.Get(ctx)
 	if err != nil && !errors.Is(err, errQueueEmpty) {
+		select {
+		case <-ch.open:
+		default:
+		}
 		return nil, err
 	}
 
