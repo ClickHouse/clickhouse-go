@@ -9,17 +9,22 @@ import (
 )
 
 func StdLogger() error {
+	env, err := GetStdTestEnvironment()
+	if err != nil {
+		return err
+	}
+
 	// Create a structured logger with JSON output
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelDebug,
 	}))
 
 	db := clickhouse.OpenDB(&clickhouse.Options{
-		Addr: []string{"localhost:9000"},
+		Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},
 		Auth: clickhouse.Auth{
-			Database: "default",
-			Username: "default",
-			Password: "",
+			Database: env.Database,
+			Username: env.Username,
+			Password: env.Password,
 		},
 		Logger: logger,
 	})
@@ -36,12 +41,22 @@ func StdLogger() error {
 }
 
 func StdTextLogger() error {
+	env, err := GetStdTestEnvironment()
+	if err != nil {
+		return err
+	}
+
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelDebug,
 	}))
 
 	db := clickhouse.OpenDB(&clickhouse.Options{
-		Addr:   []string{"localhost:9000"},
+		Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},
+		Auth: clickhouse.Auth{
+			Database: env.Database,
+			Username: env.Username,
+			Password: env.Password,
+		},
 		Logger: logger,
 	})
 	defer db.Close()
@@ -52,12 +67,17 @@ func StdTextLogger() error {
 }
 
 func StdLegacyDebug() error {
+	env, err := GetStdTestEnvironment()
+	if err != nil {
+		return err
+	}
+
 	db := clickhouse.OpenDB(&clickhouse.Options{
-		Addr: []string{"localhost:9000"},
+		Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},
 		Auth: clickhouse.Auth{
-			Database: "default",
-			Username: "default",
-			Password: "",
+			Database: env.Database,
+			Username: env.Username,
+			Password: env.Password,
 		},
 		Debug: true,
 		Debugf: func(format string, v ...any) {
@@ -73,6 +93,11 @@ func StdLegacyDebug() error {
 }
 
 func StdEnrichedLogger() error {
+	env, err := GetStdTestEnvironment()
+	if err != nil {
+		return err
+	}
+
 	baseLogger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	}))
@@ -84,7 +109,12 @@ func StdEnrichedLogger() error {
 	)
 
 	db := clickhouse.OpenDB(&clickhouse.Options{
-		Addr:   []string{"localhost:9000"},
+		Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},
+		Auth: clickhouse.Auth{
+			Database: env.Database,
+			Username: env.Username,
+			Password: env.Password,
+		},
 		Logger: enrichedLogger,
 	})
 	defer db.Close()
@@ -94,12 +124,22 @@ func StdEnrichedLogger() error {
 }
 
 func StdPoolLogging() error {
+	env, err := GetStdTestEnvironment()
+	if err != nil {
+		return err
+	}
+
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelDebug,
 	}))
 
 	db := clickhouse.OpenDB(&clickhouse.Options{
-		Addr:         []string{"localhost:9000"},
+		Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},
+		Auth: clickhouse.Auth{
+			Database: env.Database,
+			Username: env.Username,
+			Password: env.Password,
+		},
 		Logger:       logger,
 		MaxOpenConns: 5,
 		MaxIdleConns: 2,

@@ -9,17 +9,22 @@ import (
 )
 
 func Logger() error {
+	env, err := GetNativeTestEnvironment()
+	if err != nil {
+		return err
+	}
+
 	// Create a structured logger with JSON output
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelDebug,
 	}))
 
 	conn, err := clickhouse.Open(&clickhouse.Options{
-		Addr: []string{"localhost:9000"},
+		Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},
 		Auth: clickhouse.Auth{
-			Database: "default",
-			Username: "default",
-			Password: "",
+			Database: env.Database,
+			Username: env.Username,
+			Password: env.Password,
 		},
 		Logger: logger,
 	})
@@ -34,12 +39,16 @@ func Logger() error {
 }
 
 func LegacyDebug() error {
+	env, err := GetNativeTestEnvironment()
+	if err != nil {
+		return err
+	}
 	conn, err := clickhouse.Open(&clickhouse.Options{
-		Addr: []string{"localhost:9000"},
+		Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},
 		Auth: clickhouse.Auth{
-			Database: "default",
-			Username: "default",
-			Password: "",
+			Database: env.Database,
+			Username: env.Username,
+			Password: env.Password,
 		},
 		Debug: true,
 		Debugf: func(format string, v ...any) {
@@ -56,12 +65,21 @@ func LegacyDebug() error {
 }
 
 func TextLogger() error {
+	env, err := GetNativeTestEnvironment()
+	if err != nil {
+		return err
+	}
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelDebug,
 	}))
 
 	conn, err := clickhouse.Open(&clickhouse.Options{
-		Addr:   []string{"localhost:9000"},
+		Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},
+		Auth: clickhouse.Auth{
+			Database: env.Database,
+			Username: env.Username,
+			Password: env.Password,
+		},
 		Logger: logger,
 	})
 	if err != nil {
@@ -75,6 +93,10 @@ func TextLogger() error {
 }
 
 func EnrichedLogger() error {
+	env, err := GetNativeTestEnvironment()
+	if err != nil {
+		return err
+	}
 	baseLogger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	}))
@@ -87,7 +109,12 @@ func EnrichedLogger() error {
 	)
 
 	conn, err := clickhouse.Open(&clickhouse.Options{
-		Addr:   []string{"localhost:9000"},
+		Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},
+		Auth: clickhouse.Auth{
+			Database: env.Database,
+			Username: env.Username,
+			Password: env.Password,
+		},
 		Logger: enrichedLogger,
 	})
 	if err != nil {
