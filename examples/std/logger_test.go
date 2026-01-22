@@ -1,4 +1,4 @@
-package std_test
+package std
 
 import (
 	"fmt"
@@ -8,7 +8,7 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2"
 )
 
-func Example_stdLogger() {
+func StdLogger() error {
 	// Create a structured logger with JSON output
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelDebug,
@@ -28,14 +28,14 @@ func Example_stdLogger() {
 	// All database operations will be logged with structured fields
 	var count uint64
 	if err := db.QueryRow("SELECT count() FROM system.numbers LIMIT 1").Scan(&count); err != nil {
-		fmt.Printf("Query failed: %v\n", err)
-		return
+		return err
 	}
 
 	fmt.Println("Count: ", count)
+	return nil
 }
 
-func Example_stdTextLogger() {
+func StdTextLogger() error {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelDebug,
 	}))
@@ -48,9 +48,10 @@ func Example_stdTextLogger() {
 
 	// Logs will be output in human-readable text format
 	// Example: time=2024-01-21T10:00:00.000Z level=DEBUG msg="executing query" sql="SELECT 1" conn_id=1
+	return nil
 }
 
-func Example_stdLegacyDebug() {
+func StdLegacyDebug() error {
 	db := clickhouse.OpenDB(&clickhouse.Options{
 		Addr: []string{"localhost:9000"},
 		Auth: clickhouse.Auth{
@@ -68,9 +69,10 @@ func Example_stdLegacyDebug() {
 	// Legacy Debugf will be called for all log messages
 	var result int
 	db.QueryRow("SELECT 1").Scan(&result)
+	return nil
 }
 
-func Example_stdEnrichedLogger() {
+func StdEnrichedLogger() error {
 	baseLogger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	}))
@@ -88,10 +90,10 @@ func Example_stdEnrichedLogger() {
 	defer db.Close()
 
 	// All logs will include service and environment fields
-	db.Ping()
+	return db.Ping()
 }
 
-func Example_stdPoolLogging() {
+func StdPoolLogging() error {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelDebug,
 	}))
@@ -109,10 +111,10 @@ func Example_stdPoolLogging() {
 	var result int
 	for i := 0; i < 10; i++ {
 		if err := db.QueryRow("SELECT ?", i).Scan(&result); err != nil {
-			fmt.Printf("Query failed: %v\n", err)
-			return
+			return err
 		}
 	}
 
 	// You'll see logs showing connection reuse across queries
+	return nil
 }

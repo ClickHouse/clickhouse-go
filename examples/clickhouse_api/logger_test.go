@@ -1,4 +1,4 @@
-package clickhouse_api_test
+package clickhouse_api
 
 import (
 	"fmt"
@@ -8,7 +8,7 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2"
 )
 
-func ExampleOptions_logger() {
+func Logger() error {
 	// Create a structured logger with JSON output
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelDebug,
@@ -24,16 +24,16 @@ func ExampleOptions_logger() {
 		Logger: logger,
 	})
 	if err != nil {
-		fmt.Printf("Failed to connect: %v\n", err)
-		return
+		return err
 	}
 	defer conn.Close()
 
 	// All connection operations will now be logged with structured fields
 	// Output will include fields like: conn_id, remote_addr, protocol, etc.
+	return nil
 }
 
-func ExampleOptions_legacyDebug() {
+func LegacyDebug() error {
 	conn, err := clickhouse.Open(&clickhouse.Options{
 		Addr: []string{"localhost:9000"},
 		Auth: clickhouse.Auth{
@@ -47,15 +47,15 @@ func ExampleOptions_legacyDebug() {
 		},
 	})
 	if err != nil {
-		fmt.Printf("Failed to connect: %v\n", err)
-		return
+		return err
 	}
 	defer conn.Close()
 
 	// Legacy Debugf will be called for all log messages
+	return nil
 }
 
-func ExampleOptions_textLogger() {
+func TextLogger() error {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelDebug,
 	}))
@@ -65,16 +65,16 @@ func ExampleOptions_textLogger() {
 		Logger: logger,
 	})
 	if err != nil {
-		fmt.Printf("Failed to connect: %v\n", err)
-		return
+		return err
 	}
 	defer conn.Close()
 
 	// Logs will be output in human-readable text format
 	// Example: time=2024-01-21T10:00:00.000Z level=DEBUG msg="query" sql="SELECT 1" conn_id=1
+	return nil
 }
 
-func ExampleOptions_enrichedLogger() {
+func EnrichedLogger() error {
 	baseLogger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	}))
@@ -91,11 +91,11 @@ func ExampleOptions_enrichedLogger() {
 		Logger: enrichedLogger,
 	})
 	if err != nil {
-		fmt.Printf("Failed to connect: %v\n", err)
-		return
+		return err
 	}
 	defer conn.Close()
 
 	// All logs will include service, environment, and version fields
 	// in addition to the connection-specific fields
+	return nil
 }
