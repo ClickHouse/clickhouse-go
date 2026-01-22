@@ -50,7 +50,7 @@ func (col *Time64) Type() Type {
 }
 
 func (col *Time64) ScanType() reflect.Type {
-	return scanTypeTime
+	return scanTypeDuration
 }
 
 func (col *Time64) Precision() (int64, bool) {
