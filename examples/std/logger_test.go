@@ -32,7 +32,7 @@ func StdLogger() error {
 
 	// All database operations will be logged with structured fields
 	var count uint64
-	if err := db.QueryRow("SELECT count() FROM system.numbers LIMIT 1").Scan(&count); err != nil {
+	if err := db.QueryRow("SELECT 1").Scan(&count); err != nil {
 		return err
 	}
 
