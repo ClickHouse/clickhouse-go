@@ -140,7 +140,7 @@ func (ch *clickhouse) Query(ctx context.Context, query string, args ...any) (row
 	if err != nil {
 		return nil, err
 	}
-	conn.getLogger().Info("executing query", slog.String("sql", query))
+	conn.getLogger().Debug("executing query", slog.String("sql", query))
 	return conn.query(ctx, ch.release, query, args...)
 }
 
@@ -152,7 +152,7 @@ func (ch *clickhouse) QueryRow(ctx context.Context, query string, args ...any) d
 		}
 	}
 
-	conn.getLogger().Info("executing query row", slog.String("sql", query))
+	conn.getLogger().Debug("executing query row", slog.String("sql", query))
 	return conn.queryRow(ctx, ch.release, query, args...)
 }
 
@@ -161,7 +161,7 @@ func (ch *clickhouse) Exec(ctx context.Context, query string, args ...any) error
 	if err != nil {
 		return err
 	}
-	conn.getLogger().Info("executing statement", slog.String("sql", query))
+	conn.getLogger().Debug("executing statement", slog.String("sql", query))
 
 	if asyncOpt := queryOptionsAsync(ctx); asyncOpt.ok {
 		err = conn.asyncInsert(ctx, query, asyncOpt.wait, args...)
@@ -183,7 +183,7 @@ func (ch *clickhouse) PrepareBatch(ctx context.Context, query string, opts ...dr
 	if err != nil {
 		return nil, err
 	}
-	conn.getLogger().Info("preparing batch", slog.String("sql", query))
+	conn.getLogger().Debug("preparing batch", slog.String("sql", query))
 	batch, err := conn.prepareBatch(ctx, ch.release, ch.acquire, query, getPrepareBatchOptions(opts...))
 	if err != nil {
 		return nil, err
@@ -207,7 +207,7 @@ func (ch *clickhouse) AsyncInsert(ctx context.Context, query string, wait bool, 
 	if err != nil {
 		return err
 	}
-	conn.getLogger().Info("async insert", slog.String("sql", query), slog.Bool("wait", wait))
+	conn.getLogger().Debug("async insert", slog.String("sql", query), slog.Bool("wait", wait))
 	if err := conn.asyncInsert(ctx, query, wait, args...); err != nil {
 		ch.release(conn, err)
 		return err
@@ -358,7 +358,7 @@ func (ch *clickhouse) release(conn nativeTransport, err error) {
 	}
 
 	if err != nil {
-		conn.getLogger().Info("connection closed due to error", slog.Any("error", err))
+		conn.getLogger().Debug("connection closed due to error", slog.Any("error", err))
 		conn.close()
 		return
 	} else if time.Since(conn.connectedAtTime()) >= ch.opt.ConnMaxLifetime {

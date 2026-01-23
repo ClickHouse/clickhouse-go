@@ -6,8 +6,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"io"
+	"log/slog"
 
 	chproto "github.com/ClickHouse/ch-go/proto"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
@@ -29,7 +29,7 @@ func (r *capturingReader) Read(p []byte) (n int, err error) {
 
 // release is ignored, because http used by std with empty release function
 func (h *httpConnect) query(ctx context.Context, release nativeTransportRelease, query string, args ...any) (*rows, error) {
-	h.logger.Info("HTTP query", slog.String("sql", query))
+	h.logger.Debug("HTTP query", slog.String("sql", query))
 	options := queryOptions(ctx)
 	query, err := bindQueryOrAppendParameters(true, &options, query, h.handshake.Timezone, args...)
 	if err != nil {

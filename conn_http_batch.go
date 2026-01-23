@@ -3,11 +3,11 @@ package clickhouse
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 	"io"
+	"log/slog"
 	"os"
 	"slices"
 )
@@ -264,7 +264,7 @@ func (b *httpBatch) Send() (err error) {
 	options.settings["query"] = b.query
 	headers["Content-Type"] = "application/octet-stream"
 
-	b.conn.logger.Info("batch: sending via HTTP",
+	b.conn.logger.Debug("batch: sending via HTTP",
 		slog.Int("columns", len(b.block.Columns)),
 		slog.Int("rows", b.block.Rows()))
 	res, err := b.conn.sendStreamQuery(b.ctx, pipeReader, &options, headers)

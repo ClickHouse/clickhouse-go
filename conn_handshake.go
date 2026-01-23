@@ -69,7 +69,7 @@ func (c *connect) handshake(auth Auth) error {
 			slog.Uint64("from_revision", c.revision),
 			slog.Uint64("to_revision", c.server.Revision))
 	}
-	c.logger.Info("handshake complete",
+	c.logger.Debug("handshake complete",
 		slog.String("server_name", c.server.Name),
 		slog.String("server_version", c.server.Version.String()),
 		slog.Uint64("server_revision", c.server.Revision),

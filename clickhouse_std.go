@@ -348,7 +348,6 @@ func (s *stdBatch) Exec(args []driver.Value) (driver.Result, error) {
 		values = append(values, v)
 	}
 	if err := s.batch.Append(values...); err != nil {
-		s.logger.Error("batch append error", slog.Any("error", err))
 		return nil, err
 	}
 	return driver.RowsAffected(0), nil
