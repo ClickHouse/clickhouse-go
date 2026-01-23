@@ -7,10 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"math/rand"
 	"net"
-	"os"
 	"reflect"
 	"sync/atomic"
 	"syscall"
@@ -24,27 +23,19 @@ var globalConnID int64
 type stdConnOpener struct {
 	err    error
 	opt    *Options
-	debugf func(format string, v ...any)
+	logger *slog.Logger
 }
 
 func (o *stdConnOpener) Driver() driver.Driver {
-	var debugf = func(format string, v ...any) {}
-	if o.opt.Debug {
-		if o.opt.Debugf != nil {
-			debugf = o.opt.Debugf
-		} else {
-			debugf = log.New(os.Stdout, "[clickhouse-std] ", 0).Printf
-		}
-	}
 	return &stdDriver{
 		opt:    o.opt,
-		debugf: debugf,
+		logger: o.logger,
 	}
 }
 
 func (o *stdConnOpener) Connect(ctx context.Context) (_ driver.Conn, err error) {
 	if o.err != nil {
-		o.debugf("[connect] opener error: %v\n", o.err)
+		o.logger.Error("opener error", slog.Any("error", o.err))
 		return nil, o.err
 	}
 	var (
@@ -80,20 +71,20 @@ func (o *stdConnOpener) Connect(ctx context.Context) (_ driver.Conn, err error) 
 			num = (random + i) % len(o.opt.Addr)
 		}
 		if conn, err = dialFunc(ctx, o.opt.Addr[num], connID, o.opt); err == nil {
-			var debugf = func(format string, v ...any) {}
-			if o.opt.Debug {
-				if o.opt.Debugf != nil {
-					debugf = o.opt.Debugf
-				} else {
-					debugf = log.New(os.Stdout, fmt.Sprintf("[clickhouse-std][conn=%d][%s] ", num, o.opt.Addr[num]), 0).Printf
-				}
-			}
+			// Create a logger with connection-specific context
+			connLogger := o.logger.With(
+				slog.Int("conn_num", num),
+				slog.String("addr", o.opt.Addr[num]),
+			)
 			return &stdDriver{
 				conn:   conn,
-				debugf: debugf,
+				logger: connLogger,
 			}, nil
 		} else {
-			o.debugf("[connect] error connecting to %s on connection %d: %v\n", o.opt.Addr[num], connID, err)
+			o.logger.Error("connection error",
+				slog.String("addr", o.opt.Addr[num]),
+				slog.Int("conn_id", connID),
+				slog.Any("error", err))
 		}
 	}
 
@@ -103,8 +94,7 @@ func (o *stdConnOpener) Connect(ctx context.Context) (_ driver.Conn, err error) 
 var _ driver.Connector = (*stdConnOpener)(nil)
 
 func init() {
-	var debugf = func(format string, v ...any) {}
-	sql.Register("clickhouse", &stdDriver{debugf: debugf})
+	sql.Register("clickhouse", &stdDriver{logger: newNoopLogger()})
 }
 
 // isConnBrokenError returns true if the error class indicates that the
@@ -125,31 +115,25 @@ func Connector(opt *Options) driver.Connector {
 	}
 
 	o := opt.setDefaults()
+	logger := o.logger().With(slog.String("component", "std-driver"))
 
-	var debugf = func(format string, v ...any) {}
-	if o.Debug {
-		if o.Debugf != nil {
-			debugf = o.Debugf
-		} else {
-			debugf = log.New(os.Stdout, "[clickhouse-std][opener] ", 0).Printf
-		}
-	}
 	return &stdConnOpener{
 		opt:    o,
-		debugf: debugf,
+		logger: logger,
 	}
 }
 
 func OpenDB(opt *Options) *sql.DB {
-	var debugf = func(format string, v ...any) {}
 	if opt == nil {
 		opt = &Options{}
 	}
 
 	o := opt.setDefaults()
+	logger := o.logger().With(slog.String("component", "std-driver"))
+
 	db := sql.OpenDB(&stdConnOpener{
 		opt:    o,
-		debugf: debugf,
+		logger: logger,
 	})
 
 	// Ok to set these configs irrespective of values in opt.
@@ -158,13 +142,6 @@ func OpenDB(opt *Options) *sql.DB {
 	db.SetMaxIdleConns(o.MaxIdleConns)
 	db.SetMaxOpenConns(o.MaxOpenConns)
 	db.SetConnMaxLifetime(o.ConnMaxLifetime)
-	if o.Debug {
-		if o.Debugf != nil {
-			debugf = o.Debugf
-		} else {
-			debugf = log.New(os.Stdout, "[clickhouse-std][opener] ", 0).Printf
-		}
-	}
 
 	return db
 }
@@ -183,7 +160,7 @@ type stdDriver struct {
 	opt    *Options
 	conn   stdConnect
 	commit func() error
-	debugf func(format string, v ...any)
+	logger *slog.Logger
 }
 
 var _ driver.Conn = (*stdDriver)(nil)
@@ -195,23 +172,20 @@ var _ driver.ConnPrepareContext = (*stdDriver)(nil)
 func (std *stdDriver) Open(dsn string) (_ driver.Conn, err error) {
 	var opt Options
 	if err := opt.fromDSN(dsn); err != nil {
-		std.debugf("Open dsn error: %v\n", err)
+		std.logger.Error("dsn parsing error", slog.Any("error", err))
 		return nil, err
 	}
 	o := opt.setDefaults()
-	var debugf = func(format string, v ...any) {}
-	if o.Debug {
-		debugf = log.New(os.Stdout, "[clickhouse-std][opener] ", 0).Printf
-	}
+	logger := o.logger().With(slog.String("component", "std-driver"))
 	o.ClientInfo.Comment = []string{"database/sql"}
-	return (&stdConnOpener{opt: o, debugf: debugf}).Connect(context.Background())
+	return (&stdConnOpener{opt: o, logger: logger}).Connect(context.Background())
 }
 
 var _ driver.Driver = (*stdDriver)(nil)
 
 func (std *stdDriver) ResetSession(ctx context.Context) error {
 	if std.conn.isBad() {
-		std.debugf("Resetting session because connection is bad")
+		std.logger.Debug("resetting session because connection is bad")
 		return driver.ErrBadConn
 	}
 	return nil
@@ -221,7 +195,7 @@ var _ driver.SessionResetter = (*stdDriver)(nil)
 
 func (std *stdDriver) Ping(ctx context.Context) error {
 	if std.conn.isBad() {
-		std.debugf("Ping: connection is bad")
+		std.logger.Debug("ping: connection is bad")
 		return driver.ErrBadConn
 	}
 
@@ -232,7 +206,7 @@ var _ driver.Pinger = (*stdDriver)(nil)
 
 func (std *stdDriver) Begin() (driver.Tx, error) {
 	if std.conn.isBad() {
-		std.debugf("Begin: connection is bad")
+		std.logger.Debug("begin: connection is bad")
 		return nil, driver.ErrBadConn
 	}
 
@@ -241,7 +215,7 @@ func (std *stdDriver) Begin() (driver.Tx, error) {
 
 func (std *stdDriver) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
 	if std.conn.isBad() {
-		std.debugf("BeginTx: connection is bad")
+		std.logger.Debug("begin tx: connection is bad")
 		return nil, driver.ErrBadConn
 	}
 
@@ -258,10 +232,10 @@ func (std *stdDriver) Commit() error {
 
 	if err := std.commit(); err != nil {
 		if isConnBrokenError(err) {
-			std.debugf("Commit got EOF error: resetting connection")
+			std.logger.Debug("commit got EOF error: resetting connection")
 			return driver.ErrBadConn
 		}
-		std.debugf("Commit error: %v\n", err)
+		std.logger.Error("commit error", slog.Any("error", err))
 		return err
 	}
 	return nil
@@ -281,7 +255,7 @@ var _ driver.NamedValueChecker = (*stdDriver)(nil)
 
 func (std *stdDriver) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
 	if std.conn.isBad() {
-		std.debugf("ExecContext: connection is bad")
+		std.logger.Debug("exec context: connection is bad")
 		return nil, driver.ErrBadConn
 	}
 
@@ -294,10 +268,10 @@ func (std *stdDriver) ExecContext(ctx context.Context, query string, args []driv
 
 	if err != nil {
 		if isConnBrokenError(err) {
-			std.debugf("ExecContext got a fatal error, resetting connection: %v\n", err)
+			std.logger.Error("exec context got a fatal error, resetting connection", slog.Any("error", err))
 			return nil, driver.ErrBadConn
 		}
-		std.debugf("ExecContext error: %v\n", err)
+		std.logger.Error("exec context error", slog.Any("error", err))
 		return nil, err
 	}
 	return driver.RowsAffected(0), nil
@@ -305,22 +279,22 @@ func (std *stdDriver) ExecContext(ctx context.Context, query string, args []driv
 
 func (std *stdDriver) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
 	if std.conn.isBad() {
-		std.debugf("QueryContext: connection is bad")
+		std.logger.Debug("query context: connection is bad")
 		return nil, driver.ErrBadConn
 	}
 
 	r, err := std.conn.query(ctx, func(nativeTransport, error) {}, query, rebind(args)...)
 	if isConnBrokenError(err) {
-		std.debugf("QueryContext got a fatal error, resetting connection: %v\n", err)
+		std.logger.Error("query context got a fatal error, resetting connection", slog.Any("error", err))
 		return nil, driver.ErrBadConn
 	}
 	if err != nil {
-		std.debugf("QueryContext error: %v\n", err)
+		std.logger.Error("query context error", slog.Any("error", err))
 		return nil, err
 	}
 	return &stdRows{
 		rows:   r,
-		debugf: std.debugf,
+		logger: std.logger,
 	}, nil
 }
 
@@ -330,23 +304,23 @@ func (std *stdDriver) Prepare(query string) (driver.Stmt, error) {
 
 func (std *stdDriver) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
 	if std.conn.isBad() {
-		std.debugf("PrepareContext: connection is bad")
+		std.logger.Debug("prepare context: connection is bad")
 		return nil, driver.ErrBadConn
 	}
 
 	batch, err := std.conn.prepareBatch(ctx, func(nativeTransport, error) {}, func(context.Context) (nativeTransport, error) { return nil, nil }, query, chdriver.PrepareBatchOptions{})
 	if err != nil {
 		if isConnBrokenError(err) {
-			std.debugf("PrepareContext got a fatal error, resetting connection: %v\n", err)
+			std.logger.Error("prepare context got a fatal error, resetting connection", slog.Any("error", err))
 			return nil, driver.ErrBadConn
 		}
-		std.debugf("PrepareContext error: %v\n", err)
+		std.logger.Error("prepare context error", slog.Any("error", err))
 		return nil, err
 	}
 	std.commit = batch.Send
 	return &stdBatch{
 		batch:  batch,
-		debugf: std.debugf,
+		logger: std.logger,
 	}, nil
 }
 
@@ -354,17 +328,17 @@ func (std *stdDriver) Close() error {
 	err := std.conn.close()
 	if err != nil {
 		if isConnBrokenError(err) {
-			std.debugf("Close got a fatal error, resetting connection: %v\n", err)
+			std.logger.Error("close got a fatal error, resetting connection", slog.Any("error", err))
 			return driver.ErrBadConn
 		}
-		std.debugf("Close error: %v\n", err)
+		std.logger.Error("close error", slog.Any("error", err))
 	}
 	return err
 }
 
 type stdBatch struct {
 	batch  chdriver.Batch
-	debugf func(format string, v ...any)
+	logger *slog.Logger
 }
 
 func (s *stdBatch) NumInput() int { return -1 }
@@ -374,7 +348,6 @@ func (s *stdBatch) Exec(args []driver.Value) (driver.Result, error) {
 		values = append(values, v)
 	}
 	if err := s.batch.Append(values...); err != nil {
-		s.debugf("[batch][exec] append error: %v", err)
 		return nil, err
 	}
 	return driver.RowsAffected(0), nil
@@ -399,7 +372,7 @@ func (s *stdBatch) Close() error { return nil }
 
 type stdRows struct {
 	rows   *rows
-	debugf func(format string, v ...any)
+	logger *slog.Logger
 }
 
 func (r *stdRows) Columns() []string {
@@ -449,7 +422,7 @@ var _ driver.RowsColumnTypePrecisionScale = (*stdRows)(nil)
 func (r *stdRows) Next(dest []driver.Value) error {
 	if len(r.rows.block.Columns) != len(dest) {
 		err := fmt.Errorf("expected %d destination arguments in Next, not %d", len(r.rows.block.Columns), len(dest))
-		r.debugf("Next length error: %v\n", err)
+		r.logger.Error("next length error", slog.Any("error", err))
 		return &OpError{
 			Op:  "Next",
 			Err: err,
@@ -462,7 +435,7 @@ func (r *stdRows) Next(dest []driver.Value) error {
 			case driver.Valuer:
 				v, err := value.Value()
 				if err != nil {
-					r.debugf("Next row error: %v\n", err)
+					r.logger.Error("next row error", slog.Any("error", err))
 					return err
 				}
 				dest[i] = v
@@ -488,7 +461,7 @@ func (r *stdRows) Next(dest []driver.Value) error {
 		return nil
 	}
 	if err := r.rows.Err(); err != nil {
-		r.debugf("Next rows error: %v\n", err)
+		r.logger.Error("next rows error", slog.Any("error", err))
 		return err
 	}
 	return io.EOF
@@ -514,7 +487,7 @@ var _ driver.RowsNextResultSet = (*stdRows)(nil)
 func (r *stdRows) Close() error {
 	err := r.rows.Close()
 	if err != nil {
-		r.debugf("Rows Close error: %v\n", err)
+		r.logger.Error("rows close error", slog.Any("error", err))
 	}
 	return err
 }
