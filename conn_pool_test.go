@@ -2,8 +2,8 @@ package clickhouse
 
 import (
 	"context"
-	"fmt"
 	"io"
+	"log/slog"
 	"sync"
 	"testing"
 	"time"
@@ -538,10 +538,8 @@ func (m *mockTransport) setReleased(released bool) {
 	m.released = released
 }
 
-func (m *mockTransport) debugf(format string, v ...any) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.debugMessages = append(m.debugMessages, fmt.Sprintf(format, v...))
+func (m *mockTransport) getLogger() *slog.Logger {
+	return newNoopLogger()
 }
 
 func (m *mockTransport) freeBuffer() {

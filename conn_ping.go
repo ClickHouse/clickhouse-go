@@ -19,7 +19,7 @@ func (c *connect) ping(ctx context.Context) (err error) {
 		c.conn.SetDeadline(deadline)
 		defer c.conn.SetDeadline(time.Time{})
 	}
-	c.debugf("[ping] -> ping")
+	c.logger.Debug("ping: sending")
 	c.buffer.PutByte(proto.ClientPing)
 	if err := c.flush(); err != nil {
 		return fmt.Errorf("ping: failed to send ping to %s (conn_id=%d): %w",
@@ -40,7 +40,7 @@ func (c *connect) ping(ctx context.Context) (err error) {
 				return err
 			}
 		case proto.ServerPong:
-			c.debugf("[ping] <- pong")
+			c.logger.Debug("ping: received pong")
 			return nil
 		default:
 			return fmt.Errorf("unexpected packet %d", packet)

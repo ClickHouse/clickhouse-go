@@ -10,12 +10,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"mime/multipart"
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -145,19 +144,9 @@ func applyOptionsToRequest(ctx context.Context, req *http.Request, opt *Options)
 }
 
 func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpConnect, error) {
-	debugf := func(format string, v ...any) {}
-	if opt.Debug {
-		if opt.Debugf != nil {
-			debugf = func(format string, v ...any) {
-				opt.Debugf(
-					"[clickhouse-http][%s][id=%d] "+format,
-					append([]interface{}{addr, num}, v...)...,
-				)
-			}
-		} else {
-			debugf = log.New(os.Stdout, fmt.Sprintf("[clickhouse-http][%s][id=%d]", addr, num), 0).Printf
-		}
-	}
+	// Get base logger and enrich with connection-specific context
+	baseLogger := opt.logger()
+	logger := prepareConnLogger(baseLogger, num, addr, "http")
 
 	if opt.scheme == "" {
 		switch opt.Protocol {
@@ -213,7 +202,7 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		id:          num,
 		connectedAt: time.Now(),
 		released:    false,
-		debugfFunc:  debugf,
+		logger:      logger,
 		opt:         opt,
 		client: &http.Client{
 			Transport: rt,
@@ -274,7 +263,7 @@ type httpConnect struct {
 	id              int
 	connectedAt     time.Time
 	released        bool
-	debugfFunc      func(format string, v ...any)
+	logger          *slog.Logger
 	opt             *Options
 	revision        uint64
 	encodeRevision  uint64
@@ -300,16 +289,16 @@ func (h *httpConnect) connectedAtTime() time.Time {
 	return h.connectedAt
 }
 
+func (h *httpConnect) getLogger() *slog.Logger {
+	return h.logger
+}
+
 func (h *httpConnect) isReleased() bool {
 	return h.released
 }
 
 func (h *httpConnect) setReleased(released bool) {
 	h.released = released
-}
-
-func (h *httpConnect) debugf(format string, v ...any) {
-	h.debugfFunc(format, v...)
 }
 
 func (h *httpConnect) freeBuffer() {
@@ -320,7 +309,7 @@ func (h *httpConnect) isBad() bool {
 }
 
 func (h *httpConnect) queryHello(ctx context.Context, release nativeTransportRelease) (proto.ServerHandshake, error) {
-	h.debugf("[query hello]")
+	h.logger.Debug("querying server info via HTTP")
 	ctx = Context(ctx, ignoreExternalTables())
 	query := "SELECT displayName(), version(), revision(), timezone()"
 	rows, err := h.query(ctx, release, query)
@@ -457,7 +446,7 @@ func (h *httpConnect) readData(reader *chproto.Reader, timezone *time.Location, 
 			captureBuffer.Write(buf[:n])
 		}
 		if readErr != nil {
-			h.debugf("[readData]: decoding block failed when parsing exception block: %w", err)
+			h.logger.Error("HTTP read data: decode error while parsing exception block", slog.Any("error", err))
 		}
 
 		// Check if the captured data contains the exception marker

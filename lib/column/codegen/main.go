@@ -26,6 +26,10 @@ var (
 	dynamicTypes     []_type
 )
 
+const (
+	typeBFloat16 = "BFloat16"
+)
+
 type _type struct {
 	Size int
 
@@ -54,11 +58,22 @@ func init() {
 			GoType: fmt.Sprintf("float%d", size),
 		})
 	}
+	// BFloat16 - Brain Floating Point 16
+	types = append(types, _type{
+		Size:      16,
+		ChType:    typeBFloat16,
+		GoType:    "float32", // BFloat16 uses float32 in user-facing apis.
+		SkipArray: true,
+	})
 	sort.Slice(types, func(i, j int) bool {
 		return sequenceKey(types[i].ChType) < sequenceKey(types[j].ChType)
 	})
 
 	for _, typ := range types {
+		// Skip BFloat16 from supportedGoTypes to avoid conflict with float32
+		if typ.ChType == typeBFloat16 {
+			continue
+		}
 		supportedGoTypes = append(supportedGoTypes, typ.GoType)
 	}
 
@@ -80,6 +95,12 @@ func init() {
 			// Prevent conflict with []byte and []uint8
 			typ.SkipArray = true
 			dynamicTypes = append(dynamicTypes, typ)
+			continue
+		}
+
+		if typ.ChType == typeBFloat16 {
+			// Skip BFloat16 from dynamic types to prevent conflict with Float32.
+			// Both Float32 and BFloat16 uses float32 Go type.
 			continue
 		}
 

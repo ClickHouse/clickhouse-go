@@ -3,6 +3,7 @@ package clickhouse
 import (
 	_ "embed"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
@@ -10,7 +11,9 @@ import (
 
 func (c *connect) handshake(auth Auth) error {
 	defer c.buffer.Reset()
-	c.debugf("[handshake] -> %s", proto.ClientHandshake{})
+	c.logger.Debug("handshake: sending client hello",
+		slog.Int("protocol_version", ClientTCPProtocolVersion),
+		slog.String("client_name", c.opt.ClientInfo.String()))
 	// set a read deadline - alternative to context.Read operation will fail if no data is received after deadline.
 	c.conn.SetReadDeadline(time.Now().Add(c.readTimeout))
 	defer c.conn.SetReadDeadline(time.Time{})
@@ -50,7 +53,7 @@ func (c *connect) handshake(auth Auth) error {
 					c.conn.RemoteAddr(), c.id, err)
 			}
 		case proto.ServerEndOfStream:
-			c.debugf("[handshake] <- end of stream")
+			c.logger.Debug("handshake: received end of stream")
 			return nil
 		default:
 			return fmt.Errorf("[handshake] unexpected packet [%d] from server", packet)
@@ -62,9 +65,15 @@ func (c *connect) handshake(auth Auth) error {
 
 	if c.revision > c.server.Revision {
 		c.revision = c.server.Revision
-		c.debugf("[handshake] downgrade client proto")
+		c.logger.Debug("handshake: downgrading client protocol",
+			slog.Uint64("from_revision", c.revision),
+			slog.Uint64("to_revision", c.server.Revision))
 	}
-	c.debugf("[handshake] <- %s", c.server)
+	c.logger.Debug("handshake complete",
+		slog.String("server_name", c.server.Name),
+		slog.String("server_version", c.server.Version.String()),
+		slog.Uint64("server_revision", c.server.Revision),
+		slog.String("server_timezone", c.server.Timezone.String()))
 	return nil
 }
 

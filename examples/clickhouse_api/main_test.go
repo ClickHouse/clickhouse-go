@@ -209,6 +209,13 @@ func TestSSLNoVerify(t *testing.T) {
 	require.NoError(t, SSLNoVerifyVersion())
 }
 
+func TestLoggerExample(t *testing.T) {
+	require.NoError(t, Logger())
+	require.NoError(t, LegacyDebug())
+	require.NoError(t, TextLogger())
+	require.NoError(t, EnrichedLogger())
+
+}
 func TestVariantExample(t *testing.T) {
 	clickhouse_tests.SkipOnCloud(t, "cannot modify Variant settings on cloud")
 	require.NoError(t, VariantExample())
@@ -237,4 +244,8 @@ func TestJSONFastStructExample(t *testing.T) {
 func TestJSONStringExample(t *testing.T) {
 	clickhouse_tests.SkipOnCloud(t, "cannot modify JSON settings on cloud")
 	require.NoError(t, JSONStringExample())
+}
+
+func TestBFloat16(t *testing.T) {
+	require.NoError(t, BFloat16())
 }
