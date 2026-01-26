@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"math/rand"
 	"sync"
@@ -89,6 +90,7 @@ type nativeTransport interface {
 	prepareBatch(ctx context.Context, release nativeTransportRelease, acquire nativeTransportAcquire, query string, opts driver.PrepareBatchOptions) (driver.Batch, error)
 	exec(ctx context.Context, query string, args ...any) error
 	asyncInsert(ctx context.Context, query string, wait bool, args ...any) error
+	uploadFile(ctx context.Context, reader io.Reader, query string) error
 	ping(context.Context) error
 	isBad() bool
 	connID() int
@@ -214,6 +216,42 @@ func (ch *clickhouse) AsyncInsert(ctx context.Context, query string, wait bool, 
 	}
 	ch.release(conn, nil)
 	return nil
+}
+
+// UploadFile streams a local file directly to ClickHouse over HTTP as the request body.
+//
+// The file is sent "as-is" without any decompression or recompression on the client side.
+// This method is intended for INSERT ... FORMAT <fmt> queries where the payload is already
+// prepared and optionally compressed (e.g. TSV.zst).
+//
+// Compression handling:
+//   - If contentEncoding is explicitly provided, it is set as HTTP "Content-Encoding".
+//   - If contentEncoding is empty, the encoding is auto-detected from the file extension
+//     (e.g. ".zst" → "zstd", ".gz" → "gzip").
+//   - The driver does NOT attempt to decode, encode, or transform the stream.
+//
+// Parameters:
+//   - ctx: request context (cancellation, deadlines).
+//   - filePath: path to the file to upload; the file is streamed and not buffered in memory.
+//   - query: ClickHouse INSERT query (typically "INSERT INTO <table> FORMAT <format>").
+//
+// Limitations:
+//   - External tables are not supported for file uploads.
+//   - This method is available only for the HTTP transport.
+//
+// Typical usage:
+// err := conn.UploadFile(ctx, "data.tsv.zstd", "INSERT INTO db.table FORMAT TSV")
+//
+// On success, the file contents are fully consumed and the request body is discarded.
+func (ch *clickhouse) UploadFile(ctx context.Context, reader io.Reader, query string) (err error) {
+	conn, err := ch.acquire(ctx)
+	if err != nil {
+		return err
+	}
+	defer ch.release(conn, err)
+	conn.getLogger().Debug("uploadFile", slog.String("sql", query))
+	err = conn.uploadFile(ctx, reader, query)
+	return err
 }
 
 func (ch *clickhouse) Ping(ctx context.Context) (err error) {
