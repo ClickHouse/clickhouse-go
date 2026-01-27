@@ -8,14 +8,19 @@ import (
 )
 
 func QBitSubcolumns() error {
-	conn, err := GetStdOpenDBConnection(clickhouse.Native, clickhouse.Settings{
-		// QBit is an experimental feature in ClickHouse
-		"enable_qbit_type": 1,
-	}, nil, nil)
+	conn, err := GetStdOpenDBConnection(clickhouse.Native, nil, nil, nil)
 	if err != nil {
 		return err
 	}
+	if !CheckMinServerVersion(conn, 25, 10, 0) {
+		fmt.Print("unsupported clickhouse version for QBit type")
+		return nil
+	}
 	ctx := context.Background()
+	ctx = clickhouse.Context(ctx, clickhouse.WithSettings(clickhouse.Settings{
+		// QBit is an experimental feature in ClickHouse
+		"allow_experimental_qbit_type": 1,
+	}))
 
 	_, err = conn.ExecContext(ctx, "DROP TABLE IF EXISTS example_subcolumns")
 	if err != nil {
@@ -48,16 +53,20 @@ func QBitSubcolumns() error {
 		return err
 	}
 
+	// In Go, compiler won't let you use -0.0 constant
+	pZero := float32(0.0)
+	nZero := -pZero
+
 	// Insert vectors with positive and negative zeros to show sign bit difference
 	vectors := []struct {
-		id  uint8
-		vec []float32
+		id   uint8
+		vec  []float32
 		desc string
 	}{
-		{1, []float32{1.0, -1.0, 0.0, -0.0}, "Mixed signs"},
+		{1, []float32{1.0, -1.0, 0.0, nZero}, "Mixed signs"},
 		{2, []float32{2.5, -2.5, 3.5, -3.5}, "Positive and negative"},
 		{3, []float32{0.0, 0.0, 0.0, 0.0}, "All positive zeros"},
-		{4, []float32{-0.0, -0.0, -0.0, -0.0}, "All negative zeros"},
+		{4, []float32{nZero, nZero, nZero, nZero}, "All negative zeros"},
 	}
 
 	for _, v := range vectors {
@@ -115,35 +124,6 @@ func QBitSubcolumns() error {
 		fmt.Printf("  Exponent bit 8 (.9): %s\n", exponentBit8)
 		fmt.Println()
 	}
-
-	// Demonstrate sign bit difference between 0.0 and -0.0
-	fmt.Println("Comparing 0.0 vs -0.0 (they differ only in sign bit):")
-	compareQuery := `
-		SELECT
-			vec[1] as elem1,
-			vec[4] as elem4,
-			bin(vec.1)[1] as elem1_sign,
-			bin(vec.1)[4] as elem4_sign
-		FROM example_subcolumns
-		WHERE id = 1
-	`
-
-	var elem1, elem4 float32
-	var elem1Sign, elem4Sign string
-	if err := conn.QueryRowContext(ctx, compareQuery).Scan(&elem1, &elem4, &elem1Sign, &elem4Sign); err != nil {
-		return err
-	}
-
-	fmt.Printf("Element 1: %v (sign bit: %s)\n", elem1, elem1Sign)
-	fmt.Printf("Element 4: %v (sign bit: %s)\n", elem4, elem4Sign)
-	fmt.Println()
-	fmt.Println("Note: 0.0 and -0.0 are equal in value but have different sign bits!")
-
-	// Show how to use subcolumns for approximate vector search
-	fmt.Println("\nQBit subcolumns enable runtime precision tuning:")
-	fmt.Println("- Read fewer bits (.1 to .8) for faster approximate search")
-	fmt.Println("- Read more bits (.1 to .32) for higher accuracy")
-	fmt.Println("- Use L2DistanceTransposed(vec1, vec2, precision) for optimized search")
 
 	return nil
 }

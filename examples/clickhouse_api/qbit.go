@@ -9,14 +9,20 @@ import (
 )
 
 func QBit() error {
-	conn, err := GetNativeConnection(clickhouse.Settings{
-		// QBit is an experimental feature in ClickHouse
-		"enable_qbit_type": 1,
-	}, nil, nil)
+	conn, err := GetNativeConnection(nil, nil, nil)
 	if err != nil {
 		return err
 	}
+	if !CheckMinServerVersion(conn, 25, 10, 0) {
+		fmt.Print("unsupported clickhouse version for QBit type")
+		return nil
+	}
 	ctx := context.Background()
+	ctx = clickhouse.Context(ctx, clickhouse.WithSettings(clickhouse.Settings{
+		// QBit is an experimental feature in ClickHouse
+		"allow_experimental_qbit_type": 1,
+	}))
+
 	conn.Exec(ctx, "DROP TABLE IF EXISTS example")
 
 	// Create table with QBit column for storing vector embeddings
@@ -97,7 +103,7 @@ func QBit() error {
 	var searchQuery = `
 		SELECT
 			id,
-			L2DistanceTransposed(embedding, ?::Array(Float32)) as distance
+			L2DistanceTransposed(embedding, ?::Array(Float32), 32) as distance
 		FROM example
 		ORDER BY distance ASC
 		LIMIT 3
