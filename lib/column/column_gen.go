@@ -164,6 +164,8 @@ func (t Type) Column(name string, sc *ServerContext) (Interface, error) {
 		return (&Decimal{name: name}).parse(t)
 	case strings.HasPrefix(strType, "Nested("):
 		return (&Nested{name: name}).parse(t, sc)
+	case strings.HasPrefix(string(t), "QBit("):
+		return (&QBit{name: name}).parse(t)
 	case strings.HasPrefix(string(t), "Array("):
 		return (&Array{name: name}).parse(t, sc)
 	case strings.HasPrefix(string(t), "Interval"):
