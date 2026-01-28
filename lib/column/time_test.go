@@ -151,21 +151,4 @@ func TestTime64_Append(t *testing.T) {
 			assert.Equal(t, tc.expected, got)
 		})
 	}
-	// col := &Time64{
-	// 	col: proto.ColTime64{
-	// 		Precision: proto.PrecisionMicro,
-	// 	},
-	// }
-	//
-	// col.Append([]time.Duration{
-	// 	10 * time.Second,
-	// 	10 * time.Millisecond,
-	// 	10 * time.Microsecond,
-	// 	123456789 * time.Nanosecond,
-	// })
-	//
-	// assert.Equal(t, col.col.Data[0].Duration(), 10*time.Second)
-	// assert.Equal(t, col.col.Data[1].Duration(), 10*time.Millisecond)
-	// assert.Equal(t, col.col.Data[2].Duration(), 10*time.Microsecond)
-	// assert.Equal(t, col.col.Data[3].Duration(), 123456*time.Nanosecond)
 }
