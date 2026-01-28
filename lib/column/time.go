@@ -30,7 +30,7 @@ func (col *Time) Type() Type {
 }
 
 func (col *Time) ScanType() reflect.Type {
-	return scanTypeTime
+	return scanTypeDuration
 }
 
 func (col *Time) Rows() int {
