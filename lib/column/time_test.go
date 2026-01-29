@@ -32,6 +32,58 @@ func TestTime64ScanType_issue1757(t *testing.T) {
 		"Time64.ScanType() should return time.Duration, got %v", scanType)
 }
 
+func TestTime64_Append_Store(t *testing.T) {
+	// This test ensures that actual value sent to server matches with column's type precision without any additional
+	// precision added during time.Duration conversions in between.
+	// e.g: for Time64(6) the value sent is int64 with exactly microseconds precision
+
+	cases := []struct {
+		name      string
+		input     time.Duration
+		precision proto.Precision
+		expected  int64
+	}{
+		{
+			name:      "second",
+			input:     1 * time.Second,
+			precision: proto.PrecisionSecond,
+			expected:  1,
+		},
+		{
+			name:      "millisecond",
+			input:     123 * time.Millisecond,
+			precision: proto.PrecisionMilli,
+			expected:  123,
+		},
+		{
+			name:      "microsecond",
+			input:     123456 * time.Microsecond,
+			precision: proto.PrecisionMicro,
+			expected:  123456,
+		},
+		{
+			name:      "nanosecond",
+			input:     123456789 * time.Nanosecond,
+			precision: proto.PrecisionNano,
+			expected:  123456789,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			col := Time64{}
+			col.col.Precision = tc.precision
+
+			_, err := col.Append([]time.Duration{
+				tc.input,
+			})
+			require.NoError(t, err)
+
+			v := col.col.Data[0]
+			assert.Equal(t, tc.expected, int64(v))
+		})
+	}
+}
+
 func TestTime64_Append(t *testing.T) {
 	// Make sure any duration that are getting appened get stored with
 	// Column's precision.
