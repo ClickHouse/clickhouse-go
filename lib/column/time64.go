@@ -50,7 +50,7 @@ func (col *Time64) Type() Type {
 }
 
 func (col *Time64) ScanType() reflect.Type {
-	return scanTypeTime
+	return scanTypeDuration
 }
 
 func (col *Time64) Precision() (int64, bool) {
@@ -100,16 +100,16 @@ func (col *Time64) Append(v any) (nulls []uint8, err error) {
 	case []time.Duration:
 		nulls = make([]uint8, len(v)) // default all zeros, meaning no null values
 		for i := range v {
-			col.col.Append(proto.IntoTime64(v[i]))
+			col.col.Append(proto.IntoTime64WithPrecision(v[i], col.col.Precision))
 		}
 	case []*time.Duration:
 		nulls = make([]uint8, len(v))
 		for i := range v {
 			switch {
 			case v[i] != nil:
-				col.col.Append(proto.IntoTime64(*v[i]))
+				col.col.Append(proto.IntoTime64WithPrecision(*v[i], col.col.Precision))
 			default:
-				col.col.Append(proto.IntoTime64(time.Duration(0)))
+				col.col.Append(proto.IntoTime64WithPrecision(time.Duration(0), col.col.Precision))
 				nulls[i] = 1
 			}
 		}
@@ -141,13 +141,13 @@ func (col *Time64) Append(v any) (nulls []uint8, err error) {
 func (col *Time64) AppendRow(v any) error {
 	switch v := v.(type) {
 	case time.Duration:
-		col.col.Append(proto.IntoTime64(v))
+		col.col.Append(proto.IntoTime64WithPrecision(v, col.col.Precision))
 	case *time.Duration:
 		switch {
 		case v != nil:
-			col.col.Append(proto.IntoTime64(*v))
+			col.col.Append(proto.IntoTime64WithPrecision(*v, col.col.Precision))
 		default:
-			col.col.Append(proto.IntoTime64(time.Duration(0)))
+			col.col.Append(proto.IntoTime64WithPrecision(time.Duration(0), col.col.Precision))
 		}
 	default:
 		if valuer, ok := v.(driver.Valuer); ok {

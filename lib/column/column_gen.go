@@ -272,6 +272,7 @@ var (
 	scanTypeByte            = reflect.TypeOf([]byte{})
 	scanTypeUUID            = reflect.TypeOf(uuid.UUID{})
 	scanTypeTime            = reflect.TypeOf(time.Time{})
+	scanTypeDuration        = reflect.TypeOf(time.Duration(0))
 	scanTypeRing            = reflect.TypeOf(orb.Ring{})
 	scanTypePoint           = reflect.TypeOf(orb.Point{})
 	scanTypeSlice           = reflect.TypeOf([]any{})
