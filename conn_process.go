@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"io"
+	"log/slog"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )

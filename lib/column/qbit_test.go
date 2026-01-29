@@ -396,7 +396,7 @@ func TestQBit_Append_NullableVectors(t *testing.T) {
 	val3 := float32(3.0)
 	vectors := [][]*float32{
 		{&val1, &val2},
-		nil, // nil vector
+		nil,          // nil vector
 		{&val3, nil}, // vector with nil element
 	}
 
