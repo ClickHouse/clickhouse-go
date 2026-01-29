@@ -198,7 +198,7 @@ func TestTime64_Append(t *testing.T) {
 
 			got := make([]time.Duration, 0)
 			for _, v := range col.col.Data {
-				got = append(got, v.Duration())
+				got = append(got, v.ToDurationWithPrecision(tc.precision))
 			}
 			assert.Equal(t, tc.expected, got)
 		})
@@ -320,7 +320,7 @@ func TestTime64_AppendRow(t *testing.T) {
 
 			got := make([]time.Duration, 0)
 			for _, v := range col.col.Data {
-				got = append(got, v.Duration())
+				got = append(got, v.ToDurationWithPrecision(tc.precision))
 			}
 			assert.Equal(t, tc.expected, got)
 		})
