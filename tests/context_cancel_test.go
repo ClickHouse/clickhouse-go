@@ -222,14 +222,18 @@ func ExecuteTestContextCancellation(t *testing.T, conn clickhouse.Conn, query st
 // eventually exhaust the connection pool.
 func TestContextCancellationNoConnectionSlotLeak(t *testing.T) {
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
-		SkipOnHTTP(t, protocol, "context cancel slot leak test")
-
 		env, err := GetNativeTestEnvironment()
 		assert.Nil(t, err)
 
+		// Select the correct port based on protocol
+		port := env.Port
+		if protocol == clickhouse.HTTP {
+			port = env.HttpPort
+		}
+
 		// Create a connection with a very small pool size to make slot exhaustion obvious
 		opts := &clickhouse.Options{
-			Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},
+			Addr: []string{fmt.Sprintf("%s:%d", env.Host, port)},
 			Auth: clickhouse.Auth{
 				Database: env.Database,
 				Username: env.Username,
