@@ -2,6 +2,8 @@ package clickhouse
 
 import (
 	"context"
+	"log/slog"
+
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 
@@ -14,7 +16,7 @@ func (c *connect) query(ctx context.Context, release nativeTransportRelease, que
 	)
 
 	if err != nil {
-		c.debugf("[bindQuery] error: %v", err)
+		c.logger.Error("failed to bind query parameters", slog.Any("error", err))
 		release(c, err)
 		return nil, err
 	}
@@ -27,7 +29,7 @@ func (c *connect) query(ctx context.Context, release nativeTransportRelease, que
 	init, err := c.firstBlock(ctx, onProcess)
 
 	if err != nil {
-		c.debugf("[query] first block error: %v", err)
+		c.logger.Error("failed to get first block", slog.Any("error", err))
 		release(c, err)
 		return nil, err
 	}
@@ -47,7 +49,7 @@ func (c *connect) query(ctx context.Context, release nativeTransportRelease, que
 		}
 		err := c.process(ctx, onProcess)
 		if err != nil {
-			c.debugf("[query] process error: %v", err)
+			c.logger.Error("query processing failed", slog.Any("error", err))
 			errors <- err
 		}
 		close(stream)

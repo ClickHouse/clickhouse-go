@@ -7,6 +7,7 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 	"io"
+	"log/slog"
 	"os"
 	"slices"
 )
@@ -263,14 +264,16 @@ func (b *httpBatch) Send() (err error) {
 	options.settings["query"] = b.query
 	headers["Content-Type"] = "application/octet-stream"
 
-	b.conn.debugf("[batch send start] columns=%d rows=%d", len(b.block.Columns), b.block.Rows())
+	b.conn.logger.Debug("batch: sending via HTTP",
+		slog.Int("columns", len(b.block.Columns)),
+		slog.Int("rows", b.block.Rows()))
 	res, err := b.conn.sendStreamQuery(b.ctx, pipeReader, &options, headers)
 	if err != nil {
 		return fmt.Errorf("batch sendStreamQuery: %w", err)
 	}
 	discardAndClose(res.Body)
 
-	b.conn.debugf("[batch send complete]")
+	b.conn.logger.Debug("batch: send complete")
 	b.block.Reset()
 
 	return nil

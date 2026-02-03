@@ -2,6 +2,7 @@ package clickhouse
 
 import (
 	"context"
+	"log/slog"
 	"reflect"
 	"time"
 
@@ -22,9 +23,9 @@ func (c *connect) profileEvents(ctx context.Context, scanEvents bool) ([]Profile
 	if err != nil {
 		return nil, err
 	}
-	c.debugf("[profile events] rows=%d", block.Rows())
+	c.logger.Debug("profile events received", slog.Int("rows", block.Rows()))
 	if !scanEvents {
-		c.debugf("[profile events] skipping scan")
+		c.logger.Debug("profile events: skipping scan")
 		return nil, nil
 	}
 	var (

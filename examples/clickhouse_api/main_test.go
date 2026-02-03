@@ -209,6 +209,19 @@ func TestSSLNoVerify(t *testing.T) {
 	require.NoError(t, SSLNoVerifyVersion())
 }
 
+func TestLoggerExample(t *testing.T) {
+	require.NoError(t, Logger())
+	require.NoError(t, LegacyDebug())
+	require.NoError(t, TextLogger())
+	require.NoError(t, EnrichedLogger())
+
+}
+
+func TestQBitExample(t *testing.T) {
+	require.NoError(t, QBit())
+	require.NoError(t, QBitSubcolumns())
+}
+
 func TestVariantExample(t *testing.T) {
 	clickhouse_tests.SkipOnCloud(t, "cannot modify Variant settings on cloud")
 	require.NoError(t, VariantExample())

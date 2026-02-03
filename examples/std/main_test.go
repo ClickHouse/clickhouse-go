@@ -140,6 +140,19 @@ func TestConnectionSettings(t *testing.T) {
 	require.NoError(t, ConnectSettings())
 }
 
+func TestLoggerExample(t *testing.T) {
+	require.NoError(t, StdLogger())
+	require.NoError(t, StdTextLogger())
+	require.NoError(t, StdLegacyDebug())
+	require.NoError(t, StdEnrichedLogger())
+	require.NoError(t, StdPoolLogging())
+}
+
+func TestQBitExample(t *testing.T) {
+	require.NoError(t, QBit())
+	require.NoError(t, QBitSubcolumns())
+}
+
 func TestVariantExample(t *testing.T) {
 	clickhouse_tests.SkipOnCloud(t, "cannot modify Variant settings on cloud")
 	require.NoError(t, VariantExample())
