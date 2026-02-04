@@ -5,13 +5,14 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	"io"
 	"log/slog"
 	"net"
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 
 	"github.com/ClickHouse/clickhouse-go/v2/resources"
 
@@ -94,7 +95,7 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 		auth.Password = jwt
 	}
 
-	if err := connect.handshake(auth); err != nil {
+	if err := connect.handshake(ctx, auth); err != nil {
 		return nil, err
 	}
 
