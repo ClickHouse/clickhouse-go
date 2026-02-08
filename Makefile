@@ -7,6 +7,12 @@ up:
 down:
 	@docker compose down
 
+up-cluster:
+	@docker compose -f docker-compose.cluster.yml up
+
+down-cluster:
+	@docker compose -f docker-compose.cluster.yml down
+
 cli:
 	docker run -it --rm --net clickhouse-go_clickhouse --link clickhouse:clickhouse-server --host clickhouse-server
 

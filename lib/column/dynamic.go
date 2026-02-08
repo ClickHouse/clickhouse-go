@@ -18,7 +18,8 @@ const DynamicNullDiscriminator = -1 // The Null index changes as data is being b
 const DefaultMaxDynamicTypes = 32
 
 func supportsFlatDynamicJSON(sc *ServerContext) bool {
-	return sc.VersionMajor >= 25 && sc.VersionMinor >= 6
+	// Any CH version more than 25.6
+	return sc.VersionMajor > 25 || (sc.VersionMajor == 25 && sc.VersionMinor >= 6)
 }
 
 type Dynamic struct {

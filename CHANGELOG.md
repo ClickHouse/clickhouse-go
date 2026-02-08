@@ -1,3 +1,59 @@
+# v2.43.0, 2026-01-29 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+### Enhancements :tada: 
+* Implement Unwrap() on BlockError by @ilidemi in https://github.com/ClickHouse/clickhouse-go/pull/1741
+* Feat: Add clickhouse cluster mode setup via docker compose by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1749
+* Feat: support LineString and MultiLineString by @imkonsowa in https://github.com/ClickHouse/clickhouse-go/pull/1751
+* feat: support BFloat16 datatype by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1755
+* feat(slog): add support for structured and leveled logger by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1756
+* feat: support `QBit` column type by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1761
+
+### Bug fixes :bug: 
+* fix: Fixes the failure againt HEAD of CH server by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1752
+* fix(time/time64): fix the ScanType of both time and time64 by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1758
+
+### Other Changes 🛠
+* update `UseContext` example to handle `rows.Err()` correct by @ehsansouri23 in https://github.com/ClickHouse/clickhouse-go/pull/1726
+* chore(deps): bump golang.org/x/net from 0.48.0 to 0.49.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1750
+* doc(pooling): Clarify connection pooling is enabled on both protocols by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1753
+* add codeowners by @mshustov in https://github.com/ClickHouse/clickhouse-go/pull/1754
+
+## New Contributors
+* @ehsansouri23 made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1726
+* @ilidemi made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1741
+* @imkonsowa made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1751
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.42.0...v2.43.0
+
+# v2.42.0, 2025-12-12 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+
+### Enhancements 🎉
+* Add context option to append more ClientInfo to the system.query_log by @SpencerTorres in https://github.com/ClickHouse/clickhouse-go/pull/1736
+* refactor: idle pool and fix non-deterministic teardown of idle cleanup goroutine by @GeorgeMac in https://github.com/ClickHouse/clickhouse-go/pull/1687
+* chore: Improve EOF error messages. by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1723
+* feat: Add support for proper exception handling by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1694
+
+### Bug Fixes :bug: 
+* bug: Fix `formatTime` escaping by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1727
+
+### Other Changes 🛠
+* chore(release): Workflow Authentication by @juliojimenez in https://github.com/ClickHouse/clickhouse-go/pull/1718
+* Bump golang.org/x/crypto from 0.44.0 to 0.45.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1717
+* Fix #1719: Fix invalid links and add link checking for PRs by @tsics in https://github.com/ClickHouse/clickhouse-go/pull/1720
+* fix: restore minimal Go version to 1.24 by @vincentbernat in https://github.com/ClickHouse/clickhouse-go/pull/172
+* chore(deps): bump golang.org/x/net from 0.47.0 to 0.48.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1733
+* chore(deps): bump go.opentelemetry.io/otel/trace from 1.38.0 to 1.39.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1734
+
+## New Contributors
+* @juliojimenez made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1718
+* @tsics made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1720
+* @GeorgeMac made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1687
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.41.0...v2.42.0
+
 # v2.41.0, 2025-11-20 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed

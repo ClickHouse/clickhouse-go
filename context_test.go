@@ -2,9 +2,10 @@ package clickhouse
 
 import (
 	"context"
-	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestContext(t *testing.T) {
@@ -122,6 +123,62 @@ func TestContext(t *testing.T) {
 
 			loc := queryOptionsUserLocation(ctx)
 			require.Nil(t, loc)
+		},
+	)
+
+	t.Run("correctly appends client info on multiple calls",
+		func(t *testing.T) {
+			// First context
+			firstContext := Context(context.Background(), WithClientInfo(ClientInfo{
+				Products: []struct {
+					Name    string
+					Version string
+				}{
+					{
+						Name:    "product",
+						Version: "1.0.0",
+					},
+				},
+				Comment: []string{"comment_a"},
+			}))
+
+			firstOpts := queryOptions(firstContext)
+			require.Len(t, firstOpts.clientInfo.Products, 1)
+			require.Equal(t, "product", firstOpts.clientInfo.Products[0].Name)
+			require.Equal(t, "1.0.0", firstOpts.clientInfo.Products[0].Version)
+			require.Len(t, firstOpts.clientInfo.Comment, 1)
+			require.Equal(t, "comment_a", firstOpts.clientInfo.Comment[0])
+
+			// Second context
+			secondContext := Context(firstContext, WithClientInfo(ClientInfo{
+				Products: []struct {
+					Name    string
+					Version string
+				}{
+					{
+						Name:    "product2",
+						Version: "2.0.0",
+					},
+				},
+				Comment: []string{"comment_b"},
+			}))
+
+			// Product and comment values should be merged from the first+second contexts
+			secondOpts := queryOptions(secondContext)
+
+			// Check first context values still present
+			require.Len(t, secondOpts.clientInfo.Products, 2)
+			require.Equal(t, "product", secondOpts.clientInfo.Products[0].Name)
+			require.Equal(t, "1.0.0", secondOpts.clientInfo.Products[0].Version)
+			require.Len(t, secondOpts.clientInfo.Comment, 2)
+			require.Equal(t, "comment_a", secondOpts.clientInfo.Comment[0])
+
+			// Check second context values present
+			require.Len(t, secondOpts.clientInfo.Products, 2)
+			require.Equal(t, "product2", secondOpts.clientInfo.Products[1].Name)
+			require.Equal(t, "2.0.0", secondOpts.clientInfo.Products[1].Version)
+			require.Len(t, secondOpts.clientInfo.Comment, 2)
+			require.Equal(t, "comment_b", secondOpts.clientInfo.Comment[1])
 		},
 	)
 }

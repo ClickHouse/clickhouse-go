@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math/rand"
 	"sync"
 	"sync/atomic"
@@ -94,7 +95,7 @@ type nativeTransport interface {
 	connectedAtTime() time.Time
 	isReleased() bool
 	setReleased(released bool)
-	debugf(format string, v ...any)
+	getLogger() *slog.Logger
 	// freeBuffer is called if Options.FreeBufOnConnRelease is set
 	freeBuffer()
 	close() error
@@ -139,7 +140,7 @@ func (ch *clickhouse) Query(ctx context.Context, query string, args ...any) (row
 	if err != nil {
 		return nil, err
 	}
-	conn.debugf("[query] \"%s\"", query)
+	conn.getLogger().Debug("executing query", slog.String("sql", query))
 	return conn.query(ctx, ch.release, query, args...)
 }
 
@@ -151,7 +152,7 @@ func (ch *clickhouse) QueryRow(ctx context.Context, query string, args ...any) d
 		}
 	}
 
-	conn.debugf("[query row] \"%s\"", query)
+	conn.getLogger().Debug("executing query row", slog.String("sql", query))
 	return conn.queryRow(ctx, ch.release, query, args...)
 }
 
@@ -160,7 +161,7 @@ func (ch *clickhouse) Exec(ctx context.Context, query string, args ...any) error
 	if err != nil {
 		return err
 	}
-	conn.debugf("[exec] \"%s\"", query)
+	conn.getLogger().Debug("executing statement", slog.String("sql", query))
 
 	if asyncOpt := queryOptionsAsync(ctx); asyncOpt.ok {
 		err = conn.asyncInsert(ctx, query, asyncOpt.wait, args...)
@@ -182,7 +183,7 @@ func (ch *clickhouse) PrepareBatch(ctx context.Context, query string, opts ...dr
 	if err != nil {
 		return nil, err
 	}
-	conn.debugf("[prepare batch] \"%s\"", query)
+	conn.getLogger().Debug("preparing batch", slog.String("sql", query))
 	batch, err := conn.prepareBatch(ctx, ch.release, ch.acquire, query, getPrepareBatchOptions(opts...))
 	if err != nil {
 		return nil, err
@@ -206,7 +207,7 @@ func (ch *clickhouse) AsyncInsert(ctx context.Context, query string, wait bool, 
 	if err != nil {
 		return err
 	}
-	conn.debugf("[async insert] \"%s\"", query)
+	conn.getLogger().Debug("async insert", slog.String("sql", query), slog.Bool("wait", wait))
 	if err := conn.asyncInsert(ctx, query, wait, args...); err != nil {
 		ch.release(conn, err)
 		return err
@@ -220,7 +221,7 @@ func (ch *clickhouse) Ping(ctx context.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	conn.debugf("[ping]")
+	conn.getLogger().Debug("ping")
 	if err := conn.ping(ctx); err != nil {
 		ch.release(conn, err)
 		return err
@@ -318,7 +319,7 @@ func (ch *clickhouse) acquire(ctx context.Context) (conn nativeTransport, err er
 	if err == nil && conn != nil {
 		if !conn.isBad() {
 			conn.setReleased(false)
-			conn.debugf("[acquired from pool]")
+			conn.getLogger().Debug("connection acquired from pool")
 			return conn, nil
 		}
 
@@ -334,7 +335,7 @@ func (ch *clickhouse) acquire(ctx context.Context) (conn nativeTransport, err er
 		return nil, err
 	}
 
-	conn.debugf("[acquired new]")
+	conn.getLogger().Debug("new connection established")
 	return conn, nil
 
 }
@@ -346,9 +347,9 @@ func (ch *clickhouse) release(conn nativeTransport, err error) {
 	conn.setReleased(true)
 
 	if err != nil {
-		conn.debugf("[released with error]")
+		conn.getLogger().Debug("connection released with error", slog.Any("error", err))
 	} else {
-		conn.debugf("[released]")
+		conn.getLogger().Debug("connection released to pool")
 	}
 
 	select {
@@ -357,17 +358,19 @@ func (ch *clickhouse) release(conn nativeTransport, err error) {
 	}
 
 	if err != nil {
-		conn.debugf("[close: error] %s", err.Error())
+		conn.getLogger().Debug("connection closed due to error", slog.Any("error", err))
 		conn.close()
 		return
 	} else if time.Since(conn.connectedAtTime()) >= ch.opt.ConnMaxLifetime {
-		conn.debugf("[close: lifetime expired]")
+		conn.getLogger().Debug("connection closed: lifetime expired",
+			slog.Duration("age", time.Since(conn.connectedAtTime())),
+			slog.Duration("max_lifetime", ch.opt.ConnMaxLifetime))
 		conn.close()
 		return
 	}
 
 	if ch.opt.FreeBufOnConnRelease {
-		conn.debugf("[free buffer]")
+		conn.getLogger().Debug("freeing connection buffer")
 		conn.freeBuffer()
 	}
 

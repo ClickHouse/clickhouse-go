@@ -2,17 +2,18 @@ package clickhouse
 
 import (
 	"fmt"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 	"runtime"
 	"sort"
 	"strings"
+
+	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 
 const ClientName = "clickhouse-go"
 
 const (
 	ClientVersionMajor       = 2
-	ClientVersionMinor       = 41
+	ClientVersionMinor       = 43
 	ClientVersionPatch       = 0
 	ClientTCPProtocolVersion = proto.DBMS_TCP_PROTOCOL_VERSION
 )
@@ -23,7 +24,34 @@ type ClientInfo struct {
 		Version string
 	}
 
-	comment []string
+	Comment []string
+}
+
+// Append returns a new copy of the combined ClientInfo structs
+func (a ClientInfo) Append(b ClientInfo) ClientInfo {
+	c := ClientInfo{
+		Products: make([]struct {
+			Name    string
+			Version string
+		}, 0, len(a.Products)+len(b.Products)),
+		Comment: make([]string, 0, len(a.Comment)+len(b.Comment)),
+	}
+
+	for _, p := range a.Products {
+		c.Products = append(c.Products, p)
+	}
+	for _, p := range b.Products {
+		c.Products = append(c.Products, p)
+	}
+
+	for _, cm := range a.Comment {
+		c.Comment = append(c.Comment, cm)
+	}
+	for _, cm := range b.Comment {
+		c.Comment = append(c.Comment, cm)
+	}
+
+	return c
 }
 
 func (o ClientInfo) String() string {
@@ -45,7 +73,9 @@ func (o ClientInfo) String() string {
 	lvMeta := "lv:go/" + runtime.Version()[2:]
 	osMeta := "os:" + runtime.GOOS
 
-	chunks := append(info.comment, lvMeta, osMeta) // nolint:gocritic
+	chunks := make([]string, 0, len(info.Comment)+2)
+	chunks = append(chunks, info.Comment...)
+	chunks = append(chunks, lvMeta, osMeta)
 
 	s.WriteByte(' ')
 	s.WriteByte('(')

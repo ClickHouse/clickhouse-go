@@ -56,6 +56,12 @@ func TestArrayInsertRead(t *testing.T) {
 }
 
 func TestAsyncInsert(t *testing.T) {
+	// Rationale: ClickHouser server added a validation that
+	// "insert_quoram" and "async_insert" setting cannot be used together.
+	// https://github.com/ClickHouse/ClickHouse/pull/89140/changes#diff-ff8ad4aed4cf07fe29cb5344d2ab79bc24efd97d054aa112c3a05b5ab853cc44R1558-R1562
+	// NOTE: using t.Setenv also cleanups and restore old value after end of the test. So no need
+	// to manually unset the envs.
+	t.Setenv("CLICKHOUSE_QUORUM_INSERT", "0")
 	require.NoError(t, AsyncInsertNative())
 	require.NoError(t, AsyncInsertHTTP())
 }
@@ -203,6 +209,19 @@ func TestSSLNoVerify(t *testing.T) {
 	require.NoError(t, SSLNoVerifyVersion())
 }
 
+func TestLoggerExample(t *testing.T) {
+	require.NoError(t, Logger())
+	require.NoError(t, LegacyDebug())
+	require.NoError(t, TextLogger())
+	require.NoError(t, EnrichedLogger())
+
+}
+
+func TestQBitExample(t *testing.T) {
+	require.NoError(t, QBit())
+	require.NoError(t, QBitSubcolumns())
+}
+
 func TestVariantExample(t *testing.T) {
 	clickhouse_tests.SkipOnCloud(t, "cannot modify Variant settings on cloud")
 	require.NoError(t, VariantExample())
@@ -231,4 +250,8 @@ func TestJSONFastStructExample(t *testing.T) {
 func TestJSONStringExample(t *testing.T) {
 	clickhouse_tests.SkipOnCloud(t, "cannot modify JSON settings on cloud")
 	require.NoError(t, JSONStringExample())
+}
+
+func TestBFloat16(t *testing.T) {
+	require.NoError(t, BFloat16())
 }

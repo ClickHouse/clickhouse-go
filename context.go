@@ -56,6 +56,7 @@ type (
 		blockBufferSize     uint8
 		userLocation        *time.Location
 		columnNamesAndTypes []ColumnNameAndType
+		clientInfo          ClientInfo
 	}
 )
 
@@ -103,6 +104,16 @@ func WithJWT(jwt string) QueryOption {
 func WithColumnNamesAndTypes(columnNamesAndTypes []ColumnNameAndType) QueryOption {
 	return func(o *QueryOptions) error {
 		o.columnNamesAndTypes = columnNamesAndTypes
+		return nil
+	}
+}
+
+// WithClientInfo appends client info data to the query, visible in the system.query_log table.
+// This does not replace the client info provided in the connection options, it appends to it.
+// Can be called multiple times to append more info.
+func WithClientInfo(ci ClientInfo) QueryOption {
+	return func(o *QueryOptions) error {
+		o.clientInfo = o.clientInfo.Append(ci)
 		return nil
 	}
 }
@@ -316,6 +327,10 @@ func (q *QueryOptions) clone() QueryOptions {
 
 	if q.columnNamesAndTypes != nil {
 		c.columnNamesAndTypes = slices.Clone(q.columnNamesAndTypes)
+	}
+
+	if q.clientInfo.Products != nil || q.clientInfo.Comment != nil {
+		c.clientInfo = q.clientInfo.Append(ClientInfo{})
 	}
 
 	return c

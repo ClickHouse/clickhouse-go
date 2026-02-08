@@ -2,6 +2,7 @@ package clickhouse
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
@@ -23,7 +24,7 @@ func (c *connect) logs(ctx context.Context) ([]Log, error) {
 	if err != nil {
 		return nil, err
 	}
-	c.debugf("[logs] rows=%d", block.Rows())
+	c.logger.Debug("server logs received", slog.Int("rows", block.Rows()))
 	var (
 		logs  []Log
 		names = block.ColumnsNames()
