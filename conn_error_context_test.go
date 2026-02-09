@@ -55,8 +55,29 @@ func (m *mockNetConn) SetDeadline(t time.Time) error      { return nil }
 func (m *mockNetConn) SetReadDeadline(t time.Time) error  { return nil }
 func (m *mockNetConn) SetWriteDeadline(t time.Time) error { return nil }
 
+// deadlineRecorderConn wraps a net.Conn and records SetDeadline and SetReadDeadline calls for tests.
+type deadlineRecorderConn struct {
+	net.Conn
+	setDeadlineCalls     []time.Time
+	setReadDeadlineCalls []time.Time
+}
+
+func (d *deadlineRecorderConn) SetDeadline(t time.Time) error {
+	d.setDeadlineCalls = append(d.setDeadlineCalls, t)
+	return d.Conn.SetDeadline(t)
+}
+
+func (d *deadlineRecorderConn) SetReadDeadline(t time.Time) error {
+	d.setReadDeadlineCalls = append(d.setReadDeadlineCalls, t)
+	return d.Conn.SetReadDeadline(t)
+}
+
+func (d *deadlineRecorderConn) SetWriteDeadline(t time.Time) error {
+	return d.Conn.SetWriteDeadline(t)
+}
+
 // createMockConnect creates a connect instance with mock components for testing
-func createMockConnect(mockConn *mockNetConn) *connect {
+func createMockConnect(mockConn net.Conn) *connect {
 	reader := chproto.NewReader(mockConn)
 	buffer := new(chproto.Buffer)
 	compressor := &compress.Writer{}
@@ -82,7 +103,7 @@ func TestHandshakeErrorContext(t *testing.T) {
 	mockConn := &mockNetConn{readErr: io.EOF}
 	conn := createMockConnect(mockConn)
 
-	err := conn.handshake(Auth{
+	err := conn.handshake(context.Background(), Auth{
 		Database: "default",
 		Username: "default",
 		Password: "",
@@ -171,7 +192,7 @@ func TestErrorContextPreservesEOF(t *testing.T) {
 		{
 			name: "handshake",
 			testFunc: func(c *connect) error {
-				return c.handshake(Auth{Database: "default"})
+				return c.handshake(context.Background(), Auth{Database: "default"})
 			},
 		},
 		{
@@ -224,7 +245,7 @@ func TestErrorContextDistinguishesOperations(t *testing.T) {
 
 	operations := map[string]func(*connect) error{
 		"handshake": func(c *connect) error {
-			return c.handshake(Auth{Database: "default"})
+			return c.handshake(context.Background(), Auth{Database: "default"})
 		},
 		"ping": func(c *connect) error {
 			return c.ping(context.Background())
@@ -276,7 +297,7 @@ func TestIsConnBrokenErrorDetectsEOF(t *testing.T) {
 		{
 			name: "handshake EOF",
 			getError: func(c *connect) error {
-				return c.handshake(Auth{Database: "default"})
+				return c.handshake(context.Background(), Auth{Database: "default"})
 			},
 		},
 		{
@@ -305,4 +326,44 @@ func TestIsConnBrokenErrorDetectsEOF(t *testing.T) {
 				"isConnBrokenError should detect wrapped EOF from %s", tc.name)
 		})
 	}
+}
+
+// TestHandshakeRespectsContextDeadline verifies that handshake sets the connection deadline from context when ctx has a deadline.
+func TestHandshakeRespectsContextDeadline(t *testing.T) {
+	baseConn := &mockNetConn{readErr: io.EOF}
+	recorder := &deadlineRecorderConn{Conn: baseConn}
+	conn := createMockConnect(recorder)
+
+	ctxDeadline := time.Now().Add(30 * time.Second)
+	ctx, cancel := context.WithDeadline(context.Background(), ctxDeadline)
+	defer cancel()
+
+	_ = conn.handshake(ctx, Auth{Database: "default", Username: "default", Password: ""})
+
+	// handshake sets read deadline, then if ctx has deadline it sets conn deadline, then on return defers clear.
+	// So we expect at least one SetDeadline call with the context deadline, and one with zero to clear.
+	require.NotEmpty(t, recorder.setDeadlineCalls, "SetDeadline should have been called when context has deadline")
+	// First SetDeadline(deadline) should be the context deadline (within a small tolerance)
+	first := recorder.setDeadlineCalls[0]
+	assert.WithinDuration(t, ctxDeadline, first, time.Millisecond,
+		"first SetDeadline should use context deadline")
+	// Last call should be clear (zero time)
+	last := recorder.setDeadlineCalls[len(recorder.setDeadlineCalls)-1]
+	assert.True(t, last.IsZero(), "last SetDeadline should be zero to clear deadline")
+}
+
+// TestHandshakeNoContextDeadline verifies that handshake does not call SetDeadline when context has no deadline.
+func TestHandshakeNoContextDeadline(t *testing.T) {
+	baseConn := &mockNetConn{readErr: io.EOF}
+	recorder := &deadlineRecorderConn{Conn: baseConn}
+	conn := createMockConnect(recorder)
+
+	_ = conn.handshake(context.Background(), Auth{Database: "default", Username: "default", Password: ""})
+
+	// With context.Background(), ctx.Deadline() returns (zero, false), so SetDeadline is never called from the context path.
+	assert.Empty(t, recorder.setDeadlineCalls,
+		"SetDeadline should not be called when context has no deadline")
+	// SetReadDeadline is still called
+	require.NotEmpty(t, recorder.setReadDeadlineCalls,
+		"SetReadDeadline should still be called")
 }
