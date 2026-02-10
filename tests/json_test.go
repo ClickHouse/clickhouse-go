@@ -522,7 +522,7 @@ func TestJSONNullableObjectScan(t *testing.T) {
 	})
 }
 
-func TestJSONNullableObjectScanViaScanType(t *testing.T) {
+func TestJSONNullableObjectViaPointer(t *testing.T) {
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
 		conn := setupJSONTest(t, protocol)
 
@@ -549,6 +549,19 @@ func TestJSONNullableObjectScanViaScanType(t *testing.T) {
 
 		require.NoError(t, rows.Close())
 		require.NoError(t, rows.Err())
+
+		// Test for the null case
+		rowsWithNull, err := conn.Query(ctx, `SELECT NULL::Nullable(JSON)`)
+		require.NoError(t, err)
+
+		require.True(t, rowsWithNull.Next())
+		var rowWithNull *clickhouse.JSON
+		err = rowsWithNull.Scan(&rowWithNull)
+		require.NoError(t, err)
+		require.Nil(t, rowWithNull)
+
+		require.NoError(t, rowsWithNull.Close())
+		require.NoError(t, rowsWithNull.Err())
 	})
 }
 
