@@ -522,6 +522,36 @@ func TestJSONNullableObjectScan(t *testing.T) {
 	})
 }
 
+func TestJSONNullableObjectScanViaScanType(t *testing.T) {
+	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		conn := setupJSONTest(t, protocol)
+
+		if !CheckMinServerServerVersion(conn, 25, 2, 0) {
+			t.Skip("Nullable(JSON) unsupported")
+		}
+
+		ctx := context.Background()
+		rows, err := conn.Query(ctx, `SELECT '{"x": "test"}'::Nullable(JSON)`)
+		require.NoError(t, err)
+
+		require.True(t, rows.Next())
+		columnTypes := rows.ColumnTypes()
+		require.Len(t, columnTypes, 1)
+		require.Equal(t, "Nullable(JSON)", columnTypes[0].DatabaseTypeName())
+
+		var row *clickhouse.JSON
+		err = rows.Scan(&row)
+		require.NoError(t, err)
+
+		xStr, ok := clickhouse.ExtractJSONPathAs[string](row, "x")
+		require.True(t, ok)
+		require.Equal(t, "test", xStr)
+
+		require.NoError(t, rows.Close())
+		require.NoError(t, rows.Err())
+	})
+}
+
 func TestJSONNullableStringsScan(t *testing.T) {
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
 		conn := setupJSONTest(t, protocol)
