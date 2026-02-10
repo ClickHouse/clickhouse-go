@@ -164,6 +164,8 @@ func (t Type) Column(name string, sc *ServerContext) (Interface, error) {
 		return (&Decimal{name: name}).parse(t)
 	case strings.HasPrefix(strType, "Nested("):
 		return (&Nested{name: name}).parse(t, sc)
+	case strings.HasPrefix(string(t), "QBit("):
+		return (&QBit{name: name}).parse(t)
 	case strings.HasPrefix(string(t), "Array("):
 		return (&Array{name: name}).parse(t, sc)
 	case strings.HasPrefix(string(t), "Interval"):
@@ -270,6 +272,7 @@ var (
 	scanTypeByte            = reflect.TypeOf([]byte{})
 	scanTypeUUID            = reflect.TypeOf(uuid.UUID{})
 	scanTypeTime            = reflect.TypeOf(time.Time{})
+	scanTypeDuration        = reflect.TypeOf(time.Duration(0))
 	scanTypeRing            = reflect.TypeOf(orb.Ring{})
 	scanTypePoint           = reflect.TypeOf(orb.Point{})
 	scanTypeSlice           = reflect.TypeOf([]any{})
