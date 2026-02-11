@@ -411,11 +411,11 @@ func (c *JSON) AppendRow(v any) error {
 		}
 
 		var err error
-		if err = c.appendRowString(v); err == nil {
-			c.serializationVersion = JSONStringSerializationVersion
-			return nil
-		} else if err = c.appendRowObject(v); err == nil {
+		if err = c.appendRowObject(v); err == nil {
 			c.serializationVersion = JSONObjectSerializationVersion
+			return nil
+		} else if err = c.appendRowString(v); err == nil {
+			c.serializationVersion = JSONStringSerializationVersion
 			return nil
 		}
 
