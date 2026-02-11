@@ -3,6 +3,7 @@ package tests
 import (
 	"context"
 	"encoding/json"
+	"reflect"
 	"testing"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
@@ -531,24 +532,38 @@ func TestJSONNullableObjectViaPointer(t *testing.T) {
 		}
 
 		ctx := context.Background()
-		rows, err := conn.Query(ctx, `SELECT '{"x": "test"}'::Nullable(JSON)`)
+
+		rowsString, err := conn.Query(ctx, `SELECT 'test'::Nullable(String)`)
 		require.NoError(t, err)
 
-		require.True(t, rows.Next())
-		columnTypes := rows.ColumnTypes()
-		require.Len(t, columnTypes, 1)
-		require.Equal(t, "Nullable(JSON)", columnTypes[0].DatabaseTypeName())
+		require.True(t, rowsString.Next())
+		require.Len(t, rowsString.ColumnTypes(), 1)
+		require.Equal(t, "Nullable(String)", rowsString.ColumnTypes()[0].DatabaseTypeName())
+		rowString := reflect.New(rowsString.ColumnTypes()[0].ScanType()).Interface()
+		err = rowsString.Scan(rowString)
+		require.NoError(t, err)
+		require.Equal(t, "test", **rowString.(**string))
 
-		var row *clickhouse.JSON
-		err = rows.Scan(&row)
+		require.NoError(t, rowsString.Close())
+		require.NoError(t, rowsString.Err())
+
+		rowsJson, err := conn.Query(ctx, `SELECT '{"x": "test"}'::Nullable(JSON)`)
 		require.NoError(t, err)
 
-		xStr, ok := clickhouse.ExtractJSONPathAs[string](row, "x")
+		require.True(t, rowsJson.Next())
+		require.Len(t, rowsJson.ColumnTypes(), 1)
+		require.Equal(t, "Nullable(JSON)", rowsJson.ColumnTypes()[0].DatabaseTypeName())
+
+		rowJson := reflect.New(rowsJson.ColumnTypes()[0].ScanType()).Interface()
+		err = rowsJson.Scan(rowJson)
+		require.NoError(t, err)
+
+		xStr, ok := clickhouse.ExtractJSONPathAs[string](rowJson.(*clickhouse.JSON), "x")
 		require.True(t, ok)
 		require.Equal(t, "test", xStr)
 
-		require.NoError(t, rows.Close())
-		require.NoError(t, rows.Err())
+		require.NoError(t, rowsJson.Close())
+		require.NoError(t, rowsJson.Err())
 
 		// Test for the null case
 		rowsWithNull, err := conn.Query(ctx, `SELECT NULL::Nullable(JSON)`)
