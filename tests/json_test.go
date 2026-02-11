@@ -3,6 +3,7 @@ package tests
 import (
 	"context"
 	"encoding/json"
+	"reflect"
 	"testing"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
@@ -519,6 +520,63 @@ func TestJSONNullableObjectScan(t *testing.T) {
 
 		require.NoError(t, rows.Close())
 		require.NoError(t, rows.Err())
+	})
+}
+
+func TestJSONNullableObjectViaPointer(t *testing.T) {
+	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		conn := setupJSONTest(t, protocol)
+
+		if !CheckMinServerServerVersion(conn, 25, 2, 0) {
+			t.Skip("Nullable(JSON) unsupported")
+		}
+
+		ctx := context.Background()
+
+		rowsString, err := conn.Query(ctx, `SELECT 'test'::Nullable(String)`)
+		require.NoError(t, err)
+
+		require.True(t, rowsString.Next())
+		require.Len(t, rowsString.ColumnTypes(), 1)
+		require.Equal(t, "Nullable(String)", rowsString.ColumnTypes()[0].DatabaseTypeName())
+		rowString := reflect.New(rowsString.ColumnTypes()[0].ScanType()).Interface()
+		err = rowsString.Scan(rowString)
+		require.NoError(t, err)
+		require.Equal(t, "test", **rowString.(**string))
+
+		require.NoError(t, rowsString.Close())
+		require.NoError(t, rowsString.Err())
+
+		rowsJson, err := conn.Query(ctx, `SELECT '{"x": "test"}'::Nullable(JSON)`)
+		require.NoError(t, err)
+
+		require.True(t, rowsJson.Next())
+		require.Len(t, rowsJson.ColumnTypes(), 1)
+		require.Equal(t, "Nullable(JSON)", rowsJson.ColumnTypes()[0].DatabaseTypeName())
+
+		rowJson := reflect.New(rowsJson.ColumnTypes()[0].ScanType()).Interface()
+		err = rowsJson.Scan(rowJson)
+		require.NoError(t, err)
+
+		xStr, ok := clickhouse.ExtractJSONPathAs[string](rowJson.(*clickhouse.JSON), "x")
+		require.True(t, ok)
+		require.Equal(t, "test", xStr)
+
+		require.NoError(t, rowsJson.Close())
+		require.NoError(t, rowsJson.Err())
+
+		// Test for the null case
+		rowsWithNull, err := conn.Query(ctx, `SELECT NULL::Nullable(JSON)`)
+		require.NoError(t, err)
+
+		require.True(t, rowsWithNull.Next())
+		var rowWithNull *clickhouse.JSON
+		err = rowsWithNull.Scan(&rowWithNull)
+		require.NoError(t, err)
+		require.Nil(t, rowWithNull)
+
+		require.NoError(t, rowsWithNull.Close())
+		require.NoError(t, rowsWithNull.Err())
 	})
 }
 
