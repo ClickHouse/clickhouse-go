@@ -558,7 +558,7 @@ func TestJSONNullableObjectViaPointer(t *testing.T) {
 		err = rowsJson.Scan(rowJson)
 		require.NoError(t, err)
 
-		xStr, ok := clickhouse.ExtractJSONPathAs[string](rowJson.(*clickhouse.JSON), "x")
+		xStr, ok := clickhouse.ExtractJSONPathAs[string](*rowJson.(**clickhouse.JSON), "x")
 		require.True(t, ok)
 		require.Equal(t, "test", xStr)
 
