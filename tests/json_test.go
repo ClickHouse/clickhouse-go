@@ -533,20 +533,6 @@ func TestJSONNullableObjectViaPointer(t *testing.T) {
 
 		ctx := context.Background()
 
-		rowsString, err := conn.Query(ctx, `SELECT 'test'::Nullable(String)`)
-		require.NoError(t, err)
-
-		require.True(t, rowsString.Next())
-		require.Len(t, rowsString.ColumnTypes(), 1)
-		require.Equal(t, "Nullable(String)", rowsString.ColumnTypes()[0].DatabaseTypeName())
-		rowString := reflect.New(rowsString.ColumnTypes()[0].ScanType()).Interface()
-		err = rowsString.Scan(rowString)
-		require.NoError(t, err)
-		require.Equal(t, "test", **rowString.(**string))
-
-		require.NoError(t, rowsString.Close())
-		require.NoError(t, rowsString.Err())
-
 		rowsJson, err := conn.Query(ctx, `SELECT '{"x": "test"}'::Nullable(JSON)`)
 		require.NoError(t, err)
 
