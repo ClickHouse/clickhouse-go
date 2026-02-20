@@ -319,11 +319,11 @@ func (c *JSON) Append(v any) (nulls []uint8, err error) {
 		}
 
 		var err error
-		if _, err = c.appendString(v); err == nil {
-			c.serializationVersion = JSONStringSerializationVersion
-			return nil, nil
-		} else if _, err = c.appendObject(v); err == nil {
+		if _, err = c.appendObject(v); err == nil {
 			c.serializationVersion = JSONObjectSerializationVersion
+			return nil, nil
+		} else if _, err = c.appendString(v); err == nil {
+			c.serializationVersion = JSONStringSerializationVersion
 			return nil, nil
 		}
 
