@@ -270,6 +270,7 @@ func (c *JSON) scanRowObject(dest any, row int) error {
 		return nil
 	case **chcol.JSON:
 		obj := c.rowAsJSON(row)
+		*v = new(chcol.JSON)
 		**v = *obj
 		return nil
 	case chcol.JSONDeserializer:
