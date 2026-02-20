@@ -3,7 +3,6 @@ package tests
 import (
 	"context"
 	"encoding/json"
-	"reflect"
 	"testing"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
@@ -540,11 +539,11 @@ func TestJSONNullableObjectViaPointer(t *testing.T) {
 		require.Len(t, rowsJson.ColumnTypes(), 1)
 		require.Equal(t, "Nullable(JSON)", rowsJson.ColumnTypes()[0].DatabaseTypeName())
 
-		rowJson := reflect.New(rowsJson.ColumnTypes()[0].ScanType()).Interface()
-		err = rowsJson.Scan(rowJson)
+		var rowJson *clickhouse.JSON
+		err = rowsJson.Scan(&rowJson)
 		require.NoError(t, err)
 
-		xStr, ok := clickhouse.ExtractJSONPathAs[string](*rowJson.(**clickhouse.JSON), "x")
+		xStr, ok := clickhouse.ExtractJSONPathAs[string](rowJson, "x")
 		require.True(t, ok)
 		require.Equal(t, "test", xStr)
 
