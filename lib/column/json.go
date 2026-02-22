@@ -306,7 +306,7 @@ func (c *JSON) Append(v any) (nulls []uint8, err error) {
 	case JSONStringSerializationVersion:
 		return c.appendString(v)
 	default:
-		// Unset serialization preference, try string first unless its specifically JSON
+		// Unset serialization preference, try object first unless it's specifically string
 		switch v.(type) {
 		case []chcol.JSON:
 			c.serializationVersion = JSONObjectSerializationVersion
@@ -398,7 +398,7 @@ func (c *JSON) AppendRow(v any) error {
 	case JSONStringSerializationVersion:
 		return c.appendRowString(v)
 	default:
-		// Unset serialization preference, try string first unless its specifically JSON
+		// Unset serialization preference, try object first unless it's specifically string
 		switch v.(type) {
 		case chcol.JSON:
 			c.serializationVersion = JSONObjectSerializationVersion
