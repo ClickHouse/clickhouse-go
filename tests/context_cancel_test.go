@@ -2,6 +2,7 @@ package tests
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"testing"
 	"time"
@@ -213,4 +214,73 @@ func ExecuteTestContextCancellation(t *testing.T, conn clickhouse.Conn, query st
 	queryTime := <-queryTimeCh
 
 	assert.Less(t, queryTime-cancelBackoff, time.Second)
+}
+
+// TestContextCancellationNoConnectionSlotLeak verifies that when contexts are cancelled
+// during connection acquisition, connection slots are properly released back to the pool.
+// This test ensures that cancelled queries don't leak connection slots, which would
+// eventually exhaust the connection pool.
+func TestContextCancellationNoConnectionSlotLeak(t *testing.T) {
+	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		env, err := GetNativeTestEnvironment()
+		assert.Nil(t, err)
+
+		// Select the correct port based on protocol
+		port := env.Port
+		if protocol == clickhouse.HTTP {
+			port = env.HttpPort
+		}
+
+		// Create a connection with a very small pool size to make slot exhaustion obvious
+		opts := &clickhouse.Options{
+			Addr: []string{fmt.Sprintf("%s:%d", env.Host, port)},
+			Auth: clickhouse.Auth{
+				Database: env.Database,
+				Username: env.Username,
+				Password: env.Password,
+			},
+			MaxOpenConns: 2, // Small pool to make leaks obvious
+			Protocol:     protocol,
+		}
+
+		conn, err := clickhouse.Open(opts)
+		assert.Nil(t, err)
+		assert.NotNil(t, conn)
+		defer conn.Close()
+
+		// Test that we can acquire connections repeatedly with cancelled contexts
+		// without exhausting the connection pool
+		const numAttempts = 10
+		for i := 0; i < numAttempts; i++ {
+			// Create a context that's already cancelled
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel() // Cancel immediately
+
+			// Try to execute a query with the cancelled context
+			// This should fail but not leak a connection slot
+			_ = conn.Exec(ctx, "SELECT 1")
+		}
+
+		// Now verify that we can still acquire connections successfully
+		// If slots were leaked, this would hang or fail
+		ctx := context.Background()
+		err = conn.Exec(ctx, "SELECT 1")
+		assert.Nil(t, err, "Should be able to execute query after cancelled context attempts")
+
+		// Try to acquire both slots simultaneously to verify the pool is healthy
+		done := make(chan error, 2)
+		for i := 0; i < 2; i++ {
+			go func() {
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				done <- conn.Exec(ctx, "SELECT sleep(0.1)")
+			}()
+		}
+
+		// Both should succeed without timing out
+		for i := 0; i < 2; i++ {
+			err := <-done
+			assert.Nil(t, err, "Concurrent queries should succeed without slot exhaustion")
+		}
+	})
 }
