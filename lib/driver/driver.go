@@ -2,6 +2,7 @@ package driver
 
 import (
 	"context"
+	"io"
 	"reflect"
 	"time"
 
@@ -40,7 +41,7 @@ type (
 		QueryRow(ctx context.Context, query string, args ...any) Row
 		PrepareBatch(ctx context.Context, query string, opts ...PrepareBatchOption) (Batch, error)
 		Exec(ctx context.Context, query string, args ...any) error
-
+		UploadFile(ctx context.Context, reader io.Reader, query string) error
 		// Deprecated: use context aware `WithAsync()` for any async operations
 		AsyncInsert(ctx context.Context, query string, wait bool, args ...any) error
 		Ping(context.Context) error
