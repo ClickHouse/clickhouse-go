@@ -522,6 +522,49 @@ func TestJSONNullableObjectScan(t *testing.T) {
 	})
 }
 
+func TestJSONNullableObjectViaPointer(t *testing.T) {
+	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		conn := setupJSONTest(t, protocol)
+
+		if !CheckMinServerServerVersion(conn, 25, 2, 0) {
+			t.Skip("Nullable(JSON) unsupported")
+		}
+
+		ctx := context.Background()
+
+		rowsJson, err := conn.Query(ctx, `SELECT '{"x": "test"}'::Nullable(JSON)`)
+		require.NoError(t, err)
+
+		require.True(t, rowsJson.Next())
+		require.Len(t, rowsJson.ColumnTypes(), 1)
+		require.Equal(t, "Nullable(JSON)", rowsJson.ColumnTypes()[0].DatabaseTypeName())
+
+		var rowJson *clickhouse.JSON
+		err = rowsJson.Scan(&rowJson)
+		require.NoError(t, err)
+
+		xStr, ok := clickhouse.ExtractJSONPathAs[string](rowJson, "x")
+		require.True(t, ok)
+		require.Equal(t, "test", xStr)
+
+		require.NoError(t, rowsJson.Close())
+		require.NoError(t, rowsJson.Err())
+
+		// Test for the null case
+		rowsWithNull, err := conn.Query(ctx, `SELECT NULL::Nullable(JSON)`)
+		require.NoError(t, err)
+
+		require.True(t, rowsWithNull.Next())
+		var rowWithNull *clickhouse.JSON
+		err = rowsWithNull.Scan(&rowWithNull)
+		require.NoError(t, err)
+		require.Nil(t, rowWithNull)
+
+		require.NoError(t, rowsWithNull.Close())
+		require.NoError(t, rowsWithNull.Err())
+	})
+}
+
 func TestJSONNullableStringsScan(t *testing.T) {
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
 		conn := setupJSONTest(t, protocol)
