@@ -1,0 +1,31 @@
+name: Check Maintainer Edit Permission
+
+on:
+  pull_request:
+    types: [opened, reopened, edited, synchronize]
+
+jobs:
+  check-maintainer-edit:
+    runs-on: ubuntu-latest
+    # Only run on PRs from forks
+    if: github.event.pull_request.head.repo.full_name != github.repository
+    steps:
+      - name: Check if maintainer can modify
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+
+            if (!pr.maintainer_can_modify) {
+              core.setFailed(
+                '❌ This PR does not allow edits from maintainers.\n\n' +
+                'Please enable "Allow edits from maintainers" in the PR sidebar.\n' +
+                'This helps maintainers make minor fixes and speed up the review process.\n\n' +
+                'To enable it:\n' +
+                '1. Scroll to the right sidebar of this PR\n' +
+                '2. Check the box "Allow edits and access to secrets by maintainers"\n\n' +
+                'See: https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/allowing-changes-to-a-pull-request-branch-created-from-a-fork'
+              );
+            } else {
+              core.info('✅ Maintainer edit permission is enabled');
+            }
