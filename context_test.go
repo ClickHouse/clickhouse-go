@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 	"github.com/stretchr/testify/require"
 )
 
@@ -181,4 +182,51 @@ func TestContext(t *testing.T) {
 			require.Equal(t, "comment_b", secondOpts.clientInfo.Comment[1])
 		},
 	)
+}
+
+func TestInjectSendProfileEvents(t *testing.T) {
+	newServer := proto.Version{Major: 25, Minor: 11, Patch: 0}
+	oldServer := proto.Version{Major: 25, Minor: 10, Patch: 0}
+
+	t.Run("no listener and new server injects setting", func(t *testing.T) {
+		opts := QueryOptions{settings: make(Settings)}
+		opts.injectSendProfileEvents(nil, newServer)
+		require.Equal(t, 0, opts.settings["send_profile_events"])
+	})
+
+	t.Run("listener registered does not inject setting", func(t *testing.T) {
+		opts := QueryOptions{settings: make(Settings)}
+		opts.events.profileEvents = func([]ProfileEvent) {}
+		opts.injectSendProfileEvents(nil, newServer)
+		_, ok := opts.settings["send_profile_events"]
+		require.False(t, ok)
+	})
+
+	t.Run("connection-level setting not overridden", func(t *testing.T) {
+		connSettings := Settings{"send_profile_events": true}
+		opts := QueryOptions{settings: make(Settings)}
+		opts.injectSendProfileEvents(connSettings, newServer)
+		_, ok := opts.settings["send_profile_events"]
+		require.False(t, ok)
+	})
+
+	t.Run("query-level setting not overridden", func(t *testing.T) {
+		opts := QueryOptions{settings: Settings{"send_profile_events": 1}}
+		opts.injectSendProfileEvents(nil, newServer)
+		require.Equal(t, 1, opts.settings["send_profile_events"])
+	})
+
+	t.Run("old server does not inject setting", func(t *testing.T) {
+		opts := QueryOptions{settings: make(Settings)}
+		opts.injectSendProfileEvents(nil, oldServer)
+		_, ok := opts.settings["send_profile_events"]
+		require.False(t, ok)
+	})
+
+	t.Run("nil settings map is initialized", func(t *testing.T) {
+		opts := QueryOptions{}
+		opts.injectSendProfileEvents(nil, newServer)
+		require.NotNil(t, opts.settings)
+		require.Equal(t, 0, opts.settings["send_profile_events"])
+	})
 }
