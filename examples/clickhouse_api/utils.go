@@ -31,9 +31,3 @@ func GetNativeConnectionWithOptions(settings clickhouse.Settings, tlsConfig *tls
 func CheckMinServerVersion(conn driver.Conn, major, minor, patch uint64) bool {
 	return clickhouse_tests.CheckMinServerServerVersion(conn, major, minor, patch)
 }
-
-var randSeed = time.Now().UnixNano()
-
-func ResetRandSeed() {
-	rand.Seed(randSeed)
-}
