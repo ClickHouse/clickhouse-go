@@ -23,6 +23,7 @@ func (c *connect) exec(ctx context.Context, query string, args ...any) error {
 		c.conn.SetDeadline(deadline)
 		defer c.conn.SetDeadline(time.Time{})
 	}
+	options.injectSendProfileEvents(c.opt.Settings, c.server.Version)
 	if err := c.sendQuery(body, &options); err != nil {
 		return err
 	}
