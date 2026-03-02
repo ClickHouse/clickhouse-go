@@ -56,10 +56,25 @@ func TestIssue1775_JSONMapScanOmitsAbsentKeys(t *testing.T) {
 			notExpected: []string{"a", "x"},
 		},
 		{
+			insertTuple: "(2, '{\"b\":\"bar\", \"d\": null}'::JSON)", // explicit null
+			expected:    map[string]any{"b": "bar", "d": nil},
+			notExpected: []string{"a", "x"},
+		},
+		{
 			insertTuple: "(3, '{\"x\":{\"a\":1}}'::JSON)",
 			notExpected: []string{"a", "b"},
 			expectedNested: map[string]map[string]any{
 				"x": {"a": 1},
+			},
+			notExpectedNested: map[string][]string{
+				"x": {"b"},
+			},
+		},
+		{
+			insertTuple: "(3, '{\"x\":{\"a\":1, \"d\":null}}'::JSON)", // explicit null
+			notExpected: []string{"a", "b"},
+			expectedNested: map[string]map[string]any{
+				"x": {"a": 1, "d": nil},
 			},
 			notExpectedNested: map[string][]string{
 				"x": {"b"},
