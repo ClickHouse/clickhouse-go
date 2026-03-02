@@ -39,6 +39,7 @@ func TestIssue1775_JSONMapScanOmitsAbsentKeys(t *testing.T) {
 	}()
 
 	testCases := []struct {
+		name              string
 		insertTuple       string
 		expected          map[string]any
 		notExpected       []string
@@ -46,22 +47,26 @@ func TestIssue1775_JSONMapScanOmitsAbsentKeys(t *testing.T) {
 		notExpectedNested map[string][]string
 	}{
 		{
+			name:        "simple non-nested",
 			insertTuple: "(1, '{\"a\":\"foo\"}'::JSON)",
 			expected:    map[string]any{"a": "foo"},
 			notExpected: []string{"b", "x"},
 		},
 		{
+			name:        "simple non-nested2",
 			insertTuple: "(2, '{\"b\":\"bar\"}'::JSON)",
 			expected:    map[string]any{"b": "bar"},
 			notExpected: []string{"a", "x"},
 		},
 		{
-			insertTuple: "(2, '{\"b\":\"bar\", \"d\": null}'::JSON)", // explicit null
-			expected:    map[string]any{"b": "bar", "d": nil},
+			name:        "simple non-nested with explicit null",
+			insertTuple: "(3, '{\"b\":\"bar\", \"d\": null}'::JSON)", // explicit null
+			expected:    map[string]any{"b": "bar"},                  // but don't expct key `d`. because clickhouse server doesn't even store the keys with null values
 			notExpected: []string{"a", "x"},
 		},
 		{
-			insertTuple: "(3, '{\"x\":{\"a\":1}}'::JSON)",
+			name:        "simple nested",
+			insertTuple: "(4, '{\"x\":{\"a\":1}}'::JSON)",
 			notExpected: []string{"a", "b"},
 			expectedNested: map[string]map[string]any{
 				"x": {"a": 1},
@@ -71,23 +76,25 @@ func TestIssue1775_JSONMapScanOmitsAbsentKeys(t *testing.T) {
 			},
 		},
 		{
-			insertTuple: "(3, '{\"x\":{\"a\":1, \"d\":null}}'::JSON)", // explicit null
-			notExpected: []string{"a", "b"},
-			expectedNested: map[string]map[string]any{
-				"x": {"a": 1, "d": nil},
-			},
-			notExpectedNested: map[string][]string{
-				"x": {"b"},
-			},
-		},
-		{
-			insertTuple: "(4, '{\"x\":{\"b\":2}}'::JSON)",
+			name:        "simple nested2",
+			insertTuple: "(5, '{\"x\":{\"b\":2}}'::JSON)",
 			notExpected: []string{"a", "b"},
 			expectedNested: map[string]map[string]any{
 				"x": {"b": 2},
 			},
 			notExpectedNested: map[string][]string{
 				"x": {"a"},
+			},
+		},
+		{
+			name:        "simple nested with explicit null",
+			insertTuple: "(6, '{\"x\":{\"a\":1, \"d\":null}}'::JSON)", // explicit null
+			notExpected: []string{"a", "b"},
+			expectedNested: map[string]map[string]any{
+				"x": {"a": 1},
+			},
+			notExpectedNested: map[string][]string{
+				"x": {"b", "d"}, // don't expct key `d`. because clickhouse server doesn't even store the keys with null values
 			},
 		},
 	}
@@ -102,42 +109,44 @@ func TestIssue1775_JSONMapScanOmitsAbsentKeys(t *testing.T) {
 	rows, err := conn.Query(ctx, "SELECT id, data FROM "+tableName+" ORDER BY id")
 	require.NoError(t, err)
 
-	for i := range testCases {
-		require.True(t, rows.Next())
+	for i, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			require.True(t, rows.Next())
 
-		var (
-			id   uint8
-			data map[string]any
-		)
+			var (
+				id   uint8
+				data map[string]any
+			)
 
-		require.NoError(t, rows.Scan(&id, &data))
-		require.Equal(t, uint8(i+1), id)
+			require.NoError(t, rows.Scan(&id, &data))
+			require.Equal(t, uint8(i+1), id)
 
-		for key, expected := range testCases[i].expected {
-			require.EqualValues(t, expected, data[key])
-			require.Contains(t, data, key)
-		}
-
-		for _, key := range testCases[i].notExpected {
-			require.NotContains(t, data, key)
-		}
-
-		for parent, expectedChildren := range testCases[i].expectedNested {
-			childMap, ok := data[parent].(map[string]any)
-			require.True(t, ok)
-			for key, expected := range expectedChildren {
-				require.EqualValues(t, expected, childMap[key])
-				require.Contains(t, childMap, key)
+			for key, expected := range testCases[i].expected {
+				require.EqualValues(t, expected, data[key])
+				require.Contains(t, data, key)
 			}
-		}
 
-		for parent, absentChildren := range testCases[i].notExpectedNested {
-			childMap, ok := data[parent].(map[string]any)
-			require.True(t, ok)
-			for _, key := range absentChildren {
-				require.NotContains(t, childMap, key)
+			for _, key := range testCases[i].notExpected {
+				require.NotContains(t, data, key)
 			}
-		}
+
+			for parent, expectedChildren := range testCases[i].expectedNested {
+				childMap, ok := data[parent].(map[string]any)
+				require.True(t, ok)
+				for key, expected := range expectedChildren {
+					require.EqualValues(t, expected, childMap[key])
+					require.Contains(t, childMap, key)
+				}
+			}
+
+			for parent, absentChildren := range testCases[i].notExpectedNested {
+				childMap, ok := data[parent].(map[string]any)
+				require.True(t, ok)
+				for _, key := range absentChildren {
+					require.NotContains(t, childMap, key)
+				}
+			}
+		})
 	}
 
 	require.False(t, rows.Next())
