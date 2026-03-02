@@ -2,8 +2,6 @@ module github.com/ClickHouse/clickhouse-go/v2
 
 go 1.25.0
 
-toolchain go1.25.4
-
 require (
 	github.com/ClickHouse/ch-go v0.71.0
 	github.com/andybalholm/brotli v1.2.0
