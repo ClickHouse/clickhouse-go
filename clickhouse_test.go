@@ -702,3 +702,129 @@ func TestAcquireRelease_PoolSaturation(t *testing.T) {
 		t.Error("expected to reuse released connection")
 	}
 }
+
+// TestAcquire_NoConnectionLeakDuringIdleGetContextCancellation tests the specific scenario where:
+// 1. Context is NOT cancelled at the initial check in `acquire`
+// 2. Successfully writes to ch.open channel
+// 3. Context is cancelled BEFORE or DURING `idle.Get()` call
+// 4. Verifies that ch.open slot is properly cleaned up (no leak)
+func TestAcquire_NoConnectionLeakDuringIdleGetContextCancellation(t *testing.T) {
+
+	// Channel to synchronize the test and control how `idle.Get` is called.
+	readyToCancel := make(chan struct{})
+	cancelDone := make(chan struct{})
+	var once sync.Once
+
+	// Create a mock pool that allows us to cancel context at the right moment
+	mockPool := &mockConnectionPool{
+		onGetCalled: func(ctx context.Context) {
+			// Only signal once (Get might be called multiple times in edge cases)
+			once.Do(func() {
+				// Signal that we're about to call Get() - this is the perfect time to cancel
+				close(readyToCancel)
+				// Wait for the context to be cancelled
+				<-cancelDone
+			})
+		},
+	}
+
+	conn, err := Open(&Options{
+		Addr:            []string{"localhost:9000"},
+		DialTimeout:     time.Second,
+		MaxOpenConns:    2,
+		MaxIdleConns:    1,
+		ConnMaxLifetime: time.Hour,
+		DialStrategy: func(ctx context.Context, connID int, opt *Options, dial Dial) (DialResult, error) {
+			return DialResult{conn: newMockTransport(connID)}, nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("Open failed: %v", err)
+	}
+	defer conn.Close()
+
+	ch := conn.(*clickhouse)
+
+	// Replace the real pool with our mock pool
+	ch.idle = mockPool
+
+	// Create a context that we'll cancel at the right moment
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Start acquire in a goroutine
+	errChan := make(chan error, 1)
+	go func() {
+		_, err := ch.acquire(ctx)
+		errChan <- err
+	}()
+
+	// Wait for acquire to write to ch.open and be about to call idle.Get()
+	<-readyToCancel
+
+	// Now cancel the context - it's after ch.open write but before idle.Get() returns
+	cancel()
+	close(cancelDone)
+
+	// Wait for acquire to complete
+	err = <-errChan
+
+	// Should get context.Canceled error
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("expected context.Canceled error, got %v", err)
+	}
+
+	// Most importantly: verify that ch.open slot was cleaned up (no leak)
+	if len(ch.open) != 0 {
+		t.Errorf("expected ch.open to be empty (no leak), but has %d items", len(ch.open))
+	}
+
+	// Verify we can still acquire after the cancelled attempt (pool is healthy)
+	transport, err := ch.acquire(context.Background())
+	if err != nil {
+		t.Fatalf("should be able to acquire after cancelled context, got error: %v", err)
+	}
+	if transport == nil {
+		t.Fatal("expected valid transport after recovery")
+	}
+
+	// Clean up
+	ch.release(transport, nil)
+}
+
+// mockConnectionPool is a mock for connectionPooler that allows
+// controlling when Get() is called and what it returns
+type mockConnectionPool struct {
+	onGetCalled func(ctx context.Context)
+}
+
+func (m *mockConnectionPool) Get(ctx context.Context) (nativeTransport, error) {
+	// Call the hook if provided
+	if m.onGetCalled != nil {
+		m.onGetCalled(ctx)
+	}
+
+	// Check if context was cancelled
+	if err := ctx.Err(); err != nil {
+		return nil, context.Cause(ctx)
+	}
+
+	// Return empty queue error (simulating empty pool)
+	return nil, errQueueEmpty
+}
+
+func (m *mockConnectionPool) Put(conn nativeTransport) {
+	// No-op for this test
+}
+
+func (m *mockConnectionPool) Len() int {
+	return 0
+}
+
+func (m *mockConnectionPool) Cap() int {
+	return 1
+}
+
+func (m *mockConnectionPool) Close() error {
+	return nil
+}

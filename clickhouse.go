@@ -16,7 +16,6 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
-	"github.com/containerd/containerd/snapshots/native"
 )
 
 type Conn = driver.Conn
