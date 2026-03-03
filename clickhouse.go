@@ -16,6 +16,7 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
+	"github.com/containerd/containerd/snapshots/native"
 )
 
 type Conn = driver.Conn
@@ -103,11 +104,21 @@ type nativeTransport interface {
 type nativeTransportAcquire func(context.Context) (nativeTransport, error)
 type nativeTransportRelease func(nativeTransport, error)
 
+// connectionPooler is an connection pool maintain
+// idle connections.
+type connectionPooler interface {
+	Get(ctx context.Context) (nativeTransport, error)
+	Put(conn nativeTransport)
+	Len() int
+	Cap() int
+	Close() error
+}
+
 type clickhouse struct {
 	opt    *Options
 	connID int64
 
-	idle *connPool
+	idle connectionPooler
 	open chan struct{}
 
 	closeOnce *sync.Once
@@ -304,6 +315,17 @@ func (ch *clickhouse) acquire(ctx context.Context) (conn nativeTransport, err er
 
 	ctx, cancel := context.WithTimeoutCause(ctx, ch.opt.DialTimeout, ErrAcquireConnTimeout)
 	defer cancel()
+
+	// If context is already cancelled, just return without any work
+	// done this way with single case with default. Otherwise if both ctx is cancelled and ch.open is ready,
+	// Go would choose one of those at random, thus missing to return deterministically when context is cancelled
+	// at this point in time.
+	// Known pattern: https://go.dev/ref/spec#Select_statements
+	select {
+	case <-ctx.Done():
+		return nil, context.Cause(ctx)
+	default:
+	}
 
 	select {
 	case ch.open <- struct{}{}:

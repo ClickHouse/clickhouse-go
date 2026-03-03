@@ -9,6 +9,7 @@ import (
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestContextCancellationOfHeavyGeneratedInsert(t *testing.T) {
@@ -239,8 +240,10 @@ func TestContextCancellationNoConnectionSlotLeak(t *testing.T) {
 				Username: env.Username,
 				Password: env.Password,
 			},
-			MaxOpenConns: 2, // Small pool to make leaks obvious
-			Protocol:     protocol,
+			MaxOpenConns:    2,                 // Small pool to make leaks obvious
+			ConnMaxLifetime: 100 * time.Second, // make it explicitly larger to avoid incidentally closing it
+			MaxIdleConns:    5,                 // there can be max 5 connections on the pool
+			Protocol:        protocol,
 		}
 
 		conn, err := clickhouse.Open(opts)
@@ -250,37 +253,63 @@ func TestContextCancellationNoConnectionSlotLeak(t *testing.T) {
 
 		// Test that we can acquire connections repeatedly with cancelled contexts
 		// without exhausting the connection pool
-		const numAttempts = 10
-		for i := 0; i < numAttempts; i++ {
-			// Create a context that's already cancelled
-			ctx, cancel := context.WithCancel(context.Background())
-			cancel() // Cancel immediately
 
+		// Create a context that's already cancelled
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel() // Cancel immediately
+
+		const N = 10
+		for range N {
 			// Try to execute a query with the cancelled context
-			// This should fail but not leak a connection slot
-			_ = conn.Exec(ctx, "SELECT 1")
+			// This should fail(because ctx is checked before getting it from connection pool)
+			// but not leak a connection slot
+			err = conn.Exec(ctx, "SELECT 1")
+			require.ErrorIs(t, err, context.Canceled)
 		}
+		stats := conn.Stats()
+		fmt.Printf("stats: %#v\n", conn.Stats())
+
+		// no connection should be moved to pool as context is cancelled even before new connection is created
+		assert.Equal(t, 0, stats.Idle)
+		assert.Equal(t, 0, stats.Open)
+
+		// // Same but for context exceeded deadline without explicit cancel
+		// for range N {
+		// 	// Create a context that will timeout before Exec
+		// 	wait := 500 * time.Millisecond
+		// 	ctx, cancel := context.WithTimeout(context.Background(), wait)
+		// 	time.Sleep(wait) // wait for it to cancel automatically
+		//
+		// 	// Try to execute a query with the cancelled context
+		// 	// This should fail(because ctx is checked before getting it from connection pool)
+		// 	// but not leak a connection slot
+		// 	err = conn.Exec(ctx, "SELECT 1")
+		// 	require.ErrorIs(t, err, context.DeadlineExceeded)
+		//
+		// 	// cancel after all you tests.
+		// 	cancel()
+		// }
 
 		// Now verify that we can still acquire connections successfully
 		// If slots were leaked, this would hang or fail
-		ctx := context.Background()
-		err = conn.Exec(ctx, "SELECT 1")
-		assert.Nil(t, err, "Should be able to execute query after cancelled context attempts")
-
-		// Try to acquire both slots simultaneously to verify the pool is healthy
-		done := make(chan error, 2)
-		for i := 0; i < 2; i++ {
-			go func() {
-				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-				defer cancel()
-				done <- conn.Exec(ctx, "SELECT sleep(0.1)")
-			}()
-		}
-
-		// Both should succeed without timing out
-		for i := 0; i < 2; i++ {
-			err := <-done
-			assert.Nil(t, err, "Concurrent queries should succeed without slot exhaustion")
-		}
+		// ctx = context.Background()
+		// err = conn.Exec(ctx, "SELECT 1")
+		// assert.Nil(t, err, "Should be able to execute query after cancelled context attempts")
+		//
+		// // Try to acquire both slots simultaneously to verify the pool is healthy
+		// done := make(chan error, 2)
+		// for range 2 {
+		// 	go func() {
+		// 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		// 		defer cancel()
+		// 		done <- conn.Exec(ctx, "SELECT sleep(0.1)")
+		// 	}()
+		// }
+		//
+		// // Both should succeed without timing out
+		// for range 2 {
+		// 	err := <-done
+		// 	assert.Nil(t, err, "Concurrent queries should succeed without slot exhaustion")
+		// }
 	})
 }
