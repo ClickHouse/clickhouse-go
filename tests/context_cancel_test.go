@@ -236,14 +236,15 @@ func TestContextCancellationNoConnectionSlotLeak(t *testing.T) {
 		// Select the correct port based on protocol
 		port := env.Port
 		var tlsConfig *tls.Config
-		if useSSL {
-			if protocol == clickhouse.HTTP {
-				port = env.HttpsPort
-			}
-			if protocol == clickhouse.Native {
-				port = env.SslPort
-			}
-			tlsConfig = &tls.Config{}
+		switch {
+		case protocol == clickhouse.HTTP && useSSL:
+			port = env.HttpsPort
+		case protocol == clickhouse.HTTP && !useSSL:
+			port = env.HttpPort
+		case protocol == clickhouse.Native && useSSL:
+			port = env.SslPort
+		case protocol == clickhouse.Native && !useSSL:
+			port = env.Port
 		}
 
 		// Create a connection with a very small pool size to make slot exhaustion obvious
