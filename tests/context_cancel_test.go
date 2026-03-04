@@ -2,9 +2,11 @@ package tests
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"log"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -228,10 +230,20 @@ func TestContextCancellationNoConnectionSlotLeak(t *testing.T) {
 		env, err := GetNativeTestEnvironment()
 		assert.Nil(t, err)
 
+		useSSL, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_SSL", "false"))
+		require.NoError(t, err)
+
 		// Select the correct port based on protocol
 		port := env.Port
-		if protocol == clickhouse.HTTP {
-			port = env.HttpPort
+		var tlsConfig *tls.Config
+		if useSSL {
+			if protocol == clickhouse.HTTP {
+				port = env.HttpsPort
+			}
+			if protocol == clickhouse.Native {
+				port = env.SslPort
+			}
+			tlsConfig = &tls.Config{}
 		}
 
 		// Create a connection with a very small pool size to make slot exhaustion obvious
@@ -246,6 +258,7 @@ func TestContextCancellationNoConnectionSlotLeak(t *testing.T) {
 			ConnMaxLifetime: 100 * time.Second, // make it explicitly larger to avoid incidentally closing it
 			MaxIdleConns:    5,                 // there can be max 5 connections on the pool
 			Protocol:        protocol,
+			TLS:             tlsConfig,
 		}
 
 		conn, err := clickhouse.Open(opts)
