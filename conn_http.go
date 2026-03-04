@@ -147,20 +147,22 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 	// Get base logger and enrich with connection-specific context
 	baseLogger := opt.logger()
 	logger := prepareConnLogger(baseLogger, num, addr, "http")
+	scheme := opt.scheme
+	compression := opt.Compression
 
-	if opt.scheme == "" {
+	if scheme == "" {
 		switch opt.Protocol {
 		case HTTP:
-			opt.scheme = opt.Protocol.String()
+			scheme = opt.Protocol.String()
 			if opt.TLS != nil {
-				opt.scheme = fmt.Sprintf("%ss", opt.scheme)
+				scheme = fmt.Sprintf("%ss", opt.scheme)
 			}
 		default:
 			return nil, errors.New("invalid interface type for http")
 		}
 	}
 	u := &url.URL{
-		Scheme: opt.scheme,
+		Scheme: scheme,
 		Host:   addr,
 		Path:   opt.HttpUrlPath,
 	}
@@ -170,13 +172,13 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		query.Set("database", opt.Auth.Database)
 	}
 
-	if opt.Compression == nil {
-		opt.Compression = &Compression{
+	if compression == nil {
+		compression = &Compression{
 			Method: CompressionNone,
 		}
 	}
 
-	compressionPool, err := createCompressionPool(opt.Compression)
+	compressionPool, err := createCompressionPool(compression)
 	if err != nil {
 		return nil, err
 	}
@@ -211,8 +213,8 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		revision:        ClientTCPProtocolVersion, // Preflight uses hardcoded revision, may break older versions.
 		encodeRevision:  0,                        // Encoding data over HTTP must use 0. client_protocol_version does not apply to inserts.
 		buffer:          new(chproto.Buffer),
-		compression:     opt.Compression.Method,
-		blockCompressor: compress.NewWriter(compress.Level(opt.Compression.Level), compress.Method(opt.Compression.Method)),
+		compression:     compression.Method,
+		blockCompressor: compress.NewWriter(compress.Level(compression.Level), compress.Method(compression.Method)),
 		compressionPool: compressionPool,
 		blockBufferSize: opt.BlockBufferSize,
 	}
