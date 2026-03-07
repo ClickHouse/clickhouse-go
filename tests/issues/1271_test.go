@@ -3,7 +3,7 @@ package issues
 import (
 	"context"
 	"fmt"
-	"math/rand"
+	"math/rand/v2"
 	"runtime"
 	"strings"
 	"testing"
@@ -89,15 +89,15 @@ func RandAsciiString(n int) string {
 	return randString(n, letterBytes)
 }
 
-var src = rand.NewSource(time.Now().UnixNano())
+var rng1271 = rand.New(rand.NewPCG(uint64(time.Now().UnixNano()), uint64(time.Now().UnixNano()>>32)))
 
 func randString(n int, bytes string) string {
 	sb := strings.Builder{}
 	sb.Grow(n)
-	// A src.Int63() generates 63 random bits, enough for letterIdxMax characters!
-	for i, cache, remain := n-1, src.Int63(), letterIdxMax; i >= 0; {
+	// rng1271.Int64() generates 63 random bits, enough for letterIdxMax characters!
+	for i, cache, remain := n-1, rng1271.Int64(), letterIdxMax; i >= 0; {
 		if remain == 0 {
-			cache, remain = src.Int63(), letterIdxMax
+			cache, remain = rng1271.Int64(), letterIdxMax
 		}
 		if idx := int(cache & letterIdxMask); idx < len(bytes) {
 			sb.WriteByte(bytes[idx])

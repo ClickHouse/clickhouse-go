@@ -42,9 +42,6 @@ func TestStdConnFailoverRoundRobin(t *testing.T) {
 }
 
 func TestStdConnFailoverRandom(t *testing.T) {
-	t.Skip("Go 1.25 math/random changes")
-	//rand.Seed(85206178671753428)
-	//defer clickhouse_tests.ResetRandSeed()
 	testStdConnFailover(t, "random")
 }
 
