@@ -1,0 +1,41 @@
+name: Tests matrix
+
+permissions: write-all
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: [self-hosted, style-checker-aarch64]
+    strategy:
+      fail-fast: false
+      matrix:
+        go:
+          - "1.25"
+          - "1.24"
+        clickhouse: # https://github.com/ClickHouse/ClickHouse/blob/master/SECURITY.md#scope-and-supported-versions
+          - "25.10"
+          - "25.9"
+          - "25.8"
+          - "25.3"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Go ${{ matrix.go }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+
+      - name: Tests
+        env:
+          TESTCONTAINERS_RYUK_DISABLED: "true"
+          GOTOOLCHAIN: "local"
+        run: |
+          CLICKHOUSE_VERSION=${{ matrix.clickhouse }} make test
