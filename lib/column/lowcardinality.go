@@ -45,6 +45,11 @@ type LowCardinality struct {
 	keys32 UInt32
 	keys64 UInt64
 
+	// rowCache caches index.Row() results by dictionary index to avoid
+	// redundant string allocations. For LowCardinality(String) with N rows
+	// and K unique values, this reduces allocations from N to K.
+	rowCache map[int]any
+
 	append struct {
 		keys  []int
 		index map[any]int
@@ -59,6 +64,7 @@ func (col *LowCardinality) Reset() {
 	col.keys16.Reset()
 	col.keys32.Reset()
 	col.keys64.Reset()
+	col.rowCache = nil
 	col.append.index = make(map[any]int)
 	col.append.keys = col.append.keys[:0]
 }
@@ -95,6 +101,20 @@ func (col *LowCardinality) Row(i int, ptr bool) any {
 	idx := col.indexRowNum(i)
 	if idx == 0 && col.nullable {
 		return nil
+	}
+	// Use cached value for this dictionary index to avoid redundant
+	// string allocations. Each unique value is only created once per block.
+	if !ptr {
+		if col.rowCache != nil {
+			if cached, ok := col.rowCache[idx]; ok {
+				return cached
+			}
+		} else {
+			col.rowCache = make(map[int]any)
+		}
+		val := col.index.Row(idx, false)
+		col.rowCache[idx] = val
+		return val
 	}
 	return col.index.Row(idx, ptr)
 }
