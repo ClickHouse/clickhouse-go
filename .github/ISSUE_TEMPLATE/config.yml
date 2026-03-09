@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Feature request
+    url: https://github.com/ClickHouse/clickhouse-go/discussions/new?category=feature-requests
+    about: We use Discussions for feature requests
+  - name: Start a discussion
+    url: https://github.com/ClickHouse/clickhouse-go/discussions/new/choose
+    about: We use Discussions for these reports
