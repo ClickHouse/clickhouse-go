@@ -21,6 +21,7 @@ func (c *connect) query(ctx context.Context, release nativeTransportRelease, que
 		return nil, err
 	}
 
+	options.injectSendProfileEvents(c.opt.Settings, c.server.Version)
 	if err = c.sendQuery(body, &options); err != nil {
 		release(c, err)
 		return nil, err
