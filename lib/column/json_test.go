@@ -242,3 +242,62 @@ func TestJSONAppendNilConsistency(t *testing.T) {
 		})
 	}
 }
+
+func TestJSONAppendRowStringSerializationVersion(t *testing.T) {
+	type testStruct struct {
+		Name string `json:"name"`
+	}
+
+	tests := []struct {
+		name            string
+		rows            []any
+		expectedVersion uint64
+		expectedRows    int
+	}{
+		{
+			name:            "string input - should use string version",
+			rows:            []any{`{"name":"Alice"}`},
+			expectedVersion: JSONStringSerializationVersion,
+			expectedRows:    1,
+		},
+		{
+			name:            "[]byte input - should use string version",
+			rows:            []any{[]byte(`{"name":"Alice"}`)},
+			expectedVersion: JSONStringSerializationVersion,
+			expectedRows:    1,
+		},
+		{
+			name:            "multiple strings - should use string version consistently",
+			rows:            []any{`{"name":"Alice"}`, `{"name":"Bob"}`},
+			expectedVersion: JSONStringSerializationVersion,
+			expectedRows:    2,
+		},
+		{
+			name:            "multiple []byte - should use string version consistently",
+			rows:            []any{[]byte(`{"name":"Alice"}`), []byte(`{"name":"Bob"}`)},
+			expectedVersion: JSONStringSerializationVersion,
+			expectedRows:    2,
+		},
+		{
+			name:            "empty string - should use string version",
+			rows:            []any{``},
+			expectedVersion: JSONStringSerializationVersion,
+			expectedRows:    1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			col := newTestJSONColumn(t)
+
+			for _, row := range tt.rows {
+				err := col.AppendRow(row)
+				require.NoError(t, err)
+			}
+
+			assert.Equal(t, tt.expectedRows, col.Rows())
+			assert.Equal(t, tt.expectedVersion, col.serializationVersion)
+		})
+	}
+}
+
