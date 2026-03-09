@@ -24,9 +24,14 @@ func TestTimeMixed(t *testing.T) {
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
 		conn := setupTimeMixedTest(t, protocol)
 
-		ctx := clickhouse.Context(context.Background(), clickhouse.WithSettings(clickhouse.Settings{
-			"enable_time_time64_type": 1,
-		}))
+		ctx := context.Background()
+		// Since 25.12, enable_time_time64_type defaults to 1, no need to set explicitly
+		// https://clickhouse.com/docs/operations/settings/settings#enable_time_time64_type
+		if !CheckMinServerServerVersion(conn, 25, 12, 0) {
+			ctx = clickhouse.Context(ctx, clickhouse.WithSettings(clickhouse.Settings{
+				"enable_time_time64_type": 1,
+			}))
+		}
 
 		tableName := fmt.Sprintf("test_time_mixed_%d", time.Now().UnixNano())
 		require.NoError(t, conn.Exec(ctx, fmt.Sprintf(`
@@ -71,9 +76,14 @@ func TestTimeMixedArrays(t *testing.T) {
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
 		conn := setupTimeMixedTest(t, protocol)
 
-		ctx := clickhouse.Context(context.Background(), clickhouse.WithSettings(clickhouse.Settings{
-			"enable_time_time64_type": 1,
-		}))
+		ctx := context.Background()
+		// Since 25.12, enable_time_time64_type defaults to 1, no need to set explicitly
+		// https://clickhouse.com/docs/operations/settings/settings#enable_time_time64_type
+		if !CheckMinServerServerVersion(conn, 25, 12, 0) {
+			ctx = clickhouse.Context(ctx, clickhouse.WithSettings(clickhouse.Settings{
+				"enable_time_time64_type": 1,
+			}))
+		}
 
 		tableName := fmt.Sprintf("test_time_mixed_arrays_%d", time.Now().UnixNano())
 		require.NoError(t, conn.Exec(ctx, fmt.Sprintf(`
@@ -119,9 +129,14 @@ func TestTimeMixedNullable(t *testing.T) {
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
 		conn := setupTimeMixedTest(t, protocol)
 
-		ctx := clickhouse.Context(context.Background(), clickhouse.WithSettings(clickhouse.Settings{
-			"enable_time_time64_type": 1,
-		}))
+		ctx := context.Background()
+		// Since 25.12, enable_time_time64_type defaults to 1, no need to set explicitly
+		// https://clickhouse.com/docs/operations/settings/settings#enable_time_time64_type
+		if !CheckMinServerServerVersion(conn, 25, 12, 0) {
+			ctx = clickhouse.Context(ctx, clickhouse.WithSettings(clickhouse.Settings{
+				"enable_time_time64_type": 1,
+			}))
+		}
 
 		tableName := fmt.Sprintf("test_time_mixed_nullable_%d", time.Now().UnixNano())
 		require.NoError(t, conn.Exec(ctx, fmt.Sprintf(`
@@ -192,9 +207,14 @@ func TestTimeMixedMultipleRows(t *testing.T) {
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
 		conn := setupTimeMixedTest(t, protocol)
 
-		ctx := clickhouse.Context(context.Background(), clickhouse.WithSettings(clickhouse.Settings{
-			"enable_time_time64_type": 1,
-		}))
+		ctx := context.Background()
+		// Since 25.12, enable_time_time64_type defaults to 1, no need to set explicitly
+		// https://clickhouse.com/docs/operations/settings/settings#enable_time_time64_type
+		if !CheckMinServerServerVersion(conn, 25, 12, 0) {
+			ctx = clickhouse.Context(ctx, clickhouse.WithSettings(clickhouse.Settings{
+				"enable_time_time64_type": 1,
+			}))
+		}
 
 		tableName := fmt.Sprintf("test_time_mixed_multi_%d", time.Now().UnixNano())
 		require.NoError(t, conn.Exec(ctx, fmt.Sprintf(`
@@ -248,9 +268,14 @@ func TestTimeMixedComplexTypes(t *testing.T) {
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
 		conn := setupTimeMixedTest(t, protocol)
 
-		ctx := clickhouse.Context(context.Background(), clickhouse.WithSettings(clickhouse.Settings{
-			"enable_time_time64_type": 1,
-		}))
+		ctx := context.Background()
+		// Since 25.12, enable_time_time64_type defaults to 1, no need to set explicitly
+		// https://clickhouse.com/docs/operations/settings/settings#enable_time_time64_type
+		if !CheckMinServerServerVersion(conn, 25, 12, 0) {
+			ctx = clickhouse.Context(ctx, clickhouse.WithSettings(clickhouse.Settings{
+				"enable_time_time64_type": 1,
+			}))
+		}
 
 		tableName := fmt.Sprintf("test_time_mixed_complex_%d", time.Now().UnixNano())
 		require.NoError(t, conn.Exec(ctx, fmt.Sprintf(`
