@@ -20,6 +20,7 @@ func (h *httpConnect) asyncInsert(ctx context.Context, query string, wait bool, 
 		}
 	}
 
+	options.injectSendProfileEvents(h.opt.Settings, h.handshake.Version)
 	res, err := h.sendQuery(ctx, query, &options, nil)
 	if err != nil {
 		return err
