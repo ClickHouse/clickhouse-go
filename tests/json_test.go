@@ -220,13 +220,13 @@ func TestJSONStruct(t *testing.T) {
 		inputRow2 := TestStruct{
 			KeysNumbers: map[string]int64{},
 			Timestamp:   JSONTestDate,
-			Metadata: map[string]interface{}{
+			Metadata: map[string]any{
 				"FieldA": "a",
 				"FieldB": "b",
-				"FieldC": map[string]interface{}{
+				"FieldC": map[string]any{
 					"FieldD": int64(5),
 				},
-				"FieldE": map[string]interface{}{
+				"FieldE": map[string]any{
 					"FieldF": "f",
 				},
 			},
@@ -243,10 +243,6 @@ func TestJSONStruct(t *testing.T) {
 		require.True(t, rows.Next())
 		err = rows.Scan(&row)
 		require.NoError(t, err)
-		// The second row adds a nil value at this path. Update the inputRow for easier deep equal check
-		inputRow.Metadata["FieldE"] = map[string]interface{}{
-			"FieldF": nil,
-		}
 		require.Equal(t, inputRow, row)
 
 		var row2 TestStruct
