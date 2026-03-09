@@ -317,6 +317,15 @@ func (c *JSON) Append(v any) (nulls []uint8, err error) {
 		case []chcol.JSONSerializer:
 			c.serializationVersion = JSONObjectSerializationVersion
 			return c.appendObject(v)
+		case string, []byte:
+			c.serializationVersion = JSONStringSerializationVersion
+			return c.appendString(v)
+		}
+
+		// Also route other []byte-compatible types (e.g. json.RawMessage) to string serialization
+		if rv := reflect.ValueOf(v); rv.IsValid() && rv.Kind() == reflect.Slice && rv.Type().Elem().Kind() == reflect.Uint8 {
+			c.serializationVersion = JSONStringSerializationVersion
+			return c.appendString(v)
 		}
 
 		var err error
@@ -409,6 +418,15 @@ func (c *JSON) AppendRow(v any) error {
 		case chcol.JSONSerializer:
 			c.serializationVersion = JSONObjectSerializationVersion
 			return c.appendRowObject(v)
+		case string, []byte:
+			c.serializationVersion = JSONStringSerializationVersion
+			return c.appendRowString(v)
+		}
+
+		// Also route other []byte-compatible types (e.g. json.RawMessage) to string serialization
+		if rv := reflect.ValueOf(v); rv.IsValid() && rv.Kind() == reflect.Slice && rv.Type().Elem().Kind() == reflect.Uint8 {
+			c.serializationVersion = JSONStringSerializationVersion
+			return c.appendRowString(v)
 		}
 
 		var err error
