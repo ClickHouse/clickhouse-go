@@ -20,10 +20,10 @@ func Test1708(t *testing.T) {
 	}
 
 	t.Run("query without listener succeeds", func(t *testing.T) {
-		var result uint64
+		var result uint8
 		err := conn.QueryRow(context.Background(), "SELECT 1").Scan(&result)
 		require.NoError(t, err)
-		require.Equal(t, uint64(1), result)
+		require.Equal(t, uint8(1), result)
 	})
 
 	t.Run("query with profile events listener receives events", func(t *testing.T) {
@@ -36,10 +36,10 @@ func Test1708(t *testing.T) {
 			}),
 		)
 
-		var result uint64
+		var result uint8
 		err := conn.QueryRow(ctx, "SELECT 1").Scan(&result)
 		require.NoError(t, err)
-		require.Equal(t, uint64(1), result)
+		require.Equal(t, uint8(1), result)
 		// Profile events may or may not arrive for simple queries depending on timing,
 		// but the query must succeed regardless.
 		_ = received
@@ -52,9 +52,9 @@ func Test1708(t *testing.T) {
 			}),
 		)
 
-		var result uint64
+		var result uint8
 		err := conn.QueryRow(ctx, "SELECT 1").Scan(&result)
 		require.NoError(t, err)
-		require.Equal(t, uint64(1), result)
+		require.Equal(t, uint8(1), result)
 	})
 }
