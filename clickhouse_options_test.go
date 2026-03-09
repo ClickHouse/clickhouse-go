@@ -498,6 +498,21 @@ func TestParseDSN(t *testing.T) {
 			},
 			"",
 		},
+		{
+			"multiple hosts in HA mode",
+			"clickhouse://127.0.0.1:9440,127.0.0.2:9440/test_database",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"127.0.0.1:9440", "127.0.0.2:9440"},
+				Settings: Settings{},
+				Auth: Auth{
+					Database: "test_database",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
 	}
 
 	for _, testCase := range testCases {
