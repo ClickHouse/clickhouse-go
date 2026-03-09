@@ -446,7 +446,9 @@ func TestCustomSettings(t *testing.T) {
 }
 
 func TestStdJWTAuth(t *testing.T) {
-	clickhouse_tests.SkipNotCloud(t)
+	// JWT on production cloud is still beta and doesn't have oauth server to take
+	// full advantage of refresh token.
+	clickhouse_tests.SkipOnCloud(t)
 
 	protocols := map[string]clickhouse.Protocol{"Native": clickhouse.Native, "Http": clickhouse.HTTP}
 	for name, protocol := range protocols {
@@ -481,7 +483,9 @@ func TestStdJWTAuth(t *testing.T) {
 }
 
 func TestJWTAuthHTTPOverride(t *testing.T) {
-	clickhouse_tests.SkipNotCloud(t)
+	// JWT on production cloud is still beta and doesn't have oauth server to take
+	// full advantage of refresh token.
+	clickhouse_tests.SkipOnCloud(t)
 
 	getJWT := func(ctx context.Context) (string, error) {
 		return clickhouse_tests.GetEnv("CLICKHOUSE_JWT", ""), nil
