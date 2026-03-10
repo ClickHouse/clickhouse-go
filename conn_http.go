@@ -639,7 +639,7 @@ func (h *httpConnect) createRequest(ctx context.Context, requestUrl string, read
 			query.Set(key, fmt.Sprint(value))
 		}
 		for key, value := range options.parameters {
-			query.Set(fmt.Sprintf("param_%s", key), value)
+			query.Set(fmt.Sprintf("param_%s", key), escapeQueryParam(value))
 		}
 		req.URL.RawQuery = query.Encode()
 	}
