@@ -125,6 +125,33 @@ func (r *rows) Err() error {
 	return r.err
 }
 
+func (r *rows) HasData() bool {
+	for {
+		if r.block != nil && r.block.Rows() > 0 {
+			return true
+		}
+		if r.stream == nil {
+			return false
+		}
+		select {
+		case block := <-r.stream:
+			if block == nil {
+				return false
+			}
+			if block.Packet == proto.ServerTotals {
+				r.totals = block
+				continue
+			}
+			r.block = block
+		case err := <-r.errors:
+			if err != nil {
+				r.err = err
+				return false
+			}
+		}
+	}
+}
+
 type row struct {
 	err  error
 	rows *rows
