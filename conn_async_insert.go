@@ -25,6 +25,7 @@ func (c *connect) asyncInsert(ctx context.Context, query string, wait bool, args
 		}
 	}
 
+	options.injectSendProfileEvents(c.opt.Settings, c.server.Version)
 	if err := c.sendQuery(query, &options); err != nil {
 		return err
 	}
