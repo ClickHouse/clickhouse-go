@@ -21,6 +21,12 @@ func setupTimeMixedTest(t *testing.T, protocol clickhouse.Protocol) clickhouse.C
 }
 
 func TestTimeMixed(t *testing.T) {
+	// NOTE(kavi): There is bug in handling experimental settings on ClickHouse causing these tests on cloud fail
+	// disabling it till those fixes available on cloud
+	// 1. https://github.com/ClickHouse/ClickHouse/pull/99353
+	// 2. https://github.com/ClickHouse/ClickHouse/pull/99279
+	SkipOnCloud(t)
+
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
 		conn := setupTimeMixedTest(t, protocol)
 
@@ -73,6 +79,12 @@ func TestTimeMixed(t *testing.T) {
 }
 
 func TestTimeMixedArrays(t *testing.T) {
+	// NOTE(kavi): There is bug in handling experimental settings on ClickHouse causing these tests on cloud fail
+	// disabling it till those fixes available on cloud
+	// 1. https://github.com/ClickHouse/ClickHouse/pull/99353
+	// 2. https://github.com/ClickHouse/ClickHouse/pull/99279
+	SkipOnCloud(t)
+
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
 		conn := setupTimeMixedTest(t, protocol)
 
@@ -126,6 +138,12 @@ func TestTimeMixedArrays(t *testing.T) {
 }
 
 func TestTimeMixedNullable(t *testing.T) {
+	// NOTE(kavi): There is bug in handling experimental settings on ClickHouse causing these tests on cloud fail
+	// disabling it till those fixes available on cloud
+	// 1. https://github.com/ClickHouse/ClickHouse/pull/99353
+	// 2. https://github.com/ClickHouse/ClickHouse/pull/99279
+	SkipOnCloud(t)
+
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
 		conn := setupTimeMixedTest(t, protocol)
 
@@ -204,6 +222,12 @@ func TestTimeMixedNullable(t *testing.T) {
 }
 
 func TestTimeMixedMultipleRows(t *testing.T) {
+	// NOTE(kavi): There is bug in handling experimental settings on ClickHouse causing these tests on cloud fail
+	// disabling it till those fixes available on cloud
+	// 1. https://github.com/ClickHouse/ClickHouse/pull/99353
+	// 2. https://github.com/ClickHouse/ClickHouse/pull/99279
+	SkipOnCloud(t)
+
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
 		conn := setupTimeMixedTest(t, protocol)
 
@@ -265,6 +289,12 @@ func TestTimeMixedMultipleRows(t *testing.T) {
 }
 
 func TestTimeMixedComplexTypes(t *testing.T) {
+	// NOTE(kavi): There is bug in handling experimental settings on ClickHouse causing these tests on cloud fail
+	// disabling it till those fixes available on cloud
+	// 1. https://github.com/ClickHouse/ClickHouse/pull/99353
+	// 2. https://github.com/ClickHouse/ClickHouse/pull/99279
+	SkipOnCloud(t)
+
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
 		conn := setupTimeMixedTest(t, protocol)
 

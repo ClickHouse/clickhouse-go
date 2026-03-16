@@ -236,6 +236,9 @@ func TestContextCancellationNoConnectionSlotLeak(t *testing.T) {
 		// Select the correct port based on protocol
 		port := env.Port
 		var tlsConfig *tls.Config
+		if useSSL {
+			tlsConfig = &tls.Config{}
+		}
 		switch {
 		case protocol == clickhouse.HTTP && useSSL:
 			port = env.HttpsPort
