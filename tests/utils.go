@@ -85,7 +85,6 @@ func (env *ClickHouseTestEnvironment) setVersion() {
 		TLS:         tlsConfig,
 		DialTimeout: time.Duration(timeout) * time.Second,
 	})
-	fmt.Println("creating connection to host:", env.Host, "port: ", port, "username: ", env.Username)
 	if err != nil {
 		panic(err)
 	}
