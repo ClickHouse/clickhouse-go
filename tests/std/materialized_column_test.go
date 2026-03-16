@@ -1,0 +1,60 @@
+package std
+
+import (
+	"fmt"
+	"math/big"
+	"strconv"
+	"testing"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestMaterializedColumnInsert(t *testing.T) {
+	dsns := map[string]clickhouse.Protocol{"Native": clickhouse.Native, "Http": clickhouse.HTTP}
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	for name, protocol := range dsns {
+		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
+			if conn, err := GetStdDSNConnection(protocol, useSSL, nil); assert.NoError(t, err) {
+				if !CheckMinServerVersion(conn, 21, 12, 0) {
+					t.Skip(fmt.Errorf("unsupported clickhouse version"))
+					return
+				}
+				const ddl = `
+		CREATE TABLE std_test_mat_cols (
+			  Col1 Int128
+			, Col2 MATERIALIZED Col1 * 2
+		) Engine MergeTree() ORDER BY tuple()
+		`
+				defer func() {
+					conn.Exec("DROP TABLE std_test_mat_cols")
+				}()
+				_, err := conn.Exec(ddl)
+				require.NoError(t, err)
+				scope, err := conn.Begin()
+				require.NoError(t, err)
+				batch, err := scope.Prepare("INSERT INTO std_test_mat_cols")
+				require.NoError(t, err)
+				var (
+					col1Data = big.NewInt(128)
+					col2Data = big.NewInt(128 * 2)
+				)
+				_, err = batch.Exec(col1Data)
+				require.NoError(t, err)
+				require.NoError(t, scope.Commit())
+				var (
+					col1 big.Int
+					col2 big.Int
+				)
+				require.NoError(t, conn.QueryRow("SELECT * FROM std_test_mat_cols").Scan(&col1))
+				assert.Equal(t, *col1Data, col1)
+				require.NoError(t, conn.QueryRow("SELECT Col1, Col2 from std_test_mat_cols").Scan(&col1, &col2))
+				assert.Equal(t, *col1Data, col1)
+				assert.Equal(t, *col2Data, col2)
+			}
+		})
+	}
+}
