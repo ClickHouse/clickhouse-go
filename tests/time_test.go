@@ -25,7 +25,6 @@ func TestTime(t *testing.T) {
 	// disabling it till those fixes available on cloud
 	// 1. https://github.com/ClickHouse/ClickHouse/pull/99353
 	// 2. https://github.com/ClickHouse/ClickHouse/pull/99279
-
 	SkipOnCloud(t)
 
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
