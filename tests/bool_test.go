@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
-	"math/rand"
+	"math/rand/v2"
 	"testing"
 	"time"
 
@@ -169,11 +169,10 @@ func TestBoolFlush(t *testing.T) {
 		batch, err := conn.PrepareBatch(ctx, "INSERT INTO bool_flush")
 		require.NoError(t, err)
 		vals := [1000]bool{}
-		var src = rand.NewSource(time.Now().UnixNano())
-		var r = rand.New(src)
+		var r = rand.New(rand.NewPCG(uint64(time.Now().UnixNano()), uint64(time.Now().UnixNano()>>32)))
 
 		for i := 0; i < 1000; i++ {
-			vals[i] = r.Intn(2) != 0
+			vals[i] = r.IntN(2) != 0
 			require.NoError(t, batch.Append(vals[i]))
 			require.Equal(t, 1, batch.Rows())
 			require.NoError(t, batch.Flush())
@@ -229,11 +228,10 @@ func TestBoolValuer(t *testing.T) {
 		batch, err := conn.PrepareBatch(ctx, "INSERT INTO bool_flush")
 		require.NoError(t, err)
 		vals := [1000]bool{}
-		var src = rand.NewSource(time.Now().UnixNano())
-		var r = rand.New(src)
+		var r = rand.New(rand.NewPCG(uint64(time.Now().UnixNano()), uint64(time.Now().UnixNano()>>32)))
 
 		for i := 0; i < 1000; i++ {
-			vals[i] = r.Intn(2) != 0
+			vals[i] = r.IntN(2) != 0
 			require.NoError(t, batch.Append(testBoolSerializer{val: vals[i]}))
 		}
 		batch.Send()
