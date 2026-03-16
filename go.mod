@@ -1,8 +1,6 @@
 module github.com/ClickHouse/clickhouse-go/v2
 
-go 1.24.1
-
-toolchain go1.25.4
+go 1.25.0
 
 require (
 	github.com/ClickHouse/ch-go v0.71.0
@@ -17,7 +15,7 @@ require (
 	github.com/testcontainers/testcontainers-go v0.40.0
 	go.opentelemetry.io/otel/trace v1.41.0
 	go.yaml.in/yaml/v3 v3.0.4
-	golang.org/x/net v0.50.0
+	golang.org/x/net v0.51.0
 )
 
 require go.opentelemetry.io/otel v1.41.0 // indirect
