@@ -155,7 +155,7 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		case HTTP:
 			scheme = opt.Protocol.String()
 			if opt.TLS != nil {
-				scheme = fmt.Sprintf("%ss", opt.scheme)
+				scheme = fmt.Sprintf("%ss", scheme)
 			}
 		default:
 			return nil, errors.New("invalid interface type for http")
