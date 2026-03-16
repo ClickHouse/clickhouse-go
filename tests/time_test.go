@@ -21,6 +21,13 @@ func setupTimeTest(t *testing.T, protocol clickhouse.Protocol) clickhouse.Conn {
 }
 
 func TestTime(t *testing.T) {
+	// NOTE(kavi): There is bug in handling experimental settings on ClickHouse causing these tests on cloud fail
+	// disabling it till those fixes available on cloud
+	// 1. https://github.com/ClickHouse/ClickHouse/pull/99353
+	// 2. https://github.com/ClickHouse/ClickHouse/pull/99279
+
+	SkipOnCloud(t)
+
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
 		conn := setupTimeTest(t, protocol)
 		ctx := context.Background()
@@ -55,6 +62,13 @@ func TestTime(t *testing.T) {
 }
 
 func TestTimeEdgeCases(t *testing.T) {
+	// NOTE(kavi): There is bug in handling experimental settings on ClickHouse causing these tests on cloud fail
+	// disabling it till those fixes available on cloud
+	// 1. https://github.com/ClickHouse/ClickHouse/pull/99353
+	// 2. https://github.com/ClickHouse/ClickHouse/pull/99279
+
+	SkipOnCloud(t)
+
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
 		conn := setupTimeTest(t, protocol)
 
@@ -113,6 +127,13 @@ func TestTimeEdgeCases(t *testing.T) {
 }
 
 func TestTimeArray(t *testing.T) {
+	// NOTE(kavi): There is bug in handling experimental settings on ClickHouse causing these tests on cloud fail
+	// disabling it till those fixes available on cloud
+	// 1. https://github.com/ClickHouse/ClickHouse/pull/99353
+	// 2. https://github.com/ClickHouse/ClickHouse/pull/99279
+
+	SkipOnCloud(t)
+
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
 		conn := setupTimeTest(t, protocol)
 
@@ -161,6 +182,13 @@ func TestTimeArray(t *testing.T) {
 }
 
 func TestTimeNullable(t *testing.T) {
+	// NOTE(kavi): There is bug in handling experimental settings on ClickHouse causing these tests on cloud fail
+	// disabling it till those fixes available on cloud
+	// 1. https://github.com/ClickHouse/ClickHouse/pull/99353
+	// 2. https://github.com/ClickHouse/ClickHouse/pull/99279
+
+	SkipOnCloud(t)
+
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
 		conn := setupTimeTest(t, protocol)
 
@@ -211,6 +239,13 @@ func TestTimeNullable(t *testing.T) {
 }
 
 func TestTimeMultipleRows(t *testing.T) {
+	// NOTE(kavi): There is bug in handling experimental settings on ClickHouse causing these tests on cloud fail
+	// disabling it till those fixes available on cloud
+	// 1. https://github.com/ClickHouse/ClickHouse/pull/99353
+	// 2. https://github.com/ClickHouse/ClickHouse/pull/99279
+
+	SkipOnCloud(t)
+
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
 		conn := setupTimeTest(t, protocol)
 
