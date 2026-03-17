@@ -127,7 +127,7 @@ func (r *rows) Err() error {
 
 func (r *rows) HasData() bool {
 	for {
-		if r.block != nil && r.block.Rows() > 0 {
+		if r.block != nil && r.row < r.block.Rows() {
 			return true
 		}
 		if r.stream == nil {

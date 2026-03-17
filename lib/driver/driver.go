@@ -61,6 +61,9 @@ type (
 		Columns() []string
 		Close() error
 		Err() error
+	}
+	RowsWithHasData interface {
+		Rows
 		HasData() bool
 	}
 	Batch interface {
