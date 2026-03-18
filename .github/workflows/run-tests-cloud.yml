@@ -12,7 +12,7 @@ on:
 
 jobs:
   test:
-    if: github.event_name == 'push' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'tests:run-cloud'))
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
     runs-on: [self-hosted, style-checker-aarch64]
     defaults:
       run:
