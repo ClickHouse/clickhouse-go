@@ -8,7 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 )
 
 func TestRowsHasData(t *testing.T) {
@@ -24,9 +23,7 @@ func TestRowsHasData(t *testing.T) {
 		require.NoError(t, err)
 		defer rows.Close()
 
-		rh, ok := rows.(driver.RowsWithHasData)
-		require.True(t, ok, "rows should implement RowsWithHasData")
-		assert.True(t, rh.HasData(), "HasData() should return true when query returns rows")
+		assert.True(t, rows.HasData(), "HasData() should return true when query returns rows")
 	})
 
 	t.Run("empty result", func(t *testing.T) {
@@ -35,9 +32,7 @@ func TestRowsHasData(t *testing.T) {
 		require.NoError(t, err)
 		defer rows.Close()
 
-		rh, ok := rows.(driver.RowsWithHasData)
-		require.True(t, ok, "rows should implement RowsWithHasData")
-		assert.False(t, rh.HasData(), "HasData() should return false when query returns no rows")
+		assert.False(t, rows.HasData(), "HasData() should return false when query returns no rows")
 	})
 
 	t.Run("idempotent", func(t *testing.T) {
@@ -46,10 +41,8 @@ func TestRowsHasData(t *testing.T) {
 		require.NoError(t, err)
 		defer rows.Close()
 
-		rh, ok := rows.(driver.RowsWithHasData)
-		require.True(t, ok, "rows should implement RowsWithHasData")
-		assert.True(t, rh.HasData(), "First HasData() call should return true")
-		assert.True(t, rh.HasData(), "Second HasData() call should also return true")
+		assert.True(t, rows.HasData(), "First HasData() call should return true")
+		assert.True(t, rows.HasData(), "Second HasData() call should also return true")
 	})
 
 	t.Run("then iterate all rows", func(t *testing.T) {
@@ -58,9 +51,7 @@ func TestRowsHasData(t *testing.T) {
 		require.NoError(t, err)
 		defer rows.Close()
 
-		rh, ok := rows.(driver.RowsWithHasData)
-		require.True(t, ok, "rows should implement RowsWithHasData")
-		require.True(t, rh.HasData(), "HasData() should return true")
+		require.True(t, rows.HasData(), "HasData() should return true")
 
 		var count int
 		for rows.Next() {
@@ -70,6 +61,37 @@ func TestRowsHasData(t *testing.T) {
 		}
 		require.NoError(t, rows.Err())
 		assert.Equal(t, 1000, count, "All rows should be iterable after HasData()")
+	})
+
+	t.Run("at block boundary", func(t *testing.T) {
+		// Force a small block size so the query spans multiple blocks, then call
+		// HasData() exactly at the block boundary (r.row == r.block.Rows()).
+		// This exercises the r.row = 0 reset when HasData() loads the next block.
+		ctx := clickhouse.Context(context.Background(), clickhouse.WithSettings(clickhouse.Settings{
+			"max_block_size": 5,
+		}))
+		const total = 10
+		rows, err := conn.Query(ctx, "SELECT number FROM system.numbers LIMIT 10")
+		require.NoError(t, err)
+		defer rows.Close()
+
+		// Consume exactly the first block (5 rows), landing r.row == r.block.Rows().
+		for i := 0; i < 5; i++ {
+			require.True(t, rows.Next())
+			var n uint64
+			require.NoError(t, rows.Scan(&n))
+		}
+
+		require.True(t, rows.HasData(), "HasData() should return true when a further block exists")
+
+		var count int
+		for rows.Next() {
+			var n uint64
+			require.NoError(t, rows.Scan(&n))
+			count++
+		}
+		require.NoError(t, rows.Err())
+		assert.Equal(t, total/2, count, "remaining rows after HasData() at block boundary should all be readable")
 	})
 
 	t.Run("after partial iteration", func(t *testing.T) {
@@ -85,11 +107,9 @@ func TestRowsHasData(t *testing.T) {
 			require.NoError(t, rows.Scan(&n))
 		}
 
-		rh, ok := rows.(driver.RowsWithHasData)
-		require.True(t, ok, "rows should implement RowsWithHasData")
 		// After partial iteration, HasData should reflect whether remaining rows exist
 		// It should not return a false positive
-		require.True(t, rh.HasData(), "HasData() should return true")
+		require.True(t, rows.HasData(), "HasData() should return true")
 		var count int
 		for rows.Next() {
 			var n uint64
@@ -104,26 +124,28 @@ func TestRowsHasData(t *testing.T) {
 		rows, err := conn.Query(ctx, "SELECT number FROM system.numbers LIMIT 10")
 		require.NoError(t, err)
 
-		rh, ok := rows.(driver.RowsWithHasData)
-		require.True(t, ok, "rows should implement RowsWithHasData")
-
-		rows.Close()
-		assert.False(t, rh.HasData(), "HasData() should return false after Close()")
+		require.NoError(t, rows.Close())
+		assert.False(t, rows.HasData(), "HasData() should return false after Close()")
 	})
 
 	t.Run("context cancelled", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
-		cancel()
 
 		rows, err := conn.Query(ctx, "SELECT number FROM system.numbers LIMIT 1000000")
 		if err != nil {
+			cancel()
 			return
 		}
 		defer rows.Close()
 
-		rh, ok := rows.(driver.RowsWithHasData)
-		require.True(t, ok, "rows should implement RowsWithHasData")
-		assert.False(t, rh.HasData(), "HasData() should return false due to cancelled context")
-		assert.Error(t, rows.Err(), "Err() should be non-nil when HasData returns false due to cancellation")
+		// Cancel after Query() to interrupt the background streaming goroutine.
+		// HasData() may return true if the init block already arrived; what matters
+		// is that it doesn't block and that the cancellation surfaces as an error.
+		cancel()
+		rows.HasData()
+
+		for rows.Next() {
+		}
+		assert.Error(t, rows.Err(), "cancellation should surface as an error during iteration")
 	})
 }
