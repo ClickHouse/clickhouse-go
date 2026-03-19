@@ -1,0 +1,413 @@
+package clickhouse
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
+
+func TestExtractNormalizedInsertQueryAndColumns(t *testing.T) {
+	var testCases = []struct {
+		name                    string
+		query                   string
+		expectedNormalizedQuery string
+		expectedTableName       string
+		expectedColumns         []string
+		expectedError           bool
+	}{
+		{
+			name:                    "Regular insert",
+			query:                   "INSERT INTO table_name (col1, col2) VALUES (1, 2)",
+			expectedNormalizedQuery: "INSERT INTO table_name (col1, col2) FORMAT Native",
+			expectedTableName:       "table_name",
+			expectedColumns:         []string{"col1", "col2"},
+			expectedError:           false,
+		},
+		{
+			name:                    "Lowercase insert",
+			query:                   "insert into table_name (col1, col2) values (1, 2)",
+			expectedNormalizedQuery: "insert into table_name (col1, col2) FORMAT Native",
+			expectedTableName:       "table_name",
+			expectedColumns:         []string{"col1", "col2"},
+			expectedError:           false,
+		},
+		{
+			name: "Insert with mixed case, multiline and format specified",
+			query: `INSERT INTO "db"."table_name" (
+						col1,
+						col2
+					) Values (
+						1,
+						2
+					)
+					format JSONEachRow`,
+			expectedNormalizedQuery: `INSERT INTO "db"."table_name" (
+						col1,
+						col2
+					) FORMAT Native`,
+			expectedTableName: "\"db\".\"table_name\"",
+			expectedColumns:   []string{"col1", "col2"},
+			expectedError:     false,
+		},
+		{
+			name: "Multiline insert",
+			query: `INSERT INTO table_name (
+						col1,
+						col2
+					) VALUES (
+						1,
+						2
+					)`,
+			expectedNormalizedQuery: `INSERT INTO table_name (
+						col1,
+						col2
+					) FORMAT Native`,
+			expectedTableName: "table_name",
+			expectedColumns:   []string{"col1", "col2"},
+			expectedError:     false,
+		},
+		{
+			name: "Multiline insert, with columns inline",
+			query: `INSERT INTO table_name (col1, col2) VALUES (
+						1,
+						2
+					)`,
+			expectedNormalizedQuery: `INSERT INTO table_name (col1, col2) FORMAT Native`,
+			expectedTableName:       "table_name",
+			expectedColumns:         []string{"col1", "col2"},
+			expectedError:           false,
+		},
+		{
+			name: "Multiline insert, with values inline",
+			query: `INSERT INTO table_name (
+						col1,
+						col2
+					) VALUES (1, 2)`,
+			expectedNormalizedQuery: `INSERT INTO table_name (
+						col1,
+						col2
+					) FORMAT Native`,
+			expectedTableName: "table_name",
+			expectedColumns:   []string{"col1", "col2"},
+			expectedError:     false,
+		},
+		{
+			name:                    "Insert with backtick quoted database and table names",
+			query:                   "INSERT INTO `db`.`table_name` (col1, col2) VALUES (1, 2)",
+			expectedNormalizedQuery: "INSERT INTO `db`.`table_name` (col1, col2) FORMAT Native",
+			expectedTableName:       "`db`.`table_name`",
+			expectedColumns:         []string{"col1", "col2"},
+			expectedError:           false,
+		},
+		{
+			name:                    "Insert with double quoted database and table names",
+			query:                   "INSERT INTO \"db\".\"table_name\" (col1, col2) VALUES (1, 2)",
+			expectedNormalizedQuery: "INSERT INTO \"db\".\"table_name\" (col1, col2) FORMAT Native",
+			expectedTableName:       "\"db\".\"table_name\"",
+			expectedColumns:         []string{"col1", "col2"},
+			expectedError:           false,
+		},
+		{
+			name:                    "Insert with special characters in database and table names",
+			query:                   "INSERT INTO `_test_1345# $.ДБ`.`2. Таблица №2`",
+			expectedNormalizedQuery: "INSERT INTO `_test_1345# $.ДБ`.`2. Таблица №2` FORMAT Native",
+			expectedTableName:       "`_test_1345# $.ДБ`.`2. Таблица №2`",
+			expectedColumns:         []string{},
+			expectedError:           false,
+		},
+		{
+			name:                    "Insert with special characters in database and table names, with columns",
+			query:                   "INSERT INTO `_test_1345# $.ДБ`.`2. Таблица №2` (col1, col2)",
+			expectedNormalizedQuery: "INSERT INTO `_test_1345# $.ДБ`.`2. Таблица №2` (col1, col2) FORMAT Native",
+			expectedTableName:       "`_test_1345# $.ДБ`.`2. Таблица №2`",
+			expectedColumns:         []string{"col1", "col2"},
+			expectedError:           false,
+		},
+		{
+			name:                    "Insert with special characters in database and table names, with columns and values",
+			query:                   "INSERT INTO `_test_1345# $.ДБ`.`2. Таблица №2` (col1, col2) VALUES (1, 2)",
+			expectedNormalizedQuery: "INSERT INTO `_test_1345# $.ДБ`.`2. Таблица №2` (col1, col2) FORMAT Native",
+			expectedTableName:       "`_test_1345# $.ДБ`.`2. Таблица №2`",
+			expectedColumns:         []string{"col1", "col2"},
+			expectedError:           false,
+		},
+		{
+			name:                    "Insert without database name",
+			query:                   "INSERT INTO table_name (col1, col2) VALUES (1, 2) FORMAT Native",
+			expectedNormalizedQuery: "INSERT INTO table_name (col1, col2) FORMAT Native",
+			expectedTableName:       "table_name",
+			expectedColumns:         []string{"col1", "col2"},
+			expectedError:           false,
+		},
+		{
+			name:                    "Insert without columns and values",
+			query:                   "INSERT INTO table_name",
+			expectedNormalizedQuery: "INSERT INTO table_name FORMAT Native",
+			expectedTableName:       "table_name",
+			expectedColumns:         []string{},
+			expectedError:           false,
+		},
+		{
+			name:                    "Insert with format",
+			query:                   "INSERT INTO table_name FORMAT Native",
+			expectedNormalizedQuery: "INSERT INTO table_name FORMAT Native",
+			expectedTableName:       "table_name",
+			expectedColumns:         []string{},
+			expectedError:           false,
+		},
+		{
+			name:                    "Insert with lowercase format",
+			query:                   "INSERT INTO table_name format Native",
+			expectedNormalizedQuery: "INSERT INTO table_name FORMAT Native",
+			expectedTableName:       "table_name",
+			expectedColumns:         []string{},
+			expectedError:           false,
+		},
+		{
+			name:                    "Insert with JSONEachRow format",
+			query:                   "INSERT INTO table_name FORMAT JSONEachRow",
+			expectedNormalizedQuery: "INSERT INTO table_name FORMAT Native",
+			expectedTableName:       "table_name",
+			expectedColumns:         []string{},
+			expectedError:           false,
+		},
+		{
+			name:                    "Insert with quoted table name only",
+			query:                   "INSERT INTO `table_name` VALUES (1, 2)",
+			expectedNormalizedQuery: "INSERT INTO `table_name` FORMAT Native",
+			expectedTableName:       "`table_name`",
+			expectedColumns:         []string{},
+			expectedError:           false,
+		},
+		{
+			name:          "Select, should produce error",
+			query:         "SELECT * FROM table_name",
+			expectedError: true,
+		},
+		{
+			name:                    "Insert with backtick quoted table name and nested columns",
+			query:                   "INSERT INTO `table_name` (`col1`.`nested1`, `col1`.`nested2`) VALUES ((1, 2), (1, 2))",
+			expectedNormalizedQuery: "INSERT INTO `table_name` (`col1`.`nested1`, `col1`.`nested2`) FORMAT Native",
+			expectedTableName:       "`table_name`",
+			expectedColumns:         []string{"col1.nested1", "col1.nested2"},
+			expectedError:           false,
+		},
+		{
+			name:                    "Insert with single line comment",
+			query:                   "-- comment\nINSERT INTO table_name (col1, col2) VALUES (1, 2)",
+			expectedNormalizedQuery: "INSERT INTO table_name (col1, col2) FORMAT Native",
+			expectedTableName:       "table_name",
+			expectedColumns:         []string{"col1", "col2"},
+			expectedError:           false,
+		},
+		{
+			name:                    "Insert with multiple line comments",
+			query:                   "-- comment 1\n-- comment 2\nINSERT INTO table_name (col1, col2) VALUES (1, 2)",
+			expectedNormalizedQuery: "INSERT INTO table_name (col1, col2) FORMAT Native",
+			expectedTableName:       "table_name",
+			expectedColumns:         []string{"col1", "col2"},
+			expectedError:           false,
+		},
+		{
+			name: "Insert with comment and multiline query",
+			query: `-- This is a batch insert
+INSERT INTO table_name (
+	col1,
+	col2
+) VALUES (1, 2)`,
+			expectedNormalizedQuery: `INSERT INTO table_name (
+	col1,
+	col2
+) FORMAT Native`,
+			expectedTableName: "table_name",
+			expectedColumns:   []string{"col1", "col2"},
+			expectedError:     false,
+		},
+		{
+			name: "Insert with multiple comments and multiline query",
+			query: `-- Comment about the table
+-- Another comment
+INSERT INTO "db"."table_name" (
+	col1,
+	col2
+) VALUES (1, 2)`,
+			expectedNormalizedQuery: `INSERT INTO "db"."table_name" (
+	col1,
+	col2
+) FORMAT Native`,
+			expectedTableName: "\"db\".\"table_name\"",
+			expectedColumns:   []string{"col1", "col2"},
+			expectedError:     false,
+		},
+		{
+			name:                    "Insert with comment containing special characters",
+			query:                   "-- комментарий на русском языке\nINSERT INTO table_name (col1, col2)",
+			expectedNormalizedQuery: "INSERT INTO table_name (col1, col2) FORMAT Native",
+			expectedTableName:       "table_name",
+			expectedColumns:         []string{"col1", "col2"},
+			expectedError:           false,
+		},
+		{
+			name:                    "Insert with comment and FORMAT",
+			query:                   "-- batch insert\nINSERT INTO table_name FORMAT JSONEachRow",
+			expectedNormalizedQuery: "INSERT INTO table_name FORMAT Native",
+			expectedTableName:       "table_name",
+			expectedColumns:         []string{},
+			expectedError:           false,
+		},
+		{
+			name: "Insert with comment and extra whitespace",
+			query: `-- comment
+    
+INSERT INTO table_name (col1, col2)`,
+			expectedNormalizedQuery: "INSERT INTO table_name (col1, col2) FORMAT Native",
+			expectedTableName:       "table_name",
+			expectedColumns:         []string{"col1", "col2"},
+			expectedError:           false,
+		},
+		{
+			name: "Insert with comment and backtick quoted names",
+			query: `-- Insert into special table
+INSERT INTO ` + "`_test_1345# $.ДБ`.`2. Таблица №2`" + ` (col1, col2)`,
+			expectedNormalizedQuery: "INSERT INTO `_test_1345# $.ДБ`.`2. Таблица №2` (col1, col2) FORMAT Native",
+			expectedTableName:       "`_test_1345# $.ДБ`.`2. Таблица №2`",
+			expectedColumns:         []string{"col1", "col2"},
+			expectedError:           false,
+		},
+		{
+			name:                    "Insert with #! comment",
+			query:                   "#! comment\nINSERT INTO table_name (col1, col2) VALUES (1, 2)",
+			expectedNormalizedQuery: "INSERT INTO table_name (col1, col2) FORMAT Native",
+			expectedTableName:       "table_name",
+			expectedColumns:         []string{"col1", "col2"},
+			expectedError:           false,
+		},
+		{
+			name:                    "Insert with #! comment without space",
+			query:                   "#!comment\nINSERT INTO table_name (col1, col2) VALUES (1, 2)",
+			expectedNormalizedQuery: "INSERT INTO table_name (col1, col2) FORMAT Native",
+			expectedTableName:       "table_name",
+			expectedColumns:         []string{"col1", "col2"},
+			expectedError:           false,
+		},
+		{
+			name:                    "Insert with multiple #! comments",
+			query:                   "#! comment 1\n#! comment 2\nINSERT INTO table_name (col1, col2) VALUES (1, 2)",
+			expectedNormalizedQuery: "INSERT INTO table_name (col1, col2) FORMAT Native",
+			expectedTableName:       "table_name",
+			expectedColumns:         []string{"col1", "col2"},
+			expectedError:           false,
+		},
+		{
+			name:                    "Insert with # comment (with space)",
+			query:                   "# comment\nINSERT INTO table_name (col1, col2) VALUES (1, 2)",
+			expectedNormalizedQuery: "INSERT INTO table_name (col1, col2) FORMAT Native",
+			expectedTableName:       "table_name",
+			expectedColumns:         []string{"col1", "col2"},
+			expectedError:           false,
+		},
+		{
+			name:                    "Insert with multiple # comments",
+			query:                   "# comment 1\n# comment 2\nINSERT INTO table_name (col1, col2) VALUES (1, 2)",
+			expectedNormalizedQuery: "INSERT INTO table_name (col1, col2) FORMAT Native",
+			expectedTableName:       "table_name",
+			expectedColumns:         []string{"col1", "col2"},
+			expectedError:           false,
+		},
+		{
+			name:                    "Insert with mixed comment styles",
+			query:                   "-- comment 1\n#! comment 2\n# comment 3\nINSERT INTO table_name (col1, col2)",
+			expectedNormalizedQuery: "INSERT INTO table_name (col1, col2) FORMAT Native",
+			expectedTableName:       "table_name",
+			expectedColumns:         []string{"col1", "col2"},
+			expectedError:           false,
+		},
+		{
+			name:                    "Insert with -- comment after column list",
+			query:                   "INSERT INTO table_name (col1, col2) -- columns comment\nVALUES (1, 2)",
+			expectedNormalizedQuery: "INSERT INTO table_name (col1, col2) FORMAT Native",
+			expectedTableName:       "table_name",
+			expectedColumns:         []string{"col1", "col2"},
+			expectedError:           false,
+		},
+		{
+			name:                    "Insert with #! comment after column list",
+			query:                   "INSERT INTO table_name (col1, col2) #! columns comment\nVALUES (1, 2)",
+			expectedNormalizedQuery: "INSERT INTO table_name (col1, col2) FORMAT Native",
+			expectedTableName:       "table_name",
+			expectedColumns:         []string{"col1", "col2"},
+			expectedError:           false,
+		},
+		{
+			name:                    "Insert with # comment after column list",
+			query:                   "INSERT INTO table_name (col1, col2) # columns comment\nVALUES (1, 2)",
+			expectedNormalizedQuery: "INSERT INTO table_name (col1, col2) FORMAT Native",
+			expectedTableName:       "table_name",
+			expectedColumns:         []string{"col1", "col2"},
+			expectedError:           false,
+		},
+		{
+			name:                    "Insert with -- comment after VALUES",
+			query:                   "INSERT INTO table_name (col1, col2) VALUES (1, 2) -- end comment",
+			expectedNormalizedQuery: "INSERT INTO table_name (col1, col2) FORMAT Native",
+			expectedTableName:       "table_name",
+			expectedColumns:         []string{"col1", "col2"},
+			expectedError:           false,
+		},
+		{
+			name:                    "Insert with #! comment after VALUES",
+			query:                   "INSERT INTO table_name (col1, col2) VALUES (1, 2) #! end comment",
+			expectedNormalizedQuery: "INSERT INTO table_name (col1, col2) FORMAT Native",
+			expectedTableName:       "table_name",
+			expectedColumns:         []string{"col1", "col2"},
+			expectedError:           false,
+		},
+		{
+			name:                    "Insert with # comment after VALUES",
+			query:                   "INSERT INTO table_name (col1, col2) VALUES (1, 2) # end comment",
+			expectedNormalizedQuery: "INSERT INTO table_name (col1, col2) FORMAT Native",
+			expectedTableName:       "table_name",
+			expectedColumns:         []string{"col1", "col2"},
+			expectedError:           false,
+		},
+		{
+			name:                    "Insert with -- comment after column list (no VALUES)",
+			query:                   "INSERT INTO table_name (col1, col2) -- end comment",
+			expectedNormalizedQuery: "INSERT INTO table_name (col1, col2) FORMAT Native",
+			expectedTableName:       "table_name",
+			expectedColumns:         []string{"col1", "col2"},
+			expectedError:           false,
+		},
+		{
+			name:                    "Insert with #! comment after column list (no VALUES)",
+			query:                   "INSERT INTO table_name (col1, col2) #! end comment",
+			expectedNormalizedQuery: "INSERT INTO table_name (col1, col2) FORMAT Native",
+			expectedTableName:       "table_name",
+			expectedColumns:         []string{"col1", "col2"},
+			expectedError:           false,
+		},
+		{
+			name:                    "Insert with # comment after column list (no VALUES)",
+			query:                   "INSERT INTO table_name (col1, col2) # end comment",
+			expectedNormalizedQuery: "INSERT INTO table_name (col1, col2) FORMAT Native",
+			expectedTableName:       "table_name",
+			expectedColumns:         []string{"col1", "col2"},
+			expectedError:           false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.query, func(t *testing.T) {
+			normalizedQuery, tableName, columns, err := extractNormalizedInsertQueryAndColumns(tc.query)
+			if tc.expectedError {
+				assert.Error(t, err)
+				return
+			}
+
+			assert.NoError(t, err)
+			assert.Equal(t, tc.expectedNormalizedQuery, normalizedQuery)
+			assert.Equal(t, tc.expectedTableName, tableName)
+			assert.Equal(t, tc.expectedColumns, columns)
+		})
+	}
+}
