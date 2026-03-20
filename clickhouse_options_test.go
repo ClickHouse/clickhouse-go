@@ -499,6 +499,57 @@ func TestParseDSN(t *testing.T) {
 			"",
 		},
 		{
+			"setting value preserves original case",
+			"clickhouse://127.0.0.1/test_database?log_comment=REQUEST_TYPE:proxy%3BUSER_ID:TEST",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"127.0.0.1"},
+				Settings: Settings{
+					"log_comment": "REQUEST_TYPE:proxy;USER_ID:TEST",
+				},
+				Auth: Auth{
+					Database: "test_database",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
+			"setting boolean true is case insensitive",
+			"clickhouse://127.0.0.1/test_database?async_insert=True",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"127.0.0.1"},
+				Settings: Settings{
+					"async_insert": int(1),
+				},
+				Auth: Auth{
+					Database: "test_database",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
+			"setting numeric value preserved",
+			"clickhouse://127.0.0.1/test_database?max_block_size=65505",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"127.0.0.1"},
+				Settings: Settings{
+					"max_block_size": int(65505),
+				},
+				Auth: Auth{
+					Database: "test_database",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
 			"multiple hosts in HA mode",
 			"clickhouse://127.0.0.1:9440,127.0.0.2:9440/test_database",
 			&Options{
