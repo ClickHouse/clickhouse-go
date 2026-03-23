@@ -1,6 +1,7 @@
 package column
 
 import (
+	"database/sql"
 	"database/sql/driver"
 	"fmt"
 	"reflect"
@@ -50,6 +51,9 @@ func (col *MultiLineString) ScanRow(dest any, row int) error {
 		*d = new(orb.MultiLineString)
 		**d = col.row(row)
 	default:
+		if scan, ok := dest.(sql.Scanner); ok {
+			return scan.Scan(col.row(row))
+		}
 		return &ColumnConverterError{
 			Op:   "ScanRow",
 			To:   fmt.Sprintf("%T", dest),
