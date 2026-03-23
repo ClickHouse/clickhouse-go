@@ -61,6 +61,7 @@ type (
 		Columns() []string
 		Close() error
 		Err() error
+		HasData() bool
 	}
 	Batch interface {
 		Abort() error

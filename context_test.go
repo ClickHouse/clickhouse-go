@@ -182,3 +182,18 @@ func TestContext(t *testing.T) {
 		},
 	)
 }
+
+func TestWithoutProfileEvents(t *testing.T) {
+	t.Run("sets send_profile_events=0", func(t *testing.T) {
+		ctx := Context(context.Background(), WithoutProfileEvents())
+		opts := queryOptions(ctx)
+		require.Equal(t, 0, opts.settings["send_profile_events"])
+	})
+
+	t.Run("initializes nil settings map", func(t *testing.T) {
+		var opts QueryOptions
+		WithoutProfileEvents()(&opts)
+		require.NotNil(t, opts.settings)
+		require.Equal(t, 0, opts.settings["send_profile_events"])
+	})
+}

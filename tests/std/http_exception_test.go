@@ -2,15 +2,24 @@ package std
 
 import (
 	"context"
+	"crypto/tls"
+	"strconv"
 	"testing"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestHTTPExceptionHandlingDB(t *testing.T) {
-	conn, err := GetStdOpenDBConnection(clickhouse.HTTP, nil, nil, nil)
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	var tlsConfig *tls.Config
+	if useSSL {
+		tlsConfig = &tls.Config{}
+	}
+	conn, err := GetStdOpenDBConnection(clickhouse.HTTP, nil, tlsConfig, nil)
 	require.NoError(t, err)
 
 	ctx := context.Background()
