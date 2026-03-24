@@ -10,11 +10,11 @@ on:
   pull_request_target:
     branches:
       - main
-    types: [opened, labeled, synchronize, reopened]
+    types: [labeled]
 
 jobs:
   test:
-    if: github.event_name == 'push' || github.event_name == 'pull_request_target'
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request_target' && github.event.label.name == 'tests:run-cloud')
     runs-on: [self-hosted, style-checker-aarch64]
     defaults:
       run:
@@ -45,3 +45,10 @@ jobs:
           GOTOOLCHAIN: "local"
         run: |
           CLICKHOUSE_DIAL_TIMEOUT=20 CLICKHOUSE_TEST_TIMEOUT=600s CLICKHOUSE_QUORUM_INSERT=2 make test
+
+      - name: Remove tests:run-cloud label
+        if: always() && github.event_name == 'pull_request_target'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels/tests%3Arun-cloud -X DELETE || true
