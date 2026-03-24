@@ -554,7 +554,9 @@ func TestJWTError(t *testing.T) {
 }
 
 func TestNativeJWTAuth(t *testing.T) {
-	SkipNotCloud(t)
+	// JWT on production cloud is still beta and doesn't have oauth server to take
+	// full advantage of refresh token.
+	t.Skip("JWT tests are skipped. no infra to test")
 
 	jwt := GetEnv("CLICKHOUSE_JWT", "")
 	getJWT := func(ctx context.Context) (string, error) {
