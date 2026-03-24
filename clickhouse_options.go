@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/ClickHouse/ch-go/compress"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/churl"
 )
 
 type CompressionMethod byte
@@ -182,7 +183,7 @@ type Options struct {
 }
 
 func (o *Options) fromDSN(in string) error {
-	dsn, err := url.Parse(in)
+	dsn, err := churl.Parse(in)
 	if err != nil {
 		return err
 	}

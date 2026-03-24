@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2/ext"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -271,25 +270,17 @@ func queryOptionsUserLocation(ctx context.Context) *time.Location {
 	return nil
 }
 
-// injectSendProfileEvents sets send_profile_events=false when no profile events listener
-// is registered, the user hasn't explicitly set the setting, and the server supports it (>= 25.11).
-func (q *QueryOptions) injectSendProfileEvents(connSettings Settings, serverVersion proto.Version) {
-	if q.events.profileEvents != nil {
-		return
+// WithoutProfileEvents instructs the server not to send profile events for this query.
+// This is a performance optimization for servers >= 25.11 that support the send_profile_events setting.
+// On older servers, the setting is unknown and the server will return an error.
+func WithoutProfileEvents() QueryOption {
+	return func(o *QueryOptions) error {
+		if o.settings == nil {
+			o.settings = make(Settings)
+		}
+		o.settings["send_profile_events"] = 0
+		return nil
 	}
-	if _, ok := connSettings["send_profile_events"]; ok {
-		return
-	}
-	if _, ok := q.settings["send_profile_events"]; ok {
-		return
-	}
-	if !proto.CheckMinVersion(proto.Version{Major: 25, Minor: 11}, serverVersion) {
-		return
-	}
-	if q.settings == nil {
-		q.settings = make(Settings)
-	}
-	q.settings["send_profile_events"] = 0
 }
 
 func (q *QueryOptions) onProcess() *onProcess {

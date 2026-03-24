@@ -37,7 +37,6 @@ func (h *httpConnect) query(ctx context.Context, release nativeTransportRelease,
 		release(h, err)
 		return nil, err
 	}
-	options.injectSendProfileEvents(h.opt.Settings, h.handshake.Version)
 	headers := make(map[string]string)
 	switch h.compression {
 	case CompressionZSTD, CompressionLZ4:
