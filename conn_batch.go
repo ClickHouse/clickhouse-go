@@ -326,14 +326,11 @@ func (b *batch) Close() error {
 		return nil
 	}
 
-	if err := b.closeQuery(); err != nil {
-		return err
-	}
+	err := b.closeQuery()
 	b.sent = true
+	b.release(err)
 
-	b.release(nil)
-
-	return nil
+	return err
 }
 
 type batchColumn struct {
