@@ -373,16 +373,16 @@ Available options:
 
 ## Benchmark
 
-Indicative numbers. The linked programs are standalone executables — run them directly, e.g. `go run benchmark/v2/read/main.go`. Go benchmark tests can be run with `go test -bench=. ./benchmark/...`.
+Indicative numbers measured on: Linux 6.19.6-arch1-1 · Intel Core Ultra 7 258V (8 cores) · 30 GiB RAM · NVMe SSD. Run the linked programs directly to get numbers on your hardware, e.g. `go run benchmark/v2/read/main.go`. Go benchmark tests can be run with `go test -bench=. ./benchmark/...`.
 
 | [V2 (READ) std](benchmark/v2/read/main.go) | [V2 (READ) clickhouse API](benchmark/v2/read-native/main.go) |
 | ------------------------------------------ |--------------------------------------------------------------|
-| 924.390ms                                  | 675.721ms                                                    |
+| 883.196ms                                  | 731.359ms                                                    |
 
 
 | [V2 (WRITE) std](benchmark/v2/write/main.go) | [V2 (WRITE) clickhouse API](benchmark/v2/write-native/main.go) | [V2 (WRITE) by column](benchmark/v2/write-native-columnar/main.go) |
 | -------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------ |
-| 1.177s                                       | 699.203ms                                              | 661.973ms                                                          |
+| 604.953ms                                    | 368.245ms                                              | 581.322ms                                                          |
 
 
 
