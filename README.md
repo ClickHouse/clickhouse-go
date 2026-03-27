@@ -2,6 +2,22 @@
 
 Golang SQL database client for [ClickHouse](https://clickhouse.com/).
 
+## Install
+
+```sh
+go get github.com/ClickHouse/clickhouse-go/v2
+```
+
+## Which interface should I use?
+
+| | `clickhouse.Open` (native) | `sql.Open` / `clickhouse.OpenDB` (std) |
+|---|---|---|
+| Performance | Faster (direct column encoding) | Slower (see [benchmark](#benchmark)) |
+| API | `driver.Conn` — ClickHouse-specific | Standard `database/sql` |
+| Use when | new code, performance-sensitive work | existing `database/sql` tooling, ORMs |
+
+Both support TCP and HTTP transport. When in doubt, use the native interface.
+
 ## Key features
 
 * Uses ClickHouse native format for optimal performance. Utilises low level [ch-go](https://github.com/ClickHouse/ch-go) client for encoding/decoding and compression (versions >= 2.3.0).
@@ -45,7 +61,7 @@ The client is tested against the currently [supported versions](https://github.c
 
 | Client Version | Golang Versions        |
 |----------------|------------------------|
-| => 2.0 <= 2.2  | 1.17, 1.18             |
+| >= 2.0 <= 2.2  | 1.17, 1.18             |
 | >= 2.3         | 1.18.4+, 1.19          |
 | >= 2.14        | 1.20, 1.21             |
 | >= 2.19        | 1.21, 1.22             |
@@ -357,22 +373,18 @@ Available options:
 
 ## Benchmark
 
+Indicative numbers measured on: Linux 6.19.6-arch1-1 · Intel Core Ultra 7 258V (8 cores) · 30 GiB RAM · NVMe SSD. Run the linked programs directly to get numbers on your hardware, e.g. `go run benchmark/v2/read/main.go`. Go benchmark tests can be run with `go test -bench=. ./benchmark/...`.
+
 | [V2 (READ) std](benchmark/v2/read/main.go) | [V2 (READ) clickhouse API](benchmark/v2/read-native/main.go) |
 | ------------------------------------------ |--------------------------------------------------------------|
-| 924.390ms                                  | 675.721ms                                                    |
+| 883.196ms                                  | 731.359ms                                                    |
 
 
 | [V2 (WRITE) std](benchmark/v2/write/main.go) | [V2 (WRITE) clickhouse API](benchmark/v2/write-native/main.go) | [V2 (WRITE) by column](benchmark/v2/write-native-columnar/main.go) |
 | -------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------ |
-| 1.177s                                       | 699.203ms                                              | 661.973ms                                                          |
+| 604.953ms                                    | 368.245ms                                              | 581.322ms                                                          |
 
 
-
-## Install
-
-```sh
-go get -u github.com/ClickHouse/clickhouse-go/v2
-```
 
 ## Examples
 
@@ -422,9 +434,14 @@ go get -u github.com/ClickHouse/clickhouse-go/v2
 
 ## ClickHouse alternatives - ch-go
 
-Versions of this client >=2.3.x utilise [ch-go](https://github.com/ClickHouse/ch-go) for their low level encoding/decoding. This low lever client provides a high performance columnar interface and should be used in performance critical use cases. This client provides more familar row orientated and `database/sql` semantics at the cost of some performance.
+Versions of this client >=2.3.x utilise [ch-go](https://github.com/ClickHouse/ch-go) for their low level encoding/decoding. This low lever client provides a high performance columnar interface and should be used in performance critical use cases. This client provides more familar row-oriented and `database/sql` semantics at the cost of some performance. See [TYPES.md](TYPES.md) for the full mapping between Go and ClickHouse types.
 
 Both clients are supported by ClickHouse.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for local setup, test commands, and PR guidelines.
+Agent and AI assistant instructions live in [.claude/CLAUDE.md](.claude/CLAUDE.md) (also available as `AGENTS.md`).
 
 ## Third-party alternatives
 

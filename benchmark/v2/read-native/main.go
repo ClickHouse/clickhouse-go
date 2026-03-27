@@ -69,11 +69,11 @@ func main() {
 		log.Fatal(err)
 	}
 	start := time.Now()
-	//if err := benchmarkRead(conn); err != nil {
-	//	log.Fatal(err)
-	//}
-	//fmt.Printf("benchmarkRead: %v\n", time.Since(start))
-	//start = time.Now()
+	if err := benchmarkRead(conn); err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("benchmarkRead: %v\n", time.Since(start))
+	start = time.Now()
 	if err := benchmarkString(conn); err != nil {
 		log.Fatal(err)
 	}

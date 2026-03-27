@@ -1,17 +1,19 @@
 CLICKHOUSE_VERSION ?= latest
 CLICKHOUSE_TEST_TIMEOUT ?= 240s
 CLICKHOUSE_QUORUM_INSERT ?= 1
+COMPOSE_PROJECT_NAME ?= clickhouse-go
 
 up:
-	@docker compose up --wait
+	@docker ps -aqf "name=^/clickhouse$$" | xargs -r docker rm -f
+	@COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME) docker compose up --wait --remove-orphans
 down:
-	@docker compose down
+	@COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME) docker compose down
 
 up-cluster:
-	@docker compose -f docker-compose.cluster.yml up
+	@COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME) docker compose -f docker-compose.cluster.yml up --force-recreate --remove-orphans
 
 down-cluster:
-	@docker compose -f docker-compose.cluster.yml down
+	@COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME) docker compose -f docker-compose.cluster.yml down
 
 cli:
 	docker run -it --rm --net clickhouse-go_clickhouse --link clickhouse:clickhouse-server --host clickhouse-server
