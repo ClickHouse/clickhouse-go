@@ -10,7 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math/rand"
+	"math/rand/v2"
 	"net"
 	"net/url"
 	"os"
@@ -35,7 +35,6 @@ import (
 
 var testUUID = uuid.NewString()[0:12]
 var testTimestamp = time.Now().UnixMilli()
-var randSeed = time.Now().UnixNano()
 
 const defaultClickHouseVersion = "latest"
 
@@ -668,7 +667,6 @@ func IsSetInEnv(key string) bool {
 	return ok
 }
 
-var src = rand.NewSource(time.Now().UnixNano())
 
 const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 const numberBytes = "123456789"
@@ -687,14 +685,14 @@ func RandIntString(n int) string {
 }
 
 func RandIPv4() net.IP {
-	return net.IPv4(uint8(rand.Int()), uint8(rand.Int()), uint8(rand.Int()), uint8(rand.Int())).To4()
+	return net.IPv4(uint8(rand.IntN(256)), uint8(rand.IntN(256)), uint8(rand.IntN(256)), uint8(rand.IntN(256))).To4()
 }
 
 func RandIPv6() net.IP {
 	size := 16
 	ip := make([]byte, size)
 	for i := 0; i < size; i++ {
-		ip[i] = byte(rand.Intn(256))
+		ip[i] = byte(rand.IntN(256))
 	}
 	return net.IP(ip).To16()
 }
@@ -702,10 +700,10 @@ func RandIPv6() net.IP {
 func randString(n int, bytes string) string {
 	sb := strings.Builder{}
 	sb.Grow(n)
-	// A src.Int63() generates 63 random bits, enough for letterIdxMax characters!
-	for i, cache, remain := n-1, src.Int63(), letterIdxMax; i >= 0; {
+	// A rand.Int64() generates 63 random bits, enough for letterIdxMax characters!
+	for i, cache, remain := n-1, rand.Int64(), letterIdxMax; i >= 0; {
 		if remain == 0 {
-			cache, remain = src.Int63(), letterIdxMax
+			cache, remain = rand.Int64(), letterIdxMax
 		}
 		if idx := int(cache & letterIdxMask); idx < len(bytes) {
 			sb.WriteByte(bytes[idx])
@@ -953,13 +951,7 @@ func OptionsToDSN(o *clickhouse.Options) string {
 	return u.String()
 }
 
-func ResetRandSeed() {
-	rand.Seed(randSeed)
-}
-
 func Runtime(m *testing.M, ts string) (exitCode int) {
-	ResetRandSeed()
-	fmt.Printf("using random seed %d for %s tests\n", randSeed, ts)
 
 	useDocker, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_DOCKER", "true"))
 	if err != nil {
