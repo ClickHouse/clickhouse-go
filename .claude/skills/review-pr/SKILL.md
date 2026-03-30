@@ -52,7 +52,9 @@ Work through each category before writing the review.
 - [ ] New ClickHouse type support: column implementation + round-trip test + example?
 - [ ] Do test failure messages say what was wrong, what input triggered it, and what was expected vs. got?
 - [ ] Are tests table-driven where there are multiple cases?
-- [ ] No test mocking of `driver.Conn` or `driver.Rows` — use a real ClickHouse via testcontainers.
+- [ ] No test mocking of `driver.Conn` or `driver.Rows` for integrations tests inside root `/tests/` — use a real ClickHouse via testcontainers.
+- [ ] Make sure tests are covered for both TCP and HTTP protocol cases.
+- [ ] Make sure tests are covered for both `clickhouse_native` (Open() api returns) api and `std` api (OpenDB() api returns).
 
 ### Performance & protocol
 - [ ] Does the change avoid unnecessary allocations in hot paths (encoding/decoding columns)?
@@ -62,3 +64,7 @@ Work through each category before writing the review.
 ### Documentation
 - [ ] Are new exported symbols documented with a full-sentence doc comment beginning with the symbol name?
 - [ ] ClickHouse SQL types and function names wrapped in backticks in any prose.
+- [ ] Make sure existing docs and examples are updated.
+- [ ] Make sure new docs and examples are added if needed for new features or bug fixes.
+- [ ] Make sure the docs are covered for both TCP and HTTP protocol cases.
+- [ ] Make sure the docs are covered for both `clickhouse_native` (Open() api returns) api and `std` api (OpenDB() api returns).

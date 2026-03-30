@@ -32,6 +32,7 @@ Follow [Go Code Review Comments](https://go.dev/wiki/CodeReviewComments) in full
 - Error strings: lowercase, no trailing punctuation — `"clickhouse: connection closed"`.
 - Wrap with `fmt.Errorf("context: %w", err)` to preserve the chain; sentinel errors live in `clickhouse.go`.
 - Do not `panic` in library code. Panics belong only in `init()` for invariants that can never recover.
+- Error message returned to the end-user should be actionable as possible.
 
 **Context**
 - Every network call takes `context.Context` as its first parameter — no exceptions.
