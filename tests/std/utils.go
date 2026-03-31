@@ -206,6 +206,13 @@ func GetOpenDBConnectionJWT(environment string, protocol clickhouse.Protocol, se
 	if err != nil {
 		return nil, err
 	}
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	if err != nil {
+		return nil, err
+	}
+	if useSSL && tlsConfig == nil {
+		tlsConfig = &tls.Config{}
+	}
 	var port int
 	switch protocol {
 	case clickhouse.HTTP:
