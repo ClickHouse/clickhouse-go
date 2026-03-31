@@ -3,7 +3,6 @@ name: Claude Code Review
 on:
   pull_request_target:
     types: [labeled]
-  # TODO: remove workflow_dispatch before merging to main — testing only
   workflow_dispatch:
     inputs:
       pr_number:
@@ -50,7 +49,7 @@ jobs:
             6. Omit any section that has no items.
 
       - name: Remove trigger label
-        if: always()
+        if: always() && github.event_name != 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
