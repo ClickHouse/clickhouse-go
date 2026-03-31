@@ -1,0 +1,50 @@
+name: Claude Code Review
+
+on:
+  pull_request_target:
+    types: [labeled]
+
+jobs:
+  review:
+    # Only run when the exact trigger label is applied.
+    if: github.event.label.name == 'review:claude-agent'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read        # read repo files (SKILL.md, etc.)
+      pull-requests: write  # post review comments
+      issues: write         # update labels / post issue comments
+
+    steps:
+      - name: Checkout base branch
+        uses: actions/checkout@v4
+        # SECURITY: pull_request_target checks out the base branch by default.
+        # Do NOT add `ref: ${{ github.event.pull_request.head.sha }}` here —
+        # that would run untrusted fork code with access to repository secrets.
+        # that's why labeling check (usually by maintainer)
+
+      - name: Review PR with Claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_args:
+            --allowedTools "Read,Glob,Bash(grep:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*)"
+          prompt: |
+            Review pull request #${{ github.event.pull_request.number }} using the checklist in `.claude/skills/review-pr/SKILL.md`.
+
+            Steps:
+            1. Read `.claude/skills/review-pr/SKILL.md` to load the review checklist and output format.
+            2. Fetch the PR description with `gh pr view ${{ github.event.pull_request.number }}`.
+            3. Fetch the diff with `gh pr diff ${{ github.event.pull_request.number }}`.
+            4. Work through every checklist category in SKILL.md: Correctness, API design, Go idioms, Tests, Performance & protocol, Documentation.
+            5. Post a single review comment on the PR using `gh pr comment ${{ github.event.pull_request.number }} --body "..."` with the sections defined in SKILL.md: Summary, Must fix, Should fix, Nits, Verdict.
+            6. Omit any section that has no items.
+
+      - name: Remove trigger label
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api \
+            --method DELETE \
+            repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels/review%3Aclaude-agent \
+            || true  # ignore 404 if label was already removed
