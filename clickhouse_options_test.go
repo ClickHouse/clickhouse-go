@@ -513,6 +513,23 @@ func TestParseDSN(t *testing.T) {
 			},
 			"",
 		},
+		{
+			"setting value preserves original case",
+			"clickhouse://127.0.0.1/default?log_comment=REQUEST_TYPE:proxy",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"127.0.0.1"},
+				Settings: Settings{
+					"log_comment": "REQUEST_TYPE:proxy",
+				},
+				Auth: Auth{
+					Database: "default",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
 	}
 
 	for _, testCase := range testCases {
