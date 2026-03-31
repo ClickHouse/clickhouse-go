@@ -2,12 +2,28 @@
 
 Golang SQL database client for [ClickHouse](https://clickhouse.com/).
 
+## Install
+
+```sh
+go get github.com/ClickHouse/clickhouse-go/v2
+```
+
+## Which interface should I use?
+
+| | `clickhouse.Open` (native) | `sql.Open` / `clickhouse.OpenDB` (std) |
+|---|---|---|
+| Performance | Faster (direct column encoding) | Slower (see [benchmark](#benchmark)) |
+| API | `driver.Conn` — ClickHouse-specific | Standard `database/sql` |
+| Use when | new code, performance-sensitive work | existing `database/sql` tooling, ORMs |
+
+Both support TCP and HTTP transport. When in doubt, use the native interface.
+
 ## Key features
 
 * Uses ClickHouse native format for optimal performance. Utilises low level [ch-go](https://github.com/ClickHouse/ch-go) client for encoding/decoding and compression (versions >= 2.3.0).
-* Supports native ClickHouse TCP client-server protocol
+* Supports both native ClickHouse TCP and HTTP client-server protocols
 * Compatibility with [`database/sql`](#std-databasesql-interface) ([slower](#benchmark) than [native interface](#native-interface)!)
-* [`database/sql`](#std-databasesql-interface) supports http protocol for transport.
+* [`database/sql`](#std-databasesql-interface) supports both native TCP and HTTP protocols for transport.
 * Marshal rows into structs ([ScanStruct](examples/clickhouse_api/scan_struct.go), [Select](examples/clickhouse_api/select_struct.go))
 * Unmarshal struct to row ([AppendStruct](benchmark/v2/write-native-struct/main.go))
 * Connection pool (for both TCP-Native and HTTP)
@@ -16,9 +32,12 @@ Golang SQL database client for [ClickHouse](https://clickhouse.com/).
 * [PrepareBatch options](#preparebatch-options)
 * [AsyncInsert](benchmark/v2/write-async/main.go) (more details in [Async insert](#async-insert) section)
 * Named and numeric placeholders support
-* LZ4/ZSTD compression support
+* LZ4/ZSTD/LZ4HC/GZIP/Deflate/Brotli compression support
 * External data
 * [Query parameters](examples/std/query_parameters.go)
+* Structured logging via `log/slog` ([Logger option](#logging))
+* JWT authentication support
+* Wide type support: BFloat16, QBit, Dynamic, Variant, Time, Time64, LineString, MultiLineString, and more
 
 Support for the ClickHouse protocol advanced features using `Context`:
 
@@ -42,18 +61,19 @@ The client is tested against the currently [supported versions](https://github.c
 
 | Client Version | Golang Versions        |
 |----------------|------------------------|
-| => 2.0 <= 2.2  | 1.17, 1.18             |
+| >= 2.0 <= 2.2  | 1.17, 1.18             |
 | >= 2.3         | 1.18.4+, 1.19          |
 | >= 2.14        | 1.20, 1.21             |
 | >= 2.19        | 1.21, 1.22             |
 | >= 2.28        | 1.22, 1.23             |
 | >= 2.29        | 1.21, 1.22, 1.23, 1.24 |
+| >= 2.41        | 1.24, 1.25             |
 
 ## Documentation
 
 [https://clickhouse.com/docs/en/integrations/go](https://clickhouse.com/docs/en/integrations/go)
 
-# `clickhouse` interface (formally `native` interface)
+# `clickhouse` interface (formerly `native` interface)
 
 ```go
 	conn, err := clickhouse.Open(&clickhouse.Options{
@@ -68,10 +88,11 @@ The client is tested against the currently [supported versions](https://github.c
 			var d net.Dialer
 			return d.DialContext(ctx, "tcp", addr)
 		},
-		Debug: true,
-		Debugf: func(format string, v ...any) {
-			fmt.Printf(format+"\n", v...)
-		},
+		// Logger is the recommended way to enable logging (see Logging section).
+		// Debug and Debugf are deprecated in favour of Logger.
+		Logger: slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+			Level: slog.LevelDebug,
+		})),
 		Settings: clickhouse.Settings{
 			"max_execution_time": 60,
 		},
@@ -122,7 +143,7 @@ conn := clickhouse.OpenDB(&clickhouse.Options{
 	Compression: &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	},
-	Debug: true,
+	// Debug is deprecated; use Logger instead (see Logging section).
 	BlockBufferSize: 10,
 	MaxCompressionBuffer: 10240,
 	ClientInfo: clickhouse.ClientInfo{ // optional, please see Client info section in the README.md
@@ -160,6 +181,7 @@ conn.SetConnMaxLifetime(time.Hour)
 * max_compression_buffer - max size (bytes) of compression buffer during column by column compression (default 10MiB)
 * client_info_product - optional list (comma separated) of product name and version pair separated with `/`. This value will be pass a part of client info. e.g. `client_info_product=my_app/1.0,my_module/0.1` More details in [Client info](#client-info) section.
 * http_proxy - HTTP proxy address
+* http_path - URL path for HTTP requests (e.g. for proxies or custom endpoints that require a specific path)
 
 ## Connection Settings Reference
 
@@ -250,18 +272,16 @@ HTTP proxy can be set in the DSN string by specifying the `http_proxy` parameter
 http://host1:8123,host2:8123/database?dial_timeout=200ms&max_execution_time=60&http_proxy=http%3A%2F%2Fproxy%3A8080
 ```
 
-If you are using `clickhouse.OpenDB`, set the `HTTProxy` field in the `clickhouse.Options`.
+If you are using `clickhouse.OpenDB`, set the `HTTPProxyURL` field in the `clickhouse.Options`.
 
 An alternative way is to enable proxy by setting the `HTTP_PROXY` (for HTTP) or `HTTPS_PROXY` (for HTTPS) environment variables.
 See more details in the [Go documentation](https://pkg.go.dev/net/http#ProxyFromEnvironment).
 
 ## Compression
 
-ZSTD/LZ4 compression is supported over native and http protocols. This is performed column by column at a block level and is only used for inserts. Compression buffer size is set as `MaxCompressionBuffer` option.
+ZSTD, LZ4, LZ4HC, GZIP, Deflate, and Brotli compression are supported over native and HTTP protocols. This is performed column by column at a block level and is only used for inserts. Compression buffer size is set as `MaxCompressionBuffer` option.
 
-If using `Open` via the std interface and specifying a DSN, compression can be enabled via the `compress` flag. Currently, this is a boolean flag which enables `LZ4` compression.
-
-Other compression methods will be added in future PRs.
+When using a DSN, compression can be enabled via the `compress` parameter. Set it to a specific algorithm name (`zstd`, `lz4`, `lz4hc`, `gzip`, `deflate`, `br`) or to `true` as shorthand for `lz4`. See the [DSN](#dsn) section for details.
 
 ## TLS/SSL
 
@@ -292,7 +312,7 @@ To connect using HTTPS either:
     https://host1:8443,host2:8443/database?dial_timeout=200ms&max_execution_time=60
     ```
 
-- Specify the interface type as `HttpsInterface` e.g.
+- Use `Protocol: clickhouse.HTTP` with a `TLS` config e.g.
 
 ```go
 conn := clickhouse.OpenDB(&clickhouse.Options{
@@ -317,6 +337,21 @@ Order is the highest abstraction to the lowest level implementation left to righ
 
 Usage examples for [native API](examples/clickhouse_api/client_info.go) and [database/sql](examples/std/client_info.go)  are provided.
 
+## Logging
+
+Structured logging is supported via Go's standard `log/slog` package. Set the `Logger` field in `Options` to enable it:
+
+```go
+conn, err := clickhouse.Open(&clickhouse.Options{
+	Addr: []string{"127.0.0.1:9000"},
+	Logger: slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	})),
+})
+```
+
+The `Debug` and `Debugf` fields in `Options` are deprecated in favour of `Logger`.
+
 ## Async insert
 
 [Async insert](https://clickhouse.com/docs/optimize/asynchronous-inserts) is supported via `WithAsync()` helper on both Native and HTTP protocols. You can use it for both Go standard interface `OpenDB` and also ClickHouse interface `Open()`.
@@ -324,10 +359,10 @@ Usage examples for [native API](examples/clickhouse_api/client_info.go) and [dat
 **NOTE**: You can use `WithSettings()` manually to add any async related settings. `WithAsync()` is just a simple wrapper that does that for you.
 
 We have following examples to show Async Insert in action.
-1. [Native with OpenDB](examples/clickhouse_api/async_native.go)
-1. [HTTP with OpenDB](examples/clickhouse_api/async_http.go)
-1. [Native with Open](examples/std/async_native.go)
-1. [HTTP with Open](examples/std/async_http.go)
+1. [Native with Open](examples/clickhouse_api/async_native.go)
+1. [HTTP with Open](examples/clickhouse_api/async_http.go)
+1. [Native with OpenDB](examples/std/async_native.go)
+1. [HTTP with OpenDB](examples/std/async_http.go)
 
 **NOTE**: The old `AsyncInsert()` api is deprecated and will be removed in future versions. We highly recommend to use `WithAsync()` api for all the Async Insert use cases.
 
@@ -338,22 +373,18 @@ Available options:
 
 ## Benchmark
 
+Indicative numbers measured on: Linux 6.19.6-arch1-1 · Intel Core Ultra 7 258V (8 cores) · 30 GiB RAM · NVMe SSD. Run the linked programs directly to get numbers on your hardware, e.g. `go run benchmark/v2/read/main.go`. Go benchmark tests can be run with `go test -bench=. ./benchmark/...`.
+
 | [V2 (READ) std](benchmark/v2/read/main.go) | [V2 (READ) clickhouse API](benchmark/v2/read-native/main.go) |
 | ------------------------------------------ |--------------------------------------------------------------|
-| 924.390ms                                  | 675.721ms                                                    |
+| 883.196ms                                  | 731.359ms                                                    |
 
 
 | [V2 (WRITE) std](benchmark/v2/write/main.go) | [V2 (WRITE) clickhouse API](benchmark/v2/write-native/main.go) | [V2 (WRITE) by column](benchmark/v2/write-native-columnar/main.go) |
 | -------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------ |
-| 1.177s                                       | 699.203ms                                              | 661.973ms                                                          |
+| 604.953ms                                    | 368.245ms                                              | 581.322ms                                                          |
 
 
-
-## Install
-
-```sh
-go get -u github.com/ClickHouse/clickhouse-go/v2
-```
 
 ## Examples
 
@@ -369,6 +400,15 @@ go get -u github.com/ClickHouse/clickhouse-go/v2
 * [query parameters](examples/clickhouse_api/query_parameters.go)
 * [bind params](examples/clickhouse_api/bind.go) (deprecated in favour of native query parameters)
 * [client info](examples/clickhouse_api/client_info.go)
+* [multi-host / failover](examples/clickhouse_api/multi_host.go)
+* [bfloat16](examples/clickhouse_api/bfloat16.go)
+* [dynamic](examples/clickhouse_api/dynamic.go)
+* [variant](examples/clickhouse_api/variant.go)
+* [qbit](examples/clickhouse_api/qbit.go)
+* [json](examples/clickhouse_api/json_structs.go)
+* [geo](examples/clickhouse_api/geo.go)
+* [ephemeral columns (native)](examples/clickhouse_api/ephemeral_native.go)
+* [ephemeral columns (http)](examples/clickhouse_api/ephemeral_http.go)
 
 ### std `database/sql` interface
 
@@ -379,6 +419,14 @@ go get -u github.com/ClickHouse/clickhouse-go/v2
 * [query parameters](examples/std/query_parameters.go)
 * [bind params](examples/std/bind.go) (deprecated in favour of native query parameters)
 * [client info](examples/std/client_info.go)
+* [multi-host / failover](examples/std/multi_host.go)
+* [bfloat16](examples/std/bfloat16.go)
+* [dynamic](examples/std/dynamic.go)
+* [variant](examples/std/variant.go)
+* [qbit](examples/std/qbit.go)
+* [geo](examples/std/geo.go)
+* [ephemeral columns (native)](examples/std/ephemeral_native.go)
+* [ephemeral columns (http)](examples/std/ephemeral_http.go)
 
 ## Third-party libraries
 
@@ -386,9 +434,14 @@ go get -u github.com/ClickHouse/clickhouse-go/v2
 
 ## ClickHouse alternatives - ch-go
 
-Versions of this client >=2.3.x utilise [ch-go](https://github.com/ClickHouse/ch-go) for their low level encoding/decoding. This low lever client provides a high performance columnar interface and should be used in performance critical use cases. This client provides more familar row orientated and `database/sql` semantics at the cost of some performance.
+Versions of this client >=2.3.x utilise [ch-go](https://github.com/ClickHouse/ch-go) for their low level encoding/decoding. This low lever client provides a high performance columnar interface and should be used in performance critical use cases. This client provides more familar row-oriented and `database/sql` semantics at the cost of some performance. See [TYPES.md](TYPES.md) for the full mapping between Go and ClickHouse types.
 
 Both clients are supported by ClickHouse.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for local setup, test commands, and PR guidelines.
+Agent and AI assistant instructions live in [.claude/CLAUDE.md](.claude/CLAUDE.md) (also available as `AGENTS.md`).
 
 ## Third-party alternatives
 
