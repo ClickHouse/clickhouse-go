@@ -1,3 +1,10 @@
+---
+name: review-pr
+description: Review a pull request and post structured feedback as a comment.
+argument-hint: "<PR-number>"
+allowed-tools: Read, Glob, Bash(grep:*), Bash(gh pr view:*), Bash(gh pr diff:*), Bash(gh pr comment:*)
+---
+
 Review the pull request and provide structured feedback.
 
 ## How to fetch the PR
