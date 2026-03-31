@@ -3,16 +3,26 @@ name: Claude Code Review
 on:
   pull_request_target:
     types: [labeled]
+  # TODO: remove workflow_dispatch before merging to main — testing only
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "PR number to review"
+        required: true
+        type: string
 
 jobs:
   review:
-    # Only run when the exact trigger label is applied.
-    if: github.event.label.name == 'review:claude-agent'
+    # Only run when the exact trigger label is applied (skip for manual dispatch).
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.label.name == 'review:claude-agent'
     runs-on: ubuntu-latest
     permissions:
       contents: read        # read repo files (SKILL.md, etc.)
       pull-requests: write  # post review comments
       issues: write         # update labels / post issue comments
+      id-token: write       # OIDC token for claude-code-action auth
 
     steps:
       - name: Checkout base branch
@@ -29,14 +39,14 @@ jobs:
           claude_args:
             --allowedTools "Read,Glob,Bash(grep:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*)"
           prompt: |
-            Review pull request #${{ github.event.pull_request.number }} using the checklist in `.claude/skills/review-pr/SKILL.md`.
+            Review pull request #${{ github.event.inputs.pr_number || github.event.pull_request.number }} using the checklist in `.claude/skills/review-pr/SKILL.md`.
 
             Steps:
             1. Read `.claude/skills/review-pr/SKILL.md` to load the review checklist and output format.
-            2. Fetch the PR description with `gh pr view ${{ github.event.pull_request.number }}`.
-            3. Fetch the diff with `gh pr diff ${{ github.event.pull_request.number }}`.
+            2. Fetch the PR description with `gh pr view ${{ github.event.inputs.pr_number || github.event.pull_request.number }}`.
+            3. Fetch the diff with `gh pr diff ${{ github.event.inputs.pr_number || github.event.pull_request.number }}`.
             4. Work through every checklist category in SKILL.md: Correctness, API design, Go idioms, Tests, Performance & protocol, Documentation.
-            5. Post a single review comment on the PR using `gh pr comment ${{ github.event.pull_request.number }} --body "..."` with the sections defined in SKILL.md: Summary, Must fix, Should fix, Nits, Verdict.
+            5. Post a single review comment on the PR using `gh pr comment ${{ github.event.inputs.pr_number || github.event.pull_request.number }} --body "..."` with the sections defined in SKILL.md: Summary, Must fix, Should fix, Nits, Verdict.
             6. Omit any section that has no items.
 
       - name: Remove trigger label
@@ -46,5 +56,5 @@ jobs:
         run: |
           gh api \
             --method DELETE \
-            repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels/review%3Aclaude-agent \
+            repos/${{ github.repository }}/issues/${{ github.event.inputs.pr_number || github.event.pull_request.number }}/labels/review%3Aclaude-agent \
             || true  # ignore 404 if label was already removed
