@@ -300,4 +300,3 @@ func TestJSONAppendRowStringSerializationVersion(t *testing.T) {
 		})
 	}
 }
-
