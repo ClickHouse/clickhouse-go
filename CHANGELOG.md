@@ -1,3 +1,46 @@
+# v2.44.0, 2026-03-31 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+
+### Enhancements 🎉
+* feat: add HasData() bool to driver.Rows by @velom in https://github.com/ClickHouse/clickhouse-go/pull/1796
+* `url.Parse` adoption from Go 1.25.7 by @M0rdecay in https://github.com/ClickHouse/clickhouse-go/pull/1787
+* chore: enable `cloud` and `head` test runs for all PRs by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1798
+* Add sql.Scanner support for all Geography types by @Onyx2406 in https://github.com/ClickHouse/clickhouse-go/pull/1789
+* AGENTS init by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1809
+* workflows: integrate claude code Github action for code-review by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1811
+* chore: fix the code-review CI error with enough rights. by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1816
+
+### Bug Fixes :bug: 
+* chore: add test to lock single enum value behavior by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1779
+* fix: Panic when scanning nullable JSON using a pointer to `clickhouse.JSON` by @erezrokah in https://github.com/ClickHouse/clickhouse-go/pull/1770
+* Fix #1775: omit absent JSON keys when scanning into map[string]any by @varundeepsaini in https://github.com/ClickHouse/clickhouse-go/pull/1781
+* fix: Fix connection slot leak when context is cancelled during acquire by @hermanschaaf in https://github.com/ClickHouse/clickhouse-go/pull/1759
+* Helper to disable profile events on the server-side by @varundeepsaini in https://github.com/ClickHouse/clickhouse-go/pull/1782 and @kavirajk https://github.com/ClickHouse/clickhouse-go/pull/1786
+* fix: inconsistent results for nil in Json.AppendRow by @Laotree in https://github.com/ClickHouse/clickhouse-go/pull/1771
+* chore: fix `cloud` and `head` test runs by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1786
+* chore: make PR from forks run cloud tests correctly by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1803
+* fix: release connection in batch.Close() when closeQuery() fails by @rbroggi in https://github.com/ClickHouse/clickhouse-go/pull/1795
+* chore: make cloud test runs on-demand only with labeling by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1806
+
+### Other Changes 🛠
+* chore(deps): bump golang.org/x/net from 0.49.0 to 0.50.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1769
+* chore(deps): bump go.opentelemetry.io/otel/trace from 1.39.0 to 1.40.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1767
+* Update Cloud credentials by @peter-leonov-ch in https://github.com/ClickHouse/clickhouse-go/pull/1776
+* chore(deps): bump go.opentelemetry.io/otel/trace from 1.40.0 to 1.41.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1783
+* doc: update README to update outdated content by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1805
+
+## New Contributors
+* @peter-leonov-ch made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1776
+* @varundeepsaini made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1781
+* @hermanschaaf made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1759
+* @Laotree made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1771
+* @M0rdecay made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1787
+* @velom made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1796
+* @Onyx2406 made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1789
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.43.0...v2.44.0
+
 # v2.43.0, 2026-01-29 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
