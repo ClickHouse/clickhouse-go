@@ -213,6 +213,10 @@ func TestQueryRows(t *testing.T) {
 	require.NoError(t, QueryRows())
 }
 
+func TestIterators(t *testing.T) {
+	require.NoError(t, Iterators())
+}
+
 func TestSSL(t *testing.T) {
 	require.NoError(t, SSLVersion())
 }
