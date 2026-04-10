@@ -2,8 +2,6 @@ package clickhouse_api
 
 import (
 	"crypto/tls"
-	"math/rand"
-	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
@@ -32,8 +30,6 @@ func CheckMinServerVersion(conn driver.Conn, major, minor, patch uint64) bool {
 	return clickhouse_tests.CheckMinServerServerVersion(conn, major, minor, patch)
 }
 
-var randSeed = time.Now().UnixNano()
-
-func ResetRandSeed() {
-	rand.Seed(randSeed)
-}
+// ResetRandSeed is a no-op. math/rand/v2 automatically seeds the global
+// random source and does not support manual seeding via rand.Seed.
+func ResetRandSeed() {}
