@@ -3,6 +3,7 @@ package clickhouse
 import (
 	"errors"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
@@ -58,6 +59,32 @@ func bindQueryOrAppendParameters(paramsProtocolSupport bool, options *QueryOptio
 	}
 
 	return bind(timezone, query, args...)
+}
+
+// escapeQueryParam applies TSV escaping to a query parameter value.
+// ClickHouse deserializes named query parameters using deserializeTextEscaped,
+// so control characters must be escaped before sending over any transport.
+// A raw tab (0x09) is treated as a TSV field delimiter and causes error 457.
+func escapeQueryParam(v string) string {
+	var sb strings.Builder
+	sb.Grow(len(v))
+	for i := 0; i < len(v); i++ {
+		switch v[i] {
+		case '\\':
+			sb.WriteString(`\\`)
+		case '\t':
+			sb.WriteString(`\t`)
+		case '\n':
+			sb.WriteString(`\n`)
+		case '\r':
+			sb.WriteString(`\r`)
+		case '\000':
+			sb.WriteString(`\0`)
+		default:
+			sb.WriteByte(v[i])
+		}
+	}
+	return sb.String()
 }
 
 func formatTimeWithScale(t time.Time, scale TimeUnit) string {
