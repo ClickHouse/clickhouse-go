@@ -112,6 +112,17 @@ func TestQueryParameters(t *testing.T) {
 				assert.Equal(t, uint8(42), actualNum)
 				assert.Equal(t, "hello", actualStr)
 			})
+
+			t.Run("with nullable parameter", func(t *testing.T) {
+				var actualVal *string
+				row := conn.QueryRow(
+					"SELECT {val:Nullable(String)}",
+					clickhouse.Named("val", (*string)(nil)),
+				)
+				require.NoError(t, row.Err())
+				require.NoError(t, row.Scan(&actualVal))
+				require.True(t, actualVal == nil || *actualVal == "", "expected nil or empty string, got %v", actualVal)
+			})
 		})
 	}
 }
