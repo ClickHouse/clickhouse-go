@@ -3,13 +3,14 @@ package clickhouse
 import (
 	"context"
 	"fmt"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 	"io"
 	"log/slog"
 	"os"
 	"slices"
+
+	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 
 func fetchColumnNamesAndTypesForInsert(h *httpConnect, release nativeTransportRelease, ctx context.Context, tableName string, requestedColumnNames []string) ([]ColumnNameAndType, error) {
@@ -250,6 +251,7 @@ func (b *httpBatch) Send() (err error) {
 
 	go func() {
 		var err error
+		defer pipeReader.CloseWithError(err)
 		defer pipeWriter.CloseWithError(err)
 		defer connWriter.Close()
 		b.conn.buffer.Reset()
