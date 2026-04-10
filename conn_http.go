@@ -137,7 +137,11 @@ func applyOptionsToRequest(ctx context.Context, req *http.Request, opt *Options)
 	req.Header.Set("User-Agent", opt.ClientInfo.Append(queryOpt.clientInfo).String())
 
 	for k, v := range opt.HttpHeaders {
-		req.Header.Set(k, v)
+		if strings.EqualFold(k, "Host") {
+			req.Host = v
+		} else {
+			req.Header.Set(k, v)
+		}
 	}
 
 	return nil
