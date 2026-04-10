@@ -45,6 +45,8 @@ type LowCardinality struct {
 	keys32 UInt32
 	keys64 UInt64
 
+	rowCache []any
+
 	append struct {
 		keys  []int
 		index map[any]int
@@ -59,6 +61,7 @@ func (col *LowCardinality) Reset() {
 	col.keys16.Reset()
 	col.keys32.Reset()
 	col.keys64.Reset()
+	col.rowCache = nil
 	col.append.index = make(map[any]int)
 	col.append.keys = col.append.keys[:0]
 }
@@ -95,6 +98,16 @@ func (col *LowCardinality) Row(i int, ptr bool) any {
 	idx := col.indexRowNum(i)
 	if idx == 0 && col.nullable {
 		return nil
+	}
+	if !ptr {
+		if col.rowCache == nil {
+			n := col.index.Rows()
+			col.rowCache = make([]any, n)
+			for j := 0; j < n; j++ {
+				col.rowCache[j] = col.index.Row(j, false)
+			}
+		}
+		return col.rowCache[idx]
 	}
 	return col.index.Row(idx, ptr)
 }
