@@ -1,3 +1,19 @@
+# v2.45.0, 2026-04-13 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+
+### Bug Fixes :bug: 
+* fix: set req.Host for Host header in HTTP transport by @binger-li-dd in https://github.com/ClickHouse/clickhouse-go/pull/1826
+
+### Other Changes 🛠
+* chore: pass explicity github token for claude review by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1818
+
+
+## New Contributors
+* @binger-li-dd made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1826
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.44.0...v2.45.0
+
 # v2.44.0, 2026-03-31 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed

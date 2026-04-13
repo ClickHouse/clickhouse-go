@@ -59,9 +59,9 @@ func TestApplyOptionsToRequest_HostHeader(t *testing.T) {
 			unexpectedInMap: []string{"Host"},
 		},
 		{
-			name:         "no Host header leaves req.Host unchanged",
-			headers:      map[string]string{"X-Custom": "value"},
-			expectedHost: "localhost:8123",
+			name:          "no Host header leaves req.Host unchanged",
+			headers:       map[string]string{"X-Custom": "value"},
+			expectedHost:  "localhost:8123",
 			expectedInMap: map[string]string{"X-Custom": "value"},
 		},
 	}
