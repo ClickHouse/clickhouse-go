@@ -394,6 +394,22 @@ INSERT INTO ` + "`_test_1345# $.ДБ`.`2. Таблица №2`" + ` (col1, col2)
 			expectedColumns:         []string{"col1", "col2"},
 			expectedError:           false,
 		},
+		{
+			name:                    "Insert with comma in backtick-quoted column name",
+			query:                   "INSERT INTO my_table (col1, `my_weird,col2`, col3) VALUES (1, 2, 3)",
+			expectedNormalizedQuery: "INSERT INTO my_table (col1, `my_weird,col2`, col3) FORMAT Native",
+			expectedTableName:       "my_table",
+			expectedColumns:         []string{"col1", "my_weird,col2", "col3"},
+			expectedError:           false,
+		},
+		{
+			name:                    "Insert with comma in double-quoted column name",
+			query:                   `INSERT INTO my_table (col1, "my_weird,col2", col3) VALUES (1, 2, 3)`,
+			expectedNormalizedQuery: `INSERT INTO my_table (col1, "my_weird,col2", col3) FORMAT Native`,
+			expectedTableName:       "my_table",
+			expectedColumns:         []string{"col1", "my_weird,col2", "col3"},
+			expectedError:           false,
+		},
 	}
 
 	for _, tc := range testCases {
