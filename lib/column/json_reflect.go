@@ -191,9 +191,11 @@ func (c *JSON) fillMap(val reflect.Value, prefix string, row int) error {
 						value = dyn.Any()
 					}
 
-					if value != nil {
-						newVal.Set(reflect.ValueOf(value))
+					if value == nil {
+						continue
 					}
+
+					newVal.Set(reflect.ValueOf(value))
 				} else {
 					err = c.scanDynamicPathToValue(fullPath, row, newVal)
 				}
@@ -224,6 +226,10 @@ func (c *JSON) fillMap(val reflect.Value, prefix string, row int) error {
 			err := c.fillMap(newMap, newPrefix, row)
 			if err != nil {
 				return fmt.Errorf("failed filling nested map at path \"%s\": %w", newPrefix, err)
+			}
+
+			if newMap.Len() == 0 {
+				continue
 			}
 
 			val.SetMapIndex(reflect.ValueOf(key), newMap)
