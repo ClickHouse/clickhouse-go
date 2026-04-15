@@ -52,6 +52,11 @@ func TestLowCardinalityResetAfterEncode(t *testing.T) {
 
 	require.NotNil(t, lc.append.index)
 
+	var buf chproto.Buffer
+	lc.Encode(&buf)
+
+	assert.Nil(t, lc.append.index)
+
 	lc.Reset()
 
 	require.NotNil(t, lc.append.index)
@@ -73,6 +78,14 @@ func TestLowCardinalityAppendAfterEncodeWithoutReset(t *testing.T) {
 	}
 
 	require.NotNil(t, lc.append.index)
+
+	var buf chproto.Buffer
+	lc.Encode(&buf)
+
+	assert.Nil(t, lc.append.index)
+
+	err = lc.AppendRow("new_value")
+	assert.NoError(t, err)
 }
 
 func TestLowCardinalityEncodeAppendWithoutReset(t *testing.T) {
@@ -93,12 +106,6 @@ func TestLowCardinalityEncodeAppendWithoutReset(t *testing.T) {
 	lc.Encode(&buf)
 
 	assert.Nil(t, lc.append.index)
-
-	defer func() {
-		if r := recover(); r != nil {
-			t.Logf("Recovered panic: %v", r)
-		}
-	}()
 
 	err = lc.AppendRow("new_value")
 	assert.NoError(t, err)
