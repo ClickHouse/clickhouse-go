@@ -88,29 +88,6 @@ func TestLowCardinalityAppendAfterEncodeWithoutReset(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestLowCardinalityEncodeAppendWithoutReset(t *testing.T) {
-	col, err := Type("LowCardinality(String)").Column("test", nil)
-	require.NoError(t, err)
-
-	lc, ok := col.(*LowCardinality)
-	require.True(t, ok)
-
-	for range 10 {
-		err := lc.AppendRow("value")
-		require.NoError(t, err)
-	}
-
-	require.NotNil(t, lc.append.index)
-
-	var buf chproto.Buffer
-	lc.Encode(&buf)
-
-	assert.Nil(t, lc.append.index)
-
-	err = lc.AppendRow("new_value")
-	assert.NoError(t, err)
-}
-
 func TestLowCardinalityEncodeThenResetThenAppend(t *testing.T) {
 	col, err := Type("LowCardinality(String)").Column("test", nil)
 	require.NoError(t, err)

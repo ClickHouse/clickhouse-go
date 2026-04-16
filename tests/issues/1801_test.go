@@ -13,7 +13,7 @@ import (
 func Test1801(t *testing.T) {
 	testEnv, err := clickhouse_tests.GetTestEnvironment("issues")
 	require.NoError(t, err)
-	conn, err := clickhouse_tests.TestClientWithDefaultOptions(testEnv, clickhouse.Settings{})
+	conn, err := clickhouse_tests.TestClientWithDefaultSettings(testEnv)
 	require.NoError(t, err)
 	t.Cleanup(func() { conn.Close() })
 
@@ -48,7 +48,7 @@ func Test1801(t *testing.T) {
 func Test1801ManyRows(t *testing.T) {
 	testEnv, err := clickhouse_tests.GetTestEnvironment("issues")
 	require.NoError(t, err)
-	conn, err := clickhouse_tests.TestClientWithDefaultOptions(testEnv, clickhouse.Settings{})
+	conn, err := clickhouse_tests.TestClientWithDefaultSettings(testEnv)
 	require.NoError(t, err)
 	t.Cleanup(func() { conn.Close() })
 
@@ -83,7 +83,7 @@ func Test1801ManyRows(t *testing.T) {
 func Test1801FlushReuse(t *testing.T) {
 	testEnv, err := clickhouse_tests.GetTestEnvironment("issues")
 	require.NoError(t, err)
-	conn, err := clickhouse_tests.TestClientWithDefaultOptions(testEnv, clickhouse.Settings{})
+	conn, err := clickhouse_tests.TestClientWithDefaultSettings(testEnv)
 	require.NoError(t, err)
 	t.Cleanup(func() { conn.Close() })
 
@@ -116,10 +116,13 @@ func Test1801FlushReuse(t *testing.T) {
 }
 
 func Test1801FlushReuseHTTP(t *testing.T) {
+	testEnv, err := clickhouse_tests.GetTestEnvironment("issues")
+	require.NoError(t, err)
+
 	protocols := []clickhouse.Protocol{clickhouse.Native, clickhouse.HTTP}
 	for _, protocol := range protocols {
 		t.Run(fmt.Sprintf("%v", protocol), func(t *testing.T) {
-			conn, err := clickhouse_tests.GetConnection("issues", t, protocol, clickhouse.Settings{}, nil, nil)
+			conn, err := clickhouse_tests.GetConnection("issues", t, protocol, clickhouse_tests.TestClientDefaultSettings(testEnv), nil, nil)
 			require.NoError(t, err)
 			t.Cleanup(func() { conn.Close() })
 
