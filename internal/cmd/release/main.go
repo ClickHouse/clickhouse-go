@@ -85,7 +85,7 @@ func gitHubOutputReleaseURLIfAvailable(url string) {
 		}
 	}()
 
-	if _, err := f.WriteString(fmt.Sprintf("RELEASE_URL=%s\n", url)); err != nil {
+	if _, err := fmt.Fprintf(f, "RELEASE_URL=%s\n", url); err != nil {
 		log.Fatalln(err)
 		return
 	}
@@ -169,7 +169,7 @@ func prependReleaseToChangelog(changelogPath string, r release) {
 	}
 
 	f.Seek(0, io.SeekStart)
-	f.WriteString(fmt.Sprintf("# %s, %s ", r.TagName, time.Now().Format("2006-01-02")))
+	fmt.Fprintf(f, "# %s, %s ", r.TagName, time.Now().Format("2006-01-02"))
 	f.WriteString(r.Body)
 	f.WriteString("\n\n")
 	f.Write(content)
