@@ -48,7 +48,7 @@ func (col *Map) Name() string {
 
 func (col *Map) parse(t Type, sc *ServerContext) (_ Interface, err error) {
 	col.chType = t
-	types := make([]string, 2, 2)
+	types := make([]string, 2)
 	typeParams := t.params()
 	idx := strings.Index(typeParams, ",")
 	if strings.HasPrefix(typeParams, "Enum") {

@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-var scanTypeAny = reflect.TypeOf((*interface{})(nil)).Elem()
+var scanTypeAny = reflect.TypeOf((*any)(nil)).Elem()
 
 type offset struct {
 	values   UInt64

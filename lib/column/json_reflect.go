@@ -216,7 +216,7 @@ func (c *JSON) fillMap(val reflect.Value, prefix string, row int) error {
 			var newMap reflect.Value
 
 			if mapValueType.Kind() == reflect.Interface {
-				newMap = reflect.MakeMap(reflect.TypeOf(map[string]interface{}{}))
+				newMap = reflect.MakeMap(reflect.TypeOf(map[string]any{}))
 			} else if mapValueType.Kind() == reflect.Map {
 				newMap = reflect.MakeMap(mapValueType)
 			} else {

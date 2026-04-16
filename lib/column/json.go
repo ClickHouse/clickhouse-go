@@ -487,7 +487,7 @@ func (c *JSON) appendRowObject(v any) error {
 		// Even if value is nil, we must append a value for this row.
 		// nil is a valid value for most column types, with most implementations putting a zero value.
 		// If the column doesn't support appending nil, then the user must provide a zero value.
-		value, _ := valuesByPath[typedPath]
+		value := valuesByPath[typedPath]
 
 		col := c.typedColumns[i]
 		err := col.AppendRow(value)

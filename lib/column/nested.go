@@ -16,7 +16,7 @@ func (col *Nested) Reset() {
 }
 
 func asDDL(cols []namedCol) string {
-	sCols := make([]string, len(cols), len(cols))
+	sCols := make([]string, len(cols))
 	for i := range cols {
 		sCols[i] = fmt.Sprintf("%s %s", cols[i].name, cols[i].colType)
 	}

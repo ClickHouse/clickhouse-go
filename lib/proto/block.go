@@ -188,8 +188,8 @@ func (b *Block) Decode(reader *proto.Reader, revision uint64) (err error) {
 			Err: errors.New("more than 1 billion rows in block - suspiciously big - preventing OOM"),
 		}
 	}
-	b.Columns = make([]column.Interface, numCols, numCols)
-	b.names = make([]string, numCols, numCols)
+	b.Columns = make([]column.Interface, numCols)
+	b.names = make([]string, numCols)
 	for i := 0; i < int(numCols); i++ {
 		var (
 			columnName string
