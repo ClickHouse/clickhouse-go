@@ -104,7 +104,7 @@ func Test1801FlushReuse(t *testing.T) {
 		require.NoError(t, err, "PrepareBatch failed for batch %d", batchNum)
 
 		for i := range 100 {
-			require.NoError(t, batch.Append("value_"+string(rune('A'+i%26))), "Append failed at batch %d, row %d", batchNum, i)
+			require.NoError(t, batch.Append(fmt.Sprintf("batch_%d_value_%c", batchNum, 'A'+i%26)), "Append failed at batch %d, row %d", batchNum, i)
 		}
 
 		require.NoError(t, batch.Send(), "Send failed for batch %d", batchNum)
@@ -144,7 +144,7 @@ func Test1801FlushReuseHTTP(t *testing.T) {
 				require.NoError(t, err, "PrepareBatch failed for batch %d", batchNum)
 
 				for i := range 100 {
-					require.NoError(t, batch.Append("value_"+string(rune('A'+i%26))), "Append failed at batch %d, row %d", batchNum, i)
+					require.NoError(t, batch.Append(fmt.Sprintf("batch_%d_value_%c", batchNum, 'A'+i%26)), "Append failed at batch %d, row %d", batchNum, i)
 				}
 
 				require.NoError(t, batch.Send(), "Send failed for batch %d", batchNum)
