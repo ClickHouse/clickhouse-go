@@ -126,6 +126,9 @@ func (col *LowCardinality) Append(v any) (nulls []uint8, err error) {
 
 func (col *LowCardinality) AppendRow(v any) error {
 	col.rows++
+	if col.append.index == nil {
+		col.append.index = make(map[any]int)
+	}
 	if col.index.Rows() == 0 { // init
 		if col.index.AppendRow(nil); col.nullable {
 			col.index.AppendRow(nil)

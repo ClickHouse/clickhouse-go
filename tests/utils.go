@@ -124,10 +124,6 @@ func CreateClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment,
 	fmt.Println("Using Docker for integration tests")
 	_, b, _, _ := runtime.Caller(0)
 	basePath := filepath.Dir(b)
-	if err != nil {
-		// can't test without Container
-		panic(err)
-	}
 
 	expected := []*units.Ulimit{
 		{
