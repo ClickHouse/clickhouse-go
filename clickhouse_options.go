@@ -204,6 +204,7 @@ func (o *Options) fromDSN(in string) error {
 		secure     bool
 		params     = dsn.Query()
 		skipVerify bool
+		tlsServerName string
 	)
 	o.Auth.Database = strings.TrimPrefix(dsn.Path, "/")
 
@@ -293,6 +294,11 @@ func (o *Options) fromDSN(in string) error {
 					return fmt.Errorf("clickhouse [dsn parse]:verify: %s", err)
 				}
 			}
+		case "tls_server_name":
+			tlsServerName = strings.TrimSpace(params.Get(v))
+			if tlsServerName == "" {
+				return fmt.Errorf("clickhouse [dsn parse]: tls_server_name must not be empty")
+			}
 		case "connection_open_strategy":
 			switch params.Get(v) {
 			case "in_order":
@@ -364,9 +370,13 @@ func (o *Options) fromDSN(in string) error {
 			}
 		}
 	}
+	if tlsServerName != "" && !secure {
+		return fmt.Errorf("clickhouse [dsn parse]: tls_server_name requires secure=true")
+	}
 	if secure {
 		o.TLS = &tls.Config{
 			InsecureSkipVerify: skipVerify,
+			ServerName:         tlsServerName,
 		}
 	}
 	o.scheme = dsn.Scheme
