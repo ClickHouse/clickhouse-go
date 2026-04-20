@@ -16,7 +16,6 @@ linters:
       disabled-checks:
         - commentFormatting
         - exitAfterDefer
-        - ifElseChain
         - singleCaseSwitch
   exclusions:
     presets:

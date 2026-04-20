@@ -273,11 +273,12 @@ func updateClientInfo(major, minor, patch int) error {
 	var newContent string
 	for scanner.Scan() {
 		line := scanner.Text()
-		if reMajor.MatchString(line) {
+		switch {
+		case reMajor.MatchString(line):
 			line = newLines[0]
-		} else if reMinor.MatchString(line) {
+		case reMinor.MatchString(line):
 			line = newLines[1]
-		} else if rePatch.MatchString(line) {
+		case rePatch.MatchString(line):
 			line = newLines[2]
 		}
 		newContent += line + "\n"
