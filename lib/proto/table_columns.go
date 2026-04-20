@@ -2,6 +2,7 @@ package proto
 
 import (
 	"fmt"
+
 	chproto "github.com/ClickHouse/ch-go/proto"
 )
 

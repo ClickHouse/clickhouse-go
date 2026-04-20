@@ -22,8 +22,9 @@ import (
 
 	"github.com/ClickHouse/ch-go/compress"
 	chproto "github.com/ClickHouse/ch-go/proto"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 	"github.com/andybalholm/brotli"
+
+	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 
 const (
@@ -107,7 +108,8 @@ func applyOptionsToRequest(ctx context.Context, req *http.Request, opt *Options)
 	jwt := queryOpt.jwt
 	useJWT := jwt != "" || useJWTAuth(opt)
 
-	if opt.TLS != nil && useJWT {
+	switch {
+	case opt.TLS != nil && useJWT:
 		if jwt == "" {
 			var err error
 			jwt, err = opt.GetJWT(ctx)
@@ -117,7 +119,7 @@ func applyOptionsToRequest(ctx context.Context, req *http.Request, opt *Options)
 		}
 
 		req.Header.Set("Authorization", "Bearer "+jwt)
-	} else if opt.TLS != nil && len(opt.Auth.Username) > 0 {
+	case opt.TLS != nil && len(opt.Auth.Username) > 0:
 		req.Header.Set("X-ClickHouse-User", opt.Auth.Username)
 		if len(opt.Auth.Password) > 0 {
 			req.Header.Set("X-ClickHouse-Key", opt.Auth.Password)
@@ -125,7 +127,7 @@ func applyOptionsToRequest(ctx context.Context, req *http.Request, opt *Options)
 		} else {
 			req.Header.Set("X-ClickHouse-SSL-Certificate-Auth", "on")
 		}
-	} else if opt.TLS == nil && len(opt.Auth.Username) > 0 {
+	case opt.TLS == nil && len(opt.Auth.Username) > 0:
 		if len(opt.Auth.Password) > 0 {
 			req.URL.User = url.UserPassword(opt.Auth.Username, opt.Auth.Password)
 
