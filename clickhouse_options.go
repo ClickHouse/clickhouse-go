@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/ClickHouse/ch-go/compress"
+
 	"github.com/ClickHouse/clickhouse-go/v2/lib/churl"
 )
 
@@ -423,7 +424,7 @@ func (o Options) setDefaults() *Options {
 	if o.MaxCompressionBuffer <= 0 {
 		o.MaxCompressionBuffer = 10485760
 	}
-	if o.Addr == nil || len(o.Addr) == 0 {
+	if len(o.Addr) == 0 {
 		switch o.Protocol {
 		case Native:
 			o.Addr = []string{"localhost:9000"}

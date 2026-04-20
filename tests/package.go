@@ -1,10 +1,11 @@
 package tests
 
 import (
-	"github.com/ClickHouse/clickhouse-go/v2"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
 )
 
 var LocalClickHouse = false

@@ -3,14 +3,17 @@ package std
 import (
 	"context"
 	"database/sql"
+
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 
 	"fmt"
-	"github.com/ClickHouse/clickhouse-go/v2"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/chcol"
-	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/chcol"
 )
 
 var variantTestDate, _ = time.Parse(time.RFC3339, "2024-12-13T02:09:30.123Z")
