@@ -182,6 +182,7 @@ conn.SetConnMaxLifetime(time.Hour)
 * client_info_product - optional list (comma separated) of product name and version pair separated with `/`. This value will be pass a part of client info. e.g. `client_info_product=my_app/1.0,my_module/0.1` More details in [Client info](#client-info) section.
 * http_proxy - HTTP proxy address
 * http_path - URL path for HTTP requests (e.g. for proxies or custom endpoints that require a specific path)
+* tls_server_name - set TLS SNI/verification name (sets `tls.Config.ServerName` when `secure=true`)
 
 ## Connection Settings Reference
 
@@ -318,6 +319,28 @@ This minimal tls.Config is normally all that is necessary to connect to the secu
 
 If additional TLS parameters are necessary the application code should set the desired fields in the tls.Config struct. That can include specific cipher suites, forcing a particular TLS version (like 1.2 or 1.3), adding an internal CA certificate chain, adding a client certificate (and private key) if required by the ClickHouse server, and most of the other options that come with a more specialized security setup.
 
+### Server Certificate SAN (Go)
+
+Go does not fall back to the certificate Common Name (CN) for hostname verification. If your ClickHouse server certificate does not contain a matching Subject Alternative Name (SAN), you may see:
+
+```text
+tls: failed to verify certificate: x509: certificate relies on legacy Common Name field, use SANs instead
+```
+
+Fix: regenerate the **server** certificate with SANs matching how you connect (DNS and/or IP). For example:
+
+```bash
+openssl req -newkey rsa:2048 -nodes \
+  -subj "/CN=clickhouse" \
+  -addext "subjectAltName = DNS:clickhouse.local,IP:127.0.0.1" \
+  -keyout clickhouse.key -out clickhouse.csr
+
+openssl x509 -req -in clickhouse.csr -out clickhouse.crt \
+  -CA CAroot.crt -CAkey CAroot.key -days 3650 -copy_extensions copy
+```
+
+If you must connect to an IP address but your certificate SAN only contains a DNS name, set `tls_server_name` in the DSN (or `tls.Config.ServerName` in code) to the DNS name in the certificate.
+
 ### HTTPS
 
 To connect using HTTPS either:
@@ -386,6 +409,16 @@ We have following examples to show Async Insert in action.
 
 Available options:
 - [WithReleaseConnection](examples/clickhouse_api/batch_release_connection.go) - after PrepareBatch connection will be returned to the pool. It can help you make a long-lived batch.
+- WithCloseOnFlush - close the current INSERT on each Flush and release the connection.
+
+### Batch lifecycle (Flush vs Send vs Close)
+
+For `clickhouse.Conn.PrepareBatch` (native interface):
+
+- Use `Append`/`AppendStruct` to buffer rows client-side.
+- Use `Flush` to send currently buffered rows while keeping the batch usable (native protocol). For HTTP protocol, `Flush` is currently a no-op.
+- Use `Send` to flush any remaining rows and finalize the INSERT. After `Send`, the batch is considered sent and should not be reused.
+- Use `defer batch.Close()` to ensure resources are released if `Send` is not reached.
 
 ## Benchmark
 
