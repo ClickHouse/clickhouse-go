@@ -6,6 +6,33 @@ import (
 	"testing"
 )
 
+func TestHTTPQueryParamReplacer(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"tab", "hello\tworld", `hello\tworld`},
+		{"newline", "hello\nworld", `hello\nworld`},
+		{"carriage return", "hello\rworld", `hello\rworld`},
+		{"backslash", `hello\world`, `hello\\world`},
+		{"backslash followed by t (not a tab)", `hello\tworld`, `hello\\tworld`},
+		{"single quote unchanged", "it's", "it's"},
+		{"NUL byte", "hello\x00world", `hello\0world`},
+		{"mixed", "tab:\there\nnewline\\backslash'quote", `tab:\there\nnewline\\backslash'quote`},
+		{"no special chars", "plain string", "plain string"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := httpQueryParamReplacer.Replace(tt.input)
+			if got != tt.want {
+				t.Errorf("httpQueryParamReplacer.Replace(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestCreateHTTPRoundTripper(t *testing.T) {
 	transportFnCalled := false
 	_, err := createHTTPRoundTripper(&Options{
