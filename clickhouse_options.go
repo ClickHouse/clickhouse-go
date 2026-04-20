@@ -201,9 +201,9 @@ func (o *Options) fromDSN(in string) error {
 	}
 	o.Addr = append(o.Addr, strings.Split(dsn.Host, ",")...)
 	var (
-		secure     bool
-		params     = dsn.Query()
-		skipVerify bool
+		secure        bool
+		params        = dsn.Query()
+		skipVerify    bool
 		tlsServerName string
 	)
 	o.Auth.Database = strings.TrimPrefix(dsn.Path, "/")
