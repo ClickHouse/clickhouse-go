@@ -370,6 +370,16 @@ We have following examples to show Async Insert in action.
 
 Available options:
 - [WithReleaseConnection](examples/clickhouse_api/batch_release_connection.go) - after PrepareBatch connection will be returned to the pool. It can help you make a long-lived batch.
+- WithCloseOnFlush - close the current INSERT on each Flush and release the connection.
+
+### Batch lifecycle (Flush vs Send vs Close)
+
+For `clickhouse.Conn.PrepareBatch` (native interface):
+
+- Use `Append`/`AppendStruct` to buffer rows client-side.
+- Use `Flush` to send currently buffered rows while keeping the batch usable (native protocol). For HTTP protocol, `Flush` is currently a no-op.
+- Use `Send` to flush any remaining rows and finalize the INSERT. After `Send`, the batch is considered sent and should not be reused.
+- Use `defer batch.Close()` to ensure resources are released if `Send` is not reached.
 
 ## Benchmark
 
