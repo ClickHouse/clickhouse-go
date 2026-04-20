@@ -8,10 +8,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/chcol"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
-	"github.com/stretchr/testify/require"
 )
 
 var jsonTestDate, _ = time.Parse(time.RFC3339, "2024-12-13T02:09:30.123Z")
@@ -142,7 +143,7 @@ type TestStruct struct {
 	Address Address
 
 	KeysNumbers map[string]int64
-	Metadata    map[string]interface{}
+	Metadata    map[string]any
 
 	Timestamp time.Time `chType:"DateTime64(3)"`
 
@@ -188,10 +189,10 @@ func TestJSONStruct(t *testing.T) {
 			Country: "Country",
 		},
 		KeysNumbers: map[string]int64{"FieldA": 42, "FieldB": 32},
-		Metadata: map[string]interface{}{
+		Metadata: map[string]any{
 			"FieldA": "a",
 			"FieldB": "b",
-			"FieldC": map[string]interface{}{
+			"FieldC": map[string]any{
 				"FieldD": "d",
 			},
 		},
@@ -206,13 +207,13 @@ func TestJSONStruct(t *testing.T) {
 	inputRow2 := TestStruct{
 		KeysNumbers: map[string]int64{},
 		Timestamp:   jsonTestDate,
-		Metadata: map[string]interface{}{
+		Metadata: map[string]any{
 			"FieldA": "a",
 			"FieldB": "b",
-			"FieldC": map[string]interface{}{
+			"FieldC": map[string]any{
 				"FieldD": int64(5),
 			},
-			"FieldE": map[string]interface{}{
+			"FieldE": map[string]any{
 				"FieldF": "f",
 			},
 		},
@@ -231,7 +232,7 @@ func TestJSONStruct(t *testing.T) {
 	err = rows.Scan(&row)
 	require.NoError(t, err)
 	// The second row adds a nil value at this path. Update the inputRow for easier deep equal check
-	inputRow.Metadata["FieldE"] = map[string]interface{}{
+	inputRow.Metadata["FieldE"] = map[string]any{
 		"FieldF": nil,
 	}
 	require.Equal(t, inputRow, row)
@@ -293,10 +294,10 @@ func TestJSONString(t *testing.T) {
 			Country: "Country",
 		},
 		KeysNumbers: map[string]int64{"FieldA": 42, "FieldB": 32},
-		Metadata: map[string]interface{}{
+		Metadata: map[string]any{
 			"FieldA": "a",
 			"FieldB": "b",
-			"FieldC": map[string]interface{}{
+			"FieldC": map[string]any{
 				"FieldD": "d",
 			},
 		},

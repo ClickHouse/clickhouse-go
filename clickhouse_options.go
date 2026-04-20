@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/ClickHouse/ch-go/compress"
+
 	"github.com/ClickHouse/clickhouse-go/v2/lib/churl"
 )
 
@@ -201,9 +202,10 @@ func (o *Options) fromDSN(in string) error {
 	}
 	o.Addr = append(o.Addr, strings.Split(dsn.Host, ",")...)
 	var (
-		secure     bool
-		params     = dsn.Query()
-		skipVerify bool
+		secure        bool
+		params        = dsn.Query()
+		skipVerify    bool
+		tlsServerName string
 	)
 	o.Auth.Database = strings.TrimPrefix(dsn.Path, "/")
 
@@ -293,6 +295,11 @@ func (o *Options) fromDSN(in string) error {
 					return fmt.Errorf("clickhouse [dsn parse]:verify: %s", err)
 				}
 			}
+		case "tls_server_name":
+			tlsServerName = strings.TrimSpace(params.Get(v))
+			if tlsServerName == "" {
+				return fmt.Errorf("clickhouse [dsn parse]: tls_server_name must not be empty")
+			}
 		case "connection_open_strategy":
 			switch params.Get(v) {
 			case "in_order":
@@ -364,9 +371,13 @@ func (o *Options) fromDSN(in string) error {
 			}
 		}
 	}
+	if tlsServerName != "" && !secure {
+		return fmt.Errorf("clickhouse [dsn parse]: tls_server_name requires secure=true")
+	}
 	if secure {
 		o.TLS = &tls.Config{
 			InsecureSkipVerify: skipVerify,
+			ServerName:         tlsServerName,
 		}
 	}
 	o.scheme = dsn.Scheme
@@ -413,7 +424,7 @@ func (o Options) setDefaults() *Options {
 	if o.MaxCompressionBuffer <= 0 {
 		o.MaxCompressionBuffer = 10485760
 	}
-	if o.Addr == nil || len(o.Addr) == 0 {
+	if len(o.Addr) == 0 {
 		switch o.Protocol {
 		case Native:
 			o.Addr = []string{"localhost:9000"}

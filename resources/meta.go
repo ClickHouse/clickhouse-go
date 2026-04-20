@@ -2,9 +2,11 @@ package resources
 
 import (
 	_ "embed"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
-	"go.yaml.in/yaml/v3"
 	"strings"
+
+	"go.yaml.in/yaml/v3"
+
+	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 
 type Meta struct {
@@ -35,7 +37,7 @@ func (m *Meta) IsSupportedClickHouseVersion(v proto.Version) bool {
 }
 
 func (m *Meta) SupportedVersions() string {
-	versions := make([]string, len(m.ClickhouseVersions), len(m.ClickhouseVersions))
+	versions := make([]string, len(m.ClickhouseVersions))
 	for i := range m.ClickhouseVersions {
 		versions[i] = m.ClickhouseVersions[i].String()
 	}

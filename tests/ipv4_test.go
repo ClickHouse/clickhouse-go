@@ -9,11 +9,13 @@ import (
 	"net/netip"
 	"testing"
 
-	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
+
 	"github.com/stretchr/testify/assert"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
 )
 
 func TestSimpleIPv4(t *testing.T) {

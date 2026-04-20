@@ -208,6 +208,54 @@ func TestParseDSN(t *testing.T) {
 			"",
 		},
 		{
+			"native protocol with secure and no tls_server_name",
+			"clickhouse://127.0.0.1/test_database?secure=true",
+			&Options{
+				Protocol: Native,
+				TLS: &tls.Config{
+					InsecureSkipVerify: false,
+					ServerName:         "",
+				},
+				Addr:     []string{"127.0.0.1"},
+				Settings: Settings{},
+				Auth: Auth{
+					Database: "test_database",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
+			"native protocol with tls_server_name",
+			"clickhouse://127.0.0.1/test_database?secure=true&tls_server_name=clickhouse.local",
+			&Options{
+				Protocol: Native,
+				TLS: &tls.Config{
+					InsecureSkipVerify: false,
+					ServerName:         "clickhouse.local",
+				},
+				Addr:     []string{"127.0.0.1"},
+				Settings: Settings{},
+				Auth: Auth{
+					Database: "test_database",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
+			"native protocol with tls_server_name (empty)",
+			"clickhouse://127.0.0.1/test_database?secure=true&tls_server_name=",
+			nil,
+			"clickhouse [dsn parse]: tls_server_name must not be empty",
+		},
+		{
+			"native protocol with tls_server_name without secure",
+			"clickhouse://127.0.0.1/test_database?tls_server_name=clickhouse.local",
+			nil,
+			"clickhouse [dsn parse]: tls_server_name requires secure=true",
+		},
+		{
 			"native protocol with secure (bad)",
 			"clickhouse://127.0.0.1/test_database?secure=ture",
 			nil,
