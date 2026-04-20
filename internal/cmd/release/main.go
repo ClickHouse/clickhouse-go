@@ -247,7 +247,7 @@ func getLatestDraftReleaseURL() (string, error) {
 	}
 
 	// filter out releases that are not drafts
-	for i := 0; i < len(releases); {
+	for i := 0; i < len(releases); i++ {
 		if releases[i].Draft {
 			return releases[i].URL, nil
 		}
