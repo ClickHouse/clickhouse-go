@@ -171,7 +171,7 @@ conn.SetConnMaxLifetime(time.Hour)
     * round_robin - choose a round-robin server from the set
     * in_order    - first live server is chosen in specified order
 * debug - enable debug output (boolean value)
-* compress - specify the compression algorithm: `none` (default), `zstd`, `lz4`, `lz4hc`, `gzip`, `deflate`, `br`. If set to `true`, `lz4` will be used.
+* compress - specify the compression algorithm: `none` (default), `zstd`, `lz4`, `lz4hc`, `gzip`, `deflate`, `br`. If set to `true`, `lz4` will be used. For HTTP connections, `gzip`/`deflate`/`br` use HTTP web compression, while `lz4`/`zstd` use ClickHouse native block compression over HTTP (`lz4hc` is native-only).
 * compress_level - Level of compression (algorithm-specific, default is 3 when compression is enabled):
   - `gzip`/`deflate`: `-2` (Best Speed) to `9` (Best Compression)
   - `br`: `0` (Best Speed) to `11` (Best Compression)
@@ -203,7 +203,7 @@ The following connection settings are available in both DSN strings and the `cli
   * `random` - Choose a random server from the pool
 
 ### Compression Settings
-* **compress** - Enable compression with a specific algorithm: `none`, `zstd`, `lz4`, `lz4hc`, `gzip`, `deflate`, `br`. If set to `true`, `lz4` will be used (default: `none`)
+* **compress** - Enable compression with a specific algorithm: `none`, `zstd`, `lz4`, `lz4hc`, `gzip`, `deflate`, `br`. If set to `true`, `lz4` will be used (default: `none`). For HTTP connections, `gzip`/`deflate`/`br` use HTTP web compression, while `lz4`/`zstd` use ClickHouse native block compression over HTTP (`lz4hc` is native-only).
 * **compress_level** - Compression level (algorithm-specific):
   * `gzip`/`deflate`: `-2` (Best Speed) to `9` (Best Compression)
   * `br`: `0` (Best Speed) to `11` (Best Compression)
@@ -279,7 +279,23 @@ See more details in the [Go documentation](https://pkg.go.dev/net/http#ProxyFrom
 
 ## Compression
 
-ZSTD, LZ4, LZ4HC, GZIP, Deflate, and Brotli compression are supported over native and HTTP protocols. This is performed column by column at a block level and is only used for inserts. Compression buffer size is set as `MaxCompressionBuffer` option.
+Compression is supported over native and HTTP protocols.
+
+Native protocol supports `lz4`, `lz4hc`, and `zstd`.
+
+HTTP protocol supports `lz4` and `zstd` via ClickHouse native block compression over HTTP, and `gzip`, `deflate`, and `br` via HTTP web compression.
+
+### HTTP: Web Compression vs Native Block Compression
+
+When using the HTTP protocol there are two independent compression layers:
+
+1. **HTTP web compression** (whole request/response body). This uses HTTP headers (`Accept-Encoding` and `Content-Encoding`). In ClickHouse, response compression is controlled by the `enable_http_compression` setting (pass it via `Options.Settings` or DSN query params). In clickhouse-go this mode is used when `Compression.Method` is `gzip`, `deflate`, or `br`.
+
+2. **ClickHouse native block compression over HTTP** (Native format blocks). This uses ClickHouse HTTP query parameters: `compress=1` (server compresses response blocks) and `decompress=1` (server expects a compressed request body). In clickhouse-go this mode is used when `Compression.Method` is `lz4` or `zstd`.
+
+Avoid enabling both at the same time unless you've measured it, as it can waste CPU by compressing already-compressed native blocks.
+
+Note: you normally don't need to set `compress=1` or `decompress=1` yourself when using clickhouse-go; selecting an appropriate `Compression.Method` will configure the HTTP request correctly.
 
 When using a DSN, compression can be enabled via the `compress` parameter. Set it to a specific algorithm name (`zstd`, `lz4`, `lz4hc`, `gzip`, `deflate`, `br`) or to `true` as shorthand for `lz4`. See the [DSN](#dsn) section for details.
 
