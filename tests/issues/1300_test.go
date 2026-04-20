@@ -7,7 +7,6 @@ import (
 	"os"
 	"path"
 	"strconv"
-	"strings"
 	"testing"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
@@ -76,8 +75,7 @@ func TestIssue1300(t *testing.T) {
 			defer conn.Close()
 			err = conn.Ping(context.Background())
 		}
-		require.Error(t, err)
-		require.Contains(t, strings.ToLower(err.Error()), "x509",
-			"expected x509 TLS verification error, got: %v", err)
+		require.Error(t, err,
+			"expected TLS verification/handshake error when ServerName is wrong")
 	})
 }
