@@ -2,8 +2,9 @@ package column
 
 import (
 	"fmt"
-	"github.com/ClickHouse/ch-go/proto"
 	"strings"
+
+	"github.com/ClickHouse/ch-go/proto"
 )
 
 type Nested struct {

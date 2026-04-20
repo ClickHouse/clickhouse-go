@@ -2,10 +2,12 @@ package std
 
 import (
 	"fmt"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
-	"github.com/stretchr/testify/require"
 	"strconv"
 	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"

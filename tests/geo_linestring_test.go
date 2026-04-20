@@ -8,9 +8,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/paulmach/orb"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
 )
 
 func TestGeoLineString(t *testing.T) {

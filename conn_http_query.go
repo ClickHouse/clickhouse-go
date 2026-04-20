@@ -10,6 +10,7 @@ import (
 	"log/slog"
 
 	chproto "github.com/ClickHouse/ch-go/proto"
+
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 

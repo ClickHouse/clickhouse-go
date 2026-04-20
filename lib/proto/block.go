@@ -3,9 +3,11 @@ package proto
 import (
 	"errors"
 	"fmt"
-	"github.com/ClickHouse/ch-go/proto"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	"sort"
+
+	"github.com/ClickHouse/ch-go/proto"
+
+	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 )
 
 type Block struct {

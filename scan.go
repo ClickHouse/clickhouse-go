@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"reflect"
+
+	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )

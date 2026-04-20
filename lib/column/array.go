@@ -3,9 +3,10 @@ package column
 import (
 	"database/sql"
 	"fmt"
-	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
 	"strings"
+
+	"github.com/ClickHouse/ch-go/proto"
 )
 
 var scanTypeAny = reflect.TypeOf((*any)(nil)).Elem()

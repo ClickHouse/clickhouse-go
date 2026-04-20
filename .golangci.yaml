@@ -34,6 +34,7 @@ linters:
 formatters:
   enable:
     - gofmt
+    - goimports
   exclusions:
     paths:
       - examples
@@ -44,3 +45,6 @@ formatters:
           replacement: any
         - pattern: a[b:len(a)]
           replacement: a[b:]
+    goimports:
+      local-prefixes:
+        - "github.com/ClickHouse/clickhouse-go/v2"

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/ClickHouse/ch-go/compress"
+
 	"github.com/ClickHouse/clickhouse-go/v2/lib/churl"
 )
 
