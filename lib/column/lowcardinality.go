@@ -3,10 +3,11 @@ package column
 import (
 	"errors"
 	"fmt"
-	"github.com/ClickHouse/ch-go/proto"
 	"math"
 	"reflect"
 	"time"
+
+	"github.com/ClickHouse/ch-go/proto"
 )
 
 const indexTypeMask = 0b11111111

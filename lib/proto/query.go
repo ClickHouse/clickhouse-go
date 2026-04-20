@@ -3,10 +3,11 @@ package proto
 import (
 	stdbin "encoding/binary"
 	"fmt"
-	chproto "github.com/ClickHouse/ch-go/proto"
-	"go.opentelemetry.io/otel/trace"
 	"os"
 	"strings"
+
+	chproto "github.com/ClickHouse/ch-go/proto"
+	"go.opentelemetry.io/otel/trace"
 )
 
 var (
