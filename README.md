@@ -73,6 +73,9 @@ The client is tested against the currently [supported versions](https://github.c
 
 [https://clickhouse.com/docs/en/integrations/go](https://clickhouse.com/docs/en/integrations/go)
 
+**Additional Guides:**
+- [Long-Running Queries and Timeouts](LONG_RUNNING_QUERIES.md) - How to handle queries that exceed load balancer idle timeouts
+
 # `clickhouse` interface (formerly `native` interface)
 
 ```go

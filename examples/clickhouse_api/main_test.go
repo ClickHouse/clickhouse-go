@@ -169,6 +169,14 @@ func TestProgress(t *testing.T) {
 	require.NoError(t, ProgressProfileLogs())
 }
 
+func TestLongRunningQueryWithProgressHeaders(t *testing.T) {
+	require.NoError(t, LongRunningQueryWithProgressHeaders())
+}
+
+func TestLongRunningQueryFireAndForget(t *testing.T) {
+	require.NoError(t, LongRunningQueryFireAndForget())
+}
+
 func TestScanStruct(t *testing.T) {
 	require.NoError(t, ScanStruct())
 }
