@@ -144,8 +144,8 @@ func extractEnumNamedValues(chType Type) (typ string, values []string, indexes [
 			}
 
 			foundName := src[foundValueOffset : foundValueOffset+foundValueLen]
-			for _, skipped := range skippedValueTokens {
-				foundName = append(foundName[:skipped], foundName[skipped+1:]...)
+			for i, skipped := range skippedValueTokens {
+				foundName = append(foundName[:skipped-i], foundName[skipped-i+1:]...)
 			}
 
 			indexes = append(indexes, valueIndex)
