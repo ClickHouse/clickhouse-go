@@ -1,12 +1,15 @@
 package clickhouse
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
 	"os"
 	"slices"
+	"strings"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
@@ -73,8 +76,8 @@ func fetchColumnNamesAndTypesForInsert(h *httpConnect, release nativeTransportRe
 	return insertColumns, nil
 }
 
-func newBlock(h *httpConnect, release nativeTransportRelease, ctx context.Context, query string) (string, *proto.Block, error) {
-	normalizedQuery, tableName, requestedColumnNames, err := extractNormalizedInsertQueryAndColumns(query)
+func newBlock(h *httpConnect, release nativeTransportRelease, ctx context.Context, query string, format driver.InsertFormat) (string, *proto.Block, error) {
+	normalizedQuery, tableName, requestedColumnNames, err := extractNormalizedInsertQueryAndColumnsWithFormat(query, format)
 	if err != nil {
 		return "", nil, err
 	}
@@ -104,8 +107,14 @@ func newBlock(h *httpConnect, release nativeTransportRelease, ctx context.Contex
 }
 
 func (h *httpConnect) prepareBatch(ctx context.Context, release nativeTransportRelease, acquire nativeTransportAcquire, query string, opts driver.PrepareBatchOptions) (driver.Batch, error) {
+	// Resolve the effective insert format: per-batch option > connection-level option > default (Native)
+	format := h.opt.InsertFormat
+	if opts.InsertFormat != "" {
+		format = opts.InsertFormat
+	}
+
 	// release is not used within newBlock since the connection is held for the batch.
-	query, block, err := newBlock(h, func(nativeTransport, error) {}, ctx, query)
+	query, block, err := newBlock(h, func(nativeTransport, error) {}, ctx, query, format)
 	if err != nil {
 		err = fmt.Errorf("failed to init block for HTTP batch: %w", err)
 		release(h, err)
@@ -113,25 +122,27 @@ func (h *httpConnect) prepareBatch(ctx context.Context, release nativeTransportR
 	}
 
 	return &httpBatch{
-		ctx:         ctx,
-		conn:        h,
-		connRelease: release,
-		structMap:   &structMap{},
-		block:       block,
-		query:       query,
+		ctx:          ctx,
+		conn:         h,
+		connRelease:  release,
+		structMap:    &structMap{},
+		block:        block,
+		query:        query,
+		insertFormat: format,
 	}, nil
 }
 
 type httpBatch struct {
-	query       string
-	err         error
-	ctx         context.Context
-	conn        *httpConnect
-	released    bool
-	connRelease nativeTransportRelease
-	structMap   *structMap
-	sent        bool
-	block       *proto.Block
+	query        string
+	err          error
+	ctx          context.Context
+	conn         *httpConnect
+	released     bool
+	connRelease  nativeTransportRelease
+	structMap    *structMap
+	sent         bool
+	block        *proto.Block
+	insertFormat driver.InsertFormat
 }
 
 func (b *httpBatch) release(err error) {
@@ -234,6 +245,14 @@ func (b *httpBatch) Send() (err error) {
 		return nil
 	}
 
+	if b.insertFormat == driver.InsertFormatJSONEachRow {
+		return b.sendJSONEachRow()
+	}
+	return b.sendNative()
+}
+
+// sendNative sends batch data using FORMAT Native (binary columnar blocks).
+func (b *httpBatch) sendNative() error {
 	options := queryOptions(b.ctx)
 	headers := make(map[string]string)
 	switch b.conn.compression {
@@ -265,7 +284,7 @@ func (b *httpBatch) Send() (err error) {
 	options.settings["query"] = b.query
 	headers["Content-Type"] = "application/octet-stream"
 
-	b.conn.logger.Debug("batch: sending via HTTP",
+	b.conn.logger.Debug("batch: sending via HTTP (Native)",
 		slog.Int("columns", len(b.block.Columns)),
 		slog.Int("rows", b.block.Rows()))
 	res, err := b.conn.sendStreamQuery(b.ctx, pipeReader, &options, headers) //nolint:bodyclose // false positive
@@ -278,6 +297,112 @@ func (b *httpBatch) Send() (err error) {
 	b.block.Reset()
 
 	return nil
+}
+
+// sendJSONEachRow sends batch data using FORMAT JSONEachRow (newline-delimited JSON).
+// This format is compatible with ClickHouse async_insert buffering.
+func (b *httpBatch) sendJSONEachRow() error {
+	options := queryOptions(b.ctx)
+	headers := make(map[string]string)
+	switch b.conn.compression {
+	case CompressionGZIP, CompressionDeflate, CompressionBrotli:
+		headers["Content-Encoding"] = b.conn.compression.String()
+	}
+
+	// Serialize block rows to JSONEachRow format
+	jsonData, err := blockToJSONEachRow(b.block)
+	if err != nil {
+		return fmt.Errorf("batch JSON serialization: %w", err)
+	}
+
+	var body io.Reader
+	if b.conn.compression == CompressionGZIP || b.conn.compression == CompressionDeflate || b.conn.compression == CompressionBrotli {
+		compressionWriter := b.conn.compressionPool.Get()
+		defer b.conn.compressionPool.Put(compressionWriter)
+		pipeReader, pipeWriter := io.Pipe()
+		connWriter := compressionWriter.reset(pipeWriter)
+		go func() {
+			defer pipeWriter.CloseWithError(err)
+			defer connWriter.Close()
+			_, err = connWriter.Write(jsonData)
+		}()
+		body = pipeReader
+	} else {
+		body = bytes.NewReader(jsonData)
+	}
+
+	options.settings["query"] = b.query
+	headers["Content-Type"] = "text/plain"
+
+	b.conn.logger.Debug("batch: sending via HTTP (JSONEachRow)",
+		slog.Int("columns", len(b.block.Columns)),
+		slog.Int("rows", b.block.Rows()),
+		slog.Int("bytes", len(jsonData)))
+	res, err := b.conn.sendStreamQuery(b.ctx, body, &options, headers) //nolint:bodyclose // false positive
+	if err != nil {
+		return fmt.Errorf("batch sendStreamQuery: %w", err)
+	}
+	discardAndClose(res.Body)
+
+	b.conn.logger.Debug("batch: send complete")
+	b.block.Reset()
+
+	return nil
+}
+
+// blockToJSONEachRow converts a proto.Block to JSONEachRow format (newline-delimited JSON objects).
+// Each row becomes a JSON object: {"col1": val1, "col2": val2, ...}\n
+func blockToJSONEachRow(block *proto.Block) ([]byte, error) {
+	numRows := block.Rows()
+	numCols := len(block.Columns)
+	if numRows == 0 || numCols == 0 {
+		return nil, nil
+	}
+
+	var buf bytes.Buffer
+	colNames := block.ColumnsNames()
+
+	for row := 0; row < numRows; row++ {
+		rowMap := make(map[string]any, numCols)
+		for col := 0; col < numCols; col++ {
+			val := block.Columns[col].Row(row, false)
+			rowMap[colNames[col]] = formatJSONValue(val)
+		}
+		jsonLine, err := json.Marshal(rowMap)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal row %d: %w", row, err)
+		}
+		buf.Write(jsonLine)
+		buf.WriteByte('\n')
+	}
+
+	return buf.Bytes(), nil
+}
+
+// formatJSONValue converts column values to JSON-compatible types.
+// ClickHouse JSONEachRow expects specific formats for certain types.
+func formatJSONValue(v any) any {
+	if v == nil {
+		return nil
+	}
+	switch val := v.(type) {
+	case []byte:
+		return string(val)
+	case fmt.Stringer:
+		// Handle types like time.Time, net.IP, uuid, etc. that implement Stringer
+		s := val.String()
+		// Avoid wrapping simple numeric strings
+		if _, ok := v.(interface{ Unix() int64 }); ok {
+			return s
+		}
+		// Check if it looks like it should remain as-is (maps, slices are handled by json.Marshal)
+		if strings.HasPrefix(s, "[") || strings.HasPrefix(s, "{") {
+			return v
+		}
+		return s
+	default:
+		return v
+	}
 }
 
 func (b *httpBatch) Rows() int {

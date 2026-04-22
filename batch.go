@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+
+	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 )
 
 var normalizeInsertQueryMatch = regexp.MustCompile(`(?i)(?:(?:--[^\n]*|#![^\n]*|#\s[^\n]*)\n\s*)*(INSERT\s+INTO\s+([^(]+)(?:\s*\([^()]*(?:\([^()]*\)[^()]*)*\))?)(?:\s*VALUES)?`)
@@ -12,6 +14,10 @@ var truncateValues = regexp.MustCompile(`\sVALUES\s.*$`)
 var extractInsertColumnsMatch = regexp.MustCompile(`(?si)INSERT INTO .+\s\((?P<Columns>.+)\)$`)
 
 func extractNormalizedInsertQueryAndColumns(query string) (normalizedQuery string, tableName string, columns []string, err error) {
+	return extractNormalizedInsertQueryAndColumnsWithFormat(query, driver.InsertFormatNative)
+}
+
+func extractNormalizedInsertQueryAndColumnsWithFormat(query string, format driver.InsertFormat) (normalizedQuery string, tableName string, columns []string, err error) {
 	query = truncateFormat.ReplaceAllString(query, "")
 	query = truncateValues.ReplaceAllString(query, "")
 
@@ -21,7 +27,11 @@ func extractNormalizedInsertQueryAndColumns(query string) (normalizedQuery strin
 		return
 	}
 
-	normalizedQuery = fmt.Sprintf("%s FORMAT Native", matches[1])
+	formatStr := "Native"
+	if format == driver.InsertFormatJSONEachRow {
+		formatStr = "JSONEachRow"
+	}
+	normalizedQuery = fmt.Sprintf("%s FORMAT %s", matches[1], formatStr)
 	tableName = strings.TrimSpace(matches[2])
 
 	columns = make([]string, 0)

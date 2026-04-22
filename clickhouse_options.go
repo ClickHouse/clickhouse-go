@@ -16,6 +16,7 @@ import (
 	"github.com/ClickHouse/ch-go/compress"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/churl"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 )
 
 type CompressionMethod byte
@@ -162,6 +163,13 @@ type Options struct {
 	HttpMaxConnsPerHost  int               // MaxConnsPerHost for http.Transport
 	BlockBufferSize      uint8             // default 2 - can be overwritten on query
 	MaxCompressionBuffer int               // default 10485760 - measured in bytes  i.e.
+
+	// InsertFormat specifies the default data format for batch INSERT operations.
+	// By default (empty or InsertFormatNative), the driver uses FORMAT Native (binary columnar blocks).
+	// Set to InsertFormatJSONEachRow to use text-based FORMAT JSONEachRow, which is compatible
+	// with ClickHouse async_insert buffering. Only effective with the HTTP protocol.
+	// Can be overridden per-batch using driver.WithInsertFormat().
+	InsertFormat driver.InsertFormat
 
 	// HTTPProxy specifies an HTTP proxy URL to use for requests made by the client.
 	HTTPProxyURL *url.URL

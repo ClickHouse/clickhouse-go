@@ -3,6 +3,7 @@ package clickhouse
 import (
 	"testing"
 
+	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -408,6 +409,48 @@ INSERT INTO ` + "`_test_1345# $.ДБ`.`2. Таблица №2`" + ` (col1, col2)
 			assert.Equal(t, tc.expectedNormalizedQuery, normalizedQuery)
 			assert.Equal(t, tc.expectedTableName, tableName)
 			assert.Equal(t, tc.expectedColumns, columns)
+		})
+	}
+}
+
+func TestExtractNormalizedInsertQueryWithFormat(t *testing.T) {
+	testCases := []struct {
+		name           string
+		query          string
+		format         driver.InsertFormat
+		expectedFormat string
+	}{
+		{
+			name:           "Default format (Native)",
+			query:          "INSERT INTO table_name (col1, col2) VALUES (1, 2)",
+			format:         driver.InsertFormatNative,
+			expectedFormat: "FORMAT Native",
+		},
+		{
+			name:           "JSONEachRow format",
+			query:          "INSERT INTO table_name (col1, col2) VALUES (1, 2)",
+			format:         driver.InsertFormatJSONEachRow,
+			expectedFormat: "FORMAT JSONEachRow",
+		},
+		{
+			name:           "JSONEachRow strips existing format",
+			query:          "INSERT INTO table_name FORMAT Native",
+			format:         driver.InsertFormatJSONEachRow,
+			expectedFormat: "FORMAT JSONEachRow",
+		},
+		{
+			name:           "Empty format defaults to Native",
+			query:          "INSERT INTO table_name (col1) VALUES (1)",
+			format:         "",
+			expectedFormat: "FORMAT Native",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			normalizedQuery, _, _, err := extractNormalizedInsertQueryAndColumnsWithFormat(tc.query, tc.format)
+			assert.NoError(t, err)
+			assert.Contains(t, normalizedQuery, tc.expectedFormat)
 		})
 	}
 }

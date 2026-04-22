@@ -20,6 +20,14 @@ var insertMatch = regexp.MustCompile(`(?i)(?:(?:--[^\n]*|#![^\n]*|#\s[^\n]*)\n\s
 var columnMatch = regexp.MustCompile(`INSERT INTO .+\s\((?P<Columns>.+)\)$`)
 
 func (c *connect) prepareBatch(ctx context.Context, release nativeTransportRelease, acquire nativeTransportAcquire, query string, opts driver.PrepareBatchOptions) (driver.Batch, error) {
+	// Native protocol (TCP) only supports FORMAT Native. Return an error if a text-based format is requested.
+	effectiveFormat := c.opt.InsertFormat
+	if opts.InsertFormat != "" {
+		effectiveFormat = opts.InsertFormat
+	}
+	if effectiveFormat == driver.InsertFormatJSONEachRow {
+		return nil, fmt.Errorf("InsertFormatJSONEachRow is only supported with the HTTP protocol; native protocol (TCP) always uses FORMAT Native")
+	}
 	query, _, queryColumns, verr := extractNormalizedInsertQueryAndColumns(query)
 	if verr != nil {
 		return nil, verr
