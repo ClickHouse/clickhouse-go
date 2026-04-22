@@ -445,8 +445,7 @@ func (c *JSON) appendString(v any) (nulls []uint8, err error) {
 }
 
 // classifyJSONValue decides whether v should take the object or string
-// serialization path, or whether it carries no preference (null). Pure:
-// no state mutation, no I/O. Ordering:
+// serialization path, or whether it carries no preference (null).
 //  1. Untyped nil and typed-nil pointers → jsonModeAny (deferred).
 //  2. Known object-mode types (chcol.JSON, chcol.JSONSerializer, struct/map/ptr-to-either).
 //  3. Known string-mode types (string/[]byte and their pointers, json.RawMessage,
