@@ -420,6 +420,33 @@ For `clickhouse.Conn.PrepareBatch` (native interface):
 - Use `Send` to flush any remaining rows and finalize the INSERT. After `Send`, the batch is considered sent and should not be reused.
 - Use `defer batch.Close()` to ensure resources are released if `Send` is not reached.
 
+## JSON columns: append contract
+
+The ClickHouse Native protocol requires **one serialization version per `JSON` column per block** — a column cannot mix `object` rows and `string` rows on the wire. The driver enforces this at append time.
+
+**Two modes, one per batch:**
+
+- `object` — the driver decomposes a value into typed/dynamic paths. Accepts: `struct`, `map[string]any`, `*struct`, `*map`, `*clickhouse.JSON`, and any type implementing `clickhouse.JSONSerializer`.
+- `string` — the driver stores raw JSON text. Accepts: `string`, `*string`, `[]byte`, `*[]byte`, `json.RawMessage`, `*json.RawMessage`, `sql.NullString`, `*sql.NullString`, and types implementing `driver.Valuer` or `fmt.Stringer`.
+
+**Null rows are mode-agnostic.** `nil`, typed-nil pointers (`(*string)(nil)`, `(*clickhouse.JSON)(nil)`), `*interface{}` holding nil, and `sql.NullString{Valid: false}` do **not** latch a mode. They are buffered until a non-null row chooses the mode, and then flushed into the chosen backing column. `Nullable(JSON)` works the same way — the null mask lives on the Nullable wrapper; the inner JSON column still needs to emit something that parses server-side.
+
+**The first non-null row picks the mode.** Subsequent rows must match:
+
+```go
+batch.Append(struct{ Name string }{"Alice"}) // latches "object"
+batch.Append(`{"x":1}`)                      // error: string in an object-mode column
+```
+
+**Mixed-mode appends return an error**, identifying the type of the rejected row. There is no silent `{}` fallback.
+
+**All-null batches** default to `string` mode at send time and encode each null row as the JSON literal `"null"` (smaller on the wire than an empty object, and valid JSON so the server accepts the payload in `Nullable(JSON)` String mode).
+
+**Columnar bulk inserts (`batch.Column(i).Append(slice)`)** follow the same rules:
+- `[]string`, `[]*string`, `[][]byte`, `[]*[]byte`, `[]json.RawMessage`, `[]*json.RawMessage`, `[]sql.NullString`, `[]*sql.NullString` → `string` mode.
+- `[]struct{...}`, `[]map[string]any`, `[]clickhouse.JSON`, `[]*clickhouse.JSON`, `[]clickhouse.JSONSerializer` → `object` mode.
+- `Append` expects a slice — passing a single scalar returns an error. Use `AppendRow` for per-row inserts.
+
 ## Benchmark
 
 Indicative numbers measured on: Linux 6.19.6-arch1-1 · Intel Core Ultra 7 258V (8 cores) · 30 GiB RAM · NVMe SSD. Run the linked programs directly to get numbers on your hardware, e.g. `go run benchmark/v2/read/main.go`. Go benchmark tests can be run with `go test -bench=. ./benchmark/...`.
