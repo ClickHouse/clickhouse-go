@@ -168,7 +168,6 @@ func TestExtractEnumNamedValues(t *testing.T) {
 				2: "c'd",
 			},
 		},
-
 		{
 			name:         "Enum8 with multiple escaped quotes in one value",
 			chType:       `Enum8('a\'b\'c'=1)`,
