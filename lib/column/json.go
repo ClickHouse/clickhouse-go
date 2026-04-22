@@ -540,7 +540,7 @@ func (c *JSON) reconcileMode(m jsonMode) error {
 		"clickhouse: JSON column is already using %s serialization after row %d; "+
 			"cannot append a value that requires %s serialization. "+
 			"The wire format allows only one serialization version per column per block — "+
-			"every row in a batch must use the same mode.",
+			"every row in a batch must use the same mode",
 		serializationVersionName(c.serializationVersion),
 		c.rows,
 		serializationVersionName(want),
