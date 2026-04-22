@@ -166,7 +166,6 @@ func BenchmarkJSONAppend_StringSlice(b *testing.B) {
 }
 
 func BenchmarkJSONAppend_StringPointerSlice(b *testing.B) {
-	// Before the fix: silent {} for every element via reflect.Value bug.
 	col := newBenchJSONColumn(b)
 	slice := make([]*string, benchBatch)
 	for i := range slice {
@@ -200,7 +199,6 @@ func BenchmarkJSONAppend_RawMessageSlice(b *testing.B) {
 }
 
 func BenchmarkJSONAppend_StructSlice(b *testing.B) {
-	// Before the fix: silent {} — every struct's exported fields dropped.
 	col := newBenchJSONColumn(b)
 	slice := make([]benchStruct, benchBatch)
 	for i := range slice {

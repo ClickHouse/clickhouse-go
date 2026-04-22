@@ -21,15 +21,15 @@ func newTestJSONColumn(t *testing.T) *JSON {
 	return col
 }
 
-// TestJSONAppendRowNilConsistency verifies the first-principles contract
-// for AppendRow(nil). Key rules:
-//   1. A nil row carries no mode preference — it does NOT latch the column.
-//      Instead it bumps pendingNullRows and c.rows.
-//   2. The first non-nil row latches the mode via reconcileMode, and flushes
-//      any pending nulls into the latched backing column at that moment.
-//   3. An all-null batch leaves the column Unset after AppendRow; it will be
-//      latched to String at WriteStatePrefix time and flushed with "null"
-//      payloads (covered by a separate test).
+// TestJSONAppendRowNilConsistency verifies the contract for AppendRow(nil).
+// Key rules:
+//  1. A nil row carries no mode preference — it does NOT latch the column.
+//     Instead it bumps pendingNullRows and c.rows.
+//  2. The first non-nil row latches the mode via reconcileMode, and flushes
+//     any pending nulls into the latched backing column at that moment.
+//  3. An all-null batch leaves the column Unset after AppendRow; it will be
+//     latched to String at WriteStatePrefix time and flushed with "null"
+//     payloads.
 func TestJSONAppendRowNilConsistency(t *testing.T) {
 	type testStruct struct {
 		Name string `json:"name"`
@@ -90,7 +90,7 @@ func TestJSONAppendRowNilConsistency(t *testing.T) {
 			expectedRows:    2,
 		},
 		{
-			// First-principles change: nil alone does NOT latch. It's
+			// nil alone does NOT latch. It's
 			// buffered as a pending null until a real row arrives or the
 			// batch reaches WriteStatePrefix.
 			name:                "nil only — defers (pending null, mode Unset)",
@@ -112,7 +112,7 @@ func TestJSONAppendRowNilConsistency(t *testing.T) {
 			expectedRows:    3,
 		},
 		{
-			// First-principles change: *interface{} with underlying nil is
+			// *interface{} with underlying nil is
 			// also a null row (normalized by classifyJSONValue). Both rows
 			// defer; mode stays Unset.
 			name: "nil then pointer to nil interface — both defer",
@@ -353,8 +353,7 @@ func TestJSONAppendRowPointerAndStdlibStringTypes(t *testing.T) {
 		{"*json.RawMessage", &raw, jsonText},
 		{"sql.NullString valid", sql.NullString{Valid: true, String: jsonText}, jsonText},
 		// Invalid NullString is null-equivalent — stored as the JSON literal
-		// "null" (see isNullishForJSON). Before this change the backing
-		// String column wrote "" which the server rejects in String mode.
+		// "null" (see isNullishForJSON).
 		{"sql.NullString invalid", sql.NullString{Valid: false}, "null"},
 		{"*sql.NullString valid", &sql.NullString{Valid: true, String: jsonText}, jsonText},
 	}
@@ -380,7 +379,7 @@ func TestJSONAppendRowPointerAndStdlibStringTypes(t *testing.T) {
 // (by an explicit object-mode or string-mode value), a row that would require
 // the other mode must error, not silently become {}.
 //
-// Before our redesign, nil itself could latch Object mode via a silent-{}
+// Before the refactoring in #1850 nil itself could latch Object mode via a silent-{}
 // fallback, which is why the old version of this test used nil as the first
 // row. With nil now deferred, we latch explicitly — struct for object,
 // string for string.
@@ -427,7 +426,7 @@ func TestJSONAppendRowMixedModesAreRejected(t *testing.T) {
 		},
 		{
 			// New test: string-first-then-struct was the biggest silent-data-
-			// loss path in PR 1771. Under first-principles it must loudly error.
+			// loss path in PR 1771. It must loudly error.
 			name:          "string latches string, then struct rejected",
 			latch:         `{"a":1}`,
 			wantLatch:     JSONStringSerializationVersion,
@@ -505,10 +504,6 @@ func TestJSONAllNullBatchEncodesAsStringWithNullPayload(t *testing.T) {
 	}
 }
 
-// TestJSONNullAfterStringLatchEncodesAsNullLiteral locks in the fix for
-// Scenario B of the W&B repro: once String mode is latched, a following
-// nil row must be stored as "null" (not ""). Before this change the server
-// returned "Cannot parse JSON object here" on Send.
 func TestJSONNullAfterStringLatchEncodesAsNullLiteral(t *testing.T) {
 	col := newTestJSONColumn(t)
 	require.NoError(t, col.AppendRow(`{"a":1}`))
@@ -521,9 +516,6 @@ func TestJSONNullAfterStringLatchEncodesAsNullLiteral(t *testing.T) {
 		"nil row after a String-mode latch must be the JSON literal \"null\"")
 }
 
-// TestJSONNullBeforeStringLatchFlushesAsNullLiteral is the exact W&B
-// Scenario A fix: nil first, string second, Nullable(JSON). The pending
-// null flushes into String mode as "null" when the string row latches.
 func TestJSONNullBeforeStringLatchFlushesAsNullLiteral(t *testing.T) {
 	col := newTestJSONColumn(t)
 	require.NoError(t, col.AppendRow(nil))
@@ -538,12 +530,6 @@ func TestJSONNullBeforeStringLatchFlushesAsNullLiteral(t *testing.T) {
 	assert.Equal(t, `{"a":1}`, col.jsonStrings.Row(1, false))
 }
 
-// TestJSONAppendSliceRoundTripsData locks in the fix for the silent-data-loss
-// bug in JSON.Append (plural). Before the fix, appendObject's reflect-based
-// fallback called c.AppendRow(value.Index(i)) — passing a reflect.Value struct,
-// not the underlying element. Every row was silently stored as an empty {}.
-// After the fix, .Interface() is called first so the real value flows through.
-// If any of these regress, Append is back to dropping entire batches.
 func TestJSONAppendSliceRoundTripsData(t *testing.T) {
 	type s struct {
 		Name string `json:"name"`
@@ -551,7 +537,7 @@ func TestJSONAppendSliceRoundTripsData(t *testing.T) {
 	jsonText := `{"id":1,"name":"Book"}`
 
 	t.Run("[]struct creates dynamic path and populates it", func(t *testing.T) {
-		// Before the fix: appendObject's reflect iteration passed a
+		// Before the #1850: appendObject's reflect iteration passed a
 		// reflect.Value to AppendRow, which sent it through structToJSON.
 		// reflect.Value is a struct with only unexported fields, so every
 		// row became an empty chcol.JSON{} — no dynamic paths were created.
