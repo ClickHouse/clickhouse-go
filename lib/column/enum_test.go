@@ -176,6 +176,23 @@ func TestExtractEnumNamedValues(t *testing.T) {
 				1: "a'b'c",
 			},
 		},
+		{
+			name:         "Enum16 with escaped quote in multiple values",
+			chType:       `Enum16('a\'b'=1,'c\'d'=2)`,
+			expectedType: "Enum16",
+			expectedValues: map[int]string{
+				1: "a'b",
+				2: "c'd",
+			},
+		},
+		{
+			name:         "Enum16 with multiple escaped quotes in one value",
+			chType:       `Enum16('a\'b\'c'=1)`,
+			expectedType: "Enum16",
+			expectedValues: map[int]string{
+				1: "a'b'c",
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
