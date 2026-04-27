@@ -24,7 +24,7 @@ const DefaultMaxDynamicPaths = 1024
 
 // JSON implements ClickHouse JSON column on the native protocol layer.
 // We choose how to encode the JSON based on serializationVersion.
-// It can be either plain string or object type (more latest support).
+// It can be either plain string or object type with newer server support.
 type JSON struct {
 	chType Type
 	sc     *ServerContext
