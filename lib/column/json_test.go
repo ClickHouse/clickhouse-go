@@ -568,36 +568,67 @@ func TestJSONAppendSliceRoundTripsData(t *testing.T) {
 		assert.Equal(t, `{"x":2}`, col.jsonStrings.Row(1, false))
 	})
 
-	t.Run("[]*string stores dereferenced text", func(t *testing.T) {
+	t.Run("[]*string stores dereferenced text and nil as JSON null", func(t *testing.T) {
 		col := newTestJSONColumn(t)
 		a, b := jsonText, `{"x":2}`
-		_, err := col.Append([]*string{&a, &b})
+		_, err := col.Append([]*string{&a, nil, &b})
 		require.NoError(t, err)
-		require.Equal(t, 2, col.Rows())
+		require.Equal(t, 3, col.Rows())
 		require.Equal(t, JSONStringSerializationVersion, col.serializationVersion)
 		assert.Equal(t, jsonText, col.jsonStrings.Row(0, false))
-		assert.Equal(t, `{"x":2}`, col.jsonStrings.Row(1, false))
+		assert.Equal(t, "null", col.jsonStrings.Row(1, false))
+		assert.Equal(t, `{"x":2}`, col.jsonStrings.Row(2, false))
 	})
 
 	t.Run("[]json.RawMessage stores text", func(t *testing.T) {
 		col := newTestJSONColumn(t)
 		_, err := col.Append([]json.RawMessage{json.RawMessage(jsonText)})
 		require.NoError(t, err)
+		require.Equal(t, 1, col.Rows())
 		require.Equal(t, JSONStringSerializationVersion, col.serializationVersion)
 		assert.Equal(t, jsonText, col.jsonStrings.Row(0, false))
 	})
 
-	t.Run("[]sql.NullString stores text of Valid rows", func(t *testing.T) {
+	t.Run("[]*json.RawMessage stores text and nil as JSON null", func(t *testing.T) {
+		col := newTestJSONColumn(t)
+		a := json.RawMessage(jsonText)
+		b := json.RawMessage(`{"x":2}`)
+		_, err := col.Append([]*json.RawMessage{&a, nil, &b})
+		require.NoError(t, err)
+		require.Equal(t, 3, col.Rows())
+		require.Equal(t, JSONStringSerializationVersion, col.serializationVersion)
+		assert.Equal(t, jsonText, col.jsonStrings.Row(0, false))
+		assert.Equal(t, "null", col.jsonStrings.Row(1, false))
+		assert.Equal(t, `{"x":2}`, col.jsonStrings.Row(2, false))
+	})
+
+	t.Run("[]sql.NullString stores text of Valid rows and JSON null for invalid rows", func(t *testing.T) {
 		col := newTestJSONColumn(t)
 		_, err := col.Append([]sql.NullString{
 			{Valid: true, String: jsonText},
 			{Valid: false},
 		})
 		require.NoError(t, err)
+		require.Equal(t, 2, col.Rows())
 		require.Equal(t, JSONStringSerializationVersion, col.serializationVersion)
 		assert.Equal(t, jsonText, col.jsonStrings.Row(0, false))
+		assert.Equal(t, "null", col.jsonStrings.Row(1, false))
 	})
 
+	t.Run("[]*sql.NullString stores text and null-equivalent pointers as JSON null", func(t *testing.T) {
+		col := newTestJSONColumn(t)
+		validA := &sql.NullString{Valid: true, String: jsonText}
+		invalid := &sql.NullString{Valid: false}
+		validB := &sql.NullString{Valid: true, String: `{"x":2}`}
+		_, err := col.Append([]*sql.NullString{validA, nil, invalid, validB})
+		require.NoError(t, err)
+		require.Equal(t, 4, col.Rows())
+		require.Equal(t, JSONStringSerializationVersion, col.serializationVersion)
+		assert.Equal(t, jsonText, col.jsonStrings.Row(0, false))
+		assert.Equal(t, "null", col.jsonStrings.Row(1, false))
+		assert.Equal(t, "null", col.jsonStrings.Row(2, false))
+		assert.Equal(t, `{"x":2}`, col.jsonStrings.Row(3, false))
+	})
 	t.Run("[]any containing structs populates dynamic paths", func(t *testing.T) {
 		col := newTestJSONColumn(t)
 		_, err := col.Append([]any{s{Name: "Alice"}, s{Name: "Bob"}})
