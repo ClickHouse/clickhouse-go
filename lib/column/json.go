@@ -435,12 +435,37 @@ func (c *JSON) appendObject(v any) (nulls []uint8, err error) {
 }
 
 func (c *JSON) appendString(v any) (nulls []uint8, err error) {
-	nulls, err = c.jsonStrings.Append(v)
-	if err != nil {
-		return nil, err
+	// Iterate v element-wise and route each row through appendRowString.
+	// Delegating to String.Append directly would write "" for nil pointers
+	// and invalid sql.NullString values — both invalid JSON on the wire
+	// (server code 117) — and would panic on nil *json.RawMessage.
+	// appendRowString runs each element through isNullishForJSON, converting
+	// null-equivalent inputs to the JSON literal "null". Mirrors
+	// appendObject's reflective pattern.
+	//
+	// nulls mirrors the per-row null mask: 1 if the element was
+	// null-equivalent. Nullable(JSON).Append consumes this to populate its
+	// null bitmap; the underlying string still carries the "null" literal
+	// so the server's JSON parser does not reject the payload.
+	value := reflect.Indirect(reflect.ValueOf(v))
+	if value.Kind() != reflect.Slice {
+		return nil, &ColumnConverterError{
+			Op:   "Append",
+			To:   string(c.chType),
+			From: fmt.Sprintf("%T", v),
+			Hint: "value must be a slice",
+		}
 	}
-
-	c.rows = c.jsonStrings.Rows()
+	nulls = make([]uint8, value.Len())
+	for i := 0; i < value.Len(); i++ {
+		elem := value.Index(i).Interface()
+		if isNullishForJSON(elem) {
+			nulls[i] = 1
+		}
+		if err := c.appendRowString(elem); err != nil {
+			return nil, err
+		}
+	}
 	return nulls, nil
 }
 

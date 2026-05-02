@@ -644,6 +644,49 @@ func TestJSONAppendSliceRoundTripsData(t *testing.T) {
 	})
 }
 
+// TestJSONAppendStringReturnsNullsMask locks the Append-string contract that
+// Nullable(JSON) bulk insert depends on: every row in the input slice must
+// produce one entry in the returned `nulls` mask, and null-equivalent rows
+// (nil pointers, invalid sql.NullString, etc.) must be marked with 1.
+//
+// Nullable(JSON).Append (lib/column/nullable.go) iterates this mask to
+// populate its null bitmap. If the mask is the wrong length the bitmap
+// drifts out of sync with the data column and the wire payload corrupts.
+// A previous refactor returned `nil` here and no unit test caught it
+// because the existing Nullable(JSON) integration test
+// (tests/issues/1638_test.go) only exercises AppendRow, not the bulk
+// slice path.
+func TestJSONAppendStringReturnsNullsMask(t *testing.T) {
+	a, b := `{"x":1}`, `{"x":2}`
+	rawA := json.RawMessage(a)
+	rawB := json.RawMessage(b)
+	validA := &sql.NullString{Valid: true, String: a}
+	validB := &sql.NullString{Valid: true, String: b}
+	invalid := &sql.NullString{Valid: false}
+
+	tests := []struct {
+		name      string
+		v         any
+		wantNulls []uint8
+	}{
+		{"[]string — no nulls", []string{a, b}, []uint8{0, 0}},
+		{"[]*string with nil middle", []*string{&a, nil, &b}, []uint8{0, 1, 0}},
+		{"[]json.RawMessage — no nulls", []json.RawMessage{rawA, rawB}, []uint8{0, 0}},
+		{"[]*json.RawMessage with nil middle", []*json.RawMessage{&rawA, nil, &rawB}, []uint8{0, 1, 0}},
+		{"[]sql.NullString invalid is null", []sql.NullString{{Valid: true, String: a}, {Valid: false}}, []uint8{0, 1}},
+		{"[]*sql.NullString nil-pointer and !Valid both null", []*sql.NullString{validA, nil, invalid, validB}, []uint8{0, 1, 1, 0}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			col := newTestJSONColumn(t)
+			nulls, err := col.Append(tt.v)
+			require.NoError(t, err)
+			require.Equal(t, tt.wantNulls, nulls,
+				"nulls mask must have one entry per input row, with 1 for null-equivalent rows — Nullable(JSON) bulk insert depends on this")
+		})
+	}
+}
+
 // TestJSONAppendRejectsNonSlice locks in that Append is slice-oriented.
 // The previous code had unreachable single-value type-switch cases (string,
 // []byte routed to appendString which only accepts slices). Callers wanting
