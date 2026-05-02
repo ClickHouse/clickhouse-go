@@ -481,6 +481,17 @@ func classifyJSONValue(v any) (jsonMode, error) {
 		return jsonModeAny, nil
 	}
 
+	// Guard: a typed nil pointer carries no mode — same as untyped nil.
+	if rv := reflect.ValueOf(v); rv.Kind() == reflect.Pointer {
+		if rv.IsNil() {
+			return jsonModeAny, nil
+		}
+		// can be *any. Should be treated as jsonModeAny and deferred as well.
+		if rv.Elem().Kind() == reflect.Interface && rv.Elem().IsNil() {
+			return jsonModeAny, nil
+		}
+	}
+
 	// Fast path for common exact types.
 	switch v.(type) {
 	case chcol.JSON, *chcol.JSON, chcol.JSONSerializer:
@@ -504,16 +515,7 @@ func classifyJSONValue(v any) (jsonMode, error) {
 		}
 
 	case reflect.Pointer:
-		// Typed nil pointer carries no mode preference — treat like untyped nil.
-		if rv.IsNil() {
-			return jsonModeAny, nil
-		}
 		switch rv.Elem().Kind() {
-		case reflect.Interface:
-			// *any holding nil is also a null row.
-			if rv.Elem().IsNil() {
-				return jsonModeAny, nil
-			}
 		case reflect.Struct, reflect.Map:
 			return jsonModeObject, nil
 		case reflect.String:
