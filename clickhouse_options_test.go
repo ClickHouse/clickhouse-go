@@ -2,7 +2,9 @@ package clickhouse
 
 import (
 	"crypto/tls"
+	"log/slog"
 	"net/url"
+	"os"
 	"testing"
 	"time"
 
@@ -583,4 +585,48 @@ func parseURL(t *testing.T, v string) *url.URL {
 	u, err := url.Parse(v)
 	require.NoError(t, err)
 	return u
+}
+
+func TestLogger(t *testing.T) {
+	t.Run("debug=1 via DSN produces non-noop logger", func(t *testing.T) {
+		opts, err := ParseDSN("clickhouse://127.0.0.1/test?debug=1")
+		require.NoError(t, err)
+		require.True(t, opts.Debug)
+
+		logger := opts.logger()
+		require.NotNil(t, logger)
+		// Verify it's not a noop logger by checking it has a handler
+		// The handler should not be *noopHandler
+		_, isNoop := logger.Handler().(*noopHandler)
+		assert.False(t, isNoop, "expected non-noop logger when debug=1")
+	})
+
+	t.Run("debug=false produces noop logger", func(t *testing.T) {
+		opts, err := ParseDSN("clickhouse://127.0.0.1/test")
+		require.NoError(t, err)
+		require.False(t, opts.Debug)
+
+		logger := opts.logger()
+		require.NotNil(t, logger)
+		_, isNoop := logger.Handler().(*noopHandler)
+		assert.True(t, isNoop, "expected noop logger when debug is not set")
+	})
+
+	t.Run("debug=true with Debugf uses legacy handler", func(t *testing.T) {
+		var logged string
+		opts := &Options{Debug: true, Debugf: func(format string, v ...any) {
+			logged = format
+		}}
+		logger := opts.logger()
+		require.NotNil(t, logger)
+		logger.Debug("test message")
+		assert.Equal(t, "%s", logged, "legacy handler uses %s format")
+	})
+
+	t.Run("custom Logger is used when provided", func(t *testing.T) {
+		customLogger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelWarn}))
+		opts := &Options{Logger: customLogger}
+		logger := opts.logger()
+		assert.Equal(t, customLogger, logger)
+	})
 }
