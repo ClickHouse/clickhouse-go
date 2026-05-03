@@ -384,6 +384,10 @@ func (c *JSON) Append(v any) (nulls []uint8, err error) {
 			return nil, err
 		}
 		if _, err = c.appendString(v); err == nil {
+			// appendString iterates element-by-element through appendRowString,
+			// which never calls reconcileMode. For an empty or all-null slice
+			// the version stays Unset; latch String here so WriteStatePrefix
+			// emits the correct serialization for the rows we just wrote.
 			if c.serializationVersion == JSONUnsetSerializationVersion {
 				c.serializationVersion = JSONStringSerializationVersion
 			}
@@ -472,6 +476,10 @@ func (c *JSON) appendString(v any) (nulls []uint8, err error) {
 	nulls = make([]uint8, value.Len())
 	for i := 0; i < value.Len(); i++ {
 		elem := value.Index(i).Interface()
+		// Two separate concerns share the same predicate: the outer check
+		// records the element in the per-row null mask returned to the
+		// Nullable wrapper, while appendRowString rewrites null-equivalent
+		// inputs to the JSON literal "null" so the wire payload still parses.
 		if isNullishForJSON(elem) {
 			nulls[i] = 1
 		}
@@ -578,8 +586,8 @@ func (c *JSON) reconcileMode(m jsonMode) error {
 	}
 	return fmt.Errorf(
 		"clickhouse: JSON column is already using %s serialization after row %d; "+
-			"cannot append a value that requires %s serialization. "+
-			"The wire format allows only one serialization version per column per block — "+
+			"cannot append a value that requires %s serialization; "+
+			"the wire format allows only one serialization version per column per block — "+
 			"every row in a batch must use the same mode",
 		serializationVersionName(c.serializationVersion),
 		c.rows,
@@ -930,12 +938,16 @@ func (c *JSON) Reset() {
 		for _, col := range c.dynamicColumns {
 			col.Reset()
 		}
-
-		return
 	case JSONStringSerializationVersion:
 		c.jsonStrings.Reset()
-		return
 	}
+
+	// Clear the latched mode so the next batch starts unbiased. An all-null
+	// batch only latches String at WriteStatePrefix; without this reset, a
+	// subsequent batch of structs/maps would fail reconcileMode with a
+	// mode-conflict error even though no real value was ever appended in the
+	// previous batch.
+	c.serializationVersion = JSONUnsetSerializationVersion
 }
 
 func (c *JSON) decodeObjectHeader(reader *proto.Reader) error {
