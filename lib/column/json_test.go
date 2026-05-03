@@ -332,7 +332,7 @@ func TestJSONAppendRowStringSerializationVersion(t *testing.T) {
 	}
 }
 
-// TestJSONAppendRowPointerAndStdlibStringTypes locks in the fix for the W&B
+// TestJSONAppendRowPointerAndStdlibStringTypes locks in the fix for the
 // report "*string stored as {}". Every value listed here must (a) latch
 // string serialization and (b) round-trip through the jsonStrings backing
 // column with the expected text. If any case regresses, the caller is
@@ -685,6 +685,33 @@ func TestJSONAppendStringReturnsNullsMask(t *testing.T) {
 				"nulls mask must have one entry per input row, with 1 for null-equivalent rows — Nullable(JSON) bulk insert depends on this")
 		})
 	}
+}
+
+// TestJSONAppendFallbackNoDoubleWrite locks in the no-double-write
+// invariant of Append's reflective fallback. Before the fix, the default
+// branch tried appendObject first; on a mixed []any like {"str", struct{}},
+// appendObject latched String mode and wrote "str" before erroring on the
+// mode-conflicting struct, then unconditionally retried with appendString,
+// which re-iterated from index 0 and wrote "str" a second time. Callers
+// who aborted on the error never observed the corruption, but the
+// underlying String column ended up with two copies of the first element.
+func TestJSONAppendFallbackNoDoubleWrite(t *testing.T) {
+	type s struct {
+		Name string `json:"name"`
+	}
+
+	col := newTestJSONColumn(t)
+	_, err := col.Append([]any{`{"a":1}`, s{Name: "Alice"}})
+	require.Error(t, err,
+		"mixed object/string modes in one slice must be rejected")
+
+	require.Equal(t, JSONStringSerializationVersion, col.serializationVersion,
+		"first element latches the column to String")
+	require.Equal(t, 1, col.Rows(),
+		"only the pre-error element should be present — the appendString retry must not re-write it")
+	require.Equal(t, 1, col.jsonStrings.Rows(),
+		"jsonStrings must hold exactly one entry; a second copy would mean the appendString fallback re-iterated")
+	assert.Equal(t, `{"a":1}`, col.jsonStrings.Row(0, false))
 }
 
 // TestJSONAppendRejectsNonSlice locks in that Append is slice-oriented.

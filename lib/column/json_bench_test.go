@@ -142,7 +142,7 @@ func BenchmarkJSONAppendRow_AlternatingNilStruct(b *testing.B) {
 }
 
 // The benchmarks below exercise the plural Append (columnar bulk insert)
-// path — same code that W&B would hit when building a batch via
+// path — same code that would hit when building a batch via
 // batch.Column(i).Append(slice).
 
 // Batch size per Append call in the bulk benchmarks. Each iteration

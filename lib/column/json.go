@@ -367,10 +367,23 @@ func (c *JSON) Append(v any) (nulls []uint8, err error) {
 		// the column's mode based on what the elements actually are — do
 		// not force a mode here, or all-null slices and []string would be
 		// miscategorized.
+		//
+		// If appendObject errors *after* writing some rows (e.g.
+		// []any{"str", someStruct{}} latches String on element 0 then
+		// errors on the mode-conflict at element 1), the appendString
+		// retry would re-iterate from the start and double-write the
+		// already-appended rows. Snapshot state and skip the retry if
+		// appendObject mutated anything.
+		rowsBefore := c.rows
+		versionBefore := c.serializationVersion
 		var err error
 		if _, err = c.appendObject(v); err == nil {
 			return nil, nil
-		} else if _, err = c.appendString(v); err == nil {
+		}
+		if c.rows != rowsBefore || c.serializationVersion != versionBefore {
+			return nil, err
+		}
+		if _, err = c.appendString(v); err == nil {
 			if c.serializationVersion == JSONUnsetSerializationVersion {
 				c.serializationVersion = JSONStringSerializationVersion
 			}
