@@ -23,6 +23,10 @@ func TestIssue1841_JSONSerializationVersion(t *testing.T) {
 		"allow_experimental_variant_type": true,
 		"allow_experimental_dynamic_type": true,
 		"allow_experimental_json_type":    true,
+		// `toString(JSON)` quotes 64-bit integers by default on ClickHouse < 25.4
+		// and emits them unquoted on newer servers. Pin the setting so the
+		// round-trip assertions don't depend on server version.
+		"output_format_json_quote_64bit_integers": false,
 	}, nil, nil)
 	require.NoError(t, err, "open clickhouse")
 
