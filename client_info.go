@@ -13,7 +13,7 @@ const ClientName = "clickhouse-go"
 
 const (
 	ClientVersionMajor       = 2
-	ClientVersionMinor       = 44
+	ClientVersionMinor       = 46
 	ClientVersionPatch       = 0
 	ClientTCPProtocolVersion = proto.DBMS_TCP_PROTOCOL_VERSION
 )
@@ -37,19 +37,11 @@ func (a ClientInfo) Append(b ClientInfo) ClientInfo {
 		Comment: make([]string, 0, len(a.Comment)+len(b.Comment)),
 	}
 
-	for _, p := range a.Products {
-		c.Products = append(c.Products, p)
-	}
-	for _, p := range b.Products {
-		c.Products = append(c.Products, p)
-	}
+	c.Products = append(c.Products, a.Products...)
+	c.Products = append(c.Products, b.Products...)
 
-	for _, cm := range a.Comment {
-		c.Comment = append(c.Comment, cm)
-	}
-	for _, cm := range b.Comment {
-		c.Comment = append(c.Comment, cm)
-	}
+	c.Comment = append(c.Comment, a.Comment...)
+	c.Comment = append(c.Comment, b.Comment...)
 
 	return c
 }

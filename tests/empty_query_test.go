@@ -2,12 +2,14 @@ package tests
 
 import (
 	"context"
-	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/stretchr/testify/require"
+
 	"github.com/stretchr/testify/assert"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
 )
 
 func TestEmptyQuery(t *testing.T) {

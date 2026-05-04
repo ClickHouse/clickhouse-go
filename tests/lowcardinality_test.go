@@ -8,8 +8,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
 )
 
 func TestLowCardinality(t *testing.T) {
@@ -50,13 +51,13 @@ func TestLowCardinality(t *testing.T) {
 				col2Data = "RU"
 				col3Data = []string{"A", "B", "C"}
 				col4Data = [][]string{
-					[]string{"Q", "W", "E"},
-					[]string{"R", "T", "Y"},
+					{"Q", "W", "E"},
+					{"R", "T", "Y"},
 				}
 				col5Data = &col2Data
 				col6Data = [][]*string{
-					[]*string{&col2Data, nil, &col2Data},
-					[]*string{nil, &col2Data, nil},
+					{&col2Data, nil, &col2Data},
+					{nil, &col2Data, nil},
 				}
 			)
 			if i%2 == 0 {
@@ -84,8 +85,8 @@ func TestLowCardinality(t *testing.T) {
 			assert.Equal(t, "RU", col2)
 			assert.Equal(t, []string{"A", "B", "C"}, col3)
 			assert.Equal(t, [][]string{
-				[]string{"Q", "W", "E"},
-				[]string{"R", "T", "Y"},
+				{"Q", "W", "E"},
+				{"R", "T", "Y"},
 			}, col4)
 			switch {
 			case i%2 == 0:
@@ -95,8 +96,8 @@ func TestLowCardinality(t *testing.T) {
 			}
 			col2Data := "RU"
 			assert.Equal(t, [][]*string{
-				[]*string{&col2Data, nil, &col2Data},
-				[]*string{nil, &col2Data, nil},
+				{&col2Data, nil, &col2Data},
+				{nil, &col2Data, nil},
 			}, col6)
 		}
 	})
