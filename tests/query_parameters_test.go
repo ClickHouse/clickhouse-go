@@ -136,4 +136,37 @@ func TestQueryParameters(t *testing.T) {
 		assert.Equal(t, uint8(42), actualNum)
 		assert.Equal(t, "hello", actualStr)
 	})
+
+	t.Run("string with special characters", func(t *testing.T) {
+		TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+			conn, err := GetNativeConnection(t, protocol, nil, nil, nil)
+			require.NoError(t, err)
+
+			cases := []struct {
+				name  string
+				value string
+			}{
+				{"tab", "hello\tworld"},
+				{"newline", "hello\nworld"},
+				{"carriage return", "hello\rworld"},
+				{"backslash", `hello\world`},
+				{"single quote", "it's"},
+				{"null byte", "hello\x00world"},
+				{"multiple special chars", "a\tb\nc"},
+			}
+
+			for _, tc := range cases {
+				t.Run(tc.name, func(t *testing.T) {
+					chCtx := clickhouse.Context(ctx, clickhouse.WithParameters(clickhouse.Parameters{
+						"str": tc.value,
+					}))
+					var result string
+					row := conn.QueryRow(chCtx, "SELECT {str:String}")
+					require.NoError(t, row.Err())
+					require.NoError(t, row.Scan(&result))
+					assert.Equal(t, tc.value, result)
+				})
+			}
+		})
+	})
 }
