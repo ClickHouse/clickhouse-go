@@ -293,11 +293,12 @@ func TestConnPool_Close(t *testing.T) {
 	assert.Equal(t, ErrConnectionClosed, err)
 	assert.Nil(t, conn)
 
-	// Put should be ignored on closed pool
+	// Put on closed pool should close the connection rather than leak it
 	initialLen := pool.Len()
 	newConn := &mockTransport{connectedAt: time.Now(), id: 99}
 	pool.Put(newConn)
 	assert.Equal(t, initialLen, pool.Len(), "closed pool should not accept new connections")
+	assert.True(t, newConn.closed, "connection put on closed pool should be closed to prevent leak")
 
 	// Closing again should be safe
 	err = pool.Close()
