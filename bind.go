@@ -17,6 +17,11 @@ var (
 	ErrInvalidTimezone = errors.New("invalid timezone value")
 )
 
+func isNilPointer(v any) bool {
+	rv := reflect.ValueOf(v)
+	return rv.Kind() == reflect.Pointer && rv.IsNil()
+}
+
 func Named(name string, value any) driver.NamedValue {
 	return driver.NamedValue{
 		Name:  name,
@@ -124,7 +129,9 @@ func bindPositional(tz *time.Location, query string, args ...any) (_ string, err
 				if argIndex < len(args) {
 					v := args[argIndex]
 					if fn, ok := v.(std_driver.Valuer); ok {
-						if v, err = fn.Value(); err != nil {
+						if isNilPointer(v) {
+							v = nil
+						} else if v, err = fn.Value(); err != nil {
 							return "", nil
 						}
 					}
@@ -167,7 +174,9 @@ func bindNumeric(tz *time.Location, query string, args ...any) (_ string, err er
 	)
 	for i, v := range args {
 		if fn, ok := v.(std_driver.Valuer); ok {
-			if v, err = fn.Value(); err != nil {
+			if isNilPointer(v) {
+				v = nil
+			} else if v, err = fn.Value(); err != nil {
 				return "", nil
 			}
 		}
@@ -202,7 +211,9 @@ func bindNamed(tz *time.Location, query string, args ...any) (_ string, err erro
 		case driver.NamedValue:
 			value := v.Value
 			if fn, ok := v.Value.(std_driver.Valuer); ok {
-				if value, err = fn.Value(); err != nil {
+				if isNilPointer(v.Value) {
+					value = nil
+				} else if value, err = fn.Value(); err != nil {
 					return "", err
 				}
 			}
@@ -314,9 +325,7 @@ func format(tz *time.Location, scale TimeUnit, v any) (string, error) {
 		}
 		return fmt.Sprintf("[%s]", val), nil
 	case fmt.Stringer:
-		if v := reflect.ValueOf(v); v.Kind() == reflect.Pointer &&
-			v.IsNil() &&
-			v.Type().Elem().Implements(reflect.TypeOf((*fmt.Stringer)(nil)).Elem()) {
+		if isNilPointer(v) {
 			return "NULL", nil
 		}
 		return quote(v.String()), nil
