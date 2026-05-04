@@ -12,6 +12,7 @@ type testRows struct {
 	index           int
 	closeCalls      int
 	err             error
+	closeErr        error
 	scanStructErrAt int
 }
 
@@ -49,7 +50,7 @@ func (r *testRows) Columns() []string { return nil }
 
 func (r *testRows) Close() error {
 	r.closeCalls++
-	return nil
+	return r.closeErr
 }
 
 func (r *testRows) Err() error { return r.err }
@@ -126,5 +127,57 @@ func TestStructIterTerminalRowsError(t *testing.T) {
 	}
 	if !reflect.DeepEqual(got, []item{{Value: 1}}) {
 		t.Fatalf("unexpected values before terminal error: %#v", got)
+	}
+}
+
+func TestStructIterCloseError(t *testing.T) {
+	type item struct {
+		Value int
+	}
+
+	rows := &testRows{values: []int{1}, closeErr: io.ErrClosedPipe}
+
+	var got []item
+	var gotErr error
+	for value, err := range StructIter[item](rows) {
+		if err != nil {
+			gotErr = err
+			break
+		}
+		got = append(got, value)
+	}
+
+	if !errors.Is(gotErr, io.ErrClosedPipe) {
+		t.Fatalf("unexpected close error: %v", gotErr)
+	}
+	if !reflect.DeepEqual(got, []item{{Value: 1}}) {
+		t.Fatalf("unexpected values before close error: %#v", got)
+	}
+	if rows.closeCalls != 1 {
+		t.Fatalf("unexpected close calls: %d", rows.closeCalls)
+	}
+}
+
+func TestStructIterStopsAfterCallerBreak(t *testing.T) {
+	type item struct {
+		Value int
+	}
+
+	rows := &testRows{values: []int{1, 2, 3}}
+
+	var got []item
+	for value, err := range StructIter[item](rows) {
+		if err != nil {
+			t.Fatalf("unexpected iter error: %v", err)
+		}
+		got = append(got, value)
+		break
+	}
+
+	if !reflect.DeepEqual(got, []item{{Value: 1}}) {
+		t.Fatalf("unexpected values before caller break: %#v", got)
+	}
+	if rows.closeCalls != 1 {
+		t.Fatalf("unexpected close calls: %d", rows.closeCalls)
 	}
 }
