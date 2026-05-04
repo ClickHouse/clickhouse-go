@@ -7,7 +7,7 @@ import (
 	chdriver "github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 )
 
-func Iterators() error {
+func Iterators() (err error) {
 	conn, err := GetNativeConnection(nil, nil, nil)
 	if err != nil {
 		return err
@@ -15,7 +15,9 @@ func Iterators() error {
 
 	ctx := context.Background()
 	defer func() {
-		conn.Exec(ctx, "DROP TABLE example_iterators")
+		if dropErr := conn.Exec(ctx, "DROP TABLE example_iterators"); dropErr != nil && err == nil {
+			err = fmt.Errorf("drop example_iterators: %w", dropErr)
+		}
 	}()
 
 	if err := conn.Exec(ctx, `DROP TABLE IF EXISTS example_iterators`); err != nil {
