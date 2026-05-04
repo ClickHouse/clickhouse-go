@@ -357,16 +357,17 @@ func (o *Options) fromDSN(in string) error {
 			}
 			o.HttpUrlPath = path
 		default:
-			switch p := strings.ToLower(params.Get(v)); p {
+			raw := params.Get(v)
+			switch p := strings.ToLower(raw); p {
 			case "true":
 				o.Settings[v] = int(1)
 			case "false":
 				o.Settings[v] = int(0)
 			default:
-				if n, err := strconv.Atoi(p); err == nil {
+				if n, err := strconv.Atoi(raw); err == nil {
 					o.Settings[v] = n
 				} else {
-					o.Settings[v] = p
+					o.Settings[v] = raw
 				}
 			}
 		}
