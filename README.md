@@ -24,7 +24,7 @@ Both support TCP and HTTP transport. When in doubt, use the native interface.
 * Supports both native ClickHouse TCP and HTTP client-server protocols
 * Compatibility with [`database/sql`](#std-databasesql-interface) ([slower](#benchmark) than [native interface](#native-interface)!)
 * [`database/sql`](#std-databasesql-interface) supports both native TCP and HTTP protocols for transport.
-* Marshal rows into structs ([ScanStruct](examples/clickhouse_api/scan_struct.go), [Select](examples/clickhouse_api/select_struct.go))
+* Marshal rows into structs ([ScanStruct](examples/clickhouse_api/scan_struct.go), [Select](examples/clickhouse_api/select_struct.go), [StructIter](examples/clickhouse_api/iterators.go) for native `driver.Rows`)
 * Unmarshal struct to row ([AppendStruct](benchmark/v2/write-native-struct/main.go))
 * Connection pool (for both TCP-Native and HTTP)
 * Failover and load balancing
