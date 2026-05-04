@@ -32,6 +32,21 @@ const (
 	queryIDParamName  = "query_id"
 )
 
+// httpQueryParamReplacer encodes raw string characters into the TSV-escaped format
+// expected by ClickHouse for query parameters sent over the HTTP protocol.
+//
+// The server applies deserializeTextEscaped (TSV format) to param_<name> values:
+// raw tab/newline/CR are treated as field/record delimiters and cause parse errors,
+// while backslash introduces escape sequences (\t = tab, \n = newline, \\ = backslash).
+// Characters must therefore be encoded so the server reconstructs the original string.
+var httpQueryParamReplacer = strings.NewReplacer(
+	`\`, `\\`,    // backslash → \\: server reads \\ as \
+	"\t", `\t`,   // tab → \t: server reads \t as tab
+	"\n", `\n`,   // newline → \n: server reads \n as newline
+	"\r", `\r`,   // CR → \r: server reads \r as CR
+	"\x00", `\0`, // NUL → \0: server reads \0 as NUL
+)
+
 type Pool[T any] struct {
 	pool *sync.Pool
 }
@@ -645,7 +660,7 @@ func (h *httpConnect) createRequest(ctx context.Context, requestUrl string, read
 			query.Set(key, fmt.Sprint(value))
 		}
 		for key, value := range options.parameters {
-			query.Set(fmt.Sprintf("param_%s", key), value)
+			query.Set(fmt.Sprintf("param_%s", key), httpQueryParamReplacer.Replace(value))
 		}
 		req.URL.RawQuery = query.Encode()
 	}

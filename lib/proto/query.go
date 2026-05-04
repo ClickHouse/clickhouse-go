@@ -219,13 +219,31 @@ func (s *Parameter) encode(buffer *chproto.Buffer, revision uint64) error {
 	return nil
 }
 
+// fieldDumpReplacer encodes raw string characters into the wire format expected by ClickHouse
+// for query parameters sent over the native TCP protocol.
+//
+// The server decodes parameter values through two stages:
+//  1. readQuoted: decodes escape sequences inside single-quoted strings (e.g. \\ → \, \t → tab)
+//  2. deserializeTextEscaped: expects TSV-escaped input (treats raw 0x09/0x0a as delimiters)
+//
+// Characters must therefore be double-encoded so that after readQuoted the result
+// remains valid TSV-escaped input for deserializeTextEscaped.
+var fieldDumpReplacer = strings.NewReplacer(
+	`\`, `\\\\`, // backslash → 4 backslashes: readQuoted produces \\, deserializeTextEscaped produces \
+	`'`, `\'`,   // single quote → \': readQuoted produces ', not special in TSV
+	"\t", `\\t`, // tab → \\t: readQuoted produces \t (literal), deserializeTextEscaped produces tab
+	"\n", `\\n`, // newline → \\n: readQuoted produces \n (literal), deserializeTextEscaped produces newline
+	"\r", `\\r`, // CR → \\r: readQuoted produces \r (literal), deserializeTextEscaped produces CR
+	"\x00", `\\0`, // NUL → \\0: readQuoted produces \0 (literal), deserializeTextEscaped produces NUL
+)
+
 // encodes a field dump with an appropriate type format
 // implements the same logic as in ClickHouse Field::restoreFromDump (https://github.com/ClickHouse/ClickHouse/blob/master/src/Core/Field.cpp#L312)
 // currently, only string type is supported
 func encodeFieldDump(value any) (string, error) {
 	switch v := value.(type) {
 	case string:
-		return fmt.Sprintf("'%v'", strings.ReplaceAll(v, "'", "\\'")), nil
+		return "'" + fieldDumpReplacer.Replace(v) + "'", nil
 	}
 
 	return "", fmt.Errorf("unsupported field type %T", value)

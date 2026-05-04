@@ -405,6 +405,65 @@ We have following examples to show Async Insert in action.
 
 **NOTE**: The old `AsyncInsert()` api is deprecated and will be removed in future versions. We highly recommend to use `WithAsync()` api for all the Async Insert use cases.
 
+## Query Parameters
+
+ClickHouse supports server-side parameterized queries using the `{name:Type}` syntax (requires ClickHouse ≥ 22.8). Parameters are sent separately from the query text — the server substitutes them after parsing, which prevents SQL injection.
+
+### Usage
+
+**Native interface** — pass parameters via context:
+
+```go
+ctx := clickhouse.Context(context.Background(), clickhouse.WithParameters(clickhouse.Parameters{
+    "id":   "42",
+    "name": "Alice",
+}))
+row := conn.QueryRow(ctx, "SELECT {id:UInt64}, {name:String}")
+```
+
+Or use `clickhouse.Named` as query arguments:
+
+```go
+row := conn.QueryRow(ctx,
+    "SELECT {id:UInt64}, {name:String}",
+    clickhouse.Named("id", "42"),
+    clickhouse.Named("name", "Alice"),
+)
+```
+
+**`database/sql` interface** — use `sql.Named`:
+
+```go
+row := db.QueryRowContext(ctx,
+    "SELECT {id:UInt64}, {name:String}",
+    sql.Named("id", 42),
+    sql.Named("name", "Alice"),
+)
+```
+
+### Special characters are handled automatically
+
+Pass raw Go strings — the driver handles all escaping. Characters such as tab (`\t`), newline (`\n`), backslash (`\`), and single quote (`'`) are encoded correctly for both the native TCP and HTTP protocols:
+
+```go
+ctx := clickhouse.Context(context.Background(), clickhouse.WithParameters(clickhouse.Parameters{
+    "tsv":  "col1\tcol2",   // literal tab — works as-is
+    "path": `C:\Users\bob`, // backslashes — works as-is
+    "name": "O'Brien",      // single quote — works as-is
+}))
+```
+
+### Protocol differences
+
+| Protocol | How parameters are encoded |
+|---|---|
+| Native TCP | TSV-escaped format wrapped in single quotes; the driver double-encodes control characters automatically |
+| HTTP | URL query parameters (`param_<name>=<value>`); encoded via standard URL encoding |
+
+Both protocols accept the same raw Go string values — the difference is invisible to callers.
+
+See full examples: [native API](examples/clickhouse_api/query_parameters.go) · [database/sql](examples/std/query_parameters.go)
+
 ## PrepareBatch options
 
 Available options:
