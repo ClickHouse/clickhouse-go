@@ -6,7 +6,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"math/big"
+	"math"
 	"reflect"
 	"strconv"
 	"strings"
@@ -139,18 +139,24 @@ func (col *Decimal) Append(v any) (nulls []uint8, err error) {
 	case []decimal.Decimal:
 		nulls = make([]uint8, len(v))
 		for i := range v {
-			col.append(&v[i])
+			if err := col.append(&v[i]); err != nil {
+				return nil, err
+			}
 		}
 	case []*decimal.Decimal:
 		nulls = make([]uint8, len(v))
 		for i := range v {
 			switch {
 			case v[i] != nil:
-				col.append(v[i])
+				if err := col.append(v[i]); err != nil {
+					return nil, err
+				}
 			default:
 				nulls[i] = 1
 				value := decimal.New(0, 0)
-				col.append(&value)
+				if err := col.append(&value); err != nil {
+					return nil, err
+				}
 			}
 		}
 	case []string:
@@ -160,7 +166,9 @@ func (col *Decimal) Append(v any) (nulls []uint8, err error) {
 			if err != nil {
 				return nil, fmt.Errorf("could not convert \"%v\" to decimal: %w", v[i], err)
 			}
-			col.append(&d)
+			if err := col.append(&d); err != nil {
+				return nil, err
+			}
 		}
 	case []*string:
 		nulls = make([]uint8, len(v))
@@ -168,8 +176,9 @@ func (col *Decimal) Append(v any) (nulls []uint8, err error) {
 			if v[i] == nil {
 				nulls[i] = 1
 				value := decimal.New(0, 0)
-				col.append(&value)
-
+				if err := col.append(&value); err != nil {
+					return nil, err
+				}
 				continue
 			}
 
@@ -177,7 +186,9 @@ func (col *Decimal) Append(v any) (nulls []uint8, err error) {
 			if err != nil {
 				return nil, fmt.Errorf("could not convert \"%v\" to decimal: %w", *v[i], err)
 			}
-			col.append(&d)
+			if err := col.append(&d); err != nil {
+				return nil, err
+			}
 		}
 	default:
 		if valuer, ok := v.(driver.Valuer); ok {
@@ -244,34 +255,42 @@ func (col *Decimal) AppendRow(v any) error {
 			From: fmt.Sprintf("%T", v),
 		}
 	}
-	col.append(&value)
-	return nil
+	return col.append(&value)
 }
 
-func (col *Decimal) append(v *decimal.Decimal) {
+func (col *Decimal) append(v *decimal.Decimal) error {
 	switch vCol := col.col.(type) {
 	case *proto.ColDecimal32:
-		var part uint32
-		part = uint32(decimal.NewFromBigInt(v.Coefficient(), v.Exponent()+int32(col.scale)).IntPart())
-		vCol.Append(proto.Decimal32(part))
+		scaled := decimal.NewFromBigInt(v.Coefficient(), v.Exponent()+int32(col.scale))
+		bi := scaled.BigInt()
+		i64 := bi.Int64()
+		if !bi.IsInt64() || i64 > math.MaxInt32 || i64 < math.MinInt32 {
+			return fmt.Errorf("value overflow: %s exceeds Decimal32 range", v.String())
+		}
+		vCol.Append(proto.Decimal32(uint32(i64)))
 	case *proto.ColDecimal64:
-		var part uint64
-		part = uint64(decimal.NewFromBigInt(v.Coefficient(), v.Exponent()+int32(col.scale)).IntPart())
-		vCol.Append(proto.Decimal64(part))
+		scaled := decimal.NewFromBigInt(v.Coefficient(), v.Exponent()+int32(col.scale))
+		bi := scaled.BigInt()
+		if !bi.IsInt64() {
+			return fmt.Errorf("value overflow: %s exceeds Decimal64 range", v.String())
+		}
+		vCol.Append(proto.Decimal64(uint64(bi.Int64())))
 	case *proto.ColDecimal128:
-		var bi *big.Int
-		bi = decimal.NewFromBigInt(v.Coefficient(), v.Exponent()+int32(col.scale)).BigInt()
+		bi := decimal.NewFromBigInt(v.Coefficient(), v.Exponent()+int32(col.scale)).BigInt()
 		dest := make([]byte, 16)
-		bigIntToRaw(dest, bi)
+		if err := bigIntToRaw(dest, bi, true); err != nil {
+			return fmt.Errorf("value overflow: %s exceeds Decimal128 range", v.String())
+		}
 		vCol.Append(proto.Decimal128{
 			Low:  binary.LittleEndian.Uint64(dest[0 : 64/8]),
 			High: binary.LittleEndian.Uint64(dest[64/8 : 128/8]),
 		})
 	case *proto.ColDecimal256:
-		var bi *big.Int
-		bi = decimal.NewFromBigInt(v.Coefficient(), v.Exponent()+int32(col.scale)).BigInt()
+		bi := decimal.NewFromBigInt(v.Coefficient(), v.Exponent()+int32(col.scale)).BigInt()
 		dest := make([]byte, 32)
-		bigIntToRaw(dest, bi)
+		if err := bigIntToRaw(dest, bi, true); err != nil {
+			return fmt.Errorf("value overflow: %s exceeds Decimal256 range", v.String())
+		}
 		vCol.Append(proto.Decimal256{
 			Low: proto.UInt128{
 				Low:  binary.LittleEndian.Uint64(dest[0 : 64/8]),
@@ -283,6 +302,7 @@ func (col *Decimal) append(v *decimal.Decimal) {
 			},
 		})
 	}
+	return nil
 }
 
 func (col *Decimal) Decode(reader *proto.Reader, rows int) error {
