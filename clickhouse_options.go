@@ -9,7 +9,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -439,27 +438,21 @@ func (o Options) setDefaults() *Options {
 // logger returns the appropriate logger based on the Options configuration.
 // Priority order:
 // 1. If Debug=true and Debugf is set, use legacy Debugf (backward compatibility)
-// 2. If Debug=true but no Debugf provided, use default stdout logger
-// 3. If Logger is set, use the provided logger
+// 2. If Logger is set, use the provided logger
+// 3. If Debug=true but no Debugf is provided, use a default stdout logger
 // 4. Otherwise, use a noop logger (no logging)
 func (o *Options) logger() *slog.Logger {
-	// Backward compatibility: if legacy Debug/Debugf is set, use it
 	if o.Debug && o.Debugf != nil {
 		return newDebugfLogger(o.Debugf)
 	}
 
-	// If Debug=true but no Debugf provided, use default stdout logger
-	if o.Debug {
-		return slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-			Level: slog.LevelDebug,
-		}))
-	}
-
-	// If user provided a custom logger, use it
 	if o.Logger != nil {
 		return o.Logger
 	}
 
-	// Default: no logging
+	if o.Debug {
+		return newStdoutDebugLogger()
+	}
+
 	return newNoopLogger()
 }
