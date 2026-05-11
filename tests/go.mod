@@ -4,7 +4,7 @@ go 1.25.0
 
 require (
 	github.com/ClickHouse/ch-go v0.71.0
-	github.com/ClickHouse/clickhouse-go/v2 v2.99.0
+	github.com/ClickHouse/clickhouse-go/v2 v2.0.0-00010101000000-000000000000
 	github.com/docker/docker v28.5.1+incompatible
 	github.com/docker/go-units v0.5.0
 	github.com/google/uuid v1.6.0
@@ -81,6 +81,5 @@ require (
 )
 
 replace (
-	github.com/ClickHouse/clickhouse-go => ../
 	github.com/ClickHouse/clickhouse-go/v2 => ../
 )

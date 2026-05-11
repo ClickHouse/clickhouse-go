@@ -38,4 +38,4 @@ jobs:
           TESTCONTAINERS_RYUK_DISABLED: "true"
           GOTOOLCHAIN: "local"
         run: |
-          CLICKHOUSE_VERSION=${{ matrix.clickhouse }} make test
+          cd tests && CLICKHOUSE_VERSION=${{ matrix.clickhouse }} go test -race -tags docker -timeout 240s -count=1 -v ./...

@@ -40,4 +40,4 @@ pipeline.auto.tfvars
 *.tfvars
 
 .env
-go.work
+go.work.sum

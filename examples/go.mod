@@ -3,8 +3,8 @@ module github.com/ClickHouse/clickhouse-go/v2/examples
 go 1.25.0
 
 require (
-	github.com/ClickHouse/clickhouse-go/v2 v2.99.0
-	github.com/ClickHouse/clickhouse-go/v2/tests v1.0.0
+	github.com/ClickHouse/clickhouse-go/v2 v2.0.0-00010101000000-000000000000
+	github.com/ClickHouse/clickhouse-go/v2/tests v0.0.0-00010101000000-000000000000
 	github.com/google/uuid v1.6.0
 	github.com/paulmach/orb v0.12.0
 	github.com/shopspring/decimal v1.4.0

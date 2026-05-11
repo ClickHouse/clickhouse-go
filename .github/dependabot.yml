@@ -4,3 +4,15 @@ updates:
     directory: "/"
     schedule:
       interval: "daily"
+  - package-ecosystem: "gomod"
+    directory: "/tests"
+    schedule:
+      interval: "daily"
+  - package-ecosystem: "gomod"
+    directory: "/examples"
+    schedule:
+      interval: "daily"
+  - package-ecosystem: "gomod"
+    directory: "/benchmark"
+    schedule:
+      interval: "daily"

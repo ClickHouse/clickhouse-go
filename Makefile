@@ -19,8 +19,7 @@ cli:
 	docker run -it --rm --net clickhouse-go_clickhouse --link clickhouse:clickhouse-server --host clickhouse-server
 
 test:
-	@go install -race -v
-	@CLICKHOUSE_VERSION=$(CLICKHOUSE_VERSION) CLICKHOUSE_QUORUM_INSERT=$(CLICKHOUSE_QUORUM_INSERT) go test -race -timeout $(CLICKHOUSE_TEST_TIMEOUT) -count=1 -v ./...
+	cd tests && CLICKHOUSE_VERSION=$(CLICKHOUSE_VERSION) CLICKHOUSE_QUORUM_INSERT=$(CLICKHOUSE_QUORUM_INSERT) go test -race -tags docker -timeout $(CLICKHOUSE_TEST_TIMEOUT) -count=1 -v ./...
 
 lint:
 	golangci-lint run || :

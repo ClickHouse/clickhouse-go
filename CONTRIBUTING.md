@@ -6,7 +6,7 @@ Docker is required. Start a local ClickHouse instance and run the full test suit
 
 ```bash
 make up      # start ClickHouse via Docker Compose
-make test    # run all tests with -race
+make test    # run all tests with -race and -tags docker from tests/
 make down    # stop and remove containers
 ```
 
@@ -16,7 +16,7 @@ make down    # stop and remove containers
 |-----------------|--------------|
 | `make up`       | Start ClickHouse (waits until healthy) |
 | `make down`     | Stop and remove containers |
-| `make test`     | Run the full test suite with `-race` and `-count=1` |
+| `make test`     | Run the full test suite from `tests/` with `-race`, `-tags docker`, and `-count=1` |
 | `make lint`     | Run `golangci-lint` |
 | `make staticcheck` | Run `staticcheck` |
 | `make codegen`  | Regenerate column implementations and update license headers |
@@ -25,20 +25,20 @@ make down    # stop and remove containers
 ## Running specific tests
 
 ```bash
-# Run a single test
-go test -race -count=1 -v ./tests/... -run TestBatchFlush
+# Run a single test (from the tests/ module)
+cd tests && go test -race -tags docker -count=1 -v ./... -run TestBatchFlush
 
 # Run against a specific ClickHouse version
 CLICKHOUSE_VERSION=25.3 make test
 
 # Run only the database/sql interface tests
-go test -race -count=1 -v ./tests/std/...
+cd tests && go test -race -tags docker -count=1 -v ./std/...
 
 # Run Go benchmark tests
-go test -bench=. -benchmem ./benchmark/...
+cd benchmark && go test -bench=. -benchmem -tags docker ./...
 
 # Run a standalone benchmark program (most benchmarks are standalone executables)
-go run benchmark/v2/read/main.go
+cd benchmark && go run v2/read/main.go
 ```
 
 ## Writing tests

@@ -23,7 +23,25 @@ jobs:
         with:
           go-version: "1.25"
 
-      - name: golangci-lint
+      - name: golangci-lint root
         uses: golangci/golangci-lint-action@v9
         with:
           version: v2.11
+
+      - name: golangci-lint tests
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.11
+          working-directory: tests
+
+      - name: golangci-lint examples
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.11
+          working-directory: examples
+
+      - name: golangci-lint benchmark
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.11
+          working-directory: benchmark
