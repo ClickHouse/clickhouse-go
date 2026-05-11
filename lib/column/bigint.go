@@ -184,7 +184,7 @@ func (col *BigInt) row(i int) *big.Int {
 
 func (col *BigInt) append(v *big.Int) error {
 	dest := make([]byte, col.size)
-	if err := bigIntToRaw(dest, new(big.Int).Set(v), col.signed); err != nil {
+	if err := bigIntToRaw(dest, v, col.signed); err != nil {
 		return &ColumnConverterError{
 			Op:   "Append",
 			To:   string(col.chType),
@@ -229,28 +229,29 @@ func (col *BigInt) append(v *big.Int) error {
 	return nil
 }
 
-func bigIntToRaw(dest []byte, v *big.Int, signed bool) (err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("value overflows %d-byte buffer", len(dest))
+func bigIntToRaw(dest []byte, v *big.Int, signed bool) error {
+	bits := len(dest) * 8
+	if signed {
+		if v.Sign() >= 0 {
+			if v.BitLen() > bits-1 {
+				return fmt.Errorf("value overflows %d-byte signed buffer", len(dest))
+			}
+		} else {
+			if new(big.Int).Not(v).BitLen() > bits-1 {
+				return fmt.Errorf("value overflows %d-byte signed buffer", len(dest))
+			}
 		}
-	}()
-
-	// For signed types, FillBytes treats the value as unsigned so it won't
-	// catch values that fit unsigned but exceed the signed range (e.g., 2^127
-	// fits in 16 bytes but is out of Int128 range). Check explicitly.
-	if signed && v.Sign() >= 0 {
-		maxBits := len(dest)*8 - 1
-		if v.BitLen() > maxBits {
-			return fmt.Errorf("value overflows %d-byte signed buffer", len(dest))
+	} else {
+		if v.Sign() < 0 {
+			return fmt.Errorf("negative value not allowed for unsigned type")
+		}
+		if v.BitLen() > bits {
+			return fmt.Errorf("value overflows %d-byte unsigned buffer", len(dest))
 		}
 	}
 
 	var sign int
 	if v.Sign() < 0 {
-		if !signed {
-			return fmt.Errorf("negative value not allowed for unsigned type")
-		}
 		new(big.Int).Not(v).FillBytes(dest)
 		sign = -1
 	} else {

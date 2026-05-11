@@ -16,7 +16,8 @@ func TestDecimal32OverflowReturnsError(t *testing.T) {
 	require.NoError(t, err)
 
 	// max int32 is 2147483647; scaled by 10^2 the max representable value is ~21474836.47
-	overflow := decimal.NewFromFloat(21474836.48)
+	overflow, err := decimal.NewFromString("21474836.48")
+	require.NoError(t, err)
 	err = col.AppendRow(overflow)
 	assert.ErrorContains(t, err, "overflow")
 }
@@ -27,7 +28,8 @@ func TestDecimal64OverflowReturnsError(t *testing.T) {
 	require.NoError(t, err)
 
 	// max int64 is 9223372036854775807; scaled by 10^2 the max representable value is ~92233720368547758.07
-	overflow := decimal.NewFromFloat(92233720368547758.08)
+	overflow, err := decimal.NewFromString("92233720368547758.08")
+	require.NoError(t, err)
 	err = col.AppendRow(overflow)
 	assert.ErrorContains(t, err, "overflow")
 }
@@ -77,4 +79,14 @@ func TestBigIntValidValuesNoError(t *testing.T) {
 	minInt128 := new(big.Int).Neg(new(big.Int).Lsh(big.NewInt(1), 127))
 	err = col128.AppendRow(*minInt128)
 	assert.NoError(t, err)
+}
+
+func TestBigIntNegativeOverflowReturnsError(t *testing.T) {
+	col128 := &BigInt{size: 16, chType: "Int128", signed: true, col: &proto.ColInt128{}}
+
+	// -2^127 - 1 is below the minimum Int128 value (-2^127)
+	minInt128 := new(big.Int).Neg(new(big.Int).Lsh(big.NewInt(1), 127))
+	overflow := new(big.Int).Sub(minInt128, big.NewInt(1))
+	err := col128.AppendRow(*overflow)
+	assert.ErrorContains(t, err, "overflow")
 }

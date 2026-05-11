@@ -263,23 +263,22 @@ func (col *Decimal) append(v *decimal.Decimal) error {
 	case *proto.ColDecimal32:
 		scaled := decimal.NewFromBigInt(v.Coefficient(), v.Exponent()+int32(col.scale))
 		bi := scaled.BigInt()
-		i64 := bi.Int64()
-		if !bi.IsInt64() || i64 > math.MaxInt32 || i64 < math.MinInt32 {
-			return fmt.Errorf("value overflow: %s exceeds Decimal32 range", v.String())
+		if !bi.IsInt64() || bi.Int64() > math.MaxInt32 || bi.Int64() < math.MinInt32 {
+			return fmt.Errorf("value %s overflows decimal32 range", v.String())
 		}
-		vCol.Append(proto.Decimal32(uint32(i64)))
+		vCol.Append(proto.Decimal32(uint32(bi.Int64())))
 	case *proto.ColDecimal64:
 		scaled := decimal.NewFromBigInt(v.Coefficient(), v.Exponent()+int32(col.scale))
 		bi := scaled.BigInt()
 		if !bi.IsInt64() {
-			return fmt.Errorf("value overflow: %s exceeds Decimal64 range", v.String())
+			return fmt.Errorf("value %s overflows decimal64 range", v.String())
 		}
 		vCol.Append(proto.Decimal64(uint64(bi.Int64())))
 	case *proto.ColDecimal128:
 		bi := decimal.NewFromBigInt(v.Coefficient(), v.Exponent()+int32(col.scale)).BigInt()
 		dest := make([]byte, 16)
 		if err := bigIntToRaw(dest, bi, true); err != nil {
-			return fmt.Errorf("value overflow: %s exceeds Decimal128 range", v.String())
+			return fmt.Errorf("value %s overflows decimal128 range", v.String())
 		}
 		vCol.Append(proto.Decimal128{
 			Low:  binary.LittleEndian.Uint64(dest[0 : 64/8]),
@@ -289,7 +288,7 @@ func (col *Decimal) append(v *decimal.Decimal) error {
 		bi := decimal.NewFromBigInt(v.Coefficient(), v.Exponent()+int32(col.scale)).BigInt()
 		dest := make([]byte, 32)
 		if err := bigIntToRaw(dest, bi, true); err != nil {
-			return fmt.Errorf("value overflow: %s exceeds Decimal256 range", v.String())
+			return fmt.Errorf("value %s overflows decimal256 range", v.String())
 		}
 		vCol.Append(proto.Decimal256{
 			Low: proto.UInt128{
