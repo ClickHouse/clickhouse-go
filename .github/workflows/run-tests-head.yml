@@ -16,6 +16,7 @@ jobs:
     strategy:
       matrix:
         go:
+          - "1.26"
           - "1.25"
         clickhouse:
           - "head"
