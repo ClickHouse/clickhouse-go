@@ -29,6 +29,12 @@ jobs:
         with:
           go-version: ${{ matrix.go }}
 
+      - name: Pull latest clickhouse-server:${{ matrix.clickhouse }} image
+        # The `head` tag is mutable: it is re-tagged on every upstream build.
+        # Self-hosted runners cache images by tag, so without an explicit pull
+        # the job would keep running against whichever `head` was first cached.
+        run: docker pull clickhouse/clickhouse-server:${{ matrix.clickhouse }}
+
       - name: Tests
         env:
           TESTCONTAINERS_RYUK_DISABLED: "true"
