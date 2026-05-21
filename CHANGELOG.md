@@ -1,3 +1,25 @@
+# v2.46.0, 2026-05-03 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+
+### Enhancements :tada: 
+* feat: add tls_server_name to set TLS ServerName by @must108 in https://github.com/ClickHouse/clickhouse-go/pull/1836
+
+### Bug Fixes :bug: 
+* fix: lowcardinality nil map panic by @Laotree in https://github.com/ClickHouse/clickhouse-go/pull/1830
+* fix: choosing serialization version correctly in JSON column type by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1850
+
+### Other Changes 🛠
+* docs: Add documentation for driver.Batch by @must108 in https://github.com/ClickHouse/clickhouse-go/pull/1838
+* docs: clarify HTTP compression modes by @must108 in https://github.com/ClickHouse/clickhouse-go/pull/1837
+* upgrade to Golangci-lint v2; add lint to CI by @alexandear in https://github.com/ClickHouse/clickhouse-go/pull/1832
+
+## New Contributors
+* @must108 made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1838
+* @alexandear made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1832
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.45.0...v2.46.0
+
 # v2.45.0, 2026-04-13 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
