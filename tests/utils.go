@@ -935,14 +935,14 @@ func OptionsToDSN(o *clickhouse.Options) string {
 		switch v := v.(type) {
 		case bool:
 			if v {
-				params.Set(k, "true")
+				params.Set(string(k), "true")
 			} else {
-				params.Set(k, "false")
+				params.Set(string(k), "false")
 			}
 		case int:
-			params.Set(k, strconv.Itoa(v))
+			params.Set(string(k), strconv.Itoa(v))
 		case string:
-			params.Set(k, v)
+			params.Set(string(k), v)
 		}
 	}
 
