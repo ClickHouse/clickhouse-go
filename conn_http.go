@@ -194,7 +194,7 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 			v = cv.Value
 		}
 
-		query.Set(k, fmt.Sprint(v))
+		query.Set(string(k), fmt.Sprint(v))
 	}
 
 	query.Set("default_format", "Native")
@@ -642,7 +642,7 @@ func (h *httpConnect) createRequest(ctx context.Context, requestUrl string, read
 			if cv, ok := value.(CustomSetting); ok {
 				value = cv.Value
 			}
-			query.Set(key, fmt.Sprint(value))
+			query.Set(string(key), fmt.Sprint(value))
 		}
 		for key, value := range options.parameters {
 			query.Set(fmt.Sprintf("param_%s", key), value)
