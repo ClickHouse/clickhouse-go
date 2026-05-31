@@ -17,24 +17,24 @@ var _contextOptionKey = &QueryOptions{
 	},
 }
 
-// type-safe of Common settings
-type SettingsType string
+// SettingsType identifies a ClickHouse setting name.
+type SettingsType = string
 
 const (
-	//Query timeout in seconds (int)
+	// MaxExecutionTime is the query timeout in seconds (int).
 	MaxExecutionTime SettingsType = "max_execution_time"
 
-	//Memory limit per query (int)
+	// MaxMemoryUsage is the memory limit per query (int).
 	MaxMemoryUsage SettingsType = "max_memory_usage"
 
-	//Block size for processing (int)
+	// MaxBlockSize is the block size for processing (int).
 	MaxBlockSize SettingsType = "max_block_size"
 
-	//1 = read-only, 2 = read-only + settings changes (int)
+	// Readonly sets read-only mode: 1 = read-only, 2 = read-only + settings changes (int).
 	Readonly SettingsType = "readonly"
 )
 
-type Settings map[SettingsType]any
+type Settings map[string]any
 
 // CustomSetting is a helper struct to distinguish custom settings from important ones.
 // For native protocol, is_important flag is set to value 0x02 (see https://github.com/ClickHouse/ClickHouse/blob/c873560fe7185f45eed56520ec7d033a7beb1551/src/Core/BaseSettings.h#L516-L521)
