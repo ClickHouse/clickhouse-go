@@ -173,11 +173,11 @@ func (c *connect) settings(querySettings Settings) []proto.Setting {
 
 	settings := make([]proto.Setting, 0, len(c.opt.Settings)+len(querySettings))
 	for k, v := range c.opt.Settings {
-		settings = append(settings, settingToProtoSetting(string(k), v))
+		settings = append(settings, settingToProtoSetting(k, v))
 	}
 
 	for k, v := range querySettings {
-		settings = append(settings, settingToProtoSetting(string(k), v))
+		settings = append(settings, settingToProtoSetting(k, v))
 	}
 
 	return settings

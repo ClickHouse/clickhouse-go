@@ -17,21 +17,18 @@ var _contextOptionKey = &QueryOptions{
 	},
 }
 
-// SettingsType identifies a ClickHouse setting name.
-type SettingsType = string
-
 const (
 	// MaxExecutionTime is the query timeout in seconds (int).
-	MaxExecutionTime SettingsType = "max_execution_time"
+	MaxExecutionTime string = "max_execution_time"
 
 	// MaxMemoryUsage is the memory limit per query (int).
-	MaxMemoryUsage SettingsType = "max_memory_usage"
+	MaxMemoryUsage string = "max_memory_usage"
 
 	// MaxBlockSize is the block size for processing (int).
-	MaxBlockSize SettingsType = "max_block_size"
+	MaxBlockSize string = "max_block_size"
 
 	// Readonly sets read-only mode: 1 = read-only, 2 = read-only + settings changes (int).
-	Readonly SettingsType = "readonly"
+	Readonly string = "readonly"
 )
 
 type Settings map[string]any
