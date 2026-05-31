@@ -359,14 +359,14 @@ func (o *Options) fromDSN(in string) error {
 		default:
 			switch p := strings.ToLower(params.Get(v)); p {
 			case "true":
-				o.Settings[SettingsType(v)] = int(1)
+				o.Settings[v] = int(1)
 			case "false":
-				o.Settings[SettingsType(v)] = int(0)
+				o.Settings[v] = int(0)
 			default:
 				if n, err := strconv.Atoi(p); err == nil {
-					o.Settings[SettingsType(v)] = n
+					o.Settings[v] = n
 				} else {
-					o.Settings[SettingsType(v)] = p
+					o.Settings[v] = p
 				}
 			}
 		}
