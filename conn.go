@@ -339,6 +339,14 @@ func (c *connect) sendData(block *proto.Block, name string) error {
 			c.setClosed()
 			return fmt.Errorf("send data: unexpected EOF to %s (conn_id=%d, block_cols=%d, block_rows=%d): %w",
 				c.conn.RemoteAddr(), c.id, len(block.Columns), block.Rows(), err)
+		case errors.As(err, new(*net.OpError)):
+			c.logger.Error("connection broken: write error",
+				slog.Any("error", err),
+				slog.Int("block_columns", len(block.Columns)),
+				slog.Int("block_rows", block.Rows()))
+			c.setClosed()
+			return fmt.Errorf("send data: write error to %s (conn_id=%d, block_cols=%d, block_rows=%d): %w",
+				c.conn.RemoteAddr(), c.id, len(block.Columns), block.Rows(), err)
 		default:
 			c.logger.Error("send data failed",
 				slog.Any("error", err),
