@@ -7,11 +7,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // controlCharCases is the shared set of test cases used by all 1792 tests.
@@ -93,7 +94,8 @@ func Test1792HTTP(t *testing.T) {
 }
 
 // Test1792Std verifies that String query parameters containing control characters
-// round-trip correctly through the database/sql interface using clickhouse.Named().
+// round-trip correctly through the database/sql interface using clickhouse.Named()
+// over the HTTP protocol.
 func Test1792Std(t *testing.T) {
 	env, err := clickhouse_tests.GetTestEnvironment(testSet)
 	require.NoError(t, err)
@@ -117,10 +119,54 @@ func Test1792Std(t *testing.T) {
 		t.Skipf("unsupported clickhouse version")
 	}
 
+	ctx := context.Background()
+
 	for _, tc := range controlCharCases {
 		t.Run(tc.name, func(t *testing.T) {
 			var got string
-			row := db.QueryRow(
+			row := db.QueryRowContext(ctx,
+				"SELECT {str:String}",
+				clickhouse.Named("str", tc.value),
+			)
+			require.NoError(t, row.Err())
+			require.NoError(t, row.Scan(&got))
+			assert.Equal(t, tc.value, got)
+		})
+	}
+}
+
+// Test1792StdTCP verifies that String query parameters containing control characters
+// round-trip correctly through the database/sql interface using clickhouse.Named()
+// over the native TCP protocol.
+func Test1792StdTCP(t *testing.T) {
+	env, err := clickhouse_tests.GetTestEnvironment(testSet)
+	require.NoError(t, err)
+
+	db := clickhouse.OpenDB(&clickhouse.Options{
+		Addr:     []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},
+		Protocol: clickhouse.Native,
+		Auth: clickhouse.Auth{
+			Database: env.Database,
+			Username: env.Username,
+			Password: env.Password,
+		},
+		Settings: clickhouse.Settings{
+			"max_execution_time": 60,
+		},
+		DialTimeout: 5 * time.Second,
+	})
+	defer db.Close()
+
+	if !checkStdMinVersion(db, 22, 8, 0) {
+		t.Skipf("unsupported clickhouse version")
+	}
+
+	ctx := context.Background()
+
+	for _, tc := range controlCharCases {
+		t.Run(tc.name, func(t *testing.T) {
+			var got string
+			row := db.QueryRowContext(ctx,
 				"SELECT {str:String}",
 				clickhouse.Named("str", tc.value),
 			)
@@ -138,6 +184,8 @@ func checkStdMinVersion(db *sql.DB, major, minor, patch uint64) bool {
 		return false
 	}
 	var v proto.Version
-	fmt.Sscanf(version, "%d.%d.%d", &v.Major, &v.Minor, &v.Patch)
+	if _, err := fmt.Sscanf(version, "%d.%d.%d", &v.Major, &v.Minor, &v.Patch); err != nil {
+		return false
+	}
 	return proto.CheckMinVersion(proto.Version{Major: major, Minor: minor, Patch: patch}, v)
 }
