@@ -4,8 +4,9 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
-	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
+
+	"github.com/ClickHouse/ch-go/proto"
 
 	"github.com/google/uuid"
 )

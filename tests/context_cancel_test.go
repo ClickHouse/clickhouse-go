@@ -2,16 +2,19 @@ package tests
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"log"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
 )
 
 func TestContextCancellationOfHeavyGeneratedInsert(t *testing.T) {
@@ -228,10 +231,24 @@ func TestContextCancellationNoConnectionSlotLeak(t *testing.T) {
 		env, err := GetNativeTestEnvironment()
 		assert.Nil(t, err)
 
+		useSSL, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_SSL", "false"))
+		require.NoError(t, err)
+
 		// Select the correct port based on protocol
 		port := env.Port
-		if protocol == clickhouse.HTTP {
+		var tlsConfig *tls.Config
+		if useSSL {
+			tlsConfig = &tls.Config{}
+		}
+		switch {
+		case protocol == clickhouse.HTTP && useSSL:
+			port = env.HttpsPort
+		case protocol == clickhouse.HTTP && !useSSL:
 			port = env.HttpPort
+		case protocol == clickhouse.Native && useSSL:
+			port = env.SslPort
+		case protocol == clickhouse.Native && !useSSL:
+			port = env.Port
 		}
 
 		// Create a connection with a very small pool size to make slot exhaustion obvious
@@ -246,6 +263,7 @@ func TestContextCancellationNoConnectionSlotLeak(t *testing.T) {
 			ConnMaxLifetime: 100 * time.Second, // make it explicitly larger to avoid incidentally closing it
 			MaxIdleConns:    5,                 // there can be max 5 connections on the pool
 			Protocol:        protocol,
+			TLS:             tlsConfig,
 		}
 
 		conn, err := clickhouse.Open(opts)

@@ -12,9 +12,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
 )
 
 func TestConn(t *testing.T) {
@@ -554,7 +555,9 @@ func TestJWTError(t *testing.T) {
 }
 
 func TestNativeJWTAuth(t *testing.T) {
-	SkipNotCloud(t)
+	// JWT on production cloud is still beta and doesn't have oauth server to take
+	// full advantage of refresh token.
+	t.Skip("JWT tests are skipped. no infra to test")
 
 	jwt := GetEnv("CLICKHOUSE_JWT", "")
 	getJWT := func(ctx context.Context) (string, error) {

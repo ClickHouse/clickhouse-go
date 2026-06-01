@@ -6,9 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
 )
 
 func setupTime64Test(t *testing.T, protocol clickhouse.Protocol) clickhouse.Conn {
@@ -21,12 +22,23 @@ func setupTime64Test(t *testing.T, protocol clickhouse.Protocol) clickhouse.Conn
 }
 
 func TestTime64(t *testing.T) {
+	// NOTE(kavi): There is bug in handling experimental settings on ClickHouse causing these tests on cloud fail
+	// disabling it till those fixes available on cloud
+	// 1. https://github.com/ClickHouse/ClickHouse/pull/99353
+	// 2. https://github.com/ClickHouse/ClickHouse/pull/99279
+	SkipOnCloud(t)
+
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
 		conn := setupTime64Test(t, protocol)
 
-		ctx := clickhouse.Context(context.Background(), clickhouse.WithSettings(clickhouse.Settings{
-			"enable_time_time64_type": 1,
-		}))
+		ctx := context.Background()
+		// Since 25.12, enable_time_time64_type defaults to 1, no need to set explicitly
+		// https://clickhouse.com/docs/operations/settings/settings#enable_time_time64_type
+		if !CheckMinServerServerVersion(conn, 25, 12, 0) {
+			ctx = clickhouse.Context(ctx, clickhouse.WithSettings(clickhouse.Settings{
+				"enable_time_time64_type": 1,
+			}))
+		}
 
 		tableName := fmt.Sprintf("test_time64_%d", time.Now().UnixNano())
 		require.NoError(t, conn.Exec(ctx, fmt.Sprintf(`
@@ -51,6 +63,12 @@ func TestTime64(t *testing.T) {
 }
 
 func TestTime64Precision(t *testing.T) {
+	// NOTE(kavi): There is bug in handling experimental settings on ClickHouse causing these tests on cloud fail
+	// disabling it till those fixes available on cloud
+	// 1. https://github.com/ClickHouse/ClickHouse/pull/99353
+	// 2. https://github.com/ClickHouse/ClickHouse/pull/99279
+	SkipOnCloud(t)
+
 	precisionTests := []struct {
 		name      string
 		precision int
@@ -88,9 +106,14 @@ func TestTime64Precision(t *testing.T) {
 			TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
 				conn := setupTime64Test(t, protocol)
 
-				ctx := clickhouse.Context(context.Background(), clickhouse.WithSettings(clickhouse.Settings{
-					"enable_time_time64_type": 1,
-				}))
+				ctx := context.Background()
+				// Since 25.12, enable_time_time64_type defaults to 1, no need to set explicitly
+				// https://clickhouse.com/docs/operations/settings/settings#enable_time_time64_type
+				if !CheckMinServerServerVersion(conn, 25, 12, 0) {
+					ctx = clickhouse.Context(ctx, clickhouse.WithSettings(clickhouse.Settings{
+						"enable_time_time64_type": 1,
+					}))
+				}
 
 				tableName := fmt.Sprintf("test_time64_prec_%d_%d", tt.precision, time.Now().UnixNano())
 				require.NoError(t, conn.Exec(ctx, fmt.Sprintf(`
@@ -114,12 +137,23 @@ func TestTime64Precision(t *testing.T) {
 }
 
 func TestTime64EdgeCases(t *testing.T) {
+	// NOTE(kavi): There is bug in handling experimental settings on ClickHouse causing these tests on cloud fail
+	// disabling it till those fixes available on cloud
+	// 1. https://github.com/ClickHouse/ClickHouse/pull/99353
+	// 2. https://github.com/ClickHouse/ClickHouse/pull/99279
+	SkipOnCloud(t)
+
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
 		conn := setupTime64Test(t, protocol)
 
-		ctx := clickhouse.Context(context.Background(), clickhouse.WithSettings(clickhouse.Settings{
-			"enable_time_time64_type": 1,
-		}))
+		ctx := context.Background()
+		// Since 25.12, enable_time_time64_type defaults to 1, no need to set explicitly
+		// https://clickhouse.com/docs/operations/settings/settings#enable_time_time64_type
+		if !CheckMinServerServerVersion(conn, 25, 12, 0) {
+			ctx = clickhouse.Context(ctx, clickhouse.WithSettings(clickhouse.Settings{
+				"enable_time_time64_type": 1,
+			}))
+		}
 
 		tableName := fmt.Sprintf("test_time64_edge_%d", time.Now().UnixNano())
 		require.NoError(t, conn.Exec(ctx, fmt.Sprintf(`
@@ -170,12 +204,23 @@ func TestTime64EdgeCases(t *testing.T) {
 }
 
 func TestTime64Array(t *testing.T) {
+	// NOTE(kavi): There is bug in handling experimental settings on ClickHouse causing these tests on cloud fail
+	// disabling it till those fixes available on cloud
+	// 1. https://github.com/ClickHouse/ClickHouse/pull/99353
+	// 2. https://github.com/ClickHouse/ClickHouse/pull/99279
+	SkipOnCloud(t)
+
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
 		conn := setupTime64Test(t, protocol)
 
-		ctx := clickhouse.Context(context.Background(), clickhouse.WithSettings(clickhouse.Settings{
-			"enable_time_time64_type": 1,
-		}))
+		ctx := context.Background()
+		// Since 25.12, enable_time_time64_type defaults to 1, no need to set explicitly
+		// https://clickhouse.com/docs/operations/settings/settings#enable_time_time64_type
+		if !CheckMinServerServerVersion(conn, 25, 12, 0) {
+			ctx = clickhouse.Context(ctx, clickhouse.WithSettings(clickhouse.Settings{
+				"enable_time_time64_type": 1,
+			}))
+		}
 
 		tableName := fmt.Sprintf("test_time64_array_%d", time.Now().UnixNano())
 		require.NoError(t, conn.Exec(ctx, fmt.Sprintf(`
@@ -207,12 +252,23 @@ func TestTime64Array(t *testing.T) {
 }
 
 func TestTime64Nullable(t *testing.T) {
+	// NOTE(kavi): There is bug in handling experimental settings on ClickHouse causing these tests on cloud fail
+	// disabling it till those fixes available on cloud
+	// 1. https://github.com/ClickHouse/ClickHouse/pull/99353
+	// 2. https://github.com/ClickHouse/ClickHouse/pull/99279
+	SkipOnCloud(t)
+
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
 		conn := setupTime64Test(t, protocol)
 
-		ctx := clickhouse.Context(context.Background(), clickhouse.WithSettings(clickhouse.Settings{
-			"enable_time_time64_type": 1,
-		}))
+		ctx := context.Background()
+		// Since 25.12, enable_time_time64_type defaults to 1, no need to set explicitly
+		// https://clickhouse.com/docs/operations/settings/settings#enable_time_time64_type
+		if !CheckMinServerServerVersion(conn, 25, 12, 0) {
+			ctx = clickhouse.Context(ctx, clickhouse.WithSettings(clickhouse.Settings{
+				"enable_time_time64_type": 1,
+			}))
+		}
 
 		tableName := fmt.Sprintf("test_time64_nullable_%d", time.Now().UnixNano())
 		require.NoError(t, conn.Exec(ctx, fmt.Sprintf(`
@@ -252,12 +308,23 @@ func TestTime64Nullable(t *testing.T) {
 }
 
 func TestTime64MultipleRows(t *testing.T) {
+	// NOTE(kavi): There is bug in handling experimental settings on ClickHouse causing these tests on cloud fail
+	// disabling it till those fixes available on cloud
+	// 1. https://github.com/ClickHouse/ClickHouse/pull/99353
+	// 2. https://github.com/ClickHouse/ClickHouse/pull/99279
+	SkipOnCloud(t)
+
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
 		conn := setupTime64Test(t, protocol)
 
-		ctx := clickhouse.Context(context.Background(), clickhouse.WithSettings(clickhouse.Settings{
-			"enable_time_time64_type": 1,
-		}))
+		ctx := context.Background()
+		// Since 25.12, enable_time_time64_type defaults to 1, no need to set explicitly
+		// https://clickhouse.com/docs/operations/settings/settings#enable_time_time64_type
+		if !CheckMinServerServerVersion(conn, 25, 12, 0) {
+			ctx = clickhouse.Context(ctx, clickhouse.WithSettings(clickhouse.Settings{
+				"enable_time_time64_type": 1,
+			}))
+		}
 
 		tableName := fmt.Sprintf("test_time64_multi_%d", time.Now().UnixNano())
 		require.NoError(t, conn.Exec(ctx, fmt.Sprintf(`

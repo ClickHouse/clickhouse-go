@@ -5,13 +5,14 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"github.com/ClickHouse/clickhouse-go/v2"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 )
 
 func GetStdTestEnvironment() (clickhouse_tests.ClickHouseTestEnvironment, error) {

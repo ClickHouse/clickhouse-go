@@ -4,9 +4,10 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
-	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
 	"strings"
+
+	"github.com/ClickHouse/ch-go/proto"
 )
 
 // https://github.com/ClickHouse/ClickHouse/blob/master/src/Columns/ColumnMap.cpp
@@ -48,7 +49,7 @@ func (col *Map) Name() string {
 
 func (col *Map) parse(t Type, sc *ServerContext) (_ Interface, err error) {
 	col.chType = t
-	types := make([]string, 2, 2)
+	types := make([]string, 2)
 	typeParams := t.params()
 	idx := strings.Index(typeParams, ",")
 	if strings.HasPrefix(typeParams, "Enum") {

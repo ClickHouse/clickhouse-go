@@ -2,8 +2,9 @@ package clickhouse
 
 import (
 	"context"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 	"time"
+
+	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 
 func (c *connect) exec(ctx context.Context, query string, args ...any) error {
@@ -23,7 +24,6 @@ func (c *connect) exec(ctx context.Context, query string, args ...any) error {
 		c.conn.SetDeadline(deadline)
 		defer c.conn.SetDeadline(time.Time{})
 	}
-	options.injectSendProfileEvents(c.opt.Settings, c.server.Version)
 	if err := c.sendQuery(body, &options); err != nil {
 		return err
 	}

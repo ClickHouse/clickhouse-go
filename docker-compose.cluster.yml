@@ -41,6 +41,7 @@ services:
   nginx:
     image: 'nginx:1.23.1-alpine'
     hostname: nginx
+    container_name: clickhouse-go-nginx
     ports:
       - '8123:8123'
       - '9000:9000'
@@ -48,4 +49,3 @@ services:
       - './.docker/nginx/http.conf:/etc/nginx/conf.d/http.conf'
       - './.docker/nginx/tcp.conf:/etc/nginx/conf.d/tcp.conf'
       - './.docker/nginx/nginx.conf:/etc/nginx/nginx.conf'
-    container_name: clickhouse-go-nginx

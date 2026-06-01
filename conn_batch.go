@@ -26,7 +26,6 @@ func (c *connect) prepareBatch(ctx context.Context, release nativeTransportRelea
 	}
 
 	options := queryOptions(ctx)
-	options.injectSendProfileEvents(c.opt.Settings, c.server.Version)
 	if deadline, ok := ctx.Deadline(); ok {
 		c.conn.SetDeadline(deadline)
 		defer c.conn.SetDeadline(time.Time{})
@@ -251,7 +250,6 @@ func (b *batch) resetConnection() (err error) {
 	}()
 
 	options := queryOptions(b.ctx)
-	options.injectSendProfileEvents(b.conn.opt.Settings, b.conn.server.Version)
 	if deadline, ok := b.ctx.Deadline(); ok {
 		b.conn.conn.SetDeadline(deadline)
 		defer b.conn.conn.SetDeadline(time.Time{})
@@ -328,14 +326,11 @@ func (b *batch) Close() error {
 		return nil
 	}
 
-	if err := b.closeQuery(); err != nil {
-		return err
-	}
+	err := b.closeQuery()
 	b.sent = true
+	b.release(err)
 
-	b.release(nil)
-
-	return nil
+	return err
 }
 
 type batchColumn struct {
