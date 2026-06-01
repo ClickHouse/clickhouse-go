@@ -228,9 +228,12 @@ func (s *Parameter) encode(buffer *chproto.Buffer, revision uint64) error {
 //
 // Characters must therefore be double-encoded so that after readQuoted the result
 // remains valid TSV-escaped input for deserializeTextEscaped.
+//
+// NOTE: TCP uses double-encoding (readQuoted then deserializeTextEscaped).
+// For HTTP single-stage TSV encoding, see httpQueryParamReplacer in conn_http.go.
 var fieldDumpReplacer = strings.NewReplacer(
 	`\`, `\\\\`, // backslash → 4 backslashes: readQuoted produces \\, deserializeTextEscaped produces \
-	`'`, `\'`,   // single quote → \': readQuoted produces ', not special in TSV
+	`'`, `\'`,   // single quote → \': prevents premature string termination in readQuoted
 	"\t", `\\t`, // tab → \\t: readQuoted produces \t (literal), deserializeTextEscaped produces tab
 	"\n", `\\n`, // newline → \\n: readQuoted produces \n (literal), deserializeTextEscaped produces newline
 	"\r", `\\r`, // CR → \\r: readQuoted produces \r (literal), deserializeTextEscaped produces CR

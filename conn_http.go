@@ -39,6 +39,9 @@ const (
 // raw tab/newline/CR are treated as field/record delimiters and cause parse errors,
 // while backslash introduces escape sequences (\t = tab, \n = newline, \\ = backslash).
 // Characters must therefore be encoded so the server reconstructs the original string.
+//
+// NOTE: HTTP uses single-stage TSV encoding (deserializeTextEscaped only).
+// For TCP double-stage encoding, see fieldDumpReplacer in lib/proto/query.go.
 var httpQueryParamReplacer = strings.NewReplacer(
 	`\`, `\\`,    // backslash → \\: server reads \\ as \
 	"\t", `\t`,   // tab → \t: server reads \t as tab
