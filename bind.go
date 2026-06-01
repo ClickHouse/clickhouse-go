@@ -391,7 +391,7 @@ func format(tz *time.Location, scale TimeUnit, v any) (string, error) {
 }
 
 func join[E any](tz *time.Location, scale TimeUnit, values []E) (string, error) {
-	items := make([]string, len(values), len(values))
+	items := make([]string, len(values))
 	for i := range values {
 		val, err := format(tz, scale, values[i])
 		if err != nil {

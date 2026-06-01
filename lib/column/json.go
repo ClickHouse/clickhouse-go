@@ -1,6 +1,9 @@
 package column
 
 import (
+	"database/sql"
+	"database/sql/driver"
+	"encoding/json"
 	"fmt"
 	"math"
 	"reflect"
@@ -8,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/ClickHouse/ch-go/proto"
+
 	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/chcol"
 )
@@ -18,6 +22,9 @@ const JSONObjectSerializationVersion uint64 = 3
 const JSONUnsetSerializationVersion uint64 = math.MaxUint64
 const DefaultMaxDynamicPaths = 1024
 
+// JSON implements ClickHouse JSON column on the native protocol layer.
+// We choose how to encode the JSON based on serializationVersion.
+// It can be either plain string or object type with newer server support.
 type JSON struct {
 	chType Type
 	sc     *ServerContext
@@ -25,6 +32,12 @@ type JSON struct {
 	rows   int
 
 	serializationVersion uint64
+	// pendingNullRows holds null-row counts received before a serialization
+	// mode has been latched. A null row carries no mode preference, so we
+	// defer the mode decision until a non-null row arrives. Pending nulls
+	// are flushed to the latched backing column inside reconcileMode, or —
+	// if the whole batch is null — at WriteStatePrefix using String mode.
+	pendingNullRows int
 
 	jsonStrings String
 
@@ -43,6 +56,19 @@ type JSON struct {
 	maxDynamicPaths int
 	maxDynamicTypes int
 }
+
+// jsonMode is the mode preference a value carries when offered to a JSON
+// column. It is deliberately separate from the wire-format constants
+// (JSONObjectSerializationVersion / JSONStringSerializationVersion) so the
+// classifier stays free of wire concerns and so we can express
+// "no preference" (jsonModeAny) for null-equivalent inputs.
+type jsonMode uint8
+
+const (
+	jsonModeAny    jsonMode = iota // nil / typed-nil — does not latch
+	jsonModeObject                 // struct, map, *clickhouse.JSON, JSONSerializer
+	jsonModeString                 // string, []byte, json.RawMessage, sql.NullString, Stringer, Valuer
+)
 
 func (c *JSON) parse(t Type, sc *ServerContext) (_ *JSON, err error) {
 	c.chType = t
@@ -306,34 +332,65 @@ func (c *JSON) Append(v any) (nulls []uint8, err error) {
 	case JSONStringSerializationVersion:
 		return c.appendString(v)
 	default:
-		// Unset serialization preference, try object first unless it's specifically string
+		// Typed-slice fast paths. Each routes through reconcileMode so any
+		// pending null rows (from prior AppendRow(nil) calls) get flushed
+		// into the now-latched backing column before we iterate.
 		switch v.(type) {
-		case []chcol.JSON:
-			c.serializationVersion = JSONObjectSerializationVersion
+		case []chcol.JSON, []*chcol.JSON, []chcol.JSONSerializer:
+			if err := c.reconcileMode(jsonModeObject); err != nil {
+				return nil, err
+			}
 			return c.appendObject(v)
-		case []*chcol.JSON:
-			c.serializationVersion = JSONObjectSerializationVersion
-			return c.appendObject(v)
-		case []chcol.JSONSerializer:
-			c.serializationVersion = JSONObjectSerializationVersion
-			return c.appendObject(v)
-		case string, []byte:
-			c.serializationVersion = JSONStringSerializationVersion
+		case []string, []*string,
+			[][]byte, []*[]byte,
+			[]json.RawMessage, []*json.RawMessage,
+			[]sql.NullString, []*sql.NullString:
+			// Slice of JSON-text-like values — string serialization.
+			// Append is columnar; single values (string, *string, etc.)
+			// should go through AppendRow instead.
+			if err := c.reconcileMode(jsonModeString); err != nil {
+				return nil, err
+			}
 			return c.appendString(v)
 		}
 
-		// Also route other []byte-compatible types (e.g. json.RawMessage) to string serialization
+		// Named []byte-compatible slices (e.g. user aliases of []byte).
 		if rv := reflect.ValueOf(v); rv.IsValid() && rv.Kind() == reflect.Slice && rv.Type().Elem().Kind() == reflect.Uint8 {
-			c.serializationVersion = JSONStringSerializationVersion
+			if err := c.reconcileMode(jsonModeString); err != nil {
+				return nil, err
+			}
 			return c.appendString(v)
 		}
 
+		// Fallback: appendObject iterates the slice reflectively and calls
+		// AppendRow per element. AppendRow's own classify+reconcile decides
+		// the column's mode based on what the elements actually are — do
+		// not force a mode here, or all-null slices and []string would be
+		// miscategorized.
+		//
+		// If appendObject errors *after* writing some rows (e.g.
+		// []any{"str", someStruct{}} latches String on element 0 then
+		// errors on the mode-conflict at element 1), the appendString
+		// retry would re-iterate from the start and double-write the
+		// already-appended rows. Snapshot state and skip the retry if
+		// appendObject mutated anything.
+		rowsBefore := c.rows
+		versionBefore := c.serializationVersion
 		var err error
 		if _, err = c.appendObject(v); err == nil {
-			c.serializationVersion = JSONObjectSerializationVersion
 			return nil, nil
-		} else if _, err = c.appendString(v); err == nil {
-			c.serializationVersion = JSONStringSerializationVersion
+		}
+		if c.rows != rowsBefore || c.serializationVersion != versionBefore {
+			return nil, err
+		}
+		if _, err = c.appendString(v); err == nil {
+			// appendString iterates element-by-element through appendRowString,
+			// which never calls reconcileMode. For an empty or all-null slice
+			// the version stays Unset; latch String here so WriteStatePrefix
+			// emits the correct serialization for the rows we just wrote.
+			if c.serializationVersion == JSONUnsetSerializationVersion {
+				c.serializationVersion = JSONStringSerializationVersion
+			}
 			return nil, nil
 		}
 
@@ -382,7 +439,11 @@ func (c *JSON) appendObject(v any) (nulls []uint8, err error) {
 		}
 	}
 	for i := 0; i < value.Len(); i++ {
-		if err := c.AppendRow(value.Index(i)); err != nil {
+		// Unwrap the reflect.Value to the underlying element before dispatch.
+		// Passing value.Index(i) directly would wrap a reflect.Value struct
+		// as the `any` argument, which hits structToJSON's struct path and
+		// produces an empty {} for every row — silent data loss.
+		if err := c.AppendRow(value.Index(i).Interface()); err != nil {
 			return nil, err
 		}
 	}
@@ -391,54 +452,213 @@ func (c *JSON) appendObject(v any) (nulls []uint8, err error) {
 }
 
 func (c *JSON) appendString(v any) (nulls []uint8, err error) {
-	nulls, err = c.jsonStrings.Append(v)
-	if err != nil {
-		return nil, err
+	// Iterate v element-wise and route each row through appendRowString.
+	// Delegating to String.Append directly would write "" for nil pointers
+	// and invalid sql.NullString values — both invalid JSON on the wire
+	// (server code 117) — and would panic on nil *json.RawMessage.
+	// appendRowString runs each element through isNullishForJSON, converting
+	// null-equivalent inputs to the JSON literal "null". Mirrors
+	// appendObject's reflective pattern.
+	//
+	// nulls mirrors the per-row null mask: 1 if the element was
+	// null-equivalent. Nullable(JSON).Append consumes this to populate its
+	// null bitmap; the underlying string still carries the "null" literal
+	// so the server's JSON parser does not reject the payload.
+	value := reflect.Indirect(reflect.ValueOf(v))
+	if value.Kind() != reflect.Slice {
+		return nil, &ColumnConverterError{
+			Op:   "Append",
+			To:   string(c.chType),
+			From: fmt.Sprintf("%T", v),
+			Hint: "value must be a slice",
+		}
 	}
-
-	c.rows = c.jsonStrings.Rows()
+	nulls = make([]uint8, value.Len())
+	for i := 0; i < value.Len(); i++ {
+		elem := value.Index(i).Interface()
+		// Two separate concerns share the same predicate: the outer check
+		// records the element in the per-row null mask returned to the
+		// Nullable wrapper, while appendRowString rewrites null-equivalent
+		// inputs to the JSON literal "null" so the wire payload still parses.
+		if isNullishForJSON(elem) {
+			nulls[i] = 1
+		}
+		if err := c.appendRowString(elem); err != nil {
+			return nil, err
+		}
+	}
 	return nulls, nil
 }
 
+// classifyJSONValue decides whether v should take the object or string
+// serialization path, or whether it carries no preference (null).
+//  1. Untyped nil and typed-nil pointers → jsonModeAny (deferred).
+//  2. Known object-mode types (chcol.JSON, chcol.JSONSerializer, struct/map/ptr-to-either).
+//  3. Known string-mode types (string/[]byte and their pointers, json.RawMessage,
+//     sql.NullString, named byte slices, driver.Valuer, fmt.Stringer).
+//  4. Everything else → error; never silently store as {}.
+func classifyJSONValue(v any) (jsonMode, error) {
+	if v == nil {
+		return jsonModeAny, nil
+	}
+
+	// Guard: a typed nil pointer carries no mode — same as untyped nil.
+	if rv := reflect.ValueOf(v); rv.Kind() == reflect.Pointer {
+		if rv.IsNil() {
+			return jsonModeAny, nil
+		}
+		// can be *any. Should be treated as jsonModeAny and deferred as well.
+		if rv.Elem().Kind() == reflect.Interface && rv.Elem().IsNil() {
+			return jsonModeAny, nil
+		}
+	}
+
+	// Fast path for common exact types.
+	switch v.(type) {
+	case chcol.JSON, *chcol.JSON, chcol.JSONSerializer:
+		return jsonModeObject, nil
+	case string, *string,
+		[]byte, *[]byte,
+		json.RawMessage, *json.RawMessage,
+		sql.NullString, *sql.NullString:
+		return jsonModeString, nil
+	}
+
+	rv := reflect.ValueOf(v)
+	switch rv.Kind() {
+	case reflect.Struct, reflect.Map:
+		return jsonModeObject, nil
+
+	case reflect.Slice:
+		// Named []byte types (e.g. user aliases of []byte) → string mode.
+		if rv.Type().Elem().Kind() == reflect.Uint8 {
+			return jsonModeString, nil
+		}
+
+	case reflect.Pointer:
+		switch rv.Elem().Kind() {
+		case reflect.Struct, reflect.Map:
+			return jsonModeObject, nil
+		case reflect.String:
+			return jsonModeString, nil
+		case reflect.Slice:
+			if rv.Elem().Type().Elem().Kind() == reflect.Uint8 {
+				return jsonModeString, nil
+			}
+		}
+	}
+
+	// Interface-based fallbacks. driver.Valuer before fmt.Stringer — the SQL
+	// ecosystem convention is that Value() drives serialization.
+	if _, ok := v.(driver.Valuer); ok {
+		return jsonModeString, nil
+	}
+	if _, ok := v.(fmt.Stringer); ok {
+		return jsonModeString, nil
+	}
+
+	return 0, fmt.Errorf(
+		"clickhouse: cannot append value of type %T to JSON column; "+
+			"use string, []byte, json.RawMessage, *clickhouse.JSON, a struct, a map, "+
+			"or a type implementing clickhouse.JSONSerializer",
+		v)
+}
+
+// reconcileMode latches the column's serialization version on the first
+// non-null row and rejects any subsequent row that disagrees. When
+// latching transitions the column from Unset to Object/String, any pending
+// null rows are flushed into the newly-chosen backing column.
+func (c *JSON) reconcileMode(m jsonMode) error {
+	if m == jsonModeAny {
+		return nil
+	}
+	want := JSONObjectSerializationVersion
+	if m == jsonModeString {
+		want = JSONStringSerializationVersion
+	}
+
+	if c.serializationVersion == JSONUnsetSerializationVersion {
+		c.serializationVersion = want
+		return c.flushPendingNulls()
+	}
+	if c.serializationVersion == want {
+		return nil
+	}
+	return fmt.Errorf(
+		"clickhouse: JSON column is already using %s serialization after row %d; "+
+			"cannot append a value that requires %s serialization; "+
+			"the wire format allows only one serialization version per column per block — "+
+			"every row in a batch must use the same mode",
+		serializationVersionName(c.serializationVersion),
+		c.rows,
+		serializationVersionName(want),
+	)
+}
+
+// flushPendingNulls writes buffered null rows into the currently-latched
+// backing column. c.rows was already bumped when each null was queued, so
+// we subtract the pending count first and let the per-row append helpers
+// re-increment it.
+func (c *JSON) flushPendingNulls() error {
+	if c.pendingNullRows == 0 {
+		return nil
+	}
+	pending := c.pendingNullRows
+	c.pendingNullRows = 0
+	c.rows -= pending
+	for i := 0; i < pending; i++ {
+		var err error
+		switch c.serializationVersion {
+		case JSONObjectSerializationVersion:
+			err = c.appendRowObject(nil)
+		case JSONStringSerializationVersion:
+			err = c.appendRowString(nil)
+		default:
+			return fmt.Errorf("clickhouse: cannot flush %d pending null row(s): no serialization version latched", pending)
+		}
+		if err != nil {
+			return fmt.Errorf("clickhouse: flush pending null row %d: %w", i, err)
+		}
+	}
+	return nil
+}
+
+func serializationVersionName(v uint64) string {
+	switch v {
+	case JSONObjectSerializationVersion, JSONDeprecatedObjectSerializationVersion:
+		return "object"
+	case JSONStringSerializationVersion:
+		return "string"
+	}
+	return "unset"
+}
+
 func (c *JSON) AppendRow(v any) error {
+	mode, err := classifyJSONValue(v)
+	if err != nil {
+		return err
+	}
+
+	// Null rows defer the mode decision. Flushed later, either when a
+	// non-null row arrives (via reconcileMode) or at WriteStatePrefix for
+	// all-null batches.
+	if mode == jsonModeAny && c.serializationVersion == JSONUnsetSerializationVersion {
+		c.pendingNullRows++
+		c.rows++
+		return nil
+	}
+
+	if err := c.reconcileMode(mode); err != nil {
+		return err
+	}
+
 	switch c.serializationVersion {
 	case JSONObjectSerializationVersion:
 		return c.appendRowObject(v)
 	case JSONStringSerializationVersion:
 		return c.appendRowString(v)
 	default:
-		// Unset serialization preference, try object first unless it's specifically string
-		switch v.(type) {
-		case chcol.JSON:
-			c.serializationVersion = JSONObjectSerializationVersion
-			return c.appendRowObject(v)
-		case *chcol.JSON:
-			c.serializationVersion = JSONObjectSerializationVersion
-			return c.appendRowObject(v)
-		case chcol.JSONSerializer:
-			c.serializationVersion = JSONObjectSerializationVersion
-			return c.appendRowObject(v)
-		case string, []byte:
-			c.serializationVersion = JSONStringSerializationVersion
-			return c.appendRowString(v)
-		}
-
-		// Also route other []byte-compatible types (e.g. json.RawMessage) to string serialization
-		if rv := reflect.ValueOf(v); rv.IsValid() && rv.Kind() == reflect.Slice && rv.Type().Elem().Kind() == reflect.Uint8 {
-			c.serializationVersion = JSONStringSerializationVersion
-			return c.appendRowString(v)
-		}
-
-		var err error
-		if err = c.appendRowObject(v); err == nil {
-			c.serializationVersion = JSONObjectSerializationVersion
-			return nil
-		} else if err = c.appendRowString(v); err == nil {
-			c.serializationVersion = JSONStringSerializationVersion
-			return nil
-		}
-
-		return fmt.Errorf("unsupported type \"%s\" for JSON column, must use string, []byte, *struct, map, or *clickhouse.JSON: %w", reflect.TypeOf(v).String(), err)
+		return fmt.Errorf("clickhouse: JSON column in unexpected serialization state %d", c.serializationVersion)
 	}
 }
 
@@ -461,9 +681,21 @@ func (c *JSON) appendRowObject(v any) error {
 		var err error
 		switch val := reflect.ValueOf(v); val.Kind() {
 		case reflect.Pointer:
-			if val.Elem().Kind() == reflect.Struct {
+			// A nil pointer, or a pointer whose target is a nil interface,
+			// represents a null row — normalize to nil so the tail handles it.
+			if val.IsNil() {
+				v = nil
+				break
+			}
+			elem := val.Elem()
+			switch elem.Kind() {
+			case reflect.Interface:
+				if elem.IsNil() {
+					v = nil
+				}
+			case reflect.Struct:
 				obj, err = structToJSON(v)
-			} else if val.Elem().Kind() == reflect.Map {
+			case reflect.Map:
 				obj, err = mapToJSON(v)
 			}
 		case reflect.Struct:
@@ -478,6 +710,15 @@ func (c *JSON) appendRowObject(v any) error {
 	}
 
 	if obj == nil {
+		// A nil value represents a null row (e.g. from Nullable(JSON)) — the
+		// null mask at the wrapper layer hides this payload, so emitting an
+		// empty object keeps typed/dynamic sub-column row counts in sync.
+		// For a non-nil value that reached this point, no branch above knew
+		// how to convert it; returning an error is essential to avoid silent
+		// data loss (caller sees a success and reads back `{}`).
+		if v != nil {
+			return fmt.Errorf("clickhouse: cannot append value of type %T to JSON column in object mode; use string, []byte, *clickhouse.JSON, a struct, a map, or a type implementing clickhouse.JSONSerializer", v)
+		}
 		obj = chcol.NewJSON()
 	}
 	valuesByPath := obj.ValuesByPath()
@@ -487,7 +728,7 @@ func (c *JSON) appendRowObject(v any) error {
 		// Even if value is nil, we must append a value for this row.
 		// nil is a valid value for most column types, with most implementations putting a zero value.
 		// If the column doesn't support appending nil, then the user must provide a zero value.
-		value, _ := valuesByPath[typedPath]
+		value := valuesByPath[typedPath]
 
 		col := c.typedColumns[i]
 		err := col.AppendRow(value)
@@ -544,6 +785,15 @@ func (c *JSON) appendRowObject(v any) error {
 }
 
 func (c *JSON) appendRowString(v any) error {
+	// In String serialization the server parses every row's payload as JSON,
+	// even Nullable(JSON) rows that the null mask will later hide. An empty
+	// payload ("") fails server-side with "Cannot parse JSON object here"
+	// (code 117). For null-equivalent inputs we emit the JSON literal "null"
+	// instead — valid JSON that parses, then the null mask (when present)
+	// masks it back to NULL on read.
+	if isNullishForJSON(v) {
+		v = "null"
+	}
 	err := c.jsonStrings.AppendRow(v)
 	if err != nil {
 		return err
@@ -551,6 +801,30 @@ func (c *JSON) appendRowString(v any) error {
 
 	c.rows++
 	return nil
+}
+
+// isNullishForJSON returns true if v should be encoded as the JSON literal
+// "null" when written through the String column. This catches the common
+// null-equivalent spellings that the underlying String column would
+// otherwise write as "" (invalid JSON on the wire).
+func isNullishForJSON(v any) bool {
+	if v == nil {
+		return true
+	}
+	switch vv := v.(type) {
+	case sql.NullString:
+		return !vv.Valid
+	case *sql.NullString:
+		return vv == nil || !vv.Valid
+	}
+	rv := reflect.ValueOf(v)
+	if !rv.IsValid() {
+		return true
+	}
+	if rv.Kind() == reflect.Pointer && rv.IsNil() {
+		return true
+	}
+	return false
 }
 
 func (c *JSON) encodeObjectHeader(buffer *proto.Buffer) error {
@@ -593,6 +867,16 @@ func (c *JSON) encodeStringData(buffer *proto.Buffer) {
 }
 
 func (c *JSON) WriteStatePrefix(buffer *proto.Buffer) error {
+	// If the batch is entirely null rows (all deferred), latch to String
+	// now — it's the cheapest on-wire encoding — and flush the pending
+	// nulls as JSON "null" payloads so the server accepts the block.
+	if c.serializationVersion == JSONUnsetSerializationVersion && c.pendingNullRows > 0 {
+		c.serializationVersion = JSONStringSerializationVersion
+		if err := c.flushPendingNulls(); err != nil {
+			return err
+		}
+	}
+
 	switch c.serializationVersion {
 	case JSONObjectSerializationVersion:
 		if supportsFlatDynamicJSON(c.sc) {
@@ -608,7 +892,7 @@ func (c *JSON) WriteStatePrefix(buffer *proto.Buffer) error {
 		return nil
 	default:
 		// If the column is an array, it can be empty but still require a prefix.
-		// Use string encoding since it's smaller
+		// Use string encoding since it's smaller.
 		buffer.PutUInt64(JSONStringSerializationVersion)
 
 		return nil
@@ -643,6 +927,7 @@ func (c *JSON) ScanType() reflect.Type {
 
 func (c *JSON) Reset() {
 	c.rows = 0
+	c.pendingNullRows = 0
 
 	switch c.serializationVersion {
 	case JSONObjectSerializationVersion:
@@ -653,12 +938,16 @@ func (c *JSON) Reset() {
 		for _, col := range c.dynamicColumns {
 			col.Reset()
 		}
-
-		return
 	case JSONStringSerializationVersion:
 		c.jsonStrings.Reset()
-		return
 	}
+
+	// Clear the latched mode so the next batch starts unbiased. An all-null
+	// batch only latches String at WriteStatePrefix; without this reset, a
+	// subsequent batch of structs/maps would fail reconcileMode with a
+	// mode-conflict error even though no real value was ever appended in the
+	// previous batch.
+	c.serializationVersion = JSONUnsetSerializationVersion
 }
 
 func (c *JSON) decodeObjectHeader(reader *proto.Reader) error {

@@ -91,23 +91,19 @@ func extractEnumNamedValues(chType Type) (typ string, values []string, indexes [
 			}
 
 			bracketOpen = true
-			break
 		// when inside a bracket, we can start capture value inside single quotes
 		case bracketOpen && token == '\'' && !stringOpen:
 			foundValueOffset = c + 1
 			stringOpen = true
-			break
 		// close the string and capture the value
 		case token == '\'' && stringOpen:
 			stringOpen = false
 			foundValueLen = c - foundValueOffset
 			valueFound = true
-			break
 		// escape character, skip the next character
 		case token == '\\' && stringOpen:
 			skippedValueTokens = append(skippedValueTokens, c-foundValueOffset)
 			c++
-			break
 		// capture optional index. `=` token is followed with an integer index
 		case token == '=' && !stringOpen:
 			if !valueFound {
@@ -128,7 +124,6 @@ func extractEnumNamedValues(chType Type) (typ string, values []string, indexes [
 			}
 			valueIndex = idx
 			indexFound = true
-			break
 		// capture the value and index when a comma or closing bracket is found
 		case (token == ',' || token == ')') && !stringOpen:
 			if !valueFound {
@@ -157,7 +152,6 @@ func extractEnumNamedValues(chType Type) (typ string, values []string, indexes [
 			values = append(values, string(foundName))
 			indexFound = false
 			valueFound = false
-			break
 		}
 	}
 

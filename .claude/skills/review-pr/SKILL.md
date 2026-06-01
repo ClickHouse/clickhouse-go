@@ -75,3 +75,4 @@ Work through each category before writing the review.
 - [ ] Make sure new docs and examples are added if needed for new features or bug fixes.
 - [ ] Make sure the docs are covered for both TCP and HTTP protocol cases.
 - [ ] Make sure the docs are covered for both `clickhouse_native` (Open() api returns) api and `std` api (OpenDB() api returns).
+- [ ] If a comment or doc comment includes usage examples (e.g. inline code blocks), it is acceptable to omit error checking. Do not flag missing error handling in example code. 

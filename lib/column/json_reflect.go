@@ -215,11 +215,12 @@ func (c *JSON) fillMap(val reflect.Value, prefix string, row int) error {
 			mapValueType := val.Type().Elem()
 			var newMap reflect.Value
 
-			if mapValueType.Kind() == reflect.Interface {
-				newMap = reflect.MakeMap(reflect.TypeOf(map[string]interface{}{}))
-			} else if mapValueType.Kind() == reflect.Map {
+			switch mapValueType.Kind() {
+			case reflect.Interface:
+				newMap = reflect.MakeMap(reflect.TypeOf(map[string]any{}))
+			case reflect.Map:
 				newMap = reflect.MakeMap(mapValueType)
-			} else {
+			default:
 				return fmt.Errorf("invalid map value type for nested path \"%s\"", newPrefix)
 			}
 
@@ -372,13 +373,14 @@ func handleValue(val reflect.Value, path string, json *chcol.JSON, forcedType st
 		return iterateStruct(val, path, json)
 
 	case reflect.Map:
-		if forcedType == "" && val.Type().Elem().Kind() == reflect.Interface {
+		switch {
+		case forcedType == "" && val.Type().Elem().Kind() == reflect.Interface:
 			// Only iterate maps if they are map[string]interface{}
 			return iterateMap(val, path, json)
-		} else if forcedType == "" {
+		case forcedType == "":
 			json.SetValueAtPath(path, val.Interface())
 			return nil
-		} else {
+		default:
 			json.SetValueAtPath(path, chcol.NewDynamicWithType(val.Interface(), forcedType))
 			return nil
 		}
