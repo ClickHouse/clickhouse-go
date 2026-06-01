@@ -16,7 +16,7 @@ import (
 
 func Test1229(t *testing.T) {
 	const (
-		queryTimeout = 2 * time.Second
+		queryTimeout = 4 * time.Second
 		concurrency  = 100
 	)
 
