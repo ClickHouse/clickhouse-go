@@ -2,7 +2,9 @@ package clickhouse
 
 import (
 	"crypto/tls"
+	"log/slog"
 	"net/url"
+	"os"
 	"testing"
 	"time"
 
@@ -583,4 +585,35 @@ func parseURL(t *testing.T, v string) *url.URL {
 	u, err := url.Parse(v)
 	require.NoError(t, err)
 	return u
+}
+
+func TestLogger(t *testing.T) {
+	t.Run("debug=1 via DSN produces non-noop logger", func(t *testing.T) {
+		opts, err := ParseDSN("clickhouse://127.0.0.1/test?debug=1")
+		require.NoError(t, err)
+		require.True(t, opts.Debug)
+
+		logger := opts.logger()
+		require.NotNil(t, logger)
+		_, isNoop := logger.Handler().(*noopHandler)
+		assert.False(t, isNoop, "expected non-noop logger when debug=1")
+	})
+
+	t.Run("no debug flag produces noop logger", func(t *testing.T) {
+		opts, err := ParseDSN("clickhouse://127.0.0.1/test")
+		require.NoError(t, err)
+		require.False(t, opts.Debug)
+
+		logger := opts.logger()
+		require.NotNil(t, logger)
+		_, isNoop := logger.Handler().(*noopHandler)
+		assert.True(t, isNoop, "expected noop logger when debug is not set")
+	})
+
+	t.Run("custom Logger takes precedence over Debug=true", func(t *testing.T) {
+		customLogger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelWarn}))
+		opts := &Options{Debug: true, Logger: customLogger}
+		logger := opts.logger()
+		assert.Equal(t, customLogger, logger, "custom Logger should take precedence over Debug=true when Debugf is nil")
+	})
 }
