@@ -371,6 +371,18 @@ func GetConnectionTCP(testSet string, settings clickhouse.Settings, tlsConfig *t
 	return getConnection(env, env.Database, settings, tlsConfig, compression)
 }
 
+// GetConnectionTCPWithOptions is like GetConnectionTCP but allows the caller to mutate
+// the final clickhouse.Options before the connection is opened — useful for adjusting
+// pool sizing, timeouts, or any field not already exposed by the helper signature.
+func GetConnectionTCPWithOptions(testSet string, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression, mutate func(*clickhouse.Options)) (driver.Conn, error) {
+	env, err := GetTestEnvironment(testSet)
+	if err != nil {
+		return nil, err
+	}
+
+	return getConnectionWithMutator(env, env.Database, settings, tlsConfig, compression, mutate)
+}
+
 func GetConnectionHTTP(testSet string, sessionName string, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (driver.Conn, error) {
 	env, err := GetTestEnvironment(testSet)
 	if err != nil {
@@ -410,6 +422,10 @@ func GetConnectionWithOptions(options *clickhouse.Options) (driver.Conn, error) 
 }
 
 func getConnection(env ClickHouseTestEnvironment, database string, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (driver.Conn, error) {
+	return getConnectionWithMutator(env, database, settings, tlsConfig, compression, nil)
+}
+
+func getConnectionWithMutator(env ClickHouseTestEnvironment, database string, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression, mutate func(*clickhouse.Options)) (driver.Conn, error) {
 	useSSL, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_SSL", "false"))
 	if err != nil {
 		panic(err)
@@ -448,7 +464,7 @@ func getConnection(env ClickHouseTestEnvironment, database string, settings clic
 		return nil, err
 	}
 
-	conn, err := clickhouse.Open(&clickhouse.Options{
+	opts := &clickhouse.Options{
 		Protocol: clickhouse.Native,
 		Addr:     []string{fmt.Sprintf("%s:%d", env.Host, port)},
 		Settings: settings,
@@ -460,8 +476,11 @@ func getConnection(env ClickHouseTestEnvironment, database string, settings clic
 		TLS:         tlsConfig,
 		Compression: compression,
 		DialTimeout: time.Duration(timeout) * time.Second,
-	})
-	return conn, err
+	}
+	if mutate != nil {
+		mutate(opts)
+	}
+	return clickhouse.Open(opts)
 }
 
 func getHTTPConnection(env ClickHouseTestEnvironment, sessionName string, database string, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (driver.Conn, error) {
