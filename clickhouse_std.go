@@ -104,7 +104,11 @@ func isConnBrokenError(err error) bool {
 		return true
 	}
 	var opErr *net.OpError
-	return errors.As(err, &opErr)
+	if errors.As(err, &opErr) {
+		return true
+	}
+
+	return false
 }
 
 func Connector(opt *Options) driver.Connector {

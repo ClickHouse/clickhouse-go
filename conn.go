@@ -322,6 +322,9 @@ func (c *connect) sendData(block *proto.Block, name string) error {
 	}
 
 	if err := c.flush(); err != nil {
+		var opErr *net.OpError
+		isOpErr := errors.As(err, &opErr)
+
 		switch {
 		case errors.Is(err, syscall.EPIPE):
 			c.logger.Error("connection broken: pipe error",
@@ -339,7 +342,8 @@ func (c *connect) sendData(block *proto.Block, name string) error {
 			c.setClosed()
 			return fmt.Errorf("send data: unexpected EOF to %s (conn_id=%d, block_cols=%d, block_rows=%d): %w",
 				c.conn.RemoteAddr(), c.id, len(block.Columns), block.Rows(), err)
-		case errors.As(err, new(*net.OpError)):
+		case isOpErr:
+			// *net.OpError not already caught by more specific EPIPE/EOF check
 			c.logger.Error("connection broken: write error",
 				slog.Any("error", err),
 				slog.Int("block_columns", len(block.Columns)),
