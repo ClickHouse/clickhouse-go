@@ -22,7 +22,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/docker/docker/api/types/container"
+	"github.com/moby/moby/api/types/container"
 	"github.com/docker/go-units"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
