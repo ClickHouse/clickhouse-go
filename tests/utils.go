@@ -187,10 +187,10 @@ func CreateClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment,
 	ip, _ := clickhouseContainer.ContainerIP(ctx)
 	testEnv := ClickHouseTestEnvironment{
 		ContainerID: clickhouseContainer.GetContainerID(),
-		Port:        p.Int(),
-		HttpPort:    hp.Int(),
-		SslPort:     sslPort.Int(),
-		HttpsPort:   hps.Int(),
+		Port:        int(p.Num()),
+		HttpPort:    int(hp.Num()),
+		SslPort:     int(sslPort.Num()),
+		HttpsPort:   int(hps.Num()),
 		Host:        "127.0.0.1",
 		Username:    "tester",
 		Password:    "ClickHouse",
@@ -798,7 +798,7 @@ func CreateNginxReverseProxyTestEnvironment(clickhouseEnv ClickHouseTestEnvironm
 	}
 	p, _ := nginxContainer.MappedPort(ctx, "80")
 	return NginxReverseHTTPProxyTestEnvironment{
-		HttpPort:       p.Int(),
+		HttpPort:       int(p.Num()),
 		NginxContainer: nginxContainer,
 	}, nil
 }
@@ -836,7 +836,7 @@ func CreateTinyProxyTestEnvironment(t *testing.T) (TinyProxyTestEnvironment, err
 
 	p, _ := container.MappedPort(ctx, "8888")
 	return TinyProxyTestEnvironment{
-		HttpPort:  p.Int(),
+		HttpPort:  int(p.Num()),
 		Container: container,
 	}, nil
 }
