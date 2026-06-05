@@ -439,18 +439,20 @@ func (o Options) setDefaults() *Options {
 // Priority order:
 // 1. If Debug=true and Debugf is set, use legacy Debugf (backward compatibility)
 // 2. If Logger is set, use the provided logger
-// 3. Otherwise, use a noop logger (no logging)
+// 3. If Debug=true but no Debugf is provided, use a default stdout logger
+// 4. Otherwise, use a noop logger (no logging)
 func (o *Options) logger() *slog.Logger {
-	// Backward compatibility: if legacy Debug/Debugf is set, use it
 	if o.Debug && o.Debugf != nil {
 		return newDebugfLogger(o.Debugf)
 	}
 
-	// If user provided a custom logger, use it
 	if o.Logger != nil {
 		return o.Logger
 	}
 
-	// Default: no logging
+	if o.Debug {
+		return newStdoutDebugLogger()
+	}
+
 	return newNoopLogger()
 }
