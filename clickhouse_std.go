@@ -103,9 +103,11 @@ func isConnBrokenError(err error) bool {
 	if errors.Is(err, io.EOF) || errors.Is(err, syscall.EPIPE) || errors.Is(err, syscall.ECONNRESET) {
 		return true
 	}
-	if _, ok := err.(*net.OpError); ok {
+	var opErr *net.OpError
+	if errors.As(err, &opErr) {
 		return true
 	}
+
 	return false
 }
 
