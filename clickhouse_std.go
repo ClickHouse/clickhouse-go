@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"math/rand"
+	"math/rand/v2"
 	"net"
 	"reflect"
 	"sync/atomic"
@@ -59,6 +59,7 @@ func (o *stdConnOpener) Connect(ctx context.Context) (_ driver.Conn, err error) 
 		return nil, ErrAcquireConnNoAddress
 	}
 
+	random := rand.IntN(len(o.opt.Addr))
 	for i := range o.opt.Addr {
 		var num int
 		switch o.opt.ConnOpenStrategy {
@@ -67,7 +68,6 @@ func (o *stdConnOpener) Connect(ctx context.Context) (_ driver.Conn, err error) 
 		case ConnOpenRoundRobin:
 			num = (connID + i) % len(o.opt.Addr)
 		case ConnOpenRandom:
-			random := rand.Int()
 			num = (random + i) % len(o.opt.Addr)
 		}
 		if conn, err = dialFunc(ctx, o.opt.Addr[num], connID, o.opt); err == nil {
