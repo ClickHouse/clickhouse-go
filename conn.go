@@ -96,7 +96,7 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 		auth.Password = jwt
 	}
 
-	if err := connect.handshake(auth); err != nil {
+	if err := connect.handshake(ctx, auth); err != nil {
 		return nil, err
 	}
 
