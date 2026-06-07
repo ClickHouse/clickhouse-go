@@ -3,11 +3,51 @@ package clickhouse
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"sync"
 )
 
 type structMap struct {
 	cache sync.Map
+}
+
+var structColumnsCache = structColumnCache{}
+
+type structColumnCache struct {
+	cache sync.Map
+}
+
+func (c *structColumnCache) Load(t reflect.Type) ([]string, bool) {
+	columns, ok := c.cache.Load(t)
+	if !ok {
+		return nil, false
+	}
+	return copyStrings(columns.([]string)), true
+}
+
+func (c *structColumnCache) Store(t reflect.Type, columns []string) {
+	c.cache.Store(t, copyStrings(columns))
+}
+
+// StructColumns returns the ClickHouse column names represented by v.
+//
+// StructColumns follows the same field mapping rules as AppendStruct and
+// ScanStruct: the `ch` tag overrides the field name, `ch:"-"` omits a field,
+// non-anonymous unexported fields are ignored, and non-pointer anonymous
+// embedded structs are flattened.
+func StructColumns(v any) ([]string, error) {
+	t, err := structType("StructColumns", v)
+	if err != nil {
+		return nil, err
+	}
+
+	if columns, ok := structColumnsCache.Load(t); ok {
+		return columns, nil
+	}
+
+	columns := structColumns(t)
+	structColumnsCache.Store(t, columns)
+	return copyStrings(columns), nil
 }
 
 func (m *structMap) Map(op string, columns []string, s any, ptr bool) ([]any, error) {
@@ -65,6 +105,65 @@ func (m *structMap) Map(op string, columns []string, s any, ptr bool) ([]any, er
 	return values, nil
 }
 
+func structType(op string, v any) (reflect.Type, error) {
+	t := reflect.TypeOf(v)
+	if t == nil {
+		return nil, &OpError{
+			Op:  op,
+			Err: fmt.Errorf("expects a struct or struct pointer"),
+		}
+	}
+
+	for t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+	if t.Kind() != reflect.Struct {
+		return nil, &OpError{
+			Op:  op,
+			Err: fmt.Errorf("expects a struct or struct pointer"),
+		}
+	}
+
+	return t, nil
+}
+
+func structColumns(t reflect.Type) []string {
+	columns := make([]string, 0, t.NumField())
+	for i := 0; i < t.NumField(); i++ {
+		var (
+			f    = t.Field(i)
+			name = f.Name
+		)
+		if tn := chTagName(f); len(tn) != 0 {
+			name = tn
+		}
+		switch {
+		case name == "-", len(f.PkgPath) != 0 && !f.Anonymous:
+			continue
+		}
+		switch {
+		case f.Anonymous:
+			if f.Type.Kind() != reflect.Ptr {
+				columns = append(columns, structColumns(f.Type)...)
+			}
+		default:
+			columns = append(columns, name)
+		}
+	}
+	return columns
+}
+
+func copyStrings(src []string) []string {
+	return append([]string(nil), src...)
+}
+
+func chTagName(f reflect.StructField) string {
+	if tn := f.Tag.Get("ch"); len(tn) != 0 {
+		return strings.Split(tn, ",")[0]
+	}
+	return ""
+}
+
 func structIdx(t reflect.Type) map[string][]int {
 	fields := make(map[string][]int)
 	for i := 0; i < t.NumField(); i++ {
@@ -72,7 +171,7 @@ func structIdx(t reflect.Type) map[string][]int {
 			f    = t.Field(i)
 			name = f.Name
 		)
-		if tn := f.Tag.Get("ch"); len(tn) != 0 {
+		if tn := chTagName(f); len(tn) != 0 {
 			name = tn
 		}
 		switch {
