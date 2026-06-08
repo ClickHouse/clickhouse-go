@@ -1,6 +1,8 @@
 package clickhouse
 
 import (
+	std_driver "database/sql/driver"
+	"fmt"
 	"testing"
 	"time"
 
@@ -495,4 +497,33 @@ func BenchmarkBindNamed(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
+}
+
+// valuerType implements driver.Valuer with a value receiver,
+// so a nil *valuerType satisfies the interface but panics on call.
+type valuerType [16]byte
+
+func (v valuerType) Value() (std_driver.Value, error) {
+	return fmt.Sprintf("%x", v[:]), nil
+}
+
+func TestBindPositionalNilDriverValuer(t *testing.T) {
+	var nilPtr *valuerType
+	actual, err := bind(time.Local, "SELECT ?", nilPtr)
+	require.NoError(t, err)
+	assert.Equal(t, "SELECT NULL", actual)
+}
+
+func TestBindNumericNilDriverValuer(t *testing.T) {
+	var nilPtr *valuerType
+	actual, err := bind(time.Local, "SELECT $1", nilPtr)
+	require.NoError(t, err)
+	assert.Equal(t, "SELECT NULL", actual)
+}
+
+func TestBindNamedNilDriverValuer(t *testing.T) {
+	var nilPtr *valuerType
+	actual, err := bind(time.Local, "SELECT @col", Named("col", nilPtr))
+	require.NoError(t, err)
+	assert.Equal(t, "SELECT NULL", actual)
 }
