@@ -409,8 +409,8 @@ func (ch *clickhouse) release(conn nativeTransport, err error) {
 
 func (ch *clickhouse) Close() (err error) {
 	ch.closeOnce.Do(func() {
-		err = ch.idle.Close()
 		ch.closed.Store(true)
+		err = ch.idle.Close()
 	})
 
 	return

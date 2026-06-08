@@ -293,11 +293,12 @@ func TestConnPool_Close(t *testing.T) {
 	assert.Equal(t, ErrConnectionClosed, err)
 	assert.Nil(t, conn)
 
-	// Put should be ignored on closed pool
+	// Put on closed pool should close the connection rather than leak it
 	initialLen := pool.Len()
 	newConn := &mockTransport{connectedAt: time.Now(), id: 99}
 	pool.Put(newConn)
 	assert.Equal(t, initialLen, pool.Len(), "closed pool should not accept new connections")
+	assert.True(t, newConn.closed, "connection put on closed pool should be closed to prevent leak")
 
 	// Closing again should be safe
 	err = pool.Close()
@@ -574,4 +575,50 @@ func (m *mockTransport) wasBufferFreed() bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.bufferFreed
+}
+
+// TestConnPool_PutCloseRace verifies that connections handed to Put() while
+// Close() is in flight are always closed and never leaked.
+//
+// Before the fix for issue #1831, Put() on a closed pool returned without
+// calling conn.close(), silently dropping the TCP connection. Run with -race.
+func TestConnPool_PutCloseRace(t *testing.T) {
+	const numConns = 50
+	pool := newConnPool(time.Second, numConns)
+
+	conns := make([]*mockTransport, numConns)
+	for i := range numConns {
+		conns[i] = newMockTransport(i + 1)
+	}
+
+	// ready is closed to fire all goroutines simultaneously, maximising the
+	// chance that Put() and Close() interleave at the critical point.
+	ready := make(chan struct{})
+	var wg sync.WaitGroup
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		<-ready
+		_ = pool.Close()
+	}()
+
+	for _, c := range conns {
+		c := c
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-ready
+			pool.Put(c)
+		}()
+	}
+
+	close(ready)
+	wg.Wait()
+
+	// Every connection must be closed: either drained by Close() or closed
+	// directly by Put() when it found the pool already shut down.
+	for i, c := range conns {
+		assert.True(t, c.isClosed(), "connection %d not closed: TCP connection leaked after pool.Close()", i+1)
+	}
 }
