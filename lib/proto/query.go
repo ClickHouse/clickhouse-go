@@ -219,13 +219,37 @@ func (s *Parameter) encode(buffer *chproto.Buffer, revision uint64) error {
 	return nil
 }
 
-// encodes a field dump with an appropriate type format
-// implements the same logic as in ClickHouse Field::restoreFromDump (https://github.com/ClickHouse/ClickHouse/blob/master/src/Core/Field.cpp#L312)
-// currently, only string type is supported
+// encodeFieldDump encodes a query parameter value for transmission over the native TCP protocol.
+// ClickHouse deserializes named query parameters using TSV escaped format (deserializeTextEscaped),
+// so control characters must be escaped: a raw 0x09 tab byte is treated as a TSV field delimiter
+// and causes error 457 (BAD_QUERY_PARAMETER). Values are wrapped in single quotes.
+// Currently only string type is supported.
 func encodeFieldDump(value any) (string, error) {
 	switch v := value.(type) {
 	case string:
-		return fmt.Sprintf("'%v'", strings.ReplaceAll(v, "'", "\\'")), nil
+		var sb strings.Builder
+		sb.Grow(len(v) + 2)
+		sb.WriteByte('\'')
+		for i := 0; i < len(v); i++ {
+			switch v[i] {
+			case '\\':
+				sb.WriteString(`\\`)
+			case '\'':
+				sb.WriteString(`\'`)
+			case '\t':
+				sb.WriteString(`\t`)
+			case '\n':
+				sb.WriteString(`\n`)
+			case '\r':
+				sb.WriteString(`\r`)
+			case '\000':
+				sb.WriteString(`\0`)
+			default:
+				sb.WriteByte(v[i])
+			}
+		}
+		sb.WriteByte('\'')
+		return sb.String(), nil
 	}
 
 	return "", fmt.Errorf("unsupported field type %T", value)
