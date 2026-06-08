@@ -365,6 +365,113 @@ conn := clickhouse.OpenDB(&clickhouse.Options{
 })
 ```
 
+## Cluster interserver-secret authentication
+
+Native protocol only. Lets a client authenticate as a trusted ClickHouse cluster peer using the cluster's shared secret instead of a user password, then run each query as an arbitrary `initial_user` chosen per-call. This is the same wire protocol that ClickHouse itself uses for distributed queries.
+
+> **Read [Security model](#security-model) before adopting this feature.** The cluster secret authorizes impersonation of any user on the cluster — including superusers — and so any process holding it must be treated as a cluster-admin-equivalent service.
+
+### When to use it
+
+- You operate the ClickHouse cluster yourself (you control `<remote_servers><secret>…</secret></remote_servers>`).
+- You run a *trusted internal service* — query router, multi-tenant gateway, internal admin tool — that authenticates end-users at its own layer and needs to attribute queries back to those users in `system.query_log`.
+- You target ClickHouse versions older than 25.11 (where `EXECUTE AS` does not exist) or want a single mechanism that works across the whole supported range.
+
+This feature is **not** intended to be exposed to arbitrary end-user clients.
+
+### Usage
+
+Configure on `Options` (never via DSN — see *Why not DSN* below):
+
+```go
+conn, err := clickhouse.Open(&clickhouse.Options{
+    Addr: []string{"clickhouse:9440"},
+    TLS:  &tls.Config{ServerName: "clickhouse.internal"}, // strongly recommended
+    Auth: clickhouse.Auth{
+        Database: "default",
+        Username: "router_fallback_user", // fallback when WithInitialUser is not set; cannot default to "default"
+    },
+    Cluster: clickhouse.ClusterCredentials{
+        Name:   "my_cluster",                                  // matches <remote_servers> entry
+        Secret: os.Getenv("CLICKHOUSE_CLUSTER_SECRET"),
+    },
+})
+
+ctx := clickhouse.Context(context.Background(),
+    clickhouse.WithInitialUser("alice"),
+)
+rows, err := conn.Query(ctx, "SELECT 1")
+```
+
+Server side, the named cluster must have a `<secret>` matching what the client sends:
+
+```xml
+<remote_servers>
+    <my_cluster>
+        <secret>same-secret-as-client</secret>
+        <shard><replica><host>clickhouse</host><port>9000</port></replica></shard>
+    </my_cluster>
+</remote_servers>
+```
+
+The user named in `WithInitialUser` (or `Auth.Username` if no `WithInitialUser` is set) must exist on the server. The server runs the query as that user without a password check, since the cluster-secret signature already proves the caller is trusted.
+
+Each query is signed with `SHA256(salt + secret + body + id + initial_user)` (the layout `TCPHandler::processQuery` expects). The driver advertises protocol revision 54460, which omits the V2 nonce/external-roles fields added in 54462+ — sufficient for typical impersonation use, and compatible with any modern server.
+
+A runnable example: [examples/clickhouse_api/cluster_secret.go](examples/clickhouse_api/cluster_secret.go).
+
+### Security model
+
+**The cluster secret is the highest-privilege credential in your ClickHouse deployment.** Anything that holds it can become any user on the cluster, including superusers. Treat any process holding it as a cluster-admin-equivalent service.
+
+Concrete operating practices:
+
+- **Source the secret from a secret manager**, not from environment variables baked into container images. Rotate the secret on any application compromise; rotation is cluster-wide (every server config and every client app must be updated together).
+- **Scope blast radius with per-cluster-name secrets.** ClickHouse `<remote_servers>` accepts multiple cluster entries; give each trusted application its own `<my_app_cluster><secret>…</secret></my_app_cluster>` so a leaked secret only impersonates within that one application boundary, not across the whole cluster.
+- **Prefer per-cluster-name secrets over per-tenant** if you operate multi-tenant infrastructure. The wire protocol does not give the server a way to scope which `initial_user` a holder of a given secret may claim — that is an *operational* boundary, not a *cryptographic* one.
+- **Require TLS for any non-loopback connection.** The protocol the driver speaks is V1 (no nonce); without TLS, an on-path attacker who captures a signed query frame can replay it on the same connection. The driver emits a `Warn` log line when interserver-secret mode is used without TLS.
+- **Audit `system.query_log` regularly** for unexpected `(user, address)` combinations. Interserver-secret queries appear with `is_initial_query = 0` and the impersonated user in both `user` and `initial_user`, so they are distinguishable from normal logins.
+- **Never put the secret in a DSN.** See *Why not DSN* below.
+
+The driver enforces fail-closed defaults at `Open()`:
+
+| Misconfiguration | Sentinel error |
+|---|---|
+| `Cluster.Secret` set without `Cluster.Name` | `ErrClusterSecretRequiresName` |
+| `Cluster.Secret` set with `Protocol: HTTP` | `ErrClusterSecretNeedsNative` |
+| `Cluster.Secret` set without an explicit `Auth.Username` | `ErrClusterSecretRequiresUsername` |
+
+The third check exists because `Auth.Username` defaults to `"default"` when blank. Without that check, a caller who configures `Cluster.Secret` and forgets `WithInitialUser` would silently run queries as `default` — typically a superuser. The driver therefore requires you to name the fallback user explicitly.
+
+`ClusterCredentials.String()` and `GoString()` redact `Secret`, so accidental logging via `slog.Any("opt", opt)` or `fmt.Sprintf("%+v", opt)` cannot leak it.
+
+### Why not DSN
+
+`Cluster.Secret` is sensitive cluster-wide credential material. DSNs are passed as connection strings to `database/sql`, and frequently end up in startup logs, error messages, config files, and stack traces. The driver intentionally has no DSN parameter for the cluster secret — configure it via `Options{}` only, sourcing the value from a secret manager or env var that your process loads at startup.
+
+### Comparison with `EXECUTE AS`
+
+ClickHouse 25.11 introduced [`EXECUTE AS`](https://clickhouse.com/docs/sql-reference/statements/execute_as) for in-SQL impersonation. It is the right choice for many cases, but the two features have different tradeoffs:
+
+| | Cluster interserver-secret (this feature) | `EXECUTE AS` |
+|---|---|---|
+| Server version | Stable since ClickHouse 21.6 (revision 54441) | 25.11+ |
+| Server config | Requires `<remote_servers><my_cluster><secret>...</secret></my_cluster></remote_servers>` in the server config (often already present in clustered deployments). | Requires `GRANT IMPERSONATE` always; on 25.11–26.2 also requires `access_control_improvements.allow_impersonate_user = 1` ([relocated to that section in 26.2](https://github.com/ClickHouse/ClickHouse/pull/96451), [enabled by default in 26.3 LTS](https://github.com/ClickHouse/ClickHouse/pull/97870)). Both features need *some* server-side config — neither is config-free. |
+| Authorization grain | **Coarse**: one secret per `<cluster>` entry impersonates *any* user that exists on the server. Scoping is operational only (per-cluster-name in `<remote_servers>`). | **Fine**: `GRANT IMPERSONATE ON <user> TO <holder>` is per-target-user; `GRANT IMPERSONATE ON * TO <holder>` is the broad form. Cryptographically scoped by SQL grants. |
+| Holding identity | A 32+ byte shared secret in the application's process memory, sourced from a secret manager. | A SQL user that owns only `GRANT IMPERSONATE` (no other privileges required). Authenticates with any normal mechanism — password, certificate, JWT. |
+| Credential rotation | Cluster-wide: every server config and every client app must update together. | Per-holder: rotate that user's password/JWT/cert independently of cluster config. |
+| Connection model | Per-query identity carried in a protocol header field | Session-level (`EXECUTE AS u;`) or wraps each SQL statement (`EXECUTE AS u SELECT …`) |
+| Connection pooling | Reuses connections across users freely | Session-level `EXECUTE AS` makes pool reuse hard; per-query form forces SQL surgery on every call |
+| Parameterized queries | Works with `Conn.QueryRow(ctx, "SELECT ?")` | The literal SQL must start with `EXECUTE AS`, so binding has to be reworked |
+| Identity in query text | No — identity is in a protocol field, no SQL injection surface for the impersonation identity. | Yes — `EXECUTE AS <user>` is part of the SQL text. Dynamic-SQL bugs in any layer become impersonation bugs. |
+| Stability | Path that ClickHouse itself uses for every distributed query, exercised constantly | Recently shipped, with [open](https://github.com/ClickHouse/ClickHouse/issues/99572) [bugs](https://github.com/ClickHouse/ClickHouse/issues/100695) |
+| Audit signal in `system.query_log` | `is_initial_query=0` plus the impersonated user in both `user` and `initial_user` — clear protocol-level marker. | `system.query_log.user` is the impersonated user; the actual authenticated user has to be recovered via the `authenticatedUser()` SQL function inside the query, or via `system.session_log` joined on `query_id`. |
+| Audit signal of who held the credential | None inherent — interserver auth events do not produce a per-app `system.session_log` entry; you rely on application-side logs and `(initial_address, initial_user)` patterns. | `system.session_log` records the holder's logins, giving a per-credential-holder audit trail at the database layer. |
+
+**Honest framing of the security trade.** `EXECUTE AS` has *better* authorization grain and a *better* per-holder audit story; cluster interserver-secret has a coarser scope by design. Neither credential is more or less phishable than the other in absolute terms — both live as material in process memory or a secret manager, both can be stolen, both should be rotated on compromise. The interserver-secret advantage is not "no credential to steal" — it is **operational**: connection-pool reuse, no SQL surgery, no SQL-injection surface for the identity field, version coverage that includes every supported ClickHouse release, and reuse of a code path that ClickHouse itself runs continuously.
+
+In short: prefer `EXECUTE AS` when (a) you are on 25.11+, (b) impersonation pairs are few and stable enough to express as `GRANT IMPERSONATE` statements, (c) you want fine-grained per-pair authorization, and (d) you can tolerate the connection-pool friction. Reach for cluster interserver-secret when you need a uniform, version-portable mechanism in a trusted internal service that runs queries under many short-lived `initial_user` identities and is willing to accept the coarser grain in exchange for protocol-level efficiency.
+
 ## Client info
 
 
