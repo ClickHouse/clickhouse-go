@@ -51,6 +51,10 @@ func TestAppendStruct(t *testing.T) {
 	require.NoError(t, AppendStruct())
 }
 
+func TestStructColumns(t *testing.T) {
+	require.NoError(t, StructColumns())
+}
+
 func TestArrayInsertRead(t *testing.T) {
 	require.NoError(t, ArrayInsertRead())
 }
