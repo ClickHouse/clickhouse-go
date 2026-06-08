@@ -47,6 +47,21 @@ func TestStructIdxTagOptions(t *testing.T) {
 	}, index)
 }
 
+func TestStructIdxIgnoresAnonymousNonStruct(t *testing.T) {
+	type namedString string
+	type Example struct {
+		namedString
+		Col1 string
+	}
+
+	assert.NotPanics(t, func() {
+		index := structIdx(reflect.TypeOf(Example{}))
+		assert.Equal(t, map[string][]int{
+			"Col1": {1},
+		}, index)
+	})
+}
+
 func TestStructColumns(t *testing.T) {
 	type Embed2 struct {
 		Col6 uint8
@@ -72,6 +87,40 @@ func TestStructColumns(t *testing.T) {
 	columns, err = StructColumns(&Example{})
 	assert.NoError(t, err)
 	assert.Equal(t, []string{"Col1", "col_2", "col_3", "named", "Col6"}, columns)
+}
+
+func TestStructColumnsDeduplicatesNames(t *testing.T) {
+	type Left struct {
+		Col1 string `ch:"shared"`
+		Col2 string
+	}
+	type Right struct {
+		Col3 string `ch:"shared"`
+		Col4 string
+	}
+	type Example struct {
+		Left
+		Right
+		Col5 string `ch:"Col2"`
+	}
+
+	columns, err := StructColumns(Example{})
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"shared", "Col2", "Col4"}, columns)
+}
+
+func TestStructColumnsIgnoresAnonymousNonStruct(t *testing.T) {
+	type namedString string
+	type Example struct {
+		namedString
+		Col1 string
+	}
+
+	assert.NotPanics(t, func() {
+		columns, err := StructColumns(Example{})
+		assert.NoError(t, err)
+		assert.Equal(t, []string{"Col1"}, columns)
+	})
 }
 
 func TestStructColumnsReturnsCacheCopy(t *testing.T) {

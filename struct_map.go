@@ -11,6 +11,9 @@ type structMap struct {
 	cache sync.Map
 }
 
+// structColumnsCache is package-level because StructColumns is a package-level
+// helper and has no connection-scoped state to attach cached reflection results
+// to.
 var structColumnsCache = structColumnCache{}
 
 type structColumnCache struct {
@@ -34,7 +37,9 @@ func (c *structColumnCache) Store(t reflect.Type, columns []string) {
 // StructColumns follows the same field mapping rules as AppendStruct and
 // ScanStruct: the `ch` tag overrides the field name, `ch:"-"` omits a field,
 // non-anonymous unexported fields are ignored, and non-pointer anonymous
-// embedded structs are flattened.
+// embedded structs are flattened, and `ch:"name,opt"` uses "name" as the
+// column name. Duplicate column names are returned once, in first occurrence
+// order.
 func StructColumns(v any) ([]string, error) {
 	t, err := structType("StructColumns", v)
 	if err != nil {
@@ -47,7 +52,7 @@ func StructColumns(v any) ([]string, error) {
 
 	columns := structColumns(t)
 	structColumnsCache.Store(t, columns)
-	return copyStrings(columns), nil
+	return columns, nil
 }
 
 func (m *structMap) Map(op string, columns []string, s any, ptr bool) ([]any, error) {
@@ -128,7 +133,11 @@ func structType(op string, v any) (reflect.Type, error) {
 }
 
 func structColumns(t reflect.Type) []string {
-	columns := make([]string, 0, t.NumField())
+	seen := make(map[string]struct{})
+	return appendStructColumns(make([]string, 0, t.NumField()), seen, t)
+}
+
+func appendStructColumns(columns []string, seen map[string]struct{}, t reflect.Type) []string {
 	for i := 0; i < t.NumField(); i++ {
 		var (
 			f    = t.Field(i)
@@ -143,10 +152,14 @@ func structColumns(t reflect.Type) []string {
 		}
 		switch {
 		case f.Anonymous:
-			if f.Type.Kind() != reflect.Ptr {
-				columns = append(columns, structColumns(f.Type)...)
+			if f.Type.Kind() == reflect.Struct {
+				columns = appendStructColumns(columns, seen, f.Type)
 			}
 		default:
+			if _, ok := seen[name]; ok {
+				continue
+			}
+			seen[name] = struct{}{}
 			columns = append(columns, name)
 		}
 	}
@@ -180,7 +193,7 @@ func structIdx(t reflect.Type) map[string][]int {
 		}
 		switch {
 		case f.Anonymous:
-			if f.Type.Kind() != reflect.Ptr {
+			if f.Type.Kind() == reflect.Struct {
 				for k, idx := range structIdx(f.Type) {
 					fields[k] = append(f.Index, idx...)
 				}
