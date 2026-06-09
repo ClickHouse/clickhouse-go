@@ -402,6 +402,22 @@ func createCompressionPool(compression *Compression) (Pool[HTTPReaderWriter], er
 	return pool, nil
 }
 
+func applyHTTPNativeCompressionSettings(settings Settings, method CompressionMethod, level int, requestCompressed bool) {
+	if method != CompressionLZ4 && method != CompressionZSTD {
+		return
+	}
+
+	settings["compress"] = "1"
+	if requestCompressed {
+		settings["decompress"] = "1"
+	}
+
+	settings["network_compression_method"] = strings.ToUpper(method.String())
+	if method == CompressionZSTD && level > 0 {
+		settings["network_zstd_compression_level"] = level
+	}
+}
+
 func (h *httpConnect) writeData(block *proto.Block) error {
 	// Saving offset of compressible data
 	start := len(h.buffer.Buf)
