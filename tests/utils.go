@@ -141,9 +141,10 @@ func CreateClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment,
 	containerName := fmt.Sprintf("clickhouse-go-%x", md5.Sum(buf.Bytes()))
 
 	req := testcontainers.ContainerRequest{
-		Image:        fmt.Sprintf("clickhouse/clickhouse-server:%s", GetClickHouseTestVersion()),
-		Name:         containerName,
-		ExposedPorts: []string{"9000/tcp", "8123/tcp", "9440/tcp", "8443/tcp"},
+		Image:           fmt.Sprintf("clickhouse/clickhouse-server:%s", GetClickHouseTestVersion()),
+		AlwaysPullImage: true,
+		Name:            containerName,
+		ExposedPorts:    []string{"9000/tcp", "8123/tcp", "9440/tcp", "8443/tcp"},
 		WaitingFor: wait.ForAll(
 			wait.ForListeningPort("9000/tcp"),
 			wait.ForListeningPort("8123/tcp"),
