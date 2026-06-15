@@ -19,7 +19,7 @@ type Product struct {
 	Name      string                 `json:"name"`
 	Tags      []string               `json:"tags"`
 	Pricing   ProductPricing         `json:"pricing"`
-	Metadata  map[string]interface{} `json:"metadata"`
+	Metadata  	map[string]any `json:"metadata"`
 	CreatedAt time.Time              `json:"created_at" chType:"DateTime64(3)"`
 }
 
@@ -32,7 +32,7 @@ func NewExampleProduct() *Product {
 			Price:    750,
 			Currency: "usd",
 		},
-		Metadata: map[string]interface{}{
+		Metadata: 	map[string]any{
 			"region":     "us",
 			"page_count": int64(852),
 		},
