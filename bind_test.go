@@ -188,6 +188,26 @@ func TestBindPositional(t *testing.T) {
 				expected: "SELECT x where col = 'blah?' AND col2 = 'a'",
 			},
 			{
+				query:    "SELECT * FROM (SELECT '1' AS `field?`) WHERE `field?` = ?",
+				params:   []any{"1"},
+				expected: "SELECT * FROM (SELECT '1' AS `field?`) WHERE `field?` = '1'",
+			},
+			{
+				query:    "SELECT * FROM t WHERE name = 'foo?bar' AND id = ?",
+				params:   []any{42},
+				expected: "SELECT * FROM t WHERE name = 'foo?bar' AND id = 42",
+			},
+			{
+				query:    `SELECT * FROM t WHERE "field?" = ?`,
+				params:   []any{"value"},
+				expected: `SELECT * FROM t WHERE "field?" = 'value'`,
+			},
+			{
+				query:    "SELECT 'it''s ? ok' WHERE id = ?",
+				params:   []any{42},
+				expected: "SELECT 'it''s ? ok' WHERE id = 42",
+			},
+			{
 				query:    "SELECT ? ?",
 				params:   []any{true, false},
 				expected: "SELECT 1 0",
@@ -224,6 +244,76 @@ func TestBindPositional(t *testing.T) {
 		AND col5 = ?
 	`, nilPtr, valuedPtr, nilPtrPtr, nilValuePtr, &nilValuePtr)
 	assert.NoError(t, err)
+}
+
+func TestBindNumericQuotedContexts(t *testing.T) {
+	assets := []struct {
+		query    string
+		params   []any
+		expected string
+	}{
+		{
+			query:    "SELECT '$1', $1",
+			params:   []any{42},
+			expected: "SELECT '$1', 42",
+		},
+		{
+			query:    "SELECT `$1`, $1",
+			params:   []any{"value"},
+			expected: "SELECT `$1`, 'value'",
+		},
+		{
+			query:    `SELECT "$1", $1`,
+			params:   []any{true},
+			expected: `SELECT "$1", 1`,
+		},
+		{
+			query:    "SELECT 'it''s $1 ok', $1",
+			params:   []any{42},
+			expected: "SELECT 'it''s $1 ok', 42",
+		},
+	}
+
+	for _, asset := range assets {
+		actual, err := bind(time.Local, asset.query, asset.params...)
+		require.NoError(t, err)
+		assert.Equal(t, asset.expected, actual)
+	}
+}
+
+func TestBindMixedParamsFormatsQuotedContexts(t *testing.T) {
+	assets := []struct {
+		query    string
+		params   []any
+		expected string
+	}{
+		{
+			query:    "SELECT '$1', ?",
+			params:   []any{42},
+			expected: "SELECT '$1', 42",
+		},
+		{
+			query:    "SELECT '?', $1",
+			params:   []any{42},
+			expected: "SELECT '?', 42",
+		},
+		{
+			query:    "SELECT `$1?`, ?",
+			params:   []any{"value"},
+			expected: "SELECT `$1?`, 'value'",
+		},
+		{
+			query:    `SELECT "$1?", $1`,
+			params:   []any{"value"},
+			expected: `SELECT "$1?", 'value'`,
+		},
+	}
+
+	for _, asset := range assets {
+		actual, err := bind(time.Local, asset.query, asset.params...)
+		require.NoError(t, err)
+		assert.Equal(t, asset.expected, actual)
+	}
 }
 
 func TestFormatTime(t *testing.T) {
