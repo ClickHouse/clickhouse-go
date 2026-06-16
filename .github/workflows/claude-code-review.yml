@@ -31,6 +31,18 @@ jobs:
         # that would run untrusted fork code with access to repository secrets.
         # that's why labeling check (usually by maintainer)
 
+      # Dump the bot's existing review threads (prior comments + author replies +
+      # resolved/outdated state) so the review step can decide, per open thread,
+      # whether to reply, resolve, or leave it alone. Empty on a first review.
+      - name: Fetch existing review threads
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 .claude/skills/review-pr/post_review.py fetch \
+            --repo "${{ github.repository }}" \
+            --pr "${{ github.event.inputs.pr_number || github.event.pull_request.number }}" \
+            > existing-threads.json || echo '{"threads":[]}' > existing-threads.json
+
       - name: Review PR with Claude (produce findings JSON)
         uses: anthropics/claude-code-action@v1
         with:
@@ -43,23 +55,24 @@ jobs:
 
             Steps:
             1. Read `.claude/skills/review-pr/SKILL.md` to load the review gates, supporting checks, and JSON output schema.
-            2. Fetch the PR description: `gh pr view ${{ github.event.inputs.pr_number || github.event.pull_request.number }} --json title,body,headRefName,baseRefName,author,url`.
-            3. Fetch the diff: `gh pr diff ${{ github.event.inputs.pr_number || github.event.pull_request.number }}`.
-            4. Work through the review gates and supporting checks. Anchor each finding to a specific changed line where possible.
-            5. Write the findings as JSON to `claude-review.json` in the repo root, exactly matching the schema in section 5 of SKILL.md.
-            6. Do NOT post any comments yourself — a separate workflow step posts the JSON.
+            2. Read `existing-threads.json` (your prior review threads on this PR, with author replies and resolve state). For each open thread, decide a `thread_actions` entry per section 1 of SKILL.md.
+            3. Fetch the PR description: `gh pr view ${{ github.event.inputs.pr_number || github.event.pull_request.number }} --json title,body,headRefName,baseRefName,author,url`.
+            4. Fetch the diff: `gh pr diff ${{ github.event.inputs.pr_number || github.event.pull_request.number }}`.
+            5. Work through the review gates and supporting checks. Anchor each finding to a specific changed line where possible.
+            6. Write the findings as JSON to `claude-review.json` in the repo root, exactly matching the schema in section 5 of SKILL.md (including `thread_actions` for open threads).
+            7. Do NOT post any comments yourself — a separate workflow step posts the JSON.
 
-      # Deterministic posting: turns the findings JSON into a PR review with
-      # inline line-anchored comments, and updates one summary comment in place
-      # (idempotent, so re-runs do not duplicate). Runs even if the review step
-      # produced no JSON (the script is skipped in that case).
+      # Deterministic posting: inline line-anchored comments, threaded replies,
+      # resolution of addressed/outdated threads, and one summary comment updated
+      # in place (idempotent, so re-runs do not duplicate). Runs even if the
+      # review step produced no JSON (the script is skipped in that case).
       - name: Post review comments
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           if [ -f claude-review.json ]; then
-            python3 .claude/skills/review-pr/post_review.py \
+            python3 .claude/skills/review-pr/post_review.py post \
               --repo "${{ github.repository }}" \
               --pr "${{ github.event.inputs.pr_number || github.event.pull_request.number }}" \
               --input claude-review.json
