@@ -28,6 +28,23 @@ gh pr diff "$0"
   the change — a finding is only valid if you understand the code it touches.
 - If the diff is large (>2000 lines), use the `Explore` agent to analyze parts in parallel.
 
+### Existing review threads (re-review)
+
+If `existing-threads.json` is present (the CI workflow writes it; create it for interactive runs
+with `python3 .claude/skills/review-pr/post_review.py fetch --repo ClickHouse/clickhouse-go --pr "$0" > existing-threads.json`),
+`Read` it. It lists the review threads you already started, each with its prior comment(s), any
+author replies, and `is_resolved`/`is_outdated` state. For **every** open (`is_resolved: false`)
+thread, decide an action (section 5, `thread_actions`):
+
+- The author replied with a question or pushback that still stands → **reply** addressing it.
+- The concern is now addressed (the current code satisfies it, or the author's reply adequately
+  resolves/declines it) → **resolve** (optionally with a short closing reply).
+- The concern still stands and there is no new author activity → **keep** (no new comment).
+- The thread is `is_outdated` and the underlying concern no longer applies → **resolve**.
+
+Do **not** raise a brand-new `findings` entry for a line that already has one of your threads — use
+a `thread_actions` reply instead, or the poster will skip it as a duplicate.
+
 ## 2. Review gates
 
 These are the questions you must answer before settling on a verdict. State findings as **violated
@@ -114,9 +131,21 @@ the result to `claude-review.json` (in the repo root) with this exact schema:
       "title": "missing HTTP-path regression test",
       "body": "Findings that are NOT anchorable to a changed line (cross-cutting, or about code outside the diff). These render in the summary comment."
     }
+  ],
+  "thread_actions": [
+    {
+      "thread_id": "PRRT_kwDO...",
+      "root_comment_id": 3421542714,
+      "action": "reply | resolve | keep",
+      "reply_body": "Required for action=reply. Optional closing note for action=resolve. Omit for keep."
+    }
   ]
 }
 ```
+
+`thread_actions` is only for re-reviews where `existing-threads.json` listed open threads; copy
+`thread_id` and `root_comment_id` verbatim from that file. Omit the array (or leave it empty) on a
+first review. The poster skips replies it has already posted, so re-running is safe.
 
 Rules for the JSON:
 - `line` is the line number in the **new** version of the file, and **must** be a line that appears
@@ -133,9 +162,10 @@ The CI workflow posts the JSON automatically as a separate step. When running **
 it yourself:
 
 ```bash
-python3 .claude/skills/review-pr/post_review.py --repo ClickHouse/clickhouse-go --pr "$0" --input claude-review.json
+python3 .claude/skills/review-pr/post_review.py post --repo ClickHouse/clickhouse-go --pr "$0" --input claude-review.json
 ```
 
-`post_review.py` is idempotent: it attaches inline comments to the relevant lines, skips findings it
-already posted (so re-reviews do not duplicate), demotes any off-diff finding into the summary, and
-updates a single summary comment in place instead of stacking new ones.
+`post_review.py post` is idempotent: it attaches inline comments to the relevant lines, skips
+findings it already posted (so re-reviews do not duplicate), demotes any off-diff finding into the
+summary, replies into existing threads, resolves addressed/outdated threads, and updates a single
+summary comment in place instead of stacking new ones.
