@@ -104,11 +104,12 @@ type bindQuoteState struct {
 	inDouble   bool
 }
 
-func (s bindQuoteState) inQuotedContext() bool {
+func (s *bindQuoteState) inQuotedContext() bool {
 	return s.inBacktick || s.inSingle || s.inDouble
 }
 
 func (s *bindQuoteState) update(query string, pos int) int {
+	// Quoted contexts allow doubled delimiters and backslash-escaped delimiters.
 	switch {
 	case s.inBacktick:
 		if query[pos] == '`' && !isEscaped(query, pos) {
@@ -191,6 +192,9 @@ func bindPositional(tz *time.Location, query string, args ...any) (_ string, err
 		// It's fine looping through the query string as bytes, because the (fixed) characters we're looking for
 		// are in the ASCII range to won't take up more than one byte.
 		if query[i] == '?' {
+			if state.inBacktick || state.inDouble {
+				continue
+			}
 			if i > 0 && query[i-1] == '\\' {
 				// Copy all previous index to here characters
 				buf = append(buf, query[lastMatchIndex+1:i-1]...)

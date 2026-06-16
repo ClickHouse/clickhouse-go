@@ -188,6 +188,16 @@ func TestBindPositional(t *testing.T) {
 				expected: "SELECT x where col = 'blah?' AND col2 = 'a'",
 			},
 			{
+				query:    "SELECT `field\\?` WHERE id = ?",
+				params:   []any{42},
+				expected: "SELECT `field\\?` WHERE id = 42",
+			},
+			{
+				query:    `SELECT "field\?" WHERE id = ?`,
+				params:   []any{42},
+				expected: `SELECT "field\?" WHERE id = 42`,
+			},
+			{
 				query:    "SELECT * FROM (SELECT '1' AS `field?`) WHERE `field?` = ?",
 				params:   []any{"1"},
 				expected: "SELECT * FROM (SELECT '1' AS `field?`) WHERE `field?` = '1'",
