@@ -2,16 +2,19 @@ package issues
 
 import (
 	"context"
+	"crypto/tls"
 	"database/sql"
 	"fmt"
 	"net"
 	"os"
+	"strconv"
 	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 )
 
 // failOnWriteConn wraps net.Conn and injects a *net.OpError on the next Write call,
@@ -41,8 +44,19 @@ func Test1868_SqlConnection_EvictedFromPoolOnSendDataWriteError(t *testing.T) {
 		dialCount  atomic.Int32
 	)
 
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+
+	port := env.Port
+	var tlsConfig *tls.Config
+	if useSSL {
+		port = env.SslPort
+		tlsConfig = &tls.Config{}
+	}
+
 	connector := clickhouse.Connector(&clickhouse.Options{
-		Addr: []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},
+		Addr: []string{fmt.Sprintf("%s:%d", env.Host, port)},
+		TLS:  tlsConfig,
 		Auth: clickhouse.Auth{
 			Database: env.Database,
 			Username: env.Username,
@@ -50,8 +64,17 @@ func Test1868_SqlConnection_EvictedFromPoolOnSendDataWriteError(t *testing.T) {
 		},
 		DialContext: func(ctx context.Context, addr string) (net.Conn, error) {
 			dialCount.Add(1)
-			var d net.Dialer
-			c, err := d.DialContext(ctx, "tcp", addr)
+			var (
+				c   net.Conn
+				err error
+			)
+			if tlsConfig != nil {
+				d := tls.Dialer{Config: tlsConfig}
+				c, err = d.DialContext(ctx, "tcp", addr)
+			} else {
+				var d net.Dialer
+				c, err = d.DialContext(ctx, "tcp", addr)
+			}
 			if err != nil {
 				return nil, err
 			}
