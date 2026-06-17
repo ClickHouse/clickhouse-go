@@ -356,6 +356,7 @@ func (c *connect) sendData(block *proto.Block, name string) error {
 				slog.Any("error", err),
 				slog.Int("block_columns", len(block.Columns)),
 				slog.Int("block_rows", block.Rows()))
+			c.setClosed()
 			return fmt.Errorf("send data: write error to %s (conn_id=%d, block_cols=%d, block_rows=%d): %w",
 				c.conn.RemoteAddr(), c.id, len(block.Columns), block.Rows(), err)
 		}
