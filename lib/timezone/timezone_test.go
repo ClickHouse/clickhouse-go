@@ -22,9 +22,9 @@ func TestLoadFixedOffset(t *testing.T) {
 		{"Fixed/UTC+00:00:00", 0},
 		{"Fixed/UTC+14:00:00", 14 * 3600},
 		{"Fixed/UTC-12:00:00", -12 * 3600},
-		// ClickHouse caps fixed offsets at ±18:00:00 — pin both boundaries.
-		{"Fixed/UTC+18:00:00", 18 * 3600},
-		{"Fixed/UTC-18:00:00", -18 * 3600},
+		// ClickHouse emits fixed offsets up to ±24:00:00 inclusive — pin both extremes.
+		{"Fixed/UTC+24:00:00", 24 * 3600},
+		{"Fixed/UTC-24:00:00", -24 * 3600},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -67,11 +67,12 @@ func TestLoadIANAUnchanged(t *testing.T) {
 }
 
 // TestLoadUnknownStillErrors is a contrast case: names that are neither IANA nor
-// the exact synthetic fixed-offset form (e.g. the seconds-less spelling the
-// server never emits, single-digit hours, out-of-range minutes) must keep
-// returning an error rather than being silently coerced to an offset.
+// a fixed offset ClickHouse can actually emit must keep returning an error rather
+// than being silently coerced to an offset — the seconds-less spelling the server
+// never emits, single-digit hours, out-of-range minutes, and offsets beyond the
+// ±24:00:00 the server supports (e.g. +25:00:00, which time.Parse also rejects).
 func TestLoadUnknownStillErrors(t *testing.T) {
-	for _, name := range []string{"Not/AZone", "Fixed/UTC+05:30", "Fixed/UTC+5:30:15", "Fixed/UTC+05:60:00"} {
+	for _, name := range []string{"Not/AZone", "Fixed/UTC+05:30", "Fixed/UTC+5:30:15", "Fixed/UTC+05:60:00", "Fixed/UTC+25:00:00"} {
 		t.Run(name, func(t *testing.T) {
 			_, err := Load(name)
 			assert.Error(t, err)
