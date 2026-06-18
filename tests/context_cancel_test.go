@@ -45,8 +45,8 @@ func TestContextCancellationOfHeavyGeneratedInsert(t *testing.T) {
 		)
 
 		conn, err := SetupTestContextCancellationType1(t, protocol, false)
-		assert.Nil(t, err)
-		assert.NotNil(t, conn)
+		require.NoError(t, err)
+		require.NotNil(t, conn)
 
 		ExecuteTestContextCancellation(t, conn, heavyQuery)
 	})
@@ -61,8 +61,8 @@ func TestContextCancellationOfHeavyOptimizeFinal(t *testing.T) {
 		)
 
 		conn, err := SetupTestContextCancellationType1(t, protocol, true)
-		assert.Nil(t, err)
-		assert.NotNil(t, conn)
+		require.NoError(t, err)
+		require.NotNil(t, conn)
 
 		ExecuteTestContextCancellation(t, conn, heavyQuery)
 	})
@@ -98,9 +98,12 @@ func TestContextCancellationOfHeavyInsertFromS3(t *testing.T) {
 		);`
 		)
 
-		conn, err := SetupTestContextCancellationType1(t, protocol, true)
-		assert.Nil(t, err)
-		assert.NotNil(t, conn)
+		// No need to pre-fill the table: the cancelled query is the S3 insert itself, so an
+		// empty target table is sufficient. Skipping the fill avoids a multi-million-row setup
+		// insert that is irrelevant to this test and was the dominant cost here.
+		conn, err := SetupTestContextCancellationType1(t, protocol, false)
+		require.NoError(t, err)
+		require.NotNil(t, conn)
 
 		ExecuteTestContextCancellation(t, conn, heavyQuery)
 	})
@@ -172,8 +175,15 @@ func SetupTestContextCancellationType1(t *testing.T, protocol clickhouse.Protoco
 	t.Log("Connected.")
 
 	// prepare table
+	//
+	// These prepare statements include heavy inserts (tens of millions of rows). Bound each
+	// one with its own deadline so a slow or stalled server fails this single test fast with an
+	// actionable error, instead of hanging with no cancellation path until the whole package
+	// times out and takes unrelated tests down with it.
 	for _, query := range prepareQueries {
-		err = conn.Exec(context.Background(), query)
+		execCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		err = conn.Exec(execCtx, query)
+		cancel()
 		if err != nil {
 			log.Printf("Finished with error: %v\n", err)
 			conn.Close()
