@@ -128,7 +128,14 @@ func GetConnectionFromDSNWithSessionID(dsn string, sessionID string) (*sql.DB, e
 	// the server rejects together with insert_quorum unless insert_quorum_parallel=1. Synchronous
 	// inserts also keep the suite's insert-then-read assertions deterministic.
 	dsn = fmt.Sprintf("%s&insert_quorum=%s&insert_quorum_parallel=0&select_sequential_consistency=1", dsn, insertQuorum)
-	if !strings.Contains(dsn, "async_insert") {
+	if u, parseErr := url.Parse(dsn); parseErr == nil {
+		q := u.Query()
+		if q.Get("async_insert") == "" {
+			q.Set("async_insert", "0")
+			u.RawQuery = q.Encode()
+			dsn = u.String()
+		}
+	} else if !strings.Contains(dsn, "async_insert=") {
 		dsn = fmt.Sprintf("%s&async_insert=0", dsn)
 	}
 	if strings.HasPrefix(dsn, "http") {
