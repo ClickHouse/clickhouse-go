@@ -422,7 +422,9 @@ func GetConnectionWithOptions(options *clickhouse.Options) (driver.Conn, error) 
 	// Force synchronous inserts: ClickHouse Cloud defaults async_insert=1, which the server
 	// rejects together with insert_quorum unless insert_quorum_parallel=1. Synchronous inserts
 	// also keep the suite's insert-then-read assertions deterministic.
-	options.Settings["async_insert"] = 0
+	if _, ok := options.Settings["async_insert"]; !ok {
+		options.Settings["async_insert"] = 0
+	}
 	if err != nil {
 		return nil, err
 	}
