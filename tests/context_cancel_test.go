@@ -45,8 +45,8 @@ func TestContextCancellationOfHeavyGeneratedInsert(t *testing.T) {
 		)
 
 		conn, err := SetupTestContextCancellationType1(t, protocol, false)
-		assert.Nil(t, err)
-		assert.NotNil(t, conn)
+		require.NoError(t, err)
+		require.NotNil(t, conn)
 
 		ExecuteTestContextCancellation(t, conn, heavyQuery)
 	})
@@ -61,8 +61,8 @@ func TestContextCancellationOfHeavyOptimizeFinal(t *testing.T) {
 		)
 
 		conn, err := SetupTestContextCancellationType1(t, protocol, true)
-		assert.Nil(t, err)
-		assert.NotNil(t, conn)
+		require.NoError(t, err)
+		require.NotNil(t, conn)
 
 		ExecuteTestContextCancellation(t, conn, heavyQuery)
 	})
@@ -102,8 +102,8 @@ func TestContextCancellationOfHeavyInsertFromS3(t *testing.T) {
 		// empty target table is sufficient. Skipping the fill avoids a multi-million-row setup
 		// insert that is irrelevant to this test and was the dominant cost here.
 		conn, err := SetupTestContextCancellationType1(t, protocol, false)
-		assert.Nil(t, err)
-		assert.NotNil(t, conn)
+		require.NoError(t, err)
+		require.NotNil(t, conn)
 
 		ExecuteTestContextCancellation(t, conn, heavyQuery)
 	})

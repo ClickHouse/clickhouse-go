@@ -143,8 +143,8 @@ func retryOnSessionLock(fn func() error) error {
 }
 
 // retryConn wraps a driver.Conn and transparently retries requests that fail with
-// SESSION_IS_LOCKED. It is used only for HTTP test connections, which pin a session_id.
-// Embedding driver.Conn forwards Contributors/Stats/Close unchanged.
+// SESSION_IS_LOCKED. It wraps HTTP test connections; only the few that opt into a session_id
+// can actually hit the lock. Embedding driver.Conn forwards Contributors/Stats/Close unchanged.
 type retryConn struct {
 	driver.Conn
 }
@@ -456,7 +456,9 @@ func GetConnection(testSet string, t *testing.T, protocol clickhouse.Protocol, s
 	case clickhouse.Native:
 		return getConnection(env, env.Database, settings, tlsConfig, compression)
 	case clickhouse.HTTP:
-		return getHTTPConnection(env, t.Name(), env.Database, settings, tlsConfig, compression)
+		// Sessionless by default; tests needing a server-side session opt in via
+		// settings["session_id"] (or GetConnectionHTTP). See getHTTPConnection.
+		return getHTTPConnection(env, "", env.Database, settings, tlsConfig, compression)
 	default:
 		return nil, fmt.Errorf("unknown protocol: %s", protocol)
 	}
@@ -640,9 +642,15 @@ func getHTTPConnection(env ClickHouseTestEnvironment, sessionName string, databa
 		return nil, err
 	}
 
-	// Each test uses its own session ID.
-	// This may be problematic on some tests, but overall it is more consistent.
-	settings["session_id"] = sessionName
+	// session_id is opt-in. Only tests that need server-side session state across requests
+	// (e.g. TEMPORARY TABLE over HTTP) should set it — via GetConnectionHTTP or by passing
+	// settings["session_id"]. Pinning it for every HTTP test serialises a test's requests onto
+	// one server session and races the session-lock release on Cloud (SESSION_IS_LOCKED), so the
+	// default leaves the connection sessionless. A non-empty sessionName is explicit opt-in; a
+	// caller-provided settings["session_id"] is left untouched.
+	if sessionName != "" {
+		settings["session_id"] = sessionName
+	}
 
 	conn, err := clickhouse.Open(&clickhouse.Options{
 		Protocol: clickhouse.HTTP,
@@ -656,11 +664,11 @@ func getHTTPConnection(env ClickHouseTestEnvironment, sessionName string, databa
 		TLS:         tlsConfig,
 		Compression: compression,
 		DialTimeout: time.Duration(timeout) * time.Second,
-		// Keep the single pooled connection alive for the whole test. The connection pins a
-		// per-test session_id (above); a short lifetime recycles the connection mid-test, and the
-		// replacement reuses the same session_id before the server has released it, yielding
-		// "SESSION_IS_LOCKED" (especially on Cloud, where session release lags the response).
-		// Each test opens and closes its own connection, so a long lifetime never leaks across tests.
+		// Keep the single pooled connection alive for the whole test. For session-pinned tests a
+		// short lifetime recycles the connection mid-test, and the replacement reuses the same
+		// session_id before the server has released it, yielding "SESSION_IS_LOCKED" (worse on
+		// Cloud, where session release lags the response). Each test opens and closes its own
+		// connection, so a long lifetime never leaks across tests.
 		ConnMaxLifetime:     10 * time.Minute,
 		MaxOpenConns:        1,
 		MaxIdleConns:        1,
@@ -669,7 +677,7 @@ func getHTTPConnection(env ClickHouseTestEnvironment, sessionName string, databa
 	if err != nil {
 		return nil, err
 	}
-	// Wrap so transient SESSION_IS_LOCKED failures on the pinned session_id are retried.
+	// Wrap so transient SESSION_IS_LOCKED failures are retried (only session-pinned tests can hit it).
 	return &retryConn{Conn: conn}, nil
 }
 
