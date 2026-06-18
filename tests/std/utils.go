@@ -60,6 +60,12 @@ func GetDSNConnection(environment string, protocol clickhouse.Protocol, secure b
 	query.Set("insert_quorum", insertQuorum)
 	query.Set("insert_quorum_parallel", "0")
 	query.Set("select_sequential_consistency", "1")
+	// Force synchronous inserts: ClickHouse Cloud defaults async_insert=1, which the server
+	// rejects together with insert_quorum unless insert_quorum_parallel=1. Synchronous inserts
+	// also keep the suite's insert-then-read assertions deterministic.
+	if query.Get("async_insert") == "" {
+		query.Set("async_insert", "0")
+	}
 
 	if proto.CheckMinVersion(proto.Version{
 		Major: 22,
@@ -118,7 +124,13 @@ func GetConnectionFromDSNWithSessionID(dsn string, sessionID string) (*sql.DB, e
 	}
 
 	insertQuorum := clickhouse_tests.GetEnv("CLICKHOUSE_QUORUM_INSERT", "1")
+	// async_insert=0 forces synchronous inserts: ClickHouse Cloud defaults async_insert=1, which
+	// the server rejects together with insert_quorum unless insert_quorum_parallel=1. Synchronous
+	// inserts also keep the suite's insert-then-read assertions deterministic.
 	dsn = fmt.Sprintf("%s&insert_quorum=%s&insert_quorum_parallel=0&select_sequential_consistency=1", dsn, insertQuorum)
+	if !strings.Contains(dsn, "async_insert") {
+		dsn = fmt.Sprintf("%s&async_insert=0", dsn)
+	}
 	if strings.HasPrefix(dsn, "http") {
 		dsn = fmt.Sprintf("%s&wait_end_of_query=1", dsn)
 
@@ -143,6 +155,12 @@ func GetConnectionWithOptions(options *clickhouse.Options) *sql.DB {
 	options.Settings["insert_quorum"], err = strconv.Atoi(clickhouse_tests.GetEnv("CLICKHOUSE_QUORUM_INSERT", "1"))
 	options.Settings["insert_quorum_parallel"] = 0
 	options.Settings["select_sequential_consistency"] = 1
+	// Force synchronous inserts: ClickHouse Cloud defaults async_insert=1, which the server
+	// rejects together with insert_quorum unless insert_quorum_parallel=1. Synchronous inserts
+	// also keep the suite's insert-then-read assertions deterministic.
+	if _, ok := options.Settings["async_insert"]; !ok {
+		options.Settings["async_insert"] = 0
+	}
 	if err != nil {
 		return nil
 	}
@@ -176,6 +194,12 @@ func GetOpenDBConnection(environment string, protocol clickhouse.Protocol, setti
 	settings["insert_quorum"], err = strconv.Atoi(clickhouse_tests.GetEnv("CLICKHOUSE_QUORUM_INSERT", "1"))
 	settings["insert_quorum_parallel"] = 0
 	settings["select_sequential_consistency"] = 1
+	// Force synchronous inserts: ClickHouse Cloud defaults async_insert=1, which the server
+	// rejects together with insert_quorum unless insert_quorum_parallel=1. Synchronous inserts
+	// also keep the suite's insert-then-read assertions deterministic.
+	if _, ok := settings["async_insert"]; !ok {
+		settings["async_insert"] = 0
+	}
 	if proto.CheckMinVersion(proto.Version{
 		Major: 22,
 		Minor: 8,
@@ -229,6 +253,12 @@ func GetOpenDBConnectionJWT(environment string, protocol clickhouse.Protocol, se
 	settings["insert_quorum"], err = strconv.Atoi(clickhouse_tests.GetEnv("CLICKHOUSE_QUORUM_INSERT", "1"))
 	settings["insert_quorum_parallel"] = 0
 	settings["select_sequential_consistency"] = 1
+	// Force synchronous inserts: ClickHouse Cloud defaults async_insert=1, which the server
+	// rejects together with insert_quorum unless insert_quorum_parallel=1. Synchronous inserts
+	// also keep the suite's insert-then-read assertions deterministic.
+	if _, ok := settings["async_insert"]; !ok {
+		settings["async_insert"] = 0
+	}
 	if proto.CheckMinVersion(proto.Version{
 		Major: 22,
 		Minor: 8,

@@ -468,7 +468,9 @@ func getConnectionWithMutator(env ClickHouseTestEnvironment, database string, se
 	// Force synchronous inserts: ClickHouse Cloud defaults async_insert=1, which the server
 	// rejects together with insert_quorum unless insert_quorum_parallel=1. Synchronous inserts
 	// also keep the suite's insert-then-read assertions deterministic.
-	settings["async_insert"] = 0
+	if _, ok := settings["async_insert"]; !ok {
+		settings["async_insert"] = 0
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -530,7 +532,9 @@ func getHTTPConnection(env ClickHouseTestEnvironment, sessionName string, databa
 	// Force synchronous inserts: ClickHouse Cloud defaults async_insert=1, which the server
 	// rejects together with insert_quorum unless insert_quorum_parallel=1. Synchronous inserts
 	// also keep the suite's insert-then-read assertions deterministic.
-	settings["async_insert"] = 0
+	if _, ok := settings["async_insert"]; !ok {
+		settings["async_insert"] = 0
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -590,7 +594,9 @@ func getJWTConnection(env ClickHouseTestEnvironment, database string, settings c
 	// Force synchronous inserts: ClickHouse Cloud defaults async_insert=1, which the server
 	// rejects together with insert_quorum unless insert_quorum_parallel=1. Synchronous inserts
 	// also keep the suite's insert-then-read assertions deterministic.
-	settings["async_insert"] = 0
+	if _, ok := settings["async_insert"]; !ok {
+		settings["async_insert"] = 0
+	}
 	if err != nil {
 		return nil, err
 	}
