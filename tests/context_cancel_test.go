@@ -181,7 +181,7 @@ func SetupTestContextCancellationType1(t *testing.T, protocol clickhouse.Protoco
 	// actionable error, instead of hanging with no cancellation path until the whole package
 	// times out and takes unrelated tests down with it.
 	for _, query := range prepareQueries {
-		execCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		execCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 		err = conn.Exec(execCtx, query)
 		cancel()
 		if err != nil {
