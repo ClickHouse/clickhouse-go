@@ -329,6 +329,10 @@ func TestClientDefaultSettings(env ClickHouseTestEnvironment) clickhouse.Setting
 	settings["insert_quorum"], _ = strconv.Atoi(GetEnv("CLICKHOUSE_QUORUM_INSERT", "1"))
 	settings["insert_quorum_parallel"] = 0
 	settings["select_sequential_consistency"] = 1
+	// Force synchronous inserts: ClickHouse Cloud defaults async_insert=1, which the server
+	// rejects together with insert_quorum unless insert_quorum_parallel=1. Synchronous inserts
+	// also keep the suite's insert-then-read assertions deterministic.
+	settings["async_insert"] = 0
 
 	return settings
 }
@@ -415,6 +419,10 @@ func GetConnectionWithOptions(options *clickhouse.Options) (driver.Conn, error) 
 	options.Settings["insert_quorum"], err = strconv.Atoi(GetEnv("CLICKHOUSE_QUORUM_INSERT", "1"))
 	options.Settings["insert_quorum_parallel"] = 0
 	options.Settings["select_sequential_consistency"] = 1
+	// Force synchronous inserts: ClickHouse Cloud defaults async_insert=1, which the server
+	// rejects together with insert_quorum unless insert_quorum_parallel=1. Synchronous inserts
+	// also keep the suite's insert-then-read assertions deterministic.
+	options.Settings["async_insert"] = 0
 	if err != nil {
 		return nil, err
 	}
@@ -455,6 +463,10 @@ func getConnectionWithMutator(env ClickHouseTestEnvironment, database string, se
 	settings["insert_quorum"], err = strconv.Atoi(GetEnv("CLICKHOUSE_QUORUM_INSERT", "1"))
 	settings["insert_quorum_parallel"] = 0
 	settings["select_sequential_consistency"] = 1
+	// Force synchronous inserts: ClickHouse Cloud defaults async_insert=1, which the server
+	// rejects together with insert_quorum unless insert_quorum_parallel=1. Synchronous inserts
+	// also keep the suite's insert-then-read assertions deterministic.
+	settings["async_insert"] = 0
 	if err != nil {
 		return nil, err
 	}
@@ -513,6 +525,10 @@ func getHTTPConnection(env ClickHouseTestEnvironment, sessionName string, databa
 	settings["insert_quorum"], err = strconv.Atoi(GetEnv("CLICKHOUSE_QUORUM_INSERT", "1"))
 	settings["insert_quorum_parallel"] = 0
 	settings["select_sequential_consistency"] = 1
+	// Force synchronous inserts: ClickHouse Cloud defaults async_insert=1, which the server
+	// rejects together with insert_quorum unless insert_quorum_parallel=1. Synchronous inserts
+	// also keep the suite's insert-then-read assertions deterministic.
+	settings["async_insert"] = 0
 	if err != nil {
 		return nil, err
 	}
@@ -569,6 +585,10 @@ func getJWTConnection(env ClickHouseTestEnvironment, database string, settings c
 	settings["insert_quorum"], err = strconv.Atoi(GetEnv("CLICKHOUSE_QUORUM_INSERT", "1"))
 	settings["insert_quorum_parallel"] = 0
 	settings["select_sequential_consistency"] = 1
+	// Force synchronous inserts: ClickHouse Cloud defaults async_insert=1, which the server
+	// rejects together with insert_quorum unless insert_quorum_parallel=1. Synchronous inserts
+	// also keep the suite's insert-then-read assertions deterministic.
+	settings["async_insert"] = 0
 	if err != nil {
 		return nil, err
 	}
