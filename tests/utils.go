@@ -22,9 +22,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/moby/moby/api/types/container"
 	"github.com/docker/go-units"
 	"github.com/google/uuid"
+	"github.com/moby/moby/api/types/container"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -557,10 +557,15 @@ func getHTTPConnection(env ClickHouseTestEnvironment, sessionName string, databa
 			Username: env.Username,
 			Password: env.Password,
 		},
-		TLS:                 tlsConfig,
-		Compression:         compression,
-		DialTimeout:         time.Duration(timeout) * time.Second,
-		ConnMaxLifetime:     1 * time.Second,
+		TLS:         tlsConfig,
+		Compression: compression,
+		DialTimeout: time.Duration(timeout) * time.Second,
+		// Keep the single pooled connection alive for the whole test. The connection pins a
+		// per-test session_id (above); a short lifetime recycles the connection mid-test, and the
+		// replacement reuses the same session_id before the server has released it, yielding
+		// "SESSION_IS_LOCKED" (especially on Cloud, where session release lags the response).
+		// Each test opens and closes its own connection, so a long lifetime never leaks across tests.
+		ConnMaxLifetime:     10 * time.Minute,
 		MaxOpenConns:        1,
 		MaxIdleConns:        1,
 		HttpMaxConnsPerHost: 1,
