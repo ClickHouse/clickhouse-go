@@ -22,9 +22,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/moby/moby/api/types/container"
 	"github.com/docker/go-units"
 	"github.com/google/uuid"
+	"github.com/moby/moby/api/types/container"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -97,7 +97,12 @@ func (env *ClickHouseTestEnvironment) setVersion() {
 }
 
 func CheckMinServerServerVersion(conn driver.Conn, major, minor, patch uint64) bool {
-	v, err := conn.ServerVersion()
+	var v *driver.ServerVersion
+	err := retryOnSessionLock(func() error {
+		var e error
+		v, e = conn.ServerVersion()
+		return e
+	})
 	if err != nil {
 		panic(err)
 	}
@@ -106,6 +111,97 @@ func CheckMinServerServerVersion(conn driver.Conn, major, minor, patch uint64) b
 		Minor: minor,
 		Patch: patch,
 	}, v.Version)
+}
+
+// HTTP test connections pin a per-test session_id (see getHTTPConnection) so that a
+// test's requests share one ClickHouse session — required for session-scoped state such
+// as TEMPORARY TABLE. The cost is that two requests for the same session_id arriving
+// back-to-back can race the server-side session-lock release, especially on ClickHouse
+// Cloud where release lags the response, yielding "Code: 373 ... SESSION_IS_LOCKED". The
+// lock is transient, so a short bounded retry hides it.
+const (
+	sessionLockRetries = 5
+	sessionLockBackoff = 150 * time.Millisecond
+)
+
+// isSessionLocked reports whether err is a transient SESSION_IS_LOCKED failure. Over HTTP
+// the server returns it as an opaque "[HTTP 500] ... SESSION_IS_LOCKED" body rather than a
+// typed *clickhouse.Exception, so match on the message.
+func isSessionLocked(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "SESSION_IS_LOCKED")
+}
+
+func retryOnSessionLock(fn func() error) error {
+	var err error
+	for attempt := 0; attempt <= sessionLockRetries; attempt++ {
+		if err = fn(); !isSessionLocked(err) {
+			return err
+		}
+		time.Sleep(sessionLockBackoff)
+	}
+	return err
+}
+
+// retryConn wraps a driver.Conn and transparently retries requests that fail with
+// SESSION_IS_LOCKED. It wraps HTTP test connections; only the few that opt into a session_id
+// can actually hit the lock. Embedding driver.Conn forwards Contributors/Stats/Close unchanged.
+type retryConn struct {
+	driver.Conn
+}
+
+func (c *retryConn) ServerVersion() (*driver.ServerVersion, error) {
+	var v *driver.ServerVersion
+	err := retryOnSessionLock(func() error {
+		var e error
+		v, e = c.Conn.ServerVersion()
+		return e
+	})
+	return v, err
+}
+
+func (c *retryConn) Exec(ctx context.Context, query string, args ...any) error {
+	return retryOnSessionLock(func() error { return c.Conn.Exec(ctx, query, args...) })
+}
+
+func (c *retryConn) Select(ctx context.Context, dest any, query string, args ...any) error {
+	return retryOnSessionLock(func() error { return c.Conn.Select(ctx, dest, query, args...) })
+}
+
+func (c *retryConn) Query(ctx context.Context, query string, args ...any) (driver.Rows, error) {
+	var rows driver.Rows
+	err := retryOnSessionLock(func() error {
+		var e error
+		rows, e = c.Conn.Query(ctx, query, args...)
+		return e
+	})
+	return rows, err
+}
+
+func (c *retryConn) QueryRow(ctx context.Context, query string, args ...any) driver.Row {
+	var row driver.Row
+	_ = retryOnSessionLock(func() error {
+		row = c.Conn.QueryRow(ctx, query, args...)
+		return row.Err()
+	})
+	return row
+}
+
+func (c *retryConn) PrepareBatch(ctx context.Context, query string, opts ...driver.PrepareBatchOption) (driver.Batch, error) {
+	var b driver.Batch
+	err := retryOnSessionLock(func() error {
+		var e error
+		b, e = c.Conn.PrepareBatch(ctx, query, opts...)
+		return e
+	})
+	return b, err
+}
+
+func (c *retryConn) AsyncInsert(ctx context.Context, query string, wait bool, args ...any) error {
+	return retryOnSessionLock(func() error { return c.Conn.AsyncInsert(ctx, query, wait, args...) })
+}
+
+func (c *retryConn) Ping(ctx context.Context) error {
+	return retryOnSessionLock(func() error { return c.Conn.Ping(ctx) })
 }
 
 func CreateClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment, error) {
@@ -329,6 +425,10 @@ func TestClientDefaultSettings(env ClickHouseTestEnvironment) clickhouse.Setting
 	settings["insert_quorum"], _ = strconv.Atoi(GetEnv("CLICKHOUSE_QUORUM_INSERT", "1"))
 	settings["insert_quorum_parallel"] = 0
 	settings["select_sequential_consistency"] = 1
+	// Force synchronous inserts: ClickHouse Cloud defaults async_insert=1, which the server
+	// rejects together with insert_quorum unless insert_quorum_parallel=1. Synchronous inserts
+	// also keep the suite's insert-then-read assertions deterministic.
+	settings["async_insert"] = 0
 
 	return settings
 }
@@ -356,7 +456,9 @@ func GetConnection(testSet string, t *testing.T, protocol clickhouse.Protocol, s
 	case clickhouse.Native:
 		return getConnection(env, env.Database, settings, tlsConfig, compression)
 	case clickhouse.HTTP:
-		return getHTTPConnection(env, t.Name(), env.Database, settings, tlsConfig, compression)
+		// Sessionless by default; tests needing a server-side session opt in via
+		// settings["session_id"] (or GetConnectionHTTP). See getHTTPConnection.
+		return getHTTPConnection(env, "", env.Database, settings, tlsConfig, compression)
 	default:
 		return nil, fmt.Errorf("unknown protocol: %s", protocol)
 	}
@@ -415,6 +517,12 @@ func GetConnectionWithOptions(options *clickhouse.Options) (driver.Conn, error) 
 	options.Settings["insert_quorum"], err = strconv.Atoi(GetEnv("CLICKHOUSE_QUORUM_INSERT", "1"))
 	options.Settings["insert_quorum_parallel"] = 0
 	options.Settings["select_sequential_consistency"] = 1
+	// Force synchronous inserts: ClickHouse Cloud defaults async_insert=1, which the server
+	// rejects together with insert_quorum unless insert_quorum_parallel=1. Synchronous inserts
+	// also keep the suite's insert-then-read assertions deterministic.
+	if _, ok := options.Settings["async_insert"]; !ok {
+		options.Settings["async_insert"] = 0
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -455,6 +563,12 @@ func getConnectionWithMutator(env ClickHouseTestEnvironment, database string, se
 	settings["insert_quorum"], err = strconv.Atoi(GetEnv("CLICKHOUSE_QUORUM_INSERT", "1"))
 	settings["insert_quorum_parallel"] = 0
 	settings["select_sequential_consistency"] = 1
+	// Force synchronous inserts: ClickHouse Cloud defaults async_insert=1, which the server
+	// rejects together with insert_quorum unless insert_quorum_parallel=1. Synchronous inserts
+	// also keep the suite's insert-then-read assertions deterministic.
+	if _, ok := settings["async_insert"]; !ok {
+		settings["async_insert"] = 0
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -513,6 +627,12 @@ func getHTTPConnection(env ClickHouseTestEnvironment, sessionName string, databa
 	settings["insert_quorum"], err = strconv.Atoi(GetEnv("CLICKHOUSE_QUORUM_INSERT", "1"))
 	settings["insert_quorum_parallel"] = 0
 	settings["select_sequential_consistency"] = 1
+	// Force synchronous inserts: ClickHouse Cloud defaults async_insert=1, which the server
+	// rejects together with insert_quorum unless insert_quorum_parallel=1. Synchronous inserts
+	// also keep the suite's insert-then-read assertions deterministic.
+	if _, ok := settings["async_insert"]; !ok {
+		settings["async_insert"] = 0
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -522,9 +642,15 @@ func getHTTPConnection(env ClickHouseTestEnvironment, sessionName string, databa
 		return nil, err
 	}
 
-	// Each test uses its own session ID.
-	// This may be problematic on some tests, but overall it is more consistent.
-	settings["session_id"] = sessionName
+	// session_id is opt-in. Only tests that need server-side session state across requests
+	// (e.g. TEMPORARY TABLE over HTTP) should set it — via GetConnectionHTTP or by passing
+	// settings["session_id"]. Pinning it for every HTTP test serialises a test's requests onto
+	// one server session and races the session-lock release on Cloud (SESSION_IS_LOCKED), so the
+	// default leaves the connection sessionless. A non-empty sessionName is explicit opt-in; a
+	// caller-provided settings["session_id"] is left untouched.
+	if sessionName != "" {
+		settings["session_id"] = sessionName
+	}
 
 	conn, err := clickhouse.Open(&clickhouse.Options{
 		Protocol: clickhouse.HTTP,
@@ -535,15 +661,24 @@ func getHTTPConnection(env ClickHouseTestEnvironment, sessionName string, databa
 			Username: env.Username,
 			Password: env.Password,
 		},
-		TLS:                 tlsConfig,
-		Compression:         compression,
-		DialTimeout:         time.Duration(timeout) * time.Second,
-		ConnMaxLifetime:     1 * time.Second,
+		TLS:         tlsConfig,
+		Compression: compression,
+		DialTimeout: time.Duration(timeout) * time.Second,
+		// Keep the single pooled connection alive for the whole test. For session-pinned tests a
+		// short lifetime recycles the connection mid-test, and the replacement reuses the same
+		// session_id before the server has released it, yielding "SESSION_IS_LOCKED" (worse on
+		// Cloud, where session release lags the response). Each test opens and closes its own
+		// connection, so a long lifetime never leaks across tests.
+		ConnMaxLifetime:     10 * time.Minute,
 		MaxOpenConns:        1,
 		MaxIdleConns:        1,
 		HttpMaxConnsPerHost: 1,
 	})
-	return conn, err
+	if err != nil {
+		return nil, err
+	}
+	// Wrap so transient SESSION_IS_LOCKED failures are retried (only session-pinned tests can hit it).
+	return &retryConn{Conn: conn}, nil
 }
 
 func getJWTConnection(env ClickHouseTestEnvironment, database string, settings clickhouse.Settings, tlsConfig *tls.Config, maxConnLifetime time.Duration, jwtFunc clickhouse.GetJWTFunc) (driver.Conn, error) {
@@ -569,6 +704,12 @@ func getJWTConnection(env ClickHouseTestEnvironment, database string, settings c
 	settings["insert_quorum"], err = strconv.Atoi(GetEnv("CLICKHOUSE_QUORUM_INSERT", "1"))
 	settings["insert_quorum_parallel"] = 0
 	settings["select_sequential_consistency"] = 1
+	// Force synchronous inserts: ClickHouse Cloud defaults async_insert=1, which the server
+	// rejects together with insert_quorum unless insert_quorum_parallel=1. Synchronous inserts
+	// also keep the suite's insert-then-read assertions deterministic.
+	if _, ok := settings["async_insert"]; !ok {
+		settings["async_insert"] = 0
+	}
 	if err != nil {
 		return nil, err
 	}
