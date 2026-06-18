@@ -97,7 +97,12 @@ func (env *ClickHouseTestEnvironment) setVersion() {
 }
 
 func CheckMinServerServerVersion(conn driver.Conn, major, minor, patch uint64) bool {
-	v, err := conn.ServerVersion()
+	var v *driver.ServerVersion
+	err := retryOnSessionLock(func() error {
+		var e error
+		v, e = conn.ServerVersion()
+		return e
+	})
 	if err != nil {
 		panic(err)
 	}
@@ -106,6 +111,97 @@ func CheckMinServerServerVersion(conn driver.Conn, major, minor, patch uint64) b
 		Minor: minor,
 		Patch: patch,
 	}, v.Version)
+}
+
+// HTTP test connections pin a per-test session_id (see getHTTPConnection) so that a
+// test's requests share one ClickHouse session — required for session-scoped state such
+// as TEMPORARY TABLE. The cost is that two requests for the same session_id arriving
+// back-to-back can race the server-side session-lock release, especially on ClickHouse
+// Cloud where release lags the response, yielding "Code: 373 ... SESSION_IS_LOCKED". The
+// lock is transient, so a short bounded retry hides it.
+const (
+	sessionLockRetries = 5
+	sessionLockBackoff = 150 * time.Millisecond
+)
+
+// isSessionLocked reports whether err is a transient SESSION_IS_LOCKED failure. Over HTTP
+// the server returns it as an opaque "[HTTP 500] ... SESSION_IS_LOCKED" body rather than a
+// typed *clickhouse.Exception, so match on the message.
+func isSessionLocked(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "SESSION_IS_LOCKED")
+}
+
+func retryOnSessionLock(fn func() error) error {
+	var err error
+	for attempt := 0; attempt <= sessionLockRetries; attempt++ {
+		if err = fn(); !isSessionLocked(err) {
+			return err
+		}
+		time.Sleep(sessionLockBackoff)
+	}
+	return err
+}
+
+// retryConn wraps a driver.Conn and transparently retries requests that fail with
+// SESSION_IS_LOCKED. It is used only for HTTP test connections, which pin a session_id.
+// Embedding driver.Conn forwards Contributors/Stats/Close unchanged.
+type retryConn struct {
+	driver.Conn
+}
+
+func (c *retryConn) ServerVersion() (*driver.ServerVersion, error) {
+	var v *driver.ServerVersion
+	err := retryOnSessionLock(func() error {
+		var e error
+		v, e = c.Conn.ServerVersion()
+		return e
+	})
+	return v, err
+}
+
+func (c *retryConn) Exec(ctx context.Context, query string, args ...any) error {
+	return retryOnSessionLock(func() error { return c.Conn.Exec(ctx, query, args...) })
+}
+
+func (c *retryConn) Select(ctx context.Context, dest any, query string, args ...any) error {
+	return retryOnSessionLock(func() error { return c.Conn.Select(ctx, dest, query, args...) })
+}
+
+func (c *retryConn) Query(ctx context.Context, query string, args ...any) (driver.Rows, error) {
+	var rows driver.Rows
+	err := retryOnSessionLock(func() error {
+		var e error
+		rows, e = c.Conn.Query(ctx, query, args...)
+		return e
+	})
+	return rows, err
+}
+
+func (c *retryConn) QueryRow(ctx context.Context, query string, args ...any) driver.Row {
+	var row driver.Row
+	_ = retryOnSessionLock(func() error {
+		row = c.Conn.QueryRow(ctx, query, args...)
+		return row.Err()
+	})
+	return row
+}
+
+func (c *retryConn) PrepareBatch(ctx context.Context, query string, opts ...driver.PrepareBatchOption) (driver.Batch, error) {
+	var b driver.Batch
+	err := retryOnSessionLock(func() error {
+		var e error
+		b, e = c.Conn.PrepareBatch(ctx, query, opts...)
+		return e
+	})
+	return b, err
+}
+
+func (c *retryConn) AsyncInsert(ctx context.Context, query string, wait bool, args ...any) error {
+	return retryOnSessionLock(func() error { return c.Conn.AsyncInsert(ctx, query, wait, args...) })
+}
+
+func (c *retryConn) Ping(ctx context.Context) error {
+	return retryOnSessionLock(func() error { return c.Conn.Ping(ctx) })
 }
 
 func CreateClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment, error) {
@@ -570,7 +666,11 @@ func getHTTPConnection(env ClickHouseTestEnvironment, sessionName string, databa
 		MaxIdleConns:        1,
 		HttpMaxConnsPerHost: 1,
 	})
-	return conn, err
+	if err != nil {
+		return nil, err
+	}
+	// Wrap so transient SESSION_IS_LOCKED failures on the pinned session_id are retried.
+	return &retryConn{Conn: conn}, nil
 }
 
 func getJWTConnection(env ClickHouseTestEnvironment, database string, settings clickhouse.Settings, tlsConfig *tls.Config, maxConnLifetime time.Duration, jwtFunc clickhouse.GetJWTFunc) (driver.Conn, error) {
