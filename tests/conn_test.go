@@ -518,8 +518,10 @@ func TestFreeBufOnConnRelease(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	require.NoError(t, conn.Exec(context.Background(), "DROP TABLE IF EXISTS TestFreeBufOnConnRelease"))
 	err = conn.Exec(context.Background(), "CREATE TABLE TestFreeBufOnConnRelease (Col1 String) Engine MergeTree() ORDER BY tuple()")
 	require.NoError(t, err)
+	t.Cleanup(func() { _ = conn.Exec(context.Background(), "DROP TABLE IF EXISTS TestFreeBufOnConnRelease") })
 
 	t.Run("InsertBatch", func(t *testing.T) {
 		batch, err := conn.PrepareBatch(context.Background(), "INSERT INTO TestFreeBufOnConnRelease (Col1) VALUES")
