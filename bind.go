@@ -48,8 +48,7 @@ func DateNamed(name string, value time.Time, scale TimeUnit) driver.NamedDateVal
 }
 
 var (
-	bindNumericRe    = regexp.MustCompile(`\$[0-9]+`)
-	bindPositionalRe = regexp.MustCompile(`[^\\][?]`)
+	bindNamedRe = regexp.MustCompile(`@[a-zA-Z0-9\_]+`)
 )
 
 func bind(tz *time.Location, query string, args ...any) (string, error) {
@@ -70,8 +69,7 @@ func bind(tz *time.Location, query string, args ...any) (string, error) {
 		return bindNamed(tz, query, args...)
 	}
 
-	haveNumeric = bindNumericRe.MatchString(query)
-	havePositional = bindPositionalRe.MatchString(query)
+	haveNumeric, havePositional = bindParamsFormats(query)
 	if haveNumeric && havePositional {
 		return "", ErrBindMixedParamsFormats
 	}
@@ -100,49 +98,141 @@ func checkAllNamedArguments(args ...any) (bool, error) {
 	return haveNamed, nil
 }
 
+type bindQuoteState struct {
+	inBacktick bool
+	inSingle   bool
+	inDouble   bool
+}
+
+func (s *bindQuoteState) inQuotedContext() bool {
+	return s.inBacktick || s.inSingle || s.inDouble
+}
+
+func (s *bindQuoteState) update(query string, pos int) int {
+	// Quoted contexts allow doubled delimiters and backslash-escaped delimiters.
+	switch {
+	case s.inBacktick:
+		if query[pos] == '`' && !isEscaped(query, pos) {
+			if pos+1 < len(query) && query[pos+1] == '`' {
+				return pos + 1
+			}
+			s.inBacktick = false
+		}
+	case s.inSingle:
+		if query[pos] == '\'' && !isEscaped(query, pos) {
+			if pos+1 < len(query) && query[pos+1] == '\'' {
+				return pos + 1
+			}
+			s.inSingle = false
+		}
+	case s.inDouble:
+		if query[pos] == '"' && !isEscaped(query, pos) {
+			if pos+1 < len(query) && query[pos+1] == '"' {
+				return pos + 1
+			}
+			s.inDouble = false
+		}
+	default:
+		if isEscaped(query, pos) {
+			return pos
+		}
+		switch query[pos] {
+		case '`':
+			s.inBacktick = true
+		case '\'':
+			s.inSingle = true
+		case '"':
+			s.inDouble = true
+		}
+	}
+	return pos
+}
+
+func isEscaped(query string, pos int) bool {
+	backslashes := 0
+	for i := pos - 1; i >= 0 && query[i] == '\\'; i-- {
+		backslashes++
+	}
+	return backslashes%2 == 1
+}
+
+func isDigit(ch byte) bool {
+	return ch >= '0' && ch <= '9'
+}
+
+func bindParamsFormats(query string) (haveNumeric, havePositional bool) {
+	var state bindQuoteState
+	for i := 0; i < len(query); i++ {
+		if !state.inQuotedContext() {
+			switch {
+			case query[i] == '?' && (i == 0 || query[i-1] != '\\'):
+				havePositional = true
+			case query[i] == '$' && i+1 < len(query) && isDigit(query[i+1]):
+				haveNumeric = true
+			}
+			if haveNumeric && havePositional {
+				return haveNumeric, havePositional
+			}
+		}
+		i = state.update(query, i)
+	}
+	return haveNumeric, havePositional
+}
+
 func bindPositional(tz *time.Location, query string, args ...any) (_ string, err error) {
 	var (
 		lastMatchIndex = -1 // Position of previous match for copying
 		argIndex       = 0  // Index for the argument at current position
 		buf            = make([]byte, 0, len(query))
 		unbindCount    = 0 // Number of positional arguments that couldn't be matched
+		state          bindQuoteState
 	)
 
 	for i := 0; i < len(query); i++ {
 		// It's fine looping through the query string as bytes, because the (fixed) characters we're looking for
 		// are in the ASCII range to won't take up more than one byte.
 		if query[i] == '?' {
+			if state.inBacktick || state.inDouble {
+				continue
+			}
 			if i > 0 && query[i-1] == '\\' {
 				// Copy all previous index to here characters
 				buf = append(buf, query[lastMatchIndex+1:i-1]...)
 				buf = append(buf, '?')
-			} else {
-				// Copy all previous index to here characters
-				buf = append(buf, query[lastMatchIndex+1:i]...)
+				lastMatchIndex = i
+				continue
+			}
+			if state.inQuotedContext() {
+				continue
+			}
 
-				// Append the argument value
-				if argIndex < len(args) {
-					v := args[argIndex]
-					if fn, ok := v.(std_driver.Valuer); ok {
-						if v, err = fn.Value(); err != nil {
-							return "", nil
-						}
-					}
+			// Copy all previous index to here characters
+			buf = append(buf, query[lastMatchIndex+1:i]...)
 
-					value, err := format(tz, Seconds, v)
-					if err != nil {
+			// Append the argument value
+			if argIndex < len(args) {
+				v := args[argIndex]
+				if fn, ok := v.(std_driver.Valuer); ok {
+					if v, err = fn.Value(); err != nil {
 						return "", err
 					}
-
-					buf = append(buf, value...)
-					argIndex++
-				} else {
-					unbindCount++
 				}
+
+				value, err := format(tz, Seconds, v)
+				if err != nil {
+					return "", err
+				}
+
+				buf = append(buf, value...)
+				argIndex++
+			} else {
+				unbindCount++
 			}
 
 			lastMatchIndex = i
+			continue
 		}
+		i = state.update(query, i)
 	}
 
 	// If there were no replacements, quick return without copying the string
@@ -162,13 +252,16 @@ func bindPositional(tz *time.Location, query string, args ...any) (_ string, err
 
 func bindNumeric(tz *time.Location, query string, args ...any) (_ string, err error) {
 	var (
-		unbind = make(map[string]struct{})
-		params = make(map[string]string)
+		lastMatchIndex = -1
+		unbind         = make(map[string]struct{})
+		params         = make(map[string]string)
+		buf            = make([]byte, 0, len(query))
+		state          bindQuoteState
 	)
 	for i, v := range args {
 		if fn, ok := v.(std_driver.Valuer); ok {
 			if v, err = fn.Value(); err != nil {
-				return "", nil
+				return "", err
 			}
 		}
 		val, err := format(tz, Seconds, v)
@@ -177,20 +270,35 @@ func bindNumeric(tz *time.Location, query string, args ...any) (_ string, err er
 		}
 		params[fmt.Sprintf("$%d", i+1)] = val
 	}
-	query = bindNumericRe.ReplaceAllStringFunc(query, func(n string) string {
-		if _, found := params[n]; !found {
-			unbind[n] = struct{}{}
-			return ""
+
+	for i := 0; i < len(query); i++ {
+		if !state.inQuotedContext() && query[i] == '$' && i+1 < len(query) && isDigit(query[i+1]) {
+			j := i + 2
+			for j < len(query) && isDigit(query[j]) {
+				j++
+			}
+			param := query[i:j]
+			buf = append(buf, query[lastMatchIndex+1:i]...)
+			if value, found := params[param]; found {
+				buf = append(buf, value...)
+			} else {
+				unbind[param] = struct{}{}
+			}
+			lastMatchIndex = j - 1
+			i = j - 1
+			continue
 		}
-		return params[n]
-	})
+		i = state.update(query, i)
+	}
+	if lastMatchIndex < 0 {
+		return query, nil
+	}
+	buf = append(buf, query[lastMatchIndex+1:]...)
 	for param := range unbind {
 		return "", fmt.Errorf("have no arg for %s param", param)
 	}
-	return query, nil
+	return string(buf), nil
 }
-
-var bindNamedRe = regexp.MustCompile(`@[a-zA-Z0-9\_]+`)
 
 func bindNamed(tz *time.Location, query string, args ...any) (_ string, err error) {
 	var (
