@@ -317,7 +317,7 @@ func (col *Map) row(n int) reflect.Value {
 		mapValue := col.values.Row(from+next, false)
 		var mapReflectValue reflect.Value
 		if mapValue == nil {
-			// Convert interface{} nil to typed nil (such as nil *string) to preserve map element
+			// Convert any nil to typed nil (such as nil *string) to preserve map element
 			// https://github.com/ClickHouse/clickhouse-go/issues/1515
 			mapReflectValue = reflect.New(value.Type().Elem()).Elem()
 		} else {
