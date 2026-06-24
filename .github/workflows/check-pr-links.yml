@@ -1,0 +1,32 @@
+name: check PR Links
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  linkChecker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check links
+        uses: lycheeverse/lychee-action@v2
+        with:
+          # Remap live URLs to build directory because the links are potentially not live (not yet on master)
+          args: |
+            --verbose 
+            --no-progress
+            --exclude-all-private
+            --retry-wait-time 5
+            ./
+          fail: true
+
+      - name: Suggestions
+        if: failure()
+        run: |
+          echo -e "\nPlease review the links reported in the 'Check links' step above."
+          echo -e "If a link is valid but fails due to a CAPTCHA challenge, IP blocking, login requirements, etc.,"
+          echo -e "consider adding such links to .lycheeignore file to bypass future checks.\n"
+          exit 1
