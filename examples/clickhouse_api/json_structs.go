@@ -15,12 +15,12 @@ type ProductPricing struct {
 }
 
 type Product struct {
-	ID        clickhouse.Dynamic     `json:"id"`
-	Name      string                 `json:"name"`
-	Tags      []string               `json:"tags"`
-	Pricing   ProductPricing         `json:"pricing"`
-	Metadata  	map[string]any `json:"metadata"`
-	CreatedAt time.Time              `json:"created_at" chType:"DateTime64(3)"`
+	ID        clickhouse.Dynamic `json:"id"`
+	Name      string             `json:"name"`
+	Tags      []string           `json:"tags"`
+	Pricing   ProductPricing     `json:"pricing"`
+	Metadata  map[string]any     `json:"metadata"`
+	CreatedAt time.Time          `json:"created_at" chType:"DateTime64(3)"`
 }
 
 func NewExampleProduct() *Product {
@@ -32,7 +32,7 @@ func NewExampleProduct() *Product {
 			Price:    750,
 			Currency: "usd",
 		},
-		Metadata: 	map[string]any{
+		Metadata: map[string]any{
 			"region":     "us",
 			"page_count": int64(852),
 		},

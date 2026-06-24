@@ -25,6 +25,18 @@ test:
 lint:
 	golangci-lint run || :
 
+fmt:
+	@gofmt -w -l .
+
+fmt-check:
+	@out=$$(gofmt -l .); \
+		if [ -n "$$out" ]; then \
+			echo "The following files are not gofmt-formatted:"; \
+			echo "$$out"; \
+			echo "Run 'make fmt' to fix."; \
+			exit 1; \
+		fi
+
 contributors:
 	@git log --pretty="%an <%ae>%n%cn <%ce>" | sort -u -t '<' -k 2,2 | LC_ALL=C sort | \
 		grep -v "users.noreply.github.com\|GitHub <noreply@github.com>" \
@@ -37,4 +49,4 @@ codegen: contributors
 	@go run lib/column/codegen/main.go
 	@go-licenser -licensor "ClickHouse, Inc."
 
-.PHONY: contributors
+.PHONY: contributors fmt fmt-check
