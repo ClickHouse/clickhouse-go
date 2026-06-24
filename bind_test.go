@@ -326,6 +326,160 @@ func TestBindMixedParamsFormatsQuotedContexts(t *testing.T) {
 	}
 }
 
+func TestBindPositionalComments(t *testing.T) {
+	assets := []struct {
+		query    string
+		params   []any
+		expected string
+	}{
+		{
+			query:    "SELECT ? FROM t -- comment ?\nWHERE x = ?",
+			params:   []any{1, 2},
+			expected: "SELECT 1 FROM t -- comment ?\nWHERE x = 2",
+		},
+		{
+			query:    "SELECT ? # comment ?\nWHERE x = ?",
+			params:   []any{1, 2},
+			expected: "SELECT 1 # comment ?\nWHERE x = 2",
+		},
+		{
+			query:    "SELECT ? /* ? ignored */, ?",
+			params:   []any{1, 2},
+			expected: "SELECT 1 /* ? ignored */, 2",
+		},
+		{
+			// Block comments nest in ClickHouse: every ? until the outermost
+			// "*/" is part of the comment.
+			query:    "SELECT ? /* a /* ? */ ? */, ?",
+			params:   []any{1, 2},
+			expected: "SELECT 1 /* a /* ? */ ? */, 2",
+		},
+		{
+			// A backslash inside a comment is left verbatim, not unescaped.
+			query:    "SELECT ? -- \\?\n",
+			params:   []any{1},
+			expected: "SELECT 1 -- \\?\n",
+		},
+	}
+
+	for _, asset := range assets {
+		actual, err := bind(time.Local, asset.query, asset.params...)
+		require.NoError(t, err)
+		assert.Equal(t, asset.expected, actual)
+	}
+}
+
+func TestBindPositionalEscapedQuestionInIdentifier(t *testing.T) {
+	// "\?" must stay verbatim inside identifier quotes and comments; only inside
+	// single-quoted string literals (and raw text) is the backslash dropped.
+	assets := []struct {
+		query    string
+		params   []any
+		expected string
+	}{
+		{
+			query:    "SELECT `a\\?b`, ?",
+			params:   []any{42},
+			expected: "SELECT `a\\?b`, 42",
+		},
+		{
+			query:    `SELECT "a\?b", ?`,
+			params:   []any{42},
+			expected: `SELECT "a\?b", 42`,
+		},
+		{
+			query:    "SELECT 'a\\?b', ?",
+			params:   []any{42},
+			expected: "SELECT 'a?b', 42",
+		},
+	}
+
+	for _, asset := range assets {
+		actual, err := bind(time.Local, asset.query, asset.params...)
+		require.NoError(t, err)
+		assert.Equal(t, asset.expected, actual)
+	}
+}
+
+func TestBindNumericComments(t *testing.T) {
+	assets := []struct {
+		query    string
+		params   []any
+		expected string
+	}{
+		{
+			// $2 only appears in a comment, so a single arg is sufficient and
+			// must not raise "have no arg for $2".
+			query:    "SELECT $1 -- $2\n, $1",
+			params:   []any{42},
+			expected: "SELECT 42 -- $2\n, 42",
+		},
+		{
+			query:    "SELECT $1 /* $2 */",
+			params:   []any{42},
+			expected: "SELECT 42 /* $2 */",
+		},
+	}
+
+	for _, asset := range assets {
+		actual, err := bind(time.Local, asset.query, asset.params...)
+		require.NoError(t, err)
+		assert.Equal(t, asset.expected, actual)
+	}
+}
+
+func TestBindNamedQuotedContexts(t *testing.T) {
+	assets := []struct {
+		query    string
+		params   []any
+		expected string
+	}{
+		{
+			query:    "SELECT `col@x`, @id",
+			params:   []any{Named("id", 42)},
+			expected: "SELECT `col@x`, 42",
+		},
+		{
+			query:    "SELECT 'literal @name', @id",
+			params:   []any{Named("id", 7)},
+			expected: "SELECT 'literal @name', 7",
+		},
+		{
+			query:    `SELECT "col@x", @id`,
+			params:   []any{Named("id", 7)},
+			expected: `SELECT "col@x", 7`,
+		},
+		{
+			query:    "SELECT @id -- @ignored\n",
+			params:   []any{Named("id", 7)},
+			expected: "SELECT 7 -- @ignored\n",
+		},
+		{
+			query:    "SELECT @id # @ignored\n",
+			params:   []any{Named("id", 7)},
+			expected: "SELECT 7 # @ignored\n",
+		},
+		{
+			query:    "SELECT @id /* @ignored */",
+			params:   []any{Named("id", 7)},
+			expected: "SELECT 7 /* @ignored */",
+		},
+	}
+
+	for _, asset := range assets {
+		actual, err := bind(time.Local, asset.query, asset.params...)
+		require.NoError(t, err)
+		assert.Equal(t, asset.expected, actual)
+	}
+}
+
+func TestBindNamedUnbound(t *testing.T) {
+	// A genuinely missing named parameter (outside any quoted context) must
+	// still error through the scanner-based binder.
+	_, err := bind(time.Local, "SELECT @a, @b", Named("a", 1))
+	require.Error(t, err)
+}
+
 func TestFormatTime(t *testing.T) {
 	var (
 		t1, _   = time.Parse("2006-01-02 15:04:05", "2022-01-12 15:00:00")
