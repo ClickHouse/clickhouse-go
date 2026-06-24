@@ -114,7 +114,7 @@ the result to `claude-review.json` (in the repo root) with this exact schema:
 
 ```json
 {
-  "summary": "One short paragraph: what the PR does and your high-level verdict. Note any blind spots.",
+  "summary": "Structured markdown (see 'Writing the summary' below): a short intro line, then short paragraphs and/or bullet lists. Use `\\n` for line breaks. Cover what the PR does, the high-level verdict, and any blind spots.",
   "verdict": "approve | request_changes | needs_discussion",
   "findings": [
     {
@@ -146,6 +146,34 @@ the result to `claude-review.json` (in the repo root) with this exact schema:
 `thread_actions` is only for re-reviews where `existing-threads.json` listed open threads; copy
 `thread_id` and `root_comment_id` verbatim from that file. Omit the array (or leave it empty) on a
 first review. The poster skips replies it has already posted, so re-running is safe.
+
+### Writing the summary
+
+The `summary` string is rendered verbatim as markdown in the PR comment, so format it for fast
+scanning — **never a single dense paragraph**. Keep it tight; the inline comments carry the detail.
+
+- Lead with **one or two sentences** stating what the PR does and the overall verdict.
+- Break the rest into **short paragraphs** (2–3 sentences each) separated by a blank line (`\n\n`),
+  one idea per paragraph.
+- Use a **bullet list** (`\n` between `- ` items) whenever you are enumerating things — affected
+  surfaces, blind spots, follow-ups, or the key issues driving the verdict. Bullets beat prose for
+  any list of two or more items.
+- Bold short inline labels (e.g. `**Blind spots:**`) to anchor sections when it aids skimming.
+- Do not restate every inline finding here; reference them collectively and highlight only what
+  shapes the verdict.
+
+Example shape (adapt freely):
+
+```
+Adds `DateTime64` scale handling to the native path. The core change is sound, but the HTTP
+path is left uncovered.
+
+**Key concerns:**
+- Scale > 9 silently overflows (see inline on `lib/column/datetime64.go`).
+- No regression test for the `std` API surface.
+
+**Blind spots:** could not validate the HTTP round-trip without a live server.
+```
 
 Rules for the JSON:
 - `line` is the line number in the **new** version of the file, and **must** be a line that appears
