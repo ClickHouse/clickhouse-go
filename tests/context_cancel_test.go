@@ -121,6 +121,35 @@ func contextCancellationTable(t *testing.T) string {
 	return fmt.Sprintf("test_query_cancellation.%s", name)
 }
 
+// ClickHouse Cloud can shut a freshly created replicated table down mid-setup when it drains or
+// replaces the compute node hosting it, surfacing as "code: 242 ... Table is shutting down". It
+// is transient, so a small bounded retry of the whole prepare sequence hides it.
+const (
+	prepareRetries = 5
+	prepareBackoff = 10 * time.Second
+)
+
+// isTableShuttingDown reports whether err is the transient code-242 "Table is shutting down"
+// failure. Matching on the message keeps this consistent with isSessionLocked and avoids
+// depending on the concrete error type.
+func isTableShuttingDown(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "Table is shutting down")
+}
+
+// runContextCancellationPrepare runs the setup statements in order, bounding each with its own
+// deadline, and returns the first error encountered.
+func runContextCancellationPrepare(conn clickhouse.Conn, queries []string) error {
+	for _, query := range queries {
+		execCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		err := conn.Exec(execCtx, query)
+		cancel()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func SetupTestContextCancellationType1(t *testing.T, protocol clickhouse.Protocol, table string, fillTableWithRandomData bool) (clickhouse.Conn, error) {
 	var (
 		q1 = "CREATE DATABASE IF NOT EXISTS test_query_cancellation"
@@ -195,15 +224,24 @@ func SetupTestContextCancellationType1(t *testing.T, protocol clickhouse.Protoco
 	// one with its own deadline so a slow or stalled server fails this single test fast with an
 	// actionable error, instead of hanging with no cancellation path until the whole package
 	// times out and takes unrelated tests down with it.
-	for _, query := range prepareQueries {
-		execCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-		err = conn.Exec(execCtx, query)
-		cancel()
-		if err != nil {
+	//
+	// ClickHouse Cloud may drain or replace the compute node hosting the freshly created table
+	// (autoscaling / node replacement under the heavy setup load), which calls shutdown() on the
+	// table and fails the next statement with "code: 242 ... Table is shutting down". It is
+	// transient and external to the client, so rebuild the table from scratch (the whole
+	// sequence, since the table object was torn down) and retry a few times before giving up.
+	for attempt := 1; ; attempt++ {
+		err = runContextCancellationPrepare(conn, prepareQueries)
+		if err == nil {
+			break
+		}
+		if attempt >= prepareRetries || !isTableShuttingDown(err) {
 			log.Printf("Finished with error: %v\n", err)
 			conn.Close()
 			return nil, err
 		}
+		t.Logf("prepare attempt %d/%d hit transient Cloud error, recreating and retrying: %v", attempt, prepareRetries, err)
+		time.Sleep(prepareBackoff)
 	}
 
 	// Drop the table when the test finishes so we don't leave it (the fill variant holds
