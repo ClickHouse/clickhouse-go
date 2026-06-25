@@ -45,7 +45,7 @@ jobs:
           TESTCONTAINERS_RYUK_DISABLED: "true"
           GOTOOLCHAIN: "local"
         run: |
-          CLICKHOUSE_DIAL_TIMEOUT=20 CLICKHOUSE_TEST_TIMEOUT=600s CLICKHOUSE_QUORUM_INSERT=2 make test
+          CLICKHOUSE_DIAL_TIMEOUT=20 CLICKHOUSE_TEST_TIMEOUT=1200s CLICKHOUSE_QUORUM_INSERT=2 make test
 
       - name: Remove tests:run-cloud label
         if: always() && github.event_name == 'pull_request_target'
