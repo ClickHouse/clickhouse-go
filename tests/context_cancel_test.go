@@ -206,6 +206,27 @@ func SetupTestContextCancellationType1(t *testing.T, protocol clickhouse.Protoco
 		}
 	}
 
+	// Drop the table when the test finishes so we don't leave it (the fill variant holds
+	// 30M rows) sitting on the Cloud service between runs. The test's own connection is
+	// closed by ExecuteTestContextCancellation, so open a fresh one for the drop. Cleanup
+	// is best-effort: log on failure instead of failing an otherwise-passing test.
+	t.Cleanup(func() {
+		cleanupConn, err := GetNativeConnection(t, protocol, nil, nil, &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		})
+		if err != nil {
+			t.Logf("cleanup: failed to open connection to drop %s: %v", table, err)
+			return
+		}
+		defer cleanupConn.Close()
+
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+		defer cancel()
+		if err := cleanupConn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s SYNC", table)); err != nil {
+			t.Logf("cleanup: failed to drop %s: %v", table, err)
+		}
+	})
+
 	return conn, nil
 }
 
