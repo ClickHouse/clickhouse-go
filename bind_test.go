@@ -681,6 +681,39 @@ func TestFormatMapOrdered(t *testing.T) {
 	assert.Equal(t, "map('b', 2, 'a', 1)", val)
 }
 
+// TestFormatValueBoolAsText pins the #1891 fix at the formatter level: in the
+// server-side query-parameter context (boolAsText=true) a bool — at any nesting
+// depth — must render as `true`/`false`, while the legacy in-SQL bind context
+// (boolAsText=false, used by ?/$1/@name substitution) must keep rendering it as
+// `1`/`0`.
+func TestFormatValueBoolAsText(t *testing.T) {
+	tru, fls := true, false
+	cases := []struct {
+		name       string
+		value      any
+		queryParam string // boolAsText=true  (server-side {name:Type} parameter)
+		bindSQL    string // boolAsText=false (legacy in-SQL substitution)
+	}{
+		{"scalar true", true, "true", "1"},
+		{"scalar false", false, "false", "0"},
+		{"Array(Bool)", []bool{true, false}, "[true, false]", "[1, 0]"},
+		{"Array(Array(Bool))", [][]bool{{true}, {false}}, "[[true], [false]]", "[[1], [0]]"},
+		// nullable bool in an array: non-null elements switch, nil stays NULL
+		{"Array(Nullable(Bool))", []*bool{&tru, nil, &fls}, "[true, NULL, false]", "[1, NULL, 0]"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := formatValue(time.UTC, Seconds, tc.value, true)
+			require.NoError(t, err)
+			assert.Equal(t, tc.queryParam, got, "server-side query-parameter formatting")
+
+			got, err = formatValue(time.UTC, Seconds, tc.value, false)
+			require.NoError(t, err)
+			assert.Equal(t, tc.bindSQL, got, "legacy in-SQL bind formatting must be unchanged")
+		})
+	}
+}
+
 func TestBindNamedWithTernaryOperator(t *testing.T) {
 	sqls := []string{
 		`SELECT if(@arg1,@arg2,@arg3)`, // correct
