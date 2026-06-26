@@ -30,6 +30,10 @@ func TestIssue1891ArrayBoolQueryParameter(t *testing.T) {
 	require.NoError(t, err)
 	defer conn.Close()
 
+	if !CheckMinServerVersion(conn, 22, 8, 0) {
+		t.Skip("server-side query parameters require ClickHouse 22.8+")
+	}
+
 	var ok bool
 	row := conn.QueryRow(
 		"SELECT hasAll([true, false], {vals:Array(Bool)})",
