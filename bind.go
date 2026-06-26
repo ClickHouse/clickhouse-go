@@ -466,7 +466,28 @@ func formatTime(tz *time.Location, scale TimeUnit, value time.Time) (string, err
 
 var stringQuoteReplacer = strings.NewReplacer(`\`, `\\`, `'`, `\'`)
 
+// format renders v as a SQL literal for legacy client-side bind substitution
+// (the `?`, `$1`, and `@name` placeholders that are spliced directly into the
+// query text). Booleans render as `1`/`0`, which the SQL parser accepts as
+// `Bool` literals. Server-side query parameters use formatValue with
+// boolAsText=true instead — see its doc comment.
 func format(tz *time.Location, scale TimeUnit, v any) (string, error) {
+	return formatValue(tz, scale, v, false)
+}
+
+// formatValue renders v for one of the two binding paths, selected by boolAsText:
+//
+//   - boolAsText=false: a SQL literal for legacy in-query bind substitution
+//     (bool -> `1`/`0`).
+//   - boolAsText=true: the text representation a value must have when sent as a
+//     server-side query parameter (`{name:Type}`), where a bool MUST render as
+//     `true`/`false`. ClickHouse's text parser for containers of `Bool` —
+//     `Array(Bool)`, `Array(Array(Bool))`, `Array(Nullable(Bool))` — rejects
+//     `1`/`0`.
+//
+// The flag is threaded through every nested element so a bool at any depth is
+// rendered consistently.
+func formatValue(tz *time.Location, scale TimeUnit, v any, boolAsText bool) (string, error) {
 	quote := func(v string) string {
 		return "'" + stringQuoteReplacer.Replace(v) + "'"
 	}
@@ -483,24 +504,30 @@ func format(tz *time.Location, scale TimeUnit, v any) (string, error) {
 		}
 		return formatTime(tz, scale, *v)
 	case bool:
+		if boolAsText {
+			if v {
+				return "true", nil
+			}
+			return "false", nil
+		}
 		if v {
 			return "1", nil
 		}
 		return "0", nil
 	case GroupSet:
-		val, err := join(tz, scale, v.Value)
+		val, err := join(tz, scale, v.Value, boolAsText)
 		if err != nil {
 			return "", err
 		}
 		return fmt.Sprintf("(%s)", val), nil
 	case []GroupSet:
-		val, err := join(tz, scale, v)
+		val, err := join(tz, scale, v, boolAsText)
 		if err != nil {
 			return "", err
 		}
 		return val, err
 	case ArraySet:
-		val, err := join(tz, scale, v)
+		val, err := join(tz, scale, v, boolAsText)
 		if err != nil {
 			return "", err
 		}
@@ -515,12 +542,12 @@ func format(tz *time.Location, scale TimeUnit, v any) (string, error) {
 	case column.OrderedMap:
 		values := make([]string, 0)
 		for key := range v.Keys() {
-			name, err := format(tz, scale, key)
+			name, err := formatValue(tz, scale, key, boolAsText)
 			if err != nil {
 				return "", err
 			}
 			value, _ := v.Get(key)
-			val, err := format(tz, scale, value)
+			val, err := formatValue(tz, scale, value, boolAsText)
 			if err != nil {
 				return "", err
 			}
@@ -533,11 +560,11 @@ func format(tz *time.Location, scale TimeUnit, v any) (string, error) {
 		iter := v.Iterator()
 		for iter.Next() {
 			key, value := iter.Key(), iter.Value()
-			name, err := format(tz, scale, key)
+			name, err := formatValue(tz, scale, key, boolAsText)
 			if err != nil {
 				return "", err
 			}
-			val, err := format(tz, scale, value)
+			val, err := formatValue(tz, scale, value, boolAsText)
 			if err != nil {
 				return "", err
 			}
@@ -552,7 +579,7 @@ func format(tz *time.Location, scale TimeUnit, v any) (string, error) {
 	case reflect.Slice, reflect.Array:
 		values := make([]string, 0, v.Len())
 		for i := 0; i < v.Len(); i++ {
-			val, err := format(tz, scale, v.Index(i).Interface())
+			val, err := formatValue(tz, scale, v.Index(i).Interface(), boolAsText)
 			if err != nil {
 				return "", err
 			}
@@ -566,7 +593,7 @@ func format(tz *time.Location, scale TimeUnit, v any) (string, error) {
 			if key.Kind() == reflect.String {
 				name = fmt.Sprintf("'%s'", name)
 			}
-			val, err := format(tz, scale, v.MapIndex(key).Interface())
+			val, err := formatValue(tz, scale, v.MapIndex(key).Interface(), boolAsText)
 			if err != nil {
 				return "", err
 			}
@@ -577,15 +604,15 @@ func format(tz *time.Location, scale TimeUnit, v any) (string, error) {
 		if v.IsNil() {
 			return "NULL", nil
 		}
-		return format(tz, scale, v.Elem().Interface())
+		return formatValue(tz, scale, v.Elem().Interface(), boolAsText)
 	}
 	return fmt.Sprint(v), nil
 }
 
-func join[E any](tz *time.Location, scale TimeUnit, values []E) (string, error) {
+func join[E any](tz *time.Location, scale TimeUnit, values []E, boolAsText bool) (string, error) {
 	items := make([]string, len(values))
 	for i := range values {
-		val, err := format(tz, scale, values[i])
+		val, err := formatValue(tz, scale, values[i], boolAsText)
 		if err != nil {
 			return "", err
 		}
