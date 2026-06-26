@@ -37,15 +37,10 @@ fmt-check:
 			exit 1; \
 		fi
 
-contributors:
-	@git log --pretty="%an <%ae>%n%cn <%ce>" | sort -u -t '<' -k 2,2 | LC_ALL=C sort | \
-		grep -v "users.noreply.github.com\|GitHub <noreply@github.com>" \
-		> contributors/list
-
 staticcheck:
 	staticcheck ./...
 
-codegen: contributors
+codegen:
 	@go run lib/column/codegen/main.go
 
-.PHONY: contributors fmt fmt-check
+.PHONY: fmt fmt-check
