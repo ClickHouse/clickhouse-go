@@ -8,15 +8,14 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2"
 )
 
+// Contributors is retained for backwards compatibility but always returns an
+// empty slice. See clickhouse.Contributors.
 func TestContributors(t *testing.T) {
-	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
-		conn, err := GetNativeConnection(t, protocol, nil, nil, &clickhouse.Compression{
-			Method: clickhouse.CompressionLZ4,
-		})
-		if assert.NoError(t, err) {
-			for _, contributor := range conn.Contributors() {
-				t.Log(contributor)
-			}
-		}
-	})
+	conn, err := clickhouse.Open(&clickhouse.Options{})
+	if !assert.NoError(t, err) {
+		return
+	}
+	defer conn.Close()
+
+	assert.Empty(t, conn.Contributors())
 }
