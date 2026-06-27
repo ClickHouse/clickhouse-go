@@ -68,17 +68,23 @@ func (col *BigInt) Append(v any) (nulls []uint8, err error) {
 	case []big.Int:
 		nulls = make([]uint8, len(v))
 		for i := range v {
-			col.append(&v[i])
+			if err := col.append(&v[i]); err != nil {
+				return nil, err
+			}
 		}
 	case []*big.Int:
 		nulls = make([]uint8, len(v))
 		for i := range v {
 			switch {
 			case v[i] != nil:
-				col.append(v[i])
+				if err := col.append(v[i]); err != nil {
+					return nil, err
+				}
 			default:
 				nulls[i] = 1
-				col.append(big.NewInt(0))
+				if err := col.append(big.NewInt(0)); err != nil {
+					return nil, err
+				}
 			}
 		}
 	default:
@@ -106,16 +112,16 @@ func (col *BigInt) Append(v any) (nulls []uint8, err error) {
 func (col *BigInt) AppendRow(v any) error {
 	switch v := v.(type) {
 	case big.Int:
-		col.append(&v)
+		return col.append(&v)
 	case *big.Int:
 		switch {
 		case v != nil:
-			col.append(v)
+			return col.append(v)
 		default:
-			col.append(big.NewInt(0))
+			return col.append(big.NewInt(0))
 		}
 	case nil:
-		col.append(big.NewInt(0))
+		return col.append(big.NewInt(0))
 	default:
 		if valuer, ok := v.(driver.Valuer); ok {
 			val, err := valuer.Value()
@@ -135,7 +141,6 @@ func (col *BigInt) AppendRow(v any) error {
 			From: fmt.Sprintf("%T", v),
 		}
 	}
-	return nil
 }
 
 func (col *BigInt) Decode(reader *proto.Reader, rows int) error {
@@ -177,9 +182,16 @@ func (col *BigInt) row(i int) *big.Int {
 	return big.NewInt(0)
 }
 
-func (col *BigInt) append(v *big.Int) {
+func (col *BigInt) append(v *big.Int) error {
 	dest := make([]byte, col.size)
-	bigIntToRaw(dest, new(big.Int).Set(v))
+	if err := bigIntToRaw(dest, v, col.signed); err != nil {
+		return &ColumnConverterError{
+			Op:   "Append",
+			To:   string(col.chType),
+			From: "big.Int",
+			Hint: err.Error(),
+		}
+	}
 	switch v := col.col.(type) {
 	case *proto.ColInt128:
 		v.Append(proto.Int128{
@@ -214,17 +226,39 @@ func (col *BigInt) append(v *big.Int) {
 			},
 		})
 	}
+	return nil
 }
 
-func bigIntToRaw(dest []byte, v *big.Int) {
+func bigIntToRaw(dest []byte, v *big.Int, signed bool) error {
+	bits := len(dest) * 8
+	if signed {
+		if v.Sign() >= 0 {
+			if v.BitLen() > bits-1 {
+				return fmt.Errorf("value overflows %d-byte signed buffer", len(dest))
+			}
+		} else {
+			if new(big.Int).Not(v).BitLen() > bits-1 {
+				return fmt.Errorf("value overflows %d-byte signed buffer", len(dest))
+			}
+		}
+	} else {
+		if v.Sign() < 0 {
+			return fmt.Errorf("negative value not allowed for unsigned type")
+		}
+		if v.BitLen() > bits {
+			return fmt.Errorf("value overflows %d-byte unsigned buffer", len(dest))
+		}
+	}
+
 	var sign int
 	if v.Sign() < 0 {
-		v.Not(v).FillBytes(dest)
+		new(big.Int).Not(v).FillBytes(dest)
 		sign = -1
 	} else {
 		v.FillBytes(dest)
 	}
 	endianSwap(dest, sign < 0)
+	return nil
 }
 
 func rawToBigInt(v []byte, signed bool) *big.Int {
