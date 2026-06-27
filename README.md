@@ -420,6 +420,34 @@ For `clickhouse.Conn.PrepareBatch` (native interface):
 - Use `Send` to flush any remaining rows and finalize the INSERT. After `Send`, the batch is considered sent and should not be reused.
 - Use `defer batch.Close()` to ensure resources are released if `Send` is not reached.
 
+### Appending structs with explicit column lists
+
+`AppendStruct` maps struct fields to the columns in the prepared `INSERT`. If a
+table contains server-side `DEFAULT` columns that are intentionally omitted from
+the struct, prepare the batch with an explicit column list so ClickHouse can fill
+the omitted values. `StructColumns` extracts that list from the same `ch` tags
+used by `AppendStruct`:
+
+```go
+type Event struct {
+	ID   uint64 `ch:"id"`
+	Name string `ch:"name"`
+}
+
+columns, err := clickhouse.StructColumns(Event{})
+if err != nil {
+	return err
+}
+
+batch, err := conn.PrepareBatch(ctx, fmt.Sprintf(
+	"INSERT INTO events (%s)",
+	strings.Join(columns, ", "),
+))
+```
+
+See [struct columns](examples/clickhouse_api/struct_columns.go) for a complete
+example.
+
 ## JSON columns: append contract
 
 The ClickHouse Native protocol requires **one serialization version per `JSON` column per block** — a column cannot mix `object` rows and `string` rows on the wire. The driver enforces this at append time.
@@ -471,6 +499,7 @@ Indicative numbers measured on: Linux 6.19.6-arch1-1 · Intel Core Ultra 7 258V 
 * [native async insert](examples/clickhouse_api/async_native.go)
 * [http async insert](examples/clickhouse_api/async_http.go)
 * [batch struct](examples/clickhouse_api/append_struct.go)
+* [struct columns](examples/clickhouse_api/struct_columns.go)
 * [columnar](examples/clickhouse_api/columnar_insert.go)
 * [scan struct](examples/clickhouse_api/scan_struct.go)
 * [query parameters](examples/clickhouse_api/query_parameters.go)
