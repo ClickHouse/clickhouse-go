@@ -68,6 +68,35 @@ type Auth struct { // has_control_character
 	Password string
 }
 
+// ClusterCredentials configures client-side interserver authentication.
+// When Secret is non-empty, the client authenticates as a trusted cluster
+// peer using the shared cluster secret instead of a user password, and the
+// server executes queries as the InitialUser set on the connection's Auth
+// or overridden per-query via WithInitialUser.
+//
+// See https://clickhouse.com/docs/operations/server-configuration-parameters/settings#remote_servers
+// and the interserver secret protocol handled in `src/Server/TCPHandler.cpp`.
+type ClusterCredentials struct {
+	// Name is the cluster name configured in ClickHouse remote_servers.
+	Name string
+	// Secret is the shared cluster secret. Empty disables interserver mode.
+	Secret string
+}
+
+// String returns a representation of ClusterCredentials with Secret redacted,
+// so that accidental logging via fmt.Sprintf("%v", opt) or slog.Any("opt", opt)
+// cannot leak the secret. We only expose its byte length for parity with how
+// other Go libraries surface sensitive credentials.
+func (c ClusterCredentials) String() string {
+	if c.Secret == "" {
+		return fmt.Sprintf("clickhouse.ClusterCredentials{Name:%q}", c.Name)
+	}
+	return fmt.Sprintf("clickhouse.ClusterCredentials{Name:%q, Secret:[REDACTED %d bytes]}", c.Name, len(c.Secret))
+}
+
+// GoString satisfies fmt.GoStringer so the redaction also applies to %#v.
+func (c ClusterCredentials) GoString() string { return c.String() }
+
 type Compression struct {
 	Method CompressionMethod
 	// this only applies to lz4, lz4hc, zlib, and brotli compression algorithms
@@ -119,9 +148,13 @@ type Options struct {
 	Protocol   Protocol
 	ClientInfo ClientInfo
 
-	TLS          *tls.Config
-	Addr         []string
-	Auth         Auth
+	TLS  *tls.Config
+	Addr []string
+	Auth Auth
+	// Cluster enables interserver-secret authentication. When Cluster.Secret
+	// is set, Auth.Username/Password are ignored during the handshake and the
+	// client impersonates a trusted cluster peer. Queries run as InitialUser.
+	Cluster      ClusterCredentials
 	DialContext  func(ctx context.Context, addr string) (net.Conn, error)
 	DialStrategy func(ctx context.Context, connID int, options *Options, dial Dial) (DialResult, error)
 
@@ -433,6 +466,21 @@ func (o Options) setDefaults() *Options {
 		}
 	}
 	return &o
+}
+
+// validate checks Options for misconfigurations that we can detect without
+// touching the network. Validation is invoked from Open after setDefaults so
+// the caller never reaches the dial path with mutually inconsistent fields.
+func (o *Options) validate() error {
+	if o.Cluster.Secret != "" {
+		if o.Cluster.Name == "" {
+			return ErrClusterSecretRequiresName
+		}
+		if o.Protocol != Native {
+			return ErrClusterSecretNeedsNative
+		}
+	}
+	return nil
 }
 
 // logger returns the appropriate logger based on the Options configuration.
