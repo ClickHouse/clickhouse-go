@@ -11,9 +11,6 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	ResetRandSeed()
-	fmt.Printf("using random seed %d for %s tests\n", randSeed, TestSet)
-
 	useDocker, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_DOCKER", "true"))
 	if err != nil {
 		panic(err)
@@ -155,7 +152,7 @@ func TestMultiHostConnect(t *testing.T) {
 		require.NoError(t, MultiHostRoundRobinVersion())
 	})
 	t.Run("Random", func(t *testing.T) {
-		t.Skip("Go 1.25 math/random changes")
+		// t.Skip("Go 1.25 math/random changes")
 		require.NoError(t, MultiHostRandomVersion())
 	})
 }
