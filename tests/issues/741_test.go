@@ -3,7 +3,7 @@ package issues
 import (
 	"context"
 	"fmt"
-	"math/rand"
+	"math/rand/v2"
 	"net"
 	"strconv"
 	"strings"
