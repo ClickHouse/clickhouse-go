@@ -39,6 +39,9 @@ func bindQueryOrAppendParameters(paramsProtocolSupport bool, options *QueryOptio
 				if err != nil {
 					return "", err
 				}
+				if strVal == "NULL" {
+					strVal = "\\N"
+				}
 				options.parameters[p.Name] = strVal
 
 			case driver.NamedDateValue:
