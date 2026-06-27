@@ -41,7 +41,11 @@ func (h *httpConnect) query(ctx context.Context, release nativeTransportRelease,
 	headers := make(map[string]string)
 	switch h.compression {
 	case CompressionZSTD, CompressionLZ4:
-		options.settings["compress"] = "1"
+		compressionLevel := 0
+		if h.opt != nil && h.opt.Compression != nil {
+			compressionLevel = h.opt.Compression.Level
+		}
+		applyHTTPNativeCompressionSettings(options.settings, h.compression, compressionLevel, false)
 	case CompressionGZIP, CompressionDeflate, CompressionBrotli:
 		// request encoding
 		headers["Accept-Encoding"] = h.compression.String()

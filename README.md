@@ -292,7 +292,7 @@ When using the HTTP protocol there are two independent compression layers:
 
 1. **HTTP web compression** (whole request/response body). This uses HTTP headers (`Accept-Encoding` and `Content-Encoding`). In ClickHouse, response compression is controlled by the `enable_http_compression` setting (pass it via `Options.Settings` or DSN query params). In clickhouse-go this mode is used when `Compression.Method` is `gzip`, `deflate`, or `br`.
 
-2. **ClickHouse native block compression over HTTP** (Native format blocks). This uses ClickHouse HTTP query parameters: `compress=1` (server compresses response blocks) and `decompress=1` (server expects a compressed request body). In clickhouse-go this mode is used when `Compression.Method` is `lz4` or `zstd`.
+2. **ClickHouse native block compression over HTTP** (Native format blocks). This uses ClickHouse HTTP query parameters: `compress=1` (server compresses response blocks) and `decompress=1` (server expects a compressed request body), plus `network_compression_method` to select the block codec (`LZ4` or `ZSTD`). In clickhouse-go this mode is used when `Compression.Method` is `lz4` or `zstd`.
 
 Avoid enabling both at the same time unless you've measured it, as it can waste CPU by compressing already-compressed native blocks.
 
