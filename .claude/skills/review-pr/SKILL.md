@@ -122,7 +122,7 @@ the result to `claude-review.json` (in the repo root) with this exact schema:
       "line": 142,
       "severity": "must_fix",
       "title": "short imperative title",
-      "body": "What invariant is broken and its impact. Include a minimal suggested fix as a ```suggestion``` block or diff when helpful."
+      "body": "Structured markdown (see 'Writing inline comments' below): lead with one sentence naming the broken invariant and its impact, then bullets when there is more than one point, then a ```suggestion``` block or diff for the fix. Use `\\n` for line breaks. Keep it short."
     }
   ],
   "general_findings": [
@@ -174,6 +174,39 @@ path is left uncovered.
 
 **Blind spots:** could not validate the HTTP round-trip without a live server.
 ```
+
+### Writing inline comments
+
+Each finding's `body` renders as markdown directly beneath a bold severity + title header that
+the poster prepends (`**❌ Must fix** — <title>`), so do **not** repeat the title or severity in the
+body. Apply the same scan-first discipline as the summary: a reviewer reading the comment on the line
+should grasp the problem and the fix in one pass. **Never a single dense block of prose.**
+
+- Lead with **one sentence** naming the broken invariant and its concrete impact — e.g. "Scale > 9
+  overflows the `int32` multiplier, so sub-second values silently truncate." No preamble ("I noticed
+  that…", "It looks like…"); state the problem directly.
+- Keep the whole comment **tight** (aim for under ~6 lines). The reviewer needs the bug and the fix,
+  not exhaustive reasoning — push deep rationale to the summary or omit it.
+- When the body has **more than one distinct point** (root cause, an affected sibling path, a test
+  gap), use a **short bullet list** (`\n` between `- ` items) instead of stringing them into one
+  paragraph. One point → one sentence is fine; don't pad it into bullets.
+- Put any concrete fix in a ```suggestion``` block (GitHub applies it in one click) or a fenced diff,
+  separated from the prose by a blank line (`\n\n`). Suggestion blocks must contain only the
+  replacement line(s) for the commented range.
+
+Example shape (indented here to show the literal markdown, including a nested suggestion block):
+
+    `Send()` doesn't reset `b.sent` under the lock, so a concurrent `Append` races the flag and
+    can slip a row into an already-sent batch.
+
+    - The read in `Append` (line 88) is unsynchronized against this write.
+    - The `std` wrapper hits the same path via `ExecContext`.
+
+    ```suggestion
+        b.mu.Lock()
+        b.sent = true
+        b.mu.Unlock()
+    ```
 
 Rules for the JSON:
 - `line` is the line number in the **new** version of the file, and **must** be a line that appears
