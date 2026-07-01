@@ -5,9 +5,8 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
-	"math/rand"
+	"math/rand/v2"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -170,11 +169,9 @@ func TestBoolFlush(t *testing.T) {
 		batch, err := conn.PrepareBatch(ctx, "INSERT INTO bool_flush")
 		require.NoError(t, err)
 		vals := [1000]bool{}
-		var src = rand.NewSource(time.Now().UnixNano())
-		var r = rand.New(src)
 
 		for i := 0; i < 1000; i++ {
-			vals[i] = r.Intn(2) != 0
+			vals[i] = rand.IntN(2) != 0
 			require.NoError(t, batch.Append(vals[i]))
 			require.Equal(t, 1, batch.Rows())
 			require.NoError(t, batch.Flush())
@@ -230,11 +227,9 @@ func TestBoolValuer(t *testing.T) {
 		batch, err := conn.PrepareBatch(ctx, "INSERT INTO bool_flush")
 		require.NoError(t, err)
 		vals := [1000]bool{}
-		var src = rand.NewSource(time.Now().UnixNano())
-		var r = rand.New(src)
 
 		for i := 0; i < 1000; i++ {
-			vals[i] = r.Intn(2) != 0
+			vals[i] = rand.IntN(2) != 0
 			require.NoError(t, batch.Append(testBoolSerializer{val: vals[i]}))
 		}
 		batch.Send()
