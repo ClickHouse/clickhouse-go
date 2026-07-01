@@ -112,7 +112,7 @@ func TestJSONAppendRowNilConsistency(t *testing.T) {
 			expectedRows:    3,
 		},
 		{
-			// *interface{} with underlying nil is
+			// *any with underlying nil is
 			// also a null row (normalized by classifyJSONValue). Both rows
 			// defer; mode stays Unset.
 			name: "nil then pointer to nil interface — both defer",

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"regexp"
 	"strings"
 	"time"
 
@@ -47,11 +46,6 @@ func DateNamed(name string, value time.Time, scale TimeUnit) driver.NamedDateVal
 	}
 }
 
-var (
-	bindNumericRe    = regexp.MustCompile(`\$[0-9]+`)
-	bindPositionalRe = regexp.MustCompile(`[^\\][?]`)
-)
-
 func bind(tz *time.Location, query string, args ...any) (string, error) {
 	if len(args) == 0 {
 		return query, nil
@@ -70,8 +64,7 @@ func bind(tz *time.Location, query string, args ...any) (string, error) {
 		return bindNamed(tz, query, args...)
 	}
 
-	haveNumeric = bindNumericRe.MatchString(query)
-	havePositional = bindPositionalRe.MatchString(query)
+	haveNumeric, havePositional = bindParamsFormats(query)
 	if haveNumeric && havePositional {
 		return "", ErrBindMixedParamsFormats
 	}
@@ -100,49 +93,206 @@ func checkAllNamedArguments(args ...any) (bool, error) {
 	return haveNamed, nil
 }
 
+// bindQuoteState tracks whether the scanner is currently inside a region of the
+// query where bind placeholders ('?', '$N', '@name') must NOT be substituted: a
+// quoted identifier (backtick or double quote), a string literal (single quote),
+// or a comment.
+//
+// ClickHouse comment syntax: single-line comments start with "--", "#" or "#!"
+// and run to the end of the line; block comments are delimited by "/*" and "*/"
+// and may be nested.
+type bindQuoteState struct {
+	inBacktick    bool
+	inSingle      bool
+	inDouble      bool
+	inLineComment bool
+	blockComment  int // nesting depth of /* */ comments (ClickHouse nests them)
+}
+
+// inProtectedContext reports whether the current position is inside a quoted
+// identifier, string literal, or comment: any region where '?', '$N' and
+// '@name' markers are part of the query text rather than bind placeholders.
+func (s *bindQuoteState) inProtectedContext() bool {
+	return s.inBacktick || s.inSingle || s.inDouble || s.inLineComment || s.blockComment > 0
+}
+
+// inIdentifierOrComment reports whether the current position is inside a quoted
+// identifier (backtick or double quote) or a comment. In these contexts the
+// query text is passed through untouched, including any backslash that precedes
+// a '?'. This is deliberately distinct from a single-quoted string literal,
+// where a "\?" is unescaped to a literal "?" for backward compatibility (see
+// bindPositional).
+func (s *bindQuoteState) inIdentifierOrComment() bool {
+	return s.inBacktick || s.inDouble || s.inLineComment || s.blockComment > 0
+}
+
+// update consumes the byte at pos and advances the quote/comment state. It
+// returns the index of the last byte it consumed, which may be pos+1 when a
+// two-byte token (a doubled quote delimiter, "--", "/*" or "*/") is recognized
+// so the caller's loop skips the second byte. Doubled delimiters and backslash
+// escapes keep the scanner inside the current quoted context.
+func (s *bindQuoteState) update(query string, pos int) int {
+	switch {
+	case s.inLineComment:
+		if query[pos] == '\n' {
+			s.inLineComment = false
+		}
+	case s.blockComment > 0:
+		// Block comments nest in ClickHouse, so track depth rather than a bool.
+		switch {
+		case query[pos] == '/' && pos+1 < len(query) && query[pos+1] == '*':
+			s.blockComment++
+			return pos + 1
+		case query[pos] == '*' && pos+1 < len(query) && query[pos+1] == '/':
+			s.blockComment--
+			return pos + 1
+		}
+	case s.inBacktick:
+		if query[pos] == '`' && !isEscaped(query, pos) {
+			if pos+1 < len(query) && query[pos+1] == '`' {
+				return pos + 1
+			}
+			s.inBacktick = false
+		}
+	case s.inSingle:
+		if query[pos] == '\'' && !isEscaped(query, pos) {
+			if pos+1 < len(query) && query[pos+1] == '\'' {
+				return pos + 1
+			}
+			s.inSingle = false
+		}
+	case s.inDouble:
+		if query[pos] == '"' && !isEscaped(query, pos) {
+			if pos+1 < len(query) && query[pos+1] == '"' {
+				return pos + 1
+			}
+			s.inDouble = false
+		}
+	default:
+		// Raw context: a backslash-escaped delimiter does not open anything.
+		if isEscaped(query, pos) {
+			return pos
+		}
+		switch {
+		case query[pos] == '`':
+			s.inBacktick = true
+		case query[pos] == '\'':
+			s.inSingle = true
+		case query[pos] == '"':
+			s.inDouble = true
+		case query[pos] == '#':
+			// "#" and "#!" both start a single-line comment.
+			s.inLineComment = true
+		case query[pos] == '-' && pos+1 < len(query) && query[pos+1] == '-':
+			s.inLineComment = true
+			return pos + 1
+		case query[pos] == '/' && pos+1 < len(query) && query[pos+1] == '*':
+			s.blockComment++
+			return pos + 1
+		}
+	}
+	return pos
+}
+
+func isEscaped(query string, pos int) bool {
+	backslashes := 0
+	for i := pos - 1; i >= 0 && query[i] == '\\'; i-- {
+		backslashes++
+	}
+	return backslashes%2 == 1
+}
+
+func isDigit(ch byte) bool {
+	return ch >= '0' && ch <= '9'
+}
+
+// isNameChar reports whether ch is valid in a named placeholder (@name); it
+// mirrors the previous bindNamedRe pattern `@[a-zA-Z0-9_]+`.
+func isNameChar(ch byte) bool {
+	return ch == '_' ||
+		(ch >= '0' && ch <= '9') ||
+		(ch >= 'a' && ch <= 'z') ||
+		(ch >= 'A' && ch <= 'Z')
+}
+
+func bindParamsFormats(query string) (haveNumeric, havePositional bool) {
+	var state bindQuoteState
+	for i := 0; i < len(query); i++ {
+		if !state.inProtectedContext() {
+			switch {
+			case query[i] == '?' && (i == 0 || query[i-1] != '\\'):
+				havePositional = true
+			case query[i] == '$' && i+1 < len(query) && isDigit(query[i+1]):
+				haveNumeric = true
+			}
+			if haveNumeric && havePositional {
+				return haveNumeric, havePositional
+			}
+		}
+		i = state.update(query, i)
+	}
+	return haveNumeric, havePositional
+}
+
 func bindPositional(tz *time.Location, query string, args ...any) (_ string, err error) {
 	var (
 		lastMatchIndex = -1 // Position of previous match for copying
 		argIndex       = 0  // Index for the argument at current position
 		buf            = make([]byte, 0, len(query))
 		unbindCount    = 0 // Number of positional arguments that couldn't be matched
+		state          bindQuoteState
 	)
 
 	for i := 0; i < len(query); i++ {
 		// It's fine looping through the query string as bytes, because the (fixed) characters we're looking for
 		// are in the ASCII range to won't take up more than one byte.
 		if query[i] == '?' {
+			// Inside identifier quotes or comments the text is passed through
+			// unchanged, including any backslash that precedes the '?'.
+			if state.inIdentifierOrComment() {
+				continue
+			}
 			if i > 0 && query[i-1] == '\\' {
-				// Copy all previous index to here characters
+				// Escaped "\?" becomes a literal "?" (the backslash is dropped).
+				// Applies in raw and single-quoted contexts; kept for backward
+				// compatibility.
 				buf = append(buf, query[lastMatchIndex+1:i-1]...)
 				buf = append(buf, '?')
-			} else {
-				// Copy all previous index to here characters
-				buf = append(buf, query[lastMatchIndex+1:i]...)
+				lastMatchIndex = i
+				continue
+			}
+			if state.inSingle {
+				// An unescaped '?' inside a string literal is verbatim.
+				continue
+			}
 
-				// Append the argument value
-				if argIndex < len(args) {
-					v := args[argIndex]
-					if fn, ok := v.(std_driver.Valuer); ok {
-						if v, err = fn.Value(); err != nil {
-							return "", nil
-						}
-					}
+			// Copy all previous index to here characters
+			buf = append(buf, query[lastMatchIndex+1:i]...)
 
-					value, err := format(tz, Seconds, v)
-					if err != nil {
+			// Append the argument value
+			if argIndex < len(args) {
+				v := args[argIndex]
+				if fn, ok := v.(std_driver.Valuer); ok {
+					if v, err = fn.Value(); err != nil {
 						return "", err
 					}
-
-					buf = append(buf, value...)
-					argIndex++
-				} else {
-					unbindCount++
 				}
+
+				value, err := format(tz, Seconds, v)
+				if err != nil {
+					return "", err
+				}
+
+				buf = append(buf, value...)
+				argIndex++
+			} else {
+				unbindCount++
 			}
 
 			lastMatchIndex = i
+			continue
 		}
+		i = state.update(query, i)
 	}
 
 	// If there were no replacements, quick return without copying the string
@@ -162,13 +312,16 @@ func bindPositional(tz *time.Location, query string, args ...any) (_ string, err
 
 func bindNumeric(tz *time.Location, query string, args ...any) (_ string, err error) {
 	var (
-		unbind = make(map[string]struct{})
-		params = make(map[string]string)
+		lastMatchIndex = -1
+		unbind         = make(map[string]struct{})
+		params         = make(map[string]string)
+		buf            = make([]byte, 0, len(query))
+		state          bindQuoteState
 	)
 	for i, v := range args {
 		if fn, ok := v.(std_driver.Valuer); ok {
 			if v, err = fn.Value(); err != nil {
-				return "", nil
+				return "", err
 			}
 		}
 		val, err := format(tz, Seconds, v)
@@ -177,25 +330,43 @@ func bindNumeric(tz *time.Location, query string, args ...any) (_ string, err er
 		}
 		params[fmt.Sprintf("$%d", i+1)] = val
 	}
-	query = bindNumericRe.ReplaceAllStringFunc(query, func(n string) string {
-		if _, found := params[n]; !found {
-			unbind[n] = struct{}{}
-			return ""
+
+	for i := 0; i < len(query); i++ {
+		if !state.inProtectedContext() && query[i] == '$' && i+1 < len(query) && isDigit(query[i+1]) {
+			j := i + 2
+			for j < len(query) && isDigit(query[j]) {
+				j++
+			}
+			param := query[i:j]
+			buf = append(buf, query[lastMatchIndex+1:i]...)
+			if value, found := params[param]; found {
+				buf = append(buf, value...)
+			} else {
+				unbind[param] = struct{}{}
+			}
+			lastMatchIndex = j - 1
+			i = j - 1
+			continue
 		}
-		return params[n]
-	})
+		i = state.update(query, i)
+	}
+	if lastMatchIndex < 0 {
+		return query, nil
+	}
+	buf = append(buf, query[lastMatchIndex+1:]...)
 	for param := range unbind {
 		return "", fmt.Errorf("have no arg for %s param", param)
 	}
-	return query, nil
+	return string(buf), nil
 }
-
-var bindNamedRe = regexp.MustCompile(`@[a-zA-Z0-9\_]+`)
 
 func bindNamed(tz *time.Location, query string, args ...any) (_ string, err error) {
 	var (
-		unbind = make(map[string]struct{})
-		params = make(map[string]string)
+		lastMatchIndex = -1
+		unbind         = make(map[string]struct{})
+		params         = make(map[string]string)
+		buf            = make([]byte, 0, len(query))
+		state          bindQuoteState
 	)
 	for _, v := range args {
 		switch v := v.(type) {
@@ -219,17 +390,38 @@ func bindNamed(tz *time.Location, query string, args ...any) (_ string, err erro
 			params["@"+v.Name] = val
 		}
 	}
-	query = bindNamedRe.ReplaceAllStringFunc(query, func(n string) string {
-		if _, found := params[n]; !found {
-			unbind[n] = struct{}{}
-			return ""
+
+	for i := 0; i < len(query); i++ {
+		// A named placeholder is "@" followed by at least one name character, and
+		// only counts outside of quoted identifiers, string literals and comments.
+		if !state.inProtectedContext() && query[i] == '@' && i+1 < len(query) && isNameChar(query[i+1]) {
+			j := i + 1
+			for j < len(query) && isNameChar(query[j]) {
+				j++
+			}
+			param := query[i:j]
+			buf = append(buf, query[lastMatchIndex+1:i]...)
+			if value, found := params[param]; found {
+				buf = append(buf, value...)
+			} else {
+				unbind[param] = struct{}{}
+			}
+			lastMatchIndex = j - 1
+			i = j - 1
+			continue
 		}
-		return params[n]
-	})
+		i = state.update(query, i)
+	}
+
+	// If there were no replacements, quick return without copying the string.
+	if lastMatchIndex < 0 {
+		return query, nil
+	}
+	buf = append(buf, query[lastMatchIndex+1:]...)
 	for param := range unbind {
 		return "", fmt.Errorf("have no arg for %q param", param)
 	}
-	return query, nil
+	return string(buf), nil
 }
 
 func formatTime(tz *time.Location, scale TimeUnit, value time.Time) (string, error) {
