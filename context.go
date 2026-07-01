@@ -322,6 +322,7 @@ func (q *QueryOptions) clone() QueryOptions {
 		async:               q.async,
 		queryID:             q.queryID,
 		quotaKey:            q.quotaKey,
+		jwt:                 q.jwt,
 		events:              q.events,
 		settings:            nil,
 		parameters:          nil,
