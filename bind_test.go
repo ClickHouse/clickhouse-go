@@ -1,6 +1,7 @@
 package clickhouse
 
 import (
+	"math"
 	"testing"
 	"time"
 
@@ -500,6 +501,31 @@ func TestFormatTime(t *testing.T) {
 	// test with nil pointer to time.Time
 	val, _ := format(time.UTC, Seconds, (*time.Time)(nil))
 	assert.Equal(t, "NULL", val)
+}
+
+// TestFormatFloat is a regression test for issue #1862: a bound float64/float32
+// used to fall through to fmt.Sprint, so 1.0 rendered as the bare literal "1"
+// (which ClickHouse narrows to an integer type) and non-finite values rendered
+// as "NaN"/"+Inf" which ClickHouse cannot parse.
+func TestFormatFloat(t *testing.T) {
+	cases := []struct {
+		param    any
+		expected string
+	}{
+		{float64(1.0), "cast(1, 'Float64')"},
+		{float64(1.5), "cast(1.5, 'Float64')"},
+		{float64(-2), "cast(-2, 'Float64')"},
+		{float32(1.0), "cast(1, 'Float32')"},
+		{float32(2.5), "cast(2.5, 'Float32')"},
+		{math.Inf(1), "cast('inf', 'Float64')"},
+		{math.Inf(-1), "cast('-inf', 'Float64')"},
+		{math.NaN(), "cast('nan', 'Float64')"},
+	}
+	for _, c := range cases {
+		val, err := format(time.UTC, Seconds, c.param)
+		require.NoError(t, err)
+		assert.Equal(t, c.expected, val)
+	}
 }
 
 func TestFormatScaledTime(t *testing.T) {

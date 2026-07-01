@@ -4,7 +4,9 @@ import (
 	std_driver "database/sql/driver"
 	"errors"
 	"fmt"
+	"math"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
@@ -487,6 +489,10 @@ func format(tz *time.Location, scale TimeUnit, v any) (string, error) {
 			return "1", nil
 		}
 		return "0", nil
+	case float32:
+		return formatFloat(float64(v), 32), nil
+	case float64:
+		return formatFloat(v, 64), nil
 	case GroupSet:
 		val, err := join(tz, scale, v.Value)
 		if err != nil {
@@ -573,6 +579,10 @@ func format(tz *time.Location, scale TimeUnit, v any) (string, error) {
 			values = append(values, fmt.Sprintf("%s, %s", name, val))
 		}
 		return "map(" + strings.Join(values, ", ") + ")", nil
+	case reflect.Float32:
+		return formatFloat(v.Float(), 32), nil
+	case reflect.Float64:
+		return formatFloat(v.Float(), 64), nil
 	case reflect.Ptr:
 		if v.IsNil() {
 			return "NULL", nil
@@ -580,6 +590,27 @@ func format(tz *time.Location, scale TimeUnit, v any) (string, error) {
 		return format(tz, scale, v.Elem().Interface())
 	}
 	return fmt.Sprint(v), nil
+}
+
+// formatFloat renders a float as a CAST to the matching ClickHouse Float type.
+// Without the cast, integer-valued floats like 1.0 render as the bare literal
+// "1", which ClickHouse infers as an integer and later narrows (breaking typed
+// float scans). NaN and infinities are quoted in the lowercase form ClickHouse
+// accepts, since Go's default formatting ("NaN", "+Inf") is not valid SQL.
+func formatFloat(f float64, bitSize int) string {
+	chType := "Float64"
+	if bitSize == 32 {
+		chType = "Float32"
+	}
+	switch {
+	case math.IsNaN(f):
+		return fmt.Sprintf("cast('nan', '%s')", chType)
+	case math.IsInf(f, 1):
+		return fmt.Sprintf("cast('inf', '%s')", chType)
+	case math.IsInf(f, -1):
+		return fmt.Sprintf("cast('-inf', '%s')", chType)
+	}
+	return fmt.Sprintf("cast(%s, '%s')", strconv.FormatFloat(f, 'g', -1, bitSize), chType)
 }
 
 func join[E any](tz *time.Location, scale TimeUnit, values []E) (string, error) {
