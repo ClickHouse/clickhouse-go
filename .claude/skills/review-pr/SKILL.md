@@ -1,78 +1,232 @@
 ---
 name: review-pr
-description: Review a pull request and post structured feedback as a comment.
+description: Review a pull request for correctness, API safety, Go idioms, and protocol coverage, then post inline comments plus one updating summary. Use when the user wants to review a PR or diff.
 argument-hint: "<PR-number>"
-allowed-tools: Read, Glob, Bash(grep:*), Bash(gh pr view:*), Bash(gh pr diff:*), Bash(gh pr comment:*)
+allowed-tools: Read, Glob, Grep, Bash(grep:*), Bash(gh pr view:*), Bash(gh pr diff:*), Bash(gh api:*), Bash(python3:*), Write
 ---
 
-Review the pull request and provide structured feedback.
+# clickhouse-go Code Review Skill
 
-## How to fetch the PR
+You are a senior `clickhouse-go` maintainer performing a **strict, high-signal review** of a
+pull request. Your job is to catch **real problems** — correctness, resource leaks, concurrency,
+API misuse, protocol gaps, missing tests — and give concise, actionable, line-anchored feedback.
+Avoid noisy comments about style or trivial cleanups.
 
-If given a PR number or URL, use `gh pr diff <number>` to get the diff and `gh pr view <number>` to get the description. Read any referenced issues for context.
+## Arguments
 
-## Review structure
+- `$0` (required): PR number (e.g. `1869`).
 
-Return feedback in this order:
+## 1. Obtain the diff and context
 
-1. **Summary** — one paragraph: what the PR does, why it exists, whether the approach is sound.
-2. **Must fix** — blocking issues; the PR should not merge until these are resolved.
-3. **Should fix** — non-blocking but important (correctness risks, API design concerns, missing tests).
-4. **Nits** — style, naming, minor clarity improvements. Prefix each with `nit:`.
-5. **Verdict** — one of: `Approve`, `Request changes`, or `Needs discussion`.
+```bash
+gh pr view "$0" --json title,body,headRefName,baseRefName,author,url
+gh pr diff "$0"
+```
 
-If a section has no items, omit it.
+- Read the title, description, and any linked issues for the intended behavior.
+- For each changed file, `Read` the surrounding code when the diff alone is insufficient to judge
+  the change — a finding is only valid if you understand the code it touches.
+- If the diff is large (>2000 lines), use the `Explore` agent to analyze parts in parallel.
 
----
+### Existing review threads (re-review)
 
-## Checklist
+If `existing-threads.json` is present (the CI workflow writes it; create it for interactive runs
+with `python3 .claude/skills/review-pr/post_review.py fetch --repo ClickHouse/clickhouse-go --pr "$0" > existing-threads.json`),
+`Read` it. It lists the review threads you already started, each with its prior comment(s), any
+author replies, and `is_resolved`/`is_outdated` state. For **every** open (`is_resolved: false`)
+thread, decide an action (section 5, `thread_actions`):
 
-Work through each category before writing the review.
+- The author replied with a question or pushback that still stands → **reply** addressing it.
+- The concern is now addressed (the current code satisfies it, or the author's reply adequately
+  resolves/declines it) → **resolve** (optionally with a short closing reply).
+- The concern still stands and there is no new author activity → **keep** (no new comment).
+- The thread is `is_outdated` and the underlying concern no longer applies → **resolve**.
 
-### Correctness
-- [ ] Does the logic handle error cases? Are errors returned (not swallowed with `_`)?
-- [ ] Are all `Rows`, `Batch`, and `Conn` values closed on every code path, including error paths?
-- [ ] Are there data races? Does any shared state lack synchronisation?
-- [ ] Does the `Batch` lifecycle (`Append` → `Send` or `Abort`) hold on every path?
-- [ ] Is `context.Context` propagated correctly (first param, never stored in a struct)?
+Do **not** raise a brand-new `findings` entry for a line that already has one of your threads — use
+a `thread_actions` reply instead, or the poster will skip it as a duplicate.
 
-### API design — easy to use correctly, hard to use incorrectly
-- [ ] Can a caller misuse the new API without the compiler or runtime catching it?
-- [ ] Does the change silently break any existing callers? Prefer deprecation over removal.
-- [ ] Are new exported types/functions/methods necessary? Could this be done with existing primitives?
-- [ ] Do new interfaces belong at the point of consumption, not implementation?
-- [ ] Is the zero value of any new struct useful or at least safe?
+## 2. Review gates
 
-### Go idioms
-- [ ] Error strings: lowercase, no trailing punctuation.
-- [ ] Acronyms in names: `URL`, `HTTP`, `ID` — not `Url`, `Http`, `Id`.
-- [ ] Receiver names: short abbreviation, never `self` or `this`.
-- [ ] No `context.Context` stored in struct fields.
-- [ ] No `panic` outside of `init()`-style invariant checks.
-- [ ] Imports: stdlib → external → internal, blank line between groups.
-- [ ] New types that contain a mutex are not copied by value.
-- [ ] `mixedCaps` for unexported constants, not `ALL_CAPS`.
+These are the questions you must answer before settling on a verdict. State findings as **violated
+invariants or broken contracts**, not as checklist matches. If a gate cannot be validated, say so in
+the summary under blind spots rather than guessing.
 
-### Tests
-- [ ] Is there a test that would have caught the bug being fixed?
-- [ ] Bug fixes: is there a regression test in `tests/issues/issue_<N>_test.go`?
-- [ ] New ClickHouse type support: column implementation + round-trip test + example?
-- [ ] Do test failure messages say what was wrong, what input triggered it, and what was expected vs. got?
-- [ ] Are tests table-driven where there are multiple cases?
-- [ ] No test mocking of `driver.Conn` or `driver.Rows` for integrations tests inside root `/tests/` — use a real ClickHouse via testcontainers.
-- [ ] Make sure tests are covered for both TCP and HTTP protocol cases.
-- [ ] Make sure tests are covered for both `clickhouse_native` (Open() api returns) api and `std` api (OpenDB() api returns).
+1. **Contract** — Derive what the PR promises from its title, description, tests, and code shape.
+   A `Bug Fix` promises the bug is fixed *and* covered by a regression test; a perf change promises a
+   measured benefit. Frame findings as "X promises Y, but Z breaks it."
+2. **Impacted surface** — Follow the changed behavior through unchanged callers/callees, both the
+   **native (`Open`)** and **`database/sql` (`OpenDB`)** surfaces, and both the **native TCP** and
+   **HTTP** protocol paths. A change to one path that should apply to the other is a finding.
+3. **Failure & lifecycle** — Check error paths, cancellation, and resource lifecycle: is every
+   `Rows`, `Batch`, and `Conn` closed/aborted on **every** path including errors? Is the `Batch`
+   lifecycle (`Append` → `Send`/`Abort`) preserved? Is `context.Context` the first parameter and
+   never stored in a struct?
+4. **Evidence** — Map each material claim to proof. Correctness fixes need a regression test in
+   `tests/issues/issue_<N>_test.go`; new type support needs a column impl + round-trip test +
+   example. Missing proof for important behavior is itself a finding (severity `should_fix`).
 
-### Performance & protocol
-- [ ] Does the change avoid unnecessary allocations in hot paths (encoding/decoding columns)?
-- [ ] Are new `Options` fields safe to ignore when unset (i.e., the zero value is the sensible default)?
-- [ ] Does the change affect both the native TCP and HTTP protocol paths? If so, are both covered?
+When you find one serious invariant failure, fan out **once** through sibling paths sharing the same
+cause (other column types, the other protocol, the other API surface) before concluding.
 
-### Documentation
-- [ ] Are new exported symbols documented with a full-sentence doc comment beginning with the symbol name?
-- [ ] ClickHouse SQL types and function names wrapped in backticks in any prose.
-- [ ] Make sure existing docs and examples are updated.
-- [ ] Make sure new docs and examples are added if needed for new features or bug fixes.
-- [ ] Make sure the docs are covered for both TCP and HTTP protocol cases.
-- [ ] Make sure the docs are covered for both `clickhouse_native` (Open() api returns) api and `std` api (OpenDB() api returns).
-- [ ] If a comment or doc comment includes usage examples (e.g. inline code blocks), it is acceptable to omit error checking. Do not flag missing error handling in example code. 
+**Use concrete traces.** If callee logic looks suspicious, trace a minimal input through it with
+concrete values. Do not dismiss it with abstract reasoning ("probably safe because…"). If you cannot
+prove safety by tracing, report it or request the test that would prove it.
+
+## 3. clickhouse-go supporting checks
+
+Use these to surface project-specific invariants; the finding should name the broken behavior, not
+just cite the rule.
+
+- **Errors** — never swallowed with `_`; wrapped with `%w` to preserve the chain; strings lowercase,
+  no trailing punctuation; no `panic` outside `init()`-style invariant checks; messages actionable
+  for the end user.
+- **Concurrency** — no unsynchronized shared state; a struct holding a mutex (e.g. `batch`) is never
+  copied by value; goroutines have a documented exit/stop path.
+- **API design** — can a caller misuse the new surface without the compiler/runtime catching it?
+  Does it silently break existing callers (prefer deprecation over removal)? Are new exported
+  symbols necessary, or expressible with existing primitives? Do new interfaces sit at the point of
+  consumption? Is the zero value of new structs safe / a sensible default?
+- **Go idioms** — acronyms keep case (`URL`, `HTTP`, `ID`); short receiver names, never `self`/`this`;
+  `mixedCaps` not `ALL_CAPS` for unexported constants; imports grouped stdlib → external → internal.
+- **Tests** — would the test have caught the bug? Are they table-driven with messages stating
+  input / expected / got? **No mocking** of `driver.Conn`/`driver.Rows` in `/tests/` — use a real
+  ClickHouse via testcontainers. Cover **both** TCP and HTTP, and **both** native and `std` APIs.
+- **Docs** — new exported symbols have full-sentence doc comments beginning with the symbol name;
+  SQL types/functions in prose wrapped in backticks; examples added/updated for new behavior. Do not
+  flag missing error handling in *example* code inside comments.
+
+## 4. Severity model
+
+- `must_fix` — incorrectness, data loss, resource/goroutine leaks, data races/deadlocks, silent
+  breaking changes to a public API or protocol, security issues.
+- `should_fix` — under-tested important paths, fragile code, missing protocol/API-surface coverage,
+  confusing user-facing behavior or errors, missing docs for new exported symbols.
+- `nit` — minor clarity/naming/idiom issues. Prefix the body with `nit:`. Keep these rare; do not let
+  them crowd out real findings.
+
+Omit speculative refactors, pure formatting, and bikeshedding. Do **not** suppress a serious plausible
+risk just because proof is incomplete — report it and state exactly what would prove the code correct.
+
+## 5. Output: write the findings JSON
+
+Anchor every finding you can to a specific changed line so it becomes an **inline** comment. Write
+the result to `claude-review.json` (in the repo root) with this exact schema:
+
+```json
+{
+  "summary": "Structured markdown (see 'Writing the summary' below): a short intro line, then short paragraphs and/or bullet lists. Use `\\n` for line breaks. Cover what the PR does, the high-level verdict, and any blind spots.",
+  "verdict": "approve | request_changes | needs_discussion",
+  "findings": [
+    {
+      "path": "lib/column/date.go",
+      "line": 142,
+      "severity": "must_fix",
+      "title": "short imperative title",
+      "body": "Structured markdown (see 'Writing inline comments' below): lead with one sentence naming the broken invariant and its impact, then bullets when there is more than one point, then a ```suggestion``` block or diff for the fix. Use `\\n` for line breaks. Keep it short."
+    }
+  ],
+  "general_findings": [
+    {
+      "severity": "should_fix",
+      "title": "missing HTTP-path regression test",
+      "body": "Findings that are NOT anchorable to a changed line (cross-cutting, or about code outside the diff). These render in the summary comment."
+    }
+  ],
+  "thread_actions": [
+    {
+      "thread_id": "PRRT_kwDO...",
+      "root_comment_id": 3421542714,
+      "action": "reply | resolve | keep",
+      "reply_body": "Required for action=reply. Optional closing note for action=resolve. Omit for keep."
+    }
+  ]
+}
+```
+
+`thread_actions` is only for re-reviews where `existing-threads.json` listed open threads; copy
+`thread_id` and `root_comment_id` verbatim from that file. Omit the array (or leave it empty) on a
+first review. The poster skips replies it has already posted, so re-running is safe.
+
+### Writing the summary
+
+The `summary` string is rendered verbatim as markdown in the PR comment, so format it for fast
+scanning — **never a single dense paragraph**. Keep it tight; the inline comments carry the detail.
+
+- Lead with **one or two sentences** stating what the PR does and the overall verdict.
+- Break the rest into **short paragraphs** (2–3 sentences each) separated by a blank line (`\n\n`),
+  one idea per paragraph.
+- Use a **bullet list** (`\n` between `- ` items) whenever you are enumerating things — affected
+  surfaces, blind spots, follow-ups, or the key issues driving the verdict. Bullets beat prose for
+  any list of two or more items.
+- Bold short inline labels (e.g. `**Blind spots:**`) to anchor sections when it aids skimming.
+- Do not restate every inline finding here; reference them collectively and highlight only what
+  shapes the verdict.
+
+Example shape (adapt freely):
+
+```
+Adds `DateTime64` scale handling to the native path. The core change is sound, but the HTTP
+path is left uncovered.
+
+**Key concerns:**
+- Scale > 9 silently overflows (see inline on `lib/column/datetime64.go`).
+- No regression test for the `std` API surface.
+
+**Blind spots:** could not validate the HTTP round-trip without a live server.
+```
+
+### Writing inline comments
+
+Each finding's `body` renders as markdown directly beneath a bold severity + title header that
+the poster prepends (`**❌ Must fix** — <title>`), so do **not** repeat the title or severity in the
+body. Apply the same scan-first discipline as the summary: a reviewer reading the comment on the line
+should grasp the problem and the fix in one pass. **Never a single dense block of prose.**
+
+- Lead with **one sentence** naming the broken invariant and its concrete impact — e.g. "Scale > 9
+  overflows the `int32` multiplier, so sub-second values silently truncate." No preamble ("I noticed
+  that…", "It looks like…"); state the problem directly.
+- Keep the whole comment **tight** (aim for under ~6 lines). The reviewer needs the bug and the fix,
+  not exhaustive reasoning — push deep rationale to the summary or omit it.
+- When the body has **more than one distinct point** (root cause, an affected sibling path, a test
+  gap), use a **short bullet list** (`\n` between `- ` items) instead of stringing them into one
+  paragraph. One point → one sentence is fine; don't pad it into bullets.
+- Put any concrete fix in a ```suggestion``` block (GitHub applies it in one click) or a fenced diff,
+  separated from the prose by a blank line (`\n\n`). Suggestion blocks must contain only the
+  replacement line(s) for the commented range.
+
+Example shape (indented here to show the literal markdown, including a nested suggestion block):
+
+    `Send()` doesn't reset `b.sent` under the lock, so a concurrent `Append` races the flag and
+    can slip a row into an already-sent batch.
+
+    - The read in `Append` (line 88) is unsynchronized against this write.
+    - The `std` wrapper hits the same path via `ExecContext`.
+
+    ```suggestion
+        b.mu.Lock()
+        b.sent = true
+        b.mu.Unlock()
+    ```
+
+Rules for the JSON:
+- `line` is the line number in the **new** version of the file, and **must** be a line that appears
+  in the diff (added or context). If a finding concerns code not in the diff, put it in
+  `general_findings` instead — the poster will reject off-diff inline lines and demote them anyway,
+  but placing them correctly keeps the output clean.
+- One finding per distinct issue. Group issues that share a single root cause into one finding.
+- If there are no findings, emit empty arrays and an `approve` verdict with a one-line summary.
+- Do not invent line numbers. When unsure of the exact line, use `general_findings`.
+
+## 6. Post the review
+
+The CI workflow posts the JSON automatically as a separate step. When running **interactively**, post
+it yourself:
+
+```bash
+python3 .claude/skills/review-pr/post_review.py post --repo ClickHouse/clickhouse-go --pr "$0" --input claude-review.json
+```
+
+`post_review.py post` is idempotent: it attaches inline comments to the relevant lines, skips
+findings it already posted (so re-reviews do not duplicate), demotes any off-diff finding into the
+summary, replies into existing threads, resolves addressed/outdated threads, and updates a single
+summary comment in place instead of stacking new ones.
