@@ -7,7 +7,8 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/docker/docker/api/types/container"
+	"github.com/moby/moby/client"
+
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 
@@ -30,7 +31,7 @@ func Test1421BatchFlushBrokenConn(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, env)
 	ctx := context.Background()
-	client, err := testcontainers.NewDockerClientWithOpts(ctx)
+	dockerClient, err := testcontainers.NewDockerClientWithOpts(ctx)
 	require.NoError(t, err)
 	chClient, err := tests.TestClientWithDefaultSettings(env)
 
@@ -56,11 +57,11 @@ func Test1421BatchFlushBrokenConn(t *testing.T) {
 		close(ch)
 	}()
 	//timeout := 0
-	err2 := client.ContainerKill(ctx, env.ContainerID, "KILL")
+	_, err2 := dockerClient.ContainerKill(ctx, env.ContainerID, client.ContainerKillOptions{Signal: "KILL"})
 	<-ch
 	require.NoError(t, err2)
 	require.True(t, errors.Is(err, syscall.EPIPE) || errors.Is(err, syscall.ECONNRESET))
-	err = client.ContainerStart(ctx, env.ContainerID, container.StartOptions{})
+	_, err = dockerClient.ContainerStart(ctx, env.ContainerID, client.ContainerStartOptions{})
 	require.NoError(t, err)
 	err = batch.Flush()
 	// retry after server is up should have either no error, or a reconnect error (for example because the mapped port
