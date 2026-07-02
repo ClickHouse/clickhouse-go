@@ -25,6 +25,7 @@ import (
 	"github.com/andybalholm/brotli"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/timezone"
 )
 
 const (
@@ -334,13 +335,13 @@ func (h *httpConnect) queryHello(ctx context.Context, release nativeTransportRel
 		displayName string
 		versionStr  string
 		revision    uint32
-		timezone    string
+		tz          string
 	)
-	if err := rows.Scan(&displayName, &versionStr, &revision, &timezone); err != nil {
+	if err := rows.Scan(&displayName, &versionStr, &revision, &tz); err != nil {
 		return proto.ServerHandshake{}, err
 	}
 
-	location, err := time.LoadLocation(timezone)
+	location, err := timezone.Load(tz)
 	if err != nil {
 		return proto.ServerHandshake{}, fmt.Errorf("failed to load timezone from server hello query: %w", err)
 	}
