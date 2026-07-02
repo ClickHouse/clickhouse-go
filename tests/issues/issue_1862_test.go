@@ -32,6 +32,12 @@ type queryRowFunc func(dest any, query string, args ...any) error
 // binds float scalars, arrays, and maps and scans them back, exercising the
 // fix end-to-end across both protocols (native TCP and HTTP) and both APIs.
 func Test1862_FloatBinding(t *testing.T) {
+	// The two helpers have opposite SSL conventions on Cloud:
+	//   - native GetConnection derives TLS and the secure port from CLICKHOUSE_USE_SSL
+	//     when tlsConfig is nil, so passing a non-nil config would pin the plaintext port.
+	//   - std GetOpenDBConnection does not read the env var; it needs an explicit
+	//     non-nil *tls.Config to select the secure port.
+	// So the native path passes nil and the std path passes tlsConfig.
 	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
 	require.NoError(t, err)
 	var tlsConfig *tls.Config
@@ -45,7 +51,7 @@ func Test1862_FloatBinding(t *testing.T) {
 		protocol := protocol
 
 		t.Run("native/"+protocol.String(), func(t *testing.T) {
-			conn, err := clickhouse_tests.GetConnection("issues", t, protocol, nil, tlsConfig, nil)
+			conn, err := clickhouse_tests.GetConnection("issues", t, protocol, nil, nil, nil)
 			require.NoError(t, err)
 			runFloatBindingAssertions(t, func(dest any, query string, args ...any) error {
 				return conn.QueryRow(ctx, query, args...).Scan(dest)
