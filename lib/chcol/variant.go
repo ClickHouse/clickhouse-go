@@ -56,7 +56,7 @@ func (v Variant) Any() any {
 }
 
 // Scan implements the sql.Scanner interface
-func (v *Variant) Scan(value interface{}) error {
+func (v *Variant) Scan(value any) error {
 	switch vv := value.(type) {
 	case Variant:
 		v.value = vv.value

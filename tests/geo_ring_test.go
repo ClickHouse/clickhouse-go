@@ -8,9 +8,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/paulmach/orb"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
 )
 
 func TestGeoRing(t *testing.T) {
@@ -44,11 +45,11 @@ func TestGeoRing(t *testing.T) {
 				orb.Point{1, 2},
 			}
 			col2Data = []orb.Ring{
-				orb.Ring{
+				{
 					orb.Point{1, 2},
 					orb.Point{1, 2},
 				},
-				orb.Ring{
+				{
 					orb.Point{1, 2},
 					orb.Point{1, 2},
 				},

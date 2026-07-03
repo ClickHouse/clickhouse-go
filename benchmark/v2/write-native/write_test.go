@@ -2,10 +2,11 @@ package main
 
 import (
 	"context"
-	"github.com/ClickHouse/clickhouse-go/v2"
 	"log"
 	"testing"
 	"time"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
 )
 
 func getConnection() clickhouse.Conn {

@@ -3,15 +3,17 @@ package issues
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/ext"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	clickhouse_std_tests "github.com/ClickHouse/clickhouse-go/v2/tests/std"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"strconv"
-	"testing"
-	"time"
 )
 
 func Test990(t *testing.T) {

@@ -55,7 +55,7 @@ func (o *stdConnOpener) Connect(ctx context.Context) (_ driver.Conn, err error) 
 		}
 	}
 
-	if o.opt.Addr == nil || len(o.opt.Addr) == 0 {
+	if len(o.opt.Addr) == 0 {
 		return nil, ErrAcquireConnNoAddress
 	}
 
@@ -103,10 +103,8 @@ func isConnBrokenError(err error) bool {
 	if errors.Is(err, io.EOF) || errors.Is(err, syscall.EPIPE) || errors.Is(err, syscall.ECONNRESET) {
 		return true
 	}
-	if _, ok := err.(*net.OpError); ok {
-		return true
-	}
-	return false
+	var opErr *net.OpError
+	return errors.As(err, &opErr)
 }
 
 func Connector(opt *Options) driver.Connector {

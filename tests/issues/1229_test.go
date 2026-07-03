@@ -7,20 +7,27 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 )
 
 func Test1229(t *testing.T) {
-	const queryTimeout = 2 * time.Second
+	const (
+		queryTimeout = 4 * time.Second
+		concurrency  = 100
+	)
 
 	var (
-		conn, err = clickhouse_tests.GetConnectionTCP("issues", clickhouse.Settings{
+		conn, err = clickhouse_tests.GetConnectionTCPWithOptions("issues", clickhouse.Settings{
 			"max_execution_time": 60,
 		}, nil, &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
+		}, func(o *clickhouse.Options) {
+			o.MaxOpenConns = concurrency
+			o.MaxIdleConns = concurrency
 		})
 	)
 	require.NoError(t, err)
@@ -33,7 +40,7 @@ func Test1229(t *testing.T) {
 	}()
 
 	const insertQuery = "INSERT INTO test_1229 VALUES ('test1value%d', 'test2value%d')"
-	for i := 0; i < 100; i++ {
+	for i := 0; i < concurrency; i++ {
 		withTimeoutCtx, cancel := context.WithTimeout(ctx, queryTimeout)
 		require.NoError(t, conn.Exec(withTimeoutCtx, fmt.Sprintf(insertQuery, i, i)))
 		cancel()
@@ -41,15 +48,16 @@ func Test1229(t *testing.T) {
 
 	wg := new(sync.WaitGroup)
 	const selectQuery = "SELECT test1, test2 FROM test_1229"
-	for i := 0; i < 100; i++ {
+	errTestQueryTimeout := fmt.Errorf("Test1229: query budget %s exceeded", queryTimeout)
+	for i := 0; i < concurrency; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			withTimeoutCtx, cancel := context.WithTimeout(ctx, queryTimeout)
+			withTimeoutCtx, cancel := context.WithTimeoutCause(ctx, queryTimeout, errTestQueryTimeout)
 			defer cancel()
 			rows, err := conn.Query(withTimeoutCtx, selectQuery)
-			require.NoError(t, err)
-			require.NoError(t, rows.Close())
+			require.NoErrorf(t, err, "query failed; ctx cause=%v", context.Cause(withTimeoutCtx))
+			require.NoErrorf(t, rows.Close(), "rows.Close failed; ctx cause=%v", context.Cause(withTimeoutCtx))
 		}()
 	}
 
