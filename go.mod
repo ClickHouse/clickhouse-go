@@ -6,7 +6,7 @@ toolchain go1.25.4
 
 require (
 	github.com/ClickHouse/ch-go v0.73.0
-	github.com/andybalholm/brotli v1.2.1
+	github.com/andybalholm/brotli v1.2.2
 	github.com/docker/go-units v0.5.0
 	github.com/google/uuid v1.6.0
 	github.com/mkevac/debugcharts v0.0.0-20191222103121-ae1c48aa8615
