@@ -12,6 +12,17 @@ var truncateValues = regexp.MustCompile(`\sVALUES\s.*$`)
 var extractInsertColumnsMatch = regexp.MustCompile(`(?si)INSERT INTO .+\s\((?P<Columns>.+)\)$`)
 
 func extractNormalizedInsertQueryAndColumns(query string) (normalizedQuery string, tableName string, columns []string, err error) {
+	insertStmt, tableName, columns, err := extractInsertQueryComponents(query)
+	if err != nil {
+		return "", "", nil, err
+	}
+	return fmt.Sprintf("%s FORMAT Native", insertStmt), tableName, columns, nil
+}
+
+// extractInsertQueryComponents strips any FORMAT clause or VALUES suffix from
+// an INSERT query and returns the bare statement, so the caller can append the
+// FORMAT of its choosing.
+func extractInsertQueryComponents(query string) (insertStmt string, tableName string, columns []string, err error) {
 	query = truncateFormat.ReplaceAllString(query, "")
 	query = truncateValues.ReplaceAllString(query, "")
 
@@ -21,7 +32,7 @@ func extractNormalizedInsertQueryAndColumns(query string) (normalizedQuery strin
 		return
 	}
 
-	normalizedQuery = fmt.Sprintf("%s FORMAT Native", matches[1])
+	insertStmt = matches[1]
 	tableName = strings.TrimSpace(matches[2])
 
 	columns = make([]string, 0)
