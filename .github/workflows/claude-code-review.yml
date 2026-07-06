@@ -1,0 +1,91 @@
+name: Claude Code Review
+
+on:
+  pull_request_target:
+    types: [labeled]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "PR number to review"
+        required: true
+        type: string
+
+jobs:
+  review:
+    # Only run when the exact trigger label is applied (skip for manual dispatch).
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.label.name == 'review:claude-agent'
+    runs-on: ubuntu-latest
+    permissions:
+      # resolving review threads needs contents:write, oddly enough:
+      # https://github.com/orgs/community/discussions/44650
+      # Safe here: we only check out the base branch, and only on a maintainer label.
+      contents: write
+      pull-requests: write  # post review comments
+      issues: write         # update labels / post issue comments
+      id-token: write       # OIDC token for claude-code-action auth
+
+    steps:
+      - name: Checkout base branch
+        uses: actions/checkout@v4
+        # SECURITY: pull_request_target checks out the base branch by default.
+        # Do NOT add `ref: ${{ github.event.pull_request.head.sha }}` here —
+        # that would run untrusted fork code with access to repository secrets.
+        # that's why labeling check (usually by maintainer)
+
+      # Dump the bot's existing review threads (prior comments + author replies +
+      # resolved/outdated state) so the review step can decide, per open thread,
+      # whether to reply, resolve, or leave it alone. Empty on a first review.
+      - name: Fetch existing review threads
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 .claude/skills/review-pr/post_review.py fetch \
+            --repo "${{ github.repository }}" \
+            --pr "${{ github.event.inputs.pr_number || github.event.pull_request.number }}" \
+            > existing-threads.json || echo '{"threads":[]}' > existing-threads.json
+
+      - name: Review PR with Claude (produce findings JSON)
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ github.token }}
+          claude_args:
+            --allowedTools "Read,Glob,Grep,Bash(grep:*),Bash(gh pr view:*),Bash(gh pr diff:*),Write"
+          prompt: |
+            Review pull request #${{ github.event.inputs.pr_number || github.event.pull_request.number }} by following `.claude/skills/review-pr/SKILL.md` exactly.
+
+            First Read `.claude/skills/review-pr/review-core.md` (the review criteria) and
+            `.claude/skills/review-pr/SKILL.md` (the workflow steps and findings JSON schema).
+            `existing-threads.json` is already present in the working directory. Write your findings
+            to `claude-review.json` in the repo root, matching the schema in SKILL.md. Do NOT post
+            any comments yourself — a separate workflow step posts the JSON.
+
+      # Deterministic posting: inline line-anchored comments, threaded replies,
+      # resolution of addressed/outdated threads, and one summary comment updated
+      # in place (idempotent, so re-runs do not duplicate). Runs even if the
+      # review step produced no JSON (the script is skipped in that case).
+      - name: Post review comments
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -f claude-review.json ]; then
+            python3 .claude/skills/review-pr/post_review.py post \
+              --repo "${{ github.repository }}" \
+              --pr "${{ github.event.inputs.pr_number || github.event.pull_request.number }}" \
+              --input claude-review.json
+          else
+            echo "No claude-review.json produced; nothing to post."
+          fi
+
+      - name: Remove trigger label
+        if: always() && github.event_name != 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api \
+            --method DELETE \
+            repos/${{ github.repository }}/issues/${{ github.event.inputs.pr_number || github.event.pull_request.number }}/labels/review%3Aclaude-agent \
+            || true  # ignore 404 if label was already removed

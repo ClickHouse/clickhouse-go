@@ -1,0 +1,69 @@
+package std
+
+import (
+	"context"
+	"crypto/tls"
+	"errors"
+	"strconv"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
+)
+
+func TestHTTPExceptionHandlingDB(t *testing.T) {
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	var tlsConfig *tls.Config
+	if useSSL {
+		tlsConfig = &tls.Config{}
+	}
+	conn, err := GetStdOpenDBConnection(clickhouse.HTTP, nil, tlsConfig, nil)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	// These settings will make sure mid-stream exception most likely on the server
+	ctx = clickhouse.Context(ctx, clickhouse.WithSettings(clickhouse.Settings{
+		"max_threads":                           1,
+		"max_block_size":                        1,
+		"http_write_exception_in_output_format": 0,
+		"wait_end_of_query":                     0,
+		"http_response_buffer_size":             1,
+	}))
+
+	rows, err := conn.QueryContext(ctx, `SELECT throwIf(number=3, 'there is an exception') FROM system.numbers`)
+	require.NoError(t, err) // query shouldn't fail with 500 status code.
+
+	// database/sql passes driver errors through untouched, so the typed
+	// *clickhouse.Exception must be reachable here too.
+	assertException := func(err error) {
+		assert.Contains(t, err.Error(), "there is an exception", "Expected exception message not caught")
+		var ex *clickhouse.Exception
+		if assert.True(t, errors.As(err, &ex), "mid-stream error should be a typed *clickhouse.Exception") {
+			assert.Equal(t, int32(395), ex.Code) // FUNCTION_THROW_IF_VALUE_IS_NON_ZERO
+		}
+	}
+
+	occured := false
+	// query should fail while scanning the rows mid-stream
+	for rows.Next() {
+		var result uint8
+		err := rows.Scan(&result)
+		if err != nil {
+			// should be an exception caught correctly
+			assertException(err)
+			occured = true
+		}
+	}
+
+	if err := rows.Err(); err != nil {
+		assertException(err)
+		occured = true
+	}
+
+	assert.True(t, occured, "execption not caught in the response chunks")
+}
