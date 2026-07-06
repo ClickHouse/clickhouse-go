@@ -2,6 +2,7 @@ package driver
 
 import (
 	"context"
+	"io"
 	"reflect"
 	"time"
 
@@ -40,6 +41,28 @@ type (
 		QueryRow(ctx context.Context, query string, args ...any) Row
 		PrepareBatch(ctx context.Context, query string, opts ...PrepareBatchOption) (Batch, error)
 		Exec(ctx context.Context, query string, args ...any) error
+
+		// QueryArbitraryFormat executes query and returns the result encoded in the
+		// given ClickHouse format (e.g. "CSV", "JSONEachRow", "Parquet") as a raw
+		// byte stream. The caller must Close the returned stream; until then it
+		// holds a connection (visible in Stats). Put the format in the format
+		// argument, not as a FORMAT clause in the query.
+		//
+		// Over the HTTP protocol the server encodes the stream, so every
+		// server-supported format works. Over the native protocol the client
+		// encodes it, which requires a codec registered via Options.FormatCodecs.
+		QueryArbitraryFormat(ctx context.Context, format string, query string, args ...any) (io.ReadCloser, error)
+
+		// InsertArbitraryFormat executes the INSERT statement query, streaming
+		// data (pre-encoded in the given format) as the insert payload. Any FORMAT
+		// clause or VALUES suffix in query is replaced; the format argument is
+		// authoritative. It returns once the server has committed or rejected the
+		// insert.
+		//
+		// Over the HTTP protocol the server parses the payload, so every
+		// server-supported format works. Over the native protocol the client
+		// parses it, which requires a codec registered via Options.FormatCodecs.
+		InsertArbitraryFormat(ctx context.Context, format string, query string, data io.Reader) error
 
 		// Deprecated: use context aware `WithAsync()` for any async operations
 		AsyncInsert(ctx context.Context, query string, wait bool, args ...any) error
