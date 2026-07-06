@@ -75,6 +75,10 @@ func TestBatchInsert(t *testing.T) {
 	require.NoError(t, BatchInsert())
 }
 
+func TestArbitraryFormat(t *testing.T) {
+	require.NoError(t, ArbitraryFormat())
+}
+
 func TestBatchWithReleaseConnection(t *testing.T) {
 	require.NoError(t, BatchWithReleaseConnection())
 }
