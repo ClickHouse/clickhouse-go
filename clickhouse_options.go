@@ -460,6 +460,8 @@ func (o Options) setDefaults() *Options {
 var builtinFormatCodecs = []chformat.Codec{
 	chformat.CSV{},
 	chformat.JSONEachRow{},
+	chformat.Parquet{},
+	chformat.ArrowStream{},
 }
 
 // formatCodec returns the registered client-side codec for the given format

@@ -96,6 +96,14 @@ func TestJSONEachRowRoundTrip(t *testing.T) {
 	testRoundTrip(t, JSONEachRow{})
 }
 
+func TestParquetRoundTrip(t *testing.T) {
+	testRoundTrip(t, Parquet{})
+}
+
+func TestArrowStreamRoundTrip(t *testing.T) {
+	testRoundTrip(t, ArrowStream{})
+}
+
 func TestCSVNull(t *testing.T) {
 	block := newTestBlock(t, true)
 	var buf bytes.Buffer
@@ -106,7 +114,7 @@ func TestCSVNull(t *testing.T) {
 }
 
 func TestDecoderMaxRows(t *testing.T) {
-	for _, codec := range []Codec{CSV{}, JSONEachRow{}} {
+	for _, codec := range []Codec{CSV{}, JSONEachRow{}, Parquet{}, ArrowStream{}} {
 		t.Run(codec.Name(), func(t *testing.T) {
 			source := newTestBlock(t, true)
 			var buf bytes.Buffer
