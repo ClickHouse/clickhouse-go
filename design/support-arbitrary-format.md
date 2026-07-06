@@ -19,21 +19,21 @@ Note: Parquet over **HTTP** works with zero codec code (server formats both dire
 Add to `driver.Conn` in `lib/driver/driver.go` (compile-breaks external mocks of the interface — accepted, call out in PR):
 
 ```go
-// QueryArbitraryFormat executes query and returns the result encoded in the given
+// QueryFormat executes query and returns the result encoded in the given
 // ClickHouse format (e.g. "CSV", "JSONEachRow") as a raw byte stream.
 // Caller must Close the stream; until then it holds a connection (visible in Stats).
 // Put the format in the argument, not as a FORMAT clause in the query.
-QueryArbitraryFormat(ctx context.Context, format string, query string, args ...any) (io.ReadCloser, error)
+QueryFormat(ctx context.Context, format string, query string, args ...any) (io.ReadCloser, error)
 
-// InsertArbitraryFormat executes the INSERT query, streaming data (pre-encoded in
+// InsertFormat executes the INSERT query, streaming data (pre-encoded in
 // format) as the payload. Any FORMAT/VALUES suffix in query is replaced; the format
 // argument is authoritative. Returns once the server commits or rejects the insert.
-InsertArbitraryFormat(ctx context.Context, format string, query string, data io.Reader) error
+InsertFormat(ctx context.Context, format string, query string, data io.Reader) error
 ```
 
 `io.Reader` (not `io.WriteCloser`) for insert: one synchronous call, one error path, nothing to forget to close, maps 1:1 to HTTP request body and files/pipes. Callers wanting a writer use `io.Pipe()`.
 
-Naming (`ArbitraryFormat` vs `Raw` vs `WithFormat`) is a bikeshed — trivial rename before merge.
+Naming: decided — `QueryFormat` / `InsertFormat`.
 
 ## Codec package — new `lib/format`
 
@@ -81,8 +81,8 @@ New dependency: `github.com/apache/arrow-go/v18` (official Apache implementation
 
 Add to `nativeTransport` interface (`clickhouse.go:84`):
 ```go
-queryArbitraryFormat(ctx, release nativeTransportRelease, format, query string, args ...any) (io.ReadCloser, error)
-insertArbitraryFormat(ctx, release nativeTransportRelease, format, query string, data io.Reader) error
+queryFormat(ctx, release nativeTransportRelease, format, query string, args ...any) (io.ReadCloser, error)
+insertFormat(ctx, release nativeTransportRelease, format, query string, data io.Reader) error
 ```
 Root methods in new `arbitrary_format.go` mirror `Query` (clickhouse.go:148) / `Exec` (clickhouse.go:169): acquire → delegate with `ch.release`; transport owns releasing.
 
@@ -148,11 +148,11 @@ Unit: `go vet ./...`, `go test ./lib/format/...`.
 
 Integration (`tests/arbitrary_format_test.go`, via existing `tests/utils.go` helpers `GetConnectionTCP`/`GetConnectionHTTP` + docker-compose per CONTRIBUTING.md; process-unique table names — Cloud CI shares one service):
 - HTTP SELECT CSV + JSONEachRow: seed via normal batch, assert exact server-rendered bytes.
-- HTTP SELECT/INSERT **Parquet**: round-trip — `QueryArbitraryFormat("Parquet", ...)`, parse the stream with arrow-go's parquet reader, assert values; then feed those bytes back via `InsertArbitraryFormat` into a second table and verify via native Query.
+- HTTP SELECT/INSERT **Parquet**: round-trip — `QueryFormat("Parquet", ...)`, parse the stream with arrow-go's parquet reader, assert values; then feed those bytes back via `InsertFormat` into a second table and verify via native Query.
 - HTTP INSERT text formats from `strings.Reader`, including an INSERT statement containing a stray `FORMAT` clause (must be replaced); verify rows back via **native** Query (std Scan masks bind/format bugs).
 - TCP SELECT all four codecs: for text codecs compare client-encoded output vs server-encoded HTTP output for fidelity-safe types (ints, strings, DateTime, Nullable); for Parquet/ArrowStream parse client output with arrow-go readers and assert values.
 - TCP INSERT all four codecs: multi-block input (>65,409 rows); malformed-row case asserting row-numbered error and pool stays healthy (`Stats`).
-- Cross-protocol Parquet: bytes produced by the TCP client-side codec must load via HTTP `InsertArbitraryFormat` (server parses them) — proves interop of client-written Parquet with server expectations.
+- Cross-protocol Parquet: bytes produced by the TCP client-side codec must load via HTTP `InsertFormat` (server parses them) — proves interop of client-written Parquet with server expectations.
 - Unregistered TCP format (e.g. "ORC") → error mentioning FormatCodecs and HTTP.
 - Mid-stream HTTP exception: `SELECT throwIf(number=100000) FROM numbers(1000000)` with settings from tests/http_exception_test.go → partial data then parsed exception.
 - Cancellation: cancel ctx mid-read on TCP → reader unblocks with error, goroutine exits, pool recovers.
