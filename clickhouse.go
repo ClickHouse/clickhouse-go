@@ -87,8 +87,8 @@ type nativeTransport interface {
 	query(ctx context.Context, release nativeTransportRelease, query string, args ...any) (*rows, error)
 	queryRow(ctx context.Context, release nativeTransportRelease, query string, args ...any) *row
 	prepareBatch(ctx context.Context, release nativeTransportRelease, acquire nativeTransportAcquire, query string, opts driver.PrepareBatchOptions) (driver.Batch, error)
-	queryArbitraryFormat(ctx context.Context, release nativeTransportRelease, format string, query string, args ...any) (io.ReadCloser, error)
-	insertArbitraryFormat(ctx context.Context, release nativeTransportRelease, format string, query string, data io.Reader) error
+	queryFormat(ctx context.Context, release nativeTransportRelease, format string, query string, args ...any) (io.ReadCloser, error)
+	insertFormat(ctx context.Context, release nativeTransportRelease, format string, query string, data io.Reader) error
 	exec(ctx context.Context, query string, args ...any) error
 	asyncInsert(ctx context.Context, query string, wait bool, args ...any) error
 	ping(context.Context) error

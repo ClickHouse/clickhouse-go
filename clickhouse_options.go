@@ -174,8 +174,8 @@ type Options struct {
 
 	scheme string
 
-	// FormatCodecs registers client-side codecs used by QueryArbitraryFormat and
-	// InsertArbitraryFormat over the native protocol, where the server only
+	// FormatCodecs registers client-side codecs used by QueryFormat and
+	// InsertFormat over the native protocol, where the server only
 	// exchanges Native blocks and any other format must be encoded or decoded by
 	// the client. CSV, JSONEachRow, Parquet and ArrowStream are registered by
 	// default; entries here override built-ins with the same Name().

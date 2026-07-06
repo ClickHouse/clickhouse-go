@@ -26,7 +26,7 @@ func (c *connect) lookupFormatCodec(name string) (chformat.Codec, error) {
 	return codec, nil
 }
 
-func (c *connect) queryArbitraryFormat(ctx context.Context, release nativeTransportRelease, formatName string, query string, args ...any) (io.ReadCloser, error) {
+func (c *connect) queryFormat(ctx context.Context, release nativeTransportRelease, formatName string, query string, args ...any) (io.ReadCloser, error) {
 	codec, err := c.lookupFormatCodec(formatName)
 	if err != nil {
 		// The connection is healthy and unused - release it back to the pool.
@@ -103,7 +103,7 @@ func (c *connect) queryArbitraryFormat(ctx context.Context, release nativeTransp
 	return pr, nil
 }
 
-func (c *connect) insertArbitraryFormat(ctx context.Context, release nativeTransportRelease, formatName string, query string, data io.Reader) error {
+func (c *connect) insertFormat(ctx context.Context, release nativeTransportRelease, formatName string, query string, data io.Reader) error {
 	codec, err := c.lookupFormatCodec(formatName)
 	if err != nil {
 		// The connection is healthy and unused - release it back to the pool.

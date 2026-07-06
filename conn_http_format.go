@@ -93,7 +93,7 @@ func (r *exceptionScanReader) captureException(i int) {
 	r.srcDone = true
 }
 
-// httpFormatStream is the io.ReadCloser returned by queryArbitraryFormat. It
+// httpFormatStream is the io.ReadCloser returned by queryFormat. It
 // holds the connection until closed; Close drains the body so the HTTP
 // connection stays reusable, then releases exactly once.
 type httpFormatStream struct {
@@ -107,7 +107,7 @@ type httpFormatStream struct {
 
 func (s *httpFormatStream) Read(p []byte) (int, error) {
 	if s.closed {
-		return 0, errors.New("clickhouse: read on closed arbitrary format stream")
+		return 0, errors.New("clickhouse: read on closed format stream")
 	}
 	return s.reader.Read(p)
 }
@@ -123,8 +123,8 @@ func (s *httpFormatStream) Close() error {
 	return nil
 }
 
-func (h *httpConnect) queryArbitraryFormat(ctx context.Context, release nativeTransportRelease, formatName string, query string, args ...any) (io.ReadCloser, error) {
-	h.logger.Debug("HTTP arbitrary format query", slog.String("sql", query), slog.String("format", formatName))
+func (h *httpConnect) queryFormat(ctx context.Context, release nativeTransportRelease, formatName string, query string, args ...any) (io.ReadCloser, error) {
+	h.logger.Debug("HTTP format query", slog.String("sql", query), slog.String("format", formatName))
 	options := queryOptions(ctx)
 	query, err := bindQueryOrAppendParameters(true, &options, query, h.handshake.Timezone, args...)
 	if err != nil {
@@ -180,8 +180,8 @@ func (h *httpConnect) queryArbitraryFormat(ctx context.Context, release nativeTr
 	}, nil
 }
 
-func (h *httpConnect) insertArbitraryFormat(ctx context.Context, release nativeTransportRelease, formatName string, query string, data io.Reader) error {
-	h.logger.Debug("HTTP arbitrary format insert", slog.String("sql", query), slog.String("format", formatName))
+func (h *httpConnect) insertFormat(ctx context.Context, release nativeTransportRelease, formatName string, query string, data io.Reader) error {
+	h.logger.Debug("HTTP format insert", slog.String("sql", query), slog.String("format", formatName))
 	insertStmt, _, _, err := extractInsertQueryComponents(query)
 	if err != nil {
 		release(h, err)

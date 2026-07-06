@@ -496,11 +496,11 @@ func (m *mockTransport) prepareBatch(ctx context.Context, release nativeTranspor
 	return nil, nil
 }
 
-func (m *mockTransport) queryArbitraryFormat(ctx context.Context, release nativeTransportRelease, format string, query string, args ...any) (io.ReadCloser, error) {
+func (m *mockTransport) queryFormat(ctx context.Context, release nativeTransportRelease, format string, query string, args ...any) (io.ReadCloser, error) {
 	return nil, nil
 }
 
-func (m *mockTransport) insertArbitraryFormat(ctx context.Context, release nativeTransportRelease, format string, query string, data io.Reader) error {
+func (m *mockTransport) insertFormat(ctx context.Context, release nativeTransportRelease, format string, query string, data io.Reader) error {
 	return nil
 }
 
