@@ -51,16 +51,13 @@ jobs:
           claude_args:
             --allowedTools "Read,Glob,Grep,Bash(grep:*),Bash(gh pr view:*),Bash(gh pr diff:*),Write"
           prompt: |
-            Review pull request #${{ github.event.inputs.pr_number || github.event.pull_request.number }} using `.claude/skills/review-pr/SKILL.md`.
+            Review pull request #${{ github.event.inputs.pr_number || github.event.pull_request.number }} by following `.claude/skills/review-pr/SKILL.md` exactly.
 
-            Steps:
-            1. Read `.claude/skills/review-pr/SKILL.md` to load the review gates, supporting checks, and JSON output schema.
-            2. Read `existing-threads.json` (your prior review threads on this PR, with author replies and resolve state). For each open thread, decide a `thread_actions` entry per section 1 of SKILL.md.
-            3. Fetch the PR description: `gh pr view ${{ github.event.inputs.pr_number || github.event.pull_request.number }} --json title,body,headRefName,baseRefName,author,url`.
-            4. Fetch the diff: `gh pr diff ${{ github.event.inputs.pr_number || github.event.pull_request.number }}`.
-            5. Work through the review gates and supporting checks. Anchor each finding to a specific changed line where possible.
-            6. Write the findings as JSON to `claude-review.json` in the repo root, exactly matching the schema in section 5 of SKILL.md (including `thread_actions` for open threads).
-            7. Do NOT post any comments yourself — a separate workflow step posts the JSON.
+            Read `.claude/skills/review-pr/SKILL.md` first — it points to `review-core.md` (same
+            directory) for the review criteria and defines the findings JSON schema.
+            `existing-threads.json` is already present in the working directory. Write your findings
+            to `claude-review.json` in the repo root, matching the schema in SKILL.md. Do NOT post
+            any comments yourself — a separate workflow step posts the JSON.
 
       # Deterministic posting: inline line-anchored comments, threaded replies,
       # resolution of addressed/outdated threads, and one summary comment updated

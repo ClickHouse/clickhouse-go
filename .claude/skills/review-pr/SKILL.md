@@ -1,16 +1,20 @@
 ---
 name: review-pr
-description: Review a pull request for correctness, API safety, Go idioms, and protocol coverage, then post inline comments plus one updating summary. Use when the user wants to review a PR or diff.
+description: Review a numbered GitHub pull request for correctness, API safety, Go idioms, and protocol coverage, then post inline comments plus one updating summary. Use only when the user asks to review an open PR by number. For a local or pre-PR diff, do not use this skill — apply review-core.md in this directory instead.
 argument-hint: "<PR-number>"
 allowed-tools: Read, Glob, Grep, Bash(grep:*), Bash(gh pr view:*), Bash(gh pr diff:*), Bash(gh api:*), Bash(python3:*), Write
 ---
 
-# clickhouse-go Code Review Skill
+# clickhouse-go PR Review Skill
 
-You are a senior `clickhouse-go` maintainer performing a **strict, high-signal review** of a
-pull request. Your job is to catch **real problems** — correctness, resource leaks, concurrency,
-API misuse, protocol gaps, missing tests — and give concise, actionable, line-anchored feedback.
-Avoid noisy comments about style or trivial cleanups.
+Reviews an open GitHub pull request and posts the findings. The review criteria — the review
+gates, the clickhouse-go supporting checks, and the severity model — live in
+[`review-core.md`](review-core.md) in this directory. **Read `review-core.md` first and apply
+it**; this file adds only the GitHub plumbing: fetching the PR, the findings JSON schema, and
+posting.
+
+Reviewing a local diff with no PR (e.g. before opening one)? Use `review-core.md` directly and
+report findings as plain text — none of the JSON/posting machinery below applies.
 
 ## Arguments
 
@@ -34,7 +38,7 @@ If `existing-threads.json` is present (the CI workflow writes it; create it for 
 with `python3 .claude/skills/review-pr/post_review.py fetch --repo ClickHouse/clickhouse-go --pr "$0" > existing-threads.json`),
 `Read` it. It lists the review threads you already started, each with its prior comment(s), any
 author replies, and `is_resolved`/`is_outdated` state. For **every** open (`is_resolved: false`)
-thread, decide an action (section 5, `thread_actions`):
+thread, decide an action (section 3, `thread_actions`):
 
 - The author replied with a question or pushback that still stands → **reply** addressing it.
 - The concern is now addressed (the current code satisfies it, or the author's reply adequately
@@ -45,69 +49,13 @@ thread, decide an action (section 5, `thread_actions`):
 Do **not** raise a brand-new `findings` entry for a line that already has one of your threads — use
 a `thread_actions` reply instead, or the poster will skip it as a duplicate.
 
-## 2. Review gates
+## 2. Review the change
 
-These are the questions you must answer before settling on a verdict. State findings as **violated
-invariants or broken contracts**, not as checklist matches. If a gate cannot be validated, say so in
-the summary under blind spots rather than guessing.
+Work through the review gates and the clickhouse-go supporting checks from
+[`review-core.md`](review-core.md), and grade each finding with its severity model. Anchor each
+finding to a specific changed line where possible.
 
-1. **Contract** — Derive what the PR promises from its title, description, tests, and code shape.
-   A `Bug Fix` promises the bug is fixed *and* covered by a regression test; a perf change promises a
-   measured benefit. Frame findings as "X promises Y, but Z breaks it."
-2. **Impacted surface** — Follow the changed behavior through unchanged callers/callees, both the
-   **native (`Open`)** and **`database/sql` (`OpenDB`)** surfaces, and both the **native TCP** and
-   **HTTP** protocol paths. A change to one path that should apply to the other is a finding.
-3. **Failure & lifecycle** — Check error paths, cancellation, and resource lifecycle: is every
-   `Rows`, `Batch`, and `Conn` closed/aborted on **every** path including errors? Is the `Batch`
-   lifecycle (`Append` → `Send`/`Abort`) preserved? Is `context.Context` the first parameter and
-   never stored in a struct?
-4. **Evidence** — Map each material claim to proof. Correctness fixes need a regression test in
-   `tests/issues/issue_<N>_test.go`; new type support needs a column impl + round-trip test +
-   example. Missing proof for important behavior is itself a finding (severity `should_fix`).
-
-When you find one serious invariant failure, fan out **once** through sibling paths sharing the same
-cause (other column types, the other protocol, the other API surface) before concluding.
-
-**Use concrete traces.** If callee logic looks suspicious, trace a minimal input through it with
-concrete values. Do not dismiss it with abstract reasoning ("probably safe because…"). If you cannot
-prove safety by tracing, report it or request the test that would prove it.
-
-## 3. clickhouse-go supporting checks
-
-Use these to surface project-specific invariants; the finding should name the broken behavior, not
-just cite the rule.
-
-- **Errors** — never swallowed with `_`; wrapped with `%w` to preserve the chain; strings lowercase,
-  no trailing punctuation; no `panic` outside `init()`-style invariant checks; messages actionable
-  for the end user.
-- **Concurrency** — no unsynchronized shared state; a struct holding a mutex (e.g. `batch`) is never
-  copied by value; goroutines have a documented exit/stop path.
-- **API design** — can a caller misuse the new surface without the compiler/runtime catching it?
-  Does it silently break existing callers (prefer deprecation over removal)? Are new exported
-  symbols necessary, or expressible with existing primitives? Do new interfaces sit at the point of
-  consumption? Is the zero value of new structs safe / a sensible default?
-- **Go idioms** — acronyms keep case (`URL`, `HTTP`, `ID`); short receiver names, never `self`/`this`;
-  `mixedCaps` not `ALL_CAPS` for unexported constants; imports grouped stdlib → external → internal.
-- **Tests** — would the test have caught the bug? Are they table-driven with messages stating
-  input / expected / got? **No mocking** of `driver.Conn`/`driver.Rows` in `/tests/` — use a real
-  ClickHouse via testcontainers. Cover **both** TCP and HTTP, and **both** native and `std` APIs.
-- **Docs** — new exported symbols have full-sentence doc comments beginning with the symbol name;
-  SQL types/functions in prose wrapped in backticks; examples added/updated for new behavior. Do not
-  flag missing error handling in *example* code inside comments.
-
-## 4. Severity model
-
-- `must_fix` — incorrectness, data loss, resource/goroutine leaks, data races/deadlocks, silent
-  breaking changes to a public API or protocol, security issues.
-- `should_fix` — under-tested important paths, fragile code, missing protocol/API-surface coverage,
-  confusing user-facing behavior or errors, missing docs for new exported symbols.
-- `nit` — minor clarity/naming/idiom issues. Prefix the body with `nit:`. Keep these rare; do not let
-  them crowd out real findings.
-
-Omit speculative refactors, pure formatting, and bikeshedding. Do **not** suppress a serious plausible
-risk just because proof is incomplete — report it and state exactly what would prove the code correct.
-
-## 5. Output: write the findings JSON
+## 3. Output: write the findings JSON
 
 Anchor every finding you can to a specific changed line so it becomes an **inline** comment. Write
 the result to `claude-review.json` (in the repo root) with this exact schema:
@@ -217,7 +165,7 @@ Rules for the JSON:
 - If there are no findings, emit empty arrays and an `approve` verdict with a one-line summary.
 - Do not invent line numbers. When unsure of the exact line, use `general_findings`.
 
-## 6. Post the review
+## 4. Post the review
 
 The CI workflow posts the JSON automatically as a separate step. When running **interactively**, post
 it yourself:
