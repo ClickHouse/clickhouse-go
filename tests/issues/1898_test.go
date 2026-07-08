@@ -161,6 +161,26 @@ func TestIssue1898_MapQueryParameter(t *testing.T) {
 			require.Equal(t, in, got)
 		})
 
+		// Pointers to strings and times must get the same top-level raw
+		// treatment as their plain counterparts.
+		t.Run("pointer round-trips", func(t *testing.T) {
+			s := "hello"
+			var gotStr string
+			require.NoError(t, conn.QueryRow(ctx,
+				"SELECT {s:String}",
+				clickhouse.Named("s", &s),
+			).Scan(&gotStr))
+			require.Equal(t, s, gotStr)
+
+			d := time.Date(2020, 1, 2, 3, 4, 5, 0, time.UTC)
+			var gotTime time.Time
+			require.NoError(t, conn.QueryRow(ctx,
+				"SELECT {d:DateTime('UTC')}",
+				clickhouse.Named("d", &d),
+			).Scan(&gotTime))
+			require.Equal(t, d, gotTime)
+		})
+
 		t.Run("Map(String, DateTime) round-trip", func(t *testing.T) {
 			in := map[string]time.Time{"a": time.Date(2020, 1, 2, 3, 4, 5, 0, time.UTC)}
 			var got map[string]time.Time
