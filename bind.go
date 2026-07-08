@@ -512,7 +512,7 @@ func formatValue(tz *time.Location, scale TimeUnit, v any, mode formatMode) (str
 		return quote(v), nil
 	case time.Time:
 		if mode == formatParamText {
-			return quote(formatTimeWithScale(v, scale)), nil
+			return quote(formatTimeParam(v)), nil
 		}
 		return formatTime(tz, scale, v)
 	case *time.Time:
@@ -520,7 +520,7 @@ func formatValue(tz *time.Location, scale TimeUnit, v any, mode formatMode) (str
 			return "NULL", nil
 		}
 		if mode == formatParamText {
-			return quote(formatTimeWithScale(*v, scale)), nil
+			return quote(formatTimeParam(*v)), nil
 		}
 		return formatTime(tz, scale, *v)
 	case bool:

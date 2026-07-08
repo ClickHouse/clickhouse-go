@@ -46,11 +46,11 @@ func bindQueryOrAppendParameters(paramsProtocolSupport bool, options *QueryOptio
 						continue
 					}
 				case time.Time:
-					options.parameters[p.Name] = formatTimeWithScale(v, Seconds)
+					options.parameters[p.Name] = formatTimeParam(v)
 					continue
 				case *time.Time:
 					if v != nil {
-						options.parameters[p.Name] = formatTimeWithScale(*v, Seconds)
+						options.parameters[p.Name] = formatTimeParam(*v)
 						continue
 					}
 				}
@@ -77,6 +77,26 @@ func bindQueryOrAppendParameters(paramsProtocolSupport bool, options *QueryOptio
 	}
 
 	return bind(timezone, query, args...)
+}
+
+// formatTimeParam renders a time.Time sent as a query parameter through
+// Named (which, unlike NamedDateValue, carries no scale). Whole-second times
+// use the plain DateTime form. Sub-second times keep their fraction, trimmed
+// to milli/micro/nanoseconds: a DateTime64 parameter preserves the precision
+// (the server drops digits beyond its declared scale), while a plain
+// DateTime parameter rejects the value with an error — better than silently
+// truncating it. Use DateNamed to pin an exact scale.
+func formatTimeParam(t time.Time) string {
+	switch ns := t.Nanosecond(); {
+	case ns == 0:
+		return t.Format("2006-01-02 15:04:05")
+	case ns%1e6 == 0:
+		return t.Format("2006-01-02 15:04:05.000")
+	case ns%1e3 == 0:
+		return t.Format("2006-01-02 15:04:05.000000")
+	default:
+		return t.Format("2006-01-02 15:04:05.000000000")
+	}
 }
 
 func formatTimeWithScale(t time.Time, scale TimeUnit) string {

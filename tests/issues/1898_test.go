@@ -190,5 +190,37 @@ func TestIssue1898_MapQueryParameter(t *testing.T) {
 			).Scan(&got))
 			require.Equal(t, in, got)
 		})
+
+		// A sub-second time.Time keeps its fraction, so DateTime64
+		// parameters don't silently lose precision — top-level and nested.
+		t.Run("DateTime64 keeps sub-second precision", func(t *testing.T) {
+			in := time.Date(2020, 1, 2, 3, 4, 5, 123456789, time.UTC)
+
+			var got time.Time
+			require.NoError(t, conn.QueryRow(ctx,
+				"SELECT {d:DateTime64(9, 'UTC')}",
+				clickhouse.Named("d", in),
+			).Scan(&got))
+			require.Equal(t, in, got)
+
+			var gotMap map[string]time.Time
+			require.NoError(t, conn.QueryRow(ctx,
+				"SELECT {m:Map(String, DateTime64(9, 'UTC'))}",
+				clickhouse.Named("m", map[string]time.Time{"a": in}),
+			).Scan(&gotMap))
+			require.Equal(t, map[string]time.Time{"a": in}, gotMap)
+		})
+
+		// A sub-second time.Time sent to a plain DateTime parameter fails
+		// loudly instead of silently dropping the fraction. DateNamed is
+		// the way to pick the scale explicitly.
+		t.Run("sub-second time into DateTime errors", func(t *testing.T) {
+			in := time.Date(2020, 1, 2, 3, 4, 5, 123000000, time.UTC)
+			var got time.Time
+			require.Error(t, conn.QueryRow(ctx,
+				"SELECT {d:DateTime('UTC')}",
+				clickhouse.Named("d", in),
+			).Scan(&got))
+		})
 	})
 }
