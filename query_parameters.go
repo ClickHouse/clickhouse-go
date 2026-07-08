@@ -34,14 +34,25 @@ func bindQueryOrAppendParameters(paramsProtocolSupport bool, options *QueryOptio
 				// quotes: the server reads a whole parameter value as-is,
 				// and only quotes values nested inside arrays, maps, and
 				// tuples. formatValue below applies the nested (quoted)
-				// rules, so these two skip it.
+				// rules, so these skip it. Nil pointers fall through and
+				// format as NULL.
 				switch v := p.Value.(type) {
 				case string:
 					options.parameters[p.Name] = v
 					continue
+				case *string:
+					if v != nil {
+						options.parameters[p.Name] = *v
+						continue
+					}
 				case time.Time:
 					options.parameters[p.Name] = formatTimeWithScale(v, Seconds)
 					continue
+				case *time.Time:
+					if v != nil {
+						options.parameters[p.Name] = formatTimeWithScale(*v, Seconds)
+						continue
+					}
 				}
 				strVal, err := formatValue(timezone, Seconds, p.Value, formatParamText)
 				if err != nil {
