@@ -53,8 +53,8 @@ jobs:
           prompt: |
             Review pull request #${{ github.event.inputs.pr_number || github.event.pull_request.number }} by following `.claude/skills/review-pr/SKILL.md` exactly.
 
-            Read `.claude/skills/review-pr/SKILL.md` first — it points to `review-core.md` (same
-            directory) for the review criteria and defines the findings JSON schema.
+            First Read `.claude/skills/review-pr/review-core.md` (the review criteria) and
+            `.claude/skills/review-pr/SKILL.md` (the workflow steps and findings JSON schema).
             `existing-threads.json` is already present in the working directory. Write your findings
             to `claude-review.json` in the repo root, matching the schema in SKILL.md. Do NOT post
             any comments yourself — a separate workflow step posts the JSON.
