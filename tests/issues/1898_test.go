@@ -12,12 +12,11 @@ import (
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 )
 
-// TestIssue1898_MapQueryParameter covers the fix for #1898: `Map`-typed
-// server-side query parameters must be sent in the `{'k':v}` text format the
-// server's parameter parser expects, not the `map('k', v)` SQL-function
-// syntax used for client-side binding. The same formatting split applies to
-// floats (plain literal, not `cast(...)`) and nested `DateTime` values
-// (quoted text, not `toDateTime(...)`).
+// TestIssue1898_MapQueryParameter covers the fix for #1898: a Go map sent as
+// a `Map` query parameter must arrive as `{'k':v}` — the text format the
+// server parses — not the `map('k', v)` SQL syntax used for client-side
+// binding. Floats and nested `DateTime` values had the same problem, so they
+// are covered here too.
 //
 // Native and HTTP share the same query-parameter code path, so every case
 // runs on both protocols.
@@ -54,7 +53,7 @@ func TestIssue1898_MapQueryParameter(t *testing.T) {
 			require.Equal(t, in, got)
 		})
 
-		// Quotes and backslashes in string keys must survive the text format.
+		// Quotes and backslashes in string keys must survive the round trip.
 		t.Run("Map key escaping", func(t *testing.T) {
 			in := map[string]uint8{`a'b\c`: 1}
 			var got map[string]uint8
@@ -65,11 +64,12 @@ func TestIssue1898_MapQueryParameter(t *testing.T) {
 			require.Equal(t, in, got)
 		})
 
-		// Top-level strings are passed through raw (they double as the
-		// escape hatch for pre-formatted parameter text), so the server
-		// applies its escaped-text semantics: `\'` decodes to `'`. Both
-		// protocols must agree — before the native Field-dump escaping fix,
-		// native rejected any value with a backslash before a quote.
+		// A top-level string is passed to the server as-is (that is also the
+		// escape hatch for sending pre-formatted parameter text), and the
+		// server then decodes escapes in it: `\'` becomes `'`. Both
+		// protocols must agree on the result — before the Field-dump
+		// escaping fix, native rejected any value with a backslash before a
+		// quote.
 		t.Run("String passes through raw on both protocols", func(t *testing.T) {
 			var got string
 			require.NoError(t, conn.QueryRow(ctx,
@@ -88,7 +88,7 @@ func TestIssue1898_MapQueryParameter(t *testing.T) {
 			require.Empty(t, got)
 		})
 
-		// Nested composites: the container syntax must be right at any depth.
+		// The container syntax must be right at any nesting depth.
 		t.Run("Map(String, Map(String, Bool)) round-trip", func(t *testing.T) {
 			in := map[string]map[string]bool{"a": {"x": true, "y": false}}
 			var got map[string]map[string]bool
@@ -119,8 +119,8 @@ func TestIssue1898_MapQueryParameter(t *testing.T) {
 			require.Equal(t, in, got)
 		})
 
-		// Floats hit the same issue class: the SQL-literal form
-		// cast(1.5, 'Float64') is rejected by the parameter text parser.
+		// Floats had the same bug: the server rejects the SQL form
+		// cast(1.5, 'Float64') and wants the plain number.
 		t.Run("Float64 round-trip", func(t *testing.T) {
 			for _, in := range []float64{1.5, -3.25, 0, math.Inf(1), math.Inf(-1)} {
 				var got float64
@@ -149,8 +149,8 @@ func TestIssue1898_MapQueryParameter(t *testing.T) {
 			require.Equal(t, in, got)
 		})
 
-		// time.Time as a plain Named parameter: raw text at the top level,
-		// quoted text when nested inside a composite type.
+		// time.Time as a plain Named parameter: sent raw at the top level,
+		// quoted when nested inside a map or array.
 		t.Run("DateTime round-trip", func(t *testing.T) {
 			in := time.Date(2020, 1, 2, 3, 4, 5, 0, time.UTC)
 			var got time.Time

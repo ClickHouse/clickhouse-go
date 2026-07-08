@@ -219,11 +219,10 @@ func (s *Parameter) encode(buffer *chproto.Buffer, revision uint64) error {
 	return nil
 }
 
-// fieldDumpEscaper escapes a string for a quoted Field dump. The server
-// decodes the dump with its quoted-string reader, which treats a bare
-// backslash as the start of an escape sequence — so backslashes must be
-// escaped along with single quotes, or values containing them are corrupted
-// or rejected.
+// fieldDumpEscaper escapes a string for a quoted Field dump. Both single
+// quotes and backslashes need escaping: the server reads the dump back with
+// its quoted-string reader, where a bare backslash starts an escape sequence,
+// so an unescaped one corrupts the value or makes it unparseable.
 var fieldDumpEscaper = strings.NewReplacer(`\`, `\\`, `'`, `\'`)
 
 // encodes a field dump with an appropriate type format

@@ -468,42 +468,39 @@ func formatTime(tz *time.Location, scale TimeUnit, value time.Time) (string, err
 
 var stringQuoteReplacer = strings.NewReplacer(`\`, `\\`, `'`, `\'`)
 
-// formatMode selects the output syntax formatValue emits. SQL literals and
-// the server's query-parameter text format diverge for several types, so the
-// caller must say which of the two it is producing.
+// formatMode says which syntax formatValue should produce. A value spliced
+// into the query text needs SQL syntax; a server-side query parameter needs
+// the text format the server parses instead. The two disagree for bools,
+// maps, floats, and times, so the caller has to pick one.
 type formatMode uint8
 
 const (
-	// formatSQL renders v as a SQL literal for client-side binding, where
-	// placeholders like `?`, `$1`, and `@name` are replaced directly in the
-	// query text: bools as `1`/`0`, maps as `map('k', v)`, floats as
-	// `cast(..., 'Float64')`, times as `toDateTime(...)`.
+	// formatSQL produces SQL literals for client-side binding (the ?, $1,
+	// and @name placeholders): bools as 1/0, maps as map('k', v), floats as
+	// cast(..., 'Float64'), times as toDateTime(...).
 	formatSQL formatMode = iota
-	// formatParamText renders v in the text format the server's
-	// query-parameter parser (`{name:Type}`) expects. The server deserializes
-	// parameter values with the declared type's text reader, which accepts
-	// SQL-function syntax for none of the composite types: bools must be
-	// `true`/`false`, maps `{'k':v}`, floats plain literals (`1.5`, `nan`,
-	// `inf`), times quoted `'2006-01-02 15:04:05'` strings.
+	// formatParamText produces the text format the server expects for
+	// {name:Type} query parameters: bools as true/false, maps as {'k':v},
+	// floats as plain numbers, times as quoted '2006-01-02 15:04:05'
+	// strings. The server parses these values with the declared type's text
+	// reader, which does not understand SQL function syntax.
 	formatParamText
 )
 
 // format turns v into a SQL literal for client-side binding, where
 // placeholders like `?`, `$1`, and `@name` are replaced directly in the query
-// text. Server-side query parameters need the text format instead — see
-// formatValue.
+// text. Server-side query parameters need formatParamText instead.
 func format(tz *time.Location, scale TimeUnit, v any) (string, error) {
 	return formatValue(tz, scale, v, formatSQL)
 }
 
-// formatValue turns v into a string using the syntax picked by mode (see
-// formatMode). The mode is passed down into nested values, so a bool or map
-// inside an array, map, or tuple is formatted the same way at any depth.
+// formatValue turns v into a string in the given mode. The mode carries down
+// into nested values, so a bool or map keeps its formatting at any depth.
 //
-// In formatParamText mode values are rendered with the quoting rules the
-// server applies to elements nested inside a composite type (strings and
-// times quoted). A top-level String or DateTime parameter must be sent raw
-// instead; bindQueryOrAppendParameters handles that case before calling here.
+// In formatParamText mode, values come out quoted the way the server expects
+// them *inside* a composite type. Top-level String and DateTime parameters
+// must be sent raw instead — bindQueryOrAppendParameters takes care of those
+// before calling here.
 func formatValue(tz *time.Location, scale TimeUnit, v any, mode formatMode) (string, error) {
 	quote := func(v string) string {
 		return "'" + stringQuoteReplacer.Replace(v) + "'"
@@ -638,14 +635,13 @@ func formatValue(tz *time.Location, scale TimeUnit, v any, mode formatMode) (str
 	return fmt.Sprint(v), nil
 }
 
-// mapEntry is one formatted key/value pair of a map value.
+// mapEntry is one already-formatted key/value pair of a map.
 type mapEntry struct {
 	key, value string
 }
 
-// formatMap assembles formatted key/value pairs into the map syntax for the
-// given mode: the `map('k', v, ...)` SQL function for client-side binding, or
-// the `{'k':v,...}` text format the server's query-parameter parser expects.
+// formatMap joins formatted key/value pairs into a whole map: map('k', v)
+// in SQL mode, {'k':v} in query-parameter text mode.
 func formatMap(entries []mapEntry, mode formatMode) string {
 	pairs := make([]string, len(entries))
 	if mode == formatParamText {
@@ -662,16 +658,15 @@ func formatMap(entries []mapEntry, mode formatMode) string {
 
 // formatFloat renders a float.
 //
-// In formatSQL mode it emits a CAST to the matching ClickHouse Float type.
-// Without the cast, integer-valued floats like 1.0 render as the bare literal
-// "1", which ClickHouse infers as an integer and later narrows (breaking typed
-// float scans). NaN and infinities are quoted in the lowercase form ClickHouse
-// accepts, since Go's default formatting ("NaN", "+Inf") is not valid SQL.
+// In SQL mode it wraps the number in a CAST to the matching Float type.
+// Without it, a value like 1.0 renders as the bare literal "1", which
+// ClickHouse treats as an integer and later narrows, breaking typed float
+// scans. NaN and infinities are quoted in the lowercase form ClickHouse
+// accepts, since Go's "NaN" and "+Inf" are not valid SQL.
 //
-// In formatParamText mode it emits the plain literal instead: the server's
-// query-parameter parser reads the value with the declared type's text reader,
-// which rejects the cast(...) function syntax but accepts bare `nan`, `inf`,
-// and `-inf`. The declared parameter type makes the CAST unnecessary.
+// In query-parameter text mode none of that applies: the parameter already
+// has a declared type, and the server's text reader rejects cast(...) but
+// happily takes plain numbers and bare nan/inf/-inf.
 func formatFloat(f float64, bitSize int, mode formatMode) string {
 	if mode == formatParamText {
 		switch {
