@@ -8,10 +8,12 @@ allowed-tools: Read, Glob, Grep, Bash(grep:*), Bash(gh pr view:*), Bash(gh pr di
 # clickhouse-go PR Review Skill
 
 Reviews an open GitHub pull request and posts the findings. The review criteria — the review
-gates, the clickhouse-go supporting checks, and the severity model — live in
-[`review-core.md`](review-core.md) in this directory. **Read `review-core.md` first and apply
-it**; this file adds only the GitHub plumbing: fetching the PR, the findings JSON schema, and
-posting.
+gates, the clickhouse-go supporting checks, and the severity model — are defined in
+@.claude/skills/review-pr/review-core.md. When this skill is invoked as `/review-pr` from the
+repo root, that reference injects the file into context automatically; if the core content is
+not already in your context (e.g. you were pointed at this file directly), `Read` that path
+before reviewing. Apply it in full — this file adds only the GitHub plumbing: fetching the PR,
+the findings JSON schema, and posting.
 
 Reviewing a local diff with no PR (e.g. before opening one)? Use `review-core.md` directly and
 report findings as plain text — none of the JSON/posting machinery below applies.
