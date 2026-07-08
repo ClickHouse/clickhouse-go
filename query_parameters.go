@@ -30,11 +30,11 @@ func bindQueryOrAppendParameters(paramsProtocolSupport bool, options *QueryOptio
 		for _, a := range args {
 			switch p := a.(type) {
 			case driver.NamedValue:
-				// The server parses a parameter value with the declared
-				// type's text reader. At the top level, String and DateTime
-				// values are read raw — unquoted — so they bypass
-				// formatValue, which applies the quoting rules for values
-				// nested inside composite types.
+				// Strings and times at the top level are sent raw, without
+				// quotes: the server reads a whole parameter value as-is,
+				// and only quotes values nested inside arrays, maps, and
+				// tuples. formatValue below applies the nested (quoted)
+				// rules, so these two skip it.
 				switch v := p.Value.(type) {
 				case string:
 					options.parameters[p.Name] = v

@@ -12,12 +12,10 @@ import (
 )
 
 // TestIssue1898MapQueryParameter checks the fix for #1898 through the
-// database/sql interface: a Go map sent as a `Map(K, V)` server-side query
-// parameter must be formatted in the `{'k':v}` text format, because the
-// server rejects the `map('k', v)` SQL-function syntax with
-// CANNOT_PARSE_INPUT_ASSERTION_FAILED. The std driver ends up in the same
-// formatting code as the native client, but this makes sure the second API
-// surface is covered too.
+// database/sql interface: a Go map sent as a `Map(K, V)` query parameter
+// must arrive as `{'k':v}`, since the server rejects the `map('k', v)` SQL
+// syntax. The std driver goes through the same formatting code as the native
+// client, but this makes sure the second API surface is covered too.
 func TestIssue1898MapQueryParameter(t *testing.T) {
 	env, err := GetStdTestEnvironment()
 	require.NoError(t, err)

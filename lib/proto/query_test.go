@@ -7,10 +7,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestEncodeFieldDump checks the quoted Field dump sent for query parameters
-// over the native protocol. The server decodes it with its quoted-string
-// reader, so both single quotes and backslashes must be escaped; an unescaped
-// backslash starts an escape sequence and corrupts the value (#1898).
+// TestEncodeFieldDump checks the quoted Field dump used to send query
+// parameters over the native protocol. Both single quotes and backslashes
+// must be escaped — the server unescapes the dump when reading it back, so
+// an unescaped backslash corrupts the value (#1898).
 func TestEncodeFieldDump(t *testing.T) {
 	cases := []struct {
 		name  string

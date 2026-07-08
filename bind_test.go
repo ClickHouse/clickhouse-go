@@ -713,13 +713,12 @@ func TestFormatMapOrdered(t *testing.T) {
 	assert.Equal(t, "map('b', 2, 'a', 1)", val)
 }
 
-// TestFormatValueModes covers the fixes for #1891 and #1898. Server-side
-// query parameters ({name:Type}) are parsed by the server as text, which
-// diverges from SQL-literal syntax: bools must be `true`/`false` (not
-// `1`/`0`), maps `{'k':v}` (not `map('k', v)`), floats plain literals (not
-// `cast(...)`), and times quoted date-time strings (not `toDateTime(...)`).
-// Client-side binding (the ?/$1/@name placeholders) must keep the SQL-literal
-// forms. Both apply at any nesting depth.
+// TestFormatValueModes covers the fixes for #1891 and #1898. The server
+// parses {name:Type} query parameters as text, not SQL: bools must be
+// true/false instead of 1/0, maps {'k':v} instead of map('k', v), floats
+// plain numbers instead of cast(...), times quoted strings instead of
+// toDateTime(...). Client-side binding (the ?/$1/@name placeholders) must
+// keep the SQL forms. Both hold at any nesting depth.
 func TestFormatValueModes(t *testing.T) {
 	tru, fls := true, false
 	ts := time.Date(2020, 1, 2, 3, 4, 5, 0, time.UTC)
@@ -776,9 +775,8 @@ func TestFormatValueModes(t *testing.T) {
 	}
 }
 
-// TestFormatValueModesOrderedMap is the ordered-map variant of
-// TestFormatValueModes: column.OrderedMap and column.IterableOrderedMap
-// values must follow the same map syntax switch as plain Go maps.
+// TestFormatValueModesOrderedMap checks that ordered maps switch syntax
+// between the two modes just like plain Go maps do.
 func TestFormatValueModesOrderedMap(t *testing.T) {
 	om := NewOrderedMap()
 	om.Put("b", true)
