@@ -219,13 +219,20 @@ func (s *Parameter) encode(buffer *chproto.Buffer, revision uint64) error {
 	return nil
 }
 
+// fieldDumpEscaper escapes a string for a quoted Field dump. The server
+// decodes the dump with its quoted-string reader, which treats a bare
+// backslash as the start of an escape sequence — so backslashes must be
+// escaped along with single quotes, or values containing them are corrupted
+// or rejected.
+var fieldDumpEscaper = strings.NewReplacer(`\`, `\\`, `'`, `\'`)
+
 // encodes a field dump with an appropriate type format
 // implements the same logic as in ClickHouse Field::restoreFromDump (https://github.com/ClickHouse/ClickHouse/blob/master/src/Core/Field.cpp#L312)
 // currently, only string type is supported
 func encodeFieldDump(value any) (string, error) {
 	switch v := value.(type) {
 	case string:
-		return fmt.Sprintf("'%v'", strings.ReplaceAll(v, "'", "\\'")), nil
+		return "'" + fieldDumpEscaper.Replace(v) + "'", nil
 	}
 
 	return "", fmt.Errorf("unsupported field type %T", value)
