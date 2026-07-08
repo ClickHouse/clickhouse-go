@@ -34,8 +34,10 @@ func bindQueryOrAppendParameters(paramsProtocolSupport bool, options *QueryOptio
 					options.parameters[p.Name] = str
 					continue
 				}
-				// using the same format logic for NamedValue typed value in function bindNamed
-				strVal, err := format(timezone, Seconds, p.Value)
+				// The server parses query parameter values as text, and its
+				// text parser wants bools as `true`/`false` — for example,
+				// `Array(Bool)` rejects `1`/`0`.
+				strVal, err := formatValue(timezone, Seconds, p.Value, true)
 				if err != nil {
 					return "", err
 				}
