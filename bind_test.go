@@ -707,24 +707,24 @@ func TestFormatMapOrdered(t *testing.T) {
 	assert.Equal(t, "map('b', 2, 'a', 1)", val)
 }
 
-// TestFormatValueBoolAsText pins the #1891 fix at the formatter level: in the
-// server-side query-parameter context (boolAsText=true) a bool — at any nesting
-// depth — must render as `true`/`false`, while the legacy in-SQL bind context
-// (boolAsText=false, used by ?/$1/@name substitution) must keep rendering it as
-// `1`/`0`.
+// TestFormatValueBoolAsText covers the fix for #1891. When formatting a
+// server-side query parameter (boolAsText=true), bools must come out as
+// `true`/`false`, no matter how deeply nested. When formatting for client-side
+// binding (boolAsText=false, the ?/$1/@name placeholders), they must stay
+// `1`/`0` as before.
 func TestFormatValueBoolAsText(t *testing.T) {
 	tru, fls := true, false
 	cases := []struct {
 		name       string
 		value      any
 		queryParam string // boolAsText=true  (server-side {name:Type} parameter)
-		bindSQL    string // boolAsText=false (legacy in-SQL substitution)
+		bindSQL    string // boolAsText=false (client-side bind substitution)
 	}{
 		{"scalar true", true, "true", "1"},
 		{"scalar false", false, "false", "0"},
 		{"Array(Bool)", []bool{true, false}, "[true, false]", "[1, 0]"},
 		{"Array(Array(Bool))", [][]bool{{true}, {false}}, "[[true], [false]]", "[[1], [0]]"},
-		// nullable bool in an array: non-null elements switch, nil stays NULL
+		// nullable bools: real values change format, nil stays NULL
 		{"Array(Nullable(Bool))", []*bool{&tru, nil, &fls}, "[true, NULL, false]", "[1, NULL, 0]"},
 	}
 	for _, tc := range cases {
@@ -735,7 +735,7 @@ func TestFormatValueBoolAsText(t *testing.T) {
 
 			got, err = formatValue(time.UTC, Seconds, tc.value, false)
 			require.NoError(t, err)
-			assert.Equal(t, tc.bindSQL, got, "legacy in-SQL bind formatting must be unchanged")
+			assert.Equal(t, tc.bindSQL, got, "client-side bind formatting must be unchanged")
 		})
 	}
 }

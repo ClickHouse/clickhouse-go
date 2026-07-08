@@ -10,14 +10,12 @@ import (
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 )
 
-// TestIssue1891_ArrayBoolQueryParameter pins the fix for #1891: a bool passed
-// as (part of) a server-side query parameter must be rendered as `true`/`false`,
-// not `1`/`0`. ClickHouse's text parser for containers of `Bool` —
-// `Array(Bool)`, `Array(Array(Bool))`, `Array(Nullable(Bool))` — rejects `1`/`0`
-// with "Cannot read array from text ... CANNOT_READ_ARRAY_FROM_TEXT" (code 130).
+// TestIssue1891_ArrayBoolQueryParameter covers the fix for #1891: bools in
+// server-side query parameters must be sent as `true`/`false`, not `1`/`0`.
+// The server parses parameter values as text, and for types like `Array(Bool)`
+// it rejects `1`/`0` with a CANNOT_READ_ARRAY_FROM_TEXT error (code 130).
 //
-// The server-side query-parameter path is protocol-agnostic (both Native and
-// HTTP funnel through bindQueryOrAppendParameters -> formatValue), so every case
+// Native and HTTP share the same query-parameter code path, so every case
 // runs on both protocols.
 func TestIssue1891_ArrayBoolQueryParameter(t *testing.T) {
 	clickhouse_tests.TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
@@ -30,7 +28,8 @@ func TestIssue1891_ArrayBoolQueryParameter(t *testing.T) {
 			t.Skip("server-side query parameters require ClickHouse 22.8+")
 		}
 
-		// Original report: an Array(Bool) parameter used inside hasAll.
+		// The query from the original bug report: an Array(Bool) parameter
+		// used inside hasAll.
 		t.Run("Array(Bool) in hasAll", func(t *testing.T) {
 			var ok bool
 			require.NoError(t, conn.QueryRow(ctx,
@@ -40,8 +39,8 @@ func TestIssue1891_ArrayBoolQueryParameter(t *testing.T) {
 			require.True(t, ok)
 		})
 
-		// Array(Bool) round-trips for every combination of element values — the
-		// all-false case proves `false` renders as `false`, not `0`.
+		// Send arrays with different value mixes and read them back. The
+		// all-false array matters: it shows `false` becomes `false`, not `0`.
 		t.Run("Array(Bool) round-trip", func(t *testing.T) {
 			for _, in := range [][]bool{
 				{true, false},
@@ -57,7 +56,7 @@ func TestIssue1891_ArrayBoolQueryParameter(t *testing.T) {
 			}
 		})
 
-		// Nested arrays: the bool-as-text flag must be threaded through every level.
+		// Nested arrays: bools two levels deep must also be formatted as text.
 		t.Run("Array(Array(Bool)) round-trip", func(t *testing.T) {
 			in := [][]bool{{true, false}, {false, true}}
 			var got [][]bool
@@ -68,7 +67,7 @@ func TestIssue1891_ArrayBoolQueryParameter(t *testing.T) {
 			require.Equal(t, in, got)
 		})
 
-		// Nullable bool inside an array: non-null elements must be true/false,
+		// Nullable bools inside an array: real values become true/false,
 		// nil stays NULL.
 		t.Run("Array(Nullable(Bool)) round-trip", func(t *testing.T) {
 			tru, fls := true, false
@@ -81,9 +80,8 @@ func TestIssue1891_ArrayBoolQueryParameter(t *testing.T) {
 			require.Equal(t, in, got)
 		})
 
-		// Contrast: a scalar Bool parameter keeps round-tripping. The server
-		// accepts `true`/`false` for a top-level Bool exactly as it accepted the
-		// previous `1`/`0`, so the fix does not regress the scalar path.
+		// A plain Bool parameter still works: the server accepts `true`/`false`
+		// for a top-level Bool just as it accepted `1`/`0`, so nothing breaks.
 		t.Run("scalar Bool still round-trips", func(t *testing.T) {
 			for _, in := range []bool{true, false} {
 				var got bool

@@ -34,9 +34,9 @@ func bindQueryOrAppendParameters(paramsProtocolSupport bool, options *QueryOptio
 					options.parameters[p.Name] = str
 					continue
 				}
-				// Server-side query parameters are parsed by the declared type's
-				// text deserializer, which — unlike SQL bind substitution — requires
-				// bool as `true`/`false` (e.g. `Array(Bool)` rejects `1`/`0`).
+				// The server parses query parameter values as text, and its
+				// text parser wants bools as `true`/`false` — for example,
+				// `Array(Bool)` rejects `1`/`0`.
 				strVal, err := formatValue(timezone, Seconds, p.Value, true)
 				if err != nil {
 					return "", err

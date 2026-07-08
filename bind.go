@@ -468,27 +468,26 @@ func formatTime(tz *time.Location, scale TimeUnit, value time.Time) (string, err
 
 var stringQuoteReplacer = strings.NewReplacer(`\`, `\\`, `'`, `\'`)
 
-// format renders v as a SQL literal for legacy client-side bind substitution
-// (the `?`, `$1`, and `@name` placeholders that are spliced directly into the
-// query text). Booleans render as `1`/`0`, which the SQL parser accepts as
-// `Bool` literals. Server-side query parameters use formatValue with
-// boolAsText=true instead — see its doc comment.
+// format turns v into a SQL literal for client-side binding, where
+// placeholders like `?`, `$1`, and `@name` are replaced directly in the query
+// text. Bools become `1`/`0` here, which is valid SQL. Server-side query
+// parameters need `true`/`false` instead — see formatValue.
 func format(tz *time.Location, scale TimeUnit, v any) (string, error) {
 	return formatValue(tz, scale, v, false)
 }
 
-// formatValue renders v for one of the two binding paths, selected by boolAsText:
+// formatValue turns v into a string. The boolAsText flag picks how bools are
+// written:
 //
-//   - boolAsText=false: a SQL literal for legacy in-query bind substitution
-//     (bool -> `1`/`0`).
-//   - boolAsText=true: the text representation a value must have when sent as a
-//     server-side query parameter (`{name:Type}`), where a bool MUST render as
-//     `true`/`false`. ClickHouse's text parser for containers of `Bool` —
-//     `Array(Bool)`, `Array(Array(Bool))`, `Array(Nullable(Bool))` — rejects
-//     `1`/`0`.
+//   - false: for client-side binding, where the value is spliced into the
+//     query text. Bools become `1`/`0`.
+//   - true: for server-side query parameters (`{name:Type}`). The server
+//     parses these values as text, and its text parser only accepts
+//     `true`/`false` for bools inside types like `Array(Bool)` — `1`/`0` is
+//     rejected.
 //
-// The flag is threaded through every nested element so a bool at any depth is
-// rendered consistently.
+// The flag is passed down into nested values, so a bool inside an array, map,
+// or tuple is formatted the same way at any depth.
 func formatValue(tz *time.Location, scale TimeUnit, v any, boolAsText bool) (string, error) {
 	quote := func(v string) string {
 		return "'" + stringQuoteReplacer.Replace(v) + "'"

@@ -11,12 +11,12 @@ import (
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 )
 
-// TestIssue1891ArrayBoolQueryParameter pins the #1891 fix for the database/sql
-// surface: a []bool passed as an Array(Bool) server-side query parameter must
-// render as `true`/`false` (not `1`/`0`, which the server rejects with
-// CANNOT_READ_ARRAY_FROM_TEXT). The std driver reaches the same
-// bindQueryOrAppendParameters -> formatValue path as the native client via
-// rebind, so this guards that second API surface explicitly.
+// TestIssue1891ArrayBoolQueryParameter checks the fix for #1891 through the
+// database/sql interface: a []bool sent as an `Array(Bool)` server-side query
+// parameter must be formatted as `true`/`false`, because the server rejects
+// `1`/`0` with CANNOT_READ_ARRAY_FROM_TEXT. The std driver ends up in the
+// same formatting code as the native client, but this makes sure the second
+// API surface is covered too.
 func TestIssue1891ArrayBoolQueryParameter(t *testing.T) {
 	env, err := GetStdTestEnvironment()
 	require.NoError(t, err)
