@@ -713,18 +713,21 @@ func TestFormatMapOrdered(t *testing.T) {
 	assert.Equal(t, "map('b', 2, 'a', 1)", val)
 }
 
-// TestFormatValueBoolAsText covers the fix for #1891. When formatting a
-// server-side query parameter (boolAsText=true), bools must come out as
-// `true`/`false`, no matter how deeply nested. When formatting for client-side
-// binding (boolAsText=false, the ?/$1/@name placeholders), they must stay
-// `1`/`0` as before.
-func TestFormatValueBoolAsText(t *testing.T) {
+// TestFormatValueModes covers the fixes for #1891 and #1898. Server-side
+// query parameters ({name:Type}) are parsed by the server as text, which
+// diverges from SQL-literal syntax: bools must be `true`/`false` (not
+// `1`/`0`), maps `{'k':v}` (not `map('k', v)`), floats plain literals (not
+// `cast(...)`), and times quoted date-time strings (not `toDateTime(...)`).
+// Client-side binding (the ?/$1/@name placeholders) must keep the SQL-literal
+// forms. Both apply at any nesting depth.
+func TestFormatValueModes(t *testing.T) {
 	tru, fls := true, false
+	ts := time.Date(2020, 1, 2, 3, 4, 5, 0, time.UTC)
 	cases := []struct {
 		name       string
 		value      any
-		queryParam string // boolAsText=true  (server-side {name:Type} parameter)
-		bindSQL    string // boolAsText=false (client-side bind substitution)
+		queryParam string // formatParamText (server-side {name:Type} parameter)
+		bindSQL    string // formatSQL (client-side bind substitution)
 	}{
 		{"scalar true", true, "true", "1"},
 		{"scalar false", false, "false", "0"},
@@ -732,18 +735,62 @@ func TestFormatValueBoolAsText(t *testing.T) {
 		{"Array(Array(Bool))", [][]bool{{true}, {false}}, "[[true], [false]]", "[[1], [0]]"},
 		// nullable bools: real values change format, nil stays NULL
 		{"Array(Nullable(Bool))", []*bool{&tru, nil, &fls}, "[true, NULL, false]", "[1, NULL, 0]"},
+		// maps: text format vs map() SQL function (#1898)
+		{"Map(String, Bool)", map[string]bool{"a": true}, "{'a':true}", "map('a', 1)"},
+		{"Map(String, String)", map[string]string{"a": "b"}, "{'a':'b'}", "map('a', 'b')"},
+		{"empty map", map[string]string{}, "{}", "map()"},
+		{"Map string key escaping", map[string]uint8{`a'b\c`: 1}, `{'a\'b\\c':1}`, `map('a\'b\\c', 1)`},
+		{"Map(String, Map(String, Bool))",
+			map[string]map[string]bool{"a": {"x": true}},
+			"{'a':{'x':true}}", "map('a', map('x', 1))"},
+		{"Array(Map(String, Bool))",
+			[]map[string]bool{{"a": true}, {"b": false}},
+			"[{'a':true}, {'b':false}]", "[map('a', 1), map('b', 0)]"},
+		{"Map(String, Array(Bool))",
+			map[string][]bool{"a": {true, false}},
+			"{'a':[true, false]}", "map('a', [1, 0])"},
+		{"Map(Bool, String) key formatting", map[bool]string{true: "x"}, "{true:'x'}", "map(1, 'x')"},
+		// floats: plain text vs cast() SQL function
+		{"Float64", 1.5, "1.5", "cast(1.5, 'Float64')"},
+		{"Float32", float32(1.5), "1.5", "cast(1.5, 'Float32')"},
+		{"Float64 NaN", math.NaN(), "nan", "cast('nan', 'Float64')"},
+		{"Float64 +Inf", math.Inf(1), "inf", "cast('inf', 'Float64')"},
+		{"Float64 -Inf", math.Inf(-1), "-inf", "cast('-inf', 'Float64')"},
+		{"Map(String, Float64)", map[string]float64{"a": 1.5}, "{'a':1.5}", "map('a', cast(1.5, 'Float64'))"},
+		// nested times: quoted text vs toDateTime() SQL function
+		{"Array(DateTime)", []time.Time{ts},
+			"['2020-01-02 03:04:05']", "[toDateTime('2020-01-02 03:04:05')]"},
+		{"Map(String, DateTime)", map[string]time.Time{"a": ts},
+			"{'a':'2020-01-02 03:04:05'}", "map('a', toDateTime('2020-01-02 03:04:05'))"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := formatValue(time.UTC, Seconds, tc.value, true)
+			got, err := formatValue(time.UTC, Seconds, tc.value, formatParamText)
 			require.NoError(t, err)
 			assert.Equal(t, tc.queryParam, got, "server-side query-parameter formatting")
 
-			got, err = formatValue(time.UTC, Seconds, tc.value, false)
+			got, err = formatValue(time.UTC, Seconds, tc.value, formatSQL)
 			require.NoError(t, err)
 			assert.Equal(t, tc.bindSQL, got, "client-side bind formatting must be unchanged")
 		})
 	}
+}
+
+// TestFormatValueModesOrderedMap is the ordered-map variant of
+// TestFormatValueModes: column.OrderedMap and column.IterableOrderedMap
+// values must follow the same map syntax switch as plain Go maps.
+func TestFormatValueModesOrderedMap(t *testing.T) {
+	om := NewOrderedMap()
+	om.Put("b", true)
+	om.Put("a", false)
+
+	got, err := formatValue(time.UTC, Seconds, om, formatParamText)
+	require.NoError(t, err)
+	assert.Equal(t, "{'b':true,'a':false}", got)
+
+	got, err = formatValue(time.UTC, Seconds, om, formatSQL)
+	require.NoError(t, err)
+	assert.Equal(t, "map('b', 1, 'a', 0)", got)
 }
 
 func TestBindNamedWithTernaryOperator(t *testing.T) {

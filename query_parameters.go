@@ -30,14 +30,20 @@ func bindQueryOrAppendParameters(paramsProtocolSupport bool, options *QueryOptio
 		for _, a := range args {
 			switch p := a.(type) {
 			case driver.NamedValue:
-				if str, ok := p.Value.(string); ok {
-					options.parameters[p.Name] = str
+				// The server parses a parameter value with the declared
+				// type's text reader. At the top level, String and DateTime
+				// values are read raw — unquoted — so they bypass
+				// formatValue, which applies the quoting rules for values
+				// nested inside composite types.
+				switch v := p.Value.(type) {
+				case string:
+					options.parameters[p.Name] = v
+					continue
+				case time.Time:
+					options.parameters[p.Name] = formatTimeWithScale(v, Seconds)
 					continue
 				}
-				// The server parses query parameter values as text, and its
-				// text parser wants bools as `true`/`false` — for example,
-				// `Array(Bool)` rejects `1`/`0`.
-				strVal, err := formatValue(timezone, Seconds, p.Value, true)
+				strVal, err := formatValue(timezone, Seconds, p.Value, formatParamText)
 				if err != nil {
 					return "", err
 				}
