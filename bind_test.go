@@ -610,6 +610,12 @@ func TestFormatMap(t *testing.T) {
 	assert.Equal(t, "map('a', 1)", val)
 }
 
+func TestFormatMapEscapesStringKeys(t *testing.T) {
+	val, err := format(time.UTC, Seconds, map[string]uint8{`a'b\c`: 1})
+	require.NoError(t, err)
+	assert.Equal(t, `map('a\'b\\c', 1)`, val)
+}
+
 func TestTimezoneSQLEscaping(t *testing.T) {
 	t.Run("prevent SQL injection via timezone name", func(t *testing.T) {
 		maliciousLoc := time.FixedZone("UTC') UNION ALL SELECT 1,2,3 --", 0)

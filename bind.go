@@ -594,9 +594,9 @@ func formatValue(tz *time.Location, scale TimeUnit, v any, boolAsText bool) (str
 	case reflect.Map: // map
 		values := make([]string, 0, len(v.MapKeys()))
 		for _, key := range v.MapKeys() {
-			name := fmt.Sprint(key.Interface())
-			if key.Kind() == reflect.String {
-				name = fmt.Sprintf("'%s'", name)
+			name, err := format(tz, scale, key.Interface())
+			if err != nil {
+				return "", err
 			}
 			val, err := formatValue(tz, scale, v.MapIndex(key).Interface(), boolAsText)
 			if err != nil {
