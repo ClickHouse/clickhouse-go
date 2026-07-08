@@ -7,6 +7,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 )
 
 func TestBindNumeric(t *testing.T) {
@@ -662,6 +664,33 @@ func TestTimezoneSQLEscaping(t *testing.T) {
 		assert.NotContains(t, val, `\'`, "Normal timezone names should not have escaped quotes")
 		assert.Contains(t, val, "toDateTime(")
 	})
+
+	// Query-parameter formatting writes times with fixed numeric layouts and
+	// never includes the timezone name, so a malicious name has nothing to
+	// leak into. These lock that in for both the nested and top-level paths.
+	t.Run("timezone name never reaches query-parameter text", func(t *testing.T) {
+		maliciousLoc := time.FixedZone("UTC') UNION ALL SELECT 1,2,3 --", 0)
+		maliciousTime := time.Date(2020, 1, 2, 3, 4, 5, 0, maliciousLoc)
+
+		// Nested inside a composite value.
+		val, err := formatValue(time.UTC, Seconds, []time.Time{maliciousTime}, formatParamText)
+		require.NoError(t, err)
+		assert.Equal(t, "['2020-01-02 03:04:05']", val)
+
+		// Top-level Named value.
+		opts := &QueryOptions{}
+		_, err = bindQueryOrAppendParameters(true, opts, "SELECT {d:DateTime}", time.UTC,
+			driver.NamedValue{Name: "d", Value: maliciousTime})
+		require.NoError(t, err)
+		assert.Equal(t, "2020-01-02 03:04:05", opts.parameters["d"])
+	})
+
+	t.Run("malicious string stays escaped in query-parameter text", func(t *testing.T) {
+		payload := `'} UNION ALL SELECT 1 --`
+		val, err := formatValue(time.UTC, Seconds, map[string]string{"k": payload}, formatParamText)
+		require.NoError(t, err)
+		assert.Equal(t, `{'k':'\'} UNION ALL SELECT 1 --'}`, val)
+	})
 }
 
 // a simple (non thread safe) ordered map, implementing the column.OrderedMap interface
@@ -761,6 +790,9 @@ func TestFormatValueModes(t *testing.T) {
 			"['2020-01-02 03:04:05']", "[toDateTime('2020-01-02 03:04:05')]"},
 		{"Map(String, DateTime)", map[string]time.Time{"a": ts},
 			"{'a':'2020-01-02 03:04:05'}", "map('a', toDateTime('2020-01-02 03:04:05'))"},
+		// a sub-second time keeps its fraction in param mode (for DateTime64)
+		{"Map(String, DateTime64)", map[string]time.Time{"a": ts.Add(123 * time.Millisecond)},
+			"{'a':'2020-01-02 03:04:05.123'}", "map('a', toDateTime('2020-01-02 03:04:05'))"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -771,6 +803,29 @@ func TestFormatValueModes(t *testing.T) {
 			got, err = formatValue(time.UTC, Seconds, tc.value, formatSQL)
 			require.NoError(t, err)
 			assert.Equal(t, tc.bindSQL, got, "client-side bind formatting must be unchanged")
+		})
+	}
+}
+
+// TestFormatTimeParam checks how a time.Time is rendered as a query
+// parameter: whole seconds stay plain, sub-second values keep their fraction
+// trimmed to milli/micro/nanoseconds so a DateTime64 parameter doesn't lose
+// precision.
+func TestFormatTimeParam(t *testing.T) {
+	base := time.Date(2020, 1, 2, 3, 4, 5, 0, time.UTC)
+	cases := []struct {
+		name string
+		in   time.Time
+		want string
+	}{
+		{"whole seconds", base, "2020-01-02 03:04:05"},
+		{"milliseconds", base.Add(123 * time.Millisecond), "2020-01-02 03:04:05.123"},
+		{"microseconds", base.Add(123456 * time.Microsecond), "2020-01-02 03:04:05.123456"},
+		{"nanoseconds", base.Add(123456789 * time.Nanosecond), "2020-01-02 03:04:05.123456789"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, formatTimeParam(tc.in))
 		})
 	}
 }
