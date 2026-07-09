@@ -745,7 +745,7 @@ func TestFormatMapOrdered(t *testing.T) {
 // TestFormatValueModes covers the fixes for #1891 and #1898. The server
 // parses {name:Type} query parameters as text, not SQL: bools must be
 // true/false instead of 1/0, maps {'k':v} instead of map('k', v), floats
-// plain numbers instead of cast(...), times quoted strings instead of
+// plain numbers instead of cast(...), times quoted epoch strings instead of
 // toDateTime(...). Client-side binding (the ?/$1/@name placeholders) must
 // keep the SQL forms. Both hold at any nesting depth.
 func TestFormatValueModes(t *testing.T) {
