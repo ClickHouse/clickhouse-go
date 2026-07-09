@@ -18,6 +18,15 @@ var (
 	ErrInvalidTimezone = errors.New("invalid timezone value")
 )
 
+// Named binds a value to a query argument by name. With server-side query
+// parameters (the `{name:Type}` placeholder syntax) the value travels
+// out-of-band in the server's text format; a time.Time is sent as epoch
+// seconds, so the instant is preserved no matter which timezone the value
+// carries or the parameter declares, and its sub-second fraction is included
+// only when present (a fraction suits `DateTime64` but makes a plain
+// `DateTime` parameter fail — use DateNamed to pin an exact scale). With
+// client-side binding (the `@name` placeholder syntax) the value is inlined
+// into the query text as a SQL literal instead.
 func Named(name string, value any) driver.NamedValue {
 	return driver.NamedValue{
 		Name:  name,
@@ -40,6 +49,13 @@ type GroupSet struct {
 
 type ArraySet []any
 
+// DateNamed binds a time.Time to a query argument by name at an explicit
+// precision. As a server-side query parameter the value is sent as epoch
+// seconds with exactly the fractional digits the scale selects (Seconds →
+// none, MilliSeconds → 3, MicroSeconds → 6, NanoSeconds → 9), truncating
+// anything finer — so the instant is preserved regardless of timezone, and
+// the precision matches the parameter's declared type (e.g. Seconds for
+// `DateTime`, MilliSeconds for `DateTime64(3)`).
 func DateNamed(name string, value time.Time, scale TimeUnit) driver.NamedDateValue {
 	return driver.NamedDateValue{
 		Name:  name,

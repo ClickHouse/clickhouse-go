@@ -12,11 +12,16 @@ import (
 type ServerVersion = proto.ServerHandshake
 
 type (
+	// NamedValue binds Value to the query argument Name; construct it with
+	// clickhouse.Named.
 	NamedValue struct {
 		Name  string
 		Value any
 	}
 
+	// NamedDateValue binds a time value to the query argument Name at an
+	// explicit precision; construct it with clickhouse.DateNamed. Scale is
+	// the clickhouse.TimeUnit (0 seconds, 1 milli, 2 micro, 3 nano).
 	NamedDateValue struct {
 		Name  string
 		Value time.Time
