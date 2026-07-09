@@ -839,9 +839,9 @@ func TestFormatTimeParam(t *testing.T) {
 }
 
 // TestFormatTimeWithScale checks how a DateNamed value is rendered as a
-// query parameter: epoch seconds (instant-preserving, like formatTimeParam)
-// with exactly the fractional digits the explicit scale selects, truncating
-// anything finer.
+// query parameter: epoch seconds like formatTimeParam, but with the
+// fraction width fixed by the scale rather than inferred from the value,
+// dropping anything finer.
 func TestFormatTimeWithScale(t *testing.T) {
 	base := time.Date(2020, 1, 2, 3, 4, 5, 123456789, time.UTC) // epoch 1577934245.123456789
 	tokyo := time.FixedZone("Asia/Tokyo", 9*3600)
