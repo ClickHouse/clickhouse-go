@@ -830,6 +830,34 @@ func TestFormatTimeParam(t *testing.T) {
 	}
 }
 
+// TestNilQueryParameter checks that a nil sent as a query parameter becomes
+// `\N` — the whole-text NULL marker. The `NULL` keyword only works nested
+// inside composites; at the top level the server would read it as the string
+// "NULL" or fail to parse it.
+func TestNilQueryParameter(t *testing.T) {
+	cases := []struct {
+		name  string
+		value any
+		want  string
+	}{
+		{"untyped nil", nil, `\N`},
+		{"nil *string", (*string)(nil), `\N`},
+		{"nil *time.Time", (*time.Time)(nil), `\N`},
+		{"nil *int", (*int)(nil), `\N`},
+		// nils nested inside a composite keep the NULL keyword
+		{"nil inside array", []*string{nil}, "[NULL]"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			opts := &QueryOptions{}
+			_, err := bindQueryOrAppendParameters(true, opts, "SELECT {p:Nullable(String)}", time.UTC,
+				driver.NamedValue{Name: "p", Value: tc.value})
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, opts.parameters["p"])
+		})
+	}
+}
+
 // TestFormatValueModesOrderedMap checks that ordered maps switch syntax
 // between the two modes just like plain Go maps do.
 func TestFormatValueModesOrderedMap(t *testing.T) {
