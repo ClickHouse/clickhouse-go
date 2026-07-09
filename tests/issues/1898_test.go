@@ -211,6 +211,37 @@ func TestIssue1898_MapQueryParameter(t *testing.T) {
 			require.Equal(t, map[string]time.Time{"a": in}, gotMap)
 		})
 
+		// A nil parameter must arrive as SQL NULL. Before the fix it was
+		// sent as the text `NULL`, which a Nullable(String) parameter
+		// silently read as the string "NULL" and other types rejected.
+		t.Run("nil round-trips as NULL", func(t *testing.T) {
+			var gotStr *string
+			var isNull uint8
+			require.NoError(t, conn.QueryRow(ctx,
+				"SELECT {s:Nullable(String)}, isNull({s:Nullable(String)})",
+				clickhouse.Named("s", (*string)(nil)),
+			).Scan(&gotStr, &isNull))
+			require.Nil(t, gotStr)
+			require.Equal(t, uint8(1), isNull)
+
+			var gotInt *int32
+			require.NoError(t, conn.QueryRow(ctx,
+				"SELECT {i:Nullable(Int32)}",
+				clickhouse.Named("i", nil),
+			).Scan(&gotInt))
+			require.Nil(t, gotInt)
+
+			// nils nested inside a composite must keep working too
+			s := "x"
+			in := []*string{&s, nil}
+			var gotArr []*string
+			require.NoError(t, conn.QueryRow(ctx,
+				"SELECT {a:Array(Nullable(String))}",
+				clickhouse.Named("a", in),
+			).Scan(&gotArr))
+			require.Equal(t, in, gotArr)
+		})
+
 		// A sub-second time.Time sent to a plain DateTime parameter fails
 		// loudly instead of silently dropping the fraction. DateNamed is
 		// the way to pick the scale explicitly.

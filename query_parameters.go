@@ -2,6 +2,7 @@ package clickhouse
 
 import (
 	"errors"
+	"reflect"
 	"regexp"
 	"time"
 
@@ -30,29 +31,33 @@ func bindQueryOrAppendParameters(paramsProtocolSupport bool, options *QueryOptio
 		for _, a := range args {
 			switch p := a.(type) {
 			case driver.NamedValue:
+				// A nil at the top level means SQL NULL, whose whole-text
+				// marker is `\N`. The `NULL` keyword formatValue emits only
+				// works nested inside arrays, maps, and tuples — at the top
+				// level the server would read it as the string "NULL" (or
+				// fail to parse it at all).
+				if isNilParamValue(p.Value) {
+					options.parameters[p.Name] = `\N`
+					continue
+				}
 				// Strings and times at the top level are sent raw, without
 				// quotes: the server reads a whole parameter value as-is,
 				// and only quotes values nested inside arrays, maps, and
 				// tuples. formatValue below applies the nested (quoted)
-				// rules, so these skip it. Nil pointers fall through and
-				// format as NULL.
+				// rules, so these skip it.
 				switch v := p.Value.(type) {
 				case string:
 					options.parameters[p.Name] = v
 					continue
 				case *string:
-					if v != nil {
-						options.parameters[p.Name] = *v
-						continue
-					}
+					options.parameters[p.Name] = *v
+					continue
 				case time.Time:
 					options.parameters[p.Name] = formatTimeParam(v)
 					continue
 				case *time.Time:
-					if v != nil {
-						options.parameters[p.Name] = formatTimeParam(*v)
-						continue
-					}
+					options.parameters[p.Name] = formatTimeParam(*v)
+					continue
 				}
 				strVal, err := formatValue(timezone, Seconds, p.Value, formatParamText)
 				if err != nil {
@@ -77,6 +82,18 @@ func bindQueryOrAppendParameters(paramsProtocolSupport bool, options *QueryOptio
 	}
 
 	return bind(timezone, query, args...)
+}
+
+// isNilParamValue reports whether v is nil itself or a typed nil pointer —
+// the same values formatValue would render as NULL.
+func isNilParamValue(v any) bool {
+	if v == nil {
+		return true
+	}
+	if rv := reflect.ValueOf(v); rv.Kind() == reflect.Ptr {
+		return rv.IsNil()
+	}
+	return false
 }
 
 // formatTimeParam renders a time.Time sent as a query parameter through
