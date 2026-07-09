@@ -121,6 +121,47 @@ func TestQueryParameters(t *testing.T) {
 		require.NoError(t, row.Err())
 	})
 
+	// DateNamed values go out as epoch, so the moment they point to survives
+	// whatever timezone the value or the parameter carries. The old
+	// wall-clock text was re-read in the parameter's zone, which shifted the
+	// stored moment by the zone offset — 9 hours in this case.
+	t.Run("DateNamed keeps the instant for non-UTC times", func(t *testing.T) {
+		tokyo := time.FixedZone("Asia/Tokyo", 9*3600)
+		in := time.Date(2020, 1, 2, 12, 0, 0, 0, tokyo) // == 03:00:00 UTC
+
+		var got time.Time
+		row := client.QueryRow(ctx,
+			"SELECT {d:DateTime('UTC')}",
+			clickhouse.DateNamed("d", in, clickhouse.Seconds),
+		)
+		require.NoError(t, row.Err())
+		require.NoError(t, row.Scan(&got))
+		assert.True(t, got.Equal(in), "want instant %s, got %s", in.UTC(), got.UTC())
+	})
+
+	// The scale decides the precision: milliseconds round-trip into a
+	// matching DateTime64, and the Seconds scale drops them.
+	t.Run("DateNamed scale controls sub-second precision", func(t *testing.T) {
+		in := time.Date(2020, 1, 2, 3, 4, 5, 123000000, time.UTC)
+
+		var got time.Time
+		row := client.QueryRow(ctx,
+			"SELECT {d:DateTime64(3, 'UTC')}",
+			clickhouse.DateNamed("d", in, clickhouse.MilliSeconds),
+		)
+		require.NoError(t, row.Err())
+		require.NoError(t, row.Scan(&got))
+		assert.True(t, got.Equal(in), "want instant %s, got %s", in.UTC(), got.UTC())
+
+		row = client.QueryRow(ctx,
+			"SELECT {d:DateTime('UTC')}",
+			clickhouse.DateNamed("d", in, clickhouse.Seconds),
+		)
+		require.NoError(t, row.Err())
+		require.NoError(t, row.Scan(&got))
+		assert.True(t, got.Equal(in.Truncate(time.Second)), "want truncated instant %s, got %s", in.Truncate(time.Second).UTC(), got.UTC())
+	})
+
 	t.Run("with bind backwards compatibility", func(t *testing.T) {
 		var actualNum uint8
 		var actualStr string
