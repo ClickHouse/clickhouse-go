@@ -481,9 +481,10 @@ const (
 	formatSQL formatMode = iota
 	// formatParamText produces the text format the server expects for
 	// {name:Type} query parameters: bools as true/false, maps as {'k':v},
-	// floats as plain numbers, times as quoted '2006-01-02 15:04:05'
-	// strings. The server parses these values with the declared type's text
-	// reader, which does not understand SQL function syntax.
+	// floats as plain numbers, times as quoted epoch seconds like
+	// '1577934245' (see formatTimeParam). The server parses these values
+	// with the declared type's text reader, which does not understand SQL
+	// function syntax.
 	formatParamText
 )
 
