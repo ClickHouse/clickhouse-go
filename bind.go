@@ -18,15 +18,16 @@ var (
 	ErrInvalidTimezone = errors.New("invalid timezone value")
 )
 
-// Named binds a value to a query argument by name. With server-side query
-// parameters (the `{name:Type}` placeholder syntax) the value travels
-// out-of-band in the server's text format; a time.Time is sent as epoch
-// seconds, so the instant is preserved no matter which timezone the value
-// carries or the parameter declares, and its sub-second fraction is included
-// only when present (a fraction suits `DateTime64` but makes a plain
-// `DateTime` parameter fail — use DateNamed to pin an exact scale). With
-// client-side binding (the `@name` placeholder syntax) the value is inlined
-// into the query text as a SQL literal instead.
+// Named gives a query argument a name. It works with both placeholder
+// styles: with server-side query parameters (`{name:Type}`) the value is
+// sent to the server separately from the query, with client-side binding
+// (`@name`) it is written into the query text as a SQL literal.
+//
+// A time.Time is sent as epoch seconds, so the moment it points to is
+// preserved whatever timezone it or the parameter carries. Sub-second
+// precision is kept when the value has any — fine for `DateTime64`, but a
+// plain `DateTime` parameter rejects fractions. Use DateNamed to choose the
+// precision yourself.
 func Named(name string, value any) driver.NamedValue {
 	return driver.NamedValue{
 		Name:  name,
@@ -49,13 +50,12 @@ type GroupSet struct {
 
 type ArraySet []any
 
-// DateNamed binds a time.Time to a query argument by name at an explicit
-// precision. As a server-side query parameter the value is sent as epoch
-// seconds with exactly the fractional digits the scale selects (Seconds →
-// none, MilliSeconds → 3, MicroSeconds → 6, NanoSeconds → 9), truncating
-// anything finer — so the instant is preserved regardless of timezone, and
-// the precision matches the parameter's declared type (e.g. Seconds for
-// `DateTime`, MilliSeconds for `DateTime64(3)`).
+// DateNamed is Named for a time.Time with the precision chosen by you
+// instead of inferred from the value: the scale decides how many fractional
+// digits are sent (Seconds none, MilliSeconds 3, and so on), and anything
+// finer is dropped. Pick the scale that matches the parameter's type —
+// Seconds for `DateTime`, MilliSeconds for `DateTime64(3)`. Like Named, the
+// value is sent as epoch seconds, so timezones can't shift it.
 func DateNamed(name string, value time.Time, scale TimeUnit) driver.NamedDateValue {
 	return driver.NamedDateValue{
 		Name:  name,
