@@ -838,6 +838,38 @@ func TestFormatTimeParam(t *testing.T) {
 	}
 }
 
+// TestFormatTimeWithScale checks how a DateNamed value is rendered as a
+// query parameter: epoch seconds like formatTimeParam, but with the
+// fraction width fixed by the scale rather than inferred from the value,
+// dropping anything finer.
+func TestFormatTimeWithScale(t *testing.T) {
+	base := time.Date(2020, 1, 2, 3, 4, 5, 123456789, time.UTC) // epoch 1577934245.123456789
+	tokyo := time.FixedZone("Asia/Tokyo", 9*3600)
+	cases := []struct {
+		name  string
+		in    time.Time
+		scale TimeUnit
+		want  string
+	}{
+		{"Seconds truncates fraction", base, Seconds, "1577934245"},
+		{"MilliSeconds", base, MilliSeconds, "1577934245.123"},
+		{"MicroSeconds", base, MicroSeconds, "1577934245.123456"},
+		{"NanoSeconds", base, NanoSeconds, "1577934245.123456789"},
+		// fixed width even when the value is coarser than the scale
+		{"whole second at MilliSeconds", base.Truncate(time.Second), MilliSeconds, "1577934245.000"},
+		// the same instant expressed in another zone renders identically
+		{"non-UTC zone, same instant", base.In(tokyo), MilliSeconds, "1577934245.123"},
+		// pre-1970: the sign must cover the fraction too
+		{"pre-1970 sub-second", time.Date(1969, 12, 30, 23, 59, 59, 500000000, time.UTC), MilliSeconds, "-86400.500"},
+		{"pre-1970 whole second at MilliSeconds", time.Date(1969, 12, 31, 0, 0, 0, 0, time.UTC), MilliSeconds, "-86400.000"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, formatTimeWithScale(tc.in, tc.scale))
+		})
+	}
+}
+
 // TestNilQueryParameter checks that a nil sent as a query parameter becomes
 // `\N` — the whole-text NULL marker. The `NULL` keyword only works nested
 // inside composites; at the top level the server would read it as the string

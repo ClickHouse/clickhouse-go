@@ -18,6 +18,17 @@ var (
 	ErrInvalidTimezone = errors.New("invalid timezone value")
 )
 
+// Named gives a query argument a name. It works with both placeholder
+// styles: with server-side query parameters (`{name:Type}`) the value is
+// sent to the server separately from the query, with client-side binding
+// (`@name`) it is written into the query text as a SQL literal.
+//
+// Either way, a time.Time keeps the moment it points to, whatever timezone
+// it or the target carries: query parameters send it as epoch seconds, and
+// client-side binding emits a SQL form that carries the zone when it needs
+// to. On the query-parameter path, sub-second precision is kept when the
+// value has any — fine for `DateTime64`, but a plain `DateTime` parameter
+// rejects fractions. Use DateNamed to choose the precision yourself.
 func Named(name string, value any) driver.NamedValue {
 	return driver.NamedValue{
 		Name:  name,
@@ -40,6 +51,12 @@ type GroupSet struct {
 
 type ArraySet []any
 
+// DateNamed is Named for a time.Time with the precision chosen by you
+// instead of inferred from the value: the scale decides how many fractional
+// digits are sent (Seconds none, MilliSeconds 3, and so on), and anything
+// finer is dropped. Pick the scale that matches the parameter's type —
+// Seconds for `DateTime`, MilliSeconds for `DateTime64(3)`. Like Named, the
+// moment the value points to is preserved regardless of timezones.
 func DateNamed(name string, value time.Time, scale TimeUnit) driver.NamedDateValue {
 	return driver.NamedDateValue{
 		Name:  name,

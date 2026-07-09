@@ -98,53 +98,71 @@ func isNilParamValue(v any) bool {
 	return false
 }
 
-// formatTimeParam renders a time.Time sent as a query parameter through
-// Named (which, unlike NamedDateValue, carries no scale). It emits epoch
-// seconds rather than wall-clock text: parameter text has no syntax for a
-// timezone, so a wall-clock string would be re-interpreted in the
-// parameter's declared zone and shift the instant whenever that zone differs
-// from the value's — epoch is zone-free, so the instant always survives.
+// formatEpoch renders t as epoch seconds with exactly `digits` fractional
+// digits (0, 3, 6 or 9), dropping anything finer.
 //
-// Whole-second times emit just the integer. Sub-second times keep their
-// fraction, trimmed to milli/micro/nanoseconds: a DateTime64 parameter
-// preserves the precision (the server drops digits beyond its declared
-// scale), while a plain DateTime parameter rejects the value with an error —
-// better than silently truncating it. Use DateNamed to pin an exact scale
-// and wall-clock semantics.
-func formatTimeParam(t time.Time) string {
+// Times go out as epoch rather than wall-clock text because parameter text
+// has no way to say which timezone the digits are in: the server would read
+// a wall-clock string in the parameter's own zone, and whenever that differs
+// from the value's zone the stored moment shifts by the offset. An epoch
+// number means the same moment everywhere.
+func formatEpoch(t time.Time, digits int) string {
 	sec, ns := t.Unix(), int64(t.Nanosecond())
-	if ns == 0 {
+	if digits == 0 {
 		return strconv.FormatInt(sec, 10)
 	}
-	// Unix() floors and Nanosecond() is the positive offset within that
-	// second, so a pre-1970 instant like -86400.5 arrives as sec -86401,
-	// ns 5e8. Printing those digits naively would yield "-86401.500" =
-	// -86401.5 — carry the sign into both parts instead.
+	pow := int64(1)
+	for i := 0; i < digits; i++ {
+		pow *= 10
+	}
+	frac := ns / (1_000_000_000 / pow)
+	// Before 1970 the parts need care: Go gives -86400.5 as second -86401
+	// plus 0.5 forward, and printing those two numbers as-is would read as
+	// -86401.5. Put the sign in front of the combined value instead.
 	sign := ""
 	if sec < 0 {
 		sign = "-"
-		sec = -sec - 1
-		ns = 1e9 - ns
+		if frac > 0 {
+			sec = -sec - 1
+			frac = pow - frac
+		} else {
+			sec = -sec
+		}
 	}
-	frac := fmt.Sprintf("%09d", ns)
-	switch {
-	case ns%1e6 == 0:
-		frac = frac[:3]
-	case ns%1e3 == 0:
-		frac = frac[:6]
-	}
-	return sign + strconv.FormatInt(sec, 10) + "." + frac
+	return fmt.Sprintf("%s%d.%0*d", sign, sec, digits, frac)
 }
 
+// formatTimeParam renders a time.Time sent through Named. Named carries no
+// scale, so the fraction width comes from the value itself: whole seconds
+// stay a bare integer, sub-second values keep their fraction. That way a
+// DateTime64 parameter keeps the precision, and a plain DateTime parameter
+// fails loudly on a fraction instead of silently losing it. DateNamed is
+// the way to pick the width explicitly.
+func formatTimeParam(t time.Time) string {
+	switch ns := t.Nanosecond(); {
+	case ns == 0:
+		return formatEpoch(t, 0)
+	case ns%1e6 == 0:
+		return formatEpoch(t, 3)
+	case ns%1e3 == 0:
+		return formatEpoch(t, 6)
+	default:
+		return formatEpoch(t, 9)
+	}
+}
+
+// formatTimeWithScale renders a time.Time sent through DateNamed: the
+// caller's scale decides the fraction width (Seconds none, MilliSeconds 3
+// digits, and so on), and anything finer is dropped.
 func formatTimeWithScale(t time.Time, scale TimeUnit) string {
 	switch scale {
-	case MicroSeconds:
-		return t.Format("2006-01-02 15:04:05.000000")
 	case MilliSeconds:
-		return t.Format("2006-01-02 15:04:05.000")
+		return formatEpoch(t, 3)
+	case MicroSeconds:
+		return formatEpoch(t, 6)
 	case NanoSeconds:
-		return t.Format("2006-01-02 15:04:05.000000000")
+		return formatEpoch(t, 9)
 	default:
-		return t.Format("2006-01-02 15:04:05")
+		return formatEpoch(t, 0)
 	}
 }
