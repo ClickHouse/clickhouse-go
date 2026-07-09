@@ -211,6 +211,30 @@ func TestIssue1898_MapQueryParameter(t *testing.T) {
 			require.Equal(t, map[string]time.Time{"a": in}, gotMap)
 		})
 
+		// A time.Time carrying a non-UTC zone must keep its instant. Times
+		// are sent as epoch (parameter text has no timezone syntax), so the
+		// parameter's declared zone changes only the rendering, never the
+		// instant. Before the fix the wall-clock text was re-interpreted in
+		// the parameter's zone, shifting the instant by the zone offset.
+		t.Run("non-UTC time keeps its instant", func(t *testing.T) {
+			tokyo := time.FixedZone("Asia/Tokyo", 9*3600)
+			in := time.Date(2020, 1, 2, 12, 0, 0, 0, tokyo) // == 03:00:00 UTC
+
+			var got time.Time
+			require.NoError(t, conn.QueryRow(ctx,
+				"SELECT {d:DateTime('UTC')}",
+				clickhouse.Named("d", in),
+			).Scan(&got))
+			require.True(t, got.Equal(in), "want instant %s, got %s", in.UTC(), got.UTC())
+
+			var gotMap map[string]time.Time
+			require.NoError(t, conn.QueryRow(ctx,
+				"SELECT {m:Map(String, DateTime('UTC'))}",
+				clickhouse.Named("m", map[string]time.Time{"a": in}),
+			).Scan(&gotMap))
+			require.True(t, gotMap["a"].Equal(in), "want instant %s, got %s", in.UTC(), gotMap["a"].UTC())
+		})
+
 		// A nil parameter must arrive as SQL NULL. Before the fix it was
 		// sent as the text `NULL`, which a Nullable(String) parameter
 		// silently read as the string "NULL" and other types rejected.

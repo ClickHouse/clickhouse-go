@@ -665,9 +665,9 @@ func TestTimezoneSQLEscaping(t *testing.T) {
 		assert.Contains(t, val, "toDateTime(")
 	})
 
-	// Query-parameter formatting writes times with fixed numeric layouts and
-	// never includes the timezone name, so a malicious name has nothing to
-	// leak into. These lock that in for both the nested and top-level paths.
+	// Query-parameter formatting writes times as epoch digits and never
+	// includes the timezone name, so a malicious name has nothing to leak
+	// into. These lock that in for both the nested and top-level paths.
 	t.Run("timezone name never reaches query-parameter text", func(t *testing.T) {
 		maliciousLoc := time.FixedZone("UTC') UNION ALL SELECT 1,2,3 --", 0)
 		maliciousTime := time.Date(2020, 1, 2, 3, 4, 5, 0, maliciousLoc)
@@ -675,14 +675,14 @@ func TestTimezoneSQLEscaping(t *testing.T) {
 		// Nested inside a composite value.
 		val, err := formatValue(time.UTC, Seconds, []time.Time{maliciousTime}, formatParamText)
 		require.NoError(t, err)
-		assert.Equal(t, "['2020-01-02 03:04:05']", val)
+		assert.Equal(t, "['1577934245']", val)
 
 		// Top-level Named value.
 		opts := &QueryOptions{}
 		_, err = bindQueryOrAppendParameters(true, opts, "SELECT {d:DateTime}", time.UTC,
 			driver.NamedValue{Name: "d", Value: maliciousTime})
 		require.NoError(t, err)
-		assert.Equal(t, "2020-01-02 03:04:05", opts.parameters["d"])
+		assert.Equal(t, "1577934245", opts.parameters["d"])
 	})
 
 	t.Run("malicious string stays escaped in query-parameter text", func(t *testing.T) {
@@ -785,14 +785,14 @@ func TestFormatValueModes(t *testing.T) {
 		{"Float64 +Inf", math.Inf(1), "inf", "cast('inf', 'Float64')"},
 		{"Float64 -Inf", math.Inf(-1), "-inf", "cast('-inf', 'Float64')"},
 		{"Map(String, Float64)", map[string]float64{"a": 1.5}, "{'a':1.5}", "map('a', cast(1.5, 'Float64'))"},
-		// nested times: quoted text vs toDateTime() SQL function
+		// nested times: quoted epoch (zone-free) vs toDateTime() SQL function
 		{"Array(DateTime)", []time.Time{ts},
-			"['2020-01-02 03:04:05']", "[toDateTime('2020-01-02 03:04:05')]"},
+			"['1577934245']", "[toDateTime('2020-01-02 03:04:05')]"},
 		{"Map(String, DateTime)", map[string]time.Time{"a": ts},
-			"{'a':'2020-01-02 03:04:05'}", "map('a', toDateTime('2020-01-02 03:04:05'))"},
+			"{'a':'1577934245'}", "map('a', toDateTime('2020-01-02 03:04:05'))"},
 		// a sub-second time keeps its fraction in param mode (for DateTime64)
 		{"Map(String, DateTime64)", map[string]time.Time{"a": ts.Add(123 * time.Millisecond)},
-			"{'a':'2020-01-02 03:04:05.123'}", "map('a', toDateTime('2020-01-02 03:04:05'))"},
+			"{'a':'1577934245.123'}", "map('a', toDateTime('2020-01-02 03:04:05'))"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -808,20 +808,28 @@ func TestFormatValueModes(t *testing.T) {
 }
 
 // TestFormatTimeParam checks how a time.Time is rendered as a query
-// parameter: whole seconds stay plain, sub-second values keep their fraction
-// trimmed to milli/micro/nanoseconds so a DateTime64 parameter doesn't lose
-// precision.
+// parameter: epoch seconds, so the instant survives no matter which timezone
+// the value carries or the parameter declares. Sub-second values keep their
+// fraction trimmed to milli/micro/nanoseconds so a DateTime64 parameter
+// doesn't lose precision.
 func TestFormatTimeParam(t *testing.T) {
-	base := time.Date(2020, 1, 2, 3, 4, 5, 0, time.UTC)
+	base := time.Date(2020, 1, 2, 3, 4, 5, 0, time.UTC) // epoch 1577934245
+	tokyo := time.FixedZone("Asia/Tokyo", 9*3600)
 	cases := []struct {
 		name string
 		in   time.Time
 		want string
 	}{
-		{"whole seconds", base, "2020-01-02 03:04:05"},
-		{"milliseconds", base.Add(123 * time.Millisecond), "2020-01-02 03:04:05.123"},
-		{"microseconds", base.Add(123456 * time.Microsecond), "2020-01-02 03:04:05.123456"},
-		{"nanoseconds", base.Add(123456789 * time.Nanosecond), "2020-01-02 03:04:05.123456789"},
+		{"whole seconds", base, "1577934245"},
+		{"milliseconds", base.Add(123 * time.Millisecond), "1577934245.123"},
+		{"microseconds", base.Add(123456 * time.Microsecond), "1577934245.123456"},
+		{"nanoseconds", base.Add(123456789 * time.Nanosecond), "1577934245.123456789"},
+		// the same instant expressed in another zone renders identically
+		{"non-UTC zone, same instant", base.In(tokyo), "1577934245"},
+		// pre-1970 instants: the sign must cover the fraction too
+		// (-86400.5 seconds, not -86401 + 0.5)
+		{"pre-1970 sub-second", time.Date(1969, 12, 30, 23, 59, 59, 500000000, time.UTC), "-86400.500"},
+		{"pre-1970 whole second", time.Date(1969, 12, 31, 0, 0, 0, 0, time.UTC), "-86400"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
