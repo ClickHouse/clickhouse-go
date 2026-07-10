@@ -345,8 +345,16 @@ def cmd_post(args):
                         f"repos/{args.repo}/pulls/{args.pr}/comments/{root_id}/replies",
                         "--method", "POST", "--input", "-"],
                        payload={"body": marked})
-            resolve_thread(thread_id)
-            resolved += 1
+            # If resolving fails (e.g. missing permission), just warn —
+            # not worth failing the whole post step over.
+            try:
+                resolve_thread(thread_id)
+                resolved += 1
+            except RuntimeError as exc:
+                print(
+                    f"warning: could not resolve thread {thread_id}: {exc}",
+                    file=sys.stderr,
+                )
         # action == "keep" (or unknown): do nothing
     if replied:
         print(f"Replied to {replied} thread(s).")

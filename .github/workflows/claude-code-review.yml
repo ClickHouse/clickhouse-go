@@ -18,7 +18,10 @@ jobs:
       github.event.label.name == 'review:claude-agent'
     runs-on: ubuntu-latest
     permissions:
-      contents: read        # read repo files (SKILL.md, etc.)
+      # resolving review threads needs contents:write, oddly enough:
+      # https://github.com/orgs/community/discussions/44650
+      # Safe here: we only check out the base branch, and only on a maintainer label.
+      contents: write
       pull-requests: write  # post review comments
       issues: write         # update labels / post issue comments
       id-token: write       # OIDC token for claude-code-action auth
