@@ -262,6 +262,8 @@ func TestJSONString(t *testing.T) {
 	require.NoError(t, err)
 	_, err = conn.ExecContext(ctx, "SET output_format_json_quote_64bit_integers = 0")
 	require.NoError(t, err)
+	_, err = conn.ExecContext(ctx, "SET date_time_output_format='iso'")
+	require.NoError(t, err)
 
 	const ddl = `
 			CREATE TABLE IF NOT EXISTS std_test_json_string (
