@@ -317,6 +317,7 @@ func TestJSONString(t *testing.T) {
 
 		require.NoError(t, conn.Exec(ctx, "SET output_format_native_write_json_as_string=1"))
 		require.NoError(t, conn.Exec(ctx, "SET output_format_json_quote_64bit_integers=0"))
+		require.NoError(t, conn.Exec(ctx, "SET date_time_output_format='iso'"))
 
 		const ddl = `
 			CREATE TABLE IF NOT EXISTS test_json_string (
