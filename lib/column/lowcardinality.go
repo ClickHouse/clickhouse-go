@@ -3,10 +3,11 @@ package column
 import (
 	"errors"
 	"fmt"
-	"github.com/ClickHouse/ch-go/proto"
 	"math"
 	"reflect"
 	"time"
+
+	"github.com/ClickHouse/ch-go/proto"
 )
 
 const indexTypeMask = 0b11111111
@@ -126,6 +127,9 @@ func (col *LowCardinality) Append(v any) (nulls []uint8, err error) {
 
 func (col *LowCardinality) AppendRow(v any) error {
 	col.rows++
+	if col.append.index == nil {
+		col.append.index = make(map[any]int)
+	}
 	if col.index.Rows() == 0 { // init
 		if col.index.AppendRow(nil); col.nullable {
 			col.index.AppendRow(nil)

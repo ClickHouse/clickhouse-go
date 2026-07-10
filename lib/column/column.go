@@ -2,11 +2,12 @@ package column
 
 import (
 	"fmt"
-	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/ClickHouse/ch-go/proto"
 )
 
 // column names which match this must be escaped - see https://clickhouse.com/docs/en/sql-reference/syntax/#identifiers

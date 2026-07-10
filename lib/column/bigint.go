@@ -4,9 +4,10 @@ import (
 	"database/sql/driver"
 	"encoding/binary"
 	"fmt"
-	"github.com/ClickHouse/ch-go/proto"
 	"math/big"
 	"reflect"
+
+	"github.com/ClickHouse/ch-go/proto"
 )
 
 type BigInt struct {

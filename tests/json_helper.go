@@ -27,7 +27,7 @@ type TestStruct struct {
 	Address TestStructAddress
 
 	KeysNumbers map[string]int64
-	Metadata    map[string]interface{}
+	Metadata    map[string]any
 
 	Timestamp time.Time `chType:"DateTime64(3)"`
 
@@ -112,10 +112,10 @@ func BuildTestJSONStruct() TestStruct {
 			Country: "Country",
 		},
 		KeysNumbers: map[string]int64{"FieldA": 42, "FieldB": 32},
-		Metadata: map[string]interface{}{
+		Metadata: map[string]any{
 			"FieldA": "a",
 			"FieldB": int64(123),
-			"FieldC": map[string]interface{}{
+			"FieldC": map[string]any{
 				"FieldD": "d",
 			},
 		},

@@ -58,8 +58,8 @@ func TestTuple(t *testing.T) {
 				},
 			}
 			col4Data = [][][]any{
-				[][]any{
-					[]any{"Hi", int64(42)},
+				{
+					{"Hi", int64(42)},
 				},
 			}
 			col5Data = []any{

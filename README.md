@@ -171,7 +171,7 @@ conn.SetConnMaxLifetime(time.Hour)
     * round_robin - choose a round-robin server from the set
     * in_order    - first live server is chosen in specified order
 * debug - enable debug output (boolean value)
-* compress - specify the compression algorithm: `none` (default), `zstd`, `lz4`, `lz4hc`, `gzip`, `deflate`, `br`. If set to `true`, `lz4` will be used.
+* compress - specify the compression algorithm: `none` (default), `zstd`, `lz4`, `lz4hc`, `gzip`, `deflate`, `br`. If set to `true`, `lz4` will be used. For HTTP connections, `gzip`/`deflate`/`br` use HTTP web compression, while `lz4`/`zstd` use ClickHouse native block compression over HTTP (`lz4hc` is native-only).
 * compress_level - Level of compression (algorithm-specific, default is 3 when compression is enabled):
   - `gzip`/`deflate`: `-2` (Best Speed) to `9` (Best Compression)
   - `br`: `0` (Best Speed) to `11` (Best Compression)
@@ -182,6 +182,7 @@ conn.SetConnMaxLifetime(time.Hour)
 * client_info_product - optional list (comma separated) of product name and version pair separated with `/`. This value will be pass a part of client info. e.g. `client_info_product=my_app/1.0,my_module/0.1` More details in [Client info](#client-info) section.
 * http_proxy - HTTP proxy address
 * http_path - URL path for HTTP requests (e.g. for proxies or custom endpoints that require a specific path)
+* tls_server_name - set TLS SNI/verification name (sets `tls.Config.ServerName` when `secure=true`)
 
 ## Connection Settings Reference
 
@@ -203,7 +204,7 @@ The following connection settings are available in both DSN strings and the `cli
   * `random` - Choose a random server from the pool
 
 ### Compression Settings
-* **compress** - Enable compression with a specific algorithm: `none`, `zstd`, `lz4`, `lz4hc`, `gzip`, `deflate`, `br`. If set to `true`, `lz4` will be used (default: `none`)
+* **compress** - Enable compression with a specific algorithm: `none`, `zstd`, `lz4`, `lz4hc`, `gzip`, `deflate`, `br`. If set to `true`, `lz4` will be used (default: `none`). For HTTP connections, `gzip`/`deflate`/`br` use HTTP web compression, while `lz4`/`zstd` use ClickHouse native block compression over HTTP (`lz4hc` is native-only).
 * **compress_level** - Compression level (algorithm-specific):
   * `gzip`/`deflate`: `-2` (Best Speed) to `9` (Best Compression)
   * `br`: `0` (Best Speed) to `11` (Best Compression)
@@ -279,7 +280,23 @@ See more details in the [Go documentation](https://pkg.go.dev/net/http#ProxyFrom
 
 ## Compression
 
-ZSTD, LZ4, LZ4HC, GZIP, Deflate, and Brotli compression are supported over native and HTTP protocols. This is performed column by column at a block level and is only used for inserts. Compression buffer size is set as `MaxCompressionBuffer` option.
+Compression is supported over native and HTTP protocols.
+
+Native protocol supports `lz4`, `lz4hc`, and `zstd`.
+
+HTTP protocol supports `lz4` and `zstd` via ClickHouse native block compression over HTTP, and `gzip`, `deflate`, and `br` via HTTP web compression.
+
+### HTTP: Web Compression vs Native Block Compression
+
+When using the HTTP protocol there are two independent compression layers:
+
+1. **HTTP web compression** (whole request/response body). This uses HTTP headers (`Accept-Encoding` and `Content-Encoding`). In ClickHouse, response compression is controlled by the `enable_http_compression` setting (pass it via `Options.Settings` or DSN query params). In clickhouse-go this mode is used when `Compression.Method` is `gzip`, `deflate`, or `br`.
+
+2. **ClickHouse native block compression over HTTP** (Native format blocks). This uses ClickHouse HTTP query parameters: `compress=1` (server compresses response blocks) and `decompress=1` (server expects a compressed request body). In clickhouse-go this mode is used when `Compression.Method` is `lz4` or `zstd`.
+
+Avoid enabling both at the same time unless you've measured it, as it can waste CPU by compressing already-compressed native blocks.
+
+Note: you normally don't need to set `compress=1` or `decompress=1` yourself when using clickhouse-go; selecting an appropriate `Compression.Method` will configure the HTTP request correctly.
 
 When using a DSN, compression can be enabled via the `compress` parameter. Set it to a specific algorithm name (`zstd`, `lz4`, `lz4hc`, `gzip`, `deflate`, `br`) or to `true` as shorthand for `lz4`. See the [DSN](#dsn) section for details.
 
@@ -301,6 +318,28 @@ conn := clickhouse.OpenDB(&clickhouse.Options{
 This minimal tls.Config is normally all that is necessary to connect to the secure native port (normally 9440) on a ClickHouse server. If the ClickHouse server does not have a valid certificate (expired, wrong host name, not signed by a publicly recognized root Certificate Authority), InsecureSkipVerify can be to `true`, but that is strongly discouraged.
 
 If additional TLS parameters are necessary the application code should set the desired fields in the tls.Config struct. That can include specific cipher suites, forcing a particular TLS version (like 1.2 or 1.3), adding an internal CA certificate chain, adding a client certificate (and private key) if required by the ClickHouse server, and most of the other options that come with a more specialized security setup.
+
+### Server Certificate SAN (Go)
+
+Go does not fall back to the certificate Common Name (CN) for hostname verification. If your ClickHouse server certificate does not contain a matching Subject Alternative Name (SAN), you may see:
+
+```text
+tls: failed to verify certificate: x509: certificate relies on legacy Common Name field, use SANs instead
+```
+
+Fix: regenerate the **server** certificate with SANs matching how you connect (DNS and/or IP). For example:
+
+```bash
+openssl req -newkey rsa:2048 -nodes \
+  -subj "/CN=clickhouse" \
+  -addext "subjectAltName = DNS:clickhouse.local,IP:127.0.0.1" \
+  -keyout clickhouse.key -out clickhouse.csr
+
+openssl x509 -req -in clickhouse.csr -out clickhouse.crt \
+  -CA CAroot.crt -CAkey CAroot.key -days 3650 -copy_extensions copy
+```
+
+If you must connect to an IP address but your certificate SAN only contains a DNS name, set `tls_server_name` in the DSN (or `tls.Config.ServerName` in code) to the DNS name in the certificate.
 
 ### HTTPS
 
@@ -370,6 +409,43 @@ We have following examples to show Async Insert in action.
 
 Available options:
 - [WithReleaseConnection](examples/clickhouse_api/batch_release_connection.go) - after PrepareBatch connection will be returned to the pool. It can help you make a long-lived batch.
+- WithCloseOnFlush - close the current INSERT on each Flush and release the connection.
+
+### Batch lifecycle (Flush vs Send vs Close)
+
+For `clickhouse.Conn.PrepareBatch` (native interface):
+
+- Use `Append`/`AppendStruct` to buffer rows client-side.
+- Use `Flush` to send currently buffered rows while keeping the batch usable (native protocol). For HTTP protocol, `Flush` is currently a no-op.
+- Use `Send` to flush any remaining rows and finalize the INSERT. After `Send`, the batch is considered sent and should not be reused.
+- Use `defer batch.Close()` to ensure resources are released if `Send` is not reached.
+
+## JSON columns: append contract
+
+The ClickHouse Native protocol requires **one serialization version per `JSON` column per block** — a column cannot mix `object` rows and `string` rows on the wire. The driver enforces this at append time.
+
+**Two modes, one per batch:**
+
+- `object` — the driver decomposes a value into typed/dynamic paths. Accepts: `struct`, `map[string]any`, `*struct`, `*map`, `*clickhouse.JSON`, and any type implementing `clickhouse.JSONSerializer`.
+- `string` — the driver stores raw JSON text. Accepts: `string`, `*string`, `[]byte`, `*[]byte`, `json.RawMessage`, `*json.RawMessage`, `sql.NullString`, `*sql.NullString`, and types implementing `driver.Valuer` or `fmt.Stringer`.
+
+**Null rows are mode-agnostic.** `nil`, typed-nil pointers (`(*string)(nil)`, `(*clickhouse.JSON)(nil)`), `*interface{}` holding nil, and `sql.NullString{Valid: false}` do **not** latch a mode. They are buffered until a non-null row chooses the mode, and then flushed into the chosen backing column. `Nullable(JSON)` works the same way — the null mask lives on the Nullable wrapper; the inner JSON column still needs to emit something that parses server-side.
+
+**The first non-null row picks the mode.** Subsequent rows must match:
+
+```go
+batch.Append(struct{ Name string }{"Alice"}) // latches "object"
+batch.Append(`{"x":1}`)                      // error: string in an object-mode column
+```
+
+**Mixed-mode appends return an error**, identifying the type of the rejected row. There is no silent `{}` fallback.
+
+**All-null batches** default to `string` mode at send time and encode each null row as the JSON literal `"null"` (smaller on the wire than an empty object, and valid JSON so the server accepts the payload in `Nullable(JSON)` String mode).
+
+**Columnar bulk inserts (`batch.Column(i).Append(slice)`)** follow the same rules:
+- `[]string`, `[]*string`, `[][]byte`, `[]*[]byte`, `[]json.RawMessage`, `[]*json.RawMessage`, `[]sql.NullString`, `[]*sql.NullString` → `string` mode.
+- `[]struct{...}`, `[]map[string]any`, `[]clickhouse.JSON`, `[]*clickhouse.JSON`, `[]clickhouse.JSONSerializer` → `object` mode.
+- `Append` expects a slice — passing a single scalar returns an error. Use `AppendRow` for per-row inserts.
 
 ## Benchmark
 

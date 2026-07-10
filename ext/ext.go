@@ -2,9 +2,10 @@ package ext
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
-	"strings"
 )
 
 func NewTable(name string, columns ...func(t *Table) error) (*Table, error) {

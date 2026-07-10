@@ -1,8 +1,9 @@
 package column
 
 import (
-	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
+
+	"github.com/ClickHouse/ch-go/proto"
 )
 
 // SharedVariant deprecated. Use Dynamic/JSON serialization version 3.

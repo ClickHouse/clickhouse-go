@@ -11,14 +11,13 @@ on:
 
 jobs:
   test:
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.event_name == 'pull_request'
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || (github.event_name == 'pull_request' && github.event.label_name == 'tests:run-head')
     runs-on: [self-hosted, style-checker-aarch64]
     strategy:
       matrix:
         go:
+          - "1.26"
           - "1.25"
-        clickhouse:
-          - "head"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -28,9 +27,18 @@ jobs:
         with:
           go-version: ${{ matrix.go }}
 
+      - name: Delete any existing `head` image
+        run: docker rmi clickhouse/clickhouse-server:head -f
+
+      - name: Pull latest clickhouse-server:head image
+        # The `head` tag is mutable: it is re-tagged on every upstream build.
+        # Self-hosted runners cache images by tag, so without an explicit pull
+        # the job would keep running against whichever `head` was first cached.
+        run: docker pull clickhouse/clickhouse-server:head
+
       - name: Tests
         env:
           TESTCONTAINERS_RYUK_DISABLED: "true"
           GOTOOLCHAIN: "local"
         run: |
-          CLICKHOUSE_VERSION=${{ matrix.clickhouse }} make test
+          CLICKHOUSE_VERSION=head make test

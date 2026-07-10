@@ -10,6 +10,7 @@ import (
 	"log/slog"
 
 	chproto "github.com/ClickHouse/ch-go/proto"
+
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 
@@ -46,7 +47,7 @@ func (h *httpConnect) query(ctx context.Context, release nativeTransportRelease,
 		headers["Accept-Encoding"] = h.compression.String()
 	}
 
-	res, err := h.sendQuery(ctx, query, &options, headers)
+	res, err := h.sendQuery(ctx, query, &options, headers) //nolint:bodyclose // false positive
 	if err != nil {
 		err = fmt.Errorf("sendQuery: %w", err)
 		release(h, err)

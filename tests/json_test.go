@@ -5,20 +5,28 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
-	"github.com/stretchr/testify/require"
 )
 
 func setupJSONTest(t *testing.T, protocol clickhouse.Protocol) driver.Conn {
 	SkipOnCloud(t, "cannot modify JSON settings on cloud")
 
-	conn, err := GetNativeConnection(t, protocol, clickhouse.Settings{
+	settings := clickhouse.Settings{
 		"max_execution_time":              60,
 		"allow_experimental_variant_type": true,
 		"allow_experimental_dynamic_type": true,
 		"allow_experimental_json_type":    true,
-	}, nil, &clickhouse.Compression{
+	}
+	// Some JSON tests issue `SET ...` and rely on it persisting across requests; over HTTP that
+	// needs a session (native uses the stateful connection). These tests are SkipOnCloud, so the
+	// session carries no Cloud session-lock risk.
+	if protocol == clickhouse.HTTP {
+		settings["session_id"] = t.Name()
+	}
+	conn, err := GetNativeConnection(t, protocol, settings, nil, &clickhouse.Compression{
 		Method: clickhouse.CompressionLZ4,
 	})
 	require.NoError(t, err)

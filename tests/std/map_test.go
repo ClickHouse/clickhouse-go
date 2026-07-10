@@ -6,9 +6,10 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
-	"github.com/stretchr/testify/require"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -54,8 +55,8 @@ func TestStdMap(t *testing.T) {
 				}
 				col3Data = map[string]uint64{}
 				col4Data = []map[string]string{
-					map[string]string{"A": "B"},
-					map[string]string{"C": "D"},
+					{"A": "B"},
+					{"C": "D"},
 				}
 				col5Data = map[string]string{
 					"key_col_5_1": "100",

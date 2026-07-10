@@ -4,8 +4,9 @@ import (
 	std_driver "database/sql/driver"
 	"errors"
 	"fmt"
+	"math"
 	"reflect"
-	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -17,6 +18,17 @@ var (
 	ErrInvalidTimezone = errors.New("invalid timezone value")
 )
 
+// Named gives a query argument a name. It works with both placeholder
+// styles: with server-side query parameters (`{name:Type}`) the value is
+// sent to the server separately from the query, with client-side binding
+// (`@name`) it is written into the query text as a SQL literal.
+//
+// Either way, a time.Time keeps the moment it points to, whatever timezone
+// it or the target carries: query parameters send it as epoch seconds, and
+// client-side binding emits a SQL form that carries the zone when it needs
+// to. On the query-parameter path, sub-second precision is kept when the
+// value has any — fine for `DateTime64`, but a plain `DateTime` parameter
+// rejects fractions. Use DateNamed to choose the precision yourself.
 func Named(name string, value any) driver.NamedValue {
 	return driver.NamedValue{
 		Name:  name,
@@ -39,6 +51,12 @@ type GroupSet struct {
 
 type ArraySet []any
 
+// DateNamed is Named for a time.Time with the precision chosen by you
+// instead of inferred from the value: the scale decides how many fractional
+// digits are sent (Seconds none, MilliSeconds 3, and so on), and anything
+// finer is dropped. Pick the scale that matches the parameter's type —
+// Seconds for `DateTime`, MilliSeconds for `DateTime64(3)`. Like Named, the
+// moment the value points to is preserved regardless of timezones.
 func DateNamed(name string, value time.Time, scale TimeUnit) driver.NamedDateValue {
 	return driver.NamedDateValue{
 		Name:  name,
@@ -46,11 +64,6 @@ func DateNamed(name string, value time.Time, scale TimeUnit) driver.NamedDateVal
 		Scale: uint8(scale),
 	}
 }
-
-var (
-	bindNumericRe    = regexp.MustCompile(`\$[0-9]+`)
-	bindPositionalRe = regexp.MustCompile(`[^\\][?]`)
-)
 
 func bind(tz *time.Location, query string, args ...any) (string, error) {
 	if len(args) == 0 {
@@ -70,8 +83,7 @@ func bind(tz *time.Location, query string, args ...any) (string, error) {
 		return bindNamed(tz, query, args...)
 	}
 
-	haveNumeric = bindNumericRe.MatchString(query)
-	havePositional = bindPositionalRe.MatchString(query)
+	haveNumeric, havePositional = bindParamsFormats(query)
 	if haveNumeric && havePositional {
 		return "", ErrBindMixedParamsFormats
 	}
@@ -100,49 +112,206 @@ func checkAllNamedArguments(args ...any) (bool, error) {
 	return haveNamed, nil
 }
 
+// bindQuoteState tracks whether the scanner is currently inside a region of the
+// query where bind placeholders ('?', '$N', '@name') must NOT be substituted: a
+// quoted identifier (backtick or double quote), a string literal (single quote),
+// or a comment.
+//
+// ClickHouse comment syntax: single-line comments start with "--", "#" or "#!"
+// and run to the end of the line; block comments are delimited by "/*" and "*/"
+// and may be nested.
+type bindQuoteState struct {
+	inBacktick    bool
+	inSingle      bool
+	inDouble      bool
+	inLineComment bool
+	blockComment  int // nesting depth of /* */ comments (ClickHouse nests them)
+}
+
+// inProtectedContext reports whether the current position is inside a quoted
+// identifier, string literal, or comment: any region where '?', '$N' and
+// '@name' markers are part of the query text rather than bind placeholders.
+func (s *bindQuoteState) inProtectedContext() bool {
+	return s.inBacktick || s.inSingle || s.inDouble || s.inLineComment || s.blockComment > 0
+}
+
+// inIdentifierOrComment reports whether the current position is inside a quoted
+// identifier (backtick or double quote) or a comment. In these contexts the
+// query text is passed through untouched, including any backslash that precedes
+// a '?'. This is deliberately distinct from a single-quoted string literal,
+// where a "\?" is unescaped to a literal "?" for backward compatibility (see
+// bindPositional).
+func (s *bindQuoteState) inIdentifierOrComment() bool {
+	return s.inBacktick || s.inDouble || s.inLineComment || s.blockComment > 0
+}
+
+// update consumes the byte at pos and advances the quote/comment state. It
+// returns the index of the last byte it consumed, which may be pos+1 when a
+// two-byte token (a doubled quote delimiter, "--", "/*" or "*/") is recognized
+// so the caller's loop skips the second byte. Doubled delimiters and backslash
+// escapes keep the scanner inside the current quoted context.
+func (s *bindQuoteState) update(query string, pos int) int {
+	switch {
+	case s.inLineComment:
+		if query[pos] == '\n' {
+			s.inLineComment = false
+		}
+	case s.blockComment > 0:
+		// Block comments nest in ClickHouse, so track depth rather than a bool.
+		switch {
+		case query[pos] == '/' && pos+1 < len(query) && query[pos+1] == '*':
+			s.blockComment++
+			return pos + 1
+		case query[pos] == '*' && pos+1 < len(query) && query[pos+1] == '/':
+			s.blockComment--
+			return pos + 1
+		}
+	case s.inBacktick:
+		if query[pos] == '`' && !isEscaped(query, pos) {
+			if pos+1 < len(query) && query[pos+1] == '`' {
+				return pos + 1
+			}
+			s.inBacktick = false
+		}
+	case s.inSingle:
+		if query[pos] == '\'' && !isEscaped(query, pos) {
+			if pos+1 < len(query) && query[pos+1] == '\'' {
+				return pos + 1
+			}
+			s.inSingle = false
+		}
+	case s.inDouble:
+		if query[pos] == '"' && !isEscaped(query, pos) {
+			if pos+1 < len(query) && query[pos+1] == '"' {
+				return pos + 1
+			}
+			s.inDouble = false
+		}
+	default:
+		// Raw context: a backslash-escaped delimiter does not open anything.
+		if isEscaped(query, pos) {
+			return pos
+		}
+		switch {
+		case query[pos] == '`':
+			s.inBacktick = true
+		case query[pos] == '\'':
+			s.inSingle = true
+		case query[pos] == '"':
+			s.inDouble = true
+		case query[pos] == '#':
+			// "#" and "#!" both start a single-line comment.
+			s.inLineComment = true
+		case query[pos] == '-' && pos+1 < len(query) && query[pos+1] == '-':
+			s.inLineComment = true
+			return pos + 1
+		case query[pos] == '/' && pos+1 < len(query) && query[pos+1] == '*':
+			s.blockComment++
+			return pos + 1
+		}
+	}
+	return pos
+}
+
+func isEscaped(query string, pos int) bool {
+	backslashes := 0
+	for i := pos - 1; i >= 0 && query[i] == '\\'; i-- {
+		backslashes++
+	}
+	return backslashes%2 == 1
+}
+
+func isDigit(ch byte) bool {
+	return ch >= '0' && ch <= '9'
+}
+
+// isNameChar reports whether ch is valid in a named placeholder (@name); it
+// mirrors the previous bindNamedRe pattern `@[a-zA-Z0-9_]+`.
+func isNameChar(ch byte) bool {
+	return ch == '_' ||
+		(ch >= '0' && ch <= '9') ||
+		(ch >= 'a' && ch <= 'z') ||
+		(ch >= 'A' && ch <= 'Z')
+}
+
+func bindParamsFormats(query string) (haveNumeric, havePositional bool) {
+	var state bindQuoteState
+	for i := 0; i < len(query); i++ {
+		if !state.inProtectedContext() {
+			switch {
+			case query[i] == '?' && (i == 0 || query[i-1] != '\\'):
+				havePositional = true
+			case query[i] == '$' && i+1 < len(query) && isDigit(query[i+1]):
+				haveNumeric = true
+			}
+			if haveNumeric && havePositional {
+				return haveNumeric, havePositional
+			}
+		}
+		i = state.update(query, i)
+	}
+	return haveNumeric, havePositional
+}
+
 func bindPositional(tz *time.Location, query string, args ...any) (_ string, err error) {
 	var (
 		lastMatchIndex = -1 // Position of previous match for copying
 		argIndex       = 0  // Index for the argument at current position
 		buf            = make([]byte, 0, len(query))
 		unbindCount    = 0 // Number of positional arguments that couldn't be matched
+		state          bindQuoteState
 	)
 
 	for i := 0; i < len(query); i++ {
 		// It's fine looping through the query string as bytes, because the (fixed) characters we're looking for
 		// are in the ASCII range to won't take up more than one byte.
 		if query[i] == '?' {
+			// Inside identifier quotes or comments the text is passed through
+			// unchanged, including any backslash that precedes the '?'.
+			if state.inIdentifierOrComment() {
+				continue
+			}
 			if i > 0 && query[i-1] == '\\' {
-				// Copy all previous index to here characters
+				// Escaped "\?" becomes a literal "?" (the backslash is dropped).
+				// Applies in raw and single-quoted contexts; kept for backward
+				// compatibility.
 				buf = append(buf, query[lastMatchIndex+1:i-1]...)
 				buf = append(buf, '?')
-			} else {
-				// Copy all previous index to here characters
-				buf = append(buf, query[lastMatchIndex+1:i]...)
+				lastMatchIndex = i
+				continue
+			}
+			if state.inSingle {
+				// An unescaped '?' inside a string literal is verbatim.
+				continue
+			}
 
-				// Append the argument value
-				if argIndex < len(args) {
-					v := args[argIndex]
-					if fn, ok := v.(std_driver.Valuer); ok {
-						if v, err = fn.Value(); err != nil {
-							return "", nil
-						}
-					}
+			// Copy all previous index to here characters
+			buf = append(buf, query[lastMatchIndex+1:i]...)
 
-					value, err := format(tz, Seconds, v)
-					if err != nil {
+			// Append the argument value
+			if argIndex < len(args) {
+				v := args[argIndex]
+				if fn, ok := v.(std_driver.Valuer); ok {
+					if v, err = fn.Value(); err != nil {
 						return "", err
 					}
-
-					buf = append(buf, value...)
-					argIndex++
-				} else {
-					unbindCount++
 				}
+
+				value, err := format(tz, Seconds, v)
+				if err != nil {
+					return "", err
+				}
+
+				buf = append(buf, value...)
+				argIndex++
+			} else {
+				unbindCount++
 			}
 
 			lastMatchIndex = i
+			continue
 		}
+		i = state.update(query, i)
 	}
 
 	// If there were no replacements, quick return without copying the string
@@ -162,13 +331,16 @@ func bindPositional(tz *time.Location, query string, args ...any) (_ string, err
 
 func bindNumeric(tz *time.Location, query string, args ...any) (_ string, err error) {
 	var (
-		unbind = make(map[string]struct{})
-		params = make(map[string]string)
+		lastMatchIndex = -1
+		unbind         = make(map[string]struct{})
+		params         = make(map[string]string)
+		buf            = make([]byte, 0, len(query))
+		state          bindQuoteState
 	)
 	for i, v := range args {
 		if fn, ok := v.(std_driver.Valuer); ok {
 			if v, err = fn.Value(); err != nil {
-				return "", nil
+				return "", err
 			}
 		}
 		val, err := format(tz, Seconds, v)
@@ -177,25 +349,43 @@ func bindNumeric(tz *time.Location, query string, args ...any) (_ string, err er
 		}
 		params[fmt.Sprintf("$%d", i+1)] = val
 	}
-	query = bindNumericRe.ReplaceAllStringFunc(query, func(n string) string {
-		if _, found := params[n]; !found {
-			unbind[n] = struct{}{}
-			return ""
+
+	for i := 0; i < len(query); i++ {
+		if !state.inProtectedContext() && query[i] == '$' && i+1 < len(query) && isDigit(query[i+1]) {
+			j := i + 2
+			for j < len(query) && isDigit(query[j]) {
+				j++
+			}
+			param := query[i:j]
+			buf = append(buf, query[lastMatchIndex+1:i]...)
+			if value, found := params[param]; found {
+				buf = append(buf, value...)
+			} else {
+				unbind[param] = struct{}{}
+			}
+			lastMatchIndex = j - 1
+			i = j - 1
+			continue
 		}
-		return params[n]
-	})
+		i = state.update(query, i)
+	}
+	if lastMatchIndex < 0 {
+		return query, nil
+	}
+	buf = append(buf, query[lastMatchIndex+1:]...)
 	for param := range unbind {
 		return "", fmt.Errorf("have no arg for %s param", param)
 	}
-	return query, nil
+	return string(buf), nil
 }
-
-var bindNamedRe = regexp.MustCompile(`@[a-zA-Z0-9\_]+`)
 
 func bindNamed(tz *time.Location, query string, args ...any) (_ string, err error) {
 	var (
-		unbind = make(map[string]struct{})
-		params = make(map[string]string)
+		lastMatchIndex = -1
+		unbind         = make(map[string]struct{})
+		params         = make(map[string]string)
+		buf            = make([]byte, 0, len(query))
+		state          bindQuoteState
 	)
 	for _, v := range args {
 		switch v := v.(type) {
@@ -219,17 +409,38 @@ func bindNamed(tz *time.Location, query string, args ...any) (_ string, err erro
 			params["@"+v.Name] = val
 		}
 	}
-	query = bindNamedRe.ReplaceAllStringFunc(query, func(n string) string {
-		if _, found := params[n]; !found {
-			unbind[n] = struct{}{}
-			return ""
+
+	for i := 0; i < len(query); i++ {
+		// A named placeholder is "@" followed by at least one name character, and
+		// only counts outside of quoted identifiers, string literals and comments.
+		if !state.inProtectedContext() && query[i] == '@' && i+1 < len(query) && isNameChar(query[i+1]) {
+			j := i + 1
+			for j < len(query) && isNameChar(query[j]) {
+				j++
+			}
+			param := query[i:j]
+			buf = append(buf, query[lastMatchIndex+1:i]...)
+			if value, found := params[param]; found {
+				buf = append(buf, value...)
+			} else {
+				unbind[param] = struct{}{}
+			}
+			lastMatchIndex = j - 1
+			i = j - 1
+			continue
 		}
-		return params[n]
-	})
+		i = state.update(query, i)
+	}
+
+	// If there were no replacements, quick return without copying the string.
+	if lastMatchIndex < 0 {
+		return query, nil
+	}
+	buf = append(buf, query[lastMatchIndex+1:]...)
 	for param := range unbind {
 		return "", fmt.Errorf("have no arg for %q param", param)
 	}
-	return query, nil
+	return string(buf), nil
 }
 
 func formatTime(tz *time.Location, scale TimeUnit, value time.Time) (string, error) {
@@ -274,7 +485,41 @@ func formatTime(tz *time.Location, scale TimeUnit, value time.Time) (string, err
 
 var stringQuoteReplacer = strings.NewReplacer(`\`, `\\`, `'`, `\'`)
 
+// formatMode says which syntax formatValue should produce. A value spliced
+// into the query text needs SQL syntax; a server-side query parameter needs
+// the text format the server parses instead. The two disagree for bools,
+// maps, floats, and times, so the caller has to pick one.
+type formatMode uint8
+
+const (
+	// formatSQL produces SQL literals for client-side binding (the ?, $1,
+	// and @name placeholders): bools as 1/0, maps as map('k', v), floats as
+	// cast(..., 'Float64'), times as toDateTime(...).
+	formatSQL formatMode = iota
+	// formatParamText produces the text format the server expects for
+	// {name:Type} query parameters: bools as true/false, maps as {'k':v},
+	// floats as plain numbers, times as quoted epoch seconds like
+	// '1577934245' (see formatTimeParam). The server parses these values
+	// with the declared type's text reader, which does not understand SQL
+	// function syntax.
+	formatParamText
+)
+
+// format turns v into a SQL literal for client-side binding, where
+// placeholders like `?`, `$1`, and `@name` are replaced directly in the query
+// text. Server-side query parameters need formatParamText instead.
 func format(tz *time.Location, scale TimeUnit, v any) (string, error) {
+	return formatValue(tz, scale, v, formatSQL)
+}
+
+// formatValue turns v into a string in the given mode. The mode carries down
+// into nested values, so a bool or map keeps its formatting at any depth.
+//
+// In formatParamText mode, values come out quoted the way the server expects
+// them *inside* a composite type. Top-level String and DateTime parameters
+// must be sent raw instead — bindQueryOrAppendParameters takes care of those
+// before calling here.
+func formatValue(tz *time.Location, scale TimeUnit, v any, mode formatMode) (string, error) {
 	quote := func(v string) string {
 		return "'" + stringQuoteReplacer.Replace(v) + "'"
 	}
@@ -284,31 +529,47 @@ func format(tz *time.Location, scale TimeUnit, v any) (string, error) {
 	case string:
 		return quote(v), nil
 	case time.Time:
+		if mode == formatParamText {
+			return quote(formatTimeParam(v)), nil
+		}
 		return formatTime(tz, scale, v)
 	case *time.Time:
 		if v == nil {
 			return "NULL", nil
 		}
+		if mode == formatParamText {
+			return quote(formatTimeParam(*v)), nil
+		}
 		return formatTime(tz, scale, *v)
 	case bool:
+		if mode == formatParamText {
+			if v {
+				return "true", nil
+			}
+			return "false", nil
+		}
 		if v {
 			return "1", nil
 		}
 		return "0", nil
+	case float32:
+		return formatFloat(float64(v), 32, mode), nil
+	case float64:
+		return formatFloat(v, 64, mode), nil
 	case GroupSet:
-		val, err := join(tz, scale, v.Value)
+		val, err := join(tz, scale, v.Value, mode)
 		if err != nil {
 			return "", err
 		}
 		return fmt.Sprintf("(%s)", val), nil
 	case []GroupSet:
-		val, err := join(tz, scale, v)
+		val, err := join(tz, scale, v, mode)
 		if err != nil {
 			return "", err
 		}
 		return val, err
 	case ArraySet:
-		val, err := join(tz, scale, v)
+		val, err := join(tz, scale, v, mode)
 		if err != nil {
 			return "", err
 		}
@@ -321,38 +582,36 @@ func format(tz *time.Location, scale TimeUnit, v any) (string, error) {
 		}
 		return quote(v.String()), nil
 	case column.OrderedMap:
-		values := make([]string, 0)
+		entries := make([]mapEntry, 0)
 		for key := range v.Keys() {
-			name, err := format(tz, scale, key)
+			name, err := formatValue(tz, scale, key, mode)
 			if err != nil {
 				return "", err
 			}
 			value, _ := v.Get(key)
-			val, err := format(tz, scale, value)
+			val, err := formatValue(tz, scale, value, mode)
 			if err != nil {
 				return "", err
 			}
-			values = append(values, fmt.Sprintf("%s, %s", name, val))
+			entries = append(entries, mapEntry{name, val})
 		}
-
-		return "map(" + strings.Join(values, ", ") + ")", nil
+		return formatMap(entries, mode), nil
 	case column.IterableOrderedMap:
-		values := make([]string, 0)
+		entries := make([]mapEntry, 0)
 		iter := v.Iterator()
 		for iter.Next() {
 			key, value := iter.Key(), iter.Value()
-			name, err := format(tz, scale, key)
+			name, err := formatValue(tz, scale, key, mode)
 			if err != nil {
 				return "", err
 			}
-			val, err := format(tz, scale, value)
+			val, err := formatValue(tz, scale, value, mode)
 			if err != nil {
 				return "", err
 			}
-			values = append(values, fmt.Sprintf("%s, %s", name, val))
+			entries = append(entries, mapEntry{name, val})
 		}
-
-		return "map(" + strings.Join(values, ", ") + ")", nil
+		return formatMap(entries, mode), nil
 	}
 	switch v := reflect.ValueOf(v); v.Kind() {
 	case reflect.String:
@@ -360,7 +619,7 @@ func format(tz *time.Location, scale TimeUnit, v any) (string, error) {
 	case reflect.Slice, reflect.Array:
 		values := make([]string, 0, v.Len())
 		for i := 0; i < v.Len(); i++ {
-			val, err := format(tz, scale, v.Index(i).Interface())
+			val, err := formatValue(tz, scale, v.Index(i).Interface(), mode)
 			if err != nil {
 				return "", err
 			}
@@ -368,32 +627,95 @@ func format(tz *time.Location, scale TimeUnit, v any) (string, error) {
 		}
 		return fmt.Sprintf("[%s]", strings.Join(values, ", ")), nil
 	case reflect.Map: // map
-		values := make([]string, 0, len(v.MapKeys()))
+		entries := make([]mapEntry, 0, v.Len())
 		for _, key := range v.MapKeys() {
-			name := fmt.Sprint(key.Interface())
-			if key.Kind() == reflect.String {
-				name = fmt.Sprintf("'%s'", name)
-			}
-			val, err := format(tz, scale, v.MapIndex(key).Interface())
+			name, err := formatValue(tz, scale, key.Interface(), mode)
 			if err != nil {
 				return "", err
 			}
-			values = append(values, fmt.Sprintf("%s, %s", name, val))
+			val, err := formatValue(tz, scale, v.MapIndex(key).Interface(), mode)
+			if err != nil {
+				return "", err
+			}
+			entries = append(entries, mapEntry{name, val})
 		}
-		return "map(" + strings.Join(values, ", ") + ")", nil
+		return formatMap(entries, mode), nil
+	case reflect.Float32:
+		return formatFloat(v.Float(), 32, mode), nil
+	case reflect.Float64:
+		return formatFloat(v.Float(), 64, mode), nil
 	case reflect.Ptr:
 		if v.IsNil() {
 			return "NULL", nil
 		}
-		return format(tz, scale, v.Elem().Interface())
+		return formatValue(tz, scale, v.Elem().Interface(), mode)
 	}
 	return fmt.Sprint(v), nil
 }
 
-func join[E any](tz *time.Location, scale TimeUnit, values []E) (string, error) {
-	items := make([]string, len(values), len(values))
+// mapEntry is one already-formatted key/value pair of a map.
+type mapEntry struct {
+	key, value string
+}
+
+// formatMap joins formatted key/value pairs into a whole map: map('k', v)
+// in SQL mode, {'k':v} in query-parameter text mode.
+func formatMap(entries []mapEntry, mode formatMode) string {
+	pairs := make([]string, len(entries))
+	if mode == formatParamText {
+		for i, e := range entries {
+			pairs[i] = e.key + ":" + e.value
+		}
+		return "{" + strings.Join(pairs, ",") + "}"
+	}
+	for i, e := range entries {
+		pairs[i] = e.key + ", " + e.value
+	}
+	return "map(" + strings.Join(pairs, ", ") + ")"
+}
+
+// formatFloat renders a float.
+//
+// In SQL mode it wraps the number in a CAST to the matching Float type.
+// Without it, a value like 1.0 renders as the bare literal "1", which
+// ClickHouse treats as an integer and later narrows, breaking typed float
+// scans. NaN and infinities are quoted in the lowercase form ClickHouse
+// accepts, since Go's "NaN" and "+Inf" are not valid SQL.
+//
+// In query-parameter text mode none of that applies: the parameter already
+// has a declared type, and the server's text reader rejects cast(...) but
+// happily takes plain numbers and bare nan/inf/-inf.
+func formatFloat(f float64, bitSize int, mode formatMode) string {
+	if mode == formatParamText {
+		switch {
+		case math.IsNaN(f):
+			return "nan"
+		case math.IsInf(f, 1):
+			return "inf"
+		case math.IsInf(f, -1):
+			return "-inf"
+		}
+		return strconv.FormatFloat(f, 'g', -1, bitSize)
+	}
+	chType := "Float64"
+	if bitSize == 32 {
+		chType = "Float32"
+	}
+	switch {
+	case math.IsNaN(f):
+		return fmt.Sprintf("cast('nan', '%s')", chType)
+	case math.IsInf(f, 1):
+		return fmt.Sprintf("cast('inf', '%s')", chType)
+	case math.IsInf(f, -1):
+		return fmt.Sprintf("cast('-inf', '%s')", chType)
+	}
+	return fmt.Sprintf("cast(%s, '%s')", strconv.FormatFloat(f, 'g', -1, bitSize), chType)
+}
+
+func join[E any](tz *time.Location, scale TimeUnit, values []E, mode formatMode) (string, error) {
+	items := make([]string, len(values))
 	for i := range values {
-		val, err := format(tz, scale, values[i])
+		val, err := formatValue(tz, scale, values[i], mode)
 		if err != nil {
 			return "", err
 		}

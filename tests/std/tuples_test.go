@@ -7,11 +7,13 @@ import (
 	"testing"
 	"time"
 
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
+
 	"github.com/stretchr/testify/assert"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
 )
 
 var testDate, _ = time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", "2022-05-25 17:20:57 +0100 WEST")
@@ -64,8 +66,8 @@ func TestTuple(t *testing.T) {
 			},
 		}
 		col4Data = [][][]any{
-			[][]any{
-				[]any{"Hi", int64(42)},
+			{
+				{"Hi", int64(42)},
 			},
 		}
 		col5Data = []any{

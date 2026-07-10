@@ -7,8 +7,9 @@ import (
 
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
 )
 
 func TestIssue548(t *testing.T) {

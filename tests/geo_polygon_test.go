@@ -9,9 +9,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/paulmach/orb"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
 )
 
 func TestGeoPolygon(t *testing.T) {
@@ -52,21 +53,21 @@ func TestGeoPolygon(t *testing.T) {
 			}
 			col2Data = []orb.Polygon{
 				[]orb.Ring{
-					orb.Ring{
+					{
 						orb.Point{1, 2},
 						orb.Point{1, 22},
 					},
-					orb.Ring{
+					{
 						orb.Point{1, 23},
 						orb.Point{12, 2},
 					},
 				},
 				[]orb.Ring{
-					orb.Ring{
+					{
 						orb.Point{21, 2},
 						orb.Point{1, 222},
 					},
-					orb.Ring{
+					{
 						orb.Point{21, 23},
 						orb.Point{12, 22},
 					},

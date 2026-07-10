@@ -12,9 +12,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
 )
 
 func TestConn(t *testing.T) {
@@ -452,9 +453,17 @@ func TestConnectionExpiresIdleConnection(t *testing.T) {
 
 	// then we expect that all connections will be closed when they are idle
 	// retrying for 10 seconds to make sure that the connections are closed
+	//
+	// getActiveConnections reads a server-wide gauge (sum of all '%Connection' metrics), so it
+	// also counts connections unrelated to this pool. Asserting an exact return to the baseline
+	// is racy: the baseline can include a transient connection that closes during the run, or
+	// server-internal connections may come and go, leaving a persistent off-by-one that never
+	// equals the baseline. The bug this guards against is a leak — idle connections staying open
+	// keeps the count ~MaxIdleConns above baseline — so assert the count drops back to at most the
+	// baseline instead.
 	assert.Eventuallyf(t, func() bool {
-		return getActiveConnections(t, baseConn) == expectedConnections
-	}, time.Second*10, opts.ConnMaxLifetime, "expected connections to be reset back to %d", expectedConnections)
+		return getActiveConnections(t, baseConn) <= expectedConnections
+	}, time.Second*10, opts.ConnMaxLifetime, "expected connections to drop back to at most %d", expectedConnections)
 }
 
 func getActiveConnections(t *testing.T, client clickhouse.Conn) (conns int64) {
@@ -517,8 +526,10 @@ func TestFreeBufOnConnRelease(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	require.NoError(t, conn.Exec(context.Background(), "DROP TABLE IF EXISTS TestFreeBufOnConnRelease"))
 	err = conn.Exec(context.Background(), "CREATE TABLE TestFreeBufOnConnRelease (Col1 String) Engine MergeTree() ORDER BY tuple()")
 	require.NoError(t, err)
+	t.Cleanup(func() { _ = conn.Exec(context.Background(), "DROP TABLE IF EXISTS TestFreeBufOnConnRelease") })
 
 	t.Run("InsertBatch", func(t *testing.T) {
 		batch, err := conn.PrepareBatch(context.Background(), "INSERT INTO TestFreeBufOnConnRelease (Col1) VALUES")

@@ -7,8 +7,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
 )
 
 func TestSimpleNested(t *testing.T) {
@@ -90,14 +91,14 @@ func TestNestedFlattened(t *testing.T) {
 			col2Data = []uint8{10, 20, 30}
 			col3Data = []uint8{101, 201, 230} // Col2.Col1_N2
 			col4Data = [][][]any{
-				[][]any{
-					[]any{uint8(1), uint8(2)},
+				{
+					{uint8(1), uint8(2)},
 				},
-				[][]any{
-					[]any{uint8(1), uint8(2)},
+				{
+					{uint8(1), uint8(2)},
 				},
-				[][]any{
-					[]any{uint8(1), uint8(2)},
+				{
+					{uint8(1), uint8(2)},
 				},
 			}
 		)

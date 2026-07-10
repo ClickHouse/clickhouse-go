@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/ClickHouse/ch-go/proto"
+
 	"github.com/ClickHouse/clickhouse-go/v2/lib/chcol"
 )
 

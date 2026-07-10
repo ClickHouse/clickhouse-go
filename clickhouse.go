@@ -12,7 +12,6 @@ import (
 
 	_ "time/tzdata"
 
-	"github.com/ClickHouse/clickhouse-go/v2/contributors"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
@@ -124,12 +123,13 @@ type clickhouse struct {
 	closed    *atomic.Bool
 }
 
+// Contributors always returns an empty slice.
+//
+// Deprecated: the contributor list was removed to avoid holding it in memory
+// for the lifetime of the process. This method is retained only for backwards
+// compatibility and will be removed in a future major version.
 func (ch *clickhouse) Contributors() []string {
-	list := contributors.List
-	if len(list[len(list)-1]) == 0 {
-		return list[:len(list)-1]
-	}
-	return list
+	return []string{}
 }
 
 func (ch *clickhouse) ServerVersion() (*driver.ServerVersion, error) {

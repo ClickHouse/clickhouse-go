@@ -1,12 +1,14 @@
 package issues
 
 import (
+	"strconv"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	clickhouse_std_tests "github.com/ClickHouse/clickhouse-go/v2/tests/std"
-	"github.com/stretchr/testify/require"
-	"strconv"
-	"testing"
 
 	"github.com/stretchr/testify/assert"
 )

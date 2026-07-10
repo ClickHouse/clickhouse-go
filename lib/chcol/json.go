@@ -123,7 +123,7 @@ func (o *JSON) MarshalJSON() ([]byte, error) {
 }
 
 // Scan implements the sql.Scanner interface
-func (o *JSON) Scan(value interface{}) error {
+func (o *JSON) Scan(value any) error {
 	switch vv := value.(type) {
 	case JSON:
 		o.valuesByPath = vv.valuesByPath

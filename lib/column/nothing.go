@@ -2,8 +2,9 @@ package column
 
 import (
 	"errors"
-	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
+
+	"github.com/ClickHouse/ch-go/proto"
 )
 
 type Nothing struct {
