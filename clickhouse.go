@@ -124,7 +124,7 @@ type clickhouse struct {
 	closed    *atomic.Bool
 }
 
-func (clickhouse) Contributors() []string {
+func (ch *clickhouse) Contributors() []string {
 	list := contributors.List
 	if len(list[len(list)-1]) == 0 {
 		return list[:len(list)-1]
