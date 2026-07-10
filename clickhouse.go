@@ -115,7 +115,7 @@ type connectionPooler interface {
 
 type clickhouse struct {
 	opt    *Options
-	connID int64
+	connID atomic.Int64
 
 	idle connectionPooler
 	open chan struct{}
@@ -255,7 +255,7 @@ func (ch *clickhouse) dial(ctx context.Context) (conn nativeTransport, err error
 		return nil, err
 	}
 
-	connID := int(atomic.AddInt64(&ch.connID, 1))
+	connID := int(ch.connID.Add(1))
 
 	dialFunc := func(ctx context.Context, addr string, opt *Options) (DialResult, error) {
 		var conn nativeTransport
