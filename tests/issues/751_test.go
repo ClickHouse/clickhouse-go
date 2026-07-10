@@ -5,9 +5,10 @@ import (
 	"database/sql"
 	"testing"
 
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 )
 
 func TestIssue751(t *testing.T) {

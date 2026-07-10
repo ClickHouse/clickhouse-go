@@ -4,12 +4,14 @@ import (
 	"context"
 	"database/sql/driver"
 	"fmt"
-	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/stretchr/testify/require"
+
 	"github.com/stretchr/testify/assert"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
 )
 
 func TestSimpleArray(t *testing.T) {
@@ -161,26 +163,26 @@ func TestArray(t *testing.T) {
 			timestamp = time.Now().Truncate(time.Second).In(time.UTC)
 			col1Data  = []string{"A", "b", "c"}
 			col2Data  = [][]uint32{
-				[]uint32{1, 2},
-				[]uint32{3, 87},
-				[]uint32{33, 3, 847},
+				{1, 2},
+				{3, 87},
+				{33, 3, 847},
 			}
 			col3Data = [][][]time.Time{
-				[][]time.Time{
-					[]time.Time{
+				{
+					{
 						timestamp,
 						timestamp,
 						timestamp,
 						timestamp,
 					},
 				},
-				[][]time.Time{
-					[]time.Time{
+				{
+					{
 						timestamp,
 						timestamp,
 						timestamp,
 					},
-					[]time.Time{
+					{
 						timestamp,
 						timestamp,
 					},
@@ -235,26 +237,26 @@ func TestColumnarArray(t *testing.T) {
 			timestamp = time.Now().Truncate(time.Second).In(time.UTC)
 			col1Data  = []string{"A", "b", "c"}
 			col2Data  = [][]uint32{
-				[]uint32{1, 2},
-				[]uint32{3, 87},
-				[]uint32{33, 3, 847},
+				{1, 2},
+				{3, 87},
+				{33, 3, 847},
 			}
 			col3Data = [][][]time.Time{
-				[][]time.Time{
-					[]time.Time{
+				{
+					{
 						timestamp,
 						timestamp,
 						timestamp,
 						timestamp,
 					},
 				},
-				[][]time.Time{
-					[]time.Time{
+				{
+					{
 						timestamp,
 						timestamp,
 						timestamp,
 					},
-					[]time.Time{
+					{
 						timestamp,
 						timestamp,
 					},

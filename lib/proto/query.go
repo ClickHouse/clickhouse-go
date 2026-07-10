@@ -3,10 +3,11 @@ package proto
 import (
 	stdbin "encoding/binary"
 	"fmt"
-	chproto "github.com/ClickHouse/ch-go/proto"
-	"go.opentelemetry.io/otel/trace"
 	"os"
 	"strings"
+
+	chproto "github.com/ClickHouse/ch-go/proto"
+	"go.opentelemetry.io/otel/trace"
 )
 
 var (
@@ -218,13 +219,19 @@ func (s *Parameter) encode(buffer *chproto.Buffer, revision uint64) error {
 	return nil
 }
 
+// fieldDumpEscaper escapes a string for a quoted Field dump. Both single
+// quotes and backslashes need escaping: the server reads the dump back with
+// its quoted-string reader, where a bare backslash starts an escape sequence,
+// so an unescaped one corrupts the value or makes it unparseable.
+var fieldDumpEscaper = strings.NewReplacer(`\`, `\\`, `'`, `\'`)
+
 // encodes a field dump with an appropriate type format
 // implements the same logic as in ClickHouse Field::restoreFromDump (https://github.com/ClickHouse/ClickHouse/blob/master/src/Core/Field.cpp#L312)
 // currently, only string type is supported
 func encodeFieldDump(value any) (string, error) {
 	switch v := value.(type) {
 	case string:
-		return fmt.Sprintf("'%v'", strings.ReplaceAll(v, "'", "\\'")), nil
+		return "'" + fieldDumpEscaper.Replace(v) + "'", nil
 	}
 
 	return "", fmt.Errorf("unsupported field type %T", value)

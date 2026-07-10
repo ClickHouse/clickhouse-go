@@ -11,7 +11,7 @@ func (h *httpConnect) exec(ctx context.Context, query string, args ...any) error
 		return err
 	}
 
-	res, err := h.sendQuery(ctx, query, &options, nil)
+	res, err := h.sendQuery(ctx, query, &options, nil) //nolint:bodyclose // false positive
 	if err != nil {
 		return err
 	}

@@ -3,17 +3,20 @@ package clickhouse
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net"
+	"os"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/ClickHouse/ch-go/compress"
 	chproto "github.com/ClickHouse/ch-go/proto"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 
 // mockNetConn is a mock net.Conn that can be configured to return specific errors
@@ -305,4 +308,40 @@ func TestIsConnBrokenErrorDetectsEOF(t *testing.T) {
 				"isConnBrokenError should detect wrapped EOF from %s", tc.name)
 		})
 	}
+}
+
+// TestIsConnBrokenError_WrappedNetOpError verifies a *net.OpError wrapped
+// inside fmt.Errorf is still detected as a broken connection.
+func TestIsConnBrokenError_WrappedNetOpError(t *testing.T) {
+	opErr := &net.OpError{Op: "write", Net: "tcp", Err: os.ErrDeadlineExceeded}
+
+	// Direct *net.OpError is detected.
+	assert.True(t, isConnBrokenError(opErr), "bare *net.OpError should be detected")
+
+	// Wrapped once — as flush() does via fmt.Errorf("write: %w", err).
+	onceWrapped := fmt.Errorf("write: %w", opErr)
+	assert.True(t, isConnBrokenError(onceWrapped), "once-wrapped *net.OpError should be detected")
+
+	// Wrapped twice — as sendData does via fmt.Errorf("send data: ...: %w", flushErr).
+	twiceWrapped := fmt.Errorf("send data: failed to flush (conn_id=1): %w", onceWrapped)
+	assert.True(t, isConnBrokenError(twiceWrapped), "twice-wrapped *net.OpError should be detected")
+
+	// Unrelated error is not detected.
+	assert.False(t, isConnBrokenError(errors.New("some other error")), "unrelated error should not be detected")
+}
+
+// TestSendData_ClosesConnectionOnNetOpError verifies that sendData marks the connection closed
+// when the underlying write returns a *net.OpError.
+func TestSendData_ClosesConnectionOnNetOpError(t *testing.T) {
+	writeErr := &net.OpError{Op: "write", Net: "tcp", Err: os.ErrDeadlineExceeded}
+	mockConn := &mockNetConn{writeErr: writeErr}
+	conn := createMockConnect(mockConn)
+
+	block := proto.NewBlock()
+	_ = block.AddColumn("col1", "UInt64")
+
+	err := conn.sendData(block, "test")
+
+	require.Error(t, err)
+	assert.True(t, conn.isClosed(), "connection should be marked closed after a *net.OpError write failure")
 }

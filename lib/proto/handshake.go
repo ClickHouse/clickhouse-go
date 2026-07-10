@@ -2,11 +2,12 @@ package proto
 
 import (
 	"fmt"
-	chproto "github.com/ClickHouse/ch-go/proto"
-	"go.yaml.in/yaml/v3"
 	"strconv"
 	"strings"
 	"time"
+
+	chproto "github.com/ClickHouse/ch-go/proto"
+	"go.yaml.in/yaml/v3"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/timezone"
 )
