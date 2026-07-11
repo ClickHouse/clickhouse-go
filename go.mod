@@ -17,7 +17,6 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/testcontainers/testcontainers-go v0.43.0
 	go.opentelemetry.io/otel/trace v1.44.0
-	go.yaml.in/yaml/v3 v3.0.4
 	golang.org/x/net v0.57.0
 )
 
