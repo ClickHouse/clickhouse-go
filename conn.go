@@ -107,10 +107,10 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 	}
 
 	// warn only on the first connection in the pool
-	if num == 1 && !resources.ClientMeta.IsSupportedClickHouseVersion(connect.server.Version) {
+	if num == 1 && !proto.CheckMinVersion(resources.MinSupportedVersion, connect.server.Version) {
 		connect.logger.Warn("unsupported clickhouse version",
 			slog.String("version", connect.server.Version.String()),
-			slog.String("supported_versions", resources.ClientMeta.SupportedVersions()))
+			slog.String("minimum_supported_version", resources.MinSupportedVersion.String()))
 	}
 
 	return connect, nil
