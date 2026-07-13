@@ -22,6 +22,10 @@ var columnMatch = regexp.MustCompile(`INSERT INTO .+\s\((?P<Columns>.+)\)$`)
 func (c *connect) prepareBatch(ctx context.Context, release nativeTransportRelease, acquire nativeTransportAcquire, query string, opts driver.PrepareBatchOptions) (driver.Batch, error) {
 	query, _, queryColumns, verr := extractNormalizedInsertQueryAndColumns(query)
 	if verr != nil {
+		// validation failed before anything was written to the wire: the
+		// connection is untouched and must go back to the pool, otherwise its
+		// MaxOpenConns slot leaks
+		release(c, nil)
 		return nil, verr
 	}
 
@@ -205,6 +209,9 @@ func (b *batch) Send() (err error) {
 		// close TCP connection on context cancel. There is no other way simple way to interrupt underlying operations.
 		// as verified in the test, this is safe to do and cleanups resources later on
 		if b.conn != nil {
+			// flag the connection first so it can never be pooled or reused:
+			// closing only the raw socket leaves it looking healthy
+			b.conn.setClosed()
 			_ = b.conn.conn.Close()
 		}
 	})
