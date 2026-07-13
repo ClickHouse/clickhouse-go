@@ -317,6 +317,15 @@ func (h *httpConnect) isBad() bool {
 	return h.client == nil
 }
 
+// markUnverified is a no-op: HTTP transports are request-scoped and the
+// underlying http.Client manages socket reuse itself.
+func (h *httpConnect) markUnverified() {
+}
+
+func (h *httpConnect) revalidateIdle(ctx context.Context) error {
+	return nil
+}
+
 func (h *httpConnect) queryHello(ctx context.Context, release nativeTransportRelease) (proto.ServerHandshake, error) {
 	h.logger.Debug("querying server info via HTTP")
 	ctx = Context(ctx, ignoreExternalTables())

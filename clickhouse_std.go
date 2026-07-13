@@ -181,6 +181,24 @@ func (std *stdDriver) Open(dsn string) (_ driver.Conn, err error) {
 
 var _ driver.Driver = (*stdDriver)(nil)
 
+// release is the transport release callback for database/sql mode. There is
+// no driver-level pool to return the connection to (database/sql owns the
+// lifecycle); its only job is to prevent reuse of a connection whose response
+// stream terminated uncleanly, since undelivered bytes may still be on the
+// socket or in the read buffer. A server exception is a clean terminator and
+// keeps the connection usable.
+func (std *stdDriver) release(_ nativeTransport, err error) {
+	if err == nil {
+		return
+	}
+	var exc *Exception
+	if errors.As(err, &exc) {
+		return
+	}
+	std.logger.Debug("closing connection after unclean stream termination", slog.Any("error", err))
+	_ = std.conn.close()
+}
+
 func (std *stdDriver) ResetSession(ctx context.Context) error {
 	if std.conn.isBad() {
 		std.logger.Debug("resetting session because connection is bad")
@@ -281,7 +299,7 @@ func (std *stdDriver) QueryContext(ctx context.Context, query string, args []dri
 		return nil, driver.ErrBadConn
 	}
 
-	r, err := std.conn.query(ctx, func(nativeTransport, error) {}, query, rebind(args)...)
+	r, err := std.conn.query(ctx, std.release, query, rebind(args)...)
 	if isConnBrokenError(err) {
 		std.logger.Error("query context got a fatal error, resetting connection", slog.Any("error", err))
 		return nil, driver.ErrBadConn
@@ -306,7 +324,7 @@ func (std *stdDriver) PrepareContext(ctx context.Context, query string) (driver.
 		return nil, driver.ErrBadConn
 	}
 
-	batch, err := std.conn.prepareBatch(ctx, func(nativeTransport, error) {}, func(context.Context) (nativeTransport, error) { return nil, nil }, query, chdriver.PrepareBatchOptions{})
+	batch, err := std.conn.prepareBatch(ctx, std.release, func(context.Context) (nativeTransport, error) { return nil, nil }, query, chdriver.PrepareBatchOptions{})
 	if err != nil {
 		if isConnBrokenError(err) {
 			std.logger.Error("prepare context got a fatal error, resetting connection", slog.Any("error", err))

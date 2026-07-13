@@ -503,6 +503,21 @@ func TestParseDSN(t *testing.T) {
 			"",
 		},
 		{
+			"client connection idle ping threshold",
+			"clickhouse://127.0.0.1/test_database?conn_idle_ping_threshold=30s",
+			&Options{
+				Protocol:              Native,
+				ConnIdlePingThreshold: 30 * time.Second,
+				Addr:                  []string{"127.0.0.1"},
+				Settings:              Settings{},
+				Auth: Auth{
+					Database: "test_database",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
 			"http protocol with proxy",
 			"http://127.0.0.1/?http_proxy=http%3A%2F%2Fproxy.example.com%3A3128",
 			&Options{

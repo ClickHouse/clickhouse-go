@@ -149,19 +149,24 @@ type Options struct {
 	// instead of Logger.
 	Logger *slog.Logger
 
-	Settings             Settings
-	Compression          *Compression
-	DialTimeout          time.Duration // default 30 second
-	MaxOpenConns         int           // default MaxIdleConns + 5
-	MaxIdleConns         int           // default 5
-	ConnMaxLifetime      time.Duration // default 1 hour
-	ConnOpenStrategy     ConnOpenStrategy
-	FreeBufOnConnRelease bool              // drop preserved memory buffer after each query
-	HttpHeaders          map[string]string // set additional headers on HTTP requests
-	HttpUrlPath          string            // set additional URL path for HTTP requests
-	HttpMaxConnsPerHost  int               // MaxConnsPerHost for http.Transport
-	BlockBufferSize      uint8             // default 2 - can be overwritten on query
-	MaxCompressionBuffer int               // default 10485760 - measured in bytes  i.e.
+	Settings        Settings
+	Compression     *Compression
+	DialTimeout     time.Duration // default 30 second
+	MaxOpenConns    int           // default MaxIdleConns + 5
+	MaxIdleConns    int           // default 5
+	ConnMaxLifetime time.Duration // default 1 hour
+	// ConnIdlePingThreshold is how long a pooled connection may sit idle
+	// before it is verified with a protocol ping on acquire. A socket-level
+	// check cannot detect half-open connections (e.g. silently dropped by a
+	// load balancer); the ping can. Default 1 minute; negative disables.
+	ConnIdlePingThreshold time.Duration
+	ConnOpenStrategy      ConnOpenStrategy
+	FreeBufOnConnRelease  bool              // drop preserved memory buffer after each query
+	HttpHeaders           map[string]string // set additional headers on HTTP requests
+	HttpUrlPath           string            // set additional URL path for HTTP requests
+	HttpMaxConnsPerHost   int               // MaxConnsPerHost for http.Transport
+	BlockBufferSize       uint8             // default 2 - can be overwritten on query
+	MaxCompressionBuffer  int               // default 10485760 - measured in bytes  i.e.
 
 	// HTTPProxy specifies an HTTP proxy URL to use for requests made by the client.
 	HTTPProxyURL *url.URL
@@ -327,6 +332,12 @@ func (o *Options) fromDSN(in string) error {
 				return fmt.Errorf("conn_max_lifetime invalid value: %w", err)
 			}
 			o.ConnMaxLifetime = connMaxLifetime
+		case "conn_idle_ping_threshold":
+			connIdlePingThreshold, err := time.ParseDuration(params.Get(v))
+			if err != nil {
+				return fmt.Errorf("conn_idle_ping_threshold invalid value: %w", err)
+			}
+			o.ConnIdlePingThreshold = connIdlePingThreshold
 		case "username":
 			o.Auth.Username = params.Get(v)
 		case "password":
@@ -417,6 +428,9 @@ func (o Options) setDefaults() *Options {
 	}
 	if o.ConnMaxLifetime == 0 {
 		o.ConnMaxLifetime = time.Hour
+	}
+	if o.ConnIdlePingThreshold == 0 {
+		o.ConnIdlePingThreshold = time.Minute
 	}
 	if o.BlockBufferSize <= 0 {
 		o.BlockBufferSize = 2

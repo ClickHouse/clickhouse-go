@@ -474,6 +474,7 @@ type mockTransport struct {
 	released      bool
 	closed        bool
 	bad           bool
+	unverified    bool
 	bufferFreed   bool
 	debugMessages []string
 	mu            sync.Mutex
@@ -511,6 +512,16 @@ func (m *mockTransport) isBad() bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.bad
+}
+
+func (m *mockTransport) markUnverified() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.unverified = true
+}
+
+func (m *mockTransport) revalidateIdle(ctx context.Context) error {
+	return nil
 }
 
 func (m *mockTransport) connID() int {
