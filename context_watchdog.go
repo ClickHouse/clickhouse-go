@@ -11,7 +11,7 @@ import (
 // but you want to not bother about context cancellation if your logic is already done.
 //
 // The returned cancel function guarantees that once it returns, the callback
-// either already completed or will never run — even when the context is
+// either already completed or will never run even when the context is
 // cancelled concurrently with the cancel call.
 //
 // Example:
