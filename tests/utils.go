@@ -124,11 +124,18 @@ const (
 	sessionLockBackoff = 150 * time.Millisecond
 )
 
-// isSessionLocked reports whether err is a transient SESSION_IS_LOCKED failure. Over HTTP
-// the server returns it as an opaque "[HTTP 500] ... SESSION_IS_LOCKED" body rather than a
-// typed *clickhouse.Exception, so match on the message.
+// isSessionLocked reports whether err is a transient SESSION_IS_LOCKED failure. Both
+// protocols now surface it as a typed *clickhouse.Exception; the message match is kept as
+// a fallback for Cloud proxies that may return a non-ClickHouse error body.
 func isSessionLocked(err error) bool {
-	return err != nil && strings.Contains(err.Error(), "SESSION_IS_LOCKED")
+	if err == nil {
+		return false
+	}
+	var ex *clickhouse.Exception
+	if errors.As(err, &ex) && ex.Code == 373 { // SESSION_IS_LOCKED
+		return true
+	}
+	return strings.Contains(err.Error(), "SESSION_IS_LOCKED")
 }
 
 func retryOnSessionLock(fn func() error) error {
