@@ -210,7 +210,7 @@ func (c *connect) isBad() bool {
 
 	if err := c.connCheck(); err != nil {
 		if errors.Is(err, errUnexpectedRead) {
-			c.logger.Warn("closing connection: unread server data on idle connection, this indicates a driver bug, please report it",
+			c.logger.Warn("closing connection: unread server data on idle connection",
 				slog.Int("conn_id", c.id))
 		}
 
