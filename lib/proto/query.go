@@ -1,6 +1,7 @@
 package proto
 
 import (
+	"crypto/sha256"
 	stdbin "encoding/binary"
 	"fmt"
 	"os"
@@ -28,6 +29,13 @@ type Query struct {
 	Compression              bool
 	InitialUser              string
 	InitialAddress           string
+	// ClusterSecret enables interserver-secret query signing. When non-empty
+	// the query is marked as secondary and the interserver hash slot carries
+	// SHA256(salt + secret + body + id + initial_user).
+	ClusterSecret string
+	// ClusterSalt is the 32-byte salt sent during the interserver handshake
+	// on the same connection.
+	ClusterSalt string
 }
 
 func (q *Query) Encode(buffer *chproto.Buffer, revision uint64) error {
@@ -43,7 +51,7 @@ func (q *Query) Encode(buffer *chproto.Buffer, revision uint64) error {
 	buffer.PutString("") /* empty string is a marker of the end of setting */
 
 	if revision >= DBMS_MIN_REVISION_WITH_INTERSERVER_SECRET {
-		buffer.PutString("")
+		buffer.PutString(q.interserverHash())
 	}
 	{
 		buffer.PutByte(StateComplete)
@@ -68,8 +76,34 @@ func swap64(b []byte) {
 	}
 }
 
+// interserverHash computes the query signature expected by the ClickHouse
+// server when the client authenticated with the cluster interserver secret.
+// The layout matches
+// `src/Server/TCPHandler.cpp::processQuery` (interserver branch):
+// SHA256(salt + secret + query + query_id + initial_user). Nonce and
+// externally-granted roles are omitted because this driver advertises a
+// protocol version below `DBMS_MIN_REVISION_WITH_INTERSERVER_SECRET_V2`.
+// Returns "" when the connection is not in interserver mode — preserving
+// the legacy empty-string slot.
+func (q *Query) interserverHash() string {
+	if q.ClusterSecret == "" {
+		return ""
+	}
+	h := sha256.New()
+	h.Write([]byte(q.ClusterSalt))
+	h.Write([]byte(q.ClusterSecret))
+	h.Write([]byte(q.Body))
+	h.Write([]byte(q.ID))
+	h.Write([]byte(q.InitialUser))
+	return string(h.Sum(nil))
+}
+
 func (q *Query) encodeClientInfo(buffer *chproto.Buffer, revision uint64) error {
-	buffer.PutByte(ClientQueryInitial)
+	queryKind := byte(ClientQueryInitial)
+	if q.ClusterSecret != "" {
+		queryKind = ClientQuerySecondary
+	}
+	buffer.PutByte(queryKind)
 	buffer.PutString(q.InitialUser)    // initial_user
 	buffer.PutString("")               // initial_query_id
 	buffer.PutString(q.InitialAddress) // initial_address

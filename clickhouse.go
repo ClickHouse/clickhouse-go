@@ -27,15 +27,18 @@ type (
 )
 
 var (
-	ErrBatchInvalid              = errors.New("clickhouse: batch is invalid. check appended data is correct")
-	ErrBatchAlreadySent          = errors.New("clickhouse: batch has already been sent")
-	ErrBatchNotSent              = errors.New("clickhouse: invalid retry, batch not sent yet")
-	ErrAcquireConnTimeout        = errors.New("clickhouse: acquire conn timeout. you can increase the number of max open conn or the dial timeout")
-	ErrUnsupportedServerRevision = errors.New("clickhouse: unsupported server revision")
-	ErrBindMixedParamsFormats    = errors.New("clickhouse [bind]: mixed named, numeric or positional parameters")
-	ErrAcquireConnNoAddress      = errors.New("clickhouse: no valid address supplied")
-	ErrServerUnexpectedData      = errors.New("code: 101, message: Unexpected packet Data received from client")
-	ErrConnectionClosed          = errors.New("clickhouse: connection is closed")
+	ErrBatchInvalid                  = errors.New("clickhouse: batch is invalid. check appended data is correct")
+	ErrBatchAlreadySent              = errors.New("clickhouse: batch has already been sent")
+	ErrBatchNotSent                  = errors.New("clickhouse: invalid retry, batch not sent yet")
+	ErrAcquireConnTimeout            = errors.New("clickhouse: acquire conn timeout. you can increase the number of max open conn or the dial timeout")
+	ErrUnsupportedServerRevision     = errors.New("clickhouse: unsupported server revision")
+	ErrBindMixedParamsFormats        = errors.New("clickhouse [bind]: mixed named, numeric or positional parameters")
+	ErrAcquireConnNoAddress          = errors.New("clickhouse: no valid address supplied")
+	ErrServerUnexpectedData          = errors.New("code: 101, message: Unexpected packet Data received from client")
+	ErrConnectionClosed              = errors.New("clickhouse: connection is closed")
+	ErrClusterSecretRequiresName     = errors.New("clickhouse: Cluster.Secret requires Cluster.Name")
+	ErrClusterSecretNeedsNative      = errors.New("clickhouse: Cluster.Secret is only supported with the native protocol")
+	ErrClusterSecretRequiresUsername = errors.New("clickhouse: Cluster.Secret requires Auth.Username to be set explicitly so the impersonated user is never the implicit \"default\"")
 )
 
 type OpError struct {
@@ -66,7 +69,32 @@ func Open(opt *Options) (driver.Conn, error) {
 	if opt == nil {
 		opt = &Options{}
 	}
+	// Inspect Auth.Username before setDefaults rewrites it to "default": if
+	// the caller enabled interserver-secret mode, we force them to name the
+	// fallback user explicitly so a forgotten WithInitialUser cannot silently
+	// run as the cluster superuser.
+	if opt.Cluster.Secret != "" && opt.Auth.Username == "" {
+		return nil, ErrClusterSecretRequiresUsername
+	}
 	o := opt.setDefaults()
+	if err := o.validate(); err != nil {
+		return nil, err
+	}
+	if o.Cluster.Secret != "" {
+		// Surfacing this at Warn level (not Debug) so accidental enablement
+		// shows up in operator dashboards. Whoever holds the secret can run
+		// queries as any user on the cluster — that should never be quiet.
+		o.logger().Warn("clickhouse: cluster interserver-secret mode enabled — connection holds impersonation rights for any user on the cluster",
+			slog.String("cluster", o.Cluster.Name),
+			slog.Bool("tls", o.TLS != nil))
+		if o.TLS == nil {
+			// No nonce in the V1 interserver protocol the driver speaks, so
+			// an on-path attacker on a plaintext link can replay captured
+			// signed queries on the same connection. TLS shuts that down.
+			o.logger().Warn("clickhouse: interserver-secret mode without TLS is not recommended — query bodies and signed query frames are sent in cleartext",
+				slog.String("cluster", o.Cluster.Name))
+		}
+	}
 
 	conn := &clickhouse{
 		opt:       o,
