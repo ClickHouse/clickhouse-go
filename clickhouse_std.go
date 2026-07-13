@@ -181,20 +181,16 @@ func (std *stdDriver) Open(dsn string) (_ driver.Conn, err error) {
 
 var _ driver.Driver = (*stdDriver)(nil)
 
-// release is the transport release callback for database/sql mode. There is
-// no driver-level pool to return the connection to (database/sql owns the
-// lifecycle); its only job is to prevent reuse of a connection whose response
-// stream terminated uncleanly, since undelivered bytes may still be on the
-// socket or in the read buffer. A server exception is a clean terminator and
-// keeps the connection usable.
 func (std *stdDriver) release(_ nativeTransport, err error) {
 	if err == nil {
 		return
 	}
+
 	var exc *Exception
 	if errors.As(err, &exc) {
 		return
 	}
+
 	std.logger.Debug("closing connection after unclean stream termination", slog.Any("error", err))
 	_ = std.conn.close()
 }

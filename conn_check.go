@@ -9,11 +9,6 @@ import (
 	"syscall"
 )
 
-// connCheck probes the raw socket of an idle connection without consuming any
-// data (MSG_PEEK). A healthy idle connection has an empty receive buffer: the
-// ClickHouse native protocol has no server-initiated packets between queries,
-// so pending bytes mean the previous response was not fully drained, and a
-// zero-length read means the server closed the connection.
 func (c *connect) connCheck() error {
 	conn := c.conn
 	if tlsConn, ok := c.conn.(*tls.Conn); ok {
@@ -32,8 +27,6 @@ func (c *connect) connCheck() error {
 
 	err = rawConn.Read(func(fd uintptr) bool {
 		var buf [1]byte
-		// The runtime keeps the fd non-blocking, so an empty receive buffer
-		// returns EAGAIN rather than blocking.
 		n, _, err := syscall.Recvfrom(int(fd), buf[:], syscall.MSG_PEEK)
 		switch {
 		case n == 0 && err == nil:

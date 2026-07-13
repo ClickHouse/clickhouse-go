@@ -22,17 +22,14 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 
-// errUnexpectedRead is reported by connCheck when an idle connection has
-// readable bytes. The native protocol has no server-initiated packets between
-// queries, so this means the previous response was not fully drained — a
-// driver bug, not a network event.
+// errUnexpectedRead is reported when an idle connection has
+// readable bytes. The native protocol should have no server-initiated packets between
+// queries, so this means the previous response was not fully drained.
 var errUnexpectedRead = errors.New("unexpected read from socket")
 
-// connLivenessWindow is how long a liveness proof (a completed protocol
-// exchange or a passed connCheck) is trusted before the socket is probed
-// again. It avoids per-operation syscalls on hot connections while keeping
-// stale-connection detection for genuinely idle ones.
-const connLivenessWindow = time.Second
+// connLivenessWindow is how long a liveness proof is trusted
+// before the socket is probed again.
+const connLivenessWindow = 1 * time.Second
 
 func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, error) {
 	var (
@@ -144,8 +141,8 @@ type connect struct {
 	structMap            *structMap
 	compression          CompressionMethod
 	connectedAt          time.Time
-	lastLiveAt           time.Time // last proof of liveness: completed exchange or passed connCheck
-	unverified           bool      // require a protocol ping before next reuse
+	lastLiveAt           time.Time
+	unverified           bool
 	compressor           *compress.Writer
 	readTimeout          time.Duration
 	blockBufferSize      uint8
@@ -216,45 +213,35 @@ func (c *connect) isBad() bool {
 			c.logger.Warn("closing connection: unread server data on idle connection, this indicates a driver bug, please report it",
 				slog.Int("conn_id", c.id))
 		}
+
 		return true
 	}
+
 	c.lastLiveAt = time.Now()
 
 	return false
 }
 
-// markUnverified requires a successful protocol ping (revalidateIdle) before
-// the connection is handed out again. Used when the connection is pooled in a
-// state the server may not have preserved, e.g. after a server exception.
 func (c *connect) markUnverified() {
 	c.unverified = true
 }
 
-// revalidateIdle verifies a pooled connection with a protocol ping when it is
-// unverified or has idled past Options.ConnIdlePingThreshold. A socket-level
-// check cannot detect a half-open connection (writes succeed into the void);
-// only a round-trip can.
 func (c *connect) revalidateIdle(ctx context.Context) error {
-	needPing := c.unverified
-	if !needPing {
+	if !c.unverified {
 		threshold := c.opt.ConnIdlePingThreshold
-		if threshold < 0 {
+		if threshold < 0 || time.Since(c.lastLiveAt) < threshold {
 			return nil
 		}
-		needPing = time.Since(c.lastLiveAt) >= threshold
-	}
-	if !needPing {
-		return nil
 	}
 
-	// Bound the ping to half the remaining acquire budget so a dead
-	// connection leaves room to dial a replacement.
 	pingCtx := ctx
+	// Limit ping deadline to allow time for re-dial
 	if deadline, ok := ctx.Deadline(); ok {
 		var cancel context.CancelFunc
 		pingCtx, cancel = context.WithDeadline(ctx, time.Now().Add(time.Until(deadline)/2))
 		defer cancel()
 	}
+
 	if err := c.ping(pingCtx); err != nil {
 		return err
 	}
@@ -271,7 +258,6 @@ func (c *connect) isReleased() bool {
 func (c *connect) setReleased(released bool) {
 	c.released = released
 	if released {
-		// a completed protocol exchange is itself proof of liveness
 		c.lastLiveAt = time.Now()
 	}
 }

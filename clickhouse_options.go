@@ -156,9 +156,8 @@ type Options struct {
 	MaxIdleConns    int           // default 5
 	ConnMaxLifetime time.Duration // default 1 hour
 	// ConnIdlePingThreshold is how long a pooled connection may sit idle
-	// before it is verified with a protocol ping on acquire. A socket-level
-	// check cannot detect half-open connections (e.g. silently dropped by a
-	// load balancer); the ping can. Default 1 minute; negative disables.
+	// before it is verified with a protocol ping on acquire.
+	// Default is 1 minute, negative value disables.
 	ConnIdlePingThreshold time.Duration
 	ConnOpenStrategy      ConnOpenStrategy
 	FreeBufOnConnRelease  bool              // drop preserved memory buffer after each query

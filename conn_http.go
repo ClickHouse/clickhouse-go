@@ -317,8 +317,6 @@ func (h *httpConnect) isBad() bool {
 	return h.client == nil
 }
 
-// markUnverified is a no-op: HTTP transports are request-scoped and the
-// underlying http.Client manages socket reuse itself.
 func (h *httpConnect) markUnverified() {
 }
 

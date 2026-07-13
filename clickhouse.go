@@ -90,11 +90,7 @@ type nativeTransport interface {
 	asyncInsert(ctx context.Context, query string, wait bool, args ...any) error
 	ping(context.Context) error
 	isBad() bool
-	// markUnverified requires a successful revalidateIdle before the
-	// connection is handed out again.
 	markUnverified()
-	// revalidateIdle verifies liveness with a protocol ping when the
-	// connection is unverified or has idled past ConnIdlePingThreshold.
 	revalidateIdle(ctx context.Context) error
 	connID() int
 	connectedAtTime() time.Time
@@ -394,10 +390,6 @@ func (ch *clickhouse) release(conn nativeTransport, err error) {
 	if err != nil {
 		var exc *Exception
 		if errors.As(err, &exc) {
-			// A server exception terminates the response stream at a packet
-			// boundary and the server usually preserves the connection, so it
-			// is reusable — but a ping must confirm the server did not choose
-			// to close it before it is handed out again.
 			conn.getLogger().Debug("connection kept after server exception", slog.Int("code", int(exc.Code)))
 			conn.markUnverified()
 		} else {
