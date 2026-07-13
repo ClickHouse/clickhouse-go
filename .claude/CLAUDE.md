@@ -87,5 +87,7 @@ When proposing a new API surface, ask: *can a caller use this incorrectly withou
 - Do not rebase or amend commits on a shared branch — add new commits instead.
 - Do not force-push to `main`.
 - Regression tests for bug fixes go in `tests/issues/` named after the issue number: `issue_1234_test.go`.
+- Version-gate integration tests that require a server feature with `CheckMinServerVersion(conn, major, minor, patch)` so they **skip** — rather than fail with a parse/unsupported error — on older servers (e.g. server-side query parameters need 22.8+). Apply the same guard to the `database/sql` variant of a test, not only the native one.
+- Register `t.Cleanup(func() { conn.Close() })` for every connection a test opens — both a native `driver.Conn` and a `database/sql` `*sql.DB` — so subtests don't leak connections across the native/HTTP runs.
 - New ClickHouse type support requires: a column implementation in `lib/column/`, a round-trip test in `tests/`, and an example in `examples/clickhouse_api/`.
 - When referencing ClickHouse SQL types, functions, or log messages in text, wrap them in backticks: `` `DateTime64` ``, `` `MergeTree` ``.
