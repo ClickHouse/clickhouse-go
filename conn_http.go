@@ -537,7 +537,7 @@ func parseExceptionFromBytes(data []byte) error {
 		// If we can't find second marker, just extract what we can
 		errorMsg := strings.TrimSpace(dataStr[pos:])
 		if len(errorMsg) > 0 {
-			return fmt.Errorf("ClickHouse exception: %s", errorMsg)
+			return midStreamException(errorMsg)
 		}
 		return fmt.Errorf("ClickHouse exception occurred but could not parse details")
 	}
@@ -560,7 +560,7 @@ func parseExceptionFromBytes(data []byte) error {
 		return fmt.Errorf("ClickHouse exception occurred but message is empty")
 	}
 
-	return fmt.Errorf("ClickHouse exception: %s", errorMsg)
+	return midStreamException(errorMsg)
 }
 
 func (h *httpConnect) sendStreamQuery(ctx context.Context, r io.Reader, options *QueryOptions, headers map[string]string) (*http.Response, error) {
@@ -716,10 +716,17 @@ func (h *httpConnect) executeRequest(req *http.Request) (*http.Response, error) 
 		defer discardAndClose(resp.Body)
 		msgBytes, err := h.readRawResponse(resp)
 		if err != nil {
-			return nil, fmt.Errorf("[HTTP %d] failed to read response: %w", resp.StatusCode, err)
+			// Body is unreadable (e.g. a plain-text error body on a connection
+			// whose reader expects native compression). The exception code
+			// header can still yield a typed *Exception, with a degraded message.
+			if ex := parseHTTPException("", resp.Header.Get(exceptionCodeHeader)); ex != nil {
+				ex.Message = fmt.Sprintf("failed to read response body: %v", err)
+				return nil, &HTTPError{StatusCode: resp.StatusCode, Err: ex}
+			}
+			return nil, &HTTPError{StatusCode: resp.StatusCode, Err: fmt.Errorf("failed to read response: %w", err)}
 		}
 
-		return nil, fmt.Errorf("[HTTP %d] response body: \"%s\"", resp.StatusCode, string(msgBytes))
+		return nil, newHTTPError(resp.StatusCode, resp.Header, msgBytes)
 	}
 	return resp, nil
 }
