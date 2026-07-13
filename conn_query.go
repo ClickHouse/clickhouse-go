@@ -17,7 +17,9 @@ func (c *connect) query(ctx context.Context, release nativeTransportRelease, que
 
 	if err != nil {
 		c.logger.Error("failed to bind query parameters", slog.Any("error", err))
-		release(c, err)
+		// binding failed before anything was written to the wire, the
+		// connection itself is untouched and safe to reuse
+		release(c, nil)
 		return nil, err
 	}
 
@@ -48,13 +50,16 @@ func (c *connect) query(ctx context.Context, release nativeTransportRelease, que
 			stream <- b
 		}
 		err := c.process(ctx, onProcess)
+		// release before closing the channels: rows.Close() returns as soon
+		// as both channels are closed, and the caller must find the
+		// connection back in the pool by then, not mid-release
+		release(c, err)
 		if err != nil {
 			c.logger.Error("query processing failed", slog.Any("error", err))
 			errors <- err
 		}
 		close(stream)
 		close(errors)
-		release(c, err)
 	}()
 
 	return &rows{
