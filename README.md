@@ -196,6 +196,7 @@ The following connection settings are available in both DSN strings and the `cli
 * **max_open_conns** - Maximum number of open connections to the database (default: MaxIdleConns + 5)
 * **max_idle_conns** - Maximum number of idle connections in the pool (default: 5)
 * **conn_max_lifetime** - Maximum amount of time a connection may be reused (default: 1h)
+* **conn_idle_ping_threshold** - How long a pooled connection may sit idle before it is verified with a protocol ping when acquired. Detects half-open connections (e.g. silently dropped by a load balancer or firewall) that a socket-level check cannot see. Connections used more recently than this skip the ping entirely (default: 1m; a negative value disables idle pings)
 
 ### Connection Strategy
 * **connection_open_strategy** - Strategy for selecting servers from the connection pool:
