@@ -2,6 +2,7 @@ package clickhouse
 
 import (
 	"bytes"
+	"errors"
 	"strings"
 	"testing"
 )
@@ -63,6 +64,62 @@ func TestParseExceptionFromBytes(t *testing.T) {
 
 			if !strings.Contains(err.Error(), tt.errorMsg) {
 				t.Errorf("expected error to contain '%s', got: %v", tt.errorMsg, err)
+			}
+		})
+	}
+}
+
+// Real servers prefix the exception payload with "Code: NNN.", which the
+// parser turns into a typed *Exception. The code-less fixtures above stay on
+// the legacy plain-error fallback.
+func TestParseExceptionFromBytesTyped(t *testing.T) {
+	tests := []struct {
+		name        string
+		data        []byte
+		wantCode    int32
+		wantName    string
+		wantMessage string
+	}{
+		{
+			name:        "typed exception with complete format",
+			data:        []byte("\r\n__exception__\r\n1234567890123456\r\nCode: 395. DB::Exception: Value passed to 'throwIf' function is non-zero: there is an exception. (FUNCTION_THROW_IF_VALUE_IS_NON_ZERO) (version 25.1.5.31 (official build))\n42 1234567890123456\r\n__exception__\r\n"),
+			wantCode:    395,
+			wantName:    "DB::Exception",
+			wantMessage: "Value passed to 'throwIf' function is non-zero: there is an exception. (FUNCTION_THROW_IF_VALUE_IS_NON_ZERO) (version 25.1.5.31 (official build))",
+		},
+		{
+			name:        "typed exception without second marker",
+			data:        []byte("\r\n__exception__\r\n1234567890123456\r\nCode: 60. DB::Exception: Unknown table expression identifier 'foo'. (UNKNOWN_TABLE)"),
+			wantCode:    60,
+			wantName:    "DB::Exception",
+			wantMessage: "Unknown table expression identifier 'foo'. (UNKNOWN_TABLE)",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := parseExceptionFromBytes(tt.data)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+
+			var ex *Exception
+			if !errors.As(err, &ex) {
+				t.Fatalf("expected errors.As to find *Exception, got: %v", err)
+			}
+			if ex.Code != tt.wantCode {
+				t.Errorf("Code: expected %d, got %d", tt.wantCode, ex.Code)
+			}
+			if ex.Name != tt.wantName {
+				t.Errorf("Name: expected %q, got %q", tt.wantName, ex.Name)
+			}
+			if ex.Message != tt.wantMessage {
+				t.Errorf("Message: expected %q, got %q", tt.wantMessage, ex.Message)
+			}
+
+			var httpErr *HTTPError
+			if errors.As(err, &httpErr) {
+				t.Error("mid-stream exception must not be wrapped in *HTTPError")
 			}
 		})
 	}
