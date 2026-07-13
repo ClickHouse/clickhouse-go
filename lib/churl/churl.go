@@ -321,8 +321,14 @@ func unescape(s string, mode encoding) (string, error) {
 			// But https://tools.ietf.org/html/rfc6874#section-2
 			// introduces %25 being allowed to escape a percent sign
 			// in IPv6 scoped-address literals. Yay.
-			if mode == encodeHost && unhex(s[i+1]) < 8 && s[i:i+3] != "%25" {
-				return "", neturl.EscapeError(s[i : i+3])
+			if mode == encodeHost {
+				h, err := unhex(s[i+1])
+				if err != nil {
+					return "", err
+				}
+				if h < 8 && s[i:i+3] != "%25" {
+					return "", neturl.EscapeError(s[i : i+3])
+				}
 			}
 			if mode == encodeZone {
 				// RFC 6874 says basically "anything goes" for zone identifiers
@@ -332,7 +338,15 @@ func unescape(s string, mode encoding) (string, error) {
 				// That is, you can use escaping in the zone identifier but not
 				// to introduce bytes you couldn't just write directly.
 				// But Windows puts spaces here! Yay.
-				v := unhex(s[i+1])<<4 | unhex(s[i+2])
+				hi, err := unhex(s[i+1])
+				if err != nil {
+					return "", err
+				}
+				lo, err := unhex(s[i+2])
+				if err != nil {
+					return "", err
+				}
+				v := hi<<4 | lo
 				if s[i:i+3] != "%25" && v != ' ' && shouldEscape(v, encodeHost) {
 					return "", neturl.EscapeError(s[i : i+3])
 				}
@@ -358,7 +372,15 @@ func unescape(s string, mode encoding) (string, error) {
 	for i := 0; i < len(s); i++ {
 		switch s[i] {
 		case '%':
-			t.WriteByte(unhex(s[i+1])<<4 | unhex(s[i+2]))
+			hi, err := unhex(s[i+1])
+			if err != nil {
+				return "", err
+			}
+			lo, err := unhex(s[i+2])
+			if err != nil {
+				return "", err
+			}
+			t.WriteByte(hi<<4 | lo)
 			i += 2
 		case '+':
 			if mode == encodeQueryComponent {
@@ -517,16 +539,16 @@ func ishex(c byte) bool {
 	return false
 }
 
-func unhex(c byte) byte {
+func unhex(c byte) (byte, error) {
 	switch {
 	case '0' <= c && c <= '9':
-		return c - '0'
+		return c - '0', nil
 	case 'a' <= c && c <= 'f':
-		return c - 'a' + 10
+		return c - 'a' + 10, nil
 	case 'A' <= c && c <= 'F':
-		return c - 'A' + 10
+		return c - 'A' + 10, nil
 	default:
-		panic("invalid hex character")
+		return 0, fmt.Errorf("invalid hex character %q", c)
 	}
 }
 
