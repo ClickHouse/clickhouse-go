@@ -146,6 +146,7 @@ func OpenDB(opt *Options) *sql.DB {
 
 type stdConnect interface {
 	isBad() bool
+	revalidateIdle(ctx context.Context) error
 	close() error
 	query(ctx context.Context, release nativeTransportRelease, query string, args ...any) (*rows, error)
 	exec(ctx context.Context, query string, args ...any) error
@@ -200,6 +201,14 @@ func (std *stdDriver) ResetSession(ctx context.Context) error {
 		std.logger.Debug("resetting session because connection is bad")
 		return driver.ErrBadConn
 	}
+
+	// database/sql calls ResetSession before reusing a pooled connection:
+	// the same point the native pool verifies long-idle connections
+	if err := std.conn.revalidateIdle(ctx); err != nil {
+		std.logger.Debug("resetting session: connection failed liveness revalidation", slog.Any("error", err))
+		return driver.ErrBadConn
+	}
+
 	return nil
 }
 
