@@ -183,6 +183,26 @@ func TestContext(t *testing.T) {
 	)
 }
 
+func TestContextJWTPreserved(t *testing.T) {
+	// Regression: queryOptions() returns a clone of the context's QueryOptions,
+	// and clone() must carry the per-query JWT set via WithJWT. Otherwise the
+	// HTTPS transport reads an empty token and silently falls back to the
+	// connection's basic-auth credentials.
+	t.Run("clone preserves WithJWT token", func(t *testing.T) {
+		ctx := Context(context.Background(), WithJWT("tok-123"))
+		require.Equal(t, "tok-123", queryOptions(ctx).jwt)
+	})
+
+	t.Run("jwt survives alongside other options", func(t *testing.T) {
+		ctx := Context(context.Background(), WithJWT("tok-123"), WithQueryID("q1"))
+		ctx = Context(ctx, WithQuotaKey("k1"))
+		opts := queryOptions(ctx)
+		require.Equal(t, "tok-123", opts.jwt)
+		require.Equal(t, "q1", opts.queryID)
+		require.Equal(t, "k1", opts.quotaKey)
+	})
+}
+
 func TestWithoutProfileEvents(t *testing.T) {
 	t.Run("sets send_profile_events=0", func(t *testing.T) {
 		ctx := Context(context.Background(), WithoutProfileEvents())
