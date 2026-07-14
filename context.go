@@ -243,16 +243,6 @@ func queryOptions(ctx context.Context) QueryOptions {
 	return opt
 }
 
-// queryOptionsJWT returns the JWT within the given context's QueryOptions.
-// Empty string if not present.
-func queryOptionsJWT(ctx context.Context) string {
-	if opt, ok := ctx.Value(_contextOptionKey).(QueryOptions); ok {
-		return opt.jwt
-	}
-
-	return ""
-}
-
 // queryOptionsAsync returns the AsyncOptions struct within the given context's QueryOptions.
 func queryOptionsAsync(ctx context.Context) AsyncOptions {
 	if opt, ok := ctx.Value(_contextOptionKey).(QueryOptions); ok {
