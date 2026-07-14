@@ -202,8 +202,6 @@ func (std *stdDriver) ResetSession(ctx context.Context) error {
 		return driver.ErrBadConn
 	}
 
-	// database/sql calls ResetSession before reusing a pooled connection:
-	// the same point the native pool verifies long-idle connections
 	if err := std.conn.revalidateIdle(ctx); err != nil {
 		std.logger.Debug("resetting session: connection failed liveness revalidation", slog.Any("error", err))
 		return driver.ErrBadConn
