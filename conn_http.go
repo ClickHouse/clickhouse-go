@@ -317,6 +317,13 @@ func (h *httpConnect) isBad() bool {
 	return h.client == nil
 }
 
+func (h *httpConnect) markUnverified() {
+}
+
+func (h *httpConnect) revalidateIdle(ctx context.Context) error {
+	return nil
+}
+
 func (h *httpConnect) queryHello(ctx context.Context, release nativeTransportRelease) (proto.ServerHandshake, error) {
 	h.logger.Debug("querying server info via HTTP")
 	ctx = Context(ctx, ignoreExternalTables())

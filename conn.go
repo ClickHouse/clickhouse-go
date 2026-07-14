@@ -22,6 +22,15 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 
+// errUnexpectedRead is reported when an idle connection has
+// readable bytes. The native protocol should have no server-initiated packets between
+// queries, so this means the previous response was not fully drained.
+var errUnexpectedRead = errors.New("unexpected read from socket")
+
+// connLivenessWindow is how long a liveness proof is trusted
+// before the socket is probed again.
+const connLivenessWindow = 1 * time.Second
+
 func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, error) {
 	var (
 		err  error
@@ -78,6 +87,7 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 			structMap:            &structMap{},
 			compression:          compression,
 			connectedAt:          time.Now(),
+			lastLiveAt:           time.Now(),
 			compressor:           compressor,
 			readTimeout:          opt.ReadTimeout,
 			blockBufferSize:      opt.BlockBufferSize,
@@ -131,6 +141,9 @@ type connect struct {
 	structMap            *structMap
 	compression          CompressionMethod
 	connectedAt          time.Time
+	lastLiveAt           time.Time
+	lastPeekAt           time.Time
+	unverified           bool
 	compressor           *compress.Writer
 	readTimeout          time.Duration
 	blockBufferSize      uint8
@@ -192,11 +205,52 @@ func (c *connect) isBad() bool {
 		return true
 	}
 
+	if time.Since(c.lastLiveAt) < connLivenessWindow || time.Since(c.lastPeekAt) < connLivenessWindow {
+		return false
+	}
+
 	if err := c.connCheck(); err != nil {
+		if errors.Is(err, errUnexpectedRead) {
+			c.logger.Warn("closing connection: unread server data on idle connection",
+				slog.Int("conn_id", c.id))
+		}
+
 		return true
 	}
 
+	c.lastPeekAt = time.Now()
+
 	return false
+}
+
+func (c *connect) markUnverified() {
+	c.unverified = true
+}
+
+func (c *connect) revalidateIdle(ctx context.Context) error {
+	if !c.unverified {
+		threshold := c.opt.ConnIdlePingThreshold
+		if threshold < 0 || time.Since(c.lastLiveAt) < threshold {
+			return nil
+		}
+	}
+
+	// Limit ping deadline to allow time for re-dial.
+	pingDeadline := time.Now().Add(c.opt.DialTimeout / 2)
+	if deadline, ok := ctx.Deadline(); ok {
+		pingDeadline = time.Now().Add(time.Until(deadline) / 2)
+	}
+
+	pingCtx, cancel := context.WithDeadline(ctx, pingDeadline)
+	defer cancel()
+
+	if err := c.ping(pingCtx); err != nil {
+		return err
+	}
+
+	c.unverified = false
+	c.lastLiveAt = time.Now()
+	return nil
 }
 
 func (c *connect) isReleased() bool {
@@ -205,6 +259,9 @@ func (c *connect) isReleased() bool {
 
 func (c *connect) setReleased(released bool) {
 	c.released = released
+	if released {
+		c.lastLiveAt = time.Now()
+	}
 }
 
 func (c *connect) isClosed() bool {

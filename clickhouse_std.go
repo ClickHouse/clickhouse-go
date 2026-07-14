@@ -146,6 +146,7 @@ func OpenDB(opt *Options) *sql.DB {
 
 type stdConnect interface {
 	isBad() bool
+	revalidateIdle(ctx context.Context) error
 	close() error
 	query(ctx context.Context, release nativeTransportRelease, query string, args ...any) (*rows, error)
 	exec(ctx context.Context, query string, args ...any) error
@@ -181,11 +182,31 @@ func (std *stdDriver) Open(dsn string) (_ driver.Conn, err error) {
 
 var _ driver.Driver = (*stdDriver)(nil)
 
+func (std *stdDriver) release(_ nativeTransport, err error) {
+	if err == nil {
+		return
+	}
+
+	var exc *Exception
+	if errors.As(err, &exc) {
+		return
+	}
+
+	std.logger.Debug("closing connection after unclean stream termination", slog.Any("error", err))
+	_ = std.conn.close()
+}
+
 func (std *stdDriver) ResetSession(ctx context.Context) error {
 	if std.conn.isBad() {
 		std.logger.Debug("resetting session because connection is bad")
 		return driver.ErrBadConn
 	}
+
+	if err := std.conn.revalidateIdle(ctx); err != nil {
+		std.logger.Debug("resetting session: connection failed liveness revalidation", slog.Any("error", err))
+		return driver.ErrBadConn
+	}
+
 	return nil
 }
 
@@ -281,7 +302,7 @@ func (std *stdDriver) QueryContext(ctx context.Context, query string, args []dri
 		return nil, driver.ErrBadConn
 	}
 
-	r, err := std.conn.query(ctx, func(nativeTransport, error) {}, query, rebind(args)...)
+	r, err := std.conn.query(ctx, std.release, query, rebind(args)...)
 	if isConnBrokenError(err) {
 		std.logger.Error("query context got a fatal error, resetting connection", slog.Any("error", err))
 		return nil, driver.ErrBadConn
@@ -306,7 +327,7 @@ func (std *stdDriver) PrepareContext(ctx context.Context, query string) (driver.
 		return nil, driver.ErrBadConn
 	}
 
-	batch, err := std.conn.prepareBatch(ctx, func(nativeTransport, error) {}, func(context.Context) (nativeTransport, error) { return nil, nil }, query, chdriver.PrepareBatchOptions{})
+	batch, err := std.conn.prepareBatch(ctx, std.release, func(context.Context) (nativeTransport, error) { return nil, nil }, query, chdriver.PrepareBatchOptions{})
 	if err != nil {
 		if isConnBrokenError(err) {
 			std.logger.Error("prepare context got a fatal error, resetting connection", slog.Any("error", err))

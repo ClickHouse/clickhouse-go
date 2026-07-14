@@ -5,7 +5,6 @@ package clickhouse
 
 import (
 	"crypto/tls"
-	"errors"
 	"io"
 	"syscall"
 )
@@ -28,12 +27,12 @@ func (c *connect) connCheck() error {
 
 	err = rawConn.Read(func(fd uintptr) bool {
 		var buf [1]byte
-		n, err := syscall.Read(int(fd), buf[:])
+		n, _, err := syscall.Recvfrom(int(fd), buf[:], syscall.MSG_PEEK)
 		switch {
 		case n == 0 && err == nil:
 			sysErr = io.EOF
 		case n > 0:
-			sysErr = errors.New("unexpected read from socket")
+			sysErr = errUnexpectedRead
 		case err == syscall.EAGAIN || err == syscall.EWOULDBLOCK:
 			sysErr = nil
 		default:

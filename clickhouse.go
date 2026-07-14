@@ -90,6 +90,8 @@ type nativeTransport interface {
 	asyncInsert(ctx context.Context, query string, wait bool, args ...any) error
 	ping(context.Context) error
 	isBad() bool
+	markUnverified()
+	revalidateIdle(ctx context.Context) error
 	connID() int
 	connectedAtTime() time.Time
 	isReleased() bool
@@ -342,13 +344,16 @@ func (ch *clickhouse) acquire(ctx context.Context) (conn nativeTransport, err er
 	}
 
 	if err == nil && conn != nil {
-		if !conn.isBad() {
+		if conn.isBad() {
+			conn.close()
+		} else if rerr := conn.revalidateIdle(ctx); rerr != nil {
+			conn.getLogger().Debug("pooled connection failed liveness revalidation", slog.Any("error", rerr))
+			conn.close()
+		} else {
 			conn.setReleased(false)
 			conn.getLogger().Debug("connection acquired from pool")
 			return conn, nil
 		}
-
-		conn.close()
 	}
 
 	if conn, err = ch.dial(ctx); err != nil {
@@ -383,10 +388,18 @@ func (ch *clickhouse) release(conn nativeTransport, err error) {
 	}
 
 	if err != nil {
-		conn.getLogger().Debug("connection closed due to error", slog.Any("error", err))
-		conn.close()
-		return
-	} else if time.Since(conn.connectedAtTime()) >= ch.opt.ConnMaxLifetime {
+		var exc *Exception
+		if errors.As(err, &exc) {
+			conn.getLogger().Debug("connection kept after server exception", slog.Int("code", int(exc.Code)))
+			conn.markUnverified()
+		} else {
+			conn.getLogger().Debug("connection closed due to error", slog.Any("error", err))
+			conn.close()
+			return
+		}
+	}
+
+	if time.Since(conn.connectedAtTime()) >= ch.opt.ConnMaxLifetime {
 		conn.getLogger().Debug("connection closed: lifetime expired",
 			slog.Duration("age", time.Since(conn.connectedAtTime())),
 			slog.Duration("max_lifetime", ch.opt.ConnMaxLifetime))
