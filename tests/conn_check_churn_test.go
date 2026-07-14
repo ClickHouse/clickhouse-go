@@ -566,19 +566,15 @@ func (tn *proxyTunnel) pump(dst, src net.Conn) {
 	tn.server.Close()
 }
 
-// TestConnCheckHalfOpenConnection verifies that a pooled connection whose
-// network path silently died is detected before reuse. No FIN ever reaches
-// the client, so connCheck's socket peek sees a healthy, empty socket; only
-// the idle revalidation ping (Options.ConnIdlePingThreshold) can catch it.
-func TestConnCheckHalfOpenConnection(t *testing.T) {
-	SkipOnCloud(t, "requires a local TCP proxy")
+// halfOpenOptions builds a pool routed through a blackhole proxy with a short
+// idle-ping threshold.
+func halfOpenOptions(t *testing.T, tracker *connTracker, pingThreshold time.Duration) (clickhouse.Options, *blackholeProxy) {
+	t.Helper()
 
 	env, err := GetNativeTestEnvironment()
 	require.NoError(t, err)
-
 	proxy := startBlackholeProxy(t, fmt.Sprintf("%s:%d", env.Host, env.Port))
 
-	tracker := &connTracker{}
 	opts := ClientOptionsFromEnv(env, nil, false)
 	opts.Addr = []string{proxy.addr()}
 	opts.DialContext = tracker.DialContext
@@ -586,24 +582,81 @@ func TestConnCheckHalfOpenConnection(t *testing.T) {
 	opts.MaxIdleConns = 2
 	opts.ConnMaxLifetime = time.Hour
 	opts.DialTimeout = 2 * time.Second
-	opts.ConnIdlePingThreshold = 200 * time.Millisecond
+	opts.ConnIdlePingThreshold = pingThreshold
 
-	conn, err := clickhouse.Open(&opts)
-	require.NoError(t, err)
-	t.Cleanup(func() { conn.Close() })
+	return opts, proxy
+}
 
-	var v uint8
-	require.NoError(t, conn.QueryRow(context.Background(), "SELECT 1").Scan(&v))
-	require.Equal(t, 1, tracker.Dials())
+// TestConnCheckHalfOpenConnection verifies that a pooled connection whose
+// network path silently died is detected before reuse. No FIN ever reaches
+// the client, so connCheck's socket peek sees a healthy, empty socket; only
+// the idle revalidation ping (Options.ConnIdlePingThreshold) can catch it.
+//
+// Both idle regimes must be covered: idle shorter than the internal 1s
+// liveness window (the socket peek is skipped entirely) and idle beyond it
+// (the peek runs, passes, and must NOT suppress the ping — a passing peek is
+// not proof of liveness).
+func TestConnCheckHalfOpenConnection(t *testing.T) {
+	SkipOnCloud(t, "requires a local TCP proxy")
 
-	proxy.silenceExisting()
-	time.Sleep(250 * time.Millisecond) // idle past ConnIdlePingThreshold
+	scenarios := []struct {
+		name      string
+		threshold time.Duration
+		idle      time.Duration
+	}{
+		{"idle within liveness window", 200 * time.Millisecond, 250 * time.Millisecond},
+		{"idle beyond liveness window", 1200 * time.Millisecond, 1500 * time.Millisecond},
+	}
 
-	start := time.Now()
-	require.NoError(t, conn.QueryRow(context.Background(), "SELECT 1").Scan(&v),
-		"query must succeed on a fresh connection after the half-open one is discarded")
-	require.Equalf(t, 2, tracker.Dials(),
-		"revalidation must discard the half-open connection and dial exactly one replacement")
-	require.Lessf(t, time.Since(start), 2*opts.DialTimeout,
-		"revalidation must fail fast, not hang until read timeout")
+	for _, sc := range scenarios {
+		t.Run(sc.name, func(t *testing.T) {
+			tracker := &connTracker{}
+			opts, proxy := halfOpenOptions(t, tracker, sc.threshold)
+
+			conn, err := clickhouse.Open(&opts)
+			require.NoError(t, err)
+			t.Cleanup(func() { conn.Close() })
+
+			var v uint8
+			require.NoError(t, conn.QueryRow(context.Background(), "SELECT 1").Scan(&v))
+			require.Equal(t, 1, tracker.Dials())
+
+			proxy.silenceExisting()
+			time.Sleep(sc.idle)
+
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			start := time.Now()
+			require.NoError(t, conn.QueryRow(ctx, "SELECT 1").Scan(&v),
+				"query must succeed on a fresh connection after the half-open one is discarded")
+			require.Equalf(t, 2, tracker.Dials(),
+				"revalidation must discard the half-open connection and dial exactly one replacement")
+			require.Lessf(t, time.Since(start), 2*opts.DialTimeout,
+				"revalidation must fail fast, not hang until read timeout")
+		})
+	}
+
+	t.Run("database sql", func(t *testing.T) {
+		tracker := &connTracker{}
+		opts, proxy := halfOpenOptions(t, tracker, 1200*time.Millisecond)
+
+		db := clickhouse.OpenDB(&opts)
+		t.Cleanup(func() { db.Close() })
+		db.SetMaxOpenConns(1)
+		db.SetMaxIdleConns(1)
+		db.SetConnMaxLifetime(time.Hour)
+
+		var v uint8
+		require.NoError(t, db.QueryRow("SELECT 1").Scan(&v))
+		require.Equal(t, 1, tracker.Dials())
+
+		proxy.silenceExisting()
+		time.Sleep(1500 * time.Millisecond)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		require.NoError(t, db.QueryRowContext(ctx, "SELECT 1").Scan(&v),
+			"ResetSession must discard the half-open connection so database/sql retries on a fresh one")
+		require.Equal(t, 2, tracker.Dials())
+	})
 }

@@ -141,7 +141,8 @@ type connect struct {
 	structMap            *structMap
 	compression          CompressionMethod
 	connectedAt          time.Time
-	lastLiveAt           time.Time
+	lastLiveAt           time.Time // proof of peer liveness: dial, completed exchange, successful ping
+	lastPeekAt           time.Time // last passing socket peek; only gates connCheck frequency
 	unverified           bool
 	compressor           *compress.Writer
 	readTimeout          time.Duration
@@ -204,7 +205,7 @@ func (c *connect) isBad() bool {
 		return true
 	}
 
-	if time.Since(c.lastLiveAt) < connLivenessWindow {
+	if time.Since(c.lastLiveAt) < connLivenessWindow || time.Since(c.lastPeekAt) < connLivenessWindow {
 		return false
 	}
 
@@ -217,7 +218,9 @@ func (c *connect) isBad() bool {
 		return true
 	}
 
-	c.lastLiveAt = time.Now()
+	// a clean peek proves the socket is not closed or dirty, but not that the
+	// peer is alive; it must not reset the idle clock revalidateIdle pings on
+	c.lastPeekAt = time.Now()
 
 	return false
 }
@@ -234,13 +237,15 @@ func (c *connect) revalidateIdle(ctx context.Context) error {
 		}
 	}
 
-	pingCtx := ctx
-	// Limit ping deadline to allow time for re-dial
+	// Limit ping deadline to allow time for re-dial. A dead connection must
+	// not stall the caller: without this bound a half-open socket would block
+	// the ping until the read timeout.
+	pingDeadline := time.Now().Add(c.opt.DialTimeout / 2)
 	if deadline, ok := ctx.Deadline(); ok {
-		var cancel context.CancelFunc
-		pingCtx, cancel = context.WithDeadline(ctx, time.Now().Add(time.Until(deadline)/2))
-		defer cancel()
+		pingDeadline = time.Now().Add(time.Until(deadline) / 2)
 	}
+	pingCtx, cancel := context.WithDeadline(ctx, pingDeadline)
+	defer cancel()
 
 	if err := c.ping(pingCtx); err != nil {
 		return err
