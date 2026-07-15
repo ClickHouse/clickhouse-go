@@ -13,6 +13,11 @@ import (
 // response, because headers have already been sent by then.
 const exceptionCodeHeader = "X-ClickHouse-Exception-Code"
 
+// maxErrorBodySize caps how much of an error response body is read. Server
+// exception text fits well within it (the exception block is at most 16KiB);
+// anything larger is a misbehaving server or proxy and gets truncated.
+const maxErrorBodySize = 64 * 1024
+
 // HTTPError is returned for requests over the HTTP protocol that fail with a
 // non-200 status code. Err is a *Exception when the response body parsed as a
 // ClickHouse server exception, otherwise a plain error carrying the raw body.
@@ -44,6 +49,16 @@ func (e *HTTPError) Unwrap() error { return e.Err }
 // exception text, e.g. "Code: 60. DB::Exception: Unknown table ...".
 var httpExceptionCodeRe = regexp.MustCompile(`^Code:\s*(\d+)\.\s*`)
 
+// exceptionTextStartRe locates the start of exception text inside a
+// mid-stream "__exception__" block; same prefix as httpExceptionCodeRe but
+// unanchored.
+var exceptionTextStartRe = regexp.MustCompile(`Code:\s*\d+\.`)
+
+// exceptionTrailerRe matches the "<message_length> <tag>" trailer line that
+// newer servers write between the exception text and the closing
+// "__exception__" marker.
+var exceptionTrailerRe = regexp.MustCompile(`^\d+ \S+$`)
+
 // newHTTPError builds the error for a non-200 HTTP response, best-effort
 // parsing the body as a ClickHouse exception. It never fails: when the body
 // does not look like a server exception, it falls back to a plain error
@@ -70,17 +85,19 @@ func newHTTPError(statusCode int, headers http.Header, body []byte) *HTTPError {
 func parseHTTPException(text, headerCode string) *Exception {
 	msg := strings.TrimSpace(text)
 
+	// Error codes are strictly positive; 0 means OK and anything non-positive
+	// is a mangled body or header, not a server exception.
 	var code int64
 	var haveCode bool
 	if m := httpExceptionCodeRe.FindStringSubmatch(msg); m != nil {
-		if c, err := strconv.ParseInt(m[1], 10, 32); err == nil {
+		if c, err := strconv.ParseInt(m[1], 10, 32); err == nil && c > 0 {
 			code = c
 			haveCode = true
 			msg = msg[len(m[0]):]
 		}
 	}
 	if headerCode != "" {
-		if c, err := strconv.ParseInt(headerCode, 10, 32); err == nil {
+		if c, err := strconv.ParseInt(headerCode, 10, 32); err == nil && c > 0 {
 			code = c
 			haveCode = true
 		}
