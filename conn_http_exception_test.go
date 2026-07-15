@@ -94,6 +94,25 @@ func TestParseExceptionFromBytesTyped(t *testing.T) {
 			wantName:    "DB::Exception",
 			wantMessage: "Unknown table expression identifier 'foo'. (UNKNOWN_TABLE)",
 		},
+		{
+			// Older servers (e.g. 25.8): bare message after the marker — no
+			// tag, no trailer line, no closing marker.
+			name:        "unframed exception (25.8 layout)",
+			data:        []byte("UInt8\x00__exception__\r\nCode: 395. DB::Exception: boom: while executing 'FUNCTION throwIf'. (FUNCTION_THROW_IF_VALUE_IS_NON_ZERO) (version 25.8.28.1 (official build))\n"),
+			wantCode:    395,
+			wantName:    "DB::Exception",
+			wantMessage: "boom: while executing 'FUNCTION throwIf'. (FUNCTION_THROW_IF_VALUE_IS_NON_ZERO) (version 25.8.28.1 (official build))",
+		},
+		{
+			// The block may contain more than one dump of the message (e.g. a
+			// truncated one consumed by block decode, then a complete one);
+			// the last dump wins.
+			name:        "double dump takes the last complete message",
+			data:        []byte("__exception__\r\nCode: 395. DB::Exception: truncat\nexception__\nCode: 395. DB::Exception: complete message. (FUNCTION_THROW_IF_VALUE_IS_NON_ZERO)\n"),
+			wantCode:    395,
+			wantName:    "DB::Exception",
+			wantMessage: "complete message. (FUNCTION_THROW_IF_VALUE_IS_NON_ZERO)",
+		},
 	}
 
 	for _, tt := range tests {
