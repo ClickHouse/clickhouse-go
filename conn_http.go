@@ -447,12 +447,12 @@ func (h *httpConnect) readData(reader *chproto.Reader, timezone *time.Location, 
 		// exception block max size 16KiB.
 		maxSize := int64(16 * 1024)
 
-		// Try to read any remaining data
+		// Drain the remaining data up to the limit. A single Read may legally
+		// return a short chunk and miss or truncate the exception block.
 		lr := &limitedReader{reader: reader, limit: 2 * maxSize} // allocating 2 * maxSize for just in case
-		buf := make([]byte, maxSize)
-		n, readErr := lr.Read(buf)
-		if n > 0 && captureBuffer != nil {
-			captureBuffer.Write(buf[:n])
+		remaining, readErr := io.ReadAll(lr)
+		if len(remaining) > 0 && captureBuffer != nil {
+			captureBuffer.Write(remaining)
 		}
 		if readErr != nil {
 			h.logger.Error("HTTP read data: decode error while parsing exception block", slog.Any("error", err))
@@ -503,6 +503,9 @@ func (lr *limitedReader) Read(p []byte) (n int, err error) {
 //	\r\n
 //	__exception__
 //	\r\n
+//
+// Older servers (e.g. 25.8) write the bare error message directly after the
+// first marker, with no tag, no trailer line and no closing marker.
 func parseExceptionFromBytes(data []byte) error {
 	const (
 		exceptionMarker    = "__exception__"
@@ -517,6 +520,33 @@ func parseExceptionFromBytes(data []byte) error {
 	if firstMarker < 0 {
 		return fmt.Errorf("exception marker not found")
 	}
+
+	// Locate the message by its stable "Code: NNN." prefix rather than by
+	// fixed offsets: the framing around it varies across server versions
+	// (see above), and the block may contain more than one dump of the
+	// message, in which case the last one is the complete one.
+	region := dataStr[firstMarker+exceptionMarkerLen:]
+	if starts := exceptionTextStartRe.FindAllStringIndex(region, -1); starts != nil {
+		msg := region[starts[len(starts)-1][0]:]
+		framed := false
+		if end := strings.Index(msg, exceptionMarker); end >= 0 {
+			msg, framed = msg[:end], true
+		}
+		msg = strings.TrimRight(msg, "\r\n")
+		if framed {
+			// Drop the "<message_length> <tag>" trailer line preceding the
+			// closing marker.
+			if lines := strings.Split(msg, "\n"); len(lines) > 1 && exceptionTrailerRe.MatchString(lines[len(lines)-1]) {
+				msg = strings.Join(lines[:len(lines)-1], "\n")
+			}
+		}
+		if ex := parseHTTPException(msg, ""); ex != nil {
+			return ex
+		}
+	}
+
+	// No "Code: NNN." found — fall back to offset-based extraction assuming
+	// the framed format, yielding a plain (untyped) error.
 
 	// Skip past first __exception__\r\n
 	pos := firstMarker + exceptionMarkerLen
@@ -590,6 +620,8 @@ func (h *httpConnect) sendQuery(ctx context.Context, query string, options *Quer
 	return res, nil
 }
 
+// readRawResponse reads an error response body, capped at maxErrorBodySize so
+// a misbehaving server or proxy cannot exhaust memory.
 func (h *httpConnect) readRawResponse(response *http.Response) (body []byte, err error) {
 	rw := h.compressionPool.Get()
 	defer h.compressionPool.Put(rw)
@@ -598,15 +630,23 @@ func (h *httpConnect) readRawResponse(response *http.Response) (body []byte, err
 	if err != nil {
 		return nil, err
 	}
-	if h.compression == CompressionLZ4 || h.compression == CompressionZSTD {
-		chReader := chproto.NewReader(reader)
-		chReader.EnableCompression()
-		reader = chReader
-	}
 
-	body, err = io.ReadAll(reader)
+	body, err = io.ReadAll(io.LimitReader(reader, maxErrorBodySize))
 	if err != nil && !errors.Is(err, io.EOF) {
 		return nil, err
+	}
+
+	if h.compression == CompressionLZ4 || h.compression == CompressionZSTD {
+		// The server native-compresses an error body only when the failing
+		// request asked for it (compress=1 on the query path); exec and async
+		// insert error bodies arrive as plain text on the same connection.
+		// Try to decompress the buffered bytes and fall back to them raw.
+		chReader := chproto.NewReader(bytes.NewReader(body))
+		chReader.EnableCompression()
+		decompressed, derr := io.ReadAll(io.LimitReader(chReader, maxErrorBodySize))
+		if (derr == nil || errors.Is(derr, io.EOF)) && len(decompressed) > 0 {
+			return decompressed, nil
+		}
 	}
 	return body, nil
 }

@@ -97,6 +97,32 @@ func TestParseHTTPException(t *testing.T) {
 			headerCode: "abc",
 			wantNil:    true,
 		},
+		{
+			name:       "zero header code ignored",
+			text:       "not an exception",
+			headerCode: "0",
+			wantNil:    true,
+		},
+		{
+			name:       "negative header code ignored",
+			text:       "not an exception",
+			headerCode: "-60",
+			wantNil:    true,
+		},
+		{
+			name:    "zero body code ignored",
+			text:    "Code: 0. DB::Exception: should not become an exception",
+			wantNil: true,
+		},
+		{
+			name:       "zero body code rescued by header code",
+			text:       "Code: 0. some text",
+			headerCode: "60",
+			wantCode:   60,
+			wantName:   "",
+			// The bogus "Code: 0." prefix is not stripped — it is not a code.
+			wantMessage: "Code: 0. some text",
+		},
 	}
 
 	for _, tt := range tests {
