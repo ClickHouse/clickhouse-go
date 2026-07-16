@@ -240,8 +240,11 @@ func (b *httpBatch) Send() (err error) {
 	case CompressionGZIP, CompressionDeflate, CompressionBrotli:
 		headers["Content-Encoding"] = b.conn.compression.String()
 	case CompressionZSTD, CompressionLZ4:
-		options.settings["decompress"] = "1"
-		options.settings["compress"] = "1"
+		compressionLevel := 0
+		if b.conn.opt != nil && b.conn.opt.Compression != nil {
+			compressionLevel = b.conn.opt.Compression.Level
+		}
+		applyHTTPNativeCompressionSettings(options.settings, b.conn.compression, compressionLevel, true)
 	}
 
 	compressionWriter := b.conn.compressionPool.Get()
