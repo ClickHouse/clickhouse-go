@@ -1,7 +1,9 @@
 package clickhouse
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"log/slog"
 	"sync"
 	"testing"
@@ -216,6 +218,65 @@ func TestConnPool_PutExpiredConnection(t *testing.T) {
 
 	// Pool should not accept expired connection
 	assert.Equal(t, 0, pool.Len())
+}
+
+func TestConnPool_EvictionLogsReason(t *testing.T) {
+	newBufLogger := func() (*bytes.Buffer, *slog.Logger) {
+		var buf bytes.Buffer
+		return &buf, slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	}
+
+	t.Run("get skips expired connection", func(t *testing.T) {
+		buf, logger := newBufLogger()
+		pool := newConnPool(50*time.Millisecond, 5)
+		defer pool.Close()
+
+		expired := &mockTransport{connectedAt: time.Now(), id: 1, logger: logger}
+		pool.Put(expired)
+		time.Sleep(60 * time.Millisecond)
+
+		_, err := pool.Get(context.Background())
+		require.ErrorIs(t, err, errQueueEmpty)
+		assert.Contains(t, buf.String(), "closing expired connection from pool")
+		assert.Contains(t, buf.String(), "max_lifetime")
+	})
+
+	t.Run("put rejects expired connection", func(t *testing.T) {
+		buf, logger := newBufLogger()
+		pool := newConnPool(100*time.Millisecond, 5)
+		defer pool.Close()
+
+		expired := &mockTransport{connectedAt: time.Now().Add(-200 * time.Millisecond), id: 1, logger: logger}
+		pool.Put(expired)
+
+		assert.Equal(t, 0, pool.Len())
+		assert.Contains(t, buf.String(), "connection not returned to pool: lifetime expired")
+	})
+
+	t.Run("put rejects bad connection", func(t *testing.T) {
+		buf, logger := newBufLogger()
+		pool := newConnPool(time.Hour, 5)
+		defer pool.Close()
+
+		bad := &mockTransport{connectedAt: time.Now(), id: 1, bad: true, logger: logger}
+		pool.Put(bad)
+
+		assert.Equal(t, 0, pool.Len())
+		assert.Contains(t, buf.String(), "connection not returned to pool: connection is bad")
+		assert.Contains(t, buf.String(), errMockConnBad.Error())
+	})
+
+	t.Run("put rejects when pool is full", func(t *testing.T) {
+		buf, logger := newBufLogger()
+		pool := newConnPool(time.Hour, 1)
+		defer pool.Close()
+
+		pool.Put(&mockTransport{connectedAt: time.Now(), id: 1, logger: logger})
+		pool.Put(&mockTransport{connectedAt: time.Now(), id: 2, logger: logger})
+
+		assert.Equal(t, 1, pool.Len())
+		assert.Contains(t, buf.String(), "connection not returned to pool: pool is full")
+	})
 }
 
 func TestConnPool_PutOlderThanMinimumWithCapacity(t *testing.T) {
@@ -476,8 +537,11 @@ type mockTransport struct {
 	bad           bool
 	bufferFreed   bool
 	debugMessages []string
+	logger        *slog.Logger
 	mu            sync.Mutex
 }
+
+var errMockConnBad = errors.New("mock transport marked bad")
 
 func (m *mockTransport) serverVersion() (*ServerVersion, error) {
 	return nil, nil
@@ -507,10 +571,13 @@ func (m *mockTransport) ping(ctx context.Context) error {
 	return nil
 }
 
-func (m *mockTransport) isBad() bool {
+func (m *mockTransport) healthCheck() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.bad
+	if m.bad {
+		return errMockConnBad
+	}
+	return nil
 }
 
 func (m *mockTransport) connID() int {
@@ -534,6 +601,9 @@ func (m *mockTransport) setReleased(released bool) {
 }
 
 func (m *mockTransport) getLogger() *slog.Logger {
+	if m.logger != nil {
+		return m.logger
+	}
 	return newNoopLogger()
 }
 
