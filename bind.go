@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"math/big"
 	"reflect"
 	"strconv"
 	"strings"
@@ -574,6 +575,13 @@ func formatValue(tz *time.Location, scale TimeUnit, v any, mode formatMode) (str
 			return "", err
 		}
 		return fmt.Sprintf("[%s]", val), nil
+	case big.Int:
+		return formatBigInt(&v, mode)
+	case *big.Int:
+		if v == nil {
+			return "NULL", nil
+		}
+		return formatBigInt(v, mode)
 	case fmt.Stringer:
 		if v := reflect.ValueOf(v); v.Kind() == reflect.Pointer &&
 			v.IsNil() &&
@@ -710,6 +718,67 @@ func formatFloat(f float64, bitSize int, mode formatMode) string {
 		return fmt.Sprintf("cast('-inf', '%s')", chType)
 	}
 	return fmt.Sprintf("cast(%s, '%s')", strconv.FormatFloat(f, 'g', -1, bitSize), chType)
+}
+
+// Bounds of ClickHouse's wide-integer types, used to pick the narrowest
+// conversion that holds a big.Int exactly. Read-only after init.
+var (
+	int128Min  = new(big.Int).Neg(new(big.Int).Lsh(big.NewInt(1), 127))                // -2^127
+	int128Max  = new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 127), big.NewInt(1)) // 2^127-1
+	uint128Max = new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 128), big.NewInt(1)) // 2^128-1
+	int256Min  = new(big.Int).Neg(new(big.Int).Lsh(big.NewInt(1), 255))                // -2^255
+	int256Max  = new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 255), big.NewInt(1)) // 2^255-1
+	uint256Max = new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 256), big.NewInt(1)) // 2^256-1
+)
+
+// formatBigInt renders a big.Int, the Go type behind Int128/UInt128/Int256/
+// UInt256.
+//
+// In query-parameter text mode the {name:Type} placeholder already declares the
+// type, so the server parses the bare decimal with the matching reader and the
+// value stays exact.
+//
+// In SQL mode there is no declared type, and the server reads a bare decimal
+// literal wider than 64 bits as Float64, losing precision (a WHERE on an Int128
+// column then matches nothing). Wrapping the exact decimal in the narrowest
+// wide-integer conversion that fits keeps both the value and an integer type,
+// the same way times bind as toDateTime(...) and floats as cast(..., 'Float64').
+func formatBigInt(v *big.Int, mode formatMode) (string, error) {
+	if mode == formatParamText {
+		return v.String(), nil
+	}
+	fn, err := bigIntConvFunc(v)
+	if err != nil {
+		return "", err
+	}
+	// big.Int.String is only an optional sign followed by digits, so it needs
+	// no escaping inside the quotes.
+	return fn + "('" + v.String() + "')", nil
+}
+
+// bigIntConvFunc returns the ClickHouse conversion function for the narrowest
+// wide-integer type that holds v exactly, or an error if v fits none of them.
+func bigIntConvFunc(v *big.Int) (string, error) {
+	if v.Sign() >= 0 {
+		switch {
+		case v.Cmp(int128Max) <= 0:
+			return "toInt128", nil
+		case v.Cmp(uint128Max) <= 0:
+			return "toUInt128", nil
+		case v.Cmp(int256Max) <= 0:
+			return "toInt256", nil
+		case v.Cmp(uint256Max) <= 0:
+			return "toUInt256", nil
+		}
+	} else {
+		switch {
+		case v.Cmp(int128Min) >= 0:
+			return "toInt128", nil
+		case v.Cmp(int256Min) >= 0:
+			return "toInt256", nil
+		}
+	}
+	return "", fmt.Errorf("big.Int value %s is out of range for Int128, UInt128, Int256 and UInt256", v.String())
 }
 
 func join[E any](tz *time.Location, scale TimeUnit, values []E, mode formatMode) (string, error) {
