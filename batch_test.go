@@ -394,6 +394,84 @@ INSERT INTO ` + "`_test_1345# $.ДБ`.`2. Таблица №2`" + ` (col1, col2)
 			expectedColumns:         []string{"col1", "col2"},
 			expectedError:           false,
 		},
+		{
+			name:                    "Insert with SETTINGS after column list",
+			query:                   "INSERT INTO table_name (col1, col2) SETTINGS async_insert=1",
+			expectedNormalizedQuery: "INSERT INTO table_name (col1, col2) SETTINGS async_insert=1 FORMAT Native",
+			expectedTableName:       "table_name",
+			expectedColumns:         []string{"col1", "col2"},
+			expectedError:           false,
+		},
+		{
+			name:                    "Insert with SETTINGS after column list and trailing VALUES keyword",
+			query:                   "INSERT INTO table_name (col1, col2) SETTINGS async_insert=1 VALUES",
+			expectedNormalizedQuery: "INSERT INTO table_name (col1, col2) SETTINGS async_insert=1 FORMAT Native",
+			expectedTableName:       "table_name",
+			expectedColumns:         []string{"col1", "col2"},
+			expectedError:           false,
+		},
+		{
+			name:                    "Insert with multiple SETTINGS after column list and VALUES tuples",
+			query:                   "INSERT INTO table_name (col1, col2) SETTINGS async_insert=1, wait_for_async_insert=0 VALUES (1, 2)",
+			expectedNormalizedQuery: "INSERT INTO table_name (col1, col2) SETTINGS async_insert=1, wait_for_async_insert=0 FORMAT Native",
+			expectedTableName:       "table_name",
+			expectedColumns:         []string{"col1", "col2"},
+			expectedError:           false,
+		},
+		{
+			name:                    "Insert with SETTINGS and no column list",
+			query:                   "INSERT INTO table_name SETTINGS async_insert=1",
+			expectedNormalizedQuery: "INSERT INTO table_name SETTINGS async_insert=1 FORMAT Native",
+			expectedTableName:       "table_name",
+			expectedColumns:         []string{},
+			expectedError:           false,
+		},
+		{
+			name:                    "Insert with lowercase settings keyword after column list",
+			query:                   "INSERT INTO table_name (col1, col2) settings async_insert=1 VALUES (1, 2)",
+			expectedNormalizedQuery: "INSERT INTO table_name (col1, col2) settings async_insert=1 FORMAT Native",
+			expectedTableName:       "table_name",
+			expectedColumns:         []string{"col1", "col2"},
+			expectedError:           false,
+		},
+		{
+			name:                    "Insert with SETTINGS after column list and explicit FORMAT",
+			query:                   "INSERT INTO table_name (col1, col2) SETTINGS async_insert=1 FORMAT JSONEachRow",
+			expectedNormalizedQuery: "INSERT INTO table_name (col1, col2) SETTINGS async_insert=1 FORMAT Native",
+			expectedTableName:       "table_name",
+			expectedColumns:         []string{"col1", "col2"},
+			expectedError:           false,
+		},
+		{
+			name:                    "Insert with column named settings is not treated as a SETTINGS clause",
+			query:                   "INSERT INTO table_name (col1, settings) VALUES (1, 2)",
+			expectedNormalizedQuery: "INSERT INTO table_name (col1, settings) FORMAT Native",
+			expectedTableName:       "table_name",
+			expectedColumns:         []string{"col1", "settings"},
+			expectedError:           false,
+		},
+		{
+			name:                    "Insert into table named settings is not treated as a SETTINGS clause",
+			query:                   "INSERT INTO settings (col1, col2) VALUES (1, 2)",
+			expectedNormalizedQuery: "INSERT INTO settings (col1, col2) FORMAT Native",
+			expectedTableName:       "settings",
+			expectedColumns:         []string{"col1", "col2"},
+			expectedError:           false,
+		},
+		{
+			name: "Insert with multiline column list ending in a column named settings",
+			query: `INSERT INTO table_name (
+						col1,
+						settings
+					) VALUES (1, 2)`,
+			expectedNormalizedQuery: `INSERT INTO table_name (
+						col1,
+						settings
+					) FORMAT Native`,
+			expectedTableName: "table_name",
+			expectedColumns:   []string{"col1", "settings"},
+			expectedError:     false,
+		},
 	}
 
 	for _, tc := range testCases {
