@@ -1060,6 +1060,10 @@ func TestBindBigInt(t *testing.T) {
 		{"value not pointer", "SELECT ?", []any{*huge}, "SELECT " + wrapped},
 		{"array", "SELECT ?", []any{[]*big.Int{big.NewInt(1), big.NewInt(-2)}},
 			"SELECT [toInt128('1'), toInt128('-2')]"},
+		{"tuple", "SELECT ?", []any{GroupSet{Value: []any{big.NewInt(1), "x"}}},
+			"SELECT (toInt128('1'), 'x')"},
+		{"map value", "SELECT ?", []any{map[string]*big.Int{"k": big.NewInt(1)}},
+			"SELECT map('k', toInt128('1'))"},
 		{"nil pointer is NULL", "SELECT ?", []any{(*big.Int)(nil)}, "SELECT NULL"},
 		// contrast: sibling argument types must be unaffected by the big.Int cases
 		{"int64 stays a bare literal", "SELECT ?", []any{int64(42)}, "SELECT 42"},
