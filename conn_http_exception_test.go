@@ -2,8 +2,13 @@ package clickhouse
 
 import (
 	"bytes"
+	"errors"
+	"io"
+	"log/slog"
 	"strings"
 	"testing"
+
+	chproto "github.com/ClickHouse/ch-go/proto"
 )
 
 func TestParseExceptionFromBytes(t *testing.T) {
@@ -117,5 +122,24 @@ func TestCapturingReader(t *testing.T) {
 				t.Errorf("expected to read %d bytes, got %d", len(tt.data), totalRead)
 			}
 		})
+	}
+}
+
+func TestHTTPReadDataEOFDoesNotLogDecodeError(t *testing.T) {
+	var logBuf bytes.Buffer
+	h := &httpConnect{
+		logger: slog.New(slog.NewTextHandler(&logBuf, &slog.HandlerOptions{Level: slog.LevelDebug})),
+	}
+
+	reader := chproto.NewReader(bytes.NewReader(nil))
+	block, err := h.readData(reader, nil, &bytes.Buffer{})
+	if !errors.Is(err, io.EOF) {
+		t.Fatalf("expected io.EOF, got %v", err)
+	}
+	if block != nil {
+		t.Fatalf("expected nil block, got %#v", block)
+	}
+	if got := logBuf.String(); got != "" {
+		t.Fatalf("expected no error log, got %q", got)
 	}
 }
