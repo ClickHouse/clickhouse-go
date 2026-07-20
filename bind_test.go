@@ -7,6 +7,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 )
 
 func TestBindNumeric(t *testing.T) {
@@ -610,6 +612,12 @@ func TestFormatMap(t *testing.T) {
 	assert.Equal(t, "map('a', 1)", val)
 }
 
+func TestFormatMapEscapesStringKeys(t *testing.T) {
+	val, err := format(time.UTC, Seconds, map[string]uint8{`a'b\c`: 1})
+	require.NoError(t, err)
+	assert.Equal(t, `map('a\'b\\c', 1)`, val)
+}
+
 func TestTimezoneSQLEscaping(t *testing.T) {
 	t.Run("prevent SQL injection via timezone name", func(t *testing.T) {
 		maliciousLoc := time.FixedZone("UTC') UNION ALL SELECT 1,2,3 --", 0)
@@ -655,6 +663,33 @@ func TestTimezoneSQLEscaping(t *testing.T) {
 		assert.Contains(t, val, "'America/New_York'")
 		assert.NotContains(t, val, `\'`, "Normal timezone names should not have escaped quotes")
 		assert.Contains(t, val, "toDateTime(")
+	})
+
+	// Query-parameter formatting writes times as epoch digits and never
+	// includes the timezone name, so a malicious name has nothing to leak
+	// into. These lock that in for both the nested and top-level paths.
+	t.Run("timezone name never reaches query-parameter text", func(t *testing.T) {
+		maliciousLoc := time.FixedZone("UTC') UNION ALL SELECT 1,2,3 --", 0)
+		maliciousTime := time.Date(2020, 1, 2, 3, 4, 5, 0, maliciousLoc)
+
+		// Nested inside a composite value.
+		val, err := formatValue(time.UTC, Seconds, []time.Time{maliciousTime}, formatParamText)
+		require.NoError(t, err)
+		assert.Equal(t, "['1577934245']", val)
+
+		// Top-level Named value.
+		opts := &QueryOptions{}
+		_, err = bindQueryOrAppendParameters(true, opts, "SELECT {d:DateTime}", time.UTC,
+			driver.NamedValue{Name: "d", Value: maliciousTime})
+		require.NoError(t, err)
+		assert.Equal(t, "1577934245", opts.parameters["d"])
+	})
+
+	t.Run("malicious string stays escaped in query-parameter text", func(t *testing.T) {
+		payload := `'} UNION ALL SELECT 1 --`
+		val, err := formatValue(time.UTC, Seconds, map[string]string{"k": payload}, formatParamText)
+		require.NoError(t, err)
+		assert.Equal(t, `{'k':'\'} UNION ALL SELECT 1 --'}`, val)
 	})
 }
 
@@ -705,6 +740,178 @@ func TestFormatMapOrdered(t *testing.T) {
 
 	val, _ := format(time.UTC, Seconds, om)
 	assert.Equal(t, "map('b', 2, 'a', 1)", val)
+}
+
+// TestFormatValueModes covers the fixes for #1891 and #1898. The server
+// parses {name:Type} query parameters as text, not SQL: bools must be
+// true/false instead of 1/0, maps {'k':v} instead of map('k', v), floats
+// plain numbers instead of cast(...), times quoted epoch strings instead of
+// toDateTime(...). Client-side binding (the ?/$1/@name placeholders) must
+// keep the SQL forms. Both hold at any nesting depth.
+func TestFormatValueModes(t *testing.T) {
+	tru, fls := true, false
+	ts := time.Date(2020, 1, 2, 3, 4, 5, 0, time.UTC)
+	cases := []struct {
+		name       string
+		value      any
+		queryParam string // formatParamText (server-side {name:Type} parameter)
+		bindSQL    string // formatSQL (client-side bind substitution)
+	}{
+		{"scalar true", true, "true", "1"},
+		{"scalar false", false, "false", "0"},
+		{"Array(Bool)", []bool{true, false}, "[true, false]", "[1, 0]"},
+		{"Array(Array(Bool))", [][]bool{{true}, {false}}, "[[true], [false]]", "[[1], [0]]"},
+		// nullable bools: real values change format, nil stays NULL
+		{"Array(Nullable(Bool))", []*bool{&tru, nil, &fls}, "[true, NULL, false]", "[1, NULL, 0]"},
+		// maps: text format vs map() SQL function (#1898)
+		{"Map(String, Bool)", map[string]bool{"a": true}, "{'a':true}", "map('a', 1)"},
+		{"Map(String, String)", map[string]string{"a": "b"}, "{'a':'b'}", "map('a', 'b')"},
+		{"empty map", map[string]string{}, "{}", "map()"},
+		{"Map string key escaping", map[string]uint8{`a'b\c`: 1}, `{'a\'b\\c':1}`, `map('a\'b\\c', 1)`},
+		{"Map(String, Map(String, Bool))",
+			map[string]map[string]bool{"a": {"x": true}},
+			"{'a':{'x':true}}", "map('a', map('x', 1))"},
+		{"Array(Map(String, Bool))",
+			[]map[string]bool{{"a": true}, {"b": false}},
+			"[{'a':true}, {'b':false}]", "[map('a', 1), map('b', 0)]"},
+		{"Map(String, Array(Bool))",
+			map[string][]bool{"a": {true, false}},
+			"{'a':[true, false]}", "map('a', [1, 0])"},
+		{"Map(Bool, String) key formatting", map[bool]string{true: "x"}, "{true:'x'}", "map(1, 'x')"},
+		// floats: plain text vs cast() SQL function
+		{"Float64", 1.5, "1.5", "cast(1.5, 'Float64')"},
+		{"Float32", float32(1.5), "1.5", "cast(1.5, 'Float32')"},
+		{"Float64 NaN", math.NaN(), "nan", "cast('nan', 'Float64')"},
+		{"Float64 +Inf", math.Inf(1), "inf", "cast('inf', 'Float64')"},
+		{"Float64 -Inf", math.Inf(-1), "-inf", "cast('-inf', 'Float64')"},
+		{"Map(String, Float64)", map[string]float64{"a": 1.5}, "{'a':1.5}", "map('a', cast(1.5, 'Float64'))"},
+		// nested times: quoted epoch (zone-free) vs toDateTime() SQL function
+		{"Array(DateTime)", []time.Time{ts},
+			"['1577934245']", "[toDateTime('2020-01-02 03:04:05')]"},
+		{"Map(String, DateTime)", map[string]time.Time{"a": ts},
+			"{'a':'1577934245'}", "map('a', toDateTime('2020-01-02 03:04:05'))"},
+		// a sub-second time keeps its fraction in param mode (for DateTime64)
+		{"Map(String, DateTime64)", map[string]time.Time{"a": ts.Add(123 * time.Millisecond)},
+			"{'a':'1577934245.123'}", "map('a', toDateTime('2020-01-02 03:04:05'))"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := formatValue(time.UTC, Seconds, tc.value, formatParamText)
+			require.NoError(t, err)
+			assert.Equal(t, tc.queryParam, got, "server-side query-parameter formatting")
+
+			got, err = formatValue(time.UTC, Seconds, tc.value, formatSQL)
+			require.NoError(t, err)
+			assert.Equal(t, tc.bindSQL, got, "client-side bind formatting must be unchanged")
+		})
+	}
+}
+
+// TestFormatTimeParam checks how a time.Time is rendered as a query
+// parameter: epoch seconds, so the instant survives no matter which timezone
+// the value carries or the parameter declares. Sub-second values keep their
+// fraction trimmed to milli/micro/nanoseconds so a DateTime64 parameter
+// doesn't lose precision.
+func TestFormatTimeParam(t *testing.T) {
+	base := time.Date(2020, 1, 2, 3, 4, 5, 0, time.UTC) // epoch 1577934245
+	tokyo := time.FixedZone("Asia/Tokyo", 9*3600)
+	cases := []struct {
+		name string
+		in   time.Time
+		want string
+	}{
+		{"whole seconds", base, "1577934245"},
+		{"milliseconds", base.Add(123 * time.Millisecond), "1577934245.123"},
+		{"microseconds", base.Add(123456 * time.Microsecond), "1577934245.123456"},
+		{"nanoseconds", base.Add(123456789 * time.Nanosecond), "1577934245.123456789"},
+		// the same instant expressed in another zone renders identically
+		{"non-UTC zone, same instant", base.In(tokyo), "1577934245"},
+		// pre-1970 instants: the sign must cover the fraction too
+		// (-86400.5 seconds, not -86401 + 0.5)
+		{"pre-1970 sub-second", time.Date(1969, 12, 30, 23, 59, 59, 500000000, time.UTC), "-86400.500"},
+		{"pre-1970 whole second", time.Date(1969, 12, 31, 0, 0, 0, 0, time.UTC), "-86400"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, formatTimeParam(tc.in))
+		})
+	}
+}
+
+// TestFormatTimeWithScale checks how a DateNamed value is rendered as a
+// query parameter: epoch seconds like formatTimeParam, but with the
+// fraction width fixed by the scale rather than inferred from the value,
+// dropping anything finer.
+func TestFormatTimeWithScale(t *testing.T) {
+	base := time.Date(2020, 1, 2, 3, 4, 5, 123456789, time.UTC) // epoch 1577934245.123456789
+	tokyo := time.FixedZone("Asia/Tokyo", 9*3600)
+	cases := []struct {
+		name  string
+		in    time.Time
+		scale TimeUnit
+		want  string
+	}{
+		{"Seconds truncates fraction", base, Seconds, "1577934245"},
+		{"MilliSeconds", base, MilliSeconds, "1577934245.123"},
+		{"MicroSeconds", base, MicroSeconds, "1577934245.123456"},
+		{"NanoSeconds", base, NanoSeconds, "1577934245.123456789"},
+		// fixed width even when the value is coarser than the scale
+		{"whole second at MilliSeconds", base.Truncate(time.Second), MilliSeconds, "1577934245.000"},
+		// the same instant expressed in another zone renders identically
+		{"non-UTC zone, same instant", base.In(tokyo), MilliSeconds, "1577934245.123"},
+		// pre-1970: the sign must cover the fraction too
+		{"pre-1970 sub-second", time.Date(1969, 12, 30, 23, 59, 59, 500000000, time.UTC), MilliSeconds, "-86400.500"},
+		{"pre-1970 whole second at MilliSeconds", time.Date(1969, 12, 31, 0, 0, 0, 0, time.UTC), MilliSeconds, "-86400.000"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, formatTimeWithScale(tc.in, tc.scale))
+		})
+	}
+}
+
+// TestNilQueryParameter checks that a nil sent as a query parameter becomes
+// `\N` — the whole-text NULL marker. The `NULL` keyword only works nested
+// inside composites; at the top level the server would read it as the string
+// "NULL" or fail to parse it.
+func TestNilQueryParameter(t *testing.T) {
+	cases := []struct {
+		name  string
+		value any
+		want  string
+	}{
+		{"untyped nil", nil, `\N`},
+		{"nil *string", (*string)(nil), `\N`},
+		{"nil *time.Time", (*time.Time)(nil), `\N`},
+		{"nil *int", (*int)(nil), `\N`},
+		// nils nested inside a composite keep the NULL keyword
+		{"nil inside array", []*string{nil}, "[NULL]"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			opts := &QueryOptions{}
+			_, err := bindQueryOrAppendParameters(true, opts, "SELECT {p:Nullable(String)}", time.UTC,
+				driver.NamedValue{Name: "p", Value: tc.value})
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, opts.parameters["p"])
+		})
+	}
+}
+
+// TestFormatValueModesOrderedMap checks that ordered maps switch syntax
+// between the two modes just like plain Go maps do.
+func TestFormatValueModesOrderedMap(t *testing.T) {
+	om := NewOrderedMap()
+	om.Put("b", true)
+	om.Put("a", false)
+
+	got, err := formatValue(time.UTC, Seconds, om, formatParamText)
+	require.NoError(t, err)
+	assert.Equal(t, "{'b':true,'a':false}", got)
+
+	got, err = formatValue(time.UTC, Seconds, om, formatSQL)
+	require.NoError(t, err)
+	assert.Equal(t, "map('b', 1, 'a', 0)", got)
 }
 
 func TestBindNamedWithTernaryOperator(t *testing.T) {

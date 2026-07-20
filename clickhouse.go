@@ -118,7 +118,7 @@ type connectionPooler interface {
 
 type clickhouse struct {
 	opt    *Options
-	connID int64
+	connID atomic.Int64
 
 	idle connectionPooler
 	open chan struct{}
@@ -132,7 +132,7 @@ type clickhouse struct {
 // Deprecated: the contributor list was removed to avoid holding it in memory
 // for the lifetime of the process. This method is retained only for backwards
 // compatibility and will be removed in a future major version.
-func (clickhouse) Contributors() []string {
+func (ch *clickhouse) Contributors() []string {
 	return []string{}
 }
 
@@ -259,7 +259,7 @@ func (ch *clickhouse) dial(ctx context.Context) (conn nativeTransport, err error
 		return nil, err
 	}
 
-	connID := int(atomic.AddInt64(&ch.connID, 1))
+	connID := int(ch.connID.Add(1))
 
 	dialFunc := func(ctx context.Context, addr string, opt *Options) (DialResult, error) {
 		var conn nativeTransport
