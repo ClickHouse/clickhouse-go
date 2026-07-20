@@ -12,7 +12,7 @@ The first release ships **HTTP-only** and **experimental**:
 - The client-side codec layer (`lib/format`, `Options.FormatCodecs`, the
   CSV/JSONEachRow/Parquet/ArrowStream codecs and the arrow-go dependency) is
   **removed** from this release. It lives in git history (up to commit
-  `91349617`) and validated the codec interface design.
+  `955fb25d`) and validated the codec interface design.
 - Format names are validated (`^[A-Za-z][A-Za-z0-9]*$`) before being
   interpolated into `INSERT ... FORMAT <name>` or `default_format`.
 
