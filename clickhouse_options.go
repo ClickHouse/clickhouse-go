@@ -16,7 +16,6 @@ import (
 	"github.com/ClickHouse/ch-go/compress"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/churl"
-	chformat "github.com/ClickHouse/clickhouse-go/v2/lib/format" // aliased: format collides with bind.go's format()
 )
 
 type CompressionMethod byte
@@ -173,18 +172,6 @@ type Options struct {
 	GetJWT GetJWTFunc
 
 	scheme string
-
-	// FormatCodecs registers client-side codecs used by QueryFormat and
-	// InsertFormat over the native protocol, where the server only
-	// exchanges Native blocks and any other format must be encoded or decoded by
-	// the client. CSV, JSONEachRow, Parquet and ArrowStream are registered by
-	// default; entries here override built-ins with the same Name().
-	// The HTTP protocol needs no codec - the server converts every format itself.
-	FormatCodecs []chformat.Codec
-
-	// formatCodecs is the resolved codec registry: built-ins overlaid with
-	// FormatCodecs, keyed by case-sensitive format name. Built by setDefaults.
-	formatCodecs map[string]chformat.Codec
 
 	// ReadTimeout is the maximum duration the client will wait for ClickHouse
 	// to respond to a single Read call for bytes over the connection.
@@ -445,30 +432,7 @@ func (o Options) setDefaults() *Options {
 			o.Addr = []string{"localhost:8123"}
 		}
 	}
-	o.formatCodecs = make(map[string]chformat.Codec, len(builtinFormatCodecs)+len(o.FormatCodecs))
-	for _, codec := range builtinFormatCodecs {
-		o.formatCodecs[codec.Name()] = codec
-	}
-	for _, codec := range o.FormatCodecs {
-		o.formatCodecs[codec.Name()] = codec
-	}
 	return &o
-}
-
-// builtinFormatCodecs are the client-side codecs available on every connection
-// without explicit registration.
-var builtinFormatCodecs = []chformat.Codec{
-	chformat.CSV{},
-	chformat.JSONEachRow{},
-	chformat.Parquet{},
-	chformat.ArrowStream{},
-}
-
-// formatCodec returns the registered client-side codec for the given format
-// name, if any. Lookup is exact-match: ClickHouse format names are case-sensitive.
-func (o *Options) formatCodec(name string) (chformat.Codec, bool) {
-	codec, ok := o.formatCodecs[name]
-	return codec, ok
 }
 
 // logger returns the appropriate logger based on the Options configuration.

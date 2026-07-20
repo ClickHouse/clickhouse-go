@@ -37,6 +37,7 @@ var (
 	ErrAcquireConnNoAddress      = errors.New("clickhouse: no valid address supplied")
 	ErrServerUnexpectedData      = errors.New("code: 101, message: Unexpected packet Data received from client")
 	ErrConnectionClosed          = errors.New("clickhouse: connection is closed")
+	ErrFormatNativeUnsupported   = errors.New("clickhouse: QueryFormat and InsertFormat are only supported over the HTTP protocol, where the server converts every format; connect with Options{Protocol: clickhouse.HTTP} or an http:// DSN")
 )
 
 type OpError struct {
