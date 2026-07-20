@@ -30,13 +30,16 @@ func TestIssue1877_StructuredHTTPExceptions(t *testing.T) {
 	)
 
 	// requireException asserts the typed *clickhouse.Exception in the chain.
-	requireException := func(t *testing.T, err error, wantCode int32) *clickhouse.Exception {
+	// wantCodeName is empty on the native protocol: the wire does not carry
+	// the symbolic name and the driver does not fabricate one.
+	requireException := func(t *testing.T, err error, wantCode int32, wantCodeName string) *clickhouse.Exception {
 		t.Helper()
 		require.Error(t, err)
 		var ex *clickhouse.Exception
 		require.Truef(t, errors.As(err, &ex), "expected *clickhouse.Exception in chain, got: %v", err)
 		assert.Equal(t, wantCode, ex.Code)
 		assert.Equal(t, "DB::Exception", ex.Name)
+		assert.Equal(t, wantCodeName, ex.CodeName)
 		return ex
 	}
 
@@ -56,7 +59,7 @@ func TestIssue1877_StructuredHTTPExceptions(t *testing.T) {
 			t.Cleanup(func() { conn.Close() })
 
 			_, err = conn.Query(ctx, "SELECT * FROM issue_1877_no_such_table")
-			ex := requireException(t, err, errUnknownTable)
+			ex := requireException(t, err, errUnknownTable, "UNKNOWN_TABLE")
 			assert.Contains(t, ex.Message, "issue_1877_no_such_table")
 
 			var httpErr *clickhouse.HTTPError
@@ -72,7 +75,7 @@ func TestIssue1877_StructuredHTTPExceptions(t *testing.T) {
 		t.Cleanup(func() { conn.Close() })
 
 		err = conn.Exec(ctx, "THIS IS NOT VALID SQL")
-		requireException(t, err, errSyntaxError)
+		requireException(t, err, errSyntaxError, "SYNTAX_ERROR")
 
 		var httpErr *clickhouse.HTTPError
 		assert.True(t, errors.As(err, &httpErr))
@@ -102,7 +105,7 @@ func TestIssue1877_StructuredHTTPExceptions(t *testing.T) {
 		require.NoError(t, connDDL.Exec(ctx, fmt.Sprintf("DROP TABLE %s", table)))
 
 		err = batch.Send()
-		requireException(t, err, errUnknownTable)
+		requireException(t, err, errUnknownTable, "UNKNOWN_TABLE")
 
 		var httpErr *clickhouse.HTTPError
 		assert.True(t, errors.As(err, &httpErr))
@@ -138,7 +141,7 @@ func TestIssue1877_StructuredHTTPExceptions(t *testing.T) {
 			streamErr = rows.Err()
 		}
 
-		ex := requireException(t, streamErr, errThrowIf)
+		ex := requireException(t, streamErr, errThrowIf, "FUNCTION_THROW_IF_VALUE_IS_NON_ZERO")
 		assert.Contains(t, ex.Message, "there is an exception")
 
 		var httpErr *clickhouse.HTTPError
@@ -152,7 +155,7 @@ func TestIssue1877_StructuredHTTPExceptions(t *testing.T) {
 		t.Cleanup(func() { conn.Close() })
 
 		_, err = conn.Query(ctx, "SELECT * FROM issue_1877_no_such_table")
-		requireException(t, err, errUnknownTable)
+		requireException(t, err, errUnknownTable, "")
 
 		var httpErr *clickhouse.HTTPError
 		assert.False(t, errors.As(err, &httpErr), "native protocol must not produce *clickhouse.HTTPError")
