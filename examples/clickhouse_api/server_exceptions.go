@@ -38,7 +38,9 @@ func ServerExceptions() error {
 		if chErr.Code != 60 { // UNKNOWN_TABLE
 			return fmt.Errorf("expected code 60, got %d", chErr.Code)
 		}
-		fmt.Printf("server exception: code=%d name=%s\n", chErr.Code, chErr.Name)
+		// CodeName is the symbolic name for Code, e.g. "UNKNOWN_TABLE".
+		// Best-effort: currently only set over HTTP.
+		fmt.Printf("server exception: code=%d codeName=%s name=%s\n", chErr.Code, chErr.CodeName, chErr.Name)
 
 		// HTTP only: the status code of the non-200 response. Exceptions that
 		// occur after the server started streaming a 200 are not wrapped —

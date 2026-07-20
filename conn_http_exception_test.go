@@ -74,44 +74,49 @@ func TestParseExceptionFromBytes(t *testing.T) {
 // the legacy plain-error fallback.
 func TestParseExceptionFromBytesTyped(t *testing.T) {
 	tests := []struct {
-		name        string
-		data        []byte
-		wantCode    int32
-		wantName    string
-		wantMessage string
+		name         string
+		data         []byte
+		wantCode     int32
+		wantName     string
+		wantMessage  string
+		wantCodeName string
 	}{
 		{
-			name:        "typed exception with complete format",
-			data:        []byte("\r\n__exception__\r\n1234567890123456\r\nCode: 395. DB::Exception: Value passed to 'throwIf' function is non-zero: there is an exception. (FUNCTION_THROW_IF_VALUE_IS_NON_ZERO) (version 25.1.5.31 (official build))\n42 1234567890123456\r\n__exception__\r\n"),
-			wantCode:    395,
-			wantName:    "DB::Exception",
-			wantMessage: "Value passed to 'throwIf' function is non-zero: there is an exception. (FUNCTION_THROW_IF_VALUE_IS_NON_ZERO) (version 25.1.5.31 (official build))",
+			name:         "typed exception with complete format",
+			data:         []byte("\r\n__exception__\r\n1234567890123456\r\nCode: 395. DB::Exception: Value passed to 'throwIf' function is non-zero: there is an exception. (FUNCTION_THROW_IF_VALUE_IS_NON_ZERO) (version 25.1.5.31 (official build))\n42 1234567890123456\r\n__exception__\r\n"),
+			wantCode:     395,
+			wantName:     "DB::Exception",
+			wantMessage:  "Value passed to 'throwIf' function is non-zero: there is an exception. (FUNCTION_THROW_IF_VALUE_IS_NON_ZERO) (version 25.1.5.31 (official build))",
+			wantCodeName: "FUNCTION_THROW_IF_VALUE_IS_NON_ZERO",
 		},
 		{
-			name:        "typed exception without second marker",
-			data:        []byte("\r\n__exception__\r\n1234567890123456\r\nCode: 60. DB::Exception: Unknown table expression identifier 'foo'. (UNKNOWN_TABLE)"),
-			wantCode:    60,
-			wantName:    "DB::Exception",
-			wantMessage: "Unknown table expression identifier 'foo'. (UNKNOWN_TABLE)",
+			name:         "typed exception without second marker",
+			data:         []byte("\r\n__exception__\r\n1234567890123456\r\nCode: 60. DB::Exception: Unknown table expression identifier 'foo'. (UNKNOWN_TABLE)"),
+			wantCode:     60,
+			wantName:     "DB::Exception",
+			wantMessage:  "Unknown table expression identifier 'foo'. (UNKNOWN_TABLE)",
+			wantCodeName: "UNKNOWN_TABLE",
 		},
 		{
 			// Older servers (e.g. 25.8): bare message after the marker — no
 			// tag, no trailer line, no closing marker.
-			name:        "unframed exception (25.8 layout)",
-			data:        []byte("UInt8\x00__exception__\r\nCode: 395. DB::Exception: boom: while executing 'FUNCTION throwIf'. (FUNCTION_THROW_IF_VALUE_IS_NON_ZERO) (version 25.8.28.1 (official build))\n"),
-			wantCode:    395,
-			wantName:    "DB::Exception",
-			wantMessage: "boom: while executing 'FUNCTION throwIf'. (FUNCTION_THROW_IF_VALUE_IS_NON_ZERO) (version 25.8.28.1 (official build))",
+			name:         "unframed exception (25.8 layout)",
+			data:         []byte("UInt8\x00__exception__\r\nCode: 395. DB::Exception: boom: while executing 'FUNCTION throwIf'. (FUNCTION_THROW_IF_VALUE_IS_NON_ZERO) (version 25.8.28.1 (official build))\n"),
+			wantCode:     395,
+			wantName:     "DB::Exception",
+			wantMessage:  "boom: while executing 'FUNCTION throwIf'. (FUNCTION_THROW_IF_VALUE_IS_NON_ZERO) (version 25.8.28.1 (official build))",
+			wantCodeName: "FUNCTION_THROW_IF_VALUE_IS_NON_ZERO",
 		},
 		{
 			// The block may contain more than one dump of the message (e.g. a
 			// truncated one consumed by block decode, then a complete one);
 			// the last dump wins.
-			name:        "double dump takes the last complete message",
-			data:        []byte("__exception__\r\nCode: 395. DB::Exception: truncat\nexception__\nCode: 395. DB::Exception: complete message. (FUNCTION_THROW_IF_VALUE_IS_NON_ZERO)\n"),
-			wantCode:    395,
-			wantName:    "DB::Exception",
-			wantMessage: "complete message. (FUNCTION_THROW_IF_VALUE_IS_NON_ZERO)",
+			name:         "double dump takes the last complete message",
+			data:         []byte("__exception__\r\nCode: 395. DB::Exception: truncat\nexception__\nCode: 395. DB::Exception: complete message. (FUNCTION_THROW_IF_VALUE_IS_NON_ZERO)\n"),
+			wantCode:     395,
+			wantName:     "DB::Exception",
+			wantMessage:  "complete message. (FUNCTION_THROW_IF_VALUE_IS_NON_ZERO)",
+			wantCodeName: "FUNCTION_THROW_IF_VALUE_IS_NON_ZERO",
 		},
 	}
 
@@ -134,6 +139,9 @@ func TestParseExceptionFromBytesTyped(t *testing.T) {
 			}
 			if ex.Message != tt.wantMessage {
 				t.Errorf("Message: expected %q, got %q", tt.wantMessage, ex.Message)
+			}
+			if ex.CodeName != tt.wantCodeName {
+				t.Errorf("CodeName: expected %q, got %q", tt.wantCodeName, ex.CodeName)
 			}
 
 			var httpErr *HTTPError

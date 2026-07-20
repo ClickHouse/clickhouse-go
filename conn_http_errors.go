@@ -13,6 +13,11 @@ import (
 // response, because headers have already been sent by then.
 const exceptionCodeHeader = "X-ClickHouse-Exception-Code"
 
+// exceptionNameHeader would carry the symbolic error name (e.g.
+// "UNKNOWN_TABLE"). No server sends it yet; when one does, it takes
+// precedence over recovering the name from the error text.
+const exceptionNameHeader = "X-ClickHouse-Exception-Name"
+
 // maxErrorBodySize caps how much of an error response body is read. Server
 // exception text fits well within it (the exception block is at most 16KiB);
 // anything larger is a misbehaving server or proxy and gets truncated.
@@ -59,12 +64,21 @@ var exceptionTextStartRe = regexp.MustCompile(`Code:\s*\d+\.`)
 // "__exception__" marker.
 var exceptionTrailerRe = regexp.MustCompile(`^\d+ \S+$`)
 
+// exceptionCodeNameRe matches the symbolic error name the server appends to
+// exception text, e.g. "(UNKNOWN_TABLE)". The last match wins; the trailing
+// "(version ...)" suffix is not all-caps and never matches.
+var exceptionCodeNameRe = regexp.MustCompile(`\(([A-Z][A-Z0-9_]+)\)`)
+
+// exceptionCodeNameValueRe validates a symbolic error name on its own, e.g.
+// an exceptionNameHeader value.
+var exceptionCodeNameValueRe = regexp.MustCompile(`^[A-Z][A-Z0-9_]+$`)
+
 // newHTTPError builds the error for a non-200 HTTP response, best-effort
 // parsing the body as a ClickHouse exception. It never fails: when the body
 // does not look like a server exception, it falls back to a plain error
 // preserving the raw body text.
 func newHTTPError(statusCode int, headers http.Header, body []byte) *HTTPError {
-	if ex := parseHTTPException(string(body), headers.Get(exceptionCodeHeader)); ex != nil {
+	if ex := parseHTTPException(string(body), headers.Get(exceptionCodeHeader), headers.Get(exceptionNameHeader)); ex != nil {
 		return &HTTPError{StatusCode: statusCode, Err: ex}
 	}
 	return &HTTPError{StatusCode: statusCode, Err: fmt.Errorf("response body: %q", string(body))}
@@ -76,13 +90,15 @@ func newHTTPError(statusCode int, headers http.Header, body []byte) *HTTPError {
 //
 // into an Exception, mirroring the native protocol semantics: Name is the
 // exception class ("DB::Exception", "DB::NetException", ...) and Message is
-// the text that follows it. StackTrace and Nested stay empty — the HTTP
-// transport does not provide them. headerCode (the X-ClickHouse-Exception-Code
-// value, may be empty) takes precedence over the code found in the text.
+// the text that follows it. CodeName is the symbolic error name
+// ("UNKNOWN_TABLE"), recovered best-effort from the text. StackTrace and
+// Nested stay empty — the HTTP transport does not provide them. headerCode
+// and headerName (the X-ClickHouse-Exception-* values, may be empty) take
+// precedence over what is found in the text.
 //
 // Returns nil when the text does not look like a server exception, i.e. no
 // error code is available from either source.
-func parseHTTPException(text, headerCode string) *Exception {
+func parseHTTPException(text, headerCode, headerName string) *Exception {
 	msg := strings.TrimSpace(text)
 
 	// Error codes are strictly positive; 0 means OK and anything non-positive
@@ -119,14 +135,24 @@ func parseHTTPException(text, headerCode string) *Exception {
 		}
 	}
 
-	return &Exception{Code: int32(code), Name: name, Message: msg}
+	// The symbolic error name, e.g. "(UNKNOWN_TABLE)". Best-effort: a message
+	// whose text happens to end with a parenthesized ALL_CAPS token can
+	// mislabel, which is why callers should branch on Code, not CodeName.
+	var codeName string
+	if exceptionCodeNameValueRe.MatchString(headerName) {
+		codeName = headerName
+	} else if ms := exceptionCodeNameRe.FindAllStringSubmatch(msg, -1); ms != nil {
+		codeName = ms[len(ms)-1][1]
+	}
+
+	return &Exception{Code: int32(code), Name: name, CodeName: codeName, Message: msg}
 }
 
 // midStreamException converts exception text extracted from a mid-stream
 // "__exception__" block into a typed *Exception, falling back to a plain
 // error when the text does not parse as a server exception.
 func midStreamException(errorMsg string) error {
-	if ex := parseHTTPException(errorMsg, ""); ex != nil {
+	if ex := parseHTTPException(errorMsg, "", ""); ex != nil {
 		return ex
 	}
 	return fmt.Errorf("ClickHouse exception: %s", errorMsg)

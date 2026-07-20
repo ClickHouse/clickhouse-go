@@ -26,8 +26,9 @@ func ExampleHTTPError() {
 
 	var chErr *clickhouse.Exception
 	if errors.As(err, &chErr) {
-		// works on the native protocol too
-		fmt.Println(chErr.Code, chErr.Name, chErr.Message)
+		// works on the native protocol too; CodeName (e.g. "UNKNOWN_TABLE")
+		// is best-effort and currently only set over HTTP
+		fmt.Println(chErr.Code, chErr.CodeName, chErr.Message)
 	}
 
 	var httpErr *clickhouse.HTTPError

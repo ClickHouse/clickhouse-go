@@ -9,22 +9,25 @@ import (
 // with a non-positive code.
 
 func FuzzParseHTTPException(f *testing.F) {
-	f.Add("Code: 60. DB::Exception: Unknown table 'foo'. (UNKNOWN_TABLE) (version 25.1.5.31 (official build))", "")
-	f.Add("Code: 62. DB::Exception: Syntax error:\nmultiline. (SYNTAX_ERROR)", "62")
-	f.Add("<html><body>502 Bad Gateway</body></html>", "")
-	f.Add("", "60")
-	f.Add("Code: 0. DB::Exception: zero", "0")
-	f.Add("Code: 999999999999999999999. DB::Exception: overflow", "-1")
-	f.Add("Code: 210. DB::NetException: Connection refused", "abc")
-	f.Add("Code: 60.", "")
+	f.Add("Code: 60. DB::Exception: Unknown table 'foo'. (UNKNOWN_TABLE) (version 25.1.5.31 (official build))", "", "")
+	f.Add("Code: 62. DB::Exception: Syntax error:\nmultiline. (SYNTAX_ERROR)", "62", "SYNTAX_ERROR")
+	f.Add("<html><body>502 Bad Gateway</body></html>", "", "")
+	f.Add("", "60", "UNKNOWN_TABLE")
+	f.Add("Code: 0. DB::Exception: zero", "0", "not-a-symbol")
+	f.Add("Code: 999999999999999999999. DB::Exception: overflow", "-1", "")
+	f.Add("Code: 210. DB::NetException: Connection refused", "abc", "a b")
+	f.Add("Code: 60.", "", "X")
 
-	f.Fuzz(func(t *testing.T, text, headerCode string) {
-		ex := parseHTTPException(text, headerCode)
+	f.Fuzz(func(t *testing.T, text, headerCode, headerName string) {
+		ex := parseHTTPException(text, headerCode, headerName)
 		if ex == nil {
 			return
 		}
 		if ex.Code <= 0 {
 			t.Errorf("parsed exception with non-positive code %d from text=%q header=%q", ex.Code, text, headerCode)
+		}
+		if ex.CodeName != "" && !exceptionCodeNameValueRe.MatchString(ex.CodeName) {
+			t.Errorf("parsed exception with malformed CodeName %q from text=%q headerName=%q", ex.CodeName, text, headerName)
 		}
 		if ex.Error() == "" {
 			t.Errorf("parsed exception with empty Error() from text=%q header=%q", text, headerCode)

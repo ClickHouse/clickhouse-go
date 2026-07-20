@@ -10,55 +10,63 @@ import (
 
 func TestParseHTTPException(t *testing.T) {
 	tests := []struct {
-		name        string
-		text        string
-		headerCode  string
-		wantNil     bool
-		wantCode    int32
-		wantName    string
-		wantMessage string
+		name         string
+		text         string
+		headerCode   string
+		headerName   string
+		wantNil      bool
+		wantCode     int32
+		wantName     string
+		wantMessage  string
+		wantCodeName string
 	}{
 		{
-			name:        "full format with symbol and version",
-			text:        "Code: 60. DB::Exception: Unknown table expression identifier 'non_existent_table' in scope SELECT * FROM non_existent_table. (UNKNOWN_TABLE) (version 25.1.5.31 (official build))",
-			wantCode:    60,
-			wantName:    "DB::Exception",
-			wantMessage: "Unknown table expression identifier 'non_existent_table' in scope SELECT * FROM non_existent_table. (UNKNOWN_TABLE) (version 25.1.5.31 (official build))",
+			name:         "full format with symbol and version",
+			text:         "Code: 60. DB::Exception: Unknown table expression identifier 'non_existent_table' in scope SELECT * FROM non_existent_table. (UNKNOWN_TABLE) (version 25.1.5.31 (official build))",
+			wantCode:     60,
+			wantName:     "DB::Exception",
+			wantMessage:  "Unknown table expression identifier 'non_existent_table' in scope SELECT * FROM non_existent_table. (UNKNOWN_TABLE) (version 25.1.5.31 (official build))",
+			wantCodeName: "UNKNOWN_TABLE",
 		},
 		{
-			name:        "trailing newline",
-			text:        "Code: 81. DB::Exception: Database foo does not exist. (UNKNOWN_DATABASE)\n",
-			wantCode:    81,
-			wantName:    "DB::Exception",
-			wantMessage: "Database foo does not exist. (UNKNOWN_DATABASE)",
+			name:         "trailing newline",
+			text:         "Code: 81. DB::Exception: Database foo does not exist. (UNKNOWN_DATABASE)\n",
+			wantCode:     81,
+			wantName:     "DB::Exception",
+			wantMessage:  "Database foo does not exist. (UNKNOWN_DATABASE)",
+			wantCodeName: "UNKNOWN_DATABASE",
 		},
 		{
-			name:        "multiline message preserved",
-			text:        "Code: 62. DB::Exception: Syntax error: failed at position 1\nExpected one of: SELECT, INSERT. (SYNTAX_ERROR)",
-			wantCode:    62,
-			wantName:    "DB::Exception",
-			wantMessage: "Syntax error: failed at position 1\nExpected one of: SELECT, INSERT. (SYNTAX_ERROR)",
+			name:         "multiline message preserved",
+			text:         "Code: 62. DB::Exception: Syntax error: failed at position 1\nExpected one of: SELECT, INSERT. (SYNTAX_ERROR)",
+			wantCode:     62,
+			wantName:     "DB::Exception",
+			wantMessage:  "Syntax error: failed at position 1\nExpected one of: SELECT, INSERT. (SYNTAX_ERROR)",
+			wantCodeName: "SYNTAX_ERROR",
 		},
 		{
-			name:        "missing version suffix",
-			text:        "Code: 241. DB::Exception: Memory limit (total) exceeded. (MEMORY_LIMIT_EXCEEDED)",
-			wantCode:    241,
-			wantName:    "DB::Exception",
-			wantMessage: "Memory limit (total) exceeded. (MEMORY_LIMIT_EXCEEDED)",
+			name:         "missing version suffix",
+			text:         "Code: 241. DB::Exception: Memory limit (total) exceeded. (MEMORY_LIMIT_EXCEEDED)",
+			wantCode:     241,
+			wantName:     "DB::Exception",
+			wantMessage:  "Memory limit (total) exceeded. (MEMORY_LIMIT_EXCEEDED)",
+			wantCodeName: "MEMORY_LIMIT_EXCEEDED",
 		},
 		{
-			name:        "net exception class",
-			text:        "Code: 210. DB::NetException: Connection refused (localhost:9000). (NETWORK_ERROR)",
-			wantCode:    210,
-			wantName:    "DB::NetException",
-			wantMessage: "Connection refused (localhost:9000). (NETWORK_ERROR)",
+			name:         "net exception class",
+			text:         "Code: 210. DB::NetException: Connection refused (localhost:9000). (NETWORK_ERROR)",
+			wantCode:     210,
+			wantName:     "DB::NetException",
+			wantMessage:  "Connection refused (localhost:9000). (NETWORK_ERROR)",
+			wantCodeName: "NETWORK_ERROR",
 		},
 		{
-			name:        "no class prefix keeps colon in message",
-			text:        "Code: 159. Timeout exceeded: elapsed 5.1 seconds. (TIMEOUT_EXCEEDED)",
-			wantCode:    159,
-			wantName:    "",
-			wantMessage: "Timeout exceeded: elapsed 5.1 seconds. (TIMEOUT_EXCEEDED)",
+			name:         "no class prefix keeps colon in message",
+			text:         "Code: 159. Timeout exceeded: elapsed 5.1 seconds. (TIMEOUT_EXCEEDED)",
+			wantCode:     159,
+			wantName:     "",
+			wantMessage:  "Timeout exceeded: elapsed 5.1 seconds. (TIMEOUT_EXCEEDED)",
+			wantCodeName: "TIMEOUT_EXCEEDED",
 		},
 		{
 			name:        "header code only, body not exception-shaped",
@@ -69,12 +77,13 @@ func TestParseHTTPException(t *testing.T) {
 			wantMessage: "some proxy mangled body",
 		},
 		{
-			name:        "header code overrides body code",
-			text:        "Code: 60. DB::Exception: Unknown table. (UNKNOWN_TABLE)",
-			headerCode:  "999",
-			wantCode:    999,
-			wantName:    "DB::Exception",
-			wantMessage: "Unknown table. (UNKNOWN_TABLE)",
+			name:         "header code overrides body code",
+			text:         "Code: 60. DB::Exception: Unknown table. (UNKNOWN_TABLE)",
+			headerCode:   "999",
+			wantCode:     999,
+			wantName:     "DB::Exception",
+			wantMessage:  "Unknown table. (UNKNOWN_TABLE)",
+			wantCodeName: "UNKNOWN_TABLE",
 		},
 		{
 			name:    "no code anywhere returns nil",
@@ -123,11 +132,45 @@ func TestParseHTTPException(t *testing.T) {
 			// The bogus "Code: 0." prefix is not stripped — it is not a code.
 			wantMessage: "Code: 0. some text",
 		},
+		{
+			name:         "header name wins over body symbol",
+			text:         "Code: 60. DB::Exception: Unknown table. (UNKNOWN_TABLE)",
+			headerName:   "UNKNOWN_TABLE_FROM_HEADER",
+			wantCode:     60,
+			wantName:     "DB::Exception",
+			wantMessage:  "Unknown table. (UNKNOWN_TABLE)",
+			wantCodeName: "UNKNOWN_TABLE_FROM_HEADER",
+		},
+		{
+			name:         "invalid header name falls back to body symbol",
+			text:         "Code: 60. DB::Exception: Unknown table. (UNKNOWN_TABLE)",
+			headerName:   "not-a-symbol",
+			wantCode:     60,
+			wantName:     "DB::Exception",
+			wantMessage:  "Unknown table. (UNKNOWN_TABLE)",
+			wantCodeName: "UNKNOWN_TABLE",
+		},
+		{
+			name:         "multiple all-caps tokens, last wins",
+			text:         "Code: 47. DB::Exception: Unknown identifier 'FOO_BAR' in scope. (UNKNOWN_IDENTIFIER)",
+			wantCode:     47,
+			wantName:     "DB::Exception",
+			wantMessage:  "Unknown identifier 'FOO_BAR' in scope. (UNKNOWN_IDENTIFIER)",
+			wantCodeName: "UNKNOWN_IDENTIFIER",
+		},
+		{
+			name:         "no symbol in text leaves CodeName empty",
+			text:         "Code: 60. DB::Exception: no symbol here",
+			wantCode:     60,
+			wantName:     "DB::Exception",
+			wantMessage:  "no symbol here",
+			wantCodeName: "",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ex := parseHTTPException(tt.text, tt.headerCode)
+			ex := parseHTTPException(tt.text, tt.headerCode, tt.headerName)
 
 			if tt.wantNil {
 				if ex != nil {
@@ -146,6 +189,9 @@ func TestParseHTTPException(t *testing.T) {
 			}
 			if ex.Message != tt.wantMessage {
 				t.Errorf("Message: expected %q, got %q", tt.wantMessage, ex.Message)
+			}
+			if ex.CodeName != tt.wantCodeName {
+				t.Errorf("CodeName: expected %q, got %q", tt.wantCodeName, ex.CodeName)
 			}
 			if ex.StackTrace != "" || len(ex.Nested) != 0 {
 				t.Errorf("StackTrace/Nested should stay empty on HTTP, got %+v", ex)
@@ -227,7 +273,7 @@ func TestMidStreamException(t *testing.T) {
 		if !errors.As(err, &ex) {
 			t.Fatal("expected errors.As to find *Exception")
 		}
-		if ex.Code != 395 || ex.Name != "DB::Exception" {
+		if ex.Code != 395 || ex.Name != "DB::Exception" || ex.CodeName != "FUNCTION_THROW_IF_VALUE_IS_NON_ZERO" {
 			t.Errorf("unexpected exception: %+v", ex)
 		}
 		var httpErr *HTTPError

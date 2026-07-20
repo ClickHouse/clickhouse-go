@@ -8,8 +8,12 @@ import (
 )
 
 type Exception struct {
-	Code       int32
-	Name       string
+	Code int32
+	Name string
+	// CodeName is the symbolic name for Code, e.g. "UNKNOWN_TABLE".
+	// It is best-effort and may be empty. Currently only set over HTTP.
+	// Use Code for branching.
+	CodeName   string
 	Message    string
 	StackTrace string
 	Nested     []Exception

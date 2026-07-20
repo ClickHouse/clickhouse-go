@@ -540,7 +540,7 @@ func parseExceptionFromBytes(data []byte) error {
 				msg = strings.Join(lines[:len(lines)-1], "\n")
 			}
 		}
-		if ex := parseHTTPException(msg, ""); ex != nil {
+		if ex := parseHTTPException(msg, "", ""); ex != nil {
 			return ex
 		}
 	}
@@ -759,7 +759,7 @@ func (h *httpConnect) executeRequest(req *http.Request) (*http.Response, error) 
 			// Body is unreadable (e.g. a plain-text error body on a connection
 			// whose reader expects native compression). The exception code
 			// header can still yield a typed *Exception, with a degraded message.
-			if ex := parseHTTPException("", resp.Header.Get(exceptionCodeHeader)); ex != nil {
+			if ex := parseHTTPException("", resp.Header.Get(exceptionCodeHeader), resp.Header.Get(exceptionNameHeader)); ex != nil {
 				ex.Message = fmt.Sprintf("failed to read response body: %v", err)
 				return nil, &HTTPError{StatusCode: resp.StatusCode, Err: ex}
 			}
