@@ -86,111 +86,112 @@ func verifyFormatTestTable(t *testing.T, conn driver.Conn, table string) {
 	require.Equal(t, len(formatTestRows), i)
 }
 
-// TestFormatRoundTrip streams a table out in each format and feeds
-// the bytes back into a second table, on both protocols. Over HTTP the server
-// does both conversions; over TCP the client-side codecs do.
+// TestFormatRoundTrip streams a table out in each format over HTTP and feeds
+// the bytes back into a second table. The server does both conversions.
 func TestFormatRoundTrip(t *testing.T) {
-	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
-		for _, format := range []string{"CSV", "JSONEachRow", "Parquet", "ArrowStream"} {
-			t.Run(format, func(t *testing.T) {
-				conn, err := GetNativeConnection(t, protocol, nil, nil, nil)
-				require.NoError(t, err)
-				ctx := context.Background()
+	for _, format := range []string{"CSV", "JSONEachRow", "Parquet", "ArrowStream"} {
+		t.Run(format, func(t *testing.T) {
+			conn, err := GetNativeConnection(t, clickhouse.HTTP, nil, nil, nil)
+			require.NoError(t, err)
+			ctx := context.Background()
 
-				source := createFormatTestTable(t, conn, true)
-				dest := createFormatTestTable(t, conn, false)
+			source := createFormatTestTable(t, conn, true)
+			dest := createFormatTestTable(t, conn, false)
 
-				stream, err := conn.QueryFormat(ctx, format,
-					fmt.Sprintf("SELECT id, name, score, ok, created_at, comment FROM %s ORDER BY id", source))
-				require.NoError(t, err)
-				payload, err := io.ReadAll(stream)
-				require.NoError(t, err)
-				require.NoError(t, stream.Close())
-				require.NotEmpty(t, payload)
+			stream, err := conn.QueryFormat(ctx, format,
+				fmt.Sprintf("SELECT id, name, score, ok, created_at, comment FROM %s ORDER BY id", source))
+			require.NoError(t, err)
+			payload, err := io.ReadAll(stream)
+			require.NoError(t, err)
+			require.NoError(t, stream.Close())
+			require.NotEmpty(t, payload)
 
-				require.NoError(t, conn.InsertFormat(ctx, format,
-					fmt.Sprintf("INSERT INTO %s", dest), bytes.NewReader(payload)))
-				verifyFormatTestTable(t, conn, dest)
-			})
-		}
-	})
+			require.NoError(t, conn.InsertFormat(ctx, format,
+				fmt.Sprintf("INSERT INTO %s", dest), bytes.NewReader(payload)))
+			verifyFormatTestTable(t, conn, dest)
+		})
+	}
 }
 
-// TestFormatCSVContent pins the CSV bytes: server-rendered over HTTP
-// and client-rendered over TCP must agree for fidelity-safe types.
+// TestFormatCSVContent pins the exact server-rendered CSV bytes.
 func TestFormatCSVContent(t *testing.T) {
 	expected := "1,\"alice\",3.5,true,\"2026-07-06 10:30:00\",\"first\"\n" +
 		"2,\"bob\",-0.25,false,\"2026-01-01 00:00:00\",\\N\n" +
 		"3,\"carol, \"\"quoted\"\"\",100,true,\"2026-07-06 23:59:59\",\"\\N looks like null\"\n"
-	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
-		conn, err := GetNativeConnection(t, protocol, nil, nil, nil)
-		require.NoError(t, err)
-		table := createFormatTestTable(t, conn, true)
 
-		stream, err := conn.QueryFormat(context.Background(), "CSV",
-			fmt.Sprintf("SELECT id, name, score, ok, created_at, comment FROM %s ORDER BY id", table))
-		require.NoError(t, err)
-		defer stream.Close()
-		payload, err := io.ReadAll(stream)
-		require.NoError(t, err)
+	conn, err := GetNativeConnection(t, clickhouse.HTTP, nil, nil, nil)
+	require.NoError(t, err)
+	table := createFormatTestTable(t, conn, true)
 
-		// encoding/csv only quotes when needed; ClickHouse quotes all strings.
-		// Compare semantically: strip quotes that wrap plain fields.
-		normalize := func(s string) string {
-			return strings.ReplaceAll(s, "\"", "")
-		}
-		assert.Equal(t, normalize(expected), normalize(string(payload)))
-	})
+	stream, err := conn.QueryFormat(context.Background(), "CSV",
+		fmt.Sprintf("SELECT id, name, score, ok, created_at, comment FROM %s ORDER BY id", table))
+	require.NoError(t, err)
+	defer stream.Close()
+	payload, err := io.ReadAll(stream)
+	require.NoError(t, err)
+	assert.Equal(t, expected, string(payload))
 }
 
-// TestFormatInsertStripsFormatClause proves the format argument wins
-// over a FORMAT clause embedded in the INSERT statement.
+// TestFormatInsertStripsFormatClause proves the format argument wins over a
+// FORMAT clause embedded in the INSERT statement.
 func TestFormatInsertStripsFormatClause(t *testing.T) {
-	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
-		conn, err := GetNativeConnection(t, protocol, nil, nil, nil)
-		require.NoError(t, err)
-		table := createFormatTestTable(t, conn, false)
+	conn, err := GetNativeConnection(t, clickhouse.HTTP, nil, nil, nil)
+	require.NoError(t, err)
+	table := createFormatTestTable(t, conn, false)
 
-		payload := `{"id":1,"name":"alice","score":3.5,"ok":true,"created_at":"2026-07-06 10:30:00","comment":"first"}
+	payload := `{"id":1,"name":"alice","score":3.5,"ok":true,"created_at":"2026-07-06 10:30:00","comment":"first"}
 {"id":2,"name":"bob","score":-0.25,"ok":false,"created_at":"2026-01-01 00:00:00","comment":null}
 {"id":3,"name":"carol, \"quoted\"","score":100,"ok":true,"created_at":"2026-07-06 23:59:59","comment":"\\N looks like null"}
 `
-		require.NoError(t, conn.InsertFormat(context.Background(), "JSONEachRow",
-			fmt.Sprintf("INSERT INTO %s FORMAT CSV", table), strings.NewReader(payload)))
-		verifyFormatTestTable(t, conn, table)
-	})
+	require.NoError(t, conn.InsertFormat(context.Background(), "JSONEachRow",
+		fmt.Sprintf("INSERT INTO %s FORMAT CSV", table), strings.NewReader(payload)))
+	verifyFormatTestTable(t, conn, table)
 }
 
-// TestFormatUnregisteredTCP verifies the actionable error for a
-// format with no client-side codec over the native protocol.
-func TestFormatUnregisteredTCP(t *testing.T) {
+// TestFormatNativeProtocolUnsupported verifies the sentinel error over the
+// native protocol and that the pool stays healthy after the rejected calls.
+func TestFormatNativeProtocolUnsupported(t *testing.T) {
 	conn, err := GetNativeConnection(t, clickhouse.Native, nil, nil, nil)
 	require.NoError(t, err)
+	ctx := context.Background()
 
-	_, err = conn.QueryFormat(context.Background(), "ORC", "SELECT 1")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "Options.FormatCodecs")
-	assert.Contains(t, err.Error(), "HTTP")
+	_, err = conn.QueryFormat(ctx, "CSV", "SELECT 1")
+	require.ErrorIs(t, err, clickhouse.ErrFormatNativeUnsupported)
 
-	err = conn.InsertFormat(context.Background(), "ORC", "INSERT INTO t", strings.NewReader(""))
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "Options.FormatCodecs")
+	err = conn.InsertFormat(ctx, "CSV", "INSERT INTO t", strings.NewReader(""))
+	require.ErrorIs(t, err, clickhouse.ErrFormatNativeUnsupported)
 
-	// The pool must stay healthy after the rejected calls.
-	require.NoError(t, conn.Exec(context.Background(), "SELECT 1"))
+	require.NoError(t, conn.Exec(ctx, "SELECT 1"))
 }
 
-// TestFormatMultiBlockInsertTCP pushes more rows than one native
-// block holds, forcing the decoder loop to emit multiple blocks.
-func TestFormatMultiBlockInsertTCP(t *testing.T) {
-	conn, err := GetNativeConnection(t, clickhouse.Native, nil, nil, nil)
+// TestFormatInvalidFormatName verifies format names are validated before
+// being interpolated into the query text.
+func TestFormatInvalidFormatName(t *testing.T) {
+	conn, err := GetNativeConnection(t, clickhouse.HTTP, nil, nil, nil)
+	require.NoError(t, err)
+	ctx := context.Background()
+
+	for _, format := range []string{"", "CSV; DROP TABLE x", "CSV WithNames", "1CSV", "CSV\n"} {
+		_, err = conn.QueryFormat(ctx, format, "SELECT 1")
+		require.Error(t, err, "format %q must be rejected", format)
+		assert.Contains(t, err.Error(), "invalid format name")
+
+		err = conn.InsertFormat(ctx, format, "INSERT INTO t", strings.NewReader(""))
+		require.Error(t, err, "format %q must be rejected", format)
+		assert.Contains(t, err.Error(), "invalid format name")
+	}
+}
+
+// TestFormatLargeInsert streams a payload much larger than one HTTP buffer.
+func TestFormatLargeInsert(t *testing.T) {
+	conn, err := GetNativeConnection(t, clickhouse.HTTP, nil, nil, nil)
 	require.NoError(t, err)
 	ctx := context.Background()
 	table := fmt.Sprintf("test_format_%s", RandAsciiString(8))
 	require.NoError(t, conn.Exec(ctx, fmt.Sprintf("CREATE TABLE %s (id Int64, name String) Engine MergeTree() ORDER BY id", table)))
 	t.Cleanup(func() { conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", table)) })
 
-	const rows = 70_000 // > 65,409, the max rows per block
+	const rows = 100_000
 	var payload strings.Builder
 	for i := 0; i < rows; i++ {
 		fmt.Fprintf(&payload, "%d,row-%d\n", i, i)
@@ -203,10 +204,10 @@ func TestFormatMultiBlockInsertTCP(t *testing.T) {
 	assert.Equal(t, uint64(rows), count)
 }
 
-// TestFormatMalformedInsertTCP verifies a row-numbered decode error
-// and that the connection pool stays usable after the aborted insert.
-func TestFormatMalformedInsertTCP(t *testing.T) {
-	conn, err := GetNativeConnection(t, clickhouse.Native, nil, nil, nil)
+// TestFormatMalformedInsert verifies the server's parse error surfaces and
+// the pool stays usable after the failed insert.
+func TestFormatMalformedInsert(t *testing.T) {
+	conn, err := GetNativeConnection(t, clickhouse.HTTP, nil, nil, nil)
 	require.NoError(t, err)
 	ctx := context.Background()
 	table := fmt.Sprintf("test_format_%s", RandAsciiString(8))
@@ -216,16 +217,13 @@ func TestFormatMalformedInsertTCP(t *testing.T) {
 	err = conn.InsertFormat(ctx, "CSV",
 		fmt.Sprintf("INSERT INTO %s", table), strings.NewReader("1,alice\nnot-a-number,bob\n"))
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "row 2")
-	assert.Contains(t, err.Error(), "id")
 
 	require.NoError(t, conn.Exec(ctx, "SELECT 1"))
 }
 
-// TestFormatMidStreamExceptionHTTP forces a server exception after
-// streaming has begun; the reader must surface it as an error after any
-// partial data.
-func TestFormatMidStreamExceptionHTTP(t *testing.T) {
+// TestFormatMidStreamException forces a server exception after streaming has
+// begun; the reader must surface it as an error after any partial data.
+func TestFormatMidStreamException(t *testing.T) {
 	conn, err := GetNativeConnection(t, clickhouse.HTTP, nil, nil, nil)
 	require.NoError(t, err)
 
@@ -247,10 +245,10 @@ func TestFormatMidStreamExceptionHTTP(t *testing.T) {
 	assert.Contains(t, err.Error(), "there is an exception")
 }
 
-// TestFormatCancellationTCP cancels the context mid-read; the reader
-// must unblock with an error and the pool must recover.
-func TestFormatCancellationTCP(t *testing.T) {
-	conn, err := GetNativeConnection(t, clickhouse.Native, nil, nil, nil)
+// TestFormatCancellation cancels the context mid-read; the reader must
+// unblock with an error and the pool must recover.
+func TestFormatCancellation(t *testing.T) {
+	conn, err := GetNativeConnection(t, clickhouse.HTTP, nil, nil, nil)
 	require.NoError(t, err)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -266,12 +264,14 @@ func TestFormatCancellationTCP(t *testing.T) {
 	_, err = io.Copy(io.Discard, stream)
 	require.Error(t, err)
 
+	// The stream holds its connection until closed - only then must the pool
+	// be usable again.
+	require.NoError(t, stream.Close())
 	require.NoError(t, conn.Exec(context.Background(), "SELECT 1"))
 }
 
-// TestFormatCompressionHTTP exercises the gzip transport path in
-// both directions.
-func TestFormatCompressionHTTP(t *testing.T) {
+// TestFormatCompression exercises the gzip transport path in both directions.
+func TestFormatCompression(t *testing.T) {
 	conn, err := GetNativeConnection(t, clickhouse.HTTP, nil, nil, &clickhouse.Compression{Method: clickhouse.CompressionGZIP})
 	require.NoError(t, err)
 	ctx := context.Background()
@@ -289,29 +289,4 @@ func TestFormatCompressionHTTP(t *testing.T) {
 	require.NoError(t, conn.InsertFormat(ctx, "JSONEachRow",
 		fmt.Sprintf("INSERT INTO %s", dest), bytes.NewReader(payload)))
 	verifyFormatTestTable(t, conn, dest)
-}
-
-// TestFormatCrossProtocolParquet proves client-encoded Parquet is
-// accepted by the server: bytes produced by the TCP codec are uploaded over
-// HTTP, where the server parses them.
-func TestFormatCrossProtocolParquet(t *testing.T) {
-	tcpConn, err := GetNativeConnection(t, clickhouse.Native, nil, nil, nil)
-	require.NoError(t, err)
-	httpConn, err := GetNativeConnection(t, clickhouse.HTTP, nil, nil, nil)
-	require.NoError(t, err)
-	ctx := context.Background()
-
-	source := createFormatTestTable(t, tcpConn, true)
-	dest := createFormatTestTable(t, tcpConn, false)
-
-	stream, err := tcpConn.QueryFormat(ctx, "Parquet",
-		fmt.Sprintf("SELECT id, name, score, ok, created_at, comment FROM %s ORDER BY id", source))
-	require.NoError(t, err)
-	payload, err := io.ReadAll(stream)
-	require.NoError(t, err)
-	require.NoError(t, stream.Close())
-
-	require.NoError(t, httpConn.InsertFormat(ctx, "Parquet",
-		fmt.Sprintf("INSERT INTO %s", dest), bytes.NewReader(payload)))
-	verifyFormatTestTable(t, tcpConn, dest)
 }

@@ -1,5 +1,30 @@
 # Arbitrary Input/Output Format Support in clickhouse-go — Prototype Plan
 
+## Release scoping (v1, decided 2026-07-07)
+
+The first release ships **HTTP-only** and **experimental**:
+
+- `QueryFormat` / `InsertFormat` work over HTTP, where the server converts
+  every format. Over the native protocol both return the sentinel
+  `ErrFormatNativeUnsupported`.
+- Both methods carry an `Experimental:` doc notice — they may change or be
+  removed in a minor release.
+- The client-side codec layer (`lib/format`, `Options.FormatCodecs`, the
+  CSV/JSONEachRow/Parquet/ArrowStream codecs and the arrow-go dependency) is
+  **removed** from this release. It lives in git history (up to commit
+  `91349617`) and validated the codec interface design.
+- Format names are validated (`^[A-Za-z][A-Za-z0-9]*$`) before being
+  interpolated into `INSERT ... FORMAT <name>` or `default_format`.
+
+Rationale: HTTP passthrough delivers all ~70 server formats (including
+Parquet, the customer-driven priority) with no format-fidelity risk and no
+heavy dependencies. For the native protocol, the longer-term direction under
+discussion is **server-side formatting over TCP** (a protocol addition
+mirroring what HTTP already does), which would make client-side codecs
+unnecessary; the `io.ReadCloser`-based API absorbs that with no public API
+change. The sections below describe the full prototype including the
+client-side codec design, kept for that discussion.
+
 ## Context
 
 clickhouse-go today hardcodes the Native wire format everywhere:

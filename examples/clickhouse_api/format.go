@@ -14,7 +14,7 @@ import (
 // back out as CSV with QueryFormat. Any io.Reader works as the insert source:
 // a file, an HTTP body, or, as here, an in-memory string.
 func FormatCSV() error {
-	conn, err := GetNativeConnection(nil, nil, nil)
+	conn, err := GetHTTPConnection("format-csv", nil, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -56,7 +56,7 @@ func FormatCSV() error {
 // incrementally with encoding/json - no Rows, no Scan, and without buffering
 // the whole result in memory.
 func FormatJSONEachRow() error {
-	conn, err := GetNativeConnection(nil, nil, nil)
+	conn, err := GetHTTPConnection("format-jsoneachrow", nil, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -113,10 +113,10 @@ func FormatJSONEachRow() error {
 
 // FormatParquet exports a query result to a .parquet file and imports a
 // .parquet file into a table - the two halves of a typical data-lake
-// exchange. Over HTTP the server produces and parses the Parquet bytes; over
-// the native protocol the built-in client-side codec does.
+// exchange. The server produces and parses the Parquet bytes; the client
+// streams them. QueryFormat/InsertFormat require the HTTP protocol.
 func FormatParquet() error {
-	conn, err := GetNativeConnection(nil, nil, nil)
+	conn, err := GetHTTPConnection("format-parquet", nil, nil, nil)
 	if err != nil {
 		return err
 	}
