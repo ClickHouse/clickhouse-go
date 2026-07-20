@@ -2,14 +2,35 @@ package clickhouse
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log/slog"
+	"regexp"
 )
 
-// QueryFormat executes query and returns the result encoded in the
-// given ClickHouse format as a raw byte stream. See driver.Conn for the full
+// formatNameMatch validates a ClickHouse format name. The name is inserted
+// into the query text (INSERT ... FORMAT <name>), so anything beyond a plain
+// identifier is rejected before it can reach the server as SQL.
+var formatNameMatch = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9]*$`)
+
+func validateFormatName(format string) error {
+	if !formatNameMatch.MatchString(format) {
+		return fmt.Errorf("clickhouse: invalid format name %q: must be a plain identifier such as CSV, JSONEachRow or Parquet", format)
+	}
+	return nil
+}
+
+// QueryFormat executes query and returns the result encoded in the given
+// ClickHouse format as a raw byte stream. See driver.Conn for the full
 // contract.
+//
+// Experimental: this API is experimental and may change or be removed in a
+// future minor release. It is currently only supported over the HTTP
+// protocol; over the native protocol it returns ErrFormatNativeUnsupported.
 func (ch *clickhouse) QueryFormat(ctx context.Context, format string, query string, args ...any) (io.ReadCloser, error) {
+	if err := validateFormatName(format); err != nil {
+		return nil, err
+	}
 	conn, err := ch.acquire(ctx)
 	if err != nil {
 		return nil, err
@@ -19,9 +40,16 @@ func (ch *clickhouse) QueryFormat(ctx context.Context, format string, query stri
 }
 
 // InsertFormat executes the INSERT statement query, streaming data
-// (pre-encoded in the given format) as the insert payload. See driver.Conn for
-// the full contract.
+// (pre-encoded in the given format) as the insert payload. See driver.Conn
+// for the full contract.
+//
+// Experimental: this API is experimental and may change or be removed in a
+// future minor release. It is currently only supported over the HTTP
+// protocol; over the native protocol it returns ErrFormatNativeUnsupported.
 func (ch *clickhouse) InsertFormat(ctx context.Context, format string, query string, data io.Reader) error {
+	if err := validateFormatName(format); err != nil {
+		return err
+	}
 	conn, err := ch.acquire(ctx)
 	if err != nil {
 		return err

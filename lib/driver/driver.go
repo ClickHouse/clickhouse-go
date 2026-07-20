@@ -48,9 +48,11 @@ type (
 		// holds a connection (visible in Stats). Put the format in the format
 		// argument, not as a FORMAT clause in the query.
 		//
-		// Over the HTTP protocol the server encodes the stream, so every
-		// server-supported format works. Over the native protocol the client
-		// encodes it, which requires a codec registered via Options.FormatCodecs.
+		// Experimental: this API is experimental and may change or be removed
+		// in a future minor release. It is currently only supported over the
+		// HTTP protocol, where the server encodes the stream and every
+		// server-supported format works; over the native protocol it returns
+		// clickhouse.ErrFormatNativeUnsupported.
 		QueryFormat(ctx context.Context, format string, query string, args ...any) (io.ReadCloser, error)
 
 		// InsertFormat executes the INSERT statement query, streaming
@@ -59,9 +61,11 @@ type (
 		// authoritative. It returns once the server has committed or rejected the
 		// insert.
 		//
-		// Over the HTTP protocol the server parses the payload, so every
-		// server-supported format works. Over the native protocol the client
-		// parses it, which requires a codec registered via Options.FormatCodecs.
+		// Experimental: this API is experimental and may change or be removed
+		// in a future minor release. It is currently only supported over the
+		// HTTP protocol, where the server parses the payload and every
+		// server-supported format works; over the native protocol it returns
+		// clickhouse.ErrFormatNativeUnsupported.
 		InsertFormat(ctx context.Context, format string, query string, data io.Reader) error
 
 		// Deprecated: use context aware `WithAsync()` for any async operations
