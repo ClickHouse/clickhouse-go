@@ -1,0 +1,50 @@
+name: 'Verify Docs'
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'docs/**'
+      - '.github/workflows/docs_verify.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs/**'
+      - '.github/workflows/docs_verify.yml'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    name: Mintlify checks
+    # Run inside the docs image so every dependency (git, python3, mint, node)
+    # is present -- nothing is installed, and this repo vendors no scripts.
+    container:
+      image: clickhouse/docs-builder
+    steps:
+      - name: Checkout docs source
+        uses: actions/checkout@v5
+
+      # Fetch the check driver from ClickHouse/ClickHouse rather than vendoring
+      # it. The driver shallow/sparse-clones the aggregator docs plus its CI
+      # scripts (ci/jobs/scripts/docs), so any check scripts come along for free.
+      - name: Fetch the docs check driver
+        run: |
+          curl -fsSL -o /tmp/mintlify_docs_check.py \
+            https://raw.githubusercontent.com/ClickHouse/ClickHouse/master/ci/jobs/scripts/docs/mintlify_docs_check.py
+
+      # The driver clones the aggregator, replaces the Go client folder with this
+      # repo's canonical docs (wiping it first), and
+      # runs the checks from the docs root. --scoped swaps the full site-wide
+      # `mint validate` (~13 min) for a scoped validate of just the replaced
+      # slice (docs.json schema, navigation, MDX parse, snippet imports);
+      # link integrity is still checked site-wide by the lychee check.
+      # It exits non-zero if any check fails, so a green step means all passed.
+      - name: Run Mintlify docs checks
+        run: |
+          python3 /tmp/mintlify_docs_check.py \
+            --repo https://github.com/ClickHouse/ClickHouse.git \
+            --ref master \
+            --replace docs:integrations/language-clients/go \
+            --scoped
