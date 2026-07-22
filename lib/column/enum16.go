@@ -57,6 +57,26 @@ func (col *Enum16) ScanRow(dest any, row int) error {
 	case **string:
 		*d = new(string)
 		**d = col.vi[value]
+	case *int16:
+		*d = int16(value)
+	case **int16:
+		*d = new(int16)
+		**d = int16(value)
+	case *int32:
+		*d = int32(value)
+	case **int32:
+		*d = new(int32)
+		**d = int32(value)
+	case *int64:
+		*d = int64(value)
+	case **int64:
+		*d = new(int64)
+		**d = int64(value)
+	case *int:
+		*d = int(value)
+	case **int:
+		*d = new(int)
+		**d = int(value)
 	default:
 		if scan, ok := dest.(sql.Scanner); ok {
 			return scan.Scan(col.vi[value])
