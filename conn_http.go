@@ -434,6 +434,11 @@ func (h *httpConnect) readData(reader *chproto.Reader, timezone *time.Location, 
 		defer reader.DisableCompression()
 	}
 
+	captureMark := 0
+	if captureBuffer != nil {
+		captureMark = captureBuffer.Len()
+	}
+
 	// Try to decode the block
 	if err := block.Decode(reader, h.revision); err != nil {
 		// Decode failed - check if captured data contains exception marker
@@ -456,6 +461,16 @@ func (h *httpConnect) readData(reader *chproto.Reader, timezone *time.Location, 
 		}
 		if readErr != nil {
 			h.logger.Error("HTTP read data: decode error while parsing exception block", slog.Any("error", err))
+		}
+
+		// A plain io.EOF with nothing read in this call and nothing left to
+		// drain is the normal end of the stream. It must not enter exception
+		// detection: an earlier, successfully decoded block may legitimately
+		// contain the literal "__exception__" marker as user data. A genuine
+		// mid-stream exception breaks block decoding instead, surfacing as a
+		// parse error or io.ErrUnexpectedEOF.
+		if errors.Is(err, io.EOF) && (captureBuffer == nil || captureBuffer.Len() == captureMark) {
+			return nil, err
 		}
 
 		// Check if the captured data contains the exception marker
