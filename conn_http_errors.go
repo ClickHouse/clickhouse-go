@@ -54,10 +54,12 @@ func (e *HTTPError) Unwrap() error { return e.Err }
 // exception text, e.g. "Code: 60. DB::Exception: Unknown table ...".
 var httpExceptionCodeRe = regexp.MustCompile(`^Code:\s*(\d+)\.\s*`)
 
-// exceptionTextStartRe locates the start of exception text inside a
-// mid-stream "__exception__" block; same prefix as httpExceptionCodeRe but
-// unanchored.
-var exceptionTextStartRe = regexp.MustCompile(`Code:\s*\d+\.`)
+// exceptionMarker frames server exception text embedded in a response body.
+const exceptionMarker = "__exception__"
+
+// exceptionTextStartRe locates the start of exception text inside an
+// "__exception__" block; same prefix as httpExceptionCodeRe but unanchored.
+var exceptionTextStartRe = regexp.MustCompile(`Code:\s*(\d+)\.`)
 
 // exceptionTrailerRe matches the "<message_length> <tag>" trailer line that
 // newer servers write between the exception text and the closing
@@ -78,10 +80,70 @@ var exceptionCodeNameValueRe = regexp.MustCompile(`^[A-Z][A-Z0-9_]+$`)
 // does not look like a server exception, it falls back to a plain error
 // preserving the raw body text.
 func newHTTPError(statusCode int, headers http.Header, body []byte) *HTTPError {
-	if ex := parseHTTPException(string(body), headers.Get(exceptionCodeHeader), headers.Get(exceptionNameHeader)); ex != nil {
+	// A failed streaming response (e.g. with buffered or compressed output)
+	// can carry partial result data before the exception — framed in an
+	// "__exception__" block, or appended as bare text. Extract the exception
+	// text so Message is not raw block bytes. In the bare case the anchor is
+	// the code the header vouches for; the exception sits at the end of the
+	// body, hence the last occurrence.
+	text := string(body)
+	if msg, ok := exceptionTextFromBlock(text); ok {
+		text = msg
+	} else if headerCode := headers.Get(exceptionCodeHeader); headerCode != "" {
+		if idx := strings.LastIndex(text, "Code: "+headerCode+"."); idx >= 0 {
+			text = text[idx:]
+		}
+	}
+	if ex := parseHTTPException(text, headers.Get(exceptionCodeHeader), headers.Get(exceptionNameHeader)); ex != nil {
 		return &HTTPError{StatusCode: statusCode, Err: ex}
 	}
 	return &HTTPError{StatusCode: statusCode, Err: fmt.Errorf("response body: %q", string(body))}
+}
+
+// exceptionTextFromBlock extracts server exception text from a body that
+// contains an "__exception__" block. The framing around the text varies
+// across server versions (newer servers put a 16-byte tag before the message
+// and a "<length> <tag>" trailer plus closing marker after it; older servers,
+// e.g. 25.8, write the bare message straight after the marker), so the text
+// is located by its stable "Code: NNN." prefix instead of by offsets.
+func exceptionTextFromBlock(dataStr string) (string, bool) {
+	firstMarker := strings.Index(dataStr, exceptionMarker)
+	if firstMarker < 0 {
+		return "", false
+	}
+	region := dataStr[firstMarker+len(exceptionMarker):]
+	ms := exceptionTextStartRe.FindAllStringSubmatchIndex(region, -1)
+	if ms == nil {
+		return "", false
+	}
+
+	// Anchor on the first "Code: NNN.". Exception text can embed the same
+	// pattern (user strings are echoed into error messages), so a later match
+	// must not move the anchor — unless it restates the same code, which
+	// means the block contains several dumps of one message and the last,
+	// complete one wins.
+	anchor := ms[0]
+	firstCode := region[anchor[2]:anchor[3]]
+	for _, m := range ms[1:] {
+		if region[m[2]:m[3]] == firstCode {
+			anchor = m
+		}
+	}
+
+	msg := region[anchor[0]:]
+	framed := false
+	if end := strings.Index(msg, exceptionMarker); end >= 0 {
+		msg, framed = msg[:end], true
+	}
+	msg = strings.TrimRight(msg, "\r\n")
+	if framed {
+		// Drop the "<message_length> <tag>" trailer line preceding the
+		// closing marker.
+		if lines := strings.Split(msg, "\n"); len(lines) > 1 && exceptionTrailerRe.MatchString(lines[len(lines)-1]) {
+			msg = strings.Join(lines[:len(lines)-1], "\n")
+		}
+	}
+	return msg, true
 }
 
 // parseHTTPException parses server exception text of the form

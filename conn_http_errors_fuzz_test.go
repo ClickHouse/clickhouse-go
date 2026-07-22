@@ -43,6 +43,8 @@ func FuzzParseExceptionFromBytes(f *testing.F) {
 	f.Add([]byte("no marker at all"))
 	f.Add([]byte{})
 	f.Add([]byte("\r\n__exception__\r\n\x00\x01\x02binary\xff\r\n__exception__\r\n"))
+	f.Add([]byte("__exception__\r\nCode: 395. DB::Exception: fake Code: 60. DB::Exception: injected. (X)\n"))
+	f.Add([]byte("__exception__\r\nCode: 395. DB::Exception: truncat\nexception__\nCode: 395. DB::Exception: full. (Y)\n"))
 
 	f.Fuzz(func(t *testing.T, data []byte) {
 		err := parseExceptionFromBytes(data)

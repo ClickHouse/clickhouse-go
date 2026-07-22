@@ -43,15 +43,17 @@ func TestIssue1877_StructuredHTTPExceptions(t *testing.T) {
 		return ex
 	}
 
-	// Unknown-table query, non-200 response — the core issue scenario. Run with
-	// no compression and LZ4: error bodies must parse in both modes.
+	// Unknown-table query, non-200 response — the core issue scenario. Run
+	// without compression, with native compression (LZ4) and with HTTP
+	// compression (GZIP): error bodies must parse in all modes.
 	for _, compression := range []*clickhouse.Compression{
 		nil,
 		{Method: clickhouse.CompressionLZ4},
+		{Method: clickhouse.CompressionGZIP},
 	} {
 		name := "query unknown table"
 		if compression != nil {
-			name += " lz4"
+			name += " " + compression.Method.String()
 		}
 		t.Run(name, func(t *testing.T) {
 			conn, err := clickhouse_tests.GetConnection("issues", t, clickhouse.HTTP, nil, nil, compression)

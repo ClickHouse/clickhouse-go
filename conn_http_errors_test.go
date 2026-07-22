@@ -250,6 +250,49 @@ func TestNewHTTPError(t *testing.T) {
 		}
 	})
 
+	t.Run("mixed binary and exception block body", func(t *testing.T) {
+		// A failed streaming response with buffered/compressed output: the
+		// non-200 body carries partial Native-format data followed by an
+		// __exception__ block. Message must be the exception text, not the
+		// raw block bytes.
+		body := []byte("\x01\x00\x02\xff\xff\xff\xff\x00\x01\x01\"throwIf\x05UInt8\x00\r\n__exception__\r\n1234567890123456\r\nCode: 395. DB::Exception: boom. (FUNCTION_THROW_IF_VALUE_IS_NON_ZERO)\n42 1234567890123456\r\n__exception__\r\n")
+		headers := http.Header{}
+		headers.Set(exceptionCodeHeader, "395")
+		err := newHTTPError(500, headers, body)
+
+		var ex *Exception
+		if !errors.As(err, &ex) {
+			t.Fatal("expected errors.As to find *Exception")
+		}
+		if ex.Code != 395 || ex.CodeName != "FUNCTION_THROW_IF_VALUE_IS_NON_ZERO" {
+			t.Errorf("unexpected exception: %+v", ex)
+		}
+		if ex.Message != "boom. (FUNCTION_THROW_IF_VALUE_IS_NON_ZERO)" {
+			t.Errorf("Message should be the exception text, got %q", ex.Message)
+		}
+	})
+
+	t.Run("binary body with bare appended exception text", func(t *testing.T) {
+		// Same scenario without the __exception__ marker (observed on a
+		// buffered gzip 500): the exception text is appended directly after
+		// the partial data. The header-vouched code locates it.
+		body := []byte("\x01\x00\x02\xff\xff\xff\xff\x00\x01\x01\"throwIf\x05UInt8\x00Code: 395. DB::Exception: boom. (FUNCTION_THROW_IF_VALUE_IS_NON_ZERO)\n")
+		headers := http.Header{}
+		headers.Set(exceptionCodeHeader, "395")
+		err := newHTTPError(500, headers, body)
+
+		var ex *Exception
+		if !errors.As(err, &ex) {
+			t.Fatal("expected errors.As to find *Exception")
+		}
+		if ex.Code != 395 || ex.CodeName != "FUNCTION_THROW_IF_VALUE_IS_NON_ZERO" {
+			t.Errorf("unexpected exception: %+v", ex)
+		}
+		if ex.Message != "boom. (FUNCTION_THROW_IF_VALUE_IS_NON_ZERO)" {
+			t.Errorf("Message should be the exception text, got %q", ex.Message)
+		}
+	})
+
 	t.Run("errors.As traverses caller %w wrapping", func(t *testing.T) {
 		inner := newHTTPError(500, http.Header{}, []byte("Code: 373. DB::Exception: Session is locked. (SESSION_IS_LOCKED)"))
 		err := fmt.Errorf("batch sendStreamQuery: %w", inner)
