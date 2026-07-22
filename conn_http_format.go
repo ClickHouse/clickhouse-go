@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"sync"
 )
 
 // exceptionScanLimit bounds how much of the remaining stream is buffered to
@@ -15,13 +16,25 @@ const exceptionScanLimit = 32 << 10
 
 var exceptionMarker = []byte("__exception__")
 
+// exceptionFrame is the marker as ClickHouse frames it in an HTTP response:
+// the "__exception__" token is always followed by CRLF (the server writes
+// "\r\n__exception__\r\n<tag>\r\n<message>\n<len> <tag>\r\n__exception__\r\n").
+// Scanning for the framed token rather than the bare marker keeps result data
+// that merely contains the "__exception__" bytes - which any text format can
+// carry verbatim and any binary format (Parquet, RowBinary, Native, Arrow)
+// can carry by chance - from being misdetected as a mid-stream exception and
+// silently corrupting the stream.
+var exceptionFrame = []byte("__exception__\r\n")
+
 // exceptionScanReader passes bytes through while scanning for the mid-stream
-// exception marker ClickHouse appends to an HTTP response when a query fails
-// after streaming has begun. On a match, the data before the marker is served
-// and the next Read returns the parsed exception. A payload legitimately
-// containing the marker is a false positive - a limitation of marker-based
-// detection; callers needing all-or-nothing semantics should set
-// wait_end_of_query=1.
+// exception ClickHouse appends to an HTTP response when a query fails after
+// streaming has begun. On a match, the data before the frame is served and the
+// next Read returns the parsed exception. Detection requires the CRLF framing
+// (see exceptionFrame); a payload that legitimately contains the full framed
+// byte sequence "__exception__\r\n" remains a false positive - an inherent
+// limit of marker-based detection - but bare occurrences of the token in data
+// no longer trigger it. Callers needing all-or-nothing semantics should still
+// set wait_end_of_query=1.
 type exceptionScanReader struct {
 	src     io.Reader
 	buf     []byte
@@ -51,7 +64,7 @@ func (r *exceptionScanReader) Read(p []byte) (int, error) {
 		n, err := r.src.Read(r.buf)
 		if n > 0 {
 			r.pending = append(r.pending, r.buf[:n]...)
-			if i := bytes.Index(r.pending, exceptionMarker); i >= 0 {
+			if i := bytes.Index(r.pending, exceptionFrame); i >= 0 {
 				r.captureException(i)
 			}
 		}
@@ -65,17 +78,17 @@ func (r *exceptionScanReader) Read(p []byte) (int, error) {
 }
 
 // safeLen returns how many pending bytes can be served without risking that
-// their tail is the beginning of an exception marker split across reads.
+// their tail is the beginning of an exception frame split across reads.
 func (r *exceptionScanReader) safeLen() int {
 	if r.srcDone || r.err != nil {
 		return len(r.pending)
 	}
-	holdback := len(exceptionMarker) - 1
+	holdback := len(exceptionFrame) - 1
 	if holdback > len(r.pending) {
 		holdback = len(r.pending)
 	}
 	for k := holdback; k > 0; k-- {
-		if bytes.Equal(r.pending[len(r.pending)-k:], exceptionMarker[:k]) {
+		if bytes.Equal(r.pending[len(r.pending)-k:], exceptionFrame[:k]) {
 			return len(r.pending) - k
 		}
 	}
@@ -92,6 +105,21 @@ func (r *exceptionScanReader) captureException(i int) {
 	r.err = parseExceptionFromBytes(exc)
 	r.srcDone = true
 }
+
+// lazyReadCloser defers side effects (begin) until the wrapped reader is first
+// read. It lets insertFormat postpone spawning the compression copy until the
+// HTTP client actually pulls the request body.
+type lazyReadCloser struct {
+	begin func()
+	rc    io.ReadCloser
+}
+
+func (l *lazyReadCloser) Read(p []byte) (int, error) {
+	l.begin() // idempotent: guarded by a sync.Once
+	return l.rc.Read(p)
+}
+
+func (l *lazyReadCloser) Close() error { return l.rc.Close() }
 
 // httpFormatStream is the io.ReadCloser returned by queryFormat. It
 // holds the connection until closed; Close drains the body so the HTTP
@@ -195,20 +223,47 @@ func (h *httpConnect) insertFormat(ctx context.Context, release nativeTransportR
 	case CompressionGZIP, CompressionDeflate, CompressionBrotli:
 		headers["Content-Encoding"] = h.compression.String()
 		rw := h.compressionPool.Get()
-		defer h.compressionPool.Put(rw)
 		pr, pw := io.Pipe()
 		connWriter := rw.reset(pw)
-		// Compresses the caller's payload into the request body. The goroutine
-		// exits when data is exhausted, or when the HTTP client closes the
-		// pipe reader on request failure and the writes start erroring.
-		go func() {
-			_, err := io.Copy(connWriter, data)
-			if cErr := connWriter.Close(); err == nil {
-				err = cErr
+
+		// Compress lazily: the copy goroutine is spawned only when the HTTP
+		// client first reads the request body. A request that fails before
+		// reading the body (connection refused, DNS, TLS, ...) therefore never
+		// touches the caller's data reader, so it cannot strand a copy blocked
+		// on a slow or stalled source.
+		var startCopy sync.Once
+		done := make(chan struct{})
+		spawn := func() {
+			go func() {
+				defer close(done)
+				_, err := io.Copy(connWriter, data)
+				if cErr := connWriter.Close(); err == nil {
+					err = cErr
+				}
+				pw.CloseWithError(err)
+			}()
+		}
+		body = &lazyReadCloser{begin: func() { startCopy.Do(spawn) }, rc: pr}
+
+		// Return the pooled compressor only after the copy goroutine has
+		// finished - never while it is still writing - so a failed or short
+		// request cannot hand an in-use writer to another connection (a data
+		// race that would corrupt a later request body). Reclaiming happens off
+		// the calling goroutine so a stalled data source never blocks the
+		// caller; if the copy never started, the writer is reusable at once.
+		defer func() {
+			pr.CloseWithError(io.ErrClosedPipe) // unblock a copy parked on pw.Write
+			neverStarted := false
+			startCopy.Do(func() { neverStarted = true })
+			if neverStarted {
+				h.compressionPool.Put(rw)
+				return
 			}
-			pw.CloseWithError(err)
+			go func() {
+				<-done
+				h.compressionPool.Put(rw)
+			}()
 		}()
-		body = pr
 	case CompressionZSTD, CompressionLZ4:
 		// decompress=1 expects ClickHouse native block framing, which a raw
 		// pre-formatted payload does not carry - send it uncompressed.
