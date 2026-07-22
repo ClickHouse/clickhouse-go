@@ -20,9 +20,20 @@ func validateFormatName(format string) error {
 	return nil
 }
 
+// trailingFormatClause matches a FORMAT clause at the very end of a query,
+// e.g. "SELECT 1 FORMAT JSONEachRow". Anchored at end and requiring whitespace
+// before FORMAT so it does not fire on the token appearing inside a string
+// literal or identifier earlier in the query.
+var trailingFormatClause = regexp.MustCompile(`(?is)\sFORMAT\s+[A-Za-z][A-Za-z0-9]*\s*;?\s*$`)
+
 // QueryFormat executes query and returns the result encoded in the given
 // ClickHouse format as a raw byte stream. See driver.Conn for the full
 // contract.
+//
+// The format is passed as the argument, not written into the query: a query
+// that carries its own trailing FORMAT clause is rejected, because the server
+// would honour that clause over the requested format and silently return a
+// different encoding than asked for.
 //
 // Experimental: this API is experimental and may change or be removed in a
 // future minor release. It is currently only supported over the HTTP
@@ -30,6 +41,9 @@ func validateFormatName(format string) error {
 func (ch *clickhouse) QueryFormat(ctx context.Context, format string, query string, args ...any) (io.ReadCloser, error) {
 	if err := validateFormatName(format); err != nil {
 		return nil, err
+	}
+	if trailingFormatClause.MatchString(query) {
+		return nil, fmt.Errorf("clickhouse: query must not contain a trailing FORMAT clause; pass the format as the QueryFormat argument (%q) instead", format)
 	}
 	conn, err := ch.acquire(ctx)
 	if err != nil {
