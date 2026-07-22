@@ -2,6 +2,7 @@ package driver
 
 import (
 	"context"
+	"io"
 	"reflect"
 	"time"
 
@@ -45,6 +46,32 @@ type (
 		QueryRow(ctx context.Context, query string, args ...any) Row
 		PrepareBatch(ctx context.Context, query string, opts ...PrepareBatchOption) (Batch, error)
 		Exec(ctx context.Context, query string, args ...any) error
+
+		// QueryFormat executes query and returns the result encoded in the
+		// given ClickHouse format (e.g. "CSV", "JSONEachRow", "Parquet") as a raw
+		// byte stream. The caller must Close the returned stream; until then it
+		// holds a connection (visible in Stats). Put the format in the format
+		// argument, not as a FORMAT clause in the query.
+		//
+		// Experimental: this API is experimental and may change or be removed
+		// in a future minor release. It is currently only supported over the
+		// HTTP protocol, where the server encodes the stream and every
+		// server-supported format works; over the native protocol it returns
+		// clickhouse.ErrFormatNativeUnsupported.
+		QueryFormat(ctx context.Context, format string, query string, args ...any) (io.ReadCloser, error)
+
+		// InsertFormat executes the INSERT statement query, streaming
+		// data (pre-encoded in the given format) as the insert payload. Any FORMAT
+		// clause or VALUES suffix in query is replaced; the format argument is
+		// authoritative. It returns once the server has committed or rejected the
+		// insert.
+		//
+		// Experimental: this API is experimental and may change or be removed
+		// in a future minor release. It is currently only supported over the
+		// HTTP protocol, where the server parses the payload and every
+		// server-supported format works; over the native protocol it returns
+		// clickhouse.ErrFormatNativeUnsupported.
+		InsertFormat(ctx context.Context, format string, query string, data io.Reader) error
 
 		// Deprecated: use context aware `WithAsync()` for any async operations
 		AsyncInsert(ctx context.Context, query string, wait bool, args ...any) error

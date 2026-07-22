@@ -75,6 +75,18 @@ func TestBatchInsert(t *testing.T) {
 	require.NoError(t, BatchInsert())
 }
 
+func TestFormatCSV(t *testing.T) {
+	require.NoError(t, FormatCSV())
+}
+
+func TestFormatJSONEachRow(t *testing.T) {
+	require.NoError(t, FormatJSONEachRow())
+}
+
+func TestFormatParquet(t *testing.T) {
+	require.NoError(t, FormatParquet())
+}
+
 func TestBatchWithReleaseConnection(t *testing.T) {
 	require.NoError(t, BatchWithReleaseConnection())
 }
