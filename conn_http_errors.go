@@ -131,19 +131,25 @@ func exceptionTextFromBlock(dataStr string) (string, bool) {
 	}
 
 	msg := region[anchor[0]:]
-	framed := false
-	if end := strings.Index(msg, exceptionMarker); end >= 0 {
-		msg, framed = msg[:end], true
-	}
-	msg = strings.TrimRight(msg, "\r\n")
-	if framed {
-		// Drop the "<message_length> <tag>" trailer line preceding the
-		// closing marker.
-		if lines := strings.Split(msg, "\n"); len(lines) > 1 && exceptionTrailerRe.MatchString(lines[len(lines)-1]) {
-			msg = strings.Join(lines[:len(lines)-1], "\n")
+
+	// The server frames the message with a closing "__exception__" marker,
+	// preceded by a "<message_length> <tag>" trailer line (older servers, e.g.
+	// 25.8, omit both and write the bare message). The message text itself can
+	// legitimately quote the literal marker — user strings are echoed into
+	// error messages — so cut at the *closing* marker only: the last
+	// occurrence, which alone is preceded by the trailer line. An embedded
+	// marker has no trailer before it and is left in the message. Without the
+	// trailer signature the block is unframed and the message is kept whole.
+	if end := strings.LastIndex(msg, exceptionMarker); end >= 0 {
+		before := strings.TrimRight(msg[:end], "\r\n")
+		if nl := strings.LastIndexByte(before, '\n'); nl >= 0 &&
+			exceptionTrailerRe.MatchString(strings.TrimRight(before[nl+1:], "\r")) {
+			// Framed: drop the trailer line and everything from the closing
+			// marker onward.
+			msg = before[:nl]
 		}
 	}
-	return msg, true
+	return strings.TrimRight(msg, "\r\n"), true
 }
 
 // parseHTTPException parses server exception text of the form
