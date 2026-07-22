@@ -1,6 +1,7 @@
 package clickhouse
 
 import (
+	"bytes"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -56,6 +57,18 @@ var httpExceptionCodeRe = regexp.MustCompile(`^Code:\s*(\d+)\.\s*`)
 
 // exceptionMarker frames server exception text embedded in a response body.
 const exceptionMarker = "__exception__"
+
+// isFramedException reports whether buf carries a mid-stream server exception
+// block, as opposed to result data that merely contains the marker bytes. The
+// server always emits the marker followed by CRLF — both the tagged layout
+// ("\r\n__exception__\r\n<tag>\r\nCode: ...") and the older bare 25.8 layout
+// ("__exception__\r\nCode: ..."). Requiring that CRLF keeps a bare
+// "__exception__" byte sequence embedded in a Native block's result data from
+// being misdetected as an exception when an unrelated failure (e.g. a
+// truncated stream) leaves such data in the capture buffer.
+func isFramedException(buf []byte) bool {
+	return bytes.Contains(buf, []byte(exceptionMarker+"\r\n"))
+}
 
 // exceptionTextStartRe locates the start of exception text inside an
 // "__exception__" block; same prefix as httpExceptionCodeRe but unanchored.
