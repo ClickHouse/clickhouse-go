@@ -110,12 +110,23 @@ func TestParseExceptionFromBytesTyped(t *testing.T) {
 		{
 			// The block may contain more than one dump of the message (e.g. a
 			// truncated one consumed by block decode, then a complete one);
-			// the last dump wins.
+			// the last dump of the SAME code wins.
 			name:         "double dump takes the last complete message",
 			data:         []byte("__exception__\r\nCode: 395. DB::Exception: truncat\nexception__\nCode: 395. DB::Exception: complete message. (FUNCTION_THROW_IF_VALUE_IS_NON_ZERO)\n"),
 			wantCode:     395,
 			wantName:     "DB::Exception",
 			wantMessage:  "complete message. (FUNCTION_THROW_IF_VALUE_IS_NON_ZERO)",
+			wantCodeName: "FUNCTION_THROW_IF_VALUE_IS_NON_ZERO",
+		},
+		{
+			// Error messages echo user strings, which can embed a fake
+			// "Code: N." — it must not hijack the anchor: the code and the
+			// full message come from the real, first occurrence.
+			name:         "embedded fake code does not hijack the anchor",
+			data:         []byte("__exception__\r\nCode: 395. DB::Exception: Value passed to 'throwIf' function is non-zero: fake Code: 60. DB::Exception: injected. (FUNCTION_THROW_IF_VALUE_IS_NON_ZERO)\n"),
+			wantCode:     395,
+			wantName:     "DB::Exception",
+			wantMessage:  "Value passed to 'throwIf' function is non-zero: fake Code: 60. DB::Exception: injected. (FUNCTION_THROW_IF_VALUE_IS_NON_ZERO)",
 			wantCodeName: "FUNCTION_THROW_IF_VALUE_IS_NON_ZERO",
 		},
 	}

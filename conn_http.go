@@ -508,7 +508,6 @@ func (lr *limitedReader) Read(p []byte) (n int, err error) {
 // first marker, with no tag, no trailer line and no closing marker.
 func parseExceptionFromBytes(data []byte) error {
 	const (
-		exceptionMarker    = "__exception__"
 		exceptionMarkerLen = len(exceptionMarker)
 		exceptionTagLen    = 16 // bytes
 	)
@@ -522,24 +521,8 @@ func parseExceptionFromBytes(data []byte) error {
 	}
 
 	// Locate the message by its stable "Code: NNN." prefix rather than by
-	// fixed offsets: the framing around it varies across server versions
-	// (see above), and the block may contain more than one dump of the
-	// message, in which case the last one is the complete one.
-	region := dataStr[firstMarker+exceptionMarkerLen:]
-	if starts := exceptionTextStartRe.FindAllStringIndex(region, -1); starts != nil {
-		msg := region[starts[len(starts)-1][0]:]
-		framed := false
-		if end := strings.Index(msg, exceptionMarker); end >= 0 {
-			msg, framed = msg[:end], true
-		}
-		msg = strings.TrimRight(msg, "\r\n")
-		if framed {
-			// Drop the "<message_length> <tag>" trailer line preceding the
-			// closing marker.
-			if lines := strings.Split(msg, "\n"); len(lines) > 1 && exceptionTrailerRe.MatchString(lines[len(lines)-1]) {
-				msg = strings.Join(lines[:len(lines)-1], "\n")
-			}
-		}
+	// fixed offsets — the framing varies across server versions (see above).
+	if msg, ok := exceptionTextFromBlock(dataStr); ok {
 		if ex := parseHTTPException(msg, "", ""); ex != nil {
 			return ex
 		}
