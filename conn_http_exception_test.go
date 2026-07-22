@@ -187,6 +187,55 @@ func TestParseExceptionFromBytesTyped(t *testing.T) {
 	}
 }
 
+func TestIsFramedException(t *testing.T) {
+	tests := []struct {
+		name string
+		buf  string
+		want bool
+	}{
+		{
+			name: "tagged framed layout",
+			buf:  "\r\n__exception__\r\n1234567890123456\r\nCode: 60. DB::Exception: boom. (UNKNOWN_TABLE)\n42 1234567890123456\r\n__exception__\r\n",
+			want: true,
+		},
+		{
+			name: "bare 25.8 layout",
+			buf:  "UInt8\x00__exception__\r\nCode: 395. DB::Exception: boom. (FUNCTION_THROW_IF_VALUE_IS_NON_ZERO)\n",
+			want: true,
+		},
+		{
+			// A Native block can carry the literal token verbatim in result
+			// data; without the CRLF framing it must not be taken as an
+			// exception (this is the residual truncated-stream false positive).
+			name: "bare token in result data, no CRLF",
+			buf:  "\x0d__exception__\x07payload more binary data",
+			want: false,
+		},
+		{
+			name: "token followed by LF only, not CRLF",
+			buf:  "value __exception__\nnot a frame",
+			want: false,
+		},
+		{
+			name: "no marker at all",
+			buf:  "\x01\x00\x02ordinary block bytes",
+			want: false,
+		},
+		{
+			name: "empty",
+			buf:  "",
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isFramedException([]byte(tt.buf)); got != tt.want {
+				t.Errorf("isFramedException(%q) = %v, want %v", tt.buf, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestCapturingReader(t *testing.T) {
 	tests := []struct {
 		name     string

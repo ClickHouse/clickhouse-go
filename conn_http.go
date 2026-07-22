@@ -473,8 +473,12 @@ func (h *httpConnect) readData(reader *chproto.Reader, timezone *time.Location, 
 			return nil, err
 		}
 
-		// Check if the captured data contains the exception marker
-		if captureBuffer != nil && bytes.Contains(captureBuffer.Bytes(), []byte("__exception__")) {
+		// Check if the captured data holds a framed exception block. The CRLF
+		// framing requirement (see isFramedException) keeps result data that
+		// merely contains the bare "__exception__" bytes from being misread as
+		// an exception when the decode failed for an unrelated reason, e.g. a
+		// truncated stream.
+		if captureBuffer != nil && isFramedException(captureBuffer.Bytes()) {
 			// This is an exception block, parse it
 			return nil, parseExceptionFromBytes(captureBuffer.Bytes())
 		}
