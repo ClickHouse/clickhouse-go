@@ -11,9 +11,28 @@ var truncateFormat = regexp.MustCompile(`(?i)\sFORMAT\s+[^\s]+`)
 var truncateValues = regexp.MustCompile(`\sVALUES\s.*$`)
 var extractInsertColumnsMatch = regexp.MustCompile(`(?si)INSERT INTO .+\s\((?P<Columns>.+)\)$`)
 
+// extractInsertSettingsMatch captures a trailing SETTINGS clause. The `\w+\s*=`
+// after the SETTINGS keyword requires an actual `name = value` assignment so a table
+// or column merely named "settings" is not mistaken for a settings clause. Trailing `;`
+// statement terminators and whitespace are matched outside the capture group so they are
+// not folded into the clause and do not leak into the normalized query as
+// "SETTINGS ...; FORMAT Native". Only terminators at the very end of the query are
+// consumed, so a `;` inside a quoted setting value is preserved.
+var extractInsertSettingsMatch = regexp.MustCompile(`(?i)\s+(SETTINGS\s+\w+\s*=.+?)(?:\s+VALUES)?[\s;]*$`)
+
 func extractNormalizedInsertQueryAndColumns(query string) (normalizedQuery string, tableName string, columns []string, err error) {
 	query = truncateFormat.ReplaceAllString(query, "")
 	query = truncateValues.ReplaceAllString(query, "")
+
+	// A SETTINGS clause may follow the optional column list, e.g.
+	// "INSERT INTO t (a, b) SETTINGS async_insert=1". Capture it so it is preserved in
+	// the normalized query sent to the server, and strip it from the query before the
+	// table name and columns are extracted so it does not leak into either.
+	var settingsClause string
+	if loc := extractInsertSettingsMatch.FindStringSubmatchIndex(query); loc != nil {
+		settingsClause = strings.TrimSpace(query[loc[2]:loc[3]])
+		query = query[:loc[0]]
+	}
 
 	matches := normalizeInsertQueryMatch.FindStringSubmatch(query)
 	if len(matches) == 0 {
@@ -21,7 +40,11 @@ func extractNormalizedInsertQueryAndColumns(query string) (normalizedQuery strin
 		return
 	}
 
-	normalizedQuery = fmt.Sprintf("%s FORMAT Native", matches[1])
+	normalizedQuery = matches[1]
+	if settingsClause != "" {
+		normalizedQuery += " " + settingsClause
+	}
+	normalizedQuery += " FORMAT Native"
 	tableName = strings.TrimSpace(matches[2])
 
 	columns = make([]string, 0)
