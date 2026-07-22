@@ -2,9 +2,11 @@ package clickhouse
 
 import (
 	"math"
+	"math/big"
 	"testing"
 	"time"
 
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -961,6 +963,159 @@ func BenchmarkBindPositional(b *testing.B) {
 		}
 	}
 }
+
+// TestFormatBigInt covers #1917: a big.Int (the Go type behind Int128, UInt128,
+// Int256 and UInt256) must bind as a numeric value, not a quoted string. In SQL
+// mode it wraps the exact decimal in the narrowest wide-integer conversion that
+// fits, so the value keeps full precision and an integer type — a bare decimal
+// wider than 64 bits is read by the server as Float64 and loses precision. In
+// query-parameter text mode the {name:Type} placeholder declares the type, so
+// the bare decimal is sent as-is.
+func TestFormatBigInt(t *testing.T) {
+	pow2 := func(n uint) *big.Int { return new(big.Int).Lsh(big.NewInt(1), n) }
+	sub1 := func(v *big.Int) *big.Int { return new(big.Int).Sub(v, big.NewInt(1)) }
+	add := func(v *big.Int, n int64) *big.Int { return new(big.Int).Add(v, big.NewInt(n)) }
+
+	int128Max := sub1(pow2(127))
+	int128Min := new(big.Int).Neg(pow2(127))
+	uint128Max := sub1(pow2(128))
+	int256Max := sub1(pow2(255))
+	int256Min := new(big.Int).Neg(pow2(255))
+	uint256Max := sub1(pow2(256))
+
+	cases := []struct {
+		name    string
+		v       *big.Int
+		fn      string // expected wide-integer conversion in SQL mode
+		wantErr bool   // SQL mode errors: value fits no ClickHouse integer type
+	}{
+		{"small positive", big.NewInt(42), "toInt128", false},
+		{"small negative", big.NewInt(-42), "toInt128", false},
+		{"zero", big.NewInt(0), "toInt128", false},
+		{"Int128 max", int128Max, "toInt128", false},
+		{"Int128 max + 1 spills to UInt128", add(int128Max, 1), "toUInt128", false},
+		{"Int128 min", int128Min, "toInt128", false},
+		{"Int128 min - 1 spills to Int256", add(int128Min, -1), "toInt256", false},
+		{"UInt128 max", uint128Max, "toUInt128", false},
+		{"UInt128 max + 1 spills to Int256", add(uint128Max, 1), "toInt256", false},
+		{"Int256 max", int256Max, "toInt256", false},
+		{"Int256 max + 1 spills to UInt256", add(int256Max, 1), "toUInt256", false},
+		{"Int256 min", int256Min, "toInt256", false},
+		{"UInt256 max", uint256Max, "toUInt256", false},
+		{"above UInt256 max is out of range", add(uint256Max, 1), "", true},
+		{"below Int256 min is out of range", add(int256Min, -1), "", true},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			wantSQL := c.fn + "('" + c.v.String() + "')"
+
+			// The *big.Int and big.Int value forms format identically.
+			for _, in := range []any{c.v, *c.v} {
+				// SQL mode (client-side bind).
+				got, err := format(time.Local, Seconds, in)
+				if c.wantErr {
+					require.Error(t, err)
+				} else {
+					require.NoError(t, err)
+					assert.Equal(t, wantSQL, got)
+				}
+
+				// Query-parameter text mode: always the bare decimal, whatever
+				// the magnitude — the declared {name:Type} tells the server how
+				// to read it, so there is no range error here.
+				gotParam, err := formatValue(time.Local, Seconds, in, formatParamText)
+				require.NoError(t, err)
+				assert.Equal(t, c.v.String(), gotParam)
+			}
+		})
+	}
+
+	// A nil *big.Int is NULL in both modes. The query-parameter path maps a
+	// top-level nil to \N before it reaches formatValue; nested (and in SQL
+	// mode) it renders as NULL.
+	for _, mode := range []formatMode{formatSQL, formatParamText} {
+		got, err := formatValue(time.Local, Seconds, (*big.Int)(nil), mode)
+		require.NoError(t, err)
+		assert.Equal(t, "NULL", got)
+	}
+}
+
+// TestBindBigInt checks a big.Int binds correctly through every client-side
+// placeholder style (?, $1, @name) and inside arrays, and that sibling argument
+// types keep their existing formatting (#1917).
+func TestBindBigInt(t *testing.T) {
+	huge, _ := new(big.Int).SetString("170141183460469231731687303715884105727", 10) // Int128 max
+	wrapped := "toInt128('170141183460469231731687303715884105727')"
+
+	cases := []struct {
+		name     string
+		query    string
+		args     []any
+		expected string
+	}{
+		{"positional", "SELECT toTypeName(?)", []any{huge}, "SELECT toTypeName(" + wrapped + ")"},
+		{"numeric", "SELECT $1", []any{huge}, "SELECT " + wrapped},
+		{"named", "SELECT @v", []any{Named("v", huge)}, "SELECT " + wrapped},
+		{"value not pointer", "SELECT ?", []any{*huge}, "SELECT " + wrapped},
+		{"array", "SELECT ?", []any{[]*big.Int{big.NewInt(1), big.NewInt(-2)}},
+			"SELECT [toInt128('1'), toInt128('-2')]"},
+		{"tuple", "SELECT ?", []any{GroupSet{Value: []any{big.NewInt(1), "x"}}},
+			"SELECT (toInt128('1'), 'x')"},
+		{"map value", "SELECT ?", []any{map[string]*big.Int{"k": big.NewInt(1)}},
+			"SELECT map('k', toInt128('1'))"},
+		{"nil pointer is NULL", "SELECT ?", []any{(*big.Int)(nil)}, "SELECT NULL"},
+		// contrast: sibling argument types must be unaffected by the big.Int cases
+		{"int64 stays a bare literal", "SELECT ?", []any{int64(42)}, "SELECT 42"},
+		{"string stays quoted", "SELECT ?", []any{"42"}, "SELECT '42'"},
+		{"other Stringer stays quoted", "SELECT ?", []any{stringerForBigIntTest("42")}, "SELECT '42'"},
+		// decimal.Decimal is a different fmt.Stringer type and must keep its
+		// existing quoted formatting — the big.Int cases must not sweep it up.
+		{"decimal.Decimal stays quoted", "SELECT ?", []any{decimal.New(4242, -2)}, "SELECT '42.42'"},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got, err := bind(time.Local, c.query, c.args...)
+			require.NoError(t, err)
+			assert.Equal(t, c.expected, got)
+		})
+	}
+}
+
+// TestBindBigIntQueryParameter drives a big.Int through the server-side
+// {name:Type} query-parameter entry point (bindQueryOrAppendParameters). The
+// value must be sent as a bare decimal — the declared type tells the server how
+// to parse it — not caught by the string/time raw-value shortcuts and not
+// SQL-wrapped (#1917). A top-level nil still maps to \N.
+func TestBindBigIntQueryParameter(t *testing.T) {
+	huge, _ := new(big.Int).SetString("170141183460469231731687303715884105727", 10)
+	cases := []struct {
+		name  string
+		value any
+		want  string
+	}{
+		{"pointer", huge, "170141183460469231731687303715884105727"},
+		{"value", *huge, "170141183460469231731687303715884105727"},
+		{"negative", big.NewInt(-42), "-42"},
+		{"nil pointer", (*big.Int)(nil), `\N`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			opts := &QueryOptions{}
+			_, err := bindQueryOrAppendParameters(true, opts, "SELECT {v:Int128}", time.UTC,
+				driver.NamedValue{Name: "v", Value: tc.value})
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, opts.parameters["v"])
+		})
+	}
+}
+
+// stringerForBigIntTest is a non-big.Int fmt.Stringer used to prove the big.Int
+// cases don't shadow the general Stringer handling.
+type stringerForBigIntTest string
+
+func (s stringerForBigIntTest) String() string { return string(s) }
 
 func BenchmarkBindNamed(b *testing.B) {
 	b.ReportAllocs()
