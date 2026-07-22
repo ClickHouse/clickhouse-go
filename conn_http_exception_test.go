@@ -129,6 +129,30 @@ func TestParseExceptionFromBytesTyped(t *testing.T) {
 			wantMessage:  "Value passed to 'throwIf' function is non-zero: fake Code: 60. DB::Exception: injected. (FUNCTION_THROW_IF_VALUE_IS_NON_ZERO)",
 			wantCodeName: "FUNCTION_THROW_IF_VALUE_IS_NON_ZERO",
 		},
+		{
+			// Error messages echo user strings, which can embed the literal
+			// "__exception__" marker. In a framed block the message must be
+			// cut at the *closing* marker (preceded by the trailer line), not
+			// at the embedded one — otherwise the message and CodeName are
+			// truncated.
+			name:         "embedded marker in framed message is not truncated",
+			data:         []byte("\r\n__exception__\r\n1234567890123456\r\nCode: 395. DB::Exception: throwIf failed on '__exception__' value. (FUNCTION_THROW_IF_VALUE_IS_NON_ZERO)\n42 1234567890123456\r\n__exception__\r\n"),
+			wantCode:     395,
+			wantName:     "DB::Exception",
+			wantMessage:  "throwIf failed on '__exception__' value. (FUNCTION_THROW_IF_VALUE_IS_NON_ZERO)",
+			wantCodeName: "FUNCTION_THROW_IF_VALUE_IS_NON_ZERO",
+		},
+		{
+			// Same, for the unframed (25.8) layout: no trailer and no closing
+			// marker, so the embedded marker is the only occurrence and must
+			// stay in the message rather than truncating it.
+			name:         "embedded marker in unframed message is not truncated",
+			data:         []byte("UInt8\x00__exception__\r\nCode: 60. DB::Exception: table '__exception__' not found. (UNKNOWN_TABLE) (version 25.8.28.1 (official build))\n"),
+			wantCode:     60,
+			wantName:     "DB::Exception",
+			wantMessage:  "table '__exception__' not found. (UNKNOWN_TABLE) (version 25.8.28.1 (official build))",
+			wantCodeName: "UNKNOWN_TABLE",
+		},
 	}
 
 	for _, tt := range tests {
