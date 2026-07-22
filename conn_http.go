@@ -313,8 +313,11 @@ func (h *httpConnect) setReleased(released bool) {
 func (h *httpConnect) freeBuffer() {
 }
 
-func (h *httpConnect) isBad() bool {
-	return h.client == nil
+func (h *httpConnect) healthCheck() error {
+	if h.client == nil {
+		return ErrConnectionClosed
+	}
+	return nil
 }
 
 func (h *httpConnect) queryHello(ctx context.Context, release nativeTransportRelease) (proto.ServerHandshake, error) {

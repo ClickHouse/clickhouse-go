@@ -3,9 +3,12 @@
 package clickhouse
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -208,6 +211,61 @@ func TestAcquire_BadConnection(t *testing.T) {
 
 	if !mock1.isClosed() {
 		t.Error("bad connection should be closed")
+	}
+}
+
+// TestAcquire_BadConnectionLogsReason tests that discarding a bad pooled
+// connection logs why it was considered bad before dialing a new one.
+func TestAcquire_BadConnectionLogsReason(t *testing.T) {
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
+
+	var connID atomic.Int64
+	conn, err := Open(&Options{
+		Addr:            []string{"localhost:9000"},
+		DialTimeout:     time.Second,
+		MaxOpenConns:    5,
+		MaxIdleConns:    2,
+		ConnMaxLifetime: time.Hour,
+		DialStrategy: func(ctx context.Context, id int, opt *Options, dial Dial) (DialResult, error) {
+			nextID := int(connID.Add(1))
+			return DialResult{conn: &mockTransport{connectedAt: time.Now(), id: nextID, logger: logger}}, nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("Open failed: %v", err)
+	}
+	defer conn.Close()
+
+	ch := conn.(*clickhouse)
+
+	// Acquire and release while healthy so the connection is pooled
+	conn1, err := ch.acquire(context.Background())
+	if err != nil {
+		t.Fatalf("first acquire failed: %v", err)
+	}
+	ch.release(conn1, nil)
+
+	// Mark it bad after pooling so the acquire path detects it
+	conn1.(*mockTransport).setBad(true)
+
+	conn2, err := ch.acquire(context.Background())
+	if err != nil {
+		t.Fatalf("second acquire failed: %v", err)
+	}
+	if conn1.connID() == conn2.connID() {
+		t.Error("expected a new connection after bad connection detected")
+	}
+
+	logs := buf.String()
+	if !strings.Contains(logs, "closing bad connection from pool") {
+		t.Errorf("expected log message about closing bad connection, got:\n%s", logs)
+	}
+	if !strings.Contains(logs, errMockConnBad.Error()) {
+		t.Errorf("expected log to contain the bad-connection reason, got:\n%s", logs)
+	}
+	if !strings.Contains(logs, "new connection established") {
+		t.Errorf("expected log about new connection, got:\n%s", logs)
 	}
 }
 
