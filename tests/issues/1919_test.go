@@ -52,6 +52,20 @@ func Test1919(t *testing.T) {
 			require.NoError(t, conn.QueryRow(context.Background(), fmt.Sprintf("SELECT count() FROM %s", tableName)).Scan(&count))
 			require.Equal(t, uint64(10), count)
 
+			// A trailing `;` statement terminator on the inline SETTINGS form must be
+			// tolerated. Before the fix it was folded into the normalized query as
+			// "SETTINGS ...; FORMAT Native", which the server rejects, so the rows would
+			// fail to insert.
+			batchSemicolon, err := conn.PrepareBatch(context.Background(), fmt.Sprintf("INSERT INTO %s (col1, col2) SETTINGS async_insert=0;", tableName))
+			require.NoError(t, err, "PrepareBatch with SETTINGS and trailing semicolon failed")
+			for i := range 10 {
+				require.NoError(t, batchSemicolon.Append(uint64(i), "value"))
+			}
+			require.NoError(t, batchSemicolon.Send())
+
+			require.NoError(t, conn.QueryRow(context.Background(), fmt.Sprintf("SELECT count() FROM %s", tableName)).Scan(&count))
+			require.Equal(t, uint64(20), count)
+
 			// The SETTINGS clause must actually reach the server: an unknown setting has
 			// to surface as an error rather than being silently dropped. Before the fix
 			// the clause was stripped, so the insert succeeded and no error was raised.

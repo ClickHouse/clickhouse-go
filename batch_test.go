@@ -472,6 +472,46 @@ INSERT INTO ` + "`_test_1345# $.ДБ`.`2. Таблица №2`" + ` (col1, col2)
 			expectedColumns:   []string{"col1", "settings"},
 			expectedError:     false,
 		},
+		{
+			name:                    "Insert with SETTINGS after column list and trailing semicolon",
+			query:                   "INSERT INTO table_name (col1, col2) SETTINGS async_insert=1;",
+			expectedNormalizedQuery: "INSERT INTO table_name (col1, col2) SETTINGS async_insert=1 FORMAT Native",
+			expectedTableName:       "table_name",
+			expectedColumns:         []string{"col1", "col2"},
+			expectedError:           false,
+		},
+		{
+			name:                    "Insert with SETTINGS after column list and repeated trailing semicolons",
+			query:                   "INSERT INTO table_name (col1, col2) SETTINGS async_insert=1;;",
+			expectedNormalizedQuery: "INSERT INTO table_name (col1, col2) SETTINGS async_insert=1 FORMAT Native",
+			expectedTableName:       "table_name",
+			expectedColumns:         []string{"col1", "col2"},
+			expectedError:           false,
+		},
+		{
+			name:                    "Insert with SETTINGS and no column list and trailing semicolon",
+			query:                   "INSERT INTO table_name SETTINGS async_insert=1;",
+			expectedNormalizedQuery: "INSERT INTO table_name SETTINGS async_insert=1 FORMAT Native",
+			expectedTableName:       "table_name",
+			expectedColumns:         []string{},
+			expectedError:           false,
+		},
+		{
+			name:                    "Insert with SETTINGS, trailing VALUES keyword and semicolon",
+			query:                   "INSERT INTO table_name (col1, col2) SETTINGS async_insert=1 VALUES;",
+			expectedNormalizedQuery: "INSERT INTO table_name (col1, col2) SETTINGS async_insert=1 FORMAT Native",
+			expectedTableName:       "table_name",
+			expectedColumns:         []string{"col1", "col2"},
+			expectedError:           false,
+		},
+		{
+			name:                    "Insert with no SETTINGS and trailing semicolon is unchanged",
+			query:                   "INSERT INTO table_name (col1, col2);",
+			expectedNormalizedQuery: "INSERT INTO table_name (col1, col2) FORMAT Native",
+			expectedTableName:       "table_name",
+			expectedColumns:         []string{"col1", "col2"},
+			expectedError:           false,
+		},
 	}
 
 	for _, tc := range testCases {
