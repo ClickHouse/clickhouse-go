@@ -20,9 +20,10 @@ jobs:
           - "1.26"
           - "1.25"
         clickhouse: # https://github.com/ClickHouse/ClickHouse/blob/master/SECURITY.md#scope-and-supported-versions
-          - "26.4"
+          - "26.7"
+          - "26.6"
+          - "26.5"
           - "26.3"
-          - "26.2"
           - "25.8" # LTS
     steps:
       - name: Checkout
