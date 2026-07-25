@@ -255,3 +255,7 @@ func TestJSONStringExample(t *testing.T) {
 func TestBFloat16(t *testing.T) {
 	require.NoError(t, BFloat16())
 }
+
+func TestServerExceptions(t *testing.T) {
+	require.NoError(t, ServerExceptions())
+}

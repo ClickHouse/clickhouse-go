@@ -190,11 +190,12 @@ func TestBFloat16EdgeCases(t *testing.T) {
 
 		for _, tc := range testCases {
 			t.Run(tc.name, func(t *testing.T) {
-				batch, _ := conn.PrepareBatch(ctx, "INSERT INTO test_bfloat16_edge")
-				batch.Append(tc.value)
-				batch.Send()
+				batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_bfloat16_edge")
+				require.NoError(t, err)
+				require.NoError(t, batch.Append(tc.value))
+				require.NoError(t, batch.Send())
 				var result float32
-				conn.QueryRow(ctx, "SELECT * FROM test_bfloat16_edge ORDER BY Col1 DESC LIMIT 1").Scan(&result)
+				require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_bfloat16_edge ORDER BY Col1 DESC LIMIT 1").Scan(&result))
 
 				if math.IsNaN(float64(tc.value)) {
 					require.True(t, math.IsNaN(float64(result)), "expected NaN")
@@ -204,7 +205,7 @@ func TestBFloat16EdgeCases(t *testing.T) {
 					require.InDelta(t, tc.value, result, math.Max(0.01*math.Abs(float64(tc.value)), 0.001))
 				}
 
-				conn.Exec(ctx, "TRUNCATE TABLE test_bfloat16_edge")
+				require.NoError(t, conn.Exec(ctx, "TRUNCATE TABLE test_bfloat16_edge"))
 			})
 		}
 	})
