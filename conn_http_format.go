@@ -300,6 +300,14 @@ func (h *httpConnect) queryFormat(ctx context.Context, release nativeTransportRe
 	// and failures arrived as a non-200 above - serve the body as-is. Only
 	// streaming responses need the in-band exception scan, validated against
 	// the per-response tag the server announced in the headers.
+	//
+	// The scan sits on the decompressed side deliberately: servers with
+	// tagged exception framing write the "__exception__" block through the
+	// HTTP compression buffer, so with Content-Encoding the marker only
+	// exists after decompression. Older servers (<= 25.8) write no block at
+	// all on a compressed response - they abort the stream, and the
+	// decompressor's truncation error is all there is to surface
+	// (TestFormatMidStreamExceptionCompressed pins both behaviours).
 	stream := reader
 	if !h.waitEndOfQueryEnabled(options.settings) {
 		stream = newExceptionScanReader(reader, res.Header.Get(exceptionTagHeader))

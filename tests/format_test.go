@@ -248,6 +248,43 @@ func TestFormatMidStreamException(t *testing.T) {
 	assert.Contains(t, err.Error(), "there is an exception")
 }
 
+// TestFormatMidStreamExceptionCompressed proves the exception scan sees the
+// marker when the HTTP response is gzip-compressed: servers with tagged
+// exception framing write the "__exception__" block through the compression
+// buffer, so the decompressed-side scan is the right layer. Older servers
+// (<= 25.8) write no block at all on a compressed response - they abort the
+// stream - so there the only guarantee is that the read errors (with the
+// decompressor's truncation error) instead of silently returning partial
+// data.
+func TestFormatMidStreamExceptionCompressed(t *testing.T) {
+	conn, err := GetNativeConnection(t, clickhouse.HTTP, clickhouse.Settings{
+		"enable_http_compression": 1,
+	}, nil, &clickhouse.Compression{Method: clickhouse.CompressionGZIP})
+	require.NoError(t, err)
+	// Checked before the stream below occupies the pooled connection.
+	taggedFraming := CheckMinServerServerVersion(conn, 25, 11, 0)
+
+	ctx := clickhouse.Context(context.Background(), clickhouse.WithSettings(clickhouse.Settings{
+		"max_threads":               1,
+		"max_block_size":            1,
+		"wait_end_of_query":         0,
+		"http_response_buffer_size": 1,
+	}))
+
+	// Enough data before the failure that the server flushes compressed
+	// chunks and the 200 status is committed before the exception.
+	stream, err := conn.QueryFormat(ctx, "JSON",
+		"SELECT number, randomPrintableASCII(1000) AS pad, throwIf(number=20000, 'there is an exception') FROM system.numbers")
+	require.NoError(t, err)
+	defer stream.Close()
+
+	_, err = io.ReadAll(stream)
+	require.Error(t, err, "a mid-stream failure must never end the stream cleanly")
+	if taggedFraming {
+		assert.Contains(t, err.Error(), "there is an exception")
+	}
+}
+
 // TestFormatCancellation cancels the context mid-read; the reader must
 // unblock with an error and the pool must recover.
 func TestFormatCancellation(t *testing.T) {

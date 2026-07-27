@@ -59,7 +59,10 @@ type (
 		// in the X-ClickHouse-Exception-Tag header, so result data that
 		// happens to contain the marker bytes is served verbatim. Only on
 		// older servers that send no tag header does detection fall back to
-		// best-effort marker scanning, which can misdetect such data. For
+		// best-effort marker scanning, which can misdetect such data; on
+		// those servers a compressed response carries no exception block at
+		// all, and a mid-stream failure surfaces as the decompressor's
+		// truncation error instead of the server's message. For
 		// all-or-nothing semantics set wait_end_of_query=1 (via WithSettings
 		// or connection-level Options.Settings): the server then buffers the
 		// complete result, failures surface as an error from QueryFormat
