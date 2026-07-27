@@ -227,15 +227,18 @@ func TestFormatMidStreamException(t *testing.T) {
 	conn, err := GetNativeConnection(t, clickhouse.HTTP, nil, nil, nil)
 	require.NoError(t, err)
 
+	// http_write_exception_in_output_format is deliberately NOT forced to 0
+	// here: queryFormat pins it, and this test proves the pin by using a
+	// format (JSON) that would otherwise embed the error inside a valid
+	// payload and end the stream cleanly.
 	ctx := clickhouse.Context(context.Background(), clickhouse.WithSettings(clickhouse.Settings{
-		"max_threads":                           1,
-		"max_block_size":                        1,
-		"http_write_exception_in_output_format": 0,
-		"wait_end_of_query":                     0,
-		"http_response_buffer_size":             1,
+		"max_threads":               1,
+		"max_block_size":            1,
+		"wait_end_of_query":         0,
+		"http_response_buffer_size": 1,
 	}))
 
-	stream, err := conn.QueryFormat(ctx, "CSV",
+	stream, err := conn.QueryFormat(ctx, "JSON",
 		"SELECT throwIf(number=3, 'there is an exception') FROM system.numbers")
 	require.NoError(t, err)
 	defer stream.Close()
@@ -340,6 +343,34 @@ func TestFormatWaitEndOfQuery(t *testing.T) {
 		}
 		assert.Contains(t, err.Error(), "there is an exception")
 	})
+}
+
+// TestFormatWaitEndOfQueryConnectionLevel pins that wait_end_of_query set via
+// connection-level Options.Settings — not only per-query WithSettings —
+// bypasses the marker scan. On pre-tag servers (<= 25.8) data carrying the
+// full marker framing survives only through that bypass, so this test guards
+// the plumbing on the oldest supported servers too.
+func TestFormatWaitEndOfQueryConnectionLevel(t *testing.T) {
+	conn, err := GetNativeConnection(t, clickhouse.HTTP, clickhouse.Settings{
+		"wait_end_of_query": 1,
+	}, nil, nil)
+	require.NoError(t, err)
+	ctx := context.Background()
+
+	table := fmt.Sprintf("test_format_%s", RandAsciiString(8))
+	require.NoError(t, conn.Exec(ctx, fmt.Sprintf("CREATE TABLE %s (id Int64, msg String) Engine MergeTree() ORDER BY id", table)))
+	t.Cleanup(func() { conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", table)) })
+
+	require.NoError(t, conn.Exec(ctx,
+		fmt.Sprintf("INSERT INTO %s VALUES (1, concat('__exception__', char(13), char(10), 'FAKE-TAG-12345678', char(13), char(10))), (2, 'after')", table)))
+
+	stream, err := conn.QueryFormat(ctx, "CSV", fmt.Sprintf("SELECT id, msg FROM %s ORDER BY id", table))
+	require.NoError(t, err)
+	defer stream.Close()
+	payload, err := io.ReadAll(stream)
+	require.NoError(t, err, "connection-level wait_end_of_query must bypass the marker scan")
+	assert.Contains(t, string(payload), "__exception__")
+	assert.Contains(t, string(payload), "after", "stream must not be truncated at the marker")
 }
 
 // TestFormatCompression exercises the gzip transport path in both directions,

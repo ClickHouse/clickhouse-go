@@ -45,6 +45,11 @@ func (ch *clickhouse) QueryFormat(ctx context.Context, format string, query stri
 	if trailingFormatClause.MatchString(query) {
 		return nil, fmt.Errorf("clickhouse: query must not contain a trailing FORMAT clause; pass the format as the QueryFormat argument (%q) instead", format)
 	}
+	// Checked before acquiring: a saturated pool or failed dial must not mask
+	// the actionable "use HTTP" error behind ErrAcquireConnTimeout.
+	if ch.opt.Protocol != HTTP {
+		return nil, ErrFormatNativeUnsupported
+	}
 	conn, err := ch.acquire(ctx)
 	if err != nil {
 		return nil, err
@@ -63,6 +68,9 @@ func (ch *clickhouse) QueryFormat(ctx context.Context, format string, query stri
 func (ch *clickhouse) InsertFormat(ctx context.Context, format string, query string, data io.Reader) error {
 	if err := validateFormatName(format); err != nil {
 		return err
+	}
+	if ch.opt.Protocol != HTTP {
+		return ErrFormatNativeUnsupported
 	}
 	conn, err := ch.acquire(ctx)
 	if err != nil {

@@ -2,10 +2,16 @@ package clickhouse
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"io"
+	"log/slog"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -124,6 +130,89 @@ func TestExceptionScanReaderTruncatedCandidateAtEOF(t *testing.T) {
 	got, err := io.ReadAll(newExceptionScanReader(strings.NewReader(data), testExceptionTag))
 	require.NoError(t, err)
 	assert.Equal(t, data, string(got))
+}
+
+func TestExceptionScanReaderTruncatedExceptionBlock(t *testing.T) {
+	// The connection breaks while the exception block itself is being
+	// drained: the error must say so instead of silently degrading into a
+	// truncated message.
+	upstream := errors.New("conn reset")
+	src := io.MultiReader(
+		strings.NewReader("data\n__exception__\r\nCode: 395. DB::Exception: bo"),
+		errReader{upstream})
+	got, err := io.ReadAll(newExceptionScanReader(src, ""))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "exception block truncated")
+	assert.Equal(t, "data\n", string(got))
+}
+
+func TestWaitEndOfQueryEnabledPrecedence(t *testing.T) {
+	// Connection-level Options.Settings set the default; a per-query setting
+	// overrides it in either direction.
+	connLevel := &httpConnect{waitEndOfQuery: true}
+	assert.True(t, connLevel.waitEndOfQueryEnabled(Settings{}))
+	assert.False(t, connLevel.waitEndOfQueryEnabled(Settings{"wait_end_of_query": 0}))
+
+	perQuery := &httpConnect{}
+	assert.False(t, perQuery.waitEndOfQueryEnabled(Settings{}))
+	assert.True(t, perQuery.waitEndOfQueryEnabled(Settings{"wait_end_of_query": 1}))
+	assert.True(t, perQuery.waitEndOfQueryEnabled(Settings{"wait_end_of_query": "true"}))
+}
+
+func newTestHTTPConnect(t *testing.T, rawURL string) *httpConnect {
+	t.Helper()
+	pool, err := createCompressionPool(&Compression{Method: CompressionNone})
+	require.NoError(t, err)
+	u, err := url.Parse(rawURL)
+	require.NoError(t, err)
+	return &httpConnect{
+		logger:          slog.New(slog.NewTextHandler(io.Discard, nil)),
+		opt:             &Options{},
+		url:             u,
+		client:          &http.Client{Timeout: 5 * time.Second},
+		compressionPool: pool,
+	}
+}
+
+func TestInsertFormatInBandExceptionOn200(t *testing.T) {
+	// A failure after the server flushed its 200 status arrives in-band as an
+	// "__exception__" block in the response body; insertFormat must report it
+	// instead of a silent success.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.Copy(io.Discard, r.Body)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(taggedExceptionPayload))
+	}))
+	defer srv.Close()
+
+	h := newTestHTTPConnect(t, srv.URL)
+	var relErr error
+	err := h.insertFormat(context.Background(),
+		func(_ nativeTransport, e error) { relErr = e },
+		"CSV", "INSERT INTO t (a)", strings.NewReader("1\n"))
+	require.Error(t, err)
+	var ex *Exception
+	require.ErrorAs(t, err, &ex, "in-band block must parse into a typed exception")
+	assert.Equal(t, int32(395), ex.Code)
+	require.Error(t, relErr, "connection must be released with the error")
+}
+
+func TestInsertFormatEmptyBodyIsSuccess(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.Copy(io.Discard, r.Body)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	h := newTestHTTPConnect(t, srv.URL)
+	released := false
+	var relErr error
+	err := h.insertFormat(context.Background(),
+		func(_ nativeTransport, e error) { released = true; relErr = e },
+		"CSV", "INSERT INTO t (a)", strings.NewReader("1\n"))
+	require.NoError(t, err)
+	assert.True(t, released)
+	assert.NoError(t, relErr)
 }
 
 func TestHTTPFormatStreamCloseIdempotent(t *testing.T) {
