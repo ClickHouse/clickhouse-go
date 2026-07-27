@@ -219,6 +219,14 @@ func TestFormatMalformedInsert(t *testing.T) {
 	require.Error(t, err)
 
 	require.NoError(t, conn.Exec(ctx, "SELECT 1"))
+
+	// A malformed statement (as opposed to a malformed payload) is rejected
+	// client-side without consuming a pooled connection.
+	err = conn.InsertFormat(ctx, "CSV", "INSERT no-such-syntax", strings.NewReader("1\n"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid INSERT query")
+
+	require.NoError(t, conn.Exec(ctx, "SELECT 1"))
 }
 
 // TestFormatMidStreamException forces a server exception after streaming has
