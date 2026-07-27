@@ -54,13 +54,15 @@ type (
 		// argument, not as a FORMAT clause in the query.
 		//
 		// If the query fails after streaming has begun, Read returns the data
-		// received so far followed by the server exception. Detection is
-		// best-effort: it scans the stream for ClickHouse's in-band exception
-		// marker, so a result that legitimately contains the byte sequence
-		// "__exception__" is misdetected and truncated. For all-or-nothing
-		// semantics set wait_end_of_query=1 via WithSettings: the server then
-		// buffers the complete result, failures surface as an error from
-		// QueryFormat itself, and no marker scanning is applied to the stream.
+		// received so far followed by the server exception. Exception blocks
+		// are identified by the per-response random tag the server announces
+		// in the X-ClickHouse-Exception-Tag header, so result data that
+		// happens to contain the marker bytes is served verbatim. Only on
+		// older servers that send no tag header does detection fall back to
+		// best-effort marker scanning, which can misdetect such data. For
+		// all-or-nothing semantics set wait_end_of_query=1 via WithSettings:
+		// the server then buffers the complete result, failures surface as an
+		// error from QueryFormat itself, and the stream is served unscanned.
 		//
 		// Experimental: this API is experimental and may change or be removed
 		// in a future minor release. It is currently only supported over the

@@ -31,12 +31,12 @@ func TestExceptionScanReader_BareMarkerPassthrough(t *testing.T) {
 	for name, payload := range cases {
 		t.Run(name, func(t *testing.T) {
 			// Whole read.
-			got, err := io.ReadAll(newExceptionScanReader(bytes.NewReader(payload)))
+			got, err := io.ReadAll(newExceptionScanReader(bytes.NewReader(payload), ""))
 			require.NoError(t, err, "bare marker in data must not fabricate an exception")
 			assert.Equal(t, payload, got, "data must pass through unchanged")
 
 			// Byte-by-byte, to exercise the split-boundary holdback path.
-			got, err = io.ReadAll(newExceptionScanReader(oneByteReader{bytes.NewReader(payload)}))
+			got, err = io.ReadAll(newExceptionScanReader(oneByteReader{bytes.NewReader(payload)}, ""))
 			require.NoError(t, err)
 			assert.Equal(t, payload, got, "data must pass through unchanged (split reads)")
 		})
@@ -105,10 +105,10 @@ func TestQueryFormat_TrailingFormatClauseDetection(t *testing.T) {
 
 	accept := []string{
 		"SELECT 1",
-		"SELECT 'FORMAT CSV'",                    // token inside a string literal
+		"SELECT 'FORMAT CSV'", // token inside a string literal
 		"SELECT * FROM t WHERE c = 'end FORMAT JSON'",
 		"SELECT 1 AS myformat",
-		"SELECT format FROM t",                   // column named format, not a clause
+		"SELECT format FROM t", // column named format, not a clause
 		"SELECT concat('a','FORMAT CSV') AS x",
 	}
 	for _, q := range accept {

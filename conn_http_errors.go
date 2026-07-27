@@ -19,6 +19,12 @@ const exceptionCodeHeader = "X-ClickHouse-Exception-Code"
 // precedence over recovering the name from the error text.
 const exceptionNameHeader = "X-ClickHouse-Exception-Name"
 
+// exceptionTagHeader announces the per-response random tag that a mid-stream
+// exception block embeds after its marker; validating it is what separates a
+// genuine exception block from result data that happens to contain the marker
+// bytes. Absent on servers that predate tagged exception framing.
+const exceptionTagHeader = "X-ClickHouse-Exception-Tag"
+
 // maxErrorBodySize caps how much of an error response body is read. Server
 // exception text fits well within it (the exception block is at most 16KiB);
 // anything larger is a misbehaving server or proxy and gets truncated.
