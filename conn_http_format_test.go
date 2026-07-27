@@ -273,6 +273,34 @@ func TestBatchSendEmptyBodyIsSuccess(t *testing.T) {
 	assert.NoError(t, relErr)
 }
 
+// endlessReader serves an unbounded stream and counts what was consumed.
+type endlessReader struct{ n int64 }
+
+func (r *endlessReader) Read(p []byte) (int, error) {
+	r.n += int64(len(p))
+	return len(p), nil
+}
+
+func TestHTTPFormatStreamCloseBoundedDrain(t *testing.T) {
+	// A caller abandoning a large result must not block in Close while the
+	// remainder transfers: the drain is bounded, past it the connection is
+	// forfeited instead.
+	pool, err := createCompressionPool(&Compression{Method: CompressionNone})
+	require.NoError(t, err)
+	body := &endlessReader{}
+	released := false
+	s := &httpFormatStream{
+		reader:  body,
+		body:    io.NopCloser(body),
+		conn:    &httpConnect{compressionPool: pool},
+		release: func(nativeTransport, error) { released = true },
+	}
+	require.NoError(t, s.Close())
+	assert.True(t, released)
+	assert.LessOrEqual(t, body.n, int64(maxCloseDrainBytes),
+		"Close must not drain more than the bound from an abandoned stream")
+}
+
 func TestHTTPFormatStreamCloseIdempotent(t *testing.T) {
 	pool, err := createCompressionPool(&Compression{Method: CompressionNone})
 	require.NoError(t, err)

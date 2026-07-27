@@ -14,6 +14,13 @@ import (
 // is found during mid-stream exception body
 const exceptionScanLimit = 32 << 10 // 32 KiB
 
+// maxCloseDrainBytes bounds how much unread body Close pulls before giving
+// up on keep-alive reuse of the HTTP connection. The common case is a stream
+// already read to EOF (nothing left to drain) or a short tail; past the
+// bound, losing the connection is cheaper than transferring a result the
+// caller has abandoned.
+const maxCloseDrainBytes = 64 << 10 // 64 KiB
+
 // exceptionFrame is basically exceptionMarker (`__exception__`) + CRLF.
 // This is exactly how ClickHouse server writes it on the write. It is there to differentiate
 // say normal text `__exception__` in the body.
@@ -229,7 +236,11 @@ func (s *httpFormatStream) Close() error {
 		return nil
 	}
 	s.closed = true
-	discardAndClose(s.body)
+	// Bounded drain: reuse the connection when the stream was (nearly)
+	// exhausted, but never block a caller that abandoned a large result -
+	// closing an undrained body forfeits the connection, which is cheaper.
+	_, _ = io.CopyN(io.Discard, s.body, maxCloseDrainBytes)
+	_ = s.body.Close()
 	s.conn.compressionPool.Put(s.rw)
 	s.release(s.conn, nil)
 	return nil
