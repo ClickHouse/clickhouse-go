@@ -277,6 +277,9 @@ func TestFormatCancellation(t *testing.T) {
 func TestFormatMarkerWithFramingInDataStreaming(t *testing.T) {
 	conn, err := GetNativeConnection(t, clickhouse.HTTP, nil, nil, nil)
 	require.NoError(t, err)
+	if !CheckMinServerServerVersion(conn, 25, 11, 0) {
+		t.Skip("server does not send X-ClickHouse-Exception-Tag; marker alone is trusted best-effort")
+	}
 	ctx := context.Background()
 
 	table := fmt.Sprintf("test_format_%s", RandAsciiString(8))
