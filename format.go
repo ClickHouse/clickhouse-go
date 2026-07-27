@@ -88,6 +88,11 @@ func (ch *clickhouse) InsertFormat(ctx context.Context, format string, query str
 	if ch.opt.Protocol != HTTP {
 		return ErrFormatNativeUnsupported
 	}
+	// Validated before acquiring: a malformed statement is a caller mistake
+	// and must not consume a pooled connection.
+	if _, _, _, err := extractInsertQueryComponents(query); err != nil {
+		return err
+	}
 	conn, err := ch.acquire(ctx)
 	if err != nil {
 		return err

@@ -337,7 +337,9 @@ func (h *httpConnect) insertFormat(ctx context.Context, release nativeTransportR
 	h.logger.Debug("HTTP format insert", slog.String("sql", query), slog.String("format", formatName))
 	insertStmt, _, _, err := extractInsertQueryComponents(query)
 	if err != nil {
-		release(h, err)
+		// Client-side parse failure: the connection is healthy and unused,
+		// releasing it with the error would needlessly close it.
+		release(h, nil)
 		return err
 	}
 

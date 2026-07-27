@@ -202,6 +202,21 @@ func TestInsertFormatInBandExceptionOn200(t *testing.T) {
 	require.Error(t, relErr, "connection must be released with the error")
 }
 
+func TestInsertFormatBadStatementReleasesHealthy(t *testing.T) {
+	// A malformed INSERT is a caller mistake caught client-side: the never-
+	// used connection must go back to the pool, not be closed as broken.
+	h := newTestHTTPConnect(t, "http://127.0.0.1:1") // never dialed
+	released := false
+	var relErr error
+	err := h.insertFormat(context.Background(),
+		func(_ nativeTransport, e error) { released = true; relErr = e },
+		"CSV", "INSERT t", strings.NewReader("1\n"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid INSERT query")
+	assert.True(t, released)
+	assert.NoError(t, relErr, "client-side parse failure must not poison the connection")
+}
+
 func TestInsertFormatEmptyBodyIsSuccess(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = io.Copy(io.Discard, r.Body)
