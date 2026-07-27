@@ -6,6 +6,7 @@ import (
 	"io"
 	"log/slog"
 	"regexp"
+	"strings"
 )
 
 // formatNameMatch validates a ClickHouse format name. The name is inserted
@@ -24,7 +25,22 @@ func validateFormatName(format string) error {
 // e.g. "SELECT 1 FORMAT JSONEachRow". Anchored at end and requiring whitespace
 // before FORMAT so it does not fire on the token appearing inside a string
 // literal or identifier earlier in the query.
-var trailingFormatClause = regexp.MustCompile(`(?is)\sFORMAT\s+[A-Za-z][A-Za-z0-9]*\s*;?\s*$`)
+var trailingFormatClause = regexp.MustCompile(`(?is)\sFORMAT\s+([A-Za-z][A-Za-z0-9]*)\s*;?\s*$`)
+
+// notFormatNames are identifiers that legitimately trail a query in the
+// FORMAT position without being a format name: a sort direction after a
+// column named format, as in "ORDER BY format ASC".
+var notFormatNames = map[string]bool{"asc": true, "desc": true}
+
+// hasTrailingFormatClause reports whether query ends in a FORMAT clause the
+// server would honour over the requested format. Best-effort textual check:
+// a clause inside a trailing "--" comment is still flagged - erring towards
+// rejection keeps a real clause from silently overriding the format argument,
+// and the fix (removing the text) is the same either way.
+func hasTrailingFormatClause(query string) bool {
+	m := trailingFormatClause.FindStringSubmatch(query)
+	return m != nil && !notFormatNames[strings.ToLower(m[1])]
+}
 
 // QueryFormat executes query and returns the result encoded in the given
 // ClickHouse format as a raw byte stream. See driver.Conn for the full
@@ -42,7 +58,7 @@ func (ch *clickhouse) QueryFormat(ctx context.Context, format string, query stri
 	if err := validateFormatName(format); err != nil {
 		return nil, err
 	}
-	if trailingFormatClause.MatchString(query) {
+	if hasTrailingFormatClause(query) {
 		return nil, fmt.Errorf("clickhouse: query must not contain a trailing FORMAT clause; pass the format as the QueryFormat argument (%q) instead", format)
 	}
 	// Checked before acquiring: a saturated pool or failed dial must not mask

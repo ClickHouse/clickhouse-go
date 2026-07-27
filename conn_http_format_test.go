@@ -15,6 +15,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	chproto "github.com/ClickHouse/ch-go/proto"
+
+	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 )
 
 // oneByteReader forces marker detection across read boundaries.
@@ -171,6 +175,7 @@ func newTestHTTPConnect(t *testing.T, rawURL string) *httpConnect {
 		url:             u,
 		client:          &http.Client{Timeout: 5 * time.Second},
 		compressionPool: pool,
+		buffer:          new(chproto.Buffer),
 	}
 }
 
@@ -211,6 +216,59 @@ func TestInsertFormatEmptyBodyIsSuccess(t *testing.T) {
 		func(_ nativeTransport, e error) { released = true; relErr = e },
 		"CSV", "INSERT INTO t (a)", strings.NewReader("1\n"))
 	require.NoError(t, err)
+	assert.True(t, released)
+	assert.NoError(t, relErr)
+}
+
+// newTestHTTPBatch prepares a batch against h without the DESCRIBE TABLE
+// round-trip, by supplying the column types up front.
+func newTestHTTPBatch(t *testing.T, h *httpConnect, release nativeTransportRelease) driver.Batch {
+	t.Helper()
+	ctx := Context(context.Background(), WithColumnNamesAndTypes([]ColumnNameAndType{
+		{Name: "a", Type: "Int64"},
+	}))
+	b, err := h.prepareBatch(ctx, release, nil, "INSERT INTO t (a)", driver.PrepareBatchOptions{})
+	require.NoError(t, err)
+	return b
+}
+
+func TestBatchSendInBandExceptionOn200(t *testing.T) {
+	// Same hole as insertFormat: a batch INSERT whose failure arrives after
+	// the 200 headers must fail Send, not report success.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.Copy(io.Discard, r.Body)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(taggedExceptionPayload))
+	}))
+	defer srv.Close()
+
+	h := newTestHTTPConnect(t, srv.URL)
+	var relErr error
+	batch := newTestHTTPBatch(t, h, func(_ nativeTransport, e error) { relErr = e })
+	require.NoError(t, batch.Append(int64(1)))
+
+	err := batch.Send()
+	require.Error(t, err)
+	var ex *Exception
+	require.ErrorAs(t, err, &ex, "in-band block must parse into a typed exception")
+	assert.Equal(t, int32(395), ex.Code)
+	require.Error(t, relErr, "connection must be released with the error")
+}
+
+func TestBatchSendEmptyBodyIsSuccess(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.Copy(io.Discard, r.Body)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	h := newTestHTTPConnect(t, srv.URL)
+	released := false
+	var relErr error
+	batch := newTestHTTPBatch(t, h, func(_ nativeTransport, e error) { released = true; relErr = e })
+	require.NoError(t, batch.Append(int64(1)))
+
+	require.NoError(t, batch.Send())
 	assert.True(t, released)
 	assert.NoError(t, relErr)
 }

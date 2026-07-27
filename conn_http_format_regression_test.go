@@ -94,7 +94,7 @@ func TestQueryFormat_TrailingFormatClauseDetection(t *testing.T) {
 		"SELECT 1 FORMAT CSV  ",
 	}
 	for _, q := range reject {
-		assert.True(t, trailingFormatClause.MatchString(q), "should detect trailing FORMAT: %q", q)
+		assert.True(t, hasTrailingFormatClause(q), "should detect trailing FORMAT: %q", q)
 	}
 
 	accept := []string{
@@ -104,8 +104,11 @@ func TestQueryFormat_TrailingFormatClauseDetection(t *testing.T) {
 		"SELECT 1 AS myformat",
 		"SELECT format FROM t", // column named format, not a clause
 		"SELECT concat('a','FORMAT CSV') AS x",
+		"SELECT * FROM t ORDER BY format ASC",  // sort key named format
+		"SELECT * FROM t ORDER BY format DESC", // sort key named format
+		"SELECT * FROM t ORDER BY a, format desc;",
 	}
 	for _, q := range accept {
-		assert.False(t, trailingFormatClause.MatchString(q), "must not flag: %q", q)
+		assert.False(t, hasTrailingFormatClause(q), "must not flag: %q", q)
 	}
 }
