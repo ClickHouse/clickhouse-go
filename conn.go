@@ -22,11 +22,8 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 
-func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, error) {
-	var (
-		err  error
-		conn net.Conn
-	)
+func dial(ctx context.Context, addr string, num int, opt *Options) (c *connect, err error) {
+	var conn net.Conn
 
 	switch {
 	case opt.DialContext != nil:
@@ -43,6 +40,15 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 	if err != nil {
 		return nil, err
 	}
+
+	// Close the freshly dialed connection if any later setup step (compression,
+	// JWT, handshake, addendum) fails, otherwise the socket and its fd leak on
+	// every failed connection attempt.
+	defer func() {
+		if err != nil {
+			_ = conn.Close()
+		}
+	}()
 
 	// Get base logger and enrich with connection-specific context
 	baseLogger := opt.logger()
