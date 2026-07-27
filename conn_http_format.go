@@ -14,17 +14,16 @@ import (
 // parse a mid-stream exception once its marker is seen.
 const exceptionScanLimit = 32 << 10
 
-var exceptionMarker = []byte("__exception__")
-
 // exceptionFrame is the marker as ClickHouse frames it in an HTTP response:
-// the "__exception__" token is always followed by CRLF (the server writes
+// the "__exception__" token (exceptionMarker, defined in conn_http_errors.go)
+// is always followed by CRLF (the server writes
 // "\r\n__exception__\r\n<tag>\r\n<message>\n<len> <tag>\r\n__exception__\r\n").
 // Scanning for the framed token rather than the bare marker keeps result data
 // that merely contains the "__exception__" bytes - which any text format can
 // carry verbatim and any binary format (Parquet, RowBinary, Native, Arrow)
 // can carry by chance - from being misdetected as a mid-stream exception and
 // silently corrupting the stream.
-var exceptionFrame = []byte("__exception__\r\n")
+var exceptionFrame = []byte(exceptionMarker + "\r\n")
 
 // exceptionScanReader passes bytes through while scanning for the mid-stream
 // exception ClickHouse appends to an HTTP response when a query fails after
