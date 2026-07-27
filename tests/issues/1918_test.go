@@ -27,10 +27,9 @@ func Test1918(t *testing.T) {
 			, c16 Enum16('x' = -300, 'y' = 0, 'z' = 1000)
 		) Engine MergeTree() ORDER BY tuple()
 	`
+	require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS test_1918"))
+	t.Cleanup(func() { require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS test_1918")) })
 	require.NoError(t, conn.Exec(ctx, ddl))
-	defer func() {
-		require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS test_1918"))
-	}()
 
 	// Row 'c'/'z' carries the large-magnitude ordinals (42, 1000); row 'a'/'x'
 	// carries the negative ordinals (-5, -300). 1000 and -300 fall outside the
@@ -121,22 +120,21 @@ func Test1918(t *testing.T) {
 		err := conn.QueryRow(ctx,
 			"SELECT c16 FROM test_1918 WHERE c16 = 'z'").
 			Scan(&i8)
-		require.Error(t, err)
+		require.ErrorContains(t, err, "converting Enum16 to *int8 is unsupported")
 	})
 
 	// Nullable(Enum) delegates element scanning to the underlying Enum column's
 	// ScanRow, so integer destinations work there too; a NULL leaves a pointer
 	// destination nil.
 	t.Run("Nullable(Enum) into integer destinations", func(t *testing.T) {
+		require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS test_1918_nullable"))
+		t.Cleanup(func() { require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS test_1918_nullable")) })
 		require.NoError(t, conn.Exec(ctx, `
 			CREATE TABLE test_1918_nullable (
 				  n8  Nullable(Enum8 ('a' = -5, 'c' = 42))
 				, n16 Nullable(Enum16('z' = 1000))
 			) Engine MergeTree() ORDER BY tuple()
 		`))
-		defer func() {
-			require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS test_1918_nullable"))
-		}()
 		require.NoError(t, conn.Exec(ctx,
 			"INSERT INTO test_1918_nullable VALUES ('c', 'z'), (NULL, NULL)"))
 
@@ -150,10 +148,21 @@ func Test1918(t *testing.T) {
 		assert.Equal(t, int8(42), v8)
 		assert.Equal(t, int16(1000), v16)
 
-		var p8 *int8
+		// A NULL must clear a pointer destination. Seed each pointer non-nil
+		// first, otherwise the assertion passes whether or not ScanRow actually
+		// cleared it (a nil-initialised pointer is already nil).
+		seed8 := int8(7)
+		p8 := &seed8
 		require.NoError(t, conn.QueryRow(ctx,
 			"SELECT n8 FROM test_1918_nullable WHERE n8 IS NULL").
 			Scan(&p8))
-		assert.Nil(t, p8)
+		assert.Nil(t, p8, "NULL Nullable(Enum8) must clear the *int8 destination")
+
+		seedInt := 7
+		pInt := &seedInt
+		require.NoError(t, conn.QueryRow(ctx,
+			"SELECT n8 FROM test_1918_nullable WHERE n8 IS NULL").
+			Scan(&pInt))
+		assert.Nil(t, pInt, "NULL Nullable(Enum8) must clear the *int destination")
 	})
 }

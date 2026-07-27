@@ -92,6 +92,8 @@ func (col *Nullable) ScanRow(dest any, row int) error {
 				*v = nil
 			case **int8:
 				*v = nil
+			case **int:
+				*v = nil
 			case **string:
 				*v = nil
 			case **float32:
