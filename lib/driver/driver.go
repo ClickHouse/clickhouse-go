@@ -53,6 +53,15 @@ type (
 		// holds a connection (visible in Stats). Put the format in the format
 		// argument, not as a FORMAT clause in the query.
 		//
+		// If the query fails after streaming has begun, Read returns the data
+		// received so far followed by the server exception. Detection is
+		// best-effort: it scans the stream for ClickHouse's in-band exception
+		// marker, so a result that legitimately contains the byte sequence
+		// "__exception__" is misdetected and truncated. For all-or-nothing
+		// semantics set wait_end_of_query=1 via WithSettings: the server then
+		// buffers the complete result, failures surface as an error from
+		// QueryFormat itself, and no marker scanning is applied to the stream.
+		//
 		// Experimental: this API is experimental and may change or be removed
 		// in a future minor release. It is currently only supported over the
 		// HTTP protocol, where the server encodes the stream and every

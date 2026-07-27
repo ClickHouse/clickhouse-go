@@ -270,9 +270,56 @@ func TestFormatCancellation(t *testing.T) {
 	require.NoError(t, conn.Exec(context.Background(), "SELECT 1"))
 }
 
-// TestFormatCompression exercises the gzip transport path in both directions.
+// TestFormatWaitEndOfQuery covers the all-or-nothing mode: with
+// wait_end_of_query=1 the marker scan is bypassed, so data legitimately
+// containing "__exception__" survives intact, and a failing query surfaces
+// as an error from QueryFormat itself instead of mid-stream.
+func TestFormatWaitEndOfQuery(t *testing.T) {
+	conn, err := GetNativeConnection(t, clickhouse.HTTP, nil, nil, nil)
+	require.NoError(t, err)
+	ctx := clickhouse.Context(context.Background(), clickhouse.WithSettings(clickhouse.Settings{
+		"wait_end_of_query": 1,
+	}))
+
+	t.Run("marker in data is not misdetected", func(t *testing.T) {
+		table := fmt.Sprintf("test_format_%s", RandAsciiString(8))
+		require.NoError(t, conn.Exec(ctx, fmt.Sprintf("CREATE TABLE %s (id Int64, msg String) Engine MergeTree() ORDER BY id", table)))
+		t.Cleanup(func() { conn.Exec(context.Background(), fmt.Sprintf("DROP TABLE IF EXISTS %s", table)) })
+
+		// A log line that literally contains the in-band exception marker.
+		require.NoError(t, conn.Exec(ctx,
+			fmt.Sprintf("INSERT INTO %s VALUES (1, 'server wrote __exception__\\r\\n into the log'), (2, 'ok')", table)))
+
+		stream, err := conn.QueryFormat(ctx, "CSV", fmt.Sprintf("SELECT id, msg FROM %s ORDER BY id", table))
+		require.NoError(t, err)
+		defer stream.Close()
+		payload, err := io.ReadAll(stream)
+		require.NoError(t, err, "data containing the marker must not be turned into an exception")
+		assert.Contains(t, string(payload), "__exception__")
+		assert.Contains(t, string(payload), "ok", "stream must not be truncated at the marker")
+	})
+
+	t.Run("failure surfaces before any data", func(t *testing.T) {
+		stream, err := conn.QueryFormat(ctx, "CSV",
+			"SELECT throwIf(number=3, 'there is an exception') FROM system.numbers LIMIT 10")
+		if err == nil {
+			// Server buffered the result; no partial bytes may arrive.
+			payload, readErr := io.ReadAll(stream)
+			stream.Close()
+			require.Error(t, readErr)
+			assert.Empty(t, payload)
+			return
+		}
+		assert.Contains(t, err.Error(), "there is an exception")
+	})
+}
+
+// TestFormatCompression exercises the gzip transport path in both directions,
+// with the server actually compressing the response.
 func TestFormatCompression(t *testing.T) {
-	conn, err := GetNativeConnection(t, clickhouse.HTTP, nil, nil, &clickhouse.Compression{Method: clickhouse.CompressionGZIP})
+	conn, err := GetNativeConnection(t, clickhouse.HTTP, clickhouse.Settings{
+		"enable_http_compression": 1, // server compresses only when enabled
+	}, nil, &clickhouse.Compression{Method: clickhouse.CompressionGZIP})
 	require.NoError(t, err)
 	ctx := context.Background()
 
@@ -289,4 +336,23 @@ func TestFormatCompression(t *testing.T) {
 	require.NoError(t, conn.InsertFormat(ctx, "JSONEachRow",
 		fmt.Sprintf("INSERT INTO %s", dest), bytes.NewReader(payload)))
 	verifyFormatTestTable(t, conn, dest)
+}
+
+// TestFormatCompressionServerUncompressed pins the pass-through path: gzip is
+// configured on the connection but the server responds uncompressed (no
+// Content-Encoding), so the body must be served untouched.
+func TestFormatCompressionServerUncompressed(t *testing.T) {
+	conn, err := GetNativeConnection(t, clickhouse.HTTP, clickhouse.Settings{
+		"enable_http_compression": 0,
+	}, nil, &clickhouse.Compression{Method: clickhouse.CompressionGZIP})
+	require.NoError(t, err)
+
+	table := createFormatTestTable(t, conn, true)
+	stream, err := conn.QueryFormat(context.Background(), "CSV",
+		fmt.Sprintf("SELECT id, name FROM %s ORDER BY id", table))
+	require.NoError(t, err)
+	defer stream.Close()
+	payload, err := io.ReadAll(stream)
+	require.NoError(t, err)
+	assert.Contains(t, string(payload), "alice")
 }

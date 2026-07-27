@@ -10,30 +10,17 @@ import (
 	"sync"
 )
 
-// exceptionScanLimit bounds how much of the remaining stream is buffered to
-// parse a mid-stream exception once its marker is seen.
-const exceptionScanLimit = 32 << 10
+// exceptionScanLimit represents how much to scan once the exception marker
+// is found during mid-stream exception body
+const exceptionScanLimit = 32 << 10 // 32 KiB
 
-// exceptionFrame is the marker as ClickHouse frames it in an HTTP response:
-// the "__exception__" token (exceptionMarker, defined in conn_http_errors.go)
-// is always followed by CRLF (the server writes
-// "\r\n__exception__\r\n<tag>\r\n<message>\n<len> <tag>\r\n__exception__\r\n").
-// Scanning for the framed token rather than the bare marker keeps result data
-// that merely contains the "__exception__" bytes - which any text format can
-// carry verbatim and any binary format (Parquet, RowBinary, Native, Arrow)
-// can carry by chance - from being misdetected as a mid-stream exception and
-// silently corrupting the stream.
+// exceptionFrame is basically exceptionMarker (`__exception__`) + CRLF.
+// This is exactly how ClickHouse server writes it on the write. It is there to differentiate
+// say normal text `__exception__` in the body.
 var exceptionFrame = []byte(exceptionMarker + "\r\n")
 
-// exceptionScanReader passes bytes through while scanning for the mid-stream
-// exception ClickHouse appends to an HTTP response when a query fails after
-// streaming has begun. On a match, the data before the frame is served and the
-// next Read returns the parsed exception. Detection requires the CRLF framing
-// (see exceptionFrame); a payload that legitimately contains the full framed
-// byte sequence "__exception__\r\n" remains a false positive - an inherent
-// limit of marker-based detection - but bare occurrences of the token in data
-// no longer trigger it. Callers needing all-or-nothing semantics should still
-// set wait_end_of_query=1.
+// exceptionScanReader is used to extract full exception body during mid-stream exception.
+// It uses exceptionFrame instead of just plain exceptionMarker to discover the exception.
 type exceptionScanReader struct {
 	src     io.Reader
 	buf     []byte
@@ -43,7 +30,28 @@ type exceptionScanReader struct {
 }
 
 func newExceptionScanReader(src io.Reader) *exceptionScanReader {
-	return &exceptionScanReader{src: src, buf: make([]byte, 32<<10)}
+	return &exceptionScanReader{src: src, buf: make([]byte, exceptionScanLimit)}
+}
+
+// waitEndOfQueryEnabled reports whether the caller opted into all-or-nothing
+// semantics via the wait_end_of_query setting. With it, the server buffers the
+// complete result before responding: a failure surfaces as a non-200 status
+// before any body byte and no in-band exception marker can appear, so the
+// marker scan is skipped entirely.
+func waitEndOfQueryEnabled(settings Settings) bool {
+	v, ok := settings["wait_end_of_query"]
+	if !ok {
+		return false
+	}
+	if cv, ok := v.(CustomSetting); ok {
+		v = cv.Value
+	}
+	switch fmt.Sprint(v) {
+	case "1", "true":
+		return true
+	default:
+		return false
+	}
 }
 
 func (r *exceptionScanReader) Read(p []byte) (int, error) {
@@ -99,6 +107,8 @@ func (r *exceptionScanReader) safeLen() int {
 func (r *exceptionScanReader) captureException(i int) {
 	exc := append([]byte{}, r.pending[i:]...)
 	r.pending = r.pending[:i]
+
+	// safety: all in-memory pre-allocated buffer reads. skipping error
 	rest, _ := io.ReadAll(io.LimitReader(r.src, exceptionScanLimit))
 	exc = append(exc, rest...)
 	r.err = parseExceptionFromBytes(exc)
@@ -198,8 +208,16 @@ func (h *httpConnect) queryFormat(ctx context.Context, release nativeTransportRe
 		return nil, err
 	}
 
+	// With wait_end_of_query the server has already buffered the full result
+	// and failures arrived as a non-200 above - serve the body as-is. Only
+	// streaming responses need the best-effort in-band marker scan.
+	stream := reader
+	if !waitEndOfQueryEnabled(options.settings) {
+		stream = newExceptionScanReader(reader)
+	}
+
 	return &httpFormatStream{
-		reader:  newExceptionScanReader(reader),
+		reader:  stream,
 		body:    res.Body,
 		rw:      rw,
 		conn:    h,
