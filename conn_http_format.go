@@ -21,16 +21,26 @@ var exceptionFrame = []byte(exceptionMarker + "\r\n")
 
 // exceptionScanReader is used to extract full exception body during mid-stream exception.
 // It uses exceptionFrame instead of just plain exceptionMarker to discover the exception.
+//
+// A frame candidate is treated as a genuine exception only if the marker is
+// followed by the per-response random tag the server announced in the
+// X-ClickHouse-Exception-Tag header (tag) - that is what the tag exists for:
+// result data cannot contain a value generated after the response started, so
+// data that happens to contain the marker bytes is served verbatim. On older
+// servers that send no tag header, tag is empty and the marker alone is
+// trusted (best-effort).
 type exceptionScanReader struct {
-	src     io.Reader
-	buf     []byte
-	pending []byte
-	err     error // terminal error: parsed exception or upstream read error
-	srcDone bool
+	src      io.Reader
+	tag      string // from X-ClickHouse-Exception-Tag; empty disables validation
+	buf      []byte
+	pending  []byte
+	scanFrom int   // pending[:scanFrom] holds no undecided frame candidates
+	err      error // terminal error: parsed exception or upstream read error
+	srcDone  bool
 }
 
-func newExceptionScanReader(src io.Reader) *exceptionScanReader {
-	return &exceptionScanReader{src: src, buf: make([]byte, exceptionScanLimit)}
+func newExceptionScanReader(src io.Reader, tag string) *exceptionScanReader {
+	return &exceptionScanReader{src: src, tag: tag, buf: make([]byte, exceptionScanLimit)}
 }
 
 // waitEndOfQueryEnabled reports whether the caller opted into all-or-nothing
@@ -59,6 +69,9 @@ func (r *exceptionScanReader) Read(p []byte) (int, error) {
 		if safe := r.safeLen(); safe > 0 {
 			n := copy(p, r.pending[:safe])
 			r.pending = r.pending[n:]
+			if r.scanFrom -= n; r.scanFrom < 0 {
+				r.scanFrom = 0
+			}
 			return n, nil
 		}
 		if r.err != nil {
@@ -71,9 +84,6 @@ func (r *exceptionScanReader) Read(p []byte) (int, error) {
 		n, err := r.src.Read(r.buf)
 		if n > 0 {
 			r.pending = append(r.pending, r.buf[:n]...)
-			if i := bytes.Index(r.pending, exceptionFrame); i >= 0 {
-				r.captureException(i)
-			}
 		}
 		if err != nil {
 			r.srcDone = true
@@ -81,21 +91,70 @@ func (r *exceptionScanReader) Read(p []byte) (int, error) {
 				r.err = err
 			}
 		}
+		if n > 0 || r.srcDone {
+			r.scan()
+		}
+	}
+}
+
+// scan classifies every complete frame candidate in pending. Candidates whose
+// tag bytes have not arrived yet stay undecided: scanFrom keeps pointing
+// before them and safeLen holds those bytes back until more input (or the end
+// of the stream) settles the question.
+func (r *exceptionScanReader) scan() {
+	for {
+		i := bytes.Index(r.pending[r.scanFrom:], exceptionFrame)
+		if i < 0 {
+			return
+		}
+		i += r.scanFrom
+		if r.tag == "" {
+			// Old servers (<= 25.8) announce no tag: the marker alone has to
+			// be trusted.
+			r.captureException(i)
+			return
+		}
+		tagStart := i + len(exceptionFrame)
+		tagEnd := tagStart + len(r.tag) + 2 // tag + CRLF
+		if len(r.pending) < tagEnd {
+			if !r.srcDone {
+				return // undecided: wait for the tag bytes
+			}
+			// The stream ended inside the candidate - a genuine frame cannot
+			// be truncated here, so these are data bytes.
+			r.scanFrom = i + 1
+			continue
+		}
+		if string(r.pending[tagStart:tagStart+len(r.tag)]) == r.tag &&
+			bytes.Equal(r.pending[tagStart+len(r.tag):tagEnd], []byte("\r\n")) {
+			r.captureException(i)
+			return
+		}
+		// Marker bytes that happen to appear in the result data.
+		r.scanFrom = i + 1
 	}
 }
 
 // safeLen returns how many pending bytes can be served without risking that
 // their tail is the beginning of an exception frame split across reads.
+// Candidates already dismissed by scan (below scanFrom) are plain data and
+// never held back.
 func (r *exceptionScanReader) safeLen() int {
 	if r.srcDone || r.err != nil {
 		return len(r.pending)
 	}
+	tail := r.pending[r.scanFrom:]
+	if i := bytes.Index(tail, exceptionFrame); i >= 0 {
+		// A complete marker whose tag bytes are still in flight: serve
+		// everything before it, hold the candidate.
+		return r.scanFrom + i
+	}
 	holdback := len(exceptionFrame) - 1
-	if holdback > len(r.pending) {
-		holdback = len(r.pending)
+	if holdback > len(tail) {
+		holdback = len(tail)
 	}
 	for k := holdback; k > 0; k-- {
-		if bytes.Equal(r.pending[len(r.pending)-k:], exceptionFrame[:k]) {
+		if bytes.Equal(tail[len(tail)-k:], exceptionFrame[:k]) {
 			return len(r.pending) - k
 		}
 	}
@@ -210,10 +269,11 @@ func (h *httpConnect) queryFormat(ctx context.Context, release nativeTransportRe
 
 	// With wait_end_of_query the server has already buffered the full result
 	// and failures arrived as a non-200 above - serve the body as-is. Only
-	// streaming responses need the best-effort in-band marker scan.
+	// streaming responses need the in-band exception scan, validated against
+	// the per-response tag the server announced in the headers.
 	stream := reader
 	if !waitEndOfQueryEnabled(options.settings) {
-		stream = newExceptionScanReader(reader)
+		stream = newExceptionScanReader(reader, res.Header.Get(exceptionTagHeader))
 	}
 
 	return &httpFormatStream{

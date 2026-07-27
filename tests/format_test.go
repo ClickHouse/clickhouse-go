@@ -270,6 +270,31 @@ func TestFormatCancellation(t *testing.T) {
 	require.NoError(t, conn.Exec(context.Background(), "SELECT 1"))
 }
 
+// TestFormatMarkerWithFramingInDataStreaming proves tag validation in plain
+// streaming mode (no wait_end_of_query): data carrying the full marker
+// framing "__exception__\r\n" cannot contain the server's per-response random
+// tag, so it must be served verbatim, not misdetected as an exception.
+func TestFormatMarkerWithFramingInDataStreaming(t *testing.T) {
+	conn, err := GetNativeConnection(t, clickhouse.HTTP, nil, nil, nil)
+	require.NoError(t, err)
+	ctx := context.Background()
+
+	table := fmt.Sprintf("test_format_%s", RandAsciiString(8))
+	require.NoError(t, conn.Exec(ctx, fmt.Sprintf("CREATE TABLE %s (id Int64, msg String) Engine MergeTree() ORDER BY id", table)))
+	t.Cleanup(func() { conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", table)) })
+
+	require.NoError(t, conn.Exec(ctx,
+		fmt.Sprintf("INSERT INTO %s VALUES (1, concat('__exception__', char(13), char(10), 'FAKE-TAG-12345678', char(13), char(10))), (2, 'after')", table)))
+
+	stream, err := conn.QueryFormat(ctx, "CSV", fmt.Sprintf("SELECT id, msg FROM %s ORDER BY id", table))
+	require.NoError(t, err)
+	defer stream.Close()
+	payload, err := io.ReadAll(stream)
+	require.NoError(t, err, "framed marker in data must not be misdetected as an exception")
+	assert.Contains(t, string(payload), "__exception__")
+	assert.Contains(t, string(payload), "after", "stream must not be truncated at the marker")
+}
+
 // TestFormatWaitEndOfQuery covers the all-or-nothing mode: with
 // wait_end_of_query=1 the marker scan is bypassed, so data legitimately
 // containing "__exception__" survives intact, and a failing query surfaces
