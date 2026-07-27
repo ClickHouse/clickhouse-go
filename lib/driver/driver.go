@@ -53,6 +53,11 @@ type (
 		// holds a connection (visible in Stats). Put the format in the format
 		// argument, not as a FORMAT clause in the query.
 		//
+		// The stream is not safe for concurrent use: to abort a stalled Read,
+		// cancel the query context rather than calling Close from another
+		// goroutine. Closing before EOF may discard the underlying HTTP
+		// connection instead of returning it for reuse.
+		//
 		// If the query fails after streaming has begun, Read returns the data
 		// received so far followed by the server exception. Exception blocks
 		// are identified by the per-response random tag the server announces
