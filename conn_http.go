@@ -224,6 +224,7 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		blockCompressor: compress.NewWriter(compress.Level(compression.Level), compress.Method(compression.Method)),
 		compressionPool: compressionPool,
 		blockBufferSize: opt.BlockBufferSize,
+		waitEndOfQuery:  settingEnabled(opt.Settings, "wait_end_of_query"),
 	}
 
 	handshake, err := conn.queryHello(ctx, func(nativeTransport, error) {})
@@ -284,6 +285,7 @@ type httpConnect struct {
 	compressionPool Pool[HTTPReaderWriter]
 	blockBufferSize uint8
 	handshake       proto.ServerHandshake
+	waitEndOfQuery  bool // connection-level wait_end_of_query from Options.Settings
 }
 
 func (h *httpConnect) serverVersion() (*ServerVersion, error) {

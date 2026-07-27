@@ -47,9 +47,20 @@ func newExceptionScanReader(src io.Reader, tag string) *exceptionScanReader {
 // semantics via the wait_end_of_query setting. With it, the server buffers the
 // complete result before responding: a failure surfaces as a non-200 status
 // before any body byte and no in-band exception marker can appear, so the
-// marker scan is skipped entirely.
-func waitEndOfQueryEnabled(settings Settings) bool {
-	v, ok := settings["wait_end_of_query"]
+// marker scan is skipped entirely. A per-query setting takes precedence over
+// the connection-level default from Options.Settings (baked into h.url at
+// dial time).
+func (h *httpConnect) waitEndOfQueryEnabled(settings Settings) bool {
+	if _, ok := settings["wait_end_of_query"]; ok {
+		return settingEnabled(settings, "wait_end_of_query")
+	}
+	return h.waitEndOfQuery
+}
+
+// settingEnabled reports whether the named setting is present in settings and
+// set to a truthy value ("1" or "true").
+func settingEnabled(settings Settings, name string) bool {
+	v, ok := settings[name]
 	if !ok {
 		return false
 	}
@@ -167,10 +178,15 @@ func (r *exceptionScanReader) captureException(i int) {
 	exc := append([]byte{}, r.pending[i:]...)
 	r.pending = r.pending[:i]
 
-	// safety: all in-memory pre-allocated buffer reads. skipping error
-	rest, _ := io.ReadAll(io.LimitReader(r.src, exceptionScanLimit))
+	// r.src is the live response body: a read failure here means the
+	// exception block itself is truncated, which the caller must see rather
+	// than a silently degraded message.
+	rest, readErr := io.ReadAll(io.LimitReader(r.src, exceptionScanLimit))
 	exc = append(exc, rest...)
 	r.err = parseExceptionFromBytes(exc)
+	if readErr != nil {
+		r.err = fmt.Errorf("%w (exception block truncated: %v)", r.err, readErr)
+	}
 	r.srcDone = true
 }
 
@@ -229,6 +245,19 @@ func (h *httpConnect) queryFormat(ctx context.Context, release nativeTransportRe
 		return nil, err
 	}
 
+	// With http_write_exception_in_output_format the server embeds a
+	// mid-stream failure inside the payload of formats that can carry it
+	// (JSON, XML, ...) and ends the stream cleanly - the caller would get
+	// partial data and no error. Pin it to 0 so failures always arrive as an
+	// "__exception__" block the scan below can surface, regardless of format.
+	// An explicit caller setting (per-query or connection-level) wins.
+	s := "http_write_exception_in_output_format"
+	if _, ok := options.settings[s]; !ok {
+		if _, ok := h.opt.Settings[s]; !ok {
+			options.settings[s] = 0
+		}
+	}
+
 	headers := make(map[string]string)
 	switch h.compression {
 	case CompressionGZIP, CompressionDeflate, CompressionBrotli:
@@ -272,7 +301,7 @@ func (h *httpConnect) queryFormat(ctx context.Context, release nativeTransportRe
 	// streaming responses need the in-band exception scan, validated against
 	// the per-response tag the server announced in the headers.
 	stream := reader
-	if !waitEndOfQueryEnabled(options.settings) {
+	if !h.waitEndOfQueryEnabled(options.settings) {
 		stream = newExceptionScanReader(reader, res.Header.Get(exceptionTagHeader))
 	}
 
@@ -357,7 +386,13 @@ func (h *httpConnect) insertFormat(ctx context.Context, release nativeTransportR
 		release(h, err)
 		return err
 	}
-	discardAndClose(res.Body)
+	// A 200 status is not yet success: a failure after the server flushed its
+	// headers arrives in-band, in the response body.
+	if err := h.insertResponseError(res); err != nil {
+		err = fmt.Errorf("insert %s: %w", formatName, err)
+		release(h, err)
+		return err
+	}
 	release(h, nil)
 	return nil
 }

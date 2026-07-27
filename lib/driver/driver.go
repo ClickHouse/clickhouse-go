@@ -60,9 +60,16 @@ type (
 		// happens to contain the marker bytes is served verbatim. Only on
 		// older servers that send no tag header does detection fall back to
 		// best-effort marker scanning, which can misdetect such data. For
-		// all-or-nothing semantics set wait_end_of_query=1 via WithSettings:
-		// the server then buffers the complete result, failures surface as an
-		// error from QueryFormat itself, and the stream is served unscanned.
+		// all-or-nothing semantics set wait_end_of_query=1 (via WithSettings
+		// or connection-level Options.Settings): the server then buffers the
+		// complete result, failures surface as an error from QueryFormat
+		// itself, and the stream is served unscanned.
+		//
+		// So that failures always arrive as such a block regardless of
+		// format, http_write_exception_in_output_format is pinned to 0 for
+		// the query - with it, formats that can carry an error in-band (JSON,
+		// XML, ...) would embed it in a valid payload and end the stream
+		// cleanly. An explicit caller setting takes precedence over the pin.
 		//
 		// Experimental: this API is experimental and may change or be removed
 		// in a future minor release. It is currently only supported over the

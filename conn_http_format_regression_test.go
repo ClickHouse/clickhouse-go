@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
-	"runtime"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -59,15 +59,13 @@ func TestInsertFormatCompression_NoLeakOnRefusedPort(t *testing.T) {
 		compressionPool: pool,
 	}
 
-	runtime.GC()
-	base := runtime.NumGoroutine()
-
 	// Blocks forever if read. With lazy compression the copy goroutine is only
 	// spawned once the HTTP client reads the body, which never happens on a
 	// refused connection - so nothing ever touches this reader.
 	blocked := make(chan struct{})
 	defer close(blocked)
-	blocking := readerFunc(func([]byte) (int, error) { <-blocked; return 0, io.EOF })
+	var reads atomic.Int64
+	blocking := readerFunc(func([]byte) (int, error) { reads.Add(1); <-blocked; return 0, io.EOF })
 
 	released := false
 	err = h.insertFormat(context.Background(),
@@ -76,11 +74,7 @@ func TestInsertFormatCompression_NoLeakOnRefusedPort(t *testing.T) {
 
 	require.Error(t, err, "request to a refused port must fail")
 	assert.True(t, released, "connection must be released on failure")
-
-	time.Sleep(150 * time.Millisecond)
-	runtime.GC()
-	leaked := runtime.NumGoroutine() - base
-	assert.LessOrEqual(t, leaked, 0, "no goroutine may be stranded on the caller's reader")
+	assert.Zero(t, reads.Load(), "the caller's reader must not be read when the request fails before the body")
 }
 
 type readerFunc func([]byte) (int, error)

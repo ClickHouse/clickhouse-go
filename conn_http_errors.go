@@ -235,6 +235,26 @@ func parseHTTPException(text, headerCode, headerName string) *Exception {
 	return &Exception{Code: int32(code), Name: name, CodeName: codeName, Message: msg}
 }
 
+// insertResponseError drains a 200 insert response and surfaces a server
+// exception that was flushed after the status line. An insert normally
+// answers 200 with an empty body, but when the failure happens after the
+// headers went out (send_progress_in_http_headers enabled, or the insert
+// outlived the response buffer) the only failure signal is an in-band
+// "__exception__" block on an otherwise successful-looking response. Result
+// data cannot appear in an insert response, so the framed marker alone is
+// trustworthy here.
+func (h *httpConnect) insertResponseError(res *http.Response) error {
+	body, err := h.readRawResponse(res)
+	discardAndClose(res.Body)
+	if err != nil {
+		return fmt.Errorf("read insert response: %w", err)
+	}
+	if isFramedException(body) {
+		return parseExceptionFromBytes(body)
+	}
+	return nil
+}
+
 // midStreamException converts exception text extracted from a mid-stream
 // "__exception__" block into a typed *Exception, falling back to a plain
 // error when the text does not parse as a server exception.
