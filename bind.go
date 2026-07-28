@@ -570,6 +570,11 @@ func formatValue(tz *time.Location, scale TimeUnit, v any, mode formatMode) (str
 		}
 		return val, err
 	case ArraySet:
+		// An ArraySet of big.Int values gets the same single-type treatment as
+		// a plain slice (see bigIntArray); otherwise join formats each element.
+		if s, ok := bigIntArray(reflect.ValueOf(v), mode); ok {
+			return s, nil
+		}
 		val, err := join(tz, scale, v, mode)
 		if err != nil {
 			return "", err
@@ -625,6 +630,12 @@ func formatValue(tz *time.Location, scale TimeUnit, v any, mode formatMode) (str
 	case reflect.String:
 		return quote(v.String()), nil
 	case reflect.Slice, reflect.Array:
+		// A slice whose elements are all big.Int renders with one wide-integer
+		// conversion for the whole array (see bigIntArray); every other slice
+		// formats element by element.
+		if s, ok := bigIntArray(v, mode); ok {
+			return s, nil
+		}
 		values := make([]string, 0, v.Len())
 		for i := 0; i < v.Len(); i++ {
 			val, err := formatValue(tz, scale, v.Index(i).Interface(), mode)
@@ -779,6 +790,89 @@ func bigIntConvFunc(v *big.Int) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("big.Int value %s is out of range for Int128, UInt128, Int256 and UInt256", v.String())
+}
+
+// bigIntArray renders v — a slice or array — as one ClickHouse array literal
+// when every element is a big.Int or *big.Int, using a single wide-integer
+// conversion for all of them (see commonBigIntConvFunc). ok is false for any
+// other slice, in query-parameter text mode (where the declared type already
+// covers the array), or when no single wide type holds every element; the
+// caller then formats the elements itself.
+func bigIntArray(v reflect.Value, mode formatMode) (string, bool) {
+	if mode != formatSQL {
+		return "", false
+	}
+	fn, ok := commonBigIntConvFunc(v)
+	if !ok {
+		return "", false
+	}
+	values := make([]string, 0, v.Len())
+	for i := 0; i < v.Len(); i++ {
+		switch e := v.Index(i).Interface().(type) {
+		case *big.Int:
+			if e == nil {
+				values = append(values, "NULL")
+				continue
+			}
+			values = append(values, fn+"('"+e.String()+"')")
+		case big.Int:
+			values = append(values, fn+"('"+e.String()+"')")
+		}
+	}
+	return fmt.Sprintf("[%s]", strings.Join(values, ", ")), true
+}
+
+// commonBigIntConvFunc reports whether every element of slice v is a big.Int or
+// *big.Int and, if so, returns the single wide-integer conversion function that
+// holds them all. ok is false when the elements are not all big.Int, when there
+// is no non-nil element, or when no one wide-integer type holds every value; the
+// caller then formats each element on its own.
+//
+// A slice binds as one array literal, so every element needs the same
+// conversion. Choosing the narrowest type per value can mix e.g. toInt128 and
+// toUInt256, which have no common ClickHouse type unless use_variant_as_common_type
+// is on (off by default before 26.x) — [toUInt256('1'), toUInt256('...')] is a
+// plain Array(UInt256), while [toInt128('1'), toUInt256('...')] makes
+// WHERE ... IN ? fail.
+func commonBigIntConvFunc(v reflect.Value) (string, bool) {
+	var lo, hi *big.Int
+	for i := 0; i < v.Len(); i++ {
+		var b *big.Int
+		switch e := v.Index(i).Interface().(type) {
+		case *big.Int:
+			b = e
+		case big.Int:
+			b = &e
+		default:
+			return "", false
+		}
+		if b == nil {
+			continue
+		}
+		if lo == nil || b.Cmp(lo) < 0 {
+			lo = b
+		}
+		if hi == nil || b.Cmp(hi) > 0 {
+			hi = b
+		}
+	}
+	if lo == nil {
+		return "", false
+	}
+	// A non-negative range is held by the type of its largest value. A range
+	// that includes a negative value needs a signed type wide enough for both
+	// ends; if none is, fall back to per-element formatting.
+	if lo.Sign() >= 0 {
+		fn, err := bigIntConvFunc(hi)
+		return fn, err == nil
+	}
+	switch {
+	case lo.Cmp(int128Min) >= 0 && hi.Cmp(int128Max) <= 0:
+		return "toInt128", true
+	case lo.Cmp(int256Min) >= 0 && hi.Cmp(int256Max) <= 0:
+		return "toInt256", true
+	}
+	return "", false
 }
 
 func join[E any](tz *time.Location, scale TimeUnit, values []E, mode formatMode) (string, error) {

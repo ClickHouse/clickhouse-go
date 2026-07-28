@@ -25,6 +25,13 @@ func TestIssue1917_BigIntBindParameter(t *testing.T) {
 		require.NoError(t, err)
 		t.Cleanup(func() { conn.Close() })
 
+		// Int128/UInt128/Int256/UInt256 need a server that supports wide
+		// integers; skip (rather than fail) on older servers, matching the
+		// other big.Int tests (tests/bigint_test.go).
+		if !clickhouse_tests.CheckMinServerServerVersion(conn, 21, 12, 0) {
+			t.Skip("wide integers (Int128/UInt128/Int256/UInt256) require ClickHouse 21.12+")
+		}
+
 		bigStr := func(s string) *big.Int {
 			v, ok := new(big.Int).SetString(s, 10)
 			require.True(t, ok)
@@ -84,6 +91,33 @@ func TestIssue1917_BigIntBindParameter(t *testing.T) {
 			require.NoError(t, conn.QueryRow(ctx,
 				"SELECT count() FROM test_1917 WHERE id = ?", id).Scan(&count))
 			require.Equal(t, uint64(1), count)
+		})
+
+		// A mixed-width []*big.Int (a small value plus a UInt256-range value)
+		// must bind as a single Array type. Per-element conversions would emit
+		// toInt128('1') next to toUInt256(...), which have no common ClickHouse
+		// type unless use_variant_as_common_type is on (off by default before
+		// 26.x), so WHERE ... IN ? has to keep matching here.
+		t.Run("mixed-width array matches a UInt256 column", func(t *testing.T) {
+			const ddl = "CREATE TABLE test_1917_array (`id` UInt256) ENGINE = Memory"
+			require.NoError(t, conn.Exec(ctx, ddl))
+			t.Cleanup(func() { _ = conn.Exec(ctx, "DROP TABLE IF EXISTS test_1917_array") })
+
+			ids := []*big.Int{
+				big.NewInt(1),
+				bigStr("115792089237316195423570985008687907853269984665640564039457584007913129639935"), // UInt256 max
+			}
+			batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_1917_array")
+			require.NoError(t, err)
+			for _, id := range ids {
+				require.NoError(t, batch.Append(id))
+			}
+			require.NoError(t, batch.Send())
+
+			var count uint64
+			require.NoError(t, conn.QueryRow(ctx,
+				"SELECT count() FROM test_1917_array WHERE id IN ?", ids).Scan(&count))
+			require.Equal(t, uint64(2), count)
 		})
 
 		// Server-side query parameters ({name:Type}) declare the type, so the

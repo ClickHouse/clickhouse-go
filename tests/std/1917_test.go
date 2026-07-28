@@ -1,9 +1,8 @@
 package std
 
 import (
-	"testing"
-
 	"math/big"
+	"testing"
 
 	"github.com/stretchr/testify/require"
 
@@ -35,6 +34,13 @@ func TestStd1917BigIntBindParameter(t *testing.T) {
 			conn, err := GetStdOpenDBConnection(protocol, nil, nil, nil)
 			require.NoError(t, err)
 			t.Cleanup(func() { conn.Close() })
+
+			// Wide integers (Int128/UInt128/Int256/UInt256) need a server that
+			// supports them; skip (rather than fail) on older ones, matching the
+			// native test and tests/std/bigint_test.go.
+			if !CheckMinServerVersion(conn, 21, 12, 0) {
+				t.Skip("wide integers (Int128/UInt128/Int256/UInt256) require ClickHouse 21.12+")
+			}
 
 			for _, v := range values {
 				// The parameter binds as a wide integer, never a String (the

@@ -1047,6 +1047,8 @@ func TestFormatBigInt(t *testing.T) {
 func TestBindBigInt(t *testing.T) {
 	huge, _ := new(big.Int).SetString("170141183460469231731687303715884105727", 10) // Int128 max
 	wrapped := "toInt128('170141183460469231731687303715884105727')"
+	uint256Max, _ := new(big.Int).SetString("115792089237316195423570985008687907853269984665640564039457584007913129639935", 10)
+	int256Max, _ := new(big.Int).SetString("57896044618658097711785492504343953926634992332820282019728792003956564819967", 10)
 
 	cases := []struct {
 		name     string
@@ -1060,6 +1062,28 @@ func TestBindBigInt(t *testing.T) {
 		{"value not pointer", "SELECT ?", []any{*huge}, "SELECT " + wrapped},
 		{"array", "SELECT ?", []any{[]*big.Int{big.NewInt(1), big.NewInt(-2)}},
 			"SELECT [toInt128('1'), toInt128('-2')]"},
+		// A mixed-width []*big.Int binds with one wide type for the whole array,
+		// not per-element toInt128/toUInt256 (which have no common ClickHouse
+		// type unless use_variant_as_common_type is on — off by default before
+		// 26.x), so WHERE ... IN ? keeps matching (#1917).
+		{"mixed-width array uses one wide type", "SELECT ?",
+			[]any{[]*big.Int{big.NewInt(1), uint256Max}},
+			"SELECT [toUInt256('1'), toUInt256('115792089237316195423570985008687907853269984665640564039457584007913129639935')]"},
+		// A negative value keeps the array signed; the widest element still
+		// decides the type (here Int256).
+		{"signed mixed-width array uses one signed type", "SELECT ?",
+			[]any{[]*big.Int{big.NewInt(-1), int256Max}},
+			"SELECT [toInt256('-1'), toInt256('57896044618658097711785492504343953926634992332820282019728792003956564819967')]"},
+		// No single wide type holds both a negative value and one above Int256's
+		// max, so it falls back to per-element formatting (unchanged behavior).
+		{"untypeable range falls back to per-element", "SELECT ?",
+			[]any{[]*big.Int{big.NewInt(-1), uint256Max}},
+			"SELECT [toInt128('-1'), toUInt256('115792089237316195423570985008687907853269984665640564039457584007913129639935')]"},
+		// clickhouse.ArraySet reaches the array literal by a different code path
+		// than a plain slice and must get the same single-type treatment.
+		{"ArraySet mixed-width uses one wide type", "SELECT ?",
+			[]any{ArraySet{big.NewInt(1), uint256Max}},
+			"SELECT [toUInt256('1'), toUInt256('115792089237316195423570985008687907853269984665640564039457584007913129639935')]"},
 		{"tuple", "SELECT ?", []any{GroupSet{Value: []any{big.NewInt(1), "x"}}},
 			"SELECT (toInt128('1'), 'x')"},
 		{"map value", "SELECT ?", []any{map[string]*big.Int{"k": big.NewInt(1)}},
@@ -1069,8 +1093,11 @@ func TestBindBigInt(t *testing.T) {
 		{"int64 stays a bare literal", "SELECT ?", []any{int64(42)}, "SELECT 42"},
 		{"string stays quoted", "SELECT ?", []any{"42"}, "SELECT '42'"},
 		{"other Stringer stays quoted", "SELECT ?", []any{stringerForBigIntTest("42")}, "SELECT '42'"},
-		// decimal.Decimal is a different fmt.Stringer type and must keep its
-		// existing quoted formatting — the big.Int cases must not sweep it up.
+		// Contrast: other fmt.Stringer types (decimal.Decimal, and likewise
+		// big.Float/big.Rat) still bind as quoted strings. The #1917 symptom for
+		// those types is a separate, still-open limitation; this case asserts
+		// the current behavior only to prove the big.Int handling does not
+		// change it, not to endorse it as correct.
 		{"decimal.Decimal stays quoted", "SELECT ?", []any{decimal.New(4242, -2)}, "SELECT '42.42'"},
 	}
 
