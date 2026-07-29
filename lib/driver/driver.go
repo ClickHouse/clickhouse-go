@@ -51,7 +51,9 @@ type (
 		// given ClickHouse format (e.g. "CSV", "JSONEachRow", "Parquet") as a raw
 		// byte stream. The caller must Close the returned stream; until then it
 		// holds a connection (visible in Stats). Put the format in the format
-		// argument, not as a FORMAT clause in the query.
+		// argument, not as a FORMAT clause in the query. The stream carries
+		// the raw format bytes: transport compression (Options.Compression)
+		// is transparent and already decoded.
 		//
 		// The stream is not safe for concurrent use: to abort a stalled Read,
 		// cancel the query context rather than calling Close from another
@@ -91,6 +93,13 @@ type (
 		// clause or VALUES suffix in query is replaced; the format argument is
 		// authoritative. It returns once the server has committed or rejected the
 		// insert.
+		//
+		// data must be the raw, uncompressed format bytes (e.g. a plain
+		// Parquet file). Transport compression is transparent: with
+		// Options.Compression set, the driver itself compresses the payload
+		// on the wire and sets Content-Encoding. Passing pre-compressed data
+		// (such as a .parquet.gz file) therefore compresses it twice, and the
+		// server rejects the once-decoded payload as malformed format data.
 		//
 		// Experimental: this API is experimental and may change or be removed
 		// in a future minor release. It is currently only supported over the
