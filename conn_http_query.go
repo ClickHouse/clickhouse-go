@@ -53,6 +53,7 @@ func (h *httpConnect) query(ctx context.Context, release nativeTransportRelease,
 		options.settings["compress"] = "1"
 	case CompressionGZIP, CompressionDeflate, CompressionBrotli:
 		// request encoding
+		fmt.Println("Debug!!!!: Am i here??")
 		headers["Accept-Encoding"] = h.compression.String()
 	}
 
