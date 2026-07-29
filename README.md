@@ -36,6 +36,7 @@ Both support TCP and HTTP transport. When in doubt, use the native interface.
 * External data
 * [Query parameters](examples/std/query_parameters.go)
 * Structured logging via `log/slog` ([Logger option](#logging))
+* [Arbitrary input/output formats](#arbitrary-inputoutput-formats-experimental) — stream results or inserts as raw `CSV`, `JSONEachRow`, `Parquet`, ... (experimental, HTTP protocol only)
 * JWT authentication support
 * Wide type support: BFloat16, QBit, Dynamic, Variant, Time, Time64, LineString, MultiLineString, and more
 
@@ -404,6 +405,28 @@ We have following examples to show Async Insert in action.
 1. [HTTP with OpenDB](examples/std/async_http.go)
 
 **NOTE**: The old `AsyncInsert()` api is deprecated and will be removed in future versions. We highly recommend to use `WithAsync()` api for all the Async Insert use cases.
+
+## Arbitrary input/output formats (experimental)
+
+`QueryFormat` and `InsertFormat` on the native `clickhouse.Conn` interface stream query results and insert payloads as raw bytes in any [format the server supports](https://clickhouse.com/docs/interfaces/formats) (`CSV`, `JSONEachRow`, `Parquet`, `ArrowStream`, ...), with all encoding and parsing done server-side:
+
+```go
+// Results as a raw byte stream in the requested format.
+stream, err := conn.QueryFormat(ctx, "Parquet", "SELECT * FROM events WHERE date = {date:Date}", date)
+defer stream.Close() // holds a connection until closed
+_, err = io.Copy(file, stream)
+
+// Insert a payload pre-encoded in the given format from any io.Reader.
+err = conn.InsertFormat(ctx, "Parquet", "INSERT INTO events", file)
+```
+
+See [format.go](examples/clickhouse_api/format.go) for runnable examples and the `driver.Conn` godoc for the full contract. Key points:
+
+- **Experimental**: the API may change or be removed in a future minor release.
+- **HTTP protocol only**: over the native TCP protocol both methods return `ErrFormatNativeUnsupported`. Connect with `Options{Protocol: clickhouse.HTTP}` or an `http://` DSN.
+- **Native API only**: `database/sql` has no representation for raw format streams; open a native connection for this workload.
+- Pass the format as the argument — a trailing `FORMAT` clause in the query is rejected, since the server would honour it over the requested format.
+- The payload is always the **raw, uncompressed** format bytes. Wire compression via `Options.Compression` is transparent (the driver compresses inserts and decompresses results itself) — do not pass pre-compressed data such as a `.parquet.gz` file, it would be compressed twice.
 
 ## PrepareBatch options
 
