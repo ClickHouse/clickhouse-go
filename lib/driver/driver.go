@@ -38,6 +38,19 @@ type (
 )
 
 type (
+	// Conn is the client-facing connection interface of the native API,
+	// obtained from clickhouse.Open.
+	//
+	// Compatibility: Conn is meant to be consumed, not implemented. It is
+	// NOT backward compatible for implementers - new methods are added in
+	// minor releases as driver and server features land, which is a compile
+	// break for any type that hand-implements it (decorators, adapters,
+	// test fakes). Embed the interface in such types instead of implementing
+	// every method, so added methods do not break the build:
+	//
+	//	type loggingConn struct {
+	//		driver.Conn // forwards everything not overridden
+	//	}
 	Conn interface {
 		Contributors() []string
 		ServerVersion() (*ServerVersion, error)
