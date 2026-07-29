@@ -834,6 +834,10 @@ func bigIntArray(v reflect.Value, mode formatMode) (string, bool) {
 // is on (off by default before 26.x) — [toUInt256('1'), toUInt256('...')] is a
 // plain Array(UInt256), while [toInt128('1'), toUInt256('...')] makes
 // WHERE ... IN ? fail.
+//
+// The unification is one level deep: mixed-magnitude big.Int values nested in a
+// map, in a nested array, or in a tuple used as an IN set still get per-element
+// conversions and can still hit NO_COMMON_TYPE.
 func commonBigIntConvFunc(v reflect.Value) (string, bool) {
 	var lo, hi *big.Int
 	for i := 0; i < v.Len(); i++ {
