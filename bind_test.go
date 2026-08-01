@@ -983,3 +983,68 @@ func BenchmarkBindNamed(b *testing.B) {
 		}
 	}
 }
+
+// TestBindDuration checks that time.Duration (the ScanType for ClickHouse
+// Time/Time64) binds as a Time-parseable literal, not Go's duration string.
+func TestBindDuration(t *testing.T) {
+	q, err := bind(time.UTC, "SELECT toTime(?)", 14*time.Hour+30*time.Minute)
+	assert.NoError(t, err)
+	assert.Equal(t, "SELECT toTime('14:30:00')", q)
+
+	// *time.Duration and zero / fractional / negative values
+	d := 1*time.Second + 250*time.Millisecond
+	q, err = bind(time.UTC, "SELECT ?", &d)
+	assert.NoError(t, err)
+	assert.Equal(t, "SELECT '00:00:01.25'", q)
+
+	q, err = bind(time.UTC, "SELECT ?", time.Duration(0))
+	assert.NoError(t, err)
+	assert.Equal(t, "SELECT '00:00:00'", q)
+
+	q, err = bind(time.UTC, "SELECT ?", -90*time.Second)
+	assert.NoError(t, err)
+	assert.Equal(t, "SELECT '-00:01:30'", q)
+
+	var nilDur *time.Duration
+	q, err = bind(time.UTC, "SELECT ?", nilDur)
+	assert.NoError(t, err)
+	assert.Equal(t, "SELECT NULL", q)
+}
+
+// TestBindBytes checks that []byte binds as a String literal (with the same
+// escaping as string), not as Array(UInt8).
+func TestBindBytes(t *testing.T) {
+	q, err := bind(time.UTC, "SELECT ?", []byte("A\x00B"))
+	assert.NoError(t, err)
+	assert.Equal(t, "SELECT 'A\\0B'", q)
+
+	q, err = bind(time.UTC, "SELECT ?", []byte(`a'b\c`))
+	assert.NoError(t, err)
+	assert.Equal(t, `SELECT 'a\'b\\c'`, q)
+
+	q, err = bind(time.UTC, "SELECT ?", []byte{})
+	assert.NoError(t, err)
+	assert.Equal(t, "SELECT ''", q)
+
+	// nested: Array(String) of binary strings, not Array(Array(UInt8))
+	q, err = bind(time.UTC, "SELECT ?", [][]byte{[]byte("x"), []byte("y")})
+	assert.NoError(t, err)
+	assert.Equal(t, "SELECT ['x', 'y']", q)
+}
+
+func TestFormatDuration(t *testing.T) {
+	cases := []struct {
+		in   time.Duration
+		want string
+	}{
+		{0, "00:00:00"},
+		{14*time.Hour + 30*time.Minute, "14:30:00"},
+		{1*time.Second + 250*time.Millisecond, "00:00:01.25"},
+		{123 * time.Nanosecond, "00:00:00.000000123"},
+		{-90 * time.Second, "-00:01:30"},
+		{25 * time.Hour, "25:00:00"},
+	}
+	for _, tc := range cases {
+		assert.Equal(t, tc.want, formatDuration(tc.in), "in=%v", tc.in)
+	}
+}

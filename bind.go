@@ -483,7 +483,9 @@ func formatTime(tz *time.Location, scale TimeUnit, value time.Time) (string, err
 	return fmt.Sprintf("toDateTime64('%s', %d, '%s')", value.Format(fmt.Sprintf("2006-01-02 15:04:05.%0*d", int(scale*3), 0)), int(scale*3), escapedTimezone), nil
 }
 
-var stringQuoteReplacer = strings.NewReplacer(`\`, `\\`, `'`, `\'`)
+// Escape order: backslash first so later replacements are not re-escaped.
+// NUL is written as \0 so binary String values survive client-side bind.
+var stringQuoteReplacer = strings.NewReplacer(`\`, `\\`, `'`, `\'`, "\x00", `\0`)
 
 // formatMode says which syntax formatValue should produce. A value spliced
 // into the query text needs SQL syntax; a server-side query parameter needs
@@ -512,6 +514,30 @@ func format(tz *time.Location, scale TimeUnit, v any) (string, error) {
 	return formatValue(tz, scale, v, formatSQL)
 }
 
+// formatDuration renders a time.Duration as a ClickHouse Time/Time64 text
+// literal body: HH:MM:SS or HH:MM:SS.frac with trailing fractional zeros
+// trimmed. time.Duration is the ScanType for Time/Time64 columns; without a
+// dedicated case it would hit fmt.Stringer and emit Go's "14h30m0s" form.
+func formatDuration(d time.Duration) string {
+	sign := ""
+	if d < 0 {
+		sign = "-"
+		d = -d
+	}
+	hours := d / time.Hour
+	d -= hours * time.Hour
+	mins := d / time.Minute
+	d -= mins * time.Minute
+	secs := d / time.Second
+	frac := d % time.Second
+	if frac == 0 {
+		return fmt.Sprintf("%s%02d:%02d:%02d", sign, hours, mins, secs)
+	}
+	fracStr := fmt.Sprintf("%09d", frac.Nanoseconds())
+	fracStr = strings.TrimRight(fracStr, "0")
+	return fmt.Sprintf("%s%02d:%02d:%02d.%s", sign, hours, mins, secs, fracStr)
+}
+
 // formatValue turns v into a string in the given mode. The mode carries down
 // into nested values, so a bool or map keeps its formatting at any depth.
 //
@@ -528,6 +554,11 @@ func formatValue(tz *time.Location, scale TimeUnit, v any, mode formatMode) (str
 		return "NULL", nil
 	case string:
 		return quote(v), nil
+	case []byte:
+		// []byte is a valid database/sql driver.Value and the natural Go type
+		// for a ClickHouse String holding arbitrary bytes. Without this case
+		// it falls through to reflect.Slice and becomes Array(UInt8).
+		return quote(string(v)), nil
 	case time.Time:
 		if mode == formatParamText {
 			return quote(formatTimeParam(v)), nil
@@ -541,6 +572,14 @@ func formatValue(tz *time.Location, scale TimeUnit, v any, mode formatMode) (str
 			return quote(formatTimeParam(*v)), nil
 		}
 		return formatTime(tz, scale, *v)
+	case time.Duration:
+		// Must precede fmt.Stringer: Duration.String() is Go's "14h30m0s".
+		return quote(formatDuration(v)), nil
+	case *time.Duration:
+		if v == nil {
+			return "NULL", nil
+		}
+		return quote(formatDuration(*v)), nil
 	case bool:
 		if mode == formatParamText {
 			if v {
