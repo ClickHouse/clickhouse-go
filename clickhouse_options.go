@@ -200,7 +200,11 @@ func (o *Options) fromDSN(in string) error {
 		o.Auth.Username = dsn.User.Username()
 		o.Auth.Password, _ = dsn.User.Password()
 	}
-	o.Addr = append(o.Addr, strings.Split(dsn.Host, ",")...)
+	// Prefer hosts from the raw DSN authority so multi-host (HA) lists stay
+	// intact. net/url (and copies of it) can collapse multi-host IPv6 authorities
+	// to the last host; comma-split of Host also breaks when host values contain
+	// commas only as HA separators. See https://github.com/ClickHouse/clickhouse-go/issues/1784
+	o.Addr = append(o.Addr, dsnAddrList(in, dsn.Host)...)
 	var (
 		secure        bool
 		params        = dsn.Query()
@@ -396,6 +400,71 @@ func (o *Options) fromDSN(in string) error {
 		o.Protocol = Native
 	}
 	return nil
+}
+
+// dsnAddrList returns HA host addresses for a DSN.
+// It extracts the authority host list from the raw DSN when possible so that
+// multi-host URLs (including bracketed IPv6) are not lost to URL Host normalization.
+// Falls back to splitting the already-parsed host on commas.
+func dsnAddrList(rawDSN, parsedHost string) []string {
+	if addrs := addrListFromDSN(rawDSN); len(addrs) > 0 {
+		return addrs
+	}
+	if parsedHost == "" {
+		return nil
+	}
+	return strings.Split(parsedHost, ",")
+}
+
+// addrListFromDSN extracts host[:port] entries from the DSN authority.
+// Supports comma-separated HA hosts and bracketed IPv6 literals.
+func addrListFromDSN(raw string) []string {
+	i := strings.Index(raw, "://")
+	if i < 0 {
+		return nil
+	}
+	rest := raw[i+3:]
+	if j := strings.IndexAny(rest, "?#"); j >= 0 {
+		rest = rest[:j]
+	}
+	if j := strings.Index(rest, "/"); j >= 0 {
+		rest = rest[:j]
+	}
+	if j := strings.LastIndex(rest, "@"); j >= 0 {
+		rest = rest[j+1:]
+	}
+	if rest == "" {
+		return nil
+	}
+	return splitHostList(rest)
+}
+
+// splitHostList splits a comma-separated host list without breaking bracketed IPv6 addresses.
+func splitHostList(s string) []string {
+	var out []string
+	start := 0
+	depth := 0
+	for i := 0; i < len(s); i++ {
+		switch s[i] {
+		case '[':
+			depth++
+		case ']':
+			if depth > 0 {
+				depth--
+			}
+		case ',':
+			if depth == 0 {
+				if part := strings.TrimSpace(s[start:i]); part != "" {
+					out = append(out, part)
+				}
+				start = i + 1
+			}
+		}
+	}
+	if part := strings.TrimSpace(s[start:]); part != "" {
+		out = append(out, part)
+	}
+	return out
 }
 
 // receive copy of Options, so we don't modify original - so its reusable

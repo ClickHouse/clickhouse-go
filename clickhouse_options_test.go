@@ -563,6 +563,57 @@ func TestParseDSN(t *testing.T) {
 			},
 			"",
 		},
+		// Regression for https://github.com/ClickHouse/clickhouse-go/issues/1784
+		// (Go 1.26 net/url multi-host / HA DSN). Also covers auth + query.
+		{
+			"HA multi-host with auth and secure (issue 1784)",
+			"clickhouse://user:pass@host1:9440,host2:9440/database?secure=true",
+			&Options{
+				Protocol: Native,
+				TLS: &tls.Config{
+					InsecureSkipVerify: false,
+				},
+				Addr:     []string{"host1:9440", "host2:9440"},
+				Settings: Settings{},
+				Auth: Auth{
+					Username: "user",
+					Password: "pass",
+					Database: "database",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
+			"HA multi-host HTTP scheme",
+			"http://host1:8123,host2:8123/db",
+			&Options{
+				Protocol: HTTP,
+				TLS:      nil,
+				Addr:     []string{"host1:8123", "host2:8123"},
+				Settings: Settings{},
+				Auth: Auth{
+					Database: "db",
+				},
+				scheme: "http",
+			},
+			"",
+		},
+		{
+			"HA multi-host IPv6",
+			"clickhouse://[::1]:9440,[2001:db8::1]:9440/test_database",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"[::1]:9440", "[2001:db8::1]:9440"},
+				Settings: Settings{},
+				Auth: Auth{
+					Database: "test_database",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
 	}
 
 	for _, testCase := range testCases {
@@ -585,6 +636,53 @@ func parseURL(t *testing.T, v string) *url.URL {
 	u, err := url.Parse(v)
 	require.NoError(t, err)
 	return u
+}
+
+func TestDSNAddrList(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name       string
+		raw        string
+		parsedHost string
+		want       []string
+	}{
+		{
+			name:       "issue 1784 multi-host",
+			raw:        "clickhouse://host1:9440,host2:9440/database",
+			parsedHost: "host1:9440,host2:9440",
+			want:       []string{"host1:9440", "host2:9440"},
+		},
+		{
+			name:       "multi-host with userinfo",
+			raw:        "clickhouse://user:pass@host1:9440,host2:9440/db?secure=true",
+			parsedHost: "host1:9440,host2:9440",
+			want:       []string{"host1:9440", "host2:9440"},
+		},
+		{
+			name:       "bracketed IPv6 multi-host",
+			raw:        "clickhouse://[::1]:9440,[2001:db8::1]:9440/db",
+			parsedHost: "[2001:db8::1]:9440", // parsers may keep only the last host
+			want:       []string{"[::1]:9440", "[2001:db8::1]:9440"},
+		},
+		{
+			name:       "fallback to parsed host",
+			raw:        "not-a-url",
+			parsedHost: "only-host:9000",
+			want:       []string{"only-host:9000"},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, dsnAddrList(tc.raw, tc.parsedHost))
+		})
+	}
+}
+
+func TestSplitHostList(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, []string{"a:1", "b:2"}, splitHostList("a:1,b:2"))
+	assert.Equal(t, []string{"[::1]:1", "[::2]:2"}, splitHostList("[::1]:1,[::2]:2"))
+	assert.Equal(t, []string{"single"}, splitHostList("single"))
 }
 
 func TestLogger(t *testing.T) {
