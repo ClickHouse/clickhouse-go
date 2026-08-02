@@ -443,6 +443,10 @@ func (h *httpConnect) readData(reader *chproto.Reader, timezone *time.Location, 
 
 	// Try to decode the block
 	if err := block.Decode(reader, h.revision); err != nil {
+		if errors.Is(err, io.EOF) && (captureBuffer == nil || !bytes.Contains(captureBuffer.Bytes(), []byte("__exception__"))) {
+			return nil, io.EOF
+		}
+
 		// Decode failed - check if captured data contains exception marker
 		// The decode error typically happens because it tries to read the
 		// "__exception__" marker as binary data
@@ -461,7 +465,7 @@ func (h *httpConnect) readData(reader *chproto.Reader, timezone *time.Location, 
 		if len(remaining) > 0 && captureBuffer != nil {
 			captureBuffer.Write(remaining)
 		}
-		if readErr != nil {
+		if readErr != nil && !errors.Is(readErr, io.EOF) {
 			h.logger.Error("HTTP read data: decode error while parsing exception block", slog.Any("error", err))
 		}
 
