@@ -31,19 +31,33 @@ var exceptionFrame = []byte(exceptionMarker + "\r\n")
 //
 // A frame candidate is treated as a genuine exception only if the marker is
 // followed by the per-response random tag the server announced in the
-// X-ClickHouse-Exception-Tag header (tag) - that is what the tag exists for:
-// result data cannot contain a value generated after the response started, so
-// data that happens to contain the marker bytes is served verbatim. On older
-// servers that send no tag header, tag is empty and the marker alone is
-// trusted (best-effort).
+// X-ClickHouse-Exception-Tag HTTP header (tag). On older servers that send no tag header,
+// tag is empty and the marker alone is trusted (best-effort).
 type exceptionScanReader struct {
-	src      io.Reader
-	tag      string // from X-ClickHouse-Exception-Tag; empty disables validation
-	buf      []byte
-	pending  []byte
-	scanFrom int   // pending[:scanFrom] holds no undecided frame candidates
-	err      error // terminal error: parsed exception or upstream read error
-	srcDone  bool
+	// src is the upstream reader
+	src io.Reader
+
+	// tag is from X-ClickHouse-Exception-Tag HTTP header;
+	// empty disables validation (older version)
+	tag string
+
+	// buf is the scratch buffer (max exceptionScanLimit)
+	buf []byte
+
+	// pending is every byte that is not returned to the caller.
+	// it may or may not contain exception.
+	pending []byte
+
+	// pending[:scanOffset] holds plain text and are not exception candidates.
+	scanOffset int
+
+	// terminal error: parsed exception or upstream read error
+	err error
+
+	// srcDone make sure if upstream reader has anything left.
+	// Say any EOF or error from upstream makes this true. Meaning
+	// no more input is coming.
+	srcDone bool
 }
 
 func newExceptionScanReader(src io.Reader, tag string) *exceptionScanReader {
@@ -87,8 +101,8 @@ func (r *exceptionScanReader) Read(p []byte) (int, error) {
 		if safe := r.safeLen(); safe > 0 {
 			n := copy(p, r.pending[:safe])
 			r.pending = r.pending[n:]
-			if r.scanFrom -= n; r.scanFrom < 0 {
-				r.scanFrom = 0
+			if r.scanOffset -= n; r.scanOffset < 0 {
+				r.scanOffset = 0
 			}
 			return n, nil
 		}
@@ -121,11 +135,16 @@ func (r *exceptionScanReader) Read(p []byte) (int, error) {
 // of the stream) settles the question.
 func (r *exceptionScanReader) scan() {
 	for {
-		i := bytes.Index(r.pending[r.scanFrom:], exceptionFrame)
+		i := bytes.Index(r.pending[r.scanOffset:], exceptionFrame)
 		if i < 0 {
+			// instead of safeLen() to scale "whole" pending buffer, we can make
+			// safeLen() make it check only new reads.
+			if cleared := len(r.pending) - (len(exceptionFrame) - 1); cleared > r.scanOffset {
+				r.scanOffset = cleared
+			}
 			return
 		}
-		i += r.scanFrom
+		i += r.scanOffset
 		if r.tag == "" {
 			// Old servers (<= 25.8) announce no tag: the marker alone has to
 			// be trusted.
@@ -140,7 +159,7 @@ func (r *exceptionScanReader) scan() {
 			}
 			// The stream ended inside the candidate - a genuine frame cannot
 			// be truncated here, so these are data bytes.
-			r.scanFrom = i + 1
+			r.scanOffset = i + 1
 			continue
 		}
 		if string(r.pending[tagStart:tagStart+len(r.tag)]) == r.tag &&
@@ -149,23 +168,23 @@ func (r *exceptionScanReader) scan() {
 			return
 		}
 		// Marker bytes that happen to appear in the result data.
-		r.scanFrom = i + 1
+		r.scanOffset = i + 1
 	}
 }
 
 // safeLen returns how many pending bytes can be served without risking that
 // their tail is the beginning of an exception frame split across reads.
-// Candidates already dismissed by scan (below scanFrom) are plain data and
+// Candidates already dismissed by scan (below scanOffset) are plain data and
 // never held back.
 func (r *exceptionScanReader) safeLen() int {
 	if r.srcDone || r.err != nil {
 		return len(r.pending)
 	}
-	tail := r.pending[r.scanFrom:]
+	tail := r.pending[r.scanOffset:]
 	if i := bytes.Index(tail, exceptionFrame); i >= 0 {
 		// A complete marker whose tag bytes are still in flight: serve
 		// everything before it, hold the candidate.
-		return r.scanFrom + i
+		return r.scanOffset + i
 	}
 	holdback := len(exceptionFrame) - 1
 	if holdback > len(tail) {
