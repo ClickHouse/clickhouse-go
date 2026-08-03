@@ -54,9 +54,8 @@ type exceptionScanReader struct {
 	// terminal error: parsed exception or upstream read error
 	err error
 
-	// srcDone make sure if upstream reader has anything left.
-	// Say any EOF or error from upstream makes this true. Meaning
-	// no more input is coming.
+	// srcDone is true once the upstream reader is exhausted (EOF or error).
+	// no more input is coming
 	srcDone bool
 }
 
@@ -137,8 +136,10 @@ func (r *exceptionScanReader) scan() {
 	for {
 		i := bytes.Index(r.pending[r.scanOffset:], exceptionFrame)
 		if i < 0 {
-			// instead of safeLen() to scale "whole" pending buffer, we can make
-			// safeLen() make it check only new reads.
+			// No complete frame exists at or after scanOffset, so every byte
+			// except the split-frame holdback tail is decided data; advancing
+			// scanOffset keeps safeLen bounded per Read instead of rescanning
+			// all of pending
 			if cleared := len(r.pending) - (len(exceptionFrame) - 1); cleared > r.scanOffset {
 				r.scanOffset = cleared
 			}
