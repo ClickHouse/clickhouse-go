@@ -76,6 +76,6 @@ func TestExceptionScanReaderScanOffsetBounded(t *testing.T) {
 	r = newExceptionScanReader(bytes.NewReader(nil), "tag123")
 	r.pending = append(bytes.Repeat([]byte("x"), 100), exceptionFrame...)
 	r.scan()
-	require.LessOrEqual(t, r.scanOffset, 100,
+	require.Equal(t, r.scanOffset, 100,
 		"undecided candidate must remain inside the scanned window")
 }
