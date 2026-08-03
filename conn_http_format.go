@@ -129,7 +129,7 @@ func (r *exceptionScanReader) Read(p []byte) (int, error) {
 }
 
 // scan classifies every complete frame candidate in pending. Candidates whose
-// tag bytes have not arrived yet stay undecided: scanFrom keeps pointing
+// tag bytes have not arrived yet stay undecided: scanOffset keeps pointing
 // before them and safeLen holds those bytes back until more input (or the end
 // of the stream) settles the question.
 func (r *exceptionScanReader) scan() {
@@ -156,7 +156,12 @@ func (r *exceptionScanReader) scan() {
 		tagEnd := tagStart + len(r.tag) + 2 // tag + CRLF
 		if len(r.pending) < tagEnd {
 			if !r.srcDone {
-				return // undecided: wait for the tag bytes
+				// Undecided: wait for the tag bytes. Everything before the
+				// candidate is decided data, so park scanOffset right at it -
+				// safeLen then re-examines only the candidate, not the data
+				// preceding it, while the caller drains that data.
+				r.scanOffset = i
+				return
 			}
 			// The stream ended inside the candidate - a genuine frame cannot
 			// be truncated here, so these are data bytes.
