@@ -54,12 +54,36 @@ func TestBindQueryIgnoresParameterSyntaxInProtectedContexts(t *testing.T) {
 }
 
 func TestBindQueryDetectsQueryParameter(t *testing.T) {
-	options := QueryOptions{}
-	query := `SELECT {value:Enum8('enabled' = 1, 'disabled' = 0)}`
+	t.Run("quoted enum type", func(t *testing.T) {
+		options := QueryOptions{}
+		query := `SELECT {value:Enum8('enabled' = 1, 'disabled' = 0)}`
 
-	actual, err := bindQueryOrAppendParameters(true, &options, query, time.UTC, Named("value", 1))
+		actual, err := bindQueryOrAppendParameters(true, &options, query, time.UTC, Named("value", 1))
 
-	require.NoError(t, err)
-	assert.Equal(t, query, actual)
-	assert.Equal(t, Parameters{"value": "1"}, options.parameters)
+		require.NoError(t, err)
+		assert.Equal(t, query, actual)
+		assert.Equal(t, Parameters{"value": "1"}, options.parameters)
+	})
+
+	t.Run("whitespace around name and type", func(t *testing.T) {
+		options := QueryOptions{}
+		query := `SELECT { value : String }`
+
+		actual, err := bindQueryOrAppendParameters(true, &options, query, time.UTC, Named("value", "hello"))
+
+		require.NoError(t, err)
+		assert.Equal(t, query, actual)
+		assert.Equal(t, Parameters{"value": "hello"}, options.parameters)
+	})
+
+	t.Run("map literal with a positional argument", func(t *testing.T) {
+		options := QueryOptions{}
+		query := `SELECT {1:'a'}, ?`
+
+		actual, err := bindQueryOrAppendParameters(true, &options, query, time.UTC, 42)
+
+		require.NoError(t, err)
+		assert.Equal(t, `SELECT {1:'a'}, 42`, actual)
+		assert.Empty(t, options.parameters)
+	})
 }
