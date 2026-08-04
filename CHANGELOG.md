@@ -1,3 +1,51 @@
+# v2.48.0, 2026-08-04 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+
+### Enhancements :rocket: 
+* fix: bind float params as typed Float literals (#1862) by @arpitjain099 in https://github.com/ClickHouse/clickhouse-go/pull/1894
+ * fix: make format time helpers fully timezone aware by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1904
+* ci: add StressHouse PR-vs-main benchmark workflow by @alex-clickhouse in https://github.com/ClickHouse/clickhouse-go/pull/1912
+* feat: support structured Exception for HTTP protocol by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1910
+* feat: support arbitrary input/output formats (experimental, HTTP only). **breaking change** if you depend on `driver.Conn` interface. By @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1928
+
+### Bug fixes :bug: 
+* fix: render bool query parameters as true/false (Array(Bool)) by @polyglotAI-bot in https://github.com/ClickHouse/clickhouse-go/pull/1892
+* fix: escaping for string keys in Map parameter binding by @destinyoooo in https://github.com/ClickHouse/clickhouse-go/pull/1897
+* chore: fix the `formatValue` helper for complex types by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1899
+* fix: gurantee datetime string format in JSON by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1907
+* fix: use atomic.Int64 for clickhouse.connID (386 alignment) by @forkwhileant in https://github.com/ClickHouse/clickhouse-go/pull/1905
+* fix(resources): simplify minimum server version check  by @the-onewho-knocks in https://github.com/ClickHouse/clickhouse-go/pull/1902
+* fix: preserve per-query JWT in QueryOptions.clone() by @AndreZiviani in https://github.com/ClickHouse/clickhouse-go/pull/1914
+* Remove stray HTTP compression debug output by @fallintoplace in https://github.com/ClickHouse/clickhouse-go/pull/1937
+* fix: return errors when scanning Tuple maps by @fallintoplace in https://github.com/ClickHouse/clickhouse-go/pull/1944
+
+### Other Changes 🛠
+* chore(deps): bump github.com/andybalholm/brotli from 1.2.1 to 1.2.2 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1893
+* chore: refactor agent SKILL for code review by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1880
+* Add Code of Conduct by @laeg in https://github.com/ClickHouse/clickhouse-go/pull/1900
+* chore(deps): bump golang.org/x/net from 0.56.0 to 0.57.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1903
+* chore: correct permission to resolve review comment by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1906
+* docs(agent instructions): integration-test hygiene conventions by @polyglotAI-bot in https://github.com/ClickHouse/clickhouse-go/pull/1911
+* chore: refresh CI ClickHouse server version matrix by @polyglotAI-bot in https://github.com/ClickHouse/clickhouse-go/pull/1931
+* docs: fix Enum8/Enum16 type mappings in TYPES.md by @sankalpsthakur in https://github.com/ClickHouse/clickhouse-go/pull/1930
+* chore(deps): bump github.com/moby/moby/client from 0.5.0 to 0.5.1 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1935
+* chore(deps): bump github.com/ClickHouse/ch-go from 0.73.0 to 0.74.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1939
+* use fable for code review by @mshustov in https://github.com/ClickHouse/clickhouse-go/pull/1947
+* perf: make `safeLen()` linear runtime in exception parser by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1949
+
+## New Contributors
+* @arpitjain099 made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1894
+* @destinyoooo made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1897
+* @laeg made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1900
+* @forkwhileant made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1905
+* @the-onewho-knocks made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1902
+* @AndreZiviani made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1914
+* @sankalpsthakur made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1930
+* @fallintoplace made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1937
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.47.0...v2.48.0
+
 # v2.47.0, 2026-06-26 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
