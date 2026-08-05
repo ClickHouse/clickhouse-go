@@ -514,10 +514,10 @@ func format(tz *time.Location, scale TimeUnit, v any) (string, error) {
 	return formatValue(tz, scale, v, formatSQL)
 }
 
-// formatDuration renders a time.Duration as a ClickHouse Time/Time64 text
-// literal body: HH:MM:SS or HH:MM:SS.frac with trailing fractional zeros
-// trimmed. time.Duration is the ScanType for Time/Time64 columns; without a
-// dedicated case it would hit fmt.Stringer and emit Go's "14h30m0s" form.
+// formatDuration renders a time.Duration as a quoted ClickHouse Time/Time64
+// literal: 'HH:MM:SS' or 'HH:MM:SS.frac' with trailing fractional zeros
+// trimmed. It returns the quoted form directly, like formatTime does with
+// its toDateTime('...') wrapper, so the API is consistent.
 func formatDuration(d time.Duration) string {
 	sign := ""
 	if d < 0 {
@@ -530,12 +530,15 @@ func formatDuration(d time.Duration) string {
 	d -= mins * time.Minute
 	secs := d / time.Second
 	frac := d % time.Second
+	var body string
 	if frac == 0 {
-		return fmt.Sprintf("%s%02d:%02d:%02d", sign, hours, mins, secs)
+		body = fmt.Sprintf("%s%02d:%02d:%02d", sign, hours, mins, secs)
+	} else {
+		fracStr := fmt.Sprintf("%09d", frac.Nanoseconds())
+		fracStr = strings.TrimRight(fracStr, "0")
+		body = fmt.Sprintf("%s%02d:%02d:%02d.%s", sign, hours, mins, secs, fracStr)
 	}
-	fracStr := fmt.Sprintf("%09d", frac.Nanoseconds())
-	fracStr = strings.TrimRight(fracStr, "0")
-	return fmt.Sprintf("%s%02d:%02d:%02d.%s", sign, hours, mins, secs, fracStr)
+	return "'" + stringQuoteReplacer.Replace(body) + "'"
 }
 
 // formatValue turns v into a string in the given mode. The mode carries down
@@ -574,12 +577,13 @@ func formatValue(tz *time.Location, scale TimeUnit, v any, mode formatMode) (str
 		return formatTime(tz, scale, *v)
 	case time.Duration:
 		// Must precede fmt.Stringer: Duration.String() is Go's "14h30m0s".
-		return quote(formatDuration(v)), nil
+		// formatDuration already returns a quoted literal like formatTime.
+		return formatDuration(v), nil
 	case *time.Duration:
 		if v == nil {
 			return "NULL", nil
 		}
-		return quote(formatDuration(*v)), nil
+		return formatDuration(*v), nil
 	case bool:
 		if mode == formatParamText {
 			if v {
