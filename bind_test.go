@@ -1037,14 +1037,60 @@ func TestFormatDuration(t *testing.T) {
 		in   time.Duration
 		want string
 	}{
-		{0, "00:00:00"},
-		{14*time.Hour + 30*time.Minute, "14:30:00"},
-		{1*time.Second + 250*time.Millisecond, "00:00:01.25"},
-		{123 * time.Nanosecond, "00:00:00.000000123"},
-		{-90 * time.Second, "-00:01:30"},
-		{25 * time.Hour, "25:00:00"},
+		{0, "'00:00:00'"},
+		{14*time.Hour + 30*time.Minute, "'14:30:00'"},
+		{1*time.Second + 250*time.Millisecond, "'00:00:01.25'"},
+		{123 * time.Nanosecond, "'00:00:00.000000123'"},
+		{-90 * time.Second, "'-00:01:30'"},
+		{25 * time.Hour, "'25:00:00'"},
 	}
 	for _, tc := range cases {
 		assert.Equal(t, tc.want, formatDuration(tc.in), "in=%v", tc.in)
 	}
+}
+
+// TestBindDuration_Time64Precision covers Time/Time64 with different precision
+// (seconds, milli, micro, nano) — the server parses each as the corresponding
+// Time64 scale. The binder always emits the minimal fractional form via
+// formatDuration, which ClickHouse accepts for any Time64 precision.
+func TestBindDuration_Time64Precision(t *testing.T) {
+	cases := []struct {
+		name string
+		dur  time.Duration
+		want string
+	}{
+		// Time (seconds, no fraction)
+		{"Time seconds", 8*time.Hour + 15*time.Minute + 30*time.Second, "'08:15:30'"},
+		// Time64(3) — milliseconds
+		{"Time64(3) milliseconds", 1*time.Second + 123*time.Millisecond, "'00:00:01.123'"},
+		{"Time64(3) trimmed", 1*time.Second + 120*time.Millisecond, "'00:00:01.12'"},
+		// Time64(6) — microseconds
+		{"Time64(6) microseconds", 1*time.Second + 123456*time.Microsecond, "'00:00:01.123456'"},
+		{"Time64(6) trimmed", 1*time.Second + 123400*time.Microsecond, "'00:00:01.1234'"},
+		// Time64(9) — nanoseconds
+		{"Time64(9) nanoseconds", 1*time.Second + 123456789*time.Nanosecond, "'00:00:01.123456789'"},
+		{"Time64(9) trimmed", 1*time.Second + 100000000*time.Nanosecond, "'00:00:01.1'"},
+		// Negative with fraction (Time64)
+		{"negative Time64(3)", -(2*time.Hour + 500*time.Millisecond), "'-02:00:00.5'"},
+		// Array(Time) and Array(Time64) via join
+		{"zero", 0, "'00:00:00'"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			q, err := bind(time.UTC, "SELECT ?", tc.dur)
+			assert.NoError(t, err)
+			assert.Equal(t, "SELECT "+tc.want, q)
+			// formatDuration directly should match the quoted literal
+			assert.Equal(t, tc.want, formatDuration(tc.dur))
+		})
+	}
+	// Array(Time64) — durations inside an array keep quoted form
+	q, err := bind(time.UTC, "SELECT ?", []time.Duration{1 * time.Second, 2*time.Second + 500*time.Millisecond})
+	assert.NoError(t, err)
+	assert.Equal(t, "SELECT ['00:00:01', '00:00:02.5']", q)
+
+	// Map with Duration values
+	q, err = bind(time.UTC, "SELECT ?", map[string]time.Duration{"a": 1 * time.Second + 123*time.Millisecond})
+	assert.NoError(t, err)
+	assert.Equal(t, "SELECT map('a', '00:00:01.123')", q)
 }
