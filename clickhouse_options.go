@@ -403,9 +403,20 @@ func (o *Options) fromDSN(in string) error {
 }
 
 // dsnAddrList returns HA host addresses for a DSN.
-// It extracts the authority host list from the raw DSN when possible so that
-// multi-host URLs (including bracketed IPv6) are not lost to URL Host normalization.
-// Falls back to splitting the already-parsed host on commas.
+//
+// It preserves comma-separated multi-host (HA) lists that can be lost by
+// generic URL host normalization. Go 1.26 tightened net/url host parsing
+// (see https://github.com/golang/go/issues/75859) so a project-specific
+// parser (lib/churl, copied from Go 1.25.7 net/url with comma-allowed hosts)
+// is used for parsing, and the HA list is additionally extracted from the
+// raw DSN authority. This mirrors the standard-library approach suggested
+// in review: url.Parse / churl.Parse for user, path and query, plus
+// strings.Split on the host cluster and net.SplitHostPort per token for
+// validation/normalization.
+//
+// Single Auth (username/password) applies to all hosts in the cluster;
+// per-host credentials are not supported — authentication is cluster-wide
+// and can be overridden via query params `username`/`password`.
 func dsnAddrList(rawDSN, parsedHost string) []string {
 	if addrs := addrListFromDSN(rawDSN); len(addrs) > 0 {
 		return addrs
@@ -413,11 +424,16 @@ func dsnAddrList(rawDSN, parsedHost string) []string {
 	if parsedHost == "" {
 		return nil
 	}
+	// Fallback uses stdlib strings.Split for the already-parsed host.
 	return strings.Split(parsedHost, ",")
 }
 
-// addrListFromDSN extracts host[:port] entries from the DSN authority.
-// Supports comma-separated HA hosts and bracketed IPv6 literals.
+// addrListFromDSN extracts host[:port] entries from the DSN authority
+// using raw DSN string operations. It locates the authority between "://"
+// and the next "/" / "?" / "#", strips optional userinfo (after last "@"),
+// and then delegates to splitHostList which uses stdlib net.SplitHostPort
+// for per-host validation. Supports comma-separated HA hosts and bracketed
+// IPv6 literals.
 func addrListFromDSN(raw string) []string {
 	i := strings.Index(raw, "://")
 	if i < 0 {
@@ -439,7 +455,12 @@ func addrListFromDSN(raw string) []string {
 	return splitHostList(rest)
 }
 
-// splitHostList splits a comma-separated host list without breaking bracketed IPv6 addresses.
+// splitHostList splits a comma-separated host list without breaking
+// bracketed IPv6 addresses (e.g. "[::1]:9440,[2001:db8::1]:9440").
+// It uses bracket-depth counting to find HA separators and stdlib
+// net.SplitHostPort to validate/normalize each host:port token (when a
+// port is present). Hosts without ports are kept as-is, preserving the
+// original DSN form for Options.Addr.
 func splitHostList(s string) []string {
 	var out []string
 	start := 0
@@ -455,14 +476,23 @@ func splitHostList(s string) []string {
 		case ',':
 			if depth == 0 {
 				if part := strings.TrimSpace(s[start:i]); part != "" {
-					out = append(out, part)
+					if h, p, err := net.SplitHostPort(part); err == nil {
+						out = append(out, net.JoinHostPort(h, p))
+					} else {
+						// No port or not a host:port — keep original form (e.g. bare host)
+						out = append(out, part)
+					}
 				}
 				start = i + 1
 			}
 		}
 	}
 	if part := strings.TrimSpace(s[start:]); part != "" {
-		out = append(out, part)
+		if h, p, err := net.SplitHostPort(part); err == nil {
+			out = append(out, net.JoinHostPort(h, p))
+		} else {
+			out = append(out, part)
+		}
 	}
 	return out
 }

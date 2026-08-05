@@ -563,10 +563,8 @@ func TestParseDSN(t *testing.T) {
 			},
 			"",
 		},
-		// Regression for https://github.com/ClickHouse/clickhouse-go/issues/1784
-		// (Go 1.26 net/url multi-host / HA DSN). Also covers auth + query.
 		{
-			"HA multi-host with auth and secure (issue 1784)",
+			"multi-host with auth and secure",
 			"clickhouse://user:pass@host1:9440,host2:9440/database?secure=true",
 			&Options{
 				Protocol: Native,
@@ -585,7 +583,7 @@ func TestParseDSN(t *testing.T) {
 			"",
 		},
 		{
-			"HA multi-host HTTP scheme",
+			"multi-host HTTP scheme",
 			"http://host1:8123,host2:8123/db",
 			&Options{
 				Protocol: HTTP,
@@ -600,7 +598,7 @@ func TestParseDSN(t *testing.T) {
 			"",
 		},
 		{
-			"HA multi-host IPv6",
+			"multi-host IPv6",
 			"clickhouse://[::1]:9440,[2001:db8::1]:9440/test_database",
 			&Options{
 				Protocol: Native,
@@ -609,6 +607,95 @@ func TestParseDSN(t *testing.T) {
 				Settings: Settings{},
 				Auth: Auth{
 					Database: "test_database",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
+			"multi-host with auth overridden via query params",
+			"clickhouse://user:pass@host1:9440,host2:9440/db?username=other&password=secret",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"host1:9440", "host2:9440"},
+				Settings: Settings{},
+				Auth: Auth{
+					Username: "other",
+					Password: "secret",
+					Database: "db",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
+			"multi-host with auth via query only no userinfo",
+			"clickhouse://host1:9440,host2:9440/db?username=quser&password=qpass",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"host1:9440", "host2:9440"},
+				Settings: Settings{},
+				Auth: Auth{
+					Username: "quser",
+					Password: "qpass",
+					Database: "db",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
+			"multi-host with encoded password and secure",
+			"clickhouse://user:p%40ss%3Aw0rd@host1:9440,host2:9440/db?secure=true",
+			&Options{
+				Protocol: Native,
+				TLS: &tls.Config{
+					InsecureSkipVerify: false,
+				},
+				Addr:     []string{"host1:9440", "host2:9440"},
+				Settings: Settings{},
+				Auth: Auth{
+					Username: "user",
+					Password: "p@ss:w0rd",
+					Database: "db",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
+			"multi-host IPv6 with auth and database",
+			"clickhouse://ipv6user:ipv6pass@[::1]:9440,[2001:db8::1]:9440/test_db?secure=true",
+			&Options{
+				Protocol: Native,
+				TLS: &tls.Config{
+					InsecureSkipVerify: false,
+				},
+				Addr:     []string{"[::1]:9440", "[2001:db8::1]:9440"},
+				Settings: Settings{},
+				Auth: Auth{
+					Username: "ipv6user",
+					Password: "ipv6pass",
+					Database: "test_db",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
+			"multi-host preserves hosts despite userinfo containing colon and at",
+			"clickhouse://user:pass@host1:9000,host2:9000,host3:9000/db",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"host1:9000", "host2:9000", "host3:9000"},
+				Settings: Settings{},
+				Auth: Auth{
+					Username: "user",
+					Password: "pass",
+					Database: "db",
 				},
 				scheme: "clickhouse",
 			},
@@ -647,7 +734,7 @@ func TestDSNAddrList(t *testing.T) {
 		want       []string
 	}{
 		{
-			name:       "issue 1784 multi-host",
+			name:       "multi-host",
 			raw:        "clickhouse://host1:9440,host2:9440/database",
 			parsedHost: "host1:9440,host2:9440",
 			want:       []string{"host1:9440", "host2:9440"},
@@ -663,6 +750,12 @@ func TestDSNAddrList(t *testing.T) {
 			raw:        "clickhouse://[::1]:9440,[2001:db8::1]:9440/db",
 			parsedHost: "[2001:db8::1]:9440", // parsers may keep only the last host
 			want:       []string{"[::1]:9440", "[2001:db8::1]:9440"},
+		},
+		{
+			name:       "multi-host with auth overridden via query",
+			raw:        "clickhouse://user:pass@host1:9440,host2:9440/db?username=other&password=secret",
+			parsedHost: "host1:9440,host2:9440",
+			want:       []string{"host1:9440", "host2:9440"},
 		},
 		{
 			name:       "fallback to parsed host",
@@ -683,6 +776,10 @@ func TestSplitHostList(t *testing.T) {
 	assert.Equal(t, []string{"a:1", "b:2"}, splitHostList("a:1,b:2"))
 	assert.Equal(t, []string{"[::1]:1", "[::2]:2"}, splitHostList("[::1]:1,[::2]:2"))
 	assert.Equal(t, []string{"single"}, splitHostList("single"))
+	// Auth/userinfo should not leak into host list; hosts remain cluster-wide
+	assert.Equal(t, []string{"host1:9440", "host2:9440"}, splitHostList("host1:9440,host2:9440"))
+	// Mixed bracketed and plain hosts
+	assert.Equal(t, []string{"[::1]:9440", "host2:9440"}, splitHostList("[::1]:9440,host2:9440"))
 }
 
 func TestLogger(t *testing.T) {
