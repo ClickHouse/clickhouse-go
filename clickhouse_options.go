@@ -200,11 +200,12 @@ func (o *Options) fromDSN(in string) error {
 		o.Auth.Username = dsn.User.Username()
 		o.Auth.Password, _ = dsn.User.Password()
 	}
-	// Prefer hosts from the raw DSN authority so multi-host (HA) lists stay
-	// intact. net/url (and copies of it) can collapse multi-host IPv6 authorities
-	// to the last host; comma-split of Host also breaks when host values contain
-	// commas only as HA separators. See https://github.com/ClickHouse/clickhouse-go/issues/1784
-	o.Addr = append(o.Addr, dsnAddrList(in, dsn.Host)...)
+	// Host may be a comma-separated HA list. lib/churl preserves multi-host
+	// authorities (including bracketed IPv6) and percent-decodes each host
+	// (e.g. RFC 6874 zone IDs). splitHostList uses stdlib SplitHostPort to
+	// normalize host:port tokens without breaking IPv6 brackets.
+	// See https://github.com/ClickHouse/clickhouse-go/issues/1784
+	o.Addr = append(o.Addr, splitHostList(dsn.Host)...)
 	var (
 		secure        bool
 		params        = dsn.Query()
@@ -402,66 +403,21 @@ func (o *Options) fromDSN(in string) error {
 	return nil
 }
 
-// dsnAddrList returns HA host addresses for a DSN.
+// splitHostList splits a comma-separated HA host list from a parsed DSN host.
 //
-// It preserves comma-separated multi-host (HA) lists that can be lost by
-// generic URL host normalization. Go 1.26 tightened net/url host parsing
-// (see https://github.com/golang/go/issues/75859) so a project-specific
-// parser (lib/churl, copied from Go 1.25.7 net/url with comma-allowed hosts)
-// is used for parsing, and the HA list is additionally extracted from the
-// raw DSN authority. This mirrors the standard-library approach suggested
-// in review: url.Parse / churl.Parse for user, path and query, plus
-// strings.Split on the host cluster and net.SplitHostPort per token for
-// validation/normalization.
+// lib/churl returns multi-host authorities as a single Host string with
+// top-level commas (including bracketed IPv6 peers) and percent-decodes each
+// host. This helper splits on those HA separators and uses stdlib
+// net.SplitHostPort / net.JoinHostPort to validate and normalize each
+// host:port token. Hosts without a port are kept as-is.
 //
 // Single Auth (username/password) applies to all hosts in the cluster;
 // per-host credentials are not supported — authentication is cluster-wide
 // and can be overridden via query params `username`/`password`.
-func dsnAddrList(rawDSN, parsedHost string) []string {
-	if addrs := addrListFromDSN(rawDSN); len(addrs) > 0 {
-		return addrs
-	}
-	if parsedHost == "" {
-		return nil
-	}
-	// Fallback uses stdlib strings.Split for the already-parsed host.
-	return strings.Split(parsedHost, ",")
-}
-
-// addrListFromDSN extracts host[:port] entries from the DSN authority
-// using raw DSN string operations. It locates the authority between "://"
-// and the next "/" / "?" / "#", strips optional userinfo (after last "@"),
-// and then delegates to splitHostList which uses stdlib net.SplitHostPort
-// for per-host validation. Supports comma-separated HA hosts and bracketed
-// IPv6 literals.
-func addrListFromDSN(raw string) []string {
-	i := strings.Index(raw, "://")
-	if i < 0 {
-		return nil
-	}
-	rest := raw[i+3:]
-	if j := strings.IndexAny(rest, "?#"); j >= 0 {
-		rest = rest[:j]
-	}
-	if j := strings.Index(rest, "/"); j >= 0 {
-		rest = rest[:j]
-	}
-	if j := strings.LastIndex(rest, "@"); j >= 0 {
-		rest = rest[j+1:]
-	}
-	if rest == "" {
-		return nil
-	}
-	return splitHostList(rest)
-}
-
-// splitHostList splits a comma-separated host list without breaking
-// bracketed IPv6 addresses (e.g. "[::1]:9440,[2001:db8::1]:9440").
-// It uses bracket-depth counting to find HA separators and stdlib
-// net.SplitHostPort to validate/normalize each host:port token (when a
-// port is present). Hosts without ports are kept as-is, preserving the
-// original DSN form for Options.Addr.
 func splitHostList(s string) []string {
+	if s == "" {
+		return nil
+	}
 	var out []string
 	start := 0
 	depth := 0
@@ -476,25 +432,24 @@ func splitHostList(s string) []string {
 		case ',':
 			if depth == 0 {
 				if part := strings.TrimSpace(s[start:i]); part != "" {
-					if h, p, err := net.SplitHostPort(part); err == nil {
-						out = append(out, net.JoinHostPort(h, p))
-					} else {
-						// No port or not a host:port — keep original form (e.g. bare host)
-						out = append(out, part)
-					}
+					out = append(out, normalizeHostPort(part))
 				}
 				start = i + 1
 			}
 		}
 	}
 	if part := strings.TrimSpace(s[start:]); part != "" {
-		if h, p, err := net.SplitHostPort(part); err == nil {
-			out = append(out, net.JoinHostPort(h, p))
-		} else {
-			out = append(out, part)
-		}
+		out = append(out, normalizeHostPort(part))
 	}
 	return out
+}
+
+func normalizeHostPort(part string) string {
+	if h, p, err := net.SplitHostPort(part); err == nil {
+		return net.JoinHostPort(h, p)
+	}
+	// No port or not a host:port — keep original form (e.g. bare host)
+	return part
 }
 
 // receive copy of Options, so we don't modify original - so its reusable

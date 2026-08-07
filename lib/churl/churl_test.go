@@ -289,6 +289,100 @@ func TestParseErrors(t *testing.T) {
 	}
 }
 
+// Multi-host (HA) DSNs must parse under churl so clickhouse-go remains compatible
+// when net/url rejects or normalizes multi-host authorities (see Go 1.26 / #1784).
+func TestParseMultiHost(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name string
+		raw  string
+		host string
+		path string
+		user string
+		pass string
+	}{
+		{
+			name: "plain multi-host",
+			raw:  "clickhouse://host1:9440,host2:9440/database",
+			host: "host1:9440,host2:9440",
+			path: "/database",
+		},
+		{
+			name: "multi-host with auth",
+			raw:  "clickhouse://user:pass@host1:9440,host2:9440/db?secure=true",
+			host: "host1:9440,host2:9440",
+			path: "/db",
+			user: "user",
+			pass: "pass",
+		},
+		{
+			name: "http multi-host",
+			raw:  "http://host1:8123,host2:8123/db",
+			host: "host1:8123,host2:8123",
+			path: "/db",
+		},
+		{
+			name: "IPv6 multi-host",
+			raw:  "clickhouse://[::1]:9440,[2001:db8::1]:9440/db",
+			host: "[::1]:9440,[2001:db8::1]:9440",
+			path: "/db",
+		},
+		{
+			name: "mixed IPv6 then plain",
+			raw:  "clickhouse://[::1]:9440,host2:9440/db",
+			host: "[::1]:9440,host2:9440",
+			path: "/db",
+		},
+		{
+			name: "mixed plain then IPv6",
+			raw:  "clickhouse://host1:9440,[::1]:9440/db",
+			host: "host1:9440,[::1]:9440",
+			path: "/db",
+		},
+		{
+			name: "IPv6 zone ID percent-decoded",
+			raw:  "clickhouse://[fe80::1%25eth0]:9000/db",
+			host: "[fe80::1%eth0]:9000",
+			path: "/db",
+		},
+		{
+			name: "multi-host with zone ID",
+			raw:  "clickhouse://[fe80::1%25eth0]:9000,[::1]:9000/db",
+			host: "[fe80::1%eth0]:9000,[::1]:9000",
+			path: "/db",
+		},
+		{
+			name: "three hosts",
+			raw:  "clickhouse://h1:9000,h2:9000,h3:9000/db",
+			host: "h1:9000,h2:9000,h3:9000",
+			path: "/db",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			u, err := Parse(tc.raw)
+			if err != nil {
+				t.Fatalf("Parse(%q): %v", tc.raw, err)
+			}
+			if u.Host != tc.host {
+				t.Fatalf("Host: got %q want %q", u.Host, tc.host)
+			}
+			if u.Path != tc.path {
+				t.Fatalf("Path: got %q want %q", u.Path, tc.path)
+			}
+			if tc.user != "" {
+				if u.User == nil || u.User.Username() != tc.user {
+					t.Fatalf("Username: got %v want %q", u.User, tc.user)
+				}
+				pass, _ := u.User.Password()
+				if pass != tc.pass {
+					t.Fatalf("Password: got %q want %q", pass, tc.pass)
+				}
+			}
+		})
+	}
+}
+
 func TestParseViaRequest(t *testing.T) {
 	// parse's viaRequest flag is dead from Parse's perspective (always
 	// called with viaRequest=false) but is retained from the net/url fork;

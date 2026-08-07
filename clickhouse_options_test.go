@@ -701,6 +701,68 @@ func TestParseDSN(t *testing.T) {
 			},
 			"",
 		},
+		{
+			"multi-host mixed IPv6 then plain",
+			"clickhouse://[::1]:9440,host2:9440/db",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"[::1]:9440", "host2:9440"},
+				Settings: Settings{},
+				Auth: Auth{
+					Database: "db",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
+			"multi-host mixed plain then IPv6",
+			"clickhouse://host1:9440,[::1]:9440/db",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"host1:9440", "[::1]:9440"},
+				Settings: Settings{},
+				Auth: Auth{
+					Database: "db",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
+			"IPv6 zone ID percent-decoded in Addr",
+			"clickhouse://[fe80::1%25eth0]:9000/db",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"[fe80::1%eth0]:9000"},
+				Settings: Settings{},
+				Auth: Auth{
+					Database: "db",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
+			"multi-host IPv6 with zone ID and auth",
+			"clickhouse://zuser:zpass@[fe80::1%25eth0]:9000,[::1]:9000/zdb",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"[fe80::1%eth0]:9000", "[::1]:9000"},
+				Settings: Settings{},
+				Auth: Auth{
+					Username: "zuser",
+					Password: "zpass",
+					Database: "zdb",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
 	}
 
 	for _, testCase := range testCases {
@@ -725,61 +787,21 @@ func parseURL(t *testing.T, v string) *url.URL {
 	return u
 }
 
-func TestDSNAddrList(t *testing.T) {
-	t.Parallel()
-	cases := []struct {
-		name       string
-		raw        string
-		parsedHost string
-		want       []string
-	}{
-		{
-			name:       "multi-host",
-			raw:        "clickhouse://host1:9440,host2:9440/database",
-			parsedHost: "host1:9440,host2:9440",
-			want:       []string{"host1:9440", "host2:9440"},
-		},
-		{
-			name:       "multi-host with userinfo",
-			raw:        "clickhouse://user:pass@host1:9440,host2:9440/db?secure=true",
-			parsedHost: "host1:9440,host2:9440",
-			want:       []string{"host1:9440", "host2:9440"},
-		},
-		{
-			name:       "bracketed IPv6 multi-host",
-			raw:        "clickhouse://[::1]:9440,[2001:db8::1]:9440/db",
-			parsedHost: "[2001:db8::1]:9440", // parsers may keep only the last host
-			want:       []string{"[::1]:9440", "[2001:db8::1]:9440"},
-		},
-		{
-			name:       "multi-host with auth overridden via query",
-			raw:        "clickhouse://user:pass@host1:9440,host2:9440/db?username=other&password=secret",
-			parsedHost: "host1:9440,host2:9440",
-			want:       []string{"host1:9440", "host2:9440"},
-		},
-		{
-			name:       "fallback to parsed host",
-			raw:        "not-a-url",
-			parsedHost: "only-host:9000",
-			want:       []string{"only-host:9000"},
-		},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			assert.Equal(t, tc.want, dsnAddrList(tc.raw, tc.parsedHost))
-		})
-	}
-}
-
 func TestSplitHostList(t *testing.T) {
 	t.Parallel()
 	assert.Equal(t, []string{"a:1", "b:2"}, splitHostList("a:1,b:2"))
 	assert.Equal(t, []string{"[::1]:1", "[::2]:2"}, splitHostList("[::1]:1,[::2]:2"))
 	assert.Equal(t, []string{"single"}, splitHostList("single"))
+	assert.Nil(t, splitHostList(""))
 	// Auth/userinfo should not leak into host list; hosts remain cluster-wide
 	assert.Equal(t, []string{"host1:9440", "host2:9440"}, splitHostList("host1:9440,host2:9440"))
 	// Mixed bracketed and plain hosts
 	assert.Equal(t, []string{"[::1]:9440", "host2:9440"}, splitHostList("[::1]:9440,host2:9440"))
+	assert.Equal(t, []string{"host1:9440", "[::1]:9440"}, splitHostList("host1:9440,[::1]:9440"))
+	// Zone ID (already unescaped by churl) is preserved through SplitHostPort
+	assert.Equal(t, []string{"[fe80::1%eth0]:9000"}, splitHostList("[fe80::1%eth0]:9000"))
+	// Bare hosts without ports
+	assert.Equal(t, []string{"host1", "host2"}, splitHostList("host1,host2"))
 }
 
 func TestLogger(t *testing.T) {
