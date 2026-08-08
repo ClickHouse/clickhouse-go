@@ -133,13 +133,15 @@ func (c *JSON) parse(t Type, sc *ServerContext) (_ *JSON, err error) {
 			continue
 		}
 
-		typedPathParts := strings.SplitN(typePart, " ", 2)
-		if len(typedPathParts) != 2 {
+		// Split on the first space outside backticks so paths like `a b` and
+		// types like Decimal(10, 2) both parse correctly.
+		typedPathRaw, typeName, ok := splitJSONTypedPath(typePart)
+		if !ok {
 			continue
 		}
 
-		typedPath := strings.Trim(typedPathParts[0], "`")
-		typeName := strings.TrimSpace(typedPathParts[1])
+		typedPath := strings.Trim(typedPathRaw, "`")
+		typeName = strings.TrimSpace(typeName)
 
 		c.typedPaths = append(c.typedPaths, typedPath)
 		c.typedPathsIndex[typedPath] = len(c.typedPaths) - 1
@@ -153,6 +155,28 @@ func (c *JSON) parse(t Type, sc *ServerContext) (_ *JSON, err error) {
 	}
 
 	return c, nil
+}
+
+// splitJSONTypedPath splits a JSON typed-path segment (e.g. "`a b` Int64" or
+// "a.b Decimal(10, 2)") on the first space that is not inside backticks.
+func splitJSONTypedPath(typePart string) (path, typeName string, ok bool) {
+	inBackticks := false
+	for i := 0; i < len(typePart); i++ {
+		switch typePart[i] {
+		case '`':
+			inBackticks = !inBackticks
+		case ' ':
+			if !inBackticks {
+				path = typePart[:i]
+				typeName = strings.TrimSpace(typePart[i+1:])
+				if path == "" || typeName == "" {
+					return "", "", false
+				}
+				return path, typeName, true
+			}
+		}
+	}
+	return "", "", false
 }
 
 func (c *JSON) hasTypedPath(path string) bool {
