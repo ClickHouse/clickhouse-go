@@ -133,13 +133,26 @@ func (c *JSON) parse(t Type, sc *ServerContext) (_ *JSON, err error) {
 			continue
 		}
 
-		typedPathParts := strings.SplitN(typePart, " ", 2)
-		if len(typedPathParts) != 2 {
+		// Split on the last space that is not inside backticks so paths like
+		// `a b` Int64 parse as path "a b" and type "Int64".
+		lastSpace := -1
+		inBackticks := false
+		for i := 0; i < len(typePart); i++ {
+			switch typePart[i] {
+			case '`':
+				inBackticks = !inBackticks
+			case ' ':
+				if !inBackticks {
+					lastSpace = i
+				}
+			}
+		}
+		if lastSpace < 0 {
 			continue
 		}
 
-		typedPath := strings.Trim(typedPathParts[0], "`")
-		typeName := strings.TrimSpace(typedPathParts[1])
+		typedPath := strings.Trim(typePart[:lastSpace], "`")
+		typeName := strings.TrimSpace(typePart[lastSpace+1:])
 
 		c.typedPaths = append(c.typedPaths, typedPath)
 		c.typedPathsIndex[typedPath] = len(c.typedPaths) - 1
