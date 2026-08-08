@@ -70,6 +70,45 @@ const (
 	jsonModeString                 // string, []byte, json.RawMessage, sql.NullString, Stringer, Valuer
 )
 
+// splitTypedPath splits a typed path spec "path Type" or "`path with spaces` Type"
+// into path and typeName. Surrounding path backticks are stripped. ok is false if
+// the spec does not contain a usable path/type separator.
+func splitTypedPath(typePart string) (path, typeName string, ok bool) {
+	typePart = strings.TrimSpace(typePart)
+	if typePart == "" {
+		return "", "", false
+	}
+
+	var pathPart string
+	var rest string
+
+	if typePart[0] == '`' {
+		// Backtick-quoted path may contain spaces; find the closing backtick.
+		end := strings.IndexByte(typePart[1:], '`')
+		if end < 0 {
+			return "", "", false
+		}
+		end++ // index of closing backtick in typePart
+		pathPart = typePart[:end+1]
+		rest = typePart[end+1:]
+	} else {
+		// Unquoted path cannot contain spaces; split on the first space.
+		idx := strings.IndexByte(typePart, ' ')
+		if idx < 0 {
+			return "", "", false
+		}
+		pathPart = typePart[:idx]
+		rest = typePart[idx+1:]
+	}
+
+	typeName = strings.TrimSpace(rest)
+	if typeName == "" {
+		return "", "", false
+	}
+	path = strings.Trim(pathPart, "`")
+	return path, typeName, true
+}
+
 func (c *JSON) parse(t Type, sc *ServerContext) (_ *JSON, err error) {
 	c.chType = t
 	c.sc = sc
@@ -133,13 +172,10 @@ func (c *JSON) parse(t Type, sc *ServerContext) (_ *JSON, err error) {
 			continue
 		}
 
-		typedPathParts := strings.SplitN(typePart, " ", 2)
-		if len(typedPathParts) != 2 {
+		typedPath, typeName, ok := splitTypedPath(typePart)
+		if !ok {
 			continue
 		}
-
-		typedPath := strings.Trim(typedPathParts[0], "`")
-		typeName := strings.TrimSpace(typedPathParts[1])
 
 		c.typedPaths = append(c.typedPaths, typedPath)
 		c.typedPathsIndex[typedPath] = len(c.typedPaths) - 1

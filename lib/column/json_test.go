@@ -21,6 +21,64 @@ func newTestJSONColumn(t *testing.T) *JSON {
 	return col
 }
 
+func TestJSONParseTypedPathWithSpace(t *testing.T) {
+	sc := &ServerContext{}
+
+	tests := []struct {
+		name     string
+		chType   Type
+		wantPath string
+		wantType string
+	}{
+		{
+			name:     "backtick path with space",
+			chType:   "JSON(`a b` Int64)",
+			wantPath: "a b",
+			wantType: "Int64",
+		},
+		{
+			name:     "backtick path with space and Decimal",
+			chType:   "JSON(`a b` Decimal(10, 2))",
+			wantPath: "a b",
+			wantType: "Decimal(10, 2)",
+		},
+		{
+			name:     "dotted path",
+			chType:   "JSON(a.b Int64)",
+			wantPath: "a.b",
+			wantType: "Int64",
+		},
+		{
+			name:     "backtick path with comma",
+			chType:   "JSON(`a,b` Int64)",
+			wantPath: "a,b",
+			wantType: "Int64",
+		},
+		{
+			name:     "simple path",
+			chType:   "JSON(a Int64)",
+			wantPath: "a",
+			wantType: "Int64",
+		},
+		{
+			name:     "backtick path with dot",
+			chType:   "JSON(`a.b` Int64)",
+			wantPath: "a.b",
+			wantType: "Int64",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			col, err := (&JSON{}).parse(tt.chType, sc)
+			require.NoError(t, err)
+			require.Len(t, col.typedPaths, 1)
+			assert.Equal(t, tt.wantPath, col.typedPaths[0])
+			assert.Equal(t, Type(tt.wantType), col.typedColumns[0].Type())
+		})
+	}
+}
+
 // TestJSONAppendRowNilConsistency verifies the contract for AppendRow(nil).
 // Key rules:
 //  1. A nil row carries no mode preference — it does NOT latch the column.
