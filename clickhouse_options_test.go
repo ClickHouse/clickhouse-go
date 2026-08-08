@@ -804,6 +804,29 @@ func TestSplitHostList(t *testing.T) {
 	assert.Equal(t, []string{"host1", "host2"}, splitHostList("host1,host2"))
 }
 
+// Multi-host DSNs share one Auth for every address. Per-host credentials are not
+// supported; query params and post-parse Options overrides remain cluster-wide.
+func TestMultiHostAuthClusterWide(t *testing.T) {
+	t.Parallel()
+
+	opts, err := ParseDSN("clickhouse://user:pass@host1:9440,host2:9440/db")
+	require.NoError(t, err)
+	require.Equal(t, []string{"host1:9440", "host2:9440"}, opts.Addr)
+	require.Equal(t, Auth{Username: "user", Password: "pass", Database: "db"}, opts.Auth)
+
+	// Query params override userinfo for the whole cluster (both hosts).
+	opts, err = ParseDSN("clickhouse://user:pass@host1:9440,host2:9440/db?username=other&password=secret")
+	require.NoError(t, err)
+	require.Equal(t, []string{"host1:9440", "host2:9440"}, opts.Addr)
+	require.Equal(t, Auth{Username: "other", Password: "secret", Database: "db"}, opts.Auth)
+
+	// Callers may replace Auth on Options after ParseDSN; that still applies to all hosts.
+	opts.Auth.Username = "override"
+	opts.Auth.Password = "newpass"
+	require.Equal(t, []string{"host1:9440", "host2:9440"}, opts.Addr)
+	require.Equal(t, Auth{Username: "override", Password: "newpass", Database: "db"}, opts.Auth)
+}
+
 func TestLogger(t *testing.T) {
 	t.Run("debug=1 via DSN produces non-noop logger", func(t *testing.T) {
 		opts, err := ParseDSN("clickhouse://127.0.0.1/test?debug=1")
