@@ -100,6 +100,14 @@ func (col *Nullable) ScanRow(dest any, row int) error {
 				*v = nil
 			case **time.Time:
 				*v = nil
+			default:
+				rv := reflect.ValueOf(dest)
+				if rv.Kind() == reflect.Ptr && !rv.IsNil() {
+					elem := rv.Elem()
+					if elem.Kind() == reflect.Ptr && elem.CanSet() {
+						elem.SetZero()
+					}
+				}
 			}
 			if scan, ok := dest.(sql.Scanner); ok {
 				return scan.Scan(nil)
