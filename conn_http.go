@@ -147,6 +147,12 @@ func applyOptionsToRequest(ctx context.Context, req *http.Request, opt *Options)
 		}
 	}
 
+	// Pre-encoded body: advertise Content-Encoding; caller should use CompressionNone
+	// so the payload is not wrapped by the driver compression writer again.
+	if enc := contextContentEncoding(ctx); enc != "" {
+		req.Header.Set("Content-Encoding", enc)
+	}
+
 	return nil
 }
 

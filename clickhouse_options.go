@@ -74,6 +74,23 @@ type Compression struct {
 	Level int
 }
 
+// contentEncodingCtxKey holds a pre-encoded Content-Encoding value in context.
+type contentEncodingCtxKey struct{}
+
+// WithContentEncoding marks the request body as already encoded with the given
+// Content-Encoding (e.g. "gzip", "deflate", "br"). The HTTP client sets that
+// header on requests. Use with CompressionNone (or nil Compression) so the
+// driver does not compress the body again; do not combine with an active
+// Compression.Method that would recompress the payload.
+func WithContentEncoding(parent context.Context, encoding string) context.Context {
+	return context.WithValue(parent, contentEncodingCtxKey{}, encoding)
+}
+
+func contextContentEncoding(ctx context.Context) string {
+	v, _ := ctx.Value(contentEncodingCtxKey{}).(string)
+	return v
+}
+
 type ConnOpenStrategy uint8
 
 const (
