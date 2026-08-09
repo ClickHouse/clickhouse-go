@@ -58,6 +58,7 @@ type (
 		userLocation        *time.Location
 		columnNamesAndTypes []ColumnNameAndType
 		clientInfo          ClientInfo
+		contentEncoding     string
 	}
 )
 
@@ -186,6 +187,17 @@ func WithStdAsync(wait bool) QueryOption {
 func WithUserLocation(location *time.Location) QueryOption {
 	return func(o *QueryOptions) error {
 		o.userLocation = location
+		return nil
+	}
+}
+
+// WithContentEncoding marks the HTTP insert body as already encoded (e.g. "gzip").
+// The client sets the Content-Encoding header and must not wrap the reader with
+// connection-level compression. Encoding must match the payload bytes; the server
+// must accept it for the insert format.
+func WithContentEncoding(encoding string) QueryOption {
+	return func(o *QueryOptions) error {
+		o.contentEncoding = encoding
 		return nil
 	}
 }

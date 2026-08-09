@@ -147,6 +147,10 @@ func applyOptionsToRequest(ctx context.Context, req *http.Request, opt *Options)
 		}
 	}
 
+	if queryOpt.contentEncoding != "" {
+		req.Header.Set("Content-Encoding", queryOpt.contentEncoding)
+	}
+
 	return nil
 }
 
