@@ -2,6 +2,8 @@ package clickhouse
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"maps"
 	"slices"
 	"time"
@@ -58,6 +60,9 @@ type (
 		userLocation        *time.Location
 		columnNamesAndTypes []ColumnNameAndType
 		clientInfo          ClientInfo
+		// precompressed, when non-zero, declares the insert body is already
+		// compressed. Content-Encoding is set and the client must not wrap the body.
+		precompressed CompressionMethod
 	}
 )
 
@@ -187,6 +192,25 @@ func WithUserLocation(location *time.Location) QueryOption {
 	return func(o *QueryOptions) error {
 		o.userLocation = location
 		return nil
+	}
+}
+
+// WithPrecompressedInput declares that the request body is already compressed
+// with the given method. The HTTP Content-Encoding header is set to match and
+// the body should be streamed as-is (no additional client-side compression).
+// The payload must already match the declared encoding (e.g. a .parquet.gz file
+// with CompressionGZIP). Only supported for HTTP insert/InsertFormat paths.
+func WithPrecompressedInput(method CompressionMethod) QueryOption {
+	return func(o *QueryOptions) error {
+		switch method {
+		case CompressionGZIP, CompressionDeflate, CompressionBrotli:
+			o.precompressed = method
+			return nil
+		case CompressionNone:
+			return errors.New("precompressed input requires a compression method")
+		default:
+			return fmt.Errorf("unsupported precompressed encoding: %s", method)
+		}
 	}
 }
 

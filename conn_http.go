@@ -147,6 +147,13 @@ func applyOptionsToRequest(ctx context.Context, req *http.Request, opt *Options)
 		}
 	}
 
+	if queryOpt.precompressed != CompressionNone {
+		if opt.Compression != nil && opt.Compression.Method != CompressionNone {
+			return errors.New("cannot combine Options.Compression with WithPrecompressedInput")
+		}
+		req.Header.Set("Content-Encoding", queryOpt.precompressed.String())
+	}
+
 	return nil
 }
 
