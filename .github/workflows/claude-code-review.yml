@@ -52,7 +52,7 @@ jobs:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ github.token }}
           claude_args:
-            --allowedTools "Read,Glob,Grep,Bash(grep:*),Bash(gh pr view:*),Bash(gh pr diff:*),Write"
+            --model fable --allowedTools "Read,Glob,Grep,Bash(grep:*),Bash(gh pr view:*),Bash(gh pr diff:*),Write"
           prompt: |
             Review pull request #${{ github.event.inputs.pr_number || github.event.pull_request.number }} by following `.claude/skills/review-pr/SKILL.md` exactly.
 

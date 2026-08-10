@@ -2,6 +2,7 @@ package clickhouse
 
 import (
 	"context"
+	"io"
 	"log/slog"
 	"sync"
 	"testing"
@@ -493,6 +494,14 @@ func (m *mockTransport) queryRow(ctx context.Context, release nativeTransportRel
 
 func (m *mockTransport) prepareBatch(ctx context.Context, release nativeTransportRelease, acquire nativeTransportAcquire, query string, opts driver.PrepareBatchOptions) (driver.Batch, error) {
 	return nil, nil
+}
+
+func (m *mockTransport) queryFormat(ctx context.Context, release nativeTransportRelease, format string, query string, args ...any) (io.ReadCloser, error) {
+	return nil, nil
+}
+
+func (m *mockTransport) insertFormat(ctx context.Context, release nativeTransportRelease, format string, query string, data io.Reader) error {
+	return nil
 }
 
 func (m *mockTransport) exec(ctx context.Context, query string, args ...any) error {

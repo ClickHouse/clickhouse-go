@@ -2,6 +2,7 @@ package std
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -37,7 +38,9 @@ func OpenDb() error {
 		fmt.Println("progress: ", p)
 	}))
 	if err := conn.PingContext(ctx); err != nil {
-		if exception, ok := err.(*clickhouse.Exception); ok {
+		// errors.As finds the typed exception on both the native and HTTP protocols.
+		var exception *clickhouse.Exception
+		if errors.As(err, &exception) {
 			fmt.Printf("Catch exception [%d] %s \n%s\n", exception.Code, exception.Message, exception.StackTrace)
 		}
 		return err
