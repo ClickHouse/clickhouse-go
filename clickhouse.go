@@ -38,6 +38,8 @@ var (
 	ErrServerUnexpectedData      = errors.New("code: 101, message: Unexpected packet Data received from client")
 	ErrConnectionClosed          = errors.New("clickhouse: connection is closed")
 	ErrFormatNativeUnsupported   = errors.New("clickhouse: QueryFormat and InsertFormat are only supported over the HTTP protocol, where the server converts every format; connect with Options{Protocol: clickhouse.HTTP} or an http:// DSN")
+
+	errConnMaxLifetimeExceeded = errors.New("clickhouse: connection max lifetime exceeded")
 )
 
 type OpError struct {
@@ -93,7 +95,8 @@ type nativeTransport interface {
 	exec(ctx context.Context, query string, args ...any) error
 	asyncInsert(ctx context.Context, query string, wait bool, args ...any) error
 	ping(context.Context) error
-	isBad() bool
+	// healthCheck reports why the connection is unusable; nil means healthy.
+	healthCheck() error
 	connID() int
 	connectedAtTime() time.Time
 	isReleased() bool
@@ -346,13 +349,14 @@ func (ch *clickhouse) acquire(ctx context.Context) (conn nativeTransport, err er
 	}
 
 	if err == nil && conn != nil {
-		if !conn.isBad() {
+		if badErr := conn.healthCheck(); badErr == nil {
 			conn.setReleased(false)
 			conn.getLogger().Debug("connection acquired from pool")
 			return conn, nil
+		} else {
+			conn.getLogger().Debug("closing bad connection from pool", slog.Any("reason", badErr))
+			conn.close()
 		}
-
-		conn.close()
 	}
 
 	if conn, err = ch.dial(ctx); err != nil {
