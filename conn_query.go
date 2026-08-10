@@ -17,7 +17,7 @@ func (c *connect) query(ctx context.Context, release nativeTransportRelease, que
 
 	if err != nil {
 		c.logger.Error("failed to bind query parameters", slog.Any("error", err))
-		release(c, err)
+		release(c, nil)
 		return nil, err
 	}
 
@@ -48,13 +48,13 @@ func (c *connect) query(ctx context.Context, release nativeTransportRelease, que
 			stream <- b
 		}
 		err := c.process(ctx, onProcess)
+		release(c, err)
 		if err != nil {
 			c.logger.Error("query processing failed", slog.Any("error", err))
 			errors <- err
 		}
 		close(stream)
 		close(errors)
-		release(c, err)
 	}()
 
 	return &rows{
