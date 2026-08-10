@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"regexp"
 	"strconv"
 	"time"
 
@@ -14,8 +13,6 @@ import (
 var (
 	ErrInvalidValueInNamedDateValue = errors.New("invalid value in NamedDateValue for query parameter")
 	ErrUnsupportedQueryParameter    = errors.New("unsupported query parameter type")
-
-	hasQueryParamsRe = regexp.MustCompile("{.+:.+}")
 )
 
 func bindQueryOrAppendParameters(paramsProtocolSupport bool, options *QueryOptions, query string, timezone *time.Location, args ...any) (string, error) {
@@ -28,7 +25,7 @@ func bindQueryOrAppendParameters(paramsProtocolSupport bool, options *QueryOptio
 	// parameter values will be loaded from `args ...any` for compatibility
 	if paramsProtocolSupport &&
 		len(args) > 0 &&
-		hasQueryParamsRe.MatchString(query) {
+		hasQueryParameters(query) {
 		options.parameters = make(Parameters, len(args))
 		for _, a := range args {
 			switch p := a.(type) {
@@ -84,6 +81,60 @@ func bindQueryOrAppendParameters(paramsProtocolSupport bool, options *QueryOptio
 	}
 
 	return bind(timezone, query, args...)
+}
+
+// hasQueryParameters reports whether query contains server-side parameter
+// syntax outside strings, quoted identifiers, and comments.
+func hasQueryParameters(query string) bool {
+	var state bindQuoteState
+	for i := 0; i < len(query); i++ {
+		if !state.inProtectedContext() && query[i] == '{' && isQueryParameter(query[i+1:]) {
+			return true
+		}
+		i = state.update(query, i)
+	}
+	return false
+}
+
+// isQueryParameter reports whether query starts with a nonempty
+// {name:type} parameter declaration.
+func isQueryParameter(query string) bool {
+	nameStart := skipSpace(query, 0)
+	if nameStart >= len(query) || isDigit(query[nameStart]) {
+		return false
+	}
+
+	nameEnd := nameStart
+	for nameEnd < len(query) && isNameChar(query[nameEnd]) {
+		nameEnd++
+	}
+	colon := skipSpace(query, nameEnd)
+	if nameEnd == nameStart || colon >= len(query) || query[colon] != ':' {
+		return false
+	}
+
+	typeStart := skipSpace(query, colon+1)
+	var state bindQuoteState
+	for i := typeStart; i < len(query); i++ {
+		if !state.inProtectedContext() && query[i] == '}' {
+			return i > typeStart
+		}
+		i = state.update(query, i)
+	}
+	return false
+}
+
+// skipSpace returns the first index at or after start that is not SQL whitespace.
+func skipSpace(query string, start int) int {
+	for start < len(query) {
+		switch query[start] {
+		case ' ', '\t', '\r', '\n':
+			start++
+		default:
+			return start
+		}
+	}
+	return start
 }
 
 // isNilParamValue reports whether v is nil itself or a typed nil pointer —
