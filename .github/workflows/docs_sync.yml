@@ -6,7 +6,7 @@ name: 'Sync docs to ClickHouse/ClickHouse'
 #   * a merged PR carrying the `sync-docs` label  -> ship docs immediately,
 #     without waiting for a release
 #   * a published release                         -> ship docs on release, gated
-#     by RELEASE_SCOPE below (major-only by default);
+#     by RELEASE_SCOPE below (all releases by default);
 #   * manual dispatch                             -> force a sync.
 #
 # A single stable branch is force-pushed each run, so the bot keeps exactly one
