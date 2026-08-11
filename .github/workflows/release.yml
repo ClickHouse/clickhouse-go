@@ -1,6 +1,7 @@
 name: release
 
-permissions: write-all
+permissions:
+  contents: read
 
 on:
   workflow_dispatch:
