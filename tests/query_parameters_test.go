@@ -89,7 +89,7 @@ func TestQueryParameters(t *testing.T) {
 
 		for _, value := range []string{"line 1\nline 2", "column 1\tcolumn 2"} {
 			row := client.QueryRow(ctx, "SELECT {value:String}", clickhouse.Named("value", value))
-			require.Error(t, row.Err())
+			require.Error(t, row.Err(), "value %q should be rejected", value)
 		}
 	})
 

@@ -34,7 +34,7 @@ Both support TCP and HTTP transport. When in doubt, use the native interface.
 * Named and numeric placeholders support
 * LZ4/ZSTD/LZ4HC/GZIP/Deflate/Brotli compression support
 * External data
-* [Server-side query parameters](docs/clickhouse-api.mdx#server-side-query-parameters)
+* [Server-side query parameters](https://clickhouse.com/docs/integrations/language-clients/go/clickhouse-api#server-side-query-parameters)
 * Structured logging via `log/slog` ([Logger option](#logging))
 * [Arbitrary input/output formats](#arbitrary-inputoutput-formats-experimental) — stream results or inserts as raw `CSV`, `JSONEachRow`, `Parquet`, ... (experimental, HTTP protocol only)
 * JWT authentication support
@@ -45,7 +45,7 @@ Support for the ClickHouse protocol advanced features using `Context`:
 * Query ID
 * Quota Key
 * Settings
-* [Server-side query parameters](docs/clickhouse-api.mdx#server-side-query-parameters)
+* [Server-side query parameters](https://clickhouse.com/docs/integrations/language-clients/go/clickhouse-api#server-side-query-parameters)
 * OpenTelemetry
 * Execution events:
 	* Logs

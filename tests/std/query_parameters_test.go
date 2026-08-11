@@ -32,6 +32,9 @@ func TestQueryParameters(t *testing.T) {
 			t.Cleanup(func() {
 				require.NoError(t, conn.Close())
 			})
+			if !CheckMinServerVersion(conn, 22, 8, 0) {
+				t.Skip("server-side query parameters require ClickHouse 22.8+")
+			}
 
 			t.Run("with named arguments", func(t *testing.T) {
 				var actualNum uint64
@@ -70,7 +73,7 @@ func TestQueryParameters(t *testing.T) {
 
 				for _, value := range []string{"line 1\nline 2", "column 1\tcolumn 2"} {
 					row := conn.QueryRow("SELECT {value:String}", clickhouse.Named("value", value))
-					require.Error(t, row.Err())
+					require.Error(t, row.Err(), "value %q should be rejected", value)
 				}
 			})
 
