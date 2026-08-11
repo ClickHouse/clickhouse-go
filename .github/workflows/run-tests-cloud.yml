@@ -1,6 +1,7 @@
 name: Tests cloud
 
-permissions: write-all
+permissions:
+  contents: read
 
 on:
   push:
@@ -35,6 +36,9 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.ref }}
+          # The fork code checked out on the line above must not inherit a usable
+          # git credential.
+          persist-credentials: false
 
       - name: Install Go ${{ matrix.go }}
         uses: actions/setup-go@v5
@@ -53,8 +57,17 @@ jobs:
         run: |
           CLICKHOUSE_DIAL_TIMEOUT=20 CLICKHOUSE_TEST_TIMEOUT=1200s CLICKHOUSE_QUORUM_INSERT=2 make test
 
+  # Dropping the label needs a write scope, so it runs in its own job on a clean
+  # runner that never checks out the pull request. The job above keeps read-only
+  # access even though it executes fork code.
+  remove-label:
+    needs: [test]
+    if: always() && github.event_name == 'pull_request_target' && github.event.label.name == 'tests:run-cloud'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
       - name: Remove tests:run-cloud label
-        if: always() && github.event_name == 'pull_request_target'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
