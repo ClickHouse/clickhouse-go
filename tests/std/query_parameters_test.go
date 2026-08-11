@@ -29,6 +29,12 @@ func TestQueryParameters(t *testing.T) {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
 			conn, err := GetConnectionFromDSN(dsn)
 			require.NoError(t, err)
+			t.Cleanup(func() {
+				require.NoError(t, conn.Close())
+			})
+			if !CheckMinServerVersion(conn, 22, 8, 0) {
+				t.Skip("server-side query parameters require ClickHouse 22.8+")
+			}
 
 			t.Run("with named arguments", func(t *testing.T) {
 				var actualNum uint64
@@ -43,6 +49,32 @@ func TestQueryParameters(t *testing.T) {
 
 				assert.Equal(t, uint64(42), actualNum)
 				assert.Equal(t, "hello", actualStr)
+			})
+
+			t.Run("escaped string values", func(t *testing.T) {
+				cases := []struct {
+					name  string
+					value string
+					want  string
+				}{
+					{"raw literal with escapes", `line 1\nline 2\tend`, "line 1\nline 2\tend"},
+					{"interpreted literal with escaped backslashes", "line 1\\nline 2\\tend", "line 1\nline 2\tend"},
+					{"raw literal with literal backslashes", `line 1\\nline 2\\tend`, `line 1\nline 2\tend`},
+					{"interpreted literal with literal backslashes", "line 1\\\\nline 2\\\\tend", `line 1\nline 2\tend`},
+				}
+				for _, tc := range cases {
+					t.Run(tc.name, func(t *testing.T) {
+						var got string
+						row := conn.QueryRow("SELECT {value:String}", clickhouse.Named("value", tc.value))
+						require.NoError(t, row.Scan(&got))
+						assert.Equal(t, tc.want, got)
+					})
+				}
+
+				for _, value := range []string{"line 1\nline 2", "column 1\tcolumn 2"} {
+					row := conn.QueryRow("SELECT {value:String}", clickhouse.Named("value", value))
+					require.Error(t, row.Err(), "value %q should be rejected", value)
+				}
 			})
 
 			t.Run("named args with string and interface supported", func(t *testing.T) {
