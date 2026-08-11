@@ -17,7 +17,7 @@ jobs:
           app-id: ${{ secrets.WORKFLOW_AUTH_PUBLIC_APP_ID }}
           private-key: ${{ secrets.WORKFLOW_AUTH_PUBLIC_PRIVATE_KEY }}
 
-      - uses: actions/checkout@main
+      - uses: actions/checkout@v5.1.0
         with:
           ref: main
           fetch-depth: 0 # required to generate contributor list

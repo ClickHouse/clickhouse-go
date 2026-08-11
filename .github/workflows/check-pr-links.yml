@@ -15,7 +15,7 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Check links
-        uses: lycheeverse/lychee-action@v2
+        uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
         with:
           # Remap live URLs to build directory because the links are potentially not live (not yet on master)
           args: |
