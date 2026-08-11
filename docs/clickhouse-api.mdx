@@ -406,7 +406,7 @@ row := conn.QueryRow(ctx, `
 You can also supply values with `clickhouse.Named`:
 
 ```go
-row := conn.QueryRow(ctx,
+row := conn.QueryRow(context.Background(),
     "SELECT {user_id:UInt64}, {message:String}",
     clickhouse.Named("user_id", uint64(12345)),
     clickhouse.Named("message", `line 1\nline 2`),
