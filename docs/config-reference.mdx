@@ -394,6 +394,8 @@ batch, err := conn.PrepareBatch(ctx, "INSERT INTO table",
 
 ### DSN parameter quick reference {#dsn-parameters}
 
+Multi-host DSNs use a comma-separated authority (`clickhouse://user:pass@host1:9000,host2:9000/db`). Bracketed IPv6 peers are supported. `Auth` from userinfo / `username` / `password` is cluster-wide (query params override userinfo).
+
 | DSN parameter | Options field | Example |
 |---------------|--------------|---------|
 | `username` | `Auth.Username` | `?username=admin` |

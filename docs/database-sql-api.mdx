@@ -58,8 +58,8 @@ func ConnectDSN() error {
 
 Most configuration options are shared with the ClickHouse API. See [Configuration](/integrations/language-clients/go/configuration) for shared settings. The following SQL-specific DSN parameters are available:
 
-* `hosts` - comma-separated list of single address hosts for load-balancing and failover - see [Connecting to Multiple Nodes](/integrations/language-clients/go/configuration#connecting-to-multiple-nodes).
-* `username/password` - auth credentials - see [Authentication](/integrations/language-clients/go/configuration#authentication)
+* `hosts` - comma-separated list of single address hosts for load-balancing and failover (bracketed IPv6 supported) - see [Connecting to Multiple Nodes](/integrations/language-clients/go/configuration#connecting-to-multiple-nodes).
+* `username/password` - auth credentials (DSN userinfo and/or `username`/`password` query params; query overrides userinfo). Credentials are cluster-wide across all hosts - see [Authentication](/integrations/language-clients/go/configuration#authentication)
 * `database` - select the current default database
 * `dial_timeout` - a duration string is a possibly signed sequence of decimal numbers, each with optional fraction and a unit suffix such as `300ms`, `1s`. Valid time units are `ms`, `s`, `m`.
 * `connection_open_strategy` - `random/in_order` (default `random`) - see [Connecting to Multiple Nodes](/integrations/language-clients/go/configuration#connecting-to-multiple-nodes)
