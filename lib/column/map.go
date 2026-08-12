@@ -49,35 +49,63 @@ func (col *Map) Name() string {
 
 func (col *Map) parse(t Type, sc *ServerContext) (_ Interface, err error) {
 	col.chType = t
-	types := make([]string, 2)
 	typeParams := t.params()
-	idx := strings.Index(typeParams, ",")
-	if strings.HasPrefix(typeParams, "Enum") {
-		idx = strings.Index(typeParams, "),") + 1
+	idx := indexTopLevelComma(typeParams)
+	if idx < 0 {
+		return nil, &UnsupportedColumnTypeError{t: t}
 	}
-	if idx > 0 {
-		types[0] = typeParams[:idx]
-		types[1] = typeParams[idx+1:]
+	keyType := Type(strings.TrimSpace(typeParams[:idx]))
+	valueType := Type(strings.TrimSpace(typeParams[idx+1:]))
+	if keyType == "" || valueType == "" {
+		return nil, &UnsupportedColumnTypeError{t: t}
 	}
-	if types[0] != "" && types[1] != "" {
-		if col.keys, err = Type(strings.TrimSpace(types[0])).Column(col.name, sc); err != nil {
-			return nil, err
-		}
-		if col.values, err = Type(strings.TrimSpace(types[1])).Column(col.name, sc); err != nil {
-			return nil, err
-		}
+	if col.keys, err = keyType.Column(col.name, sc); err != nil {
+		return nil, err
+	}
+	if col.values, err = valueType.Column(col.name, sc); err != nil {
+		return nil, err
+	}
+	if !col.keys.ScanType().Comparable() {
+		return nil, &UnsupportedColumnTypeError{t: t}
+	}
+	col.scanType = reflect.MapOf(col.keys.ScanType(), col.values.ScanType())
+	return col, nil
+}
 
-		if col.keys.ScanType().Comparable() {
-			col.scanType = reflect.MapOf(
-				col.keys.ScanType(),
-				col.values.ScanType(),
-			)
-			return col, nil
+func indexTopLevelComma(s string) int {
+	var (
+		depth   int
+		quote   byte
+		escaped bool
+	)
+	for i := range len(s) {
+		if escaped {
+			escaped = false
+			continue
+		}
+		if quote != 0 {
+			switch s[i] {
+			case '\\':
+				escaped = true
+			case quote:
+				quote = 0
+			}
+			continue
+		}
+		switch s[i] {
+		case '\'', '"', '`':
+			quote = s[i]
+		case '(':
+			depth++
+		case ')':
+			depth--
+		case ',':
+			if depth == 0 {
+				return i
+			}
 		}
 	}
-	return nil, &UnsupportedColumnTypeError{
-		t: t,
-	}
+	return -1
 }
 
 func (col *Map) Type() Type {
