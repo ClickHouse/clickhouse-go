@@ -200,11 +200,9 @@ func (o *Options) fromDSN(in string) error {
 		o.Auth.Username = dsn.User.Username()
 		o.Auth.Password, _ = dsn.User.Password()
 	}
-	// Host may be a comma-separated HA list. lib/churl preserves multi-host
-	// authorities (including bracketed IPv6) and percent-decodes each host
-	// (e.g. RFC 6874 zone IDs). splitHostList uses stdlib SplitHostPort to
-	// normalize host:port tokens without breaking IPv6 brackets.
-	// See https://github.com/ClickHouse/clickhouse-go/issues/1784
+	// churl.Parse keeps comma-separated HA hosts (Go 1.26 net/url does not)
+	// and percent-decodes each token. Split with the stdlib, then
+	// SplitHostPort / JoinHostPort per host. See issue 1784.
 	o.Addr = append(o.Addr, splitHostList(dsn.Host)...)
 	var (
 		secure        bool
@@ -403,42 +401,23 @@ func (o *Options) fromDSN(in string) error {
 	return nil
 }
 
-// splitHostList splits a comma-separated HA host list from a parsed DSN host.
+// splitHostList splits a parsed DSN host (already HA-safe from churl.Parse)
+// with strings.Split and normalizes each token via net.SplitHostPort /
+// net.JoinHostPort. Hosts without a port are kept as-is.
 //
-// lib/churl returns multi-host authorities as a single Host string with
-// top-level commas (including bracketed IPv6 peers) and percent-decodes each
-// host. This helper splits on those HA separators and uses stdlib
-// net.SplitHostPort / net.JoinHostPort to validate and normalize each
-// host:port token. Hosts without a port are kept as-is.
-//
-// Single Auth (username/password) applies to all hosts in the cluster;
-// per-host credentials are not supported — authentication is cluster-wide
-// and can be overridden via query params `username`/`password`.
+// Auth is cluster-wide: the same username/password applies to every host.
+// Query params username/password override userinfo.
 func splitHostList(s string) []string {
 	if s == "" {
 		return nil
 	}
-	var out []string
-	start := 0
-	depth := 0
-	for i := 0; i < len(s); i++ {
-		switch s[i] {
-		case '[':
-			depth++
-		case ']':
-			if depth > 0 {
-				depth--
-			}
-		case ',':
-			if depth == 0 {
-				if part := strings.TrimSpace(s[start:i]); part != "" {
-					out = append(out, normalizeHostPort(part))
-				}
-				start = i + 1
-			}
+	parts := strings.Split(s, ",")
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
 		}
-	}
-	if part := strings.TrimSpace(s[start:]); part != "" {
 		out = append(out, normalizeHostPort(part))
 	}
 	return out

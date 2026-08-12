@@ -793,6 +793,8 @@ func TestSplitHostList(t *testing.T) {
 	assert.Equal(t, []string{"[::1]:1", "[::2]:2"}, splitHostList("[::1]:1,[::2]:2"))
 	assert.Equal(t, []string{"single"}, splitHostList("single"))
 	assert.Nil(t, splitHostList(""))
+	assert.Equal(t, []string{"a:1", "b:2"}, splitHostList("a:1,,b:2"))
+	assert.Equal(t, []string{"a:1", "b:2"}, splitHostList(" a:1 , b:2 "))
 	// Auth/userinfo should not leak into host list; hosts remain cluster-wide
 	assert.Equal(t, []string{"host1:9440", "host2:9440"}, splitHostList("host1:9440,host2:9440"))
 	// Mixed bracketed and plain hosts

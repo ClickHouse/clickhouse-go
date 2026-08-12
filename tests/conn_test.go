@@ -160,6 +160,51 @@ func TestMultiHostDSNFailover(t *testing.T) {
 	})
 }
 
+// Credentials on a multi-host DSN are cluster-wide. Replacing Options.Auth
+// after ParseDSN applies to every peer, including the live host after failover.
+func TestMultiHostDSNAuthOverride(t *testing.T) {
+	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		env, err := GetNativeTestEnvironment()
+		require.NoError(t, err)
+		useSSL, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_SSL", "false"))
+		require.NoError(t, err)
+
+		port := env.Port
+		scheme := "clickhouse"
+		if protocol == clickhouse.HTTP {
+			port = env.HttpPort
+			scheme = "http"
+		}
+		query := "connection_open_strategy=in_order"
+		if useSSL {
+			port = env.SslPort
+			if protocol == clickhouse.HTTP {
+				port = env.HttpsPort
+				scheme = "https"
+			}
+			query += "&secure=true"
+		}
+
+		live := fmt.Sprintf("%s:%d", env.Host, port)
+		dsn := fmt.Sprintf("%s://wrong:wrong@127.0.0.1:19001,%s/default?%s",
+			scheme, live, query)
+
+		opts, err := clickhouse.ParseDSN(dsn)
+		require.NoError(t, err)
+		require.Equal(t, []string{"127.0.0.1:19001", live}, opts.Addr)
+		require.Equal(t, "wrong", opts.Auth.Username)
+		require.Equal(t, "wrong", opts.Auth.Password)
+
+		opts.Auth.Username = env.Username
+		opts.Auth.Password = env.Password
+
+		conn, err := GetConnectionWithOptions(opts)
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = conn.Close() })
+		require.NoError(t, conn.Ping(context.Background()))
+	})
+}
+
 func TestPingDeadline(t *testing.T) {
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
 		conn, err := GetNativeConnection(t, protocol, nil, nil, &clickhouse.Compression{
