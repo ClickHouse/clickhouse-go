@@ -10,50 +10,30 @@ import (
 // Str2Bytes backs FixedString encoding (see lib/column/fixed_string.go): a
 // value shorter than the column's declared size must be zero-padded to
 // exactly that size, or the bytes written to the wire are misaligned.
-
-func TestStr2BytesExactLength(t *testing.T) {
-	got := Str2Bytes("hello", 5)
-	assert.Equal(t, []byte("hello"), got)
-	assert.Len(t, got, 5)
-}
-
-func TestStr2BytesLongerThanExpected(t *testing.T) {
-	// expectedLen smaller than the string: the string is returned as-is,
-	// no truncation happens.
-	got := Str2Bytes("hello world", 5)
-	assert.Equal(t, []byte("hello world"), got)
-}
-
-func TestStr2BytesPadsShorterStringWithZeroBytes(t *testing.T) {
-	got := Str2Bytes("hi", 5)
-	assert.Len(t, got, 5)
-	assert.Equal(t, []byte{'h', 'i', 0, 0, 0}, got)
-}
-
-func TestStr2BytesEmptyStringNoPadding(t *testing.T) {
-	got := Str2Bytes("", 0)
-	assert.Len(t, got, 0)
-}
-
-func TestStr2BytesEmptyStringWithPadding(t *testing.T) {
-	got := Str2Bytes("", 4)
-	assert.Equal(t, []byte{0, 0, 0, 0}, got)
-}
-
-func TestStr2BytesMultiByteUTF8(t *testing.T) {
-	// FixedString sizes count bytes, not runes; multi-byte characters must
-	// come through unmangled and byte-for-byte.
-	s := "日本語"
-	got := Str2Bytes(s, len(s))
-	assert.Equal(t, []byte(s), got)
-	assert.Len(t, got, len(s))
-}
-
-func TestStr2BytesMultiByteUTF8Padded(t *testing.T) {
-	s := "日" // 3 bytes in UTF-8
-	got := Str2Bytes(s, 6)
-	want := append([]byte(s), 0, 0, 0)
-	assert.Equal(t, want, got)
+func TestStr2Bytes(t *testing.T) {
+	cases := []struct {
+		name        string
+		str         string
+		expectedLen int
+		want        []byte
+	}{
+		{"exact length", "hello", 5, []byte("hello")},
+		{"longer than expected returns the string as-is, no truncation", "hello world", 5, []byte("hello world")},
+		{"shorter string is zero-padded", "hi", 5, []byte{'h', 'i', 0, 0, 0}},
+		{"empty string, no padding", "", 0, []byte{}},
+		{"empty string, zero-padded", "", 4, []byte{0, 0, 0, 0}},
+		// FixedString sizes count bytes, not runes; multi-byte characters
+		// must come through unmangled and byte-for-byte.
+		{"multi-byte UTF-8, exact length", "日本語", len("日本語"), []byte("日本語")},
+		{"multi-byte UTF-8, zero-padded", "日", 6, append([]byte("日"), 0, 0, 0)},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := Str2Bytes(tc.str, tc.expectedLen)
+			assert.Equal(t, tc.want, got)
+			assert.Len(t, got, len(tc.want))
+		})
+	}
 }
 
 func TestStr2BytesAliasesSourceWhenNoPaddingNeeded(t *testing.T) {
