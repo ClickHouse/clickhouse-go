@@ -1,7 +1,6 @@
 package binary
 
 import (
-	"runtime"
 	"strings"
 	"testing"
 
@@ -45,19 +44,10 @@ func TestStr2BytesAliasesSourceWhenNoPaddingNeeded(t *testing.T) {
 	// lifetime — mutating it corrupts the "immutable" Go string in place.
 	// This test pins that contract down so a future change can't flip it
 	// silently.
-	//
-	// Str2Bytes has an arch-specific implementation: on amd64/arm64 it uses
-	// an unsafe zero-copy conversion and the returned slice aliases the
-	// source string, while on other architectures it uses []byte(str),
-	// which copies.
 	s := strings.Repeat("a", 8)
 	got := Str2Bytes(s, 4)
 	got[0] = 'z'
-	if runtime.GOARCH == "amd64" || runtime.GOARCH == "arm64" {
-		assert.Equal(t, byte('z'), s[0], "expected the returned slice to alias the source string's memory on this architecture")
-		return
-	}
-	assert.Equal(t, byte('a'), s[0], "expected the returned slice to be a copy on this architecture")
+	assert.Equal(t, byte('z'), s[0], "expected the returned slice to alias the source string's memory")
 }
 
 func TestStr2BytesLargeInputNoPanic(t *testing.T) {
