@@ -50,8 +50,8 @@ func TestBindQueryOrAppendParametersNamedValue(t *testing.T) {
 		{"nil value becomes escape marker", nil, `\N`},
 		{"string is sent raw and unquoted", "hello", "hello"},
 		{"*string is dereferenced and sent raw", &str, "hello"},
-		{"time.Time uses formatTimeParam", tm, formatTimeParam(tm)},
-		{"*time.Time uses formatTimeParam", &tm, formatTimeParam(tm)},
+		{"time.Time uses formatTimeParam", tm, "1700000000.500"},
+		{"*time.Time uses formatTimeParam", &tm, "1700000000.500"},
 		{"other types go through formatValue", 42, "42"},
 	}
 	for _, tc := range cases {
@@ -71,7 +71,7 @@ func TestBindQueryOrAppendParametersNamedDateValue(t *testing.T) {
 	options := &QueryOptions{}
 	_, err := bindQueryOrAppendParameters(true, options, "SELECT {p:DateTime64(3)}", time.UTC, DateNamed("p", tm, MilliSeconds))
 	require.NoError(t, err)
-	assert.Equal(t, formatTimeWithScale(tm, MilliSeconds), options.parameters["p"])
+	assert.Equal(t, "1700000000.123", options.parameters["p"])
 }
 
 func TestBindQueryOrAppendParametersErrors(t *testing.T) {
