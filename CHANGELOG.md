@@ -1,12 +1,3 @@
-# Unreleased
-
-## What's Changed
-
-### Fixes 🐛
-* fix: bind []byte as String and time.Duration as Time/Time64 literals by @sankalpsthakur in https://github.com/ClickHouse/clickhouse-go/pull/1945
-  - `formatDuration` returns a quoted literal (same quoting style as `formatTime`).
-  - Client-side bind coverage includes Time64 precision (ms/us/ns), arrays, and maps.
-
 # v2.48.0, 2026-08-04 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed

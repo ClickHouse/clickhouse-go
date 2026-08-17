@@ -884,6 +884,7 @@ func TestNilQueryParameter(t *testing.T) {
 		{"nil *string", (*string)(nil), `\N`},
 		{"nil *time.Time", (*time.Time)(nil), `\N`},
 		{"nil *int", (*int)(nil), `\N`},
+		{"nil *time.Duration", (*time.Duration)(nil), `\N`},
 		// nils nested inside a composite keep the NULL keyword
 		{"nil inside array", []*string{nil}, "[NULL]"},
 	}
@@ -896,6 +897,20 @@ func TestNilQueryParameter(t *testing.T) {
 			assert.Equal(t, tc.want, opts.parameters["p"])
 		})
 	}
+}
+
+func TestByteAndDurationQueryParameter(t *testing.T) {
+	opts := &QueryOptions{}
+	_, err := bindQueryOrAppendParameters(true, opts, "SELECT {p:String}", time.UTC,
+		driver.NamedValue{Name: "p", Value: []byte("AB")})
+	require.NoError(t, err)
+	assert.Equal(t, "AB", opts.parameters["p"])
+
+	opts = &QueryOptions{}
+	_, err = bindQueryOrAppendParameters(true, opts, "SELECT {p:Time}", time.UTC,
+		driver.NamedValue{Name: "p", Value: time.Hour + 2*time.Minute + 3*time.Second})
+	require.NoError(t, err)
+	assert.Equal(t, "01:02:03", opts.parameters["p"])
 }
 
 // TestFormatValueModesOrderedMap checks that ordered maps switch syntax
@@ -1026,10 +1041,15 @@ func TestBindBytes(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "SELECT ''", q)
 
-	// nested: Array(String) of binary strings, not Array(Array(UInt8))
+	// nested []byte/[]uint8 stay Array(UInt8) — same Go type as String
+	// bytes, but map[K][]uint8 and Array(Array(UInt8)) depend on it.
 	q, err = bind(time.UTC, "SELECT ?", [][]byte{[]byte("x"), []byte("y")})
 	assert.NoError(t, err)
-	assert.Equal(t, "SELECT ['x', 'y']", q)
+	assert.Equal(t, "SELECT [[120], [121]]", q)
+
+	q, err = bind(time.UTC, "SELECT ?", map[uint8][]uint8{1: {2, 3}})
+	assert.NoError(t, err)
+	assert.Equal(t, "SELECT map(1, [2, 3])", q)
 }
 
 func TestFormatDuration(t *testing.T) {

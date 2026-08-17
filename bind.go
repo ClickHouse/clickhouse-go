@@ -519,26 +519,29 @@ func format(tz *time.Location, scale TimeUnit, v any) (string, error) {
 // trimmed. It returns the quoted form directly, like formatTime does with
 // its toDateTime('...') wrapper, so the API is consistent.
 func formatDuration(d time.Duration) string {
+	return "'" + stringQuoteReplacer.Replace(formatDurationBody(d)) + "'"
+}
+
+// formatDurationBody is the unquoted Time/Time64 text. Top-level {name:Time}
+// query parameters send this raw; client-side bind wraps it in quotes.
+func formatDurationBody(d time.Duration) string {
 	sign := ""
+	u := uint64(d)
 	if d < 0 {
 		sign = "-"
-		d = -d
+		u = -u
 	}
-	hours := d / time.Hour
-	d -= hours * time.Hour
-	mins := d / time.Minute
-	d -= mins * time.Minute
-	secs := d / time.Second
-	frac := d % time.Second
-	var body string
+	hours := u / uint64(time.Hour)
+	u -= hours * uint64(time.Hour)
+	mins := u / uint64(time.Minute)
+	u -= mins * uint64(time.Minute)
+	secs := u / uint64(time.Second)
+	frac := u % uint64(time.Second)
 	if frac == 0 {
-		body = fmt.Sprintf("%s%02d:%02d:%02d", sign, hours, mins, secs)
-	} else {
-		fracStr := fmt.Sprintf("%09d", frac.Nanoseconds())
-		fracStr = strings.TrimRight(fracStr, "0")
-		body = fmt.Sprintf("%s%02d:%02d:%02d.%s", sign, hours, mins, secs, fracStr)
+		return fmt.Sprintf("%s%02d:%02d:%02d", sign, hours, mins, secs)
 	}
-	return "'" + stringQuoteReplacer.Replace(body) + "'"
+	fracStr := strings.TrimRight(fmt.Sprintf("%09d", frac), "0")
+	return fmt.Sprintf("%s%02d:%02d:%02d.%s", sign, hours, mins, secs, fracStr)
 }
 
 // formatValue turns v into a string in the given mode. The mode carries down
@@ -549,6 +552,10 @@ func formatDuration(d time.Duration) string {
 // must be sent raw instead — bindQueryOrAppendParameters takes care of those
 // before calling here.
 func formatValue(tz *time.Location, scale TimeUnit, v any, mode formatMode) (string, error) {
+	return formatValueAt(tz, scale, v, mode, false)
+}
+
+func formatValueAt(tz *time.Location, scale TimeUnit, v any, mode formatMode, nested bool) (string, error) {
 	quote := func(v string) string {
 		return "'" + stringQuoteReplacer.Replace(v) + "'"
 	}
@@ -558,10 +565,17 @@ func formatValue(tz *time.Location, scale TimeUnit, v any, mode formatMode) (str
 	case string:
 		return quote(v), nil
 	case []byte:
-		// []byte is a valid database/sql driver.Value and the natural Go type
-		// for a ClickHouse String holding arbitrary bytes. Without this case
-		// it falls through to reflect.Slice and becomes Array(UInt8).
-		return quote(string(v)), nil
+		// Top-level []byte is a driver.Value for String (issue #1942).
+		// Nested []uint8 is the same Go type and must stay Array(UInt8)
+		// so map[K][]uint8 / Array(Array(UInt8)) keep working.
+		if !nested {
+			return quote(string(v)), nil
+		}
+		values := make([]string, len(v))
+		for i, b := range v {
+			values[i] = strconv.FormatUint(uint64(b), 10)
+		}
+		return fmt.Sprintf("[%s]", strings.Join(values, ", ")), nil
 	case time.Time:
 		if mode == formatParamText {
 			return quote(formatTimeParam(v)), nil
@@ -627,12 +641,12 @@ func formatValue(tz *time.Location, scale TimeUnit, v any, mode formatMode) (str
 	case column.OrderedMap:
 		entries := make([]mapEntry, 0)
 		for key := range v.Keys() {
-			name, err := formatValue(tz, scale, key, mode)
+			name, err := formatValueAt(tz, scale, key, mode, true)
 			if err != nil {
 				return "", err
 			}
 			value, _ := v.Get(key)
-			val, err := formatValue(tz, scale, value, mode)
+			val, err := formatValueAt(tz, scale, value, mode, true)
 			if err != nil {
 				return "", err
 			}
@@ -644,11 +658,11 @@ func formatValue(tz *time.Location, scale TimeUnit, v any, mode formatMode) (str
 		iter := v.Iterator()
 		for iter.Next() {
 			key, value := iter.Key(), iter.Value()
-			name, err := formatValue(tz, scale, key, mode)
+			name, err := formatValueAt(tz, scale, key, mode, true)
 			if err != nil {
 				return "", err
 			}
-			val, err := formatValue(tz, scale, value, mode)
+			val, err := formatValueAt(tz, scale, value, mode, true)
 			if err != nil {
 				return "", err
 			}
@@ -662,7 +676,7 @@ func formatValue(tz *time.Location, scale TimeUnit, v any, mode formatMode) (str
 	case reflect.Slice, reflect.Array:
 		values := make([]string, 0, v.Len())
 		for i := 0; i < v.Len(); i++ {
-			val, err := formatValue(tz, scale, v.Index(i).Interface(), mode)
+			val, err := formatValueAt(tz, scale, v.Index(i).Interface(), mode, true)
 			if err != nil {
 				return "", err
 			}
@@ -672,11 +686,11 @@ func formatValue(tz *time.Location, scale TimeUnit, v any, mode formatMode) (str
 	case reflect.Map: // map
 		entries := make([]mapEntry, 0, v.Len())
 		for _, key := range v.MapKeys() {
-			name, err := formatValue(tz, scale, key.Interface(), mode)
+			name, err := formatValueAt(tz, scale, key.Interface(), mode, true)
 			if err != nil {
 				return "", err
 			}
-			val, err := formatValue(tz, scale, v.MapIndex(key).Interface(), mode)
+			val, err := formatValueAt(tz, scale, v.MapIndex(key).Interface(), mode, true)
 			if err != nil {
 				return "", err
 			}
@@ -691,7 +705,7 @@ func formatValue(tz *time.Location, scale TimeUnit, v any, mode formatMode) (str
 		if v.IsNil() {
 			return "NULL", nil
 		}
-		return formatValue(tz, scale, v.Elem().Interface(), mode)
+		return formatValueAt(tz, scale, v.Elem().Interface(), mode, nested)
 	}
 	return fmt.Sprint(v), nil
 }
