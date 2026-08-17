@@ -4,6 +4,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"unsafe"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -31,7 +32,8 @@ func TestStr2Bytes(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			got := Str2Bytes(tc.str, tc.expectedLen)
-			assert.Equal(t, tc.want, got)
+			// compared as strings: Str2Bytes("", 0) may be nil, not empty
+			assert.Equal(t, string(tc.want), string(got))
 			assert.Len(t, got, len(tc.want))
 		})
 	}
@@ -52,12 +54,13 @@ func TestStr2BytesAliasesSourceWhenNoPaddingNeeded(t *testing.T) {
 	// which copies.
 	s := strings.Repeat("a", 8)
 	got := Str2Bytes(s, 4)
-	got[0] = 'z'
+	// pointer identity, not a write: modifying the bytes would be undefined
+	aliases := unsafe.SliceData(got) == unsafe.StringData(s)
 	if runtime.GOARCH == "amd64" || runtime.GOARCH == "arm64" {
-		assert.Equal(t, byte('z'), s[0], "expected the returned slice to alias the source string's memory on this architecture")
+		assert.True(t, aliases, "expected the returned slice to alias the source string's memory on this architecture")
 		return
 	}
-	assert.Equal(t, byte('a'), s[0], "expected the returned slice to be a copy on this architecture")
+	assert.False(t, aliases, "expected the returned slice to be a copy on this architecture")
 }
 
 func TestStr2BytesLargeInputNoPanic(t *testing.T) {
