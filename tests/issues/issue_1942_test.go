@@ -2,6 +2,7 @@ package issues
 
 import (
 	"context"
+	"net/url"
 	"strconv"
 	"testing"
 	"time"
@@ -33,10 +34,16 @@ func TestIssue1942_ByteAndDurationBinding(t *testing.T) {
 			assert.Equal(t, string(binary), got)
 		}
 
-		if clickhouse_tests.CheckMinServerServerVersion(conn, 25, 12, 0) {
-			require.NoError(t, conn.QueryRow(ctx, "SELECT toString(CAST(? AS Time64(3)))", duration).Scan(&got))
+		if clickhouse_tests.CheckMinServerServerVersion(conn, 25, 6, 0) {
+			timeCtx := ctx
+			if !clickhouse_tests.CheckMinServerServerVersion(conn, 25, 12, 0) {
+				timeCtx = clickhouse.Context(ctx, clickhouse.WithSettings(clickhouse.Settings{
+					"enable_time_time64_type": 1,
+				}))
+			}
+			require.NoError(t, conn.QueryRow(timeCtx, "SELECT toString(CAST(? AS Time64(3)))", duration).Scan(&got))
 			assert.Equal(t, "14:30:00.123", got)
-			require.NoError(t, conn.QueryRow(ctx, "SELECT toString({p:Time64(3)})", clickhouse.Named("p", duration)).Scan(&got))
+			require.NoError(t, conn.QueryRow(timeCtx, "SELECT toString({p:Time64(3)})", clickhouse.Named("p", duration)).Scan(&got))
 			assert.Equal(t, "14:30:00.123", got)
 		}
 	})
@@ -57,10 +64,18 @@ func TestIssue1942_ByteAndDurationBinding(t *testing.T) {
 			assert.Equal(t, string(binary), got)
 		}
 
-		if clickhouse_std_tests.CheckMinServerVersion(conn, 25, 12, 0) {
-			require.NoError(t, conn.QueryRowContext(ctx, "SELECT toString(CAST(? AS Time64(3)))", duration).Scan(&got))
+		if clickhouse_std_tests.CheckMinServerVersion(conn, 25, 6, 0) {
+			timeConn := conn
+			if !clickhouse_std_tests.CheckMinServerVersion(conn, 25, 12, 0) {
+				opts := url.Values{}
+				opts.Set("enable_time_time64_type", "1")
+				timeConn, err = clickhouse_std_tests.GetDSNConnection("issues", clickhouse.Native, useSSL, opts)
+				require.NoError(t, err)
+				defer timeConn.Close()
+			}
+			require.NoError(t, timeConn.QueryRowContext(ctx, "SELECT toString(CAST(? AS Time64(3)))", duration).Scan(&got))
 			assert.Equal(t, "14:30:00.123", got)
-			require.NoError(t, conn.QueryRowContext(ctx, "SELECT toString({p:Time64(3)})", clickhouse.Named("p", duration)).Scan(&got))
+			require.NoError(t, timeConn.QueryRowContext(ctx, "SELECT toString({p:Time64(3)})", clickhouse.Named("p", duration)).Scan(&got))
 			assert.Equal(t, "14:30:00.123", got)
 		}
 	})
