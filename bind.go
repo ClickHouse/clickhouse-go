@@ -772,7 +772,7 @@ func formatFloat(f float64, bitSize int, mode formatMode) string {
 func join[E any](tz *time.Location, scale TimeUnit, values []E, mode formatMode) (string, error) {
 	items := make([]string, len(values))
 	for i := range values {
-		val, err := formatValue(tz, scale, values[i], mode)
+		val, err := formatValueAt(tz, scale, values[i], mode, true)
 		if err != nil {
 			return "", err
 		}

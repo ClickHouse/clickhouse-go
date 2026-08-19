@@ -1047,6 +1047,14 @@ func TestBindBytes(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "SELECT [[120], [121]]", q)
 
+	q, err = bind(time.UTC, "SELECT ?", ArraySet{[]byte("x"), []byte("y")})
+	assert.NoError(t, err)
+	assert.Equal(t, "SELECT [[120], [121]]", q)
+
+	q, err = bind(time.UTC, "SELECT ?", GroupSet{Value: []any{[]byte("x"), 1}})
+	assert.NoError(t, err)
+	assert.Equal(t, "SELECT ([120], 1)", q)
+
 	q, err = bind(time.UTC, "SELECT ?", map[uint8][]uint8{1: {2, 3}})
 	assert.NoError(t, err)
 	assert.Equal(t, "SELECT map(1, [2, 3])", q)
