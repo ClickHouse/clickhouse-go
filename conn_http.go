@@ -418,7 +418,9 @@ func applyHTTPNativeCompressionSettings(settings Settings, method CompressionMet
 		settings["decompress"] = "1"
 	}
 
-	settings["network_compression_method"] = strings.ToUpper(method.String())
+	if _, ok := settings["network_compression_method"]; !ok {
+		settings["network_compression_method"] = strings.ToUpper(method.String())
+	}
 	if method == CompressionZSTD && level > 0 {
 		settings["network_zstd_compression_level"] = level
 	}
