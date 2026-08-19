@@ -3,6 +3,7 @@ package clickhouse
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -80,12 +81,20 @@ func (i *connPool) Get(ctx context.Context) (nativeTransport, error) {
 			return conn, nil
 		}
 
+		i.logExpired(conn, "closing expired connection from pool")
 		conn.close()
 	}
 }
 
 func (i *connPool) Put(conn nativeTransport) {
-	if i.isExpired(conn) || conn.isBad() {
+	if i.isExpired(conn) {
+		i.logExpired(conn, "connection not returned to pool: lifetime expired")
+		conn.close()
+		return
+	}
+
+	if err := conn.healthCheck(); err != nil {
+		conn.getLogger().Debug("connection not returned to pool: connection is bad", slog.Any("reason", err))
 		conn.close()
 		return
 	}
@@ -100,6 +109,7 @@ func (i *connPool) Put(conn nativeTransport) {
 	// Try to push the connection
 	if !i.conns.Push(conn) {
 		// Buffer is full, close the connection
+		conn.getLogger().Debug("connection not returned to pool: pool is full")
 		conn.close()
 	}
 }
@@ -166,12 +176,20 @@ func (i *connPool) drainPool() {
 	for conn := range i.conns.DeleteFunc(func(conn nativeTransport) bool {
 		return i.isExpired(conn)
 	}) {
+		i.logExpired(conn, "closing expired connection from pool")
 		conn.close()
 	}
 }
 
 func (i *connPool) isExpired(conn nativeTransport) bool {
 	return !time.Now().Before(i.expires(conn))
+}
+
+func (i *connPool) logExpired(conn nativeTransport, msg string) {
+	conn.getLogger().Debug(msg,
+		slog.Duration("age", time.Since(conn.connectedAtTime())),
+		slog.Duration("max_lifetime", i.maxConnLifetime),
+	)
 }
 
 func (i *connPool) expires(conn nativeTransport) time.Time {

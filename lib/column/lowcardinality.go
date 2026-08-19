@@ -103,7 +103,7 @@ func (col *LowCardinality) Row(i int, ptr bool) any {
 func (col *LowCardinality) ScanRow(dest any, row int) error {
 	idx := col.indexRowNum(row)
 	if idx == 0 && col.nullable {
-		return nil
+		return scanNullInto(dest)
 	}
 	return col.index.ScanRow(dest, idx)
 }
