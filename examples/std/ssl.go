@@ -49,7 +49,7 @@ func ConnectDSNSSL() error {
 	if err != nil {
 		return err
 	}
-	conn, err := sql.Open("clickhouse", fmt.Sprintf("https://%s:%d?secure=true&skip_verify=true&username=%s&password=%s", env.Host, env.HttpsPort, env.Username, env.Password))
+	conn, err := sql.Open("clickhouse-v2", fmt.Sprintf("https://%s:%d?secure=true&skip_verify=true&username=%s&password=%s", env.Host, env.HttpsPort, env.Username, env.Password))
 	if err != nil {
 		return err
 	}

@@ -24,14 +24,14 @@ func ConnectAuth() error {
 
 func ConnectDSNAuth() error {
 	env, err := GetStdTestEnvironment()
-	conn, err := sql.Open("clickhouse", fmt.Sprintf("http://%s:%d?username=%s&password=%s", env.Host, env.HttpPort, env.Username, env.Password))
+	conn, err := sql.Open("clickhouse-v2", fmt.Sprintf("http://%s:%d?username=%s&password=%s", env.Host, env.HttpPort, env.Username, env.Password))
 	if err != nil {
 		return err
 	}
 	if err = conn.Ping(); err != nil {
 		return err
 	}
-	conn, err = sql.Open("clickhouse", fmt.Sprintf("http://%s:%s@%s:%d", env.Username, env.Password, env.Host, env.HttpPort))
+	conn, err = sql.Open("clickhouse-v2", fmt.Sprintf("http://%s:%s@%s:%d", env.Username, env.Password, env.Host, env.HttpPort))
 	if err != nil {
 		return err
 	}

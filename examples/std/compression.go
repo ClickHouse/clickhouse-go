@@ -66,7 +66,7 @@ func CompressOpen() error {
 		return err
 	}
 	// note compress=gzip&compress_level=5
-	conn, err := sql.Open("clickhouse", fmt.Sprintf("http://%s:%d?username=%s&password=%s&compress=gzip&compress_level=5", env.Host, env.HttpPort, env.Username, env.Password))
+	conn, err := sql.Open("clickhouse-v2", fmt.Sprintf("http://%s:%d?username=%s&password=%s&compress=gzip&compress_level=5", env.Host, env.HttpPort, env.Username, env.Password))
 	defer func() {
 		conn.Exec("DROP TABLE example")
 	}()

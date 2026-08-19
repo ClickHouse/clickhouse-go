@@ -83,7 +83,7 @@ func TestIssue1881_FixedUTCOffsetTimezone(t *testing.T) {
 			}
 			t.Run(proto, func(t *testing.T) {
 				opts := clickhouse_tests.ClientOptionsFromEnv(testEnv, nil, useHTTP)
-				db, err := sql.Open("clickhouse", clickhouse_tests.OptionsToDSN(&opts))
+				db, err := sql.Open("clickhouse-v2", clickhouse_tests.OptionsToDSN(&opts))
 				require.NoError(t, err)
 				t.Cleanup(func() { db.Close() })
 

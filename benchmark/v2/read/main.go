@@ -52,7 +52,7 @@ func benchmarkString(conn *sql.DB) error {
 }
 
 func main() {
-	conn, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000")
+	conn, err := sql.Open("clickhouse-v2", "clickhouse://127.0.0.1:9000")
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -94,7 +94,7 @@ func (o *stdConnOpener) Connect(ctx context.Context) (_ driver.Conn, err error) 
 var _ driver.Connector = (*stdConnOpener)(nil)
 
 func init() {
-	sql.Register("clickhouse", &stdDriver{logger: newNoopLogger()})
+	sql.Register("clickhouse-v2", &stdDriver{logger: newNoopLogger()})
 }
 
 // isConnBrokenError returns true if the error class indicates that the

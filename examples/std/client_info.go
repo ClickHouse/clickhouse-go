@@ -3,7 +3,7 @@ package std
 import "database/sql"
 
 func ClientInfo() error {
-	db, err := sql.Open("clickhouse", "clickhouse://default@127.0.0.1/default?client_info_product[my-app]=0.1")
+	db, err := sql.Open("clickhouse-v2", "clickhouse://default@127.0.0.1/default?client_info_product[my-app]=0.1")
 	if err != nil {
 		return err
 	}

@@ -28,7 +28,7 @@ func ConnectDSNHTTP() error {
 	if err != nil {
 		return err
 	}
-	conn, err := sql.Open("clickhouse", fmt.Sprintf("http://%s:%d?username=%s&password=%s", env.Host, env.HttpPort, env.Username, env.Password))
+	conn, err := sql.Open("clickhouse-v2", fmt.Sprintf("http://%s:%d?username=%s&password=%s", env.Host, env.HttpPort, env.Username, env.Password))
 	if err != nil {
 		return err
 	}

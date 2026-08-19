@@ -17,7 +17,7 @@ func Test1395(t *testing.T) {
 	testEnv, err := clickhouse_tests.GetTestEnvironment("issues")
 	require.NoError(t, err)
 	opts := clickhouse_tests.ClientOptionsFromEnv(testEnv, clickhouse.Settings{}, false)
-	conn, err := sql.Open("clickhouse", clickhouse_tests.OptionsToDSN(&opts))
+	conn, err := sql.Open("clickhouse-v2", clickhouse_tests.OptionsToDSN(&opts))
 	require.NoError(t, err)
 
 	ctx := context.Background()

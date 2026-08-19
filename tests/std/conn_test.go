@@ -77,7 +77,7 @@ func testStdConnFailover(t *testing.T, openStrategy string) {
 	}
 	for name, dsn := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
-			if conn, err := sql.Open("clickhouse", dsn); assert.NoError(t, err) {
+			if conn, err := sql.Open("clickhouse-v2", dsn); assert.NoError(t, err) {
 				if err := conn.PingContext(context.Background()); assert.NoError(t, err) {
 					t.Log(conn.PingContext(context.Background()))
 				}
@@ -103,7 +103,7 @@ func TestStdPingDeadline(t *testing.T) {
 	}
 	for name, dsn := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
-			if conn, err := sql.Open("clickhouse", dsn); assert.NoError(t, err) {
+			if conn, err := sql.Open("clickhouse-v2", dsn); assert.NoError(t, err) {
 				ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
 				defer cancel()
 				if err := conn.PingContext(ctx); assert.Error(t, err) {
@@ -127,7 +127,7 @@ func TestStdConnAuth(t *testing.T) {
 	}
 	for name, dsn := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
-			conn, err := sql.Open("clickhouse", dsn)
+			conn, err := sql.Open("clickhouse-v2", dsn)
 			require.NoError(t, err)
 			require.NoError(t, conn.PingContext(context.Background()))
 			require.NoError(t, conn.Close())
@@ -332,7 +332,7 @@ func TestEmptyDatabaseConfig(t *testing.T) {
 		}
 	}
 
-	setupConn, err := sql.Open("clickhouse", dsns["Native"])
+	setupConn, err := sql.Open("clickhouse-v2", dsns["Native"])
 	require.NoError(t, err)
 
 	// Setup
@@ -341,7 +341,7 @@ func TestEmptyDatabaseConfig(t *testing.T) {
 
 	for name, dsn := range dsns {
 		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
-			conn, err := sql.Open("clickhouse", dsn)
+			conn, err := sql.Open("clickhouse-v2", dsn)
 			require.NoError(t, err)
 			err = conn.Ping()
 			require.NoError(t, err)

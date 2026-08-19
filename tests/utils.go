@@ -446,7 +446,7 @@ func TestClientWithDefaultSettings(env ClickHouseTestEnvironment) (driver.Conn, 
 
 func TestDatabaseSQLClientWithDefaultOptions(env ClickHouseTestEnvironment, settings clickhouse.Settings) (*sql.DB, error) {
 	opts := ClientOptionsFromEnv(env, settings, false)
-	return sql.Open("clickhouse", OptionsToDSN(&opts))
+	return sql.Open("clickhouse-v2", OptionsToDSN(&opts))
 }
 
 func TestDatabaseSQLClientWithDefaultSettings(env ClickHouseTestEnvironment) (*sql.DB, error) {

@@ -103,7 +103,7 @@ func GetDSNConnection(environment string, protocol clickhouse.Protocol, secure b
 		RawQuery: query.Encode(),
 	}
 
-	return sql.Open("clickhouse", dsn.String())
+	return sql.Open("clickhouse-v2", dsn.String())
 }
 
 func GetConnectionFromDSN(dsn string) (*sql.DB, error) {
@@ -111,7 +111,7 @@ func GetConnectionFromDSN(dsn string) (*sql.DB, error) {
 }
 
 func GetConnectionFromDSNWithSessionID(dsn string, sessionID string) (*sql.DB, error) {
-	conn, err := sql.Open("clickhouse", dsn)
+	conn, err := sql.Open("clickhouse-v2", dsn)
 	if err != nil {
 		return conn, err
 	}
@@ -147,7 +147,7 @@ func GetConnectionFromDSNWithSessionID(dsn string, sessionID string) (*sql.DB, e
 		}
 	}
 
-	return sql.Open("clickhouse", dsn)
+	return sql.Open("clickhouse-v2", dsn)
 }
 
 func GetConnectionWithOptions(options *clickhouse.Options) *sql.DB {

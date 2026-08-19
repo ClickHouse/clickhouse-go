@@ -36,7 +36,7 @@ func MultiStdHostDSN() error {
 	if err != nil {
 		return err
 	}
-	conn, err := sql.Open("clickhouse", fmt.Sprintf("clickhouse://127.0.0.1:9001,127.0.0.1:9002,%s:%d?username=%s&password=%s&connection_open_strategy=round_robin", env.Host, env.Port, env.Username, env.Password))
+	conn, err := sql.Open("clickhouse-v2", fmt.Sprintf("clickhouse://127.0.0.1:9001,127.0.0.1:9002,%s:%d?username=%s&password=%s&connection_open_strategy=round_robin", env.Host, env.Port, env.Username, env.Password))
 	if err != nil {
 		return err
 	}

@@ -29,7 +29,7 @@ func ConnectDSN() error {
 	if err != nil {
 		return err
 	}
-	conn, err := sql.Open("clickhouse", fmt.Sprintf("clickhouse://%s:%d?username=%s&password=%s", env.Host, env.Port, env.Username, env.Password))
+	conn, err := sql.Open("clickhouse-v2", fmt.Sprintf("clickhouse://%s:%d?username=%s&password=%s", env.Host, env.Port, env.Username, env.Password))
 	if err != nil {
 		return err
 	}
@@ -67,7 +67,7 @@ func ConnectUsingHTTPProxyDSN() error {
 
 	urlEncodedProxyURL := url.QueryEscape("http://proxy.example.com:3128")
 
-	conn, err := sql.Open("clickhouse", fmt.Sprintf("clickhouse://%s:%d?username=%s&password=%s&http_proxy=%s", env.Host, env.Port, env.Username, env.Password, urlEncodedProxyURL))
+	conn, err := sql.Open("clickhouse-v2", fmt.Sprintf("clickhouse://%s:%d?username=%s&password=%s&http_proxy=%s", env.Host, env.Port, env.Username, env.Password, urlEncodedProxyURL))
 	if err != nil {
 		return err
 	}

@@ -15,7 +15,7 @@ func Test1329(t *testing.T) {
 	testEnv, err := clickhouse_tests.GetTestEnvironment("issues")
 	require.NoError(t, err)
 	opts := clickhouse_tests.ClientOptionsFromEnv(testEnv, clickhouse.Settings{}, true)
-	conn, err := sql.Open("clickhouse", clickhouse_tests.OptionsToDSN(&opts))
+	conn, err := sql.Open("clickhouse-v2", clickhouse_tests.OptionsToDSN(&opts))
 	require.NoError(t, err)
 
 	_, err = conn.Exec(`CREATE TABLE test_1329 (Col String) Engine MergeTree() ORDER BY tuple()`)

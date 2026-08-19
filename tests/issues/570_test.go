@@ -59,7 +59,7 @@ func TestIssue570(t *testing.T) {
 	assert.NoError(t, conn.Ping())
 
 	// check we can open with a DSN
-	conn, err = sql.Open("clickhouse", dsn)
+	conn, err = sql.Open("clickhouse-v2", dsn)
 	require.NoError(t, err)
 	assert.NoError(t, conn.Ping())
 }
