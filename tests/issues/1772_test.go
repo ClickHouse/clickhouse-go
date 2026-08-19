@@ -54,6 +54,30 @@ func Test1772_HTTPNativeCompressionMethodSettings(t *testing.T) {
 				require.NoError(t, conn.QueryRow(ctx, "SELECT getSetting('network_zstd_compression_level')").Scan(&level))
 				require.Equal(t, int8(tc.level), level)
 			}
+
+			const table = "issue_1772_http_compression"
+
+			require.NoError(t, conn.Exec(ctx, `
+				CREATE TABLE `+table+` (
+					value UInt64
+				) ENGINE = Memory
+			`))
+			t.Cleanup(func() {
+				require.NoError(t,
+					conn.Exec(context.Background(), "DROP TABLE IF EXISTS "+table),
+				)
+			})
+
+			batch, err := conn.PrepareBatch(ctx, "INSERT INTO "+table)
+			require.NoError(t, err)
+			require.NoError(t, batch.Append(uint64(42)))
+			require.NoError(t, batch.Send())
+
+			var value uint64
+			require.NoError(t,
+				conn.QueryRow(ctx, "SELECT value FROM "+table).Scan(&value),
+			)
+			require.Equal(t, uint64(42), value)
 		})
 	}
 }
