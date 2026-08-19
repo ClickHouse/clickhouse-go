@@ -2,6 +2,22 @@
 
 Golang SQL database client for [ClickHouse](https://clickhouse.com/).
 
+> ### RudderStack fork
+>
+> This is a fork of [`ClickHouse/clickhouse-go`](https://github.com/ClickHouse/clickhouse-go) carrying **two patches** on top of upstream:
+>
+> 1. the module path is `github.com/rudderlabs/clickhouse-go/v2`;
+> 2. the `database/sql` driver registers as **`clickhouse-v2`**, not `clickhouse`.
+>
+> **Why it exists.** `rudder-server` still depends on v1 (`github.com/ClickHouse/clickhouse-go`) while the ClickHouse warehouse integration migrates to v2. Both upstream versions register the driver name `clickhouse` in `init()`, so linking them into one binary panics with `sql: Register called twice for driver clickhouse` before `main` — including when only `clickhouse.OpenDB` is used, since `OpenDB` sits in the same package as that `init()`. Renaming the registration lets both drivers coexist and be selected per destination at runtime, which is what makes a staged, reversible rollout possible.
+>
+> **It is temporary.** Once every destination is on v2 and the v1 dependency is dropped, `rudder-server` moves its import back to upstream and this fork is retired. The two patches are deliberately minimal so that stays a one-line change.
+>
+> **Tracking upstream.** The `upstream-main` branch holds upstream verbatim. To take a new upstream version: fetch it, rebase these two commits on top, run the tests, tag.
+>
+> Everything below is upstream's documentation, unchanged apart from the module path.
+
+
 ## Install
 
 ```sh
