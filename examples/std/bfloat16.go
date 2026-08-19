@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/rudderlabs/clickhouse-go/v2"
 )
 
 func BFloat16() error {

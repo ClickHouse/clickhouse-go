@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"github.com/rudderlabs/clickhouse-go/v2"
+	"github.com/rudderlabs/clickhouse-go/v2/lib/driver"
 )
 
 // ServerExceptions shows how to branch on server-side failures. A typed

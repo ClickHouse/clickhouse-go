@@ -3,7 +3,7 @@ package clickhouse
 import (
 	"context"
 
-	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
+	"github.com/rudderlabs/clickhouse-go/v2/lib/proto"
 )
 
 func (c *connect) asyncInsert(ctx context.Context, query string, wait bool, args ...any) error {

@@ -10,8 +10,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
-	"github.com/ClickHouse/clickhouse-go/v2/ext"
+	"github.com/rudderlabs/clickhouse-go/v2"
+	"github.com/rudderlabs/clickhouse-go/v2/ext"
 )
 
 func TestExternalTable(t *testing.T) {

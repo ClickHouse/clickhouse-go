@@ -1,11 +1,11 @@
-# ClickHouse [![run-tests](https://github.com/ClickHouse/clickhouse-go/actions/workflows/run-tests.yml/badge.svg?branch=v2)](https://github.com/ClickHouse/clickhouse-go/actions/workflows/run-tests.yml) [![Go Reference](https://pkg.go.dev/badge/github.com/ClickHouse/clickhouse-go/v2.svg)](https://pkg.go.dev/github.com/ClickHouse/clickhouse-go/v2)
+# ClickHouse [![run-tests](https://github.com/ClickHouse/clickhouse-go/actions/workflows/run-tests.yml/badge.svg?branch=v2)](https://github.com/ClickHouse/clickhouse-go/actions/workflows/run-tests.yml) [![Go Reference](https://pkg.go.dev/badge/github.com/rudderlabs/clickhouse-go/v2.svg)](https://pkg.go.dev/github.com/rudderlabs/clickhouse-go/v2)
 
 Golang SQL database client for [ClickHouse](https://clickhouse.com/).
 
 ## Install
 
 ```sh
-go get github.com/ClickHouse/clickhouse-go/v2
+go get github.com/rudderlabs/clickhouse-go/v2
 ```
 
 ## Which interface should I use?

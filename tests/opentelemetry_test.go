@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/rudderlabs/clickhouse-go/v2"
 )
 
 func TestOpenTelemetry(t *testing.T) {

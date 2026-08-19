@@ -3,7 +3,7 @@ package clickhouse_api
 import (
 	"context"
 	"fmt"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
+	clickhouse_tests "github.com/rudderlabs/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/require"
 	"os"
 	"strconv"

@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ClickHouse/clickhouse-go/v2/lib/chcol"
+	"github.com/rudderlabs/clickhouse-go/v2/lib/chcol"
 )
 
 // newTestJSONColumn creates a JSON column with unset serialization version (default state)

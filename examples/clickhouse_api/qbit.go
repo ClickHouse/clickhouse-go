@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"math/rand"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/rudderlabs/clickhouse-go/v2"
 )
 
 func QBit() error {

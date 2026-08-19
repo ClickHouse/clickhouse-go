@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/ClickHouse/clickhouse-go/v2/lib/chcol"
+	"github.com/rudderlabs/clickhouse-go/v2/lib/chcol"
 )
 
 // newBenchJSONColumn builds a fresh JSON column for each benchmark. The

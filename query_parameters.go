@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"github.com/rudderlabs/clickhouse-go/v2/lib/driver"
 )
 
 var (

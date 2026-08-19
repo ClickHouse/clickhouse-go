@@ -1,6 +1,6 @@
 package clickhouse
 
-import "github.com/ClickHouse/clickhouse-go/v2/lib/chcol"
+import "github.com/rudderlabs/clickhouse-go/v2/lib/chcol"
 
 // Re-export chcol types/funcs to top level clickhouse package
 

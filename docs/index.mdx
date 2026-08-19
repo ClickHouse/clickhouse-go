@@ -41,8 +41,8 @@ import (
     "fmt"
     "log"
 
-    "github.com/ClickHouse/clickhouse-go/v2"
-    "github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+    "github.com/rudderlabs/clickhouse-go/v2"
+    "github.com/rudderlabs/clickhouse-go/v2/lib/driver"
 )
 
 func main() {
@@ -198,7 +198,7 @@ v1 of the driver is deprecated and won't reach feature updates or support for ne
 
 To install the 2.x version of the client, add the package to your go.mod file:
 
-`require github.com/ClickHouse/clickhouse-go/v2 main`
+`require github.com/rudderlabs/clickhouse-go/v2 main`
 
 Or, clone the repository:
 
@@ -216,7 +216,7 @@ cat > go.mod <<-END
 
   go 1.21
 
-  require github.com/ClickHouse/clickhouse-go/v2 main
+  require github.com/rudderlabs/clickhouse-go/v2 main
 END
 
 cat > main.go <<-END
@@ -224,7 +224,7 @@ cat > main.go <<-END
 
   import (
     "fmt"
-    "github.com/ClickHouse/clickhouse-go/v2"
+    "github.com/rudderlabs/clickhouse-go/v2"
   )
 
   func main() {

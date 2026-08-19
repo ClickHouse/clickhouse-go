@@ -1,6 +1,6 @@
 # clickhouse-go — Agent Instructions
 
-`github.com/ClickHouse/clickhouse-go/v2` is the official Go client for ClickHouse. It exposes two surfaces:
+`github.com/rudderlabs/clickhouse-go/v2` is the official Go client for ClickHouse. It exposes two surfaces:
 - **Native API** (`clickhouse.Open`) — full-featured, direct `driver.Conn` interface.
 - **Standard library** (`database/sql`) — compatibility shim via `clickhouse_std.go`.
 

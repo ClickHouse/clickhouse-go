@@ -10,10 +10,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
-	"github.com/ClickHouse/clickhouse-go/v2/ext"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
-	clickhouse_std_tests "github.com/ClickHouse/clickhouse-go/v2/tests/std"
+	"github.com/rudderlabs/clickhouse-go/v2"
+	"github.com/rudderlabs/clickhouse-go/v2/ext"
+	clickhouse_tests "github.com/rudderlabs/clickhouse-go/v2/tests"
+	clickhouse_std_tests "github.com/rudderlabs/clickhouse-go/v2/tests/std"
 )
 
 func Test990(t *testing.T) {

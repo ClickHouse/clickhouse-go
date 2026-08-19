@@ -7,7 +7,7 @@ import (
 
 	"github.com/ClickHouse/ch-go/proto"
 
-	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
+	"github.com/rudderlabs/clickhouse-go/v2/lib/column"
 )
 
 type Block struct {

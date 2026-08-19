@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
+	clickhouse_tests "github.com/rudderlabs/clickhouse-go/v2/tests"
 )
 
 const testSet string = "issues"

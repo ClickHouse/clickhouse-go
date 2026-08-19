@@ -3,8 +3,8 @@ package std
 import (
 	"fmt"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
-	"github.com/ClickHouse/clickhouse-go/v2/tests/std"
+	"github.com/rudderlabs/clickhouse-go/v2"
+	"github.com/rudderlabs/clickhouse-go/v2/tests/std"
 )
 
 func QueryWithParameters() error {

@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
+	"github.com/rudderlabs/clickhouse-go/v2/lib/proto"
 )
 
 type Log struct {

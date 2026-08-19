@@ -17,7 +17,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"github.com/ClickHouse/ch-go/proto"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/chcol"
+	"github.com/rudderlabs/clickhouse-go/v2/lib/chcol"
 )
 
 func (t Type) Column(name string, sc *ServerContext) (Interface, error) {

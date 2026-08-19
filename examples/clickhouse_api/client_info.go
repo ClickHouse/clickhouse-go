@@ -2,7 +2,7 @@ package clickhouse_api
 
 import (
 	"context"
-	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/rudderlabs/clickhouse-go/v2"
 )
 
 func ClientInfo() error {

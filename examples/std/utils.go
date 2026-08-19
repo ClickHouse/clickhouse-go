@@ -3,9 +3,9 @@ package std
 import (
 	"crypto/tls"
 	"database/sql"
-	"github.com/ClickHouse/clickhouse-go/v2"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
-	clickhouse_tests_std "github.com/ClickHouse/clickhouse-go/v2/tests/std"
+	"github.com/rudderlabs/clickhouse-go/v2"
+	clickhouse_tests "github.com/rudderlabs/clickhouse-go/v2/tests"
+	clickhouse_tests_std "github.com/rudderlabs/clickhouse-go/v2/tests/std"
 )
 
 const TestSet string = "examples_std_api"

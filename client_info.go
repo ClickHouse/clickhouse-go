@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
+	"github.com/rudderlabs/clickhouse-go/v2/lib/proto"
 )
 
 const ClientName = "clickhouse-go"

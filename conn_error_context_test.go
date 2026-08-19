@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
+	"github.com/rudderlabs/clickhouse-go/v2/lib/proto"
 )
 
 // mockNetConn is a mock net.Conn that can be configured to return specific errors

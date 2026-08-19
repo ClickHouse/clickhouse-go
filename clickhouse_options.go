@@ -15,7 +15,7 @@ import (
 
 	"github.com/ClickHouse/ch-go/compress"
 
-	"github.com/ClickHouse/clickhouse-go/v2/lib/churl"
+	"github.com/rudderlabs/clickhouse-go/v2/lib/churl"
 )
 
 type CompressionMethod byte

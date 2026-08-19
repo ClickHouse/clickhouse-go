@@ -24,8 +24,8 @@ import (
 	chproto "github.com/ClickHouse/ch-go/proto"
 	"github.com/andybalholm/brotli"
 
-	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/timezone"
+	"github.com/rudderlabs/clickhouse-go/v2/lib/proto"
+	"github.com/rudderlabs/clickhouse-go/v2/lib/timezone"
 )
 
 const (

@@ -8,9 +8,9 @@ import (
 	_ "net/http/pprof"
 	"time"
 
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests/std"
+	clickhouse_tests "github.com/rudderlabs/clickhouse-go/v2/tests/std"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/rudderlabs/clickhouse-go/v2"
 )
 
 var conn *sql.DB

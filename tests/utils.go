@@ -29,9 +29,9 @@ import (
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
+	"github.com/rudderlabs/clickhouse-go/v2"
+	"github.com/rudderlabs/clickhouse-go/v2/lib/driver"
+	"github.com/rudderlabs/clickhouse-go/v2/lib/proto"
 )
 
 var testUUID = uuid.NewString()[0:12]

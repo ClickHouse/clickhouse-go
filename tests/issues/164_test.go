@@ -9,9 +9,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
-	clickhouse_std_tests "github.com/ClickHouse/clickhouse-go/v2/tests/std"
+	"github.com/rudderlabs/clickhouse-go/v2"
+	clickhouse_tests "github.com/rudderlabs/clickhouse-go/v2/tests"
+	clickhouse_std_tests "github.com/rudderlabs/clickhouse-go/v2/tests/std"
 )
 
 func TestIssue164(t *testing.T) {

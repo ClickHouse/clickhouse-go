@@ -7,9 +7,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
+	"github.com/rudderlabs/clickhouse-go/v2"
+	"github.com/rudderlabs/clickhouse-go/v2/lib/driver"
+	clickhouse_tests "github.com/rudderlabs/clickhouse-go/v2/tests"
 )
 
 const testSet string = "json_bench"

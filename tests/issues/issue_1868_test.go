@@ -13,8 +13,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
+	"github.com/rudderlabs/clickhouse-go/v2"
+	clickhouse_tests "github.com/rudderlabs/clickhouse-go/v2/tests"
 )
 
 // failOnWriteConn wraps net.Conn and injects a *net.OpError on the next Write call,

@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/ClickHouse/clickhouse-go/v2/lib/chcol"
+	"github.com/rudderlabs/clickhouse-go/v2/lib/chcol"
 )
 
 // Decoding (Scanning)

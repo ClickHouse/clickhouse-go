@@ -4,7 +4,7 @@ import (
 	"cmp"
 	"slices"
 
-	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
+	"github.com/rudderlabs/clickhouse-go/v2/lib/column"
 )
 
 // Map is a simple implementation of [column.IterableOrderedMap] interface.

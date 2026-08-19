@@ -12,8 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 
-	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
-	"github.com/ClickHouse/clickhouse-go/v2/tests"
+	"github.com/rudderlabs/clickhouse-go/v2/lib/driver"
+	"github.com/rudderlabs/clickhouse-go/v2/tests"
 )
 
 //goland:noinspection ALL

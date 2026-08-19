@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/rudderlabs/clickhouse-go/v2"
 )
 
 var LocalClickHouse = false

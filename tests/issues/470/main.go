@@ -6,9 +6,9 @@ import (
 	"log"
 	"reflect"
 
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests/std"
+	clickhouse_tests "github.com/rudderlabs/clickhouse-go/v2/tests/std"
 
-	_ "github.com/ClickHouse/clickhouse-go/v2"
+	_ "github.com/rudderlabs/clickhouse-go/v2"
 )
 
 type DatabaseFrame struct {

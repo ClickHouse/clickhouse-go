@@ -6,11 +6,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
+	clickhouse_tests "github.com/rudderlabs/clickhouse-go/v2/tests"
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/rudderlabs/clickhouse-go/v2"
 )
 
 func TestIssue476(t *testing.T) {

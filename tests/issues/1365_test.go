@@ -6,8 +6,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
-	"github.com/ClickHouse/clickhouse-go/v2/tests"
+	"github.com/rudderlabs/clickhouse-go/v2/lib/column"
+	"github.com/rudderlabs/clickhouse-go/v2/tests"
 )
 
 type T1365OrderedMap int

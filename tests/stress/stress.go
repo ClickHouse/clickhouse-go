@@ -8,7 +8,7 @@ import (
 	"syscall"
 	"time"
 
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
+	clickhouse_tests "github.com/rudderlabs/clickhouse-go/v2/tests"
 
 	"net/http"
 	_ "net/http/pprof"
@@ -16,8 +16,8 @@ import (
 	"github.com/google/uuid"
 	_ "github.com/mkevac/debugcharts"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"github.com/rudderlabs/clickhouse-go/v2"
+	"github.com/rudderlabs/clickhouse-go/v2/lib/driver"
 )
 
 type App struct {

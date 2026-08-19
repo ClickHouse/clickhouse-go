@@ -8,7 +8,7 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"github.com/ClickHouse/ch-go/proto"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/chcol"
+	"github.com/rudderlabs/clickhouse-go/v2/lib/chcol"
 	"github.com/google/uuid"
 	"github.com/paulmach/orb"
 	"github.com/shopspring/decimal"

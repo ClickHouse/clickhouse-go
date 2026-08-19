@@ -18,7 +18,7 @@ import (
 
 	chproto "github.com/ClickHouse/ch-go/proto"
 
-	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"github.com/rudderlabs/clickhouse-go/v2/lib/driver"
 )
 
 // oneByteReader forces marker detection across read boundaries.

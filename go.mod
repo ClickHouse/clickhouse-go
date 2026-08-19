@@ -1,4 +1,4 @@
-module github.com/ClickHouse/clickhouse-go/v2
+module github.com/rudderlabs/clickhouse-go/v2
 
 go 1.25.0
 

@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests/std"
+	"github.com/rudderlabs/clickhouse-go/v2"
+	clickhouse_tests "github.com/rudderlabs/clickhouse-go/v2/tests/std"
 	"github.com/google/uuid"
 )
 

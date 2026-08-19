@@ -8,9 +8,9 @@ import (
 	"os"
 	"slices"
 
-	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
+	"github.com/rudderlabs/clickhouse-go/v2/lib/column"
+	"github.com/rudderlabs/clickhouse-go/v2/lib/driver"
+	"github.com/rudderlabs/clickhouse-go/v2/lib/proto"
 )
 
 func fetchColumnNamesAndTypesForInsert(h *httpConnect, release nativeTransportRelease, ctx context.Context, tableName string, requestedColumnNames []string) ([]ColumnNameAndType, error) {

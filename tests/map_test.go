@@ -7,13 +7,13 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
+	"github.com/rudderlabs/clickhouse-go/v2/lib/column"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/rudderlabs/clickhouse-go/v2"
 )
 
 func TestMap(t *testing.T) {

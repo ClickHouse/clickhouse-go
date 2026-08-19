@@ -7,7 +7,7 @@ import (
 	"os"
 	"path"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/rudderlabs/clickhouse-go/v2"
 )
 
 func SSLVersion() error {
