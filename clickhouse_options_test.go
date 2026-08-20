@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/url"
 	"os"
+	"os/exec"
 	"testing"
 	"time"
 
@@ -763,6 +764,93 @@ func TestParseDSN(t *testing.T) {
 			},
 			"",
 		},
+		{
+			"multi-host https with auth and secure",
+			"https://user:pass@host1:8443,host2:8443/db?secure=true",
+			&Options{
+				Protocol: HTTP,
+				TLS: &tls.Config{
+					InsecureSkipVerify: false,
+				},
+				Addr:     []string{"host1:8443", "host2:8443"},
+				Settings: Settings{},
+				Auth: Auth{
+					Username: "user",
+					Password: "pass",
+					Database: "db",
+				},
+				scheme: "https",
+			},
+			"",
+		},
+		{
+			"multi-host query overrides username only",
+			"clickhouse://user:pass@host1:9440,host2:9440/db?username=other",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"host1:9440", "host2:9440"},
+				Settings: Settings{},
+				Auth: Auth{
+					Username: "other",
+					Password: "pass",
+					Database: "db",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
+			"multi-host query overrides password only",
+			"clickhouse://user:pass@host1:9440,host2:9440/db?password=secret",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"host1:9440", "host2:9440"},
+				Settings: Settings{},
+				Auth: Auth{
+					Username: "user",
+					Password: "secret",
+					Database: "db",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
+			"multi-host empty password",
+			"clickhouse://user:@host1:9440,host2:9440/db",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"host1:9440", "host2:9440"},
+				Settings: Settings{},
+				Auth: Auth{
+					Username: "user",
+					Password: "",
+					Database: "db",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
+			"multi-host password containing at-sign",
+			"clickhouse://user:p@ss@host1:9440,host2:9440/db",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"host1:9440", "host2:9440"},
+				Settings: Settings{},
+				Auth: Auth{
+					Username: "user",
+					Password: "p@ss",
+					Database: "db",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
 	}
 
 	for _, testCase := range testCases {
@@ -795,12 +883,9 @@ func TestSplitHostList(t *testing.T) {
 	assert.Nil(t, splitHostList(""))
 	assert.Equal(t, []string{"a:1", "b:2"}, splitHostList("a:1,,b:2"))
 	assert.Equal(t, []string{"a:1", "b:2"}, splitHostList(" a:1 , b:2 "))
-	// Auth/userinfo should not leak into host list; hosts remain cluster-wide
 	assert.Equal(t, []string{"host1:9440", "host2:9440"}, splitHostList("host1:9440,host2:9440"))
-	// Mixed bracketed and plain hosts
 	assert.Equal(t, []string{"[::1]:9440", "host2:9440"}, splitHostList("[::1]:9440,host2:9440"))
 	assert.Equal(t, []string{"host1:9440", "[::1]:9440"}, splitHostList("host1:9440,[::1]:9440"))
-	// Zone ID (already unescaped by churl) is preserved through SplitHostPort
 	assert.Equal(t, []string{"[fe80::1%eth0]:9000"}, splitHostList("[fe80::1%eth0]:9000"))
 	// Bare hosts without ports
 	assert.Equal(t, []string{"host1", "host2"}, splitHostList("host1,host2"))
@@ -827,6 +912,33 @@ func TestMultiHostAuthClusterWide(t *testing.T) {
 	opts.Auth.Password = "newpass"
 	require.Equal(t, []string{"host1:9440", "host2:9440"}, opts.Addr)
 	require.Equal(t, Auth{Username: "override", Password: "newpass", Database: "db"}, opts.Auth)
+
+	opts, err = ParseDSN("clickhouse://user:pass@host1:9440,host2:9440/db?username=onlyuser")
+	require.NoError(t, err)
+	require.Equal(t, Auth{Username: "onlyuser", Password: "pass", Database: "db"}, opts.Auth)
+
+	opts, err = ParseDSN("https://user:pass@host1:8443,host2:8443/db?secure=true&password=httpssecret")
+	require.NoError(t, err)
+	require.Equal(t, []string{"host1:8443", "host2:8443"}, opts.Addr)
+	require.Equal(t, Auth{Username: "user", Password: "httpssecret", Database: "db"}, opts.Auth)
+	require.Equal(t, HTTP, opts.Protocol)
+}
+
+// Go 1.26 url.Parse rejects http(s) multi-host authorities when
+// GODEBUG=urlstrictcolons=1. ParseDSN must still keep both hosts and Auth.
+func TestHTTPMultiHostStrictColons(t *testing.T) {
+	if os.Getenv("CLICKHOUSE_TEST_URLSTRICTCOLONS") == "1" {
+		opts, err := ParseDSN("http://user:pass@host1:8123,host2:8123/db")
+		require.NoError(t, err)
+		require.Equal(t, []string{"host1:8123", "host2:8123"}, opts.Addr)
+		require.Equal(t, Auth{Username: "user", Password: "pass", Database: "db"}, opts.Auth)
+		require.Equal(t, HTTP, opts.Protocol)
+		return
+	}
+	cmd := exec.Command(os.Args[0], "-test.run=^TestHTTPMultiHostStrictColons$", "-test.count=1")
+	cmd.Env = append(os.Environ(), "GODEBUG=urlstrictcolons=1", "CLICKHOUSE_TEST_URLSTRICTCOLONS=1")
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, string(out))
 }
 
 func TestLogger(t *testing.T) {

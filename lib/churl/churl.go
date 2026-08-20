@@ -182,68 +182,7 @@ func parseAuthority(authority string) (user *neturl.Userinfo, host string, err e
 	return user, host, nil
 }
 
-// parseHost parses a host or comma-separated multi-host (HA) authority.
-//
-// ClickHouse DSNs allow HA peers as comma-separated host:port tokens, including
-// bracketed IPv6 literals. The stock Go 1.26 net/url rejects multi-host
-// authorities; this package keeps them. Single-host parsing (including RFC 6874
-// zone IDs) is unchanged; multi-host lists are split on top-level commas
-// (commas inside [...] are not separators) and each token is parsed
-// independently so percent-decoding and IPv6 validation still apply per host.
 func parseHost(host string) (string, error) {
-	parts := splitAuthorityHosts(host)
-	if len(parts) == 0 {
-		return "", nil
-	}
-	if len(parts) == 1 {
-		return parseSingleHost(parts[0])
-	}
-	out := make([]string, 0, len(parts))
-	for _, part := range parts {
-		h, err := parseSingleHost(part)
-		if err != nil {
-			return "", err
-		}
-		out = append(out, h)
-	}
-	return strings.Join(out, ","), nil
-}
-
-// splitAuthorityHosts splits a host authority on commas that are not inside
-// square brackets. Empty tokens are skipped.
-func splitAuthorityHosts(s string) []string {
-	if s == "" {
-		return nil
-	}
-	var out []string
-	start := 0
-	depth := 0
-	for i := 0; i < len(s); i++ {
-		switch s[i] {
-		case '[':
-			depth++
-		case ']':
-			if depth > 0 {
-				depth--
-			}
-		case ',':
-			if depth == 0 {
-				if part := strings.TrimSpace(s[start:i]); part != "" {
-					out = append(out, part)
-				}
-				start = i + 1
-			}
-		}
-	}
-	if part := strings.TrimSpace(s[start:]); part != "" {
-		out = append(out, part)
-	}
-	return out
-}
-
-// parseSingleHost parses one host[:port] token (no HA commas).
-// Logic matches Go 1.25.7 net/url parseHost for a single host.
-func parseSingleHost(host string) (string, error) {
 	if openBracketIdx := strings.LastIndex(host, "["); openBracketIdx != -1 {
 		// Parse an IP-Literal in RFC 3986 and RFC 6874.
 		// E.g., "[fe80::1]", "[fe80::1%25en0]", "[fe80::1]:80".

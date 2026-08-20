@@ -2,10 +2,10 @@
 
 ## What's Changed
 
-### Fixes 🐛
-* fix: preserve multi-host HA DSN addresses with Go 1.26+ (net/url tightening) by @sankalpsthakur in https://github.com/ClickHouse/clickhouse-go/pull/1946
-  - `lib/churl.parseHost` splits HA authorities on top-level commas and parses each host (IPv4, bracketed IPv6, mixed lists, RFC 6874 zone IDs) with correct percent-decoding.
-  - `fromDSN` uses stdlib `net.SplitHostPort` / `net.JoinHostPort`. Cluster-wide `Auth` (userinfo and `username`/`password` query params; query overrides userinfo) applies to every host.
+### Bug fixes :bug:
+* fix: preserve multi-host HA DSN addresses on Go 1.26 by @sankalpsthakur in https://github.com/ClickHouse/clickhouse-go/pull/1946
+  - DSN parsing uses `net/url.Parse`. When Go 1.26 rejects or collapses a comma-separated host list, a single-host rewrite is parsed and peers are restored with `strings.Split` and `net.SplitHostPort`.
+  - Cluster-wide `Auth` (userinfo and `username`/`password` query params; query overrides userinfo) applies to every host.
 
 # v2.48.0, 2026-08-04 <!-- Release notes generated using configuration in .github/release.yml at main -->
 

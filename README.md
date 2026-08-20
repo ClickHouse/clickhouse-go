@@ -163,7 +163,7 @@ conn.SetConnMaxLifetime(time.Hour)
 
 ## DSN
 
-* hosts  - comma-separated list of single address hosts for load-balancing and failover. Bracketed IPv6 literals are supported in multi-host lists (e.g. `clickhouse://[::1]:9000,host2:9000/db`). Host order and `connection_open_strategy` control failover / load-balancing (see examples for multi-host).
+* hosts  - comma-separated list of single address hosts for load-balancing and failover. Parsed with `net/url.Parse` and `net.SplitHostPort`. Bracketed IPv6 literals are supported in multi-host lists (e.g. `clickhouse://[::1]:9000,host2:9000/db`). Host order and `connection_open_strategy` control failover / load-balancing (see examples for multi-host).
 * username/password - auth credentials (DSN userinfo and/or `username`/`password` query params; query overrides userinfo). Credentials are cluster-wide: the same `Auth` applies to every host in the list (per-host credentials are not supported). Mutating `Options.Auth` after `ParseDSN` also applies to all hosts.
 * database - select the current default database
 * dial_timeout -  a duration string is a possibly signed sequence of decimal numbers, each with optional fraction and a unit suffix such as "300ms", "1s". Valid time units are "ms", "s", "m". (default 30s)
