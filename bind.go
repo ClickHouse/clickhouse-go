@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"math/big"
 	"reflect"
 	"strconv"
 	"strings"
@@ -569,11 +570,23 @@ func formatValue(tz *time.Location, scale TimeUnit, v any, mode formatMode) (str
 		}
 		return val, err
 	case ArraySet:
+		// An ArraySet of big.Int values gets the same single-type treatment as
+		// a plain slice (see bigIntArray); otherwise join formats each element.
+		if s, ok := bigIntArray(reflect.ValueOf(v), mode); ok {
+			return s, nil
+		}
 		val, err := join(tz, scale, v, mode)
 		if err != nil {
 			return "", err
 		}
 		return fmt.Sprintf("[%s]", val), nil
+	case big.Int:
+		return formatBigInt(&v, mode)
+	case *big.Int:
+		if v == nil {
+			return "NULL", nil
+		}
+		return formatBigInt(v, mode)
 	case fmt.Stringer:
 		if v := reflect.ValueOf(v); v.Kind() == reflect.Pointer &&
 			v.IsNil() &&
@@ -617,6 +630,12 @@ func formatValue(tz *time.Location, scale TimeUnit, v any, mode formatMode) (str
 	case reflect.String:
 		return quote(v.String()), nil
 	case reflect.Slice, reflect.Array:
+		// A slice whose elements are all big.Int renders with one wide-integer
+		// conversion for the whole array (see bigIntArray); every other slice
+		// formats element by element.
+		if s, ok := bigIntArray(v, mode); ok {
+			return s, nil
+		}
 		values := make([]string, 0, v.Len())
 		for i := 0; i < v.Len(); i++ {
 			val, err := formatValue(tz, scale, v.Index(i).Interface(), mode)
@@ -710,6 +729,154 @@ func formatFloat(f float64, bitSize int, mode formatMode) string {
 		return fmt.Sprintf("cast('-inf', '%s')", chType)
 	}
 	return fmt.Sprintf("cast(%s, '%s')", strconv.FormatFloat(f, 'g', -1, bitSize), chType)
+}
+
+// Bounds of ClickHouse's wide-integer types, used to pick the narrowest
+// conversion that holds a big.Int exactly. Read-only after init.
+var (
+	int128Min  = new(big.Int).Neg(new(big.Int).Lsh(big.NewInt(1), 127))                // -2^127
+	int128Max  = new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 127), big.NewInt(1)) // 2^127-1
+	uint128Max = new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 128), big.NewInt(1)) // 2^128-1
+	int256Min  = new(big.Int).Neg(new(big.Int).Lsh(big.NewInt(1), 255))                // -2^255
+	int256Max  = new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 255), big.NewInt(1)) // 2^255-1
+	uint256Max = new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 256), big.NewInt(1)) // 2^256-1
+)
+
+// formatBigInt renders a big.Int, the Go type behind Int128/UInt128/Int256/
+// UInt256.
+//
+// In query-parameter text mode the {name:Type} placeholder already declares the
+// type, so the server parses the bare decimal with the matching reader and the
+// value stays exact.
+//
+// In SQL mode there is no declared type, and the server reads a bare decimal
+// literal wider than 64 bits as Float64, losing precision (a WHERE on an Int128
+// column then matches nothing). Wrapping the exact decimal in the narrowest
+// wide-integer conversion that fits keeps both the value and an integer type,
+// the same way times bind as toDateTime(...) and floats as cast(..., 'Float64').
+func formatBigInt(v *big.Int, mode formatMode) (string, error) {
+	if mode == formatParamText {
+		return v.String(), nil
+	}
+	fn, err := bigIntConvFunc(v)
+	if err != nil {
+		return "", err
+	}
+	// big.Int.String is only an optional sign followed by digits, so it needs
+	// no escaping inside the quotes.
+	return fn + "('" + v.String() + "')", nil
+}
+
+// bigIntConvFunc returns the ClickHouse conversion function for the narrowest
+// wide-integer type that holds v exactly, or an error if v fits none of them.
+func bigIntConvFunc(v *big.Int) (string, error) {
+	if v.Sign() >= 0 {
+		switch {
+		case v.Cmp(int128Max) <= 0:
+			return "toInt128", nil
+		case v.Cmp(uint128Max) <= 0:
+			return "toUInt128", nil
+		case v.Cmp(int256Max) <= 0:
+			return "toInt256", nil
+		case v.Cmp(uint256Max) <= 0:
+			return "toUInt256", nil
+		}
+	} else {
+		switch {
+		case v.Cmp(int128Min) >= 0:
+			return "toInt128", nil
+		case v.Cmp(int256Min) >= 0:
+			return "toInt256", nil
+		}
+	}
+	return "", fmt.Errorf("big.Int value %s is out of range for Int128, UInt128, Int256 and UInt256", v.String())
+}
+
+// bigIntArray renders v — a slice or array — as one ClickHouse array literal
+// when every element is a big.Int or *big.Int, using a single wide-integer
+// conversion for all of them (see commonBigIntConvFunc). ok is false for any
+// other slice, in query-parameter text mode (where the declared type already
+// covers the array), or when no single wide type holds every element; the
+// caller then formats the elements itself.
+func bigIntArray(v reflect.Value, mode formatMode) (string, bool) {
+	if mode != formatSQL {
+		return "", false
+	}
+	fn, ok := commonBigIntConvFunc(v)
+	if !ok {
+		return "", false
+	}
+	values := make([]string, 0, v.Len())
+	for i := 0; i < v.Len(); i++ {
+		switch e := v.Index(i).Interface().(type) {
+		case *big.Int:
+			if e == nil {
+				values = append(values, "NULL")
+				continue
+			}
+			values = append(values, fn+"('"+e.String()+"')")
+		case big.Int:
+			values = append(values, fn+"('"+e.String()+"')")
+		}
+	}
+	return fmt.Sprintf("[%s]", strings.Join(values, ", ")), true
+}
+
+// commonBigIntConvFunc reports whether every element of slice v is a big.Int or
+// *big.Int and, if so, returns the single wide-integer conversion function that
+// holds them all. ok is false when the elements are not all big.Int, when there
+// is no non-nil element, or when no one wide-integer type holds every value; the
+// caller then formats each element on its own.
+//
+// A slice binds as one array literal, so every element needs the same
+// conversion. Choosing the narrowest type per value can mix e.g. toInt128 and
+// toUInt256, which have no common ClickHouse type unless use_variant_as_common_type
+// is on (off by default before 26.x) — [toUInt256('1'), toUInt256('...')] is a
+// plain Array(UInt256), while [toInt128('1'), toUInt256('...')] makes
+// WHERE ... IN ? fail.
+//
+// The unification is one level deep: mixed-magnitude big.Int values nested in a
+// map, in a nested array, or in a tuple used as an IN set still get per-element
+// conversions and can still hit NO_COMMON_TYPE.
+func commonBigIntConvFunc(v reflect.Value) (string, bool) {
+	var lo, hi *big.Int
+	for i := 0; i < v.Len(); i++ {
+		var b *big.Int
+		switch e := v.Index(i).Interface().(type) {
+		case *big.Int:
+			b = e
+		case big.Int:
+			b = &e
+		default:
+			return "", false
+		}
+		if b == nil {
+			continue
+		}
+		if lo == nil || b.Cmp(lo) < 0 {
+			lo = b
+		}
+		if hi == nil || b.Cmp(hi) > 0 {
+			hi = b
+		}
+	}
+	if lo == nil {
+		return "", false
+	}
+	// A non-negative range is held by the type of its largest value. A range
+	// that includes a negative value needs a signed type wide enough for both
+	// ends; if none is, fall back to per-element formatting.
+	if lo.Sign() >= 0 {
+		fn, err := bigIntConvFunc(hi)
+		return fn, err == nil
+	}
+	switch {
+	case lo.Cmp(int128Min) >= 0 && hi.Cmp(int128Max) <= 0:
+		return "toInt128", true
+	case lo.Cmp(int256Min) >= 0 && hi.Cmp(int256Max) <= 0:
+		return "toInt256", true
+	}
+	return "", false
 }
 
 func join[E any](tz *time.Location, scale TimeUnit, values []E, mode formatMode) (string, error) {
