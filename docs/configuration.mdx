@@ -169,7 +169,11 @@ v, err := conn.ServerVersion()
 
 ## Connecting to multiple nodes {#connecting-to-multiple-nodes}
 
-Multiple addresses can be specified via the `Addr` struct.
+Multiple addresses can be specified via the `Addr` struct, or as a comma-separated host list in a DSN (for example `clickhouse://user:pass@host1:9000,host2:9000/db`). Bracketed IPv6 literals are supported in multi-host DSNs (`clickhouse://[::1]:9000,host2:9000/db`).
+
+The driver parses the DSN with `net/url.Parse`. Each peer is then split with `net.SplitHostPort`. If Go 1.26 `url.Parse` rejects or collapses the host list (http(s) with `GODEBUG=urlstrictcolons`, or bracketed IPv6 lists), the DSN is parsed as a single-host URL and the original peers are restored.
+
+`Auth` is cluster-wide: the same username/password applies to every host. DSN credentials come from userinfo and/or `username`/`password` query params (query overrides userinfo). Mutating `Options.Auth` after `ParseDSN` also applies to all hosts; per-host credentials are not supported.
 
 ```go
 conn, err := clickhouse.Open(&clickhouse.Options{

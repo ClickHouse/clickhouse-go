@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/url"
 	"os"
+	"os/exec"
 	"testing"
 	"time"
 
@@ -563,6 +564,293 @@ func TestParseDSN(t *testing.T) {
 			},
 			"",
 		},
+		{
+			"multi-host with auth and secure",
+			"clickhouse://user:pass@host1:9440,host2:9440/database?secure=true",
+			&Options{
+				Protocol: Native,
+				TLS: &tls.Config{
+					InsecureSkipVerify: false,
+				},
+				Addr:     []string{"host1:9440", "host2:9440"},
+				Settings: Settings{},
+				Auth: Auth{
+					Username: "user",
+					Password: "pass",
+					Database: "database",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
+			"multi-host HTTP scheme",
+			"http://host1:8123,host2:8123/db",
+			&Options{
+				Protocol: HTTP,
+				TLS:      nil,
+				Addr:     []string{"host1:8123", "host2:8123"},
+				Settings: Settings{},
+				Auth: Auth{
+					Database: "db",
+				},
+				scheme: "http",
+			},
+			"",
+		},
+		{
+			"multi-host IPv6",
+			"clickhouse://[::1]:9440,[2001:db8::1]:9440/test_database",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"[::1]:9440", "[2001:db8::1]:9440"},
+				Settings: Settings{},
+				Auth: Auth{
+					Database: "test_database",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
+			"multi-host with auth overridden via query params",
+			"clickhouse://user:pass@host1:9440,host2:9440/db?username=other&password=secret",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"host1:9440", "host2:9440"},
+				Settings: Settings{},
+				Auth: Auth{
+					Username: "other",
+					Password: "secret",
+					Database: "db",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
+			"multi-host with auth via query only no userinfo",
+			"clickhouse://host1:9440,host2:9440/db?username=quser&password=qpass",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"host1:9440", "host2:9440"},
+				Settings: Settings{},
+				Auth: Auth{
+					Username: "quser",
+					Password: "qpass",
+					Database: "db",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
+			"multi-host with encoded password and secure",
+			"clickhouse://user:p%40ss%3Aw0rd@host1:9440,host2:9440/db?secure=true",
+			&Options{
+				Protocol: Native,
+				TLS: &tls.Config{
+					InsecureSkipVerify: false,
+				},
+				Addr:     []string{"host1:9440", "host2:9440"},
+				Settings: Settings{},
+				Auth: Auth{
+					Username: "user",
+					Password: "p@ss:w0rd",
+					Database: "db",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
+			"multi-host IPv6 with auth and database",
+			"clickhouse://ipv6user:ipv6pass@[::1]:9440,[2001:db8::1]:9440/test_db?secure=true",
+			&Options{
+				Protocol: Native,
+				TLS: &tls.Config{
+					InsecureSkipVerify: false,
+				},
+				Addr:     []string{"[::1]:9440", "[2001:db8::1]:9440"},
+				Settings: Settings{},
+				Auth: Auth{
+					Username: "ipv6user",
+					Password: "ipv6pass",
+					Database: "test_db",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
+			"multi-host preserves hosts despite userinfo containing colon and at",
+			"clickhouse://user:pass@host1:9000,host2:9000,host3:9000/db",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"host1:9000", "host2:9000", "host3:9000"},
+				Settings: Settings{},
+				Auth: Auth{
+					Username: "user",
+					Password: "pass",
+					Database: "db",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
+			"multi-host mixed IPv6 then plain",
+			"clickhouse://[::1]:9440,host2:9440/db",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"[::1]:9440", "host2:9440"},
+				Settings: Settings{},
+				Auth: Auth{
+					Database: "db",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
+			"multi-host mixed plain then IPv6",
+			"clickhouse://host1:9440,[::1]:9440/db",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"host1:9440", "[::1]:9440"},
+				Settings: Settings{},
+				Auth: Auth{
+					Database: "db",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
+			"IPv6 zone ID percent-decoded in Addr",
+			"clickhouse://[fe80::1%25eth0]:9000/db",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"[fe80::1%eth0]:9000"},
+				Settings: Settings{},
+				Auth: Auth{
+					Database: "db",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
+			"multi-host IPv6 with zone ID and auth",
+			"clickhouse://zuser:zpass@[fe80::1%25eth0]:9000,[::1]:9000/zdb",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"[fe80::1%eth0]:9000", "[::1]:9000"},
+				Settings: Settings{},
+				Auth: Auth{
+					Username: "zuser",
+					Password: "zpass",
+					Database: "zdb",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
+			"multi-host https with auth and secure",
+			"https://user:pass@host1:8443,host2:8443/db?secure=true",
+			&Options{
+				Protocol: HTTP,
+				TLS: &tls.Config{
+					InsecureSkipVerify: false,
+				},
+				Addr:     []string{"host1:8443", "host2:8443"},
+				Settings: Settings{},
+				Auth: Auth{
+					Username: "user",
+					Password: "pass",
+					Database: "db",
+				},
+				scheme: "https",
+			},
+			"",
+		},
+		{
+			"multi-host query overrides username only",
+			"clickhouse://user:pass@host1:9440,host2:9440/db?username=other",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"host1:9440", "host2:9440"},
+				Settings: Settings{},
+				Auth: Auth{
+					Username: "other",
+					Password: "pass",
+					Database: "db",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
+			"multi-host query overrides password only",
+			"clickhouse://user:pass@host1:9440,host2:9440/db?password=secret",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"host1:9440", "host2:9440"},
+				Settings: Settings{},
+				Auth: Auth{
+					Username: "user",
+					Password: "secret",
+					Database: "db",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
+			"multi-host empty password",
+			"clickhouse://user:@host1:9440,host2:9440/db",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"host1:9440", "host2:9440"},
+				Settings: Settings{},
+				Auth: Auth{
+					Username: "user",
+					Password: "",
+					Database: "db",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
+			"multi-host password containing at-sign",
+			"clickhouse://user:p@ss@host1:9440,host2:9440/db",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"host1:9440", "host2:9440"},
+				Settings: Settings{},
+				Auth: Auth{
+					Username: "user",
+					Password: "p@ss",
+					Database: "db",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
 	}
 
 	for _, testCase := range testCases {
@@ -585,6 +873,140 @@ func parseURL(t *testing.T, v string) *url.URL {
 	u, err := url.Parse(v)
 	require.NoError(t, err)
 	return u
+}
+
+func TestSplitHostList(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, []string{"a:1", "b:2"}, splitHostList("a:1,b:2"))
+	assert.Equal(t, []string{"[::1]:1", "[::2]:2"}, splitHostList("[::1]:1,[::2]:2"))
+	assert.Equal(t, []string{"single"}, splitHostList("single"))
+	assert.Nil(t, splitHostList(""))
+	assert.Equal(t, []string{"a:1", "b:2"}, splitHostList("a:1,,b:2"))
+	assert.Equal(t, []string{"a:1", "b:2"}, splitHostList(" a:1 , b:2 "))
+	assert.Equal(t, []string{"host1:9440", "host2:9440"}, splitHostList("host1:9440,host2:9440"))
+	assert.Equal(t, []string{"[::1]:9440", "host2:9440"}, splitHostList("[::1]:9440,host2:9440"))
+	assert.Equal(t, []string{"host1:9440", "[::1]:9440"}, splitHostList("host1:9440,[::1]:9440"))
+	assert.Equal(t, []string{"[fe80::1%eth0]:9000"}, splitHostList("[fe80::1%eth0]:9000"))
+	// Bare hosts without ports
+	assert.Equal(t, []string{"host1", "host2"}, splitHostList("host1,host2"))
+}
+
+// Multi-host DSNs share one Auth for every address. Per-host credentials are not
+// supported; query params and post-parse Options overrides remain cluster-wide.
+func TestMultiHostAuthClusterWide(t *testing.T) {
+	t.Parallel()
+
+	opts, err := ParseDSN("clickhouse://user:pass@host1:9440,host2:9440/db")
+	require.NoError(t, err)
+	require.Equal(t, []string{"host1:9440", "host2:9440"}, opts.Addr)
+	require.Equal(t, Auth{Username: "user", Password: "pass", Database: "db"}, opts.Auth)
+
+	// Query params override userinfo for the whole cluster (both hosts).
+	opts, err = ParseDSN("clickhouse://user:pass@host1:9440,host2:9440/db?username=other&password=secret")
+	require.NoError(t, err)
+	require.Equal(t, []string{"host1:9440", "host2:9440"}, opts.Addr)
+	require.Equal(t, Auth{Username: "other", Password: "secret", Database: "db"}, opts.Auth)
+
+	// Callers may replace Auth on Options after ParseDSN; that still applies to all hosts.
+	opts.Auth.Username = "override"
+	opts.Auth.Password = "newpass"
+	require.Equal(t, []string{"host1:9440", "host2:9440"}, opts.Addr)
+	require.Equal(t, Auth{Username: "override", Password: "newpass", Database: "db"}, opts.Auth)
+
+	opts, err = ParseDSN("clickhouse://user:pass@host1:9440,host2:9440/db?username=onlyuser")
+	require.NoError(t, err)
+	require.Equal(t, Auth{Username: "onlyuser", Password: "pass", Database: "db"}, opts.Auth)
+
+	opts, err = ParseDSN("https://user:pass@host1:8443,host2:8443/db?secure=true&password=httpssecret")
+	require.NoError(t, err)
+	require.Equal(t, []string{"host1:8443", "host2:8443"}, opts.Addr)
+	require.Equal(t, Auth{Username: "user", Password: "httpssecret", Database: "db"}, opts.Auth)
+	require.Equal(t, HTTP, opts.Protocol)
+}
+
+func TestParseDSNURLMatchesStdlibIPv4(t *testing.T) {
+	t.Parallel()
+	raw := "clickhouse://user:pass@host1:9440,host2:9440/database?secure=true"
+	std, err := url.Parse(raw)
+	if err != nil {
+		t.Skipf("url.Parse rejected IPv4 HA list: %v", err)
+	}
+	got, err := parseDSNURL(raw)
+	require.NoError(t, err)
+	require.Equal(t, std.Host, got.Host)
+	require.Equal(t, std.Path, got.Path)
+	require.Equal(t, std.RawQuery, got.RawQuery)
+	require.Equal(t, std.User.Username(), got.User.Username())
+	stdPass, stdHas := std.User.Password()
+	gotPass, gotHas := got.User.Password()
+	require.Equal(t, stdHas, gotHas)
+	require.Equal(t, stdPass, gotPass)
+}
+
+func TestParseDSNURLRecoversIPv6HostList(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		raw, host, path, user, pass string
+	}{
+		{
+			raw:  "clickhouse://[::1]:9440,[2001:db8::1]:9440/test_database",
+			host: "[::1]:9440,[2001:db8::1]:9440",
+			path: "/test_database",
+		},
+		{
+			raw:  "clickhouse://[::1]:9440,host2:9440/db",
+			host: "[::1]:9440,host2:9440",
+			path: "/db",
+		},
+		{
+			raw:  "clickhouse://host1:9440,[::1]:9440/db",
+			host: "host1:9440,[::1]:9440",
+			path: "/db",
+		},
+		{
+			raw:  "clickhouse://zuser:zpass@[fe80::1%25eth0]:9000,[::1]:9000/zdb",
+			host: "[fe80::1%eth0]:9000,[::1]:9000",
+			path: "/zdb",
+			user: "zuser",
+			pass: "zpass",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.raw, func(t *testing.T) {
+			got, err := parseDSNURL(tc.raw)
+			require.NoError(t, err)
+			require.Equal(t, tc.host, got.Host)
+			require.Equal(t, tc.path, got.Path)
+			if tc.user != "" {
+				require.Equal(t, tc.user, got.User.Username())
+				pass, ok := got.User.Password()
+				require.True(t, ok)
+				require.Equal(t, tc.pass, pass)
+			}
+			if std, stdErr := url.Parse(tc.raw); stdErr != nil {
+				t.Logf("url.Parse rejected host list: %v", stdErr)
+			} else if std.Host != got.Host {
+				t.Logf("url.Parse collapsed host %q; parseDSNURL restored %q", std.Host, got.Host)
+			}
+		})
+	}
+}
+
+// Go 1.26 url.Parse rejects http(s) multi-host authorities when
+// GODEBUG=urlstrictcolons=1. ParseDSN must still keep both hosts and Auth.
+func TestHTTPMultiHostStrictColons(t *testing.T) {
+	if os.Getenv("CLICKHOUSE_TEST_URLSTRICTCOLONS") == "1" {
+		opts, err := ParseDSN("http://user:pass@host1:8123,host2:8123/db")
+		require.NoError(t, err)
+		require.Equal(t, []string{"host1:8123", "host2:8123"}, opts.Addr)
+		require.Equal(t, Auth{Username: "user", Password: "pass", Database: "db"}, opts.Auth)
+		require.Equal(t, HTTP, opts.Protocol)
+		return
+	}
+	cmd := exec.Command(os.Args[0], "-test.run=^TestHTTPMultiHostStrictColons$", "-test.count=1")
+	cmd.Env = append(os.Environ(), "GODEBUG=urlstrictcolons=1", "CLICKHOUSE_TEST_URLSTRICTCOLONS=1")
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, string(out))
 }
 
 func TestLogger(t *testing.T) {
