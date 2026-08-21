@@ -198,7 +198,6 @@ func (o *Options) fromDSN(in string) error {
 		o.Auth.Username = dsn.User.Username()
 		o.Auth.Password, _ = dsn.User.Password()
 	}
-	// Host list is restored by parseDSNURL; split with the stdlib. See #1784.
 	o.Addr = append(o.Addr, splitHostList(dsn.Host)...)
 	var (
 		secure        bool
@@ -397,33 +396,42 @@ func (o *Options) fromDSN(in string) error {
 	return nil
 }
 
-// parseDSNURL parses a ClickHouse DSN with net/url.Parse.
+// parseDSNURL parses a ClickHouse DSN with net/url.Parse, then splits the
+// host list with strings.Split and net.SplitHostPort.
 //
 // A multi-host (HA) authority is a comma-separated host:port list, e.g.
-// clickhouse://user:pass@host1:9000,host2:9000/db. Go 1.26 url.Parse keeps
-// that form for most schemes, but can reject http(s) lists
+// clickhouse://user:pass@host1:9000,host2:9000/db. url.Parse keeps that
+// form for IPv4 lists on most schemes. Go 1.26 can reject http(s) lists
 // (GODEBUG=urlstrictcolons) and reject or collapse bracketed IPv6 lists.
-// When the authority has more than one host, Parse is given a single-host
-// rewrite so userinfo, path, and query still go through the stdlib; hosts
-// are then restored with strings.Split and net.SplitHostPort.
+// Those cases parse a single-host rewrite so userinfo, path, and query
+// still go through the stdlib; peers are then restored.
 //
 // Auth is cluster-wide: userinfo and username/password query params apply
 // to every host. Query params override userinfo.
 func parseDSNURL(raw string) (*url.URL, error) {
+	u, err := url.Parse(raw)
 	scheme, userinfo, host, tail, ok := splitDSN(raw)
 	tokens := splitHostTokens(host)
-	if !ok || len(tokens) <= 1 {
-		return url.Parse(raw)
-	}
-	rewritten := scheme + "://"
-	if userinfo != "" {
-		rewritten += userinfo + "@"
-	}
-	rewritten += tokens[0] + tail
-	u, err := url.Parse(rewritten)
-	if err != nil {
+	if err == nil {
+		if !ok || len(tokens) <= 1 || len(splitHostTokens(u.Host)) >= len(tokens) {
+			return u, nil
+		}
+	} else if !ok || len(tokens) <= 1 {
 		return nil, err
 	}
+
+	if err != nil {
+		rewritten := scheme + "://"
+		if userinfo != "" {
+			rewritten += userinfo + "@"
+		}
+		rewritten += tokens[0] + tail
+		u, err = url.Parse(rewritten)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	decoded := make([]string, 0, len(tokens))
 	for _, token := range tokens {
 		h, err := decodeHostToken(token)
