@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/ClickHouse/ch-go/proto"
-	"github.com/google/uuid"
+	"uuid"
 	"github.com/shopspring/decimal"
 )
 

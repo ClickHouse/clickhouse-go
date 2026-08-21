@@ -5,7 +5,7 @@ import (
 	"time"
 
 	_ "github.com/ClickHouse/clickhouse-go/v2"
-	"github.com/google/uuid"
+	"uuid"
 )
 
 func BatchInsert() error {

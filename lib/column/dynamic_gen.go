@@ -7,7 +7,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"github.com/ClickHouse/ch-go/proto"
-	"github.com/google/uuid"
+	"uuid"
 	"github.com/paulmach/orb"
 	"time"
 )

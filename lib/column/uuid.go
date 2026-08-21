@@ -7,8 +7,9 @@ import (
 	"reflect"
 
 	"github.com/ClickHouse/ch-go/proto"
+	guuid "github.com/google/uuid"
 
-	"github.com/google/uuid"
+	"uuid"
 )
 
 type UUID struct {
@@ -80,7 +81,7 @@ func (col *UUID) Append(v any) (nulls []uint8, err error) {
 			if err != nil {
 				return
 			}
-			col.col.Append(u)
+			col.appendToCol(u)
 		}
 	case []*string:
 		nulls = make([]uint8, len(v))
@@ -92,26 +93,26 @@ func (col *UUID) Append(v any) (nulls []uint8, err error) {
 				if err != nil {
 					return
 				}
-				col.col.Append(value)
+				col.appendToCol(value)
 			default:
 				nulls[i] = 1
-				col.col.Append(uuid.UUID{})
+				col.appendToCol(uuid.UUID{})
 			}
 		}
 	case []uuid.UUID:
 		nulls = make([]uint8, len(v))
 		for _, v := range v {
-			col.col.Append(v)
+			col.appendToCol(v)
 		}
 	case []*uuid.UUID:
 		nulls = make([]uint8, len(v))
 		for i, v := range v {
 			switch {
 			case v != nil:
-				col.col.Append(*v)
+				col.appendToCol(*v)
 			default:
 				nulls[i] = 1
-				col.col.Append(uuid.UUID{})
+				col.appendToCol(uuid.UUID{})
 			}
 		}
 	default:
@@ -144,7 +145,7 @@ func (col *UUID) AppendRow(v any) error {
 		if err != nil {
 			return err
 		}
-		col.col.Append(u)
+		col.appendToCol(u)
 	case *string:
 		switch {
 		case v != nil:
@@ -152,21 +153,21 @@ func (col *UUID) AppendRow(v any) error {
 			if err != nil {
 				return err
 			}
-			col.col.Append(value)
+			col.appendToCol(value)
 		default:
-			col.col.Append(uuid.UUID{})
+			col.appendToCol(uuid.UUID{})
 		}
 	case uuid.UUID:
-		col.col.Append(v)
+		col.appendToCol(v)
 	case *uuid.UUID:
 		switch {
 		case v != nil:
-			col.col.Append(*v)
+			col.appendToCol(*v)
 		default:
-			col.col.Append(uuid.UUID{})
+			col.appendToCol(uuid.UUID{})
 		}
 	case nil:
-		col.col.Append(uuid.UUID{})
+		col.appendToCol(uuid.UUID{})
 	default:
 		if valuer, ok := v.(driver.Valuer); ok {
 			val, err := valuer.Value()
@@ -200,8 +201,12 @@ func (col *UUID) Encode(buffer *proto.Buffer) {
 	col.col.EncodeColumn(buffer)
 }
 
-func (col *UUID) row(i int) (uuid uuid.UUID) {
-	return col.col.Row(i)
+func (col *UUID) row(i int) (u uuid.UUID) {
+	return uuid.UUID(col.col.Row(i))
+}
+
+func (col *UUID) appendToCol(u uuid.UUID) {
+	col.col.Append(guuid.UUID(u))
 }
 
 var _ Interface = (*UUID)(nil)

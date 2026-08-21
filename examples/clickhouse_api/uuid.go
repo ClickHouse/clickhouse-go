@@ -3,7 +3,7 @@ package clickhouse_api
 import (
 	"context"
 	"fmt"
-	"github.com/google/uuid"
+	"uuid"
 )
 
 func UUIDInsertRead() error {
@@ -28,7 +28,7 @@ func UUIDInsertRead() error {
 	if err != nil {
 		return err
 	}
-	col1Data, _ := uuid.NewUUID()
+	col1Data := uuid.New()
 	if err = batch.Append(
 		col1Data,
 		"603966d6-ed93-11ec-8ea0-0242ac120002",

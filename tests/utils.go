@@ -23,7 +23,7 @@ import (
 	"time"
 
 	"github.com/docker/go-units"
-	"github.com/google/uuid"
+	"uuid"
 	"github.com/moby/moby/api/types/container"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
@@ -34,7 +34,7 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 
-var testUUID = uuid.NewString()[0:12]
+var testUUID = uuid.New().String()[0:12]
 var testTimestamp = time.Now().UnixMilli()
 var randSeed = time.Now().UnixNano()
 

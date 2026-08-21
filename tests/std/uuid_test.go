@@ -9,7 +9,7 @@ import (
 
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 
-	"github.com/google/uuid"
+	"uuid"
 	"github.com/stretchr/testify/assert"
 )
 
