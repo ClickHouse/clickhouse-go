@@ -906,6 +906,16 @@ func TestByteAndDurationQueryParameter(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "AB", opts.parameters["p"])
 
+	// *[]byte must be dereferenced and sent raw, same as []byte, or the
+	// value falls through to formatValue and the server stores the quoted
+	// form verbatim.
+	bytesVal := []byte("AB")
+	opts = &QueryOptions{}
+	_, err = bindQueryOrAppendParameters(true, opts, "SELECT {p:String}", time.UTC,
+		driver.NamedValue{Name: "p", Value: &bytesVal})
+	require.NoError(t, err)
+	assert.Equal(t, "AB", opts.parameters["p"])
+
 	opts = &QueryOptions{}
 	_, err = bindQueryOrAppendParameters(true, opts, "SELECT {p:Time}", time.UTC,
 		driver.NamedValue{Name: "p", Value: time.Hour + 2*time.Minute + 3*time.Second})

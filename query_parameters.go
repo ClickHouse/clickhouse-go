@@ -57,6 +57,9 @@ func bindQueryOrAppendParameters(paramsProtocolSupport bool, options *QueryOptio
 				case []byte:
 					options.parameters[p.Name] = string(v)
 					continue
+				case *[]byte:
+					options.parameters[p.Name] = string(*v)
+					continue
 				case time.Time:
 					options.parameters[p.Name] = formatTimeParam(v)
 					continue
