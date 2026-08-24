@@ -84,15 +84,22 @@ func (col *Bool) Append(v any) (nulls []uint8, err error) {
 	case []sql.NullBool:
 		nulls = make([]uint8, len(v))
 		for i := range v {
-			col.Append(v[i])
+			if !v[i].Valid {
+				nulls[i] = 1
+			}
+			if err := col.AppendRow(v[i]); err != nil {
+				return nil, err
+			}
 		}
 	case []*sql.NullBool:
 		nulls = make([]uint8, len(v))
 		for i := range v {
-			if v[i] == nil {
+			if v[i] == nil || !v[i].Valid {
 				nulls[i] = 1
 			}
-			col.Append(v[i])
+			if err := col.AppendRow(v[i]); err != nil {
+				return nil, err
+			}
 		}
 	default:
 		if valuer, ok := v.(driver.Valuer); ok {
@@ -131,8 +138,7 @@ func (col *Bool) AppendRow(v any) error {
 			value = v.Bool
 		}
 	case *sql.NullBool:
-		switch v.Valid {
-		case true:
+		if v != nil && v.Valid {
 			value = v.Bool
 		}
 	case nil:
