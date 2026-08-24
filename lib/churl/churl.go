@@ -182,7 +182,71 @@ func parseAuthority(authority string) (user *neturl.Userinfo, host string, err e
 	return user, host, nil
 }
 
+// parseHost parses a host authority, which may be a single host[:port] or a
+// comma-separated multi-host (HA) list, e.g. "host1:9000,host2:9000" or
+// "[::1]:9000,[2001:db8::1]:9000". ClickHouse DSNs use comma-separated hosts
+// for HA/failover (see https://github.com/ClickHouse/clickhouse-go/issues/1784).
+// The single-host parsing this file was forked from (see parseSingleHost)
+// locates a bracketed IPv6 literal with LastIndex, so handing it a
+// multi-host authority directly collapses bracketed lists to their last
+// host, or fails outright on a mixed bracketed/plain list. Split on
+// top-level commas first (commas inside "[...]" are not separators) and
+// parse each host independently so percent-decoding and IPv6 validation are
+// applied per host and no peer is lost. A single host with no top-level
+// comma is parsed exactly as before.
 func parseHost(host string) (string, error) {
+	parts := splitAuthorityHosts(host)
+	if len(parts) <= 1 {
+		return parseSingleHost(host)
+	}
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		h, err := parseSingleHost(part)
+		if err != nil {
+			return "", err
+		}
+		out = append(out, h)
+	}
+	return strings.Join(out, ","), nil
+}
+
+// splitAuthorityHosts splits a host authority on commas that are not inside
+// square brackets, so a bracketed IPv6 literal (which may itself contain
+// "::") is never split apart. Empty tokens (e.g. from a trailing comma) are
+// skipped and each token is trimmed of surrounding whitespace.
+func splitAuthorityHosts(s string) []string {
+	if s == "" {
+		return nil
+	}
+	var out []string
+	start := 0
+	depth := 0
+	for i := 0; i < len(s); i++ {
+		switch s[i] {
+		case '[':
+			depth++
+		case ']':
+			if depth > 0 {
+				depth--
+			}
+		case ',':
+			if depth == 0 {
+				if part := strings.TrimSpace(s[start:i]); part != "" {
+					out = append(out, part)
+				}
+				start = i + 1
+			}
+		}
+	}
+	if part := strings.TrimSpace(s[start:]); part != "" {
+		out = append(out, part)
+	}
+	return out
+}
+
+// parseSingleHost parses one host[:port] token (no HA commas). Logic matches
+// Go 1.25.7 net/url parseHost for a single host.
+func parseSingleHost(host string) (string, error) {
 	if openBracketIdx := strings.LastIndex(host, "["); openBracketIdx != -1 {
 		// Parse an IP-Literal in RFC 3986 and RFC 6874.
 		// E.g., "[fe80::1]", "[fe80::1%25en0]", "[fe80::1]:80".

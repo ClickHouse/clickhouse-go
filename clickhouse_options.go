@@ -14,6 +14,8 @@ import (
 	"time"
 
 	"github.com/ClickHouse/ch-go/compress"
+
+	"github.com/ClickHouse/clickhouse-go/v2/lib/churl"
 )
 
 type CompressionMethod byte
@@ -182,7 +184,7 @@ type Options struct {
 }
 
 func (o *Options) fromDSN(in string) error {
-	dsn, err := parseDSNURL(in)
+	dsn, err := churl.Parse(in)
 	if err != nil {
 		return err
 	}
@@ -198,6 +200,11 @@ func (o *Options) fromDSN(in string) error {
 		o.Auth.Username = dsn.User.Username()
 		o.Auth.Password, _ = dsn.User.Password()
 	}
+	// Host may be a comma-separated HA list. lib/churl preserves multi-host
+	// authorities (including bracketed IPv6) and percent-decodes each host
+	// (e.g. RFC 6874 zone IDs). splitHostList uses stdlib SplitHostPort to
+	// normalize host:port tokens without breaking IPv6 brackets.
+	// See https://github.com/ClickHouse/clickhouse-go/issues/1784
 	o.Addr = append(o.Addr, splitHostList(dsn.Host)...)
 	var (
 		secure        bool
@@ -396,108 +403,42 @@ func (o *Options) fromDSN(in string) error {
 	return nil
 }
 
-// parseDSNURL parses a ClickHouse DSN with net/url.Parse, then splits the
-// host list with strings.Split and net.SplitHostPort.
+// splitHostList splits a comma-separated HA host list from a parsed DSN host.
 //
-// A multi-host (HA) authority is a comma-separated host:port list, e.g.
-// clickhouse://user:pass@host1:9000,host2:9000/db. url.Parse keeps that
-// form for IPv4 lists on most schemes. Go 1.26 can reject http(s) lists
-// (GODEBUG=urlstrictcolons) and reject or collapse bracketed IPv6 lists.
-// Those cases parse a single-host rewrite so userinfo, path, and query
-// still go through the stdlib; peers are then restored.
+// lib/churl returns multi-host authorities as a single Host string with
+// top-level commas (including bracketed IPv6 peers) and percent-decodes each
+// host. This helper splits on those HA separators and uses stdlib
+// net.SplitHostPort / net.JoinHostPort to validate and normalize each
+// host:port token. Hosts without a port are kept as-is.
 //
-// Auth is cluster-wide: userinfo and username/password query params apply
-// to every host. Query params override userinfo.
-func parseDSNURL(raw string) (*url.URL, error) {
-	u, err := url.Parse(raw)
-	scheme, userinfo, host, tail, ok := splitDSN(raw)
-	tokens := splitHostTokens(host)
-	if err == nil {
-		if !ok || len(tokens) <= 1 || len(splitHostTokens(u.Host)) >= len(tokens) {
-			return u, nil
-		}
-	} else if !ok || len(tokens) <= 1 {
-		return nil, err
-	}
-
-	if err != nil {
-		rewritten := scheme + "://"
-		if userinfo != "" {
-			rewritten += userinfo + "@"
-		}
-		rewritten += tokens[0] + tail
-		u, err = url.Parse(rewritten)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	decoded := make([]string, 0, len(tokens))
-	for _, token := range tokens {
-		h, err := decodeHostToken(token)
-		if err != nil {
-			return nil, err
-		}
-		decoded = append(decoded, h)
-	}
-	u.Host = strings.Join(decoded, ",")
-	return u, nil
-}
-
-// splitDSN cuts scheme://[userinfo@]host[tail] using stdlib strings.
-// tail is the path, query, and fragment (if any).
-func splitDSN(raw string) (scheme, userinfo, host, tail string, ok bool) {
-	scheme, rest, ok := strings.Cut(raw, "://")
-	if !ok {
-		return "", "", "", "", false
-	}
-	end := len(rest)
-	if i := strings.IndexAny(rest, "/?#"); i >= 0 {
-		end = i
-	}
-	authority, tail := rest[:end], rest[end:]
-	if i := strings.LastIndex(authority, "@"); i >= 0 {
-		return scheme, authority[:i], authority[i+1:], tail, true
-	}
-	return scheme, "", authority, tail, true
-}
-
-func splitHostTokens(s string) []string {
+// Single Auth (username/password) applies to all hosts in the cluster;
+// per-host credentials are not supported — authentication is cluster-wide
+// and can be overridden via query params `username`/`password`.
+func splitHostList(s string) []string {
 	if s == "" {
 		return nil
 	}
-	parts := strings.Split(s, ",")
-	out := make([]string, 0, len(parts))
-	for _, part := range parts {
-		part = strings.TrimSpace(part)
-		if part != "" {
-			out = append(out, part)
+	var out []string
+	start := 0
+	depth := 0
+	for i := 0; i < len(s); i++ {
+		switch s[i] {
+		case '[':
+			depth++
+		case ']':
+			if depth > 0 {
+				depth--
+			}
+		case ',':
+			if depth == 0 {
+				if part := strings.TrimSpace(s[start:i]); part != "" {
+					out = append(out, normalizeHostPort(part))
+				}
+				start = i + 1
+			}
 		}
 	}
-	return out
-}
-
-func decodeHostToken(token string) (string, error) {
-	u, err := url.Parse("clickhouse://" + token)
-	if err != nil {
-		return "", err
-	}
-	if u.Host == "" {
-		return normalizeHostPort(token), nil
-	}
-	return normalizeHostPort(u.Host), nil
-}
-
-// splitHostList splits a parsed DSN host with strings.Split and normalizes
-// each token via net.SplitHostPort / net.JoinHostPort. Hosts without a port
-// are kept as-is.
-func splitHostList(s string) []string {
-	tokens := splitHostTokens(s)
-	if tokens == nil {
-		return nil
-	}
-	out := make([]string, 0, len(tokens))
-	for _, part := range tokens {
+	if part := strings.TrimSpace(s[start:]); part != "" {
 		out = append(out, normalizeHostPort(part))
 	}
 	return out
@@ -507,6 +448,7 @@ func normalizeHostPort(part string) string {
 	if h, p, err := net.SplitHostPort(part); err == nil {
 		return net.JoinHostPort(h, p)
 	}
+	// No port or not a host:port — keep original form (e.g. bare host)
 	return part
 }
 

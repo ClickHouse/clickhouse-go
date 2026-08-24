@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"net/url"
 	"os"
-	"os/exec"
 	"testing"
 	"time"
 
@@ -922,91 +921,6 @@ func TestMultiHostAuthClusterWide(t *testing.T) {
 	require.Equal(t, []string{"host1:8443", "host2:8443"}, opts.Addr)
 	require.Equal(t, Auth{Username: "user", Password: "httpssecret", Database: "db"}, opts.Auth)
 	require.Equal(t, HTTP, opts.Protocol)
-}
-
-func TestParseDSNURLMatchesStdlibIPv4(t *testing.T) {
-	t.Parallel()
-	raw := "clickhouse://user:pass@host1:9440,host2:9440/database?secure=true"
-	std, err := url.Parse(raw)
-	if err != nil {
-		t.Skipf("url.Parse rejected IPv4 HA list: %v", err)
-	}
-	got, err := parseDSNURL(raw)
-	require.NoError(t, err)
-	require.Equal(t, std.Host, got.Host)
-	require.Equal(t, std.Path, got.Path)
-	require.Equal(t, std.RawQuery, got.RawQuery)
-	require.Equal(t, std.User.Username(), got.User.Username())
-	stdPass, stdHas := std.User.Password()
-	gotPass, gotHas := got.User.Password()
-	require.Equal(t, stdHas, gotHas)
-	require.Equal(t, stdPass, gotPass)
-}
-
-func TestParseDSNURLRecoversIPv6HostList(t *testing.T) {
-	t.Parallel()
-	cases := []struct {
-		raw, host, path, user, pass string
-	}{
-		{
-			raw:  "clickhouse://[::1]:9440,[2001:db8::1]:9440/test_database",
-			host: "[::1]:9440,[2001:db8::1]:9440",
-			path: "/test_database",
-		},
-		{
-			raw:  "clickhouse://[::1]:9440,host2:9440/db",
-			host: "[::1]:9440,host2:9440",
-			path: "/db",
-		},
-		{
-			raw:  "clickhouse://host1:9440,[::1]:9440/db",
-			host: "host1:9440,[::1]:9440",
-			path: "/db",
-		},
-		{
-			raw:  "clickhouse://zuser:zpass@[fe80::1%25eth0]:9000,[::1]:9000/zdb",
-			host: "[fe80::1%eth0]:9000,[::1]:9000",
-			path: "/zdb",
-			user: "zuser",
-			pass: "zpass",
-		},
-	}
-	for _, tc := range cases {
-		t.Run(tc.raw, func(t *testing.T) {
-			got, err := parseDSNURL(tc.raw)
-			require.NoError(t, err)
-			require.Equal(t, tc.host, got.Host)
-			require.Equal(t, tc.path, got.Path)
-			if tc.user != "" {
-				require.Equal(t, tc.user, got.User.Username())
-				pass, ok := got.User.Password()
-				require.True(t, ok)
-				require.Equal(t, tc.pass, pass)
-			}
-			if std, stdErr := url.Parse(tc.raw); stdErr != nil {
-				t.Logf("url.Parse rejected host list: %v", stdErr)
-			} else if std.Host != got.Host {
-				t.Logf("url.Parse collapsed host %q; parseDSNURL restored %q", std.Host, got.Host)
-			}
-		})
-	}
-}
-
-// Go 1.26 url.Parse rejects http(s) multi-host authorities when
-// GODEBUG=urlstrictcolons=1. ParseDSN must still keep both hosts and Auth.
-func TestHTTPMultiHostStrictColons(t *testing.T) {
-	if os.Getenv("CLICKHOUSE_TEST_URLSTRICTCOLONS") == "1" {
-		opts, err := ParseDSN("http://user:pass@host1:8123,host2:8123/db")
-		require.NoError(t, err)
-		require.Equal(t, []string{"host1:8123", "host2:8123"}, opts.Addr)
-		require.Equal(t, Auth{Username: "user", Password: "pass", Database: "db"}, opts.Auth)
-		require.Equal(t, HTTP, opts.Protocol)
-		return
-	}
-	cmd := exec.Command(os.Args[0], "-test.run=^TestHTTPMultiHostStrictColons$", "-test.count=1")
-	cmd.Env = append(os.Environ(), "GODEBUG=urlstrictcolons=1", "CLICKHOUSE_TEST_URLSTRICTCOLONS=1")
-	out, err := cmd.CombinedOutput()
-	require.NoError(t, err, string(out))
 }
 
 func TestLogger(t *testing.T) {

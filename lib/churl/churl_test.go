@@ -37,6 +37,15 @@ func TestParseHosts(t *testing.T) {
 		// %-escaping rules.
 		{"IPv6 with zone identifier", "clickhouse://[fe80::1%25en0]:9000/db", "[fe80::1%en0]:9000"},
 		{"empty host with scheme (triple slash)", "clickhouse:///db", ""},
+		// Bracketed IPv6 hosts in an HA list are the reason parseHost splits
+		// on top-level commas before delegating to parseSingleHost: naively
+		// handing the whole authority to the single-host bracket search
+		// (LastIndex of '[' / ']') collapses every host but the last one.
+		{"multi-host IPv6", "clickhouse://[::1]:9440,[2001:db8::1]:9440/db", "[::1]:9440,[2001:db8::1]:9440"},
+		{"multi-host mixed IPv6 then plain", "clickhouse://[::1]:9440,host2:9440/db", "[::1]:9440,host2:9440"},
+		{"multi-host mixed plain then IPv6", "clickhouse://host1:9440,[::1]:9440/db", "host1:9440,[::1]:9440"},
+		{"multi-host IPv6 with zone identifier", "clickhouse://[fe80::1%25eth0]:9000,[::1]:9000/db", "[fe80::1%eth0]:9000,[::1]:9000"},
+		{"multi-host with whitespace around comma", "clickhouse://host1:9000, host2:9000 /db", "host1:9000,host2:9000"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
