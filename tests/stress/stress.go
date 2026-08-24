@@ -13,7 +13,7 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 
-	"github.com/google/uuid"
+	"uuid"
 	_ "github.com/mkevac/debugcharts"
 
 	"github.com/ClickHouse/clickhouse-go/v2"

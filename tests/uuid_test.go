@@ -10,7 +10,7 @@ import (
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 
-	"github.com/google/uuid"
+	"uuid"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 

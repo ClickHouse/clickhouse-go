@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"github.com/ClickHouse/ch-go/proto"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/chcol"
-	"github.com/google/uuid"
+	"uuid"
 	"github.com/paulmach/orb"
 	"github.com/shopspring/decimal"
 	"math/big"

@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/google/uuid"
+	"uuid"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 

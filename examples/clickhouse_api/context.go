@@ -8,7 +8,7 @@ import (
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
-	"github.com/google/uuid"
+	"uuid"
 )
 
 func UseContext() error {
@@ -68,7 +68,7 @@ func UseContext() error {
 
 	// set a query id to assist tracing queries in logs e.g. see system.query_log
 	var one uint8
-	queryId, _ := uuid.NewUUID()
+	queryId := uuid.New()
 	ctx = clickhouse.Context(context.Background(), clickhouse.WithQueryID(queryId.String()))
 	if err = conn.QueryRow(ctx, "SELECT 1").Scan(&one); err != nil {
 		return err

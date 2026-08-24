@@ -1,14 +1,13 @@
 module github.com/ClickHouse/clickhouse-go/v2
 
-go 1.25.0
+go 1.27
 
-toolchain go1.25.4
+toolchain go1.27rc3
 
 require (
 	github.com/ClickHouse/ch-go v0.74.0
 	github.com/andybalholm/brotli v1.2.2
 	github.com/docker/go-units v0.5.0
-	github.com/google/uuid v1.6.0
 	github.com/mkevac/debugcharts v0.0.0-20191222103121-ae1c48aa8615
 	github.com/moby/moby/api v1.55.0
 	github.com/moby/moby/client v0.5.1
@@ -19,8 +18,6 @@ require (
 	go.opentelemetry.io/otel/trace v1.45.0
 	golang.org/x/net v0.58.0
 )
-
-require go.opentelemetry.io/otel v1.45.0 // indirect
 
 require (
 	dario.cat/mergo v1.0.2 // indirect
@@ -42,6 +39,7 @@ require (
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
+	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/klauspost/compress v1.19.1 // indirect
 	github.com/lufia/plan9stats v0.0.0-20260330125221-c963978e514e // indirect
@@ -66,6 +64,7 @@ require (
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.69.0 // indirect
+	go.opentelemetry.io/otel v1.45.0 // indirect
 	go.opentelemetry.io/otel/metric v1.45.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/crypto v0.55.0 // indirect

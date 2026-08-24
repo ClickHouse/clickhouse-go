@@ -3,7 +3,7 @@ package clickhouse_api
 import (
 	"context"
 	"fmt"
-	"github.com/google/uuid"
+	"uuid"
 	"strconv"
 	"time"
 )
