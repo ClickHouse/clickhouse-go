@@ -82,6 +82,13 @@ func (col *Date) ScanRow(dest any, row int) error {
 }
 
 func (col *Date) Append(v any) (nulls []uint8, err error) {
+	original := col.col
+	defer func() {
+		if err != nil {
+			col.col = original
+		}
+	}()
+
 	switch v := v.(type) {
 	case []time.Time:
 		for _, t := range v {
@@ -183,8 +190,10 @@ func (col *Date) AppendRow(v any) error {
 			col.col.Append(time.Time{})
 		}
 	case *sql.NullTime:
-		switch v.Valid {
-		case true:
+		switch {
+		case v == nil:
+			col.col.Append(time.Time{})
+		case v.Valid:
 			return col.appendTime(v.Time)
 		default:
 			col.col.Append(time.Time{})
