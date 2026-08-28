@@ -529,6 +529,30 @@ func TestConnPool_FIFOOrdering(t *testing.T) {
 	}
 }
 
+func TestConnPool_CloseDoesNotDeadlockWithDrainTicker(t *testing.T) {
+	// Close used to hold mu while waiting for runDrainPool. If the drain
+	// goroutine had already woken on ticker.C and was blocked on that
+	// same mutex, neither side made progress.
+	for range 50 {
+		pool := newConnPool(time.Millisecond, 5)
+		pool.Put(&mockTransport{connectedAt: time.Now(), id: 1})
+
+		done := make(chan struct{})
+		go func() {
+			assert.NoError(t, pool.Close())
+			close(done)
+		}()
+
+		select {
+		case <-done:
+		case <-time.After(3 * time.Second):
+			t.Fatal("Close deadlocked against runDrainPool")
+		}
+
+		assert.NoError(t, pool.Close())
+	}
+}
+
 // mockTransport implements nativeTransport for testing
 type mockTransport struct {
 	connectedAt   time.Time
