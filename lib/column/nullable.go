@@ -75,47 +75,55 @@ func (col *Nullable) ScanRow(dest any, row int) error {
 	if col.enable {
 		switch col.nulls.Row(row) {
 		case 1:
-			switch v := dest.(type) {
-			case **uint64:
-				*v = nil
-			case **int64:
-				*v = nil
-			case **uint32:
-				*v = nil
-			case **int32:
-				*v = nil
-			case **uint16:
-				*v = nil
-			case **int16:
-				*v = nil
-			case **uint8:
-				*v = nil
-			case **int8:
-				*v = nil
-			case **string:
-				*v = nil
-			case **float32:
-				*v = nil
-			case **float64:
-				*v = nil
-			case **time.Time:
-				*v = nil
-			default:
-				rv := reflect.ValueOf(dest)
-				if rv.Kind() == reflect.Ptr && !rv.IsNil() {
-					elem := rv.Elem()
-					if elem.Kind() == reflect.Ptr && elem.CanSet() {
-						elem.SetZero()
-					}
-				}
-			}
-			if scan, ok := dest.(sql.Scanner); ok {
-				return scan.Scan(nil)
-			}
-			return nil
+			return scanNullInto(dest)
 		}
 	}
 	return col.base.ScanRow(dest, row)
+}
+
+// scanNullInto writes a ClickHouse NULL into a scan destination: it resets the
+// double-pointer destinations produced for nullable columns to nil and, when dest
+// implements sql.Scanner, invokes Scan(nil). The reflection fallback also handles
+// pointer destinations for types that are not listed explicitly, such as decimal.Decimal.
+func scanNullInto(dest any) error {
+	switch v := dest.(type) {
+	case **uint64:
+		*v = nil
+	case **int64:
+		*v = nil
+	case **uint32:
+		*v = nil
+	case **int32:
+		*v = nil
+	case **uint16:
+		*v = nil
+	case **int16:
+		*v = nil
+	case **uint8:
+		*v = nil
+	case **int8:
+		*v = nil
+	case **string:
+		*v = nil
+	case **float32:
+		*v = nil
+	case **float64:
+		*v = nil
+	case **time.Time:
+		*v = nil
+	default:
+		rv := reflect.ValueOf(dest)
+		if rv.Kind() == reflect.Ptr && !rv.IsNil() {
+			elem := rv.Elem()
+			if elem.Kind() == reflect.Ptr && elem.CanSet() {
+				elem.SetZero()
+			}
+		}
+	}
+	if scan, ok := dest.(sql.Scanner); ok {
+		return scan.Scan(nil)
+	}
+	return nil
 }
 
 func (col *Nullable) Append(v any) ([]uint8, error) {
