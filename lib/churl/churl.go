@@ -186,62 +186,37 @@ func parseAuthority(authority string) (user *neturl.Userinfo, host string, err e
 // comma-separated multi-host (HA) list, e.g. "host1:9000,host2:9000" or
 // "[::1]:9000,[2001:db8::1]:9000". ClickHouse DSNs use comma-separated hosts
 // for HA/failover (see https://github.com/ClickHouse/clickhouse-go/issues/1784).
-// The single-host parsing this file was forked from (see parseSingleHost)
-// locates a bracketed IPv6 literal with LastIndex, so handing it a
-// multi-host authority directly collapses bracketed lists to their last
-// host, or fails outright on a mixed bracketed/plain list. Split on
-// top-level commas first (commas inside "[...]" are not separators) and
-// parse each host independently so percent-decoding and IPv6 validation are
-// applied per host and no peer is lost. A single host with no top-level
-// comma is parsed exactly as before.
+//
+// The Go 1.25.7 parseHost this file was forked from locates a bracketed IPv6
+// literal with LastIndex, so handing it a multi-host authority collapses
+// bracketed lists to the last host, or fails on a mixed bracketed/plain
+// list. Split with strings.Split first (IPv6 literals use colons, not
+// commas) and parse each token with the original single-host logic so
+// percent-decoding and IPv6 validation stay per host. A host with no comma
+// is parsed exactly as before.
 func parseHost(host string) (string, error) {
-	parts := splitAuthorityHosts(host)
-	if len(parts) <= 1 {
+	if !strings.Contains(host, ",") {
 		return parseSingleHost(host)
 	}
-	out := make([]string, 0, len(parts))
-	for _, part := range parts {
+	out := make([]string, 0)
+	for _, part := range strings.Split(host, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
 		h, err := parseSingleHost(part)
 		if err != nil {
 			return "", err
 		}
 		out = append(out, h)
 	}
+	if len(out) == 0 {
+		return parseSingleHost(host)
+	}
+	if len(out) == 1 {
+		return out[0], nil
+	}
 	return strings.Join(out, ","), nil
-}
-
-// splitAuthorityHosts splits a host authority on commas that are not inside
-// square brackets, so a bracketed IPv6 literal (which may itself contain
-// "::") is never split apart. Empty tokens (e.g. from a trailing comma) are
-// skipped and each token is trimmed of surrounding whitespace.
-func splitAuthorityHosts(s string) []string {
-	if s == "" {
-		return nil
-	}
-	var out []string
-	start := 0
-	depth := 0
-	for i := 0; i < len(s); i++ {
-		switch s[i] {
-		case '[':
-			depth++
-		case ']':
-			if depth > 0 {
-				depth--
-			}
-		case ',':
-			if depth == 0 {
-				if part := strings.TrimSpace(s[start:i]); part != "" {
-					out = append(out, part)
-				}
-				start = i + 1
-			}
-		}
-	}
-	if part := strings.TrimSpace(s[start:]); part != "" {
-		out = append(out, part)
-	}
-	return out
 }
 
 // parseSingleHost parses one host[:port] token (no HA commas). Logic matches

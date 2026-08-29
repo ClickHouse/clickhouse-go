@@ -205,6 +205,48 @@ func TestMultiHostDSNAuthOverride(t *testing.T) {
 	})
 }
 
+// Query username/password override the DSN userinfo for every peer, including
+// the live host after in-order failover.
+func TestMultiHostDSNQueryAuth(t *testing.T) {
+	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		env, err := GetNativeTestEnvironment()
+		require.NoError(t, err)
+		useSSL, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_SSL", "false"))
+		require.NoError(t, err)
+
+		port := env.Port
+		scheme := "clickhouse"
+		if protocol == clickhouse.HTTP {
+			port = env.HttpPort
+			scheme = "http"
+		}
+		query := fmt.Sprintf("connection_open_strategy=in_order&username=%s&password=%s", env.Username, env.Password)
+		if useSSL {
+			port = env.SslPort
+			if protocol == clickhouse.HTTP {
+				port = env.HttpsPort
+				scheme = "https"
+			}
+			query += "&secure=true"
+		}
+
+		live := fmt.Sprintf("%s:%d", env.Host, port)
+		dsn := fmt.Sprintf("%s://wrong:wrong@127.0.0.1:19001,%s/default?%s",
+			scheme, live, query)
+
+		opts, err := clickhouse.ParseDSN(dsn)
+		require.NoError(t, err)
+		require.Equal(t, []string{"127.0.0.1:19001", live}, opts.Addr)
+		require.Equal(t, env.Username, opts.Auth.Username)
+		require.Equal(t, env.Password, opts.Auth.Password)
+
+		conn, err := GetConnectionWithOptions(opts)
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = conn.Close() })
+		require.NoError(t, conn.Ping(context.Background()))
+	})
+}
+
 func TestPingDeadline(t *testing.T) {
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
 		conn, err := GetNativeConnection(t, protocol, nil, nil, &clickhouse.Compression{

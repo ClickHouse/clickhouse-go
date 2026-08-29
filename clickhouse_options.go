@@ -200,11 +200,10 @@ func (o *Options) fromDSN(in string) error {
 		o.Auth.Username = dsn.User.Username()
 		o.Auth.Password, _ = dsn.User.Password()
 	}
-	// Host may be a comma-separated HA list. lib/churl preserves multi-host
-	// authorities (including bracketed IPv6) and percent-decodes each host
-	// (e.g. RFC 6874 zone IDs). splitHostList uses stdlib SplitHostPort to
-	// normalize host:port tokens without breaking IPv6 brackets.
-	// See https://github.com/ClickHouse/clickhouse-go/issues/1784
+	// Host may be a comma-separated HA list. lib/churl is the Go 1.25.7
+	// net/url.Parse fork from #1787; it keeps that list intact (including
+	// bracketed IPv6) and percent-decodes each host. splitHostList then uses
+	// strings.Split and net.SplitHostPort. See #1784.
 	o.Addr = append(o.Addr, splitHostList(dsn.Host)...)
 	var (
 		secure        bool
@@ -403,42 +402,24 @@ func (o *Options) fromDSN(in string) error {
 	return nil
 }
 
-// splitHostList splits a comma-separated HA host list from a parsed DSN host.
+// splitHostList splits a parsed DSN host with strings.Split, then normalizes
+// each token with net.SplitHostPort / net.JoinHostPort. Hosts without a port
+// are kept as-is. After churl.Parse, commas are HA separators (IPv6 literals
+// use colons, not commas), so a bracket-aware splitter is not required.
 //
-// lib/churl returns multi-host authorities as a single Host string with
-// top-level commas (including bracketed IPv6 peers) and percent-decodes each
-// host. This helper splits on those HA separators and uses stdlib
-// net.SplitHostPort / net.JoinHostPort to validate and normalize each
-// host:port token. Hosts without a port are kept as-is.
-//
-// Single Auth (username/password) applies to all hosts in the cluster;
-// per-host credentials are not supported — authentication is cluster-wide
-// and can be overridden via query params `username`/`password`.
+// Auth is cluster-wide: userinfo and username/password query params apply to
+// every host. Query params override userinfo. Per-host credentials are not
+// supported.
 func splitHostList(s string) []string {
 	if s == "" {
 		return nil
 	}
 	var out []string
-	start := 0
-	depth := 0
-	for i := 0; i < len(s); i++ {
-		switch s[i] {
-		case '[':
-			depth++
-		case ']':
-			if depth > 0 {
-				depth--
-			}
-		case ',':
-			if depth == 0 {
-				if part := strings.TrimSpace(s[start:i]); part != "" {
-					out = append(out, normalizeHostPort(part))
-				}
-				start = i + 1
-			}
+	for _, part := range strings.Split(s, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
 		}
-	}
-	if part := strings.TrimSpace(s[start:]); part != "" {
 		out = append(out, normalizeHostPort(part))
 	}
 	return out
@@ -448,7 +429,6 @@ func normalizeHostPort(part string) string {
 	if h, p, err := net.SplitHostPort(part); err == nil {
 		return net.JoinHostPort(h, p)
 	}
-	// No port or not a host:port — keep original form (e.g. bare host)
 	return part
 }
 

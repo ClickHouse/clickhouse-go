@@ -171,7 +171,7 @@ v, err := conn.ServerVersion()
 
 Multiple addresses can be specified via the `Addr` struct, or as a comma-separated host list in a DSN (for example `clickhouse://user:pass@host1:9000,host2:9000/db`). Bracketed IPv6 literals are supported in multi-host DSNs (`clickhouse://[::1]:9000,host2:9000/db`).
 
-The driver parses the DSN with `lib/churl`, a version-stable fork of `net/url` (see [#1787](https://github.com/ClickHouse/clickhouse-go/pull/1787)) that keeps DSN parsing behavior fixed regardless of the Go toolchain version, including comma-separated host lists that the stdlib `net/url` package rejects or collapses as of Go 1.26. Each peer is then split with `net.SplitHostPort`.
+The driver parses the DSN with `lib/churl`, the Go 1.25.7 `net/url.Parse` fork from [#1787](https://github.com/ClickHouse/clickhouse-go/pull/1787). That keeps comma-separated HA hosts working on Go 1.26, where stdlib `net/url.Parse` rejects or collapses them. `parseHost` splits the authority with `strings.Split` and runs the original single-host parser on each peer (so bracketed IPv6 lists are not collapsed). `fromDSN` then splits `Host` with `strings.Split` and `net.SplitHostPort`.
 
 `Auth` is cluster-wide: the same username/password applies to every host. DSN credentials come from userinfo and/or `username`/`password` query params (query overrides userinfo). Mutating `Options.Auth` after `ParseDSN` also applies to all hosts; per-host credentials are not supported.
 

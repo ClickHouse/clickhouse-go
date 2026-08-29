@@ -817,6 +817,23 @@ func TestParseDSN(t *testing.T) {
 			"",
 		},
 		{
+			"multi-host IPv6 query auth overrides userinfo for every host",
+			"clickhouse://user:pass@[::1]:9440,host2:9440/db?username=other&password=secret",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"[::1]:9440", "host2:9440"},
+				Settings: Settings{},
+				Auth: Auth{
+					Username: "other",
+					Password: "secret",
+					Database: "db",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
 			"multi-host empty password",
 			"clickhouse://user:@host1:9440,host2:9440/db",
 			&Options{
@@ -921,6 +938,12 @@ func TestMultiHostAuthClusterWide(t *testing.T) {
 	require.Equal(t, []string{"host1:8443", "host2:8443"}, opts.Addr)
 	require.Equal(t, Auth{Username: "user", Password: "httpssecret", Database: "db"}, opts.Auth)
 	require.Equal(t, HTTP, opts.Protocol)
+
+	// Query override on a mixed IPv6/plain list is still one Auth for every peer.
+	opts, err = ParseDSN("clickhouse://wrong:wrong@[::1]:9440,host2:9440/db?username=other&password=secret")
+	require.NoError(t, err)
+	require.Equal(t, []string{"[::1]:9440", "host2:9440"}, opts.Addr)
+	require.Equal(t, Auth{Username: "other", Password: "secret", Database: "db"}, opts.Auth)
 }
 
 func TestLogger(t *testing.T) {

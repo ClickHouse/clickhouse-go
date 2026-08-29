@@ -86,6 +86,35 @@ func testStdConnFailover(t *testing.T, openStrategy string) {
 	}
 }
 
+func TestStdMultiHostDSNQueryAuth(t *testing.T) {
+	env, err := GetStdTestEnvironment()
+	require.NoError(t, err)
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	nativePort := env.Port
+	httpPort := env.HttpPort
+	scheme := "http"
+	query := fmt.Sprintf("username=%s&password=%s&connection_open_strategy=in_order", env.Username, env.Password)
+	if useSSL {
+		nativePort = env.SslPort
+		httpPort = env.HttpsPort
+		scheme = "https"
+		query += "&secure=true"
+	}
+	dsns := map[string]string{
+		"Native": fmt.Sprintf("clickhouse://wrong:wrong@127.0.0.1:9001,%s:%d/default?%s", env.Host, nativePort, query),
+		"Http":   fmt.Sprintf("%s://wrong:wrong@127.0.0.1:8124,%s:%d/default?%s", scheme, env.Host, httpPort, query),
+	}
+	for name, dsn := range dsns {
+		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
+			conn, err := sql.Open("clickhouse", dsn)
+			require.NoError(t, err)
+			require.NoError(t, conn.PingContext(context.Background()))
+			require.NoError(t, conn.Close())
+		})
+	}
+}
+
 func TestStdPingDeadline(t *testing.T) {
 	env, err := GetStdTestEnvironment()
 	require.NoError(t, err)
