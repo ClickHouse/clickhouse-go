@@ -272,7 +272,11 @@ func (b *httpBatch) Send() (err error) {
 	if err != nil {
 		return fmt.Errorf("batch sendStreamQuery: %w", err)
 	}
-	discardAndClose(res.Body)
+	// A 200 status is not yet success: a failure after the server flushed its
+	// headers arrives in-band, in the response body.
+	if err := b.conn.insertResponseError(res); err != nil {
+		return fmt.Errorf("batch: %w", err)
+	}
 
 	b.conn.logger.Debug("batch: send complete")
 	b.block.Reset()
