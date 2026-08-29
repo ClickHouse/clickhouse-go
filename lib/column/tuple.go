@@ -422,7 +422,7 @@ func (col *Tuple) scan(targetType reflect.Type, row int) (reflect.Value, error) 
 		}
 		rMap := reflect.MakeMap(targetType)
 		if err := col.scanMap(rMap, row); err != nil {
-			return reflect.Value{}, nil
+			return reflect.Value{}, err
 		}
 		return rMap, nil
 	case reflect.Slice:
