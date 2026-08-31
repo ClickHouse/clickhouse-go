@@ -18,6 +18,7 @@ import (
 func TestIssue1942_ByteAndDurationBinding(t *testing.T) {
 	ctx := context.Background()
 	binary := []byte{'A', 0, 'B'}
+	nilBytes := []byte(nil)
 	duration := 14*time.Hour + 30*time.Minute + 123*time.Millisecond
 	protocols := []clickhouse.Protocol{clickhouse.Native, clickhouse.HTTP}
 
@@ -32,9 +33,16 @@ func TestIssue1942_ByteAndDurationBinding(t *testing.T) {
 				require.NoError(t, conn.QueryRow(ctx, "SELECT ?", binary).Scan(&got))
 				assert.Equal(t, string(binary), got)
 
+				var gotNullable *string
+				require.NoError(t, conn.QueryRow(ctx, "SELECT CAST(? AS Nullable(String))", nilBytes).Scan(&gotNullable))
+				assert.Nil(t, gotNullable)
+
 				if clickhouse_tests.CheckMinServerServerVersion(conn, 22, 8, 0) {
 					require.NoError(t, conn.QueryRow(ctx, "SELECT {p:String}", clickhouse.Named("p", binary)).Scan(&got))
 					assert.Equal(t, string(binary), got)
+
+					require.NoError(t, conn.QueryRow(ctx, "SELECT {p:Nullable(String)}", clickhouse.Named("p", nilBytes)).Scan(&gotNullable))
+					assert.Nil(t, gotNullable)
 				}
 
 				if clickhouse_tests.CheckMinServerServerVersion(conn, 25, 6, 0) {
@@ -67,9 +75,16 @@ func TestIssue1942_ByteAndDurationBinding(t *testing.T) {
 				require.NoError(t, conn.QueryRowContext(ctx, "SELECT ?", binary).Scan(&got))
 				assert.Equal(t, string(binary), got)
 
+				var gotNullable *string
+				require.NoError(t, conn.QueryRowContext(ctx, "SELECT CAST(? AS Nullable(String))", nilBytes).Scan(&gotNullable))
+				assert.Nil(t, gotNullable)
+
 				if clickhouse_std_tests.CheckMinServerVersion(conn, 22, 8, 0) {
 					require.NoError(t, conn.QueryRowContext(ctx, "SELECT {p:String}", clickhouse.Named("p", binary)).Scan(&got))
 					assert.Equal(t, string(binary), got)
+
+					require.NoError(t, conn.QueryRowContext(ctx, "SELECT {p:Nullable(String)}", clickhouse.Named("p", nilBytes)).Scan(&gotNullable))
+					assert.Nil(t, gotNullable)
 				}
 
 				if clickhouse_std_tests.CheckMinServerVersion(conn, 25, 6, 0) {

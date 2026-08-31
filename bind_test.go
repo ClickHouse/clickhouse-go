@@ -885,6 +885,7 @@ func TestNilQueryParameter(t *testing.T) {
 		{"nil *time.Time", (*time.Time)(nil), `\N`},
 		{"nil *int", (*int)(nil), `\N`},
 		{"nil *time.Duration", (*time.Duration)(nil), `\N`},
+		{"nil []byte", []byte(nil), `\N`},
 		// nils nested inside a composite keep the NULL keyword
 		{"nil inside array", []*string{nil}, "[NULL]"},
 	}
@@ -1050,6 +1051,10 @@ func TestBindBytes(t *testing.T) {
 	q, err = bind(time.UTC, "SELECT ?", []byte{})
 	assert.NoError(t, err)
 	assert.Equal(t, "SELECT ''", q)
+
+	q, err = bind(time.UTC, "SELECT ?", []byte(nil))
+	assert.NoError(t, err)
+	assert.Equal(t, "SELECT NULL", q)
 
 	// nested []byte/[]uint8 stay Array(UInt8) — same Go type as String
 	// bytes, but map[K][]uint8 and Array(Array(UInt8)) depend on it.

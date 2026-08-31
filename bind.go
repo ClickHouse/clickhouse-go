@@ -566,8 +566,12 @@ func formatValueAt(tz *time.Location, scale TimeUnit, v any, mode formatMode, ne
 		return quote(v), nil
 	case []byte:
 		// Top-level []byte is a driver.Value for String (issue #1942).
+		// A nil []byte is the driver.Value convention for SQL NULL.
 		// Nested []uint8 is the same Go type and must stay Array(UInt8)
 		// so map[K][]uint8 / Array(Array(UInt8)) keep working.
+		if v == nil {
+			return "NULL", nil
+		}
 		if !nested {
 			return quote(string(v)), nil
 		}

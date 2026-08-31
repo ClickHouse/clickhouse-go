@@ -55,6 +55,10 @@ func bindQueryOrAppendParameters(paramsProtocolSupport bool, options *QueryOptio
 					options.parameters[p.Name] = *v
 					continue
 				case []byte:
+					if v == nil {
+						options.parameters[p.Name] = `\N`
+						continue
+					}
 					options.parameters[p.Name] = string(v)
 					continue
 				case *[]byte:
