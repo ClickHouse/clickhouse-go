@@ -54,11 +54,31 @@ func bindQueryOrAppendParameters(paramsProtocolSupport bool, options *QueryOptio
 				case *string:
 					options.parameters[p.Name] = *v
 					continue
+				case []byte:
+					if v == nil {
+						options.parameters[p.Name] = `\N`
+						continue
+					}
+					options.parameters[p.Name] = string(v)
+					continue
+				case *[]byte:
+					if *v == nil {
+						options.parameters[p.Name] = `\N`
+						continue
+					}
+					options.parameters[p.Name] = string(*v)
+					continue
 				case time.Time:
 					options.parameters[p.Name] = formatTimeParam(v)
 					continue
 				case *time.Time:
 					options.parameters[p.Name] = formatTimeParam(*v)
+					continue
+				case time.Duration:
+					options.parameters[p.Name] = formatDurationBody(v)
+					continue
+				case *time.Duration:
+					options.parameters[p.Name] = formatDurationBody(*v)
 					continue
 				}
 				strVal, err := formatValue(timezone, Seconds, p.Value, formatParamText)
