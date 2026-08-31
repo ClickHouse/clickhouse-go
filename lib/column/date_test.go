@@ -218,6 +218,35 @@ func TestDateAppendsNilNullTimePointerAsNull(t *testing.T) {
 	require.Equal(t, 1, col.Rows())
 }
 
+func TestDateAppendsInvalidNullTimeAsNull(t *testing.T) {
+	invalid := sql.NullTime{}
+
+	tests := []struct {
+		name  string
+		value any
+	}{
+		{
+			name:  "sql.NullTime slice",
+			value: []sql.NullTime{invalid},
+		},
+		{
+			name:  "sql.NullTime pointer slice",
+			value: []*sql.NullTime{&invalid},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			col := &Date{}
+
+			nulls, err := col.Append(tt.value)
+			require.NoError(t, err)
+			require.Equal(t, []uint8{1}, nulls)
+			require.Equal(t, 1, col.Rows())
+		})
+	}
+}
+
 func TestDateBulkAppendIsAtomic(t *testing.T) {
 	valid := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
 	invalid := time.Date(1969, 12, 31, 0, 0, 0, 0, time.UTC)
