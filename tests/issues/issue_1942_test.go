@@ -43,6 +43,9 @@ func TestIssue1942_ByteAndDurationBinding(t *testing.T) {
 
 					require.NoError(t, conn.QueryRow(ctx, "SELECT {p:Nullable(String)}", clickhouse.Named("p", nilBytes)).Scan(&gotNullable))
 					assert.Nil(t, gotNullable)
+
+					require.NoError(t, conn.QueryRow(ctx, "SELECT {p:Nullable(String)}", clickhouse.Named("p", &nilBytes)).Scan(&gotNullable))
+					assert.Nil(t, gotNullable)
 				}
 
 				if clickhouse_tests.CheckMinServerServerVersion(conn, 25, 6, 0) {
@@ -84,6 +87,9 @@ func TestIssue1942_ByteAndDurationBinding(t *testing.T) {
 					assert.Equal(t, string(binary), got)
 
 					require.NoError(t, conn.QueryRowContext(ctx, "SELECT {p:Nullable(String)}", clickhouse.Named("p", nilBytes)).Scan(&gotNullable))
+					assert.Nil(t, gotNullable)
+
+					require.NoError(t, conn.QueryRowContext(ctx, "SELECT {p:Nullable(String)}", clickhouse.Named("p", &nilBytes)).Scan(&gotNullable))
 					assert.Nil(t, gotNullable)
 				}
 

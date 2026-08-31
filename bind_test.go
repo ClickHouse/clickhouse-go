@@ -875,6 +875,7 @@ func TestFormatTimeWithScale(t *testing.T) {
 // inside composites; at the top level the server would read it as the string
 // "NULL" or fail to parse it.
 func TestNilQueryParameter(t *testing.T) {
+	nilBytes := []byte(nil)
 	cases := []struct {
 		name  string
 		value any
@@ -886,6 +887,7 @@ func TestNilQueryParameter(t *testing.T) {
 		{"nil *int", (*int)(nil), `\N`},
 		{"nil *time.Duration", (*time.Duration)(nil), `\N`},
 		{"nil []byte", []byte(nil), `\N`},
+		{"pointer to nil []byte", &nilBytes, `\N`},
 		// nils nested inside a composite keep the NULL keyword
 		{"nil inside array", []*string{nil}, "[NULL]"},
 	}
@@ -1053,6 +1055,11 @@ func TestBindBytes(t *testing.T) {
 	assert.Equal(t, "SELECT ''", q)
 
 	q, err = bind(time.UTC, "SELECT ?", []byte(nil))
+	assert.NoError(t, err)
+	assert.Equal(t, "SELECT NULL", q)
+
+	nilBytes := []byte(nil)
+	q, err = bind(time.UTC, "SELECT ?", &nilBytes)
 	assert.NoError(t, err)
 	assert.Equal(t, "SELECT NULL", q)
 
