@@ -70,7 +70,7 @@ type Auth struct { // has_control_character
 
 type Compression struct {
 	Method CompressionMethod
-	// this only applies to lz4, lz4hc, zlib, and brotli compression algorithms
+	// this only applies to lz4, lz4hc, zlib, zstd, and brotli compression algorithms
 	Level int
 }
 
