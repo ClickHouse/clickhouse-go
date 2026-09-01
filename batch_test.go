@@ -411,3 +411,27 @@ INSERT INTO ` + "`_test_1345# $.ДБ`.`2. Таблица №2`" + ` (col1, col2)
 		})
 	}
 }
+
+func TestDisableAsyncInsertUnlessSet(t *testing.T) {
+	t.Run("sets zero when unset", func(t *testing.T) {
+		o := QueryOptions{settings: make(Settings)}
+		disableAsyncInsertUnlessSet(nil, &o)
+		assert.Equal(t, 0, o.settings["async_insert"])
+	})
+	t.Run("initializes nil settings", func(t *testing.T) {
+		o := QueryOptions{}
+		disableAsyncInsertUnlessSet(&Options{}, &o)
+		assert.Equal(t, 0, o.settings["async_insert"])
+	})
+	t.Run("respects query setting", func(t *testing.T) {
+		o := QueryOptions{settings: Settings{"async_insert": 1}}
+		disableAsyncInsertUnlessSet(nil, &o)
+		assert.Equal(t, 1, o.settings["async_insert"])
+	})
+	t.Run("respects connection setting", func(t *testing.T) {
+		o := QueryOptions{settings: make(Settings)}
+		disableAsyncInsertUnlessSet(&Options{Settings: Settings{"async_insert": 1}}, &o)
+		_, setOnQuery := o.settings["async_insert"]
+		assert.False(t, setOnQuery)
+	})
+}
