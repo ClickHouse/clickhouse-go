@@ -645,15 +645,22 @@ func (col *Float64) Append(v any) (nulls []uint8, err error) {
 	case []sql.NullFloat64:
 		nulls = make([]uint8, len(v))
 		for i := range v {
-			col.AppendRow(v[i])
+			if !v[i].Valid {
+				nulls[i] = 1
+			}
+			if err := col.AppendRow(v[i]); err != nil {
+				return nil, err
+			}
 		}
 	case []*sql.NullFloat64:
 		nulls = make([]uint8, len(v))
 		for i := range v {
-			if v[i] == nil {
+			if v[i] == nil || !v[i].Valid {
 				nulls[i] = 1
 			}
-			col.AppendRow(v[i])
+			if err := col.AppendRow(v[i]); err != nil {
+				return nil, err
+			}
 		}
 	default:
 
@@ -693,17 +700,15 @@ func (col *Float64) AppendRow(v any) error {
 	case nil:
 		col.col.Append(0)
 	case sql.NullFloat64:
-		switch v.Valid {
-		case true:
+		if v.Valid {
 			col.col.Append(v.Float64)
-		default:
+		} else {
 			col.col.Append(0)
 		}
 	case *sql.NullFloat64:
-		switch v.Valid {
-		case true:
+		if v != nil && v.Valid {
 			col.col.Append(v.Float64)
-		default:
+		} else {
 			col.col.Append(0)
 		}
 	default:
@@ -995,15 +1000,22 @@ func (col *Int16) Append(v any) (nulls []uint8, err error) {
 	case []sql.NullInt16:
 		nulls = make([]uint8, len(v))
 		for i := range v {
-			col.AppendRow(v[i])
+			if !v[i].Valid {
+				nulls[i] = 1
+			}
+			if err := col.AppendRow(v[i]); err != nil {
+				return nil, err
+			}
 		}
 	case []*sql.NullInt16:
 		nulls = make([]uint8, len(v))
 		for i := range v {
-			if v[i] == nil {
+			if v[i] == nil || !v[i].Valid {
 				nulls[i] = 1
 			}
-			col.AppendRow(v[i])
+			if err := col.AppendRow(v[i]); err != nil {
+				return nil, err
+			}
 		}
 	default:
 
@@ -1043,17 +1055,15 @@ func (col *Int16) AppendRow(v any) error {
 	case nil:
 		col.col.Append(0)
 	case sql.NullInt16:
-		switch v.Valid {
-		case true:
+		if v.Valid {
 			col.col.Append(v.Int16)
-		default:
+		} else {
 			col.col.Append(0)
 		}
 	case *sql.NullInt16:
-		switch v.Valid {
-		case true:
+		if v != nil && v.Valid {
 			col.col.Append(v.Int16)
-		default:
+		} else {
 			col.col.Append(0)
 		}
 	default:
@@ -1165,15 +1175,22 @@ func (col *Int32) Append(v any) (nulls []uint8, err error) {
 	case []sql.NullInt32:
 		nulls = make([]uint8, len(v))
 		for i := range v {
-			col.AppendRow(v[i])
+			if !v[i].Valid {
+				nulls[i] = 1
+			}
+			if err := col.AppendRow(v[i]); err != nil {
+				return nil, err
+			}
 		}
 	case []*sql.NullInt32:
 		nulls = make([]uint8, len(v))
 		for i := range v {
-			if v[i] == nil {
+			if v[i] == nil || !v[i].Valid {
 				nulls[i] = 1
 			}
-			col.AppendRow(v[i])
+			if err := col.AppendRow(v[i]); err != nil {
+				return nil, err
+			}
 		}
 	default:
 
@@ -1213,17 +1230,15 @@ func (col *Int32) AppendRow(v any) error {
 	case nil:
 		col.col.Append(0)
 	case sql.NullInt32:
-		switch v.Valid {
-		case true:
+		if v.Valid {
 			col.col.Append(v.Int32)
-		default:
+		} else {
 			col.col.Append(0)
 		}
 	case *sql.NullInt32:
-		switch v.Valid {
-		case true:
+		if v != nil && v.Valid {
 			col.col.Append(v.Int32)
-		default:
+		} else {
 			col.col.Append(0)
 		}
 	default:
@@ -1337,15 +1352,22 @@ func (col *Int64) Append(v any) (nulls []uint8, err error) {
 	case []sql.NullInt64:
 		nulls = make([]uint8, len(v))
 		for i := range v {
-			col.AppendRow(v[i])
+			if !v[i].Valid {
+				nulls[i] = 1
+			}
+			if err := col.AppendRow(v[i]); err != nil {
+				return nil, err
+			}
 		}
 	case []*sql.NullInt64:
 		nulls = make([]uint8, len(v))
 		for i := range v {
-			if v[i] == nil {
+			if v[i] == nil || !v[i].Valid {
 				nulls[i] = 1
 			}
-			col.AppendRow(v[i])
+			if err := col.AppendRow(v[i]); err != nil {
+				return nil, err
+			}
 		}
 	default:
 
@@ -1385,17 +1407,15 @@ func (col *Int64) AppendRow(v any) error {
 	case nil:
 		col.col.Append(0)
 	case sql.NullInt64:
-		switch v.Valid {
-		case true:
+		if v.Valid {
 			col.col.Append(v.Int64)
-		default:
+		} else {
 			col.col.Append(0)
 		}
 	case *sql.NullInt64:
-		switch v.Valid {
-		case true:
+		if v != nil && v.Valid {
 			col.col.Append(v.Int64)
-		default:
+		} else {
 			col.col.Append(0)
 		}
 	case time.Duration:
