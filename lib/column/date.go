@@ -12,7 +12,7 @@ import (
 
 var (
 	minDate, _ = time.Parse("2006-01-02 15:04:05", "1970-01-01 00:00:00")
-	maxDate, _ = time.Parse("2006-01-02 15:04:05", "2106-01-01 00:00:00")
+	maxDate, _ = time.Parse("2006-01-02 15:04:05", "2149-06-06 00:00:00")
 )
 
 const (
@@ -82,17 +82,28 @@ func (col *Date) ScanRow(dest any, row int) error {
 }
 
 func (col *Date) Append(v any) (nulls []uint8, err error) {
+	original := col.col
+	defer func() {
+		if err != nil {
+			col.col = original
+		}
+	}()
+
 	switch v := v.(type) {
 	case []time.Time:
 		for _, t := range v {
-			col.col.Append(t)
+			if err := col.appendTime(t); err != nil {
+				return nil, err
+			}
 		}
 	case []*time.Time:
 		nulls = make([]uint8, len(v))
 		for i, v := range v {
 			switch {
 			case v != nil:
-				col.col.Append(*v)
+				if err := col.appendTime(*v); err != nil {
+					return nil, err
+				}
 			default:
 				nulls[i] = 1
 				col.col.Append(time.Time{})
@@ -101,15 +112,22 @@ func (col *Date) Append(v any) (nulls []uint8, err error) {
 	case []sql.NullTime:
 		nulls = make([]uint8, len(v))
 		for i := range v {
-			col.AppendRow(v[i])
+			if !v[i].Valid {
+				nulls[i] = 1
+			}
+			if err := col.AppendRow(v[i]); err != nil {
+				return nil, err
+			}
 		}
 	case []*sql.NullTime:
 		nulls = make([]uint8, len(v))
 		for i := range v {
-			if v[i] == nil {
+			if v[i] == nil || !v[i].Valid {
 				nulls[i] = 1
 			}
-			col.AppendRow(v[i])
+			if err := col.AppendRow(v[i]); err != nil {
+				return nil, err
+			}
 		}
 	case []string:
 		nulls = make([]uint8, len(v))
@@ -159,25 +177,27 @@ func (col *Date) Append(v any) (nulls []uint8, err error) {
 func (col *Date) AppendRow(v any) error {
 	switch v := v.(type) {
 	case time.Time:
-		col.col.Append(v)
+		return col.appendTime(v)
 	case *time.Time:
 		switch {
 		case v != nil:
-			col.col.Append(*v)
+			return col.appendTime(*v)
 		default:
 			col.col.Append(time.Time{})
 		}
 	case sql.NullTime:
 		switch v.Valid {
 		case true:
-			col.col.Append(v.Time)
+			return col.appendTime(v.Time)
 		default:
 			col.col.Append(time.Time{})
 		}
 	case *sql.NullTime:
-		switch v.Valid {
-		case true:
-			col.col.Append(v.Time)
+		switch {
+		case v == nil:
+			col.col.Append(time.Time{})
+		case v.Valid:
+			return col.appendTime(v.Time)
 		default:
 			col.col.Append(time.Time{})
 		}
@@ -225,15 +245,42 @@ func (col *Date) AppendRow(v any) error {
 	return nil
 }
 
+func (col *Date) appendTime(value time.Time) error {
+	if err := validateDate(value, minDate, maxDate); err != nil {
+		return err
+	}
+	col.col.Append(value)
+	return nil
+}
+
+func validateDate(value, min, max time.Time) error {
+	if value.IsZero() {
+		return nil
+	}
+
+	year, month, day := value.Date()
+	date := time.Date(year, month, day, 0, 0, 0, 0, time.UTC)
+	if date.Before(min) || date.After(max) {
+		return fmt.Errorf(
+			"clickhouse: date %q is outside the supported range [%s, %s]",
+			value.Format(defaultDateFormatNoZone),
+			min.Format(defaultDateFormatNoZone),
+			max.Format(defaultDateFormatNoZone),
+		)
+	}
+	return nil
+}
+
 func parseDate(value string, minDate time.Time, maxDate time.Time, location *time.Location) (tv time.Time, err error) {
 	if location == nil {
 		location = time.Local
 	}
 	if tv, err = time.Parse(defaultDateFormatWithZone, value); err == nil {
-		return tv, nil
+		return tv, validateDate(tv, minDate, maxDate)
 	}
 	if tv, err = time.Parse(defaultDateFormatNoZone, value); err == nil {
-		return getTimeWithDifferentLocation(tv, location), nil
+		tv = getTimeWithDifferentLocation(tv, location)
+		return tv, validateDate(tv, minDate, maxDate)
 	}
 	return time.Time{}, err
 }
