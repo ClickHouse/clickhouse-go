@@ -212,7 +212,8 @@ func (o *Options) fromDSN(in string) error {
 	for v := range params {
 		switch v {
 		case "hosts", "alt_hosts":
-			o.Addr = append(o.Addr, strings.Split(params.Get(v), ",")...)
+			// These are appended below in a fixed order so map iteration cannot
+			// change the failover order.
 		case "debug":
 			o.Debug, _ = strconv.ParseBool(params.Get(v))
 		case "compress":
@@ -370,6 +371,13 @@ func (o *Options) fromDSN(in string) error {
 				} else {
 					o.Settings[v] = p
 				}
+			}
+		}
+	}
+	for _, key := range []string{"hosts", "alt_hosts"} {
+		for _, host := range strings.Split(params.Get(key), ",") {
+			if host = strings.TrimSpace(host); host != "" {
+				o.Addr = append(o.Addr, host)
 			}
 		}
 	}
