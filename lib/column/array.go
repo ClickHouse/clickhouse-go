@@ -2,6 +2,7 @@ package column
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -101,6 +102,11 @@ func (col *Array) Row(i int, ptr bool) any {
 }
 
 func (col *Array) Append(v any) (nulls []uint8, err error) {
+	if col.depth == 1 {
+		if handled, err := col.appendBulkPlain(v); handled || err != nil {
+			return nil, err
+		}
+	}
 	value := reflect.Indirect(reflect.ValueOf(v))
 	if value.Kind() != reflect.Slice {
 		return nil, &ColumnConverterError{
@@ -151,6 +157,19 @@ func (col *Array) appendRowDefault(v any) error {
 
 func appendRowPlain[T any](col *Array, arr []T) error {
 	col.appendOffset(0, uint64(len(arr)))
+	_, err := col.values.Append(arr)
+	if err == nil {
+		return nil
+	}
+
+	// Append rejects unknown slice types up-front via ColumnConverterError
+	// without mutating column state. AppendRow has a reflection-based
+	// conversion fallback that accepts e.g. []int into Array(Int64); preserve
+	// that by retrying per-item.
+	var convErr *ColumnConverterError
+	if !errors.As(err, &convErr) {
+		return err
+	}
 	for _, item := range arr {
 		if err := col.values.AppendRow(item); err != nil {
 			return err
@@ -161,14 +180,108 @@ func appendRowPlain[T any](col *Array, arr []T) error {
 
 func appendNullableRowPlain[T any](col *Array, arr []*T) error {
 	col.appendOffset(0, uint64(len(arr)))
+	_, err := col.values.Append(arr)
+	if err == nil {
+		return nil
+	}
+
+	var convErr *ColumnConverterError
+	if !errors.As(err, &convErr) {
+		return err
+	}
+
 	for _, item := range arr {
-		var err error
 		if item == nil {
-			err = col.values.AppendRow(nil)
-		} else {
-			err = col.values.AppendRow(item)
+			if err := col.values.AppendRow(nil); err != nil {
+				return err
+			}
+			continue
 		}
-		if err != nil {
+		if err := col.values.AppendRow(item); err != nil {
+			return err
+		}
+	}
+	return nil
+
+}
+
+// appendBulkPlain is the bulk equivalent of appendRowPlain for depth-1 Array
+// columns. Flattens arr into a single inner Append call so the inner column's
+// growth/loop preamble runs once instead of N times.
+//
+// Mirrors appendRowPlain's retry semantics: inner Append rejects unknown slice
+// types up-front via ColumnConverterError without mutating its state, so on
+// that error we retry per-item with AppendRow from the flat slice.
+func appendBulkPlain[T any](col *Array, arr [][]T) error {
+	if len(arr) == 0 {
+		return nil
+	}
+
+	total := 0
+	for _, row := range arr {
+		total += len(row)
+	}
+
+	flat := make([]T, 0, total)
+	for _, row := range arr {
+		col.appendOffset(0, uint64(len(row)))
+		flat = append(flat, row...)
+	}
+
+	_, err := col.values.Append(flat)
+	if err == nil {
+		return nil
+	}
+
+	var convErr *ColumnConverterError
+	if !errors.As(err, &convErr) {
+		return err
+	}
+
+	for _, item := range flat {
+		if err := col.values.AppendRow(item); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func appendNullableBulkPlain[T any](col *Array, arr [][]*T) error {
+	if len(arr) == 0 {
+		return nil
+	}
+	total := 0
+	for _, row := range arr {
+		total += len(row)
+	}
+
+	flat := make([]*T, 0, total)
+	for _, row := range arr {
+		col.appendOffset(0, uint64(len(row)))
+		flat = append(flat, row...)
+	}
+
+	_, err := col.values.Append(flat)
+	if err == nil {
+		return nil
+	}
+
+	var convErr *ColumnConverterError
+
+	if !errors.As(err, &convErr) {
+		return err
+	}
+
+	for _, item := range flat {
+		if item == nil {
+			if err := col.values.AppendRow(nil); err != nil {
+				return err
+			}
+			continue
+		}
+
+		if err := col.values.AppendRow(item); err != nil {
 			return err
 		}
 	}

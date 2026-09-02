@@ -43,3 +43,20 @@ func (col *Array) appendRowPlain(v any) error {
 		return col.appendRowDefault(v)
 	}
 }
+
+// appendBulkPlain dispatches typed [][]T inputs (one slice per row of a depth-1
+// Array column) through the inner column's typed Append fast path, avoiding
+// the reflection loop in Array.Append. Returns (true, err) when a typed case
+// matched, (false, nil) to signal the caller should fall through to reflection.
+func (col *Array) appendBulkPlain(v any) (bool, error) {
+	switch tv := v.(type) {
+	{{- range . }}
+	case [][]{{ . }}:
+		return true, appendBulkPlain(col, tv)
+	case [][]*{{ . }}:
+		return true, appendNullableBulkPlain(col, tv)
+	{{- end }}
+	default:
+		return false, nil
+	}
+}
