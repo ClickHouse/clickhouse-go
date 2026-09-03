@@ -1,9 +1,11 @@
 package clickhouse
 
 import (
+	"net/netip"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -41,6 +43,7 @@ func TestBindQueryOrAppendParameters(t *testing.T) {
 func TestBindQueryOrAppendParametersNamedValue(t *testing.T) {
 	str := "hello"
 	tm := time.Unix(1700000000, 500_000_000)
+	addr := netip.MustParseAddr("10.0.0.1")
 
 	cases := []struct {
 		name  string
@@ -52,6 +55,9 @@ func TestBindQueryOrAppendParametersNamedValue(t *testing.T) {
 		{"*string is dereferenced and sent raw", &str, "hello"},
 		{"time.Time uses formatTimeParam", tm, "1700000000.500"},
 		{"*time.Time uses formatTimeParam", &tm, "1700000000.500"},
+		{"time.Duration keeps its own text, not String()", 90 * time.Minute, "01:30:00"},
+		{"fmt.Stringer is sent raw and unquoted", uuid.MustParse("11111111-1111-1111-1111-111111111111"), "11111111-1111-1111-1111-111111111111"},
+		{"fmt.Stringer pointer is sent raw and unquoted", &addr, "10.0.0.1"},
 		{"other types go through formatValue", 42, "42"},
 	}
 	for _, tc := range cases {
@@ -60,6 +66,26 @@ func TestBindQueryOrAppendParametersNamedValue(t *testing.T) {
 			query, err := bindQueryOrAppendParameters(true, options, "SELECT {p:String}", time.UTC, Named("p", tc.value))
 			require.NoError(t, err)
 			assert.Equal(t, "SELECT {p:String}", query)
+			assert.Equal(t, tc.want, options.parameters["p"])
+		})
+	}
+}
+
+func TestBindQueryOrAppendParametersNestedStringerStaysQuoted(t *testing.T) {
+	cases := []struct {
+		name  string
+		query string
+		value any
+		want  string
+	}{
+		{"array element", "SELECT {p:Array(UUID)}", []uuid.UUID{uuid.MustParse("11111111-1111-1111-1111-111111111111")}, "['11111111-1111-1111-1111-111111111111']"},
+		{"tuple element", "SELECT {p:Tuple(UUID, UInt8)}", GroupSet{Value: []any{uuid.MustParse("11111111-1111-1111-1111-111111111111"), uint8(1)}}, "('11111111-1111-1111-1111-111111111111', 1)"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			options := &QueryOptions{}
+			_, err := bindQueryOrAppendParameters(true, options, tc.query, time.UTC, Named("p", tc.value))
+			require.NoError(t, err)
 			assert.Equal(t, tc.want, options.parameters["p"])
 		})
 	}

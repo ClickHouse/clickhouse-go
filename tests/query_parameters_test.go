@@ -3,9 +3,12 @@ package tests
 import (
 	"context"
 	"fmt"
+	"net"
+	"net/netip"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -192,6 +195,30 @@ func TestQueryParameters(t *testing.T) {
 		require.NoError(t, row.Err())
 		require.NoError(t, row.Scan(&got))
 		assert.True(t, got.Equal(in.Truncate(time.Second)), "want truncated instant %s, got %s", in.Truncate(time.Second).UTC(), got.UTC())
+	})
+
+	t.Run("Stringer values", func(t *testing.T) {
+		id := uuid.MustParse("11111111-1111-1111-1111-111111111111")
+		addr := netip.MustParseAddr("10.0.0.1")
+
+		var (
+			gotUUID  uuid.UUID
+			gotIP    net.IP
+			gotArray []uuid.UUID
+		)
+		row := client.QueryRow(
+			ctx,
+			"SELECT {id:UUID}, {addr:IPv4}, {ids:Array(UUID)}",
+			clickhouse.Named("id", id),
+			clickhouse.Named("addr", addr),
+			clickhouse.Named("ids", []uuid.UUID{id}),
+		)
+		require.NoError(t, row.Err())
+		require.NoError(t, row.Scan(&gotUUID, &gotIP, &gotArray))
+
+		assert.Equal(t, id, gotUUID)
+		assert.Equal(t, "10.0.0.1", gotIP.String())
+		assert.Equal(t, []uuid.UUID{id}, gotArray)
 	})
 
 	t.Run("with bind backwards compatibility", func(t *testing.T) {
