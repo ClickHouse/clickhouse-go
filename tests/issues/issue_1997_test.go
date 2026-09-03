@@ -2,6 +2,7 @@ package issues
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"testing"
 
@@ -135,5 +136,66 @@ func TestIssue1997_HTTPInsertSingleQueryID(t *testing.T) {
 
 	var loggedID string
 	require.NoError(t, conn.QueryRow(ctx, "SELECT any(query_id) FROM system.query_log WHERE "+logFilter).Scan(&loggedID))
+	require.Equal(t, queryID, loggedID)
+}
+
+// TestIssue1997_StdInsertSingleQueryID covers the database/sql PrepareContext
+// path, which shares the native prepareBatch implementation.
+func TestIssue1997_StdInsertSingleQueryID(t *testing.T) {
+	env, err := clickhouse_tests.GetTestEnvironment("issues")
+	require.NoError(t, err)
+	opts := clickhouse_tests.ClientOptionsFromEnv(env, clickhouse.Settings{}, false)
+	delete(opts.Settings, "async_insert")
+
+	conn, err := sql.Open("clickhouse", clickhouse_tests.OptionsToDSN(&opts))
+	require.NoError(t, err)
+	t.Cleanup(func() { conn.Close() })
+
+	ctx := context.Background()
+	table := fmt.Sprintf("issue_1997_std_%s", uuid.NewString()[:8])
+	_, err = conn.ExecContext(ctx, fmt.Sprintf(
+		`CREATE TABLE %s (id UInt64, value String) ENGINE = MergeTree() ORDER BY id`, table))
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		if _, err := conn.ExecContext(context.Background(), fmt.Sprintf("DROP TABLE IF EXISTS %s", table)); err != nil {
+			t.Logf("DROP TABLE %s failed: %v", table, err)
+		}
+	})
+
+	queryID := "issue-1997-std-" + uuid.NewString()
+	insertCtx := clickhouse.Context(ctx, clickhouse.WithQueryID(queryID))
+	tx, err := conn.BeginTx(insertCtx, nil)
+	require.NoError(t, err)
+	stmt, err := tx.PrepareContext(insertCtx, fmt.Sprintf("INSERT INTO %s (id, value)", table))
+	require.NoError(t, err)
+	defer stmt.Close()
+
+	for i := 0; i < 10; i++ {
+		_, err = stmt.ExecContext(insertCtx, uint64(i), fmt.Sprintf("row-%d", i))
+		require.NoError(t, err)
+	}
+	require.NoError(t, tx.Commit())
+
+	var stored uint64
+	require.NoError(t, conn.QueryRowContext(ctx, fmt.Sprintf("SELECT count() FROM %s", table)).Scan(&stored))
+	require.Equal(t, uint64(10), stored)
+
+	if _, err := conn.ExecContext(ctx, "SYSTEM FLUSH LOGS"); err != nil {
+		t.Skipf("`system.query_log` not available: %v", err)
+	}
+
+	logFilter := fmt.Sprintf(`
+		type = 'QueryFinish'
+		AND current_database = currentDatabase()
+		AND startsWith(upper(trimLeft(query)), 'INSERT')
+		AND query ILIKE '%%%s%%'
+	`, table)
+
+	var distinctIDs uint64
+	require.NoError(t, conn.QueryRowContext(ctx, "SELECT uniqExact(query_id) FROM system.query_log WHERE "+logFilter).Scan(&distinctIDs))
+	require.Equal(t, uint64(1), distinctIDs, "database/sql INSERT must log a single query_id, got %d", distinctIDs)
+
+	var loggedID string
+	require.NoError(t, conn.QueryRowContext(ctx, "SELECT any(query_id) FROM system.query_log WHERE "+logFilter).Scan(&loggedID))
 	require.Equal(t, queryID, loggedID)
 }
