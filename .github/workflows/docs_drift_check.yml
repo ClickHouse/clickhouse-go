@@ -1,0 +1,55 @@
+name: 'Docs Drift Check'
+
+# Advisory docs-drift check on pull requests. The shared workflow dispatches
+# the PR to the central AI automation repo using the Workflow Authentication
+# GitHub App. The central worker compares the diff against this repo's docs,
+# README, type reference, and examples using the repository-specific rubric in
+# .claude/agents/docs-drift-reviewer.md. It then applies or removes the
+# `needs-docs` label and keeps one sticky comment up to date. Model credentials
+# stay in the central repo.
+#
+# Every push to the PR re-runs the check, so fixing the docs in a later commit
+# clears the label and marks the comment resolved.
+#
+# Fork PRs are skipped automatically. A maintainer can run one manually via
+# workflow_dispatch with the PR number. The central worker reads the diff but
+# checks out only the trusted base revision.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - main
+    # Cost valve: cover shipped client behavior and its documentation while
+    # skipping test-only, benchmark-only, and CI-only pull requests.
+    paths:
+      - '*.go'
+      - 'ext/**'
+      - 'internal/**'
+      - 'lib/**'
+      - 'resources/**'
+      - 'docs/**'
+      - 'examples/**'
+      - 'README.md'
+      - 'TYPES.md'
+      - 'go.mod'
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "PR number to check"
+        required: true
+        type: string
+
+permissions:
+  pull-requests: read
+
+jobs:
+  docs-drift:
+    uses: ClickHouse/integrations-shared-workflows/.github/workflows/claude-docs-drift.yml@main
+    # Pull request runs read the PR from the event. Manual runs forward the
+    # workflow_dispatch input.
+    with:
+      pr_number: ${{ github.event.inputs.pr_number }}
+    secrets:
+      WORKFLOW_AUTH_PUBLIC_APP_ID: ${{ secrets.WORKFLOW_AUTH_PUBLIC_APP_ID }}
+      WORKFLOW_AUTH_PUBLIC_PRIVATE_KEY: ${{ secrets.WORKFLOW_AUTH_PUBLIC_PRIVATE_KEY }}
