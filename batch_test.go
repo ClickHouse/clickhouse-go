@@ -428,6 +428,23 @@ func TestDisableAsyncInsertUnlessSet(t *testing.T) {
 		disableAsyncInsertUnlessSet(nil, &o)
 		assert.Equal(t, 1, o.settings["async_insert"])
 	})
+	t.Run("honors WithAsync true", func(t *testing.T) {
+		o := QueryOptions{async: AsyncOptions{ok: true, wait: true}}
+		disableAsyncInsertUnlessSet(nil, &o)
+		assert.Equal(t, 1, o.settings["async_insert"])
+		assert.Equal(t, 1, o.settings["wait_for_async_insert"])
+	})
+	t.Run("honors WithAsync false wait", func(t *testing.T) {
+		o := QueryOptions{async: AsyncOptions{ok: true, wait: false}}
+		disableAsyncInsertUnlessSet(&Options{Settings: Settings{"async_insert": 0}}, &o)
+		assert.Equal(t, 1, o.settings["async_insert"])
+		assert.Equal(t, 0, o.settings["wait_for_async_insert"])
+	})
+	t.Run("query setting wins over WithAsync", func(t *testing.T) {
+		o := QueryOptions{settings: Settings{"async_insert": 0}, async: AsyncOptions{ok: true, wait: true}}
+		disableAsyncInsertUnlessSet(nil, &o)
+		assert.Equal(t, 0, o.settings["async_insert"])
+	})
 	t.Run("respects connection setting", func(t *testing.T) {
 		o := QueryOptions{settings: make(Settings)}
 		disableAsyncInsertUnlessSet(&Options{Settings: Settings{"async_insert": 1}}, &o)

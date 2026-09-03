@@ -33,6 +33,19 @@ func disableAsyncInsertUnlessSet(opt *Options, o *QueryOptions) {
 			return
 		}
 	}
+	// WithAsync / WithStdAsync is a query-level opt-in; honor it before
+	// falling back to the connection setting or the batch default of 0.
+	if o.async.ok {
+		if o.settings == nil {
+			o.settings = make(Settings)
+		}
+		o.settings["async_insert"] = 1
+		o.settings["wait_for_async_insert"] = 0
+		if o.async.wait {
+			o.settings["wait_for_async_insert"] = 1
+		}
+		return
+	}
 	if opt != nil && opt.Settings != nil {
 		if _, ok := opt.Settings["async_insert"]; ok {
 			return

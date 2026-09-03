@@ -73,3 +73,67 @@ func TestIssue1997_NativeInsertSingleQueryID(t *testing.T) {
 	require.NoError(t, conn.QueryRow(ctx, "SELECT any(query_id) FROM system.query_log WHERE "+logFilter).Scan(&loggedID))
 	require.Equal(t, queryID, loggedID)
 }
+
+// TestIssue1997_HTTPInsertSingleQueryID is the HTTP equivalent of the native
+// regression: httpBatch.Send also forces async_insert=0 unless the caller set it.
+func TestIssue1997_HTTPInsertSingleQueryID(t *testing.T) {
+	env, err := clickhouse_tests.GetTestEnvironment("issues")
+	require.NoError(t, err)
+
+	conn, err := clickhouse.Open(&clickhouse.Options{
+		Protocol: clickhouse.HTTP,
+		Addr:     []string{fmt.Sprintf("%s:%d", env.Host, env.HttpPort)},
+		Auth: clickhouse.Auth{
+			Database: env.Database,
+			Username: env.Username,
+			Password: env.Password,
+		},
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { conn.Close() })
+
+	ctx := context.Background()
+	table := fmt.Sprintf("issue_1997_http_%s", uuid.NewString()[:8])
+	require.NoError(t, conn.Exec(ctx, fmt.Sprintf(
+		`CREATE TABLE %s (id UInt64, value String) ENGINE = MergeTree() ORDER BY id`, table)))
+	t.Cleanup(func() {
+		if err := conn.Exec(context.Background(), fmt.Sprintf("DROP TABLE IF EXISTS %s", table)); err != nil {
+			t.Logf("DROP TABLE %s failed: %v", table, err)
+		}
+	})
+
+	queryID := "issue-1997-http-" + uuid.NewString()
+	insertCtx := clickhouse.Context(ctx, clickhouse.WithQueryID(queryID))
+
+	batch, err := conn.PrepareBatch(insertCtx, fmt.Sprintf("INSERT INTO %s (id, value)", table))
+	require.NoError(t, err)
+	defer batch.Close()
+
+	for i := 0; i < 10; i++ {
+		require.NoError(t, batch.Append(uint64(i), fmt.Sprintf("row-%d", i)))
+	}
+	require.NoError(t, batch.Send())
+
+	var stored uint64
+	require.NoError(t, conn.QueryRow(ctx, fmt.Sprintf("SELECT count() FROM %s", table)).Scan(&stored))
+	require.Equal(t, uint64(10), stored)
+
+	if err := conn.Exec(ctx, "SYSTEM FLUSH LOGS"); err != nil {
+		t.Skipf("`system.query_log` not available: %v", err)
+	}
+
+	logFilter := fmt.Sprintf(`
+		type = 'QueryFinish'
+		AND current_database = currentDatabase()
+		AND startsWith(upper(trimLeft(query)), 'INSERT')
+		AND query ILIKE '%%%s%%'
+	`, table)
+
+	var distinctIDs uint64
+	require.NoError(t, conn.QueryRow(ctx, "SELECT uniqExact(query_id) FROM system.query_log WHERE "+logFilter).Scan(&distinctIDs))
+	require.Equal(t, uint64(1), distinctIDs, "HTTP INSERT must log a single query_id, got %d", distinctIDs)
+
+	var loggedID string
+	require.NoError(t, conn.QueryRow(ctx, "SELECT any(query_id) FROM system.query_log WHERE "+logFilter).Scan(&loggedID))
+	require.Equal(t, queryID, loggedID)
+}
