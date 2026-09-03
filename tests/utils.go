@@ -22,15 +22,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
-	"github.com/docker/docker/api/types/container"
 	"github.com/docker/go-units"
 	"github.com/google/uuid"
+	"github.com/moby/moby/api/types/container"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 
 var testUUID = uuid.NewString()[0:12]
@@ -95,7 +96,12 @@ func (env *ClickHouseTestEnvironment) setVersion() {
 }
 
 func CheckMinServerServerVersion(conn driver.Conn, major, minor, patch uint64) bool {
-	v, err := conn.ServerVersion()
+	var v *driver.ServerVersion
+	err := retryOnSessionLock(func() error {
+		var e error
+		v, e = conn.ServerVersion()
+		return e
+	})
 	if err != nil {
 		panic(err)
 	}
@@ -104,6 +110,104 @@ func CheckMinServerServerVersion(conn driver.Conn, major, minor, patch uint64) b
 		Minor: minor,
 		Patch: patch,
 	}, v.Version)
+}
+
+// HTTP test connections pin a per-test session_id (see getHTTPConnection) so that a
+// test's requests share one ClickHouse session — required for session-scoped state such
+// as TEMPORARY TABLE. The cost is that two requests for the same session_id arriving
+// back-to-back can race the server-side session-lock release, especially on ClickHouse
+// Cloud where release lags the response, yielding "Code: 373 ... SESSION_IS_LOCKED". The
+// lock is transient, so a short bounded retry hides it.
+const (
+	sessionLockRetries = 5
+	sessionLockBackoff = 150 * time.Millisecond
+)
+
+// isSessionLocked reports whether err is a transient SESSION_IS_LOCKED failure. Both
+// protocols now surface it as a typed *clickhouse.Exception; the message match is kept as
+// a fallback for Cloud proxies that may return a non-ClickHouse error body.
+func isSessionLocked(err error) bool {
+	if err == nil {
+		return false
+	}
+	var ex *clickhouse.Exception
+	if errors.As(err, &ex) && ex.Code == 373 { // SESSION_IS_LOCKED
+		return true
+	}
+	return strings.Contains(err.Error(), "SESSION_IS_LOCKED")
+}
+
+func retryOnSessionLock(fn func() error) error {
+	var err error
+	for attempt := 0; attempt <= sessionLockRetries; attempt++ {
+		if err = fn(); !isSessionLocked(err) {
+			return err
+		}
+		time.Sleep(sessionLockBackoff)
+	}
+	return err
+}
+
+// retryConn wraps a driver.Conn and transparently retries requests that fail with
+// SESSION_IS_LOCKED. It wraps HTTP test connections; only the few that opt into a session_id
+// can actually hit the lock. Embedding driver.Conn forwards Contributors/Stats/Close unchanged.
+type retryConn struct {
+	driver.Conn
+}
+
+func (c *retryConn) ServerVersion() (*driver.ServerVersion, error) {
+	var v *driver.ServerVersion
+	err := retryOnSessionLock(func() error {
+		var e error
+		v, e = c.Conn.ServerVersion()
+		return e
+	})
+	return v, err
+}
+
+func (c *retryConn) Exec(ctx context.Context, query string, args ...any) error {
+	return retryOnSessionLock(func() error { return c.Conn.Exec(ctx, query, args...) })
+}
+
+func (c *retryConn) Select(ctx context.Context, dest any, query string, args ...any) error {
+	return retryOnSessionLock(func() error { return c.Conn.Select(ctx, dest, query, args...) })
+}
+
+func (c *retryConn) Query(ctx context.Context, query string, args ...any) (driver.Rows, error) {
+	var rows driver.Rows
+	err := retryOnSessionLock(func() error {
+		var e error
+		rows, e = c.Conn.Query(ctx, query, args...)
+		return e
+	})
+	return rows, err
+}
+
+func (c *retryConn) QueryRow(ctx context.Context, query string, args ...any) driver.Row {
+	var row driver.Row
+	_ = retryOnSessionLock(func() error {
+		row = c.Conn.QueryRow(ctx, query, args...)
+		return row.Err()
+	})
+	return row
+}
+
+func (c *retryConn) PrepareBatch(ctx context.Context, query string, opts ...driver.PrepareBatchOption) (driver.Batch, error) {
+	var b driver.Batch
+	err := retryOnSessionLock(func() error {
+		var e error
+		b, e = c.Conn.PrepareBatch(ctx, query, opts...)
+		return e
+	})
+	return b, err
+}
+
+func (c *retryConn) AsyncInsert(ctx context.Context, query string, wait bool, args ...any) error {
+	return retryOnSessionLock(func() error { return c.Conn.AsyncInsert(ctx, query, wait, args...) })
+}
+
+func (c *retryConn) Ping(ctx context.Context) error {
+	return retryOnSessionLock(func() error { return c.Conn.Ping(ctx) })
 }
 
 func CreateClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment, error) {
@@ -123,10 +227,6 @@ func CreateClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment,
 	fmt.Println("Using Docker for integration tests")
 	_, b, _, _ := runtime.Caller(0)
 	basePath := filepath.Dir(b)
-	if err != nil {
-		// can't test without Container
-		panic(err)
-	}
 
 	expected := []*units.Ulimit{
 		{
@@ -143,9 +243,10 @@ func CreateClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment,
 	containerName := fmt.Sprintf("clickhouse-go-%x", md5.Sum(buf.Bytes()))
 
 	req := testcontainers.ContainerRequest{
-		Image:        fmt.Sprintf("clickhouse/clickhouse-server:%s", GetClickHouseTestVersion()),
-		Name:         containerName,
-		ExposedPorts: []string{"9000/tcp", "8123/tcp", "9440/tcp", "8443/tcp"},
+		Image:           fmt.Sprintf("clickhouse/clickhouse-server:%s", GetClickHouseTestVersion()),
+		AlwaysPullImage: true,
+		Name:            containerName,
+		ExposedPorts:    []string{"9000/tcp", "8123/tcp", "9440/tcp", "8443/tcp"},
 		WaitingFor: wait.ForAll(
 			wait.ForListeningPort("9000/tcp"),
 			wait.ForListeningPort("8123/tcp"),
@@ -188,10 +289,10 @@ func CreateClickHouseTestEnvironment(testSet string) (ClickHouseTestEnvironment,
 	ip, _ := clickhouseContainer.ContainerIP(ctx)
 	testEnv := ClickHouseTestEnvironment{
 		ContainerID: clickhouseContainer.GetContainerID(),
-		Port:        p.Int(),
-		HttpPort:    hp.Int(),
-		SslPort:     sslPort.Int(),
-		HttpsPort:   hps.Int(),
+		Port:        int(p.Num()),
+		HttpPort:    int(hp.Num()),
+		SslPort:     int(sslPort.Num()),
+		HttpsPort:   int(hps.Num()),
 		Host:        "127.0.0.1",
 		Username:    "tester",
 		Password:    "ClickHouse",
@@ -330,6 +431,10 @@ func TestClientDefaultSettings(env ClickHouseTestEnvironment) clickhouse.Setting
 	settings["insert_quorum"], _ = strconv.Atoi(GetEnv("CLICKHOUSE_QUORUM_INSERT", "1"))
 	settings["insert_quorum_parallel"] = 0
 	settings["select_sequential_consistency"] = 1
+	// Force synchronous inserts: ClickHouse Cloud defaults async_insert=1, which the server
+	// rejects together with insert_quorum unless insert_quorum_parallel=1. Synchronous inserts
+	// also keep the suite's insert-then-read assertions deterministic.
+	settings["async_insert"] = 0
 
 	return settings
 }
@@ -357,7 +462,9 @@ func GetConnection(testSet string, t *testing.T, protocol clickhouse.Protocol, s
 	case clickhouse.Native:
 		return getConnection(env, env.Database, settings, tlsConfig, compression)
 	case clickhouse.HTTP:
-		return getHTTPConnection(env, t.Name(), env.Database, settings, tlsConfig, compression)
+		// Sessionless by default; tests needing a server-side session opt in via
+		// settings["session_id"] (or GetConnectionHTTP). See getHTTPConnection.
+		return getHTTPConnection(env, "", env.Database, settings, tlsConfig, compression)
 	default:
 		return nil, fmt.Errorf("unknown protocol: %s", protocol)
 	}
@@ -370,6 +477,18 @@ func GetConnectionTCP(testSet string, settings clickhouse.Settings, tlsConfig *t
 	}
 
 	return getConnection(env, env.Database, settings, tlsConfig, compression)
+}
+
+// GetConnectionTCPWithOptions is like GetConnectionTCP but allows the caller to mutate
+// the final clickhouse.Options before the connection is opened — useful for adjusting
+// pool sizing, timeouts, or any field not already exposed by the helper signature.
+func GetConnectionTCPWithOptions(testSet string, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression, mutate func(*clickhouse.Options)) (driver.Conn, error) {
+	env, err := GetTestEnvironment(testSet)
+	if err != nil {
+		return nil, err
+	}
+
+	return getConnectionWithMutator(env, env.Database, settings, tlsConfig, compression, mutate)
 }
 
 func GetConnectionHTTP(testSet string, sessionName string, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (driver.Conn, error) {
@@ -404,6 +523,12 @@ func GetConnectionWithOptions(options *clickhouse.Options) (driver.Conn, error) 
 	options.Settings["insert_quorum"], err = strconv.Atoi(GetEnv("CLICKHOUSE_QUORUM_INSERT", "1"))
 	options.Settings["insert_quorum_parallel"] = 0
 	options.Settings["select_sequential_consistency"] = 1
+	// Force synchronous inserts: ClickHouse Cloud defaults async_insert=1, which the server
+	// rejects together with insert_quorum unless insert_quorum_parallel=1. Synchronous inserts
+	// also keep the suite's insert-then-read assertions deterministic.
+	if _, ok := options.Settings["async_insert"]; !ok {
+		options.Settings["async_insert"] = 0
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -411,6 +536,10 @@ func GetConnectionWithOptions(options *clickhouse.Options) (driver.Conn, error) 
 }
 
 func getConnection(env ClickHouseTestEnvironment, database string, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (driver.Conn, error) {
+	return getConnectionWithMutator(env, database, settings, tlsConfig, compression, nil)
+}
+
+func getConnectionWithMutator(env ClickHouseTestEnvironment, database string, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression, mutate func(*clickhouse.Options)) (driver.Conn, error) {
 	useSSL, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_SSL", "false"))
 	if err != nil {
 		panic(err)
@@ -440,6 +569,12 @@ func getConnection(env ClickHouseTestEnvironment, database string, settings clic
 	settings["insert_quorum"], err = strconv.Atoi(GetEnv("CLICKHOUSE_QUORUM_INSERT", "1"))
 	settings["insert_quorum_parallel"] = 0
 	settings["select_sequential_consistency"] = 1
+	// Force synchronous inserts: ClickHouse Cloud defaults async_insert=1, which the server
+	// rejects together with insert_quorum unless insert_quorum_parallel=1. Synchronous inserts
+	// also keep the suite's insert-then-read assertions deterministic.
+	if _, ok := settings["async_insert"]; !ok {
+		settings["async_insert"] = 0
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -449,7 +584,7 @@ func getConnection(env ClickHouseTestEnvironment, database string, settings clic
 		return nil, err
 	}
 
-	conn, err := clickhouse.Open(&clickhouse.Options{
+	opts := &clickhouse.Options{
 		Protocol: clickhouse.Native,
 		Addr:     []string{fmt.Sprintf("%s:%d", env.Host, port)},
 		Settings: settings,
@@ -461,8 +596,11 @@ func getConnection(env ClickHouseTestEnvironment, database string, settings clic
 		TLS:         tlsConfig,
 		Compression: compression,
 		DialTimeout: time.Duration(timeout) * time.Second,
-	})
-	return conn, err
+	}
+	if mutate != nil {
+		mutate(opts)
+	}
+	return clickhouse.Open(opts)
 }
 
 func getHTTPConnection(env ClickHouseTestEnvironment, sessionName string, database string, settings clickhouse.Settings, tlsConfig *tls.Config, compression *clickhouse.Compression) (driver.Conn, error) {
@@ -495,6 +633,12 @@ func getHTTPConnection(env ClickHouseTestEnvironment, sessionName string, databa
 	settings["insert_quorum"], err = strconv.Atoi(GetEnv("CLICKHOUSE_QUORUM_INSERT", "1"))
 	settings["insert_quorum_parallel"] = 0
 	settings["select_sequential_consistency"] = 1
+	// Force synchronous inserts: ClickHouse Cloud defaults async_insert=1, which the server
+	// rejects together with insert_quorum unless insert_quorum_parallel=1. Synchronous inserts
+	// also keep the suite's insert-then-read assertions deterministic.
+	if _, ok := settings["async_insert"]; !ok {
+		settings["async_insert"] = 0
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -504,9 +648,15 @@ func getHTTPConnection(env ClickHouseTestEnvironment, sessionName string, databa
 		return nil, err
 	}
 
-	// Each test uses its own session ID.
-	// This may be problematic on some tests, but overall it is more consistent.
-	settings["session_id"] = sessionName
+	// session_id is opt-in. Only tests that need server-side session state across requests
+	// (e.g. TEMPORARY TABLE over HTTP) should set it — via GetConnectionHTTP or by passing
+	// settings["session_id"]. Pinning it for every HTTP test serialises a test's requests onto
+	// one server session and races the session-lock release on Cloud (SESSION_IS_LOCKED), so the
+	// default leaves the connection sessionless. A non-empty sessionName is explicit opt-in; a
+	// caller-provided settings["session_id"] is left untouched.
+	if sessionName != "" {
+		settings["session_id"] = sessionName
+	}
 
 	conn, err := clickhouse.Open(&clickhouse.Options{
 		Protocol: clickhouse.HTTP,
@@ -517,15 +667,24 @@ func getHTTPConnection(env ClickHouseTestEnvironment, sessionName string, databa
 			Username: env.Username,
 			Password: env.Password,
 		},
-		TLS:                 tlsConfig,
-		Compression:         compression,
-		DialTimeout:         time.Duration(timeout) * time.Second,
-		ConnMaxLifetime:     1 * time.Second,
+		TLS:         tlsConfig,
+		Compression: compression,
+		DialTimeout: time.Duration(timeout) * time.Second,
+		// Keep the single pooled connection alive for the whole test. For session-pinned tests a
+		// short lifetime recycles the connection mid-test, and the replacement reuses the same
+		// session_id before the server has released it, yielding "SESSION_IS_LOCKED" (worse on
+		// Cloud, where session release lags the response). Each test opens and closes its own
+		// connection, so a long lifetime never leaks across tests.
+		ConnMaxLifetime:     10 * time.Minute,
 		MaxOpenConns:        1,
 		MaxIdleConns:        1,
 		HttpMaxConnsPerHost: 1,
 	})
-	return conn, err
+	if err != nil {
+		return nil, err
+	}
+	// Wrap so transient SESSION_IS_LOCKED failures are retried (only session-pinned tests can hit it).
+	return &retryConn{Conn: conn}, nil
 }
 
 func getJWTConnection(env ClickHouseTestEnvironment, database string, settings clickhouse.Settings, tlsConfig *tls.Config, maxConnLifetime time.Duration, jwtFunc clickhouse.GetJWTFunc) (driver.Conn, error) {
@@ -551,6 +710,12 @@ func getJWTConnection(env ClickHouseTestEnvironment, database string, settings c
 	settings["insert_quorum"], err = strconv.Atoi(GetEnv("CLICKHOUSE_QUORUM_INSERT", "1"))
 	settings["insert_quorum_parallel"] = 0
 	settings["select_sequential_consistency"] = 1
+	// Force synchronous inserts: ClickHouse Cloud defaults async_insert=1, which the server
+	// rejects together with insert_quorum unless insert_quorum_parallel=1. Synchronous inserts
+	// also keep the suite's insert-then-read assertions deterministic.
+	if _, ok := settings["async_insert"]; !ok {
+		settings["async_insert"] = 0
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -779,7 +944,7 @@ func CreateNginxReverseProxyTestEnvironment(clickhouseEnv ClickHouseTestEnvironm
 	}
 	p, _ := nginxContainer.MappedPort(ctx, "80")
 	return NginxReverseHTTPProxyTestEnvironment{
-		HttpPort:       p.Int(),
+		HttpPort:       int(p.Num()),
 		NginxContainer: nginxContainer,
 	}, nil
 }
@@ -817,7 +982,7 @@ func CreateTinyProxyTestEnvironment(t *testing.T) (TinyProxyTestEnvironment, err
 
 	p, _ := container.MappedPort(ctx, "8888")
 	return TinyProxyTestEnvironment{
-		HttpPort:  p.Int(),
+		HttpPort:  int(p.Num()),
 		Container: container,
 	}, nil
 }

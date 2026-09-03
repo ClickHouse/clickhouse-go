@@ -3,12 +3,13 @@ package column
 import (
 	"database/sql"
 	"fmt"
-	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
 	"strings"
+
+	"github.com/ClickHouse/ch-go/proto"
 )
 
-var scanTypeAny = reflect.TypeOf((*interface{})(nil)).Elem()
+var scanTypeAny = reflect.TypeOf((*any)(nil)).Elem()
 
 type offset struct {
 	values   UInt64

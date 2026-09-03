@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/ClickHouse/ch-go/proto"
+
 	"github.com/ClickHouse/clickhouse-go/v2/lib/chcol"
 )
 
@@ -285,7 +286,7 @@ func (c *Dynamic) AppendRow(v any) error {
 		return c.AppendRow(chcol.NewDynamicWithType(v, inferredTypeName))
 	}
 
-	return fmt.Errorf("value \"%v\" cannot be stored in dynamic column: no compatible types. hint: use clickhouse.DynamicWithType to wrap the value", v)
+	return fmt.Errorf("value \"%v\" cannot be stored in dynamic column: no compatible types. hint: either use fixed types like int64, int32, etc or use clickhouse.DynamicWithType to wrap the value with concrete ClickHouse column type", v)
 }
 
 func (c *Dynamic) encodeHeader(buffer *proto.Buffer) error {

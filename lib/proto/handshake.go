@@ -2,11 +2,11 @@ package proto
 
 import (
 	"fmt"
-	chproto "github.com/ClickHouse/ch-go/proto"
-	"go.yaml.in/yaml/v3"
 	"strconv"
 	"strings"
 	"time"
+
+	chproto "github.com/ClickHouse/ch-go/proto"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/timezone"
 )
@@ -121,28 +121,4 @@ func (v Version) String() string {
 		v.Minor,
 		v.Patch,
 	)
-}
-
-func (v *Version) UnmarshalYAML(value *yaml.Node) (err error) {
-	versions := strings.Split(value.Value, ".")
-	if len(versions) < 1 || len(versions) > 3 {
-		return fmt.Errorf("%s is not a valid version", value.Value)
-	}
-	for i := range versions {
-		switch i {
-		case 0:
-			if v.Major, err = strconv.ParseUint(versions[i], 10, 8); err != nil {
-				return err
-			}
-		case 1:
-			if v.Minor, err = strconv.ParseUint(versions[i], 10, 8); err != nil {
-				return err
-			}
-		case 2:
-			if v.Patch, err = strconv.ParseUint(versions[i], 10, 8); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
 }

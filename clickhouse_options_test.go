@@ -2,7 +2,9 @@ package clickhouse
 
 import (
 	"crypto/tls"
+	"log/slog"
 	"net/url"
+	"os"
 	"testing"
 	"time"
 
@@ -206,6 +208,54 @@ func TestParseDSN(t *testing.T) {
 				scheme: "clickhouse",
 			},
 			"",
+		},
+		{
+			"native protocol with secure and no tls_server_name",
+			"clickhouse://127.0.0.1/test_database?secure=true",
+			&Options{
+				Protocol: Native,
+				TLS: &tls.Config{
+					InsecureSkipVerify: false,
+					ServerName:         "",
+				},
+				Addr:     []string{"127.0.0.1"},
+				Settings: Settings{},
+				Auth: Auth{
+					Database: "test_database",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
+			"native protocol with tls_server_name",
+			"clickhouse://127.0.0.1/test_database?secure=true&tls_server_name=clickhouse.local",
+			&Options{
+				Protocol: Native,
+				TLS: &tls.Config{
+					InsecureSkipVerify: false,
+					ServerName:         "clickhouse.local",
+				},
+				Addr:     []string{"127.0.0.1"},
+				Settings: Settings{},
+				Auth: Auth{
+					Database: "test_database",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
+			"native protocol with tls_server_name (empty)",
+			"clickhouse://127.0.0.1/test_database?secure=true&tls_server_name=",
+			nil,
+			"clickhouse [dsn parse]: tls_server_name must not be empty",
+		},
+		{
+			"native protocol with tls_server_name without secure",
+			"clickhouse://127.0.0.1/test_database?tls_server_name=clickhouse.local",
+			nil,
+			"clickhouse [dsn parse]: tls_server_name requires secure=true",
 		},
 		{
 			"native protocol with secure (bad)",
@@ -481,6 +531,45 @@ func TestParseDSN(t *testing.T) {
 			"",
 		},
 		{
+			"clickhouse proxy with hosts and alt_hosts as query strings",
+			"tcp://127.0.0.1/?hosts=127.0.0.2&alt_hosts=127.0.0.3",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"127.0.0.2", "127.0.0.1", "127.0.0.3"},
+				Settings: Settings{},
+				Auth:     Auth{},
+				scheme:   "tcp",
+			},
+			"",
+		},
+		{
+			"clickhouse proxy trims and skips empty query string hosts",
+			"tcp://127.0.0.1/?hosts=%20%20a,%20b,,&alt_hosts=%20",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"a", "b", "127.0.0.1"},
+				Settings: Settings{},
+				Auth:     Auth{},
+				scheme:   "tcp",
+			},
+			"",
+		},
+		{
+			"clickhouse proxy ignores empty hosts query string",
+			"tcp://127.0.0.1/?hosts=",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"127.0.0.1"},
+				Settings: Settings{},
+				Auth:     Auth{},
+				scheme:   "tcp",
+			},
+			"",
+		},
+		{
 			"http protocol with custom http_path",
 			"https://127.0.0.1/clickhouse?secure=true&skip_verify=true&http_path=/clickhouse",
 			&Options{
@@ -535,4 +624,35 @@ func parseURL(t *testing.T, v string) *url.URL {
 	u, err := url.Parse(v)
 	require.NoError(t, err)
 	return u
+}
+
+func TestLogger(t *testing.T) {
+	t.Run("debug=1 via DSN produces non-noop logger", func(t *testing.T) {
+		opts, err := ParseDSN("clickhouse://127.0.0.1/test?debug=1")
+		require.NoError(t, err)
+		require.True(t, opts.Debug)
+
+		logger := opts.logger()
+		require.NotNil(t, logger)
+		_, isNoop := logger.Handler().(*noopHandler)
+		assert.False(t, isNoop, "expected non-noop logger when debug=1")
+	})
+
+	t.Run("no debug flag produces noop logger", func(t *testing.T) {
+		opts, err := ParseDSN("clickhouse://127.0.0.1/test")
+		require.NoError(t, err)
+		require.False(t, opts.Debug)
+
+		logger := opts.logger()
+		require.NotNil(t, logger)
+		_, isNoop := logger.Handler().(*noopHandler)
+		assert.True(t, isNoop, "expected noop logger when debug is not set")
+	})
+
+	t.Run("custom Logger takes precedence over Debug=true", func(t *testing.T) {
+		customLogger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelWarn}))
+		opts := &Options{Debug: true, Logger: customLogger}
+		logger := opts.logger()
+		assert.Equal(t, customLogger, logger, "custom Logger should take precedence over Debug=true when Debugf is nil")
+	})
 }

@@ -12,8 +12,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
 )
 
 func TestCustomDialContext(t *testing.T) {

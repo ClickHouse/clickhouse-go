@@ -2,11 +2,13 @@ package tests
 
 import (
 	"context"
+	"errors"
 	"testing"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
 )
 
 func TestHTTPExceptionHandling(t *testing.T) {
@@ -27,6 +29,14 @@ func TestHTTPExceptionHandling(t *testing.T) {
 	rows, err := conn.Query(ctx, `SELECT throwIf(number=3, 'there is an exception') FROM system.numbers`)
 	require.NoError(t, err) // query shouldn't fail with 500 status code.
 
+	assertException := func(err error) {
+		assert.Contains(t, err.Error(), "there is an exception", "Expected exception message not caught")
+		var ex *clickhouse.Exception
+		if assert.True(t, errors.As(err, &ex), "mid-stream error should be a typed *clickhouse.Exception") {
+			assert.Equal(t, int32(395), ex.Code) // FUNCTION_THROW_IF_VALUE_IS_NON_ZERO
+		}
+	}
+
 	occured := false
 	// query should fail while scanning the rows mid-stream
 	for rows.Next() {
@@ -34,13 +44,13 @@ func TestHTTPExceptionHandling(t *testing.T) {
 		err := rows.Scan(&result)
 		if err != nil {
 			// should be an exception caught correctly
-			assert.Contains(t, err.Error(), "there is an exception", "Expected exception message not caught")
+			assertException(err)
 			occured = true
 		}
 	}
 
 	if err := rows.Err(); err != nil {
-		assert.Contains(t, err.Error(), "there is an exception", "Expected exception message not caught")
+		assertException(err)
 		occured = true
 	}
 

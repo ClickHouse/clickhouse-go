@@ -4,8 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ClickHouse/clickhouse-go/v2/tests"
 )
 
 func TestIssue1349(t *testing.T) {
@@ -31,8 +32,8 @@ func TestIssue1349(t *testing.T) {
 	var (
 		a        = "a"
 		b        = "b"
-		col1Data = []interface{}{[]string{}, []string{"a", "b"}, &[]string{"c"}, []interface{}{&a, &b}}
-		col2Data = []interface{}{[]*string{&a, nil}, &[]*string{&b, nil}, &[]interface{}{nil, &a}}
+		col1Data = []any{[]string{}, []string{"a", "b"}, &[]string{"c"}, []any{&a, &b}}
+		col2Data = []any{[]*string{&a, nil}, &[]*string{&b, nil}, &[]any{nil, &a}}
 	)
 
 	err = batch.Append(col1Data, col2Data)

@@ -1,0 +1,16 @@
+name: Relay bugs for cross-repo investigation
+
+# Relays newly-opened issues to ClickHouse/integrations-ai-playground for cross-repo investigation.
+
+on:
+  issues:
+    types: [opened]
+
+permissions: {}
+
+jobs:
+  relay:
+    uses: ClickHouse/integrations-shared-workflows/.github/workflows/cross-repo-bug-relay.yml@main
+    secrets:
+      WORKFLOW_AUTH_PUBLIC_APP_ID: ${{ secrets.WORKFLOW_AUTH_PUBLIC_APP_ID }}
+      WORKFLOW_AUTH_PUBLIC_PRIVATE_KEY: ${{ secrets.WORKFLOW_AUTH_PUBLIC_PRIVATE_KEY }}

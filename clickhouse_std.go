@@ -55,7 +55,7 @@ func (o *stdConnOpener) Connect(ctx context.Context) (_ driver.Conn, err error) 
 		}
 	}
 
-	if o.opt.Addr == nil || len(o.opt.Addr) == 0 {
+	if len(o.opt.Addr) == 0 {
 		return nil, ErrAcquireConnNoAddress
 	}
 
@@ -107,10 +107,8 @@ func isConnBrokenError(err error) bool {
 	if errors.Is(err, io.EOF) || errors.Is(err, syscall.EPIPE) || errors.Is(err, syscall.ECONNRESET) {
 		return true
 	}
-	if _, ok := err.(*net.OpError); ok {
-		return true
-	}
-	return false
+	var opErr *net.OpError
+	return errors.As(err, &opErr)
 }
 
 func Connector(opt *Options) driver.Connector {
@@ -151,7 +149,8 @@ func OpenDB(opt *Options) *sql.DB {
 }
 
 type stdConnect interface {
-	isBad() bool
+	// healthCheck reports why the connection is unusable; nil means healthy.
+	healthCheck() error
 	close() error
 	query(ctx context.Context, release nativeTransportRelease, query string, args ...any) (*rows, error)
 	exec(ctx context.Context, query string, args ...any) error
@@ -188,8 +187,8 @@ func (std *stdDriver) Open(dsn string) (_ driver.Conn, err error) {
 var _ driver.Driver = (*stdDriver)(nil)
 
 func (std *stdDriver) ResetSession(ctx context.Context) error {
-	if std.conn.isBad() {
-		std.logger.Debug("resetting session because connection is bad")
+	if err := std.conn.healthCheck(); err != nil {
+		std.logger.Debug("resetting session because connection is bad", slog.Any("reason", err))
 		return driver.ErrBadConn
 	}
 	return nil
@@ -198,8 +197,8 @@ func (std *stdDriver) ResetSession(ctx context.Context) error {
 var _ driver.SessionResetter = (*stdDriver)(nil)
 
 func (std *stdDriver) Ping(ctx context.Context) error {
-	if std.conn.isBad() {
-		std.logger.Debug("ping: connection is bad")
+	if err := std.conn.healthCheck(); err != nil {
+		std.logger.Debug("ping: connection is bad", slog.Any("reason", err))
 		return driver.ErrBadConn
 	}
 
@@ -209,8 +208,8 @@ func (std *stdDriver) Ping(ctx context.Context) error {
 var _ driver.Pinger = (*stdDriver)(nil)
 
 func (std *stdDriver) Begin() (driver.Tx, error) {
-	if std.conn.isBad() {
-		std.logger.Debug("begin: connection is bad")
+	if err := std.conn.healthCheck(); err != nil {
+		std.logger.Debug("begin: connection is bad", slog.Any("reason", err))
 		return nil, driver.ErrBadConn
 	}
 
@@ -218,8 +217,8 @@ func (std *stdDriver) Begin() (driver.Tx, error) {
 }
 
 func (std *stdDriver) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
-	if std.conn.isBad() {
-		std.logger.Debug("begin tx: connection is bad")
+	if err := std.conn.healthCheck(); err != nil {
+		std.logger.Debug("begin tx: connection is bad", slog.Any("reason", err))
 		return nil, driver.ErrBadConn
 	}
 
@@ -258,8 +257,8 @@ func (std *stdDriver) CheckNamedValue(nv *driver.NamedValue) error { return nil 
 var _ driver.NamedValueChecker = (*stdDriver)(nil)
 
 func (std *stdDriver) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
-	if std.conn.isBad() {
-		std.logger.Debug("exec context: connection is bad")
+	if err := std.conn.healthCheck(); err != nil {
+		std.logger.Debug("exec context: connection is bad", slog.Any("reason", err))
 		return nil, driver.ErrBadConn
 	}
 
@@ -282,8 +281,8 @@ func (std *stdDriver) ExecContext(ctx context.Context, query string, args []driv
 }
 
 func (std *stdDriver) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
-	if std.conn.isBad() {
-		std.logger.Debug("query context: connection is bad")
+	if err := std.conn.healthCheck(); err != nil {
+		std.logger.Debug("query context: connection is bad", slog.Any("reason", err))
 		return nil, driver.ErrBadConn
 	}
 
@@ -307,8 +306,8 @@ func (std *stdDriver) Prepare(query string) (driver.Stmt, error) {
 }
 
 func (std *stdDriver) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
-	if std.conn.isBad() {
-		std.logger.Debug("prepare context: connection is bad")
+	if err := std.conn.healthCheck(); err != nil {
+		std.logger.Debug("prepare context: connection is bad", slog.Any("reason", err))
 		return nil, driver.ErrBadConn
 	}
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"math/rand/v2"
 	"sync"
@@ -12,7 +13,6 @@ import (
 
 	_ "time/tzdata"
 
-	"github.com/ClickHouse/clickhouse-go/v2/contributors"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
@@ -37,6 +37,9 @@ var (
 	ErrAcquireConnNoAddress      = errors.New("clickhouse: no valid address supplied")
 	ErrServerUnexpectedData      = errors.New("code: 101, message: Unexpected packet Data received from client")
 	ErrConnectionClosed          = errors.New("clickhouse: connection is closed")
+	ErrFormatNativeUnsupported   = errors.New("clickhouse: QueryFormat and InsertFormat are only supported over the HTTP protocol, where the server converts every format; connect with Options{Protocol: clickhouse.HTTP} or an http:// DSN")
+
+	errConnMaxLifetimeExceeded = errors.New("clickhouse: connection max lifetime exceeded")
 )
 
 type OpError struct {
@@ -87,10 +90,13 @@ type nativeTransport interface {
 	query(ctx context.Context, release nativeTransportRelease, query string, args ...any) (*rows, error)
 	queryRow(ctx context.Context, release nativeTransportRelease, query string, args ...any) *row
 	prepareBatch(ctx context.Context, release nativeTransportRelease, acquire nativeTransportAcquire, query string, opts driver.PrepareBatchOptions) (driver.Batch, error)
+	queryFormat(ctx context.Context, release nativeTransportRelease, format string, query string, args ...any) (io.ReadCloser, error)
+	insertFormat(ctx context.Context, release nativeTransportRelease, format string, query string, data io.Reader) error
 	exec(ctx context.Context, query string, args ...any) error
 	asyncInsert(ctx context.Context, query string, wait bool, args ...any) error
 	ping(context.Context) error
-	isBad() bool
+	// healthCheck reports why the connection is unusable; nil means healthy.
+	healthCheck() error
 	connID() int
 	connectedAtTime() time.Time
 	isReleased() bool
@@ -115,7 +121,7 @@ type connectionPooler interface {
 
 type clickhouse struct {
 	opt    *Options
-	connID int64
+	connID atomic.Int64
 
 	idle connectionPooler
 	open chan struct{}
@@ -124,12 +130,13 @@ type clickhouse struct {
 	closed    *atomic.Bool
 }
 
-func (clickhouse) Contributors() []string {
-	list := contributors.List
-	if len(list[len(list)-1]) == 0 {
-		return list[:len(list)-1]
-	}
-	return list
+// Contributors always returns an empty slice.
+//
+// Deprecated: the contributor list was removed to avoid holding it in memory
+// for the lifetime of the process. This method is retained only for backwards
+// compatibility and will be removed in a future major version.
+func (ch *clickhouse) Contributors() []string {
+	return []string{}
 }
 
 func (ch *clickhouse) ServerVersion() (*driver.ServerVersion, error) {
@@ -255,7 +262,7 @@ func (ch *clickhouse) dial(ctx context.Context) (conn nativeTransport, err error
 		return nil, err
 	}
 
-	connID := int(atomic.AddInt64(&ch.connID, 1))
+	connID := int(ch.connID.Add(1))
 
 	dialFunc := func(ctx context.Context, addr string, opt *Options) (DialResult, error) {
 		var conn nativeTransport
@@ -346,13 +353,14 @@ func (ch *clickhouse) acquire(ctx context.Context) (conn nativeTransport, err er
 	}
 
 	if err == nil && conn != nil {
-		if !conn.isBad() {
+		if badErr := conn.healthCheck(); badErr == nil {
 			conn.setReleased(false)
 			conn.getLogger().Debug("connection acquired from pool")
 			return conn, nil
+		} else {
+			conn.getLogger().Debug("closing bad connection from pool", slog.Any("reason", badErr))
+			conn.close()
 		}
-
-		conn.close()
 	}
 
 	if conn, err = ch.dial(ctx); err != nil {

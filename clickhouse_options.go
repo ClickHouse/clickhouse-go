@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/ClickHouse/ch-go/compress"
+
 	"github.com/ClickHouse/clickhouse-go/v2/lib/churl"
 )
 
@@ -69,7 +70,7 @@ type Auth struct { // has_control_character
 
 type Compression struct {
 	Method CompressionMethod
-	// this only applies to lz4, lz4hc, zlib, and brotli compression algorithms
+	// this only applies to lz4, lz4hc, zlib, zstd, and brotli compression algorithms
 	Level int
 }
 
@@ -201,14 +202,19 @@ func (o *Options) fromDSN(in string) error {
 	}
 	o.Addr = append(o.Addr, strings.Split(dsn.Host, ",")...)
 	var (
-		secure     bool
-		params     = dsn.Query()
-		skipVerify bool
+		secure        bool
+		params        = dsn.Query()
+		skipVerify    bool
+		tlsServerName string
 	)
 	o.Auth.Database = strings.TrimPrefix(dsn.Path, "/")
 
 	for v := range params {
 		switch v {
+		case "hosts":
+			o.Addr = append(parseHostList(params.Get(v)), o.Addr...)
+		case "alt_hosts":
+			o.Addr = append(o.Addr, parseHostList(params.Get(v))...)
 		case "debug":
 			o.Debug, _ = strconv.ParseBool(params.Get(v))
 		case "compress":
@@ -293,6 +299,11 @@ func (o *Options) fromDSN(in string) error {
 					return fmt.Errorf("clickhouse [dsn parse]:verify: %s", err)
 				}
 			}
+		case "tls_server_name":
+			tlsServerName = strings.TrimSpace(params.Get(v))
+			if tlsServerName == "" {
+				return fmt.Errorf("clickhouse [dsn parse]: tls_server_name must not be empty")
+			}
 		case "connection_open_strategy":
 			switch params.Get(v) {
 			case "in_order":
@@ -364,9 +375,13 @@ func (o *Options) fromDSN(in string) error {
 			}
 		}
 	}
+	if tlsServerName != "" && !secure {
+		return fmt.Errorf("clickhouse [dsn parse]: tls_server_name requires secure=true")
+	}
 	if secure {
 		o.TLS = &tls.Config{
 			InsecureSkipVerify: skipVerify,
+			ServerName:         tlsServerName,
 		}
 	}
 	o.scheme = dsn.Scheme
@@ -385,6 +400,16 @@ func (o *Options) fromDSN(in string) error {
 		o.Protocol = Native
 	}
 	return nil
+}
+
+func parseHostList(value string) []string {
+	var hosts []string
+	for _, host := range strings.Split(value, ",") {
+		if host = strings.TrimSpace(host); host != "" {
+			hosts = append(hosts, host)
+		}
+	}
+	return hosts
 }
 
 // receive copy of Options, so we don't modify original - so its reusable
@@ -413,7 +438,7 @@ func (o Options) setDefaults() *Options {
 	if o.MaxCompressionBuffer <= 0 {
 		o.MaxCompressionBuffer = 10485760
 	}
-	if o.Addr == nil || len(o.Addr) == 0 {
+	if len(o.Addr) == 0 {
 		switch o.Protocol {
 		case Native:
 			o.Addr = []string{"localhost:9000"}
@@ -428,18 +453,20 @@ func (o Options) setDefaults() *Options {
 // Priority order:
 // 1. If Debug=true and Debugf is set, use legacy Debugf (backward compatibility)
 // 2. If Logger is set, use the provided logger
-// 3. Otherwise, use a noop logger (no logging)
+// 3. If Debug=true but no Debugf is provided, use a default stdout logger
+// 4. Otherwise, use a noop logger (no logging)
 func (o *Options) logger() *slog.Logger {
-	// Backward compatibility: if legacy Debug/Debugf is set, use it
 	if o.Debug && o.Debugf != nil {
 		return newDebugfLogger(o.Debugf)
 	}
 
-	// If user provided a custom logger, use it
 	if o.Logger != nil {
 		return o.Logger
 	}
 
-	// Default: no logging
+	if o.Debug {
+		return newStdoutDebugLogger()
+	}
+
 	return newNoopLogger()
 }
