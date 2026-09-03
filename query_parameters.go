@@ -80,6 +80,11 @@ func bindQueryOrAppendParameters(paramsProtocolSupport bool, options *QueryOptio
 				case *time.Duration:
 					options.parameters[p.Name] = formatDurationBody(*v)
 					continue
+				// Must follow the time.Time and time.Duration cases: their
+				// String() output is Go's format, not the server's text format.
+				case fmt.Stringer:
+					options.parameters[p.Name] = v.String()
+					continue
 				}
 				strVal, err := formatValue(timezone, Seconds, p.Value, formatParamText)
 				if err != nil {
