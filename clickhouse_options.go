@@ -211,9 +211,10 @@ func (o *Options) fromDSN(in string) error {
 
 	for v := range params {
 		switch v {
-		case "hosts", "alt_hosts":
-			// These are appended below in a fixed order so map iteration cannot
-			// change the failover order.
+		case "hosts":
+			o.Addr = append(parseHostList(params.Get(v)), o.Addr...)
+		case "alt_hosts":
+			o.Addr = append(o.Addr, parseHostList(params.Get(v))...)
 		case "debug":
 			o.Debug, _ = strconv.ParseBool(params.Get(v))
 		case "compress":
@@ -374,13 +375,6 @@ func (o *Options) fromDSN(in string) error {
 			}
 		}
 	}
-	for _, key := range []string{"hosts", "alt_hosts"} {
-		for _, host := range strings.Split(params.Get(key), ",") {
-			if host = strings.TrimSpace(host); host != "" {
-				o.Addr = append(o.Addr, host)
-			}
-		}
-	}
 	if tlsServerName != "" && !secure {
 		return fmt.Errorf("clickhouse [dsn parse]: tls_server_name requires secure=true")
 	}
@@ -406,6 +400,16 @@ func (o *Options) fromDSN(in string) error {
 		o.Protocol = Native
 	}
 	return nil
+}
+
+func parseHostList(value string) []string {
+	var hosts []string
+	for _, host := range strings.Split(value, ",") {
+		if host = strings.TrimSpace(host); host != "" {
+			hosts = append(hosts, host)
+		}
+	}
+	return hosts
 }
 
 // receive copy of Options, so we don't modify original - so its reusable

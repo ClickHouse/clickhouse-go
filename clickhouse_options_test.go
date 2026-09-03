@@ -536,7 +536,7 @@ func TestParseDSN(t *testing.T) {
 			&Options{
 				Protocol: Native,
 				TLS:      nil,
-				Addr:     []string{"127.0.0.1", "127.0.0.2", "127.0.0.3"},
+				Addr:     []string{"127.0.0.2", "127.0.0.1", "127.0.0.3"},
 				Settings: Settings{},
 				Auth:     Auth{},
 				scheme:   "tcp",
@@ -549,7 +549,7 @@ func TestParseDSN(t *testing.T) {
 			&Options{
 				Protocol: Native,
 				TLS:      nil,
-				Addr:     []string{"127.0.0.1", "a", "b"},
+				Addr:     []string{"a", "b", "127.0.0.1"},
 				Settings: Settings{},
 				Auth:     Auth{},
 				scheme:   "tcp",
