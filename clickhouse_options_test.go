@@ -531,6 +531,45 @@ func TestParseDSN(t *testing.T) {
 			"",
 		},
 		{
+			"clickhouse proxy with hosts and alt_hosts as query strings",
+			"tcp://127.0.0.1/?hosts=127.0.0.2&alt_hosts=127.0.0.3",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"127.0.0.2", "127.0.0.1", "127.0.0.3"},
+				Settings: Settings{},
+				Auth:     Auth{},
+				scheme:   "tcp",
+			},
+			"",
+		},
+		{
+			"clickhouse proxy trims and skips empty query string hosts",
+			"tcp://127.0.0.1/?hosts=%20%20a,%20b,,&alt_hosts=%20",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"a", "b", "127.0.0.1"},
+				Settings: Settings{},
+				Auth:     Auth{},
+				scheme:   "tcp",
+			},
+			"",
+		},
+		{
+			"clickhouse proxy ignores empty hosts query string",
+			"tcp://127.0.0.1/?hosts=",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"127.0.0.1"},
+				Settings: Settings{},
+				Auth:     Auth{},
+				scheme:   "tcp",
+			},
+			"",
+		},
+		{
 			"http protocol with custom http_path",
 			"https://127.0.0.1/clickhouse?secure=true&skip_verify=true&http_path=/clickhouse",
 			&Options{
