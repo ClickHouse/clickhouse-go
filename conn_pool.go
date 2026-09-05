@@ -103,6 +103,7 @@ func (i *connPool) Put(conn nativeTransport) {
 	defer i.mu.Unlock()
 
 	if i.closed() {
+		conn.close()
 		return
 	}
 
