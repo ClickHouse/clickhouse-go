@@ -19,6 +19,7 @@ type connPool struct {
 	ticker   *time.Ticker
 	finish   chan struct{}
 	finished chan struct{}
+	closing  bool
 
 	maxConnLifetime time.Duration
 }
@@ -116,17 +117,21 @@ func (i *connPool) Put(conn nativeTransport) {
 
 func (i *connPool) Close() error {
 	i.mu.Lock()
-	defer i.mu.Unlock()
-
-	if i.closed() {
+	if i.closed() || i.closing {
+		i.mu.Unlock()
 		return nil
 	}
-
+	i.closing = true
 	close(i.finish)
+	// Release the mutex before waiting for the drain goroutine. Holding it
+	// across <-finished deadlocks if that goroutine is blocked on Lock in
+	// the ticker branch.
+	i.mu.Unlock()
 
 	<-i.finished
 
-	// Drain all remaining connections from the pool
+	i.mu.Lock()
+	defer i.mu.Unlock()
 	i.drainPool()
 
 	return nil
@@ -151,6 +156,10 @@ func (i *connPool) runDrainPool() {
 		select {
 		case <-i.ticker.C:
 			i.mu.Lock()
+			if i.closing {
+				i.mu.Unlock()
+				return
+			}
 			i.drainPool()
 			i.mu.Unlock()
 		case <-i.finish:
