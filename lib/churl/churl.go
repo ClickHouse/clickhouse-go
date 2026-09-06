@@ -182,7 +182,25 @@ func parseAuthority(authority string) (user *neturl.Userinfo, host string, err e
 	return user, host, nil
 }
 
+// parseHost validates the host subcomponent of the authority. A ClickHouse DSN
+// may carry a comma separated list of hosts for failover, so every element is
+// validated on its own and the list is joined back together unchanged.
+// Options.fromDSN splits the returned value on the same separator.
 func parseHost(host string) (string, error) {
+	hosts := strings.Split(host, ",")
+	for i, h := range hosts {
+		parsed, err := parseSingleHost(h)
+		if err != nil {
+			return "", err
+		}
+		hosts[i] = parsed
+	}
+	return strings.Join(hosts, ","), nil
+}
+
+// parseSingleHost validates one host of the authority, with an optional port and
+// an optional bracketed IPv6 literal. This is net/url's own parseHost.
+func parseSingleHost(host string) (string, error) {
 	if openBracketIdx := strings.LastIndex(host, "["); openBracketIdx != -1 {
 		// Parse an IP-Literal in RFC 3986 and RFC 6874.
 		// E.g., "[fe80::1]", "[fe80::1%25en0]", "[fe80::1]:80".
