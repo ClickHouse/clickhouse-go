@@ -117,6 +117,9 @@ func (c *connect) performSSHAuthentication() error {
 	if err != nil {
 		return fmt.Errorf("read SSH challenge response: %w", err)
 	}
+	if packet == proto.ServerException {
+		return c.exception()
+	}
 	if packet != proto.ServerSSHChallenge {
 		return fmt.Errorf("unexpected packet [%d] from server during SSH authentication", packet)
 	}
