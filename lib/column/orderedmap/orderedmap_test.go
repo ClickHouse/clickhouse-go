@@ -2,9 +2,10 @@ package orderedmap
 
 import (
 	"cmp"
-	"github.com/stretchr/testify/assert"
 	"slices"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestMap(t *testing.T) {

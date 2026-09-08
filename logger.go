@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
 )
 
 // debugfHandler is a slog.Handler that wraps the legacy Debugf function
@@ -106,6 +107,12 @@ func newDebugfLogger(debugf func(format string, v ...any)) *slog.Logger {
 // This is used when no logger is configured (default behavior).
 func newNoopLogger() *slog.Logger {
 	return slog.New(&noopHandler{})
+}
+
+// newStdoutDebugLogger creates a slog.Logger that writes debug-level logs to stdout.
+// This is used when Debug=true but no Debugf or Logger is provided.
+func newStdoutDebugLogger() *slog.Logger {
+	return slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 }
 
 // prepareConnLogger enriches a base logger with connection-specific attributes.

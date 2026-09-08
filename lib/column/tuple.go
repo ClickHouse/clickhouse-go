@@ -422,7 +422,7 @@ func (col *Tuple) scan(targetType reflect.Type, row int) (reflect.Value, error) 
 		}
 		rMap := reflect.MakeMap(targetType)
 		if err := col.scanMap(rMap, row); err != nil {
-			return reflect.Value{}, nil
+			return reflect.Value{}, err
 		}
 		return rMap, nil
 	case reflect.Slice:
@@ -437,7 +437,7 @@ func (col *Tuple) scan(targetType reflect.Type, row int) (reflect.Value, error) 
 		if !col.isNamed {
 			return reflect.Value{}, &ColumnConverterError{
 				Op:   "ScanRow",
-				To:   fmt.Sprintf("%s", targetType),
+				To:   targetType.String(),
 				From: string(col.chType),
 				Hint: "cannot use interface for unnamed tuples, use slice",
 			}

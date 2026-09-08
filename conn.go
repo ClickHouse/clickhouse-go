@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	"io"
 	"log/slog"
 	"net"
@@ -13,10 +12,13 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
+
 	"github.com/ClickHouse/clickhouse-go/v2/resources"
 
 	"github.com/ClickHouse/ch-go/compress"
 	chproto "github.com/ClickHouse/ch-go/proto"
+
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 
@@ -105,10 +107,10 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 	}
 
 	// warn only on the first connection in the pool
-	if num == 1 && !resources.ClientMeta.IsSupportedClickHouseVersion(connect.server.Version) {
+	if num == 1 && !proto.CheckMinVersion(resources.MinSupportedVersion, connect.server.Version) {
 		connect.logger.Warn("unsupported clickhouse version",
 			slog.String("version", connect.server.Version.String()),
-			slog.String("supported_versions", resources.ClientMeta.SupportedVersions()))
+			slog.String("minimum_supported_version", resources.MinSupportedVersion.String()))
 	}
 
 	return connect, nil
@@ -181,20 +183,21 @@ func (c *connect) settings(querySettings Settings) []proto.Setting {
 	return settings
 }
 
-func (c *connect) isBad() bool {
+func (c *connect) healthCheck() error {
 	if c.isClosed() {
-		return true
+		return ErrConnectionClosed
 	}
 
-	if time.Since(c.connectedAt) >= c.opt.ConnMaxLifetime {
-		return true
+	if age := time.Since(c.connectedAt); age >= c.opt.ConnMaxLifetime {
+		return fmt.Errorf("%w: age %s exceeds max lifetime %s",
+			errConnMaxLifetimeExceeded, age.Round(time.Millisecond), c.opt.ConnMaxLifetime)
 	}
 
 	if err := c.connCheck(); err != nil {
-		return true
+		return fmt.Errorf("clickhouse: connection check failed: %w", err)
 	}
 
-	return false
+	return nil
 }
 
 func (c *connect) isReleased() bool {
@@ -320,6 +323,9 @@ func (c *connect) sendData(block *proto.Block, name string) error {
 	}
 
 	if err := c.flush(); err != nil {
+		var opErr *net.OpError
+		isOpErr := errors.As(err, &opErr)
+
 		switch {
 		case errors.Is(err, syscall.EPIPE):
 			c.logger.Error("connection broken: pipe error",
@@ -337,11 +343,21 @@ func (c *connect) sendData(block *proto.Block, name string) error {
 			c.setClosed()
 			return fmt.Errorf("send data: unexpected EOF to %s (conn_id=%d, block_cols=%d, block_rows=%d): %w",
 				c.conn.RemoteAddr(), c.id, len(block.Columns), block.Rows(), err)
+		case isOpErr:
+			// *net.OpError not already caught by more specific EPIPE/EOF check
+			c.logger.Error("connection broken: write error",
+				slog.Any("error", err),
+				slog.Int("block_columns", len(block.Columns)),
+				slog.Int("block_rows", block.Rows()))
+			c.setClosed()
+			return fmt.Errorf("send data: write error to %s (conn_id=%d, block_cols=%d, block_rows=%d): %w",
+				c.conn.RemoteAddr(), c.id, len(block.Columns), block.Rows(), err)
 		default:
 			c.logger.Error("send data failed",
 				slog.Any("error", err),
 				slog.Int("block_columns", len(block.Columns)),
 				slog.Int("block_rows", block.Rows()))
+			c.setClosed()
 			return fmt.Errorf("send data: write error to %s (conn_id=%d, block_cols=%d, block_rows=%d): %w",
 				c.conn.RemoteAddr(), c.id, len(block.Columns), block.Rows(), err)
 		}

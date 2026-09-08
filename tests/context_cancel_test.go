@@ -7,21 +7,25 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
 )
 
 func TestContextCancellationOfHeavyGeneratedInsert(t *testing.T) {
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
 		SkipOnHTTP(t, protocol, "context cancel")
 
-		var (
-			heavyQuery = `INSERT INTO test_query_cancellation.trips
+		table := contextCancellationTable(t)
+		// Substitute via ReplaceAll, not Sprintf: the query body contains `rand() % N`,
+		// which fmt would misread as format verbs.
+		heavyQuery := strings.ReplaceAll(`INSERT INTO {table}
 			SELECT
 				number + 1 AS trip_id,
 				now() - INTERVAL intDiv(number, 100) SECOND AS pickup_datetime,
@@ -40,12 +44,11 @@ func TestContextCancellationOfHeavyGeneratedInsert(t *testing.T) {
 				CAST(rand() % 5 + 1 AS Enum('CSH' = 1, 'CRE' = 2, 'NOC' = 3, 'DIS' = 4, 'UNK' = 5)) AS payment_type,
 				'Neighborhood ' || toString(rand() % 100 + 1) AS pickup_ntaname,
 				'Neighborhood ' || toString(rand() % 100 + 1) AS dropoff_ntaname
-			FROM numbers(100000000);`
-		)
+			FROM numbers(100000000);`, "{table}", table)
 
-		conn, err := SetupTestContextCancellationType1(t, protocol, false)
-		assert.Nil(t, err)
-		assert.NotNil(t, conn)
+		conn, err := SetupTestContextCancellationType1(t, protocol, table, false)
+		require.NoError(t, err)
+		require.NotNil(t, conn)
 
 		ExecuteTestContextCancellation(t, conn, heavyQuery)
 	})
@@ -55,13 +58,12 @@ func TestContextCancellationOfHeavyOptimizeFinal(t *testing.T) {
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
 		SkipOnHTTP(t, protocol, "context cancel")
 
-		var (
-			heavyQuery = "OPTIMIZE TABLE test_query_cancellation.trips FINAL"
-		)
+		table := contextCancellationTable(t)
+		heavyQuery := fmt.Sprintf("OPTIMIZE TABLE %s FINAL", table)
 
-		conn, err := SetupTestContextCancellationType1(t, protocol, true)
-		assert.Nil(t, err)
-		assert.NotNil(t, conn)
+		conn, err := SetupTestContextCancellationType1(t, protocol, table, true)
+		require.NoError(t, err)
+		require.NotNil(t, conn)
 
 		ExecuteTestContextCancellation(t, conn, heavyQuery)
 	})
@@ -71,8 +73,8 @@ func TestContextCancellationOfHeavyInsertFromS3(t *testing.T) {
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
 		SkipOnHTTP(t, protocol, "context cancel")
 
-		var (
-			heavyQuery = `INSERT INTO test_query_cancellation.trips
+		table := contextCancellationTable(t)
+		heavyQuery := fmt.Sprintf(`INSERT INTO %s
 		SELECT
 			trip_id,
 			pickup_datetime,
@@ -94,22 +96,39 @@ func TestContextCancellationOfHeavyInsertFromS3(t *testing.T) {
 		FROM s3(
 			'https://datasets-documentation.s3.eu-west-3.amazonaws.com/nyc-taxi/trips_{0..2}.gz',
 			'TabSeparatedWithNames'
-		);`
-		)
+		);`, table)
 
-		conn, err := SetupTestContextCancellationType1(t, protocol, true)
-		assert.Nil(t, err)
-		assert.NotNil(t, conn)
+		// No need to pre-fill the table: the cancelled query is the S3 insert itself, so an
+		// empty target table is sufficient. Skipping the fill avoids a multi-million-row setup
+		// insert that is irrelevant to this test and was the dominant cost here.
+		conn, err := SetupTestContextCancellationType1(t, protocol, table, false)
+		require.NoError(t, err)
+		require.NotNil(t, conn)
 
 		ExecuteTestContextCancellation(t, conn, heavyQuery)
 	})
 }
 
-func SetupTestContextCancellationType1(t *testing.T, protocol clickhouse.Protocol, fillTableWithRandomData bool) (clickhouse.Conn, error) {
+// contextCancellationTable returns a table name unique to both the running test and the test
+// process.
+//
+// The cloud test workflow runs a matrix (multiple Go versions) concurrently against a single
+// shared ClickHouse Cloud service. Every job runs the same test, so a name derived only from
+// t.Name() collides across jobs: one job's "DROP TABLE IF EXISTS <name>" tears down the table
+// another job just created, and that job's insert then fails with "code: 242, Table is shutting
+// down". testUUID is generated once per test process, so mixing it in keeps concurrent jobs (and
+// back-to-back tests) from sharing a table.
+func contextCancellationTable(t *testing.T) string {
+	name := strings.NewReplacer("/", "_", " ", "_").Replace(t.Name())
+	suffix := strings.ReplaceAll(testUUID, "-", "")
+	return fmt.Sprintf("test_query_cancellation.%s_%s", name, suffix)
+}
+
+func SetupTestContextCancellationType1(t *testing.T, protocol clickhouse.Protocol, table string, fillTableWithRandomData bool) (clickhouse.Conn, error) {
 	var (
 		q1 = "CREATE DATABASE IF NOT EXISTS test_query_cancellation"
-		q2 = "DROP TABLE IF EXISTS test_query_cancellation.trips"
-		q3 = `CREATE TABLE test_query_cancellation.trips (
+		q2 = fmt.Sprintf("DROP TABLE IF EXISTS %s", table)
+		q3 = fmt.Sprintf(`CREATE TABLE %s (
 			trip_id             UInt32,
 			pickup_datetime     DateTime,
 			dropoff_datetime    DateTime,
@@ -129,8 +148,9 @@ func SetupTestContextCancellationType1(t *testing.T, protocol clickhouse.Protoco
 			dropoff_ntaname     LowCardinality(String)
 		)
 		ENGINE = MergeTree
-		PRIMARY KEY (pickup_datetime, dropoff_datetime);`
-		q4 = `INSERT INTO test_query_cancellation.trips
+		PRIMARY KEY (pickup_datetime, dropoff_datetime);`, table)
+		// ReplaceAll, not Sprintf: the body contains `rand() % N` (fmt verb collisions).
+		q4 = strings.ReplaceAll(`INSERT INTO {table}
 			SELECT
 				number + 1 AS trip_id,
 				now() - INTERVAL intDiv(number, 100) SECOND AS pickup_datetime,
@@ -149,7 +169,7 @@ func SetupTestContextCancellationType1(t *testing.T, protocol clickhouse.Protoco
 				CAST(rand() % 5 + 1 AS Enum('CSH' = 1, 'CRE' = 2, 'NOC' = 3, 'DIS' = 4, 'UNK' = 5)) AS payment_type,
 				'Neighborhood ' || toString(rand() % 100 + 1) AS pickup_ntaname,
 				'Neighborhood ' || toString(rand() % 100 + 1) AS dropoff_ntaname
-			FROM numbers(30000000);`
+			FROM numbers(30000000);`, "{table}", table)
 	)
 
 	prepareQueries := []string{q1, q2, q3}
@@ -171,14 +191,42 @@ func SetupTestContextCancellationType1(t *testing.T, protocol clickhouse.Protoco
 	t.Log("Connected.")
 
 	// prepare table
+	//
+	// These prepare statements include heavy inserts (tens of millions of rows). Bound each
+	// one with its own deadline so a slow or stalled server fails this single test fast with an
+	// actionable error, instead of hanging with no cancellation path until the whole package
+	// times out and takes unrelated tests down with it.
 	for _, query := range prepareQueries {
-		err = conn.Exec(context.Background(), query)
+		execCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		err = conn.Exec(execCtx, query)
+		cancel()
 		if err != nil {
 			log.Printf("Finished with error: %v\n", err)
 			conn.Close()
 			return nil, err
 		}
 	}
+
+	// Drop the table when the test finishes so we don't leave it (the fill variant holds
+	// 30M rows) sitting on the Cloud service between runs. The test's own connection is
+	// closed by ExecuteTestContextCancellation, so open a fresh one for the drop. Cleanup
+	// is best-effort: log on failure instead of failing an otherwise-passing test.
+	t.Cleanup(func() {
+		cleanupConn, err := GetNativeConnection(t, protocol, nil, nil, &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		})
+		if err != nil {
+			t.Logf("cleanup: failed to open connection to drop %s: %v", table, err)
+			return
+		}
+		defer cleanupConn.Close()
+
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+		defer cancel()
+		if err := cleanupConn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s SYNC", table)); err != nil {
+			t.Logf("cleanup: failed to drop %s: %v", table, err)
+		}
+	})
 
 	return conn, nil
 }

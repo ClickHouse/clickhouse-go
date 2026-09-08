@@ -6,8 +6,9 @@ import (
 	"slices"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/v2/ext"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/ClickHouse/clickhouse-go/v2/ext"
 )
 
 var _contextOptionKey = &QueryOptions{
@@ -242,16 +243,6 @@ func queryOptions(ctx context.Context) QueryOptions {
 	return opt
 }
 
-// queryOptionsJWT returns the JWT within the given context's QueryOptions.
-// Empty string if not present.
-func queryOptionsJWT(ctx context.Context) string {
-	if opt, ok := ctx.Value(_contextOptionKey).(QueryOptions); ok {
-		return opt.jwt
-	}
-
-	return ""
-}
-
 // queryOptionsAsync returns the AsyncOptions struct within the given context's QueryOptions.
 func queryOptionsAsync(ctx context.Context) AsyncOptions {
 	if opt, ok := ctx.Value(_contextOptionKey).(QueryOptions); ok {
@@ -321,6 +312,7 @@ func (q *QueryOptions) clone() QueryOptions {
 		async:               q.async,
 		queryID:             q.queryID,
 		quotaKey:            q.quotaKey,
+		jwt:                 q.jwt,
 		events:              q.events,
 		settings:            nil,
 		parameters:          nil,

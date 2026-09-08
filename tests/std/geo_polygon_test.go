@@ -3,14 +3,17 @@ package std
 import (
 	"context"
 	"fmt"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
-	"github.com/stretchr/testify/require"
 	"strconv"
 	"testing"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/stretchr/testify/require"
+
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
+
 	"github.com/paulmach/orb"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
 )
 
 func TestStdGeoPolygon(t *testing.T) {
@@ -57,21 +60,21 @@ func TestStdGeoPolygon(t *testing.T) {
 				}
 				col2Data = []orb.Polygon{
 					[]orb.Ring{
-						orb.Ring{
+						{
 							orb.Point{1, 2},
 							orb.Point{1, 22},
 						},
-						orb.Ring{
+						{
 							orb.Point{1, 23},
 							orb.Point{12, 2},
 						},
 					},
 					[]orb.Ring{
-						orb.Ring{
+						{
 							orb.Point{21, 2},
 							orb.Point{1, 222},
 						},
-						orb.Ring{
+						{
 							orb.Point{21, 23},
 							orb.Point{12, 22},
 						},

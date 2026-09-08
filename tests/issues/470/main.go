@@ -3,9 +3,10 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests/std"
 	"log"
 	"reflect"
+
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests/std"
 
 	_ "github.com/ClickHouse/clickhouse-go/v2"
 )

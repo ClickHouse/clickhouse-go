@@ -10,10 +10,17 @@ import (
 	"log/slog"
 
 	chproto "github.com/ClickHouse/ch-go/proto"
+
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 
-// capturingReader wraps a reader and captures all data that passes through it
+// captureTailSize bounds how much recently-read data capturingReader retains:
+// enough to hold an exception block (at most 16KiB) plus buffered read-ahead,
+// without growing with the size of the result set.
+const captureTailSize = 64 * 1024
+
+// capturingReader wraps a reader and captures the data that passes through
+// it, keeping only the most recent captureTailSize bytes.
 type capturingReader struct {
 	reader io.Reader
 	buffer bytes.Buffer
@@ -23,6 +30,9 @@ func (r *capturingReader) Read(p []byte) (n int, err error) {
 	n, err = r.reader.Read(p)
 	if n > 0 {
 		r.buffer.Write(p[:n])
+		if excess := r.buffer.Len() - captureTailSize; excess > 0 {
+			r.buffer.Next(excess)
+		}
 	}
 	return n, err
 }
@@ -40,13 +50,17 @@ func (h *httpConnect) query(ctx context.Context, release nativeTransportRelease,
 	headers := make(map[string]string)
 	switch h.compression {
 	case CompressionZSTD, CompressionLZ4:
-		options.settings["compress"] = "1"
+		compressionLevel := 0
+		if h.opt != nil && h.opt.Compression != nil {
+			compressionLevel = h.opt.Compression.Level
+		}
+		applyHTTPNativeCompressionSettings(options.settings, h.compression, compressionLevel, false)
 	case CompressionGZIP, CompressionDeflate, CompressionBrotli:
 		// request encoding
 		headers["Accept-Encoding"] = h.compression.String()
 	}
 
-	res, err := h.sendQuery(ctx, query, &options, headers)
+	res, err := h.sendQuery(ctx, query, &options, headers) //nolint:bodyclose // false positive
 	if err != nil {
 		err = fmt.Errorf("sendQuery: %w", err)
 		release(h, err)
