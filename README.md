@@ -464,26 +464,27 @@ row := db.QueryRowContext(ctx,
 )
 ```
 
-### Special characters are handled automatically
+### Escaping: `Named` strings vs `WithParameters`
 
-Pass raw Go strings — the driver handles all escaping. Characters such as tab (`\t`), newline (`\n`), backslash (`\`), and single quote (`'`) are encoded correctly for both the native TCP and HTTP protocols:
+There are two ways to supply parameter values and they differ in how escaping is handled.
+
+**`Named` (or the std API's `sql.Named`) with a `string`/`*string` value** treats the Go string as the literal value. Control characters — tab, newline, carriage return, NUL — and backslashes are escaped automatically, so the value round-trips byte-for-byte on both protocols; a literal tab or newline no longer needs manual escaping:
 
 ```go
-ctx := clickhouse.Context(context.Background(), clickhouse.WithParameters(clickhouse.Parameters{
-    "tsv":  "col1\tcol2",   // literal tab — works as-is
-    "path": `C:\Users\bob`, // backslashes — works as-is
-    "name": "O'Brien",      // single quote — works as-is
-}))
+row := conn.QueryRow(ctx,
+    "SELECT {s:String}",
+    clickhouse.Named("s", "line 1\nline 2"), // literal newline — works as-is
+)
 ```
 
-### Protocol differences
+**`WithParameters`/`Parameters`** sends values as pre-formatted server-side text (`Escaped` format). Nothing is escaped for you — pass an already-escaped value (e.g. `['a', 'b']` for an `Array(String)`, or a literal `\n` for a newline), a raw tab/newline is rejected, and a top-level `NULL` uses the `\N` marker. Callers who need the literal-value behavior should prefer `Named`.
+
+Both inputs are transmitted the same way over the wire regardless of protocol:
 
 | Protocol | How parameters are encoded |
 |---|---|
-| Native TCP | TSV-escaped format wrapped in single quotes; the driver double-encodes control characters automatically |
-| HTTP | URL query parameters (`param_<name>=<value>`); encoded via standard URL encoding |
-
-Both protocols accept the same raw Go string values — the difference is invisible to callers.
+| Native TCP | quoted `Field` dump (`readQuoted`) over a TSV-escaped value |
+| HTTP | URL query parameters (`param_<name>=<value>`), TSV-decoded by the server |
 
 See full examples: [native API](examples/clickhouse_api/query_parameters.go) · [database/sql](examples/std/query_parameters.go)
 

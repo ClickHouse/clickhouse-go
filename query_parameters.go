@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
@@ -16,6 +17,29 @@ var (
 	ErrUnsupportedQueryParameter    = errors.New("unsupported query parameter type")
 
 	hasQueryParamsRe = regexp.MustCompile("{.+:.+}")
+)
+
+// namedStringEscaper escapes control characters in a raw Go string sent as a
+// top-level query parameter via Named. ClickHouse reads parameter values as
+// TSV-escaped text (the server applies deserializeTextEscaped), so a raw tab,
+// newline or CR acts as a field/record delimiter and is rejected, and a NUL is
+// dropped. Escaping them here lets a caller pass ordinary Go strings and have
+// control characters round-trip on both protocols:
+//
+//   - HTTP sends the value straight into the URL query string, and the server's
+//     deserializeTextEscaped decodes these escapes once.
+//   - TCP wraps the value in a quoted Field dump (encodeFieldDump → fieldDumpEscaper),
+//     which re-escapes backslashes, so these escapes survive readQuoted and are
+//     decoded by deserializeTextEscaped afterwards.
+//
+// Single quotes are intentionally left alone: fieldDumpEscaper handles them at the
+// TCP boundary and URL-encoding covers them over HTTP.
+var namedStringEscaper = strings.NewReplacer(
+	`\`, `\\`,    // backslash → \\: read as a literal backslash
+	"\t", `\t`,   // tab → \t
+	"\n", `\n`,   // newline → \n
+	"\r", `\r`,   // CR → \r
+	"\x00", `\0`, // NUL → \0
 )
 
 func bindQueryOrAppendParameters(paramsProtocolSupport bool, options *QueryOptions, query string, timezone *time.Location, args ...any) (string, error) {
@@ -49,10 +73,10 @@ func bindQueryOrAppendParameters(paramsProtocolSupport bool, options *QueryOptio
 				// rules, so these skip it.
 				switch v := p.Value.(type) {
 				case string:
-					options.parameters[p.Name] = v
+					options.parameters[p.Name] = namedStringEscaper.Replace(v)
 					continue
 				case *string:
-					options.parameters[p.Name] = *v
+					options.parameters[p.Name] = namedStringEscaper.Replace(*v)
 					continue
 				case []byte:
 					if v == nil {

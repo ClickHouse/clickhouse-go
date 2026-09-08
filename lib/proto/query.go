@@ -3,10 +3,11 @@ package proto
 import (
 	stdbin "encoding/binary"
 	"fmt"
-	chproto "github.com/ClickHouse/ch-go/proto"
-	"go.opentelemetry.io/otel/trace"
 	"os"
 	"strings"
+
+	chproto "github.com/ClickHouse/ch-go/proto"
+	"go.opentelemetry.io/otel/trace"
 )
 
 var (
@@ -218,26 +219,11 @@ func (s *Parameter) encode(buffer *chproto.Buffer, revision uint64) error {
 	return nil
 }
 
-// fieldDumpReplacer encodes raw string characters into the wire format expected by ClickHouse
-// for query parameters sent over the native TCP protocol.
-//
-// The server decodes parameter values through two stages:
-//  1. readQuoted: decodes escape sequences inside single-quoted strings (e.g. \\ → \, \t → tab)
-//  2. deserializeTextEscaped: expects TSV-escaped input (treats raw 0x09/0x0a as delimiters)
-//
-// Characters must therefore be double-encoded so that after readQuoted the result
-// remains valid TSV-escaped input for deserializeTextEscaped.
-//
-// NOTE: TCP uses double-encoding (readQuoted then deserializeTextEscaped).
-// For HTTP single-stage TSV encoding, see httpQueryParamReplacer in conn_http.go.
-var fieldDumpReplacer = strings.NewReplacer(
-	`\`, `\\\\`, // backslash → 4 backslashes: readQuoted produces \\, deserializeTextEscaped produces \
-	`'`, `\'`,   // single quote → \': prevents premature string termination in readQuoted
-	"\t", `\\t`, // tab → \\t: readQuoted produces \t (literal), deserializeTextEscaped produces tab
-	"\n", `\\n`, // newline → \\n: readQuoted produces \n (literal), deserializeTextEscaped produces newline
-	"\r", `\\r`, // CR → \\r: readQuoted produces \r (literal), deserializeTextEscaped produces CR
-	"\x00", `\\0`, // NUL → \\0: readQuoted produces \0 (literal), deserializeTextEscaped produces NUL
-)
+// fieldDumpEscaper escapes a string for a quoted Field dump. Both single
+// quotes and backslashes need escaping: the server reads the dump back with
+// its quoted-string reader, where a bare backslash starts an escape sequence,
+// so an unescaped one corrupts the value or makes it unparseable.
+var fieldDumpEscaper = strings.NewReplacer(`\`, `\\`, `'`, `\'`)
 
 // encodes a field dump with an appropriate type format
 // implements the same logic as in ClickHouse Field::restoreFromDump (https://github.com/ClickHouse/ClickHouse/blob/master/src/Core/Field.cpp#L312)
@@ -245,7 +231,7 @@ var fieldDumpReplacer = strings.NewReplacer(
 func encodeFieldDump(value any) (string, error) {
 	switch v := value.(type) {
 	case string:
-		return "'" + fieldDumpReplacer.Replace(v) + "'", nil
+		return "'" + fieldDumpEscaper.Replace(v) + "'", nil
 	}
 
 	return "", fmt.Errorf("unsupported field type %T", value)
