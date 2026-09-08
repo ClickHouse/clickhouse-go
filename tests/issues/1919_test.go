@@ -66,6 +66,32 @@ func Test1919(t *testing.T) {
 			require.NoError(t, conn.QueryRow(context.Background(), fmt.Sprintf("SELECT count() FROM %s", tableName)).Scan(&count))
 			require.Equal(t, uint64(20), count)
 
+			// A single line comment after the inline SETTINGS form must not be folded
+			// into the normalized query: it would comment out the FORMAT clause appended
+			// after it, so the server would read the Native payload with its default
+			// input format and the insert would fail.
+			batchComment, err := conn.PrepareBatch(context.Background(), fmt.Sprintf("INSERT INTO %s (col1, col2) SETTINGS async_insert=0 -- inline comment", tableName))
+			require.NoError(t, err, "PrepareBatch with SETTINGS and trailing comment failed")
+			for i := range 10 {
+				require.NoError(t, batchComment.Append(uint64(i), "value"))
+			}
+			require.NoError(t, batchComment.Send())
+
+			require.NoError(t, conn.QueryRow(context.Background(), fmt.Sprintf("SELECT count() FROM %s", tableName)).Scan(&count))
+			require.Equal(t, uint64(30), count)
+
+			// A SETTINGS clause written over several lines must be captured as a whole
+			// instead of being dropped, which is the original symptom of this issue.
+			batchMultiline, err := conn.PrepareBatch(context.Background(), fmt.Sprintf("INSERT INTO %s (col1, col2) SETTINGS\n\tasync_insert=0,\n\twait_for_async_insert=0", tableName))
+			require.NoError(t, err, "PrepareBatch with multiline SETTINGS failed")
+			for i := range 10 {
+				require.NoError(t, batchMultiline.Append(uint64(i), "value"))
+			}
+			require.NoError(t, batchMultiline.Send())
+
+			require.NoError(t, conn.QueryRow(context.Background(), fmt.Sprintf("SELECT count() FROM %s", tableName)).Scan(&count))
+			require.Equal(t, uint64(40), count)
+
 			// The SETTINGS clause must actually reach the server: an unknown setting has
 			// to surface as an error rather than being silently dropped. Before the fix
 			// the clause was stripped, so the insert succeeded and no error was raised.
@@ -80,6 +106,12 @@ func Test1919(t *testing.T) {
 				return b.Send()
 			}
 			err = send(fmt.Sprintf("INSERT INTO %s (col1, col2) SETTINGS nonexistent_setting_for_test_1919=1", tableName))
+			require.ErrorContains(t, err, "nonexistent_setting_for_test_1919")
+
+			err = send(fmt.Sprintf("INSERT INTO %s (col1, col2) SETTINGS nonexistent_setting_for_test_1919=1 -- inline comment", tableName))
+			require.ErrorContains(t, err, "nonexistent_setting_for_test_1919")
+
+			err = send(fmt.Sprintf("INSERT INTO %s (col1, col2) SETTINGS\n\tasync_insert=0,\n\tnonexistent_setting_for_test_1919=1", tableName))
 			require.ErrorContains(t, err, "nonexistent_setting_for_test_1919")
 		})
 	}
