@@ -84,7 +84,7 @@ func (c *connect) handshake(auth Auth) error {
 	c.debugf("[handshake] <- %s", c.server)
 
 	// Handle SSH authentication if configured
-	if c.opt.SSHKeyFile != "" {
+	if c.opt.SSHSigner != nil || c.opt.SSHKeyFile != "" {
 		if err := c.performSSHAuthentication(); err != nil {
 			return err
 		}
