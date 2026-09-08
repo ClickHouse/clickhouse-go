@@ -12,11 +12,11 @@ The repository exposes two API families:
 - The ClickHouse API starts at `clickhouse.Open` and returns the interfaces in `lib/driver`.
 - The standard library API uses `database/sql` through `clickhouse.OpenDB` or `sql.Open`.
 
-Both API families can use the Native TCP protocol or the HTTP protocol. Do not use "native API" as shorthand for the Native protocol. Identify the API family and transport separately.
+Both API families can use the Native TCP protocol or the HTTP protocol. Some existing text in `AGENTS.md` and `README.md` calls `clickhouse.Open` the "Native API". Interpret that as the ClickHouse API, not a transport restriction. In documentation you edit, use "ClickHouse API" for this API family and "Native protocol" for the transport. Do not rewrite unrelated text solely to align terminology.
 
 ## Modes
 
-Fix mode is the default for local use. Edit only the documentation and runnable examples made stale by the branch.
+Fix mode is the default for local use. Fix only the docs and code samples affected by the branch's changes.
 
 When the caller says report-only, as the CI docs drift check does, do not edit any file. Apply the same judgment, then report each confident missing or stale update with the exact file and section that owns it.
 
@@ -25,6 +25,8 @@ When the caller says report-only, as the CI docs drift check does, do not edit a
 Read `AGENTS.md` first. It defines the supported API surfaces, repository conventions, parity expectations, and the requirement for an example when a new ClickHouse type is added. Read `CONTRIBUTING.md` for validation commands and the changelog rule. Read `docs/navigation.json` before deciding where a topic belongs. Read the relevant page in full rather than relying only on headings or search matches.
 
 ## Documentation in scope
+
+All user-facing documentation under `docs/**` and in Markdown files elsewhere in the repository is in scope, subject to the exclusions below. The following map describes the current pages; it is not an exhaustive list. Discover additional or newly added documentation from the diff, the docs tree, navigation, and links. Review those files when they cover behavior affected by the branch.
 
 - `docs/index.mdx` owns the quickstart, installation, supported Go and ClickHouse versions, the four connection choices, client selection, and high-level best practices.
 - `docs/clickhouse-api.mdx` owns the `clickhouse.Open` and `driver.Conn` API. This includes execution, queries, row and struct scanning, batches, async and columnar inserts, raw format streaming, parameter binding, server-side parameters, context options in use, callbacks, dynamic scanning, external tables, and OpenTelemetry.
@@ -50,8 +52,8 @@ Use these locations to classify user-visible changes:
 - `context.go` owns `Settings`, `Parameters`, and the public query options such as `WithQueryID`, `WithSettings`, `WithParameters`, `WithAsync`, callbacks, external tables, and per-query client information.
 - `lib/driver/driver.go` owns the public `Conn`, `Rows`, `Row`, `Batch`, `BatchColumn`, and `ColumnType` interfaces. `lib/driver/options.go` owns batch options.
 - `clickhouse_std.go` and the other root `clickhouse_*` files adapt the client to `database/sql`.
-- Root `conn*.go`, `batch.go`, `bind.go`, `format.go`, `query_parameters.go`, and `struct_map.go` implement user-visible query, insert, batch, binding, format, and scanning behavior. Files with `_http` in the name are strong signals that protocol-specific documentation may be affected.
-- `lib/column/**` and `lib/chcol/**` own ClickHouse type encoding, decoding, conversion, and JSON, Dynamic, and Variant wrappers.
+- Root `conn*.go`, `batch.go`, `bind.go`, `format.go`, `query_parameters.go`, `scan.go`, and `struct_map.go` implement user-visible query, insert, batch, binding, format, and scanning behavior. Files with `_http` in the name are strong signals that protocol-specific documentation may be affected.
+- `lib/column/**` and `lib/chcol/**` own ClickHouse type encoding, decoding, conversion, and JSON, Dynamic, and Variant wrappers. Root `chcol.go` re-exports the wrapper types and helpers.
 - `ext/**` owns the public external-table API.
 - `client_info.go`, `logger.go`, and `jwt.go` own client identity, structured logging, and JWT behavior.
 - `resources/meta.go` and `go.mod` can change the supported ClickHouse version, Go version, or dependency contract.
@@ -96,7 +98,7 @@ Preserve experimental and deprecated labels. State protocol or API restrictions 
 1. Determine the diff. Default to `git diff main...HEAD`, then include `git status` and `git diff` for uncommitted work. If the caller supplies a different branch, range, or file set, use it.
 2. Read the actual diff. Commit messages, the PR body, tests, and release notes can provide context, but the diff is the source of truth.
 3. List the user-visible changes. For each one, identify the affected API family and transport. For shared code, check both API families and both transports rather than assuming parity.
-4. Read every current documentation page and example that plausibly owns the behavior. Map each change to the smallest exact section using the rules above.
+4. Read every current documentation page and example that plausibly owns the behavior, including files not named in the map above. Map each change to the smallest exact section using the rules above.
 5. Check whether the current documentation already describes the resulting behavior. Look for stale method signatures, option names, defaults, protocol tables, type matrices, limitations, lifecycle rules, and linked examples.
 6. In fix mode, make the smallest necessary edit. Match the surrounding heading, code sample, component, and link style. Describe current behavior, not release history.
 7. Keep code samples aligned with the runnable examples. If you modify a Go example, run `gofmt` on it and run the narrowest practical `go test` command. If a required ClickHouse server is unavailable, report that instead of silently skipping validation.

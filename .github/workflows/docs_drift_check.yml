@@ -8,20 +8,23 @@ name: 'Docs Drift Check'
 # `needs-docs` label and keeps one sticky comment up to date. Model credentials
 # stay in the central repo.
 #
-# Every push to the PR re-runs the check, so fixing the docs in a later commit
+# Every push to a matching PR re-runs the check, so fixing the docs in a later commit
 # clears the label and marks the comment resolved.
 #
 # Fork PRs are skipped automatically. A maintainer can run one manually via
 # workflow_dispatch with the PR number. The central worker reads the diff but
-# checks out only the trusted base revision.
+# checks out only the trusted base revision and reads the rubric from there.
+# If the base has no rubric, the worker exits without a review. Rubric edits
+# take effect after merge; a run on the same PR does not validate the new rubric.
 
 on:
   pull_request:
     types: [opened, synchronize, reopened]
     branches:
       - main
-    # Cost valve: cover shipped client behavior and its documentation while
-    # skipping test-only, benchmark-only, and CI-only pull requests.
+    # Cover shipped client behavior, all docs and examples, Markdown anywhere
+    # in the repo (including the rubric), and this workflow. The rubric decides
+    # whether a matching change actually affects user documentation.
     paths:
       - '*.go'
       - 'ext/**'
@@ -30,9 +33,9 @@ on:
       - 'resources/**'
       - 'docs/**'
       - 'examples/**'
-      - 'README.md'
-      - 'TYPES.md'
+      - '**/*.md'
       - 'go.mod'
+      - '.github/workflows/docs_drift_check.yml'
   workflow_dispatch:
     inputs:
       pr_number:
@@ -45,6 +48,9 @@ permissions:
 
 jobs:
   docs-drift:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.pull_request.head.repo.full_name == github.repository
     uses: ClickHouse/integrations-shared-workflows/.github/workflows/claude-docs-drift.yml@main
     # Pull request runs read the PR from the event. Manual runs forward the
     # workflow_dispatch input.
