@@ -14,7 +14,13 @@ import (
 
 func TestEmptyQuery(t *testing.T) {
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
-		conn, err := GetNativeConnection(t, protocol, nil, nil, &clickhouse.Compression{
+		// TEMPORARY TABLE lives only inside a session. Native uses the stateful connection; HTTP
+		// needs an explicit session_id (an HTTP-interface concept, so only set it for HTTP).
+		var settings clickhouse.Settings
+		if protocol == clickhouse.HTTP {
+			settings = clickhouse.Settings{"session_id": t.Name()}
+		}
+		conn, err := GetNativeConnection(t, protocol, settings, nil, &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
 		})
 		ctx := context.Background()

@@ -57,7 +57,7 @@ func Test1421BatchFlushBrokenConn(t *testing.T) {
 		close(ch)
 	}()
 	//timeout := 0
-	_, err2 := dockerClient.ContainerKill(ctx, env.ContainerID, client.ContainerKillOptions{ Signal: "KILL"})
+	_, err2 := dockerClient.ContainerKill(ctx, env.ContainerID, client.ContainerKillOptions{Signal: "KILL"})
 	<-ch
 	require.NoError(t, err2)
 	require.True(t, errors.Is(err, syscall.EPIPE) || errors.Is(err, syscall.ECONNRESET))
