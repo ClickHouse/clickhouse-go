@@ -672,7 +672,7 @@ type sessionRows struct {
 }
 
 func (r *sessionRows) Next() bool {
-	return r.stdRows.Next([]driver.Value{}) == nil
+	return r, nil
 }
 
 func (r *sessionRows) Scan(dest ...any) error {
