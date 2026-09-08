@@ -2,20 +2,22 @@ package main
 
 import (
 	"context"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
+
 	"net/http"
 	_ "net/http/pprof"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/google/uuid"
 	_ "github.com/mkevac/debugcharts"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 )
 
 type App struct {
@@ -57,15 +59,15 @@ func (app *App) batch() {
 			uuid.New(),
 			time.Now(),
 			[][]time.Time{
-				[]time.Time{
+				{
 					time.Now(),
 					time.Now(),
 				},
-				[]time.Time{
+				{
 					time.Now(),
 					time.Now(),
 				},
-				[]time.Time{
+				{
 					time.Now(),
 					time.Now(),
 				},

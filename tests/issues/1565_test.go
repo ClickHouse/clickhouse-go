@@ -4,8 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ClickHouse/clickhouse-go/v2/tests"
 )
 
 func TestIssue1565(t *testing.T) {

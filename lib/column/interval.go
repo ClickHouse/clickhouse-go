@@ -3,9 +3,10 @@ package column
 import (
 	"errors"
 	"fmt"
-	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
 	"strings"
+
+	"github.com/ClickHouse/ch-go/proto"
 )
 
 type Interval struct {

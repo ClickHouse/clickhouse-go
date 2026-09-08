@@ -138,12 +138,13 @@ func (col *FixedString) Append(v any) (nulls []uint8, err error) {
 		nulls = make([]uint8, len(v))
 		for i, v := range v {
 			var err error
-			if v == nil {
+			switch {
+			case v == nil:
 				nulls[i] = 1
 				err = col.safeAppendRow(nil)
-			} else if *v == "" {
+			case *v == "":
 				err = col.safeAppendRow(nil)
-			} else {
+			default:
 				err = col.safeAppendRow(binary.Str2Bytes(*v, col.col.Size))
 			}
 
@@ -175,11 +176,12 @@ func (col *FixedString) Append(v any) (nulls []uint8, err error) {
 			}
 			n := len(v)
 			var err error
-			if n == 0 {
+			switch {
+			case n == 0:
 				err = col.safeAppendRow(nil)
-			} else if n >= col.col.Size {
+			case n >= col.col.Size:
 				err = col.safeAppendRow(v[0:col.col.Size])
-			} else {
+			default:
 				err = col.safeAppendRow(v)
 			}
 

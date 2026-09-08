@@ -4,9 +4,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/context"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
 )
 
 func TestBatchContextCancellation(t *testing.T) {
@@ -80,6 +81,35 @@ func TestBatchSendConnectionReleased(t *testing.T) {
 	require.NoError(t, err)
 
 	// assert if connection is properly released after Send called
+	require.NoError(t, conn.Exec(context.Background(), "SELECT 1"))
+}
+
+// This test validates that Close() releases the connection even when closeQuery() fails
+// due to a cancelled context. Before the fix, Close() would return the error from
+// closeQuery() without calling release(), causing a connection pool leak.
+func TestBatchCloseConnectionReleasedOnError(t *testing.T) {
+	te, err := GetTestEnvironment(testSet)
+	require.NoError(t, err)
+	opts := ClientOptionsFromEnv(te, clickhouse.Settings{}, false)
+	opts.MaxOpenConns = 1
+	opts.DialTimeout = 2 * time.Second
+	conn, err := GetConnectionWithOptions(&opts)
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	b, err := conn.PrepareBatch(ctx, "INSERT INTO function null('x UInt64')")
+	require.NoError(t, err)
+	require.NoError(t, b.Append(1))
+
+	// Cancel the context so that closeQuery() will fail inside Close()
+	cancel()
+
+	// Close should return an error (from closeQuery), but still release the connection
+	require.Error(t, b.Close())
+
+	// If the connection was properly released, we can acquire it again.
+	// Without the fix, this would timeout because the connection slot was leaked.
 	require.NoError(t, conn.Exec(context.Background(), "SELECT 1"))
 }
 

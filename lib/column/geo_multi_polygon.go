@@ -1,10 +1,12 @@
 package column
 
 import (
+	"database/sql"
 	"database/sql/driver"
 	"fmt"
-	"github.com/ClickHouse/ch-go/proto"
 	"reflect"
+
+	"github.com/ClickHouse/ch-go/proto"
 
 	"github.com/paulmach/orb"
 )
@@ -50,6 +52,9 @@ func (col *MultiPolygon) ScanRow(dest any, row int) error {
 		*d = new(orb.MultiPolygon)
 		**d = col.row(row)
 	default:
+		if scan, ok := dest.(sql.Scanner); ok {
+			return scan.Scan(col.row(row))
+		}
 		return &ColumnConverterError{
 			Op:   "ScanRow",
 			To:   fmt.Sprintf("%T", dest),

@@ -4,10 +4,11 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
-	"github.com/ClickHouse/ch-go/proto"
 	"net"
 	"net/netip"
 	"reflect"
+
+	"github.com/ClickHouse/ch-go/proto"
 )
 
 type IPv6 struct {
@@ -105,7 +106,7 @@ func (col *IPv6) Append(v any) (nulls []uint8, err error) {
 	switch v := v.(type) {
 	case []string:
 		nulls = make([]uint8, len(v))
-		ips := make([]netip.Addr, len(v), len(v))
+		ips := make([]netip.Addr, len(v))
 		for i := range v {
 			ip, err := strToIPV6(v[i])
 			if err != nil {
@@ -120,7 +121,7 @@ func (col *IPv6) Append(v any) (nulls []uint8, err error) {
 		col.AppendV6IPs(ips)
 	case []*string:
 		nulls = make([]uint8, len(v))
-		ips := make([]netip.Addr, len(v), len(v))
+		ips := make([]netip.Addr, len(v))
 		for i := range v {
 			switch {
 			case v[i] != nil:

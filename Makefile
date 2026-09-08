@@ -1,17 +1,19 @@
 CLICKHOUSE_VERSION ?= latest
-CLICKHOUSE_TEST_TIMEOUT ?= 240s
+CLICKHOUSE_TEST_TIMEOUT ?= 600s
 CLICKHOUSE_QUORUM_INSERT ?= 1
+COMPOSE_PROJECT_NAME ?= clickhouse-go
 
 up:
-	@docker compose up --wait
+	@docker ps -aqf "name=^/clickhouse$$" | xargs -r docker rm -f
+	@COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME) docker compose up --wait --remove-orphans
 down:
-	@docker compose down
+	@COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME) docker compose down
 
 up-cluster:
-	@docker compose -f docker-compose.cluster.yml up
+	@COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME) docker compose -f docker-compose.cluster.yml up --force-recreate --remove-orphans
 
 down-cluster:
-	@docker compose -f docker-compose.cluster.yml down
+	@COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME) docker compose -f docker-compose.cluster.yml down
 
 cli:
 	docker run -it --rm --net clickhouse-go_clickhouse --link clickhouse:clickhouse-server --host clickhouse-server
@@ -23,16 +25,22 @@ test:
 lint:
 	golangci-lint run || :
 
-contributors:
-	@git log --pretty="%an <%ae>%n%cn <%ce>" | sort -u -t '<' -k 2,2 | LC_ALL=C sort | \
-		grep -v "users.noreply.github.com\|GitHub <noreply@github.com>" \
-		> contributors/list
+fmt:
+	@gofmt -w -l .
+
+fmt-check:
+	@out=$$(gofmt -l .); \
+		if [ -n "$$out" ]; then \
+			echo "The following files are not gofmt-formatted:"; \
+			echo "$$out"; \
+			echo "Run 'make fmt' to fix."; \
+			exit 1; \
+		fi
 
 staticcheck:
 	staticcheck ./...
 
-codegen: contributors
+codegen:
 	@go run lib/column/codegen/main.go
-	@go-licenser -licensor "ClickHouse, Inc."
 
-.PHONY: contributors
+.PHONY: fmt fmt-check

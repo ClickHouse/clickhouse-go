@@ -3,11 +3,13 @@ package std
 import (
 	"database/sql"
 	"fmt"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"strconv"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 )
 
 func TestSimpleStdString(t *testing.T) {
