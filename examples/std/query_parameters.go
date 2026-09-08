@@ -1,24 +1,8 @@
-// Licensed to ClickHouse, Inc. under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. ClickHouse, Inc. licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-
 package std
 
 import (
 	"fmt"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/tests/std"
 )
@@ -33,23 +17,40 @@ func QueryWithParameters() error {
 		return nil
 	}
 
+	// ClickHouse parses parameter strings in its Escaped format. A raw Go
+	// literal preserves the backslashes; an interpreted literal needs an
+	// extra backslash. Double the Escaped backslash to receive a literal \n.
 	row := conn.QueryRow(
-		"SELECT {column:Identifier} v, {str:String} s, {array:Array(String)} a FROM {database:Identifier}.{table:Identifier} LIMIT 1 OFFSET 100",
-		clickhouse.Named("num", "42"),
+		`SELECT
+			{column:Identifier},
+			{str:String},
+			{array:Array(String)},
+			{escaped_raw:String},
+			{escaped_interpreted:String},
+			{literal_backslash:String}
+		FROM {database:Identifier}.{table:Identifier}
+		LIMIT 1 OFFSET 100`,
 		clickhouse.Named("str", "hello"),
 		clickhouse.Named("array", "['a', 'b', 'c']"),
 		clickhouse.Named("column", "number"),
 		clickhouse.Named("database", "system"),
 		clickhouse.Named("table", "numbers"),
+		clickhouse.Named("escaped_raw", `line 1\nline 2\tend`),
+		clickhouse.Named("escaped_interpreted", "line 1\\nline 2\\tend"),
+		clickhouse.Named("literal_backslash", `line 1\\nline 2`),
 	)
 	var (
-		col1 uint64
-		col2 string
-		col3 []string
+		column             uint64
+		str                string
+		array              []string
+		escapedRaw         string
+		escapedInterpreted string
+		literalBackslash   string
 	)
-	if err := row.Scan(&col1, &col2, &col3); err != nil {
+	if err := row.Scan(&column, &str, &array, &escapedRaw, &escapedInterpreted, &literalBackslash); err != nil {
 		return err
 	}
-	fmt.Printf("row: col1=%d, col2=%s, col3=%s\n", col1, col2, col3)
+	fmt.Printf("row: column=%d, str=%s, array=%s, escapedRaw=%q, escapedInterpreted=%q, literalBackslash=%q\n",
+		column, str, array, escapedRaw, escapedInterpreted, literalBackslash)
 	return nil
 }

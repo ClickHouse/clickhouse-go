@@ -1,20 +1,3 @@
-// Licensed to ClickHouse, Inc. under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. ClickHouse, Inc. licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-
 package clickhouse
 
 import (
@@ -22,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
@@ -84,7 +68,8 @@ func (c *connect) firstBlockImpl(ctx context.Context, on *onProcess) (*proto.Blo
 
 		packet, err := c.reader.ReadByte()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("query processing: failed to read first block packet from %s (conn_id=%d): %w",
+				c.conn.RemoteAddr(), c.id, err)
 		}
 
 		switch packet {
@@ -92,7 +77,7 @@ func (c *connect) firstBlockImpl(ctx context.Context, on *onProcess) (*proto.Blo
 			return c.readData(ctx, packet, true)
 
 		case proto.ServerEndOfStream:
-			c.debugf("[end of stream]")
+			c.logger.Debug("end of stream received")
 			return nil, io.EOF
 
 		default:
@@ -157,12 +142,13 @@ func (c *connect) processImpl(ctx context.Context, on *onProcess) error {
 
 		packet, err := c.reader.ReadByte()
 		if err != nil {
-			return err
+			return fmt.Errorf("query processing: failed to read packet from %s (conn_id=%d): %w",
+				c.conn.RemoteAddr(), c.id, err)
 		}
 
 		switch packet {
 		case proto.ServerEndOfStream:
-			c.debugf("[end of stream]")
+			c.logger.Debug("end of stream received")
 			return nil
 		}
 
@@ -192,20 +178,26 @@ func (c *connect) handle(ctx context.Context, packet byte, on *onProcess) error 
 		if err := info.Decode(c.reader, c.revision); err != nil {
 			return err
 		}
-		c.debugf("[profile info] %s", &info)
+		c.logger.Debug("profile info received",
+			slog.Uint64("rows", info.Rows),
+			slog.Uint64("blocks", info.Blocks),
+			slog.Uint64("bytes", info.Bytes))
 		on.profileInfo(&info)
 	case proto.ServerTableColumns:
 		var info proto.TableColumns
 		if err := info.Decode(c.reader, c.revision); err != nil {
 			return err
 		}
-		c.debugf("[table columns]")
+		c.logger.Debug("table columns received")
 	case proto.ServerProfileEvents:
-		events, err := c.profileEvents(ctx)
+		scanEvents := on.profileEvents != nil
+		events, err := c.profileEvents(ctx, scanEvents)
 		if err != nil {
 			return err
 		}
-		on.profileEvents(events)
+		if scanEvents {
+			on.profileEvents(events)
+		}
 	case proto.ServerLog:
 		logs, err := c.logs(ctx)
 		if err != nil {
@@ -217,7 +209,7 @@ func (c *connect) handle(ctx context.Context, packet byte, on *onProcess) error 
 		if err != nil {
 			return err
 		}
-		c.debugf("[progress] %s", progress)
+		// Progress is already logged in c.progress()
 		on.progress(progress)
 	default:
 		return &OpError{
@@ -229,7 +221,7 @@ func (c *connect) handle(ctx context.Context, packet byte, on *onProcess) error 
 }
 
 func (c *connect) cancel() error {
-	c.debugf("[cancel]")
+	c.logger.Debug("cancelling query")
 	c.buffer.PutUVarInt(proto.ClientCancel)
 	wErr := c.flush()
 	// don't reuse a cancelled query as we don't drain the connection

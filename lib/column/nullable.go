@@ -1,20 +1,3 @@
-// Licensed to ClickHouse, Inc. under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. ClickHouse, Inc. licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-
 package column
 
 import (
@@ -92,39 +75,49 @@ func (col *Nullable) ScanRow(dest any, row int) error {
 	if col.enable {
 		switch col.nulls.Row(row) {
 		case 1:
-			switch v := dest.(type) {
-			case **uint64:
-				*v = nil
-			case **int64:
-				*v = nil
-			case **uint32:
-				*v = nil
-			case **int32:
-				*v = nil
-			case **uint16:
-				*v = nil
-			case **int16:
-				*v = nil
-			case **uint8:
-				*v = nil
-			case **int8:
-				*v = nil
-			case **string:
-				*v = nil
-			case **float32:
-				*v = nil
-			case **float64:
-				*v = nil
-			case **time.Time:
-				*v = nil
-			}
-			if scan, ok := dest.(sql.Scanner); ok {
-				return scan.Scan(nil)
-			}
-			return nil
+			return scanNullInto(dest)
 		}
 	}
 	return col.base.ScanRow(dest, row)
+}
+
+// scanNullInto writes a ClickHouse NULL into a scan destination: it resets the
+// double-pointer destinations produced for nullable columns to nil and, when dest
+// implements sql.Scanner, invokes Scan(nil). It is shared by Nullable.ScanRow and
+// LowCardinality.ScanRow — a LowCardinality(Nullable(T)) column disables its inner
+// Nullable and tracks NULLs through key index 0, so it must clear the destination
+// itself rather than delegating to the base column.
+func scanNullInto(dest any) error {
+	switch v := dest.(type) {
+	case **uint64:
+		*v = nil
+	case **int64:
+		*v = nil
+	case **uint32:
+		*v = nil
+	case **int32:
+		*v = nil
+	case **uint16:
+		*v = nil
+	case **int16:
+		*v = nil
+	case **uint8:
+		*v = nil
+	case **int8:
+		*v = nil
+	case **string:
+		*v = nil
+	case **float32:
+		*v = nil
+	case **float64:
+		*v = nil
+	case **time.Time:
+		*v = nil
+	}
+	if scan, ok := dest.(sql.Scanner); ok {
+		return scan.Scan(nil)
+	}
+	return nil
 }
 
 func (col *Nullable) Append(v any) ([]uint8, error) {
@@ -147,7 +140,7 @@ func (col *Nullable) AppendRow(v any) error {
 		rv = reflect.ValueOf(v)
 	}
 
-	if v == nil || (rv.Kind() == reflect.Pointer && rv.IsNil()) {
+	if v == nil || ((rv.Kind() == reflect.Pointer || rv.Kind() == reflect.Map) && rv.IsNil()) {
 		col.nulls.Append(1)
 		// used to detect sql.Null* types
 	} else if val, ok := v.(driver.Valuer); ok {

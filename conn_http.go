@@ -1,20 +1,3 @@
-// Licensed to ClickHouse, Inc. under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. ClickHouse, Inc. licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-
 package clickhouse
 
 import (
@@ -27,12 +10,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"mime/multipart"
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -40,8 +22,10 @@ import (
 
 	"github.com/ClickHouse/ch-go/compress"
 	chproto "github.com/ClickHouse/ch-go/proto"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 	"github.com/andybalholm/brotli"
+
+	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/timezone"
 )
 
 const (
@@ -120,10 +104,13 @@ func (rw *HTTPReaderWriter) reset(pw *io.PipeWriter) io.WriteCloser {
 
 // applyOptionsToRequest applies the client Options (such as auth, headers, client info) to the given http.Request
 func applyOptionsToRequest(ctx context.Context, req *http.Request, opt *Options) error {
-	jwt := queryOptionsJWT(ctx)
+	queryOpt := queryOptions(ctx)
+
+	jwt := queryOpt.jwt
 	useJWT := jwt != "" || useJWTAuth(opt)
 
-	if opt.TLS != nil && useJWT {
+	switch {
+	case opt.TLS != nil && useJWT:
 		if jwt == "" {
 			var err error
 			jwt, err = opt.GetJWT(ctx)
@@ -133,7 +120,7 @@ func applyOptionsToRequest(ctx context.Context, req *http.Request, opt *Options)
 		}
 
 		req.Header.Set("Authorization", "Bearer "+jwt)
-	} else if opt.TLS != nil && len(opt.Auth.Username) > 0 {
+	case opt.TLS != nil && len(opt.Auth.Username) > 0:
 		req.Header.Set("X-ClickHouse-User", opt.Auth.Username)
 		if len(opt.Auth.Password) > 0 {
 			req.Header.Set("X-ClickHouse-Key", opt.Auth.Password)
@@ -141,7 +128,7 @@ func applyOptionsToRequest(ctx context.Context, req *http.Request, opt *Options)
 		} else {
 			req.Header.Set("X-ClickHouse-SSL-Certificate-Auth", "on")
 		}
-	} else if opt.TLS == nil && len(opt.Auth.Username) > 0 {
+	case opt.TLS == nil && len(opt.Auth.Username) > 0:
 		if len(opt.Auth.Password) > 0 {
 			req.URL.User = url.UserPassword(opt.Auth.Username, opt.Auth.Password)
 
@@ -150,43 +137,39 @@ func applyOptionsToRequest(ctx context.Context, req *http.Request, opt *Options)
 		}
 	}
 
-	req.Header.Set("User-Agent", opt.ClientInfo.String())
+	req.Header.Set("User-Agent", opt.ClientInfo.Append(queryOpt.clientInfo).String())
 
 	for k, v := range opt.HttpHeaders {
-		req.Header.Set(k, v)
+		if strings.EqualFold(k, "Host") {
+			req.Host = v
+		} else {
+			req.Header.Set(k, v)
+		}
 	}
 
 	return nil
 }
 
 func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpConnect, error) {
-	debugf := func(format string, v ...any) {}
-	if opt.Debug {
-		if opt.Debugf != nil {
-			debugf = func(format string, v ...any) {
-				opt.Debugf(
-					"[clickhouse-http][%s][id=%d] "+format,
-					append([]interface{}{addr, num}, v...)...,
-				)
-			}
-		} else {
-			debugf = log.New(os.Stdout, fmt.Sprintf("[clickhouse-http][%s][id=%d]", addr, num), 0).Printf
-		}
-	}
+	// Get base logger and enrich with connection-specific context
+	baseLogger := opt.logger()
+	logger := prepareConnLogger(baseLogger, num, addr, "http")
+	scheme := opt.scheme
+	compression := opt.Compression
 
-	if opt.scheme == "" {
+	if scheme == "" {
 		switch opt.Protocol {
 		case HTTP:
-			opt.scheme = opt.Protocol.String()
+			scheme = opt.Protocol.String()
 			if opt.TLS != nil {
-				opt.scheme = fmt.Sprintf("%ss", opt.scheme)
+				scheme = fmt.Sprintf("%ss", scheme)
 			}
 		default:
 			return nil, errors.New("invalid interface type for http")
 		}
 	}
 	u := &url.URL{
-		Scheme: opt.scheme,
+		Scheme: scheme,
 		Host:   addr,
 		Path:   opt.HttpUrlPath,
 	}
@@ -196,13 +179,13 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 		query.Set("database", opt.Auth.Database)
 	}
 
-	if opt.Compression == nil {
-		opt.Compression = &Compression{
+	if compression == nil {
+		compression = &Compression{
 			Method: CompressionNone,
 		}
 	}
 
-	compressionPool, err := createCompressionPool(opt.Compression)
+	compressionPool, err := createCompressionPool(compression)
 	if err != nil {
 		return nil, err
 	}
@@ -219,46 +202,29 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 	query.Set("client_protocol_version", strconv.Itoa(ClientTCPProtocolVersion))
 	u.RawQuery = query.Encode()
 
-	httpProxy := http.ProxyFromEnvironment
-	if opt.HTTPProxyURL != nil {
-		httpProxy = http.ProxyURL(opt.HTTPProxyURL)
-	}
-
-	t := &http.Transport{
-		Proxy: httpProxy,
-		DialContext: (&net.Dialer{
-			Timeout: opt.DialTimeout,
-		}).DialContext,
-		MaxIdleConns:          1,
-		MaxConnsPerHost:       opt.HttpMaxConnsPerHost,
-		IdleConnTimeout:       opt.ConnMaxLifetime,
-		ResponseHeaderTimeout: opt.ReadTimeout,
-		TLSClientConfig:       opt.TLS,
-	}
-
-	if opt.DialContext != nil {
-		t.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-			return opt.DialContext(ctx, addr)
-		}
+	rt, err := createHTTPRoundTripper(opt)
+	if err != nil {
+		return nil, err
 	}
 
 	conn := httpConnect{
 		id:          num,
 		connectedAt: time.Now(),
 		released:    false,
-		debugfFunc:  debugf,
+		logger:      logger,
 		opt:         opt,
 		client: &http.Client{
-			Transport: t,
+			Transport: rt,
 		},
 		url:             u,
 		revision:        ClientTCPProtocolVersion, // Preflight uses hardcoded revision, may break older versions.
 		encodeRevision:  0,                        // Encoding data over HTTP must use 0. client_protocol_version does not apply to inserts.
 		buffer:          new(chproto.Buffer),
-		compression:     opt.Compression.Method,
-		blockCompressor: compress.NewWriter(compress.Level(opt.Compression.Level), compress.Method(opt.Compression.Method)),
+		compression:     compression.Method,
+		blockCompressor: compress.NewWriter(compress.Level(compression.Level), compress.Method(compression.Method)),
 		compressionPool: compressionPool,
 		blockBufferSize: opt.BlockBufferSize,
+		waitEndOfQuery:  settingEnabled(opt.Settings, "wait_end_of_query"),
 	}
 
 	handshake, err := conn.queryHello(ctx, func(nativeTransport, error) {})
@@ -271,11 +237,43 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 	return &conn, nil
 }
 
+func createHTTPRoundTripper(opt *Options) (http.RoundTripper, error) {
+	httpProxy := http.ProxyFromEnvironment
+	if opt.HTTPProxyURL != nil {
+		httpProxy = http.ProxyURL(opt.HTTPProxyURL)
+	}
+
+	rt := &http.Transport{
+		Proxy: httpProxy,
+		DialContext: (&net.Dialer{
+			Timeout: opt.DialTimeout,
+		}).DialContext,
+		MaxIdleConns:          1,
+		MaxConnsPerHost:       opt.HttpMaxConnsPerHost,
+		IdleConnTimeout:       opt.ConnMaxLifetime,
+		ResponseHeaderTimeout: opt.ReadTimeout,
+		TLSClientConfig:       opt.TLS,
+		DisableCompression:    true,
+	}
+
+	if opt.DialContext != nil {
+		rt.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+			return opt.DialContext(ctx, addr)
+		}
+	}
+
+	if opt.TransportFunc == nil {
+		return rt, nil
+	}
+
+	return opt.TransportFunc(rt)
+}
+
 type httpConnect struct {
 	id              int
 	connectedAt     time.Time
 	released        bool
-	debugfFunc      func(format string, v ...any)
+	logger          *slog.Logger
 	opt             *Options
 	revision        uint64
 	encodeRevision  uint64
@@ -287,6 +285,7 @@ type httpConnect struct {
 	compressionPool Pool[HTTPReaderWriter]
 	blockBufferSize uint8
 	handshake       proto.ServerHandshake
+	waitEndOfQuery  bool // connection-level wait_end_of_query from Options.Settings
 }
 
 func (h *httpConnect) serverVersion() (*ServerVersion, error) {
@@ -301,6 +300,10 @@ func (h *httpConnect) connectedAtTime() time.Time {
 	return h.connectedAt
 }
 
+func (h *httpConnect) getLogger() *slog.Logger {
+	return h.logger
+}
+
 func (h *httpConnect) isReleased() bool {
 	return h.released
 }
@@ -309,19 +312,18 @@ func (h *httpConnect) setReleased(released bool) {
 	h.released = released
 }
 
-func (h *httpConnect) debugf(format string, v ...any) {
-	h.debugfFunc(format, v...)
-}
-
 func (h *httpConnect) freeBuffer() {
 }
 
-func (h *httpConnect) isBad() bool {
-	return h.client == nil
+func (h *httpConnect) healthCheck() error {
+	if h.client == nil {
+		return ErrConnectionClosed
+	}
+	return nil
 }
 
 func (h *httpConnect) queryHello(ctx context.Context, release nativeTransportRelease) (proto.ServerHandshake, error) {
-	h.debugf("[query hello]")
+	h.logger.Debug("querying server info via HTTP")
 	ctx = Context(ctx, ignoreExternalTables())
 	query := "SELECT displayName(), version(), revision(), timezone()"
 	rows, err := h.query(ctx, release, query)
@@ -338,13 +340,13 @@ func (h *httpConnect) queryHello(ctx context.Context, release nativeTransportRel
 		displayName string
 		versionStr  string
 		revision    uint32
-		timezone    string
+		tz          string
 	)
-	if err := rows.Scan(&displayName, &versionStr, &revision, &timezone); err != nil {
+	if err := rows.Scan(&displayName, &versionStr, &revision, &tz); err != nil {
 		return proto.ServerHandshake{}, err
 	}
 
-	location, err := time.LoadLocation(timezone)
+	location, err := timezone.Load(tz)
 	if err != nil {
 		return proto.ServerHandshake{}, fmt.Errorf("failed to load timezone from server hello query: %w", err)
 	}
@@ -406,6 +408,24 @@ func createCompressionPool(compression *Compression) (Pool[HTTPReaderWriter], er
 	return pool, nil
 }
 
+func applyHTTPNativeCompressionSettings(settings Settings, method CompressionMethod, level int, requestCompressed bool) {
+	if method != CompressionLZ4 && method != CompressionZSTD {
+		return
+	}
+
+	settings["compress"] = "1"
+	if requestCompressed {
+		settings["decompress"] = "1"
+	}
+
+	if _, ok := settings["network_compression_method"]; !ok {
+		settings["network_compression_method"] = strings.ToUpper(method.String())
+	}
+	if method == CompressionZSTD && level > 0 {
+		settings["network_zstd_compression_level"] = level
+	}
+}
+
 func (h *httpConnect) writeData(block *proto.Block) error {
 	// Saving offset of compressible data
 	start := len(h.buffer.Buf)
@@ -423,7 +443,7 @@ func (h *httpConnect) writeData(block *proto.Block) error {
 	return nil
 }
 
-func (h *httpConnect) readData(reader *chproto.Reader, timezone *time.Location) (*proto.Block, error) {
+func (h *httpConnect) readData(reader *chproto.Reader, timezone *time.Location, captureBuffer *bytes.Buffer) (*proto.Block, error) {
 	location := h.handshake.Timezone
 	if timezone != nil {
 		location = timezone
@@ -436,10 +456,166 @@ func (h *httpConnect) readData(reader *chproto.Reader, timezone *time.Location) 
 		reader.EnableCompression()
 		defer reader.DisableCompression()
 	}
+
+	captureMark := 0
+	if captureBuffer != nil {
+		captureMark = captureBuffer.Len()
+	}
+
+	// Try to decode the block
 	if err := block.Decode(reader, h.revision); err != nil {
-		return nil, fmt.Errorf("block decode: %w", err)
+		// Decode failed - check if captured data contains exception marker
+		// The decode error typically happens because it tries to read the
+		// "__exception__" marker as binary data
+
+		// Exception block size can be up to 16KiB max.
+		// https://clickhouse.com/docs/interfaces/http#http_response_codes_caveats
+		// NOTE: When exception happens, a dedicated block is allocated for exception and only
+		// that exception will be present in the block. So safe to assume whole block size is same
+		// exception block max size 16KiB.
+		maxSize := int64(16 * 1024)
+
+		// Drain the remaining data up to the limit. A single Read may legally
+		// return a short chunk and miss or truncate the exception block.
+		lr := &limitedReader{reader: reader, limit: 2 * maxSize} // allocating 2 * maxSize for just in case
+		remaining, readErr := io.ReadAll(lr)
+		if len(remaining) > 0 && captureBuffer != nil {
+			captureBuffer.Write(remaining)
+		}
+		if readErr != nil {
+			h.logger.Error("HTTP read data: decode error while parsing exception block", slog.Any("error", err))
+		}
+
+		// A plain io.EOF with nothing read in this call and nothing left to
+		// drain is the normal end of the stream. It must not enter exception
+		// detection: an earlier, successfully decoded block may legitimately
+		// contain the literal "__exception__" marker as user data. A genuine
+		// mid-stream exception breaks block decoding instead, surfacing as a
+		// parse error or io.ErrUnexpectedEOF.
+		if errors.Is(err, io.EOF) && (captureBuffer == nil || captureBuffer.Len() == captureMark) {
+			return nil, err
+		}
+
+		// Check if the captured data holds a framed exception block. The CRLF
+		// framing requirement (see isFramedException) keeps result data that
+		// merely contains the bare "__exception__" bytes from being misread as
+		// an exception when the decode failed for an unrelated reason, e.g. a
+		// truncated stream.
+		if captureBuffer != nil && isFramedException(captureBuffer.Bytes()) {
+			// This is an exception block, parse it
+			return nil, parseExceptionFromBytes(captureBuffer.Bytes())
+		}
+
+		// Not an exception, return the original decode error
+		return nil, fmt.Errorf("block decode for exception: %w", err)
 	}
 	return &block, nil
+}
+
+// limitedReader is a helper to read from chproto.Reader up to a limit
+type limitedReader struct {
+	reader *chproto.Reader
+	limit  int64
+	read   int64
+}
+
+func (lr *limitedReader) Read(p []byte) (n int, err error) {
+	if lr.read >= lr.limit {
+		return 0, io.EOF
+	}
+	if int64(len(p)) > lr.limit-lr.read {
+		p = p[0 : lr.limit-lr.read]
+	}
+	n, err = lr.reader.Read(p)
+	lr.read += int64(n)
+	return
+}
+
+// parseExceptionFromBytes parses ClickHouse exception block
+// Format from ClickHouse server (WriteBufferFromHTTPServerResponse.cpp):
+//
+//	\r\n
+//	__exception__
+//	\r\n
+//	<TAG>  (16 bytes)
+//	\r\n
+//	<error message>
+//	\n
+//	<message_length> <TAG>
+//	\r\n
+//	__exception__
+//	\r\n
+//
+// Older servers (e.g. 25.8) write the bare error message directly after the
+// first marker, with no tag, no trailer line and no closing marker.
+func parseExceptionFromBytes(data []byte) error {
+	const (
+		exceptionMarkerLen = len(exceptionMarker)
+		exceptionTagLen    = 16 // bytes
+	)
+
+	dataStr := string(data)
+
+	// Find the first __exception__ marker
+	firstMarker := strings.Index(dataStr, exceptionMarker)
+	if firstMarker < 0 {
+		return fmt.Errorf("exception marker not found")
+	}
+
+	// Locate the message by its stable "Code: NNN." prefix rather than by
+	// fixed offsets — the framing varies across server versions (see above).
+	if msg, ok := exceptionTextFromBlock(dataStr); ok {
+		if ex := parseHTTPException(msg, "", ""); ex != nil {
+			return ex
+		}
+	}
+
+	// No "Code: NNN." found — fall back to offset-based extraction assuming
+	// the framed format, yielding a plain (untyped) error.
+
+	// Skip past first __exception__\r\n
+	pos := firstMarker + exceptionMarkerLen
+	// Skip \r\n after first marker
+	if pos+2 < len(dataStr) && dataStr[pos:pos+2] == "\r\n" {
+		pos += 2
+	}
+
+	// Skip the exception tag (16 bytes) + \r\n
+	if pos+exceptionTagLen+2 < len(dataStr) {
+		pos += exceptionTagLen + 2 // tag + \r\n
+	}
+
+	// Now we're at the start of the error message
+	// Find the second __exception__ marker
+	secondMarker := strings.Index(dataStr[pos:], exceptionMarker)
+	if secondMarker < 0 {
+		// If we can't find second marker, just extract what we can
+		errorMsg := strings.TrimSpace(dataStr[pos:])
+		if len(errorMsg) > 0 {
+			return midStreamException(errorMsg)
+		}
+		return fmt.Errorf("ClickHouse exception occurred but could not parse details")
+	}
+
+	// Extract error message between tag and second marker
+	// The error message ends with: \n<message_length> <TAG>\r\n__exception__
+	errorContent := dataStr[pos : pos+secondMarker]
+
+	// Find the last line which contains "<message_length> <TAG>"
+	lines := strings.Split(strings.TrimRight(errorContent, "\r\n"), "\n")
+	if len(lines) == 0 {
+		return fmt.Errorf("ClickHouse exception occurred but could not parse details")
+	}
+
+	// The last line is "<message_length> <TAG>", error message is everything before it
+	errorMsg := strings.Join(lines[:len(lines)-1], "\n")
+	errorMsg = strings.TrimSpace(errorMsg)
+
+	if len(errorMsg) == 0 {
+		return fmt.Errorf("ClickHouse exception occurred but message is empty")
+	}
+
+	return midStreamException(errorMsg)
 }
 
 func (h *httpConnect) sendStreamQuery(ctx context.Context, r io.Reader, options *QueryOptions, headers map[string]string) (*http.Response, error) {
@@ -469,6 +645,8 @@ func (h *httpConnect) sendQuery(ctx context.Context, query string, options *Quer
 	return res, nil
 }
 
+// readRawResponse reads an error response body, capped at maxErrorBodySize so
+// a misbehaving server or proxy cannot exhaust memory.
 func (h *httpConnect) readRawResponse(response *http.Response) (body []byte, err error) {
 	rw := h.compressionPool.Get()
 	defer h.compressionPool.Put(rw)
@@ -477,15 +655,23 @@ func (h *httpConnect) readRawResponse(response *http.Response) (body []byte, err
 	if err != nil {
 		return nil, err
 	}
-	if h.compression == CompressionLZ4 || h.compression == CompressionZSTD {
-		chReader := chproto.NewReader(reader)
-		chReader.EnableCompression()
-		reader = chReader
-	}
 
-	body, err = io.ReadAll(reader)
+	body, err = io.ReadAll(io.LimitReader(reader, maxErrorBodySize))
 	if err != nil && !errors.Is(err, io.EOF) {
 		return nil, err
+	}
+
+	if h.compression == CompressionLZ4 || h.compression == CompressionZSTD {
+		// The server native-compresses an error body only when the failing
+		// request asked for it (compress=1 on the query path); exec and async
+		// insert error bodies arrive as plain text on the same connection.
+		// Try to decompress the buffered bytes and fall back to them raw.
+		chReader := chproto.NewReader(bytes.NewReader(body))
+		chReader.EnableCompression()
+		decompressed, derr := io.ReadAll(io.LimitReader(chReader, maxErrorBodySize))
+		if (derr == nil || errors.Is(derr, io.EOF)) && len(decompressed) > 0 {
+			return decompressed, nil
+		}
 	}
 	return body, nil
 }
@@ -595,10 +781,17 @@ func (h *httpConnect) executeRequest(req *http.Request) (*http.Response, error) 
 		defer discardAndClose(resp.Body)
 		msgBytes, err := h.readRawResponse(resp)
 		if err != nil {
-			return nil, fmt.Errorf("[HTTP %d] failed to read response: %w", resp.StatusCode, err)
+			// Body is unreadable (e.g. a plain-text error body on a connection
+			// whose reader expects native compression). The exception code
+			// header can still yield a typed *Exception, with a degraded message.
+			if ex := parseHTTPException("", resp.Header.Get(exceptionCodeHeader), resp.Header.Get(exceptionNameHeader)); ex != nil {
+				ex.Message = fmt.Sprintf("failed to read response body: %v", err)
+				return nil, &HTTPError{StatusCode: resp.StatusCode, Err: ex}
+			}
+			return nil, &HTTPError{StatusCode: resp.StatusCode, Err: fmt.Errorf("failed to read response: %w", err)}
 		}
 
-		return nil, fmt.Errorf("[HTTP %d] response body: \"%s\"", resp.StatusCode, string(msgBytes))
+		return nil, newHTTPError(resp.StatusCode, resp.Header, msgBytes)
 	}
 	return resp, nil
 }

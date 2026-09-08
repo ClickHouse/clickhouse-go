@@ -1,27 +1,11 @@
-// Licensed to ClickHouse, Inc. under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. ClickHouse, Inc. licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-
 package clickhouse
 
 import (
 	"context"
-	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestContext(t *testing.T) {
@@ -141,4 +125,95 @@ func TestContext(t *testing.T) {
 			require.Nil(t, loc)
 		},
 	)
+
+	t.Run("correctly appends client info on multiple calls",
+		func(t *testing.T) {
+			// First context
+			firstContext := Context(context.Background(), WithClientInfo(ClientInfo{
+				Products: []struct {
+					Name    string
+					Version string
+				}{
+					{
+						Name:    "product",
+						Version: "1.0.0",
+					},
+				},
+				Comment: []string{"comment_a"},
+			}))
+
+			firstOpts := queryOptions(firstContext)
+			require.Len(t, firstOpts.clientInfo.Products, 1)
+			require.Equal(t, "product", firstOpts.clientInfo.Products[0].Name)
+			require.Equal(t, "1.0.0", firstOpts.clientInfo.Products[0].Version)
+			require.Len(t, firstOpts.clientInfo.Comment, 1)
+			require.Equal(t, "comment_a", firstOpts.clientInfo.Comment[0])
+
+			// Second context
+			secondContext := Context(firstContext, WithClientInfo(ClientInfo{
+				Products: []struct {
+					Name    string
+					Version string
+				}{
+					{
+						Name:    "product2",
+						Version: "2.0.0",
+					},
+				},
+				Comment: []string{"comment_b"},
+			}))
+
+			// Product and comment values should be merged from the first+second contexts
+			secondOpts := queryOptions(secondContext)
+
+			// Check first context values still present
+			require.Len(t, secondOpts.clientInfo.Products, 2)
+			require.Equal(t, "product", secondOpts.clientInfo.Products[0].Name)
+			require.Equal(t, "1.0.0", secondOpts.clientInfo.Products[0].Version)
+			require.Len(t, secondOpts.clientInfo.Comment, 2)
+			require.Equal(t, "comment_a", secondOpts.clientInfo.Comment[0])
+
+			// Check second context values present
+			require.Len(t, secondOpts.clientInfo.Products, 2)
+			require.Equal(t, "product2", secondOpts.clientInfo.Products[1].Name)
+			require.Equal(t, "2.0.0", secondOpts.clientInfo.Products[1].Version)
+			require.Len(t, secondOpts.clientInfo.Comment, 2)
+			require.Equal(t, "comment_b", secondOpts.clientInfo.Comment[1])
+		},
+	)
+}
+
+func TestContextJWTPreserved(t *testing.T) {
+	// Regression: queryOptions() returns a clone of the context's QueryOptions,
+	// and clone() must carry the per-query JWT set via WithJWT. Otherwise the
+	// HTTPS transport reads an empty token and silently falls back to the
+	// connection's basic-auth credentials.
+	t.Run("clone preserves WithJWT token", func(t *testing.T) {
+		ctx := Context(context.Background(), WithJWT("tok-123"))
+		require.Equal(t, "tok-123", queryOptions(ctx).jwt)
+	})
+
+	t.Run("jwt survives alongside other options", func(t *testing.T) {
+		ctx := Context(context.Background(), WithJWT("tok-123"), WithQueryID("q1"))
+		ctx = Context(ctx, WithQuotaKey("k1"))
+		opts := queryOptions(ctx)
+		require.Equal(t, "tok-123", opts.jwt)
+		require.Equal(t, "q1", opts.queryID)
+		require.Equal(t, "k1", opts.quotaKey)
+	})
+}
+
+func TestWithoutProfileEvents(t *testing.T) {
+	t.Run("sets send_profile_events=0", func(t *testing.T) {
+		ctx := Context(context.Background(), WithoutProfileEvents())
+		opts := queryOptions(ctx)
+		require.Equal(t, 0, opts.settings["send_profile_events"])
+	})
+
+	t.Run("initializes nil settings map", func(t *testing.T) {
+		var opts QueryOptions
+		WithoutProfileEvents()(&opts)
+		require.NotNil(t, opts.settings)
+		require.Equal(t, 0, opts.settings["send_profile_events"])
+	})
 }

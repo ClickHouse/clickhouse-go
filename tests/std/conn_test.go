@@ -1,20 +1,3 @@
-// Licensed to ClickHouse, Inc. under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. ClickHouse, Inc. licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-
 package std
 
 import (
@@ -29,10 +12,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
-	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 )
 
 func TestStdConn(t *testing.T) {
@@ -461,7 +445,9 @@ func TestCustomSettings(t *testing.T) {
 }
 
 func TestStdJWTAuth(t *testing.T) {
-	clickhouse_tests.SkipNotCloud(t)
+	// JWT on production cloud is still beta and doesn't have oauth server to take
+	// full advantage of refresh token.
+	t.Skip("JWT tests are skipped. no infra to test")
 
 	protocols := map[string]clickhouse.Protocol{"Native": clickhouse.Native, "Http": clickhouse.HTTP}
 	for name, protocol := range protocols {
@@ -471,7 +457,7 @@ func TestStdJWTAuth(t *testing.T) {
 				return jwt, nil
 			}
 
-			conn, err := GetOpenDBConnectionJWT(testSet, protocol, nil, &tls.Config{}, getJWT)
+			conn, err := GetOpenDBConnectionJWT(testSet, protocol, nil, nil, getJWT)
 			require.NoError(t, err)
 			conn.SetMaxOpenConns(1)
 			conn.SetConnMaxLifetime(1000 * time.Millisecond)
@@ -496,13 +482,15 @@ func TestStdJWTAuth(t *testing.T) {
 }
 
 func TestJWTAuthHTTPOverride(t *testing.T) {
-	clickhouse_tests.SkipNotCloud(t)
+	// JWT on production cloud is still beta and doesn't have oauth server to take
+	// full advantage of refresh token.
+	t.Skip("JWT tests are skipped. no infra to test")
 
 	getJWT := func(ctx context.Context) (string, error) {
 		return clickhouse_tests.GetEnv("CLICKHOUSE_JWT", ""), nil
 	}
 
-	conn, err := GetOpenDBConnectionJWT(testSet, clickhouse.HTTP, nil, &tls.Config{}, getJWT)
+	conn, err := GetOpenDBConnectionJWT(testSet, clickhouse.HTTP, nil, nil, getJWT)
 	require.NoError(t, err)
 	conn.SetMaxOpenConns(1)
 	conn.SetConnMaxLifetime(1000 * time.Millisecond)

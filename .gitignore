@@ -40,3 +40,8 @@ pipeline.auto.tfvars
 *.tfvars
 
 .env
+go.work
+
+# Python bytecode from .claude tools
+__pycache__/
+*.pyc

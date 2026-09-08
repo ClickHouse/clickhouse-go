@@ -1,20 +1,3 @@
-// Licensed to ClickHouse, Inc. under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. ClickHouse, Inc. licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-
 package std
 
 import (
@@ -100,7 +83,22 @@ func TestStdQueryWithParameters(t *testing.T) {
 }
 
 func TestStdAsyncInsert(t *testing.T) {
-	require.NoError(t, AsyncInsert())
+	// Rationale: ClickHouser server added a validation that
+	// "insert_quoram" and "async_insert" setting cannot be used together.
+	// https://github.com/ClickHouse/ClickHouse/pull/89140/changes#diff-ff8ad4aed4cf07fe29cb5344d2ab79bc24efd97d054aa112c3a05b5ab853cc44R1558-R1562
+	// NOTE: using t.Setenv also cleanups and restore old value after end of the test. So no need
+	// to manually unset the envs.
+	t.Setenv("CLICKHOUSE_QUORUM_INSERT", "0")
+
+	require.NoError(t, AsyncInsertNative())
+	require.NoError(t, AsyncInsertNative_WithPrepare())
+	require.NoError(t, AsyncInsertHTTP())
+	require.NoError(t, AsyncInsertHTTP_WithPrepare())
+}
+
+func TestStdEphemeralColumn(t *testing.T) {
+	require.NoError(t, EphemeralColumnNative())
+	require.NoError(t, EphemeralColumnHTTP())
 }
 
 func TestStdMapInsertRead(t *testing.T) {
@@ -144,6 +142,19 @@ func TestConnectionSettings(t *testing.T) {
 	require.NoError(t, ConnectSettings())
 }
 
+func TestLoggerExample(t *testing.T) {
+	require.NoError(t, StdLogger())
+	require.NoError(t, StdTextLogger())
+	require.NoError(t, StdLegacyDebug())
+	require.NoError(t, StdEnrichedLogger())
+	require.NoError(t, StdPoolLogging())
+}
+
+func TestQBitExample(t *testing.T) {
+	require.NoError(t, QBit())
+	require.NoError(t, QBitSubcolumns())
+}
+
 func TestVariantExample(t *testing.T) {
 	clickhouse_tests.SkipOnCloud(t, "cannot modify Variant settings on cloud")
 	require.NoError(t, VariantExample())
@@ -162,4 +173,12 @@ func TestJSONPathsExample(t *testing.T) {
 func TestJSONStringExample(t *testing.T) {
 	clickhouse_tests.SkipOnCloud(t, "cannot modify JSON settings on cloud")
 	require.NoError(t, JSONStringExample())
+}
+
+func TestStdGeoInsertRead(t *testing.T) {
+	require.NoError(t, GeoInsertRead())
+}
+
+func TestStdBFloat16(t *testing.T) {
+	require.NoError(t, BFloat16())
 }

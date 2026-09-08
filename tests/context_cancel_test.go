@@ -1,38 +1,31 @@
-// Licensed to ClickHouse, Inc. under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. ClickHouse, Inc. licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-
 package tests
 
 import (
 	"context"
+	"crypto/tls"
+	"errors"
+	"fmt"
 	"log"
+	"strconv"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
 )
 
 func TestContextCancellationOfHeavyGeneratedInsert(t *testing.T) {
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
 		SkipOnHTTP(t, protocol, "context cancel")
 
-		var (
-			heavyQuery = `INSERT INTO test_query_cancellation.trips
+		table := contextCancellationTable(t)
+		// Substitute via ReplaceAll, not Sprintf: the query body contains `rand() % N`,
+		// which fmt would misread as format verbs.
+		heavyQuery := strings.ReplaceAll(`INSERT INTO {table}
 			SELECT
 				number + 1 AS trip_id,
 				now() - INTERVAL intDiv(number, 100) SECOND AS pickup_datetime,
@@ -51,12 +44,11 @@ func TestContextCancellationOfHeavyGeneratedInsert(t *testing.T) {
 				CAST(rand() % 5 + 1 AS Enum('CSH' = 1, 'CRE' = 2, 'NOC' = 3, 'DIS' = 4, 'UNK' = 5)) AS payment_type,
 				'Neighborhood ' || toString(rand() % 100 + 1) AS pickup_ntaname,
 				'Neighborhood ' || toString(rand() % 100 + 1) AS dropoff_ntaname
-			FROM numbers(100000000);`
-		)
+			FROM numbers(100000000);`, "{table}", table)
 
-		conn, err := SetupTestContextCancellationType1(t, protocol, false)
-		assert.Nil(t, err)
-		assert.NotNil(t, conn)
+		conn, err := SetupTestContextCancellationType1(t, protocol, table, false)
+		require.NoError(t, err)
+		require.NotNil(t, conn)
 
 		ExecuteTestContextCancellation(t, conn, heavyQuery)
 	})
@@ -66,13 +58,12 @@ func TestContextCancellationOfHeavyOptimizeFinal(t *testing.T) {
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
 		SkipOnHTTP(t, protocol, "context cancel")
 
-		var (
-			heavyQuery = "OPTIMIZE TABLE test_query_cancellation.trips FINAL"
-		)
+		table := contextCancellationTable(t)
+		heavyQuery := fmt.Sprintf("OPTIMIZE TABLE %s FINAL", table)
 
-		conn, err := SetupTestContextCancellationType1(t, protocol, true)
-		assert.Nil(t, err)
-		assert.NotNil(t, conn)
+		conn, err := SetupTestContextCancellationType1(t, protocol, table, true)
+		require.NoError(t, err)
+		require.NotNil(t, conn)
 
 		ExecuteTestContextCancellation(t, conn, heavyQuery)
 	})
@@ -82,8 +73,8 @@ func TestContextCancellationOfHeavyInsertFromS3(t *testing.T) {
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
 		SkipOnHTTP(t, protocol, "context cancel")
 
-		var (
-			heavyQuery = `INSERT INTO test_query_cancellation.trips
+		table := contextCancellationTable(t)
+		heavyQuery := fmt.Sprintf(`INSERT INTO %s
 		SELECT
 			trip_id,
 			pickup_datetime,
@@ -105,22 +96,39 @@ func TestContextCancellationOfHeavyInsertFromS3(t *testing.T) {
 		FROM s3(
 			'https://datasets-documentation.s3.eu-west-3.amazonaws.com/nyc-taxi/trips_{0..2}.gz',
 			'TabSeparatedWithNames'
-		);`
-		)
+		);`, table)
 
-		conn, err := SetupTestContextCancellationType1(t, protocol, true)
-		assert.Nil(t, err)
-		assert.NotNil(t, conn)
+		// No need to pre-fill the table: the cancelled query is the S3 insert itself, so an
+		// empty target table is sufficient. Skipping the fill avoids a multi-million-row setup
+		// insert that is irrelevant to this test and was the dominant cost here.
+		conn, err := SetupTestContextCancellationType1(t, protocol, table, false)
+		require.NoError(t, err)
+		require.NotNil(t, conn)
 
 		ExecuteTestContextCancellation(t, conn, heavyQuery)
 	})
 }
 
-func SetupTestContextCancellationType1(t *testing.T, protocol clickhouse.Protocol, fillTableWithRandomData bool) (clickhouse.Conn, error) {
+// contextCancellationTable returns a table name unique to both the running test and the test
+// process.
+//
+// The cloud test workflow runs a matrix (multiple Go versions) concurrently against a single
+// shared ClickHouse Cloud service. Every job runs the same test, so a name derived only from
+// t.Name() collides across jobs: one job's "DROP TABLE IF EXISTS <name>" tears down the table
+// another job just created, and that job's insert then fails with "code: 242, Table is shutting
+// down". testUUID is generated once per test process, so mixing it in keeps concurrent jobs (and
+// back-to-back tests) from sharing a table.
+func contextCancellationTable(t *testing.T) string {
+	name := strings.NewReplacer("/", "_", " ", "_").Replace(t.Name())
+	suffix := strings.ReplaceAll(testUUID, "-", "")
+	return fmt.Sprintf("test_query_cancellation.%s_%s", name, suffix)
+}
+
+func SetupTestContextCancellationType1(t *testing.T, protocol clickhouse.Protocol, table string, fillTableWithRandomData bool) (clickhouse.Conn, error) {
 	var (
 		q1 = "CREATE DATABASE IF NOT EXISTS test_query_cancellation"
-		q2 = "DROP TABLE IF EXISTS test_query_cancellation.trips"
-		q3 = `CREATE TABLE test_query_cancellation.trips (
+		q2 = fmt.Sprintf("DROP TABLE IF EXISTS %s", table)
+		q3 = fmt.Sprintf(`CREATE TABLE %s (
 			trip_id             UInt32,
 			pickup_datetime     DateTime,
 			dropoff_datetime    DateTime,
@@ -140,8 +148,9 @@ func SetupTestContextCancellationType1(t *testing.T, protocol clickhouse.Protoco
 			dropoff_ntaname     LowCardinality(String)
 		)
 		ENGINE = MergeTree
-		PRIMARY KEY (pickup_datetime, dropoff_datetime);`
-		q4 = `INSERT INTO test_query_cancellation.trips
+		PRIMARY KEY (pickup_datetime, dropoff_datetime);`, table)
+		// ReplaceAll, not Sprintf: the body contains `rand() % N` (fmt verb collisions).
+		q4 = strings.ReplaceAll(`INSERT INTO {table}
 			SELECT
 				number + 1 AS trip_id,
 				now() - INTERVAL intDiv(number, 100) SECOND AS pickup_datetime,
@@ -160,7 +169,7 @@ func SetupTestContextCancellationType1(t *testing.T, protocol clickhouse.Protoco
 				CAST(rand() % 5 + 1 AS Enum('CSH' = 1, 'CRE' = 2, 'NOC' = 3, 'DIS' = 4, 'UNK' = 5)) AS payment_type,
 				'Neighborhood ' || toString(rand() % 100 + 1) AS pickup_ntaname,
 				'Neighborhood ' || toString(rand() % 100 + 1) AS dropoff_ntaname
-			FROM numbers(30000000);`
+			FROM numbers(30000000);`, "{table}", table)
 	)
 
 	prepareQueries := []string{q1, q2, q3}
@@ -182,14 +191,42 @@ func SetupTestContextCancellationType1(t *testing.T, protocol clickhouse.Protoco
 	t.Log("Connected.")
 
 	// prepare table
+	//
+	// These prepare statements include heavy inserts (tens of millions of rows). Bound each
+	// one with its own deadline so a slow or stalled server fails this single test fast with an
+	// actionable error, instead of hanging with no cancellation path until the whole package
+	// times out and takes unrelated tests down with it.
 	for _, query := range prepareQueries {
-		err = conn.Exec(context.Background(), query)
+		execCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		err = conn.Exec(execCtx, query)
+		cancel()
 		if err != nil {
 			log.Printf("Finished with error: %v\n", err)
 			conn.Close()
 			return nil, err
 		}
 	}
+
+	// Drop the table when the test finishes so we don't leave it (the fill variant holds
+	// 30M rows) sitting on the Cloud service between runs. The test's own connection is
+	// closed by ExecuteTestContextCancellation, so open a fresh one for the drop. Cleanup
+	// is best-effort: log on failure instead of failing an otherwise-passing test.
+	t.Cleanup(func() {
+		cleanupConn, err := GetNativeConnection(t, protocol, nil, nil, &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		})
+		if err != nil {
+			t.Logf("cleanup: failed to open connection to drop %s: %v", table, err)
+			return
+		}
+		defer cleanupConn.Close()
+
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+		defer cancel()
+		if err := cleanupConn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s SYNC", table)); err != nil {
+			t.Logf("cleanup: failed to drop %s: %v", table, err)
+		}
+	})
 
 	return conn, nil
 }
@@ -230,4 +267,184 @@ func ExecuteTestContextCancellation(t *testing.T, conn clickhouse.Conn, query st
 	queryTime := <-queryTimeCh
 
 	assert.Less(t, queryTime-cancelBackoff, time.Second)
+}
+
+// TestContextCancellationNoConnectionSlotLeak verifies that when contexts are cancelled
+// during connection acquisition, connection slots are properly released back to the pool.
+// This test ensures that cancelled queries don't leak connection slots, which would
+// eventually exhaust the connection pool.
+func TestContextCancellationNoConnectionSlotLeak(t *testing.T) {
+	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		env, err := GetNativeTestEnvironment()
+		assert.Nil(t, err)
+
+		useSSL, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_SSL", "false"))
+		require.NoError(t, err)
+
+		// Select the correct port based on protocol
+		port := env.Port
+		var tlsConfig *tls.Config
+		if useSSL {
+			tlsConfig = &tls.Config{}
+		}
+		switch {
+		case protocol == clickhouse.HTTP && useSSL:
+			port = env.HttpsPort
+		case protocol == clickhouse.HTTP && !useSSL:
+			port = env.HttpPort
+		case protocol == clickhouse.Native && useSSL:
+			port = env.SslPort
+		case protocol == clickhouse.Native && !useSSL:
+			port = env.Port
+		}
+
+		// Create a connection with a very small pool size to make slot exhaustion obvious
+		opts := &clickhouse.Options{
+			Addr: []string{fmt.Sprintf("%s:%d", env.Host, port)},
+			Auth: clickhouse.Auth{
+				Database: env.Database,
+				Username: env.Username,
+				Password: env.Password,
+			},
+			MaxOpenConns:    2,                 // Small pool to make leaks obvious
+			ConnMaxLifetime: 100 * time.Second, // make it explicitly larger to avoid incidentally closing it
+			MaxIdleConns:    5,                 // there can be max 5 connections on the pool
+			Protocol:        protocol,
+			TLS:             tlsConfig,
+		}
+
+		conn, err := clickhouse.Open(opts)
+		assert.Nil(t, err)
+		assert.NotNil(t, conn)
+		defer conn.Close()
+
+		t.Run("context already cancelled during acquire", func(t *testing.T) {
+			// Test that we can acquire connections repeatedly with cancelled contexts
+			// without exhausting the connection pool
+
+			// Create a context that's already cancelled
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel() // Cancel immediately
+
+			const N = 10
+			for range N {
+				// Try to execute a query with the cancelled context
+				// This should fail(because ctx is checked before getting it from connection pool)
+				// but not leak a connection slot
+				err = conn.Exec(ctx, "SELECT 1")
+				require.ErrorIs(t, err, context.Canceled)
+			}
+			stats := conn.Stats()
+			// no connection should be moved to pool as context is cancelled even before new connection is created
+			assert.Equal(t, 0, stats.Idle)
+			assert.Equal(t, 0, stats.Open)
+		})
+
+		t.Run("context cancelled during idle.Get", func(t *testing.T) {
+			// Test scenario: Context cancelled AFTER writing to ch.open but DURING idle.Get()
+			// To trigger this: saturate the pool first, then try to acquire with very short timeouts
+
+			// Saturate the pool by running long queries in goroutines to hold both connection slots
+			ctx1, cancel1 := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel1()
+
+			ctx2, cancel2 := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel2()
+
+			started := make(chan struct{}, 2)
+			var saturateWg sync.WaitGroup
+			saturateWg.Add(2)
+
+			// Start first query in goroutine - Exec holds connection until complete
+			go func() {
+				defer saturateWg.Done()
+				started <- struct{}{} // Signal we're about to execute
+				err := conn.Exec(ctx1, "SELECT sleep(3)")
+				require.ErrorIs(t, err, context.Canceled) // it's ctx1's cancel is called later
+			}()
+
+			// Start second query in goroutine - Exec holds connection until complete
+			go func() {
+				defer saturateWg.Done()
+				started <- struct{}{} // Signal we're about to execute
+				err = conn.Exec(ctx2, "SELECT sleep(3)")
+				require.ErrorIs(t, err, context.Canceled) // it's ctx2's cancel is called later
+			}()
+
+			// Wait for both goroutines to start
+			<-started
+			<-started
+
+			// Give queries time to start executing and hold connections
+			time.Sleep(200 * time.Millisecond)
+
+			// Now both connection slots should be occupied
+			stats := conn.Stats()
+			assert.Equal(t, 2, stats.Open, "both connection slots should be in use")
+			assert.Equal(t, 0, stats.Idle, "no idle connections while both are in use")
+
+			// Now try to acquire with very short timeouts
+			// These will:
+			// 1. Write to ch.open successfully (blocking until timeout or slot available)
+			// 2. Timeout while waiting in idle.Get() for a connection to become available
+			// 3. Must clean up ch.open slot to avoid leak
+			const numAttempts = 5
+			var wg sync.WaitGroup
+			errChan := make(chan error, numAttempts)
+
+			for range numAttempts {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					// Very short timeout - will timeout while waiting for a connection
+					ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+					defer cancel()
+
+					err := conn.Exec(ctx, "SELECT 1")
+					errChan <- err
+				}()
+			}
+
+			wg.Wait()
+			close(errChan)
+
+			// All attempts should have timed out
+			for e := range errChan {
+				require.Error(t, e)
+				// Should be either DeadlineExceeded or Canceled (both indicate timeout)
+				assert.True(t,
+					errors.Is(e, context.DeadlineExceeded) || errors.Is(e, context.Canceled),
+					"expected timeout errors, got: %v", e)
+			}
+
+			// Most importantly: verify no connection slots leaked
+			// Cancel the saturating queries and wait for them to complete
+			cancel1()
+			cancel2()
+			saturateWg.Wait()
+
+			// Give a moment for connections to be released back to the pool
+			time.Sleep(100 * time.Millisecond)
+
+			// Verify we can still acquire connections successfully (pool is healthy, no leaks)
+			err = conn.Exec(context.Background(), "SELECT 1")
+			assert.NoError(t, err, "should be able to execute query after timeout attempts - no leaks")
+
+			// Verify both slots work concurrently
+			done := make(chan error, 2)
+			for range 2 {
+				go func() {
+					ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+					defer cancel()
+					done <- conn.Exec(ctx, "SELECT 1")
+				}()
+			}
+
+			// Both should succeed without timing out
+			for range 2 {
+				err := <-done
+				assert.NoError(t, err, "concurrent queries should succeed - no slot exhaustion")
+			}
+		})
+	})
 }

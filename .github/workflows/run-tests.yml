@@ -17,14 +17,13 @@ jobs:
       fail-fast: false
       matrix:
         go:
+          - "1.26"
           - "1.25"
-          - "1.24"
         clickhouse: # https://github.com/ClickHouse/ClickHouse/blob/master/SECURITY.md#scope-and-supported-versions
-          - "25.7"
-          - "25.6"
-          - "25.5"
-          - "25.3"
-          - "24.8"
+          - "26.8" # LTS
+          - "26.7"
+          - "26.6"
+          - "26.3" # LTS
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -37,5 +36,6 @@ jobs:
       - name: Tests
         env:
           TESTCONTAINERS_RYUK_DISABLED: "true"
+          GOTOOLCHAIN: "local"
         run: |
           CLICKHOUSE_VERSION=${{ matrix.clickhouse }} make test

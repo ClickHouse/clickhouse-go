@@ -9,25 +9,32 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
+      - name: Generate Token
+        id: generate-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.WORKFLOW_AUTH_PUBLIC_APP_ID }}
+          private-key: ${{ secrets.WORKFLOW_AUTH_PUBLIC_PRIVATE_KEY }}
+
       - uses: actions/checkout@main
         with:
           ref: main
           fetch-depth: 0 # required to generate contributor list
+          token: ${{ steps.generate-token.outputs.token }}
 
       - name: Install Go
         uses: actions/setup-go@v5
         with:
-          stable: false
           go-version: 1.25
 
       - name: Prepare release
         id: release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
         run: |
           go run internal/cmd/release/main.go
 
-      - name: Commit and push hanges
+      - name: Commit And Push Changes
         run: |
           git config --local user.email "ch-integrations-robot@clickhouse.com"
           git config --local user.name "GitHub Action"
@@ -35,8 +42,8 @@ jobs:
           git commit -m "Update release notes"
           git push
 
-      - name: Publish draft release
+      - name: Publish Draft Release
         env:
           RELEASE_API_URL: ${{ steps.release.outputs.RELEASE_URL }}
         run: |
-            curl -X PATCH -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -H "Accept: application/vnd.github.v3+json" $RELEASE_API_URL -d '{"draft": false}'
+            curl -X PATCH -H "Authorization: token ${{ steps.generate-token.outputs.token }}" -H "Accept: application/vnd.github.v3+json" $RELEASE_API_URL -d '{"draft": false}'

@@ -1,20 +1,3 @@
-// Licensed to ClickHouse, Inc. under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. ClickHouse, Inc. licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-
 package std
 
 import (
@@ -25,10 +8,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/chcol"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
-	"github.com/stretchr/testify/require"
 )
 
 var jsonTestDate, _ = time.Parse(time.RFC3339, "2024-12-13T02:09:30.123Z")
@@ -159,7 +143,7 @@ type TestStruct struct {
 	Address Address
 
 	KeysNumbers map[string]int64
-	Metadata    map[string]interface{}
+	Metadata    map[string]any
 
 	Timestamp time.Time `chType:"DateTime64(3)"`
 
@@ -205,10 +189,10 @@ func TestJSONStruct(t *testing.T) {
 			Country: "Country",
 		},
 		KeysNumbers: map[string]int64{"FieldA": 42, "FieldB": 32},
-		Metadata: map[string]interface{}{
+		Metadata: map[string]any{
 			"FieldA": "a",
 			"FieldB": "b",
-			"FieldC": map[string]interface{}{
+			"FieldC": map[string]any{
 				"FieldD": "d",
 			},
 		},
@@ -223,13 +207,13 @@ func TestJSONStruct(t *testing.T) {
 	inputRow2 := TestStruct{
 		KeysNumbers: map[string]int64{},
 		Timestamp:   jsonTestDate,
-		Metadata: map[string]interface{}{
+		Metadata: map[string]any{
 			"FieldA": "a",
 			"FieldB": "b",
-			"FieldC": map[string]interface{}{
+			"FieldC": map[string]any{
 				"FieldD": int64(5),
 			},
-			"FieldE": map[string]interface{}{
+			"FieldE": map[string]any{
 				"FieldF": "f",
 			},
 		},
@@ -248,7 +232,7 @@ func TestJSONStruct(t *testing.T) {
 	err = rows.Scan(&row)
 	require.NoError(t, err)
 	// The second row adds a nil value at this path. Update the inputRow for easier deep equal check
-	inputRow.Metadata["FieldE"] = map[string]interface{}{
+	inputRow.Metadata["FieldE"] = map[string]any{
 		"FieldF": nil,
 	}
 	require.Equal(t, inputRow, row)
@@ -277,6 +261,8 @@ func TestJSONString(t *testing.T) {
 	_, err := conn.ExecContext(ctx, "SET output_format_native_write_json_as_string = 1")
 	require.NoError(t, err)
 	_, err = conn.ExecContext(ctx, "SET output_format_json_quote_64bit_integers = 0")
+	require.NoError(t, err)
+	_, err = conn.ExecContext(ctx, "SET date_time_output_format='iso'")
 	require.NoError(t, err)
 
 	const ddl = `
@@ -310,10 +296,10 @@ func TestJSONString(t *testing.T) {
 			Country: "Country",
 		},
 		KeysNumbers: map[string]int64{"FieldA": 42, "FieldB": 32},
-		Metadata: map[string]interface{}{
+		Metadata: map[string]any{
 			"FieldA": "a",
 			"FieldB": "b",
-			"FieldC": map[string]interface{}{
+			"FieldC": map[string]any{
 				"FieldD": "d",
 			},
 		},

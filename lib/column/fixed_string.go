@@ -1,20 +1,3 @@
-// Licensed to ClickHouse, Inc. under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. ClickHouse, Inc. licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-
 package column
 
 import (
@@ -155,12 +138,13 @@ func (col *FixedString) Append(v any) (nulls []uint8, err error) {
 		nulls = make([]uint8, len(v))
 		for i, v := range v {
 			var err error
-			if v == nil {
+			switch {
+			case v == nil:
 				nulls[i] = 1
 				err = col.safeAppendRow(nil)
-			} else if *v == "" {
+			case *v == "":
 				err = col.safeAppendRow(nil)
-			} else {
+			default:
 				err = col.safeAppendRow(binary.Str2Bytes(*v, col.col.Size))
 			}
 
@@ -178,7 +162,12 @@ func (col *FixedString) Append(v any) (nulls []uint8, err error) {
 			return nil, err
 		}
 
-		nulls = make([]uint8, len(data)/col.col.Size)
+		var size = 0
+		if col.col.Size != 0 {
+			size = len(data) / col.col.Size
+		}
+		nulls = make([]uint8, size)
+
 	case [][]byte:
 		nulls = make([]uint8, len(v))
 		for i, v := range v {
@@ -187,11 +176,12 @@ func (col *FixedString) Append(v any) (nulls []uint8, err error) {
 			}
 			n := len(v)
 			var err error
-			if n == 0 {
+			switch {
+			case n == 0:
 				err = col.safeAppendRow(nil)
-			} else if n >= col.col.Size {
+			case n >= col.col.Size:
 				err = col.safeAppendRow(v[0:col.col.Size])
-			} else {
+			default:
 				err = col.safeAppendRow(v)
 			}
 

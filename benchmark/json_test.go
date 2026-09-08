@@ -4,11 +4,12 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"os"
+	"testing"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
-	"os"
-	"testing"
 )
 
 const testSet string = "json_bench"

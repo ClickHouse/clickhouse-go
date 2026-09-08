@@ -1,20 +1,3 @@
-// Licensed to ClickHouse, Inc. under one or more contributor
-// license agreements. See the NOTICE file distributed with
-// this work for additional information regarding copyright
-// ownership. ClickHouse, Inc. licenses this file to you under
-// the Apache License, Version 2.0 (the "License"); you may
-// not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-
 package tests
 
 import (
@@ -23,9 +6,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
-	"github.com/stretchr/testify/require"
 )
 
 var dynamicTestDate, _ = time.Parse(time.RFC3339, "2024-12-13T02:09:30.123Z")
@@ -210,7 +194,6 @@ func TestDynamicMaxTypes(t *testing.T) {
 }
 
 // Discriminator precision must grow dynamically depending on the number of types within the Dynamic.
-// This test confirms that we can go beyond UInt8/255 types.
 func TestDynamicExceededTypes(t *testing.T) {
 	conn := setupDynamicTest(t, clickhouse.Native)
 	ctx := context.Background()
@@ -234,7 +217,7 @@ func TestDynamicExceededTypes(t *testing.T) {
 			batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_dynamic_exceeded_types (c)")
 			require.NoError(t, err)
 
-			for i := 0; i < typeCount; i++ {
+			for i := range typeCount {
 				typeName := fmt.Sprintf("Tuple(\"%d\" Int64)", i)
 				require.NoError(t, batch.Append(clickhouse.NewDynamicWithType([]int64{int64(i)}, typeName)))
 			}

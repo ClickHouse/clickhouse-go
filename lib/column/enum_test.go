@@ -16,6 +16,22 @@ func TestExtractEnumNamedValues(t *testing.T) {
 		isNotValid     bool
 	}{
 		{
+			name:         "Enum8 single zero value",
+			chType:       "Enum8('FOO' = 0)",
+			expectedType: "Enum8",
+			expectedValues: map[int]string{
+				0: "FOO",
+			},
+		},
+		{
+			name:         "Enum16 single zero value",
+			chType:       "Enum16('FOO' = 0)",
+			expectedType: "Enum16",
+			expectedValues: map[int]string{
+				0: "FOO",
+			},
+		},
+		{
 			name:         "Enum8",
 			chType:       "Enum8('a'=1,'b'=2)",
 			expectedType: "Enum8",
