@@ -382,6 +382,58 @@ for i := 0; i < 1_000; i++ {
 
 [Full Example](https://github.com/ClickHouse/clickhouse-go/blob/main/examples/clickhouse_api/append_struct.go)
 
+## Server-side query parameters {#server-side-query-parameters}
+
+ClickHouse server-side query parameters use typed placeholders in the form `{name:Type}`. The query and parameter values are sent separately, so parameter values are not interpolated into the SQL text.
+
+For the ClickHouse API, pass parameters through the query context:
+
+```go
+ctx := clickhouse.Context(context.Background(),
+    clickhouse.WithParameters(clickhouse.Parameters{
+        "user_id": "12345",
+        "message": `line 1\nline 2`,
+    }),
+)
+
+row := conn.QueryRow(ctx, `
+    SELECT *
+    FROM events
+    WHERE user_id = {user_id:UInt64}
+      AND message = {message:String}`)
+```
+
+You can also supply values with `clickhouse.Named`:
+
+```go
+row := conn.QueryRow(context.Background(),
+    "SELECT {user_id:UInt64}, {message:String}",
+    clickhouse.Named("user_id", uint64(12345)),
+    clickhouse.Named("message", `line 1\nline 2`),
+)
+```
+
+Server-side query parameters require ClickHouse 22.8 or later. `clickhouse.Named` also works with the client-side `@name` binding syntax; it is the placeholder in the query (`{name:Type}` or `@name`) that selects the mechanism.
+
+### String values and escape sequences {#query-parameter-escaping}
+
+Query parameter values use ClickHouse's `Escaped` text format. They are not SQL literals and they are not automatically escaped Go strings. For a top-level `String`, pass the value without SQL quotes: use `hello`, not `'hello'`, because those quote characters would become part of the value. Composite types still use their text syntax, for example `['a', 'b']` for an `Array(String)`.
+
+ClickHouse decodes backslash escape sequences while parsing the parameter. Common sequences include `\n` (newline), `\t` (tab), `\r` (carriage return), `\0` (null byte), and `\\` (a literal backslash). `\N` is the whole-value `NULL` marker for nullable types.
+
+Go processes interpreted string literals (`"..."`) before clickhouse-go sees them, while raw string literals (`` `...` ``) preserve backslashes. Write the parameter text as follows:
+
+| Value received by ClickHouse | Go raw string literal | Go interpreted string literal |
+|---|---|---|
+| Newline and tab | `` `line 1\nline 2\tend` `` | `"line 1\\nline 2\\tend"` |
+| Literal `\n` and `\t` text | `` `line 1\\nline 2\\tend` `` | `"line 1\\\\nline 2\\\\tend"` |
+
+Do not use `"line 1\nline 2"` or `"column 1\tcolumn 2"` when constructing server-side parameter text. Those Go literals already contain an actual newline or tab. In ClickHouse's `Escaped` format, actual newline and tab bytes delimit fields, so the server rejects the parameter because it was not parsed completely. Preserve the backslash for ClickHouse to decode by using either a raw literal or an extra backslash in an interpreted literal.
+
+This distinction applies both to `clickhouse.Parameters` and to string values passed through `clickhouse.Named`. `clickhouse.Parameters` always contains already-serialized parameter text. With `clickhouse.Named`, non-string Go values such as numbers, slices, maps, and times are serialized by the driver, but a string is treated as already-serialized text because it may represent either a `String` or the complete text form of another declared type.
+
+[Full native API example](https://github.com/ClickHouse/clickhouse-go/blob/main/examples/clickhouse_api/query_parameters.go)
+
 ## Parameter binding {#parameter-binding}
 
 The client supports parameter binding for the `Exec`, `Query`, and `QueryRow` methods. As shown in the example below, this is supported using named, numbered, and positional parameters. We provide examples of these below.

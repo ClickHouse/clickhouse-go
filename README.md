@@ -34,7 +34,7 @@ Both support TCP and HTTP transport. When in doubt, use the native interface.
 * Named and numeric placeholders support
 * LZ4/ZSTD/LZ4HC/GZIP/Deflate/Brotli compression support
 * External data
-* [Query parameters](examples/std/query_parameters.go)
+* [Server-side query parameters](https://clickhouse.com/docs/integrations/language-clients/go/clickhouse-api#server-side-query-parameters)
 * Structured logging via `log/slog` ([Logger option](#logging))
 * [Arbitrary input/output formats](#arbitrary-inputoutput-formats-experimental) — stream results or inserts as raw `CSV`, `JSONEachRow`, `Parquet`, ... (experimental, HTTP protocol only)
 * JWT authentication support
@@ -45,7 +45,7 @@ Support for the ClickHouse protocol advanced features using `Context`:
 * Query ID
 * Quota Key
 * Settings
-* [Query parameters](examples/clickhouse_api/query_parameters.go)
+* [Server-side query parameters](https://clickhouse.com/docs/integrations/language-clients/go/clickhouse-api#server-side-query-parameters)
 * OpenTelemetry
 * Execution events:
 	* Logs
@@ -163,7 +163,7 @@ conn.SetConnMaxLifetime(time.Hour)
 
 ## DSN
 
-* hosts  - comma-separated list of single address hosts for load-balancing and failover
+* hosts/alt_hosts - comma-separated lists of additional single address hosts for load-balancing and failover; `hosts` are prepended before, and `alt_hosts` appended after, the host(s) given in the URL authority (which may itself be a comma-separated list)
 * username/password - auth credentials
 * database - select the current default database
 * dial_timeout -  a duration string is a possibly signed sequence of decimal numbers, each with optional fraction and a unit suffix such as "300ms", "1s". Valid time units are "ms", "s", "m". (default 30s)
@@ -293,7 +293,7 @@ When using the HTTP protocol there are two independent compression layers:
 
 1. **HTTP web compression** (whole request/response body). This uses HTTP headers (`Accept-Encoding` and `Content-Encoding`). In ClickHouse, response compression is controlled by the `enable_http_compression` setting (pass it via `Options.Settings` or DSN query params). In clickhouse-go this mode is used when `Compression.Method` is `gzip`, `deflate`, or `br`.
 
-2. **ClickHouse native block compression over HTTP** (Native format blocks). This uses ClickHouse HTTP query parameters: `compress=1` (server compresses response blocks) and `decompress=1` (server expects a compressed request body). In clickhouse-go this mode is used when `Compression.Method` is `lz4` or `zstd`.
+2. **ClickHouse native block compression over HTTP** (Native format blocks). This uses ClickHouse HTTP query parameters: `compress=1` (server compresses response blocks) and `decompress=1` (server expects a compressed request body), plus `network_compression_method` to select the block codec (`LZ4` or `ZSTD`). In clickhouse-go this mode is used when `Compression.Method` is `lz4` or `zstd`.
 
 Avoid enabling both at the same time unless you've measured it, as it can waste CPU by compressing already-compressed native blocks.
 
