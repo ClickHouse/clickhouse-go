@@ -189,6 +189,9 @@ func parseAuthority(authority string) (user *neturl.Userinfo, host string, err e
 func parseHost(host string) (string, error) {
 	hosts := strings.Split(host, ",")
 	for i, h := range hosts {
+		if h == "" && len(hosts) > 1 {
+			return "", errors.New("empty host in comma separated host list")
+		}
 		parsed, err := parseSingleHost(h)
 		if err != nil {
 			return "", err
