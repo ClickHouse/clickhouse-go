@@ -94,6 +94,7 @@ func (i *connPool) Put(conn nativeTransport) {
 	defer i.mu.Unlock()
 
 	if i.closed() {
+		conn.getLogger().Debug("connection not returned to pool: pool is closed")
 		conn.close()
 		return
 	}
