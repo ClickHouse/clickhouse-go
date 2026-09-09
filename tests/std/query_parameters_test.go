@@ -60,10 +60,12 @@ func TestQueryParameters(t *testing.T) {
 					value string
 					want  string
 				}{
-					{"raw literal with escapes", `line 1\nline 2\tend`, "line 1\nline 2\tend"},
-					{"interpreted literal with escaped backslashes", "line 1\\nline 2\\tend", "line 1\nline 2\tend"},
-					{"raw literal with literal backslashes", `line 1\\nline 2\\tend`, `line 1\nline 2\tend`},
-					{"interpreted literal with literal backslashes", "line 1\\\\nline 2\\\\tend", `line 1\nline 2\tend`},
+					{"raw literal with escapes", `line 1\nline 2\tend`, `line 1\nline 2\tend`},
+					{"interpreted literal with escaped backslashes", "line 1\\nline 2\\tend", "line 1\\nline 2\\tend"},
+					{"raw literal with literal backslashes", `line 1\\nline 2\\tend`, `line 1\\nline 2\\tend`},
+					{"interpreted literal with literal backslashes", "line 1\\\\nline 2\\\\tend", "line 1\\\\nline 2\\\\tend"},
+					{"raw newline round-trips", "line 1\nline 2", "line 1\nline 2"},
+					{"raw tab round-trips", "column 1\tcolumn 2", "column 1\tcolumn 2"},
 				}
 				for _, tc := range cases {
 					t.Run(tc.name, func(t *testing.T) {
@@ -72,11 +74,6 @@ func TestQueryParameters(t *testing.T) {
 						require.NoError(t, row.Scan(&got))
 						assert.Equal(t, tc.want, got)
 					})
-				}
-
-				for _, value := range []string{"line 1\nline 2", "column 1\tcolumn 2"} {
-					row := conn.QueryRow("SELECT {value:String}", clickhouse.Named("value", value))
-					require.Error(t, row.Err(), "value %q should be rejected", value)
 				}
 			})
 

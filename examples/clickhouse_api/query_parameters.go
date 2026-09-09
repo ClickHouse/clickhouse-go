@@ -55,5 +55,19 @@ func QueryWithParameters() error {
 	}
 	fmt.Printf("row: column=%d, str=%s, array=%s, escapedRaw=%q, escapedInterpreted=%q, literalBackslash=%q\n",
 		column, str, array, escapedRaw, escapedInterpreted, literalBackslash)
+
+	// A string passed via Named is treated as the literal value and the driver
+	// escapes control characters automatically, so the value round-trips
+	// byte-for-byte — including an actual newline, tab, or backslash.
+	var control, tab, backslash string
+	if err := conn.QueryRow(context.Background(),
+		"SELECT {control:String}, {tab:String}, {backslash:String}",
+		clickhouse.Named("control", "line 1\nline 2\tend"),
+		clickhouse.Named("tab", "column 1\tcolumn 2"),
+		clickhouse.Named("backslash", `C:\Users\bob`),
+	).Scan(&control, &tab, &backslash); err != nil {
+		return err
+	}
+	fmt.Printf("control=%q, tab=%q, backslash=%q\n", control, tab, backslash)
 	return nil
 }
