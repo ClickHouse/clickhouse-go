@@ -145,7 +145,7 @@ func sanitizeInsertQuery(query string) string {
 	}
 
 	return strings.TrimRight(string(out), " \t\r\n\v\f")
-}
+	return strings.TrimRight(string(out), " \t\r\n\v\f;")
 
 // commentEnd returns the length of the comment s starts with, or 0 when s does not start
 // with one. A single line comment ends before its newline, so the newline itself is kept
