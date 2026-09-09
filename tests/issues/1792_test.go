@@ -2,6 +2,7 @@ package issues
 
 import (
 	"context"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -112,7 +113,9 @@ func Test1792HTTP(t *testing.T) {
 // stdRoundTrip runs the control-character round-trip through the
 // database/sql interface using clickhouse.Named().
 func stdRoundTrip(t *testing.T, protocol clickhouse.Protocol) {
-	db, err := clickhouse_std_tests.GetDSNConnection("issues", protocol, false, nil)
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	db, err := clickhouse_std_tests.GetDSNConnection("issues", protocol, useSSL, nil)
 	require.NoError(t, err)
 	t.Cleanup(func() { db.Close() })
 

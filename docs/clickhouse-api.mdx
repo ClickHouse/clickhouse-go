@@ -439,7 +439,7 @@ Go processes interpreted string literals (`"..."`) before clickhouse-go sees the
 
 Do not use `"line 1\nline 2"` or `"column 1\tcolumn 2"` when constructing `Parameters`. Those Go literals already contain an actual newline or tab. In ClickHouse's `Escaped` format, actual newline and tab bytes delimit fields, so the server rejects the parameter because it was not parsed completely. Use `Named` instead when you want a Go string treated as a literal value.
 
-Parameter values are not SQL literals: for a top-level `String` via `Named`, pass the value without SQL quotes — use `hello`, not `'hello'`, because those quote characters would become part of the value. Composite types still use their text syntax, for example `['a', 'b']` for an `Array(String)`, which you would pass through `Parameters`.
+Parameter values are not SQL literals: for a top-level `String` via `Named`, pass the value without SQL quotes — use `hello`, not `'hello'`, because those quote characters would become part of the value. Composite types still use their text syntax, for example `['a', 'b']` for an `Array(String)`, which you may also pass through `Named` as long as the text contains no backslash escapes or raw control characters. If the composite text needs `\'` escape sequences for nested string values, pass it through `Parameters` instead.
 
 [Full native API example](https://github.com/ClickHouse/clickhouse-go/blob/main/examples/clickhouse_api/query_parameters.go)
 
