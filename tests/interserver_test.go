@@ -25,6 +25,10 @@ const (
 // secret can run a query as a non-default user without supplying that user's
 // password, and the query is logged in `system.query_log` as Secondary.
 func TestInterserverSecretAuthenticatesAsInitialUser(t *testing.T) {
+	SkipOnCloud(t, "cluster secret requires the tests/resources/custom.xml fixture")
+	if RemoteClickHouse {
+		t.Skip("cluster secret requires the tests/resources/custom.xml fixture")
+	}
 	env, err := GetNativeTestEnvironment()
 	require.NoError(t, err)
 
@@ -38,9 +42,10 @@ func TestInterserverSecretAuthenticatesAsInitialUser(t *testing.T) {
 
 	const initialUser = "interserver_test_user"
 	createUser(t, admin, initialUser)
-	defer dropUserBestEffort(admin, initialUser)
+	defer dropUser(t, admin, initialUser)
 
-	timeout, _ := strconv.Atoi(GetEnv("CLICKHOUSE_DIAL_TIMEOUT", "10"))
+	timeout, err := strconv.Atoi(GetEnv("CLICKHOUSE_DIAL_TIMEOUT", "10"))
+	require.NoError(t, err)
 	conn, err := clickhouse.Open(&clickhouse.Options{
 		Protocol: clickhouse.Native,
 		Addr:     []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},
@@ -91,6 +96,10 @@ func TestInterserverSecretAuthenticatesAsInitialUser(t *testing.T) {
 // query signed with a wrong cluster secret — the negative path is essential
 // to confirm the signature is actually being checked, not silently ignored.
 func TestInterserverSecretWrongSecretRejected(t *testing.T) {
+	SkipOnCloud(t, "cluster secret requires the tests/resources/custom.xml fixture")
+	if RemoteClickHouse {
+		t.Skip("cluster secret requires the tests/resources/custom.xml fixture")
+	}
 	env, err := GetNativeTestEnvironment()
 	require.NoError(t, err)
 
@@ -98,7 +107,8 @@ func TestInterserverSecretWrongSecretRejected(t *testing.T) {
 		t.Skip("interserver-secret negotiation is exercised against >= 23.3 servers")
 	}
 
-	timeout, _ := strconv.Atoi(GetEnv("CLICKHOUSE_DIAL_TIMEOUT", "10"))
+	timeout, err := strconv.Atoi(GetEnv("CLICKHOUSE_DIAL_TIMEOUT", "10"))
+	require.NoError(t, err)
 	conn, err := clickhouse.Open(&clickhouse.Options{
 		Protocol: clickhouse.Native,
 		Addr:     []string{fmt.Sprintf("%s:%d", env.Host, env.Port)},
@@ -203,7 +213,7 @@ func createUser(t *testing.T, admin interface {
 }, name string) {
 	t.Helper()
 	ctx := context.Background()
-	_ = admin.Exec(ctx, fmt.Sprintf("DROP USER IF EXISTS %s", name))
+	require.NoError(t, admin.Exec(ctx, fmt.Sprintf("DROP USER IF EXISTS %s", name)))
 	require.NoError(t, admin.Exec(ctx, fmt.Sprintf(
 		"CREATE USER %s IDENTIFIED WITH no_password",
 		name,
@@ -213,8 +223,9 @@ func createUser(t *testing.T, admin interface {
 	)))
 }
 
-func dropUserBestEffort(admin interface {
+func dropUser(t *testing.T, admin interface {
 	Exec(ctx context.Context, query string, args ...any) error
 }, name string) {
-	_ = admin.Exec(context.Background(), fmt.Sprintf("DROP USER IF EXISTS %s", name))
+	t.Helper()
+	require.NoError(t, admin.Exec(context.Background(), fmt.Sprintf("DROP USER IF EXISTS %s", name)))
 }

@@ -99,11 +99,10 @@ func WithJWT(jwt string) QueryOption {
 	}
 }
 
-// WithInitialUser sets the `initial_user` sent with the query. When the
-// connection is configured with a cluster interserver secret, the server
-// executes the query as this user without a password check. Without an
-// interserver secret this only sets the `initial_user` ClientInfo field
-// visible in system tables like `system.query_log`.
+// WithInitialUser sets the `initial_user` sent with the query when the
+// connection is configured with a cluster interserver secret. The server
+// executes the query as this user without a password check. It has no effect
+// on connections without a cluster interserver secret.
 func WithInitialUser(user string) QueryOption {
 	return func(o *QueryOptions) error {
 		o.initialUser = user
@@ -256,16 +255,6 @@ func queryOptions(ctx context.Context) QueryOptions {
 	return opt
 }
 
-// queryOptionsJWT returns the JWT within the given context's QueryOptions.
-// Empty string if not present.
-func queryOptionsJWT(ctx context.Context) string {
-	if opt, ok := ctx.Value(_contextOptionKey).(QueryOptions); ok {
-		return opt.jwt
-	}
-
-	return ""
-}
-
 // queryOptionsAsync returns the AsyncOptions struct within the given context's QueryOptions.
 func queryOptionsAsync(ctx context.Context) AsyncOptions {
 	if opt, ok := ctx.Value(_contextOptionKey).(QueryOptions); ok {
@@ -336,6 +325,7 @@ func (q *QueryOptions) clone() QueryOptions {
 		queryID:             q.queryID,
 		quotaKey:            q.quotaKey,
 		initialUser:         q.initialUser,
+		jwt:                 q.jwt,
 		events:              q.events,
 		settings:            nil,
 		parameters:          nil,

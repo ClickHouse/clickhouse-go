@@ -71,8 +71,8 @@ type Auth struct { // has_control_character
 // ClusterCredentials configures client-side interserver authentication.
 // When Secret is non-empty, the client authenticates as a trusted cluster
 // peer using the shared cluster secret instead of a user password, and the
-// server executes queries as the InitialUser set on the connection's Auth
-// or overridden per-query via WithInitialUser.
+// server executes queries as Auth.Username unless overridden per-query via
+// WithInitialUser. The target user must exist on the server.
 //
 // See https://clickhouse.com/docs/operations/server-configuration-parameters/settings#remote_servers
 // and the interserver secret protocol handled in `src/Server/TCPHandler.cpp`.
@@ -99,7 +99,7 @@ func (c ClusterCredentials) GoString() string { return c.String() }
 
 type Compression struct {
 	Method CompressionMethod
-	// this only applies to lz4, lz4hc, zlib, and brotli compression algorithms
+	// this only applies to lz4, lz4hc, zlib, zstd, and brotli compression algorithms
 	Level int
 }
 
@@ -153,7 +153,8 @@ type Options struct {
 	Auth Auth
 	// Cluster enables interserver-secret authentication. When Cluster.Secret
 	// is set, Auth.Username/Password are ignored during the handshake and the
-	// client impersonates a trusted cluster peer. Queries run as InitialUser.
+	// client impersonates a trusted cluster peer. Queries run as Auth.Username
+	// unless overridden per-query with WithInitialUser.
 	Cluster      ClusterCredentials
 	DialContext  func(ctx context.Context, addr string) (net.Conn, error)
 	DialStrategy func(ctx context.Context, connID int, options *Options, dial Dial) (DialResult, error)
@@ -244,6 +245,10 @@ func (o *Options) fromDSN(in string) error {
 
 	for v := range params {
 		switch v {
+		case "hosts":
+			o.Addr = append(parseHostList(params.Get(v)), o.Addr...)
+		case "alt_hosts":
+			o.Addr = append(o.Addr, parseHostList(params.Get(v))...)
 		case "debug":
 			o.Debug, _ = strconv.ParseBool(params.Get(v))
 		case "compress":
@@ -390,16 +395,17 @@ func (o *Options) fromDSN(in string) error {
 			}
 			o.HttpUrlPath = path
 		default:
-			switch p := strings.ToLower(params.Get(v)); p {
+			raw := params.Get(v)
+			switch p := strings.ToLower(raw); p {
 			case "true":
 				o.Settings[v] = int(1)
 			case "false":
 				o.Settings[v] = int(0)
 			default:
-				if n, err := strconv.Atoi(p); err == nil {
+				if n, err := strconv.Atoi(raw); err == nil {
 					o.Settings[v] = n
 				} else {
-					o.Settings[v] = p
+					o.Settings[v] = raw
 				}
 			}
 		}
@@ -429,6 +435,16 @@ func (o *Options) fromDSN(in string) error {
 		o.Protocol = Native
 	}
 	return nil
+}
+
+func parseHostList(value string) []string {
+	var hosts []string
+	for _, host := range strings.Split(value, ",") {
+		if host = strings.TrimSpace(host); host != "" {
+			hosts = append(hosts, host)
+		}
+	}
+	return hosts
 }
 
 // receive copy of Options, so we don't modify original - so its reusable
@@ -469,15 +485,21 @@ func (o Options) setDefaults() *Options {
 }
 
 // validate checks Options for misconfigurations that we can detect without
-// touching the network. Validation is invoked from Open after setDefaults so
-// the caller never reaches the dial path with mutually inconsistent fields.
+// touching the network. It must run before setDefaults so an omitted username
+// cannot be rewritten to "default" before interserver validation sees it.
 func (o *Options) validate() error {
 	if o.Cluster.Secret != "" {
+		if o.Auth.Username == "" {
+			return ErrClusterSecretRequiresUsername
+		}
 		if o.Cluster.Name == "" {
 			return ErrClusterSecretRequiresName
 		}
 		if o.Protocol != Native {
 			return ErrClusterSecretNeedsNative
+		}
+		if o.GetJWT != nil {
+			return ErrClusterSecretWithJWT
 		}
 	}
 	return nil
@@ -487,18 +509,20 @@ func (o *Options) validate() error {
 // Priority order:
 // 1. If Debug=true and Debugf is set, use legacy Debugf (backward compatibility)
 // 2. If Logger is set, use the provided logger
-// 3. Otherwise, use a noop logger (no logging)
+// 3. If Debug=true but no Debugf is provided, use a default stdout logger
+// 4. Otherwise, use a noop logger (no logging)
 func (o *Options) logger() *slog.Logger {
-	// Backward compatibility: if legacy Debug/Debugf is set, use it
 	if o.Debug && o.Debugf != nil {
 		return newDebugfLogger(o.Debugf)
 	}
 
-	// If user provided a custom logger, use it
 	if o.Logger != nil {
 		return o.Logger
 	}
 
-	// Default: no logging
+	if o.Debug {
+		return newStdoutDebugLogger()
+	}
+
 	return newNoopLogger()
 }

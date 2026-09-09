@@ -2,7 +2,9 @@ package clickhouse
 
 import (
 	"crypto/tls"
+	"log/slog"
 	"net/url"
+	"os"
 	"testing"
 	"time"
 
@@ -529,6 +531,45 @@ func TestParseDSN(t *testing.T) {
 			"",
 		},
 		{
+			"clickhouse proxy with hosts and alt_hosts as query strings",
+			"tcp://127.0.0.1/?hosts=127.0.0.2&alt_hosts=127.0.0.3",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"127.0.0.2", "127.0.0.1", "127.0.0.3"},
+				Settings: Settings{},
+				Auth:     Auth{},
+				scheme:   "tcp",
+			},
+			"",
+		},
+		{
+			"clickhouse proxy trims and skips empty query string hosts",
+			"tcp://127.0.0.1/?hosts=%20%20a,%20b,,&alt_hosts=%20",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"a", "b", "127.0.0.1"},
+				Settings: Settings{},
+				Auth:     Auth{},
+				scheme:   "tcp",
+			},
+			"",
+		},
+		{
+			"clickhouse proxy ignores empty hosts query string",
+			"tcp://127.0.0.1/?hosts=",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"127.0.0.1"},
+				Settings: Settings{},
+				Auth:     Auth{},
+				scheme:   "tcp",
+			},
+			"",
+		},
+		{
 			"http protocol with custom http_path",
 			"https://127.0.0.1/clickhouse?secure=true&skip_verify=true&http_path=/clickhouse",
 			&Options{
@@ -543,6 +584,57 @@ func TestParseDSN(t *testing.T) {
 				},
 				HttpUrlPath: "/clickhouse",
 				scheme:      "https",
+			},
+			"",
+		},
+		{
+			"setting value preserves original case",
+			"clickhouse://127.0.0.1/test_database?log_comment=REQUEST_TYPE:proxy%3BUSER_ID:TEST",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"127.0.0.1"},
+				Settings: Settings{
+					"log_comment": "REQUEST_TYPE:proxy;USER_ID:TEST",
+				},
+				Auth: Auth{
+					Database: "test_database",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
+			"setting boolean true is case insensitive",
+			"clickhouse://127.0.0.1/test_database?async_insert=True",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"127.0.0.1"},
+				Settings: Settings{
+					"async_insert": int(1),
+				},
+				Auth: Auth{
+					Database: "test_database",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
+			"setting numeric value preserved",
+			"clickhouse://127.0.0.1/test_database?max_block_size=65505",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"127.0.0.1"},
+				Settings: Settings{
+					"max_block_size": int(65505),
+				},
+				Auth: Auth{
+					Database: "test_database",
+				},
+				scheme: "clickhouse",
 			},
 			"",
 		},
@@ -579,8 +671,52 @@ func TestParseDSN(t *testing.T) {
 	}
 }
 
+func TestEffectiveInitialUser(t *testing.T) {
+	ordinary := &connect{opt: &Options{Auth: Auth{Username: "authenticated"}}}
+	require.Empty(t, ordinary.effectiveInitialUser("override"))
+	require.Empty(t, ordinary.effectiveInitialUser(""))
+
+	interserver := &connect{opt: &Options{
+		Auth:    Auth{Username: "fallback"},
+		Cluster: ClusterCredentials{Secret: "secret"},
+	}}
+	require.Equal(t, "override", interserver.effectiveInitialUser("override"))
+	require.Equal(t, "fallback", interserver.effectiveInitialUser(""))
+}
+
 func parseURL(t *testing.T, v string) *url.URL {
 	u, err := url.Parse(v)
 	require.NoError(t, err)
 	return u
+}
+
+func TestLogger(t *testing.T) {
+	t.Run("debug=1 via DSN produces non-noop logger", func(t *testing.T) {
+		opts, err := ParseDSN("clickhouse://127.0.0.1/test?debug=1")
+		require.NoError(t, err)
+		require.True(t, opts.Debug)
+
+		logger := opts.logger()
+		require.NotNil(t, logger)
+		_, isNoop := logger.Handler().(*noopHandler)
+		assert.False(t, isNoop, "expected non-noop logger when debug=1")
+	})
+
+	t.Run("no debug flag produces noop logger", func(t *testing.T) {
+		opts, err := ParseDSN("clickhouse://127.0.0.1/test")
+		require.NoError(t, err)
+		require.False(t, opts.Debug)
+
+		logger := opts.logger()
+		require.NotNil(t, logger)
+		_, isNoop := logger.Handler().(*noopHandler)
+		assert.True(t, isNoop, "expected noop logger when debug is not set")
+	})
+
+	t.Run("custom Logger takes precedence over Debug=true", func(t *testing.T) {
+		customLogger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelWarn}))
+		opts := &Options{Debug: true, Logger: customLogger}
+		logger := opts.logger()
+		assert.Equal(t, customLogger, logger, "custom Logger should take precedence over Debug=true when Debugf is nil")
+	})
 }

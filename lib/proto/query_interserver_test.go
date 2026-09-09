@@ -3,6 +3,7 @@ package proto
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/hex"
 	"testing"
 
 	chproto "github.com/ClickHouse/ch-go/proto"
@@ -24,17 +25,10 @@ func TestInterserverHashMatchesClickHouseLayout(t *testing.T) {
 		InitialUser:   "alice",
 	}
 
-	h := sha256.New()
-	h.Write([]byte(q.ClusterSalt))
-	h.Write([]byte(q.ClusterSecret))
-	h.Write([]byte(q.Body))
-	h.Write([]byte(q.ID))
-	h.Write([]byte(q.InitialUser))
-	want := string(h.Sum(nil))
-
 	got := q.interserverHash()
-	if got != want {
-		t.Fatalf("hash mismatch\n got: %x\nwant: %x", got, want)
+	const want = "9da969adc18fb12f2a137d112599fc19afc0ba0d96d2a00b50e20a806a09b6b4"
+	if gotHex := hex.EncodeToString([]byte(got)); gotHex != want {
+		t.Fatalf("hash mismatch\n got: %s\nwant: %s", gotHex, want)
 	}
 	if len(got) != 32 {
 		t.Fatalf("expected 32-byte hash, got %d bytes", len(got))
@@ -122,39 +116,60 @@ func TestEncodeClientInfoQueryKind(t *testing.T) {
 	}
 }
 
-// TestEncodeEmptySecretPreservesLegacyHashSlot verifies that when ClusterSecret
-// is empty the interserver-secret slot is the legacy empty string. This is a
-// regression guard: existing callers without interserver mode must produce
-// byte-identical wire output.
-func TestEncodeEmptySecretPreservesLegacyHashSlot(t *testing.T) {
-	q := Query{
+// TestEncodeEmptySecretUsesLegacyHashSlot verifies the exact encoded hash
+// field rather than looking for an ambiguous byte sequence elsewhere in the
+// frame. It also verifies that enabling signing adds exactly one SHA256 digest.
+func TestEncodeEmptySecretUsesLegacyHashSlot(t *testing.T) {
+	emptyQuery := Query{
 		ID:          "qid",
 		Body:        "SELECT 1",
 		InitialUser: "alice",
 	}
-	buf := &chproto.Buffer{}
-	if err := q.Encode(buf, DBMS_TCP_PROTOCOL_VERSION); err != nil {
-		t.Fatalf("Encode failed: %v", err)
+	signedQuery := emptyQuery
+	signedQuery.ClusterSecret = "secret"
+	signedQuery.ClusterSalt = "salt"
+
+	emptyBuf := &chproto.Buffer{}
+	if err := emptyQuery.Encode(emptyBuf, DBMS_TCP_PROTOCOL_VERSION); err != nil {
+		t.Fatalf("encode empty-secret query: %v", err)
 	}
-	// Re-encode separately and compare against a buffer where interserverHash
-	// must be "". The presence of the SHA256 layout would shift downstream
-	// bytes, so a successful equality check on the full body is sufficient.
-	if !containsEmptyHashSlot(buf.Buf) {
-		t.Fatalf("expected empty interserver-secret slot in encoded query")
+	signedBuf := &chproto.Buffer{}
+	if err := signedQuery.Encode(signedBuf, DBMS_TCP_PROTOCOL_VERSION); err != nil {
+		t.Fatalf("encode signed query: %v", err)
 	}
+
+	if got, want := len(signedBuf.Buf)-len(emptyBuf.Buf), sha256.Size; got != want {
+		t.Fatalf("signed frame length delta = %d, want %d", got, want)
+	}
+	assertEncodedInterserverHash(t, emptyQuery, emptyBuf.Buf, "")
+	assertEncodedInterserverHash(t, signedQuery, signedBuf.Buf, signedQuery.interserverHash())
 }
 
-// containsEmptyHashSlot scans the encoded query for the empty-string slot
-// that follows the settings terminator and precedes StateComplete. Encoded
-// strings are length-prefixed with a var-uint, so an empty string is the
-// single byte 0x00. We walk the prefix forward and look for the 0x00, 0x02
-// pair (empty hash + StateComplete). The check is loose but sufficient to
-// catch a regression where the slot grows to 32 bytes.
-func containsEmptyHashSlot(b []byte) bool {
-	for i := 0; i < len(b)-1; i++ {
-		if b[i] == 0x00 && b[i+1] == StateComplete {
-			return true
-		}
+func assertEncodedInterserverHash(t *testing.T, q Query, encoded []byte, want string) {
+	t.Helper()
+	prefix := &chproto.Buffer{}
+	prefix.PutString(q.ID)
+	if err := q.encodeClientInfo(prefix, DBMS_TCP_PROTOCOL_VERSION); err != nil {
+		t.Fatalf("encode client info: %v", err)
 	}
-	return false
+	if err := q.Settings.Encode(prefix, DBMS_TCP_PROTOCOL_VERSION); err != nil {
+		t.Fatalf("encode settings: %v", err)
+	}
+	prefix.PutString("")
+
+	r := chproto.NewReader(bytes.NewReader(encoded[len(prefix.Buf):]))
+	got, err := r.Str()
+	if err != nil {
+		t.Fatalf("read interserver hash: %v", err)
+	}
+	if got != want {
+		t.Fatalf("interserver hash = %x, want %x", got, want)
+	}
+	state, err := r.ReadByte()
+	if err != nil {
+		t.Fatalf("read query state: %v", err)
+	}
+	if state != StateComplete {
+		t.Fatalf("query state = %d, want %d", state, StateComplete)
+	}
 }
