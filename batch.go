@@ -11,6 +11,42 @@ var truncateFormat = regexp.MustCompile(`(?i)\sFORMAT\s+[^\s]+`)
 var truncateValues = regexp.MustCompile(`\sVALUES\s.*$`)
 var extractInsertColumnsMatch = regexp.MustCompile(`(?si)INSERT INTO .+\s\((?P<Columns>.+)\)$`)
 
+// splitColumnsRespectingQuotes splits an INSERT column list on commas that are
+// outside backtick- or double-quoted identifiers, so a name such as
+// `my_weird,col2` stays intact. Escaped quote characters inside an identifier
+// (doubled or backslash-escaped) are not supported.
+// See https://clickhouse.com/docs/en/sql-reference/syntax#identifiers
+func splitColumnsRespectingQuotes(columnsStr string) []string {
+	var columns []string
+	var current strings.Builder
+	inBacktick := false
+	inDoubleQuote := false
+
+	for i := 0; i < len(columnsStr); i++ {
+		c := columnsStr[i]
+
+		switch {
+		case c == '`' && !inDoubleQuote:
+			inBacktick = !inBacktick
+			current.WriteByte(c)
+		case c == '"' && !inBacktick:
+			inDoubleQuote = !inDoubleQuote
+			current.WriteByte(c)
+		case c == ',' && !inBacktick && !inDoubleQuote:
+			columns = append(columns, strings.TrimSpace(current.String()))
+			current.Reset()
+		default:
+			current.WriteByte(c)
+		}
+	}
+
+	if current.Len() > 0 {
+		columns = append(columns, strings.TrimSpace(current.String()))
+	}
+
+	return columns
+}
+
 func extractNormalizedInsertQueryAndColumns(query string) (normalizedQuery string, tableName string, columns []string, err error) {
 	insertStmt, tableName, columns, err := extractInsertQueryComponents(query)
 	if err != nil {
@@ -38,11 +74,11 @@ func extractInsertQueryComponents(query string) (insertStmt string, tableName st
 	columns = make([]string, 0)
 	matches = extractInsertColumnsMatch.FindStringSubmatch(matches[1])
 	if len(matches) == 2 {
-		columns = strings.Split(matches[1], ",")
-		for i := range columns {
-			// refers to https://clickhouse.com/docs/en/sql-reference/syntax#identifiers
-			// we can use identifiers with double quotes or backticks, for example: "id", `id`, but not both, like `"id"`.
-			columns[i] = strings.ReplaceAll(strings.Trim(strings.TrimSpace(columns[i]), "\""), "`", "")
+		rawColumns := splitColumnsRespectingQuotes(matches[1])
+		// refers to https://clickhouse.com/docs/en/sql-reference/syntax#identifiers
+		// we can use identifiers with double quotes or backticks, for example: "id", `id`, but not both, like `"id"`.
+		for _, col := range rawColumns {
+			columns = append(columns, strings.ReplaceAll(strings.Trim(strings.TrimSpace(col), "\""), "`", ""))
 		}
 	}
 
