@@ -12,16 +12,22 @@ import (
 	clickhouse_std_tests "github.com/ClickHouse/clickhouse-go/v2/tests/std"
 )
 
+// controlCharCase is one value to bind and expect back from the server. The
+// raw string form covers the string/*string binding branches; asBytes covers
+// the []byte/*[]byte branches, which must escape identically.
+type controlCharCase struct {
+	name    string
+	value   string
+	asBytes bool
+}
+
 // controlCharCases is the shared set of test cases used by all 1792 tests.
 //
 // A top-level String sent via Named is TSV-escaped by the driver, so every
 // value below — including raw control characters that were previously
 // truncated or rejected on the native TCP path — must round-trip byte-for-byte
 // on both protocols (#1792).
-var controlCharCases = []struct {
-	name  string
-	value string
-}{
+var controlCharCases = []controlCharCase{
 	{name: "plain string", value: "hello world"},
 	{name: "tab character", value: "hello\tworld"},
 	{name: "newline character", value: "hello\nworld"},
@@ -31,6 +37,18 @@ var controlCharCases = []struct {
 	{name: "backslash followed by t (not a tab)", value: `hello\tworld`},
 	{name: "nul byte", value: "hello\x00world"},
 	{name: "mixed control characters", value: "tab:\there\nnewline\\backslash'quote"},
+	{name: "tab character in byte slice", value: "hello\tworld", asBytes: true},
+	{name: "newline character in byte slice", value: "hello\nworld", asBytes: true},
+	{name: "backslash in byte slice", value: `hello\world`, asBytes: true},
+}
+
+// stringParamArg is the argument to bind for tc: the raw string, or the same
+// content as a []byte to exercise the byte-slice binding branch.
+func stringParamArg(tc controlCharCase) any {
+	if tc.asBytes {
+		return []byte(tc.value)
+	}
+	return tc.value
 }
 
 // Test1792 verifies that String query parameters containing control characters
@@ -58,7 +76,7 @@ func Test1792(t *testing.T) {
 			t.Run(tc.name, func(t *testing.T) {
 				var got string
 				row := conn.QueryRow(ctx, "SELECT {str:String}",
-					clickhouse.Named("str", tc.value))
+					clickhouse.Named("str", stringParamArg(tc)))
 				require.NoError(t, row.Scan(&got))
 				assert.Equal(t, tc.value, got)
 			})
@@ -84,7 +102,7 @@ func Test1792HTTP(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			var got string
 			row := conn.QueryRow(ctx, "SELECT {str:String}",
-				clickhouse.Named("str", tc.value))
+				clickhouse.Named("str", stringParamArg(tc)))
 			require.NoError(t, row.Scan(&got))
 			assert.Equal(t, tc.value, got)
 		})
@@ -107,7 +125,7 @@ func stdRoundTrip(t *testing.T, protocol clickhouse.Protocol) {
 		t.Run(tc.name, func(t *testing.T) {
 			var got string
 			row := db.QueryRowContext(ctx, "SELECT {str:String}",
-				clickhouse.Named("str", tc.value))
+				clickhouse.Named("str", stringParamArg(tc)))
 			require.NoError(t, row.Scan(&got))
 			assert.Equal(t, tc.value, got)
 		})

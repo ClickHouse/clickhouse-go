@@ -35,10 +35,10 @@ var (
 // Single quotes are intentionally left alone: fieldDumpEscaper handles them at the
 // TCP boundary and URL-encoding covers them over HTTP.
 var namedStringEscaper = strings.NewReplacer(
-	`\`, `\\`,    // backslash → \\: read as a literal backslash
-	"\t", `\t`,   // tab → \t
-	"\n", `\n`,   // newline → \n
-	"\r", `\r`,   // CR → \r
+	`\`, `\\`, // backslash → \\: read as a literal backslash
+	"\t", `\t`, // tab → \t
+	"\n", `\n`, // newline → \n
+	"\r", `\r`, // CR → \r
 	"\x00", `\0`, // NUL → \0
 )
 
@@ -66,8 +66,8 @@ func bindQueryOrAppendParameters(paramsProtocolSupport bool, options *QueryOptio
 					options.parameters[p.Name] = `\N`
 					continue
 				}
-				// Strings and times at the top level are sent raw, without
-				// quotes: the server reads a whole parameter value as-is,
+				// Strings, byte slices, and times at the top level are sent raw,
+				// without quotes: the server reads a whole parameter value as-is,
 				// and only quotes values nested inside arrays, maps, and
 				// tuples. formatValue below applies the nested (quoted)
 				// rules, so these skip it.
@@ -83,14 +83,14 @@ func bindQueryOrAppendParameters(paramsProtocolSupport bool, options *QueryOptio
 						options.parameters[p.Name] = `\N`
 						continue
 					}
-					options.parameters[p.Name] = string(v)
+					options.parameters[p.Name] = namedStringEscaper.Replace(string(v))
 					continue
 				case *[]byte:
 					if *v == nil {
 						options.parameters[p.Name] = `\N`
 						continue
 					}
-					options.parameters[p.Name] = string(*v)
+					options.parameters[p.Name] = namedStringEscaper.Replace(string(*v))
 					continue
 				case time.Time:
 					options.parameters[p.Name] = formatTimeParam(v)
