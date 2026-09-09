@@ -34,10 +34,7 @@
     <display_name>clickhouse</display_name>
     <custom_settings_prefixes>custom_</custom_settings_prefixes>
 
-    <!-- Used by interserver-secret integration tests: a single-shard cluster
-         with a shared secret. The cluster does not need real peers; the
-         secret entry is what enables the server to accept incoming
-         " INTERSERVER SECRET " connections naming this cluster. -->
+    <!-- Interserver-secret test fixture. -->
     <remote_servers>
         <test_cluster_secret>
             <secret>test_interserver_secret</secret>

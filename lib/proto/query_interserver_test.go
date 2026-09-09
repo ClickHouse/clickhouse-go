@@ -67,11 +67,6 @@ func TestInterserverHashChangesWithBody(t *testing.T) {
 	}
 }
 
-// TestEncodeClientInfoQueryKind verifies that the query_kind byte flips to
-// Secondary when interserver mode is enabled and stays Initial otherwise.
-// query_kind is the very first byte of client_info, which sits right after
-// the query ID, so we can read it deterministically without decoding the
-// whole frame.
 func TestEncodeClientInfoQueryKind(t *testing.T) {
 	cases := []struct {
 		name   string
@@ -94,9 +89,7 @@ func TestEncodeClientInfoQueryKind(t *testing.T) {
 			if err := q.Encode(buf, DBMS_TCP_PROTOCOL_VERSION); err != nil {
 				t.Fatalf("Encode failed: %v", err)
 			}
-			// Skip the leading query ID string: var-len header + body.
-			// We simply locate the first byte after PutString("qid") by
-			// advancing past the string-length prefix and the bytes.
+			// query_kind follows the query ID.
 			r := chproto.NewReader(bytes.NewReader(buf.Buf))
 			id, err := r.Str()
 			if err != nil {
@@ -116,9 +109,6 @@ func TestEncodeClientInfoQueryKind(t *testing.T) {
 	}
 }
 
-// TestEncodeEmptySecretUsesLegacyHashSlot verifies the exact encoded hash
-// field rather than looking for an ambiguous byte sequence elsewhere in the
-// frame. It also verifies that enabling signing adds exactly one SHA256 digest.
 func TestEncodeEmptySecretUsesLegacyHashSlot(t *testing.T) {
 	emptyQuery := Query{
 		ID:          "qid",

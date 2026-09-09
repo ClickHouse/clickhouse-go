@@ -68,25 +68,15 @@ type Auth struct { // has_control_character
 	Password string
 }
 
-// ClusterCredentials configures client-side interserver authentication.
-// When Secret is non-empty, the client authenticates as a trusted cluster
-// peer using the shared cluster secret instead of a user password, and the
-// server executes queries as Auth.Username unless overridden per-query via
-// WithInitialUser. The target user must exist on the server.
-//
-// See https://clickhouse.com/docs/operations/server-configuration-parameters/settings#remote_servers
-// and the interserver secret protocol handled in `src/Server/TCPHandler.cpp`.
+// ClusterCredentials configures interserver-secret authentication.
 type ClusterCredentials struct {
-	// Name is the cluster name configured in ClickHouse remote_servers.
+	// Name is the configured cluster name.
 	Name string
-	// Secret is the shared cluster secret. Empty disables interserver mode.
+	// Secret is the shared secret. Empty disables interserver mode.
 	Secret string
 }
 
-// String returns a representation of ClusterCredentials with Secret redacted,
-// so that accidental logging via fmt.Sprintf("%v", opt) or slog.Any("opt", opt)
-// cannot leak the secret. We only expose its byte length for parity with how
-// other Go libraries surface sensitive credentials.
+// String redacts Secret.
 func (c ClusterCredentials) String() string {
 	if c.Secret == "" {
 		return fmt.Sprintf("clickhouse.ClusterCredentials{Name:%q}", c.Name)
@@ -94,7 +84,7 @@ func (c ClusterCredentials) String() string {
 	return fmt.Sprintf("clickhouse.ClusterCredentials{Name:%q, Secret:[REDACTED %d bytes]}", c.Name, len(c.Secret))
 }
 
-// GoString satisfies fmt.GoStringer so the redaction also applies to %#v.
+// GoString redacts Secret for Go-syntax formatting.
 func (c ClusterCredentials) GoString() string { return c.String() }
 
 type Compression struct {
@@ -151,10 +141,7 @@ type Options struct {
 	TLS  *tls.Config
 	Addr []string
 	Auth Auth
-	// Cluster enables interserver-secret authentication. When Cluster.Secret
-	// is set, Auth.Username/Password are ignored during the handshake and the
-	// client impersonates a trusted cluster peer. Queries run as Auth.Username
-	// unless overridden per-query with WithInitialUser.
+	// Cluster configures native interserver-secret authentication.
 	Cluster      ClusterCredentials
 	DialContext  func(ctx context.Context, addr string) (net.Conn, error)
 	DialStrategy func(ctx context.Context, connID int, options *Options, dial Dial) (DialResult, error)
@@ -484,9 +471,6 @@ func (o Options) setDefaults() *Options {
 	return &o
 }
 
-// validate checks Options for misconfigurations that we can detect without
-// touching the network. It must run before setDefaults so an omitted username
-// cannot be rewritten to "default" before interserver validation sees it.
 func (o *Options) validate() error {
 	if o.Cluster.Secret != "" {
 		if o.Auth.Username == "" {

@@ -29,12 +29,9 @@ type Query struct {
 	Compression              bool
 	InitialUser              string
 	InitialAddress           string
-	// ClusterSecret enables interserver-secret query signing. When non-empty
-	// the query is marked as secondary and the interserver hash slot carries
-	// SHA256(salt + secret + body + id + initial_user).
+	// ClusterSecret signs secondary queries.
 	ClusterSecret string
-	// ClusterSalt is the 32-byte salt sent during the interserver handshake
-	// on the same connection.
+	// ClusterSalt salts interserver signatures.
 	ClusterSalt string
 }
 
@@ -76,15 +73,7 @@ func swap64(b []byte) {
 	}
 }
 
-// interserverHash computes the query signature expected by the ClickHouse
-// server when the client authenticated with the cluster interserver secret.
-// The layout matches
-// `src/Server/TCPHandler.cpp::processQuery` (interserver branch):
-// SHA256(salt + secret + query + query_id + initial_user). Nonce and
-// externally-granted roles are omitted because this driver advertises a
-// protocol version below `DBMS_MIN_REVISION_WITH_INTERSERVER_SECRET_V2`.
-// Returns "" when the connection is not in interserver mode — preserving
-// the legacy empty-string slot.
+// interserverHash returns SHA256(salt + secret + query + ID + user).
 func (q *Query) interserverHash() string {
 	if q.ClusterSecret == "" {
 		return ""

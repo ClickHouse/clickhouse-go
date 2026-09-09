@@ -99,10 +99,7 @@ func WithJWT(jwt string) QueryOption {
 	}
 }
 
-// WithInitialUser sets the `initial_user` sent with the query when the
-// connection is configured with a cluster interserver secret. The server
-// executes the query as this user without a password check. It has no effect
-// on connections without a cluster interserver secret.
+// WithInitialUser sets the user for interserver-secret queries.
 func WithInitialUser(user string) QueryOption {
 	return func(o *QueryOptions) error {
 		o.initialUser = user
@@ -110,10 +107,7 @@ func WithInitialUser(user string) QueryOption {
 	}
 }
 
-// WithColumnNamesAndTypes is used to provide a predetermined list of
-// column names and types for HTTP inserts.
-// Without this, the HTTP implementation will parse the query and run a
-// DESCRIBE TABLE request to fetch and validate column names.
+// WithColumnNamesAndTypes supplies metadata for HTTP inserts.
 func WithColumnNamesAndTypes(columnNamesAndTypes []ColumnNameAndType) QueryOption {
 	return func(o *QueryOptions) error {
 		o.columnNamesAndTypes = columnNamesAndTypes

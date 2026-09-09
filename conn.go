@@ -137,9 +137,7 @@ type connect struct {
 	maxCompressionBuffer int
 	readerMutex          sync.Mutex
 	closeMutex           sync.Mutex
-	// clusterSalt is the 32-byte salt sent during an interserver handshake
-	// and reused when signing every query on this connection. Empty when
-	// Options.Cluster.Secret is not configured.
+	// clusterSalt signs queries on this connection.
 	clusterSalt string
 }
 
@@ -147,10 +145,7 @@ func (c *connect) connID() int {
 	return c.id
 }
 
-// effectiveInitialUser returns the user to put on the outgoing
-// `ClientInfo.initial_user` slot. The per-query override wins; otherwise we
-// fall back to Auth.Username so interserver-mode connections execute as the
-// configured default user when no per-query user is set.
+// effectiveInitialUser returns the user for an interserver query.
 func (c *connect) effectiveInitialUser(queryUser string) string {
 	if c.opt.Cluster.Secret == "" {
 		return ""

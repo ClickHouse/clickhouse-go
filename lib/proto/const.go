@@ -31,10 +31,7 @@ const (
 	ClientPing   = 4
 )
 
-// UserInterserverMarker is the special username clients send to
-// authenticate as a trusted cluster peer via the interserver shared secret.
-// See `EncodedUserInfo::USER_INTERSERVER_MARKER` in ClickHouse
-// `src/Core/Protocol.h`.
+// UserInterserverMarker identifies interserver authentication.
 const UserInterserverMarker = " INTERSERVER SECRET "
 
 const (

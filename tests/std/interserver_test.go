@@ -62,9 +62,9 @@ func TestInterserverSecretValidation(t *testing.T) {
 
 			t.Run("OpenDB", func(t *testing.T) {
 				db := clickhouse.OpenDB(tc.opt)
+				t.Cleanup(func() { require.NoError(t, db.Close()) })
 				err := db.PingContext(context.Background())
 				require.ErrorIs(t, err, tc.want)
-				require.NoError(t, db.Close())
 			})
 		})
 	}

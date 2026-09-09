@@ -79,16 +79,12 @@ func Open(opt *Options) (driver.Conn, error) {
 	}
 	o := opt.setDefaults()
 	if o.Cluster.Secret != "" {
-		// Surfacing this at Warn level (not Debug) so accidental enablement
-		// shows up in operator dashboards. Whoever holds the secret can run
-		// queries as any user on the cluster — that should never be quiet.
+		// The secret permits impersonating any cluster user.
 		o.logger().Warn("clickhouse: cluster interserver-secret mode enabled — connection holds impersonation rights for any user on the cluster",
 			slog.String("cluster", o.Cluster.Name),
 			slog.Bool("tls", o.TLS != nil))
 		if o.TLS == nil {
-			// No nonce in the V1 interserver protocol the driver speaks, so
-			// an on-path attacker on a plaintext link can replay captured
-			// signed queries on the same connection. TLS shuts that down.
+			// V1 signatures can be replayed without TLS.
 			o.logger().Warn("clickhouse: interserver-secret mode without TLS is not recommended — query bodies and signed query frames are sent in cleartext",
 				slog.String("cluster", o.Cluster.Name))
 		}

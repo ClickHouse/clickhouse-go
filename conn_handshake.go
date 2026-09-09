@@ -10,9 +10,7 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 
-// interserverSaltLen matches the cap enforced by ClickHouse
-// `TCPHandler::processClusterNameAndSalt` which calls
-// `readStringBinary(salt, *in, 32)`.
+// interserverSaltLen is the server's maximum salt length.
 const interserverSaltLen = 32
 
 func (c *connect) handshake(auth Auth) error {

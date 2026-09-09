@@ -8,22 +8,15 @@ import (
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 	"github.com/stretchr/testify/require"
 )
 
-// testClusterSecret matches the <secret> configured for <test_cluster_secret>
-// in tests/resources/custom.xml. Hard-coded because the cluster name and the
-// secret are server-side configuration; the test only needs to mirror them.
+// Values from tests/resources/custom.xml.
 const (
 	testClusterName   = "test_cluster_secret"
 	testClusterSecret = "test_interserver_secret"
 )
 
-// TestInterserverSecretAuthenticatesAsInitialUser verifies the end-to-end
-// interserver-secret flow: a connection that authenticates with the cluster
-// secret can run a query as a non-default user without supplying that user's
-// password, and the query is logged in `system.query_log` as Secondary.
 func TestInterserverSecretAuthenticatesAsInitialUser(t *testing.T) {
 	SkipOnCloud(t, "cluster secret requires the tests/resources/custom.xml fixture")
 	if RemoteClickHouse {
@@ -32,17 +25,16 @@ func TestInterserverSecretAuthenticatesAsInitialUser(t *testing.T) {
 	env, err := GetNativeTestEnvironment()
 	require.NoError(t, err)
 
-	if !CheckMinClickHouseVersion(t, env, 23, 3, 0) {
+	admin, err := TestClientWithDefaultSettings(env)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, admin.Close()) })
+	if !CheckMinServerServerVersion(admin, 23, 3, 0) {
 		t.Skip("interserver-secret negotiation is exercised against >= 23.3 servers")
 	}
 
-	admin, err := TestClientWithDefaultSettings(env)
-	require.NoError(t, err)
-	defer admin.Close()
-
 	const initialUser = "interserver_test_user"
 	createUser(t, admin, initialUser)
-	defer dropUser(t, admin, initialUser)
+	t.Cleanup(func() { require.NoError(t, dropUser(admin, initialUser)) })
 
 	timeout, err := strconv.Atoi(GetEnv("CLICKHOUSE_DIAL_TIMEOUT", "10"))
 	require.NoError(t, err)
@@ -60,7 +52,7 @@ func TestInterserverSecretAuthenticatesAsInitialUser(t *testing.T) {
 		DialTimeout: time.Duration(timeout) * time.Second,
 	})
 	require.NoError(t, err)
-	defer conn.Close()
+	t.Cleanup(func() { require.NoError(t, conn.Close()) })
 
 	queryID := fmt.Sprintf("interserver-test-%d", time.Now().UnixNano())
 	ctx := clickhouse.Context(context.Background(),
@@ -92,9 +84,6 @@ func TestInterserverSecretAuthenticatesAsInitialUser(t *testing.T) {
 	require.Equal(t, uint8(0), isInitialQuery, "interserver-secret query must be Secondary (is_initial_query=0)")
 }
 
-// TestInterserverSecretWrongSecretRejected verifies the server refuses a
-// query signed with a wrong cluster secret — the negative path is essential
-// to confirm the signature is actually being checked, not silently ignored.
 func TestInterserverSecretWrongSecretRejected(t *testing.T) {
 	SkipOnCloud(t, "cluster secret requires the tests/resources/custom.xml fixture")
 	if RemoteClickHouse {
@@ -103,7 +92,10 @@ func TestInterserverSecretWrongSecretRejected(t *testing.T) {
 	env, err := GetNativeTestEnvironment()
 	require.NoError(t, err)
 
-	if !CheckMinClickHouseVersion(t, env, 23, 3, 0) {
+	admin, err := TestClientWithDefaultSettings(env)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, admin.Close()) })
+	if !CheckMinServerServerVersion(admin, 23, 3, 0) {
 		t.Skip("interserver-secret negotiation is exercised against >= 23.3 servers")
 	}
 
@@ -123,7 +115,7 @@ func TestInterserverSecretWrongSecretRejected(t *testing.T) {
 		DialTimeout: time.Duration(timeout) * time.Second,
 	})
 	require.NoError(t, err)
-	defer conn.Close()
+	t.Cleanup(func() { require.NoError(t, conn.Close()) })
 
 	ctx := clickhouse.Context(context.Background(),
 		clickhouse.WithInitialUser(env.Username),
@@ -133,9 +125,6 @@ func TestInterserverSecretWrongSecretRejected(t *testing.T) {
 	require.Error(t, err, "wrong cluster secret must produce a server-side error")
 }
 
-// TestInterserverSecretRejectsHTTPProtocol guards the validation path
-// added in clickhouse.Open: HTTP + Cluster.Secret is a misconfiguration we
-// catch up front rather than silently downgrading to password auth.
 func TestInterserverSecretRejectsHTTPProtocol(t *testing.T) {
 	_, err := clickhouse.Open(&clickhouse.Options{
 		Protocol: clickhouse.HTTP,
@@ -149,11 +138,6 @@ func TestInterserverSecretRejectsHTTPProtocol(t *testing.T) {
 	require.ErrorIs(t, err, clickhouse.ErrClusterSecretNeedsNative)
 }
 
-// TestInterserverSecretRequiresExplicitUsername closes the implicit-default
-// footgun: a caller who sets Cluster.Secret but leaves Auth.Username blank
-// would otherwise have setDefaults silently rewrite Auth.Username to "default",
-// and a forgotten WithInitialUser would then run queries as the cluster
-// superuser. Open must refuse this configuration.
 func TestInterserverSecretRequiresExplicitUsername(t *testing.T) {
 	_, err := clickhouse.Open(&clickhouse.Options{
 		Protocol: clickhouse.Native,
@@ -166,10 +150,6 @@ func TestInterserverSecretRequiresExplicitUsername(t *testing.T) {
 	require.ErrorIs(t, err, clickhouse.ErrClusterSecretRequiresUsername)
 }
 
-// TestClusterCredentialsRedactSecret verifies that fmt.Sprintf and friends
-// cannot leak Cluster.Secret. A future contributor adding slog.Any("opt", opt)
-// or fmt.Printf("%+v", opt) anywhere in the code must not turn that into a
-// credential leak.
 func TestClusterCredentialsRedactSecret(t *testing.T) {
 	c := clickhouse.ClusterCredentials{
 		Name:   "my_cluster",
@@ -184,10 +164,6 @@ func TestClusterCredentialsRedactSecret(t *testing.T) {
 	}
 }
 
-// TestInterserverSecretRequiresClusterName guards the second validation
-// branch: a non-empty Secret with an empty Name cannot succeed at handshake
-// time, so we reject it at Open() rather than letting the server return an
-// opaque error.
 func TestInterserverSecretRequiresClusterName(t *testing.T) {
 	_, err := clickhouse.Open(&clickhouse.Options{
 		Protocol: clickhouse.Native,
@@ -198,14 +174,6 @@ func TestInterserverSecretRequiresClusterName(t *testing.T) {
 		},
 	})
 	require.ErrorIs(t, err, clickhouse.ErrClusterSecretRequiresName)
-}
-
-// CheckMinClickHouseVersion compares against the env's recorded version. We
-// inline this rather than reuse CheckMinServerServerVersion because the
-// latter requires an open connection and we want a cheap pre-flight check.
-func CheckMinClickHouseVersion(t *testing.T, env ClickHouseTestEnvironment, major, minor, patch uint64) bool {
-	t.Helper()
-	return proto.CheckMinVersion(proto.Version{Major: major, Minor: minor, Patch: patch}, env.Version)
 }
 
 func createUser(t *testing.T, admin interface {
@@ -221,11 +189,4 @@ func createUser(t *testing.T, admin interface {
 	require.NoError(t, admin.Exec(ctx, fmt.Sprintf(
 		"GRANT SELECT ON system.query_log TO %s", name,
 	)))
-}
-
-func dropUser(t *testing.T, admin interface {
-	Exec(ctx context.Context, query string, args ...any) error
-}, name string) {
-	t.Helper()
-	require.NoError(t, admin.Exec(context.Background(), fmt.Sprintf("DROP USER IF EXISTS %s", name)))
 }
