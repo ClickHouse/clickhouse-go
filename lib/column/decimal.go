@@ -6,7 +6,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"math"
+
 	"reflect"
 	"strconv"
 	"strings"
@@ -263,22 +263,24 @@ func (col *Decimal) append(v *decimal.Decimal) error {
 	case *proto.ColDecimal32:
 		scaled := decimal.NewFromBigInt(v.Coefficient(), v.Exponent()+int32(col.scale))
 		bi := scaled.BigInt()
-		if !bi.IsInt64() || bi.Int64() > math.MaxInt32 || bi.Int64() < math.MinInt32 {
-			return fmt.Errorf("value %s overflows decimal32 range", v.String())
+		var dest [4]byte
+		if err := bigIntToRaw(dest[:], bi, true); err != nil {
+			return fmt.Errorf("value %s overflows Decimal32 (%s): %w", v.String(), col.chType, err)
 		}
 		vCol.Append(proto.Decimal32(uint32(bi.Int64())))
 	case *proto.ColDecimal64:
 		scaled := decimal.NewFromBigInt(v.Coefficient(), v.Exponent()+int32(col.scale))
 		bi := scaled.BigInt()
-		if !bi.IsInt64() {
-			return fmt.Errorf("value %s overflows decimal64 range", v.String())
+		var dest [8]byte
+		if err := bigIntToRaw(dest[:], bi, true); err != nil {
+			return fmt.Errorf("value %s overflows Decimal64 (%s): %w", v.String(), col.chType, err)
 		}
 		vCol.Append(proto.Decimal64(uint64(bi.Int64())))
 	case *proto.ColDecimal128:
 		bi := decimal.NewFromBigInt(v.Coefficient(), v.Exponent()+int32(col.scale)).BigInt()
 		dest := make([]byte, 16)
 		if err := bigIntToRaw(dest, bi, true); err != nil {
-			return fmt.Errorf("value %s overflows decimal128 range", v.String())
+			return fmt.Errorf("value %s overflows Decimal128 (%s): %w", v.String(), col.chType, err)
 		}
 		vCol.Append(proto.Decimal128{
 			Low:  binary.LittleEndian.Uint64(dest[0 : 64/8]),
@@ -288,7 +290,7 @@ func (col *Decimal) append(v *decimal.Decimal) error {
 		bi := decimal.NewFromBigInt(v.Coefficient(), v.Exponent()+int32(col.scale)).BigInt()
 		dest := make([]byte, 32)
 		if err := bigIntToRaw(dest, bi, true); err != nil {
-			return fmt.Errorf("value %s overflows decimal256 range", v.String())
+			return fmt.Errorf("value %s overflows Decimal256 (%s): %w", v.String(), col.chType, err)
 		}
 		vCol.Append(proto.Decimal256{
 			Low: proto.UInt128{

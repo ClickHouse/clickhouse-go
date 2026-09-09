@@ -185,12 +185,7 @@ func (col *BigInt) row(i int) *big.Int {
 func (col *BigInt) append(v *big.Int) error {
 	dest := make([]byte, col.size)
 	if err := bigIntToRaw(dest, v, col.signed); err != nil {
-		return &ColumnConverterError{
-			Op:   "Append",
-			To:   string(col.chType),
-			From: "big.Int",
-			Hint: err.Error(),
-		}
+		return fmt.Errorf("value %s overflows %s: %w", v.String(), col.chType, err)
 	}
 	switch v := col.col.(type) {
 	case *proto.ColInt128:
@@ -243,7 +238,7 @@ func bigIntToRaw(dest []byte, v *big.Int, signed bool) error {
 		}
 	} else {
 		if v.Sign() < 0 {
-			return fmt.Errorf("negative value not allowed for unsigned type")
+			return fmt.Errorf("negative value %s not allowed for unsigned %d-byte type", v.String(), len(dest))
 		}
 		if v.BitLen() > bits {
 			return fmt.Errorf("value overflows %d-byte unsigned buffer", len(dest))

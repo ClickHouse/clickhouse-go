@@ -3,7 +3,7 @@ package issues
 import (
 	"context"
 	"database/sql"
-	"fmt"
+
 	"math/big"
 	"strconv"
 	"testing"
@@ -17,366 +17,223 @@ import (
 	clickhouse_std_tests "github.com/ClickHouse/clickhouse-go/v2/tests/std"
 )
 
-// TestDecimalOverflow verifies that appending values to a Decimal(38,0) column
-// that exceed the 38-digit precision returns an error containing "overflow"
-// instead of silently producing wrong data or panicking.
-//
-// Regression test for https://github.com/ClickHouse/clickhouse-go/issues/1849.
+// TestDecimalOverflow verifies that values outside a Decimal128 storage width
+// return an error at the native and database/sql batch APIs.
 func TestDecimalOverflow(t *testing.T) {
-	const ddl = `CREATE TABLE test_issue_1849 (d128 Decimal(38, 0)) Engine MergeTree() ORDER BY tuple()`
-
-	maxDecimal128, _ := decimal.NewFromString("99999999999999999999999999999999999999")
-	justAboveMax, _ := decimal.NewFromString("100000000000000000000000000000000000000")
-	minDecimal128, _ := decimal.NewFromString("-99999999999999999999999999999999999999")
-	justBelowMin, _ := decimal.NewFromString("-100000000000000000000000000000000000000")
-
-	cases := []struct {
-		name  string
-		value decimal.Decimal
-	}{
-		{"positive_overflow_above_max", justAboveMax},
-		{"negative_overflow_below_min", justBelowMin},
-		{"valid_max_boundary", maxDecimal128},
-		{"valid_min_boundary", minDecimal128},
+	for _, protocol := range []clickhouse.Protocol{clickhouse.Native, clickhouse.HTTP} {
+		protocol := protocol
+		t.Run("native/"+protocol.String(), func(t *testing.T) {
+			conn, err := clickhouse_tests.GetConnection(testSet, t, protocol, nil, nil, nil)
+			require.NoError(t, err)
+			t.Cleanup(func() { conn.Close() })
+			runDecimal128Overflow(t, func(value decimal.Decimal) error {
+				batch, err := conn.PrepareBatch(context.Background(), "INSERT INTO test_issue_1849_decimal128")
+				if err != nil {
+					return err
+				}
+				defer batch.Abort()
+				return batch.Append(value)
+			}, func() error {
+				ctx := context.Background()
+				if err := conn.Exec(ctx, "DROP TABLE IF EXISTS test_issue_1849_decimal128"); err != nil {
+					return err
+				}
+				return conn.Exec(ctx, "CREATE TABLE test_issue_1849_decimal128 (value Decimal(38, 0)) Engine MergeTree() ORDER BY tuple()")
+			})
+		})
+		t.Run("std/"+protocol.String(), func(t *testing.T) {
+			db := issue1849OpenDB(t, protocol)
+			defer db.Close()
+			runDecimal128Overflow(t, func(value decimal.Decimal) error {
+				return issue1849InsertDecimal(db, "test_issue_1849_decimal128", value)
+			}, func() error {
+				if _, err := db.Exec("DROP TABLE IF EXISTS test_issue_1849_decimal128"); err != nil {
+					return err
+				}
+				_, err := db.Exec("CREATE TABLE test_issue_1849_decimal128 (value Decimal(38, 0)) Engine MergeTree() ORDER BY tuple()")
+				return err
+			})
+		})
 	}
 
-	t.Run("Native", func(t *testing.T) {
-		ctx := context.Background()
-		for _, protocol := range []clickhouse.Protocol{clickhouse.Native, clickhouse.HTTP} {
-			t.Run(protocol.String(), func(t *testing.T) {
-				conn, err := clickhouse_tests.GetConnection(testSet, t, protocol, nil, nil, nil)
-				require.NoError(t, err)
-				t.Cleanup(func() { conn.Close() })
-
-				require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS test_issue_1849"))
-				require.NoError(t, conn.Exec(ctx, ddl))
-				t.Cleanup(func() { _ = conn.Exec(ctx, "DROP TABLE IF EXISTS test_issue_1849") })
-
-				for _, tc := range cases {
-					t.Run(tc.name, func(t *testing.T) {
-						batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_issue_1849")
-						require.NoError(t, err)
-						t.Cleanup(func() { _ = batch.Abort() })
-
-						err = batch.Append(tc.value)
-						assertOverflow(t, err, tc.name, "valid_max_boundary", "valid_min_boundary")
-					})
-				}
-			})
-		}
-	})
-
-	t.Run("Std", func(t *testing.T) {
-		useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
-		require.NoError(t, err)
-
-		for _, protocol := range []clickhouse.Protocol{clickhouse.Native, clickhouse.HTTP} {
-			t.Run(protocol.String(), func(t *testing.T) {
-				db, err := clickhouse_std_tests.GetDSNConnection(testSet, protocol, useSSL, nil)
-				require.NoError(t, err)
-				t.Cleanup(func() { db.Close() })
-
-				_, _ = db.Exec("DROP TABLE IF EXISTS test_issue_1849")
-				_, err = db.Exec(ddl)
-				require.NoError(t, err)
-				t.Cleanup(func() { _, _ = db.Exec("DROP TABLE IF EXISTS test_issue_1849") })
-
-				for _, tc := range cases {
-					t.Run(tc.name, func(t *testing.T) {
-						err := stdInsertOneDecimal(db, tc.value)
-						assertOverflow(t, err, tc.name, "valid_max_boundary", "valid_min_boundary")
-					})
-				}
-			})
-		}
-	})
 }
 
-// TestDecimalSilentDataCorruption verifies that Decimal32 and Decimal64 columns
-// no longer silently truncate overflow values via IntPart() casts. The driver
-// must return an error containing "overflow" instead of silently producing
-// incorrect data.
-//
-// Regression test for https://github.com/ClickHouse/clickhouse-go/issues/1849.
+func runDecimal128Overflow(t *testing.T, appendValue func(decimal.Decimal) error, createTable func() error) {
+	t.Helper()
+	require.NoError(t, createTable())
+
+	max := decimal.NewFromBigInt(new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 127), big.NewInt(1)), 0)
+	min := decimal.NewFromBigInt(new(big.Int).Neg(new(big.Int).Lsh(big.NewInt(1), 127)), 0)
+	aboveMax := decimal.NewFromBigInt(new(big.Int).Lsh(big.NewInt(1), 127), 0)
+	belowMin := decimal.NewFromBigInt(new(big.Int).Sub(min.Coefficient(), big.NewInt(1)), 0)
+
+	assert.NoError(t, appendValue(max))
+	assert.NoError(t, appendValue(min))
+	assert.ErrorContains(t, appendValue(aboveMax), "value "+aboveMax.String()+" overflows Decimal128")
+	assert.ErrorContains(t, appendValue(belowMin), "value "+belowMin.String()+" overflows Decimal128")
+}
+
+// TestDecimalSilentDataCorruption verifies that Decimal32 and Decimal64 no
+// longer truncate scaled coefficients that exceed their storage widths.
 func TestDecimalSilentDataCorruption(t *testing.T) {
-	t.Run("Decimal32", func(t *testing.T) {
-		const ddl = `CREATE TABLE test_issue_1849 (d32 Decimal(9, 0)) Engine MergeTree() ORDER BY tuple()`
-
-		maxDecimal32, _ := decimal.NewFromString("999999999")
-		justAboveMax32, _ := decimal.NewFromString("1000000000")
-		minDecimal32, _ := decimal.NewFromString("-999999999")
-		justBelowMin32, _ := decimal.NewFromString("-1000000000")
-
-		cases := []struct {
-			name  string
-			value decimal.Decimal
-		}{
-			{"positive_overflow_above_max", justAboveMax32},
-			{"negative_overflow_below_min", justBelowMin32},
-			{"valid_max_boundary", maxDecimal32},
-			{"valid_min_boundary", minDecimal32},
-		}
-
-		runDecimalOverflowTest(t, ddl, cases)
-	})
-
-	t.Run("Decimal64", func(t *testing.T) {
-		const ddl = `CREATE TABLE test_issue_1849 (d64 Decimal(18, 0)) Engine MergeTree() ORDER BY tuple()`
-
-		maxDecimal64, _ := decimal.NewFromString("9999999999999999999")
-		justAboveMax64, _ := decimal.NewFromString("10000000000000000000")
-		minDecimal64, _ := decimal.NewFromString("-9999999999999999999")
-		justBelowMin64, _ := decimal.NewFromString("-10000000000000000000")
-
-		cases := []struct {
-			name  string
-			value decimal.Decimal
-		}{
-			{"positive_overflow_above_max", justAboveMax64},
-			{"negative_overflow_below_min", justBelowMin64},
-			{"valid_max_boundary", maxDecimal64},
-			{"valid_min_boundary", minDecimal64},
-		}
-
-		runDecimalOverflowTest(t, ddl, cases)
-	})
+	for _, protocol := range []clickhouse.Protocol{clickhouse.Native, clickhouse.HTTP} {
+		protocol := protocol
+		t.Run("native/"+protocol.String(), func(t *testing.T) {
+			conn, err := clickhouse_tests.GetConnection(testSet, t, protocol, nil, nil, nil)
+			require.NoError(t, err)
+			t.Cleanup(func() { conn.Close() })
+			runDecimalWidthOverflow(t, "Decimal32", func(value decimal.Decimal) error {
+				batch, err := conn.PrepareBatch(context.Background(), "INSERT INTO test_issue_1849_decimal32")
+				if err != nil {
+					return err
+				}
+				defer batch.Abort()
+				return batch.Append(value)
+			}, func() error { return recreateNativeDecimalTable(conn, "test_issue_1849_decimal32", "Decimal(9, 0)") }, 31)
+			runDecimalWidthOverflow(t, "Decimal64", func(value decimal.Decimal) error {
+				batch, err := conn.PrepareBatch(context.Background(), "INSERT INTO test_issue_1849_decimal64")
+				if err != nil {
+					return err
+				}
+				defer batch.Abort()
+				return batch.Append(value)
+			}, func() error { return recreateNativeDecimalTable(conn, "test_issue_1849_decimal64", "Decimal(18, 0)") }, 63)
+		})
+		t.Run("std/"+protocol.String(), func(t *testing.T) {
+			db := issue1849OpenDB(t, protocol)
+			defer db.Close()
+			runDecimalWidthOverflow(t, "Decimal32", func(value decimal.Decimal) error {
+				return issue1849InsertDecimal(db, "test_issue_1849_decimal32", value)
+			}, func() error { return recreateStdDecimalTable(db, "test_issue_1849_decimal32", "Decimal(9, 0)") }, 31)
+			runDecimalWidthOverflow(t, "Decimal64", func(value decimal.Decimal) error {
+				return issue1849InsertDecimal(db, "test_issue_1849_decimal64", value)
+			}, func() error { return recreateStdDecimalTable(db, "test_issue_1849_decimal64", "Decimal(18, 0)") }, 63)
+		})
+	}
 }
 
-// runDecimalOverflowTest runs the given test cases against all 4 surface
-// combinations (Native TCP, Native HTTP, Std TCP, Std HTTP) using the provided DDL.
-func runDecimalOverflowTest(t *testing.T, ddl string, cases []struct {
-	name  string
-	value decimal.Decimal
-}) {
+func runDecimalWidthOverflow(t *testing.T, columnType string, appendValue func(decimal.Decimal) error, createTable func() error, bits uint) {
 	t.Helper()
-
-	t.Run("Native", func(t *testing.T) {
-		ctx := context.Background()
-		for _, protocol := range []clickhouse.Protocol{clickhouse.Native, clickhouse.HTTP} {
-			t.Run(protocol.String(), func(t *testing.T) {
-				conn, err := clickhouse_tests.GetConnection(testSet, t, protocol, nil, nil, nil)
-				require.NoError(t, err)
-				t.Cleanup(func() { conn.Close() })
-
-				require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS test_issue_1849"))
-				require.NoError(t, conn.Exec(ctx, ddl))
-				t.Cleanup(func() { _ = conn.Exec(ctx, "DROP TABLE IF EXISTS test_issue_1849") })
-
-				for _, tc := range cases {
-					t.Run(tc.name, func(t *testing.T) {
-						batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_issue_1849")
-						require.NoError(t, err)
-						t.Cleanup(func() { _ = batch.Abort() })
-
-						err = batch.Append(tc.value)
-						assertOverflow(t, err, tc.name, "valid_max_boundary", "valid_min_boundary")
-					})
-				}
-			})
-		}
-	})
-
-	t.Run("Std", func(t *testing.T) {
-		useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
-		require.NoError(t, err)
-
-		for _, protocol := range []clickhouse.Protocol{clickhouse.Native, clickhouse.HTTP} {
-			t.Run(protocol.String(), func(t *testing.T) {
-				db, err := clickhouse_std_tests.GetDSNConnection(testSet, protocol, useSSL, nil)
-				require.NoError(t, err)
-				t.Cleanup(func() { db.Close() })
-
-				_, _ = db.Exec("DROP TABLE IF EXISTS test_issue_1849")
-				_, err = db.Exec(ddl)
-				require.NoError(t, err)
-				t.Cleanup(func() { _, _ = db.Exec("DROP TABLE IF EXISTS test_issue_1849") })
-
-				for _, tc := range cases {
-					t.Run(tc.name, func(t *testing.T) {
-						err := stdInsertOneDecimal(db, tc.value)
-						assertOverflow(t, err, tc.name, "valid_max_boundary", "valid_min_boundary")
-					})
-				}
-			})
-		}
-	})
+	require.NoError(t, createTable())
+	max := decimal.NewFromBigInt(new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), bits), big.NewInt(1)), 0)
+	min := decimal.NewFromBigInt(new(big.Int).Neg(new(big.Int).Lsh(big.NewInt(1), bits)), 0)
+	aboveMax := decimal.NewFromBigInt(new(big.Int).Lsh(big.NewInt(1), bits), 0)
+	belowMin := decimal.NewFromBigInt(new(big.Int).Sub(min.Coefficient(), big.NewInt(1)), 0)
+	assert.NoError(t, appendValue(max))
+	assert.NoError(t, appendValue(min))
+	assert.ErrorContains(t, appendValue(aboveMax), "value "+aboveMax.String()+" overflows "+columnType)
+	assert.ErrorContains(t, appendValue(belowMin), "value "+belowMin.String()+" overflows "+columnType)
 }
 
-// TestBigIntOverflow verifies that appending values to Int128 and UInt128
-// columns that exceed the type's range returns an error containing "overflow"
-// instead of panicking with "math/big: buffer too small".
-//
-// Regression test for https://github.com/ClickHouse/clickhouse-go/issues/1849.
+// TestBigIntOverflow verifies signed and unsigned 128/256-bit overflow checks.
 func TestBigIntOverflow(t *testing.T) {
-	t.Run("Int128", func(t *testing.T) {
-		const ddl = `CREATE TABLE test_issue_1849 (i128 Int128) Engine MergeTree() ORDER BY tuple()`
-
-		maxInt128 := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 127), big.NewInt(1))
-		minInt128 := new(big.Int).Neg(new(big.Int).Lsh(big.NewInt(1), 127))
-		justAboveMaxInt128 := new(big.Int).Add(maxInt128, big.NewInt(1))
-		justBelowMinInt128 := new(big.Int).Sub(minInt128, big.NewInt(1))
-
-		cases := []struct {
-			name  string
-			value *big.Int
-		}{
-			{"positive_overflow", justAboveMaxInt128},
-			{"negative_overflow", justBelowMinInt128},
-			{"valid_max_boundary", maxInt128},
-			{"valid_min_boundary", minInt128},
-		}
-
-		runBigIntOverflowTest(t, ddl, cases, false)
-	})
-
-	t.Run("UInt128", func(t *testing.T) {
-		const ddl = `CREATE TABLE test_issue_1849 (u128 UInt128) Engine MergeTree() ORDER BY tuple()`
-
-		maxUInt128 := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 128), big.NewInt(1))
-		justAboveMaxUInt128 := new(big.Int).Lsh(big.NewInt(1), 128)
-
-		cases := []struct {
-			name  string
-			value *big.Int
-		}{
-			{"negative_not_allowed", big.NewInt(-1)},
-			{"positive_overflow", justAboveMaxUInt128},
-			{"valid_max_boundary", maxUInt128},
-			{"valid_zero", big.NewInt(0)},
-		}
-
-		runBigIntOverflowTest(t, ddl, cases, true)
-	})
-}
-
-// runBigIntOverflowTest runs the given test cases against all 4 surface
-// combinations (Native TCP, Native HTTP, Std TCP, Std HTTP) using the provided DDL.
-func runBigIntOverflowTest(t *testing.T, ddl string, cases []struct {
-	name  string
-	value *big.Int
-}, unsigned bool) {
-	t.Helper()
-
-	t.Run("Native", func(t *testing.T) {
-		ctx := context.Background()
-		for _, protocol := range []clickhouse.Protocol{clickhouse.Native, clickhouse.HTTP} {
-			t.Run(protocol.String(), func(t *testing.T) {
-				conn, err := clickhouse_tests.GetConnection(testSet, t, protocol, nil, nil, nil)
-				require.NoError(t, err)
-				t.Cleanup(func() { conn.Close() })
-
-				require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS test_issue_1849"))
-				require.NoError(t, conn.Exec(ctx, ddl))
-				t.Cleanup(func() { _ = conn.Exec(ctx, "DROP TABLE IF EXISTS test_issue_1849") })
-
-				for _, tc := range cases {
-					t.Run(tc.name, func(t *testing.T) {
-						batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_issue_1849")
-						require.NoError(t, err)
-						t.Cleanup(func() { _ = batch.Abort() })
-
-						err = batch.Append(tc.value)
-						assertBigIntResult(t, err, tc.name, unsigned)
-					})
+	for _, protocol := range []clickhouse.Protocol{clickhouse.Native, clickhouse.HTTP} {
+		protocol := protocol
+		t.Run("native/"+protocol.String(), func(t *testing.T) {
+			conn, err := clickhouse_tests.GetConnection(testSet, t, protocol, nil, nil, nil)
+			require.NoError(t, err)
+			t.Cleanup(func() { conn.Close() })
+			runBigIntCases(t, func(table string, value *big.Int) error {
+				batch, err := conn.PrepareBatch(context.Background(), "INSERT INTO "+table)
+				if err != nil {
+					return err
 				}
-			})
-		}
-	})
-
-	t.Run("Std", func(t *testing.T) {
-		useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
-		require.NoError(t, err)
-
-		for _, protocol := range []clickhouse.Protocol{clickhouse.Native, clickhouse.HTTP} {
-			t.Run(protocol.String(), func(t *testing.T) {
-				db, err := clickhouse_std_tests.GetDSNConnection(testSet, protocol, useSSL, nil)
-				require.NoError(t, err)
-				t.Cleanup(func() { db.Close() })
-
-				_, _ = db.Exec("DROP TABLE IF EXISTS test_issue_1849")
-				_, err = db.Exec(ddl)
-				require.NoError(t, err)
-				t.Cleanup(func() { _, _ = db.Exec("DROP TABLE IF EXISTS test_issue_1849") })
-
-				for _, tc := range cases {
-					t.Run(tc.name, func(t *testing.T) {
-						err := stdInsertOneBigInt(db, tc.value)
-						assertBigIntResult(t, err, tc.name, unsigned)
-					})
-				}
-			})
-		}
-	})
+				defer batch.Abort()
+				return batch.Append(value)
+			}, func(table, typ string) error { return recreateNativeDecimalTable(conn, table, typ) })
+		})
+		t.Run("std/"+protocol.String(), func(t *testing.T) {
+			db := issue1849OpenDB(t, protocol)
+			defer db.Close()
+			runBigIntCases(t, func(table string, value *big.Int) error { return issue1849InsertBigInt(db, table, value) }, func(table, typ string) error { return recreateStdDecimalTable(db, table, typ) })
+		})
+	}
 }
 
-// assertOverflow checks that the error contains "overflow" unless the case
-// name matches one of the valid boundary names.
-func assertOverflow(t *testing.T, err error, name string, validNames ...string) {
+func runBigIntCases(t *testing.T, appendValue func(string, *big.Int) error, createTable func(string, string) error) {
 	t.Helper()
-	for _, vn := range validNames {
-		if name == vn {
-			assert.NoError(t, err)
-			return
-		}
+	for _, tc := range []struct {
+		table, typ string
+		bits       uint
+		signed     bool
+	}{
+		{"test_issue_1849_int128", "Int128", 128, true},
+		{"test_issue_1849_int256", "Int256", 256, true},
+		{"test_issue_1849_uint128", "UInt128", 128, false},
+		{"test_issue_1849_uint256", "UInt256", 256, false},
+	} {
+		t.Run(tc.typ, func(t *testing.T) {
+			require.NoError(t, createTable(tc.table, tc.typ))
+			limit := new(big.Int).Lsh(big.NewInt(1), tc.bits)
+			if tc.signed {
+				max := new(big.Int).Sub(new(big.Int).Rsh(new(big.Int).Set(limit), 1), big.NewInt(1))
+				min := new(big.Int).Neg(new(big.Int).Rsh(new(big.Int).Set(limit), 1))
+				assert.NoError(t, appendValue(tc.table, max))
+				assert.NoError(t, appendValue(tc.table, min))
+				assert.ErrorContains(t, appendValue(tc.table, new(big.Int).Add(max, big.NewInt(1))), "overflows "+tc.typ)
+				assert.ErrorContains(t, appendValue(tc.table, new(big.Int).Sub(min, big.NewInt(1))), "overflows "+tc.typ)
+				return
+			}
+			max := new(big.Int).Sub(new(big.Int).Set(limit), big.NewInt(1))
+			assert.NoError(t, appendValue(tc.table, max))
+			assert.ErrorContains(t, appendValue(tc.table, limit), "overflows "+tc.typ)
+			assert.ErrorContains(t, appendValue(tc.table, big.NewInt(-1)), "negative value -1")
+		})
 	}
-	assert.ErrorContains(t, err, "overflow")
 }
 
-// assertBigIntResult checks the expected outcome for BigInt test cases.
-func assertBigIntResult(t *testing.T, err error, name string, unsigned bool) {
-	t.Helper()
-	if unsigned && name == "negative_not_allowed" {
-		assert.ErrorContains(t, err, "negative")
-		return
-	}
-	switch name {
-	case "valid_max_boundary", "valid_min_boundary", "valid_zero":
-		assert.NoError(t, err)
-	default:
-		assert.ErrorContains(t, err, "overflow")
-	}
-}
-
-// stdInsertOneDecimal runs a single-row INSERT through the database/sql surface
-// for a Decimal column.
-func stdInsertOneDecimal(db *sql.DB, value decimal.Decimal) error {
+func recreateNativeDecimalTable(conn clickhouse.Conn, table, typ string) error {
 	ctx := context.Background()
-	scope, err := db.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("begin: %w", err)
-	}
-	defer func() { _ = scope.Rollback() }()
-
-	stmt, err := scope.PrepareContext(ctx, "INSERT INTO test_issue_1849")
-	if err != nil {
-		return fmt.Errorf("prepare: %w", err)
-	}
-	defer stmt.Close()
-
-	if _, err := stmt.ExecContext(ctx, value); err != nil {
+	if err := conn.Exec(ctx, "DROP TABLE IF EXISTS "+table); err != nil {
 		return err
 	}
-	return scope.Commit()
+	return conn.Exec(ctx, "CREATE TABLE "+table+" (value "+typ+") Engine MergeTree() ORDER BY tuple()")
 }
 
-// stdInsertOneBigInt runs a single-row INSERT through the database/sql surface
-// for a BigInt column.
-func stdInsertOneBigInt(db *sql.DB, value *big.Int) error {
-	ctx := context.Background()
-	scope, err := db.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("begin: %w", err)
-	}
-	defer func() { _ = scope.Rollback() }()
-
-	stmt, err := scope.PrepareContext(ctx, "INSERT INTO test_issue_1849")
-	if err != nil {
-		return fmt.Errorf("prepare: %w", err)
-	}
-	defer stmt.Close()
-
-	if _, err := stmt.ExecContext(ctx, value); err != nil {
+func recreateStdDecimalTable(db *sql.DB, table, typ string) error {
+	if _, err := db.Exec("DROP TABLE IF EXISTS " + table); err != nil {
 		return err
 	}
-	return scope.Commit()
+	_, err := db.Exec("CREATE TABLE " + table + " (value " + typ + ") Engine MergeTree() ORDER BY tuple()")
+	return err
+}
+
+func issue1849OpenDB(t *testing.T, protocol clickhouse.Protocol) *sql.DB {
+	t.Helper()
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	db, err := clickhouse_std_tests.GetDSNConnection(testSet, protocol, useSSL, nil)
+	require.NoError(t, err)
+	t.Cleanup(func() { db.Close() })
+	return db
+}
+
+func issue1849InsertDecimal(db *sql.DB, table string, value decimal.Decimal) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	stmt, err := tx.Prepare("INSERT INTO " + table)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+	_, err = stmt.Exec(value)
+	return err
+}
+
+func issue1849InsertBigInt(db *sql.DB, table string, value *big.Int) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	stmt, err := tx.Prepare("INSERT INTO " + table)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+	_, err = stmt.Exec(value)
+	return err
 }
