@@ -417,8 +417,10 @@ func (ch *clickhouse) release(conn nativeTransport, err error) {
 
 func (ch *clickhouse) Close() (err error) {
 	ch.closeOnce.Do(func() {
-		err = ch.idle.Close()
+		// Mark closed first so release() short-circuits to conn.close(); Put() also
+		// closes anything that still reaches the pool after the drain below.
 		ch.closed.Store(true)
+		err = ch.idle.Close()
 	})
 
 	return
