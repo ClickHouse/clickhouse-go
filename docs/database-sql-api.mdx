@@ -353,7 +353,7 @@ row := conn.QueryRowContext(ctx,
 )
 ```
 
-A `string`/`*string` passed via `clickhouse.Named` is treated as the literal value and escaped by the driver, so it round-trips byte-for-byte. Use an actual newline or tab in the Go string when that is what you want on the wire:
+A `string`/`*string` or `[]byte`/`*[]byte` passed via `clickhouse.Named` is treated as the literal value and escaped by the driver, so it round-trips byte-for-byte. Use an actual newline or tab in the Go value when that is what you want on the wire:
 
 ```go
 clickhouse.Named("message", "line 1\nline 2") // literal newline — round-trips

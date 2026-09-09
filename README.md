@@ -468,7 +468,7 @@ row := db.QueryRowContext(ctx,
 
 There are two ways to supply parameter values and they differ in how escaping is handled.
 
-**`Named` (or the std API's `sql.Named`) with a `string`/`*string` value** treats the Go string as the literal value. Control characters — tab, newline, carriage return, NUL — and backslashes are escaped automatically, so the value round-trips byte-for-byte on both protocols; a literal tab or newline no longer needs manual escaping:
+**`Named` (or the std API's `sql.Named`) with a `string`/`*string` or `[]byte`/`*[]byte` value** treats the Go value as the literal parameter value. Control characters — tab, newline, carriage return, NUL — and backslashes are escaped automatically, so the value round-trips byte-for-byte on both protocols; a literal tab or newline no longer needs manual escaping:
 
 ```go
 row := conn.QueryRow(ctx,
@@ -479,7 +479,7 @@ row := conn.QueryRow(ctx,
 
 **`WithParameters`/`Parameters`** sends values as pre-formatted server-side text (`Escaped` format). Nothing is escaped for you — pass an already-escaped value (e.g. `['a', 'b']` for an `Array(String)`, or a literal `\n` for a newline), a raw tab/newline is rejected, and a top-level `NULL` uses the `\N` marker. Callers who need the literal-value behavior should prefer `Named`.
 
-Both inputs are transmitted the same way over the wire regardless of protocol:
+`Named` and `WithParameters` share the same transport; the encoding still differs by protocol:
 
 | Protocol | How parameters are encoded |
 |---|---|

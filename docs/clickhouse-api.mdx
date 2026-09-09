@@ -419,7 +419,7 @@ Server-side query parameters require ClickHouse 22.8 or later. `clickhouse.Named
 
 How a string value is interpreted depends on how you supply it.
 
-**`clickhouse.Named` (or `sql.Named`) with a `string`/`*string` value** treats the Go string as the literal value. The driver escapes control characters automatically, so the value round-trips byte-for-byte on both protocols. An actual newline or tab in the string is fine:
+**`clickhouse.Named` (or `sql.Named`) with a `string`/`*string` or `[]byte`/`*[]byte` value** treats the Go value as the literal parameter value. The driver escapes control characters automatically, so the value round-trips byte-for-byte on both protocols. An actual newline or tab in the value is fine:
 
 ```go
 row := conn.QueryRow(context.Background(),
