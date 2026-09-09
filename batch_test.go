@@ -419,6 +419,22 @@ INSERT INTO ` + "`_test_1345# $.ДБ`.`2. Таблица №2`" + ` (col1, col2)
 			expectedError:           false,
 		},
 		{
+			name:                    "Insert with multiple SETTINGS written with spaces around the equals sign",
+			query:                   "INSERT INTO table_name (col1, col2) SETTINGS async_insert = 1, wait_for_async_insert = 0 VALUES (1, 2)",
+			expectedNormalizedQuery: "INSERT INTO table_name (col1, col2) SETTINGS async_insert = 1, wait_for_async_insert = 0 FORMAT Native",
+			expectedTableName:       "table_name",
+			expectedColumns:         []string{"col1", "col2"},
+			expectedError:           false,
+		},
+		{
+			name:                    "Insert with SETTINGS values holding an equals sign and a comma",
+			query:                   "INSERT INTO table_name (col1, col2) SETTINGS format_csv_delimiter='=', log_comment='a, b' VALUES (1, 2)",
+			expectedNormalizedQuery: "INSERT INTO table_name (col1, col2) SETTINGS format_csv_delimiter='=', log_comment='a, b' FORMAT Native",
+			expectedTableName:       "table_name",
+			expectedColumns:         []string{"col1", "col2"},
+			expectedError:           false,
+		},
+		{
 			name:                    "Insert with SETTINGS and no column list",
 			query:                   "INSERT INTO table_name SETTINGS async_insert=1",
 			expectedNormalizedQuery: "INSERT INTO table_name SETTINGS async_insert=1 FORMAT Native",
