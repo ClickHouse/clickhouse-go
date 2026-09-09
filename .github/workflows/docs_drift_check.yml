@@ -48,7 +48,8 @@ permissions:
 
 jobs:
   docs-drift:
-    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.actor != 'dependabot[bot]'
       github.event_name == 'workflow_dispatch' ||
       github.event.pull_request.head.repo.full_name == github.repository
     uses: ClickHouse/integrations-shared-workflows/.github/workflows/claude-docs-drift.yml@main
