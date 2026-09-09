@@ -107,10 +107,10 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 	}
 
 	// warn only on the first connection in the pool
-	if num == 1 && !resources.ClientMeta.IsSupportedClickHouseVersion(connect.server.Version) {
+	if num == 1 && !proto.CheckMinVersion(resources.MinSupportedVersion, connect.server.Version) {
 		connect.logger.Warn("unsupported clickhouse version",
 			slog.String("version", connect.server.Version.String()),
-			slog.String("supported_versions", resources.ClientMeta.SupportedVersions()))
+			slog.String("minimum_supported_version", resources.MinSupportedVersion.String()))
 	}
 
 	return connect, nil
@@ -183,20 +183,21 @@ func (c *connect) settings(querySettings Settings) []proto.Setting {
 	return settings
 }
 
-func (c *connect) isBad() bool {
+func (c *connect) healthCheck() error {
 	if c.isClosed() {
-		return true
+		return ErrConnectionClosed
 	}
 
-	if time.Since(c.connectedAt) >= c.opt.ConnMaxLifetime {
-		return true
+	if age := time.Since(c.connectedAt); age >= c.opt.ConnMaxLifetime {
+		return fmt.Errorf("%w: age %s exceeds max lifetime %s",
+			errConnMaxLifetimeExceeded, age.Round(time.Millisecond), c.opt.ConnMaxLifetime)
 	}
 
 	if err := c.connCheck(); err != nil {
-		return true
+		return fmt.Errorf("clickhouse: connection check failed: %w", err)
 	}
 
-	return false
+	return nil
 }
 
 func (c *connect) isReleased() bool {

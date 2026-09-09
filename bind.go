@@ -4,7 +4,9 @@ import (
 	std_driver "database/sql/driver"
 	"errors"
 	"fmt"
+	"math"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
@@ -16,6 +18,17 @@ var (
 	ErrInvalidTimezone = errors.New("invalid timezone value")
 )
 
+// Named gives a query argument a name. It works with both placeholder
+// styles: with server-side query parameters (`{name:Type}`) the value is
+// sent to the server separately from the query, with client-side binding
+// (`@name`) it is written into the query text as a SQL literal.
+//
+// Either way, a time.Time keeps the moment it points to, whatever timezone
+// it or the target carries: query parameters send it as epoch seconds, and
+// client-side binding emits a SQL form that carries the zone when it needs
+// to. On the query-parameter path, sub-second precision is kept when the
+// value has any — fine for `DateTime64`, but a plain `DateTime` parameter
+// rejects fractions. Use DateNamed to choose the precision yourself.
 func Named(name string, value any) driver.NamedValue {
 	return driver.NamedValue{
 		Name:  name,
@@ -38,6 +51,12 @@ type GroupSet struct {
 
 type ArraySet []any
 
+// DateNamed is Named for a time.Time with the precision chosen by you
+// instead of inferred from the value: the scale decides how many fractional
+// digits are sent (Seconds none, MilliSeconds 3, and so on), and anything
+// finer is dropped. Pick the scale that matches the parameter's type —
+// Seconds for `DateTime`, MilliSeconds for `DateTime64(3)`. Like Named, the
+// moment the value points to is preserved regardless of timezones.
 func DateNamed(name string, value time.Time, scale TimeUnit) driver.NamedDateValue {
 	return driver.NamedDateValue{
 		Name:  name,
@@ -464,9 +483,79 @@ func formatTime(tz *time.Location, scale TimeUnit, value time.Time) (string, err
 	return fmt.Sprintf("toDateTime64('%s', %d, '%s')", value.Format(fmt.Sprintf("2006-01-02 15:04:05.%0*d", int(scale*3), 0)), int(scale*3), escapedTimezone), nil
 }
 
-var stringQuoteReplacer = strings.NewReplacer(`\`, `\\`, `'`, `\'`)
+// Escape order: backslash first so later replacements are not re-escaped.
+// NUL is written as \0 so binary String values survive client-side bind.
+var stringQuoteReplacer = strings.NewReplacer(`\`, `\\`, `'`, `\'`, "\x00", `\0`)
 
+// formatMode says which syntax formatValue should produce. A value spliced
+// into the query text needs SQL syntax; a server-side query parameter needs
+// the text format the server parses instead. The two disagree for bools,
+// maps, floats, and times, so the caller has to pick one.
+type formatMode uint8
+
+const (
+	// formatSQL produces SQL literals for client-side binding (the ?, $1,
+	// and @name placeholders): bools as 1/0, maps as map('k', v), floats as
+	// cast(..., 'Float64'), times as toDateTime(...).
+	formatSQL formatMode = iota
+	// formatParamText produces the text format the server expects for
+	// {name:Type} query parameters: bools as true/false, maps as {'k':v},
+	// floats as plain numbers, times as quoted epoch seconds like
+	// '1577934245' (see formatTimeParam). The server parses these values
+	// with the declared type's text reader, which does not understand SQL
+	// function syntax.
+	formatParamText
+)
+
+// format turns v into a SQL literal for client-side binding, where
+// placeholders like `?`, `$1`, and `@name` are replaced directly in the query
+// text. Server-side query parameters need formatParamText instead.
 func format(tz *time.Location, scale TimeUnit, v any) (string, error) {
+	return formatValue(tz, scale, v, formatSQL)
+}
+
+// formatDuration renders a time.Duration as a quoted ClickHouse Time/Time64
+// literal: 'HH:MM:SS' or 'HH:MM:SS.frac' with trailing fractional zeros
+// trimmed. It returns the quoted form directly, like formatTime does with
+// its toDateTime('...') wrapper, so the API is consistent.
+func formatDuration(d time.Duration) string {
+	return "'" + stringQuoteReplacer.Replace(formatDurationBody(d)) + "'"
+}
+
+// formatDurationBody is the unquoted Time/Time64 text. Top-level {name:Time}
+// query parameters send this raw; client-side bind wraps it in quotes.
+func formatDurationBody(d time.Duration) string {
+	sign := ""
+	u := uint64(d)
+	if d < 0 {
+		sign = "-"
+		u = -u
+	}
+	hours := u / uint64(time.Hour)
+	u -= hours * uint64(time.Hour)
+	mins := u / uint64(time.Minute)
+	u -= mins * uint64(time.Minute)
+	secs := u / uint64(time.Second)
+	frac := u % uint64(time.Second)
+	if frac == 0 {
+		return fmt.Sprintf("%s%02d:%02d:%02d", sign, hours, mins, secs)
+	}
+	fracStr := strings.TrimRight(fmt.Sprintf("%09d", frac), "0")
+	return fmt.Sprintf("%s%02d:%02d:%02d.%s", sign, hours, mins, secs, fracStr)
+}
+
+// formatValue turns v into a string in the given mode. The mode carries down
+// into nested values, so a bool or map keeps its formatting at any depth.
+//
+// In formatParamText mode, values come out quoted the way the server expects
+// them *inside* a composite type. Top-level String and DateTime parameters
+// must be sent raw instead — bindQueryOrAppendParameters takes care of those
+// before calling here.
+func formatValue(tz *time.Location, scale TimeUnit, v any, mode formatMode) (string, error) {
+	return formatValueAt(tz, scale, v, mode, false)
+}
+
+func formatValueAt(tz *time.Location, scale TimeUnit, v any, mode formatMode, nested bool) (string, error) {
 	quote := func(v string) string {
 		return "'" + stringQuoteReplacer.Replace(v) + "'"
 	}
@@ -475,32 +564,73 @@ func format(tz *time.Location, scale TimeUnit, v any) (string, error) {
 		return "NULL", nil
 	case string:
 		return quote(v), nil
+	case []byte:
+		// Top-level []byte is a driver.Value for String (issue #1942).
+		// A nil []byte is the driver.Value convention for SQL NULL.
+		// Nested []uint8 is the same Go type and must stay Array(UInt8)
+		// so map[K][]uint8 / Array(Array(UInt8)) keep working.
+		if v == nil {
+			return "NULL", nil
+		}
+		if !nested {
+			return quote(string(v)), nil
+		}
+		values := make([]string, len(v))
+		for i, b := range v {
+			values[i] = strconv.FormatUint(uint64(b), 10)
+		}
+		return fmt.Sprintf("[%s]", strings.Join(values, ", ")), nil
 	case time.Time:
+		if mode == formatParamText {
+			return quote(formatTimeParam(v)), nil
+		}
 		return formatTime(tz, scale, v)
 	case *time.Time:
 		if v == nil {
 			return "NULL", nil
 		}
+		if mode == formatParamText {
+			return quote(formatTimeParam(*v)), nil
+		}
 		return formatTime(tz, scale, *v)
+	case time.Duration:
+		// Must precede fmt.Stringer: Duration.String() is Go's "14h30m0s".
+		// formatDuration already returns a quoted literal like formatTime.
+		return formatDuration(v), nil
+	case *time.Duration:
+		if v == nil {
+			return "NULL", nil
+		}
+		return formatDuration(*v), nil
 	case bool:
+		if mode == formatParamText {
+			if v {
+				return "true", nil
+			}
+			return "false", nil
+		}
 		if v {
 			return "1", nil
 		}
 		return "0", nil
+	case float32:
+		return formatFloat(float64(v), 32, mode), nil
+	case float64:
+		return formatFloat(v, 64, mode), nil
 	case GroupSet:
-		val, err := join(tz, scale, v.Value)
+		val, err := join(tz, scale, v.Value, mode)
 		if err != nil {
 			return "", err
 		}
 		return fmt.Sprintf("(%s)", val), nil
 	case []GroupSet:
-		val, err := join(tz, scale, v)
+		val, err := join(tz, scale, v, mode)
 		if err != nil {
 			return "", err
 		}
 		return val, err
 	case ArraySet:
-		val, err := join(tz, scale, v)
+		val, err := join(tz, scale, v, mode)
 		if err != nil {
 			return "", err
 		}
@@ -513,38 +643,36 @@ func format(tz *time.Location, scale TimeUnit, v any) (string, error) {
 		}
 		return quote(v.String()), nil
 	case column.OrderedMap:
-		values := make([]string, 0)
+		entries := make([]mapEntry, 0)
 		for key := range v.Keys() {
-			name, err := format(tz, scale, key)
+			name, err := formatValueAt(tz, scale, key, mode, true)
 			if err != nil {
 				return "", err
 			}
 			value, _ := v.Get(key)
-			val, err := format(tz, scale, value)
+			val, err := formatValueAt(tz, scale, value, mode, true)
 			if err != nil {
 				return "", err
 			}
-			values = append(values, fmt.Sprintf("%s, %s", name, val))
+			entries = append(entries, mapEntry{name, val})
 		}
-
-		return "map(" + strings.Join(values, ", ") + ")", nil
+		return formatMap(entries, mode), nil
 	case column.IterableOrderedMap:
-		values := make([]string, 0)
+		entries := make([]mapEntry, 0)
 		iter := v.Iterator()
 		for iter.Next() {
 			key, value := iter.Key(), iter.Value()
-			name, err := format(tz, scale, key)
+			name, err := formatValueAt(tz, scale, key, mode, true)
 			if err != nil {
 				return "", err
 			}
-			val, err := format(tz, scale, value)
+			val, err := formatValueAt(tz, scale, value, mode, true)
 			if err != nil {
 				return "", err
 			}
-			values = append(values, fmt.Sprintf("%s, %s", name, val))
+			entries = append(entries, mapEntry{name, val})
 		}
-
-		return "map(" + strings.Join(values, ", ") + ")", nil
+		return formatMap(entries, mode), nil
 	}
 	switch v := reflect.ValueOf(v); v.Kind() {
 	case reflect.String:
@@ -552,7 +680,7 @@ func format(tz *time.Location, scale TimeUnit, v any) (string, error) {
 	case reflect.Slice, reflect.Array:
 		values := make([]string, 0, v.Len())
 		for i := 0; i < v.Len(); i++ {
-			val, err := format(tz, scale, v.Index(i).Interface())
+			val, err := formatValueAt(tz, scale, v.Index(i).Interface(), mode, true)
 			if err != nil {
 				return "", err
 			}
@@ -560,32 +688,95 @@ func format(tz *time.Location, scale TimeUnit, v any) (string, error) {
 		}
 		return fmt.Sprintf("[%s]", strings.Join(values, ", ")), nil
 	case reflect.Map: // map
-		values := make([]string, 0, len(v.MapKeys()))
+		entries := make([]mapEntry, 0, v.Len())
 		for _, key := range v.MapKeys() {
-			name := fmt.Sprint(key.Interface())
-			if key.Kind() == reflect.String {
-				name = fmt.Sprintf("'%s'", name)
-			}
-			val, err := format(tz, scale, v.MapIndex(key).Interface())
+			name, err := formatValueAt(tz, scale, key.Interface(), mode, true)
 			if err != nil {
 				return "", err
 			}
-			values = append(values, fmt.Sprintf("%s, %s", name, val))
+			val, err := formatValueAt(tz, scale, v.MapIndex(key).Interface(), mode, true)
+			if err != nil {
+				return "", err
+			}
+			entries = append(entries, mapEntry{name, val})
 		}
-		return "map(" + strings.Join(values, ", ") + ")", nil
+		return formatMap(entries, mode), nil
+	case reflect.Float32:
+		return formatFloat(v.Float(), 32, mode), nil
+	case reflect.Float64:
+		return formatFloat(v.Float(), 64, mode), nil
 	case reflect.Ptr:
 		if v.IsNil() {
 			return "NULL", nil
 		}
-		return format(tz, scale, v.Elem().Interface())
+		return formatValueAt(tz, scale, v.Elem().Interface(), mode, nested)
 	}
 	return fmt.Sprint(v), nil
 }
 
-func join[E any](tz *time.Location, scale TimeUnit, values []E) (string, error) {
+// mapEntry is one already-formatted key/value pair of a map.
+type mapEntry struct {
+	key, value string
+}
+
+// formatMap joins formatted key/value pairs into a whole map: map('k', v)
+// in SQL mode, {'k':v} in query-parameter text mode.
+func formatMap(entries []mapEntry, mode formatMode) string {
+	pairs := make([]string, len(entries))
+	if mode == formatParamText {
+		for i, e := range entries {
+			pairs[i] = e.key + ":" + e.value
+		}
+		return "{" + strings.Join(pairs, ",") + "}"
+	}
+	for i, e := range entries {
+		pairs[i] = e.key + ", " + e.value
+	}
+	return "map(" + strings.Join(pairs, ", ") + ")"
+}
+
+// formatFloat renders a float.
+//
+// In SQL mode it wraps the number in a CAST to the matching Float type.
+// Without it, a value like 1.0 renders as the bare literal "1", which
+// ClickHouse treats as an integer and later narrows, breaking typed float
+// scans. NaN and infinities are quoted in the lowercase form ClickHouse
+// accepts, since Go's "NaN" and "+Inf" are not valid SQL.
+//
+// In query-parameter text mode none of that applies: the parameter already
+// has a declared type, and the server's text reader rejects cast(...) but
+// happily takes plain numbers and bare nan/inf/-inf.
+func formatFloat(f float64, bitSize int, mode formatMode) string {
+	if mode == formatParamText {
+		switch {
+		case math.IsNaN(f):
+			return "nan"
+		case math.IsInf(f, 1):
+			return "inf"
+		case math.IsInf(f, -1):
+			return "-inf"
+		}
+		return strconv.FormatFloat(f, 'g', -1, bitSize)
+	}
+	chType := "Float64"
+	if bitSize == 32 {
+		chType = "Float32"
+	}
+	switch {
+	case math.IsNaN(f):
+		return fmt.Sprintf("cast('nan', '%s')", chType)
+	case math.IsInf(f, 1):
+		return fmt.Sprintf("cast('inf', '%s')", chType)
+	case math.IsInf(f, -1):
+		return fmt.Sprintf("cast('-inf', '%s')", chType)
+	}
+	return fmt.Sprintf("cast(%s, '%s')", strconv.FormatFloat(f, 'g', -1, bitSize), chType)
+}
+
+func join[E any](tz *time.Location, scale TimeUnit, values []E, mode formatMode) (string, error) {
 	items := make([]string, len(values))
 	for i := range values {
-		val, err := format(tz, scale, values[i])
+		val, err := formatValueAt(tz, scale, values[i], mode, true)
 		if err != nil {
 			return "", err
 		}

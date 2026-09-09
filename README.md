@@ -34,8 +34,9 @@ Both support TCP and HTTP transport. When in doubt, use the native interface.
 * Named and numeric placeholders support
 * LZ4/ZSTD/LZ4HC/GZIP/Deflate/Brotli compression support
 * External data
-* [Query parameters](examples/std/query_parameters.go)
+* [Server-side query parameters](https://clickhouse.com/docs/integrations/language-clients/go/clickhouse-api#server-side-query-parameters)
 * Structured logging via `log/slog` ([Logger option](#logging))
+* [Arbitrary input/output formats](#arbitrary-inputoutput-formats-experimental) — stream results or inserts as raw `CSV`, `JSONEachRow`, `Parquet`, ... (experimental, HTTP protocol only)
 * JWT authentication support
 * Wide type support: BFloat16, QBit, Dynamic, Variant, Time, Time64, LineString, MultiLineString, and more
 
@@ -44,7 +45,7 @@ Support for the ClickHouse protocol advanced features using `Context`:
 * Query ID
 * Quota Key
 * Settings
-* [Query parameters](examples/clickhouse_api/query_parameters.go)
+* [Server-side query parameters](https://clickhouse.com/docs/integrations/language-clients/go/clickhouse-api#server-side-query-parameters)
 * OpenTelemetry
 * Execution events:
 	* Logs
@@ -162,7 +163,7 @@ conn.SetConnMaxLifetime(time.Hour)
 
 ## DSN
 
-* hosts  - comma-separated list of single address hosts for load-balancing and failover
+* hosts/alt_hosts - comma-separated lists of additional single address hosts for load-balancing and failover; `hosts` are prepended before, and `alt_hosts` appended after, the host(s) given in the URL authority (which may itself be a comma-separated list)
 * username/password - auth credentials
 * database - select the current default database
 * dial_timeout -  a duration string is a possibly signed sequence of decimal numbers, each with optional fraction and a unit suffix such as "300ms", "1s". Valid time units are "ms", "s", "m". (default 30s)
@@ -179,7 +180,7 @@ conn.SetConnMaxLifetime(time.Hour)
 * block_buffer_size - size of block buffer (default 2)
 * read_timeout - a duration string is a possibly signed sequence of decimal numbers, each with optional fraction and a unit suffix such as "300ms", "1s". Valid time units are "ms", "s", "m" (default 5m).
 * max_compression_buffer - max size (bytes) of compression buffer during column by column compression (default 10MiB)
-* client_info_product - optional list (comma separated) of product name and version pair separated with `/`. This value will be pass a part of client info. e.g. `client_info_product=my_app/1.0,my_module/0.1` More details in [Client info](#client-info) section.
+* client_info_product - optional list (comma separated) of product name and version pair separated with `/`. This value will be passed as part of client info. e.g. `client_info_product=my_app/1.0,my_module/0.1` More details in [Client info](#client-info) section.
 * http_proxy - HTTP proxy address
 * http_path - URL path for HTTP requests (e.g. for proxies or custom endpoints that require a specific path)
 * tls_server_name - set TLS SNI/verification name (sets `tls.Config.ServerName` when `secure=true`)
@@ -292,7 +293,7 @@ When using the HTTP protocol there are two independent compression layers:
 
 1. **HTTP web compression** (whole request/response body). This uses HTTP headers (`Accept-Encoding` and `Content-Encoding`). In ClickHouse, response compression is controlled by the `enable_http_compression` setting (pass it via `Options.Settings` or DSN query params). In clickhouse-go this mode is used when `Compression.Method` is `gzip`, `deflate`, or `br`.
 
-2. **ClickHouse native block compression over HTTP** (Native format blocks). This uses ClickHouse HTTP query parameters: `compress=1` (server compresses response blocks) and `decompress=1` (server expects a compressed request body). In clickhouse-go this mode is used when `Compression.Method` is `lz4` or `zstd`.
+2. **ClickHouse native block compression over HTTP** (Native format blocks). This uses ClickHouse HTTP query parameters: `compress=1` (server compresses response blocks) and `decompress=1` (server expects a compressed request body), plus `network_compression_method` to select the block codec (`LZ4` or `ZSTD`). In clickhouse-go this mode is used when `Compression.Method` is `lz4` or `zstd`.
 
 Avoid enabling both at the same time unless you've measured it, as it can waste CPU by compressing already-compressed native blocks.
 
@@ -315,7 +316,7 @@ conn := clickhouse.OpenDB(&clickhouse.Options{
 	...
     })
 ```
-This minimal tls.Config is normally all that is necessary to connect to the secure native port (normally 9440) on a ClickHouse server. If the ClickHouse server does not have a valid certificate (expired, wrong host name, not signed by a publicly recognized root Certificate Authority), InsecureSkipVerify can be to `true`, but that is strongly discouraged.
+This minimal tls.Config is normally all that is necessary to connect to the secure native port (normally 9440) on a ClickHouse server. If the ClickHouse server does not have a valid certificate (expired, wrong host name, not signed by a publicly recognized root Certificate Authority), InsecureSkipVerify can be set to `true`, but that is strongly discouraged.
 
 If additional TLS parameters are necessary the application code should set the desired fields in the tls.Config struct. That can include specific cipher suites, forcing a particular TLS version (like 1.2 or 1.3), adding an internal CA certificate chain, adding a client certificate (and private key) if required by the ClickHouse server, and most of the other options that come with a more specialized security setup.
 
@@ -372,7 +373,7 @@ Clickhouse-go implements [client info](https://docs.google.com/document/d/1924Dv
 
 Users can extend client options with additional product information included in client info. This might be useful for analysis [on a server side](https://clickhouse.com/docs/en/operations/system-tables/query_log/).
 
-Order is the highest abstraction to the lowest level implementation left to right.
+Products are ordered from the highest to the lowest abstraction level, left to right.
 
 Usage examples for [native API](examples/clickhouse_api/client_info.go) and [database/sql](examples/std/client_info.go)  are provided.
 
@@ -397,13 +398,35 @@ The `Debug` and `Debugf` fields in `Options` are deprecated in favour of `Logger
 
 **NOTE**: You can use `WithSettings()` manually to add any async related settings. `WithAsync()` is just a simple wrapper that does that for you.
 
-We have following examples to show Async Insert in action.
+We have the following examples to show Async Insert in action.
 1. [Native with Open](examples/clickhouse_api/async_native.go)
 1. [HTTP with Open](examples/clickhouse_api/async_http.go)
 1. [Native with OpenDB](examples/std/async_native.go)
 1. [HTTP with OpenDB](examples/std/async_http.go)
 
-**NOTE**: The old `AsyncInsert()` api is deprecated and will be removed in future versions. We highly recommend to use `WithAsync()` api for all the Async Insert use cases.
+**NOTE**: The old `AsyncInsert()` api is deprecated and will be removed in future versions. We highly recommend using the `WithAsync()` api for all the Async Insert use cases.
+
+## Arbitrary input/output formats (experimental)
+
+`QueryFormat` and `InsertFormat` on the native `clickhouse.Conn` interface stream query results and insert payloads as raw bytes in any [format the server supports](https://clickhouse.com/docs/interfaces/formats) (`CSV`, `JSONEachRow`, `Parquet`, `ArrowStream`, ...), with all encoding and parsing done server-side:
+
+```go
+// Results as a raw byte stream in the requested format.
+stream, err := conn.QueryFormat(ctx, "Parquet", "SELECT * FROM events WHERE date = {date:Date}", date)
+defer stream.Close() // holds a connection until closed
+_, err = io.Copy(file, stream)
+
+// Insert a payload pre-encoded in the given format from any io.Reader.
+err = conn.InsertFormat(ctx, "Parquet", "INSERT INTO events", file)
+```
+
+See [format.go](examples/clickhouse_api/format.go) for runnable examples and the `driver.Conn` godoc for the full contract. Key points:
+
+- **Experimental**: the API may change or be removed in a future minor release.
+- **HTTP protocol only**: over the native TCP protocol both methods return `ErrFormatNativeUnsupported`. Connect with `Options{Protocol: clickhouse.HTTP}` or an `http://` DSN.
+- **Native API only**: `database/sql` has no representation for raw format streams; open a native connection for this workload.
+- Pass the format as the argument — a trailing `FORMAT` clause in the query is rejected, since the server would honour it over the requested format.
+- The payload is always the **raw, uncompressed** format bytes. Wire compression via `Options.Compression` is transparent (the driver compresses inserts and decompresses results itself) — do not pass pre-compressed data such as a `.parquet.gz` file, it would be compressed twice.
 
 ## PrepareBatch options
 
@@ -510,7 +533,7 @@ Indicative numbers measured on: Linux 6.19.6-arch1-1 · Intel Core Ultra 7 258V 
 
 ## ClickHouse alternatives - ch-go
 
-Versions of this client >=2.3.x utilise [ch-go](https://github.com/ClickHouse/ch-go) for their low level encoding/decoding. This low lever client provides a high performance columnar interface and should be used in performance critical use cases. This client provides more familar row-oriented and `database/sql` semantics at the cost of some performance. See [TYPES.md](TYPES.md) for the full mapping between Go and ClickHouse types.
+Versions of this client >=2.3.x utilise [ch-go](https://github.com/ClickHouse/ch-go) for their low level encoding/decoding. This low level client provides a high performance columnar interface and should be used in performance critical use cases. This client provides more familiar row-oriented and `database/sql` semantics at the cost of some performance. See [TYPES.md](TYPES.md) for the full mapping between Go and ClickHouse types.
 
 Both clients are supported by ClickHouse.
 
