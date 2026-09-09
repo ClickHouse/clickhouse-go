@@ -6,9 +6,10 @@ import (
 	"strings"
 )
 
-var normalizeInsertQueryMatch = regexp.MustCompile(`(?i)(?:(?:--[^\n]*|#![^\n]*|#\s[^\n]*)\n\s*)*(INSERT\s+INTO\s+([^(]+)(?:\s*\([^()]*(?:\([^()]*\)[^()]*)*\))?)(?:\s*VALUES)?`)
-var truncateFormat = regexp.MustCompile(`(?i)\sFORMAT\s+[^\s]+`)
-var truncateValues = regexp.MustCompile(`\sVALUES\s.*$`)
+// normalizeInsertQueryMatch captures the INSERT statement and its table name. It runs on
+// a query sanitizeInsertQuery has already stripped of comments, so it does not have to
+// skip them itself.
+var normalizeInsertQueryMatch = regexp.MustCompile(`(?i)(INSERT\s+INTO\s+([^(]+)(?:\s*\([^()]*(?:\([^()]*\)[^()]*)*\))?)(?:\s*VALUES)?`)
 var extractInsertColumnsMatch = regexp.MustCompile(`(?si)INSERT INTO .+\s\((?P<Columns>.+)\)$`)
 
 // extractInsertSettingsMatch captures a trailing SETTINGS clause. The `\w+\s*=`
@@ -19,13 +20,9 @@ var extractInsertColumnsMatch = regexp.MustCompile(`(?si)INSERT INTO .+\s\((?P<C
 // outside the capture group so they are not folded into the clause and do not leak into
 // the normalized query as "SETTINGS ...; FORMAT Native". Only terminators at the very
 // end of the query are consumed, so a `;` inside a quoted setting value is preserved.
-// Comments, and everything from a VALUES keyword on, are removed from the capture by
-// normalizeSettingsClause.
+// Comments, the FORMAT clause and everything from a VALUES keyword on are removed from
+// the query by sanitizeInsertQuery before the clause is captured.
 var extractInsertSettingsMatch = regexp.MustCompile(`(?is)\s+(SETTINGS\s+\w+\s*=.+?)[\s;]*$`)
-
-// truncateLeadingComments matches the single line comments a statement may be prefixed
-// with, using the same markers as normalizeInsertQueryMatch.
-var truncateLeadingComments = regexp.MustCompile(`\A\s*(?:(?:--|#!|#\s)[^\n]*\n\s*)*`)
 
 func extractNormalizedInsertQueryAndColumns(query string) (normalizedQuery string, tableName string, columns []string, err error) {
 	insertStmt, tableName, columns, err := extractInsertQueryComponents(query)
@@ -39,26 +36,22 @@ func extractNormalizedInsertQueryAndColumns(query string) (normalizedQuery strin
 // an INSERT query and returns the bare statement, so the caller can append the
 // FORMAT of its choosing.
 func extractInsertQueryComponents(query string) (insertStmt string, tableName string, columns []string, err error) {
-	query = truncateFormat.ReplaceAllString(query, "")
-	query = truncateValues.ReplaceAllString(query, "")
-
-	// Comments in front of the statement are not part of it. They are dropped before the
-	// SETTINGS clause is located so a comment that mentions a settings assignment is not
-	// mistaken for the clause.
-	query = query[len(truncateLeadingComments.FindString(query)):]
+	sanitized := sanitizeInsertQuery(query)
 
 	// A SETTINGS clause may follow the optional column list, e.g.
 	// "INSERT INTO t (a, b) SETTINGS async_insert=1". Capture it so it is preserved in
 	// the normalized query sent to the server, and strip it from the query before the
 	// table name and columns are extracted so it does not leak into either.
 	var settingsClause string
-	if loc := extractInsertSettingsMatch.FindStringSubmatchIndex(query); loc != nil {
-		settingsClause = normalizeSettingsClause(query[loc[2]:loc[3]])
-		query = query[:loc[0]]
+	if loc := extractInsertSettingsMatch.FindStringSubmatchIndex(sanitized); loc != nil {
+		settingsClause = sanitized[loc[2]:loc[3]]
+		sanitized = sanitized[:loc[0]]
 	}
 
-	matches := normalizeInsertQueryMatch.FindStringSubmatch(query)
+	matches := normalizeInsertQueryMatch.FindStringSubmatch(sanitized)
 	if len(matches) == 0 {
+		// The query as given by the caller is reported, not the sanitized one, so the
+		// error still shows what was passed in.
 		err = fmt.Errorf("invalid INSERT query: %s", query)
 		return
 	}
@@ -83,63 +76,139 @@ func extractInsertQueryComponents(query string) (insertStmt string, tableName st
 	return
 }
 
-// normalizeSettingsClause removes comments, row data introduced by a VALUES keyword and
-// trailing statement terminators from a captured SETTINGS clause. A comment left inside
-// the clause would comment out the FORMAT clause the caller appends after it, so the
-// server would fall back to its default input format, and row data left in the clause is
-// rejected by the server because the batch sends its rows in the request body instead.
-// Comment markers and VALUES keywords inside a quoted value or identifier are kept.
-func normalizeSettingsClause(clause string) string {
-	out := make([]byte, 0, len(clause))
+// sanitizeInsertQuery removes the parts of an INSERT statement that the batch does not
+// send to the server: comments, the FORMAT clause the caller replaces with its own, and
+// the row data introduced by a VALUES keyword, which a batch sends in the request body
+// instead. A comment left in the statement would comment out the FORMAT clause appended
+// after it, and a comment holding a settings assignment would otherwise be taken for a
+// real SETTINGS clause.
+//
+// The scan is quote aware, so a comment marker, a VALUES keyword or a FORMAT keyword
+// inside a quoted value, an identifier or a heredoc is kept. The VALUES and FORMAT
+// keywords are only recognized outside a parenthesized list and not directly after INTO,
+// so a table or column named "values" or "format" is kept as well.
+func sanitizeInsertQuery(query string) string {
+	out := make([]byte, 0, len(query))
 	var quote byte
-	for i := 0; i < len(clause); i++ {
-		c := clause[i]
+	depth := 0
+	for i := 0; i < len(query); i++ {
+		c := query[i]
 		if quote != 0 {
 			out = append(out, c)
 			switch {
-			case c == '\\' && i+1 < len(clause):
+			case c == '\\' && i+1 < len(query):
 				i++
-				out = append(out, clause[i])
+				out = append(out, query[i])
 			case c == quote:
 				quote = 0
 			}
 			continue
 		}
 
-		switch {
-		case c == '\'', c == '"', c == '`':
+		if c == '\'' || c == '"' || c == '`' {
 			quote = c
 			out = append(out, c)
-		case isLineCommentStart(clause[i:]):
-			for i+1 < len(clause) && clause[i+1] != '\n' {
-				i++
-			}
-		case strings.HasPrefix(clause[i:], "/*"):
-			if end := strings.Index(clause[i+2:], "*/"); end >= 0 {
-				i += 2 + end + 1
-			} else {
-				i = len(clause)
-			}
-		case isValuesKeyword(clause[i:], out):
-			// Everything from an unquoted VALUES keyword on is row data, not settings.
-			// The rows of a batch are sent in the request body, so they must not be
-			// part of the query.
-			i = len(clause)
-		default:
-			out = append(out, c)
+			continue
 		}
+
+		if end := commentEnd(query[i:]); end > 0 {
+			i += end - 1
+			out = appendCommentSeparator(out, query[i+1:])
+			continue
+		}
+
+		if end := heredocEnd(query[i:]); end > 0 {
+			out = append(out, query[i:i+end]...)
+			i += end - 1
+			continue
+		}
+
+		if depth == 0 && !followsInto(out) {
+			if isKeyword(query[i:], out, valuesKeyword) {
+				// Everything from an unquoted VALUES keyword on is row data.
+				break
+			}
+			if end := formatClauseEnd(query[i:], out); end > 0 {
+				out = trimOneBoundaryByte(out)
+				i += end - 1
+				continue
+			}
+		}
+
+		switch {
+		case c == '(':
+			depth++
+		case c == ')' && depth > 0:
+			depth--
+		}
+		out = append(out, c)
 	}
 
-	return strings.TrimSpace(strings.TrimRight(string(out), " \t\r\n;"))
+	return strings.TrimRight(string(out), " \t\r\n\v\f")
 }
 
-// isValuesKeyword reports whether s starts with a VALUES keyword. The keyword must
-// follow a token boundary and must not be followed by a word byte, so a setting name or
-// value that merely contains "values" is not mistaken for it. The preceding bytes are
-// taken from the clause normalized so far rather than from the raw clause, so a comment
-// removed in front of the keyword still leaves a boundary behind it.
-func isValuesKeyword(s string, preceding []byte) bool {
-	const keyword = "VALUES"
+// commentEnd returns the length of the comment s starts with, or 0 when s does not start
+// with one. A single line comment ends before its newline, so the newline itself is kept
+// as a token separator, and an unterminated block comment runs to the end of the query.
+func commentEnd(s string) int {
+	if isLineCommentStart(s) {
+		if end := strings.IndexByte(s, '\n'); end >= 0 {
+			return end
+		}
+		return len(s)
+	}
+	if strings.HasPrefix(s, "/*") {
+		if end := strings.Index(s[2:], "*/"); end >= 0 {
+			return 2 + end + 2
+		}
+		return len(s)
+	}
+	return 0
+}
+
+// heredocEnd returns the length of the heredoc s starts with, or 0 when s does not start
+// with one. A heredoc is written as $tag$value$tag$ with an optional tag, so its value
+// may hold quote characters of its own without them opening a quoted value.
+func heredocEnd(s string) int {
+	if len(s) == 0 || s[0] != '$' {
+		return 0
+	}
+	tag := 1
+	for tag < len(s) && isWordByte(s[tag]) {
+		tag++
+	}
+	if tag == len(s) || s[tag] != '$' {
+		return 0
+	}
+	delimiter := s[:tag+1]
+	end := strings.Index(s[len(delimiter):], delimiter)
+	if end < 0 {
+		return 0
+	}
+	return len(delimiter) + end + len(delimiter)
+}
+
+// appendCommentSeparator appends the space a removed comment leaves behind. It is only
+// needed when the comment joined two tokens, so the whitespace of the statement is kept
+// as written when the comment was already surrounded by some.
+func appendCommentSeparator(out []byte, rest string) []byte {
+	if len(out) > 0 && !isBoundaryByte(out[len(out)-1]) && rest != "" && !isBoundaryByte(rest[0]) {
+		return append(out, ' ')
+	}
+	return out
+}
+
+const (
+	valuesKeyword = "VALUES"
+	formatKeyword = "FORMAT"
+)
+
+// isKeyword reports whether s starts with the given keyword. The keyword must follow a
+// token boundary and must not be followed by a word byte, so an identifier that merely
+// contains it is not mistaken for it. The preceding bytes are taken from the query
+// sanitized so far rather than from the raw query, so a comment removed in front of the
+// keyword still leaves a boundary behind it.
+func isKeyword(s string, preceding []byte, keyword string) bool {
 	if len(preceding) > 0 && !isBoundaryByte(preceding[len(preceding)-1]) {
 		return false
 	}
@@ -150,6 +219,53 @@ func isValuesKeyword(s string, preceding []byte) bool {
 		return false
 	}
 	return true
+}
+
+// followsInto reports whether the last word of the query sanitized so far is INTO, which
+// makes the keyword that follows it the name of the table instead.
+func followsInto(preceding []byte) bool {
+	end := len(preceding)
+	for end > 0 && isBoundaryByte(preceding[end-1]) {
+		end--
+	}
+	start := end
+	for start > 0 && isWordByte(preceding[start-1]) {
+		start--
+	}
+	return strings.EqualFold(string(preceding[start:end]), "INTO")
+}
+
+// formatClauseEnd returns the length of the FORMAT clause s starts with, or 0 when s does
+// not start with one. The keyword must be followed by the name of a format, so a trailing
+// FORMAT keyword without one is left untouched.
+func formatClauseEnd(s string, preceding []byte) int {
+	if !isKeyword(s, preceding, formatKeyword) {
+		return 0
+	}
+	i := len(formatKeyword)
+	for i < len(s) && isBoundaryByte(s[i]) {
+		i++
+	}
+	if i == len(formatKeyword) {
+		return 0
+	}
+	name := i
+	for i < len(s) && !isBoundaryByte(s[i]) {
+		i++
+	}
+	if i == name {
+		return 0
+	}
+	return i
+}
+
+// trimOneBoundaryByte drops the single token boundary in front of a removed clause, so
+// removing it does not leave the whitespace of both of its sides behind.
+func trimOneBoundaryByte(out []byte) []byte {
+	if len(out) > 0 && isBoundaryByte(out[len(out)-1]) {
+		return out[:len(out)-1]
+	}
+	return out
 }
 
 // isBoundaryByte reports whether c ends a token: whitespace, or a statement terminator.
@@ -167,10 +283,9 @@ func isWordByte(c byte) bool {
 		(c >= 'A' && c <= 'Z')
 }
 
-// isLineCommentStart reports whether s begins with a single line comment marker, using
-// the same markers as normalizeInsertQueryMatch: "--", "#!" and "#" followed by
-// whitespace. A "#" at the very end of the clause also starts a comment, because the
-// caller appends " FORMAT ..." after it.
+// isLineCommentStart reports whether s begins with a single line comment marker: "--",
+// "#!" and "#" followed by whitespace. A "#" at the very end of the query also starts a
+// comment, because the caller appends " FORMAT ..." after it.
 func isLineCommentStart(s string) bool {
 	switch {
 	case strings.HasPrefix(s, "--"), strings.HasPrefix(s, "#!"):

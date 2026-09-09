@@ -127,6 +127,29 @@ func Test1919(t *testing.T) {
 
 			err = send(fmt.Sprintf("INSERT INTO %s (col1, col2) SETTINGS\n\tasync_insert=0,\n\tnonexistent_setting_for_test_1919=1", tableName))
 			require.ErrorContains(t, err, "nonexistent_setting_for_test_1919")
+
+			// A commented out SETTINGS clause must not be applied. The unknown setting
+			// would fail the insert if the clause were read from the comment.
+			for _, query := range []string{
+				"INSERT INTO %s (col1, col2) -- SETTINGS nonexistent_setting_for_test_1919=1",
+				"INSERT INTO %s (col1, col2) /* SETTINGS nonexistent_setting_for_test_1919=1 */",
+				"/* SETTINGS nonexistent_setting_for_test_1919=1 */\nINSERT INTO %s (col1, col2)",
+			} {
+				require.NoError(t, send(fmt.Sprintf(query, tableName)), "PrepareBatch with a commented out SETTINGS clause failed")
+			}
+
+			// A VALUES or FORMAT keyword inside a quoted setting value is part of the
+			// value. Cutting the query there leaves an unterminated literal behind,
+			// which the server rejects.
+			for _, query := range []string{
+				"INSERT INTO %s (col1, col2) SETTINGS log_comment='a VALUES b'",
+				"INSERT INTO %s (col1, col2) SETTINGS log_comment='see FORMAT Native'",
+			} {
+				require.NoError(t, send(fmt.Sprintf(query, tableName)), "PrepareBatch with a quoted setting value failed")
+			}
+
+			require.NoError(t, conn.QueryRow(context.Background(), fmt.Sprintf("SELECT count() FROM %s", tableName)).Scan(&count))
+			require.Equal(t, uint64(55), count)
 		})
 	}
 
@@ -178,10 +201,12 @@ func Test1919(t *testing.T) {
 				require.NoError(t, insert(fmt.Sprintf("INSERT INTO %s (col1, col2) SETTINGS async_insert=0 -- inline comment", tableName)))
 				require.NoError(t, insert(fmt.Sprintf("INSERT INTO %s (col1, col2) SETTINGS\n\tasync_insert=0,\n\twait_for_async_insert=0", tableName)))
 				require.NoError(t, insert(fmt.Sprintf("INSERT INTO %s (col1, col2) SETTINGS async_insert=0 values (1, 'a -- b')", tableName)))
+				require.NoError(t, insert(fmt.Sprintf("INSERT INTO %s (col1, col2) SETTINGS log_comment='a VALUES b'", tableName)))
+				require.NoError(t, insert(fmt.Sprintf("INSERT INTO %s (col1, col2) -- SETTINGS nonexistent_setting_for_test_1919=1", tableName)))
 
 				var count uint64
 				require.NoError(t, db.QueryRow(fmt.Sprintf("SELECT count() FROM %s", tableName)).Scan(&count))
-				require.Equal(t, uint64(4), count)
+				require.Equal(t, uint64(6), count)
 
 				// The clause must reach the server rather than being silently dropped.
 				err = insert(fmt.Sprintf("INSERT INTO %s (col1, col2) SETTINGS nonexistent_setting_for_test_1919=1", tableName))
