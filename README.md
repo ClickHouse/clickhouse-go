@@ -468,7 +468,7 @@ row := db.QueryRowContext(ctx,
 
 There are two ways to supply parameter values and they differ in how escaping is handled.
 
-**`Named` (or the std API's `sql.Named`) with a `string`/`*string` value** treats the Go string as the literal value. Control characters — tab, newline, carriage return, NUL — and backslashes are escaped automatically, so the value round-trips byte-for-byte on both protocols; a literal tab or newline no longer needs manual escaping:
+**`Named` (or the std API's `sql.Named`) with a `string`/`*string` or `[]byte`/`*[]byte` value** treats the Go value as the literal parameter value. Control characters — tab, newline, carriage return, NUL — and backslashes are escaped automatically, so the value round-trips byte-for-byte on both protocols; a literal tab or newline no longer needs manual escaping:
 
 ```go
 row := conn.QueryRow(ctx,
