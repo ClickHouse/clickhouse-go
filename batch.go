@@ -25,16 +25,17 @@ func splitColumnsRespectingQuotes(columnsStr string) []string {
 	for i := 0; i < len(columnsStr); i++ {
 		c := columnsStr[i]
 
-		if c == '`' && !inDoubleQuote {
+		switch {
+		case c == '`' && !inDoubleQuote:
 			inBacktick = !inBacktick
 			current.WriteByte(c)
-		} else if c == '"' && !inBacktick {
+		case c == '"' && !inBacktick:
 			inDoubleQuote = !inDoubleQuote
 			current.WriteByte(c)
-		} else if c == ',' && !inBacktick && !inDoubleQuote {
+		case c == ',' && !inBacktick && !inDoubleQuote:
 			columns = append(columns, strings.TrimSpace(current.String()))
 			current.Reset()
-		} else {
+		default:
 			current.WriteByte(c)
 		}
 	}
