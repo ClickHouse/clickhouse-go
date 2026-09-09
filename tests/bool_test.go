@@ -150,6 +150,62 @@ func TestColumnarBool(t *testing.T) {
 	})
 }
 
+func TestColumnarNullBool(t *testing.T) {
+	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		conn, err := GetNativeConnection(t, protocol, nil, nil, &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		})
+		ctx := context.Background()
+		require.NoError(t, err)
+		if !CheckMinServerServerVersion(conn, 21, 12, 0) {
+			t.Skip(fmt.Errorf("unsupported clickhouse version"))
+			return
+		}
+		const ddl = `
+			CREATE TABLE test_columnar_null_bool (
+				  ID UInt8
+				, Value Nullable(Bool)
+				, Pointer Nullable(Bool)
+			) Engine MergeTree() ORDER BY tuple()
+		`
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE IF EXISTS test_columnar_null_bool")
+		}()
+		require.NoError(t, conn.Exec(ctx, ddl))
+
+		valid := sql.NullBool{Bool: false, Valid: true}
+		invalid := sql.NullBool{Bool: true, Valid: false}
+		batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_columnar_null_bool")
+		require.NoError(t, err)
+		require.NoError(t, batch.Column(0).Append([]uint8{1, 2, 3}))
+		require.NoError(t, batch.Column(1).Append([]sql.NullBool{
+			{Bool: true, Valid: true},
+			{Bool: true, Valid: false},
+			{Bool: false, Valid: true},
+		}))
+		require.NoError(t, batch.Column(2).Append([]*sql.NullBool{&valid, &invalid, nil}))
+		require.Equal(t, 3, batch.Rows())
+		require.NoError(t, batch.Send())
+
+		rows, err := conn.Query(ctx, "SELECT Value, Pointer FROM test_columnar_null_bool ORDER BY ID")
+		require.NoError(t, err)
+		expected := [][2]sql.NullBool{
+			{{Bool: true, Valid: true}, {Bool: false, Valid: true}},
+			{{Bool: false, Valid: false}, {Bool: false, Valid: false}},
+			{{Bool: false, Valid: true}, {Bool: false, Valid: false}},
+		}
+		actual := make([][2]sql.NullBool, 0, len(expected))
+		for rows.Next() {
+			var value, pointer sql.NullBool
+			require.NoError(t, rows.Scan(&value, &pointer))
+			actual = append(actual, [2]sql.NullBool{value, pointer})
+		}
+		require.NoError(t, rows.Err())
+		require.NoError(t, rows.Close())
+		assert.Equal(t, expected, actual)
+	})
+}
+
 func TestBoolFlush(t *testing.T) {
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
 		SkipOnHTTP(t, protocol, "Flush")
