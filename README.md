@@ -428,6 +428,66 @@ See [format.go](examples/clickhouse_api/format.go) for runnable examples and the
 - Pass the format as the argument — a trailing `FORMAT` clause in the query is rejected, since the server would honour it over the requested format.
 - The payload is always the **raw, uncompressed** format bytes. Wire compression via `Options.Compression` is transparent (the driver compresses inserts and decompresses results itself) — do not pass pre-compressed data such as a `.parquet.gz` file, it would be compressed twice.
 
+## Query Parameters
+
+ClickHouse supports server-side parameterized queries using the `{name:Type}` syntax (requires ClickHouse ≥ 22.8). Parameters are sent separately from the query text — the server substitutes them after parsing, which prevents SQL injection.
+
+### Usage
+
+**Native interface** — pass parameters via context:
+
+```go
+ctx := clickhouse.Context(context.Background(), clickhouse.WithParameters(clickhouse.Parameters{
+    "id":   "42",
+    "name": "Alice",
+}))
+row := conn.QueryRow(ctx, "SELECT {id:UInt64}, {name:String}")
+```
+
+Or use `clickhouse.Named` as query arguments:
+
+```go
+row := conn.QueryRow(ctx,
+    "SELECT {id:UInt64}, {name:String}",
+    clickhouse.Named("id", "42"),
+    clickhouse.Named("name", "Alice"),
+)
+```
+
+**`database/sql` interface** — use `sql.Named`:
+
+```go
+row := db.QueryRowContext(ctx,
+    "SELECT {id:UInt64}, {name:String}",
+    sql.Named("id", 42),
+    sql.Named("name", "Alice"),
+)
+```
+
+### Escaping: `Named` strings vs `WithParameters`
+
+There are two ways to supply parameter values and they differ in how escaping is handled.
+
+**`Named` (or the std API's `sql.Named`) with a `string`/`*string` or `[]byte`/`*[]byte` value** treats the Go value as the literal parameter value. Control characters — tab, newline, carriage return, NUL — and backslashes are escaped automatically, so the value round-trips byte-for-byte on both protocols; a literal tab or newline no longer needs manual escaping:
+
+```go
+row := conn.QueryRow(ctx,
+    "SELECT {s:String}",
+    clickhouse.Named("s", "line 1\nline 2"), // literal newline — works as-is
+)
+```
+
+**`WithParameters`/`Parameters`** sends values as pre-formatted server-side text (`Escaped` format). Nothing is escaped for you — pass an already-escaped value (e.g. `['a', 'b']` for an `Array(String)`, or a literal `\n` for a newline), a raw tab/newline is rejected, and a top-level `NULL` uses the `\N` marker. Callers who need the literal-value behavior should prefer `Named`.
+
+`Named` and `WithParameters` share the same transport; the encoding still differs by protocol:
+
+| Protocol | How parameters are encoded |
+|---|---|
+| Native TCP | quoted `Field` dump (`readQuoted`) over a TSV-escaped value |
+| HTTP | URL query parameters (`param_<name>=<value>`), TSV-decoded by the server |
+
+See full examples: [native API](examples/clickhouse_api/query_parameters.go) · [database/sql](examples/std/query_parameters.go)
+
 ## PrepareBatch options
 
 Available options:
