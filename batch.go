@@ -20,9 +20,15 @@ var extractInsertColumnsMatch = regexp.MustCompile(`(?si)INSERT INTO .+\s\((?P<C
 // outside the capture group so they are not folded into the clause and do not leak into
 // the normalized query as "SETTINGS ...; FORMAT Native". Only terminators at the very
 // end of the query are consumed, so a `;` inside a quoted setting value is preserved.
-// Comments, the FORMAT clause and everything from a VALUES keyword on are removed from
-// the query by sanitizeInsertQuery before the clause is captured.
-var extractInsertSettingsMatch = regexp.MustCompile(`(?is)\s+(SETTINGS\s+\w+\s*=.+?)[\s;]*$`)
+// The keyword only has to start a word, not to be preceded by whitespace, because
+// ClickHouse also accepts a clause written directly after the column list, as in
+// "INSERT INTO t (a, b)SETTINGS async_insert=1". The caller pairs the match with
+// isKeyword, which limits what may precede the keyword to a token boundary or that
+// closing parenthesis, so a "SETTINGS name=value" text inside a quoted value or an
+// identifier is not taken for a clause. Comments, the FORMAT clause and everything from
+// a VALUES keyword on are removed from the query by sanitizeInsertQuery before the
+// clause is captured.
+var extractInsertSettingsMatch = regexp.MustCompile(`(?is)\s*\b(SETTINGS\s+\w+\s*=.+?)[\s;]*$`)
 
 func extractNormalizedInsertQueryAndColumns(query string) (normalizedQuery string, tableName string, columns []string, err error) {
 	insertStmt, tableName, columns, err := extractInsertQueryComponents(query)
@@ -43,7 +49,8 @@ func extractInsertQueryComponents(query string) (insertStmt string, tableName st
 	// the normalized query sent to the server, and strip it from the query before the
 	// table name and columns are extracted so it does not leak into either.
 	var settingsClause string
-	if loc := extractInsertSettingsMatch.FindStringSubmatchIndex(sanitized); loc != nil {
+	if loc := extractInsertSettingsMatch.FindStringSubmatchIndex(sanitized); loc != nil &&
+		isKeyword(sanitized[loc[2]:], []byte(sanitized[:loc[2]]), settingsKeyword) {
 		settingsClause = sanitized[loc[2]:loc[3]]
 		sanitized = sanitized[:loc[0]]
 	}
@@ -77,11 +84,11 @@ func extractInsertQueryComponents(query string) (insertStmt string, tableName st
 }
 
 // sanitizeInsertQuery removes the parts of an INSERT statement that the batch does not
-// send to the server: comments, the FORMAT clause the caller replaces with its own, and
-// the row data introduced by a VALUES keyword, which a batch sends in the request body
-// instead. A comment left in the statement would comment out the FORMAT clause appended
-// after it, and a comment holding a settings assignment would otherwise be taken for a
-// real SETTINGS clause.
+// send to the server: comments, and everything from a VALUES or a FORMAT keyword on,
+// which is the row data a batch sends in the request body instead, together with the
+// FORMAT clause the caller replaces with its own. A comment left in the statement would
+// comment out the FORMAT clause appended after it, and a comment holding a settings
+// assignment would otherwise be taken for a real SETTINGS clause.
 //
 // The scan is quote aware, so a comment marker, a VALUES keyword or a FORMAT keyword
 // inside a quoted value, an identifier or a heredoc is kept. The VALUES and FORMAT
@@ -128,10 +135,10 @@ func sanitizeInsertQuery(query string) string {
 				// Everything from an unquoted VALUES keyword on is row data.
 				break
 			}
-			if end := formatClauseEnd(query[i:], out); end > 0 {
-				out = trimOneBoundaryByte(out)
-				i += end - 1
-				continue
+			if formatClauseEnd(query[i:], out) > 0 {
+				// Everything from a FORMAT clause on is row data written in the format
+				// it names. The caller appends the FORMAT of its choosing instead.
+				break
 			}
 		}
 
@@ -142,6 +149,18 @@ func sanitizeInsertQuery(query string) string {
 			depth--
 		}
 		out = append(out, c)
+	}
+
+	// A statement terminator ends the statement, so it is dropped together with the
+	// whitespace around it: the caller appends its own FORMAT clause after the statement,
+	// which a terminator left in place would put in a second statement. A terminator is
+	// only dropped when the scan ended outside a quoted value, so one inside an
+	// unterminated literal is not removed here.
+	if quote == 0 {
+		for len(out) > 0 && isBoundaryByte(out[len(out)-1]) {
+			out = out[:len(out)-1]
+		}
+		return string(out)
 	}
 
 	return strings.TrimRight(string(out), " \t\r\n\v\f")
@@ -199,18 +218,22 @@ func appendCommentSeparator(out []byte, rest string) []byte {
 }
 
 const (
-	valuesKeyword = "VALUES"
-	formatKeyword = "FORMAT"
+	valuesKeyword   = "VALUES"
+	formatKeyword   = "FORMAT"
+	settingsKeyword = "SETTINGS"
 )
 
 // isKeyword reports whether s starts with the given keyword. The keyword must follow a
-// token boundary and must not be followed by a word byte, so an identifier that merely
-// contains it is not mistaken for it. The preceding bytes are taken from the query
-// sanitized so far rather than from the raw query, so a comment removed in front of the
-// keyword still leaves a boundary behind it.
+// token boundary or the closing parenthesis of a column list, which ClickHouse also
+// accepts as a separator ("INSERT INTO t (a, b)VALUES (1, 2)"), and must not be followed
+// by a word byte, so an identifier that merely contains it is not mistaken for it. The
+// preceding bytes are taken from the query sanitized so far rather than from the raw
+// query, so a comment removed in front of the keyword still leaves a boundary behind it.
 func isKeyword(s string, preceding []byte, keyword string) bool {
-	if len(preceding) > 0 && !isBoundaryByte(preceding[len(preceding)-1]) {
-		return false
+	if len(preceding) > 0 {
+		if last := preceding[len(preceding)-1]; !isBoundaryByte(last) && last != ')' {
+			return false
+		}
 	}
 	if len(s) < len(keyword) || !strings.EqualFold(s[:len(keyword)], keyword) {
 		return false
@@ -257,15 +280,6 @@ func formatClauseEnd(s string, preceding []byte) int {
 		return 0
 	}
 	return i
-}
-
-// trimOneBoundaryByte drops the single token boundary in front of a removed clause, so
-// removing it does not leave the whitespace of both of its sides behind.
-func trimOneBoundaryByte(out []byte) []byte {
-	if len(out) > 0 && isBoundaryByte(out[len(out)-1]) {
-		return out[:len(out)-1]
-	}
-	return out
 }
 
 // isBoundaryByte reports whether c ends a token: whitespace, or a statement terminator.
