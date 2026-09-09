@@ -11,6 +11,11 @@ var truncateFormat = regexp.MustCompile(`(?i)\sFORMAT\s+[^\s]+`)
 var truncateValues = regexp.MustCompile(`\sVALUES\s.*$`)
 var extractInsertColumnsMatch = regexp.MustCompile(`(?si)INSERT INTO .+\s\((?P<Columns>.+)\)$`)
 
+// splitColumnsRespectingQuotes splits an INSERT column list on commas that are
+// outside backtick- or double-quoted identifiers, so a name such as
+// `my_weird,col2` stays intact. Escaped quote characters inside an identifier
+// (doubled or backslash-escaped) are not supported.
+// See https://clickhouse.com/docs/en/sql-reference/syntax#identifiers
 func splitColumnsRespectingQuotes(columnsStr string) []string {
 	var columns []string
 	var current strings.Builder
@@ -69,6 +74,8 @@ func extractInsertQueryComponents(query string) (insertStmt string, tableName st
 	matches = extractInsertColumnsMatch.FindStringSubmatch(matches[1])
 	if len(matches) == 2 {
 		rawColumns := splitColumnsRespectingQuotes(matches[1])
+		// refers to https://clickhouse.com/docs/en/sql-reference/syntax#identifiers
+		// we can use identifiers with double quotes or backticks, for example: "id", `id`, but not both, like `"id"`.
 		for _, col := range rawColumns {
 			columns = append(columns, strings.ReplaceAll(strings.Trim(strings.TrimSpace(col), "\""), "`", ""))
 		}
