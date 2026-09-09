@@ -19,13 +19,9 @@ var extractInsertColumnsMatch = regexp.MustCompile(`(?si)INSERT INTO .+\s\((?P<C
 // outside the capture group so they are not folded into the clause and do not leak into
 // the normalized query as "SETTINGS ...; FORMAT Native". Only terminators at the very
 // end of the query are consumed, so a `;` inside a quoted setting value is preserved.
-// Comments and a bare trailing VALUES keyword are removed from the capture by
+// Comments, and everything from a VALUES keyword on, are removed from the capture by
 // normalizeSettingsClause.
 var extractInsertSettingsMatch = regexp.MustCompile(`(?is)\s+(SETTINGS\s+\w+\s*=.+?)[\s;]*$`)
-
-// truncateTrailingValues matches a VALUES keyword with no rows after it, which
-// truncateValues leaves in place.
-var truncateTrailingValues = regexp.MustCompile(`(?is)\s+VALUES[\s;]*$`)
 
 // truncateLeadingComments matches the single line comments a statement may be prefixed
 // with, using the same markers as normalizeInsertQueryMatch.
@@ -87,22 +83,23 @@ func extractInsertQueryComponents(query string) (insertStmt string, tableName st
 	return
 }
 
-// normalizeSettingsClause removes comments, a bare trailing VALUES keyword and trailing
-// statement terminators from a captured SETTINGS clause. A comment left inside the
-// clause would comment out the FORMAT clause the caller appends after it, so the server
-// would fall back to its default input format. Comment markers inside a quoted value or
-// identifier are kept.
+// normalizeSettingsClause removes comments, row data introduced by a VALUES keyword and
+// trailing statement terminators from a captured SETTINGS clause. A comment left inside
+// the clause would comment out the FORMAT clause the caller appends after it, so the
+// server would fall back to its default input format, and row data left in the clause is
+// rejected by the server because the batch sends its rows in the request body instead.
+// Comment markers and VALUES keywords inside a quoted value or identifier are kept.
 func normalizeSettingsClause(clause string) string {
-	var sb strings.Builder
+	out := make([]byte, 0, len(clause))
 	var quote byte
 	for i := 0; i < len(clause); i++ {
 		c := clause[i]
 		if quote != 0 {
-			sb.WriteByte(c)
+			out = append(out, c)
 			switch {
 			case c == '\\' && i+1 < len(clause):
 				i++
-				sb.WriteByte(clause[i])
+				out = append(out, clause[i])
 			case c == quote:
 				quote = 0
 			}
@@ -112,7 +109,7 @@ func normalizeSettingsClause(clause string) string {
 		switch {
 		case c == '\'', c == '"', c == '`':
 			quote = c
-			sb.WriteByte(c)
+			out = append(out, c)
 		case isLineCommentStart(clause[i:]):
 			for i+1 < len(clause) && clause[i+1] != '\n' {
 				i++
@@ -123,14 +120,51 @@ func normalizeSettingsClause(clause string) string {
 			} else {
 				i = len(clause)
 			}
+		case isValuesKeyword(clause[i:], out):
+			// Everything from an unquoted VALUES keyword on is row data, not settings.
+			// The rows of a batch are sent in the request body, so they must not be
+			// part of the query.
+			i = len(clause)
 		default:
-			sb.WriteByte(c)
+			out = append(out, c)
 		}
 	}
 
-	clause = truncateTrailingValues.ReplaceAllString(sb.String(), "")
+	return strings.TrimSpace(strings.TrimRight(string(out), " \t\r\n;"))
+}
 
-	return strings.TrimSpace(strings.TrimRight(clause, " \t\r\n;"))
+// isValuesKeyword reports whether s starts with a VALUES keyword. The keyword must
+// follow a token boundary and must not be followed by a word byte, so a setting name or
+// value that merely contains "values" is not mistaken for it. The preceding bytes are
+// taken from the clause normalized so far rather than from the raw clause, so a comment
+// removed in front of the keyword still leaves a boundary behind it.
+func isValuesKeyword(s string, preceding []byte) bool {
+	const keyword = "VALUES"
+	if len(preceding) > 0 && !isBoundaryByte(preceding[len(preceding)-1]) {
+		return false
+	}
+	if len(s) < len(keyword) || !strings.EqualFold(s[:len(keyword)], keyword) {
+		return false
+	}
+	if len(s) > len(keyword) && isWordByte(s[len(keyword)]) {
+		return false
+	}
+	return true
+}
+
+// isBoundaryByte reports whether c ends a token: whitespace, or a statement terminator.
+func isBoundaryByte(c byte) bool {
+	return c == ' ' || c == '\t' || c == '\r' || c == '\n' || c == '\v' || c == '\f' || c == ';'
+}
+
+// isWordByte reports whether c can be part of an identifier. Bytes outside ASCII are
+// treated as word bytes because they carry a multi byte character of one.
+func isWordByte(c byte) bool {
+	return c == '_' ||
+		c >= 0x80 ||
+		(c >= '0' && c <= '9') ||
+		(c >= 'a' && c <= 'z') ||
+		(c >= 'A' && c <= 'Z')
 }
 
 // isLineCommentStart reports whether s begins with a single line comment marker, using
