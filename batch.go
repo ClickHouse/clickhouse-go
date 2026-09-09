@@ -25,7 +25,7 @@ var extractInsertColumnsMatch = regexp.MustCompile(`(?si)INSERT INTO .+\s\((?P<C
 var extractInsertSettingsMatch = regexp.MustCompile(`(?is)\s+(SETTINGS\s+\w+\s*=.+?)[\s;]*$`)
 
 func extractNormalizedInsertQueryAndColumns(query string) (normalizedQuery string, tableName string, columns []string, err error) {
-	insertStmt, tableName, columns, err := extractInsertQueryComponents(query)
+var extractInsertSettingsMatch = regexp.MustCompile(`(?is)\s*\b(SETTINGS\s+\w+\s*=.+?)[\s;]*$`)
 	if err != nil {
 		return "", "", nil, err
 	}
