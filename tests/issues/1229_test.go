@@ -16,7 +16,10 @@ import (
 
 func Test1229(t *testing.T) {
 	const (
-		queryTimeout = 4 * time.Second
+		// The self-hosted ARM runners can schedule the 100 simultaneous queries
+		// behind unrelated jobs. Keep the concurrency coverage without making the
+		// connection-cleanup assertion depend on a four-second scheduling budget.
+		queryTimeout = 15 * time.Second
 		concurrency  = 100
 	)
 

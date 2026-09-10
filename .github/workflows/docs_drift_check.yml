@@ -48,10 +48,10 @@ permissions:
 
 jobs:
   docs-drift:
-      github.event.pull_request.head.repo.full_name == github.repository &&
+    if: >-
+      (github.event_name == 'workflow_dispatch' ||
+      github.event.pull_request.head.repo.full_name == github.repository) &&
       github.actor != 'dependabot[bot]'
-      github.event_name == 'workflow_dispatch' ||
-      github.event.pull_request.head.repo.full_name == github.repository
     uses: ClickHouse/integrations-shared-workflows/.github/workflows/claude-docs-drift.yml@main
     # Pull request runs read the PR from the event. Manual runs forward the
     # workflow_dispatch input.
