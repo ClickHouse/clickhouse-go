@@ -671,6 +671,19 @@ func TestParseDSN(t *testing.T) {
 	}
 }
 
+func TestEffectiveInitialUser(t *testing.T) {
+	ordinary := &connect{opt: &Options{Auth: Auth{Username: "authenticated"}}}
+	require.Empty(t, ordinary.effectiveInitialUser("override"))
+	require.Empty(t, ordinary.effectiveInitialUser(""))
+
+	interserver := &connect{opt: &Options{
+		Auth:    Auth{Username: "fallback"},
+		Cluster: ClusterCredentials{Secret: "secret"},
+	}}
+	require.Equal(t, "override", interserver.effectiveInitialUser("override"))
+	require.Equal(t, "fallback", interserver.effectiveInitialUser(""))
+}
+
 func parseURL(t *testing.T, v string) *url.URL {
 	u, err := url.Parse(v)
 	require.NoError(t, err)
