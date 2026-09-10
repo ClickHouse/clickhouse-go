@@ -3,6 +3,7 @@ package column
 import (
 	"database/sql"
 	"database/sql/driver"
+	"encoding"
 	"fmt"
 	"reflect"
 
@@ -45,6 +46,7 @@ func (col *UUID) Row(i int, ptr bool) any {
 }
 
 func (col *UUID) ScanRow(dest any, row int) error {
+	// TODO: add cases for the standard uuid type once go version is updated to >=1.27.
 	switch d := dest.(type) {
 	case *string:
 		*d = col.row(row).String()
@@ -57,8 +59,11 @@ func (col *UUID) ScanRow(dest any, row int) error {
 		*d = new(uuid.UUID)
 		**d = col.row(row)
 	default:
-		if scan, ok := dest.(sql.Scanner); ok {
-			return scan.Scan(col.row(row).String())
+		switch dest := dest.(type) {
+		case sql.Scanner:
+			return dest.Scan(col.row(row).String())
+		case encoding.TextUnmarshaler:
+			return dest.UnmarshalText([]byte(col.row(row).String()))
 		}
 		return &ColumnConverterError{
 			Op:   "ScanRow",
