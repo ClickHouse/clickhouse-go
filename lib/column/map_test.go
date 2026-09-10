@@ -59,9 +59,16 @@ func TestMapParse(t *testing.T) {
 }
 
 func TestMapParseInvalid(t *testing.T) {
-	_, err := Type("Map(String)").Column("test", &ServerContext{})
-	require.Error(t, err)
-	assert.IsType(t, &UnsupportedColumnTypeError{}, err)
+	for _, columnType := range []Type{
+		"Map(String)",
+		"Map(String,)",
+		"Map(,String)",
+		"Map(Array(String), UInt8)",
+	} {
+		_, err := columnType.Column("test", &ServerContext{})
+		require.Error(t, err, string(columnType))
+		assert.IsType(t, &UnsupportedColumnTypeError{}, err, string(columnType))
+	}
 }
 
 func requireMap(t *testing.T, column Interface) *Map {
