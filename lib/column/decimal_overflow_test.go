@@ -4,7 +4,6 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/ClickHouse/ch-go/proto"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -59,34 +58,36 @@ func TestDecimal256OverflowReturnsError(t *testing.T) {
 }
 
 func TestBigIntOverflowReturnsError(t *testing.T) {
-	// Int128: signed 128-bit, max positive is 2^127-1
-	col128 := &BigInt{size: 16, chType: "Int128", signed: true, col: &proto.ColInt128{}}
+	col, err := Type("Int128").Column("value", nil)
+	require.NoError(t, err)
 
-	big2_127 := new(big.Int).Lsh(big.NewInt(1), 127)
-	err := col128.AppendRow(*big2_127)
+	value := new(big.Int).Lsh(big.NewInt(1), 127)
+	err = col.AppendRow(*value)
 	assert.ErrorContains(t, err, "overflow")
 }
 
 func TestBigIntValidValuesNoError(t *testing.T) {
-	col128 := &BigInt{size: 16, chType: "Int128", signed: true, col: &proto.ColInt128{}}
+	col, err := Type("Int128").Column("value", nil)
+	require.NoError(t, err)
 
 	// 2^127 - 1 is the max valid Int128 value
 	maxInt128 := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 127), big.NewInt(1))
-	err := col128.AppendRow(*maxInt128)
+	err = col.AppendRow(*maxInt128)
 	assert.NoError(t, err)
 
 	// min valid Int128 value is -2^127
 	minInt128 := new(big.Int).Neg(new(big.Int).Lsh(big.NewInt(1), 127))
-	err = col128.AppendRow(*minInt128)
+	err = col.AppendRow(*minInt128)
 	assert.NoError(t, err)
 }
 
 func TestBigIntNegativeOverflowReturnsError(t *testing.T) {
-	col128 := &BigInt{size: 16, chType: "Int128", signed: true, col: &proto.ColInt128{}}
+	col, err := Type("Int128").Column("value", nil)
+	require.NoError(t, err)
 
 	// -2^127 - 1 is below the minimum Int128 value (-2^127)
 	minInt128 := new(big.Int).Neg(new(big.Int).Lsh(big.NewInt(1), 127))
 	overflow := new(big.Int).Sub(minInt128, big.NewInt(1))
-	err := col128.AppendRow(*overflow)
+	err = col.AppendRow(*overflow)
 	assert.ErrorContains(t, err, "overflow")
 }
