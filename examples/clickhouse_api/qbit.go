@@ -3,7 +3,7 @@ package clickhouse_api
 import (
 	"context"
 	"fmt"
-	"math/rand"
+	"math/rand/v2"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 )
