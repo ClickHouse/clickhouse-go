@@ -6,7 +6,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-
 	"reflect"
 	"strconv"
 	"strings"
@@ -263,16 +262,14 @@ func (col *Decimal) append(v *decimal.Decimal) error {
 	case *proto.ColDecimal32:
 		scaled := decimal.NewFromBigInt(v.Coefficient(), v.Exponent()+int32(col.scale))
 		bi := scaled.BigInt()
-		var dest [4]byte
-		if err := bigIntToRaw(dest[:], bi, true); err != nil {
+		if err := bigIntFits(bi, 4, true); err != nil {
 			return fmt.Errorf("value %s overflows Decimal32 (%s): %w", v.String(), col.chType, err)
 		}
 		vCol.Append(proto.Decimal32(uint32(bi.Int64())))
 	case *proto.ColDecimal64:
 		scaled := decimal.NewFromBigInt(v.Coefficient(), v.Exponent()+int32(col.scale))
 		bi := scaled.BigInt()
-		var dest [8]byte
-		if err := bigIntToRaw(dest[:], bi, true); err != nil {
+		if err := bigIntFits(bi, 8, true); err != nil {
 			return fmt.Errorf("value %s overflows Decimal64 (%s): %w", v.String(), col.chType, err)
 		}
 		vCol.Append(proto.Decimal64(uint64(bi.Int64())))

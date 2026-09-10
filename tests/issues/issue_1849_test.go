@@ -3,7 +3,6 @@ package issues
 import (
 	"context"
 	"database/sql"
-
 	"math/big"
 	"strconv"
 	"testing"

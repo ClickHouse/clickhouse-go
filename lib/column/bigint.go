@@ -225,24 +225,8 @@ func (col *BigInt) append(v *big.Int) error {
 }
 
 func bigIntToRaw(dest []byte, v *big.Int, signed bool) error {
-	bits := len(dest) * 8
-	if signed {
-		if v.Sign() >= 0 {
-			if v.BitLen() > bits-1 {
-				return fmt.Errorf("value overflows %d-byte signed buffer", len(dest))
-			}
-		} else {
-			if new(big.Int).Not(v).BitLen() > bits-1 {
-				return fmt.Errorf("value overflows %d-byte signed buffer", len(dest))
-			}
-		}
-	} else {
-		if v.Sign() < 0 {
-			return fmt.Errorf("negative value %s not allowed for unsigned %d-byte type", v.String(), len(dest))
-		}
-		if v.BitLen() > bits {
-			return fmt.Errorf("value overflows %d-byte unsigned buffer", len(dest))
-		}
+	if err := bigIntFits(v, len(dest), signed); err != nil {
+		return err
 	}
 
 	var sign int
@@ -253,6 +237,29 @@ func bigIntToRaw(dest []byte, v *big.Int, signed bool) error {
 		v.FillBytes(dest)
 	}
 	endianSwap(dest, sign < 0)
+	return nil
+}
+
+func bigIntFits(v *big.Int, size int, signed bool) error {
+	bits := size * 8
+	if signed {
+		if v.Sign() >= 0 {
+			if v.BitLen() > bits-1 {
+				return fmt.Errorf("value overflows %d-byte signed buffer", size)
+			}
+		} else {
+			if new(big.Int).Not(v).BitLen() > bits-1 {
+				return fmt.Errorf("value overflows %d-byte signed buffer", size)
+			}
+		}
+	} else {
+		if v.Sign() < 0 {
+			return fmt.Errorf("negative value %s not allowed for unsigned %d-byte type", v.String(), size)
+		}
+		if v.BitLen() > bits {
+			return fmt.Errorf("value overflows %d-byte unsigned buffer", size)
+		}
+	}
 	return nil
 }
 
