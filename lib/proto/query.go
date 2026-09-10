@@ -219,11 +219,17 @@ func (s *Parameter) encode(buffer *chproto.Buffer, revision uint64) error {
 	return nil
 }
 
-// fieldDumpEscaper escapes a string for a quoted Field dump. Both single
-// quotes and backslashes need escaping: the server reads the dump back with
-// its quoted-string reader, where a bare backslash starts an escape sequence,
-// so an unescaped one corrupts the value or makes it unparseable.
-var fieldDumpEscaper = strings.NewReplacer(`\`, `\\`, `'`, `\'`)
+// fieldDumpEscaper escapes a string for a quoted Field dump. Control characters
+// (tab, newline, CR, backslash, NUL) and single quotes must be escaped so the
+// server can properly deserialize them through readQuoted then deserializeTextEscaped.
+var fieldDumpEscaper = strings.NewReplacer(
+	`\`, `\\`,
+	`'`, `\'`,
+	"\n", `\n`,
+	"\r", `\r`,
+	"\t", `\t`,
+	"\x00", `\0`,
+)
 
 // encodes a field dump with an appropriate type format
 // implements the same logic as in ClickHouse Field::restoreFromDump (https://github.com/ClickHouse/ClickHouse/blob/master/src/Core/Field.cpp#L312)

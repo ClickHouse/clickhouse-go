@@ -3,9 +3,12 @@ package tests
 import (
 	"context"
 	"fmt"
+	"net"
+	"net/netip"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -19,7 +22,7 @@ func TestQueryParameters(t *testing.T) {
 	require.NoError(t, err)
 	client, err := TestClientWithDefaultSettings(env)
 	require.NoError(t, err)
-	defer client.Close()
+	t.Cleanup(func() { client.Close() })
 
 	if !CheckMinServerServerVersion(client, 22, 8, 0) {
 		t.Skip(fmt.Errorf("unsupported clickhouse version"))
@@ -28,21 +31,27 @@ func TestQueryParameters(t *testing.T) {
 
 	t.Run("with context parameters", func(t *testing.T) {
 		chCtx := clickhouse.Context(ctx, clickhouse.WithParameters(clickhouse.Parameters{
-			"num":   "42",
-			"str":   "hello",
-			"array": "['a', 'b', 'c']",
+			"num":       "42",
+			"str":       "hello",
+			"array":     "['a', 'b', 'c']",
+			"escaped":   `line 1\nline 2\tend`,
+			"backslash": `line 1\\nline 2`,
 		}))
 
 		var actualNum uint64
 		var actualStr string
 		var actualArray []string
-		row := client.QueryRow(chCtx, "SELECT {num:UInt64} v, {str:String} s, {array:Array(String)} a")
+		var actualEscaped string
+		var actualBackslash string
+		row := client.QueryRow(chCtx, "SELECT {num:UInt64}, {str:String}, {array:Array(String)}, {escaped:String}, {backslash:String}")
 		require.NoError(t, row.Err())
-		require.NoError(t, row.Scan(&actualNum, &actualStr, &actualArray))
+		require.NoError(t, row.Scan(&actualNum, &actualStr, &actualArray, &actualEscaped, &actualBackslash))
 
 		assert.Equal(t, uint64(42), actualNum)
 		assert.Equal(t, "hello", actualStr)
 		assert.Equal(t, []string{"a", "b", "c"}, actualArray)
+		assert.Equal(t, "line 1\nline 2\tend", actualEscaped)
+		assert.Equal(t, `line 1\nline 2`, actualBackslash)
 	})
 
 	t.Run("with named arguments", func(t *testing.T) {
@@ -59,6 +68,33 @@ func TestQueryParameters(t *testing.T) {
 
 		assert.Equal(t, uint64(42), actualNum)
 		assert.Equal(t, "hello", actualStr)
+	})
+
+	t.Run("escaped string values round-trip", func(t *testing.T) {
+		// A top-level String sent via Named is TSV-escaped by the driver, so the
+		// value round-trips byte-for-byte — including raw control characters that
+		// were previously rejected, and literal backslashes that were previously
+		// interpreted as escapes by the server (#1792).
+		cases := []struct {
+			name  string
+			value string
+			want  string
+		}{
+			{"raw literal with escapes", `line 1\nline 2\tend`, `line 1\nline 2\tend`},
+			{"interpreted literal with escaped backslashes", "line 1\\nline 2\\tend", "line 1\\nline 2\\tend"},
+			{"raw literal with literal backslashes", `line 1\\nline 2\\tend`, `line 1\\nline 2\\tend`},
+			{"interpreted literal with literal backslashes", "line 1\\\\nline 2\\\\tend", "line 1\\\\nline 2\\\\tend"},
+			{"raw newline round-trips", "line 1\nline 2", "line 1\nline 2"},
+			{"raw tab round-trips", "column 1\tcolumn 2", "column 1\tcolumn 2"},
+		}
+		for _, tc := range cases {
+			t.Run(tc.name, func(t *testing.T) {
+				var got string
+				row := client.QueryRow(ctx, "SELECT {value:String}", clickhouse.Named("value", tc.value))
+				require.NoError(t, row.Scan(&got))
+				assert.Equal(t, tc.want, got)
+			})
+		}
 	})
 
 	t.Run("with identifier type", func(t *testing.T) {
@@ -160,6 +196,30 @@ func TestQueryParameters(t *testing.T) {
 		require.NoError(t, row.Err())
 		require.NoError(t, row.Scan(&got))
 		assert.True(t, got.Equal(in.Truncate(time.Second)), "want truncated instant %s, got %s", in.Truncate(time.Second).UTC(), got.UTC())
+	})
+
+	t.Run("Stringer values", func(t *testing.T) {
+		id := uuid.MustParse("11111111-1111-1111-1111-111111111111")
+		addr := netip.MustParseAddr("10.0.0.1")
+
+		var (
+			gotUUID  uuid.UUID
+			gotIP    net.IP
+			gotArray []uuid.UUID
+		)
+		row := client.QueryRow(
+			ctx,
+			"SELECT {id:UUID}, {addr:IPv4}, {ids:Array(UUID)}",
+			clickhouse.Named("id", id),
+			clickhouse.Named("addr", addr),
+			clickhouse.Named("ids", []uuid.UUID{id}),
+		)
+		require.NoError(t, row.Err())
+		require.NoError(t, row.Scan(&gotUUID, &gotIP, &gotArray))
+
+		assert.Equal(t, id, gotUUID)
+		assert.Equal(t, "10.0.0.1", gotIP.String())
+		assert.Equal(t, []uuid.UUID{id}, gotArray)
 	})
 
 	t.Run("with bind backwards compatibility", func(t *testing.T) {

@@ -2,9 +2,11 @@ package clickhouse
 
 import (
 	"math"
+	"math/big"
 	"testing"
 	"time"
 
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -875,6 +877,7 @@ func TestFormatTimeWithScale(t *testing.T) {
 // inside composites; at the top level the server would read it as the string
 // "NULL" or fail to parse it.
 func TestNilQueryParameter(t *testing.T) {
+	nilBytes := []byte(nil)
 	cases := []struct {
 		name  string
 		value any
@@ -884,6 +887,9 @@ func TestNilQueryParameter(t *testing.T) {
 		{"nil *string", (*string)(nil), `\N`},
 		{"nil *time.Time", (*time.Time)(nil), `\N`},
 		{"nil *int", (*int)(nil), `\N`},
+		{"nil *time.Duration", (*time.Duration)(nil), `\N`},
+		{"nil []byte", []byte(nil), `\N`},
+		{"pointer to nil []byte", &nilBytes, `\N`},
 		// nils nested inside a composite keep the NULL keyword
 		{"nil inside array", []*string{nil}, "[NULL]"},
 	}
@@ -896,6 +902,30 @@ func TestNilQueryParameter(t *testing.T) {
 			assert.Equal(t, tc.want, opts.parameters["p"])
 		})
 	}
+}
+
+func TestByteAndDurationQueryParameter(t *testing.T) {
+	opts := &QueryOptions{}
+	_, err := bindQueryOrAppendParameters(true, opts, "SELECT {p:String}", time.UTC,
+		driver.NamedValue{Name: "p", Value: []byte("AB")})
+	require.NoError(t, err)
+	assert.Equal(t, "AB", opts.parameters["p"])
+
+	// *[]byte must be dereferenced and sent raw, same as []byte, or the
+	// value falls through to formatValue and the server stores the quoted
+	// form verbatim.
+	bytesVal := []byte("AB")
+	opts = &QueryOptions{}
+	_, err = bindQueryOrAppendParameters(true, opts, "SELECT {p:String}", time.UTC,
+		driver.NamedValue{Name: "p", Value: &bytesVal})
+	require.NoError(t, err)
+	assert.Equal(t, "AB", opts.parameters["p"])
+
+	opts = &QueryOptions{}
+	_, err = bindQueryOrAppendParameters(true, opts, "SELECT {p:Time}", time.UTC,
+		driver.NamedValue{Name: "p", Value: time.Hour + 2*time.Minute + 3*time.Second})
+	require.NoError(t, err)
+	assert.Equal(t, "01:02:03", opts.parameters["p"])
 }
 
 // TestFormatValueModesOrderedMap checks that ordered maps switch syntax
@@ -962,6 +992,186 @@ func BenchmarkBindPositional(b *testing.B) {
 	}
 }
 
+// TestFormatBigInt covers #1917: a big.Int (the Go type behind Int128, UInt128,
+// Int256 and UInt256) must bind as a numeric value, not a quoted string. In SQL
+// mode it wraps the exact decimal in the narrowest wide-integer conversion that
+// fits, so the value keeps full precision and an integer type — a bare decimal
+// wider than 64 bits is read by the server as Float64 and loses precision. In
+// query-parameter text mode the {name:Type} placeholder declares the type, so
+// the bare decimal is sent as-is.
+func TestFormatBigInt(t *testing.T) {
+	pow2 := func(n uint) *big.Int { return new(big.Int).Lsh(big.NewInt(1), n) }
+	sub1 := func(v *big.Int) *big.Int { return new(big.Int).Sub(v, big.NewInt(1)) }
+	add := func(v *big.Int, n int64) *big.Int { return new(big.Int).Add(v, big.NewInt(n)) }
+
+	int128Max := sub1(pow2(127))
+	int128Min := new(big.Int).Neg(pow2(127))
+	uint128Max := sub1(pow2(128))
+	int256Max := sub1(pow2(255))
+	int256Min := new(big.Int).Neg(pow2(255))
+	uint256Max := sub1(pow2(256))
+
+	cases := []struct {
+		name    string
+		v       *big.Int
+		fn      string // expected wide-integer conversion in SQL mode
+		wantErr bool   // SQL mode errors: value fits no ClickHouse integer type
+	}{
+		{"small positive", big.NewInt(42), "toInt128", false},
+		{"small negative", big.NewInt(-42), "toInt128", false},
+		{"zero", big.NewInt(0), "toInt128", false},
+		{"Int128 max", int128Max, "toInt128", false},
+		{"Int128 max + 1 spills to UInt128", add(int128Max, 1), "toUInt128", false},
+		{"Int128 min", int128Min, "toInt128", false},
+		{"Int128 min - 1 spills to Int256", add(int128Min, -1), "toInt256", false},
+		{"UInt128 max", uint128Max, "toUInt128", false},
+		{"UInt128 max + 1 spills to Int256", add(uint128Max, 1), "toInt256", false},
+		{"Int256 max", int256Max, "toInt256", false},
+		{"Int256 max + 1 spills to UInt256", add(int256Max, 1), "toUInt256", false},
+		{"Int256 min", int256Min, "toInt256", false},
+		{"UInt256 max", uint256Max, "toUInt256", false},
+		{"above UInt256 max is out of range", add(uint256Max, 1), "", true},
+		{"below Int256 min is out of range", add(int256Min, -1), "", true},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			wantSQL := c.fn + "('" + c.v.String() + "')"
+
+			// The *big.Int and big.Int value forms format identically.
+			for _, in := range []any{c.v, *c.v} {
+				// SQL mode (client-side bind).
+				got, err := format(time.Local, Seconds, in)
+				if c.wantErr {
+					require.Error(t, err)
+				} else {
+					require.NoError(t, err)
+					assert.Equal(t, wantSQL, got)
+				}
+
+				// Query-parameter text mode: always the bare decimal, whatever
+				// the magnitude — the declared {name:Type} tells the server how
+				// to read it, so there is no range error here.
+				gotParam, err := formatValue(time.Local, Seconds, in, formatParamText)
+				require.NoError(t, err)
+				assert.Equal(t, c.v.String(), gotParam)
+			}
+		})
+	}
+
+	// A nil *big.Int is NULL in both modes. The query-parameter path maps a
+	// top-level nil to \N before it reaches formatValue; nested (and in SQL
+	// mode) it renders as NULL.
+	for _, mode := range []formatMode{formatSQL, formatParamText} {
+		got, err := formatValue(time.Local, Seconds, (*big.Int)(nil), mode)
+		require.NoError(t, err)
+		assert.Equal(t, "NULL", got)
+	}
+}
+
+// TestBindBigInt checks a big.Int binds correctly through every client-side
+// placeholder style (?, $1, @name) and inside arrays, and that sibling argument
+// types keep their existing formatting (#1917).
+func TestBindBigInt(t *testing.T) {
+	huge, _ := new(big.Int).SetString("170141183460469231731687303715884105727", 10) // Int128 max
+	wrapped := "toInt128('170141183460469231731687303715884105727')"
+	uint256Max, _ := new(big.Int).SetString("115792089237316195423570985008687907853269984665640564039457584007913129639935", 10)
+	int256Max, _ := new(big.Int).SetString("57896044618658097711785492504343953926634992332820282019728792003956564819967", 10)
+
+	cases := []struct {
+		name     string
+		query    string
+		args     []any
+		expected string
+	}{
+		{"positional", "SELECT toTypeName(?)", []any{huge}, "SELECT toTypeName(" + wrapped + ")"},
+		{"numeric", "SELECT $1", []any{huge}, "SELECT " + wrapped},
+		{"named", "SELECT @v", []any{Named("v", huge)}, "SELECT " + wrapped},
+		{"value not pointer", "SELECT ?", []any{*huge}, "SELECT " + wrapped},
+		{"array", "SELECT ?", []any{[]*big.Int{big.NewInt(1), big.NewInt(-2)}},
+			"SELECT [toInt128('1'), toInt128('-2')]"},
+		// A mixed-width []*big.Int binds with one wide type for the whole array,
+		// not per-element toInt128/toUInt256 (which have no common ClickHouse
+		// type unless use_variant_as_common_type is on — off by default before
+		// 26.x), so WHERE ... IN ? keeps matching (#1917).
+		{"mixed-width array uses one wide type", "SELECT ?",
+			[]any{[]*big.Int{big.NewInt(1), uint256Max}},
+			"SELECT [toUInt256('1'), toUInt256('115792089237316195423570985008687907853269984665640564039457584007913129639935')]"},
+		// A negative value keeps the array signed; the widest element still
+		// decides the type (here Int256).
+		{"signed mixed-width array uses one signed type", "SELECT ?",
+			[]any{[]*big.Int{big.NewInt(-1), int256Max}},
+			"SELECT [toInt256('-1'), toInt256('57896044618658097711785492504343953926634992332820282019728792003956564819967')]"},
+		// No single wide type holds both a negative value and one above Int256's
+		// max, so it falls back to per-element formatting (unchanged behavior).
+		{"untypeable range falls back to per-element", "SELECT ?",
+			[]any{[]*big.Int{big.NewInt(-1), uint256Max}},
+			"SELECT [toInt128('-1'), toUInt256('115792089237316195423570985008687907853269984665640564039457584007913129639935')]"},
+		// clickhouse.ArraySet reaches the array literal by a different code path
+		// than a plain slice and must get the same single-type treatment.
+		{"ArraySet mixed-width uses one wide type", "SELECT ?",
+			[]any{ArraySet{big.NewInt(1), uint256Max}},
+			"SELECT [toUInt256('1'), toUInt256('115792089237316195423570985008687907853269984665640564039457584007913129639935')]"},
+		{"tuple", "SELECT ?", []any{GroupSet{Value: []any{big.NewInt(1), "x"}}},
+			"SELECT (toInt128('1'), 'x')"},
+		{"map value", "SELECT ?", []any{map[string]*big.Int{"k": big.NewInt(1)}},
+			"SELECT map('k', toInt128('1'))"},
+		{"nil pointer is NULL", "SELECT ?", []any{(*big.Int)(nil)}, "SELECT NULL"},
+		// contrast: sibling argument types must be unaffected by the big.Int cases
+		{"int64 stays a bare literal", "SELECT ?", []any{int64(42)}, "SELECT 42"},
+		{"string stays quoted", "SELECT ?", []any{"42"}, "SELECT '42'"},
+		{"other Stringer stays quoted", "SELECT ?", []any{stringerForBigIntTest("42")}, "SELECT '42'"},
+		// Contrast: other fmt.Stringer types (decimal.Decimal, and likewise
+		// big.Float/big.Rat) still bind as quoted strings. The #1917 symptom for
+		// those types is a separate, still-open limitation; this case asserts
+		// the current behavior only to prove the big.Int handling does not
+		// change it, not to endorse it as correct.
+		{"decimal.Decimal stays quoted", "SELECT ?", []any{decimal.New(4242, -2)}, "SELECT '42.42'"},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got, err := bind(time.Local, c.query, c.args...)
+			require.NoError(t, err)
+			assert.Equal(t, c.expected, got)
+		})
+	}
+}
+
+// TestBindBigIntQueryParameter drives a big.Int through the server-side
+// {name:Type} query-parameter entry point (bindQueryOrAppendParameters). The
+// value must be sent as a bare decimal — the declared type tells the server how
+// to parse it — not caught by the string/time raw-value shortcuts and not
+// SQL-wrapped (#1917). A top-level nil still maps to \N.
+func TestBindBigIntQueryParameter(t *testing.T) {
+	huge, _ := new(big.Int).SetString("170141183460469231731687303715884105727", 10)
+	cases := []struct {
+		name  string
+		value any
+		want  string
+	}{
+		{"pointer", huge, "170141183460469231731687303715884105727"},
+		{"value", *huge, "170141183460469231731687303715884105727"},
+		{"negative", big.NewInt(-42), "-42"},
+		{"nil pointer", (*big.Int)(nil), `\N`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			opts := &QueryOptions{}
+			_, err := bindQueryOrAppendParameters(true, opts, "SELECT {v:Int128}", time.UTC,
+				driver.NamedValue{Name: "v", Value: tc.value})
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, opts.parameters["v"])
+		})
+	}
+}
+
+// stringerForBigIntTest is a non-big.Int fmt.Stringer used to prove the big.Int
+// cases don't shadow the general Stringer handling.
+type stringerForBigIntTest string
+
+func (s stringerForBigIntTest) String() string { return string(s) }
+
 func BenchmarkBindNamed(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
@@ -982,4 +1192,137 @@ func BenchmarkBindNamed(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
+}
+
+// TestBindDuration checks that time.Duration (the ScanType for ClickHouse
+// Time/Time64) binds as a Time-parseable literal, not Go's duration string.
+func TestBindDuration(t *testing.T) {
+	q, err := bind(time.UTC, "SELECT toTime(?)", 14*time.Hour+30*time.Minute)
+	assert.NoError(t, err)
+	assert.Equal(t, "SELECT toTime('14:30:00')", q)
+
+	// *time.Duration and zero / fractional / negative values
+	d := 1*time.Second + 250*time.Millisecond
+	q, err = bind(time.UTC, "SELECT ?", &d)
+	assert.NoError(t, err)
+	assert.Equal(t, "SELECT '00:00:01.25'", q)
+
+	q, err = bind(time.UTC, "SELECT ?", time.Duration(0))
+	assert.NoError(t, err)
+	assert.Equal(t, "SELECT '00:00:00'", q)
+
+	q, err = bind(time.UTC, "SELECT ?", -90*time.Second)
+	assert.NoError(t, err)
+	assert.Equal(t, "SELECT '-00:01:30'", q)
+
+	var nilDur *time.Duration
+	q, err = bind(time.UTC, "SELECT ?", nilDur)
+	assert.NoError(t, err)
+	assert.Equal(t, "SELECT NULL", q)
+}
+
+// TestBindBytes checks that []byte binds as a String literal (with the same
+// escaping as string), not as Array(UInt8).
+func TestBindBytes(t *testing.T) {
+	q, err := bind(time.UTC, "SELECT ?", []byte("A\x00B"))
+	assert.NoError(t, err)
+	assert.Equal(t, "SELECT 'A\\0B'", q)
+
+	q, err = bind(time.UTC, "SELECT ?", []byte(`a'b\c`))
+	assert.NoError(t, err)
+	assert.Equal(t, `SELECT 'a\'b\\c'`, q)
+
+	q, err = bind(time.UTC, "SELECT ?", []byte{})
+	assert.NoError(t, err)
+	assert.Equal(t, "SELECT ''", q)
+
+	q, err = bind(time.UTC, "SELECT ?", []byte(nil))
+	assert.NoError(t, err)
+	assert.Equal(t, "SELECT NULL", q)
+
+	nilBytes := []byte(nil)
+	q, err = bind(time.UTC, "SELECT ?", &nilBytes)
+	assert.NoError(t, err)
+	assert.Equal(t, "SELECT NULL", q)
+
+	// nested []byte/[]uint8 stay Array(UInt8) — same Go type as String
+	// bytes, but map[K][]uint8 and Array(Array(UInt8)) depend on it.
+	q, err = bind(time.UTC, "SELECT ?", [][]byte{[]byte("x"), []byte("y")})
+	assert.NoError(t, err)
+	assert.Equal(t, "SELECT [[120], [121]]", q)
+
+	q, err = bind(time.UTC, "SELECT ?", ArraySet{[]byte("x"), []byte("y")})
+	assert.NoError(t, err)
+	assert.Equal(t, "SELECT [[120], [121]]", q)
+
+	q, err = bind(time.UTC, "SELECT ?", GroupSet{Value: []any{[]byte("x"), 1}})
+	assert.NoError(t, err)
+	assert.Equal(t, "SELECT ([120], 1)", q)
+
+	q, err = bind(time.UTC, "SELECT ?", map[uint8][]uint8{1: {2, 3}})
+	assert.NoError(t, err)
+	assert.Equal(t, "SELECT map(1, [2, 3])", q)
+}
+
+func TestFormatDuration(t *testing.T) {
+	cases := []struct {
+		in   time.Duration
+		want string
+	}{
+		{0, "'00:00:00'"},
+		{14*time.Hour + 30*time.Minute, "'14:30:00'"},
+		{1*time.Second + 250*time.Millisecond, "'00:00:01.25'"},
+		{123 * time.Nanosecond, "'00:00:00.000000123'"},
+		{-90 * time.Second, "'-00:01:30'"},
+		{25 * time.Hour, "'25:00:00'"},
+	}
+	for _, tc := range cases {
+		assert.Equal(t, tc.want, formatDuration(tc.in), "in=%v", tc.in)
+	}
+}
+
+// TestBindDuration_Time64Precision covers Time/Time64 with different precision
+// (seconds, milli, micro, nano) — the server parses each as the corresponding
+// Time64 scale. The binder always emits the minimal fractional form via
+// formatDuration, which ClickHouse accepts for any Time64 precision.
+func TestBindDuration_Time64Precision(t *testing.T) {
+	cases := []struct {
+		name string
+		dur  time.Duration
+		want string
+	}{
+		// Time (seconds, no fraction)
+		{"Time seconds", 8*time.Hour + 15*time.Minute + 30*time.Second, "'08:15:30'"},
+		// Time64(3) — milliseconds
+		{"Time64(3) milliseconds", 1*time.Second + 123*time.Millisecond, "'00:00:01.123'"},
+		{"Time64(3) trimmed", 1*time.Second + 120*time.Millisecond, "'00:00:01.12'"},
+		// Time64(6) — microseconds
+		{"Time64(6) microseconds", 1*time.Second + 123456*time.Microsecond, "'00:00:01.123456'"},
+		{"Time64(6) trimmed", 1*time.Second + 123400*time.Microsecond, "'00:00:01.1234'"},
+		// Time64(9) — nanoseconds
+		{"Time64(9) nanoseconds", 1*time.Second + 123456789*time.Nanosecond, "'00:00:01.123456789'"},
+		{"Time64(9) trimmed", 1*time.Second + 100000000*time.Nanosecond, "'00:00:01.1'"},
+		// Negative with fraction (Time64)
+		{"negative Time64(3)", -(2*time.Hour + 500*time.Millisecond), "'-02:00:00.5'"},
+		// Array(Time) and Array(Time64) via join
+		{"zero", 0, "'00:00:00'"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			q, err := bind(time.UTC, "SELECT ?", tc.dur)
+			assert.NoError(t, err)
+			assert.Equal(t, "SELECT "+tc.want, q)
+			// formatDuration directly should match the quoted literal
+			assert.Equal(t, tc.want, formatDuration(tc.dur))
+		})
+	}
+	// Array(Time64) — durations inside an array keep quoted form
+	q, err := bind(time.UTC, "SELECT ?", []time.Duration{1 * time.Second, 2*time.Second + 500*time.Millisecond})
+	assert.NoError(t, err)
+	assert.Equal(t, "SELECT ['00:00:01', '00:00:02.5']", q)
+
+	// Map with Duration values
+	q, err = bind(time.UTC, "SELECT ?", map[string]time.Duration{"a": 1 * time.Second + 123*time.Millisecond})
+	assert.NoError(t, err)
+	assert.Equal(t, "SELECT map('a', '00:00:01.123')", q)
 }

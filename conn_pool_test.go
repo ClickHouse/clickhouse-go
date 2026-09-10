@@ -1,7 +1,9 @@
 package clickhouse
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"sync"
@@ -219,6 +221,65 @@ func TestConnPool_PutExpiredConnection(t *testing.T) {
 	assert.Equal(t, 0, pool.Len())
 }
 
+func TestConnPool_EvictionLogsReason(t *testing.T) {
+	newBufLogger := func() (*bytes.Buffer, *slog.Logger) {
+		var buf bytes.Buffer
+		return &buf, slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	}
+
+	t.Run("get skips expired connection", func(t *testing.T) {
+		buf, logger := newBufLogger()
+		pool := newConnPool(50*time.Millisecond, 5)
+		defer pool.Close()
+
+		expired := &mockTransport{connectedAt: time.Now(), id: 1, logger: logger}
+		pool.Put(expired)
+		time.Sleep(60 * time.Millisecond)
+
+		_, err := pool.Get(context.Background())
+		require.ErrorIs(t, err, errQueueEmpty)
+		assert.Contains(t, buf.String(), "closing expired connection from pool")
+		assert.Contains(t, buf.String(), "max_lifetime")
+	})
+
+	t.Run("put rejects expired connection", func(t *testing.T) {
+		buf, logger := newBufLogger()
+		pool := newConnPool(100*time.Millisecond, 5)
+		defer pool.Close()
+
+		expired := &mockTransport{connectedAt: time.Now().Add(-200 * time.Millisecond), id: 1, logger: logger}
+		pool.Put(expired)
+
+		assert.Equal(t, 0, pool.Len())
+		assert.Contains(t, buf.String(), "connection not returned to pool: lifetime expired")
+	})
+
+	t.Run("put rejects bad connection", func(t *testing.T) {
+		buf, logger := newBufLogger()
+		pool := newConnPool(time.Hour, 5)
+		defer pool.Close()
+
+		bad := &mockTransport{connectedAt: time.Now(), id: 1, bad: true, logger: logger}
+		pool.Put(bad)
+
+		assert.Equal(t, 0, pool.Len())
+		assert.Contains(t, buf.String(), "connection not returned to pool: connection is bad")
+		assert.Contains(t, buf.String(), errMockConnBad.Error())
+	})
+
+	t.Run("put rejects when pool is full", func(t *testing.T) {
+		buf, logger := newBufLogger()
+		pool := newConnPool(time.Hour, 1)
+		defer pool.Close()
+
+		pool.Put(&mockTransport{connectedAt: time.Now(), id: 1, logger: logger})
+		pool.Put(&mockTransport{connectedAt: time.Now(), id: 2, logger: logger})
+
+		assert.Equal(t, 1, pool.Len())
+		assert.Contains(t, buf.String(), "connection not returned to pool: pool is full")
+	})
+}
+
 func TestConnPool_PutOlderThanMinimumWithCapacity(t *testing.T) {
 	pool := newConnPool(time.Hour, 5)
 	defer pool.Close()
@@ -294,11 +355,12 @@ func TestConnPool_Close(t *testing.T) {
 	assert.Equal(t, ErrConnectionClosed, err)
 	assert.Nil(t, conn)
 
-	// Put should be ignored on closed pool
+	// Put on closed pool should close the connection rather than leak it
 	initialLen := pool.Len()
 	newConn := &mockTransport{connectedAt: time.Now(), id: 99}
 	pool.Put(newConn)
 	assert.Equal(t, initialLen, pool.Len(), "closed pool should not accept new connections")
+	assert.True(t, newConn.closed, "connection put on closed pool should be closed to prevent leak")
 
 	// Closing again should be safe
 	err = pool.Close()
@@ -477,8 +539,11 @@ type mockTransport struct {
 	bad           bool
 	bufferFreed   bool
 	debugMessages []string
+	logger        *slog.Logger
 	mu            sync.Mutex
 }
+
+var errMockConnBad = errors.New("mock transport marked bad")
 
 func (m *mockTransport) serverVersion() (*ServerVersion, error) {
 	return nil, nil
@@ -516,10 +581,13 @@ func (m *mockTransport) ping(ctx context.Context) error {
 	return nil
 }
 
-func (m *mockTransport) isBad() bool {
+func (m *mockTransport) healthCheck() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.bad
+	if m.bad {
+		return errMockConnBad
+	}
+	return nil
 }
 
 func (m *mockTransport) connID() int {
@@ -543,6 +611,9 @@ func (m *mockTransport) setReleased(released bool) {
 }
 
 func (m *mockTransport) getLogger() *slog.Logger {
+	if m.logger != nil {
+		return m.logger
+	}
 	return newNoopLogger()
 }
 
@@ -583,4 +654,50 @@ func (m *mockTransport) wasBufferFreed() bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.bufferFreed
+}
+
+// TestConnPool_PutCloseRace verifies that connections handed to Put() while
+// Close() is in flight are always closed and never leaked.
+//
+// Before the fix for issue #1831, Put() on a closed pool returned without
+// calling conn.close(), silently dropping the TCP connection. Run with -race.
+func TestConnPool_PutCloseRace(t *testing.T) {
+	const numConns = 50
+	pool := newConnPool(time.Second, numConns)
+
+	conns := make([]*mockTransport, numConns)
+	for i := range numConns {
+		conns[i] = newMockTransport(i + 1)
+	}
+
+	// ready is closed to fire all goroutines simultaneously, maximising the
+	// chance that Put() and Close() interleave at the critical point.
+	ready := make(chan struct{})
+	var wg sync.WaitGroup
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		<-ready
+		_ = pool.Close()
+	}()
+
+	for _, c := range conns {
+		c := c
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-ready
+			pool.Put(c)
+		}()
+	}
+
+	close(ready)
+	wg.Wait()
+
+	// Every connection must be closed: either drained by Close() or closed
+	// directly by Put() when it found the pool already shut down.
+	for i, c := range conns {
+		assert.True(t, c.isClosed(), "connection %d not closed: TCP connection leaked after pool.Close()", i+1)
+	}
 }

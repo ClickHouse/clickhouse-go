@@ -70,7 +70,7 @@ type Auth struct { // has_control_character
 
 type Compression struct {
 	Method CompressionMethod
-	// this only applies to lz4, lz4hc, zlib, and brotli compression algorithms
+	// this only applies to lz4, lz4hc, zlib, zstd, and brotli compression algorithms
 	Level int
 }
 
@@ -211,6 +211,10 @@ func (o *Options) fromDSN(in string) error {
 
 	for v := range params {
 		switch v {
+		case "hosts":
+			o.Addr = append(parseHostList(params.Get(v)), o.Addr...)
+		case "alt_hosts":
+			o.Addr = append(o.Addr, parseHostList(params.Get(v))...)
 		case "debug":
 			o.Debug, _ = strconv.ParseBool(params.Get(v))
 		case "compress":
@@ -357,16 +361,17 @@ func (o *Options) fromDSN(in string) error {
 			}
 			o.HttpUrlPath = path
 		default:
-			switch p := strings.ToLower(params.Get(v)); p {
+			raw := params.Get(v)
+			switch p := strings.ToLower(raw); p {
 			case "true":
 				o.Settings[v] = int(1)
 			case "false":
 				o.Settings[v] = int(0)
 			default:
-				if n, err := strconv.Atoi(p); err == nil {
+				if n, err := strconv.Atoi(raw); err == nil {
 					o.Settings[v] = n
 				} else {
-					o.Settings[v] = p
+					o.Settings[v] = raw
 				}
 			}
 		}
@@ -396,6 +401,16 @@ func (o *Options) fromDSN(in string) error {
 		o.Protocol = Native
 	}
 	return nil
+}
+
+func parseHostList(value string) []string {
+	var hosts []string
+	for _, host := range strings.Split(value, ",") {
+		if host = strings.TrimSpace(host); host != "" {
+			hosts = append(hosts, host)
+		}
+	}
+	return hosts
 }
 
 // receive copy of Options, so we don't modify original - so its reusable
