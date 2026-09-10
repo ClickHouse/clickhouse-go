@@ -1322,7 +1322,7 @@ func TestBindDuration_Time64Precision(t *testing.T) {
 	assert.Equal(t, "SELECT ['00:00:01', '00:00:02.5']", q)
 
 	// Map with Duration values
-	q, err = bind(time.UTC, "SELECT ?", map[string]time.Duration{"a": 1*time.Second + 123*time.Millisecond})
+	q, err = bind(time.UTC, "SELECT ?", map[string]time.Duration{"a": 1 * time.Second + 123*time.Millisecond})
 	assert.NoError(t, err)
 	assert.Equal(t, "SELECT map('a', '00:00:01.123')", q)
 }

@@ -16,8 +16,7 @@ import (
 
 func Test1229(t *testing.T) {
 	const (
-		// Allow for runner scheduling while preserving the concurrent-query check.
-		queryTimeout = 15 * time.Second
+		queryTimeout = 4 * time.Second
 		concurrency  = 100
 	)
 
