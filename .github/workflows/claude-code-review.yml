@@ -47,7 +47,7 @@ jobs:
             > existing-threads.json || echo '{"threads":[]}' > existing-threads.json
 
       - name: Review PR with Claude (produce findings JSON)
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@5ef2e550a465a721f4f45e4a7d3c340c873e1dcc # v1.0.190
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ github.token }}
