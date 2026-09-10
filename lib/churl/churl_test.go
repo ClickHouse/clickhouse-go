@@ -30,10 +30,8 @@ func TestParseHosts(t *testing.T) {
 		{"multi-host with ports", "clickhouse://host1:9000,host2:9001,host3:9000/db", "host1:9000,host2:9001,host3:9000"},
 		{"multi-host without ports", "clickhouse://host1,host2,host3/db", "host1,host2,host3"},
 		{"multi-host with auth and query", "clickhouse://user:pass@host1:9000,host2:9000/default?secure=true", "host1:9000,host2:9000"},
-		// The optional port belongs to a single host, so it has to be
-		// checked per element. Checking the list as a whole looks at the
-		// text after its last colon, which is ":9000,host2" here, and
-		// rejects a list that mixes an explicit port with a default one.
+		// A port belongs to one host. A check on the whole list reads the text
+		// after the last colon and rejects a mix of explicit and default ports.
 		{"multi-host mixing explicit and default ports", "clickhouse://host1:9000,host2/db", "host1:9000,host2"},
 		{"IPv6 with port", "clickhouse://[::1]:9000/db", "[::1]:9000"},
 		{"IPv6 without port", "clickhouse://[::1]/db", "[::1]"},
@@ -41,9 +39,8 @@ func TestParseHosts(t *testing.T) {
 		// address, e.g. "fe80::1%en0". The zone itself may use its own
 		// %-escaping rules.
 		{"IPv6 with zone identifier", "clickhouse://[fe80::1%25en0]:9000/db", "[fe80::1%en0]:9000"},
-		// A bracketed IP-literal is scoped to its own element too. Searching
-		// the whole list for brackets finds only the last literal and keeps
-		// that host alone, silently dropping every host in front of it.
+		// A bracket search on the whole list finds only the last IP-literal.
+		// The hosts before it are then dropped without an error.
 		{"multi-host IPv6", "clickhouse://[::1]:9000,[fe80::2]:9001/db", "[::1]:9000,[fe80::2]:9001"},
 		{"multi-host mixing IPv6 and named hosts", "clickhouse://host1:9000,[::2]:9001,host3/db", "host1:9000,[::2]:9001,host3"},
 		{"multi-host IPv6 with zone identifiers", "clickhouse://[fe80::1%25en0]:9000,[fe80::2%25en1]:9001/db", "[fe80::1%en0]:9000,[fe80::2%en1]:9001"},
@@ -270,9 +267,8 @@ func TestParseErrors(t *testing.T) {
 		// Per RFC 3986, only IPv6 addresses may be bracketed.
 		{"IPv6 brackets around an IPv4 literal are rejected", "clickhouse://[127.0.0.1]:9000/db", "invalid IP-literal"},
 		{"IPv6 host has trailing garbage after the bracket", "clickhouse://[::1]xyz/db", "invalid port"},
-		// Splitting the authority into one host per element must not make
-		// a malformed element pass: each one still goes through the same
-		// validation a single-host authority does.
+		// A split into elements must not let a malformed host pass. Each element
+		// gets the same validation as a single-host authority.
 		{"one host of a multi-host list has an invalid port", "clickhouse://host1:9000,host2:abc/db", "invalid port"},
 		{"one host of a multi-host list is not a valid IPv6 literal", "clickhouse://host1:9000,[not-an-ip]:9001/db", "invalid host"},
 		{"plain host has malformed percent-encoding", "clickhouse://%zz/db", ""},
