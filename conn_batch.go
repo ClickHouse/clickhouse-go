@@ -159,7 +159,7 @@ func (b *batch) appendRowsBlocks(r *rows) error {
 		lastReadLock = r.block
 	}
 
-	return nil
+	return r.Err()
 }
 
 func (b *batch) AppendStruct(v any) error {
