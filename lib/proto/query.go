@@ -1,6 +1,7 @@
 package proto
 
 import (
+	"crypto/sha256"
 	stdbin "encoding/binary"
 	"fmt"
 	"os"
@@ -28,6 +29,10 @@ type Query struct {
 	Compression              bool
 	InitialUser              string
 	InitialAddress           string
+	// ClusterSecret signs secondary queries.
+	ClusterSecret string
+	// ClusterSalt salts interserver signatures.
+	ClusterSalt string
 }
 
 func (q *Query) Encode(buffer *chproto.Buffer, revision uint64) error {
@@ -43,7 +48,7 @@ func (q *Query) Encode(buffer *chproto.Buffer, revision uint64) error {
 	buffer.PutString("") /* empty string is a marker of the end of setting */
 
 	if revision >= DBMS_MIN_REVISION_WITH_INTERSERVER_SECRET {
-		buffer.PutString("")
+		buffer.PutString(q.interserverHash())
 	}
 	{
 		buffer.PutByte(StateComplete)
@@ -68,8 +73,26 @@ func swap64(b []byte) {
 	}
 }
 
+// interserverHash returns SHA256(salt + secret + query + ID + user).
+func (q *Query) interserverHash() string {
+	if q.ClusterSecret == "" {
+		return ""
+	}
+	h := sha256.New()
+	h.Write([]byte(q.ClusterSalt))
+	h.Write([]byte(q.ClusterSecret))
+	h.Write([]byte(q.Body))
+	h.Write([]byte(q.ID))
+	h.Write([]byte(q.InitialUser))
+	return string(h.Sum(nil))
+}
+
 func (q *Query) encodeClientInfo(buffer *chproto.Buffer, revision uint64) error {
-	buffer.PutByte(ClientQueryInitial)
+	queryKind := byte(ClientQueryInitial)
+	if q.ClusterSecret != "" {
+		queryKind = ClientQuerySecondary
+	}
+	buffer.PutByte(queryKind)
 	buffer.PutString(q.InitialUser)    // initial_user
 	buffer.PutString("")               // initial_query_id
 	buffer.PutString(q.InitialAddress) // initial_address

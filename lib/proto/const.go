@@ -31,6 +31,9 @@ const (
 	ClientPing   = 4
 )
 
+// UserInterserverMarker identifies interserver authentication.
+const UserInterserverMarker = " INTERSERVER SECRET "
+
 const (
 	ClientQueryNone      = 0
 	ClientQueryInitial   = 1
