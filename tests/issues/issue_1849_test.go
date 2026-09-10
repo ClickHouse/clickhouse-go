@@ -25,6 +25,9 @@ func TestDecimalOverflow(t *testing.T) {
 			conn, err := clickhouse_tests.GetConnection(testSet, t, protocol, nil, nil, nil)
 			require.NoError(t, err)
 			t.Cleanup(func() { conn.Close() })
+			if !clickhouse_tests.CheckMinServerServerVersion(conn, 21, 12, 0) {
+				t.Skip("unsupported clickhouse version")
+			}
 			runDecimal128Overflow(t, func(value decimal.Decimal) error {
 				batch, err := conn.PrepareBatch(context.Background(), "INSERT INTO test_issue_1849_decimal128")
 				if err != nil {
