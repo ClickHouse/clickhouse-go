@@ -67,3 +67,16 @@ func TestConnPool_ExpiredConnectionsAreDrained(t *testing.T) {
 		synctest.Wait()
 	})
 }
+
+func TestConnPool_CloseDuringTickerTick(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		pool := newConnPool(50*time.Millisecond, 5)
+		pool.Put(&mockTransport{connectedAt: time.Now(), id: 1})
+
+		time.Sleep(50 * time.Millisecond)
+		synctest.Wait()
+
+		require.NoError(t, pool.Close())
+		require.NoError(t, pool.Close())
+	})
+}
