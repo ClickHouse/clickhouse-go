@@ -42,6 +42,9 @@ func fetchColumnNamesAndTypesForInsert(h *httpConnect, release nativeTransportRe
 		columnsToTypes[colName] = colType
 		allColumns = append(allColumns, colName)
 	}
+	if err = r.Err(); err != nil {
+		return nil, err
+	}
 
 	// The order of the columns must match the INSERT list, or the DESC table if no insert list was provided
 	insertColumns := make([]ColumnNameAndType, 0, len(allColumns))
