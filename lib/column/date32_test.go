@@ -7,6 +7,25 @@ import (
 )
 
 func TestDate32StringBounds(t *testing.T) {
+	appenders := []struct {
+		name   string
+		append func(*Date32, string) error
+	}{
+		{
+			name: "AppendRow",
+			append: func(col *Date32, value string) error {
+				return col.AppendRow(value)
+			},
+		},
+		{
+			name: "Append",
+			append: func(col *Date32, value string) error {
+				_, err := col.Append([]string{value})
+				return err
+			},
+		},
+	}
+
 	tests := []struct {
 		name    string
 		value   string
@@ -33,18 +52,20 @@ func TestDate32StringBounds(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			col := &Date32{}
+		for _, appender := range appenders {
+			t.Run(tt.name+"/"+appender.name, func(t *testing.T) {
+				col := &Date32{}
 
-			err := col.AppendRow(tt.value)
-			if tt.wantErr {
-				require.Error(t, err)
-				require.Zero(t, col.Rows())
-				return
-			}
+				err := appender.append(col, tt.value)
+				if tt.wantErr {
+					require.Error(t, err)
+					require.Zero(t, col.Rows())
+					return
+				}
 
-			require.NoError(t, err)
-			require.Equal(t, 1, col.Rows())
-		})
+				require.NoError(t, err)
+				require.Equal(t, 1, col.Rows())
+			})
+		}
 	}
 }
