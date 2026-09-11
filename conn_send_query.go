@@ -22,9 +22,12 @@ func (c *connect) sendQuery(body string, o *QueryOptions) error {
 		Span:                     o.span,
 		QuotaKey:                 o.quotaKey,
 		Compression:              c.compression != CompressionNone,
+		InitialUser:              c.effectiveInitialUser(o.initialUser),
 		InitialAddress:           c.conn.LocalAddr().String(),
 		Settings:                 c.settings(o.settings),
 		Parameters:               parametersToProtoParameters(o.parameters),
+		ClusterSecret:            c.opt.Cluster.Secret,
+		ClusterSalt:              c.clusterSalt,
 	}
 	if err := q.Encode(c.buffer, c.revision); err != nil {
 		return err

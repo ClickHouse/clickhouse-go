@@ -68,6 +68,25 @@ type Auth struct { // has_control_character
 	Password string
 }
 
+// ClusterCredentials configures interserver-secret authentication.
+type ClusterCredentials struct {
+	// Name is the configured cluster name.
+	Name string
+	// Secret is the shared secret. Empty disables interserver mode.
+	Secret string
+}
+
+// String redacts Secret.
+func (c ClusterCredentials) String() string {
+	if c.Secret == "" {
+		return fmt.Sprintf("clickhouse.ClusterCredentials{Name:%q}", c.Name)
+	}
+	return fmt.Sprintf("clickhouse.ClusterCredentials{Name:%q, Secret:[REDACTED %d bytes]}", c.Name, len(c.Secret))
+}
+
+// GoString redacts Secret for Go-syntax formatting.
+func (c ClusterCredentials) GoString() string { return c.String() }
+
 type Compression struct {
 	Method CompressionMethod
 	// this only applies to lz4, lz4hc, zlib, zstd, and brotli compression algorithms
@@ -119,9 +138,11 @@ type Options struct {
 	Protocol   Protocol
 	ClientInfo ClientInfo
 
-	TLS          *tls.Config
-	Addr         []string
-	Auth         Auth
+	TLS  *tls.Config
+	Addr []string
+	Auth Auth
+	// Cluster configures native interserver-secret authentication.
+	Cluster      ClusterCredentials
 	DialContext  func(ctx context.Context, addr string) (net.Conn, error)
 	DialStrategy func(ctx context.Context, connID int, options *Options, dial Dial) (DialResult, error)
 
@@ -448,6 +469,24 @@ func (o Options) setDefaults() *Options {
 		}
 	}
 	return &o
+}
+
+func (o *Options) validate() error {
+	if o.Cluster.Secret != "" {
+		if o.Auth.Username == "" {
+			return ErrClusterSecretRequiresUsername
+		}
+		if o.Cluster.Name == "" {
+			return ErrClusterSecretRequiresName
+		}
+		if o.Protocol != Native {
+			return ErrClusterSecretNeedsNative
+		}
+		if o.GetJWT != nil {
+			return ErrClusterSecretWithJWT
+		}
+	}
+	return nil
 }
 
 // logger returns the appropriate logger based on the Options configuration.
