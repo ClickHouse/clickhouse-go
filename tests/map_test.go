@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 
@@ -90,6 +91,47 @@ func TestMap(t *testing.T) {
 		assert.Equal(t, col4Data, col4)
 		assert.Equal(t, col5Data, col5)
 		assert.Equal(t, col6Data, col6)
+	})
+}
+
+func TestMapParameterizedKey(t *testing.T) {
+	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		conn, err := GetConnection(testSet, t, protocol, clickhouse.Settings{}, nil, &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		})
+		require.NoError(t, err)
+		t.Cleanup(func() { conn.Close() })
+
+		if !CheckMinServerServerVersion(conn, 24, 5, 0) {
+			t.Skip(fmt.Errorf("unsupported clickhouse version"))
+			return
+		}
+
+		const ddl = `
+		CREATE TABLE test_map_parameterized_key (
+			  Col1 Map(DateTime64(3, 'UTC'), String)
+		) Engine MergeTree() ORDER BY tuple()
+		`
+		const table = "test_map_parameterized_key"
+		ctx := context.Background()
+		t.Cleanup(func() {
+			if err := conn.Exec(ctx, "DROP TABLE IF EXISTS "+table); err != nil {
+				t.Logf("failed to drop %s: %v", table, err)
+			}
+		})
+
+		require.NoError(t, conn.Exec(ctx, ddl))
+		batch, err := conn.PrepareBatch(ctx, "INSERT INTO "+table)
+		require.NoError(t, err)
+		input := map[time.Time]string{
+			time.Date(2020, 1, 2, 3, 4, 5, 123000000, time.UTC): "value",
+		}
+		require.NoError(t, batch.Append(input))
+		require.NoError(t, batch.Send())
+
+		var output map[time.Time]string
+		require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM "+table).Scan(&output))
+		assert.Equal(t, input, output)
 	})
 }
 

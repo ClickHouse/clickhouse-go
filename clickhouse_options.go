@@ -68,6 +68,25 @@ type Auth struct { // has_control_character
 	Password string
 }
 
+// ClusterCredentials configures interserver-secret authentication.
+type ClusterCredentials struct {
+	// Name is the configured cluster name.
+	Name string
+	// Secret is the shared secret. Empty disables interserver mode.
+	Secret string
+}
+
+// String redacts Secret.
+func (c ClusterCredentials) String() string {
+	if c.Secret == "" {
+		return fmt.Sprintf("clickhouse.ClusterCredentials{Name:%q}", c.Name)
+	}
+	return fmt.Sprintf("clickhouse.ClusterCredentials{Name:%q, Secret:[REDACTED %d bytes]}", c.Name, len(c.Secret))
+}
+
+// GoString redacts Secret for Go-syntax formatting.
+func (c ClusterCredentials) GoString() string { return c.String() }
+
 type Compression struct {
 	Method CompressionMethod
 	// this only applies to lz4, lz4hc, zlib, zstd, and brotli compression algorithms
@@ -119,9 +138,11 @@ type Options struct {
 	Protocol   Protocol
 	ClientInfo ClientInfo
 
-	TLS          *tls.Config
-	Addr         []string
-	Auth         Auth
+	TLS  *tls.Config
+	Addr []string
+	Auth Auth
+	// Cluster configures native interserver-secret authentication.
+	Cluster      ClusterCredentials
 	DialContext  func(ctx context.Context, addr string) (net.Conn, error)
 	DialStrategy func(ctx context.Context, connID int, options *Options, dial Dial) (DialResult, error)
 
@@ -211,6 +232,10 @@ func (o *Options) fromDSN(in string) error {
 
 	for v := range params {
 		switch v {
+		case "hosts":
+			o.Addr = append(parseHostList(params.Get(v)), o.Addr...)
+		case "alt_hosts":
+			o.Addr = append(o.Addr, parseHostList(params.Get(v))...)
 		case "debug":
 			o.Debug, _ = strconv.ParseBool(params.Get(v))
 		case "compress":
@@ -357,16 +382,17 @@ func (o *Options) fromDSN(in string) error {
 			}
 			o.HttpUrlPath = path
 		default:
-			switch p := strings.ToLower(params.Get(v)); p {
+			raw := params.Get(v)
+			switch p := strings.ToLower(raw); p {
 			case "true":
 				o.Settings[v] = int(1)
 			case "false":
 				o.Settings[v] = int(0)
 			default:
-				if n, err := strconv.Atoi(p); err == nil {
+				if n, err := strconv.Atoi(raw); err == nil {
 					o.Settings[v] = n
 				} else {
-					o.Settings[v] = p
+					o.Settings[v] = raw
 				}
 			}
 		}
@@ -396,6 +422,16 @@ func (o *Options) fromDSN(in string) error {
 		o.Protocol = Native
 	}
 	return nil
+}
+
+func parseHostList(value string) []string {
+	var hosts []string
+	for _, host := range strings.Split(value, ",") {
+		if host = strings.TrimSpace(host); host != "" {
+			hosts = append(hosts, host)
+		}
+	}
+	return hosts
 }
 
 // receive copy of Options, so we don't modify original - so its reusable
@@ -433,6 +469,24 @@ func (o Options) setDefaults() *Options {
 		}
 	}
 	return &o
+}
+
+func (o *Options) validate() error {
+	if o.Cluster.Secret != "" {
+		if o.Auth.Username == "" {
+			return ErrClusterSecretRequiresUsername
+		}
+		if o.Cluster.Name == "" {
+			return ErrClusterSecretRequiresName
+		}
+		if o.Protocol != Native {
+			return ErrClusterSecretNeedsNative
+		}
+		if o.GetJWT != nil {
+			return ErrClusterSecretWithJWT
+		}
+	}
+	return nil
 }
 
 // logger returns the appropriate logger based on the Options configuration.

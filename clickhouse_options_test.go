@@ -531,6 +531,45 @@ func TestParseDSN(t *testing.T) {
 			"",
 		},
 		{
+			"clickhouse proxy with hosts and alt_hosts as query strings",
+			"tcp://127.0.0.1/?hosts=127.0.0.2&alt_hosts=127.0.0.3",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"127.0.0.2", "127.0.0.1", "127.0.0.3"},
+				Settings: Settings{},
+				Auth:     Auth{},
+				scheme:   "tcp",
+			},
+			"",
+		},
+		{
+			"clickhouse proxy trims and skips empty query string hosts",
+			"tcp://127.0.0.1/?hosts=%20%20a,%20b,,&alt_hosts=%20",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"a", "b", "127.0.0.1"},
+				Settings: Settings{},
+				Auth:     Auth{},
+				scheme:   "tcp",
+			},
+			"",
+		},
+		{
+			"clickhouse proxy ignores empty hosts query string",
+			"tcp://127.0.0.1/?hosts=",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"127.0.0.1"},
+				Settings: Settings{},
+				Auth:     Auth{},
+				scheme:   "tcp",
+			},
+			"",
+		},
+		{
 			"http protocol with custom http_path",
 			"https://127.0.0.1/clickhouse?secure=true&skip_verify=true&http_path=/clickhouse",
 			&Options{
@@ -549,12 +588,93 @@ func TestParseDSN(t *testing.T) {
 			"",
 		},
 		{
+			"setting value preserves original case",
+			"clickhouse://127.0.0.1/test_database?log_comment=REQUEST_TYPE:proxy%3BUSER_ID:TEST",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"127.0.0.1"},
+				Settings: Settings{
+					"log_comment": "REQUEST_TYPE:proxy;USER_ID:TEST",
+				},
+				Auth: Auth{
+					Database: "test_database",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
+			"setting boolean true is case insensitive",
+			"clickhouse://127.0.0.1/test_database?async_insert=True",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"127.0.0.1"},
+				Settings: Settings{
+					"async_insert": int(1),
+				},
+				Auth: Auth{
+					Database: "test_database",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
+			"setting numeric value preserved",
+			"clickhouse://127.0.0.1/test_database?max_block_size=65505",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"127.0.0.1"},
+				Settings: Settings{
+					"max_block_size": int(65505),
+				},
+				Auth: Auth{
+					Database: "test_database",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
 			"multiple hosts in HA mode",
 			"clickhouse://127.0.0.1:9440,127.0.0.2:9440/test_database",
 			&Options{
 				Protocol: Native,
 				TLS:      nil,
 				Addr:     []string{"127.0.0.1:9440", "127.0.0.2:9440"},
+				Settings: Settings{},
+				Auth: Auth{
+					Database: "test_database",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
+			"multiple IPv6 hosts in HA mode",
+			"clickhouse://[::1]:9440,[fe80::2]:9440/test_database",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"[::1]:9440", "[fe80::2]:9440"},
+				Settings: Settings{},
+				Auth: Auth{
+					Database: "test_database",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
+			"multiple hosts in HA mode with mixed explicit and default ports",
+			"clickhouse://127.0.0.1:9440,127.0.0.2/test_database",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"127.0.0.1:9440", "127.0.0.2"},
 				Settings: Settings{},
 				Auth: Auth{
 					Database: "test_database",
@@ -579,6 +699,19 @@ func TestParseDSN(t *testing.T) {
 			assert.Nil(t, err)
 		})
 	}
+}
+
+func TestEffectiveInitialUser(t *testing.T) {
+	ordinary := &connect{opt: &Options{Auth: Auth{Username: "authenticated"}}}
+	require.Empty(t, ordinary.effectiveInitialUser("override"))
+	require.Empty(t, ordinary.effectiveInitialUser(""))
+
+	interserver := &connect{opt: &Options{
+		Auth:    Auth{Username: "fallback"},
+		Cluster: ClusterCredentials{Secret: "secret"},
+	}}
+	require.Equal(t, "override", interserver.effectiveInitialUser("override"))
+	require.Equal(t, "fallback", interserver.effectiveInitialUser(""))
 }
 
 func parseURL(t *testing.T, v string) *url.URL {

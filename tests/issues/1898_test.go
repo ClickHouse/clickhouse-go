@@ -64,19 +64,18 @@ func TestIssue1898_MapQueryParameter(t *testing.T) {
 			require.Equal(t, in, got)
 		})
 
-		// A top-level string is passed to the server as-is (that is also the
-		// escape hatch for sending pre-formatted parameter text), and the
-		// server then decodes escapes in it: `\'` becomes `'`. Both
-		// protocols must agree on the result — before the Field-dump
-		// escaping fix, native rejected any value with a backslash before a
-		// quote.
-		t.Run("String passes through raw on both protocols", func(t *testing.T) {
+		// A top-level String sent via Named is TSV-escaped by the driver, so it
+		// round-trips byte-for-byte on both protocols — backslashes and quotes
+		// come back exactly as passed, and quotes no longer need the `\'` escape
+		// treatment. Before the Field-dump escaping fix, native rejected any
+		// value with a backslash before a quote.
+		t.Run("String round-trips raw on both protocols", func(t *testing.T) {
 			var got string
 			require.NoError(t, conn.QueryRow(ctx,
 				"SELECT {s:String}",
 				clickhouse.Named("s", `a'b\'c`),
 			).Scan(&got))
-			require.Equal(t, `a'b'c`, got)
+			require.Equal(t, `a'b\'c`, got)
 		})
 
 		t.Run("empty map", func(t *testing.T) {
