@@ -253,19 +253,19 @@ func (col *Date) appendTime(value time.Time) error {
 	return nil
 }
 
-func validateDate(value, min, max time.Time) error {
+func validateDate(value, lower, upper time.Time) error {
 	if value.IsZero() {
 		return nil
 	}
 
 	year, month, day := value.Date()
 	date := time.Date(year, month, day, 0, 0, 0, 0, time.UTC)
-	if date.Before(min) || date.After(max) {
+	if date.Before(lower) || date.After(upper) {
 		return fmt.Errorf(
 			"clickhouse: date %q is outside the supported range [%s, %s]",
 			value.Format(defaultDateFormatNoZone),
-			min.Format(defaultDateFormatNoZone),
-			max.Format(defaultDateFormatNoZone),
+			lower.Format(defaultDateFormatNoZone),
+			upper.Format(defaultDateFormatNoZone),
 		)
 	}
 	return nil
