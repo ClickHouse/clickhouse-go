@@ -1,5 +1,3 @@
-//go:build !go1.23
-
 package driver
 
 import (
@@ -112,7 +110,7 @@ func TestStructIterTerminalRowsError(t *testing.T) {
 		Value int
 	}
 
-	rows := &testRows{values: []int{1}, err: io.EOF}
+	rows := &testRows{values: []int{1}, err: io.EOF, closeErr: io.EOF}
 
 	var got []item
 	var gotErr error
@@ -124,7 +122,7 @@ func TestStructIterTerminalRowsError(t *testing.T) {
 		got = append(got, value)
 	}
 
-	if !errors.Is(gotErr, io.EOF) {
+	if gotErr != io.EOF {
 		t.Fatalf("unexpected terminal error: %v", gotErr)
 	}
 	if !reflect.DeepEqual(got, []item{{Value: 1}}) {
