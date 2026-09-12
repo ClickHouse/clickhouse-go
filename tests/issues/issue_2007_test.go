@@ -54,6 +54,13 @@ func TestIssue2007LowCardinalityFloats(t *testing.T) {
 					assert.True(t, math.IsNaN(f64))
 					assert.True(t, math.IsNaN(float64(*n32)))
 					assert.True(t, math.IsNaN(*n64))
+				} else if want == 0 {
+					// ClickHouse can merge signed zeros in its LowCardinality
+					// dictionary. Exact wire bits are checked by the column unit tests.
+					assert.Zero(t, f32)
+					assert.Zero(t, f64)
+					assert.Zero(t, *n32)
+					assert.Zero(t, *n64)
 				} else {
 					assert.Equal(t, math.Float32bits(float32(want)), math.Float32bits(f32))
 					assert.Equal(t, math.Float64bits(want), math.Float64bits(f64))
