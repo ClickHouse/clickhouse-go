@@ -69,3 +69,13 @@ func TestFixedStringAppendBinaryMarshaler(t *testing.T) {
 		})
 	}
 }
+
+func TestFixedStringAppendByteSlicesOverflow(t *testing.T) {
+	col := &FixedString{
+		col: proto.ColFixedStr{Size: 3},
+	}
+
+	_, err := col.Append([][]byte{[]byte("abcd")})
+	require.EqualError(t, err, "input value with length 4 exceeds FixedString(3) capacity")
+	require.Equal(t, 0, col.Rows())
+}
