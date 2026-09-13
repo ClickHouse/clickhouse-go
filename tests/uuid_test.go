@@ -357,40 +357,71 @@ func (c *testUUIDValuer) Scan(src any) error {
 }
 
 func TestUUIDValuer(t *testing.T) {
+	ids := [1000]testUUIDValuer{}
+	for i := range ids {
+		ids[i].val = uuid.New()
+	}
+	testUUIDImplementation(t, ids)
+}
+
+type testUUIDTextUnmarshaller struct {
+	val uuid.UUID
+}
+
+func (c testUUIDTextUnmarshaller) String() string {
+	return c.val.String()
+}
+
+func (c *testUUIDTextUnmarshaller) UnmarshalText(data []byte) error {
+	return c.val.UnmarshalText(data)
+}
+
+func TestUUIDUnmarshaller(t *testing.T) {
+	ids := [1000]testUUIDTextUnmarshaller{}
+	for i := range ids {
+		ids[i].val = uuid.New()
+	}
+	testUUIDImplementation(t, ids)
+}
+
+func testUUIDImplementation[T any](t *testing.T, vals [1000]T) {
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		ctx := t.Context()
+
 		conn, err := GetNativeConnection(t, protocol, nil, nil, &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
 		})
-		ctx := context.Background()
 		require.NoError(t, err)
+
 		defer func() {
 			conn.Exec(ctx, "DROP TABLE IF EXISTS uuid_valuer1")
 		}()
 		const ddl = `
 		CREATE TABLE uuid_valuer1 (
-			  Col1 UUID
+			Col1 UUID
 		) Engine MergeTree() ORDER BY tuple()
 		`
 		require.NoError(t, conn.Exec(ctx, ddl))
+
 		batch, err := conn.PrepareBatch(ctx, "INSERT INTO uuid_valuer1")
 		require.NoError(t, err)
-		vals := [1000]uuid.UUID{}
-		for i := 0; i < 1000; i++ {
-			vals[i] = uuid.New()
-			require.NoError(t, batch.Append(testUUIDValuer{val: vals[i]}))
+		for i := range vals {
+			require.NotEmpty(t, vals[i])
+			require.NoError(t, batch.Append(vals[i]))
 		}
 		batch.Send()
+
 		rows, err := conn.Query(ctx, "SELECT * FROM uuid_valuer1")
 		require.NoError(t, err)
 		i := 0
 		for rows.Next() {
-			var col1 uuid.UUID
+			var col1 T
 			require.NoError(t, rows.Scan(&col1))
 			require.Equal(t, vals[i], col1)
 			i += 1
 		}
 		require.NoError(t, rows.Close())
 		require.NoError(t, rows.Err())
-		require.Equal(t, 1000, i)
+		require.Equal(t, len(vals), i)
 	})
 }
