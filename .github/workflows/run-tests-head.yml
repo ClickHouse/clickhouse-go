@@ -1,6 +1,7 @@
 name: Tests head
 
-permissions: write-all
+permissions:
+  contents: read
 
 on:
   schedule:
