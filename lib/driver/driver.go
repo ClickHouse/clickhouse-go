@@ -95,10 +95,9 @@ type (
 		// cleanly. An explicit caller setting takes precedence over the pin.
 		//
 		// Experimental: this API is experimental and may change or be removed
-		// in a future minor release. It is currently only supported over the
-		// HTTP protocol, where the server encodes the stream and every
-		// server-supported format works; over the native protocol it returns
-		// clickhouse.ErrFormatNativeUnsupported.
+		// in a future minor release. Over HTTP and supported native servers,
+		// the server encodes the stream and every server-supported output format
+		// works.
 		QueryFormat(ctx context.Context, format string, query string, args ...any) (io.ReadCloser, error)
 
 		// InsertFormat executes the INSERT statement query, streaming
@@ -118,7 +117,7 @@ type (
 		// in a future minor release. It is currently only supported over the
 		// HTTP protocol, where the server parses the payload and every
 		// server-supported format works; over the native protocol it returns
-		// clickhouse.ErrFormatNativeUnsupported.
+		// clickhouse.ErrInsertFormatNativeUnsupported.
 		InsertFormat(ctx context.Context, format string, query string, data io.Reader) error
 
 		// Deprecated: use context aware `WithAsync()` for any async operations

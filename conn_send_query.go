@@ -9,10 +9,14 @@ import (
 // Connection::sendQuery
 // https://github.com/ClickHouse/ClickHouse/blob/master/src/Client/Connection.cpp
 func (c *connect) sendQuery(body string, o *QueryOptions) error {
+	return c.sendQueryPacket(body, o, proto.ClientQuery)
+}
+
+func (c *connect) sendQueryPacket(body string, o *QueryOptions, packet byte) error {
 	c.logger.Debug("sending query",
 		slog.String("compression", c.compression.String()),
 		slog.String("query", body))
-	c.buffer.PutByte(proto.ClientQuery)
+	c.buffer.PutByte(packet)
 	q := proto.Query{
 		ClientTCPProtocolVersion: ClientTCPProtocolVersion,
 		ClientName:               c.opt.ClientInfo.Append(o.clientInfo).String(),

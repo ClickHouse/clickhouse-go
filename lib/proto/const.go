@@ -20,15 +20,17 @@ const (
 	DBMS_MIN_PROTOCOL_VERSION_WITH_QUOTA_KEY                    = 54458
 	DBMS_MIN_PROTOCOL_VERSION_WITH_PARAMETERS                   = 54459
 	DBMS_MIN_PROTOCOL_VERSION_WITH_SERVER_QUERY_TIME_IN_PROGRES = 54460
+	DBMS_MIN_PROTOCOL_VERSION_WITH_SERVER_FORMATTED_RESULTS     = 54493
 	DBMS_TCP_PROTOCOL_VERSION                                   = DBMS_MIN_PROTOCOL_VERSION_WITH_SERVER_QUERY_TIME_IN_PROGRES
 )
 
 const (
-	ClientHello  = 0
-	ClientQuery  = 1
-	ClientData   = 2
-	ClientCancel = 3
-	ClientPing   = 4
+	ClientHello                          = 0
+	ClientQuery                          = 1
+	ClientData                           = 2
+	ClientCancel                         = 3
+	ClientPing                           = 4
+	ClientQueryWithServerFormattedResult = 15
 )
 
 const (
@@ -63,4 +65,6 @@ const (
 	ServerReadTaskRequest     = 13
 	ServerProfileEvents       = 14
 	ServerTreeReadTaskRequest = 15
+	ServerResultMetadata      = 19
+	ServerFormattedData       = 20
 )

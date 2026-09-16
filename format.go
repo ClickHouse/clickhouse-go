@@ -52,19 +52,14 @@ func hasTrailingFormatClause(query string) bool {
 // different encoding than asked for.
 //
 // Experimental: this API is experimental and may change or be removed in a
-// future minor release. It is currently only supported over the HTTP
-// protocol; over the native protocol it returns ErrFormatNativeUnsupported.
+// future minor release. Over HTTP and supported native servers, ClickHouse
+// performs the format conversion on the server.
 func (ch *clickhouse) QueryFormat(ctx context.Context, format string, query string, args ...any) (io.ReadCloser, error) {
 	if err := validateFormatName(format); err != nil {
 		return nil, err
 	}
 	if hasTrailingFormatClause(query) {
 		return nil, fmt.Errorf("clickhouse: query must not contain a trailing FORMAT clause; pass the format as the QueryFormat argument (%q) instead", format)
-	}
-	// Checked before acquiring: a saturated pool or failed dial must not mask
-	// the actionable "use HTTP" error behind ErrAcquireConnTimeout.
-	if ch.opt.Protocol != HTTP {
-		return nil, ErrFormatNativeUnsupported
 	}
 	conn, err := ch.acquire(ctx)
 	if err != nil {
@@ -79,14 +74,14 @@ func (ch *clickhouse) QueryFormat(ctx context.Context, format string, query stri
 // for the full contract.
 //
 // Experimental: this API is experimental and may change or be removed in a
-// future minor release. It is currently only supported over the HTTP
-// protocol; over the native protocol it returns ErrFormatNativeUnsupported.
+// future minor release. It is currently only supported over HTTP; the native
+// result-format extension does not define client-to-server formatted input.
 func (ch *clickhouse) InsertFormat(ctx context.Context, format string, query string, data io.Reader) error {
 	if err := validateFormatName(format); err != nil {
 		return err
 	}
 	if ch.opt.Protocol != HTTP {
-		return ErrFormatNativeUnsupported
+		return ErrInsertFormatNativeUnsupported
 	}
 	// Validated before acquiring: a malformed statement is a caller mistake
 	// and must not consume a pooled connection.

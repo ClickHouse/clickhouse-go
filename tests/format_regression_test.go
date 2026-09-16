@@ -88,3 +88,31 @@ func TestFormatCompressedInsertRoundTrip(t *testing.T) {
 func quote(s string) string {
 	return "'" + string(bytes.ReplaceAll([]byte(s), []byte("'"), []byte("\\'"))) + "'"
 }
+
+func TestFormatNativeGenuineMidStreamException(t *testing.T) {
+	conn, err := GetNativeConnection(t, clickhouse.Native, nil, nil,
+		&clickhouse.Compression{Method: clickhouse.CompressionLZ4})
+	require.NoError(t, err)
+	defer conn.Close()
+
+	version, err := conn.ServerVersion()
+	require.NoError(t, err)
+	if version.Revision < 54493 {
+		t.Skip("server does not support native server-formatted results")
+	}
+
+	ctx := clickhouse.Context(context.Background(), clickhouse.WithSettings(clickhouse.Settings{
+		"max_threads":    1,
+		"max_block_size": 1,
+	}))
+	stream, err := conn.QueryFormat(ctx, "CSV",
+		"SELECT throwIf(number=3, 'native boom mid stream') FROM system.numbers")
+	require.NoError(t, err)
+	_, err = io.ReadAll(stream)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "native boom mid stream")
+	require.NoError(t, stream.Close())
+
+	// The failed stream must release its connection slot and allow a new query.
+	require.NoError(t, conn.Exec(context.Background(), "SELECT 1"))
+}

@@ -164,20 +164,63 @@ func TestFormatInsertStripsStatementTerminator(t *testing.T) {
 	verifyFormatTestTable(t, conn, table)
 }
 
-// TestFormatNativeProtocolUnsupported verifies the sentinel error over the
-// native protocol and that the pool stays healthy after the rejected calls.
-func TestFormatNativeProtocolUnsupported(t *testing.T) {
-	conn, err := GetNativeConnection(t, clickhouse.Native, nil, nil, nil)
-	require.NoError(t, err)
+// TestFormatNativeProtocolSupport verifies both sides of the native API boundary:
+// capable servers stream formatted query results, while formatted INSERT input
+// remains explicitly unsupported.
+func TestFormatNativeProtocolSupport(t *testing.T) {
 	ctx := context.Background()
+	compressions := []struct {
+		name  string
+		value *clickhouse.Compression
+	}{
+		{name: "uncompressed"},
+		{name: "lz4", value: &clickhouse.Compression{Method: clickhouse.CompressionLZ4}},
+	}
 
-	_, err = conn.QueryFormat(ctx, "CSV", "SELECT 1")
-	require.ErrorIs(t, err, clickhouse.ErrFormatNativeUnsupported)
+	for _, compression := range compressions {
+		t.Run(compression.name, func(t *testing.T) {
+			conn, err := GetNativeConnection(t, clickhouse.Native, nil, nil, compression.value)
+			require.NoError(t, err)
 
-	err = conn.InsertFormat(ctx, "CSV", "INSERT INTO t", strings.NewReader(""))
-	require.ErrorIs(t, err, clickhouse.ErrFormatNativeUnsupported)
+			version, err := conn.ServerVersion()
+			require.NoError(t, err)
+			if version.Revision < 54493 {
+				_, err = conn.QueryFormat(ctx, "CSV", "SELECT 1")
+				require.ErrorIs(t, err, clickhouse.ErrServerFormattedResultsUnsupported)
+			} else {
+				testCases := []struct {
+					format string
+					check  func(*testing.T, []byte)
+				}{
+					{format: "CSV", check: func(t *testing.T, data []byte) {
+						require.Equal(t, "0\n1\n2\n", string(data))
+					}},
+					{format: "JSONEachRow", check: func(t *testing.T, data []byte) {
+						require.Equal(t, "{\"number\":0}\n{\"number\":1}\n{\"number\":2}\n", string(data))
+					}},
+					{format: "Parquet", check: func(t *testing.T, data []byte) {
+						require.GreaterOrEqual(t, len(data), 8)
+						require.Equal(t, []byte("PAR1"), data[:4])
+						require.Equal(t, []byte("PAR1"), data[len(data)-4:])
+					}},
+				}
+				for _, testCase := range testCases {
+					t.Run(testCase.format, func(t *testing.T) {
+						stream, queryErr := conn.QueryFormat(ctx, testCase.format, "SELECT number FROM numbers(3)")
+						require.NoError(t, queryErr)
+						data, readErr := io.ReadAll(stream)
+						require.NoError(t, readErr)
+						require.NoError(t, stream.Close())
+						testCase.check(t, data)
+					})
+				}
+			}
 
-	require.NoError(t, conn.Exec(ctx, "SELECT 1"))
+			err = conn.InsertFormat(ctx, "CSV", "INSERT INTO t", strings.NewReader(""))
+			require.ErrorIs(t, err, clickhouse.ErrInsertFormatNativeUnsupported)
+			require.NoError(t, conn.Exec(ctx, "SELECT 1"))
+		})
+	}
 }
 
 // TestFormatInvalidFormatName verifies format names are validated before
