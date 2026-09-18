@@ -6,11 +6,6 @@ import (
 	"strings"
 )
 
-// normalizeInsertQueryMatch captures the INSERT statement and its table name. It runs on
-// a query sanitizeInsertQuery has already stripped of comments, so it does not have to
-// skip them itself.
-var normalizeInsertQueryMatch = regexp.MustCompile(`(?i)(INSERT\s+INTO\s+([^(]+)(?:\s*\([^()]*(?:\([^()]*\)[^()]*)*\))?)(?:\s*VALUES)?`)
-var extractInsertColumnsMatch = regexp.MustCompile(`(?si)INSERT INTO .+\s\((?P<Columns>.+)\)$`)
 
 // extractInsertSettingsMatch captures a trailing SETTINGS clause. The `\w+\s*=`
 // after the SETTINGS keyword requires an actual `name = value` assignment so a table
@@ -74,6 +69,96 @@ func extractNormalizedInsertQueryAndColumns(query string) (normalizedQuery strin
 	return fmt.Sprintf("%s FORMAT Native", insertStmt), tableName, columns, nil
 }
 
+func parseInsertTableAndColumns(sanitized string) (tableName string, columnsPart string, ok bool) {
+	s := strings.TrimSpace(sanitized)
+	lower := strings.ToLower(s)
+	if !strings.HasPrefix(lower, "insert") {
+		return "", "", false
+	}
+	s = strings.TrimSpace(s[len("insert"):])
+	if !strings.HasPrefix(strings.ToLower(s), "into") {
+		return "", "", false
+	}
+	s = strings.TrimSpace(s[len("into"):])
+	if s == "" {
+		return "", "", false
+	}
+
+	var quote byte
+	tableEnd := -1
+	colStart := -1
+	colEnd := -1
+
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if quote != 0 {
+			if c == '\\' && i+1 < len(s) {
+				i++
+				continue
+			}
+			if c == quote {
+				quote = 0
+			}
+			continue
+		}
+
+		if c == '`' || c == '"' {
+			quote = c
+			continue
+		}
+
+		if c == '(' {
+			tableEnd = i
+			colStart = i + 1
+			break
+		}
+	}
+
+	if tableEnd == -1 {
+		tableName = strings.TrimSpace(s)
+		return tableName, "", true
+	}
+
+	tableName = strings.TrimSpace(s[:tableEnd])
+
+	depth := 1
+	quote = 0
+	for i := colStart; i < len(s); i++ {
+		c := s[i]
+		if quote != 0 {
+			if c == '\\' && i+1 < len(s) {
+				i++
+				continue
+			}
+			if c == quote {
+				quote = 0
+			}
+			continue
+		}
+
+		if c == '`' || c == '"' {
+			quote = c
+			continue
+		}
+
+		if c == '(' {
+			depth++
+		} else if c == ')' {
+			depth--
+			if depth == 0 {
+				colEnd = i
+				break
+			}
+		}
+	}
+
+	if colEnd != -1 {
+		columnsPart = s[colStart:colEnd]
+	}
+
+	return tableName, columnsPart, true
+}
+
 // extractInsertQueryComponents strips any FORMAT clause or VALUES suffix from
 // an INSERT query and returns the bare statement, so the caller can append the
 // FORMAT of its choosing.
@@ -91,24 +176,23 @@ func extractInsertQueryComponents(query string) (insertStmt string, tableName st
 		sanitized = sanitized[:loc[0]]
 	}
 
-	matches := normalizeInsertQueryMatch.FindStringSubmatch(sanitized)
-	if len(matches) == 0 {
+	parsedTable, parsedColumnsPart, ok := parseInsertTableAndColumns(sanitized)
+	if !ok || parsedTable == "" {
 		// The query as given by the caller is reported, not the sanitized one, so the
 		// error still shows what was passed in.
 		err = fmt.Errorf("invalid INSERT query: %s", query)
 		return
 	}
 
-	insertStmt = matches[1]
+	insertStmt = strings.TrimSpace(sanitized)
 	if settingsClause != "" {
 		insertStmt += " " + settingsClause
 	}
-	tableName = strings.TrimSpace(matches[2])
+	tableName = parsedTable
 
 	columns = make([]string, 0)
-	matches = extractInsertColumnsMatch.FindStringSubmatch(matches[1])
-	if len(matches) == 2 {
-		rawColumns := splitColumnsRespectingQuotes(matches[1])
+	if parsedColumnsPart != "" {
+		rawColumns := splitColumnsRespectingQuotes(parsedColumnsPart)
 		// refers to https://clickhouse.com/docs/en/sql-reference/syntax#identifiers
 		// we can use identifiers with double quotes or backticks, for example: "id", `id`, but not both, like `"id"`.
 		for _, col := range rawColumns {
