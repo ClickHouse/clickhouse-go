@@ -214,6 +214,31 @@ func (s *bindQuoteState) update(query string, pos int) int {
 	return pos
 }
 
+// skipHeredoc returns the last byte of a complete dollar-quoted literal at pos,
+// or pos if there is none. Like the server lexer, it accepts empty and numeric
+// tags, requires a matching closing tag, and does not start inside a bare word.
+// Call this before recognizing placeholders: $1$ is a valid heredoc delimiter.
+func (s *bindQuoteState) skipHeredoc(query string, pos int) int {
+	if query[pos] != '$' || s.inProtectedContext() || isEscaped(query, pos) {
+		return pos
+	}
+	if pos > 0 && (isNameChar(query[pos-1]) || query[pos-1] == '$') {
+		return pos
+	}
+	tagEnd := pos + 1
+	for tagEnd < len(query) && isNameChar(query[tagEnd]) && query[tagEnd] != '$' {
+		tagEnd++
+	}
+	if tagEnd == len(query) || query[tagEnd] != '$' {
+		return pos
+	}
+	delimiter := query[pos : tagEnd+1]
+	if end := strings.Index(query[tagEnd+1:], delimiter); end >= 0 {
+		return tagEnd + end + len(delimiter)
+	}
+	return pos
+}
+
 func isEscaped(query string, pos int) bool {
 	backslashes := 0
 	for i := pos - 1; i >= 0 && query[i] == '\\'; i-- {
@@ -238,6 +263,10 @@ func isNameChar(ch byte) bool {
 func bindParamsFormats(query string) (haveNumeric, havePositional bool) {
 	var state bindQuoteState
 	for i := 0; i < len(query); i++ {
+		if end := state.skipHeredoc(query, i); end > i {
+			i = end
+			continue
+		}
 		if !state.inProtectedContext() {
 			switch {
 			case query[i] == '?' && (i == 0 || query[i-1] != '\\'):
@@ -264,6 +293,10 @@ func bindPositional(tz *time.Location, query string, args ...any) (_ string, err
 	)
 
 	for i := 0; i < len(query); i++ {
+		if end := state.skipHeredoc(query, i); end > i {
+			i = end
+			continue
+		}
 		// It's fine looping through the query string as bytes, because the (fixed) characters we're looking for
 		// are in the ASCII range to won't take up more than one byte.
 		if query[i] == '?' {
@@ -352,6 +385,10 @@ func bindNumeric(tz *time.Location, query string, args ...any) (_ string, err er
 	}
 
 	for i := 0; i < len(query); i++ {
+		if end := state.skipHeredoc(query, i); end > i {
+			i = end
+			continue
+		}
 		if !state.inProtectedContext() && query[i] == '$' && i+1 < len(query) && isDigit(query[i+1]) {
 			j := i + 2
 			for j < len(query) && isDigit(query[j]) {
@@ -412,6 +449,10 @@ func bindNamed(tz *time.Location, query string, args ...any) (_ string, err erro
 	}
 
 	for i := 0; i < len(query); i++ {
+		if end := state.skipHeredoc(query, i); end > i {
+			i = end
+			continue
+		}
 		// A named placeholder is "@" followed by at least one name character, and
 		// only counts outside of quoted identifiers, string literals and comments.
 		if !state.inProtectedContext() && query[i] == '@' && i+1 < len(query) && isNameChar(query[i+1]) {
