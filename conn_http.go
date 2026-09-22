@@ -482,8 +482,11 @@ func (h *httpConnect) readData(reader *chproto.Reader, timezone *time.Location, 
 		if len(remaining) > 0 && captureBuffer != nil {
 			captureBuffer.Write(remaining)
 		}
-		if readErr != nil {
-			h.logger.Error("HTTP read data: decode error while parsing exception block", slog.Any("error", err))
+		if readErr != nil && !errors.Is(readErr, io.EOF) {
+			h.logger.Error("HTTP read data: failed to drain exception block",
+				slog.Any("error", readErr),
+				slog.Any("decode_error", err),
+			)
 		}
 
 		// A plain io.EOF with nothing read in this call and nothing left to
