@@ -15,7 +15,7 @@ import (
 
 // TestIssue1881_FixedUTCOffsetTimezone verifies that DateTime / DateTime64
 // columns whose timezone is a synthetic fixed offset (e.g.
-// DateTime('Fixed/UTC+05:30:15')) deserialize correctly. ClickHouse emits these
+// DateTime('Fixed/UTC+05:45:00')) deserialize correctly. ClickHouse emits these
 // non-IANA "Fixed/UTC±HH:MM:SS" names for whole-second offsets; before the fix
 // the driver forwarded them to time.LoadLocation, which errored and failed the
 // entire result set with "unknown time zone Fixed/UTC+05:30:15". The bug report
@@ -25,7 +25,10 @@ import (
 // The exhaustive offset-parsing matrix (extra precisions, boundary offsets and
 // the error cases) is pinned by the fast lib/timezone unit tests. This
 // end-to-end test deliberately uses a single combined round-trip per surface so
-// it stays cheap in the shared integration suite.
+// it stays cheap in the shared integration suite. Newer servers (26.9+) only
+// accept offsets that are a whole number of quarter hours, so the offsets here
+// are quarter-hour but not whole-hour; whole-second offsets are covered by the
+// lib/timezone unit tests.
 func TestIssue1881_FixedUTCOffsetTimezone(t *testing.T) {
 	// 1673784000 == 2023-01-15 12:00:00 UTC. Casting that instant into a
 	// synthetic fixed-offset zone shifts the wall clock by the offset while the
@@ -34,9 +37,9 @@ func TestIssue1881_FixedUTCOffsetTimezone(t *testing.T) {
 	// the want* values are what the server renders for each cast.
 	const unixSeconds = int64(1673784000)
 	const query = `SELECT
-		CAST(toDateTime(1673784000, 'UTC'), 'DateTime(\'Fixed/UTC+05:30:15\')')           AS dt,
-		CAST(toDateTime64(1673784000, 3, 'UTC'), 'DateTime64(3, \'Fixed/UTC+05:30:15\')') AS dt64,
-		CAST(toDateTime(1673784000, 'UTC'), 'DateTime(\'Fixed/UTC-08:30:15\')')           AS dtNeg`
+		CAST(toDateTime(1673784000, 'UTC'), 'DateTime(\'Fixed/UTC+05:45:00\')')           AS dt,
+		CAST(toDateTime64(1673784000, 3, 'UTC'), 'DateTime64(3, \'Fixed/UTC+05:45:00\')') AS dt64,
+		CAST(toDateTime(1673784000, 'UTC'), 'DateTime(\'Fixed/UTC-08:30:00\')')           AS dtNeg`
 
 	assertRow := func(t *testing.T, dt, dt64, dtNeg time.Time) {
 		t.Helper()
@@ -46,9 +49,9 @@ func TestIssue1881_FixedUTCOffsetTimezone(t *testing.T) {
 			wantWall   string
 			wantOffset int
 		}{
-			{"DateTime", dt, "2023-01-15 17:30:15", 5*3600 + 30*60 + 15},
-			{"DateTime64", dt64, "2023-01-15 17:30:15", 5*3600 + 30*60 + 15},
-			{"DateTime_negative", dtNeg, "2023-01-15 03:29:45", -(8*3600 + 30*60 + 15)},
+			{"DateTime", dt, "2023-01-15 17:45:00", 5*3600 + 45*60},
+			{"DateTime64", dt64, "2023-01-15 17:45:00", 5*3600 + 45*60},
+			{"DateTime_negative", dtNeg, "2023-01-15 03:30:00", -(8*3600 + 30*60)},
 		} {
 			assert.Equal(t, c.wantWall, c.got.Format("2006-01-02 15:04:05"), c.label)
 			_, offset := c.got.Zone()
