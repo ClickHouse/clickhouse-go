@@ -67,6 +67,7 @@ func QueryRows() error {
 	if err != nil {
 		return err
 	}
+	defer rows.Close()
 	var (
 		col1             uint8
 		col2, col3, col4 string
@@ -82,5 +83,5 @@ func QueryRows() error {
 		fmt.Printf("row: col1=%d, col2=%s, col3=%s, col4=%s, col5=%v, col6=%v, col7=%v, col8=%v\n", col1, col2, col3, col4, col5, col6, col7, col8)
 	}
 
-	return nil
+	return rows.Err()
 }
