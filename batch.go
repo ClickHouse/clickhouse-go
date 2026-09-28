@@ -6,7 +6,6 @@ import (
 	"strings"
 )
 
-
 // extractInsertSettingsMatch captures a trailing SETTINGS clause. The `\w+\s*=`
 // after the SETTINGS keyword requires an actual `name = value` assignment so a table
 // or column merely named "settings" is not mistaken for a settings clause. The `s` flag
@@ -69,17 +68,19 @@ func extractNormalizedInsertQueryAndColumns(query string) (normalizedQuery strin
 	return fmt.Sprintf("%s FORMAT Native", insertStmt), tableName, columns, nil
 }
 
+// parseInsertTableAndColumns extracts the table name and optional column list from a
+// sanitized INSERT statement. It scans with quote awareness so parentheses inside
+// quoted table identifiers (e.g. `table(1)`) are not mistaken for the column list start.
 func parseInsertTableAndColumns(sanitized string) (tableName string, columnsPart string, ok bool) {
 	s := strings.TrimSpace(sanitized)
-	lower := strings.ToLower(s)
-	if !strings.HasPrefix(lower, "insert") {
+	if !isKeyword(s, nil, insertKeyword) {
 		return "", "", false
 	}
-	s = strings.TrimSpace(s[len("insert"):])
-	if !strings.HasPrefix(strings.ToLower(s), "into") {
+	s = strings.TrimSpace(s[len(insertKeyword):])
+	if !isKeyword(s, nil, intoKeyword) {
 		return "", "", false
 	}
-	s = strings.TrimSpace(s[len("into"):])
+	s = strings.TrimSpace(s[len(intoKeyword):])
 	if s == "" {
 		return "", "", false
 	}
@@ -338,6 +339,8 @@ func appendCommentSeparator(out []byte, rest string) []byte {
 }
 
 const (
+	insertKeyword   = "INSERT"
+	intoKeyword     = "INTO"
 	valuesKeyword   = "VALUES"
 	formatKeyword   = "FORMAT"
 	settingsKeyword = "SETTINGS"
