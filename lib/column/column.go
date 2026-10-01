@@ -3,18 +3,13 @@ package column
 import (
 	"fmt"
 	"reflect"
-	"regexp"
 	"strings"
 	"time"
 
 	"github.com/ClickHouse/ch-go/proto"
 )
 
-// column names which match this must be escaped - see https://clickhouse.com/docs/en/sql-reference/syntax/#identifiers
-var escapeColRegex = regexp.MustCompile("^[a-zA-Z_][0-9a-zA-Z_]*$")
-
 // to escape and unescape special chars
-var colEscape = strings.NewReplacer("`", "\\`", "\\", "\\\\")
 var colUnEscape = strings.NewReplacer("\\`", "`", "\\\\", "\\")
 
 type Type string

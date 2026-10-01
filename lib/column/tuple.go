@@ -43,11 +43,18 @@ func (col *Tuple) parse(t Type, sc *ServerContext) (_ Interface, err error) {
 		element       []rune
 		elements      []namedCol
 		brackets      int
+		quote         rune
+		escaped       bool
 		appendElement = func() {
 			if len(element) != 0 {
 				cType := strings.TrimSpace(string(element))
 				name := ""
-				if parts := strings.SplitN(cType, " ", 2); len(parts) == 2 {
+				// the server backquotes element names that are not plain identifiers, since 26.5 also
+				// reserved words such as `values` and `from` (ClickHouse/ClickHouse#102338)
+				if end := backQuotedNameEnd(cType); end > 0 {
+					name = unescapeColName(cType[:end+1])
+					cType = cType[end+1:]
+				} else if parts := strings.SplitN(cType, " ", 2); len(parts) == 2 {
 					if !strings.Contains(parts[0], "(") {
 						name = parts[0]
 						cType = parts[1]
@@ -61,17 +68,25 @@ func (col *Tuple) parse(t Type, sc *ServerContext) (_ Interface, err error) {
 		}
 	)
 	for _, r := range t.params() {
-		switch r {
-		case '(':
-			brackets++
-		case ')':
-			brackets--
-		case ',':
-			if brackets == 0 {
-				appendElement()
-				element = element[:0]
-				continue
+		switch {
+		case escaped:
+			escaped = false
+		case quote != 0:
+			if r == '\\' {
+				escaped = true
+			} else if r == quote {
+				quote = 0
 			}
+		case r == '`', r == '\'':
+			quote = r
+		case r == '(':
+			brackets++
+		case r == ')':
+			brackets--
+		case r == ',' && brackets == 0:
+			appendElement()
+			element = element[:0]
+			continue
 		}
 		element = append(element, r)
 	}
@@ -96,6 +111,23 @@ func (col *Tuple) parse(t Type, sc *ServerContext) (_ Interface, err error) {
 	return nil, &UnsupportedColumnTypeError{
 		t: t,
 	}
+}
+
+// backQuotedNameEnd returns the index of the closing backquote of the element name at the
+// start of s, or -1 if s does not start with a complete backquoted name.
+func backQuotedNameEnd(s string) int {
+	if !strings.HasPrefix(s, "`") {
+		return -1
+	}
+	for i := 1; i < len(s); i++ {
+		switch s[i] {
+		case '\\':
+			i++
+		case '`':
+			return i
+		}
+	}
+	return -1
 }
 
 func (col *Tuple) Type() Type {
@@ -235,7 +267,7 @@ func (col *Tuple) scanMap(targetMap reflect.Value, row int) error {
 		}
 	}
 	for _, c := range col.columns {
-		colName := unescapeColName(c.Name())
+		colName := c.Name()
 		switch dCol := c.(type) {
 		case *Tuple:
 			switch targetMap.Type().Elem().Kind() {
@@ -582,7 +614,7 @@ func (col *Tuple) AppendRow(v any) error {
 			}
 		}
 		for _, key := range value.MapKeys() {
-			name := getMapFieldName(key.Interface().(string))
+			name := key.Interface().(string)
 			if _, ok := col.index[name]; !ok {
 				return &Error{
 					ColumnType: string(col.chType),
@@ -692,12 +724,4 @@ func getStructFieldName(field reflect.StructField) (string, bool) {
 		return tag, false
 	}
 	return name, false
-}
-
-// ensures numeric keys and ` are escaped properly
-func getMapFieldName(name string) string {
-	if !escapeColRegex.MatchString(name) {
-		return fmt.Sprintf("`%s`", colEscape.Replace(name))
-	}
-	return colEscape.Replace(name)
 }
