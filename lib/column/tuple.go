@@ -43,20 +43,15 @@ func (col *Tuple) parse(t Type, sc *ServerContext) (_ Interface, err error) {
 		element       []rune
 		elements      []namedCol
 		brackets      int
-		quote         rune
-		escaped       bool
 		appendElement = func() {
 			if len(element) != 0 {
 				cType := strings.TrimSpace(string(element))
 				name := ""
-				// the server backquotes element names that are not plain identifiers, since 26.5 also
-				// reserved words such as `values` and `from` (ClickHouse/ClickHouse#102338)
-				if end := backQuotedNameEnd(cType); end > 0 {
-					name = unescapeColName(cType[:end+1])
-					cType = cType[end+1:]
-				} else if parts := strings.SplitN(cType, " ", 2); len(parts) == 2 {
+				if parts := strings.SplitN(cType, " ", 2); len(parts) == 2 {
 					if !strings.Contains(parts[0], "(") {
-						name = parts[0]
+						// the server backquotes names that are not plain identifiers, since 26.5 also
+						// reserved words such as `values` and `from` (ClickHouse/ClickHouse#102338)
+						name = unescapeColName(parts[0])
 						cType = parts[1]
 					}
 				}
@@ -68,25 +63,17 @@ func (col *Tuple) parse(t Type, sc *ServerContext) (_ Interface, err error) {
 		}
 	)
 	for _, r := range t.params() {
-		switch {
-		case escaped:
-			escaped = false
-		case quote != 0:
-			if r == '\\' {
-				escaped = true
-			} else if r == quote {
-				quote = 0
-			}
-		case r == '`', r == '\'':
-			quote = r
-		case r == '(':
+		switch r {
+		case '(':
 			brackets++
-		case r == ')':
+		case ')':
 			brackets--
-		case r == ',' && brackets == 0:
-			appendElement()
-			element = element[:0]
-			continue
+		case ',':
+			if brackets == 0 {
+				appendElement()
+				element = element[:0]
+				continue
+			}
 		}
 		element = append(element, r)
 	}
@@ -111,23 +98,6 @@ func (col *Tuple) parse(t Type, sc *ServerContext) (_ Interface, err error) {
 	return nil, &UnsupportedColumnTypeError{
 		t: t,
 	}
-}
-
-// backQuotedNameEnd returns the index of the closing backquote of the element name at the
-// start of s, or -1 if s does not start with a complete backquoted name.
-func backQuotedNameEnd(s string) int {
-	if !strings.HasPrefix(s, "`") {
-		return -1
-	}
-	for i := 1; i < len(s); i++ {
-		switch s[i] {
-		case '\\':
-			i++
-		case '`':
-			return i
-		}
-	}
-	return -1
 }
 
 func (col *Tuple) Type() Type {

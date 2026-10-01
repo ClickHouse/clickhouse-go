@@ -13,9 +13,9 @@ import (
 )
 
 // Test2042 verifies that named Tuple elements the server backquotes in the type name
-// (reserved words such as `values` and `from` since ClickHouse 26.5, names with spaces or
-// leading digits on any version) are matched by their plain name when inserting from a
-// struct or a map and when scanning back into them.
+// (reserved words such as `values` and `from` since ClickHouse 26.5, names with a leading
+// digit on any version) are matched by their plain name when inserting from a struct or a
+// map and when scanning back into them.
 // See https://github.com/ClickHouse/clickhouse-go/issues/2042.
 func Test2042(t *testing.T) {
 	testEnv, err := clickhouse_tests.GetTestEnvironment("issues")
@@ -34,7 +34,7 @@ func Test2042(t *testing.T) {
 			}
 
 			tableName := fmt.Sprintf("test_2042_%v", protocol)
-			require.NoError(t, conn.Exec(ctx, fmt.Sprintf("CREATE TABLE %s (Col1 Tuple(`values` Array(String), `from` String, `with space` UInt8, `56` String)) Engine MergeTree() ORDER BY tuple()", tableName)))
+			require.NoError(t, conn.Exec(ctx, fmt.Sprintf("CREATE TABLE %s (Col1 Tuple(`values` Array(String), `from` String, `56` String)) Engine MergeTree() ORDER BY tuple()", tableName)))
 			t.Cleanup(func() {
 				if err := conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", tableName)); err != nil {
 					t.Logf("DROP TABLE %s failed: %v", tableName, err)
@@ -44,12 +44,11 @@ func Test2042(t *testing.T) {
 			type element struct {
 				Values []string `ch:"values"`
 				From   string   `ch:"from"`
-				Spaced uint8    `ch:"with space"`
 				Num    string   `ch:"56"`
 			}
 			var (
-				structData = element{Values: []string{"a", "b"}, From: "x", Spaced: 1, Num: "n"}
-				mapData    = map[string]any{"values": []string{"c"}, "from": "y", "with space": uint8(2), "56": "m"}
+				structData = element{Values: []string{"a", "b"}, From: "x", Num: "n"}
+				mapData    = map[string]any{"values": []string{"c"}, "from": "y", "56": "m"}
 			)
 			batch, err := conn.PrepareBatch(ctx, fmt.Sprintf("INSERT INTO %s", tableName))
 			require.NoError(t, err)

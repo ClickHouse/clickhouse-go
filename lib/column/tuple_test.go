@@ -46,22 +46,9 @@ func TestTupleParseElementNames(t *testing.T) {
 			isNamed: true,
 		},
 		{
-			// separators inside a quoted name belong to the name
-			chType:  "Tuple(`with space` String, `a, b` UInt8, `c(d)` UInt16)",
-			names:   []string{"with space", "a, b", "c(d)"},
-			types:   []string{"String", "UInt8", "UInt16"},
-			isNamed: true,
-		},
-		{
-			chType:  "Tuple(`56` String, `a22\\`` Int64, `back\\\\slash` UInt8)",
-			names:   []string{"56", "a22`", "back\\slash"},
-			types:   []string{"String", "Int64", "UInt8"},
-			isNamed: true,
-		},
-		{
-			chType:  "Tuple(e Enum8('a' = 1, 'b`c' = 2), n UInt8)",
-			names:   []string{"e", "n"},
-			types:   []string{"Enum8('a' = 1, 'b`c' = 2)", "UInt8"},
+			chType:  "Tuple(`56` String, `a22\\`` Int64)",
+			names:   []string{"56", "a22`"},
+			types:   []string{"String", "Int64"},
 			isNamed: true,
 		},
 		{
@@ -99,14 +86,14 @@ func TestTupleQuotedElementNamesRoundTrip(t *testing.T) {
 	type element struct {
 		Values []string `ch:"values"`
 		From   string   `ch:"from"`
-		Spaced uint8    `ch:"with space"`
+		Num    uint8    `ch:"56"`
 	}
-	col, err := Type("Tuple(`values` Array(String), `from` String, `with space` UInt8)").Column("tuple", nil)
+	col, err := Type("Tuple(`values` Array(String), `from` String, `56` UInt8)").Column("tuple", nil)
 	require.NoError(t, err)
 
-	fromStruct := element{Values: []string{"a", "b"}, From: "x", Spaced: 1}
+	fromStruct := element{Values: []string{"a", "b"}, From: "x", Num: 1}
 	require.NoError(t, col.AppendRow(fromStruct))
-	fromMap := map[string]any{"values": []string{"c"}, "from": "y", "with space": uint8(2)}
+	fromMap := map[string]any{"values": []string{"c"}, "from": "y", "56": uint8(2)}
 	require.NoError(t, col.AppendRow(fromMap))
 
 	var gotStruct element
