@@ -49,7 +49,9 @@ func (col *Tuple) parse(t Type, sc *ServerContext) (_ Interface, err error) {
 				name := ""
 				if parts := strings.SplitN(cType, " ", 2); len(parts) == 2 {
 					if !strings.Contains(parts[0], "(") {
-						name = parts[0]
+						// The server backquotes some element names (keywords since 26.6, non-identifiers
+						// always); index the bare name so struct tags and map keys match either way.
+						name = unescapeColName(parts[0])
 						cType = parts[1]
 					}
 				}
@@ -235,7 +237,7 @@ func (col *Tuple) scanMap(targetMap reflect.Value, row int) error {
 		}
 	}
 	for _, c := range col.columns {
-		colName := unescapeColName(c.Name())
+		colName := c.Name()
 		switch dCol := c.(type) {
 		case *Tuple:
 			switch targetMap.Type().Elem().Kind() {
@@ -582,7 +584,7 @@ func (col *Tuple) AppendRow(v any) error {
 			}
 		}
 		for _, key := range value.MapKeys() {
-			name := getMapFieldName(key.Interface().(string))
+			name := key.Interface().(string)
 			if _, ok := col.index[name]; !ok {
 				return &Error{
 					ColumnType: string(col.chType),
@@ -692,12 +694,4 @@ func getStructFieldName(field reflect.StructField) (string, bool) {
 		return tag, false
 	}
 	return name, false
-}
-
-// ensures numeric keys and ` are escaped properly
-func getMapFieldName(name string) string {
-	if !escapeColRegex.MatchString(name) {
-		return fmt.Sprintf("`%s`", colEscape.Replace(name))
-	}
-	return colEscape.Replace(name)
 }

@@ -325,6 +325,47 @@ func TestNamedTupleWithStructTags(t *testing.T) {
 	})
 }
 
+// ClickHouse 26.6+ reports keyword element names backquoted, e.g. Tuple(key String, `values` Array(String)).
+func TestNamedTupleWithKeywordElementNames(t *testing.T) {
+	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		conn, err := GetNativeConnection(t, protocol, nil, nil, nil)
+		require.NoError(t, err)
+		ctx := context.Background()
+		if !CheckMinServerServerVersion(conn, 22, 5, 0) {
+			t.Skip(fmt.Errorf("unsupported clickhouse version"))
+			return
+		}
+		const ddl = "CREATE TABLE test_tuple (Col1 Array(Tuple(key String, values Array(String)))) Engine MergeTree() ORDER BY tuple()"
+
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE IF EXISTS test_tuple")
+		}()
+		require.NoError(t, conn.Exec(ctx, ddl))
+
+		type keyValues struct {
+			Key    string   `ch:"key"`
+			Values []string `ch:"values"`
+		}
+		col1Data := []keyValues{{Key: "env", Values: []string{"prod", "dev"}}, {Key: "team", Values: []string{"core"}}}
+
+		batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_tuple")
+		require.NoError(t, err)
+		require.NoError(t, batch.Append(col1Data))
+		require.NoError(t, batch.Send())
+
+		var col1 []keyValues
+		require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_tuple").Scan(&col1))
+		assert.Equal(t, col1Data, col1)
+
+		var col1Maps []map[string]any
+		require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_tuple").Scan(&col1Maps))
+		assert.Equal(t, []map[string]any{
+			{"key": "env", "values": []string{"prod", "dev"}},
+			{"key": "team", "values": []string{"core"}},
+		}, col1Maps)
+	})
+}
+
 // named tuples will not work with unexported fields
 func TestNamedTupleWithUnexportedStructField(t *testing.T) {
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
