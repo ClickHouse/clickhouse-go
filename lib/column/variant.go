@@ -141,6 +141,9 @@ func (c *Variant) ScanRow(dest any, row int) error {
 		*v = vt
 	case **chcol.Variant:
 		vt := chcol.NewVariantWithType(value, chType)
+		if *v == nil {
+			*v = new(chcol.Variant)
+		}
 		**v = vt
 	default:
 		if typeIndex == VariantNullDiscriminator {
