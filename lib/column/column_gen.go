@@ -901,7 +901,16 @@ func (col *Int8) AppendRow(v any) error {
 			return col.AppendRow(val)
 		}
 
-		if rv := reflect.ValueOf(v); rv.Kind() == col.ScanType().Kind() || rv.CanConvert(col.ScanType()) {
+		rv := reflect.ValueOf(v)
+		if integerConversionOverflows(rv, col.ScanType()) {
+			return &ColumnConverterError{
+				Op:   "AppendRow",
+				To:   "Int8",
+				From: fmt.Sprintf("%T", v),
+				Hint: "value overflows integer type",
+			}
+		}
+		if rv.Kind() == col.ScanType().Kind() || rv.CanConvert(col.ScanType()) {
 			col.col.Append(rv.Convert(col.ScanType()).Interface().(int8))
 		} else {
 			return &ColumnConverterError{
@@ -1071,7 +1080,16 @@ func (col *Int16) AppendRow(v any) error {
 			return col.AppendRow(val)
 		}
 
-		if rv := reflect.ValueOf(v); rv.Kind() == col.ScanType().Kind() || rv.CanConvert(col.ScanType()) {
+		rv := reflect.ValueOf(v)
+		if integerConversionOverflows(rv, col.ScanType()) {
+			return &ColumnConverterError{
+				Op:   "AppendRow",
+				To:   "Int16",
+				From: fmt.Sprintf("%T", v),
+				Hint: "value overflows integer type",
+			}
+		}
+		if rv.Kind() == col.ScanType().Kind() || rv.CanConvert(col.ScanType()) {
 			col.col.Append(rv.Convert(col.ScanType()).Interface().(int16))
 		} else {
 			return &ColumnConverterError{
@@ -1241,7 +1259,16 @@ func (col *Int32) AppendRow(v any) error {
 			return col.AppendRow(val)
 		}
 
-		if rv := reflect.ValueOf(v); rv.Kind() == col.ScanType().Kind() || rv.CanConvert(col.ScanType()) {
+		rv := reflect.ValueOf(v)
+		if integerConversionOverflows(rv, col.ScanType()) {
+			return &ColumnConverterError{
+				Op:   "AppendRow",
+				To:   "Int32",
+				From: fmt.Sprintf("%T", v),
+				Hint: "value overflows integer type",
+			}
+		}
+		if rv.Kind() == col.ScanType().Kind() || rv.CanConvert(col.ScanType()) {
 			col.col.Append(rv.Convert(col.ScanType()).Interface().(int32))
 		} else {
 			return &ColumnConverterError{
@@ -1417,7 +1444,16 @@ func (col *Int64) AppendRow(v any) error {
 			return col.AppendRow(val)
 		}
 
-		if rv := reflect.ValueOf(v); rv.Kind() == col.ScanType().Kind() || rv.CanConvert(col.ScanType()) {
+		rv := reflect.ValueOf(v)
+		if integerConversionOverflows(rv, col.ScanType()) {
+			return &ColumnConverterError{
+				Op:   "AppendRow",
+				To:   "Int64",
+				From: fmt.Sprintf("%T", v),
+				Hint: "value overflows integer type",
+			}
+		}
+		if rv.Kind() == col.ScanType().Kind() || rv.CanConvert(col.ScanType()) {
 			col.col.Append(rv.Convert(col.ScanType()).Interface().(int64))
 		} else {
 			return &ColumnConverterError{
@@ -1571,7 +1607,16 @@ func (col *UInt8) AppendRow(v any) error {
 			return col.AppendRow(val)
 		}
 
-		if rv := reflect.ValueOf(v); rv.Kind() == col.ScanType().Kind() || rv.CanConvert(col.ScanType()) {
+		rv := reflect.ValueOf(v)
+		if integerConversionOverflows(rv, col.ScanType()) {
+			return &ColumnConverterError{
+				Op:   "AppendRow",
+				To:   "UInt8",
+				From: fmt.Sprintf("%T", v),
+				Hint: "value overflows integer type",
+			}
+		}
+		if rv.Kind() == col.ScanType().Kind() || rv.CanConvert(col.ScanType()) {
 			col.col.Append(rv.Convert(col.ScanType()).Interface().(uint8))
 		} else {
 			return &ColumnConverterError{
@@ -1712,7 +1757,16 @@ func (col *UInt16) AppendRow(v any) error {
 			return col.AppendRow(val)
 		}
 
-		if rv := reflect.ValueOf(v); rv.Kind() == col.ScanType().Kind() || rv.CanConvert(col.ScanType()) {
+		rv := reflect.ValueOf(v)
+		if integerConversionOverflows(rv, col.ScanType()) {
+			return &ColumnConverterError{
+				Op:   "AppendRow",
+				To:   "UInt16",
+				From: fmt.Sprintf("%T", v),
+				Hint: "value overflows integer type",
+			}
+		}
+		if rv.Kind() == col.ScanType().Kind() || rv.CanConvert(col.ScanType()) {
 			col.col.Append(rv.Convert(col.ScanType()).Interface().(uint16))
 		} else {
 			return &ColumnConverterError{
@@ -1853,7 +1907,16 @@ func (col *UInt32) AppendRow(v any) error {
 			return col.AppendRow(val)
 		}
 
-		if rv := reflect.ValueOf(v); rv.Kind() == col.ScanType().Kind() || rv.CanConvert(col.ScanType()) {
+		rv := reflect.ValueOf(v)
+		if integerConversionOverflows(rv, col.ScanType()) {
+			return &ColumnConverterError{
+				Op:   "AppendRow",
+				To:   "UInt32",
+				From: fmt.Sprintf("%T", v),
+				Hint: "value overflows integer type",
+			}
+		}
+		if rv.Kind() == col.ScanType().Kind() || rv.CanConvert(col.ScanType()) {
 			col.col.Append(rv.Convert(col.ScanType()).Interface().(uint32))
 		} else {
 			return &ColumnConverterError{
@@ -1994,7 +2057,16 @@ func (col *UInt64) AppendRow(v any) error {
 			return col.AppendRow(val)
 		}
 
-		if rv := reflect.ValueOf(v); rv.Kind() == col.ScanType().Kind() || rv.CanConvert(col.ScanType()) {
+		rv := reflect.ValueOf(v)
+		if integerConversionOverflows(rv, col.ScanType()) {
+			return &ColumnConverterError{
+				Op:   "AppendRow",
+				To:   "UInt64",
+				From: fmt.Sprintf("%T", v),
+				Hint: "value overflows integer type",
+			}
+		}
+		if rv.Kind() == col.ScanType().Kind() || rv.CanConvert(col.ScanType()) {
 			col.col.Append(rv.Convert(col.ScanType()).Interface().(uint64))
 		} else {
 			return &ColumnConverterError{
