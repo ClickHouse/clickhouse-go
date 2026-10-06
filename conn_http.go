@@ -23,6 +23,8 @@ import (
 	"github.com/ClickHouse/ch-go/compress"
 	chproto "github.com/ClickHouse/ch-go/proto"
 	"github.com/andybalholm/brotli"
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/timezone"
@@ -693,6 +695,9 @@ func (h *httpConnect) createRequest(ctx context.Context, requestUrl string, read
 
 	var query url.Values
 	if options != nil {
+		if options.span.IsValid() {
+			propagation.TraceContext{}.Inject(trace.ContextWithSpanContext(ctx, options.span), propagation.HeaderCarrier(req.Header))
+		}
 		query = req.URL.Query()
 		if options.queryID != "" {
 			query.Set(queryIDParamName, options.queryID)

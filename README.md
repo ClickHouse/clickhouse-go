@@ -46,7 +46,7 @@ Support for the ClickHouse protocol advanced features using `Context`:
 * Quota Key
 * Settings
 * [Server-side query parameters](https://clickhouse.com/docs/integrations/language-clients/go/clickhouse-api#server-side-query-parameters)
-* OpenTelemetry
+* [OpenTelemetry](#opentelemetry)
 * Execution events:
 	* Logs
 	* Progress
@@ -484,6 +484,101 @@ Users can extend client options with additional product information included in 
 Products are ordered from the highest to the lowest abstraction level, left to right.
 
 Usage examples for [native API](examples/clickhouse_api/client_info.go) and [database/sql](examples/std/client_info.go)  are provided.
+
+## OpenTelemetry
+
+Use `Options.Telemetry` with `clickhouse.Open`, `clickhouse.OpenDB`, or
+`clickhouse.Connector` to instrument `Query`, `QueryRow`, and `Exec` over native
+TCP and HTTP. The application owns providers, exporters, sampling, and shutdown.
+Nil providers disable their respective signals; the driver does not install
+global providers or exporters.
+
+```go
+options.Telemetry = &clickhouse.TelemetryOptions{
+    TracerProvider:  tracerProvider,
+    MeterProvider:   meterProvider,
+    EnableProfiling: true,
+}
+options.Logger = otelslog.NewLogger(
+    "clickhouse-client",
+    otelslog.WithLoggerProvider(loggerProvider),
+)
+```
+
+Import the logging bridge from
+`go.opentelemetry.io/contrib/bridges/otelslog`. See the compiling
+[instrumented query example](examples/clickhouse_api/telemetry.go).
+
+### Traces and correlation
+
+Client spans inherit the caller's context. Native query packets and HTTP
+`traceparent`/`tracestate` headers carry the client span context. Ambient context
+propagation also works without `Options.Telemetry`. An explicit `WithSpan`
+overrides the ambient parent; with tracing enabled, the new client span is a child
+of that explicit parent. Sampling flags and trace state are preserved.
+
+A newly created client span supplies a query ID when `WithQueryID` was not set.
+The ID is recorded as `clickhouse.query.id` for correlation with server logs.
+Existing query IDs are preserved. Server span collection from
+`system.opentelemetry_span_log` must be configured separately.
+
+A query span remains open until results are exhausted or `Rows.Close` completes,
+including time spent by the application consuming results. Always close rows.
+`QueryRow` completes when scanned. `Exec` ends when the driver call completes;
+for asynchronous inserts this follows the requested acknowledgement mode.
+Connection acquisition and result readiness are span events. An empty initial
+schema block can make results ready before the first usable row arrives.
+
+### Metrics
+
+Instruments use scope `github.com/ClickHouse/clickhouse-go/v2`.
+
+| Instrument | Unit | Meaning |
+|---|---|---|
+| `db.client.operation.duration` | seconds | Same interval as the client span, including result consumption |
+| `clickhouse.client.query.result_ready.duration` | seconds | Operation start until `Query` returns successfully |
+| `clickhouse.client.connection.acquire.duration` | seconds | Native API acquisition, including queueing, health checking, and dialing; all acquisitions are measured |
+| `clickhouse.client.query.result_delivery.duration` | seconds | Cumulative time sending decoded blocks into the result buffer, including consumer backpressure |
+| `clickhouse.client.operations.active` | operations | Started operations that have not finished, including unclosed results |
+
+Dimensions identify the database, API, protocol, method, recognized SQL verb,
+and bounded error class where applicable. Query IDs, SQL text, parameter values,
+and trace IDs are excluded from metric dimensions. Histograms continue recording
+when tracing is disabled or spans are not sampled. Phase timings overlap and
+must not be added together as a latency breakdown. Delivery duration is also
+recorded on query spans as `clickhouse.result_delivery.duration`.
+
+### Logs and profiles
+
+With telemetry enabled, `Options.Logger` receives one correlated operation
+completion record: debug level on success, error level on failure. These records
+include query ID, trace/span IDs, duration, and a bounded error class; they omit
+SQL, values, and error messages. The OTel `slog` bridge receives the span context.
+Existing diagnostic logs are unchanged and may contain SQL or server error text.
+
+`EnableProfiling` adds bounded `runtime/pprof` labels: `clickhouse.method` and
+`clickhouse.phase` (`submit` or `receive`). Labels cover synchronous submission
+and execution and are inherited by query-owned receiver goroutines, including
+background decompression and decoding. They are restored when the scoped work
+returns. Collect profiles using your application's profiler or `pprof` endpoint;
+the driver does not start a profiler, expose an HTTP endpoint, change sampling
+rates, or export profiles. Filter CPU/goroutine profiles by these labels, for
+example with `go tool pprof -tagfocus='clickhouse.phase=receive' cpu.pprof`.
+Standard Go labels do not attribute heap, allocation, or mutex profiles per query.
+OTel profile export and trace-to-profile linking remain application concerns.
+
+### Initial coverage
+
+For `database/sql`, spans begin inside driver callbacks: pool waits and final
+`sql.Rows.Scan` conversions occur outside these boundaries. Use `DB.Stats()` for
+aggregate pool pressure. Each retried driver callback is a separate operation.
+HTTP transport's internal connection pool is not measured separately.
+
+Batch operations, prepared statements, raw-format streams, the deprecated
+`AsyncInsert` method, and application-side scanning profiles are not instrumented
+in this initial implementation. Existing progress, server logs, and
+`ProfileEvents` callbacks continue to work; server `ProfileEvents` are counters,
+not Go stack profiles.
 
 ## Logging
 

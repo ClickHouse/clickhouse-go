@@ -237,6 +237,10 @@ func queryOptions(ctx context.Context) QueryOptions {
 		}
 	}
 
+	if !opt.span.IsValid() {
+		opt.span = trace.SpanContextFromContext(ctx)
+	}
+
 	deadline, ok := ctx.Deadline()
 	if !ok {
 		return opt

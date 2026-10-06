@@ -21,15 +21,17 @@ import (
 var globalConnID int64
 
 type stdConnOpener struct {
-	err    error
-	opt    *Options
-	logger *slog.Logger
+	telemetry *telemetry
+	err       error
+	opt       *Options
+	logger    *slog.Logger
 }
 
 func (o *stdConnOpener) Driver() driver.Driver {
 	return &stdDriver{
-		opt:    o.opt,
-		logger: o.logger,
+		telemetry: o.telemetry,
+		opt:       o.opt,
+		logger:    o.logger,
 	}
 }
 
@@ -77,8 +79,9 @@ func (o *stdConnOpener) Connect(ctx context.Context) (_ driver.Conn, err error) 
 				slog.String("addr", o.opt.Addr[num]),
 			)
 			return &stdDriver{
-				conn:   conn,
-				logger: connLogger,
+				telemetry: o.telemetry,
+				conn:      conn,
+				logger:    connLogger,
 			}, nil
 		} else {
 			o.logger.Error("connection error",
@@ -115,11 +118,16 @@ func Connector(opt *Options) driver.Connector {
 	validationErr := opt.validate()
 	o := opt.setDefaults()
 	logger := o.logger().With(slog.String("component", "std-driver"))
+	var telemetry *telemetry
+	if validationErr == nil {
+		telemetry, validationErr = newTelemetry(o, "database/sql")
+	}
 
 	return &stdConnOpener{
-		err:    validationErr,
-		opt:    o,
-		logger: logger,
+		telemetry: telemetry,
+		err:       validationErr,
+		opt:       o,
+		logger:    logger,
 	}
 }
 
@@ -128,15 +136,8 @@ func OpenDB(opt *Options) *sql.DB {
 		opt = &Options{}
 	}
 
-	validationErr := opt.validate()
 	o := opt.setDefaults()
-	logger := o.logger().With(slog.String("component", "std-driver"))
-
-	db := sql.OpenDB(&stdConnOpener{
-		err:    validationErr,
-		opt:    o,
-		logger: logger,
-	})
+	db := sql.OpenDB(Connector(opt))
 
 	// Ok to set these configs irrespective of values in opt.
 	// Because opt.setDefaults() would have set some sane values
@@ -160,10 +161,11 @@ type stdConnect interface {
 }
 
 type stdDriver struct {
-	opt    *Options
-	conn   stdConnect
-	commit func() error
-	logger *slog.Logger
+	telemetry *telemetry
+	opt       *Options
+	conn      stdConnect
+	commit    func() error
+	logger    *slog.Logger
 }
 
 var _ driver.Conn = (*stdDriver)(nil)
@@ -260,9 +262,22 @@ func (std *stdDriver) CheckNamedValue(nv *driver.NamedValue) error { return nil 
 var _ driver.NamedValueChecker = (*stdDriver)(nil)
 
 func (std *stdDriver) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
+	err := observeExec(ctx, std.telemetry, query, func(ctx context.Context) error {
+		return std.execContext(ctx, query, args)
+	})
+	if isConnBrokenError(err) {
+		return nil, driver.ErrBadConn
+	}
+	if err != nil {
+		return nil, err
+	}
+	return driver.RowsAffected(0), nil
+}
+
+func (std *stdDriver) execContext(ctx context.Context, query string, args []driver.NamedValue) error {
 	if err := std.conn.healthCheck(); err != nil {
 		std.logger.Debug("exec context: connection is bad", slog.Any("reason", err))
-		return nil, driver.ErrBadConn
+		return driver.ErrBadConn
 	}
 
 	var err error
@@ -275,21 +290,22 @@ func (std *stdDriver) ExecContext(ctx context.Context, query string, args []driv
 	if err != nil {
 		if isConnBrokenError(err) {
 			std.logger.Error("exec context got a fatal error, resetting connection", slog.Any("error", err))
-			return nil, driver.ErrBadConn
+			return err
 		}
 		std.logger.Error("exec context error", slog.Any("error", err))
-		return nil, err
+		return err
 	}
-	return driver.RowsAffected(0), nil
+	return nil
 }
 
 func (std *stdDriver) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
-	if err := std.conn.healthCheck(); err != nil {
-		std.logger.Debug("query context: connection is bad", slog.Any("reason", err))
-		return nil, driver.ErrBadConn
-	}
-
-	r, err := std.conn.query(ctx, func(nativeTransport, error) {}, query, rebind(args)...)
+	r, err := observeQuery(ctx, std.telemetry, "Query", query, func(ctx context.Context) (*rows, error) {
+		if err := std.conn.healthCheck(); err != nil {
+			std.logger.DebugContext(ctx, "query context: connection is bad", slog.Any("reason", err))
+			return nil, driver.ErrBadConn
+		}
+		return std.conn.query(ctx, func(nativeTransport, error) {}, query, rebind(args)...)
+	})
 	if isConnBrokenError(err) {
 		std.logger.Error("query context got a fatal error, resetting connection", slog.Any("error", err))
 		return nil, driver.ErrBadConn
@@ -425,7 +441,12 @@ var _ driver.RowsColumnTypeDatabaseTypeName = (*stdRows)(nil)
 var _ driver.RowsColumnTypeNullable = (*stdRows)(nil)
 var _ driver.RowsColumnTypePrecisionScale = (*stdRows)(nil)
 
-func (r *stdRows) Next(dest []driver.Value) error {
+func (r *stdRows) Next(dest []driver.Value) (err error) {
+	defer func() {
+		if err != nil && !errors.Is(err, io.EOF) && r.rows.operation != nil {
+			r.rows.operation.err = err
+		}
+	}()
 	if len(r.rows.block.Columns) != len(dest) {
 		err := fmt.Errorf("expected %d destination arguments in Next, not %d", len(r.rows.block.Columns), len(dest))
 		r.logger.Error("next length error", slog.Any("error", err))

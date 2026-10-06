@@ -170,6 +170,10 @@ type Options struct {
 	// instead of Logger.
 	Logger *slog.Logger
 
+	// Telemetry enables optional metrics, traces, correlated operation logs,
+	// and profiling labels. Nil preserves the uninstrumented behavior.
+	Telemetry *TelemetryOptions
+
 	Settings             Settings
 	Compression          *Compression
 	DialTimeout          time.Duration // default 30 second

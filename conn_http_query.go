@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"time"
 
 	chproto "github.com/ClickHouse/ch-go/proto"
 
@@ -111,28 +112,39 @@ func (h *httpConnect) query(ctx context.Context, release nativeTransportRelease,
 		errCh  = make(chan error)
 		stream = make(chan *proto.Block, bufferSize)
 	)
+	// The receiver exits on EOF/error; Close drains its output.
 	go func() {
-		for {
-			block, err := h.readData(chReader, options.userLocation, &capturingRdr.buffer)
-			if err != nil {
-				// ch-go wraps EOF errors
-				if !errors.Is(err, io.EOF) {
-					errCh <- fmt.Errorf("readData stream: %w", err)
+		profileReceive(ctx, func() {
+			for {
+				block, err := h.readData(chReader, options.userLocation, &capturingRdr.buffer)
+				if err != nil {
+					// ch-go wraps EOF errors
+					if !errors.Is(err, io.EOF) {
+						errCh <- fmt.Errorf("readData stream: %w", err)
+					}
+					break
 				}
-				break
+				op, instrumented := ctx.Value(telemetryOperationKey{}).(*telemetryOperation)
+				var deliveryStart time.Time
+				if instrumented {
+					deliveryStart = time.Now()
+				}
+				select {
+				case <-ctx.Done():
+					errCh <- ctx.Err()
+					break
+				case stream <- block:
+					if instrumented {
+						op.deliveryNanos.Add(int64(time.Since(deliveryStart)))
+					}
+				}
 			}
-			select {
-			case <-ctx.Done():
-				errCh <- ctx.Err()
-				break
-			case stream <- block:
-			}
-		}
-		discardAndClose(res.Body)
-		h.compressionPool.Put(rw)
-		close(stream)
-		close(errCh)
-		release(h, nil)
+			discardAndClose(res.Body)
+			h.compressionPool.Put(rw)
+			close(stream)
+			close(errCh)
+			release(h, nil)
+		})
 	}()
 
 	if block == nil {
