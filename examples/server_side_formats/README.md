@@ -1,8 +1,11 @@
 # Native server-side formats example
 
-This example asks ClickHouse to encode one native TCP query as `CSV`, `Parquet`, and `Arrow`. It writes the returned bytes directly to files without using a client-side format library.
+This example uses only the native TCP protocol, and no client-side format library, in both directions:
 
-It then reopens every file, sends it unchanged to ClickHouse through HTTP `InsertFormat`, and compares a row count and checksum calculated by ClickHouse. A successful round trip proves that each output is accepted by the corresponding ClickHouse input-format parser.
+- `QueryFormat` asks ClickHouse to encode a query result as `CSV`, `Parquet`, and `Arrow`, and the returned bytes are written directly to files.
+- `InsertFormat` streams every file unchanged back to ClickHouse, which parses it on the server.
+
+It then compares a row count and checksum calculated by ClickHouse. A successful round trip proves that each output is accepted by the corresponding ClickHouse input-format parser.
 
 Run it against a server containing the native server-formatted-results extension:
 
@@ -13,7 +16,6 @@ go run ./examples/server_side_formats
 Defaults:
 
 - Native TCP: `localhost:9000`
-- HTTP: `localhost:8123`
 - Database: `default`
 - User: `default`
 - Output directory: `server-formatted-output`
@@ -22,7 +24,6 @@ The following environment variables override those values:
 
 ```bash
 CLICKHOUSE_NATIVE_ADDR=localhost:9000 \
-CLICKHOUSE_HTTP_ADDR=localhost:8123 \
 CLICKHOUSE_DATABASE=default \
 CLICKHOUSE_USER=default \
 CLICKHOUSE_PASSWORD=secret \

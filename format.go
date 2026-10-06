@@ -74,14 +74,11 @@ func (ch *clickhouse) QueryFormat(ctx context.Context, format string, query stri
 // for the full contract.
 //
 // Experimental: this API is experimental and may change or be removed in a
-// future minor release. It is currently only supported over HTTP; the native
-// result-format extension does not define client-to-server formatted input.
+// future minor release. Over HTTP and supported native servers, ClickHouse
+// parses the payload on the server.
 func (ch *clickhouse) InsertFormat(ctx context.Context, format string, query string, data io.Reader) error {
 	if err := validateFormatName(format); err != nil {
 		return err
-	}
-	if ch.opt.Protocol != HTTP {
-		return ErrInsertFormatNativeUnsupported
 	}
 	// Validated before acquiring: a malformed statement is a caller mistake
 	// and must not consume a pooled connection.

@@ -7,6 +7,8 @@ import (
 	"io"
 	"log/slog"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	chproto "github.com/ClickHouse/ch-go/proto"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
@@ -39,12 +41,9 @@ func (s *nativeFormatStream) Close() error {
 }
 
 func (c *connect) queryFormat(ctx context.Context, release nativeTransportRelease, formatName string, query string, args ...any) (io.ReadCloser, error) {
-	if c.server.Revision < proto.DBMS_MIN_PROTOCOL_VERSION_WITH_SERVER_FORMATTED_RESULTS {
+	if err := c.checkFormattedDataSupport(); err != nil {
 		release(c, nil)
-		return nil, fmt.Errorf("%w: server revision is %d, need at least %d",
-			ErrServerFormattedResultsUnsupported,
-			c.server.Revision,
-			proto.DBMS_MIN_PROTOCOL_VERSION_WITH_SERVER_FORMATTED_RESULTS)
+		return nil, err
 	}
 
 	options := queryOptions(ctx)
@@ -58,7 +57,7 @@ func (c *connect) queryFormat(ctx context.Context, release nativeTransportReleas
 	// The method argument is authoritative even when output_format is also set
 	// through the connection or query context.
 	options.settings["output_format"] = formatName
-	if err := c.sendQueryPacket(body, &options, proto.ClientQueryWithServerFormattedResult); err != nil {
+	if err := c.sendQueryWithDataEncoding(body, &options, proto.DataEncodingFormattedResult); err != nil {
 		release(c, err)
 		return nil, err
 	}
@@ -235,10 +234,133 @@ func readFormattedString(reader *chproto.Reader, maxSize int) ([]byte, error) {
 	return data, nil
 }
 
-func (c *connect) insertFormat(_ context.Context, release nativeTransportRelease, _ string, _ string, _ io.Reader) error {
-	// The current server extension formats query results only. Client-to-server
-	// arbitrary-format streaming needs a separate packet and is not inferred
-	// from the result protocol.
-	release(c, nil)
-	return ErrInsertFormatNativeUnsupported
+// checkFormattedDataSupport reports whether the server supports formatted data
+// (server-side output and input formats) over the native protocol.
+func (c *connect) checkFormattedDataSupport() error {
+	if c.server.Revision < proto.DBMS_MIN_PROTOCOL_VERSION_WITH_FORMATTED_DATA {
+		return fmt.Errorf("%w: server revision is %d, need at least %d",
+			ErrServerFormattedDataUnsupported,
+			c.server.Revision,
+			proto.DBMS_MIN_PROTOCOL_VERSION_WITH_FORMATTED_DATA)
+	}
+	return nil
+}
+
+// formattedInputChunkSize is the size of the FormattedData packets of InsertFormat.
+const formattedInputChunkSize = 1 << 20
+
+// insertFormat streams data as is to the server, which parses it in formatName:
+// the native protocol counterpart of the HTTP InsertFormat. The data is sent in
+// FormattedData packets, followed by an empty one that ends it.
+func (c *connect) insertFormat(ctx context.Context, release nativeTransportRelease, formatName string, query string, data io.Reader) error {
+	if err := c.checkFormattedDataSupport(); err != nil {
+		release(c, nil)
+		return err
+	}
+	insertStmt, _, _, err := extractInsertQueryComponents(query)
+	if err != nil {
+		// Client-side parse failure: the connection is healthy and unused.
+		release(c, nil)
+		return err
+	}
+
+	options := queryOptions(ctx)
+	// The format argument is authoritative: any FORMAT clause in the original
+	// query was stripped by extractInsertQueryComponents.
+	body := insertStmt + " FORMAT " + formatName
+	if err := c.sendQueryWithDataEncoding(body, &options, proto.DataEncodingFormattedInput); err != nil {
+		err = fmt.Errorf("insert %s: %w", formatName, err)
+		release(c, err)
+		return err
+	}
+
+	// The response is read while the data is sent: during the INSERT the server
+	// sends progress, logs and profile events, which must not fill the
+	// connection, and an exception stops sending early.
+	var serverFailed atomic.Bool
+	responseDone := make(chan error, 1)
+	onProcess := options.onProcess()
+	go func() {
+		err := c.processImpl(ctx, onProcess)
+		if err != nil {
+			serverFailed.Store(true)
+		}
+		responseDone <- err
+	}()
+
+	if err := c.sendFormattedInput(ctx, data, &serverFailed); err != nil {
+		// The data could not be read or sent. Canceling the query closes the
+		// connection, so the server does not insert the data sent so far as if it
+		// were complete, and the response reading ends.
+		_ = c.cancel()
+		<-responseDone
+		err = fmt.Errorf("insert %s: %w", formatName, err)
+		release(c, err)
+		return err
+	}
+
+	select {
+	case err = <-responseDone:
+	case <-ctx.Done():
+		_ = c.cancel()
+		<-responseDone
+		err = ctx.Err()
+	}
+	if err != nil {
+		err = fmt.Errorf("insert %s: %w", formatName, err)
+	}
+	release(c, err)
+	return err
+}
+
+// sendFormattedInput sends data in FormattedData packets, then the empty one
+// that ends it. If the server has already failed, sending stops early; the end
+// of the data is still sent, because the server reads the data up to it, to keep
+// the connection usable. An error means that the data could not be read or sent.
+func (c *connect) sendFormattedInput(ctx context.Context, data io.Reader, serverFailed *atomic.Bool) error {
+	_, hasDeadline := ctx.Deadline()
+	chunk := make([]byte, formattedInputChunkSize)
+	for !serverFailed.Load() {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		n, readErr := io.ReadFull(data, chunk)
+		if n > 0 {
+			if err := c.sendFormattedData(chunk[:n]); err != nil {
+				return err
+			}
+			// The response reader waits for at most ReadTimeout (without a context
+			// deadline): the data that is being sent counts as activity.
+			if !hasDeadline && c.readTimeout > 0 {
+				_ = c.conn.SetReadDeadline(time.Now().Add(c.readTimeout))
+			}
+		}
+		if errors.Is(readErr, io.EOF) || errors.Is(readErr, io.ErrUnexpectedEOF) {
+			break
+		}
+		if readErr != nil {
+			return fmt.Errorf("read data: %w", readErr)
+		}
+	}
+	return c.sendFormattedData(nil)
+}
+
+// sendFormattedData sends a FormattedData packet. Like the block of a Data
+// packet, the body is compressed if compression is enabled. An empty fragment
+// ends the data.
+func (c *connect) sendFormattedData(data []byte) error {
+	if c.isClosed() {
+		return errors.New("attempted sending on closed connection")
+	}
+	c.buffer.PutByte(proto.ClientFormattedData)
+	start := len(c.buffer.Buf)
+	c.buffer.PutUVarInt(uint64(len(data)))
+	c.buffer.PutRaw(data)
+	if err := c.compressBuffer(start); err != nil {
+		return err
+	}
+	if err := c.flush(); err != nil {
+		return fmt.Errorf("send formatted data: %w", err)
+	}
+	return nil
 }

@@ -28,20 +28,20 @@ type (
 )
 
 var (
-	ErrBatchInvalid                      = errors.New("clickhouse: batch is invalid. check appended data is correct")
-	ErrBatchAlreadySent                  = errors.New("clickhouse: batch has already been sent")
-	ErrBatchNotSent                      = errors.New("clickhouse: invalid retry, batch not sent yet")
-	ErrAcquireConnTimeout                = errors.New("clickhouse: acquire conn timeout. you can increase the number of max open conn or the dial timeout")
-	ErrUnsupportedServerRevision         = errors.New("clickhouse: unsupported server revision")
-	ErrBindMixedParamsFormats            = errors.New("clickhouse [bind]: mixed named, numeric or positional parameters")
-	ErrAcquireConnNoAddress              = errors.New("clickhouse: no valid address supplied")
-	ErrServerUnexpectedData              = errors.New("code: 101, message: Unexpected packet Data received from client")
-	ErrConnectionClosed                  = errors.New("clickhouse: connection is closed")
-	ErrServerFormattedResultsUnsupported = errors.New("clickhouse: server does not support formatted results over the native protocol")
-	ErrInsertFormatNativeUnsupported     = errors.New("clickhouse: InsertFormat is only supported over the HTTP protocol; native formatted input is not defined by the server protocol")
-	// ErrFormatNativeUnsupported is kept as a deprecated alias for native InsertFormat callers.
-	// Deprecated: use ErrInsertFormatNativeUnsupported.
-	ErrFormatNativeUnsupported = ErrInsertFormatNativeUnsupported
+	ErrBatchInvalid                   = errors.New("clickhouse: batch is invalid. check appended data is correct")
+	ErrBatchAlreadySent               = errors.New("clickhouse: batch has already been sent")
+	ErrBatchNotSent                   = errors.New("clickhouse: invalid retry, batch not sent yet")
+	ErrAcquireConnTimeout             = errors.New("clickhouse: acquire conn timeout. you can increase the number of max open conn or the dial timeout")
+	ErrUnsupportedServerRevision      = errors.New("clickhouse: unsupported server revision")
+	ErrBindMixedParamsFormats         = errors.New("clickhouse [bind]: mixed named, numeric or positional parameters")
+	ErrAcquireConnNoAddress           = errors.New("clickhouse: no valid address supplied")
+	ErrServerUnexpectedData           = errors.New("code: 101, message: Unexpected packet Data received from client")
+	ErrConnectionClosed               = errors.New("clickhouse: connection is closed")
+	ErrServerFormattedDataUnsupported = errors.New("clickhouse: server does not support formatted data (QueryFormat, InsertFormat) over the native protocol")
+	// ErrFormatNativeUnsupported was returned by QueryFormat and InsertFormat over the native protocol.
+	// Deprecated: both are supported over the native protocol now; servers that do not
+	// support it return ErrServerFormattedDataUnsupported.
+	ErrFormatNativeUnsupported = ErrServerFormattedDataUnsupported
 
 	errConnMaxLifetimeExceeded = errors.New("clickhouse: connection max lifetime exceeded")
 )

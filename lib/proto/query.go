@@ -26,8 +26,10 @@ type Query struct {
 	Settings                 Settings
 	Parameters               Parameters
 	Compression              bool
-	InitialUser              string
-	InitialAddress           string
+	// DataEncoding is one of the DataEncoding* constants.
+	DataEncoding   uint64
+	InitialUser    string
+	InitialAddress string
 }
 
 func (q *Query) Encode(buffer *chproto.Buffer, revision uint64) error {
@@ -49,6 +51,9 @@ func (q *Query) Encode(buffer *chproto.Buffer, revision uint64) error {
 		buffer.PutByte(StateComplete)
 		buffer.PutBool(q.Compression)
 	}
+	if revision >= DBMS_MIN_PROTOCOL_VERSION_WITH_FORMATTED_DATA {
+		buffer.PutUVarInt(q.DataEncoding)
+	}
 	buffer.PutString(q.Body)
 
 	if revision >= DBMS_MIN_PROTOCOL_VERSION_WITH_PARAMETERS {
@@ -56,6 +61,13 @@ func (q *Query) Encode(buffer *chproto.Buffer, revision uint64) error {
 			return err
 		}
 		buffer.PutString("") /* empty string is a marker of the end of parameters */
+	}
+
+	// Below DBMS_MIN_PROTOCOL_VERSION_WITH_FORMATTED_DATA, a query with formatted
+	// data is sent as ClientQueryWithFormattedData: the Query body of the
+	// negotiated revision, followed by the data encoding.
+	if revision < DBMS_MIN_PROTOCOL_VERSION_WITH_FORMATTED_DATA && q.DataEncoding != DataEncodingNative {
+		buffer.PutUVarInt(q.DataEncoding)
 	}
 
 	return nil

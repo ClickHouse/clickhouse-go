@@ -9,13 +9,21 @@ import (
 // Connection::sendQuery
 // https://github.com/ClickHouse/ClickHouse/blob/master/src/Client/Connection.cpp
 func (c *connect) sendQuery(body string, o *QueryOptions) error {
-	return c.sendQueryPacket(body, o, proto.ClientQuery)
+	return c.sendQueryWithDataEncoding(body, o, proto.DataEncodingNative)
 }
 
-func (c *connect) sendQueryPacket(body string, o *QueryOptions, packet byte) error {
+// sendQueryWithDataEncoding sends a query whose result or INSERT data is
+// exchanged in the given data encoding (one of proto.DataEncoding*).
+func (c *connect) sendQueryWithDataEncoding(body string, o *QueryOptions, dataEncoding uint64) error {
 	c.logger.Debug("sending query",
 		slog.String("compression", c.compression.String()),
 		slog.String("query", body))
+	// Below DBMS_MIN_PROTOCOL_VERSION_WITH_FORMATTED_DATA the Query packet has
+	// no data encoding field: formatted data uses the compatibility packet.
+	packet := byte(proto.ClientQuery)
+	if dataEncoding != proto.DataEncodingNative && c.revision < proto.DBMS_MIN_PROTOCOL_VERSION_WITH_FORMATTED_DATA {
+		packet = proto.ClientQueryWithFormattedData
+	}
 	c.buffer.PutByte(packet)
 	q := proto.Query{
 		ClientTCPProtocolVersion: ClientTCPProtocolVersion,
@@ -29,6 +37,7 @@ func (c *connect) sendQueryPacket(body string, o *QueryOptions, packet byte) err
 		InitialAddress:           c.conn.LocalAddr().String(),
 		Settings:                 c.settings(o.settings),
 		Parameters:               parametersToProtoParameters(o.parameters),
+		DataEncoding:             dataEncoding,
 	}
 	if err := q.Encode(c.buffer, c.revision); err != nil {
 		return err

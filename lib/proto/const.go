@@ -20,17 +20,26 @@ const (
 	DBMS_MIN_PROTOCOL_VERSION_WITH_QUOTA_KEY                    = 54458
 	DBMS_MIN_PROTOCOL_VERSION_WITH_PARAMETERS                   = 54459
 	DBMS_MIN_PROTOCOL_VERSION_WITH_SERVER_QUERY_TIME_IN_PROGRES = 54460
-	DBMS_MIN_PROTOCOL_VERSION_WITH_SERVER_FORMATTED_RESULTS     = 54493
+	DBMS_MIN_PROTOCOL_VERSION_WITH_FORMATTED_DATA               = 54493
 	DBMS_TCP_PROTOCOL_VERSION                                   = DBMS_MIN_PROTOCOL_VERSION_WITH_SERVER_QUERY_TIME_IN_PROGRES
 )
 
 const (
-	ClientHello                          = 0
-	ClientQuery                          = 1
-	ClientData                           = 2
-	ClientCancel                         = 3
-	ClientPing                           = 4
-	ClientQueryWithServerFormattedResult = 15
+	ClientHello                  = 0
+	ClientQuery                  = 1
+	ClientData                   = 2
+	ClientCancel                 = 3
+	ClientPing                   = 4
+	ClientQueryWithFormattedData = 15
+	ClientFormattedData          = 16
+)
+
+// Data encodings of a query: the representation of its main tabular data,
+// the result of a query or the data of an INSERT.
+const (
+	DataEncodingNative          = 0 // Native blocks in Data packets
+	DataEncodingFormattedResult = 1 // the server sends the result as ResultMetadata and FormattedData packets
+	DataEncodingFormattedInput  = 2 // the client sends the INSERT data as FormattedData packets
 )
 
 const (

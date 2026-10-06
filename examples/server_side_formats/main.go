@@ -64,19 +64,8 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("open native connection: %w", err)
 	}
-	http, err := clickhouse.Open(&clickhouse.Options{
-		Addr:     []string{env("CLICKHOUSE_HTTP_ADDR", "localhost:8123")},
-		Auth:     auth,
-		Protocol: clickhouse.HTTP,
-	})
-	if err != nil {
-		return fmt.Errorf("open HTTP connection: %w", err)
-	}
 	if err := native.Ping(ctx); err != nil {
 		return fmt.Errorf("native ping: %w", err)
-	}
-	if err := http.Ping(ctx); err != nil {
-		return fmt.Errorf("HTTP ping: %w", err)
 	}
 
 	expectedRows, expectedChecksum, err := signature(ctx, native, sourceQuery)
@@ -90,7 +79,7 @@ func run() error {
 		if err != nil {
 			return fmt.Errorf("export %s: %w", format.name, err)
 		}
-		if err := importFile(ctx, http, format, path); err != nil {
+		if err := importFile(ctx, native, format, path); err != nil {
 			return fmt.Errorf("import %s: %w", format.name, err)
 		}
 		rows, checksum, err := signature(ctx, native,
@@ -152,8 +141,9 @@ func importFile(ctx context.Context, conn driver.Conn, format formatCase, path s
 	}
 	defer file.Close()
 
-	// InsertFormat sends the file verbatim. ClickHouse's HTTP input-format
-	// parser validates and decodes it on the server.
+	// InsertFormat streams the file verbatim over the native protocol.
+	// ClickHouse parses it on the server: this program neither decodes rows
+	// nor imports a CSV, Parquet, or Arrow implementation.
 	return conn.InsertFormat(ctx, format.name, "INSERT INTO "+format.table, file)
 }
 

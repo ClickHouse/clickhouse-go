@@ -3,6 +3,7 @@ package tests
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -164,9 +165,9 @@ func TestFormatInsertStripsStatementTerminator(t *testing.T) {
 	verifyFormatTestTable(t, conn, table)
 }
 
-// TestFormatNativeProtocolSupport verifies both sides of the native API boundary:
-// capable servers stream formatted query results, while formatted INSERT input
-// remains explicitly unsupported.
+// TestFormatNativeProtocolSupport verifies that capable servers stream formatted
+// query results over the native protocol, and that older servers reject both
+// QueryFormat and InsertFormat with ErrServerFormattedDataUnsupported.
 func TestFormatNativeProtocolSupport(t *testing.T) {
 	ctx := context.Background()
 	compressions := []struct {
@@ -186,7 +187,9 @@ func TestFormatNativeProtocolSupport(t *testing.T) {
 			require.NoError(t, err)
 			if version.Revision < 54493 {
 				_, err = conn.QueryFormat(ctx, "CSV", "SELECT 1")
-				require.ErrorIs(t, err, clickhouse.ErrServerFormattedResultsUnsupported)
+				require.ErrorIs(t, err, clickhouse.ErrServerFormattedDataUnsupported)
+				err = conn.InsertFormat(ctx, "CSV", "INSERT INTO t", strings.NewReader(""))
+				require.ErrorIs(t, err, clickhouse.ErrServerFormattedDataUnsupported)
 			} else {
 				testCases := []struct {
 					format string
@@ -216,9 +219,93 @@ func TestFormatNativeProtocolSupport(t *testing.T) {
 				}
 			}
 
-			err = conn.InsertFormat(ctx, "CSV", "INSERT INTO t", strings.NewReader(""))
-			require.ErrorIs(t, err, clickhouse.ErrInsertFormatNativeUnsupported)
 			require.NoError(t, conn.Exec(ctx, "SELECT 1"))
+		})
+	}
+}
+
+// failingReader returns some rows, then an error, as a broken data source would.
+type failingReader struct{ rows int }
+
+func (r *failingReader) Read(p []byte) (int, error) {
+	if r.rows == 0 {
+		return 0, errors.New("broken data source")
+	}
+	r.rows--
+	return copy(p, "1,partial\n"), nil
+}
+
+// TestFormatNativeInsertFormat streams INSERT data over the native protocol, where
+// the server parses it: round trips in several formats, a large insert, a
+// malformed payload, and a failing data source.
+func TestFormatNativeInsertFormat(t *testing.T) {
+	ctx := context.Background()
+	compressions := []struct {
+		name  string
+		value *clickhouse.Compression
+	}{
+		{name: "uncompressed"},
+		{name: "lz4", value: &clickhouse.Compression{Method: clickhouse.CompressionLZ4}},
+		{name: "zstd", value: &clickhouse.Compression{Method: clickhouse.CompressionZSTD}},
+	}
+	for _, compression := range compressions {
+		t.Run(compression.name, func(t *testing.T) {
+			conn, err := GetNativeConnection(t, clickhouse.Native, nil, nil, compression.value)
+			require.NoError(t, err)
+			version, err := conn.ServerVersion()
+			require.NoError(t, err)
+			if version.Revision < 54493 {
+				t.Skip("server does not support formatted data over the native protocol")
+			}
+
+			for _, format := range []string{"CSV", "JSONEachRow", "Parquet", "ArrowStream"} {
+				t.Run(format, func(t *testing.T) {
+					source := createFormatTestTable(t, conn, true)
+					dest := createFormatTestTable(t, conn, false)
+					stream, err := conn.QueryFormat(ctx, format,
+						fmt.Sprintf("SELECT id, name, score, ok, created_at, comment FROM %s ORDER BY id", source))
+					require.NoError(t, err)
+					payload, err := io.ReadAll(stream)
+					require.NoError(t, err)
+					require.NoError(t, stream.Close())
+
+					require.NoError(t, conn.InsertFormat(ctx, format,
+						fmt.Sprintf("INSERT INTO %s", dest), bytes.NewReader(payload)))
+					verifyFormatTestTable(t, conn, dest)
+				})
+			}
+
+			table := fmt.Sprintf("test_format_%s", RandAsciiString(8))
+			require.NoError(t, conn.Exec(ctx, fmt.Sprintf("CREATE TABLE %s (id Int64, name String) Engine MergeTree() ORDER BY id", table)))
+			t.Cleanup(func() { conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", table)) })
+			count := func() uint64 {
+				var n uint64
+				require.NoError(t, conn.QueryRow(ctx, fmt.Sprintf("SELECT count() FROM %s", table)).Scan(&n))
+				return n
+			}
+
+			// A large insert is split into many fragments.
+			const rows = 200_000
+			var payload strings.Builder
+			for i := 0; i < rows; i++ {
+				fmt.Fprintf(&payload, "%d,row-%d\n", i, i)
+			}
+			require.NoError(t, conn.InsertFormat(ctx, "CSV", fmt.Sprintf("INSERT INTO %s", table), strings.NewReader(payload.String())))
+			require.Equal(t, uint64(rows), count())
+
+			// A malformed payload fails on the server, and the connection stays usable.
+			err = conn.InsertFormat(ctx, "CSV", fmt.Sprintf("INSERT INTO %s", table), strings.NewReader("1,alice\nnot-a-number,bob\n"))
+			var exception *clickhouse.Exception
+			require.ErrorAs(t, err, &exception)
+			assert.Equal(t, int32(27), exception.Code, "CANNOT_PARSE_INPUT_ASSERTION_FAILED")
+			require.NoError(t, conn.Exec(ctx, "SELECT 1"))
+
+			// A failing data source cancels the insert: nothing of it is inserted.
+			err = conn.InsertFormat(ctx, "CSV", fmt.Sprintf("INSERT INTO %s", table), &failingReader{rows: 3})
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "broken data source")
+			require.NoError(t, conn.Exec(ctx, "SELECT 1"))
+			require.Equal(t, uint64(rows), count())
 		})
 	}
 }

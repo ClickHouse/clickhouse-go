@@ -109,15 +109,21 @@ type (
 		// data must be the raw, uncompressed format bytes (e.g. a plain
 		// Parquet file). Transport compression is transparent: with
 		// Options.Compression set, the driver itself compresses the payload
-		// on the wire and sets Content-Encoding. Passing pre-compressed data
-		// (such as a .parquet.gz file) therefore compresses it twice, and the
-		// server rejects the once-decoded payload as malformed format data.
+		// on the wire (and sets Content-Encoding over HTTP). Passing
+		// pre-compressed data (such as a .parquet.gz file) therefore
+		// compresses it twice, and the server rejects the once-decoded payload
+		// as malformed format data.
+		//
+		// Over the native protocol, data is streamed in fragments while the
+		// server parses it, and a server error stops the upload early. If
+		// reading data fails, the insert is canceled and the connection is
+		// closed. It requires a server with protocol revision 54493 or newer;
+		// older servers return clickhouse.ErrServerFormattedDataUnsupported.
 		//
 		// Experimental: this API is experimental and may change or be removed
-		// in a future minor release. It is currently only supported over the
-		// HTTP protocol, where the server parses the payload and every
-		// server-supported format works; over the native protocol it returns
-		// clickhouse.ErrInsertFormatNativeUnsupported.
+		// in a future minor release. Over HTTP and supported native servers,
+		// the server parses the payload and every server-supported input
+		// format works.
 		InsertFormat(ctx context.Context, format string, query string, data io.Reader) error
 
 		// Deprecated: use context aware `WithAsync()` for any async operations
