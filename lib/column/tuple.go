@@ -223,7 +223,7 @@ func getStructFieldValue(field reflect.Value, name string) (reflect.Value, bool)
 
 func unescapeColName(colName string) string {
 	s := []rune(colName)
-	if s[0:1][0] == '`' && s[len(s)-1:][0] == '`' {
+	if len(s) >= 2 && s[0] == '`' && s[len(s)-1] == '`' {
 		return colUnEscape.Replace(string(s[1 : len(s)-1]))
 	}
 	return colUnEscape.Replace(colName)

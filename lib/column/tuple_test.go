@@ -52,6 +52,13 @@ func TestTupleParseElementNames(t *testing.T) {
 			isNamed: true,
 		},
 		{
+			// a lone backtick is not a quoted name and must not panic
+			chType:  "Tuple(` String)",
+			names:   []string{"`"},
+			types:   []string{"String"},
+			isNamed: true,
+		},
+		{
 			chType:  "Tuple(String, Decimal(9, 2))",
 			names:   []string{"", ""},
 			types:   []string{"String", "Decimal(9, 2)"},
@@ -68,6 +75,25 @@ func TestTupleParseElementNames(t *testing.T) {
 				require.Equal(t, tc.names[i], tuple.columns[i].Name())
 				require.Equal(t, tc.types[i], string(tuple.columns[i].Type()))
 			}
+		})
+	}
+}
+
+func TestUnescapeColName(t *testing.T) {
+	for _, tc := range []struct {
+		in, want string
+	}{
+		{in: "", want: ""},
+		{in: "`", want: "`"},
+		{in: "``", want: ""},
+		{in: "`values`", want: "values"},
+		{in: "`a22\\``", want: "a22`"},
+		{in: "values", want: "values"},
+	} {
+		t.Run(tc.in, func(t *testing.T) {
+			require.NotPanics(t, func() {
+				require.Equal(t, tc.want, unescapeColName(tc.in), "unescapeColName(%q)", tc.in)
+			})
 		})
 	}
 }
