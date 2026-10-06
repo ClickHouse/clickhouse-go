@@ -98,6 +98,24 @@ func TestUnescapeColName(t *testing.T) {
 	}
 }
 
+func TestTupleBackquotedStructTags(t *testing.T) {
+	// before element names were stored unquoted, a backquoted tag was the only way to match
+	// names such as `56` from a struct, so it must keep working
+	type element struct {
+		Num  string "ch:\"`56`\""
+		From string "json:\"`from`\""
+	}
+	col, err := Type("Tuple(`56` String, `from` String)").Column("tuple", nil)
+	require.NoError(t, err)
+
+	want := element{Num: "n", From: "x"}
+	require.NoError(t, col.AppendRow(want))
+
+	var got element
+	require.NoError(t, col.ScanRow(&got, 0))
+	require.Equal(t, want, got)
+}
+
 func TestTupleNestedQuotedElementNames(t *testing.T) {
 	col, err := Type("Tuple(`from` Tuple(`values` String, id UInt8))").Column("tuple", nil)
 	require.NoError(t, err)

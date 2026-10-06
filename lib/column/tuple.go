@@ -217,6 +217,15 @@ func getStructFieldValue(field reflect.Value, name string) (reflect.Value, bool)
 			return field.Field(i), true
 		}
 	}
+	// element names are stored unquoted, keep backquoted tags such as "`56`" working
+	for i := 0; i < tField.NumField(); i++ {
+		if tag := tField.Field(i).Tag.Get("json"); tag != "" && unescapeColName(tag) == name {
+			return field.Field(i), true
+		}
+		if tag := tField.Field(i).Tag.Get("ch"); tag != "" && unescapeColName(tag) == name {
+			return field.Field(i), true
+		}
+	}
 	sField := field.FieldByName(name)
 	return sField, sField.IsValid()
 }
@@ -552,6 +561,10 @@ func (col *Tuple) AppendRow(v any) error {
 			name, omit := getStructFieldName(valueType.Field(i))
 			if omit {
 				continue
+			}
+			if _, ok := col.index[name]; !ok {
+				// element names are stored unquoted, keep backquoted tags such as "`56`" working
+				name = unescapeColName(name)
 			}
 			if _, ok := col.index[name]; !ok {
 				return &Error{
