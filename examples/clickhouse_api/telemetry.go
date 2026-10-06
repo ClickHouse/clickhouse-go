@@ -12,10 +12,11 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2"
 )
 
-// InstrumentedQuery uses application-owned providers. Configure their exporters
-// and sampling before calling this function, and shut them down at application
-// exit. Collect CPU/goroutine profiles with your application's pprof endpoint or
-// profiler; the driver supplies method and phase labels, not a profile exporter.
+// InstrumentedQuery uses the providers that the application supplies.
+// Configure exporters and sampling before you call this function.
+// Shut down the providers when the application exits.
+// Collect CPU or goroutine profiles with the application's profiler or pprof endpoint.
+// The driver supplies method and phase labels. It does not export profiles.
 func InstrumentedQuery(ctx context.Context, options clickhouse.Options, traces trace.TracerProvider, metrics metric.MeterProvider, logs log.LoggerProvider) (err error) {
 	options.Telemetry = &clickhouse.TelemetryOptions{
 		TracerProvider:  traces,

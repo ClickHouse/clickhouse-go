@@ -170,8 +170,9 @@ type Options struct {
 	// instead of Logger.
 	Logger *slog.Logger
 
-	// Telemetry enables optional metrics, traces, correlated operation logs,
-	// and profiling labels. Nil preserves the uninstrumented behavior.
+	// Telemetry enables metrics, traces, operation logs, and profiling labels.
+	// Set Telemetry to nil to disable these features.
+	// Trace context propagation remains available.
 	Telemetry *TelemetryOptions
 
 	Settings             Settings

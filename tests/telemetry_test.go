@@ -96,7 +96,8 @@ func TestTelemetryNative(t *testing.T) {
 		require.Contains(t, spans[0].Attributes, attribute.String("clickhouse.query.id", id))
 		require.Equal(t, spans[0].SpanContext.TraceID().String()+"-"+spans[0].SpanContext.SpanID().String(), id)
 
-		// Caller IDs survive instrumentation, and QueryRow completes on Scan.
+		// The driver preserves query IDs that the caller supplies.
+		// The QueryRow span ends when Scan completes.
 		require.NoError(t, conn.QueryRow(clickhouse.Context(ctx, clickhouse.WithQueryID("telemetry-test-"+id)), "SELECT currentQueryID()").Scan(&id))
 		require.Contains(t, id, "telemetry-test-")
 		require.Len(t, exporter.GetSpans(), 2)
@@ -106,7 +107,8 @@ func TestTelemetryNative(t *testing.T) {
 		require.Error(t, err)
 		require.Len(t, exporter.GetSpans(), 3)
 		require.Equal(t, codes.Error, exporter.GetSpans()[2].Status.Code)
-		// No result still completes successfully; preserve the public sentinel.
+		// A query with no rows completes without a telemetry error.
+		// Scan returns sql.ErrNoRows.
 		err = conn.QueryRow(ctx, "SELECT number FROM numbers(0)").Scan(&value)
 		require.Equal(t, sql.ErrNoRows, err)
 		require.Equal(t, codes.Unset, exporter.GetSpans()[3].Status.Code)
@@ -156,8 +158,9 @@ func TestTelemetryBackpressure(t *testing.T) {
 		ctx := context.Background()
 		r, err := conn.Query(ctx, "SELECT number FROM numbers(1000000) SETTINGS max_block_size=1000")
 		require.NoError(t, err)
-		// A full result buffer retains the sole connection; another operation
-		// must time out acquiring it. This exercises a real pool and server.
+		// A full result buffer keeps the only connection in use.
+		// A second operation must reach its timeout while it waits for that connection.
+		// This test uses a real connection pool and server.
 		deadline, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
 		defer cancel()
 		require.Error(t, conn.Exec(deadline, "SELECT 1"))

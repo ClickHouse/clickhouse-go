@@ -15,15 +15,18 @@ import (
 
 type ServerVersion = proto.ServerHandshake
 
-// TelemetryOptions configures instrumentation of Query, QueryRow, and Exec.
-// Providers and their exporters are owned and shut down by the application.
-// A nil provider disables that signal. Logs use clickhouse.Options.Logger.
+// TelemetryOptions configures telemetry for Query, QueryRow, and Exec.
+// The application configures providers and exporters.
+// The application must shut down its providers.
+// A nil provider disables its signal. Logs use clickhouse.Options.Logger.
 type TelemetryOptions struct {
 	TracerProvider trace.TracerProvider
 	MeterProvider  metric.MeterProvider
-	// EnableProfiling adds bounded pprof labels to query submission, execution,
-	// and background result decoding. The application owns profile collection.
-	// It does not label application consumption or start a process-wide profiler.
+	// EnableProfiling adds pprof labels during query submission and execution.
+	// It also adds labels during background result decoding.
+	// The labels identify the method and phase. They do not contain query IDs.
+	// The application controls profile collection.
+	// The driver does not label application scanning or start a profiler.
 	EnableProfiling bool
 }
 

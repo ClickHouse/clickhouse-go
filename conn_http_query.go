@@ -112,13 +112,14 @@ func (h *httpConnect) query(ctx context.Context, release nativeTransportRelease,
 		errCh  = make(chan error)
 		stream = make(chan *proto.Block, bufferSize)
 	)
-	// The receiver exits on EOF/error; Close drains its output.
+	// The receiver exits when it reads EOF or an error occurs.
+	// Close reads and discards the remaining output.
 	go func() {
 		profileReceive(ctx, func() {
 			for {
 				block, err := h.readData(chReader, options.userLocation, &capturingRdr.buffer)
 				if err != nil {
-					// ch-go wraps EOF errors
+					// ch-go wraps EOF errors.
 					if !errors.Is(err, io.EOF) {
 						errCh <- fmt.Errorf("readData stream: %w", err)
 					}

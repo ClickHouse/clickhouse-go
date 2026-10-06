@@ -20,7 +20,7 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 
-// TelemetryOptions configures optional client instrumentation.
+// TelemetryOptions configures optional client telemetry.
 type TelemetryOptions = driver.TelemetryOptions
 
 const telemetryScope = "github.com/ClickHouse/clickhouse-go/v2"
@@ -58,23 +58,23 @@ func newTelemetry(opt *Options, api string) (*telemetry, error) {
 	if p := opt.Telemetry.MeterProvider; p != nil {
 		m := p.Meter(telemetryScope)
 		var err error
-		t.duration, err = m.Float64Histogram("db.client.operation.duration", metric.WithUnit("s"), metric.WithExplicitBucketBoundaries(0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10), metric.WithDescription("Time through result exhaustion or close, including application consumption"))
+		t.duration, err = m.Float64Histogram("db.client.operation.duration", metric.WithUnit("s"), metric.WithExplicitBucketBoundaries(0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10), metric.WithDescription("Time from operation start to completion. This includes the time the application uses to read results."))
 		if err != nil {
 			return nil, fmt.Errorf("clickhouse: create operation duration metric: %w", err)
 		}
-		t.ready, err = m.Float64Histogram("clickhouse.client.query.result_ready.duration", metric.WithUnit("s"), metric.WithExplicitBucketBoundaries(0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10), metric.WithDescription("Time until Query returns a result, which may be an empty schema block"))
+		t.ready, err = m.Float64Histogram("clickhouse.client.query.result_ready.duration", metric.WithUnit("s"), metric.WithExplicitBucketBoundaries(0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10), metric.WithDescription("Time until Query returns a result. The first block can contain only column metadata."))
 		if err != nil {
 			return nil, fmt.Errorf("clickhouse: create result ready metric: %w", err)
 		}
-		t.acquire, err = m.Float64Histogram("clickhouse.client.connection.acquire.duration", metric.WithUnit("s"), metric.WithExplicitBucketBoundaries(0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10), metric.WithDescription("Native API connection acquisition, including queueing, health checks, and dialing"))
+		t.acquire, err = m.Float64Histogram("clickhouse.client.connection.acquire.duration", metric.WithUnit("s"), metric.WithExplicitBucketBoundaries(0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10), metric.WithDescription("Time to get a connection through the native API. This includes pool waits, connection checks, and connection setup."))
 		if err != nil {
 			return nil, fmt.Errorf("clickhouse: create acquisition metric: %w", err)
 		}
-		t.delivery, err = m.Float64Histogram("clickhouse.client.query.result_delivery.duration", metric.WithUnit("s"), metric.WithExplicitBucketBoundaries(0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10), metric.WithDescription("Cumulative time delivering decoded blocks to the result buffer, including consumer backpressure"))
+		t.delivery, err = m.Float64Histogram("clickhouse.client.query.result_delivery.duration", metric.WithUnit("s"), metric.WithExplicitBucketBoundaries(0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10), metric.WithDescription("Total time to send decoded blocks to the result buffer. This includes waits for the application to read results."))
 		if err != nil {
 			return nil, fmt.Errorf("clickhouse: create result delivery metric: %w", err)
 		}
-		t.active, err = m.Int64UpDownCounter("clickhouse.client.operations.active", metric.WithUnit("{operation}"), metric.WithDescription("Operations not yet completed; queries remain active until exhaustion or close"))
+		t.active, err = m.Int64UpDownCounter("clickhouse.client.operations.active", metric.WithUnit("{operation}"), metric.WithDescription("Number of operations that started but did not finish. This includes queries with open results."))
 		if err != nil {
 			return nil, fmt.Errorf("clickhouse: create active operations metric: %w", err)
 		}
@@ -92,7 +92,7 @@ type telemetryOperation struct {
 	method        string
 	queryID       string
 	once          sync.Once
-	// Accessed only by the result consumer, like rows itself.
+	// Only the goroutine that reads results accesses this field.
 	err error
 }
 
@@ -103,7 +103,8 @@ func (t *telemetry) start(ctx context.Context, method, query string) (context.Co
 	o := &telemetryOperation{telemetry: t, start: time.Now(), method: method}
 	o.attrs = append(append([]attribute.KeyValue(nil), t.attrs...), attribute.String("clickhouse.client.method", method))
 	name := "clickhouse." + method
-	// Only allow known SQL verbs: never turn arbitrary SQL into metric labels.
+	// Use only recognized SQL verbs as metric labels.
+	// Do not use other SQL text as metric labels.
 	verb, _, _ := strings.Cut(strings.TrimSpace(query), " ")
 	if i := strings.IndexAny(verb, "\t\r\n"); i >= 0 {
 		verb = verb[:i]
@@ -114,8 +115,8 @@ func (t *telemetry) start(ctx context.Context, method, query string) (context.Co
 		o.attrs = append(o.attrs, attribute.String("db.operation.name", name))
 	}
 	options := queryOptions(ctx)
-	// WithSpan remains the explicit propagation override. When instrumented,
-	// use it as the parent so the new client span and server share a trace.
+	// Use the context from WithSpan as the parent if the caller supplied it.
+	// The new client span and the server then use the same trace.
 	if options.span.IsValid() {
 		ctx = trace.ContextWithSpanContext(ctx, options.span)
 	}
@@ -186,7 +187,8 @@ func (o *telemetryOperation) finish(err error) {
 		if err == nil {
 			err = o.err
 		}
-		// Keep correlation without retaining the caller's context or values in rows.
+		// Use the span context to connect metrics and logs to the trace.
+		// Do not store the caller's context or its values in rows.
 		ctx := trace.ContextWithSpanContext(context.Background(), o.spanContext)
 		ended := time.Now()
 		elapsed := ended.Sub(o.start).Seconds()
@@ -201,7 +203,8 @@ func (o *telemetryOperation) finish(err error) {
 			attrs = append(append([]attribute.KeyValue(nil), attrs...), attribute.String("error.type", kind))
 			level = slog.LevelError
 			logAttrs = append(logAttrs, slog.String("error.type", kind))
-			// Error messages can contain SQL and values. Export the bounded class only.
+			// Error messages can contain SQL text and parameter values.
+			// Export only the error class.
 			if o.span != nil {
 				o.span.SetAttributes(attribute.String("error.type", kind))
 				o.span.SetStatus(codes.Error, kind)
@@ -257,8 +260,9 @@ func observeExec(ctx context.Context, t *telemetry, query string, fn func(contex
 	return err
 }
 
-// profileReceive runs in a query-owned goroutine, which exits when the stream
-// completes, fails, or is canceled. No profiling goroutine is created.
+// profileReceive uses an existing query receiver goroutine.
+// The goroutine exits when the stream completes, fails, or is canceled.
+// This function does not create a goroutine.
 func profileReceive(ctx context.Context, fn func()) {
 	op, ok := ctx.Value(telemetryOperationKey{}).(*telemetryOperation)
 	if !ok || !op.telemetry.profiling {

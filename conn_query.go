@@ -43,7 +43,8 @@ func (c *connect) query(ctx context.Context, release nativeTransportRelease, que
 		stream = make(chan *proto.Block, bufferSize)
 	)
 
-	// The receiver exits on stream completion or cancellation; Close drains its output.
+	// The receiver exits when the stream completes or the query is canceled.
+	// Close reads and discards the remaining output.
 	go func() {
 		profileReceive(ctx, func() {
 			onProcess.data = func(b *proto.Block) {
