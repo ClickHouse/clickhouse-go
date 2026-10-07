@@ -1,3 +1,7 @@
+# Communication style
+
+* Follow ASD-STE100
+
 # clickhouse-go — Agent Instructions
 
 `github.com/ClickHouse/clickhouse-go/v2` is the official Go client for ClickHouse. It exposes two surfaces:
