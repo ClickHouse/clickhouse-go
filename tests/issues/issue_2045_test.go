@@ -2,6 +2,7 @@ package issues
 
 import (
 	"context"
+	"errors"
 	"strconv"
 	"testing"
 
@@ -51,8 +52,23 @@ func TestIssue2045IntegerOverflow(t *testing.T) {
 				return err
 			})
 			checkIssue2045Overflow(t, func(signed, unsigned any) error {
-				_, err := db.ExecContext(ctx, "INSERT INTO test_issue_2045 VALUES (?, ?)", signed, unsigned)
-				return err
+				tx, err := db.BeginTx(ctx, nil)
+				if err != nil {
+					return err
+				}
+				stmt, err := tx.PrepareContext(ctx, "INSERT INTO test_issue_2045 VALUES (?, ?)")
+				if err != nil {
+					return errors.Join(err, tx.Rollback())
+				}
+				_, err = stmt.ExecContext(ctx, signed, unsigned)
+				closeErr := stmt.Close()
+				if err != nil {
+					return errors.Join(err, closeErr, tx.Rollback())
+				}
+				if closeErr != nil {
+					return errors.Join(closeErr, tx.Rollback())
+				}
+				return tx.Commit()
 			}, func(signed *int16, unsigned *uint8) error {
 				return db.QueryRowContext(ctx, "SELECT signed_value, unsigned_value FROM test_issue_2045").Scan(signed, unsigned)
 			})
