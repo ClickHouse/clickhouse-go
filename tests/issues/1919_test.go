@@ -39,13 +39,22 @@ func Test1919(t *testing.T) {
 				}
 			})
 
+			// Every row gets a distinct col1 so no two insert blocks are identical.
+			// Deduplicating engines (e.g. SharedMergeTree on ClickHouse Cloud) drop
+			// repeated identical blocks, which would break the row counts below.
+			var nextID uint64
+			id := func() uint64 {
+				nextID++
+				return nextID
+			}
+
 			// A valid SETTINGS clause after the column list must be accepted and the
 			// rows inserted. Before the fix the clause was dropped from the normalized
 			// query, so this only exercises the happy path staying intact.
 			batch, err := conn.PrepareBatch(context.Background(), fmt.Sprintf("INSERT INTO %s (col1, col2) SETTINGS async_insert=0", tableName))
 			require.NoError(t, err, "PrepareBatch with SETTINGS after column list failed")
-			for i := range 10 {
-				require.NoError(t, batch.Append(uint64(i), "value"))
+			for range 10 {
+				require.NoError(t, batch.Append(id(), "value"))
 			}
 			require.NoError(t, batch.Send())
 
@@ -59,8 +68,8 @@ func Test1919(t *testing.T) {
 			// fail to insert.
 			batchSemicolon, err := conn.PrepareBatch(context.Background(), fmt.Sprintf("INSERT INTO %s (col1, col2) SETTINGS async_insert=0;", tableName))
 			require.NoError(t, err, "PrepareBatch with SETTINGS and trailing semicolon failed")
-			for i := range 10 {
-				require.NoError(t, batchSemicolon.Append(uint64(i), "value"))
+			for range 10 {
+				require.NoError(t, batchSemicolon.Append(id(), "value"))
 			}
 			require.NoError(t, batchSemicolon.Send())
 
@@ -73,8 +82,8 @@ func Test1919(t *testing.T) {
 			// input format and the insert would fail.
 			batchComment, err := conn.PrepareBatch(context.Background(), fmt.Sprintf("INSERT INTO %s (col1, col2) SETTINGS async_insert=0 -- inline comment", tableName))
 			require.NoError(t, err, "PrepareBatch with SETTINGS and trailing comment failed")
-			for i := range 10 {
-				require.NoError(t, batchComment.Append(uint64(i), "value"))
+			for range 10 {
+				require.NoError(t, batchComment.Append(id(), "value"))
 			}
 			require.NoError(t, batchComment.Send())
 
@@ -85,8 +94,8 @@ func Test1919(t *testing.T) {
 			// instead of being dropped, which is the original symptom of this issue.
 			batchMultiline, err := conn.PrepareBatch(context.Background(), fmt.Sprintf("INSERT INTO %s (col1, col2) SETTINGS\n\tasync_insert=0,\n\twait_for_async_insert=0", tableName))
 			require.NoError(t, err, "PrepareBatch with multiline SETTINGS failed")
-			for i := range 10 {
-				require.NoError(t, batchMultiline.Append(uint64(i), "value"))
+			for range 10 {
+				require.NoError(t, batchMultiline.Append(id(), "value"))
 			}
 			require.NoError(t, batchMultiline.Send())
 
@@ -98,8 +107,8 @@ func Test1919(t *testing.T) {
 			// The server rejects them if they are.
 			batchValues, err := conn.PrepareBatch(context.Background(), fmt.Sprintf("INSERT INTO %s (col1, col2) SETTINGS async_insert=0 values (1, 'a -- b')", tableName))
 			require.NoError(t, err, "PrepareBatch with SETTINGS and row data failed")
-			for i := range 10 {
-				require.NoError(t, batchValues.Append(uint64(i), "value"))
+			for range 10 {
+				require.NoError(t, batchValues.Append(id(), "value"))
 			}
 			require.NoError(t, batchValues.Send())
 
@@ -114,7 +123,7 @@ func Test1919(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				if err = b.Append(uint64(1), "value"); err != nil {
+				if err = b.Append(id(), "value"); err != nil {
 					return err
 				}
 				return b.Send()
@@ -199,7 +208,10 @@ func Test1919(t *testing.T) {
 					}
 				})
 
+				// Distinct col1 per insert, see the native subtests above.
+				var nextID uint64
 				insert := func(query string) error {
+					nextID++
 					scope, err := db.Begin()
 					if err != nil {
 						return err
@@ -208,7 +220,7 @@ func Test1919(t *testing.T) {
 					if err != nil {
 						return err
 					}
-					if _, err = batch.Exec(uint64(1), "value"); err != nil {
+					if _, err = batch.Exec(nextID, "value"); err != nil {
 						return err
 					}
 					return scope.Commit()

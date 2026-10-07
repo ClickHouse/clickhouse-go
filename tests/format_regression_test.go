@@ -53,10 +53,14 @@ func TestFormatGenuineMidStreamException(t *testing.T) {
 		"http_write_exception_in_output_format": 0,
 	}))
 
+	// The server may raise the exception before the response headers are sent
+	// (HTTP 500 from QueryFormat) or after streaming has started (error from the
+	// read). Which one happens is timing-dependent; both must surface the error.
 	stream, err := conn.QueryFormat(ctx, "CSV", "SELECT throwIf(number=3, 'boom mid stream') FROM system.numbers")
-	require.NoError(t, err)
-	defer stream.Close()
-	_, err = io.ReadAll(stream)
+	if err == nil {
+		defer stream.Close()
+		_, err = io.ReadAll(stream)
+	}
 	require.Error(t, err, "a mid-stream server exception must surface as an error")
 	assert.Contains(t, err.Error(), "boom mid stream")
 }
