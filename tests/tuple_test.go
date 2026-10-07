@@ -325,6 +325,174 @@ func TestNamedTupleWithStructTags(t *testing.T) {
 	})
 }
 
+// named tuples can be nested and mix Array and Map members
+func TestNamedTupleNested(t *testing.T) {
+	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		conn, err := GetNativeConnection(t, protocol, nil, nil, nil)
+		ctx := context.Background()
+		require.NoError(t, err)
+		// https://github.com/ClickHouse/ClickHouse/pull/36544
+		if !CheckMinServerServerVersion(conn, 22, 5, 0) {
+			t.Skip(fmt.Errorf("unsupported clickhouse version"))
+			return
+		}
+		const ddl = `
+		CREATE TABLE test_tuple_nested (
+			Col1 Tuple(user_id UInt32, profile Tuple(age UInt8, email String))
+			, Col2 Tuple(data Array(Int32), metadata Map(String, String))
+		) Engine MergeTree() ORDER BY tuple()
+		`
+
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE IF EXISTS test_tuple_nested")
+		}()
+		require.NoError(t, conn.Exec(ctx, ddl))
+
+		// bind with maps, including a nested map for the nested tuple
+		batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_tuple_nested")
+		require.NoError(t, err)
+		var (
+			col1Data = map[string]any{
+				"user_id": uint32(123),
+				"profile": map[string]any{
+					"age":   uint8(30),
+					"email": "john@example.com",
+				},
+			}
+			col2Data = map[string]any{
+				"data":     []int32{1, 2, 3, 4, 5},
+				"metadata": map[string]string{"key1": "value1", "key2": "value2"},
+			}
+		)
+		require.NoError(t, batch.Append(col1Data, col2Data))
+		require.Equal(t, 1, batch.Rows())
+		require.NoError(t, batch.Send())
+
+		var (
+			col1 map[string]any
+			col2 map[string]any
+		)
+		require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_tuple_nested").Scan(&col1, &col2))
+		assert.Equal(t, col1Data, col1)
+		assert.Equal(t, col2Data, col2)
+
+		// bind with structs, including a nested struct for the nested tuple
+		type profile struct {
+			Age   uint8  `ch:"age"`
+			Email string `ch:"email"`
+		}
+		type userWithProfile struct {
+			UserID  uint32  `ch:"user_id"`
+			Profile profile `ch:"profile"`
+		}
+		type dataWithMetadata struct {
+			Data     []int32           `ch:"data"`
+			Metadata map[string]string `ch:"metadata"`
+		}
+		var (
+			col1Struct = userWithProfile{
+				UserID:  uint32(456),
+				Profile: profile{Age: 25, Email: "jane@example.com"},
+			}
+			col2Struct = dataWithMetadata{
+				Data:     []int32{6, 7, 8, 9, 10},
+				Metadata: map[string]string{"key3": "value3", "key4": "value4"},
+			}
+		)
+		batch, err = conn.PrepareBatch(ctx, "INSERT INTO test_tuple_nested")
+		require.NoError(t, err)
+		require.NoError(t, batch.Append(col1Struct, col2Struct))
+		require.Equal(t, 1, batch.Rows())
+		require.NoError(t, batch.Send())
+
+		var (
+			col1Result userWithProfile
+			col2Result dataWithMetadata
+		)
+		require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_tuple_nested WHERE Col1.user_id = $1", uint32(456)).Scan(&col1Result, &col2Result))
+		assert.Equal(t, col1Struct, col1Result)
+		assert.Equal(t, col2Struct, col2Result)
+	})
+}
+
+// named tuple members can be Nullable
+func TestNamedTupleWithNullableFields(t *testing.T) {
+	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		conn, err := GetNativeConnection(t, protocol, nil, nil, nil)
+		ctx := context.Background()
+		require.NoError(t, err)
+		// https://github.com/ClickHouse/ClickHouse/pull/36544
+		if !CheckMinServerServerVersion(conn, 22, 5, 0) {
+			t.Skip(fmt.Errorf("unsupported clickhouse version"))
+			return
+		}
+		const ddl = `
+		CREATE TABLE test_tuple_nullable (
+			Col1 Tuple(id Int64, name Nullable(String), age Nullable(UInt8))
+		) Engine MergeTree() ORDER BY tuple()
+		`
+
+		defer func() {
+			conn.Exec(ctx, "DROP TABLE IF EXISTS test_tuple_nullable")
+		}()
+		require.NoError(t, conn.Exec(ctx, ddl))
+
+		batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_tuple_nullable")
+		require.NoError(t, err)
+		var (
+			nullData = map[string]any{
+				"id":   int64(1),
+				"name": nil,
+				"age":  nil,
+			}
+			valueData = map[string]any{
+				"id":   int64(2),
+				"name": "A",
+				"age":  uint8(7),
+			}
+		)
+		require.NoError(t, batch.Append(nullData, valueData))
+		require.Equal(t, 2, batch.Rows())
+		require.NoError(t, batch.Send())
+
+		// a NULL member scans into a typed nil pointer, not an untyped nil
+		var (
+			nullMap  map[string]any
+			valueMap map[string]any
+		)
+		require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_tuple_nullable WHERE Col1.id = $1", int64(1)).Scan(&nullMap))
+		require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_tuple_nullable WHERE Col1.id = $1", int64(2)).Scan(&valueMap))
+		assert.Equal(t, map[string]any{
+			"id":   int64(1),
+			"name": (*string)(nil),
+			"age":  (*uint8)(nil),
+		}, nullMap)
+
+		name := "A"
+		age := uint8(7)
+		assert.Equal(t, map[string]any{
+			"id":   int64(2),
+			"name": &name,
+			"age":  &age,
+		}, valueMap)
+
+		// the same rows scan into pointer fields on a struct
+		type nullableTuple struct {
+			ID   int64   `ch:"id"`
+			Name *string `ch:"name"`
+			Age  *uint8  `ch:"age"`
+		}
+		var (
+			nullStruct  nullableTuple
+			valueStruct nullableTuple
+		)
+		require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_tuple_nullable WHERE Col1.id = $1", int64(1)).Scan(&nullStruct))
+		require.NoError(t, conn.QueryRow(ctx, "SELECT * FROM test_tuple_nullable WHERE Col1.id = $1", int64(2)).Scan(&valueStruct))
+		assert.Equal(t, nullableTuple{ID: int64(1)}, nullStruct)
+		assert.Equal(t, nullableTuple{ID: int64(2), Name: &name, Age: &age}, valueStruct)
+	})
+}
+
 // named tuples will not work with unexported fields
 func TestNamedTupleWithUnexportedStructField(t *testing.T) {
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
