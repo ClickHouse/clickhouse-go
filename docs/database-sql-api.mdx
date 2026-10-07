@@ -353,9 +353,13 @@ row := conn.QueryRowContext(ctx,
 )
 ```
 
-Parameter strings use ClickHouse's `Escaped` text format. In particular, use a Go raw literal such as `` `line 1\nline 2` `` or an interpreted literal such as `"line 1\\nline 2"` when ClickHouse should receive a newline. Passing `"line 1\nline 2"` sends an actual newline before ClickHouse parses the parameter and is rejected.
+A `string`/`*string` or `[]byte`/`*[]byte` passed via `clickhouse.Named` is treated as the literal value and escaped by the driver, so it round-trips byte-for-byte. Use an actual newline or tab in the Go value when that is what you want on the wire:
 
-See [Server-side query parameters](/integrations/language-clients/go/clickhouse-api#server-side-query-parameters) for the full explanation of types, escaping, raw versus interpreted Go string literals, and how `{name:Type}` differs from client-side binding.
+```go
+clickhouse.Named("message", "line 1\nline 2") // literal newline — round-trips
+```
+
+For already-serialized parameter text in ClickHouse's `Escaped` format, use `WithParameters` instead; see [Server-side query parameters](/integrations/language-clients/go/clickhouse-api#server-side-query-parameters) for the full explanation of types, escaping, and how `{name:Type}` differs from client-side binding.
 
 [Full standard API example](https://github.com/ClickHouse/clickhouse-go/blob/main/examples/std/query_parameters.go)
 
