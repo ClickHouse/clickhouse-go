@@ -12,7 +12,7 @@ on:
 jobs:
   test:
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'tests:run-head'))
-    runs-on: [self-hosted, style-checker-aarch64]
+    runs-on: ubuntu-26.04-arm
     strategy:
       matrix:
         go:

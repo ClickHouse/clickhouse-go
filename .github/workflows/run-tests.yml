@@ -12,7 +12,7 @@ on:
 
 jobs:
   test:
-    runs-on: [self-hosted, style-checker-aarch64]
+    runs-on: ubuntu-26.04-arm
     strategy:
       fail-fast: false
       matrix:
