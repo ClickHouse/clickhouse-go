@@ -752,7 +752,23 @@ func CreateDatabase(testSet string) error {
 	if err != nil {
 		return err
 	}
+	defer conn.Close()
 	return conn.Exec(context.Background(), fmt.Sprintf("CREATE DATABASE `%s`", env.Database))
+}
+
+// DropDatabase drops the database created by CreateDatabase. Against an external
+// server (e.g. ClickHouse Cloud) nothing else removes it, so every run would leak one.
+func DropDatabase(testSet string) error {
+	env, err := GetTestEnvironment(testSet)
+	if err != nil {
+		return err
+	}
+	conn, err := getConnection(env, "default", nil, nil, nil)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	return conn.Exec(context.Background(), fmt.Sprintf("DROP DATABASE IF EXISTS `%s`", env.Database))
 }
 
 const (
@@ -1154,6 +1170,13 @@ func Runtime(m *testing.M, ts string) (exitCode int) {
 	if err := CreateDatabase(ts); err != nil {
 		panic(err)
 	}
+	// Runs before the container is terminated (defers are LIFO). A failed drop is
+	// reported but does not change the exit code, so it can't mask test results.
+	defer func() {
+		if err := DropDatabase(ts); err != nil {
+			fmt.Fprintf(os.Stderr, "failed to drop test database for %s tests: %v\n", ts, err)
+		}
+	}()
 
 	return m.Run()
 }
