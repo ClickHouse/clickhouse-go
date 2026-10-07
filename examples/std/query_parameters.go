@@ -17,17 +17,17 @@ func QueryWithParameters() error {
 		return nil
 	}
 
-	// ClickHouse parses parameter strings in its Escaped format. A raw Go
-	// literal preserves the backslashes; an interpreted literal needs an
-	// extra backslash. Double the Escaped backslash to receive a literal \n.
+	// A string passed via Named is treated as the literal value and the driver
+	// escapes control characters automatically, so the value round-trips
+	// byte-for-byte — including an actual newline, tab, or backslash.
 	row := conn.QueryRow(
 		`SELECT
 			{column:Identifier},
 			{str:String},
 			{array:Array(String)},
-			{escaped_raw:String},
-			{escaped_interpreted:String},
-			{literal_backslash:String}
+			{control:String},
+			{tab:String},
+			{backslash:String}
 		FROM {database:Identifier}.{table:Identifier}
 		LIMIT 1 OFFSET 100`,
 		clickhouse.Named("str", "hello"),
@@ -35,22 +35,22 @@ func QueryWithParameters() error {
 		clickhouse.Named("column", "number"),
 		clickhouse.Named("database", "system"),
 		clickhouse.Named("table", "numbers"),
-		clickhouse.Named("escaped_raw", `line 1\nline 2\tend`),
-		clickhouse.Named("escaped_interpreted", "line 1\\nline 2\\tend"),
-		clickhouse.Named("literal_backslash", `line 1\\nline 2`),
+		clickhouse.Named("control", "line 1\nline 2\tend"),
+		clickhouse.Named("tab", "column 1\tcolumn 2"),
+		clickhouse.Named("backslash", `C:\Users\bob`),
 	)
 	var (
-		column             uint64
-		str                string
-		array              []string
-		escapedRaw         string
-		escapedInterpreted string
-		literalBackslash   string
+		column     uint64
+		str        string
+		array      []string
+		control    string
+		tab        string
+		backslash  string
 	)
-	if err := row.Scan(&column, &str, &array, &escapedRaw, &escapedInterpreted, &literalBackslash); err != nil {
+	if err := row.Scan(&column, &str, &array, &control, &tab, &backslash); err != nil {
 		return err
 	}
-	fmt.Printf("row: column=%d, str=%s, array=%s, escapedRaw=%q, escapedInterpreted=%q, literalBackslash=%q\n",
-		column, str, array, escapedRaw, escapedInterpreted, literalBackslash)
+	fmt.Printf("row: column=%d, str=%s, array=%s, control=%q, tab=%q, backslash=%q\n",
+		column, str, array, control, tab, backslash)
 	return nil
 }

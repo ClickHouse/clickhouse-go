@@ -49,7 +49,9 @@ func (col *Tuple) parse(t Type, sc *ServerContext) (_ Interface, err error) {
 				name := ""
 				if parts := strings.SplitN(cType, " ", 2); len(parts) == 2 {
 					if !strings.Contains(parts[0], "(") {
-						name = parts[0]
+						// the server backquotes names that are not plain identifiers, since 26.5 also
+						// reserved words such as `values` and `from` (ClickHouse/ClickHouse#102338)
+						name = unescapeColName(parts[0])
 						cType = parts[1]
 					}
 				}
@@ -215,13 +217,22 @@ func getStructFieldValue(field reflect.Value, name string) (reflect.Value, bool)
 			return field.Field(i), true
 		}
 	}
+	// element names are stored unquoted, keep backquoted tags such as "`56`" working
+	for i := 0; i < tField.NumField(); i++ {
+		if tag := tField.Field(i).Tag.Get("json"); tag != "" && unescapeColName(tag) == name {
+			return field.Field(i), true
+		}
+		if tag := tField.Field(i).Tag.Get("ch"); tag != "" && unescapeColName(tag) == name {
+			return field.Field(i), true
+		}
+	}
 	sField := field.FieldByName(name)
 	return sField, sField.IsValid()
 }
 
 func unescapeColName(colName string) string {
 	s := []rune(colName)
-	if s[0:1][0] == '`' && s[len(s)-1:][0] == '`' {
+	if len(s) >= 2 && s[0] == '`' && s[len(s)-1] == '`' {
 		return colUnEscape.Replace(string(s[1 : len(s)-1]))
 	}
 	return colUnEscape.Replace(colName)
@@ -235,7 +246,7 @@ func (col *Tuple) scanMap(targetMap reflect.Value, row int) error {
 		}
 	}
 	for _, c := range col.columns {
-		colName := unescapeColName(c.Name())
+		colName := c.Name()
 		switch dCol := c.(type) {
 		case *Tuple:
 			switch targetMap.Type().Elem().Kind() {
@@ -552,6 +563,10 @@ func (col *Tuple) AppendRow(v any) error {
 				continue
 			}
 			if _, ok := col.index[name]; !ok {
+				// element names are stored unquoted, keep backquoted tags such as "`56`" working
+				name = unescapeColName(name)
+			}
+			if _, ok := col.index[name]; !ok {
 				return &Error{
 					ColumnType: string(col.chType),
 					Err:        fmt.Errorf("sub column '%s' does not exist in %s", name, col.Name()),
@@ -582,7 +597,7 @@ func (col *Tuple) AppendRow(v any) error {
 			}
 		}
 		for _, key := range value.MapKeys() {
-			name := getMapFieldName(key.Interface().(string))
+			name := key.Interface().(string)
 			if _, ok := col.index[name]; !ok {
 				return &Error{
 					ColumnType: string(col.chType),
@@ -692,12 +707,4 @@ func getStructFieldName(field reflect.StructField) (string, bool) {
 		return tag, false
 	}
 	return name, false
-}
-
-// ensures numeric keys and ` are escaped properly
-func getMapFieldName(name string) string {
-	if !escapeColRegex.MatchString(name) {
-		return fmt.Sprintf("`%s`", colEscape.Replace(name))
-	}
-	return colEscape.Replace(name)
 }

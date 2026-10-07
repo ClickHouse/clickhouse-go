@@ -40,12 +40,13 @@ type (
 		wait bool
 	}
 	QueryOptions struct {
-		span     trace.SpanContext
-		async    AsyncOptions
-		queryID  string
-		quotaKey string
-		jwt      string
-		events   struct {
+		span        trace.SpanContext
+		async       AsyncOptions
+		queryID     string
+		quotaKey    string
+		jwt         string
+		initialUser string
+		events      struct {
 			logs          func(*Log)
 			progress      func(*Progress)
 			profileInfo   func(*ProfileInfo)
@@ -98,10 +99,15 @@ func WithJWT(jwt string) QueryOption {
 	}
 }
 
-// WithColumnNamesAndTypes is used to provide a predetermined list of
-// column names and types for HTTP inserts.
-// Without this, the HTTP implementation will parse the query and run a
-// DESCRIBE TABLE request to fetch and validate column names.
+// WithInitialUser sets the user for interserver-secret queries.
+func WithInitialUser(user string) QueryOption {
+	return func(o *QueryOptions) error {
+		o.initialUser = user
+		return nil
+	}
+}
+
+// WithColumnNamesAndTypes supplies metadata for HTTP inserts.
 func WithColumnNamesAndTypes(columnNamesAndTypes []ColumnNameAndType) QueryOption {
 	return func(o *QueryOptions) error {
 		o.columnNamesAndTypes = columnNamesAndTypes
@@ -312,6 +318,7 @@ func (q *QueryOptions) clone() QueryOptions {
 		async:               q.async,
 		queryID:             q.queryID,
 		quotaKey:            q.quotaKey,
+		initialUser:         q.initialUser,
 		jwt:                 q.jwt,
 		events:              q.events,
 		settings:            nil,
