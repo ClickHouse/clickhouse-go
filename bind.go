@@ -326,7 +326,7 @@ func bindPositional(tz *time.Location, query string, args ...any) (_ string, err
 			if argIndex < len(args) {
 				v := args[argIndex]
 				if fn, ok := v.(std_driver.Valuer); ok {
-					if v, err = fn.Value(); err != nil {
+					if v, err = callValuerValue(fn); err != nil {
 						return "", err
 					}
 				}
@@ -373,7 +373,7 @@ func bindNumeric(tz *time.Location, query string, args ...any) (_ string, err er
 	)
 	for i, v := range args {
 		if fn, ok := v.(std_driver.Valuer); ok {
-			if v, err = fn.Value(); err != nil {
+			if v, err = callValuerValue(fn); err != nil {
 				return "", err
 			}
 		}
@@ -417,6 +417,20 @@ func bindNumeric(tz *time.Location, query string, args ...any) (_ string, err er
 	return string(buf), nil
 }
 
+var valuerType = reflect.TypeOf((*std_driver.Valuer)(nil)).Elem()
+
+// callValuerValue returns vr.Value(), except that a nil pointer whose element
+// type implements driver.Valuer binds as NULL, as in database/sql: calling the
+// value-receiver method through the nil pointer would panic.
+func callValuerValue(vr std_driver.Valuer) (std_driver.Value, error) {
+	if rv := reflect.ValueOf(vr); rv.Kind() == reflect.Pointer &&
+		rv.IsNil() &&
+		rv.Type().Elem().Implements(valuerType) {
+		return nil, nil
+	}
+	return vr.Value()
+}
+
 func bindNamed(tz *time.Location, query string, args ...any) (_ string, err error) {
 	var (
 		lastMatchIndex = -1
@@ -430,7 +444,7 @@ func bindNamed(tz *time.Location, query string, args ...any) (_ string, err erro
 		case driver.NamedValue:
 			value := v.Value
 			if fn, ok := v.Value.(std_driver.Valuer); ok {
-				if value, err = fn.Value(); err != nil {
+				if value, err = callValuerValue(fn); err != nil {
 					return "", err
 				}
 			}
