@@ -14,7 +14,6 @@ import (
 	_ "net/http/pprof"
 
 	"github.com/google/uuid"
-	_ "github.com/mkevac/debugcharts"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
@@ -102,7 +101,6 @@ CREATE TABLE stress (
 `
 
 // http://127.0.0.1:8080/debug/pprof/
-// http://127.0.0.1:8080/debug/charts/
 func main() {
 	go func() {
 		log.Fatal(http.ListenAndServe(":8080", nil))
