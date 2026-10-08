@@ -228,6 +228,16 @@ This method doesn't support receiving a context - by default, it executes with t
 
 Batch semantics can be achieved by creating a `sql.Tx` via the `Being` method. From this, a batch can be obtained using the `Prepare` method with the `INSERT` statement. This returns a `sql.Stmt` to which rows can be appended using the `Exec` method. The batch will be accumulated in memory until `Commit` is executed on the original `sql.Tx`.
 
+:::warning Batch async-insert default
+Prepared batches send `async_insert=0` unless the query context or connection settings explicitly configure async inserts.
+This overrides a server-side `async_insert=1` default, including user-profile defaults, and changes applications that previously relied on server-side coalescing of small batches to synchronous inserts.
+
+To keep async inserts enabled, set `async_insert=1` in the connection settings, or pass `clickhouse.Context(ctx, clickhouse.WithAsync(true))` to `tx.PrepareContext`.
+The `true` argument waits for the async flush; `false` enables async inserts without waiting for it.
+An explicit query-level `async_insert` setting takes precedence over `WithAsync`, followed by the connection setting, then the batch default of `0`.
+Ordinary `ExecContext` inserts are not affected by this batch default.
+:::
+
 ```go
 batch, err := scope.Prepare("INSERT INTO example")
 if err != nil {
