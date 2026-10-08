@@ -46,6 +46,27 @@ func TestContextWatchdog(t *testing.T) {
 		assert.Equal(t, int32(0), called.Load(), "callback should not be called during normal exit")
 	})
 
+	t.Run("callback should not run after stopping watchdog when context is cancelled at the same time", func(t *testing.T) {
+		lateCalls := atomic.Int32{}
+		for i := 0; i < 10000; i++ {
+			stopped := atomic.Bool{}
+			ctx, cancel := context.WithCancel(context.Background())
+
+			stopCW := contextWatchdog(ctx, func() {
+				if stopped.Load() {
+					lateCalls.Add(1)
+				}
+			})
+			cancel() // context ends right before normal exit, possibly before the goroutine was scheduled
+			stopCW()
+			stopped.Store(true)
+		}
+
+		// Let any straggling goroutines run before checking.
+		time.Sleep(100 * time.Millisecond)
+		assert.Equal(t, int32(0), lateCalls.Load(), "callback should never run after stopCW has returned")
+	})
+
 	t.Run("No goroutines should be left out after stopping ContextWatchdog", func(t *testing.T) {
 		synctest.Test(t, func(t *testing.T) {
 			// when context is cancelled
