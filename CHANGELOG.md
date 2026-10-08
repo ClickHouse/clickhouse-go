@@ -1,3 +1,69 @@
+# v2.49.0, 2026-10-08 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+
+### Improvements :rocket: 
+* chore: add debug visibility on bad connection pool by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1973
+* fix: honor CompressionZSTD for native block compression by @must108 in https://github.com/ClickHouse/clickhouse-go/pull/1840
+* fix(bind): treat []byte as String and time.Duration as Time by @sankalpsthakur in https://github.com/ClickHouse/clickhouse-go/pull/1978
+* fix(bind): handle `fmt.Stringer` in server-side query parameter switch by @adamgonen in https://github.com/ClickHouse/clickhouse-go/pull/2002
+* fix: preserve SETTINGS clause in PrepareBatch after column list by @polyglotAI-bot in https://github.com/ClickHouse/clickhouse-go/pull/1923
+* Add docs drift detector by @joe-clickhouse in https://github.com/ClickHouse/clickhouse-go/pull/2003
+* Add cluster interserver-secret authentication by @BorisTyshkevich in https://github.com/ClickHouse/clickhouse-go/pull/1855
+* fix(column): return error instead of panic on Decimal/BigInt overflow by @wucm667 in https://github.com/ClickHouse/clickhouse-go/pull/1857
+* fix(churl): validate each host of a comma separated DSN authority by @MaxFreedomPollard in https://github.com/ClickHouse/clickhouse-go/pull/2005
+* Correctly parse names from tuples when these are escaped by @koletzilla in https://github.com/ClickHouse/clickhouse-go/pull/2046
+
+### Bug fixes :bug: 
+* fix: clear scan destination on NULL for LowCardinality(Nullable(T)) by @polyglotAI-bot in https://github.com/ClickHouse/clickhouse-go/pull/1933
+* fix: preserve sql.NullBool values in columnar appends by @fallintoplace in https://github.com/ClickHouse/clickhouse-go/pull/1954
+* Fix clickhouse proxy issue: hosts as query string DSN not parsed, also add alt_hosts support for DSN by @kokizzu in https://github.com/ClickHouse/clickhouse-go/pull/1546
+* fix: preserve original case for DSN query parameter values by @tank-500m in https://github.com/ClickHouse/clickhouse-go/pull/1802
+* fix: scan Enum8/Enum16 columns into integer destinations by @polyglotAI-bot in https://github.com/ClickHouse/clickhouse-go/pull/1921
+* fix: bind Int128/UInt128/Int256/UInt256 (big.Int) params as numeric values by @polyglotAI-bot in https://github.com/ClickHouse/clickhouse-go/pull/1922
+* fix: close connections leaked during pool shutdown (#1831) by @Laotree in https://github.com/ClickHouse/clickhouse-go/pull/1833
+* fix: respect backticks when splitting column names in PrepareBatch by @Laotree in https://github.com/ClickHouse/clickhouse-go/pull/1829
+* fix: escape control characters in native TCP query parameters by @Laotree in https://github.com/ClickHouse/clickhouse-go/pull/1834
+* fix(chcol): return true from HasType when the Variant carries a type by @MaxFreedomPollard in https://github.com/ClickHouse/clickhouse-go/pull/2006
+* fix: parse Map key types containing commas by @fallintoplace in https://github.com/ClickHouse/clickhouse-go/pull/1941
+
+### Other Changes 🛠
+* doc: fix typos in README by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1956
+* chore(deps): bump go.opentelemetry.io/otel/trace from 1.44.0 to 1.45.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1957
+* Docs: own and sync ClickHouse documentation by @Blargian in https://github.com/ClickHouse/clickhouse-go/pull/1929
+* doc: clarify server side param's escape characters by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/1977
+* chore(deps): bump github.com/testcontainers/testcontainers-go from 0.43.0 to 0.44.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1974
+* test: add unit coverage for churl DSN parsing, query parameter bindin… by @nguyenvantuan2391996 in https://github.com/ClickHouse/clickhouse-go/pull/1979
+* chore(deps): bump golang.org/x/net from 0.57.0 to 0.58.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1981
+* chore(deps): bump github.com/stretchr/testify from 1.11.1 to 1.12.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1980
+* chore(deps): bump github.com/moby/go-archive from 0.2.0 to 0.3.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1982
+* chore(deps): bump github.com/stretchr/testify from 1.12.0 to 1.12.1 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1987
+* chore(deps): bump github.com/gorilla/websocket from 1.4.2 to 1.5.3 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1994
+* chore: refresh CI ClickHouse server version matrix by @polyglotAI-bot in https://github.com/ClickHouse/clickhouse-go/pull/1996
+* chore(deps): bump go.opentelemetry.io/otel/trace from 1.45.0 to 1.46.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1998
+* chore(deps): bump github.com/andybalholm/brotli from 1.2.2 to 1.2.3 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/1999
+* chore(deps): bump github.com/moby/moby/api from 1.55.0 to 1.56.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/2009
+* chore(deps): bump github.com/moby/moby/client from 0.5.1 to 0.6.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/2008
+* fix(ci): repair docs drift workflow condition by @joe-clickhouse in https://github.com/ClickHouse/clickhouse-go/pull/2039
+* chore(deps): bump github.com/moby/moby/api from 1.56.0 to 1.56.1 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/2054
+* chore(deps): bump github.com/andybalholm/brotli from 1.2.3 to 1.2.6 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/2052
+* chore: fix redirect links to permalinks by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/2058
+* chore: flaky tests fixes by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/2057
+* chore:  remove unwanted deps and test database cleanups by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/2059
+* chore: change the CI runner by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/2060
+
+## New Contributors
+* @Blargian made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1929
+* @nguyenvantuan2391996 made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1979
+* @adamgonen made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/2002
+* @tank-500m made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1802
+* @MaxFreedomPollard made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/2006
+* @joe-clickhouse made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/2003
+* @BorisTyshkevich made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1855
+* @koletzilla made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/2046
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.48.0...v2.49.0
+
 # v2.48.0, 2026-08-04 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
