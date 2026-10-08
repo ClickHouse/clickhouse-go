@@ -54,7 +54,14 @@ func (c *connect) firstBlock(ctx context.Context, on *onProcess) (*proto.Block, 
 	}
 }
 
-func (c *connect) firstBlockImpl(ctx context.Context, on *onProcess) (*proto.Block, error) {
+func (c *connect) firstBlockImpl(ctx context.Context, on *onProcess) (block *proto.Block, err error) {
+	endOfStream := false
+	defer func() {
+		if !endOfStream {
+			c.closeOnQueryError(err)
+		}
+	}()
+
 	c.readerMutex.Lock()
 	defer c.readerMutex.Unlock()
 
@@ -78,6 +85,7 @@ func (c *connect) firstBlockImpl(ctx context.Context, on *onProcess) (*proto.Blo
 
 		case proto.ServerEndOfStream:
 			c.logger.Debug("end of stream received")
+			endOfStream = true
 			return nil, io.EOF
 
 		default:
@@ -128,7 +136,9 @@ func (c *connect) process(ctx context.Context, on *onProcess) error {
 	}
 }
 
-func (c *connect) processImpl(ctx context.Context, on *onProcess) error {
+func (c *connect) processImpl(ctx context.Context, on *onProcess) (err error) {
+	defer func() { c.closeOnQueryError(err) }()
+
 	c.readerMutex.Lock()
 	defer c.readerMutex.Unlock()
 
@@ -158,6 +168,19 @@ func (c *connect) processImpl(ctx context.Context, on *onProcess) error {
 		}
 
 		// handled okay, read next byte
+	}
+}
+
+// A decoded server exception terminates the response cleanly. Other read errors
+// can leave unread response bytes, so retire the connection before returning the
+// error to database/sql. This must run after releasing readerMutex.
+func (c *connect) closeOnQueryError(err error) {
+	var exception *Exception
+	if err == nil || errors.As(err, &exception) {
+		return
+	}
+	if closeErr := c.close(); closeErr != nil {
+		c.logger.Debug("failed to close connection after query error", slog.Any("error", closeErr))
 	}
 }
 
