@@ -50,7 +50,11 @@ func (col *DateTime64) parse(t Type, tz *time.Location) (_ Interface, err error)
 		}
 		p := byte(precision)
 		col.col.WithPrecision(proto.Precision(p))
-		timezone, err := timezone.Load(params[1][2 : len(params[1])-1])
+		tzValue := strings.TrimSpace(params[1])
+		if len(tzValue) < 2 || tzValue[0] != '\'' || tzValue[len(tzValue)-1] != '\'' {
+			return nil, fmt.Errorf("invalid DateTime64 format: '%s'", t)
+		}
+		timezone, err := timezone.Load(tzValue[1 : len(tzValue)-1])
 		if err != nil {
 			return nil, err
 		}
