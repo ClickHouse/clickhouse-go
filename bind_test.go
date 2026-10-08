@@ -542,7 +542,7 @@ func TestFormatScaledTime(t *testing.T) {
 	val, _ := format(t1.Location(), Seconds, t1)
 	require.Equal(t, "toDateTime('2022-01-12 15:00:00')", val)
 	val, _ = format(t1.Location(), Seconds, t1.In(time.Now().Location()))
-	require.Equal(t, "toDateTime('1641999600')", val)
+	require.Equal(t, "toDateTime('2022-01-12 15:00:00', 'UTC')", val)
 	val, _ = format(t1.Location(), Seconds, time.Unix(0, 0))
 	require.Equal(t, "toDateTime(0)", val)
 	val, _ = format(tz, Seconds, t1)
@@ -551,7 +551,7 @@ func TestFormatScaledTime(t *testing.T) {
 	val, _ = format(t1.Location(), MilliSeconds, t1)
 	require.Equal(t, "toDateTime64('2022-01-12 15:00:00.123', 3)", val)
 	val, _ = format(t1.Location(), MilliSeconds, t1.In(time.Now().Location()))
-	require.Equal(t, "toDateTime64('1641999600123', 3)", val)
+	require.Equal(t, "toDateTime64('2022-01-12 15:00:00.123', 3, 'UTC')", val)
 	val, _ = format(t1.Location(), MilliSeconds, time.Unix(0, 0))
 	require.Equal(t, "toDateTime(0)", val)
 	val, _ = format(tz, MilliSeconds, t1)
@@ -560,7 +560,7 @@ func TestFormatScaledTime(t *testing.T) {
 	val, _ = format(t1.Location(), MicroSeconds, t1)
 	require.Equal(t, "toDateTime64('2022-01-12 15:00:00.123456', 6)", val)
 	val, _ = format(t1.Location(), MicroSeconds, t1.In(time.Now().Location()))
-	require.Equal(t, "toDateTime64('1641999600123456', 6)", val)
+	require.Equal(t, "toDateTime64('2022-01-12 15:00:00.123456', 6, 'UTC')", val)
 	val, _ = format(t1.Location(), MicroSeconds, time.Unix(0, 0))
 	require.Equal(t, "toDateTime(0)", val)
 	val, _ = format(tz, MicroSeconds, t1)
@@ -569,11 +569,26 @@ func TestFormatScaledTime(t *testing.T) {
 	val, _ = format(t1.Location(), NanoSeconds, t1)
 	require.Equal(t, "toDateTime64('2022-01-12 15:00:00.123456789', 9)", val)
 	val, _ = format(t1.Location(), NanoSeconds, t1.In(time.Now().Location()))
-	require.Equal(t, "toDateTime64('1641999600123456789', 9)", val)
+	require.Equal(t, "toDateTime64('2022-01-12 15:00:00.123456789', 9, 'UTC')", val)
 	val, _ = format(t1.Location(), NanoSeconds, time.Unix(0, 0))
 	require.Equal(t, "toDateTime(0)", val)
 	val, _ = format(tz, NanoSeconds, t1)
 	require.Equal(t, "toDateTime64('2022-01-12 15:00:00.123456789', 9, 'UTC')", val)
+}
+
+func TestFormatTimeUnnamedZonePreservesSubsecond(t *testing.T) {
+	// FixedZone("", 0) has Location().String() == "" — same path as Local.
+	// Sub-second values in the first Unix second must not collapse to toDateTime(0).
+	epochMilli := time.Date(1970, 1, 1, 0, 0, 0, int(time.Millisecond), time.FixedZone("", 0))
+	val, err := format(time.UTC, MilliSeconds, epochMilli)
+	require.NoError(t, err)
+	require.Equal(t, "toDateTime64('1970-01-01 00:00:00.001', 3, 'UTC')", val)
+
+	parsed, err := time.Parse(time.RFC3339Nano, "2022-01-12T15:00:00.123+02:00")
+	require.NoError(t, err)
+	val, err = format(time.UTC, MilliSeconds, parsed)
+	require.NoError(t, err)
+	require.Equal(t, "toDateTime64('2022-01-12 13:00:00.123', 3, 'UTC')", val)
 }
 
 func TestStringBasedType(t *testing.T) {

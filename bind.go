@@ -449,22 +449,27 @@ func formatTime(tz *time.Location, scale TimeUnit, value time.Time) (string, err
 
 	switch locVal {
 	case "Local", "":
-		// It's required to pass timestamp as string due to decimal overflow for higher precision,
-		// but zero-value string "toDateTime('0')" will be not parsed by ClickHouse.
-		if value.Unix() == 0 {
+		// Local and unnamed FixedZones used to emit bare tick integers
+		// (UnixMilli/UnixMicro/UnixNano). That form is scale-dependent and
+		// breaks when the server reads the integer as seconds (ClickHouse
+		// 26.8+ / clickhouse-java#3114). Emit an unambiguous UTC wall-clock
+		// literal instead, matching the named-zone branch.
+		// Gate the historic toDateTime(0) shortcut on the exact Unix epoch
+		// (seconds and nanos both zero). Sub-second times in the first Unix
+		// second must keep their fraction and scale.
+		utcVal := value.UTC()
+		if utcVal.Unix() == 0 && utcVal.Nanosecond() == 0 {
 			return "toDateTime(0)", nil
 		}
-
-		switch scale {
-		case Seconds:
-			return fmt.Sprintf("toDateTime('%d')", value.Unix()), nil
-		case MilliSeconds:
-			return fmt.Sprintf("toDateTime64('%d', 3)", value.UnixMilli()), nil
-		case MicroSeconds:
-			return fmt.Sprintf("toDateTime64('%d', 6)", value.UnixMicro()), nil
-		case NanoSeconds:
-			return fmt.Sprintf("toDateTime64('%d', 9)", value.UnixNano()), nil
+		if scale == Seconds {
+			return fmt.Sprintf("toDateTime('%s', 'UTC')", utcVal.Format("2006-01-02 15:04:05")), nil
 		}
+		prec := int(scale * 3)
+		return fmt.Sprintf(
+			"toDateTime64('%s', %d, 'UTC')",
+			utcVal.Format(fmt.Sprintf("2006-01-02 15:04:05.%0*d", prec, 0)),
+			prec,
+		), nil
 	case tz.String():
 		if scale == Seconds {
 			return value.Format("toDateTime('2006-01-02 15:04:05')"), nil
