@@ -170,6 +170,10 @@ func (c *connect) handle(ctx context.Context, packet byte, on *onProcess) error 
 		}
 		if block.Rows() != 0 && on.data != nil {
 			on.data(block)
+			// time spent blocked on a slow consumer must not count against ReadTimeout
+			if err := c.startReadWriteTimeout(ctx); err != nil {
+				return fmt.Errorf("query processing: failed to reset read deadline: %w", err)
+			}
 		}
 	case proto.ServerException:
 		return c.exception()
