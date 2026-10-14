@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -19,12 +20,13 @@ import (
 // `query_id` values on ClickHouse 26.3+, because the server defaulted
 // `async_insert=1` and flushed the buffer as a rewritten
 // `INSERT INTO db.table` under a new UUID. PrepareBatch already buffers
-// client-side, so the driver now sends `async_insert=0` unless the caller set it.
+// client-side, so callers can opt in to `async_insert=0` with Options.SyncBatchInsert.
 func TestIssue1997_NativeInsertSingleQueryID(t *testing.T) {
 	conn, err := clickhouse_tests.GetConnectionTCPWithOptions("issues", nil, nil, nil, func(o *clickhouse.Options) {
 		// Drop the suite default so this test sees the server default
 		// (async_insert=1 on 26.3+), which is what triggered the duplicate log.
 		delete(o.Settings, "async_insert")
+		o.SyncBatchInsert = true
 	})
 	require.NoError(t, err)
 	t.Cleanup(func() { conn.Close() })
@@ -76,14 +78,15 @@ func TestIssue1997_NativeInsertSingleQueryID(t *testing.T) {
 }
 
 // TestIssue1997_HTTPInsertSingleQueryID is the HTTP equivalent of the native
-// regression: httpBatch.Send also forces async_insert=0 unless the caller set it.
+// regression: httpBatch.Send also honors Options.SyncBatchInsert.
 func TestIssue1997_HTTPInsertSingleQueryID(t *testing.T) {
 	env, err := clickhouse_tests.GetTestEnvironment("issues")
 	require.NoError(t, err)
 
 	conn, err := clickhouse.Open(&clickhouse.Options{
-		Protocol: clickhouse.HTTP,
-		Addr:     []string{fmt.Sprintf("%s:%d", env.Host, env.HttpPort)},
+		Protocol:        clickhouse.HTTP,
+		SyncBatchInsert: true,
+		Addr:            []string{fmt.Sprintf("%s:%d", env.Host, env.HttpPort)},
 		Auth: clickhouse.Auth{
 			Database: env.Database,
 			Username: env.Username,
@@ -147,7 +150,13 @@ func TestIssue1997_StdInsertSingleQueryID(t *testing.T) {
 	opts := clickhouse_tests.ClientOptionsFromEnv(env, clickhouse.Settings{}, false)
 	delete(opts.Settings, "async_insert")
 
-	conn, err := sql.Open("clickhouse", clickhouse_tests.OptionsToDSN(&opts))
+	dsn := clickhouse_tests.OptionsToDSN(&opts)
+	if strings.Contains(dsn, "?") {
+		dsn += "&sync_batch_insert=true"
+	} else {
+		dsn += "?sync_batch_insert=true"
+	}
+	conn, err := sql.Open("clickhouse", dsn)
 	require.NoError(t, err)
 	t.Cleanup(func() { conn.Close() })
 

@@ -19,22 +19,20 @@ import (
 var insertMatch = regexp.MustCompile(`(?i)(?:(?:--[^\n]*|#![^\n]*|#\s[^\n]*)\n\s*)*(INSERT\s+INTO\s+[^( ]+(?:\s*\([^()]*(?:\([^()]*\)[^()]*)*\))?)(?:\s*VALUES)?`)
 var columnMatch = regexp.MustCompile(`INSERT INTO .+\s\((?P<Columns>.+)\)$`)
 
-// disableAsyncInsertUnlessSet sets `async_insert=0` when the caller did not set
-// it on the query context or connection. ClickHouse 26.3+ defaults
-// `async_insert=1`, so a single PrepareBatch/Send is logged twice in
-// `system.query_log`: the client INSERT under the intended `query_id`, then a
-// server flush that rewrites the table as `database.table` and assigns a new
-// UUID. See https://github.com/ClickHouse/clickhouse-go/issues/1997.
-// PrepareBatch already buffers client-side, so the extra flush is redundant
-// unless the user opted in.
-func disableAsyncInsertUnlessSet(opt *Options, o *QueryOptions) {
+// applyBatchAsyncInsert resolves `async_insert` for PrepareBatch/Send.
+// By default the driver sends nothing and the server (or user profile) setting
+// applies. WithAsync / WithStdAsync on the batch context opts in to async
+// inserts. Options.SyncBatchInsert (DSN `sync_batch_insert=true`) opts in to
+// `async_insert=0` for batches, which keeps a single `query_id` per batch in
+// `system.query_log` on ClickHouse 26.3+ where the server default is
+// `async_insert=1`. See https://github.com/ClickHouse/clickhouse-go/issues/1997.
+// An explicit query-level or connection-level `async_insert` always wins.
+func applyBatchAsyncInsert(opt *Options, o *QueryOptions) {
 	if o.settings != nil {
 		if _, ok := o.settings["async_insert"]; ok {
 			return
 		}
 	}
-	// WithAsync / WithStdAsync is a query-level opt-in; honor it before
-	// falling back to the connection setting or the batch default of 0.
 	if o.async.ok {
 		if o.settings == nil {
 			o.settings = make(Settings)
@@ -46,7 +44,10 @@ func disableAsyncInsertUnlessSet(opt *Options, o *QueryOptions) {
 		}
 		return
 	}
-	if opt != nil && opt.Settings != nil {
+	if opt == nil || !opt.SyncBatchInsert {
+		return
+	}
+	if opt.Settings != nil {
 		if _, ok := opt.Settings["async_insert"]; ok {
 			return
 		}
@@ -64,7 +65,7 @@ func (c *connect) prepareBatch(ctx context.Context, release nativeTransportRelea
 	}
 
 	options := queryOptions(ctx)
-	disableAsyncInsertUnlessSet(c.opt, &options)
+	applyBatchAsyncInsert(c.opt, &options)
 	if deadline, ok := ctx.Deadline(); ok {
 		c.conn.SetDeadline(deadline)
 		defer c.conn.SetDeadline(time.Time{})
@@ -289,7 +290,7 @@ func (b *batch) resetConnection() (err error) {
 	}()
 
 	options := queryOptions(b.ctx)
-	disableAsyncInsertUnlessSet(b.conn.opt, &options)
+	applyBatchAsyncInsert(b.conn.opt, &options)
 	if deadline, ok := b.ctx.Deadline(); ok {
 		b.conn.conn.SetDeadline(deadline)
 		defer b.conn.conn.SetDeadline(time.Time{})
