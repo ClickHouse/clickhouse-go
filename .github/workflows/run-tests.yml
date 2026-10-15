@@ -1,6 +1,7 @@
 name: Tests matrix
 
-permissions: write-all
+permissions:
+  contents: read
 
 on:
   push:
