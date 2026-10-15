@@ -72,7 +72,7 @@ The client is tested against the currently [supported versions](https://github.c
 
 ## Documentation
 
-[https://clickhouse.com/docs/en/integrations/go](https://clickhouse.com/docs/en/integrations/go)
+[https://clickhouse.com/docs/integrations/language-clients/go/index](https://clickhouse.com/docs/integrations/language-clients/go/index)
 
 # `clickhouse` interface (formerly `native` interface)
 
@@ -453,7 +453,7 @@ The third check exists because `Auth.Username` defaults to `"default"` when blan
 
 ### Comparison with `EXECUTE AS`
 
-ClickHouse 25.11 introduced [`EXECUTE AS`](https://clickhouse.com/docs/sql-reference/statements/execute_as) for in-SQL impersonation. It is the right choice for many cases, but the two features have different tradeoffs:
+ClickHouse 25.11 introduced [`EXECUTE AS`](https://clickhouse.com/docs/reference/statements/execute_as) for in-SQL impersonation. It is the right choice for many cases, but the two features have different tradeoffs:
 
 | | Cluster interserver-secret (this feature) | `EXECUTE AS` |
 |---|---|---|
@@ -479,7 +479,7 @@ In short: prefer `EXECUTE AS` when (a) you are on 25.11+, (b) impersonation pair
 
 Clickhouse-go implements [client info](https://docs.google.com/document/d/1924Dvy79KXIhfqKpi1EBVY3133pIdoMwgCQtZ-uhEKs/edit#heading=h.ah33hoz5xei2) as a part of language client specification. `client_name` for native protocol and HTTP `User-Agent` header values are provided with the exact client info string.
 
-Users can extend client options with additional product information included in client info. This might be useful for analysis [on a server side](https://clickhouse.com/docs/en/operations/system-tables/query_log/).
+Users can extend client options with additional product information included in client info. This might be useful for analysis [on a server side](https://clickhouse.com/docs/reference/system-tables/query_log).
 
 Products are ordered from the highest to the lowest abstraction level, left to right.
 
@@ -502,7 +502,7 @@ The `Debug` and `Debugf` fields in `Options` are deprecated in favour of `Logger
 
 ## Async insert
 
-[Async insert](https://clickhouse.com/docs/optimize/asynchronous-inserts) is supported via `WithAsync()` helper on both Native and HTTP protocols. You can use it for both Go standard interface `OpenDB` and also ClickHouse interface `Open()`.
+[Async insert](https://clickhouse.com/docs/concepts/features/operations/insert/asyncinserts) is supported via `WithAsync()` helper on both Native and HTTP protocols. You can use it for both Go standard interface `OpenDB` and also ClickHouse interface `Open()`.
 
 **NOTE**: You can use `WithSettings()` manually to add any async related settings. `WithAsync()` is just a simple wrapper that does that for you.
 
@@ -516,7 +516,7 @@ We have the following examples to show Async Insert in action.
 
 ## Arbitrary input/output formats (experimental)
 
-`QueryFormat` and `InsertFormat` on the native `clickhouse.Conn` interface stream query results and insert payloads as raw bytes in any [format the server supports](https://clickhouse.com/docs/interfaces/formats) (`CSV`, `JSONEachRow`, `Parquet`, `ArrowStream`, ...), with all encoding and parsing done server-side:
+`QueryFormat` and `InsertFormat` on the native `clickhouse.Conn` interface stream query results and insert payloads as raw bytes in any [format the server supports](https://clickhouse.com/docs/reference/formats) (`CSV`, `JSONEachRow`, `Parquet`, `ArrowStream`, ...), with all encoding and parsing done server-side:
 
 ```go
 // Results as a raw byte stream in the requested format.
