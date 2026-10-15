@@ -81,12 +81,8 @@ func (col *Nullable) ScanRow(dest any, row int) error {
 	return col.base.ScanRow(dest, row)
 }
 
-// scanNullInto writes a ClickHouse NULL into a scan destination: it resets the
-// double-pointer destinations produced for nullable columns to nil and, when dest
-// implements sql.Scanner, invokes Scan(nil). It is shared by Nullable.ScanRow and
-// LowCardinality.ScanRow — a LowCardinality(Nullable(T)) column disables its inner
-// Nullable and tracks NULLs through key index 0, so it must clear the destination
-// itself rather than delegating to the base column.
+// scanNullInto clears pointer destinations for NULL and delegates to sql.Scanner.
+// Reflection covers pointer types not listed explicitly, such as **decimal.Decimal.
 func scanNullInto(dest any) error {
 	switch v := dest.(type) {
 	case **uint64:
@@ -115,6 +111,14 @@ func scanNullInto(dest any) error {
 		*v = nil
 	case **time.Time:
 		*v = nil
+	default:
+		rv := reflect.ValueOf(dest)
+		if rv.Kind() == reflect.Ptr && !rv.IsNil() {
+			elem := rv.Elem()
+			if elem.Kind() == reflect.Ptr && elem.CanSet() {
+				elem.SetZero()
+			}
+		}
 	}
 	if scan, ok := dest.(sql.Scanner); ok {
 		return scan.Scan(nil)
