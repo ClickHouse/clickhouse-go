@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"slices"
 	"time"
 
 	"github.com/ClickHouse/ch-go/proto"
@@ -109,6 +110,12 @@ func (col *LowCardinality) ScanRow(dest any, row int) error {
 }
 
 func (col *LowCardinality) Append(v any) (nulls []uint8, err error) {
+	switch arr := v.(type) {
+	case []string:
+		return nil, appendLC(col, arr)
+	case []*string:
+		return nil, appendLCPtr(col, arr)
+	}
 	value := reflect.Indirect(reflect.ValueOf(v))
 	if value.Kind() != reflect.Slice {
 		return nil, &ColumnConverterError{
@@ -117,7 +124,10 @@ func (col *LowCardinality) Append(v any) (nulls []uint8, err error) {
 			From: fmt.Sprintf("%T", v),
 		}
 	}
-	for i := 0; i < value.Len(); i++ {
+	col.initIndex()
+	n := value.Len()
+	col.append.keys = slices.Grow(col.append.keys, n)
+	for i := 0; i < n; i++ {
 		if err := col.AppendRow(value.Index(i).Interface()); err != nil {
 			return nil, err
 		}
@@ -125,16 +135,72 @@ func (col *LowCardinality) Append(v any) (nulls []uint8, err error) {
 	return
 }
 
-func (col *LowCardinality) AppendRow(v any) error {
-	col.rows++
+// appendLC bulk-appends a typed slice to a LowCardinality column without
+// reflection. Allocations only happen when the dictionary actually grows.
+func appendLC[T comparable](col *LowCardinality, arr []T) error {
+	col.initIndex()
+	col.append.keys = slices.Grow(col.append.keys, len(arr))
+
+	for _, v := range arr {
+		idx, found := col.append.index[v]
+		if !found {
+			if err := col.index.AppendRow(v); err != nil {
+				return err
+			}
+
+			idx = col.index.Rows() - 1
+			col.append.index[v] = idx
+		}
+
+		col.append.keys = append(col.append.keys, idx)
+	}
+
+	col.rows += len(arr)
+	return nil
+}
+
+func appendLCPtr[T comparable](col *LowCardinality, arr []*T) error {
+	col.initIndex()
+	col.append.keys = slices.Grow(col.append.keys, len(arr))
+	for _, p := range arr {
+		if p == nil {
+			col.append.keys = append(col.append.keys, 0)
+			continue
+		}
+
+		v := *p
+		idx, found := col.append.index[v]
+		if !found {
+			if err := col.index.AppendRow(v); err != nil {
+				return err
+			}
+			idx = col.index.Rows() - 1
+			col.append.index[v] = idx
+		}
+		col.append.keys = append(col.append.keys, idx)
+	}
+
+	col.rows += len(arr)
+	return nil
+}
+
+func (col *LowCardinality) initIndex() {
 	if col.append.index == nil {
 		col.append.index = make(map[any]int)
 	}
-	if col.index.Rows() == 0 { // init
-		if col.index.AppendRow(nil); col.nullable {
-			col.index.AppendRow(nil)
-		}
+	if col.index.Rows() != 0 {
+		return
 	}
+
+	col.index.AppendRow(nil)
+	if col.nullable {
+		col.index.AppendRow(nil)
+	}
+}
+
+func (col *LowCardinality) AppendRow(v any) error {
+	col.rows++
+	col.initIndex()
 	// second check is unfortunate - but we could be passed a *type(nil) e.g. via LowCardinality(Nullable(String))
 	if v == nil || (reflect.ValueOf(v).Kind() == reflect.Ptr && reflect.ValueOf(v).IsNil()) {
 		col.append.keys = append(col.append.keys, 0)
@@ -144,13 +210,15 @@ func (col *LowCardinality) AppendRow(v any) error {
 	case time.Time:
 		v = x.Truncate(time.Second)
 	}
-	if _, found := col.append.index[v]; !found {
+	idx, found := col.append.index[v]
+	if !found {
 		if err := col.index.AppendRow(v); err != nil {
 			return err
 		}
-		col.append.index[v] = col.index.Rows() - 1
+		idx = col.index.Rows() - 1
+		col.append.index[v] = idx
 	}
-	col.append.keys = append(col.append.keys, col.append.index[v])
+	col.append.keys = append(col.append.keys, idx)
 	return nil
 }
 
