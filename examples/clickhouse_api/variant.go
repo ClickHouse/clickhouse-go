@@ -76,6 +76,7 @@ func VariantExample() error {
 	if err != nil {
 		return err
 	}
+	defer rows.Close()
 
 	for i := 0; rows.Next(); i++ {
 		var row clickhouse.Variant
@@ -95,6 +96,9 @@ func VariantExample() error {
 			fmt.Printf("row at index %d is NULL\n", i)
 		}
 	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
 
 	// Switch on ClickHouse Type
 
@@ -102,6 +106,7 @@ func VariantExample() error {
 	if err != nil {
 		return err
 	}
+	defer rows.Close()
 
 	for i := 0; rows.Next(); i++ {
 		var row clickhouse.Variant
@@ -120,6 +125,9 @@ func VariantExample() error {
 		case "":
 			fmt.Printf("row at index %d is nil\n", i)
 		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
 	}
 
 	return nil
