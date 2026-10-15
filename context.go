@@ -258,6 +258,24 @@ func queryOptionsAsync(ctx context.Context) AsyncOptions {
 	return AsyncOptions{}
 }
 
+// applyAsyncInsertSettings adds the settings that make the server run an INSERT as an
+// async insert. wait selects if the server replies only after the data is flushed.
+func (q *QueryOptions) applyAsyncInsertSettings(wait bool) {
+	q.settings["async_insert"] = 1
+	q.settings["wait_for_async_insert"] = 0
+	if wait {
+		q.settings["wait_for_async_insert"] = 1
+	}
+}
+
+// applyBatchAsyncInsertSettings adds the async insert settings to a batch INSERT when
+// the context asks for an async insert with WithAsync.
+func (q *QueryOptions) applyBatchAsyncInsertSettings() {
+	if q.async.ok {
+		q.applyAsyncInsertSettings(q.async.wait)
+	}
+}
+
 // queryOptionsUserLocation returns the *time.Location within the given context's QueryOptions.
 func queryOptionsUserLocation(ctx context.Context) *time.Location {
 	if opt, ok := ctx.Value(_contextOptionKey).(QueryOptions); ok {

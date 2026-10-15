@@ -26,6 +26,7 @@ func (c *connect) prepareBatch(ctx context.Context, release nativeTransportRelea
 	}
 
 	options := queryOptions(ctx)
+	options.applyBatchAsyncInsertSettings()
 	if deadline, ok := ctx.Deadline(); ok {
 		c.conn.SetDeadline(deadline)
 		defer c.conn.SetDeadline(time.Time{})
