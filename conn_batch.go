@@ -159,6 +159,11 @@ func (b *batch) appendRowsBlocks(r *rows) error {
 		lastReadLock = r.block
 	}
 
+	if err := r.Err(); err != nil {
+		b.err = fmt.Errorf("%w: %w", ErrBatchInvalid, err)
+		b.release(err)
+		return err
+	}
 	return nil
 }
 
