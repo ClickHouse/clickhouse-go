@@ -13,6 +13,10 @@ import (
 
 	_ "time/tzdata"
 
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/trace"
+
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
@@ -78,6 +82,10 @@ func Open(opt *Options) (driver.Conn, error) {
 		return nil, err
 	}
 	o := opt.setDefaults()
+	telemetry, err := newTelemetry(o, "native")
+	if err != nil {
+		return nil, err
+	}
 	if o.Cluster.Secret != "" {
 		// The secret permits impersonating any cluster user.
 		o.logger().Warn("clickhouse: cluster interserver-secret mode enabled — connection holds impersonation rights for any user on the cluster",
@@ -92,6 +100,7 @@ func Open(opt *Options) (driver.Conn, error) {
 
 	conn := &clickhouse{
 		opt:       o,
+		telemetry: telemetry,
 		idle:      newConnPool(o.ConnMaxLifetime, o.MaxIdleConns),
 		open:      make(chan struct{}, o.MaxOpenConns),
 		closeOnce: &sync.Once{},
@@ -138,8 +147,9 @@ type connectionPooler interface {
 }
 
 type clickhouse struct {
-	opt    *Options
-	connID atomic.Int64
+	telemetry *telemetry
+	opt       *Options
+	connID    atomic.Int64
 
 	idle connectionPooler
 	open chan struct{}
@@ -170,47 +180,45 @@ func (ch *clickhouse) ServerVersion() (*driver.ServerVersion, error) {
 	return conn.serverVersion()
 }
 
-func (ch *clickhouse) Query(ctx context.Context, query string, args ...any) (rows driver.Rows, err error) {
-	conn, err := ch.acquire(ctx)
+func (ch *clickhouse) Query(ctx context.Context, query string, args ...any) (driver.Rows, error) {
+	r, err := ch.query(ctx, "Query", query, args...)
 	if err != nil {
 		return nil, err
 	}
-	conn.getLogger().Debug("executing query", slog.String("sql", query))
-	return conn.query(ctx, ch.release, query, args...)
+	return r, nil
+}
+
+func (ch *clickhouse) query(ctx context.Context, method, query string, args ...any) (*rows, error) {
+	return observeQuery(ctx, ch.telemetry, method, query, func(ctx context.Context) (*rows, error) {
+		conn, err := ch.acquire(ctx)
+		if err != nil {
+			return nil, err
+		}
+		conn.getLogger().DebugContext(ctx, "executing query", slog.String("sql", query))
+		return conn.query(ctx, ch.release, query, args...)
+	})
 }
 
 func (ch *clickhouse) QueryRow(ctx context.Context, query string, args ...any) driver.Row {
-	conn, err := ch.acquire(ctx)
-	if err != nil {
-		return &row{
-			err: err,
-		}
-	}
-
-	conn.getLogger().Debug("executing query row", slog.String("sql", query))
-	return conn.queryRow(ctx, ch.release, query, args...)
+	r, err := ch.query(ctx, "QueryRow", query, args...)
+	return &row{rows: r, err: err}
 }
 
 func (ch *clickhouse) Exec(ctx context.Context, query string, args ...any) error {
-	conn, err := ch.acquire(ctx)
-	if err != nil {
-		return err
-	}
-	conn.getLogger().Debug("executing statement", slog.String("sql", query))
-
-	if asyncOpt := queryOptionsAsync(ctx); asyncOpt.ok {
-		err = conn.asyncInsert(ctx, query, asyncOpt.wait, args...)
-	} else {
-		err = conn.exec(ctx, query, args...)
-	}
-
-	if err != nil {
+	return observeExec(ctx, ch.telemetry, query, func(ctx context.Context) error {
+		conn, err := ch.acquire(ctx)
+		if err != nil {
+			return err
+		}
+		conn.getLogger().DebugContext(ctx, "executing statement", slog.String("sql", query))
+		if asyncOpt := queryOptionsAsync(ctx); asyncOpt.ok {
+			err = conn.asyncInsert(ctx, query, asyncOpt.wait, args...)
+		} else {
+			err = conn.exec(ctx, query, args...)
+		}
 		ch.release(conn, err)
 		return err
-	}
-
-	ch.release(conn, nil)
-	return nil
+	})
 }
 
 func (ch *clickhouse) PrepareBatch(ctx context.Context, query string, opts ...driver.PrepareBatchOption) (driver.Batch, error) {
@@ -333,6 +341,22 @@ func DefaultDialStrategy(ctx context.Context, connID int, opt *Options, dial Dia
 }
 
 func (ch *clickhouse) acquire(ctx context.Context) (conn nativeTransport, err error) {
+	if ch.telemetry != nil {
+		start := time.Now()
+		defer func() {
+			elapsed := time.Since(start).Seconds()
+			attrs := ch.telemetry.attrs
+			if err != nil {
+				attrs = append(append([]attribute.KeyValue(nil), attrs...), attribute.String("error.type", telemetryErrorType(err)))
+			}
+			if ch.telemetry.acquire != nil {
+				ch.telemetry.acquire.Record(ctx, elapsed, metric.WithAttributes(attrs...))
+			}
+			if op, ok := ctx.Value(telemetryOperationKey{}).(*telemetryOperation); ok && op.span != nil {
+				op.span.AddEvent("clickhouse.connection.acquire", trace.WithAttributes(attribute.Float64("duration_seconds", elapsed)))
+			}
+		}()
+	}
 	if ch.closed.Load() {
 		return nil, ErrConnectionClosed
 	}

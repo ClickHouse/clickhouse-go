@@ -2,12 +2,14 @@ package clickhouse
 
 import (
 	"database/sql"
+	"errors"
 	"io"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 
 type rows struct {
+	operation *telemetryOperation
 	err       error
 	row       int
 	block     *proto.Block
@@ -55,14 +57,24 @@ next:
 	return r.row <= r.block.Rows()
 }
 
-func (r *rows) Scan(dest ...any) error {
+func (r *rows) Scan(dest ...any) (err error) {
+	defer func() {
+		if err != nil && r.operation != nil {
+			r.operation.err = err
+		}
+	}()
 	if r.block == nil || (r.row == 0 && r.row >= r.block.Rows()) { // call without next when result is empty
 		return io.EOF
 	}
 	return scan(r.block, r.row, dest...)
 }
 
-func (r *rows) ScanStruct(dest any) error {
+func (r *rows) ScanStruct(dest any) (err error) {
+	defer func() {
+		if err != nil && r.operation != nil {
+			r.operation.err = err
+		}
+	}()
 	values, err := r.structMap.Map("ScanStruct", r.columns, dest, true)
 	if err != nil {
 		return err
@@ -81,7 +93,8 @@ func (r *rows) Columns() []string {
 	return r.columns
 }
 
-func (r *rows) Close() error {
+func (r *rows) Close() (err error) {
+	defer func() { r.operation.finish(err) }()
 	r.closed = true
 	if r.errors == nil && r.stream == nil {
 		return r.err
@@ -167,10 +180,22 @@ func (r *row) Err() error {
 	return r.err
 }
 
-func (r *row) ScanStruct(dest any) error {
+func (r *row) ScanStruct(dest any) (err error) {
 	if r.err != nil {
 		return r.err
 	}
+	defer func() {
+		if err != nil && r.rows.operation != nil {
+			r.rows.operation.err = err
+		}
+		if closeErr := r.rows.Close(); closeErr != nil {
+			if err == nil {
+				err = closeErr
+			} else {
+				err = errors.Join(err, closeErr)
+			}
+		}
+	}()
 	values, err := r.rows.structMap.Map("ScanStruct", r.rows.columns, dest, true)
 	if err != nil {
 		return err
@@ -178,12 +203,23 @@ func (r *row) ScanStruct(dest any) error {
 	return r.Scan(values...)
 }
 
-func (r *row) Scan(dest ...any) error {
+func (r *row) Scan(dest ...any) (err error) {
 	if r.err != nil {
 		return r.err
 	}
+	defer func() {
+		if err != nil && !errors.Is(err, sql.ErrNoRows) && r.rows.operation != nil {
+			r.rows.operation.err = err
+		}
+		if closeErr := r.rows.Close(); closeErr != nil {
+			if err == nil {
+				err = closeErr
+			} else {
+				err = errors.Join(err, closeErr)
+			}
+		}
+	}()
 	if !r.rows.Next() {
-		r.rows.Close()
 		if err := r.rows.Err(); err != nil {
 			return err
 		}
@@ -192,5 +228,5 @@ func (r *row) Scan(dest ...any) error {
 	if err := r.rows.Scan(dest...); err != nil {
 		return err
 	}
-	return r.rows.Close()
+	return nil
 }

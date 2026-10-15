@@ -43,18 +43,22 @@ func (c *connect) query(ctx context.Context, release nativeTransportRelease, que
 		stream = make(chan *proto.Block, bufferSize)
 	)
 
+	// The receiver exits when the stream completes or the query is canceled.
+	// Close reads and discards the remaining output.
 	go func() {
-		onProcess.data = func(b *proto.Block) {
-			stream <- b
-		}
-		err := c.process(ctx, onProcess)
-		if err != nil {
-			c.logger.Error("query processing failed", slog.Any("error", err))
-			errors <- err
-		}
-		close(stream)
-		close(errors)
-		release(c, err)
+		profileReceive(ctx, func() {
+			onProcess.data = func(b *proto.Block) {
+				deliverResult(ctx, stream, b)
+			}
+			err := c.process(ctx, onProcess)
+			if err != nil {
+				c.logger.Error("query processing failed", slog.Any("error", err))
+				errors <- err
+			}
+			close(stream)
+			close(errors)
+			release(c, err)
+		})
 	}()
 
 	return &rows{

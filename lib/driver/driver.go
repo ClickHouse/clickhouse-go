@@ -6,11 +6,29 @@ import (
 	"reflect"
 	"time"
 
+	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/trace"
+
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 
 type ServerVersion = proto.ServerHandshake
+
+// TelemetryOptions configures telemetry for Query, QueryRow, and Exec.
+// The application configures providers and exporters.
+// The application must shut down its providers.
+// A nil provider disables its signal. Logs use clickhouse.Options.Logger.
+type TelemetryOptions struct {
+	TracerProvider trace.TracerProvider
+	MeterProvider  metric.MeterProvider
+	// EnableProfiling adds pprof labels during query submission and execution.
+	// It also adds labels during background result decoding.
+	// The labels identify the method and phase. They do not contain query IDs.
+	// The application controls profile collection.
+	// The driver does not label application scanning or start a profiler.
+	EnableProfiling bool
+}
 
 type (
 	// NamedValue is a query argument with a name. Create it with
