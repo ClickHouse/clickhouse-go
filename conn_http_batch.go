@@ -254,6 +254,7 @@ func (b *httpBatch) Send() (err error) {
 
 	go func() {
 		var err error
+		defer pipeReader.CloseWithError(err)
 		defer pipeWriter.CloseWithError(err)
 		defer connWriter.Close()
 		b.conn.buffer.Reset()
