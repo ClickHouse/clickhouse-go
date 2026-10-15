@@ -204,6 +204,31 @@ func TestContextJWTPreserved(t *testing.T) {
 }
 
 func TestWithoutProfileEvents(t *testing.T) {
+	t.Run("preserves caller settings", func(t *testing.T) {
+		settings := Settings{"max_threads": 2, "send_profile_events": 1}
+		ctx := Context(context.Background(), WithSettings(settings), WithoutProfileEvents())
+
+		require.Equal(t, Settings{"max_threads": 2, "send_profile_events": 0}, queryOptions(ctx).settings)
+		require.Equal(t, Settings{"max_threads": 2, "send_profile_events": 1}, settings)
+	})
+
+	t.Run("preserves parent and sibling settings", func(t *testing.T) {
+		settings := Settings{"max_threads": 2}
+		parent := Context(context.Background(), WithSettings(settings))
+		sibling := Context(parent, WithQueryID("sibling"))
+		child := Context(parent, WithoutProfileEvents())
+
+		require.Equal(t, Settings{"max_threads": 2, "send_profile_events": 0}, queryOptions(child).settings)
+		require.Equal(t, Settings{"max_threads": 2}, queryOptions(parent).settings)
+		require.Equal(t, Settings{"max_threads": 2}, queryOptions(sibling).settings)
+		require.Equal(t, Settings{"max_threads": 2}, settings)
+	})
+
+	t.Run("later settings take precedence", func(t *testing.T) {
+		ctx := Context(context.Background(), WithoutProfileEvents(), WithSettings(Settings{"send_profile_events": 1}))
+		require.Equal(t, 1, queryOptions(ctx).settings["send_profile_events"])
+	})
+
 	t.Run("sets send_profile_events=0", func(t *testing.T) {
 		ctx := Context(context.Background(), WithoutProfileEvents())
 		opts := queryOptions(ctx)
