@@ -224,13 +224,7 @@ func (b *batch) Send() (err error) {
 	}
 	if b.block.Rows() != 0 {
 		if err = b.conn.sendData(b.block, ""); err != nil {
-			// there might be an error caused by context cancellation
-			// in this case we should return context error instead of net.OpError
-			if ctxErr := b.ctx.Err(); ctxErr != nil {
-				return ctxErr
-			}
-
-			return err
+			return preferContextError(b.ctx, err)
 		}
 	}
 	if err = b.closeQuery(); err != nil {
@@ -282,6 +276,7 @@ func (b *batch) Flush() error {
 	}
 	if b.block.Rows() != 0 {
 		if err := b.conn.sendData(b.block, ""); err != nil {
+			err = preferContextError(b.ctx, err)
 			// broken pipe/conn reset aren't generally recoverable on retry
 			if errors.Is(err, syscall.EPIPE) || errors.Is(err, syscall.ECONNRESET) {
 				b.release(err)
@@ -306,7 +301,7 @@ func (b *batch) Columns() []column.Interface {
 
 func (b *batch) closeQuery() error {
 	if err := b.conn.sendData(proto.NewBlock(), ""); err != nil {
-		return err
+		return preferContextError(b.ctx, err)
 	}
 
 	if err := b.conn.process(b.ctx, b.onProcess); err != nil {
