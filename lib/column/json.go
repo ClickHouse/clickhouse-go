@@ -133,13 +133,18 @@ func (c *JSON) parse(t Type, sc *ServerContext) (_ *JSON, err error) {
 			continue
 		}
 
-		typedPathParts := strings.SplitN(typePart, " ", 2)
-		if len(typedPathParts) != 2 {
+		pathEnd := 0
+		if strings.HasPrefix(typePart, "`") {
+			pathEnd = strings.Index(typePart[1:], "`") + 1
+		}
+
+		sep := strings.Index(typePart[pathEnd:], " ")
+		if sep < 0 {
 			continue
 		}
 
-		typedPath := strings.Trim(typedPathParts[0], "`")
-		typeName := strings.TrimSpace(typedPathParts[1])
+		typedPath := strings.Trim(typePart[:pathEnd+sep], "`")
+		typeName := strings.TrimSpace(typePart[pathEnd+sep:])
 
 		c.typedPaths = append(c.typedPaths, typedPath)
 		c.typedPathsIndex[typedPath] = len(c.typedPaths) - 1

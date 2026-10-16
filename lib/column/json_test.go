@@ -737,3 +737,22 @@ func TestJSONAppendRejectsNonSlice(t *testing.T) {
 		})
 	}
 }
+
+func TestJSONParseTypedPaths(t *testing.T) {
+	tests := []struct {
+		chType string
+		paths  []string
+	}{
+		{"JSON(`a b` Int64)", []string{"a b"}},
+		{"JSON(`a b` Decimal(10, 2))", []string{"a b"}},
+		{"JSON(`a,b` Int64)", []string{"a,b"}},
+		{"JSON(`a.b` Int64)", []string{"a.b"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.chType, func(t *testing.T) {
+			col, err := (&JSON{name: "test"}).parse(Type(tt.chType), &ServerContext{})
+			require.NoError(t, err)
+			assert.Equal(t, tt.paths, col.typedPaths)
+		})
+	}
+}
