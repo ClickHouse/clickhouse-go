@@ -59,18 +59,22 @@ func AsyncInsertHTTP_WithPrepare() error {
 	if _, err := conn.Exec(ddl); err != nil {
 		return err
 	}
+	scope, err := conn.Begin()
+	if err != nil {
+		return err
+	}
+	// The batch uses only the context from PrepareContext, so WithAsync must be on it.
 	ctx := clickhouse.Context(context.Background(), clickhouse.WithAsync(false))
-
-	s, err := conn.PrepareContext(ctx, `INSERT INTO example VALUES (?, ?, ?, ?)`)
+	s, err := scope.PrepareContext(ctx, `INSERT INTO example VALUES (?, ?, ?, ?)`)
 	if err != nil {
 		return err
 	}
 
 	for i := 0; i < 100; i++ {
-		_, err := s.ExecContext(ctx, i, "Golang SQL database driver", []uint8{1, 2, 3, 4, 5, 6, 7, 8, 9}, time.Now())
+		_, err := s.Exec(i, "Golang SQL database driver", []uint8{1, 2, 3, 4, 5, 6, 7, 8, 9}, time.Now())
 		if err != nil {
 			return err
 		}
 	}
-	return nil
+	return scope.Commit()
 }
