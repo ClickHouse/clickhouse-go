@@ -251,6 +251,7 @@ func (b *batch) resetConnection() (err error) {
 	}()
 
 	options := queryOptions(b.ctx)
+	options.applyBatchAsyncInsertSettings()
 	if deadline, ok := b.ctx.Deadline(); ok {
 		b.conn.conn.SetDeadline(deadline)
 		defer b.conn.conn.SetDeadline(time.Time{})

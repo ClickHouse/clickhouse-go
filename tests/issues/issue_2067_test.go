@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
@@ -20,6 +21,10 @@ import (
 // `AsyncInsertQuery` profile event of the INSERT from `system.query_log`.
 // See https://github.com/ClickHouse/clickhouse-go/issues/2067.
 func Test2067(t *testing.T) {
+	// The server rejects `async_insert` together with `insert_quorum` unless
+	// `insert_quorum_parallel=1`, and the test helpers force `insert_quorum_parallel=0`.
+	t.Setenv("CLICKHOUSE_QUORUM_INSERT", "0")
+
 	testEnv, err := clickhouse_tests.GetTestEnvironment(testSet)
 	require.NoError(t, err)
 
@@ -33,9 +38,6 @@ func Test2067(t *testing.T) {
 		settings := clickhouse_tests.TestClientDefaultSettings(testEnv)
 		settings["async_insert"] = 1
 		settings["wait_for_async_insert"] = 1
-		// The server rejects `async_insert` together with `insert_quorum` unless
-		// `insert_quorum_parallel` is set.
-		settings["insert_quorum_parallel"] = 1
 		return settings
 	}
 
@@ -43,6 +45,12 @@ func Test2067(t *testing.T) {
 		name     string
 		settings clickhouse.Settings
 		ctx      func() context.Context
+		opts     []driver.PrepareBatchOption
+		// flush reports whether the test calls Flush after half of the rows.
+		flush bool
+		// nativeInserts is the number of INSERT queries that the Native batch sends.
+		// Zero means one. The HTTP batch always sends one INSERT.
+		nativeInserts int
 		// wait reports whether the insert waits for the async flush. When it does not,
 		// the rows become visible some time after Send returns.
 		wait bool
@@ -54,6 +62,33 @@ func Test2067(t *testing.T) {
 				return clickhouse.Context(context.Background(), clickhouse.WithAsync(true))
 			},
 			wait: true,
+		},
+		{
+			// The batch releases the connection after PrepareBatch, and Send sends the
+			// INSERT again on a new connection.
+			name:     "context WithAsync wait release connection",
+			settings: clickhouse_tests.TestClientDefaultSettings(testEnv),
+			ctx: func() context.Context {
+				return clickhouse.Context(context.Background(), clickhouse.WithAsync(true))
+			},
+			opts: []driver.PrepareBatchOption{driver.WithReleaseConnection()},
+			// PrepareBatch sends an INSERT without data, and Send sends the INSERT again.
+			nativeInserts: 2,
+			wait:          true,
+		},
+		{
+			// Flush ends the INSERT and releases the connection, and Send sends the
+			// INSERT again on a new connection.
+			name:     "context WithAsync wait close on flush",
+			settings: clickhouse_tests.TestClientDefaultSettings(testEnv),
+			ctx: func() context.Context {
+				return clickhouse.Context(context.Background(), clickhouse.WithAsync(true))
+			},
+			opts:  []driver.PrepareBatchOption{driver.WithCloseOnFlush()},
+			flush: true,
+			// Flush ends the first INSERT, and Send sends the second INSERT.
+			nativeInserts: 2,
+			wait:          true,
 		},
 		{
 			name:     "context WithAsync no wait",
@@ -68,9 +103,8 @@ func Test2067(t *testing.T) {
 			settings: clickhouse_tests.TestClientDefaultSettings(testEnv),
 			ctx: func() context.Context {
 				return clickhouse.Context(context.Background(), clickhouse.WithSettings(clickhouse.Settings{
-					"async_insert":           1,
-					"wait_for_async_insert":  1,
-					"insert_quorum_parallel": 1,
+					"async_insert":          1,
+					"wait_for_async_insert": 1,
 				}))
 			},
 			wait: true,
@@ -118,14 +152,21 @@ func Test2067(t *testing.T) {
 					queryID := fmt.Sprintf("test-2067-%v-%d-%d", protocol, i, time.Now().UnixNano())
 					ctx := clickhouse.Context(tc.ctx(), clickhouse.WithQueryID(queryID))
 
-					batch, err := conn.PrepareBatch(ctx, fmt.Sprintf("INSERT INTO %s", tableName))
+					batch, err := conn.PrepareBatch(ctx, fmt.Sprintf("INSERT INTO %s", tableName), tc.opts...)
 					require.NoError(t, err)
 					for n := range rowsPerInsert {
 						require.NoError(t, batch.AppendStruct(&row{Col1: uint64(n), Col2: "value"}))
+						if tc.flush && n == rowsPerInsert/2-1 {
+							require.NoError(t, batch.Flush())
+						}
 					}
 					require.NoError(t, batch.Send())
 
-					requireAsyncInsert(t, admin, queryID)
+					inserts := 1
+					if protocol == clickhouse.Native && tc.nativeInserts > 0 {
+						inserts = tc.nativeInserts
+					}
+					requireAsyncInsert(t, admin, queryID, inserts)
 
 					countRows := func() uint64 {
 						var count uint64
@@ -144,24 +185,29 @@ func Test2067(t *testing.T) {
 	}
 }
 
-// requireAsyncInsert fails the test unless the server ran the INSERT with the given
-// query ID as an async insert.
-func requireAsyncInsert(t *testing.T, conn driver.Conn, queryID string) {
+// requireAsyncInsert fails the test unless the server ran all of the given number of
+// INSERT queries with the given query ID as async inserts. A batch can send more than
+// one INSERT with the same query ID, for example after Flush with driver.WithCloseOnFlush.
+func requireAsyncInsert(t *testing.T, conn driver.Conn, queryID string, inserts int) {
 	t.Helper()
 
-	require.NoError(t, conn.Exec(context.Background(), "SYSTEM FLUSH LOGS"))
-
+	// The server can send the HTTP response before it adds the `QueryFinish` row to the
+	// `system.query_log` queue. Then `SYSTEM FLUSH LOGS` does not write the row, so the
+	// test flushes the logs again until all rows are there.
+	//
 	// The `Settings` column is not checked: it lists only settings that differ from the
 	// server default, and newer servers default to `async_insert=1`.
-	var asyncInsertQuery uint64
-	err := conn.QueryRow(context.Background(), `
-		SELECT ProfileEvents['AsyncInsertQuery']
-		FROM system.query_log
-		WHERE query_id = ? AND type = 'QueryFinish' AND query_kind = 'Insert'
-		ORDER BY event_time_microseconds DESC
-		LIMIT 1
-	`, queryID).Scan(&asyncInsertQuery)
-	require.NoError(t, err, "expected a `system.query_log` row for query_id=%s", queryID)
+	var gotInserts, syncInserts uint64
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		require.NoError(c, conn.Exec(context.Background(), "SYSTEM FLUSH LOGS"))
+		err := conn.QueryRow(context.Background(), `
+			SELECT count(), countIf(ProfileEvents['AsyncInsertQuery'] = 0)
+			FROM system.query_log
+			WHERE query_id = ? AND type = 'QueryFinish' AND query_kind = 'Insert'
+		`, queryID).Scan(&gotInserts, &syncInserts)
+		require.NoError(c, err)
+		require.Equal(c, uint64(inserts), gotInserts, "`system.query_log` rows for query_id=%s", queryID)
+	}, 10*time.Second, 200*time.Millisecond)
 
-	require.Positive(t, asyncInsertQuery, "the server did not run the INSERT as an async insert")
+	require.Zero(t, syncInserts, "the server ran %d of %d INSERT queries as sync inserts", syncInserts, inserts)
 }
