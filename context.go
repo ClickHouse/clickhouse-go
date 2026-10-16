@@ -174,6 +174,17 @@ func WithExternalTable(t ...*ext.Table) QueryOption {
 	}
 }
 
+// WithAsync enables async inserts. It sets `async_insert` to 1. When wait is true,
+// it sets `wait_for_async_insert` to 1, and the insert returns after the server
+// writes the data. When wait is false, it sets `wait_for_async_insert` to 0, and the
+// insert returns after the server receives the data.
+//
+// WithAsync applies to Exec and to batches from PrepareBatch, on the Native and HTTP
+// protocols. It overrides the same settings from WithSettings.
+//
+// A batch uses only the context that you give to PrepareBatch. With database/sql, a
+// batch uses only the context that you give to PrepareContext. The context that you
+// give to Stmt.ExecContext has no effect on the batch.
 func WithAsync(wait bool) QueryOption {
 	return func(o *QueryOptions) error {
 		o.async.ok, o.async.wait = true, wait
