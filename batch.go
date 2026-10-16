@@ -103,7 +103,7 @@ func extractInsertQueryComponents(query string) (insertStmt string, tableName st
 	if settingsClause != "" {
 		insertStmt += " " + settingsClause
 	}
-	tableName = strings.TrimSpace(matches[2])
+	tableName = trimTableKeyword(strings.TrimSpace(matches[2]))
 
 	columns = make([]string, 0)
 	matches = extractInsertColumnsMatch.FindStringSubmatch(matches[1])
@@ -117,6 +117,18 @@ func extractInsertQueryComponents(query string) (insertStmt string, tableName st
 	}
 
 	return
+}
+
+// trimTableKeyword drops the optional TABLE keyword that may precede the table name, as in
+// "INSERT INTO TABLE t". It must be followed by whitespace, so a table named "table_x" is
+// kept, and a FUNCTION target is left as written.
+func trimTableKeyword(name string) string {
+	if len(name) > len(tableKeyword) && isKeyword(name, nil, tableKeyword) && isBoundaryByte(name[len(tableKeyword)]) {
+		if rest := strings.TrimSpace(name[len(tableKeyword):]); !isKeyword(rest, nil, functionKeyword) {
+			return rest
+		}
+	}
+	return name
 }
 
 // sanitizeInsertQuery removes the parts of an INSERT statement that the batch does not
@@ -257,6 +269,8 @@ const (
 	valuesKeyword   = "VALUES"
 	formatKeyword   = "FORMAT"
 	settingsKeyword = "SETTINGS"
+	tableKeyword    = "TABLE"
+	functionKeyword = "FUNCTION"
 )
 
 // isKeyword reports whether s starts with the given keyword. The keyword must follow a
