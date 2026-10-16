@@ -52,6 +52,12 @@ func TestTupleParseElementNames(t *testing.T) {
 			isNamed: true,
 		},
 		{
+			chType:  "Tuple(`a b` Int64, `c\\` d` Decimal(10, 2), e String)",
+			names:   []string{"a b", "c` d", "e"},
+			types:   []string{"Int64", "Decimal(10, 2)", "String"},
+			isNamed: true,
+		},
+		{
 			// a lone backtick is not a quoted name and must not panic
 			chType:  "Tuple(` String)",
 			names:   []string{"`"},

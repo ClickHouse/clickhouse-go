@@ -47,12 +47,25 @@ func (col *Tuple) parse(t Type, sc *ServerContext) (_ Interface, err error) {
 			if len(element) != 0 {
 				cType := strings.TrimSpace(string(element))
 				name := ""
-				if parts := strings.SplitN(cType, " ", 2); len(parts) == 2 {
-					if !strings.Contains(parts[0], "(") {
+				// a backquoted name may contain spaces, so look for the separator after its closing backtick
+				nameEnd := 0
+				if strings.HasPrefix(cType, "`") {
+					for i := 1; i < len(cType); i++ {
+						if cType[i] == '\\' {
+							i++
+						} else if cType[i] == '`' {
+							nameEnd = i + 1
+							break
+						}
+					}
+				}
+				if sep := strings.Index(cType[nameEnd:], " "); sep >= 0 {
+					sep += nameEnd
+					if !strings.Contains(cType[:sep], "(") {
 						// the server backquotes names that are not plain identifiers, since 26.5 also
 						// reserved words such as `values` and `from` (ClickHouse/ClickHouse#102338)
-						name = unescapeColName(parts[0])
-						cType = parts[1]
+						name = unescapeColName(cType[:sep])
+						cType = cType[sep+1:]
 					}
 				}
 				elements = append(elements, namedCol{
