@@ -272,6 +272,8 @@ func queryOptionsUserLocation(ctx context.Context) *time.Location {
 // On older servers, the setting is unknown and the server will return an error.
 func WithoutProfileEvents() QueryOption {
 	return func(o *QueryOptions) error {
+		// Settings may be shared with the caller or another context.
+		o.settings = maps.Clone(o.settings)
 		if o.settings == nil {
 			o.settings = make(Settings)
 		}
