@@ -37,11 +37,7 @@ func applyBatchAsyncInsert(opt *Options, o *QueryOptions) {
 		if o.settings == nil {
 			o.settings = make(Settings)
 		}
-		o.settings["async_insert"] = 1
-		o.settings["wait_for_async_insert"] = 0
-		if o.async.wait {
-			o.settings["wait_for_async_insert"] = 1
-		}
+		o.applyBatchAsyncInsertSettings()
 		return
 	}
 	if opt == nil || !opt.SyncBatchInsert {

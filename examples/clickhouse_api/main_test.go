@@ -64,6 +64,8 @@ func TestAsyncInsert(t *testing.T) {
 	t.Setenv("CLICKHOUSE_QUORUM_INSERT", "0")
 	require.NoError(t, AsyncInsertNative())
 	require.NoError(t, AsyncInsertHTTP())
+	require.NoError(t, AsyncInsertNative_WithBatch())
+	require.NoError(t, AsyncInsertHTTP_WithBatch())
 }
 
 func TestEphemeralColumn(t *testing.T) {

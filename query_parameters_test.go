@@ -1,9 +1,11 @@
 package clickhouse
 
 import (
+	"net/netip"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -41,6 +43,7 @@ func TestBindQueryOrAppendParameters(t *testing.T) {
 func TestBindQueryOrAppendParametersNamedValue(t *testing.T) {
 	str := "hello"
 	tm := time.Unix(1700000000, 500_000_000)
+	addr := netip.MustParseAddr("10.0.0.1")
 
 	cases := []struct {
 		name  string
@@ -48,10 +51,13 @@ func TestBindQueryOrAppendParametersNamedValue(t *testing.T) {
 		want  string
 	}{
 		{"nil value becomes escape marker", nil, `\N`},
-		{"string is sent raw and unquoted", "hello", "hello"},
-		{"*string is dereferenced and sent raw", &str, "hello"},
+		{"string is TSV-escaped and unquoted", "hello", "hello"},
+		{"*string is dereferenced and TSV-escaped", &str, "hello"},
 		{"time.Time uses formatTimeParam", tm, "1700000000.500"},
 		{"*time.Time uses formatTimeParam", &tm, "1700000000.500"},
+		{"time.Duration keeps its own text, not String()", 90 * time.Minute, "01:30:00"},
+		{"fmt.Stringer is sent raw and unquoted", uuid.MustParse("11111111-1111-1111-1111-111111111111"), "11111111-1111-1111-1111-111111111111"},
+		{"fmt.Stringer pointer is sent raw and unquoted", &addr, "10.0.0.1"},
 		{"other types go through formatValue", 42, "42"},
 	}
 	for _, tc := range cases {
@@ -60,6 +66,58 @@ func TestBindQueryOrAppendParametersNamedValue(t *testing.T) {
 			query, err := bindQueryOrAppendParameters(true, options, "SELECT {p:String}", time.UTC, Named("p", tc.value))
 			require.NoError(t, err)
 			assert.Equal(t, "SELECT {p:String}", query)
+			assert.Equal(t, tc.want, options.parameters["p"])
+		})
+	}
+}
+
+func TestBindQueryOrAppendParametersNestedStringerStaysQuoted(t *testing.T) {
+	cases := []struct {
+		name  string
+		query string
+		value any
+		want  string
+	}{
+		{"array element", "SELECT {p:Array(UUID)}", []uuid.UUID{uuid.MustParse("11111111-1111-1111-1111-111111111111")}, "['11111111-1111-1111-1111-111111111111']"},
+		{"tuple element", "SELECT {p:Tuple(UUID, UInt8)}", GroupSet{Value: []any{uuid.MustParse("11111111-1111-1111-1111-111111111111"), uint8(1)}}, "('11111111-1111-1111-1111-111111111111', 1)"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			options := &QueryOptions{}
+			_, err := bindQueryOrAppendParameters(true, options, tc.query, time.UTC, Named("p", tc.value))
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, options.parameters["p"])
+		})
+	}
+}
+
+// TestNamedStringEscaper checks that control characters in a raw Named string
+// are TSV-escaped once at the point of entry. The same representation works on
+// both protocols: HTTP feeds it straight into the URL query string (the server
+// decodes it via deserializeTextEscaped once), and TCP re-escapes the backslashes
+// in encodeFieldDump so the escapes survive readQuoted and are then decoded by
+// deserializeTextEscaped.
+func TestNamedStringEscaper(t *testing.T) {
+	cases := []struct {
+		name  string
+		value string
+		want  string
+	}{
+		{"plain string", "hello", "hello"},
+		{"tab", "a\tb", `a\tb`},
+		{"newline", "a\nb", `a\nb`},
+		{"carriage return", "a\rb", `a\rb`},
+		{"backslash", `a\b`, `a\\b`},
+		{"backslash before n is preserved", `a\nb`, `a\\nb`},
+		{"single quote left to the boundary", "it's", "it's"},
+		{"NUL byte", "a\x00b", `a\0b`},
+		{"mixed", "t:\tx\nnewline\\backslash'quote", `t:\tx\nnewline\\backslash'quote`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			options := &QueryOptions{}
+			_, err := bindQueryOrAppendParameters(true, options, "SELECT {p:String}", time.UTC, Named("p", tc.value))
+			require.NoError(t, err)
 			assert.Equal(t, tc.want, options.parameters["p"])
 		})
 	}

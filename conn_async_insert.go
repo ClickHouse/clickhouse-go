@@ -8,13 +8,7 @@ import (
 
 func (c *connect) asyncInsert(ctx context.Context, query string, wait bool, args ...any) error {
 	options := queryOptions(ctx)
-	{
-		options.settings["async_insert"] = 1
-		options.settings["wait_for_async_insert"] = 0
-		if wait {
-			options.settings["wait_for_async_insert"] = 1
-		}
-	}
+	options.applyAsyncInsertSettings(wait)
 
 	if len(args) > 0 {
 		queryParamsProtocolSupport := c.revision >= proto.DBMS_MIN_PROTOCOL_VERSION_WITH_PARAMETERS

@@ -40,12 +40,13 @@ type (
 		wait bool
 	}
 	QueryOptions struct {
-		span     trace.SpanContext
-		async    AsyncOptions
-		queryID  string
-		quotaKey string
-		jwt      string
-		events   struct {
+		span        trace.SpanContext
+		async       AsyncOptions
+		queryID     string
+		quotaKey    string
+		jwt         string
+		initialUser string
+		events      struct {
 			logs          func(*Log)
 			progress      func(*Progress)
 			profileInfo   func(*ProfileInfo)
@@ -98,10 +99,15 @@ func WithJWT(jwt string) QueryOption {
 	}
 }
 
-// WithColumnNamesAndTypes is used to provide a predetermined list of
-// column names and types for HTTP inserts.
-// Without this, the HTTP implementation will parse the query and run a
-// DESCRIBE TABLE request to fetch and validate column names.
+// WithInitialUser sets the user for interserver-secret queries.
+func WithInitialUser(user string) QueryOption {
+	return func(o *QueryOptions) error {
+		o.initialUser = user
+		return nil
+	}
+}
+
+// WithColumnNamesAndTypes supplies metadata for HTTP inserts.
 func WithColumnNamesAndTypes(columnNamesAndTypes []ColumnNameAndType) QueryOption {
 	return func(o *QueryOptions) error {
 		o.columnNamesAndTypes = columnNamesAndTypes
@@ -168,6 +174,17 @@ func WithExternalTable(t ...*ext.Table) QueryOption {
 	}
 }
 
+// WithAsync enables async inserts. It sets `async_insert` to 1. When wait is true,
+// it sets `wait_for_async_insert` to 1, and the insert returns after the server
+// writes the data. When wait is false, it sets `wait_for_async_insert` to 0, and the
+// insert returns after the server receives the data.
+//
+// WithAsync applies to Exec and to batches from PrepareBatch, on the Native and HTTP
+// protocols. It overrides the same settings from WithSettings.
+//
+// A batch uses only the context that you give to PrepareBatch. With database/sql, a
+// batch uses only the context that you give to PrepareContext. The context that you
+// give to Stmt.ExecContext has no effect on the batch.
 func WithAsync(wait bool) QueryOption {
 	return func(o *QueryOptions) error {
 		o.async.ok, o.async.wait = true, wait
@@ -252,6 +269,24 @@ func queryOptionsAsync(ctx context.Context) AsyncOptions {
 	return AsyncOptions{}
 }
 
+// applyAsyncInsertSettings adds the settings that make the server run an INSERT as an
+// async insert. wait selects if the server replies only after the data is flushed.
+func (q *QueryOptions) applyAsyncInsertSettings(wait bool) {
+	q.settings["async_insert"] = 1
+	q.settings["wait_for_async_insert"] = 0
+	if wait {
+		q.settings["wait_for_async_insert"] = 1
+	}
+}
+
+// applyBatchAsyncInsertSettings adds the async insert settings to a batch INSERT when
+// the context asks for an async insert with WithAsync.
+func (q *QueryOptions) applyBatchAsyncInsertSettings() {
+	if q.async.ok {
+		q.applyAsyncInsertSettings(q.async.wait)
+	}
+}
+
 // queryOptionsUserLocation returns the *time.Location within the given context's QueryOptions.
 func queryOptionsUserLocation(ctx context.Context) *time.Location {
 	if opt, ok := ctx.Value(_contextOptionKey).(QueryOptions); ok {
@@ -312,6 +347,7 @@ func (q *QueryOptions) clone() QueryOptions {
 		async:               q.async,
 		queryID:             q.queryID,
 		quotaKey:            q.quotaKey,
+		initialUser:         q.initialUser,
 		jwt:                 q.jwt,
 		events:              q.events,
 		settings:            nil,

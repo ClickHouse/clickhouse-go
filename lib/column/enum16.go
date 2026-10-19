@@ -57,6 +57,35 @@ func (col *Enum16) ScanRow(dest any, row int) error {
 	case **string:
 		*d = new(string)
 		**d = col.vi[value]
+	case *int16:
+		*d = int16(value)
+	case **int16:
+		*d = new(int16)
+		**d = int16(value)
+	case *int32:
+		*d = int32(value)
+	case **int32:
+		*d = new(int32)
+		**d = int32(value)
+	case *int64:
+		*d = int64(value)
+	case **int64:
+		*d = new(int64)
+		**d = int64(value)
+	case *int:
+		*d = int(value)
+	case **int:
+		*d = new(int)
+		**d = int(value)
+	case *int8, **int8:
+		// Enum16 ordinals range over int16, so int8 cannot represent every
+		// value; refuse it explicitly rather than truncate silently.
+		return &ColumnConverterError{
+			Op:   "ScanRow",
+			To:   fmt.Sprintf("%T", dest),
+			From: "Enum16",
+			Hint: "Enum16 values may exceed the int8 range; use *int16 or wider",
+		}
 	default:
 		if scan, ok := dest.(sql.Scanner); ok {
 			return scan.Scan(col.vi[value])

@@ -137,10 +137,23 @@ type connect struct {
 	maxCompressionBuffer int
 	readerMutex          sync.Mutex
 	closeMutex           sync.Mutex
+	// clusterSalt signs queries on this connection.
+	clusterSalt string
 }
 
 func (c *connect) connID() int {
 	return c.id
+}
+
+// effectiveInitialUser returns the user for an interserver query.
+func (c *connect) effectiveInitialUser(queryUser string) string {
+	if c.opt.Cluster.Secret == "" {
+		return ""
+	}
+	if queryUser != "" {
+		return queryUser
+	}
+	return c.opt.Auth.Username
 }
 
 func (c *connect) getLogger() *slog.Logger {

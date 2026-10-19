@@ -148,6 +148,22 @@ func TestFormatInsertStripsFormatClause(t *testing.T) {
 	verifyFormatTestTable(t, conn, table)
 }
 
+// TestFormatInsertStripsStatementTerminator proves a statement terminator after the
+// FORMAT clause is stripped as well, instead of being read as part of the table name.
+func TestFormatInsertStripsStatementTerminator(t *testing.T) {
+	conn, err := GetNativeConnection(t, clickhouse.HTTP, nil, nil, nil)
+	require.NoError(t, err)
+	table := createFormatTestTable(t, conn, false)
+
+	payload := `{"id":1,"name":"alice","score":3.5,"ok":true,"created_at":"2026-07-06 10:30:00","comment":"first"}
+{"id":2,"name":"bob","score":-0.25,"ok":false,"created_at":"2026-01-01 00:00:00","comment":null}
+{"id":3,"name":"carol, \"quoted\"","score":100,"ok":true,"created_at":"2026-07-06 23:59:59","comment":"\\N looks like null"}
+`
+	require.NoError(t, conn.InsertFormat(context.Background(), "JSONEachRow",
+		fmt.Sprintf("INSERT INTO %s FORMAT CSV;", table), strings.NewReader(payload)))
+	verifyFormatTestTable(t, conn, table)
+}
+
 // TestFormatNativeProtocolUnsupported verifies the sentinel error over the
 // native protocol and that the pool stays healthy after the rejected calls.
 func TestFormatNativeProtocolUnsupported(t *testing.T) {
