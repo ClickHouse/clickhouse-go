@@ -1,0 +1,36 @@
+package clickhouse_api
+
+import (
+	"context"
+	"errors"
+
+	"go.opentelemetry.io/contrib/bridges/otelslog"
+	"go.opentelemetry.io/otel/log"
+	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/trace"
+
+	"github.com/ClickHouse/clickhouse-go/v2"
+)
+
+// InstrumentedQuery uses the providers that the application supplies.
+// Configure exporters and sampling before you call this function.
+// Shut down the providers when the application exits.
+// Collect CPU or goroutine profiles with the application's profiler or pprof endpoint.
+// The driver supplies method and phase labels. It does not export profiles.
+func InstrumentedQuery(ctx context.Context, options clickhouse.Options, traces trace.TracerProvider, metrics metric.MeterProvider, logs log.LoggerProvider) (err error) {
+	options.Telemetry = &clickhouse.TelemetryOptions{
+		TracerProvider:  traces,
+		MeterProvider:   metrics,
+		EnableProfiling: true,
+	}
+	options.Logger = otelslog.NewLogger("clickhouse-client", otelslog.WithLoggerProvider(logs))
+	conn, err := clickhouse.Open(&options)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Join(err, conn.Close()) }()
+	ctx, span := traces.Tracer("application").Start(ctx, "load data")
+	defer span.End()
+	var count uint64
+	return conn.QueryRow(ctx, "SELECT count() FROM numbers(1000)").Scan(&count)
+}
