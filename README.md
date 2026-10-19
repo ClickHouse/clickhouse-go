@@ -69,6 +69,7 @@ The client is tested against the currently [supported versions](https://github.c
 | >= 2.28        | 1.22, 1.23             |
 | >= 2.29        | 1.21, 1.22, 1.23, 1.24 |
 | >= 2.41        | 1.24, 1.25             |
+| >= 2.50        | 1.26, 1.27             |
 
 ## Documentation
 
