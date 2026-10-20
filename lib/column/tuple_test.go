@@ -58,6 +58,20 @@ func TestTupleParseElementNames(t *testing.T) {
 			isNamed: true,
 		},
 		{
+			// parentheses and commas in a backquoted name belong to the name
+			chType:  "Tuple(`price (usd)` Float64, `a, b` Int64, `x (y` Int8, `z)` Int8, e String)",
+			names:   []string{"price (usd)", "a, b", "x (y", "z)", "e"},
+			types:   []string{"Float64", "Int64", "Int8", "Int8", "String"},
+			isNamed: true,
+		},
+		{
+			// a backtick inside an enum value is not a name
+			chType:  "Tuple(a Enum8('x`y' = 1, 'z' = 2), `b c` Int64)",
+			names:   []string{"a", "b c"},
+			types:   []string{"Enum8('x`y' = 1, 'z' = 2)", "Int64"},
+			isNamed: true,
+		},
+		{
 			// a lone backtick is not a quoted name and must not panic
 			chType:  "Tuple(` String)",
 			names:   []string{"`"},

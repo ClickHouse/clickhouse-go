@@ -24,10 +24,10 @@ func TestIssue2073_TupleElementNameWithSpace(t *testing.T) {
 			ctx := context.Background()
 
 			tableName := fmt.Sprintf("test_2073_%v", protocol)
-			require.NoError(t, conn.Exec(ctx, fmt.Sprintf("CREATE TABLE %s (Col1 Tuple(`a b` Int64)) Engine MergeTree() ORDER BY tuple()", tableName)))
+			require.NoError(t, conn.Exec(ctx, fmt.Sprintf("CREATE TABLE %s (Col1 Tuple(`a b` Int64, `price (usd)` Float64)) Engine MergeTree() ORDER BY tuple()", tableName)))
 			t.Cleanup(func() { _ = conn.Exec(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", tableName)) })
 
-			mapData := map[string]any{"a b": int64(1)}
+			mapData := map[string]any{"a b": int64(1), "price (usd)": float64(1.5)}
 			batch, err := conn.PrepareBatch(ctx, fmt.Sprintf("INSERT INTO %s", tableName))
 			require.NoError(t, err)
 			require.NoError(t, batch.Append(mapData))
