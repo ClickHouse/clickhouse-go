@@ -26,12 +26,12 @@ func TestIssue1948_JSONTypedPathWithSpace(t *testing.T) {
 		}
 
 		require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS test_1948"))
-		require.NoError(t, conn.Exec(ctx, "CREATE TABLE test_1948 (data JSON(`a b` Int64)) ENGINE = MergeTree ORDER BY tuple()"))
+		require.NoError(t, conn.Exec(ctx, "CREATE TABLE test_1948 (data JSON(`a b` Int64, `c\\`d e` String, `f g` String)) ENGINE = MergeTree ORDER BY tuple()"))
 		t.Cleanup(func() { _ = conn.Exec(ctx, "DROP TABLE IF EXISTS test_1948") })
 
 		batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_1948 (data)")
 		require.NoError(t, err)
-		require.NoError(t, batch.Append(`{"a b": 1}`))
+		require.NoError(t, batch.Append("{\"a b\": 1, \"c`d e\": \"x\", \"f g\": \"y\"}"))
 		require.NoError(t, batch.Send())
 
 		var data clickhouse.JSON
@@ -39,5 +39,13 @@ func TestIssue1948_JSONTypedPathWithSpace(t *testing.T) {
 		got, ok := data.ValueAtPath("a b")
 		require.True(t, ok)
 		assert.EqualValues(t, 1, got)
+
+		got, ok = data.ValueAtPath("c`d e")
+		require.True(t, ok)
+		assert.EqualValues(t, "x", got)
+
+		got, ok = data.ValueAtPath("f g")
+		require.True(t, ok)
+		assert.EqualValues(t, "y", got)
 	})
 }

@@ -747,6 +747,10 @@ func TestJSONParseTypedPaths(t *testing.T) {
 		{"JSON(`a b` Decimal(10, 2))", []string{"a b"}},
 		{"JSON(`a,b` Int64)", []string{"a,b"}},
 		{"JSON(`a.b` Int64)", []string{"a.b"}},
+		{"JSON(`c\\`d e` String)", []string{"c`d e"}},
+		{"JSON(`c\\`d` String, `e f` Int64)", []string{"c`d", "e f"}},
+		{"JSON(`x\\\\y z` String, `u v` Int8)", []string{"x\\y z", "u v"}},
+		{"JSON(`a b` Tuple(`c` Int64), `e` Int8)", []string{"a b", "e"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.chType, func(t *testing.T) {
