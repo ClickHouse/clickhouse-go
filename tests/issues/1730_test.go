@@ -29,7 +29,7 @@ func Test1730NullableDynamicScan(t *testing.T) {
 			Col4 Nullable(DateTime('UTC')),
 			Col5 Nullable(UUID),
 			Col6 LowCardinality(Nullable(String))
-		) Engine Memory
+		) Engine MergeTree ORDER BY ID
 		`
 		t.Cleanup(func() {
 			require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS test_1730"))

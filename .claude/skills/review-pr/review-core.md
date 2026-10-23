@@ -56,6 +56,10 @@ just cite the rule.
 - **Tests** — would the test have caught the bug? Are they table-driven with messages stating
   input / expected / got? **No mocking** of `driver.Conn`/`driver.Rows` in `/tests/` — use a real
   ClickHouse via testcontainers. Cover **both** TCP and HTTP, and **both** native and `std` APIs.
+  Tests also run on multi-replica ClickHouse Cloud: a table that a test writes and then reads must
+  not use the `Memory` engine (other replicas see no rows, so the test is flaky). Only a session
+  `TEMPORARY TABLE` can use `Memory`. Reads of `system.*` log tables must cover all replicas when
+  `clickhouse_tests.CloudClickHouse` is true. Report a violation as `should_fix`.
 - **Docs** — new exported symbols have full-sentence doc comments beginning with the symbol name;
   SQL types/functions in prose wrapped in backticks; examples added/updated for new behavior. Do not
   flag missing error handling in *example* code inside comments.
