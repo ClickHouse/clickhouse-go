@@ -100,10 +100,9 @@ func (col *String) AppendRow(v any) error {
 			col.col.Append("")
 		}
 	case *sql.NullString:
-		switch v.Valid {
-		case true:
+		if v != nil && v.Valid {
 			col.col.Append(v.String)
-		default:
+		} else {
 			col.col.Append("")
 		}
 	case json.RawMessage:
@@ -162,15 +161,22 @@ func (col *String) Append(v any) (nulls []uint8, err error) {
 	case []sql.NullString:
 		nulls = make([]uint8, len(v))
 		for i := range v {
-			col.AppendRow(v[i])
+			if !v[i].Valid {
+				nulls[i] = 1
+			}
+			if err := col.AppendRow(v[i]); err != nil {
+				return nil, err
+			}
 		}
 	case []*sql.NullString:
 		nulls = make([]uint8, len(v))
 		for i := range v {
-			if v[i] == nil {
+			if v[i] == nil || !v[i].Valid {
 				nulls[i] = 1
 			}
-			col.AppendRow(v[i])
+			if err := col.AppendRow(v[i]); err != nil {
+				return nil, err
+			}
 		}
 	case []json.RawMessage:
 		nulls = make([]uint8, len(v))
