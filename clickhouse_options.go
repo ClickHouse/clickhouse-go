@@ -449,7 +449,7 @@ func redactURLError(err error, raw string, parse func(string) (*url.URL, error))
 		// A malformed URL can put part of a password in the inner error,
 		// for example an unescaped "/" in the password gives `invalid port`.
 		// Over-masking can occur, thus the message says "may contain".
-		inner = errors.New("invalid URL (details hidden because they may contain credentials)")
+		inner = errors.New("invalid URL (details hidden because they may contain credentials; URL-encode the username, password and http_proxy values)")
 	}
 	return &url.Error{Op: uerr.Op, URL: redacted, Err: inner}
 }

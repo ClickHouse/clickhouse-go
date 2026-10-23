@@ -465,7 +465,7 @@ parse "clickhouse://user:xxxxx@127.0.0.1:abc/db": invalid port ":abc" after host
 If the parser error can contain a part of the credentials, the driver hides the detail:
 
 ```text
-parse "clickhouse://user:xxxxx@127.0.0.1:9000/db": invalid URL (details hidden because they may contain credentials)
+parse "clickhouse://user:xxxxx@127.0.0.1:9000/db": invalid URL (details hidden because they may contain credentials; URL-encode the username, password and http_proxy values)
 ```
 
 **Fix:**
