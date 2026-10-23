@@ -75,7 +75,7 @@ func extractEnumNamedValues(chType Type) (typ string, values []string, indexes [
 	var skippedValueTokens []int
 	var indexFound bool
 	var valueFound bool
-	var valueIndex = 0
+	valueIndex := 0
 
 	for c := 0; c < len(src); c++ {
 		token := src[c]
@@ -144,14 +144,15 @@ func extractEnumNamedValues(chType Type) (typ string, values []string, indexes [
 			}
 
 			foundName := src[foundValueOffset : foundValueOffset+foundValueLen]
-			for _, skipped := range skippedValueTokens {
-				foundName = append(foundName[:skipped], foundName[skipped+1:]...)
+			for i, skipped := range skippedValueTokens {
+				foundName = append(foundName[:skipped-i], foundName[skipped-i+1:]...)
 			}
 
 			indexes = append(indexes, valueIndex)
 			values = append(values, string(foundName))
 			indexFound = false
 			valueFound = false
+			skippedValueTokens = skippedValueTokens[:0]
 		}
 	}
 
