@@ -750,3 +750,55 @@ func TestLogger(t *testing.T) {
 		assert.Equal(t, customLogger, logger, "custom Logger should take precedence over Debug=true when Debugf is nil")
 	})
 }
+
+// TestParseDSNErrorRedactsPassword makes sure that DSN parse errors do not
+// expose credentials. Callers often log the error of ParseDSN or sql.Open.
+func TestParseDSNErrorRedactsPassword(t *testing.T) {
+	const secret = "S3cretPW"
+	testCases := []struct {
+		name     string
+		dsn      string
+		contains string
+	}{
+		{
+			name:     "userinfo password with invalid port",
+			dsn:      "clickhouse://user:" + secret + "@127.0.0.1:abc/db",
+			contains: `invalid port ":abc" after host`,
+		},
+		{
+			name:     "userinfo password with invalid escape",
+			dsn:      "clickhouse://user:" + secret + "%zz@127.0.0.1:9000/db",
+			contains: "user:xxxxx@127.0.0.1:9000/db",
+		},
+		{
+			name:     "userinfo password with unescaped at sign",
+			dsn:      "clickhouse://user:S3c@retPW@127.0.0.1:abc/db",
+			contains: "user:xxxxx@127.0.0.1:abc/db",
+		},
+		{
+			name:     "userinfo password with unescaped slash",
+			dsn:      "clickhouse://user:S3cret/PW@127.0.0.1:9000/db",
+			contains: "details hidden because they contain credentials",
+		},
+		{
+			name:     "password query parameter with invalid port",
+			dsn:      "clickhouse://127.0.0.1:abc/db?username=user&password=" + secret + "&debug=true",
+			contains: "?username=user&password=xxxxx&debug=true",
+		},
+		{
+			name:     "http_proxy credentials with invalid host",
+			dsn:      "http://127.0.0.1:8123?http_proxy=http%3A%2F%2Fproxyuser%3A" + secret + "%40pro%20xy%3A3128",
+			contains: "http_proxy",
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := ParseDSN(tc.dsn)
+			require.Error(t, err)
+			msg := err.Error()
+			assert.NotContains(t, msg, "S3c")
+			assert.NotContains(t, msg, "PW")
+			assert.Contains(t, msg, tc.contains)
+		})
+	}
+}

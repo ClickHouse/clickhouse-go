@@ -207,7 +207,7 @@ type Options struct {
 func (o *Options) fromDSN(in string) error {
 	dsn, err := churl.Parse(in)
 	if err != nil {
-		return err
+		return redactURLError(err)
 	}
 
 	if dsn.Host == "" {
@@ -372,7 +372,7 @@ func (o *Options) fromDSN(in string) error {
 		case "http_proxy":
 			proxyURL, err := url.Parse(params.Get(v))
 			if err != nil {
-				return fmt.Errorf("clickhouse [dsn parse]: http_proxy: %s", err)
+				return fmt.Errorf("clickhouse [dsn parse]: http_proxy: %s", redactURLError(err))
 			}
 			o.HTTPProxyURL = proxyURL
 		case "http_path":
@@ -422,6 +422,82 @@ func (o *Options) fromDSN(in string) error {
 		o.Protocol = Native
 	}
 	return nil
+}
+
+const redactedSecret = "xxxxx"
+
+// redactURLError removes credentials from a *url.Error, because its URL field
+// holds the raw input of the failed parse (for example, the full DSN). The
+// caller often logs this error. Other errors are returned unchanged.
+func redactURLError(err error) error {
+	var uerr *url.Error
+	if !errors.As(err, &uerr) {
+		return err
+	}
+	redacted, secrets := redactRawURL(uerr.URL)
+	inner := uerr.Err
+	if inner != nil && containsSecret(inner.Error(), secrets) {
+		// A malformed URL can put part of a password in the inner error,
+		// for example an unescaped "/" in the password gives `invalid port`.
+		inner = errors.New("invalid URL (details hidden because they contain credentials)")
+	}
+	return &url.Error{Op: uerr.Op, URL: redacted, Err: inner}
+}
+
+// redactRawURL masks the userinfo password and the `password` query parameter
+// of a raw URL, and returns the masked values. It works on the raw string,
+// because the URL did not parse. When the URL is malformed, it masks too much
+// rather than too little.
+func redactRawURL(raw string) (string, []string) {
+	var (
+		s       = raw
+		secrets []string
+		start   = 0
+	)
+	if i := strings.Index(s, "://"); i >= 0 {
+		start = i + len("://")
+	}
+	queryFrom := start
+	// Use the last "@", because a password can contain an unescaped "@".
+	if at := strings.LastIndex(s[start:], "@"); at >= 0 {
+		at += start
+		if colon := strings.Index(s[start:at], ":"); colon >= 0 {
+			passStart := start + colon + 1
+			secrets = append(secrets, s[passStart:at])
+			s = s[:passStart] + redactedSecret + s[at:]
+			at = passStart + len(redactedSecret)
+		}
+		queryFrom = at
+	}
+	q := strings.Index(s[queryFrom:], "?")
+	if q < 0 {
+		return s, secrets
+	}
+	q += queryFrom
+	params := strings.Split(s[q+1:], "&")
+	for i, p := range params {
+		if key, value, ok := strings.Cut(p, "="); ok && strings.EqualFold(key, "password") {
+			secrets = append(secrets, value)
+			params[i] = key + "=" + redactedSecret
+		}
+	}
+	return s[:q+1] + strings.Join(params, "&"), secrets
+}
+
+// containsSecret reports whether msg contains a secret, or a part of a secret
+// that a URL parser can split off at a "/", "?" or "#" delimiter.
+func containsSecret(msg string, secrets []string) bool {
+	for _, secret := range secrets {
+		parts := strings.FieldsFunc(secret, func(r rune) bool {
+			return r == '/' || r == '?' || r == '#'
+		})
+		for _, part := range parts {
+			if strings.Contains(msg, part) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func parseHostList(value string) []string {
