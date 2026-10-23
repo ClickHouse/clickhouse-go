@@ -284,9 +284,15 @@ func requireAsyncInsert(t *testing.T, conn driver.Conn, queryID string, inserts 
 	// The `Settings` column is not checked: it lists only settings that differ from the
 	// server default, and newer servers default to `async_insert=1`.
 	var gotInserts, syncInserts uint64
+	//
+	// `SYSTEM FLUSH LOGS ON CLUSTER` can wait up to `distributed_ddl_task_timeout` (180 s by
+	// default). The timeout on each attempt stops one slow replica from using all of the
+	// time, and gives an error that tells which call was slow.
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
-		require.NoError(c, conn.Exec(context.Background(), flushLogs))
-		err := conn.QueryRow(context.Background(), fmt.Sprintf(`
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		require.NoError(c, conn.Exec(ctx, flushLogs))
+		err := conn.QueryRow(ctx, fmt.Sprintf(`
 			SELECT count(), countIf(ProfileEvents['AsyncInsertQuery'] = 0)
 			FROM %s
 			WHERE query_id = ? AND type = 'QueryFinish' AND query_kind = 'Insert'
