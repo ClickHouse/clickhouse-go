@@ -761,6 +761,11 @@ func TestParseDSNErrorRedactsPassword(t *testing.T) {
 		contains string
 	}{
 		{
+			name:     "no credentials keeps the original error",
+			dsn:      "clickhouse://127.0.0.1:abc/db?debug=true",
+			contains: `parse "clickhouse://127.0.0.1:abc/db?debug=true": invalid port ":abc" after host`,
+		},
+		{
 			name:     "userinfo password with invalid port",
 			dsn:      "clickhouse://user:" + secret + "@127.0.0.1:abc/db",
 			contains: `invalid port ":abc" after host`,
@@ -839,6 +844,21 @@ func TestParseDSNErrorRedactsPassword(t *testing.T) {
 			name:     "password query parameter with unescaped question mark",
 			dsn:      "clickhouse://127.0.0.1:abc/db?password=S3c?retPW&debug=true",
 			contains: "127.0.0.1:abc/db?password=xxxxx&debug=true",
+		},
+		{
+			name:     "password query parameter with unescaped question mark and equals sign",
+			dsn:      "clickhouse://127.0.0.1:abc/db?password=S3c?retPW=1&debug=true",
+			contains: "127.0.0.1:abc/db?password=xxxxx&debug=true",
+		},
+		{
+			name:     "userinfo password with question mark and equals sign and password query parameter",
+			dsn:      "clickhouse://user:S3c?x=1@127.0.0.1:abc/db?password=retPW",
+			contains: "user:xxxxx@127.0.0.1:abc/db?password=xxxxx",
+		},
+		{
+			name:     "unescaped http_proxy credentials with question mark in DSN with invalid escape",
+			dsn:      "clickhouse://127.0.0.1/d%zz?http_proxy=http://u:S3c?retPW@proxy:3128",
+			contains: "http_proxy=http%3A%2F%2Fu%3Axxxxx%40proxy%3A3128",
 		},
 		{
 			name:     "password query parameter with escaped key",

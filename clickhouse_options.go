@@ -492,48 +492,57 @@ func redactRawURL(raw string) string {
 	return s
 }
 
-// redactQuery masks the credentials in a raw query. It splits at "&" and also
-// at "?", because a password in the userinfo can contain a "?". It does not
-// split at "#", because a password can contain an unescaped "#". It decodes
-// each key, because the driver reads the decoded key (for example,
-// `pass%77ord` is `password`).
+// redactQuery masks the credentials in a raw query. Like url.ParseQuery, it
+// splits only at "&", thus a value can contain "?" and "#". It decodes each
+// key, because the driver reads the decoded key (for example, `pass%77ord` is
+// `password`).
 func redactQuery(query string) string {
 	var (
-		b       strings.Builder
-		masking bool
-		sep     string
+		segments = strings.Split(query, "&")
+		out      = make([]string, 0, len(segments))
+		masking  bool
 	)
-	for {
-		segment, rest := query, ""
-		i := strings.IndexAny(query, "&?")
-		if i >= 0 {
-			segment, rest = query[:i], query[i:]
-		}
-		key, value, hasValue := strings.Cut(segment, "=")
-		if k, err := url.QueryUnescape(key); err == nil {
-			key = k
-		}
+	for _, segment := range segments {
+		i, key, ok := credentialParam(segment)
 		switch {
-		case !hasValue:
+		case ok && key == "password":
+			segment, masking = segment[:i]+redactedSecret, true
+		case ok:
+			segment, masking = segment[:i]+redactProxyValue(segment[i:]), false
+		case masking && !strings.Contains(segment, "="):
 			// A segment with no "=" is not a parameter. After a password,
-			// it is the part of the password after an unescaped "&" or "?".
-			if masking {
-				segment, sep = "", ""
-			}
-		case strings.EqualFold(key, "password"):
-			segment, masking = segment[:len(segment)-len(value)]+redactedSecret, true
-		case strings.EqualFold(key, "http_proxy"):
-			segment, masking = segment[:len(segment)-len(value)]+redactProxyValue(value), false
+			// it is the part of the password after an unescaped "&".
+			continue
 		default:
 			masking = false
 		}
-		b.WriteString(sep)
-		b.WriteString(segment)
-		if i < 0 {
-			return b.String()
-		}
-		sep, query = rest[:1], rest[1:]
+		out = append(out, segment)
 	}
+	return strings.Join(out, "&")
+}
+
+// credentialParam finds a `password` or `http_proxy` parameter in a query
+// segment, and returns the index of its value and its key in lowercase. It
+// also looks directly after each "?", because the query starts at the first
+// "?" and a password in the userinfo can contain a "?". Then the parameter is
+// not at the start of a segment.
+func credentialParam(segment string) (int, string, bool) {
+	for p := 0; p >= 0; {
+		if key, _, ok := strings.Cut(segment[p:], "="); ok {
+			if k, err := url.QueryUnescape(key); err == nil {
+				key = k
+			}
+			if key = strings.ToLower(key); key == "password" || key == "http_proxy" {
+				return p + strings.Index(segment[p:], "=") + 1, key, true
+			}
+		}
+		if q := strings.Index(segment[p:], "?"); q >= 0 {
+			p += q + 1
+		} else {
+			p = -1
+		}
+	}
+	return 0, "", false
 }
 
 // redactProxyValue masks the credentials in the raw value of the `http_proxy`
