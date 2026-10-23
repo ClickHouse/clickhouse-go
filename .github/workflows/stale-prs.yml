@@ -2,7 +2,7 @@ name: Close stale pull requests
 
 on:
   schedule:
-    - cron: '30 1 * * *'
+    - cron: '30 13 * * *'
   workflow_dispatch:
 
 permissions:
