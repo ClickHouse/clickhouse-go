@@ -778,7 +778,17 @@ func TestParseDSNErrorRedactsPassword(t *testing.T) {
 		{
 			name:     "userinfo password with unescaped slash",
 			dsn:      "clickhouse://user:S3cret/PW@127.0.0.1:9000/db",
-			contains: "details hidden because they contain credentials",
+			contains: "details hidden because they may contain credentials",
+		},
+		{
+			name:     "userinfo password with unescaped hash",
+			dsn:      "clickhouse://user:S3c#retPW@127.0.0.1:9000/db",
+			contains: "details hidden because they may contain credentials",
+		},
+		{
+			name:     "userinfo password with invalid escape inside",
+			dsn:      "clickhouse://user:S3c%ssPW@127.0.0.1:9000/db",
+			contains: "details hidden because they may contain credentials",
 		},
 		{
 			name:     "password query parameter with invalid port",

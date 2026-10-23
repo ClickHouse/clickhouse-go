@@ -207,7 +207,7 @@ type Options struct {
 func (o *Options) fromDSN(in string) error {
 	dsn, err := churl.Parse(in)
 	if err != nil {
-		return redactURLError(err)
+		return redactURLError(err, in)
 	}
 
 	if dsn.Host == "" {
@@ -370,9 +370,10 @@ func (o *Options) fromDSN(in string) error {
 				})
 			}
 		case "http_proxy":
-			proxyURL, err := url.Parse(params.Get(v))
+			rawProxyURL := params.Get(v)
+			proxyURL, err := url.Parse(rawProxyURL)
 			if err != nil {
-				return fmt.Errorf("clickhouse [dsn parse]: http_proxy: %s", redactURLError(err))
+				return fmt.Errorf("clickhouse [dsn parse]: http_proxy: %w", redactURLError(err, rawProxyURL))
 			}
 			o.HTTPProxyURL = proxyURL
 		case "http_path":
@@ -429,17 +430,23 @@ const redactedSecret = "xxxxx"
 // redactURLError removes credentials from a *url.Error, because its URL field
 // holds the raw input of the failed parse (for example, the full DSN). The
 // caller often logs this error. Other errors are returned unchanged.
-func redactURLError(err error) error {
+//
+// raw is the original input of the failed parse. Redact raw and not the URL
+// field of the error, because the parser can cut the input at a "#" before it
+// sets the URL field. Then a password with an unescaped "#" can stay in the
+// error without its "@" delimiter.
+func redactURLError(err error, raw string) error {
 	var uerr *url.Error
 	if !errors.As(err, &uerr) {
 		return err
 	}
-	redacted, secrets := redactRawURL(uerr.URL)
+	redacted, secrets := redactRawURL(raw)
 	inner := uerr.Err
-	if inner != nil && containsSecret(inner.Error(), secrets) {
+	if inner != nil && (containsSecret(inner.Error(), secrets) || escapesSecret(inner, secrets)) {
 		// A malformed URL can put part of a password in the inner error,
 		// for example an unescaped "/" in the password gives `invalid port`.
-		inner = errors.New("invalid URL (details hidden because they contain credentials)")
+		// Over-masking can occur, thus the message says "may contain".
+		inner = errors.New("invalid URL (details hidden because they may contain credentials)")
 	}
 	return &url.Error{Op: uerr.Op, URL: redacted, Err: inner}
 }
@@ -495,6 +502,23 @@ func containsSecret(msg string, secrets []string) bool {
 			if strings.Contains(msg, part) {
 				return true
 			}
+		}
+	}
+	return false
+}
+
+// escapesSecret reports whether err is a url.EscapeError for an escape
+// sequence in a secret. The error quotes only the 3 bytes of the sequence (for
+// example `"%ss"` for the password `pa%ssword`), thus containsSecret does not
+// find it.
+func escapesSecret(err error, secrets []string) bool {
+	var eerr url.EscapeError
+	if !errors.As(err, &eerr) || eerr == "" {
+		return false
+	}
+	for _, secret := range secrets {
+		if strings.Contains(secret, string(eerr)) {
+			return true
 		}
 	}
 	return false
