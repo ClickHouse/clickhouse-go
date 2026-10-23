@@ -466,6 +466,23 @@ func (c *connect) flush() error {
 	return nil
 }
 
+
+// preferContextError returns ctx.Err() when the context is already done,
+// otherwise err. Native-protocol reads bind ctx deadlines onto the socket via
+// SetDeadline; when that fires the blocked read returns a *net.OpError wrapping
+// os.ErrDeadlineExceeded. Callers that select on both ctx.Done() and the read
+// error channel can receive either, so prefer the context error so
+// errors.Is(err, context.DeadlineExceeded) is reliable.
+func preferContextError(ctx context.Context, err error) error {
+	if err == nil {
+		return nil
+	}
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return ctxErr
+	}
+	return err
+}
+
 // startReadWriteTimeout applies the configured read timeout to conn.
 // If a context deadline is provided, a read and write deadline is set.
 // This should be matched with a deferred call to clearReadWriteTimeout.

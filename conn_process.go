@@ -47,7 +47,7 @@ func (c *connect) firstBlock(ctx context.Context, on *onProcess) (*proto.Block, 
 		return nil, ctx.Err()
 
 	case err := <-errCh:
-		return nil, err
+		return nil, preferContextError(ctx, err)
 
 	case block := <-resultCh:
 		return block, nil
@@ -121,7 +121,7 @@ func (c *connect) process(ctx context.Context, on *onProcess) error {
 		return ctx.Err()
 
 	case err := <-errCh:
-		return err
+		return preferContextError(ctx, err)
 
 	case <-doneCh:
 		return nil
