@@ -27,3 +27,5 @@ jobs:
             This pull request was closed because it remained inactive for 7 days
             after it was marked stale.
           remove-pr-stale-when-updated: true
+          exempt-draft-pr: true
+          exempt-pr-labels: dependencies,pinned,on-hold
