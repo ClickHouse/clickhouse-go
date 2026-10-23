@@ -791,6 +791,21 @@ func TestParseDSNErrorRedactsPassword(t *testing.T) {
 			contains: "details hidden because they may contain credentials",
 		},
 		{
+			name:     "userinfo password with colon and unescaped slash",
+			dsn:      "clickhouse://user:S3c:retPW/x@127.0.0.1:9000/db",
+			contains: "details hidden because they may contain credentials",
+		},
+		{
+			name:     "userinfo password with comma and unescaped slash",
+			dsn:      "clickhouse://user:S3c,retPW/x@127.0.0.1:9000/db",
+			contains: "details hidden because they may contain credentials",
+		},
+		{
+			name:     "userinfo password with brackets and unescaped slash",
+			dsn:      "clickhouse://user:S3c[x]retPW/x@127.0.0.1:9000/db",
+			contains: "details hidden because they may contain credentials",
+		},
+		{
 			name:     "password query parameter with invalid port",
 			dsn:      "clickhouse://127.0.0.1:abc/db?username=user&password=" + secret + "&debug=true",
 			contains: "?username=user&password=xxxxx&debug=true",

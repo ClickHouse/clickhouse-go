@@ -208,7 +208,7 @@ type Options struct {
 func (o *Options) fromDSN(in string) error {
 	dsn, err := churl.Parse(in)
 	if err != nil {
-		return redactURLError(err, in)
+		return redactURLError(err, in, churl.Parse)
 	}
 
 	if dsn.Host == "" {
@@ -374,7 +374,7 @@ func (o *Options) fromDSN(in string) error {
 			rawProxyURL := params.Get(v)
 			proxyURL, err := url.Parse(rawProxyURL)
 			if err != nil {
-				return fmt.Errorf("clickhouse [dsn parse]: http_proxy: %w", redactURLError(err, rawProxyURL))
+				return fmt.Errorf("clickhouse [dsn parse]: http_proxy: %w", redactURLError(err, rawProxyURL, url.Parse))
 			}
 			o.HTTPProxyURL = proxyURL
 		case "http_path":
@@ -439,14 +439,17 @@ var passwordParam = regexp.MustCompile(`(?i)([?&]password=)([^&#]*)`)
 // field of the error, because the parser can cut the input at a "#" before it
 // sets the URL field. Then a password with an unescaped "#" can stay in the
 // error without its "@" delimiter.
-func redactURLError(err error, raw string) error {
+//
+// parse is the function that failed. It parses the redacted input again to
+// find if the inner error depends on the credentials.
+func redactURLError(err error, raw string, parse func(string) (*url.URL, error)) error {
 	var uerr *url.Error
 	if !errors.As(err, &uerr) {
 		return err
 	}
-	redacted, secrets := redactRawURL(raw)
+	redacted := redactRawURL(raw)
 	inner := uerr.Err
-	if inner != nil && (containsSecret(inner.Error(), secrets) || escapesSecret(inner, secrets)) {
+	if inner != nil && !sameInnerError(inner, parse, redacted) {
 		// A malformed URL can put part of a password in the inner error,
 		// for example an unescaped "/" in the password gives `invalid port`.
 		// Over-masking can occur, thus the message says "may contain".
@@ -455,23 +458,28 @@ func redactURLError(err error, raw string) error {
 	return &url.Error{Op: uerr.Op, URL: redacted, Err: inner}
 }
 
-// redactRawURL masks the userinfo password and the `password` query parameter
-// of a raw URL, and returns the masked values. It works on the raw string,
-// because the URL did not parse. When the URL is malformed, it masks too much
-// rather than too little.
-func redactRawURL(raw string) (string, []string) {
-	var (
-		s       = raw
-		secrets []string
-		start   = 0
-	)
-	// Mask the `password` query values first, because they can contain an
-	// unescaped "@" that the userinfo step below would use as its delimiter.
-	for _, m := range passwordParam.FindAllStringSubmatch(s, -1) {
-		secrets = append(secrets, m[2])
+// sameInnerError reports whether parsing the redacted input gives the same
+// inner error. If so, the error does not depend on the credentials and is safe
+// to show. This does not need to know where the parser splits the input.
+func sameInnerError(inner error, parse func(string) (*url.URL, error), redacted string) bool {
+	_, err := parse(redacted)
+	var uerr *url.Error
+	if !errors.As(err, &uerr) || uerr.Err == nil {
+		return false
 	}
-	s = passwordParam.ReplaceAllString(s, "${1}"+redactedSecret)
+	return uerr.Err.Error() == inner.Error()
+}
 
+// redactRawURL masks the userinfo password and the `password` query parameter
+// of a raw URL. It works on the raw string, because the URL did not parse.
+// When the URL is malformed, it masks too much rather than too little.
+func redactRawURL(raw string) string {
+	var (
+		s     = passwordParam.ReplaceAllString(raw, "${1}"+redactedSecret)
+		start = 0
+	)
+	// The `password` query values are masked first, because they can contain
+	// an unescaped "@" that the userinfo step below would use as its delimiter.
 	if i := strings.Index(s, "://"); i >= 0 {
 		start = i + len("://")
 	}
@@ -480,44 +488,10 @@ func redactRawURL(raw string) (string, []string) {
 		at += start
 		if colon := strings.Index(s[start:at], ":"); colon >= 0 {
 			passStart := start + colon + 1
-			secrets = append(secrets, s[passStart:at])
 			s = s[:passStart] + redactedSecret + s[at:]
 		}
 	}
-	return s, secrets
-}
-
-// containsSecret reports whether msg contains a secret, or a part of a secret
-// that a URL parser can split off at a "/", "?" or "#" delimiter.
-func containsSecret(msg string, secrets []string) bool {
-	for _, secret := range secrets {
-		parts := strings.FieldsFunc(secret, func(r rune) bool {
-			return r == '/' || r == '?' || r == '#'
-		})
-		for _, part := range parts {
-			if strings.Contains(msg, part) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// escapesSecret reports whether err is a url.EscapeError for an escape
-// sequence in a secret. The error quotes only the 3 bytes of the sequence (for
-// example `"%ss"` for the password `pa%ssword`), thus containsSecret does not
-// find it.
-func escapesSecret(err error, secrets []string) bool {
-	var eerr url.EscapeError
-	if !errors.As(err, &eerr) || eerr == "" {
-		return false
-	}
-	for _, secret := range secrets {
-		if strings.Contains(secret, string(eerr)) {
-			return true
-		}
-	}
-	return false
+	return s
 }
 
 func parseHostList(value string) []string {
