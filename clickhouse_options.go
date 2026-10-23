@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -427,6 +428,9 @@ func (o *Options) fromDSN(in string) error {
 
 const redactedSecret = "xxxxx"
 
+// passwordParam matches a `password` query parameter and its value in a raw URL.
+var passwordParam = regexp.MustCompile(`(?i)([?&]password=)([^&#]*)`)
+
 // redactURLError removes credentials from a *url.Error, because its URL field
 // holds the raw input of the failed parse (for example, the full DSN). The
 // caller often logs this error. Other errors are returned unchanged.
@@ -461,10 +465,16 @@ func redactRawURL(raw string) (string, []string) {
 		secrets []string
 		start   = 0
 	)
+	// Mask the `password` query values first, because they can contain an
+	// unescaped "@" that the userinfo step below would use as its delimiter.
+	for _, m := range passwordParam.FindAllStringSubmatch(s, -1) {
+		secrets = append(secrets, m[2])
+	}
+	s = passwordParam.ReplaceAllString(s, "${1}"+redactedSecret)
+
 	if i := strings.Index(s, "://"); i >= 0 {
 		start = i + len("://")
 	}
-	queryFrom := start
 	// Use the last "@", because a password can contain an unescaped "@".
 	if at := strings.LastIndex(s[start:], "@"); at >= 0 {
 		at += start
@@ -472,23 +482,9 @@ func redactRawURL(raw string) (string, []string) {
 			passStart := start + colon + 1
 			secrets = append(secrets, s[passStart:at])
 			s = s[:passStart] + redactedSecret + s[at:]
-			at = passStart + len(redactedSecret)
-		}
-		queryFrom = at
-	}
-	q := strings.Index(s[queryFrom:], "?")
-	if q < 0 {
-		return s, secrets
-	}
-	q += queryFrom
-	params := strings.Split(s[q+1:], "&")
-	for i, p := range params {
-		if key, value, ok := strings.Cut(p, "="); ok && strings.EqualFold(key, "password") {
-			secrets = append(secrets, value)
-			params[i] = key + "=" + redactedSecret
 		}
 	}
-	return s[:q+1] + strings.Join(params, "&"), secrets
+	return s, secrets
 }
 
 // containsSecret reports whether msg contains a secret, or a part of a secret

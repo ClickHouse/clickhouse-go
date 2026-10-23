@@ -796,6 +796,21 @@ func TestParseDSNErrorRedactsPassword(t *testing.T) {
 			contains: "?username=user&password=xxxxx&debug=true",
 		},
 		{
+			name:     "password query parameter with unescaped at sign",
+			dsn:      "clickhouse://127.0.0.1:abc/db?password=S3c@retPW",
+			contains: `invalid port ":abc" after host`,
+		},
+		{
+			name:     "password query parameter with unescaped at sign and invalid escape",
+			dsn:      "clickhouse://127.0.0.1:9000/d%zzb?password=S3c@retPW",
+			contains: "127.0.0.1:9000/d%zzb?password=xxxxx",
+		},
+		{
+			name:     "userinfo password and password query parameter with unescaped at sign",
+			dsn:      "clickhouse://user:S3c@127.0.0.1:abc/db?password=x@retPW",
+			contains: "user:xxxxx@127.0.0.1:abc/db?password=xxxxx",
+		},
+		{
 			name:     "http_proxy credentials with invalid host",
 			dsn:      "http://127.0.0.1:8123?http_proxy=http%3A%2F%2Fproxyuser%3A" + secret + "%40pro%20xy%3A3128",
 			contains: "http_proxy",
