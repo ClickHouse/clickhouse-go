@@ -50,6 +50,42 @@ func TestBatchAppendRows(t *testing.T) {
 	assert.Equal(t, 1000000, int(count))
 }
 
+// https://github.com/ClickHouse/clickhouse-go/issues/2016
+func TestBatchAppendRowsSourceStreamError(t *testing.T) {
+	te, err := GetTestEnvironment(testSet)
+	require.NoError(t, err)
+	opts := ClientOptionsFromEnv(te, clickhouse.Settings{}, false)
+
+	conn, err := GetConnectionWithOptions(&opts)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	require.NoError(t, conn.Exec(ctx, "create table if not exists target_stream_error (x UInt64) engine = Memory()"))
+	defer conn.Exec(context.Background(), "drop table if exists target_stream_error")
+
+	// Small single-threaded blocks guarantee the server streams several data
+	// blocks before throwIf fires, so the failure happens mid-stream.
+	srcCtx := clickhouse.Context(ctx, clickhouse.WithSettings(clickhouse.Settings{
+		"max_block_size": 1000,
+		"max_threads":    1,
+	}))
+	sourceRows, err := conn.Query(srcCtx, "SELECT number AS x FROM system.numbers WHERE throwIf(number = 50000, 'mid-stream failure') = 0 LIMIT 100000")
+	require.NoError(t, err)
+	defer sourceRows.Close()
+
+	b, err := conn.PrepareBatch(ctx, "INSERT INTO target_stream_error")
+	require.NoError(t, err)
+
+	appendErr := b.Append(sourceRows)
+	require.Error(t, appendErr)
+	assert.Contains(t, appendErr.Error(), "mid-stream failure")
+
+	sendErr := b.Send()
+	require.ErrorIs(t, sendErr, clickhouse.ErrBatchInvalid)
+	assert.Contains(t, sendErr.Error(), "mid-stream failure")
+}
+
 // TestBatchColumns tests Batch.Columns() method functionality
 func TestBatchColumns(t *testing.T) {
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
