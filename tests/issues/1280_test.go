@@ -24,7 +24,7 @@ func Test1280(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, errEnv)
 
-	ddl := "CREATE TABLE values (`id` Int32, `values` Int32) Engine = Memory"
+	ddl := "CREATE TABLE values (`id` Int32, `values` Int32) Engine = MergeTree ORDER BY tuple()"
 	require.NoError(t, conn.Exec(ctx, ddl))
 	defer conn.Exec(ctx, "DROP TABLE IF EXISTS values")
 

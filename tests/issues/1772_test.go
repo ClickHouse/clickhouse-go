@@ -60,7 +60,7 @@ func Test1772_HTTPNativeCompressionMethodSettings(t *testing.T) {
 			require.NoError(t, conn.Exec(ctx, `
 				CREATE TABLE `+table+` (
 					value UInt64
-				) ENGINE = Memory
+				) ENGINE = MergeTree ORDER BY tuple()
 			`))
 			t.Cleanup(func() {
 				require.NoError(t,

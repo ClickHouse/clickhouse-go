@@ -50,7 +50,7 @@ func TestStressHTTPBatchConcurrency(t *testing.T) {
 	})
 	defer conn.Close()
 
-	err = conn.Exec(context.Background(), `CREATE TABLE http_batch_issue (x String) ENGINE Memory`)
+	err = conn.Exec(context.Background(), `CREATE TABLE http_batch_issue (x String) ENGINE MergeTree ORDER BY tuple()`)
 	require.NoError(t, err)
 	defer func() {
 		err := conn.Exec(context.Background(), "DROP TABLE http_batch_issue")
