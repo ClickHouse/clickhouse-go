@@ -244,6 +244,11 @@ func (c *Dynamic) AppendRow(v any) error {
 		}
 	}
 
+	if requestedType == "" {
+		// Choose the type before appending: a failed append can modify a column.
+		requestedType = inferClickHouseTypeFromGoType(v)
+	}
+
 	if requestedType != "" {
 		var col Interface
 		colIndex, ok := c.columnIndexByType[requestedType]
@@ -267,7 +272,7 @@ func (c *Dynamic) AppendRow(v any) error {
 		return nil
 	}
 
-	// If preferred type wasn't provided, try each column
+	// If the type cannot be inferred, try the existing columns.
 	for i, col := range c.columns {
 		if c.deprecated.typeNames[i] == "SharedVariant" {
 			// Do not try to fit into SharedVariant
@@ -278,12 +283,6 @@ func (c *Dynamic) AppendRow(v any) error {
 			c.appendDiscriminatorRow(i)
 			return nil
 		}
-	}
-
-	// If no existing columns match, try matching a ClickHouse type from common Go types
-	inferredTypeName := inferClickHouseTypeFromGoType(v)
-	if inferredTypeName != "" {
-		return c.AppendRow(chcol.NewDynamicWithType(v, inferredTypeName))
 	}
 
 	return fmt.Errorf("value \"%v\" cannot be stored in dynamic column: no compatible types. hint: either use fixed types like int64, int32, etc or use clickhouse.DynamicWithType to wrap the value with concrete ClickHouse column type", v)
