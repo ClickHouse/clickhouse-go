@@ -267,24 +267,32 @@ func requireAsyncInsert(t *testing.T, conn driver.Conn, queryID string, inserts 
 
 	// `system.query_log` is local to each replica. On a ClickHouse Cloud service with more
 	// than one replica, the INSERT and the admin connection can go to different replicas,
-	// so the test reads the logs of all replicas.
+	// so the test reads the logs of all replicas. `SYSTEM FLUSH LOGS` flushes only the
+	// local replica, and the other replicas can wait more than 30 seconds before they
+	// write their logs, so the test flushes the logs of all replicas.
 	queryLog := "system.query_log"
+	flushLogs := "SYSTEM FLUSH LOGS"
 	if clickhouse_tests.CloudClickHouse {
 		queryLog = "clusterAllReplicas('default', system.query_log)"
+		flushLogs = "SYSTEM FLUSH LOGS ON CLUSTER 'default'"
 	}
 
 	// The server can send the HTTP response before it adds the `QueryFinish` row to the
 	// `system.query_log` queue. Then `SYSTEM FLUSH LOGS` does not write the row, so the
-	// test flushes the logs again until all rows are there. `SYSTEM FLUSH LOGS` flushes
-	// only the local replica. The other replicas write their logs every 7.5 seconds by
-	// default, which the timeout allows for.
+	// test flushes the logs again until all rows are there.
 	//
 	// The `Settings` column is not checked: it lists only settings that differ from the
 	// server default, and newer servers default to `async_insert=1`.
 	var gotInserts, syncInserts uint64
+	//
+	// `SYSTEM FLUSH LOGS ON CLUSTER` can wait up to `distributed_ddl_task_timeout` (180 s by
+	// default). The timeout on each attempt stops one slow replica from using all of the
+	// time, and gives an error that tells which call was slow.
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
-		require.NoError(c, conn.Exec(context.Background(), "SYSTEM FLUSH LOGS"))
-		err := conn.QueryRow(context.Background(), fmt.Sprintf(`
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		require.NoError(c, conn.Exec(ctx, flushLogs))
+		err := conn.QueryRow(ctx, fmt.Sprintf(`
 			SELECT count(), countIf(ProfileEvents['AsyncInsertQuery'] = 0)
 			FROM %s
 			WHERE query_id = ? AND type = 'QueryFinish' AND query_kind = 'Insert'
