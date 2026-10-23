@@ -1,12 +1,15 @@
 package std
 
 import (
+	"crypto/tls"
 	"math/big"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
+	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 )
 
 // TestStd1917BigIntBindParameter covers the database/sql surface of the #1917
@@ -29,9 +32,16 @@ func TestStd1917BigIntBindParameter(t *testing.T) {
 	}
 	wideInts := []string{"Int128", "UInt128", "Int256", "UInt256"}
 
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	var tlsConfig *tls.Config
+	if useSSL {
+		tlsConfig = &tls.Config{}
+	}
+
 	for _, protocol := range []clickhouse.Protocol{clickhouse.Native, clickhouse.HTTP} {
 		t.Run(protocol.String(), func(t *testing.T) {
-			conn, err := GetStdOpenDBConnection(protocol, nil, nil, nil)
+			conn, err := GetStdOpenDBConnection(protocol, nil, tlsConfig, nil)
 			require.NoError(t, err)
 			t.Cleanup(func() { conn.Close() })
 

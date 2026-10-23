@@ -40,12 +40,12 @@ func QueryWithParameters() error {
 		clickhouse.Named("backslash", `C:\Users\bob`),
 	)
 	var (
-		column     uint64
-		str        string
-		array      []string
-		control    string
-		tab        string
-		backslash  string
+		column    uint64
+		str       string
+		array     []string
+		control   string
+		tab       string
+		backslash string
 	)
 	if err := row.Scan(&column, &str, &array, &control, &tab, &backslash); err != nil {
 		return err
