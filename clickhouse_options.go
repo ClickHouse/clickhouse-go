@@ -9,7 +9,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -428,9 +427,6 @@ func (o *Options) fromDSN(in string) error {
 
 const redactedSecret = "xxxxx"
 
-// passwordParam matches a `password` query parameter and its value in a raw URL.
-var passwordParam = regexp.MustCompile(`(?i)([?&]password=)([^&#]*)`)
-
 // redactURLError removes credentials from a *url.Error, because its URL field
 // holds the raw input of the failed parse (for example, the full DSN). The
 // caller often logs this error. Other errors are returned unchanged.
@@ -470,16 +466,18 @@ func sameInnerError(inner error, parse func(string) (*url.URL, error), redacted 
 	return uerr.Err.Error() == inner.Error()
 }
 
-// redactRawURL masks the userinfo password and the `password` query parameter
-// of a raw URL. It works on the raw string, because the URL did not parse.
-// When the URL is malformed, it masks too much rather than too little.
+// redactRawURL masks the userinfo password, the `password` query parameter and
+// the credentials in the `http_proxy` query parameter of a raw URL. It works
+// on the raw string, because the URL did not parse. When the URL is malformed,
+// it masks too much rather than too little.
 func redactRawURL(raw string) string {
-	var (
-		s     = passwordParam.ReplaceAllString(raw, "${1}"+redactedSecret)
-		start = 0
-	)
-	// The `password` query values are masked first, because they can contain
-	// an unescaped "@" that the userinfo step below would use as its delimiter.
+	// Mask the query first, because a query value can contain an unescaped
+	// "@" that the userinfo step below would use as its delimiter.
+	s := raw
+	if q := strings.Index(s, "?"); q >= 0 {
+		s = s[:q+1] + redactQuery(s[q+1:])
+	}
+	start := 0
 	if i := strings.Index(s, "://"); i >= 0 {
 		start = i + len("://")
 	}
@@ -492,6 +490,61 @@ func redactRawURL(raw string) string {
 		}
 	}
 	return s
+}
+
+// redactQuery masks the credentials in a raw query. It splits at "&" and also
+// at "?", because a password in the userinfo can contain a "?". It does not
+// split at "#", because a password can contain an unescaped "#". It decodes
+// each key, because the driver reads the decoded key (for example,
+// `pass%77ord` is `password`).
+func redactQuery(query string) string {
+	var (
+		b       strings.Builder
+		masking bool
+		sep     string
+	)
+	for {
+		segment, rest := query, ""
+		i := strings.IndexAny(query, "&?")
+		if i >= 0 {
+			segment, rest = query[:i], query[i:]
+		}
+		key, value, hasValue := strings.Cut(segment, "=")
+		if k, err := url.QueryUnescape(key); err == nil {
+			key = k
+		}
+		switch {
+		case !hasValue:
+			// A segment with no "=" is not a parameter. After a password,
+			// it is the part of the password after an unescaped "&" or "?".
+			if masking {
+				segment, sep = "", ""
+			}
+		case strings.EqualFold(key, "password"):
+			segment, masking = segment[:len(segment)-len(value)]+redactedSecret, true
+		case strings.EqualFold(key, "http_proxy"):
+			segment, masking = segment[:len(segment)-len(value)]+redactProxyValue(value), false
+		default:
+			masking = false
+		}
+		b.WriteString(sep)
+		b.WriteString(segment)
+		if i < 0 {
+			return b.String()
+		}
+		sep, query = rest[:1], rest[1:]
+	}
+}
+
+// redactProxyValue masks the credentials in the raw value of the `http_proxy`
+// query parameter. The value is usually escaped, thus it decodes the value
+// first. If the value does not decode, it masks all of the value.
+func redactProxyValue(value string) string {
+	proxyURL, err := url.QueryUnescape(value)
+	if err != nil {
+		return redactedSecret
+	}
+	return url.QueryEscape(redactRawURL(proxyURL))
 }
 
 func parseHostList(value string) []string {

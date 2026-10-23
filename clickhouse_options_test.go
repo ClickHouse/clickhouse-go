@@ -826,6 +826,46 @@ func TestParseDSNErrorRedactsPassword(t *testing.T) {
 			contains: "user:xxxxx@127.0.0.1:abc/db?password=xxxxx",
 		},
 		{
+			name:     "password query parameter with unescaped hash",
+			dsn:      "clickhouse://127.0.0.1:abc/db?password=S3c#retPW",
+			contains: "127.0.0.1:abc/db?password=xxxxx\"",
+		},
+		{
+			name:     "password query parameter with unescaped ampersand",
+			dsn:      "clickhouse://127.0.0.1:abc/db?password=S3c&retPW&debug=true",
+			contains: "127.0.0.1:abc/db?password=xxxxx&debug=true",
+		},
+		{
+			name:     "password query parameter with unescaped question mark",
+			dsn:      "clickhouse://127.0.0.1:abc/db?password=S3c?retPW&debug=true",
+			contains: "127.0.0.1:abc/db?password=xxxxx&debug=true",
+		},
+		{
+			name:     "password query parameter with escaped key",
+			dsn:      "clickhouse://127.0.0.1:abc/db?pass%77ord=" + secret,
+			contains: "127.0.0.1:abc/db?pass%77ord=xxxxx",
+		},
+		{
+			name:     "userinfo password with question mark and password query parameter",
+			dsn:      "clickhouse://user:S3c?x@127.0.0.1:abc/db?password=retPW",
+			contains: "user:xxxxx@127.0.0.1:abc/db?password=xxxxx",
+		},
+		{
+			name:     "escaped http_proxy credentials in DSN with invalid port",
+			dsn:      "clickhouse://127.0.0.1:abc/db?http_proxy=http%3A%2F%2Fu%3A" + secret + "%40proxy%3A3128",
+			contains: "http_proxy=http%3A%2F%2Fu%3Axxxxx%40proxy%3A3128",
+		},
+		{
+			name:     "unescaped http_proxy credentials in DSN with invalid port",
+			dsn:      "clickhouse://127.0.0.1:abc/db?http_proxy=http://u:" + secret + "@proxy:3128",
+			contains: `invalid port ":abc" after host`,
+		},
+		{
+			name:     "http_proxy credentials with invalid escape in DSN with invalid port",
+			dsn:      "clickhouse://127.0.0.1:abc/db?http_proxy=http%3A%2F%2Fu%3AS3c%zzretPW%40proxy",
+			contains: "http_proxy=xxxxx",
+		},
+		{
 			name:     "http_proxy credentials with invalid host",
 			dsn:      "http://127.0.0.1:8123?http_proxy=http%3A%2F%2Fproxyuser%3A" + secret + "%40pro%20xy%3A3128",
 			contains: "http_proxy",
