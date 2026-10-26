@@ -290,6 +290,12 @@ func (col *Tuple) scanMap(targetMap reflect.Value, row int) error {
 				return err
 			}
 			targetMap.SetMapIndex(reflect.ValueOf(colName), subSlice)
+		case *Map:
+			mapped, err := dCol.scan(targetMap.Type().Elem(), row)
+			if err != nil {
+				return err
+			}
+			targetMap.SetMapIndex(reflect.ValueOf(colName), mapped)
 		default:
 			val := c.Row(row, false)
 			if val != nil {
@@ -359,6 +365,12 @@ func (col *Tuple) scanStruct(targetStruct reflect.Value, row int) error {
 				return err
 			}
 			sField.Set(subSlice)
+		case *Map:
+			mapped, err := dCol.scan(sField.Type(), row)
+			if err != nil {
+				return err
+			}
+			sField.Set(mapped)
 		default:
 			v := c.Row(row, false)
 			if v == nil {
@@ -398,6 +410,12 @@ func (col *Tuple) scanSlice(targetType reflect.Type, row int) (reflect.Value, er
 				return reflect.Value{}, err
 			}
 			rSlice = reflect.Append(rSlice, subSlice)
+		case *Map:
+			mapped, err := dCol.scan(rSlice.Type().Elem(), row)
+			if err != nil {
+				return reflect.Value{}, err
+			}
+			rSlice = reflect.Append(rSlice, mapped)
 		default:
 			field := reflect.New(c.ScanType()).Elem()
 			val := c.Row(row, false)

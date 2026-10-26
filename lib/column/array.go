@@ -339,6 +339,16 @@ func (col *Array) scanSlice(sliceType reflect.Type, row int, level int) (reflect
 				if err != nil {
 					return reflect.Value{}, err
 				}
+			case *Map:
+				// Array(Map — use the destination element type so orderedmap can keep duplicate keys
+				elemType := sliceType
+				if sliceType.Kind() == reflect.Slice {
+					elemType = sliceType.Elem()
+				}
+				value, err = dcol.scan(elemType, int(i))
+				if err != nil {
+					return reflect.Value{}, err
+				}
 			default:
 				v := col.values.Row(int(i), isPtr)
 				val := reflect.ValueOf(v)
