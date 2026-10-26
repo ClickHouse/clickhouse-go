@@ -1,3 +1,31 @@
+# v2.50.0, 2026-10-26 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+
+### Improvements 🚀 
+* fix: respect WithAsync in PrepareBatch for Native and HTTP by @ccoltx in https://github.com/ClickHouse/clickhouse-go/pull/2068
+
+### Bug Fixes 🐛 
+* fix(nullable): clear pointer destinations on null rows by @014-code in https://github.com/ClickHouse/clickhouse-go/pull/1926
+* chore: handle the case where query goes to different replicas by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/2081
+* chore: fix potential flaky cases on cloud  by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/2083
+* chore: careful with logging the DSN url by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/2082
+
+### Other Changes 🛠
+* chore(deps): bump github.com/moby/moby/client from 0.6.0 to 0.6.2 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/2065
+* chore(deps): bump github.com/shopspring/decimal from 1.4.0 to 1.5.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/2061
+* chore: upgrade golang 1.25 -> 1.26 by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/2077
+* chore(deps): bump golang.org/x/net from 0.58.0 to 0.61.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/2064
+* docs: note that the client works with Cloud and self-hosted by @mikelewisCH in https://github.com/ClickHouse/clickhouse-go/pull/2075
+* chore(deps): bump go.opentelemetry.io/otel/trace from 1.46.0 to 1.47.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/2051
+
+## New Contributors
+* @ccoltx made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/2068
+* @mikelewisCH made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/2075
+* @014-code made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1926
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.49.0...v2.50.0
+
 # v2.49.0, 2026-10-08 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
