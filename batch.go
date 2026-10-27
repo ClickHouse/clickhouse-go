@@ -154,6 +154,12 @@ func sanitizeInsertQuery(query string) string {
 			continue
 		}
 
+		if end := unicodeQuoteEnd(query[i:]); end > 0 {
+			out = append(out, query[i:i+end]...)
+			i += end - 1
+			continue
+		}
+
 		if end := commentEnd(query[i:]); end > 0 {
 			i += end - 1
 			out = appendCommentSeparator(out, query[i+1:])
@@ -205,6 +211,8 @@ func sanitizeInsertQuery(query string) string {
 // commentEnd returns the length of the comment s starts with, or 0 when s does not start
 // with one. A single line comment ends before its newline, so the newline itself is kept
 // as a token separator, and an unterminated block comment runs to the end of the query.
+// Block comments nest, as they do in the server lexer, so a block comment ends at the
+// "*/" that closes its own "/*" and not at the first "*/" of a comment nested in it.
 func commentEnd(s string) int {
 	if isLineCommentStart(s) {
 		if end := strings.IndexByte(s, '\n'); end >= 0 {
@@ -213,12 +221,45 @@ func commentEnd(s string) int {
 		return len(s)
 	}
 	if strings.HasPrefix(s, "/*") {
-		if end := strings.Index(s[2:], "*/"); end >= 0 {
-			return 2 + end + 2
+		depth := 1
+		for i := 2; i+1 < len(s); {
+			switch {
+			case s[i] == '/' && s[i+1] == '*':
+				depth++
+				i += 2
+			case s[i] == '*' && s[i+1] == '/':
+				depth--
+				i += 2
+				if depth == 0 {
+					return i
+				}
+			default:
+				i++
+			}
 		}
 		return len(s)
 	}
 	return 0
+}
+
+// unicodeQuoteEnd returns the length of the value s starts with when it is quoted with
+// Unicode quotation marks, or 0 when it is not. The server reads ‘value’ as a string and
+// “value” as an identifier, with no escapes inside, so a comment marker in one is kept.
+func unicodeQuoteEnd(s string) int {
+	var closing string
+	switch {
+	case strings.HasPrefix(s, "‘"):
+		closing = "’"
+	case strings.HasPrefix(s, "“"):
+		closing = "”"
+	default:
+		return 0
+	}
+	end := strings.Index(s[len(closing):], closing)
+	if end < 0 {
+		return 0
+	}
+	return len(closing) + end + len(closing)
 }
 
 // heredocEnd returns the length of the heredoc s starts with, or 0 when s does not start
@@ -334,11 +375,11 @@ func isWordByte(c byte) bool {
 }
 
 // isLineCommentStart reports whether s begins with a single line comment marker: "--",
-// "#!" and "#" followed by whitespace. A "#" at the very end of the query also starts a
-// comment, because the caller appends " FORMAT ..." after it.
+// "//", "#!" and "#" followed by whitespace. A "#" at the very end of the query also
+// starts a comment, because the caller appends " FORMAT ..." after it.
 func isLineCommentStart(s string) bool {
 	switch {
-	case strings.HasPrefix(s, "--"), strings.HasPrefix(s, "#!"):
+	case strings.HasPrefix(s, "--"), strings.HasPrefix(s, "//"), strings.HasPrefix(s, "#!"):
 		return true
 	case strings.HasPrefix(s, "#"):
 		return len(s) == 1 || s[1] == ' ' || s[1] == '\t' || s[1] == '\r' || s[1] == '\n'
