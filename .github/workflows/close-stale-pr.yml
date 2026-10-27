@@ -1,0 +1,30 @@
+# Workflow to add Stale badge if the PR is inactive for 2 weeks and close them after 1 week of adding label if there is no further activity.
+# The PR can be opened again, if there is any activity.
+name: Close Stale PR
+
+on:
+  schedule:
+    - cron: '30 1 * * *' # This workflow will be run once a day at 01:30 UTC
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write # Allows permission to label and close PRs
+    steps:
+      - uses: actions/stale@v9
+        with:
+          days-before-issue-stale: -1 # Disable closing of issues
+
+          # 2 weeks (14 days) for Stale label on PRs
+          days-before-pr-stale: 14
+          stale-pr-label: 'stale'
+          stale-pr-message: >
+            This pull request has been automatically marked as stale because it has been inactive for 2 weeks.
+            Please update it or leave a comment if you'd like to keep it open.
+
+          # 1 more week (7 days) after stale label to close
+          days-before-pr-close: 7
+          close-pr-message: >
+            This pull request has been automatically marked as closed because it has been inactive for another week 
+            after being marked as stale.
