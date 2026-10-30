@@ -151,6 +151,9 @@ func (c *Dynamic) ScanRow(dest any, row int) error {
 		*v = dyn
 	case **chcol.Dynamic:
 		dyn := chcol.NewDynamicWithType(value, chType)
+		if *v == nil {
+			*v = new(chcol.Dynamic)
+		}
 		**v = dyn
 	default:
 		if c.serializationVersion == DynamicDeprecatedSerializationVersion {
