@@ -194,7 +194,12 @@ func (col *Enum8) AppendRow(elem any) error {
 	case int8:
 		return col.AppendRow(int(elem))
 	case *int8:
-		return col.AppendRow(int(*elem))
+		switch {
+		case elem != nil:
+			return col.AppendRow(int(*elem))
+		default:
+			col.col.Append(0)
+		}
 	case int:
 		// Check if the enum value is defined
 		if col.enumValuesBitset[uint8(elem)>>6]&(1<<(elem&63)) == 0 {
