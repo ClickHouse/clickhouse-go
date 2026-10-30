@@ -19,6 +19,41 @@ import (
 var insertMatch = regexp.MustCompile(`(?i)(?:(?:--[^\n]*|#![^\n]*|#\s[^\n]*)\n\s*)*(INSERT\s+INTO\s+[^( ]+(?:\s*\([^()]*(?:\([^()]*\)[^()]*)*\))?)(?:\s*VALUES)?`)
 var columnMatch = regexp.MustCompile(`INSERT INTO .+\s\((?P<Columns>.+)\)$`)
 
+// applyBatchAsyncInsert resolves `async_insert` for PrepareBatch/Send.
+// By default the driver sends nothing and the server (or user profile) setting
+// applies. WithAsync / WithStdAsync on the batch context opts in to async
+// inserts. Options.SyncBatchInsert (DSN `sync_batch_insert=true`) opts in to
+// `async_insert=0` for batches, which keeps a single `query_id` per batch in
+// `system.query_log` on ClickHouse 26.3+ where the server default is
+// `async_insert=1`. See https://github.com/ClickHouse/clickhouse-go/issues/1997.
+// An explicit query-level or connection-level `async_insert` always wins.
+func applyBatchAsyncInsert(opt *Options, o *QueryOptions) {
+	if o.settings != nil {
+		if _, ok := o.settings["async_insert"]; ok {
+			return
+		}
+	}
+	if o.async.ok {
+		if o.settings == nil {
+			o.settings = make(Settings)
+		}
+		o.applyBatchAsyncInsertSettings()
+		return
+	}
+	if opt == nil || !opt.SyncBatchInsert {
+		return
+	}
+	if opt.Settings != nil {
+		if _, ok := opt.Settings["async_insert"]; ok {
+			return
+		}
+	}
+	if o.settings == nil {
+		o.settings = make(Settings)
+	}
+	o.settings["async_insert"] = 0
+}
+
 func (c *connect) prepareBatch(ctx context.Context, release nativeTransportRelease, acquire nativeTransportAcquire, query string, opts driver.PrepareBatchOptions) (driver.Batch, error) {
 	query, _, queryColumns, verr := extractNormalizedInsertQueryAndColumns(query)
 	if verr != nil {
@@ -26,7 +61,7 @@ func (c *connect) prepareBatch(ctx context.Context, release nativeTransportRelea
 	}
 
 	options := queryOptions(ctx)
-	options.applyBatchAsyncInsertSettings()
+	applyBatchAsyncInsert(c.opt, &options)
 	if deadline, ok := ctx.Deadline(); ok {
 		c.conn.SetDeadline(deadline)
 		defer c.conn.SetDeadline(time.Time{})
@@ -251,7 +286,7 @@ func (b *batch) resetConnection() (err error) {
 	}()
 
 	options := queryOptions(b.ctx)
-	options.applyBatchAsyncInsertSettings()
+	applyBatchAsyncInsert(b.conn.opt, &options)
 	if deadline, ok := b.ctx.Deadline(); ok {
 		b.conn.conn.SetDeadline(deadline)
 		defer b.conn.conn.SetDeadline(time.Time{})

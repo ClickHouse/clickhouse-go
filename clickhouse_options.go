@@ -178,6 +178,7 @@ type Options struct {
 	ConnMaxLifetime      time.Duration // default 1 hour
 	ConnOpenStrategy     ConnOpenStrategy
 	FreeBufOnConnRelease bool              // drop preserved memory buffer after each query
+	SyncBatchInsert      bool              // send async_insert=0 on batch inserts unless async_insert is set explicitly
 	HttpHeaders          map[string]string // set additional headers on HTTP requests
 	HttpUrlPath          string            // set additional URL path for HTTP requests
 	HttpMaxConnsPerHost  int               // MaxConnsPerHost for http.Transport
@@ -376,6 +377,12 @@ func (o *Options) fromDSN(in string) error {
 				return fmt.Errorf("clickhouse [dsn parse]: http_proxy: %w", redactURLError(err, rawProxyURL, url.Parse))
 			}
 			o.HTTPProxyURL = proxyURL
+		case "sync_batch_insert":
+			syncBatch, err := strconv.ParseBool(params.Get(v))
+			if err != nil {
+				return fmt.Errorf("clickhouse [dsn parse]: sync_batch_insert: %s", err)
+			}
+			o.SyncBatchInsert = syncBatch
 		case "http_path":
 			path := params.Get(v)
 			if path != "" && !strings.HasPrefix(path, "/") {

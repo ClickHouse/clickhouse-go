@@ -1033,3 +1033,51 @@ INSERT INTO ` + "`_test_1345# $.ДБ`.`2. Таблица №2`" + ` (col1, col2)
 		})
 	}
 }
+
+func TestApplyBatchAsyncInsert(t *testing.T) {
+	sync := &Options{SyncBatchInsert: true}
+	t.Run("leaves server default by default", func(t *testing.T) {
+		o := QueryOptions{settings: make(Settings)}
+		applyBatchAsyncInsert(&Options{}, &o)
+		_, set := o.settings["async_insert"]
+		assert.False(t, set)
+	})
+	t.Run("nil options leaves server default", func(t *testing.T) {
+		o := QueryOptions{}
+		applyBatchAsyncInsert(nil, &o)
+		assert.Nil(t, o.settings)
+	})
+	t.Run("sync opt-in sets zero", func(t *testing.T) {
+		o := QueryOptions{}
+		applyBatchAsyncInsert(sync, &o)
+		assert.Equal(t, 0, o.settings["async_insert"])
+	})
+	t.Run("respects query setting", func(t *testing.T) {
+		o := QueryOptions{settings: Settings{"async_insert": 1}}
+		applyBatchAsyncInsert(sync, &o)
+		assert.Equal(t, 1, o.settings["async_insert"])
+	})
+	t.Run("honors WithAsync true", func(t *testing.T) {
+		o := QueryOptions{async: AsyncOptions{ok: true, wait: true}}
+		applyBatchAsyncInsert(sync, &o)
+		assert.Equal(t, 1, o.settings["async_insert"])
+		assert.Equal(t, 1, o.settings["wait_for_async_insert"])
+	})
+	t.Run("honors WithAsync false wait", func(t *testing.T) {
+		o := QueryOptions{async: AsyncOptions{ok: true, wait: false}}
+		applyBatchAsyncInsert(&Options{Settings: Settings{"async_insert": 0}}, &o)
+		assert.Equal(t, 1, o.settings["async_insert"])
+		assert.Equal(t, 0, o.settings["wait_for_async_insert"])
+	})
+	t.Run("query setting wins over WithAsync", func(t *testing.T) {
+		o := QueryOptions{settings: Settings{"async_insert": 0}, async: AsyncOptions{ok: true, wait: true}}
+		applyBatchAsyncInsert(nil, &o)
+		assert.Equal(t, 0, o.settings["async_insert"])
+	})
+	t.Run("connection setting wins over sync opt-in", func(t *testing.T) {
+		o := QueryOptions{settings: make(Settings)}
+		applyBatchAsyncInsert(&Options{SyncBatchInsert: true, Settings: Settings{"async_insert": 1}}, &o)
+		_, setOnQuery := o.settings["async_insert"]
+		assert.False(t, setOnQuery)
+	})
+}

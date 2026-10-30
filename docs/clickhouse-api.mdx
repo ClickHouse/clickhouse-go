@@ -64,6 +64,17 @@ Note the ability to pass a Context to the query. This can be used to pass specif
 
 To insert a large number of rows, the client provides batch semantics. This requires the preparation of a batch to which rows can be appended. This is finally sent via the `Send()` method. Batches are held in memory until `Send` is executed.
 
+:::note Batch async inserts
+For both native and HTTP batches, the driver does not set `async_insert` by default, so the server or user-profile setting applies.
+On ClickHouse 26.3+ the server default is `async_insert=1`, so one `PrepareBatch`/`Send` can appear in `system.query_log` under two `query_id` values (the client INSERT and the server flush).
+
+To send `async_insert=0` for batches and keep a single `query_id`, set `SyncBatchInsert: true` in `Options` (or `sync_batch_insert=true` in the DSN).
+To force async inserts for a batch, pass `clickhouse.Context(ctx, clickhouse.WithAsync(true))` to `PrepareBatch`.
+`WithAsync(true)` waits for the server to flush; `WithAsync(false)` does not wait.
+An explicit query-level `async_insert` setting takes precedence over `WithAsync`, followed by the connection setting, then `SyncBatchInsert`.
+Ordinary `Exec` inserts are not affected.
+:::
+
 It is recommended to call `Close` on the batch to prevent leaking connections. This can be done via the `defer` keyword after preparing the batch. This will clean up the connection if `Send` never gets called. Note that this will result in 0 row inserts showing up in the query log if no rows were appended.
 
 ```go
