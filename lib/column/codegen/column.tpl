@@ -310,15 +310,22 @@ func (col *{{ .ChType }}) Append(v any) (nulls []uint8,err error) {
     case []sql.Null{{ .ChType }}:
         nulls = make([]uint8, len(v))
         for i := range v {
-            col.AppendRow(v[i])
+            if !v[i].Valid {
+                nulls[i] = 1
+            }
+            if err := col.AppendRow(v[i]); err != nil {
+                return nil, err
+            }
         }
     case []*sql.Null{{ .ChType }}:
         nulls = make([]uint8, len(v))
         for i := range v {
-            if v[i] == nil {
+            if v[i] == nil || !v[i].Valid {
                 nulls[i] = 1
             }
-            col.AppendRow(v[i])
+            if err := col.AppendRow(v[i]); err != nil {
+                return nil, err
+            }
         }
 	{{- end }}
 	{{- if eq .ChType "Int8" }}
@@ -390,17 +397,15 @@ func (col *{{ .ChType }}) AppendRow(v any) error {
 	{{- end }}
     {{- if or (eq .ChType "Int64") (eq .ChType "Int32") (eq .ChType "Int16") (eq .ChType "Float64") }}
     case sql.Null{{ .ChType }}:
-        switch v.Valid {
-        case true:
+        if v.Valid {
             col.col.Append(v.{{ .ChType }})
-        default:
+        } else {
             col.col.Append(0)
         }
     case *sql.Null{{ .ChType }}:
-        switch v.Valid {
-        case true:
+        if v != nil && v.Valid {
             col.col.Append(v.{{ .ChType }})
-        default:
+        } else {
             col.col.Append(0)
         }
     {{- end }}
