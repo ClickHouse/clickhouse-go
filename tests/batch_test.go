@@ -20,7 +20,7 @@ func TestBatchContextCancellation(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	require.NoError(t, conn.Exec(context.Background(), "create table if not exists test_batch_cancellation (x String) engine=Memory"))
+	require.NoError(t, conn.Exec(context.Background(), "create table if not exists test_batch_cancellation (x String) engine=MergeTree ORDER BY tuple()"))
 	defer conn.Exec(context.Background(), "drop table if exists test_batch_cancellation")
 
 	b, err := conn.PrepareBatch(ctx, "insert into test_batch_cancellation")
