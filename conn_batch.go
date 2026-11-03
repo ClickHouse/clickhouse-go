@@ -202,16 +202,7 @@ func (b *batch) Column(idx int) driver.BatchColumn {
 }
 
 func (b *batch) Send() (err error) {
-	stopCW := contextWatchdog(b.ctx, func() {
-		// close TCP connection on context cancel. There is no other way simple way to interrupt underlying operations.
-		// as verified in the test, this is safe to do and cleanups resources later on
-		if b.conn != nil {
-			_ = b.conn.conn.Close()
-		}
-	})
-
 	defer func() {
-		stopCW()
 		b.sent = true
 		b.release(err)
 	}()
@@ -219,10 +210,29 @@ func (b *batch) Send() (err error) {
 		return b.err
 	}
 	if b.sent || b.released {
+		// resetConnection does not need the watchdog: connAcquire and
+		// firstBlock both stop on context cancellation.
 		if err = b.resetConnection(); err != nil {
 			return err
 		}
 	}
+
+	// Arm the watchdog only after b.conn has its final value, and give the
+	// callback its own copy. The watchdog goroutine then never reads b.conn
+	// while resetConnection assigns it, and never closes a previous connection
+	// that is already back in the pool.
+	conn := b.conn
+	stopCW := contextWatchdog(b.ctx, func() {
+		// close TCP connection on context cancel. There is no other way simple way to interrupt underlying operations.
+		// as verified in the test, this is safe to do and cleanups resources later on
+		if conn != nil {
+			if err := conn.conn.Close(); err != nil {
+				conn.logger.Debug("batch: close connection on context cancel", slog.Any("error", err))
+			}
+		}
+	})
+	// Deferred calls run in LIFO order, so stopCW runs before b.release.
+	defer stopCW()
 	if b.block.Rows() != 0 {
 		if err = b.conn.sendData(b.block, ""); err != nil {
 			// there might be an error caused by context cancellation
