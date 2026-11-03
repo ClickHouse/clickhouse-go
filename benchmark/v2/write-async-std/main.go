@@ -22,7 +22,7 @@ CREATE TABLE benchmark_async (
 func benchmark(conn *sql.DB) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	ctx = clickhouse.Context(ctx, clickhouse.WithStdAsync(false))
+	ctx = clickhouse.Context(ctx, clickhouse.WithSettings(clickhouse.Settings{"async_insert": 1, "wait_for_async_insert": 0}))
 	{
 		for i := 0; i < 10_000; i++ {
 			_, err := conn.ExecContext(ctx, fmt.Sprintf(`INSERT INTO benchmark_async VALUES (

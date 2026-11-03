@@ -22,7 +22,7 @@ func benchmark(conn clickhouse.Conn) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	ctx = clickhouse.Context(ctx, clickhouse.WithAsync(true))
+	ctx = clickhouse.Context(ctx, clickhouse.WithSettings(clickhouse.Settings{"async_insert": 1, "wait_for_async_insert": 1}))
 	for i := 0; i < 10_000; i++ {
 		err := conn.Exec(ctx, fmt.Sprintf(`INSERT INTO benchmark_async VALUES (
 			%d, '%s', [1, 2, 3, 4, 5, 6, 7, 8, 9], now()
