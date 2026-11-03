@@ -16,22 +16,44 @@ type connPool struct {
 	mu    sync.RWMutex
 	conns *circular.Queue[nativeTransport]
 
-	ticker   *time.Ticker
+	// tick drives the periodic drain of expired connections. stopTick
+	// releases the resources behind tick. Tests can inject their own tick
+	// channel through newConnPoolWithTick to control when a drain occurs.
+	tick     <-chan time.Time
+	stopTick func()
+
+	// finish is closed by the first Close to tell runDrainPool to exit.
+	// finished is closed by runDrainPool when it exits.
+	// drained is closed by the first Close after the final drain, so every
+	// Close call returns only after all pooled connections are closed.
 	finish   chan struct{}
 	finished chan struct{}
+	drained  chan struct{}
+	// closing is set by the first Close. Guarded by mu.
+	closing bool
 
 	maxConnLifetime time.Duration
 }
 
 func newConnPool(lifetime time.Duration, capacity int) *connPool {
+	ticker := time.NewTicker(lifetime)
+	return newConnPoolWithTick(lifetime, capacity, ticker.C, ticker.Stop)
+}
+
+// newConnPoolWithTick creates a pool whose drain goroutine runs on each
+// value received from tick. stopTick is called when the drain goroutine exits.
+func newConnPoolWithTick(lifetime time.Duration, capacity int, tick <-chan time.Time, stopTick func()) *connPool {
 	pool := &connPool{
 		conns:           circular.New[nativeTransport](capacity),
-		ticker:          time.NewTicker(lifetime),
+		tick:            tick,
+		stopTick:        stopTick,
 		finish:          make(chan struct{}),
 		finished:        make(chan struct{}),
+		drained:         make(chan struct{}),
 		maxConnLifetime: lifetime,
 	}
 
+	// runDrainPool exits when Close closes finish.
 	go pool.runDrainPool()
 
 	return pool
@@ -53,11 +75,10 @@ func (i *connPool) Get(ctx context.Context) (nativeTransport, error) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 
-	// check if pool was closed while we waited on the lock
-	// return early if pool already closed
-	// otherwise, pool wont close again while we hold lock
-	// and so we continue
-	if i.closed() {
+	// check if pool was closed, or started to close, while we waited on the
+	// lock. Close releases the lock while it waits for runDrainPool, so
+	// closing can be set before closed() reports true.
+	if i.closed() || i.closing {
 		return nil, ErrConnectionClosed
 	}
 
@@ -102,7 +123,7 @@ func (i *connPool) Put(conn nativeTransport) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 
-	if i.closed() {
+	if i.closed() || i.closing {
 		conn.getLogger().Debug("connection not returned to pool: pool is closed")
 		conn.close()
 		return
@@ -118,18 +139,26 @@ func (i *connPool) Put(conn nativeTransport) {
 
 func (i *connPool) Close() error {
 	i.mu.Lock()
-	defer i.mu.Unlock()
-
-	if i.closed() {
+	if i.closing {
+		// Another Close started first. Wait until it has closed all pooled
+		// connections, so every caller sees the same result.
+		i.mu.Unlock()
+		<-i.drained
 		return nil
 	}
-
+	i.closing = true
 	close(i.finish)
+	// Release the mutex before waiting for the drain goroutine. Holding it
+	// across <-finished deadlocks if that goroutine is blocked on Lock in
+	// the tick branch.
+	i.mu.Unlock()
 
 	<-i.finished
 
-	// Drain all remaining connections from the pool
+	i.mu.Lock()
+	defer i.mu.Unlock()
 	i.drainPool()
+	close(i.drained)
 
 	return nil
 }
@@ -145,14 +174,18 @@ func (i *connPool) closed() bool {
 
 func (i *connPool) runDrainPool() {
 	defer func() {
-		i.ticker.Stop()
+		i.stopTick()
 		close(i.finished)
 	}()
 
 	for {
 		select {
-		case <-i.ticker.C:
+		case <-i.tick:
 			i.mu.Lock()
+			if i.closing {
+				i.mu.Unlock()
+				return
+			}
 			i.drainPool()
 			i.mu.Unlock()
 		case <-i.finish:
