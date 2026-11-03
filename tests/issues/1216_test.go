@@ -20,7 +20,7 @@ func Test1216(t *testing.T) {
 	)
 	ctx := context.Background()
 	require.NoError(t, err)
-	const ddl = "CREATE TABLE IF NOT EXISTS test_1216 (`@id` String,`\"@id_with_quotes\"` String) Engine = Memory"
+	const ddl = "CREATE TABLE IF NOT EXISTS test_1216 (`@id` String,`\"@id_with_quotes\"` String) Engine = MergeTree ORDER BY tuple()"
 	require.NoError(t, conn.Exec(ctx, ddl))
 	defer func() {
 		conn.Exec(ctx, "DROP TABLE IF EXISTS test_1216")

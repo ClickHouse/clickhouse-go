@@ -112,10 +112,12 @@ func Connector(opt *Options) driver.Connector {
 		opt = &Options{}
 	}
 
+	validationErr := opt.validate()
 	o := opt.setDefaults()
 	logger := o.logger().With(slog.String("component", "std-driver"))
 
 	return &stdConnOpener{
+		err:    validationErr,
 		opt:    o,
 		logger: logger,
 	}
@@ -126,10 +128,12 @@ func OpenDB(opt *Options) *sql.DB {
 		opt = &Options{}
 	}
 
+	validationErr := opt.validate()
 	o := opt.setDefaults()
 	logger := o.logger().With(slog.String("component", "std-driver"))
 
 	db := sql.OpenDB(&stdConnOpener{
+		err:    validationErr,
 		opt:    o,
 		logger: logger,
 	})
@@ -172,6 +176,9 @@ func (std *stdDriver) Open(dsn string) (_ driver.Conn, err error) {
 	var opt Options
 	if err := opt.fromDSN(dsn); err != nil {
 		std.logger.Error("dsn parsing error", slog.Any("error", err))
+		return nil, err
+	}
+	if err := opt.validate(); err != nil {
 		return nil, err
 	}
 	o := opt.setDefaults()
