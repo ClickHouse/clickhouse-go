@@ -68,6 +68,25 @@ type Auth struct { // has_control_character
 	Password string
 }
 
+// ClusterCredentials configures interserver-secret authentication.
+type ClusterCredentials struct {
+	// Name is the configured cluster name.
+	Name string
+	// Secret is the shared secret. Empty disables interserver mode.
+	Secret string
+}
+
+// String redacts Secret.
+func (c ClusterCredentials) String() string {
+	if c.Secret == "" {
+		return fmt.Sprintf("clickhouse.ClusterCredentials{Name:%q}", c.Name)
+	}
+	return fmt.Sprintf("clickhouse.ClusterCredentials{Name:%q, Secret:[REDACTED %d bytes]}", c.Name, len(c.Secret))
+}
+
+// GoString redacts Secret for Go-syntax formatting.
+func (c ClusterCredentials) GoString() string { return c.String() }
+
 type Compression struct {
 	Method CompressionMethod
 	// this only applies to lz4, lz4hc, zlib, zstd, and brotli compression algorithms
@@ -119,9 +138,11 @@ type Options struct {
 	Protocol   Protocol
 	ClientInfo ClientInfo
 
-	TLS          *tls.Config
-	Addr         []string
-	Auth         Auth
+	TLS  *tls.Config
+	Addr []string
+	Auth Auth
+	// Cluster configures native interserver-secret authentication.
+	Cluster      ClusterCredentials
 	DialContext  func(ctx context.Context, addr string) (net.Conn, error)
 	DialStrategy func(ctx context.Context, connID int, options *Options, dial Dial) (DialResult, error)
 
@@ -186,7 +207,7 @@ type Options struct {
 func (o *Options) fromDSN(in string) error {
 	dsn, err := churl.Parse(in)
 	if err != nil {
-		return err
+		return redactURLError(err, in, churl.Parse)
 	}
 
 	if dsn.Host == "" {
@@ -211,6 +232,10 @@ func (o *Options) fromDSN(in string) error {
 
 	for v := range params {
 		switch v {
+		case "hosts":
+			o.Addr = append(parseHostList(params.Get(v)), o.Addr...)
+		case "alt_hosts":
+			o.Addr = append(o.Addr, parseHostList(params.Get(v))...)
 		case "debug":
 			o.Debug, _ = strconv.ParseBool(params.Get(v))
 		case "compress":
@@ -345,9 +370,10 @@ func (o *Options) fromDSN(in string) error {
 				})
 			}
 		case "http_proxy":
-			proxyURL, err := url.Parse(params.Get(v))
+			rawProxyURL := params.Get(v)
+			proxyURL, err := url.Parse(rawProxyURL)
 			if err != nil {
-				return fmt.Errorf("clickhouse [dsn parse]: http_proxy: %s", err)
+				return fmt.Errorf("clickhouse [dsn parse]: http_proxy: %w", redactURLError(err, rawProxyURL, url.Parse))
 			}
 			o.HTTPProxyURL = proxyURL
 		case "http_path":
@@ -357,16 +383,17 @@ func (o *Options) fromDSN(in string) error {
 			}
 			o.HttpUrlPath = path
 		default:
-			switch p := strings.ToLower(params.Get(v)); p {
+			raw := params.Get(v)
+			switch p := strings.ToLower(raw); p {
 			case "true":
 				o.Settings[v] = int(1)
 			case "false":
 				o.Settings[v] = int(0)
 			default:
-				if n, err := strconv.Atoi(p); err == nil {
+				if n, err := strconv.Atoi(raw); err == nil {
 					o.Settings[v] = n
 				} else {
-					o.Settings[v] = p
+					o.Settings[v] = raw
 				}
 			}
 		}
@@ -396,6 +423,147 @@ func (o *Options) fromDSN(in string) error {
 		o.Protocol = Native
 	}
 	return nil
+}
+
+const redactedSecret = "xxxxx"
+
+// redactURLError removes credentials from a *url.Error, because its URL field
+// holds the raw input of the failed parse (for example, the full DSN). The
+// caller often logs this error. Other errors are returned unchanged.
+//
+// raw is the original input of the failed parse. Redact raw and not the URL
+// field of the error, because the parser can cut the input at a "#" before it
+// sets the URL field. Then a password with an unescaped "#" can stay in the
+// error without its "@" delimiter.
+//
+// parse is the function that failed. It parses the redacted input again to
+// find if the inner error depends on the credentials.
+func redactURLError(err error, raw string, parse func(string) (*url.URL, error)) error {
+	var uerr *url.Error
+	if !errors.As(err, &uerr) {
+		return err
+	}
+	redacted := redactRawURL(raw)
+	inner := uerr.Err
+	if inner != nil && !sameInnerError(inner, parse, redacted) {
+		// A malformed URL can put part of a password in the inner error,
+		// for example an unescaped "/" in the password gives `invalid port`.
+		// Over-masking can occur, thus the message says "may contain".
+		inner = errors.New("invalid URL (details hidden because they may contain credentials; URL-encode the username, password and http_proxy values)")
+	}
+	return &url.Error{Op: uerr.Op, URL: redacted, Err: inner}
+}
+
+// sameInnerError reports whether parsing the redacted input gives the same
+// inner error. If so, the error does not depend on the credentials and is safe
+// to show. This does not need to know where the parser splits the input.
+func sameInnerError(inner error, parse func(string) (*url.URL, error), redacted string) bool {
+	_, err := parse(redacted)
+	var uerr *url.Error
+	if !errors.As(err, &uerr) || uerr.Err == nil {
+		return false
+	}
+	return uerr.Err.Error() == inner.Error()
+}
+
+// redactRawURL masks the userinfo password, the `password` query parameter and
+// the credentials in the `http_proxy` query parameter of a raw URL. It works
+// on the raw string, because the URL did not parse. When the URL is malformed,
+// it masks too much rather than too little.
+func redactRawURL(raw string) string {
+	// Mask the query first, because a query value can contain an unescaped
+	// "@" that the userinfo step below would use as its delimiter.
+	s := raw
+	if q := strings.Index(s, "?"); q >= 0 {
+		s = s[:q+1] + redactQuery(s[q+1:])
+	}
+	start := 0
+	if i := strings.Index(s, "://"); i >= 0 {
+		start = i + len("://")
+	}
+	// Use the last "@", because a password can contain an unescaped "@".
+	if at := strings.LastIndex(s[start:], "@"); at >= 0 {
+		at += start
+		if colon := strings.Index(s[start:at], ":"); colon >= 0 {
+			passStart := start + colon + 1
+			s = s[:passStart] + redactedSecret + s[at:]
+		}
+	}
+	return s
+}
+
+// redactQuery masks the credentials in a raw query. Like url.ParseQuery, it
+// splits only at "&", thus a value can contain "?" and "#". It decodes each
+// key, because the driver reads the decoded key (for example, `pass%77ord` is
+// `password`).
+func redactQuery(query string) string {
+	var (
+		segments = strings.Split(query, "&")
+		out      = make([]string, 0, len(segments))
+		masking  bool
+	)
+	for _, segment := range segments {
+		i, key, ok := credentialParam(segment)
+		switch {
+		case ok && key == "password":
+			segment, masking = segment[:i]+redactedSecret, true
+		case ok:
+			segment, masking = segment[:i]+redactProxyValue(segment[i:]), false
+		case masking && !strings.Contains(segment, "="):
+			// A segment with no "=" is not a parameter. After a password,
+			// it is the part of the password after an unescaped "&".
+			continue
+		default:
+			masking = false
+		}
+		out = append(out, segment)
+	}
+	return strings.Join(out, "&")
+}
+
+// credentialParam finds a `password` or `http_proxy` parameter in a query
+// segment, and returns the index of its value and its key in lowercase. It
+// also looks directly after each "?", because the query starts at the first
+// "?" and a password in the userinfo can contain a "?". Then the parameter is
+// not at the start of a segment.
+func credentialParam(segment string) (int, string, bool) {
+	for p := 0; p >= 0; {
+		if key, _, ok := strings.Cut(segment[p:], "="); ok {
+			if k, err := url.QueryUnescape(key); err == nil {
+				key = k
+			}
+			if key = strings.ToLower(key); key == "password" || key == "http_proxy" {
+				return p + strings.Index(segment[p:], "=") + 1, key, true
+			}
+		}
+		if q := strings.Index(segment[p:], "?"); q >= 0 {
+			p += q + 1
+		} else {
+			p = -1
+		}
+	}
+	return 0, "", false
+}
+
+// redactProxyValue masks the credentials in the raw value of the `http_proxy`
+// query parameter. The value is usually escaped, thus it decodes the value
+// first. If the value does not decode, it masks all of the value.
+func redactProxyValue(value string) string {
+	proxyURL, err := url.QueryUnescape(value)
+	if err != nil {
+		return redactedSecret
+	}
+	return url.QueryEscape(redactRawURL(proxyURL))
+}
+
+func parseHostList(value string) []string {
+	var hosts []string
+	for _, host := range strings.Split(value, ",") {
+		if host = strings.TrimSpace(host); host != "" {
+			hosts = append(hosts, host)
+		}
+	}
+	return hosts
 }
 
 // receive copy of Options, so we don't modify original - so its reusable
@@ -433,6 +601,24 @@ func (o Options) setDefaults() *Options {
 		}
 	}
 	return &o
+}
+
+func (o *Options) validate() error {
+	if o.Cluster.Secret != "" {
+		if o.Auth.Username == "" {
+			return ErrClusterSecretRequiresUsername
+		}
+		if o.Cluster.Name == "" {
+			return ErrClusterSecretRequiresName
+		}
+		if o.Protocol != Native {
+			return ErrClusterSecretNeedsNative
+		}
+		if o.GetJWT != nil {
+			return ErrClusterSecretWithJWT
+		}
+	}
+	return nil
 }
 
 // logger returns the appropriate logger based on the Options configuration.
