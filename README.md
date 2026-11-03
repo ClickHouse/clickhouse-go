@@ -32,7 +32,7 @@ Both support TCP and HTTP transport. When in doubt, use the native interface.
 * Failover and load balancing
 * [Bulk write support](examples/clickhouse_api/batch.go) (for `database/sql` [use](examples/std/batch.go) `begin->prepare->(in loop exec)->commit`)
 * [PrepareBatch options](#preparebatch-options)
-* [AsyncInsert](benchmark/v2/write-async/main.go) (more details in [Async insert](#async-insert) section)
+* [Async insert](benchmark/v2/write-async/main.go) (more details in [Async insert](#async-insert) section)
 * Named and numeric placeholders support
 * LZ4/ZSTD/LZ4HC/GZIP/Deflate/Brotli compression support
 * External data
@@ -505,9 +505,14 @@ The `Debug` and `Debugf` fields in `Options` are deprecated in favour of `Logger
 
 ## Async insert
 
-[Async insert](https://clickhouse.com/docs/concepts/features/operations/insert/asyncinserts) is supported via `WithAsync()` helper on both Native and HTTP protocols. You can use it for both Go standard interface `OpenDB` and also ClickHouse interface `Open()`.
+[Async insert](https://clickhouse.com/docs/concepts/features/operations/insert/asyncinserts) is controlled by the `async_insert` and `wait_for_async_insert` server settings. Set them with `WithSettings()` on both Native and HTTP protocols, for both Go standard interface `OpenDB` and ClickHouse interface `Open()`:
 
-**NOTE**: You can use `WithSettings()` manually to add any async related settings. `WithAsync()` is just a simple wrapper that does that for you.
+```go
+ctx := clickhouse.Context(ctx, clickhouse.WithSettings(clickhouse.Settings{
+	"async_insert":          1,
+	"wait_for_async_insert": 1,
+}))
+```
 
 We have the following examples to show Async Insert in action.
 1. [Native with Open](examples/clickhouse_api/async_native.go)
@@ -515,7 +520,9 @@ We have the following examples to show Async Insert in action.
 1. [Native with OpenDB](examples/std/async_native.go)
 1. [HTTP with OpenDB](examples/std/async_http.go)
 
-**NOTE**: The old `AsyncInsert()` api is deprecated and will be removed in future versions. We highly recommend using the `WithAsync()` api for all the Async Insert use cases.
+**NOTE**: ClickHouse 26.2 and later enable async insert by default. Thus each `INSERT` takes 50 ms or more, with all clients. If you insert one row at a time, send many rows in one batch, or disable async insert with `WithSettings(clickhouse.Settings{"async_insert": 0})`. For more information, see [Async insert is the default on ClickHouse 26.2 and later](https://clickhouse.com/docs/integrations/language-clients/go/clickhouse-api#async-insert-default).
+
+**NOTE**: `WithAsync()`, `WithStdAsync()` and `AsyncInsert()` are deprecated and will be removed in the next major version. `WithAsync(false)` does not disable async insert: it sets `async_insert=1` and `wait_for_async_insert=0`. Use `WithSettings()` instead. For the replacements, see [`WithAsync` and `AsyncInsert` are deprecated](https://clickhouse.com/docs/integrations/language-clients/go/clickhouse-api#async-insert-deprecated).
 
 ## Arbitrary input/output formats (experimental)
 
