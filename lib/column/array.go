@@ -2,6 +2,7 @@ package column
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -111,7 +112,7 @@ func (col *Array) Append(v any) (nulls []uint8, err error) {
 		}
 	}
 	for i := 0; i < value.Len(); i++ {
-		if err := col.AppendRow(value.Index(i)); err != nil {
+		if err := col.AppendRow(value.Index(i).Interface()); err != nil {
 			return nil, err
 		}
 	}
@@ -151,6 +152,14 @@ func (col *Array) appendRowDefault(v any) error {
 
 func appendRowPlain[T any](col *Array, arr []T) error {
 	col.appendOffset(0, uint64(len(arr)))
+	_, err := col.values.Append(arr)
+	if err == nil {
+		return nil
+	}
+	var convErr *ColumnConverterError
+	if !errors.As(err, &convErr) {
+		return err
+	}
 	for _, item := range arr {
 		if err := col.values.AppendRow(item); err != nil {
 			return err
@@ -161,6 +170,14 @@ func appendRowPlain[T any](col *Array, arr []T) error {
 
 func appendNullableRowPlain[T any](col *Array, arr []*T) error {
 	col.appendOffset(0, uint64(len(arr)))
+	_, err := col.values.Append(arr)
+	if err == nil {
+		return nil
+	}
+	var convErr *ColumnConverterError
+	if !errors.As(err, &convErr) {
+		return err
+	}
 	for _, item := range arr {
 		var err error
 		if item == nil {
