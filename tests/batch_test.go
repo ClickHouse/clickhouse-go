@@ -164,7 +164,7 @@ func TestBatchSendRetryWatchdogConnRace(t *testing.T) {
 		// The watchdog of the next Send sees a done context at once and races
 		// with resetConnection.
 		cancel()
-		require.Error(t, b.Send(), "round %d: retry send with a cancelled context", i)
+		require.ErrorIs(t, b.Send(), context.Canceled, "round %d: retry send with a cancelled context", i)
 
 		// The connection pool must still be usable.
 		require.NoError(t, conn.Exec(context.Background(), "SELECT 1"), "round %d: query after retry send", i)

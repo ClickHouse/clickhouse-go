@@ -223,7 +223,7 @@ func (b *batch) Send() (err error) {
 	// that is already back in the pool.
 	conn := b.conn
 	stopCW := contextWatchdog(b.ctx, func() {
-		// close TCP connection on context cancel. There is no other way simple way to interrupt underlying operations.
+		// close TCP connection on context cancel. There is no other simple way to interrupt underlying operations.
 		// as verified in the test, this is safe to do and cleanups resources later on
 		if conn != nil {
 			if err := conn.conn.Close(); err != nil {
@@ -232,6 +232,8 @@ func (b *batch) Send() (err error) {
 		}
 	})
 	// Deferred calls run in LIFO order, so stopCW runs before b.release.
+	// stopCW waits for the watchdog goroutine to exit, so the callback cannot
+	// close conn after b.release has returned it to the pool.
 	defer stopCW()
 	if b.block.Rows() != 0 {
 		if err = b.conn.sendData(b.block, ""); err != nil {
