@@ -520,7 +520,7 @@ We have the following examples to show Async Insert in action.
 1. [Native with OpenDB](examples/std/async_native.go)
 1. [HTTP with OpenDB](examples/std/async_http.go)
 
-**NOTE**: ClickHouse 26.2 and later enable async insert by default. Thus each `INSERT` takes 50 ms or more, with all clients. If you insert one row at a time, send many rows in one batch, or disable async insert with `WithSettings(clickhouse.Settings{"async_insert": 0})`. For more information, see [Async insert is the default on ClickHouse 26.2 and later](https://clickhouse.com/docs/integrations/language-clients/go/clickhouse-api#async-insert-default).
+**NOTE**: ClickHouse 26.2 and later enable async insert by default. Thus, with a low insert rate, each `INSERT` takes 50 ms or more, with all clients. If you insert one row at a time, send many rows in one batch, or disable async insert with `WithSettings(clickhouse.Settings{"async_insert": 0})`. For more information, see [Async insert is the default on ClickHouse 26.2 and later](https://clickhouse.com/docs/integrations/language-clients/go/clickhouse-api#async-insert-default).
 
 **NOTE**: `WithAsync()`, `WithStdAsync()` and `AsyncInsert()` are deprecated and will be removed in the next major version. `WithAsync(false)` does not disable async insert: it sets `async_insert=1` and `wait_for_async_insert=0`. Use `WithSettings()` instead. For the replacements, see [`WithAsync` and `AsyncInsert` are deprecated](https://clickhouse.com/docs/integrations/language-clients/go/clickhouse-api#async-insert-deprecated).
 

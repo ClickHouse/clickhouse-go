@@ -368,7 +368,7 @@ return tx.Commit()
 
 ### Async insert is the default on ClickHouse 26.2 and later {#async-insert-default}
 
-ClickHouse 26.2 and later set `async_insert=1` and `wait_for_async_insert=1` by default. Thus each `INSERT` takes 50 ms or more, because the server keeps the data in a buffer before it writes it. If you send one row in each `ExecContext` call, one goroutine can do only approximately 5 to 20 inserts each second. For the full explanation, see [Async insert is the default on ClickHouse 26.2 and later](/integrations/language-clients/go/clickhouse-api#async-insert-default).
+ClickHouse 26.2 and later set `async_insert=1` and `wait_for_async_insert=1` by default. Thus, with a low insert rate, each `INSERT` takes 50 ms or more, because the server keeps the data in a buffer before it writes it. If you send one row in each `ExecContext` call, one goroutine can do only approximately 5 to 20 inserts each second. For the full explanation, see [Async insert is the default on ClickHouse 26.2 and later](/integrations/language-clients/go/clickhouse-api#async-insert-default).
 
 To prevent this, send many rows in one batch, or disable async insert for the query:
 
