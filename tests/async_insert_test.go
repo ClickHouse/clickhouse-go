@@ -176,11 +176,11 @@ func createAsyncInsertTable(t *testing.T, conn driver.Conn, tableName string) {
 func requireAsyncInsertRows(t *testing.T, conn driver.Conn, tableName string, rows uint64) {
 	t.Helper()
 
-	var count uint64
-	require.Eventually(t, func() bool {
-		err := conn.QueryRow(context.Background(), fmt.Sprintf("SELECT count() FROM %s", tableName)).Scan(&count)
-		return err == nil && count == rows
-	}, 30*time.Second, 200*time.Millisecond, "table %s has %d rows, want %d", tableName, count, rows)
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		var count uint64
+		require.NoError(c, conn.QueryRow(context.Background(), fmt.Sprintf("SELECT count() FROM %s", tableName)).Scan(&count))
+		require.Equal(c, rows, count, "rows in table %s", tableName)
+	}, 30*time.Second, 200*time.Millisecond)
 }
 
 // requireInsertKind fails the test unless the server ran the INSERT with the given

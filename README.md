@@ -508,7 +508,7 @@ The `Debug` and `Debugf` fields in `Options` are deprecated in favour of `Logger
 [Async insert](https://clickhouse.com/docs/concepts/features/operations/insert/asyncinserts) is controlled by the `async_insert` and `wait_for_async_insert` server settings. Set them with `WithSettings()` on both Native and HTTP protocols, for both Go standard interface `OpenDB` and ClickHouse interface `Open()`:
 
 ```go
-ctx := clickhouse.Context(ctx, clickhouse.WithSettings(clickhouse.Settings{
+ctx = clickhouse.Context(ctx, clickhouse.WithSettings(clickhouse.Settings{
 	"async_insert":          1,
 	"wait_for_async_insert": 1,
 }))
