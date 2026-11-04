@@ -4,6 +4,8 @@ import "context"
 
 // contextWatchdog is a helper function to run a callback when the context is done.
 // It has a cancellation function to prevent the callback from running.
+// The cancellation function blocks until the watchdog goroutine exits. When it
+// returns, the callback has either not run and never will, or has completed.
 // Useful for interrupting some logic when the context is done,
 // but you want to not bother about context cancellation if your logic is already done.
 // Example:
@@ -12,8 +14,11 @@ import "context"
 // defer stopCW()
 func contextWatchdog(ctx context.Context, callback func()) (cancel func()) {
 	exit := make(chan struct{})
+	done := make(chan struct{})
 
+	// The goroutine exits when cancel is called or after callback returns.
 	go func() {
+		defer close(done)
 		select {
 		case <-exit:
 			return
@@ -25,5 +30,6 @@ func contextWatchdog(ctx context.Context, callback func()) (cancel func()) {
 
 	return func() {
 		close(exit)
+		<-done
 	}
 }
