@@ -45,6 +45,14 @@ var asyncInsertCases = []asyncInsertCase{
 		ctxSettings: clickhouse.Settings{"async_insert": 0},
 		async:       false,
 	},
+	{
+		// The documented replacement for WithAsync(true). The context setting wins
+		// over the client setting, so the case does not depend on the server default.
+		name:           "context async_insert=1 overrides client async_insert=0",
+		clientSettings: clickhouse.Settings{"async_insert": 0},
+		ctxSettings:    clickhouse.Settings{"async_insert": 1, "wait_for_async_insert": 1},
+		async:          true,
+	},
 }
 
 // TestAsyncInsertSettings verifies that a batch insert runs as an async insert with
