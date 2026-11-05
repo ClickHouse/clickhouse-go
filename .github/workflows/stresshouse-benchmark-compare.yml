@@ -41,4 +41,6 @@ jobs:
       client: clickhouse-go
       profile: pr-compare
       pr_number: ${{ github.event.issue.number || inputs.pr_number }}
-    secrets: inherit
+    secrets:
+      WORKFLOW_AUTH_PUBLIC_APP_ID: ${{ secrets.WORKFLOW_AUTH_PUBLIC_APP_ID }}
+      WORKFLOW_AUTH_PUBLIC_PRIVATE_KEY: ${{ secrets.WORKFLOW_AUTH_PUBLIC_PRIVATE_KEY }}
