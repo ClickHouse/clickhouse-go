@@ -1,0 +1,44 @@
+# Benchmark this PR's build vs `main` on StressHouse and comment the comparison
+# on the PR.
+#
+# Thin caller: the logic lives in the shared reusable workflow
+# ClickHouse/integrations-shared-workflows/.github/workflows/clickhouse-benchmark.yml,
+# so behaviour can be adjusted in one place. It uses the Workflow Auth app to
+# start the central `StressHouse dispatch` workflow in
+# ClickHouse/clickhouse-client-benchmarks; when the run finishes, StressHouse
+# posts a sticky comparison comment back onto this PR.
+#
+# Trigger: a `/benchmark-compare` PR comment from a maintainer, or manually from
+# the Actions tab (supply the PR number).
+---
+name: StressHouse Benchmark (PR vs main)
+
+on:
+  issue_comment:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "PR number to benchmark and comment on."
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  benchmark:
+    # Comment path: only on PRs, only `/benchmark-compare`, only from someone
+    # with write access. Manual path: always allowed.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.issue.pull_request &&
+       startsWith(github.event.comment.body, '/benchmark-compare') &&
+       contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association))
+    uses: ClickHouse/integrations-shared-workflows/.github/workflows/clickhouse-benchmark.yml@main
+    with:
+      client: clickhouse-go
+      profile: pr-compare
+      pr_number: ${{ github.event.issue.number || inputs.pr_number }}
+    secrets: inherit

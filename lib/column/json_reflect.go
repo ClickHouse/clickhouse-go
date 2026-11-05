@@ -375,7 +375,7 @@ func handleValue(val reflect.Value, path string, json *chcol.JSON, forcedType st
 	case reflect.Map:
 		switch {
 		case forcedType == "" && val.Type().Elem().Kind() == reflect.Interface:
-			// Only iterate maps if they are map[string]interface{}
+			// Only iterate maps if they are map[string]any
 			return iterateMap(val, path, json)
 		case forcedType == "":
 			json.SetValueAtPath(path, val.Interface())

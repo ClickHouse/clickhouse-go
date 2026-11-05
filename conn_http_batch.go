@@ -235,13 +235,17 @@ func (b *httpBatch) Send() (err error) {
 	}
 
 	options := queryOptions(b.ctx)
+	options.applyBatchAsyncInsertSettings()
 	headers := make(map[string]string)
 	switch b.conn.compression {
 	case CompressionGZIP, CompressionDeflate, CompressionBrotli:
 		headers["Content-Encoding"] = b.conn.compression.String()
 	case CompressionZSTD, CompressionLZ4:
-		options.settings["decompress"] = "1"
-		options.settings["compress"] = "1"
+		compressionLevel := 0
+		if b.conn.opt != nil && b.conn.opt.Compression != nil {
+			compressionLevel = b.conn.opt.Compression.Level
+		}
+		applyHTTPNativeCompressionSettings(options.settings, b.conn.compression, compressionLevel, true)
 	}
 
 	compressionWriter := b.conn.compressionPool.Get()
@@ -272,7 +276,11 @@ func (b *httpBatch) Send() (err error) {
 	if err != nil {
 		return fmt.Errorf("batch sendStreamQuery: %w", err)
 	}
-	discardAndClose(res.Body)
+	// A 200 status is not yet success: a failure after the server flushed its
+	// headers arrives in-band, in the response body.
+	if err := b.conn.insertResponseError(res); err != nil {
+		return fmt.Errorf("batch: %w", err)
+	}
 
 	b.conn.logger.Debug("batch: send complete")
 	b.block.Reset()

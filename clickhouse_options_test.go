@@ -531,6 +531,45 @@ func TestParseDSN(t *testing.T) {
 			"",
 		},
 		{
+			"clickhouse proxy with hosts and alt_hosts as query strings",
+			"tcp://127.0.0.1/?hosts=127.0.0.2&alt_hosts=127.0.0.3",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"127.0.0.2", "127.0.0.1", "127.0.0.3"},
+				Settings: Settings{},
+				Auth:     Auth{},
+				scheme:   "tcp",
+			},
+			"",
+		},
+		{
+			"clickhouse proxy trims and skips empty query string hosts",
+			"tcp://127.0.0.1/?hosts=%20%20a,%20b,,&alt_hosts=%20",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"a", "b", "127.0.0.1"},
+				Settings: Settings{},
+				Auth:     Auth{},
+				scheme:   "tcp",
+			},
+			"",
+		},
+		{
+			"clickhouse proxy ignores empty hosts query string",
+			"tcp://127.0.0.1/?hosts=",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"127.0.0.1"},
+				Settings: Settings{},
+				Auth:     Auth{},
+				scheme:   "tcp",
+			},
+			"",
+		},
+		{
 			"http protocol with custom http_path",
 			"https://127.0.0.1/clickhouse?secure=true&skip_verify=true&http_path=/clickhouse",
 			&Options{
@@ -549,12 +588,93 @@ func TestParseDSN(t *testing.T) {
 			"",
 		},
 		{
+			"setting value preserves original case",
+			"clickhouse://127.0.0.1/test_database?log_comment=REQUEST_TYPE:proxy%3BUSER_ID:TEST",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"127.0.0.1"},
+				Settings: Settings{
+					"log_comment": "REQUEST_TYPE:proxy;USER_ID:TEST",
+				},
+				Auth: Auth{
+					Database: "test_database",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
+			"setting boolean true is case insensitive",
+			"clickhouse://127.0.0.1/test_database?async_insert=True",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"127.0.0.1"},
+				Settings: Settings{
+					"async_insert": int(1),
+				},
+				Auth: Auth{
+					Database: "test_database",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
+			"setting numeric value preserved",
+			"clickhouse://127.0.0.1/test_database?max_block_size=65505",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"127.0.0.1"},
+				Settings: Settings{
+					"max_block_size": int(65505),
+				},
+				Auth: Auth{
+					Database: "test_database",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
 			"multiple hosts in HA mode",
 			"clickhouse://127.0.0.1:9440,127.0.0.2:9440/test_database",
 			&Options{
 				Protocol: Native,
 				TLS:      nil,
 				Addr:     []string{"127.0.0.1:9440", "127.0.0.2:9440"},
+				Settings: Settings{},
+				Auth: Auth{
+					Database: "test_database",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
+			"multiple IPv6 hosts in HA mode",
+			"clickhouse://[::1]:9440,[fe80::2]:9440/test_database",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"[::1]:9440", "[fe80::2]:9440"},
+				Settings: Settings{},
+				Auth: Auth{
+					Database: "test_database",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
+			"multiple hosts in HA mode with mixed explicit and default ports",
+			"clickhouse://127.0.0.1:9440,127.0.0.2/test_database",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"127.0.0.1:9440", "127.0.0.2"},
 				Settings: Settings{},
 				Auth: Auth{
 					Database: "test_database",
@@ -579,6 +699,19 @@ func TestParseDSN(t *testing.T) {
 			assert.Nil(t, err)
 		})
 	}
+}
+
+func TestEffectiveInitialUser(t *testing.T) {
+	ordinary := &connect{opt: &Options{Auth: Auth{Username: "authenticated"}}}
+	require.Empty(t, ordinary.effectiveInitialUser("override"))
+	require.Empty(t, ordinary.effectiveInitialUser(""))
+
+	interserver := &connect{opt: &Options{
+		Auth:    Auth{Username: "fallback"},
+		Cluster: ClusterCredentials{Secret: "secret"},
+	}}
+	require.Equal(t, "override", interserver.effectiveInitialUser("override"))
+	require.Equal(t, "fallback", interserver.effectiveInitialUser(""))
 }
 
 func parseURL(t *testing.T, v string) *url.URL {
@@ -616,4 +749,156 @@ func TestLogger(t *testing.T) {
 		logger := opts.logger()
 		assert.Equal(t, customLogger, logger, "custom Logger should take precedence over Debug=true when Debugf is nil")
 	})
+}
+
+// TestParseDSNErrorRedactsPassword makes sure that DSN parse errors do not
+// expose credentials. Callers often log the error of ParseDSN or sql.Open.
+func TestParseDSNErrorRedactsPassword(t *testing.T) {
+	const secret = "S3cretPW"
+	testCases := []struct {
+		name     string
+		dsn      string
+		contains string
+	}{
+		{
+			name:     "no credentials keeps the original error",
+			dsn:      "clickhouse://127.0.0.1:abc/db?debug=true",
+			contains: `parse "clickhouse://127.0.0.1:abc/db?debug=true": invalid port ":abc" after host`,
+		},
+		{
+			name:     "userinfo password with invalid port",
+			dsn:      "clickhouse://user:" + secret + "@127.0.0.1:abc/db",
+			contains: `invalid port ":abc" after host`,
+		},
+		{
+			name:     "userinfo password with invalid escape",
+			dsn:      "clickhouse://user:" + secret + "%zz@127.0.0.1:9000/db",
+			contains: "user:xxxxx@127.0.0.1:9000/db",
+		},
+		{
+			name:     "userinfo password with unescaped at sign",
+			dsn:      "clickhouse://user:S3c@retPW@127.0.0.1:abc/db",
+			contains: "user:xxxxx@127.0.0.1:abc/db",
+		},
+		{
+			name:     "userinfo password with unescaped slash",
+			dsn:      "clickhouse://user:S3cret/PW@127.0.0.1:9000/db",
+			contains: `parse "clickhouse://user:xxxxx@127.0.0.1:9000/db": invalid URL (details hidden because they may contain credentials; URL-encode the username, password and http_proxy values)`,
+		},
+		{
+			name:     "userinfo password with unescaped hash",
+			dsn:      "clickhouse://user:S3c#retPW@127.0.0.1:9000/db",
+			contains: "details hidden because they may contain credentials",
+		},
+		{
+			name:     "userinfo password with invalid escape inside",
+			dsn:      "clickhouse://user:S3c%ssPW@127.0.0.1:9000/db",
+			contains: "details hidden because they may contain credentials",
+		},
+		{
+			name:     "userinfo password with colon and unescaped slash",
+			dsn:      "clickhouse://user:S3c:retPW/x@127.0.0.1:9000/db",
+			contains: "details hidden because they may contain credentials",
+		},
+		{
+			name:     "userinfo password with comma and unescaped slash",
+			dsn:      "clickhouse://user:S3c,retPW/x@127.0.0.1:9000/db",
+			contains: "details hidden because they may contain credentials",
+		},
+		{
+			name:     "userinfo password with brackets and unescaped slash",
+			dsn:      "clickhouse://user:S3c[x]retPW/x@127.0.0.1:9000/db",
+			contains: "details hidden because they may contain credentials",
+		},
+		{
+			name:     "password query parameter with invalid port",
+			dsn:      "clickhouse://127.0.0.1:abc/db?username=user&password=" + secret + "&debug=true",
+			contains: "?username=user&password=xxxxx&debug=true",
+		},
+		{
+			name:     "password query parameter with unescaped at sign",
+			dsn:      "clickhouse://127.0.0.1:abc/db?password=S3c@retPW",
+			contains: `invalid port ":abc" after host`,
+		},
+		{
+			name:     "password query parameter with unescaped at sign and invalid escape",
+			dsn:      "clickhouse://127.0.0.1:9000/d%zzb?password=S3c@retPW",
+			contains: "127.0.0.1:9000/d%zzb?password=xxxxx",
+		},
+		{
+			name:     "userinfo password and password query parameter with unescaped at sign",
+			dsn:      "clickhouse://user:S3c@127.0.0.1:abc/db?password=x@retPW",
+			contains: "user:xxxxx@127.0.0.1:abc/db?password=xxxxx",
+		},
+		{
+			name:     "password query parameter with unescaped hash",
+			dsn:      "clickhouse://127.0.0.1:abc/db?password=S3c#retPW",
+			contains: "127.0.0.1:abc/db?password=xxxxx\"",
+		},
+		{
+			name:     "password query parameter with unescaped ampersand",
+			dsn:      "clickhouse://127.0.0.1:abc/db?password=S3c&retPW&debug=true",
+			contains: "127.0.0.1:abc/db?password=xxxxx&debug=true",
+		},
+		{
+			name:     "password query parameter with unescaped question mark",
+			dsn:      "clickhouse://127.0.0.1:abc/db?password=S3c?retPW&debug=true",
+			contains: "127.0.0.1:abc/db?password=xxxxx&debug=true",
+		},
+		{
+			name:     "password query parameter with unescaped question mark and equals sign",
+			dsn:      "clickhouse://127.0.0.1:abc/db?password=S3c?retPW=1&debug=true",
+			contains: "127.0.0.1:abc/db?password=xxxxx&debug=true",
+		},
+		{
+			name:     "userinfo password with question mark and equals sign and password query parameter",
+			dsn:      "clickhouse://user:S3c?x=1@127.0.0.1:abc/db?password=retPW",
+			contains: "user:xxxxx@127.0.0.1:abc/db?password=xxxxx",
+		},
+		{
+			name:     "unescaped http_proxy credentials with question mark in DSN with invalid escape",
+			dsn:      "clickhouse://127.0.0.1/d%zz?http_proxy=http://u:S3c?retPW@proxy:3128",
+			contains: "http_proxy=http%3A%2F%2Fu%3Axxxxx%40proxy%3A3128",
+		},
+		{
+			name:     "password query parameter with escaped key",
+			dsn:      "clickhouse://127.0.0.1:abc/db?pass%77ord=" + secret,
+			contains: "127.0.0.1:abc/db?pass%77ord=xxxxx",
+		},
+		{
+			name:     "userinfo password with question mark and password query parameter",
+			dsn:      "clickhouse://user:S3c?x@127.0.0.1:abc/db?password=retPW",
+			contains: "user:xxxxx@127.0.0.1:abc/db?password=xxxxx",
+		},
+		{
+			name:     "escaped http_proxy credentials in DSN with invalid port",
+			dsn:      "clickhouse://127.0.0.1:abc/db?http_proxy=http%3A%2F%2Fu%3A" + secret + "%40proxy%3A3128",
+			contains: "http_proxy=http%3A%2F%2Fu%3Axxxxx%40proxy%3A3128",
+		},
+		{
+			name:     "unescaped http_proxy credentials in DSN with invalid port",
+			dsn:      "clickhouse://127.0.0.1:abc/db?http_proxy=http://u:" + secret + "@proxy:3128",
+			contains: `invalid port ":abc" after host`,
+		},
+		{
+			name:     "http_proxy credentials with invalid escape in DSN with invalid port",
+			dsn:      "clickhouse://127.0.0.1:abc/db?http_proxy=http%3A%2F%2Fu%3AS3c%zzretPW%40proxy",
+			contains: "http_proxy=xxxxx",
+		},
+		{
+			name:     "http_proxy credentials with invalid host",
+			dsn:      "http://127.0.0.1:8123?http_proxy=http%3A%2F%2Fproxyuser%3A" + secret + "%40pro%20xy%3A3128",
+			contains: "http_proxy",
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := ParseDSN(tc.dsn)
+			require.Error(t, err)
+			msg := err.Error()
+			assert.NotContains(t, msg, "S3c")
+			assert.NotContains(t, msg, "PW")
+			assert.Contains(t, msg, tc.contains)
+		})
+	}
 }

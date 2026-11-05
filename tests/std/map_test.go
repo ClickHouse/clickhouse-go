@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -79,6 +80,53 @@ func TestStdMap(t *testing.T) {
 			assert.Equal(t, col3Data, col3)
 			assert.Equal(t, col4Data, col4)
 			assert.Equal(t, col5Data, col5)
+		})
+	}
+}
+
+func TestStdMapParameterizedKey(t *testing.T) {
+	dsns := map[string]clickhouse.Protocol{"Native": clickhouse.Native, "Http": clickhouse.HTTP}
+	useSSL, err := strconv.ParseBool(clickhouse_tests.GetEnv("CLICKHOUSE_USE_SSL", "false"))
+	require.NoError(t, err)
+	for name, protocol := range dsns {
+		t.Run(fmt.Sprintf("%s Protocol", name), func(t *testing.T) {
+			conn, err := GetStdDSNConnection(protocol, useSSL, url.Values{})
+			require.NoError(t, err)
+			t.Cleanup(func() { conn.Close() })
+
+			if !CheckMinServerVersion(conn, 24, 5, 0) {
+				t.Skip(fmt.Errorf("unsupported clickhouse version"))
+				return
+			}
+
+			const ddl = `
+		CREATE TABLE std_test_map_parameterized_key (
+			  Col1 Map(DateTime64(3, 'UTC'), String)
+		) Engine MergeTree() ORDER BY tuple()
+		`
+			const table = "std_test_map_parameterized_key"
+			t.Cleanup(func() {
+				if _, err := conn.Exec("DROP TABLE IF EXISTS " + table); err != nil {
+					t.Logf("failed to drop %s: %v", table, err)
+				}
+			})
+
+			_, err = conn.Exec(ddl)
+			require.NoError(t, err)
+			scope, err := conn.Begin()
+			require.NoError(t, err)
+			batch, err := scope.Prepare("INSERT INTO " + table)
+			require.NoError(t, err)
+			input := map[time.Time]string{
+				time.Date(2020, 1, 2, 3, 4, 5, 123000000, time.UTC): "value",
+			}
+			_, err = batch.Exec(input)
+			require.NoError(t, err)
+			require.NoError(t, scope.Commit())
+
+			var output map[time.Time]string
+			require.NoError(t, conn.QueryRow("SELECT * FROM "+table).Scan(&output))
+			assert.Equal(t, input, output)
 		})
 	}
 }

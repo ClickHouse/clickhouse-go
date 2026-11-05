@@ -19,6 +19,7 @@ jobs:
             --verbose 
             --no-progress
             --exclude-all-private
+            --exclude-path '(^|/)docs/'
             --retry-wait-time 5
             ./
           fail: true

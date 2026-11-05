@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-// inferClickHouseTypeFromGoType takes a Go interface{} and converts it to a ClickHouse type.
+// inferClickHouseTypeFromGoType takes a Go any and converts it to a ClickHouse type.
 // Returns empty string if type was not matched.
 // This is best effort and does not work for all types.
 // Optimally, users should provide a type using DynamicWithType.
