@@ -439,7 +439,20 @@ func (col *{{ .ChType }}) AppendRow(v any) error {
             return col.AppendRow(val)
         }
 
+		{{ if or (eq .ChType "Int8") (eq .ChType "Int16") (eq .ChType "Int32") (eq .ChType "Int64") (eq .ChType "UInt8") (eq .ChType "UInt16") (eq .ChType "UInt32") (eq .ChType "UInt64") }}
+		rv := reflect.ValueOf(v)
+		if integerConversionOverflows(rv, col.ScanType()) {
+			return &ColumnConverterError{
+				Op:   "AppendRow",
+				To:   "{{ .ChType }}",
+				From: fmt.Sprintf("%T", v),
+				Hint: "value overflows integer type",
+			}
+		}
+		if rv.Kind() == col.ScanType().Kind() || rv.CanConvert(col.ScanType()) {
+		{{- else }}
 		if rv := reflect.ValueOf(v); rv.Kind() == col.ScanType().Kind() || rv.CanConvert(col.ScanType()) {
+		{{- end }}
 			col.col.Append(rv.Convert(col.ScanType()).Interface().({{ .GoType }}))
 		} else {
 			return &ColumnConverterError{
