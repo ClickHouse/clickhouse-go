@@ -465,13 +465,11 @@ func formatTime(tz *time.Location, scale TimeUnit, value time.Time) (string, err
 		case NanoSeconds:
 			return fmt.Sprintf("toDateTime64('%d', 9)", value.UnixNano()), nil
 		}
-	case tz.String():
-		if scale == Seconds {
-			return value.Format("toDateTime('2006-01-02 15:04:05')"), nil
-		}
-		return fmt.Sprintf("toDateTime64('%s', %d)", value.Format(fmt.Sprintf("2006-01-02 15:04:05.%0*d", int(scale*3), 0)), int(scale*3)), nil
 	}
 
+	// The timezone is written even when it matches the server timezone: the
+	// server reads a literal without one in the session timezone, which the
+	// session_timezone setting can make differ from the server timezone.
 	// Escape the timezone string (timezone may contain malicious SQL query)
 	escapedTimezone := stringQuoteReplacer.Replace(locVal)
 	if locVal != escapedTimezone {
