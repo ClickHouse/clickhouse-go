@@ -147,6 +147,8 @@ func (col *IPv4) appendV4IPs(ips []netip.Addr, nulls []uint8, from string) error
 	return nil
 }
 
+// AppendV4IPs appends ips to the column. It returns a *ColumnConverterError
+// if an address is not IPv4 or IPv4-mapped IPv6. On error, no rows are appended.
 func (col *IPv4) AppendV4IPs(ips []netip.Addr) error {
 	return col.appendV4IPs(ips, nil, "netip.Addr")
 }
