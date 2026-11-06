@@ -32,6 +32,38 @@ func TestExtractNormalizedInsertQueryAndColumns(t *testing.T) {
 			expectedError:           false,
 		},
 		{
+			name:                    "Insert with TABLE keyword",
+			query:                   "INSERT INTO TABLE table_name (col1, col2) VALUES (1, 2)",
+			expectedNormalizedQuery: "INSERT INTO TABLE table_name (col1, col2) FORMAT Native",
+			expectedTableName:       "table_name",
+			expectedColumns:         []string{"col1", "col2"},
+			expectedError:           false,
+		},
+		{
+			name:                    "Insert with TABLE keyword and no columns",
+			query:                   "INSERT INTO TABLE table_name VALUES (1, 2)",
+			expectedNormalizedQuery: "INSERT INTO TABLE table_name FORMAT Native",
+			expectedTableName:       "table_name",
+			expectedColumns:         []string{},
+			expectedError:           false,
+		},
+		{
+			name:                    "Lowercase insert with TABLE keyword and database",
+			query:                   "insert into table db.table_name (col1, col2) values (1, 2)",
+			expectedNormalizedQuery: "insert into table db.table_name (col1, col2) FORMAT Native",
+			expectedTableName:       "db.table_name",
+			expectedColumns:         []string{"col1", "col2"},
+			expectedError:           false,
+		},
+		{
+			name:                    "Insert into table named like the TABLE keyword",
+			query:                   "INSERT INTO table_x (col1, col2) VALUES (1, 2)",
+			expectedNormalizedQuery: "INSERT INTO table_x (col1, col2) FORMAT Native",
+			expectedTableName:       "table_x",
+			expectedColumns:         []string{"col1", "col2"},
+			expectedError:           false,
+		},
+		{
 			name: "Insert with mixed case, multiline and format specified",
 			query: `INSERT INTO "db"."table_name" (
 						col1,
