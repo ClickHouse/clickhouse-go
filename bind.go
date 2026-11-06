@@ -553,10 +553,19 @@ func formatDurationBody(d time.Duration) string {
 // must be sent raw instead — bindQueryOrAppendParameters takes care of those
 // before calling here.
 func formatValue(tz *time.Location, scale TimeUnit, v any, mode formatMode) (string, error) {
-	return formatValueAt(tz, scale, v, mode, false)
+	return formatValueAt(tz, scale, v, mode, false, "")
 }
 
-func formatValueAt(tz *time.Location, scale TimeUnit, v any, mode formatMode, nested bool) (string, error) {
+// formatValueWithType is formatValue with the declared {name:Type} text. The
+// declared type decides how times are rendered: Date and Date32 need
+// calendar-date text, DateTime and DateTime64 epoch seconds. Nested values
+// inherit the corresponding part of the declaration, so an Array(Date) and a
+// Map(String, Date) render their time elements the same way.
+func formatValueWithType(tz *time.Location, scale TimeUnit, v any, mode formatMode, declType string) (string, error) {
+	return formatValueAt(tz, scale, v, mode, false, declType)
+}
+
+func formatValueAt(tz *time.Location, scale TimeUnit, v any, mode formatMode, nested bool, declType string) (string, error) {
 	quote := func(v string) string {
 		return "'" + stringQuoteReplacer.Replace(v) + "'"
 	}
@@ -583,7 +592,7 @@ func formatValueAt(tz *time.Location, scale TimeUnit, v any, mode formatMode, ne
 		return fmt.Sprintf("[%s]", strings.Join(values, ", ")), nil
 	case time.Time:
 		if mode == formatParamText {
-			return quote(formatTimeParam(v)), nil
+			return quote(formatParamTime(tz, declType, v)), nil
 		}
 		return formatTime(tz, scale, v)
 	case *time.Time:
@@ -591,7 +600,7 @@ func formatValueAt(tz *time.Location, scale TimeUnit, v any, mode formatMode, ne
 			return "NULL", nil
 		}
 		if mode == formatParamText {
-			return quote(formatTimeParam(*v)), nil
+			return quote(formatParamTime(tz, declType, *v)), nil
 		}
 		return formatTime(tz, scale, *v)
 	case time.Duration:
@@ -657,13 +666,14 @@ func formatValueAt(tz *time.Location, scale TimeUnit, v any, mode formatMode, ne
 		return quote(v.String()), nil
 	case column.OrderedMap:
 		entries := make([]mapEntry, 0)
+		_, valueType := paramMapTypes(declType)
 		for key := range v.Keys() {
-			name, err := formatValueAt(tz, scale, key, mode, true)
+			name, err := formatValueAt(tz, scale, key, mode, true, "")
 			if err != nil {
 				return "", err
 			}
 			value, _ := v.Get(key)
-			val, err := formatValueAt(tz, scale, value, mode, true)
+			val, err := formatValueAt(tz, scale, value, mode, true, valueType)
 			if err != nil {
 				return "", err
 			}
@@ -672,14 +682,15 @@ func formatValueAt(tz *time.Location, scale TimeUnit, v any, mode formatMode, ne
 		return formatMap(entries, mode), nil
 	case column.IterableOrderedMap:
 		entries := make([]mapEntry, 0)
+		_, valueType := paramMapTypes(declType)
 		iter := v.Iterator()
 		for iter.Next() {
 			key, value := iter.Key(), iter.Value()
-			name, err := formatValueAt(tz, scale, key, mode, true)
+			name, err := formatValueAt(tz, scale, key, mode, true, "")
 			if err != nil {
 				return "", err
 			}
-			val, err := formatValueAt(tz, scale, value, mode, true)
+			val, err := formatValueAt(tz, scale, value, mode, true, valueType)
 			if err != nil {
 				return "", err
 			}
@@ -698,8 +709,9 @@ func formatValueAt(tz *time.Location, scale TimeUnit, v any, mode formatMode, ne
 			return s, nil
 		}
 		values := make([]string, 0, v.Len())
+		elemType := paramElementType(declType)
 		for i := 0; i < v.Len(); i++ {
-			val, err := formatValueAt(tz, scale, v.Index(i).Interface(), mode, true)
+			val, err := formatValueAt(tz, scale, v.Index(i).Interface(), mode, true, elemType)
 			if err != nil {
 				return "", err
 			}
@@ -708,12 +720,13 @@ func formatValueAt(tz *time.Location, scale TimeUnit, v any, mode formatMode, ne
 		return fmt.Sprintf("[%s]", strings.Join(values, ", ")), nil
 	case reflect.Map: // map
 		entries := make([]mapEntry, 0, v.Len())
+		keyType, valueType := paramMapTypes(declType)
 		for _, key := range v.MapKeys() {
-			name, err := formatValueAt(tz, scale, key.Interface(), mode, true)
+			name, err := formatValueAt(tz, scale, key.Interface(), mode, true, keyType)
 			if err != nil {
 				return "", err
 			}
-			val, err := formatValueAt(tz, scale, v.MapIndex(key).Interface(), mode, true)
+			val, err := formatValueAt(tz, scale, v.MapIndex(key).Interface(), mode, true, valueType)
 			if err != nil {
 				return "", err
 			}
@@ -728,7 +741,7 @@ func formatValueAt(tz *time.Location, scale TimeUnit, v any, mode formatMode, ne
 		if v.IsNil() {
 			return "NULL", nil
 		}
-		return formatValueAt(tz, scale, v.Elem().Interface(), mode, nested)
+		return formatValueAt(tz, scale, v.Elem().Interface(), mode, nested, declType)
 	}
 	return fmt.Sprint(v), nil
 }
@@ -943,7 +956,7 @@ func commonBigIntConvFunc(v reflect.Value) (string, bool) {
 func join[E any](tz *time.Location, scale TimeUnit, values []E, mode formatMode) (string, error) {
 	items := make([]string, len(values))
 	for i := range values {
-		val, err := formatValueAt(tz, scale, values[i], mode, true)
+		val, err := formatValueAt(tz, scale, values[i], mode, true, "")
 		if err != nil {
 			return "", err
 		}

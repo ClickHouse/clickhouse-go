@@ -17,6 +17,10 @@ var (
 	ErrUnsupportedQueryParameter    = errors.New("unsupported query parameter type")
 
 	hasQueryParamsRe = regexp.MustCompile("{.+:.+}")
+	// queryParamDeclRe captures the name and declared type of each
+	// {name:Type} placeholder. Types never contain braces, so a plain
+	// non-brace run is enough and keeps the match cheap.
+	queryParamDeclRe = regexp.MustCompile(`\{\s*(\w+)\s*:\s*([^{}]+?)\s*\}`)
 )
 
 // namedStringEscaper escapes control characters in a raw Go string sent as a
@@ -54,6 +58,7 @@ func bindQueryOrAppendParameters(paramsProtocolSupport bool, options *QueryOptio
 		len(args) > 0 &&
 		hasQueryParamsRe.MatchString(query) {
 		options.parameters = make(Parameters, len(args))
+		paramTypes := declaredParamTypes(query)
 		for _, a := range args {
 			switch p := a.(type) {
 			case driver.NamedValue:
@@ -93,10 +98,10 @@ func bindQueryOrAppendParameters(paramsProtocolSupport bool, options *QueryOptio
 					options.parameters[p.Name] = namedStringEscaper.Replace(string(*v))
 					continue
 				case time.Time:
-					options.parameters[p.Name] = formatTimeParam(v)
+					options.parameters[p.Name] = formatParamTime(timezone, paramTypes[p.Name], v)
 					continue
 				case *time.Time:
-					options.parameters[p.Name] = formatTimeParam(*v)
+					options.parameters[p.Name] = formatParamTime(timezone, paramTypes[p.Name], *v)
 					continue
 				case time.Duration:
 					options.parameters[p.Name] = formatDurationBody(v)
@@ -110,7 +115,7 @@ func bindQueryOrAppendParameters(paramsProtocolSupport bool, options *QueryOptio
 					options.parameters[p.Name] = v.String()
 					continue
 				}
-				strVal, err := formatValue(timezone, Seconds, p.Value, formatParamText)
+				strVal, err := formatValueWithType(timezone, Seconds, p.Value, formatParamText, paramTypes[p.Name])
 				if err != nil {
 					return "", err
 				}
@@ -118,7 +123,12 @@ func bindQueryOrAppendParameters(paramsProtocolSupport bool, options *QueryOptio
 
 			case driver.NamedDateValue:
 				if !p.Value.IsZero() && p.Name != "" {
-					formatted := formatTimeWithScale(p.Value, TimeUnit(p.Scale))
+					var formatted string
+					if isDateParamType(paramTypes[p.Name]) {
+						formatted = formatParamTime(timezone, paramTypes[p.Name], p.Value)
+					} else {
+						formatted = formatTimeWithScale(p.Value, TimeUnit(p.Scale))
+					}
 					options.parameters[p.Name] = formatted
 					continue
 				}
@@ -133,6 +143,102 @@ func bindQueryOrAppendParameters(paramsProtocolSupport bool, options *QueryOptio
 	}
 
 	return bind(timezone, query, args...)
+}
+
+// declaredParamTypes maps each {name:Type} placeholder in query to its
+// declared type text. The declared type decides how a time.Time is rendered:
+// Date and Date32 parameters need a calendar date, the DateTime family keeps
+// the zone-free epoch form.
+func declaredParamTypes(query string) map[string]string {
+	matches := queryParamDeclRe.FindAllStringSubmatch(query, -1)
+	types := make(map[string]string, len(matches))
+	for _, m := range matches {
+		types[m[1]] = m[2]
+	}
+	return types
+}
+
+// splitParamType splits a declared type like "Array(Date)" into its name and
+// top-level arguments. A type without arguments returns the whole text as the
+// name, so unknown declarations fall through unchanged.
+func splitParamType(t string) (string, []string) {
+	t = strings.TrimSpace(t)
+	open := strings.IndexByte(t, '(')
+	if open < 0 || !strings.HasSuffix(t, ")") {
+		return t, nil
+	}
+	name := strings.TrimSpace(t[:open])
+	inner := t[open+1 : len(t)-1]
+	if strings.TrimSpace(inner) == "" {
+		return name, nil
+	}
+	var args []string
+	depth, start := 0, 0
+	for i := 0; i < len(inner); i++ {
+		switch inner[i] {
+		case '(':
+			depth++
+		case ')':
+			depth--
+		case ',':
+			if depth == 0 {
+				args = append(args, strings.TrimSpace(inner[start:i]))
+				start = i + 1
+			}
+		}
+	}
+	return name, append(args, strings.TrimSpace(inner[start:]))
+}
+
+// unwrapParamType drops the wrappers that do not change how the value's text
+// is written.
+func unwrapParamType(t string) string {
+	for {
+		name, args := splitParamType(t)
+		if (name == "Nullable" || name == "LowCardinality") && len(args) == 1 {
+			t = args[0]
+			continue
+		}
+		return t
+	}
+}
+
+// paramElementType returns the element type declared for an Array, or "" when
+// the declaration is not an array or is unknown.
+func paramElementType(t string) string {
+	name, args := splitParamType(unwrapParamType(t))
+	if name == "Array" && len(args) == 1 {
+		return args[0]
+	}
+	return ""
+}
+
+// paramMapTypes returns the key and value types declared for a Map, or empty
+// strings when the declaration is not a map or is unknown.
+func paramMapTypes(t string) (string, string) {
+	name, args := splitParamType(unwrapParamType(t))
+	if name == "Map" && len(args) == 2 {
+		return args[0], args[1]
+	}
+	return "", ""
+}
+
+// isDateParamType reports whether t is Date or Date32: the two types whose
+// text reader takes a calendar date and rejects epoch seconds.
+func isDateParamType(t string) bool {
+	name, args := splitParamType(unwrapParamType(t))
+	return len(args) == 0 && (name == "Date" || name == "Date32")
+}
+
+// formatParamTime renders a time.Time for a server-side query parameter of
+// the declared type. Date and Date32 take the calendar day as seen in the
+// server's zone, matching what client-side binding produces; every other
+// temporal type keeps the epoch form so the instant survives any timezone.
+func formatParamTime(tz *time.Location, declType string, t time.Time) string {
+	if isDateParamType(declType) {
+		return t.In(tz).Format("2006-01-02")
+	}
+	return formatTimeParam(t)
 }
 
 // isNilParamValue reports whether v is nil itself or a typed nil pointer —
