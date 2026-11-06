@@ -47,12 +47,26 @@ func (col *Tuple) parse(t Type, sc *ServerContext) (_ Interface, err error) {
 			if len(element) != 0 {
 				cType := strings.TrimSpace(string(element))
 				name := ""
-				if parts := strings.SplitN(cType, " ", 2); len(parts) == 2 {
-					if !strings.Contains(parts[0], "(") {
+				// a backquoted name may contain spaces, so look for the separator after its closing backtick
+				nameEnd := 0
+				if strings.HasPrefix(cType, "`") {
+					for i := 1; i < len(cType); i++ {
+						if cType[i] == '\\' {
+							i++
+						} else if cType[i] == '`' {
+							nameEnd = i + 1
+							break
+						}
+					}
+				}
+				if sep := strings.Index(cType[nameEnd:], " "); sep >= 0 {
+					sep += nameEnd
+					// a backquoted name may contain parentheses, an unquoted word that does is the start of a type
+					if nameEnd > 0 || !strings.Contains(cType[:sep], "(") {
 						// the server backquotes names that are not plain identifiers, since 26.5 also
 						// reserved words such as `values` and `from` (ClickHouse/ClickHouse#102338)
-						name = unescapeColName(parts[0])
-						cType = parts[1]
+						name = unescapeColName(cType[:sep])
+						cType = cType[sep+1:]
 					}
 				}
 				elements = append(elements, namedCol{
@@ -62,8 +76,28 @@ func (col *Tuple) parse(t Type, sc *ServerContext) (_ Interface, err error) {
 			}
 		}
 	)
+	var (
+		inName  bool // inside the backquoted name that opens the element
+		escaped bool // the previous rune in the name was a backslash
+	)
 	for _, r := range t.params() {
+		if inName {
+			// brackets and commas inside a backquoted name do not split the element
+			switch {
+			case escaped:
+				escaped = false
+			case r == '\\':
+				escaped = true
+			case r == '`':
+				inName = false
+			}
+			element = append(element, r)
+			continue
+		}
 		switch r {
+		case '`':
+			// only a backquote that opens the element starts a name, one inside a type does not
+			inName = strings.TrimSpace(string(element)) == ""
 		case '(':
 			brackets++
 		case ')':
