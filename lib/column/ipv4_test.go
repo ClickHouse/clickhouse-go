@@ -112,6 +112,7 @@ func TestIPv4AppendRejectsNonIPv4(t *testing.T) {
 			})
 			require.Error(t, err)
 			require.IsType(t, &ColumnConverterError{}, err)
+			require.ErrorContains(t, err, ipv6String)
 			require.Equal(t, 0, col.Rows())
 		})
 	}
@@ -158,6 +159,146 @@ func TestIPv4AppendAcceptsIPv4MappedIPv6(t *testing.T) {
 			col := &IPv4{}
 			require.NoError(t, tt.append(col))
 			require.Equal(t, "192.0.2.1", col.Row(0, false).(net.IP).String())
+		})
+	}
+}
+
+func TestIPv4AppendBulkPointersWithNulls(t *testing.T) {
+	validString := "192.0.2.1"
+	validAddr := netip.MustParseAddr(validString)
+	validIP := net.ParseIP(validString)
+
+	tests := []struct {
+		name   string
+		append func(*IPv4) ([]uint8, error)
+	}{
+		{
+			name: "string pointers",
+			append: func(col *IPv4) ([]uint8, error) {
+				return col.Append([]*string{&validString, nil})
+			},
+		},
+		{
+			name: "netip pointers",
+			append: func(col *IPv4) ([]uint8, error) {
+				return col.Append([]*netip.Addr{&validAddr, nil})
+			},
+		},
+		{
+			name: "net.IP pointers",
+			append: func(col *IPv4) ([]uint8, error) {
+				return col.Append([]*net.IP{&validIP, nil})
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			col := &IPv4{}
+			nulls, err := tt.append(col)
+			require.NoError(t, err)
+			require.Equal(t, []uint8{0, 1}, nulls)
+			require.Equal(t, 2, col.Rows())
+			require.Equal(t, validString, col.Row(0, false).(net.IP).String())
+		})
+	}
+}
+
+func TestIPv4AppendBulkPointersRejectAfterNull(t *testing.T) {
+	ipv6String := "2001:db8::1"
+	ipv6Addr := netip.MustParseAddr(ipv6String)
+	ipv6NetIP := net.ParseIP(ipv6String)
+
+	tests := []struct {
+		name   string
+		append func(*IPv4) ([]uint8, error)
+	}{
+		{
+			name: "string pointers",
+			append: func(col *IPv4) ([]uint8, error) {
+				return col.Append([]*string{nil, &ipv6String})
+			},
+		},
+		{
+			name: "netip pointers",
+			append: func(col *IPv4) ([]uint8, error) {
+				return col.Append([]*netip.Addr{nil, &ipv6Addr})
+			},
+		},
+		{
+			name: "net.IP pointers",
+			append: func(col *IPv4) ([]uint8, error) {
+				return col.Append([]*net.IP{nil, &ipv6NetIP})
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			col := &IPv4{}
+			nulls, err := tt.append(col)
+			require.Equal(t, []uint8{1, 0}, nulls)
+			require.Error(t, err)
+			require.IsType(t, &ColumnConverterError{}, err)
+			require.ErrorContains(t, err, ipv6String)
+			require.ErrorContains(t, err, "index 1")
+			require.Equal(t, 0, col.Rows())
+		})
+	}
+}
+
+func TestIPv4AppendInvalidBatchPreservesExistingRows(t *testing.T) {
+	validString := "192.0.2.1"
+	invalidString := "2001:db8::1"
+	validAddr := netip.MustParseAddr(validString)
+	invalidAddr := netip.MustParseAddr(invalidString)
+	validIP := net.ParseIP(validString)
+	invalidIP := net.ParseIP(invalidString)
+
+	tests := []struct {
+		name   string
+		append func(*IPv4) error
+	}{
+		{
+			name: "strings",
+			append: func(col *IPv4) error {
+				_, err := col.Append([]string{validString, invalidString})
+				return err
+			},
+		},
+		{
+			name: "netip",
+			append: func(col *IPv4) error {
+				_, err := col.Append([]netip.Addr{validAddr, invalidAddr})
+				return err
+			},
+		},
+		{
+			name: "net.IP",
+			append: func(col *IPv4) error {
+				_, err := col.Append([]net.IP{validIP, invalidIP})
+				return err
+			},
+		},
+		{
+			name: "AppendV4IPs",
+			append: func(col *IPv4) error {
+				return col.AppendV4IPs([]netip.Addr{validAddr, invalidAddr})
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			col := &IPv4{}
+			require.NoError(t, col.AppendRow("198.51.100.1"))
+			err := tt.append(col)
+			require.Error(t, err)
+			require.IsType(t, &ColumnConverterError{}, err)
+			require.ErrorContains(t, err, invalidString)
+			require.ErrorContains(t, err, "index 1")
+			require.Equal(t, 1, col.Rows())
+			require.Equal(t, "198.51.100.1", col.Row(0, false).(net.IP).String())
 		})
 	}
 }
