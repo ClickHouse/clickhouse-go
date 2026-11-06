@@ -15,12 +15,12 @@ on:
 jobs:
   test:
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request_target' && github.event.label.name == 'tests:run-cloud')
-    runs-on: [self-hosted, style-checker-aarch64]
+    runs-on: ubuntu-26.04-arm
     defaults:
       run:
         shell: bash
     strategy:
-      # Run the Go-version jobs one at a time (1.25 then 1.26) instead of in parallel: they
+      # Run the Go-version jobs one at a time (1.26 then 1.27) instead of in parallel: they
       # share a single ClickHouse Cloud service, so concurrent jobs contend for its compute and
       # collide on shared object names. fail-fast: false keeps the second job running even if
       # the first fails.
@@ -28,8 +28,8 @@ jobs:
       fail-fast: false
       matrix:
         go:
-          - "1.25"
           - "1.26"
+          - "1.27"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
