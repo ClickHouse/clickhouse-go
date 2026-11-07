@@ -134,17 +134,17 @@ func (col *Map) ScanRow(dest any, i int) error {
 		return nil
 	}
 	if om, ok := dest.(IterableOrderedMap); ok {
-		keys, values := col.orderedRow(i)
-		for i := range keys {
-			om.Put(keys[i], values[i])
-		}
-		return nil
+		return col.fillOrderedMap(om, reflect.TypeOf(dest), i)
 	}
 	if om, ok := dest.(OrderedMap); ok {
-		keys, values := col.orderedRow(i)
-		for i := range keys {
-			om.Put(keys[i], values[i])
+		return col.fillOrderedMap(om, reflect.TypeOf(dest), i)
+	}
+	if value.Kind() == reflect.Map {
+		scanned, err := col.scanGoMap(value.Type(), i)
+		if err != nil {
+			return err
 		}
+		value.Set(scanned)
 		return nil
 	}
 	return &ColumnConverterError{
@@ -153,6 +153,104 @@ func (col *Map) ScanRow(dest any, i int) error {
 		From: string(col.chType),
 		Hint: fmt.Sprintf("try using %s", col.scanType),
 	}
+}
+
+// scan builds row n as destType. Nested Map values use destType's element type
+// so orderedmap destinations can keep duplicate keys.
+func (col *Map) scan(destType reflect.Type, n int) (reflect.Value, error) {
+	if destType.Kind() == reflect.Interface {
+		return col.row(n), nil
+	}
+	if destType.Kind() == reflect.Pointer {
+		inner, err := col.scan(destType.Elem(), n)
+		if err != nil {
+			return reflect.Value{}, err
+		}
+		ptr := reflect.New(destType.Elem())
+		ptr.Elem().Set(inner)
+		return ptr, nil
+	}
+	if isOrderedMapType(destType) {
+		ptr := reflect.New(destType)
+		if err := col.fillOrderedMap(ptr.Interface(), ptr.Type(), n); err != nil {
+			return reflect.Value{}, err
+		}
+		return ptr.Elem(), nil
+	}
+	if destType.Kind() == reflect.Map {
+		return col.scanGoMap(destType, n)
+	}
+	return reflect.Value{}, &ColumnConverterError{
+		Op:   "ScanRow",
+		To:   destType.String(),
+		From: string(col.chType),
+		Hint: fmt.Sprintf("try using %s", col.scanType),
+	}
+}
+
+func (col *Map) fillOrderedMap(om any, destType reflect.Type, n int) error {
+	put := orderedMapPut(om)
+	if put == nil {
+		return &ColumnConverterError{
+			Op:   "ScanRow",
+			To:   destType.String(),
+			From: string(col.chType),
+		}
+	}
+	valueType := orderedMapValueType(destType)
+	var prev int64
+	if n != 0 {
+		prev = col.offsets.col.Row(n - 1)
+	}
+	size := int(col.offsets.col.Row(n) - prev)
+	from := int(prev)
+	for next := range size {
+		val, err := col.scanMapValue(valueType, from+next)
+		if err != nil {
+			return err
+		}
+		put(col.keys.Row(from+next, false), val)
+	}
+	return nil
+}
+
+func orderedMapPut(om any) func(key, value any) {
+	switch m := om.(type) {
+	case IterableOrderedMap:
+		return m.Put
+	case OrderedMap:
+		return m.Put
+	default:
+		return nil
+	}
+}
+
+func (col *Map) scanMapValue(valueType reflect.Type, idx int) (any, error) {
+	if valueType != nil {
+		if nested, ok := col.values.(*Map); ok && (isOrderedMapType(valueType) || valueType.Kind() == reflect.Map) {
+			v, err := nested.scan(valueType, idx)
+			if err != nil {
+				return nil, err
+			}
+			return v.Interface(), nil
+		}
+		if arr, ok := col.values.(*Array); ok && valueType.Kind() == reflect.Slice {
+			v, err := arr.scan(valueType, idx)
+			if err != nil {
+				return nil, err
+			}
+			return v.Interface(), nil
+		}
+	}
+	v := col.values.Row(idx, false)
+	if v == nil {
+		// typed nil so map/orderedmap element assignment stays valid
+		if valueType != nil {
+			return reflect.Zero(valueType).Interface(), nil
+		}
+		return reflect.Zero(col.values.ScanType()).Interface(), nil
+	}
+	return v, nil
 }
 
 func (col *Map) Append(v any) (nulls []uint8, err error) {
@@ -215,7 +313,7 @@ func (col *Map) AppendRow(v any) error {
 		return nil
 	}
 
-	if orderedMap, ok := v.(IterableOrderedMap); ok {
+	if orderedMap, ok := asIterableOrderedMap(v); ok {
 		var size int64
 		iter := orderedMap.Iterator()
 		for iter.Next() {
@@ -236,7 +334,7 @@ func (col *Map) AppendRow(v any) error {
 		return nil
 	}
 
-	if orderedMap, ok := v.(OrderedMap); ok {
+	if orderedMap, ok := asOrderedMap(v); ok {
 		var size int64
 		for key := range orderedMap.Keys() {
 			value, ok := orderedMap.Get(key)
@@ -330,52 +428,111 @@ func (col *Map) WriteStatePrefix(encoder *proto.Buffer) error {
 }
 
 func (col *Map) row(n int) reflect.Value {
-	var (
-		prev  int64
-		value = reflect.MakeMap(col.scanType)
-	)
+	v, err := col.scanGoMap(col.scanType, n)
+	if err != nil {
+		// row() has no error path; fall back to an empty typed map
+		return reflect.MakeMap(col.scanType)
+	}
+	return v
+}
+
+func (col *Map) scanGoMap(destType reflect.Type, n int) (reflect.Value, error) {
+	value := reflect.MakeMap(destType)
+	elemType := destType.Elem()
+	var prev int64
 	if n != 0 {
 		prev = col.offsets.col.Row(n - 1)
 	}
-	var (
-		size = int(col.offsets.col.Row(n) - prev)
-		from = int(prev)
-	)
-	for next := 0; next < size; next++ {
-		mapValue := col.values.Row(from+next, false)
+	size := int(col.offsets.col.Row(n) - prev)
+	from := int(prev)
+	for next := range size {
+		mapValue, err := col.scanMapValue(elemType, from+next)
+		if err != nil {
+			return reflect.Value{}, err
+		}
 		var mapReflectValue reflect.Value
 		if mapValue == nil {
 			// Convert any nil to typed nil (such as nil *string) to preserve map element
 			// https://github.com/ClickHouse/clickhouse-go/issues/1515
-			mapReflectValue = reflect.New(value.Type().Elem()).Elem()
+			mapReflectValue = reflect.New(elemType).Elem()
 		} else {
 			mapReflectValue = reflect.ValueOf(mapValue)
+			if mapReflectValue.Type() != elemType && mapReflectValue.CanConvert(elemType) {
+				mapReflectValue = mapReflectValue.Convert(elemType)
+			}
 		}
-
 		value.SetMapIndex(
 			reflect.ValueOf(col.keys.Row(from+next, false)),
 			mapReflectValue,
 		)
 	}
-	return value
+	return value, nil
 }
 
-func (col *Map) orderedRow(n int) ([]any, []any) {
-	var prev int64
-	if n != 0 {
-		prev = col.offsets.col.Row(n - 1)
+var (
+	iterableOrderedMapType = reflect.TypeFor[IterableOrderedMap]()
+	orderedMapIfaceType    = reflect.TypeFor[OrderedMap]()
+)
+
+func isOrderedMapType(t reflect.Type) bool {
+	if t == nil {
+		return false
 	}
-	var (
-		size = int(col.offsets.col.Row(n) - prev)
-		from = int(prev)
-	)
-	keys := make([]any, size)
-	values := make([]any, size)
-	for next := 0; next < size; next++ {
-		keys[next] = col.keys.Row(from+next, false)
-		values[next] = col.values.Row(from+next, false)
+	if t.Implements(iterableOrderedMapType) || t.Implements(orderedMapIfaceType) {
+		return true
 	}
-	return keys, values
+	if t.Kind() != reflect.Pointer {
+		pt := reflect.PointerTo(t)
+		return pt.Implements(iterableOrderedMapType) || pt.Implements(orderedMapIfaceType)
+	}
+	return false
+}
+
+// asIterableOrderedMap accepts both *orderedmap.Map and orderedmap.Map values.
+// Nested map values from Iterator().Value() are non-pointers.
+func asIterableOrderedMap(v any) (IterableOrderedMap, bool) {
+	if om, ok := v.(IterableOrderedMap); ok {
+		return om, true
+	}
+	rv := reflect.ValueOf(v)
+	if rv.Kind() != reflect.Pointer && isOrderedMapType(rv.Type()) && reflect.PointerTo(rv.Type()).Implements(iterableOrderedMapType) {
+		ptr := reflect.New(rv.Type())
+		ptr.Elem().Set(rv)
+		return ptr.Interface().(IterableOrderedMap), true
+	}
+	return nil, false
+}
+
+func asOrderedMap(v any) (OrderedMap, bool) {
+	if om, ok := v.(OrderedMap); ok {
+		return om, true
+	}
+	rv := reflect.ValueOf(v)
+	if rv.Kind() != reflect.Pointer && isOrderedMapType(rv.Type()) && reflect.PointerTo(rv.Type()).Implements(orderedMapIfaceType) {
+		ptr := reflect.New(rv.Type())
+		ptr.Elem().Set(rv)
+		return ptr.Interface().(OrderedMap), true
+	}
+	return nil, false
+}
+
+// orderedMapValueType returns V for orderedmap.Map[K,V] (a []entry[K,V] slice).
+// Custom IterableOrderedMap types return nil and keep the default Row path.
+func orderedMapValueType(t reflect.Type) reflect.Type {
+	for t != nil && t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+	if t == nil || t.Kind() != reflect.Slice {
+		return nil
+	}
+	entry := t.Elem()
+	if entry.Kind() != reflect.Struct || entry.NumField() < 2 {
+		return nil
+	}
+	if !strings.HasSuffix(entry.PkgPath(), "/lib/column/orderedmap") {
+		return nil
+	}
+	return entry.Field(1).Type
 }
 
 var (
