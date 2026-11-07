@@ -76,3 +76,44 @@ func TestQueryProtocolErrorRetiresConnection(t *testing.T) {
 		})
 	}
 }
+
+// A context deadline stops the blocked read while firstBlock or process cancels
+// the query. Only the caller goroutine may retire the connection then. A close()
+// in the reader goroutine races with cancel() for the write buffer.
+func TestQueryDeadlineRetiresConnectionWithoutRace(t *testing.T) {
+	for _, phase := range []string{"first block", "stream"} {
+		t.Run(phase, func(t *testing.T) {
+			for range 20 {
+				client, server := net.Pipe()
+				drained := make(chan struct{})
+				go func() {
+					// Read the cancel packet until the client side closes.
+					defer close(drained)
+					buf := make([]byte, 64)
+					for {
+						if _, err := server.Read(buf); err != nil {
+							return
+						}
+					}
+				}()
+				c := &connect{
+					conn: client, reader: chproto.NewReader(client), buffer: new(chproto.Buffer),
+					logger:      slog.New(slog.NewTextHandler(io.Discard, nil)),
+					readTimeout: time.Second,
+				}
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Millisecond)
+				var err error
+				if phase == "first block" {
+					_, err = c.firstBlock(ctx, &onProcess{})
+				} else {
+					err = c.process(ctx, &onProcess{})
+				}
+				cancel()
+				require.Error(t, err)
+				require.True(t, c.isClosed(), "a timed-out query can leave unread response bytes")
+				<-drained
+				require.NoError(t, server.Close())
+			}
+		})
+	}
+}

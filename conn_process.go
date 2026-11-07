@@ -47,6 +47,11 @@ func (c *connect) firstBlock(ctx context.Context, on *onProcess) (*proto.Block, 
 		return nil, ctx.Err()
 
 	case err := <-errCh:
+		// firstBlockImpl returns io.EOF itself only at the end of stream. Read
+		// errors are wrapped, so they still retire the connection.
+		if err != io.EOF {
+			c.closeOnQueryError(err)
+		}
 		return nil, err
 
 	case block := <-resultCh:
@@ -54,14 +59,7 @@ func (c *connect) firstBlock(ctx context.Context, on *onProcess) (*proto.Block, 
 	}
 }
 
-func (c *connect) firstBlockImpl(ctx context.Context, on *onProcess) (block *proto.Block, err error) {
-	endOfStream := false
-	defer func() {
-		if !endOfStream {
-			c.closeOnQueryError(err)
-		}
-	}()
-
+func (c *connect) firstBlockImpl(ctx context.Context, on *onProcess) (*proto.Block, error) {
 	c.readerMutex.Lock()
 	defer c.readerMutex.Unlock()
 
@@ -85,7 +83,6 @@ func (c *connect) firstBlockImpl(ctx context.Context, on *onProcess) (block *pro
 
 		case proto.ServerEndOfStream:
 			c.logger.Debug("end of stream received")
-			endOfStream = true
 			return nil, io.EOF
 
 		default:
@@ -129,6 +126,7 @@ func (c *connect) process(ctx context.Context, on *onProcess) error {
 		return ctx.Err()
 
 	case err := <-errCh:
+		c.closeOnQueryError(err)
 		return err
 
 	case <-doneCh:
@@ -136,9 +134,7 @@ func (c *connect) process(ctx context.Context, on *onProcess) error {
 	}
 }
 
-func (c *connect) processImpl(ctx context.Context, on *onProcess) (err error) {
-	defer func() { c.closeOnQueryError(err) }()
-
+func (c *connect) processImpl(ctx context.Context, on *onProcess) error {
 	c.readerMutex.Lock()
 	defer c.readerMutex.Unlock()
 
@@ -173,7 +169,9 @@ func (c *connect) processImpl(ctx context.Context, on *onProcess) (err error) {
 
 // A decoded server exception terminates the response cleanly. Other read errors
 // can leave unread response bytes, so retire the connection before returning the
-// error to database/sql. This must run after releasing readerMutex.
+// error to database/sql. Only firstBlock and process call this, on the goroutine
+// that also calls cancel(), after the reader goroutine has returned: close() and
+// cancel() must not run at the same time.
 func (c *connect) closeOnQueryError(err error) {
 	var exception *Exception
 	if err == nil || errors.As(err, &exception) {
