@@ -235,36 +235,21 @@ Finally, note the ability to pass a `Context` to the `Query` and `QueryRow` meth
 
 ## Async insert {#async-insert}
 
-Asynchronous inserts are supported through the Async method. This allows the user to specify whether the client should wait for the server to complete the insert or respond once the data has been received. This effectively controls the parameter [wait_for_async_insert](/reference/settings/session-settings#wait_for_async_insert).
+With [async insert](https://clickhouse.com/docs/concepts/features/operations/insert/asyncinserts), the server keeps the data of many small inserts in a buffer and writes them together. Two server settings control it:
+
+* [`async_insert`](/reference/settings/session-settings#async_insert): `1` enables async insert. `0` disables it.
+* [`wait_for_async_insert`](/reference/settings/session-settings#wait_for_async_insert): `1` makes the server send the response after it writes the data. `0` makes the server send the response when it receives the data.
+
+Set these settings with `WithSettings`. They apply to `Exec` and to batches from `PrepareBatch`, on the Native and HTTP protocols.
 
 ```go
-conn, err := GetNativeConnection(nil, nil, nil)
-if err != nil {
-    return err
-}
-ctx := context.Background()
-if err := clickhouse_tests.CheckMinServerServerVersion(conn, 21, 12, 0); err != nil {
-    return nil
-}
-defer func() {
-    conn.Exec(ctx, "DROP TABLE example")
-}()
-conn.Exec(ctx, `DROP TABLE IF EXISTS example`)
-const ddl = `
-    CREATE TABLE example (
-            Col1 UInt64
-        , Col2 String
-        , Col3 Array(UInt8)
-        , Col4 DateTime
-    ) ENGINE = Memory
-`
-if err := conn.Exec(ctx, ddl); err != nil {
-    return err
-}
+ctx := clickhouse.Context(context.Background(), clickhouse.WithSettings(clickhouse.Settings{
+    "async_insert":          1,
+    "wait_for_async_insert": 1,
+}))
 for i := 0; i < 100; i++ {
-    if err := conn.AsyncInsert(ctx, fmt.Sprintf(`INSERT INTO example VALUES (
-        %d, '%s', [1, 2, 3, 4, 5, 6, 7, 8, 9], now()
-    )`, i, "Golang SQL database driver"), false); err != nil {
+    if err := conn.Exec(ctx, `INSERT INTO example VALUES (?, ?, [1, 2, 3, 4, 5, 6, 7, 8, 9], now())`,
+        i, "Golang SQL database driver"); err != nil {
         return err
     }
 }
@@ -272,13 +257,18 @@ for i := 0; i < 100; i++ {
 
 [Full Example](https://github.com/ClickHouse/clickhouse-go/blob/main/examples/clickhouse_api/async_native.go)
 
+If `wait_for_async_insert` is `0`, the insert is fast, but the client does not get insert errors. Look for errors in `system.asynchronous_insert_log`.
+
 ### Async insert with a batch {#async-insert-batch}
 
-`WithAsync` also applies to batch inserts on the Native and HTTP protocols. A batch uses only the context that you give to `PrepareBatch`. `Send` sends the batch with the settings from that context.
+A batch uses only the context that you give to `PrepareBatch`. `Send` sends the batch with the settings from that context.
 
 ```go
-ctx := clickhouse.Context(context.Background(), clickhouse.WithAsync(true))
-batch, err := conn.PrepareBatch(ctx, "INSERT INTO example") // WithAsync must be on this context
+ctx := clickhouse.Context(context.Background(), clickhouse.WithSettings(clickhouse.Settings{
+    "async_insert":          1,
+    "wait_for_async_insert": 1,
+}))
+batch, err := conn.PrepareBatch(ctx, "INSERT INTO example") // the settings must be on this context
 if err != nil {
     return err
 }
@@ -291,6 +281,57 @@ return batch.Send()
 ```
 
 [Full Example](https://github.com/ClickHouse/clickhouse-go/blob/main/examples/clickhouse_api/async_native.go)
+
+### Async insert is the default on ClickHouse 26.2 and later {#async-insert-default}
+
+ClickHouse 26.2 and later set `async_insert=1` and `wait_for_async_insert=1` by default. Thus the server does not write an `INSERT` immediately. It keeps the data in a buffer for at least `async_insert_busy_timeout_min_ms` (50 ms by default). If inserts arrive frequently, the server increases this time up to `async_insert_busy_timeout_max_ms` (200 ms by default). Then it writes the buffer and sends the response.
+
+With a low insert rate, each `INSERT` takes 50 ms or more. This occurs on the Native and HTTP protocols and with all clients. The delay occurs one time for each `INSERT`, not for each row.
+
+If you send one row in each `Exec` call, one goroutine can do only approximately 5 to 20 inserts each second. To prevent this, do one of these steps:
+
+* Send many rows in one `INSERT` with `PrepareBatch`.
+* Disable async insert for the query:
+
+    ```go
+    ctx := clickhouse.Context(context.Background(), clickhouse.WithSettings(clickhouse.Settings{
+        "async_insert": 0,
+    }))
+    if err := conn.Exec(ctx, "INSERT INTO example VALUES (1)"); err != nil {
+        return err
+    }
+    ```
+
+    To disable async insert for all queries, set `"async_insert": 0` in `Options.Settings`.
+* Set `wait_for_async_insert` to `0`. The insert is fast, but the client does not get insert errors.
+
+### `WithAsync` and `AsyncInsert` are deprecated {#async-insert-deprecated}
+
+`WithAsync`, `WithStdAsync` and `Conn.AsyncInsert` are deprecated. They will be removed in the next major version. They only set the two settings above, and `WithAsync(false)` does not disable async insert. It sets `async_insert=1` and `wait_for_async_insert=0`, so the client does not get insert errors.
+
+| Deprecated | Replacement |
+|---|---|
+| `WithAsync(true)` | `WithSettings(clickhouse.Settings{"async_insert": 1, "wait_for_async_insert": 1})`. On ClickHouse 26.2 and later with the default server settings, you can remove it. |
+| `WithAsync(false)`, `WithStdAsync(false)` | `WithSettings(clickhouse.Settings{"async_insert": 1, "wait_for_async_insert": 0})` |
+| `conn.AsyncInsert(ctx, query, wait)` | `conn.Exec(ctx, query)` with the settings above on `ctx` |
+| No replacement before: disable async insert | `WithSettings(clickhouse.Settings{"async_insert": 0})` |
+
+`WithSettings` replaces the settings of an earlier `WithSettings`. It does not merge them. If you already use `WithSettings`, add the async insert settings to the same `Settings` map. If you use two `WithSettings` options, the server does not get the settings of the first one:
+
+```go
+// Incorrect: the second WithSettings removes async_insert and wait_for_async_insert.
+ctx = clickhouse.Context(ctx,
+    clickhouse.WithSettings(clickhouse.Settings{"async_insert": 1, "wait_for_async_insert": 1}),
+    clickhouse.WithSettings(clickhouse.Settings{"log_comment": "import"}),
+)
+
+// Correct: all settings are in one map.
+ctx = clickhouse.Context(ctx, clickhouse.WithSettings(clickhouse.Settings{
+    "async_insert":          1,
+    "wait_for_async_insert": 1,
+    "log_comment":           "import",
+}))
+```
 
 ## Columnar insert {#columnar-insert}
 
