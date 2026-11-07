@@ -160,7 +160,8 @@ func (b *batch) appendRowsBlocks(r *rows) error {
 		lastReadLock = r.block
 	}
 
-	return nil
+	// Next returns false both at the end of the stream and on an error, such as an exception in the middle of it.
+	return r.Err()
 }
 
 func (b *batch) AppendStruct(v any) error {
