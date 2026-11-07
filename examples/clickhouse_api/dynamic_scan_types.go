@@ -20,6 +20,7 @@ func DynamicScan() error {
 	if err != nil {
 		return err
 	}
+	defer rows.Close()
 	var (
 		columnTypes = rows.ColumnTypes()
 		vars        = make([]any, len(columnTypes))
@@ -40,5 +41,5 @@ func DynamicScan() error {
 			}
 		}
 	}
-	return nil
+	return rows.Err()
 }
