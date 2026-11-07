@@ -118,9 +118,9 @@ func checkAllNamedArguments(args ...any) (bool, error) {
 // quoted identifier (backtick or double quote), a string literal (single quote),
 // or a comment.
 //
-// ClickHouse comment syntax: single-line comments start with "--", "#" or "#!"
-// and run to the end of the line; block comments are delimited by "/*" and "*/"
-// and may be nested.
+// ClickHouse comment syntax: single-line comments start with "--", "//", "#"
+// or "#!" and run to the end of the line; block comments are delimited by "/*"
+// and "*/" and may be nested.
 type bindQuoteState struct {
 	inBacktick    bool
 	inSingle      bool
@@ -148,7 +148,7 @@ func (s *bindQuoteState) inIdentifierOrComment() bool {
 
 // update consumes the byte at pos and advances the quote/comment state. It
 // returns the index of the last byte it consumed, which may be pos+1 when a
-// two-byte token (a doubled quote delimiter, "--", "/*" or "*/") is recognized
+// two-byte token (a doubled quote delimiter, "--", "//", "/*" or "*/") is recognized
 // so the caller's loop skips the second byte. Doubled delimiters and backslash
 // escapes keep the scanner inside the current quoted context.
 func (s *bindQuoteState) update(query string, pos int) int {
@@ -204,6 +204,10 @@ func (s *bindQuoteState) update(query string, pos int) int {
 			// "#" and "#!" both start a single-line comment.
 			s.inLineComment = true
 		case query[pos] == '-' && pos+1 < len(query) && query[pos+1] == '-':
+			s.inLineComment = true
+			return pos + 1
+		case query[pos] == '/' && pos+1 < len(query) && query[pos+1] == '/':
+			// "//" starts a single-line comment, like "--".
 			s.inLineComment = true
 			return pos + 1
 		case query[pos] == '/' && pos+1 < len(query) && query[pos+1] == '*':
