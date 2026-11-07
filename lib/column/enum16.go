@@ -202,9 +202,12 @@ func (col *Enum16) AppendRow(elem any) error {
 			return col.AppendRow(int(elem))
 		}
 	case *int16:
-		if col.continuous && *elem >= col.minEnum && *elem <= col.maxEnum {
+		switch {
+		case elem == nil:
+			col.col.Append(0)
+		case col.continuous && *elem >= col.minEnum && *elem <= col.maxEnum:
 			col.col.Append(proto.Enum16(*elem))
-		} else {
+		default:
 			return col.AppendRow(int(*elem))
 		}
 	case int:

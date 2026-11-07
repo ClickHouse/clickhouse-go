@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestExtractEnumNamedValues(t *testing.T) {
@@ -229,4 +230,42 @@ func createValidEnumsRange(min, max int) []int {
 		resultRange = append(resultRange, i)
 	}
 	return resultRange
+}
+
+func TestNullableEnumAppendRowNilPointer(t *testing.T) {
+	int8Value := int8(2)
+	int16Value := int16(2)
+
+	tests := []struct {
+		name     string
+		enumType string
+		nilValue any
+		value    any
+	}{
+		{
+			name:     "Enum8",
+			enumType: "Enum8('a'=1,'b'=2)",
+			nilValue: (*int8)(nil),
+			value:    &int8Value,
+		},
+		{
+			name:     "Enum16",
+			enumType: "Enum16('a'=1,'b'=2)",
+			nilValue: (*int16)(nil),
+			value:    &int16Value,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			col, err := Type("Nullable(" + tt.enumType + ")").Column("test", nil)
+			require.NoError(t, err)
+
+			require.NoError(t, col.AppendRow(tt.nilValue))
+			require.NoError(t, col.AppendRow(tt.value))
+
+			require.Equal(t, 2, col.Rows())
+			assert.Nil(t, col.Row(0, false))
+			assert.Equal(t, "b", *col.Row(1, false).(*string))
+		})
+	}
 }
