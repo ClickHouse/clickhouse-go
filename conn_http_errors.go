@@ -235,14 +235,14 @@ func parseHTTPException(text, headerCode, headerName string) *Exception {
 	return &Exception{Code: int32(code), Name: name, CodeName: codeName, Message: msg}
 }
 
-// insertResponseError drains a 200 insert response and surfaces a server
-// exception that was flushed after the status line. An insert normally
-// answers 200 with an empty body, but when the failure happens after the
-// headers went out (send_progress_in_http_headers enabled, or the insert
-// outlived the response buffer) the only failure signal is an in-band
-// "__exception__" block on an otherwise successful-looking response. Result
-// data cannot appear in an insert response, so the framed marker alone is
-// trustworthy here.
+// insertResponseError drains a 200 insert/exec response and surfaces a server
+// exception that was flushed after the status line. Those paths normally
+// answer 200 with an empty body, but when the failure happens after the
+// headers went out (send_progress_in_http_headers enabled, or the query
+// outlived the response buffer) the failure signal is an in-band
+// "__exception__" block and/or X-ClickHouse-Exception-Code on an otherwise
+// successful-looking response. Result data cannot appear in an insert or exec
+// response, so either signal is trustworthy here.
 func (h *httpConnect) insertResponseError(res *http.Response) error {
 	body, err := h.readRawResponse(res)
 	discardAndClose(res.Body)
@@ -251,6 +251,11 @@ func (h *httpConnect) insertResponseError(res *http.Response) error {
 	}
 	if isFramedException(body) {
 		return parseExceptionFromBytes(body)
+	}
+	if headerCode := res.Header.Get(exceptionCodeHeader); headerCode != "" {
+		if ex := parseHTTPException(string(body), headerCode, res.Header.Get(exceptionNameHeader)); ex != nil {
+			return ex
+		}
 	}
 	return nil
 }
