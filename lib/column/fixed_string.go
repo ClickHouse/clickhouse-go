@@ -174,17 +174,7 @@ func (col *FixedString) Append(v any) (nulls []uint8, err error) {
 			if v == nil {
 				nulls[i] = 1
 			}
-			n := len(v)
-			var err error
-			switch {
-			case n == 0:
-				err = col.safeAppendRow(nil)
-			case n >= col.col.Size:
-				err = col.safeAppendRow(v[0:col.col.Size])
-			default:
-				err = col.safeAppendRow(v)
-			}
-
+			err := col.safeAppendRow(v)
 			if err != nil {
 				return nil, err
 			}
