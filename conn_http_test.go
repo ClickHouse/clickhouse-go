@@ -172,3 +172,83 @@ func TestApplyOptionsToRequest_JWTAuth(t *testing.T) {
 		})
 	}
 }
+
+func TestApplyOptionsToRequest_TLSUsernameAuth(t *testing.T) {
+	clientCert := tls.Certificate{Certificate: [][]byte{{0x01}}}
+
+	tests := []struct {
+		name            string
+		tls             *tls.Config
+		auth            Auth
+		expectedInMap   map[string]string
+		unexpectedInMap []string
+	}{
+		{
+			name: "password disables certificate auth",
+			tls:  &tls.Config{},
+			auth: Auth{Username: "service", Password: "secret"},
+			expectedInMap: map[string]string{
+				"X-ClickHouse-User":                 "service",
+				"X-ClickHouse-Key":                  "secret",
+				"X-ClickHouse-SSL-Certificate-Auth": "off",
+			},
+		},
+		{
+			// Regression for #1630: a passwordless user over HTTPS without a
+			// client certificate must not be switched to certificate auth.
+			name:            "empty password without client certificate",
+			tls:             &tls.Config{InsecureSkipVerify: true},
+			auth:            Auth{Username: "default"},
+			expectedInMap:   map[string]string{"X-ClickHouse-User": "default"},
+			unexpectedInMap: []string{"X-ClickHouse-Key", "X-ClickHouse-SSL-Certificate-Auth"},
+		},
+		{
+			name: "empty password with client certificate",
+			tls:  &tls.Config{Certificates: []tls.Certificate{clientCert}},
+			auth: Auth{Username: "cert_user"},
+			expectedInMap: map[string]string{
+				"X-ClickHouse-User":                 "cert_user",
+				"X-ClickHouse-SSL-Certificate-Auth": "on",
+			},
+			unexpectedInMap: []string{"X-ClickHouse-Key"},
+		},
+		{
+			name: "empty password with client certificate callback",
+			tls: &tls.Config{GetClientCertificate: func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
+				return &clientCert, nil
+			}},
+			auth: Auth{Username: "cert_user"},
+			expectedInMap: map[string]string{
+				"X-ClickHouse-User":                 "cert_user",
+				"X-ClickHouse-SSL-Certificate-Auth": "on",
+			},
+			unexpectedInMap: []string{"X-ClickHouse-Key"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req, err := http.NewRequest(http.MethodPost, "https://localhost:8443/", nil)
+			if err != nil {
+				t.Fatalf("failed to create request: %s", err)
+			}
+
+			opts := &Options{TLS: tt.tls, Auth: tt.auth}
+			if err := applyOptionsToRequest(context.Background(), req, opts); err != nil {
+				t.Fatalf("applyOptionsToRequest failed: %s", err)
+			}
+
+			for k, v := range tt.expectedInMap {
+				if got := req.Header.Get(k); got != v {
+					t.Errorf("req.Header[%q] = %q, want %q", k, got, v)
+				}
+			}
+
+			for _, k := range tt.unexpectedInMap {
+				if got := req.Header.Get(k); got != "" {
+					t.Errorf("req.Header[%q] = %q, want it absent", k, got)
+				}
+			}
+		})
+	}
+}
