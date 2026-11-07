@@ -1,9 +1,12 @@
 package column
 
 import (
+	"bytes"
 	"fmt"
 
 	"github.com/ClickHouse/ch-go/proto"
+
+	"github.com/ClickHouse/clickhouse-go/v2/lib/chcol"
 )
 
 func (c *JSON) encodeObjectHeader_v1(buffer *proto.Buffer) error {
@@ -114,11 +117,227 @@ func (c *JSON) decodeObjectData_v1(reader *proto.Reader, rows int) error {
 		}
 	}
 
-	// SharedData per row, ignored for now. May cause stream offset issues if present
-	_, err := reader.ReadRaw(8 * rows) // one UInt64 per row
-	if err != nil {
-		return fmt.Errorf("failed to read shared data for json column: %w", err)
+	if err := c.decodeSharedData_v1(reader, rows); err != nil {
+		return err
 	}
 
 	return nil
+}
+
+func (c *JSON) decodeSharedData_v1(reader *proto.Reader, rows int) error {
+	// ClickHouse stores overflow JSON paths as Array(Tuple(String, String)):
+	// UInt64 offsets followed by the flattened Tuple columns. Reading only the
+	// offsets leaves the Tuple payload in the stream and desyncs every later
+	// column (issue #1854).
+	col, err := Type("Array(Tuple(String, String))").Column("", c.sc)
+	if err != nil {
+		return fmt.Errorf("failed to init shared data for json column: %w", err)
+	}
+	if err := col.Decode(reader, rows); err != nil {
+		return fmt.Errorf("failed to read shared data for json column: %w", err)
+	}
+	c.sharedData = col
+	return nil
+}
+
+func (c *JSON) mergeSharedDataRow(obj *chcol.JSON, row int) {
+	if c.sharedData == nil || row >= c.sharedData.Rows() {
+		return
+	}
+	for _, pair := range sharedDataPairs(c.sharedData.Row(row, false)) {
+		value, chType := decodeSharedDataValue(pair[1])
+		obj.SetValueAtPath(pair[0], chcol.NewDynamicWithType(value, chType))
+	}
+}
+
+func sharedDataPairs(raw any) [][2]string {
+	switch rows := raw.(type) {
+	case [][]any:
+		out := make([][2]string, 0, len(rows))
+		for _, p := range rows {
+			if len(p) < 2 {
+				continue
+			}
+			path, _ := p[0].(string)
+			val, _ := p[1].(string)
+			if path != "" {
+				out = append(out, [2]string{path, val})
+			}
+		}
+		return out
+	case []any:
+		out := make([][2]string, 0, len(rows))
+		for _, item := range rows {
+			p, ok := item.([]any)
+			if !ok || len(p) < 2 {
+				continue
+			}
+			path, _ := p[0].(string)
+			val, _ := p[1].(string)
+			if path != "" {
+				out = append(out, [2]string{path, val})
+			}
+		}
+		return out
+	default:
+		return nil
+	}
+}
+
+// Binary type indexes from ClickHouse src/DataTypes/DataTypesBinaryEncoding.cpp.
+const (
+	binNothing  = 0x00
+	binUInt8    = 0x01
+	binUInt16   = 0x02
+	binUInt32   = 0x03
+	binUInt64   = 0x04
+	binInt8     = 0x07
+	binInt16    = 0x08
+	binInt32    = 0x09
+	binInt64    = 0x0A
+	binFloat32  = 0x0D
+	binFloat64  = 0x0E
+	binString   = 0x15
+	binArray    = 0x1E
+	binNullable = 0x23
+	binBool     = 0x2D
+	binDynamic  = 0x2B
+)
+
+type sharedBinType struct {
+	kind  byte
+	child *sharedBinType
+	name  string
+}
+
+func decodeSharedDataValue(raw string) (any, string) {
+	if raw == "" {
+		return nil, ""
+	}
+	r := proto.NewReader(bytes.NewReader([]byte(raw)))
+	t, err := readSharedBinType(r)
+	if err != nil {
+		return raw, "String"
+	}
+	v, err := readSharedBinValue(r, t)
+	if err != nil {
+		return raw, "String"
+	}
+	return v, t.name
+}
+
+func readSharedBinType(r *proto.Reader) (sharedBinType, error) {
+	idx, err := r.ReadByte()
+	if err != nil {
+		return sharedBinType{}, err
+	}
+	switch idx {
+	case binNothing:
+		return sharedBinType{kind: idx, name: "Nothing"}, nil
+	case binUInt8:
+		return sharedBinType{kind: idx, name: "UInt8"}, nil
+	case binUInt16:
+		return sharedBinType{kind: idx, name: "UInt16"}, nil
+	case binUInt32:
+		return sharedBinType{kind: idx, name: "UInt32"}, nil
+	case binUInt64:
+		return sharedBinType{kind: idx, name: "UInt64"}, nil
+	case binInt8:
+		return sharedBinType{kind: idx, name: "Int8"}, nil
+	case binInt16:
+		return sharedBinType{kind: idx, name: "Int16"}, nil
+	case binInt32:
+		return sharedBinType{kind: idx, name: "Int32"}, nil
+	case binInt64:
+		return sharedBinType{kind: idx, name: "Int64"}, nil
+	case binFloat32:
+		return sharedBinType{kind: idx, name: "Float32"}, nil
+	case binFloat64:
+		return sharedBinType{kind: idx, name: "Float64"}, nil
+	case binString:
+		return sharedBinType{kind: idx, name: "String"}, nil
+	case binBool:
+		return sharedBinType{kind: idx, name: "Bool"}, nil
+	case binArray:
+		child, err := readSharedBinType(r)
+		if err != nil {
+			return sharedBinType{}, err
+		}
+		return sharedBinType{kind: idx, child: &child, name: "Array(" + child.name + ")"}, nil
+	case binNullable:
+		child, err := readSharedBinType(r)
+		if err != nil {
+			return sharedBinType{}, err
+		}
+		return sharedBinType{kind: idx, child: &child, name: "Nullable(" + child.name + ")"}, nil
+	case binDynamic:
+		if _, err := r.ReadByte(); err != nil { // uint8 max_types
+			return sharedBinType{}, err
+		}
+		return sharedBinType{kind: idx, name: "Dynamic"}, nil
+	default:
+		return sharedBinType{}, fmt.Errorf("unsupported shared-data type index 0x%02x", idx)
+	}
+}
+
+func readSharedBinValue(r *proto.Reader, t sharedBinType) (any, error) {
+	switch t.kind {
+	case binNothing:
+		return nil, nil
+	case binUInt8:
+		return r.UInt8()
+	case binUInt16:
+		return r.UInt16()
+	case binUInt32:
+		return r.UInt32()
+	case binUInt64:
+		return r.UInt64()
+	case binInt8:
+		return r.Int8()
+	case binInt16:
+		return r.Int16()
+	case binInt32:
+		return r.Int32()
+	case binInt64:
+		return r.Int64()
+	case binFloat32:
+		return r.Float32()
+	case binFloat64:
+		return r.Float64()
+	case binString:
+		return r.Str()
+	case binBool:
+		return r.Bool()
+	case binArray:
+		n, err := r.UVarInt()
+		if err != nil {
+			return nil, err
+		}
+		out := make([]any, 0, n)
+		for i := uint64(0); i < n; i++ {
+			v, err := readSharedBinValue(r, *t.child)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, v)
+		}
+		return out, nil
+	case binNullable:
+		flag, err := r.ReadByte()
+		if err != nil {
+			return nil, err
+		}
+		if flag != 0 {
+			return nil, nil
+		}
+		return readSharedBinValue(r, *t.child)
+	case binDynamic:
+		inner, err := readSharedBinType(r)
+		if err != nil {
+			return nil, err
+		}
+		return readSharedBinValue(r, inner)
+	default:
+		return nil, fmt.Errorf("unsupported shared-data type index 0x%02x", t.kind)
+	}
 }
