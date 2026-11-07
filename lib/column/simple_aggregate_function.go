@@ -24,7 +24,11 @@ func (col *SimpleAggregateFunction) Name() string {
 
 func (col *SimpleAggregateFunction) parse(t Type, sc *ServerContext) (_ Interface, err error) {
 	col.chType = t
-	base := strings.TrimSpace(strings.SplitN(t.params(), ",", 2)[1])
+	params := strings.SplitN(t.params(), ",", 2)
+	if len(params) != 2 {
+		return nil, fmt.Errorf("invalid SimpleAggregateFunction format: '%s'", t)
+	}
+	base := strings.TrimSpace(params[1])
 	if col.base, err = Type(base).Column(col.name, sc); err == nil {
 		return col, nil
 	}
