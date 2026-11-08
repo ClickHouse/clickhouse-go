@@ -230,7 +230,7 @@ func BenchmarkUUID(b *testing.B) {
 
 	const rowsInBlock = 10_000_000
 	value := uuid.New()
-	for n := 0; n < b.N; n++ {
+	for b.Loop() {
 		batch, err := conn.PrepareBatch(ctx, "INSERT INTO benchmark_uuid VALUES")
 		if err != nil {
 			b.Fatal(err)
@@ -356,41 +356,85 @@ func (c *testUUIDValuer) Scan(src any) error {
 	return fmt.Errorf("cannot scan %T into testUUIDValuer", src)
 }
 
-func TestUUIDValuer(t *testing.T) {
+type testUUIDTextMarshaller struct {
+	val uuid.UUID
+}
+
+func (c testUUIDTextMarshaller) MarshalText() ([]byte, error)     { return c.val.MarshalText() }
+func (c *testUUIDTextMarshaller) UnmarshalText(data []byte) error { return c.val.UnmarshalText(data) }
+
+type testUUIDStringer struct {
+	val uuid.UUID
+}
+
+func (c testUUIDStringer) String() string                   { return c.val.String() }
+func (c *testUUIDStringer) UnmarshalText(data []byte) error { return c.val.UnmarshalText(data) }
+
+func TestUUIDImplementations(t *testing.T) {
+	t.Run("valuer", func(t *testing.T) {
+		ids := [1000]testUUIDValuer{}
+		for i := range ids {
+			ids[i].val = uuid.New()
+		}
+		testUUIDImplementation(t, ids)
+	})
+
+	t.Run("text marshaller", func(t *testing.T) {
+		ids := [1000]testUUIDTextMarshaller{}
+		for i := range ids {
+			ids[i].val = uuid.New()
+		}
+		testUUIDImplementation(t, ids)
+	})
+
+	t.Run("stringer", func(t *testing.T) {
+		ids := [1000]testUUIDStringer{}
+		for i := range ids {
+			ids[i].val = uuid.New()
+		}
+		testUUIDImplementation(t, ids)
+	})
+}
+
+func testUUIDImplementation[T any](t *testing.T, vals [1000]T) {
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		ctx := t.Context()
+
 		conn, err := GetNativeConnection(t, protocol, nil, nil, &clickhouse.Compression{
 			Method: clickhouse.CompressionLZ4,
 		})
-		ctx := context.Background()
 		require.NoError(t, err)
+
 		defer func() {
 			conn.Exec(ctx, "DROP TABLE IF EXISTS uuid_valuer1")
 		}()
 		const ddl = `
 		CREATE TABLE uuid_valuer1 (
-			  Col1 UUID
+			Col1 UUID
 		) Engine MergeTree() ORDER BY tuple()
 		`
 		require.NoError(t, conn.Exec(ctx, ddl))
+
 		batch, err := conn.PrepareBatch(ctx, "INSERT INTO uuid_valuer1")
 		require.NoError(t, err)
-		vals := [1000]uuid.UUID{}
-		for i := 0; i < 1000; i++ {
-			vals[i] = uuid.New()
-			require.NoError(t, batch.Append(testUUIDValuer{val: vals[i]}))
+		for i := range vals {
+			require.NotEmpty(t, vals[i])
+			require.NoError(t, batch.Append(vals[i]))
 		}
-		batch.Send()
+		err = batch.Send()
+		require.NoError(t, err)
+
 		rows, err := conn.Query(ctx, "SELECT * FROM uuid_valuer1")
 		require.NoError(t, err)
 		i := 0
 		for rows.Next() {
-			var col1 uuid.UUID
+			var col1 T
 			require.NoError(t, rows.Scan(&col1))
 			require.Equal(t, vals[i], col1)
 			i += 1
 		}
 		require.NoError(t, rows.Close())
 		require.NoError(t, rows.Err())
-		require.Equal(t, 1000, i)
+		require.Equal(t, len(vals), i)
 	})
 }
