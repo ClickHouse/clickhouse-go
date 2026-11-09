@@ -205,6 +205,7 @@ func (b *batch) Send() (err error) {
 		// close TCP connection on context cancel. There is no other way simple way to interrupt underlying operations.
 		// as verified in the test, this is safe to do and cleanups resources later on
 		if b.conn != nil {
+			b.conn.setClosed()
 			_ = b.conn.conn.Close()
 		}
 	})

@@ -13,9 +13,7 @@ import "context"
 //
 // The watchdog goroutine exits when either the context is done or the returned
 // cancel function is called. cancel blocks until the goroutine has exited, so
-// once it returns the callback is either finished or will never run; a callback
-// that has not started by the time cancel is called is skipped even if the
-// context is already done.
+// once cancel returns, the callback has either completed or will never run.
 func contextWatchdog(ctx context.Context, callback func()) (cancel func()) {
 	exit := make(chan struct{})
 	done := make(chan struct{})
