@@ -26,7 +26,7 @@ func TestBatchAppendRows(t *testing.T) {
 	// given we have two tables and a million rows in the source table
 	var tables = []string{"source", "target"}
 	for _, table := range tables {
-		require.NoError(t, conn.Exec(context.Background(), "create table if not exists "+table+" (number1 Int, number2 LowCardinality(String), number3 Tuple(String, Int), number4 DateTime) engine = Memory()"))
+		require.NoError(t, conn.Exec(context.Background(), "create table if not exists "+table+" (number1 Int, number2 LowCardinality(String), number3 Tuple(String, Int), number4 DateTime) engine = MergeTree ORDER BY tuple()"))
 		defer conn.Exec(context.Background(), "drop table if exists "+table)
 	}
 
