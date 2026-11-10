@@ -1,3 +1,56 @@
+# v2.51.0, 2026-11-09 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+
+### Bug fixes
+* chore: fix race resetConnection runs without watchdog by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/2097
+* fix(column): reject non-IPv4 addresses in IPv4 appends by @fallintoplace in https://github.com/ClickHouse/clickhouse-go/pull/2020
+
+### Notes
+with #2020, now `AppendV4IPs(ips []netip.Addr) error` returns error. So it wouldn't panic in case non-ipv4 addresses. so if you were using it without error handling `AppendV4IPs` now it's better to handle the error `err = AppendV4IPs` to know the invalid ipv4 addresses.
+
+### Other Changes 🛠
+* chore(deps): bump github.com/andybalholm/brotli from 1.2.6 to 1.2.7 by @coraxster in https://github.com/ClickHouse/clickhouse-go/pull/2088
+* chore(deps): bump github.com/ClickHouse/ch-go from 0.74.0 to 0.75.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/2086
+* chore(deps): bump github.com/shopspring/decimal from 1.5.0 to 1.6.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/2078
+* chore(deps): bump golang.org/x/net from 0.61.0 to 0.62.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/2092
+
+* chore: refresh CI ClickHouse server version matrix by @polyglotAI-bot in https://github.com/ClickHouse/clickhouse-go/pull/2037
+* chore(deps): bump github.com/paulmach/orb from 0.13.0 to 0.14.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/2102
+* chore: make the fork PR able to run cloud runs on demand by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/2103
+
+
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.50.0...v2.51.0
+
+# v2.50.0, 2026-10-26 <!-- Release notes generated using configuration in .github/release.yml at main -->
+
+## What's Changed
+
+### Improvements 🚀 
+* fix: respect WithAsync in PrepareBatch for Native and HTTP by @ccoltx in https://github.com/ClickHouse/clickhouse-go/pull/2068
+
+### Bug Fixes 🐛 
+* fix(nullable): clear pointer destinations on null rows by @014-code in https://github.com/ClickHouse/clickhouse-go/pull/1926
+* chore: handle the case where query goes to different replicas by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/2081
+* chore: fix potential flaky cases on cloud  by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/2083
+* chore: careful with logging the DSN url by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/2082
+
+### Other Changes 🛠
+* chore(deps): bump github.com/moby/moby/client from 0.6.0 to 0.6.2 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/2065
+* chore(deps): bump github.com/shopspring/decimal from 1.4.0 to 1.5.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/2061
+* chore: upgrade golang 1.25 -> 1.26 by @kavirajk in https://github.com/ClickHouse/clickhouse-go/pull/2077
+* chore(deps): bump golang.org/x/net from 0.58.0 to 0.61.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/2064
+* docs: note that the client works with Cloud and self-hosted by @mikelewisCH in https://github.com/ClickHouse/clickhouse-go/pull/2075
+* chore(deps): bump go.opentelemetry.io/otel/trace from 1.46.0 to 1.47.0 by @dependabot[bot] in https://github.com/ClickHouse/clickhouse-go/pull/2051
+
+## New Contributors
+* @ccoltx made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/2068
+* @mikelewisCH made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/2075
+* @014-code made their first contribution in https://github.com/ClickHouse/clickhouse-go/pull/1926
+
+**Full Changelog**: https://github.com/ClickHouse/clickhouse-go/compare/v2.49.0...v2.50.0
+
 # v2.49.0, 2026-10-08 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ## What's Changed
