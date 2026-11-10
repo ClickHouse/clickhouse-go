@@ -60,19 +60,22 @@ func AsyncInsertNative_WithPrepare() error {
 		return err
 	}
 
-	s, err := conn.Prepare(`INSERT INTO example VALUES (?, ?, ?, ?)`)
+	scope, err := conn.Begin()
+	if err != nil {
+		return err
+	}
+	// The batch uses only the context from PrepareContext, so WithAsync must be on it.
+	ctx := clickhouse.Context(context.Background(), clickhouse.WithAsync(false))
+	s, err := scope.PrepareContext(ctx, `INSERT INTO example VALUES (?, ?, ?, ?)`)
 	if err != nil {
 		return err
 	}
 
-	ctx := clickhouse.Context(context.Background(), clickhouse.WithAsync(false))
-	{
-		for i := 0; i < 100; i++ {
-			_, err := s.ExecContext(ctx, i, "Golang SQL database driver", []uint8{1, 2, 3, 4, 5, 6, 7, 8, 9}, time.Now())
-			if err != nil {
-				return err
-			}
+	for i := 0; i < 100; i++ {
+		_, err := s.Exec(i, "Golang SQL database driver", []uint8{1, 2, 3, 4, 5, 6, 7, 8, 9}, time.Now())
+		if err != nil {
+			return err
 		}
 	}
-	return nil
+	return scope.Commit()
 }
