@@ -238,6 +238,7 @@ func (b *httpBatch) Send() (err error) {
 	}
 
 	options := queryOptions(b.ctx)
+	options.applyBatchAsyncInsertSettings()
 	headers := make(map[string]string)
 	switch b.conn.compression {
 	case CompressionGZIP, CompressionDeflate, CompressionBrotli:
