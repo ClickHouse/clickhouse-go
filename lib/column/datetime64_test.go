@@ -35,8 +35,25 @@ func TestDateTime64ParseMalformed(t *testing.T) {
 
 func TestDateTime64ParseValid(t *testing.T) {
 	sc := &ServerContext{Timezone: time.UTC}
-	col, err := Type("DateTime64(3, 'UTC')").Column("col", sc)
-	require.NoError(t, err)
-	require.IsType(t, &DateTime64{}, col)
-	assert.Equal(t, Type("DateTime64(3, 'UTC')"), col.Type())
+	tests := []struct {
+		name     string
+		chType   Type
+		wantZone *time.Location
+	}{
+		{name: "timezone with space", chType: "DateTime64(3, 'UTC')", wantZone: time.UTC},
+		{name: "timezone without space", chType: "DateTime64(3,'UTC')", wantZone: time.UTC},
+		// an empty quoted name resolves to UTC, like time.LoadLocation("")
+		{name: "empty timezone name", chType: "DateTime64(3, '')", wantZone: time.UTC},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			col, err := tt.chType.Column("col", sc)
+			require.NoError(t, err)
+			require.IsType(t, &DateTime64{}, col)
+			assert.Equal(t, tt.chType, col.Type())
+			assert.Equal(t, tt.wantZone, col.(*DateTime64).col.Location)
+		})
+	}
 }
