@@ -601,3 +601,54 @@ func (s *sqlScannerIPv4) Scan(src any) error {
 	s.value = src
 	return nil
 }
+
+func TestIPv4RejectsIPv6AndAcceptsMappedIPv6(t *testing.T) {
+	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		conn, err := GetNativeConnection(t, protocol, nil, nil, &clickhouse.Compression{
+			Method: clickhouse.CompressionLZ4,
+		})
+		require.NoError(t, err)
+		ctx := context.Background()
+		const ddl = `
+			CREATE TABLE test_ipv4_mapped (
+				  Col1 IPv4
+				, Col2 IPv4
+				, Col3 IPv4
+			) Engine MergeTree() ORDER BY tuple()
+		`
+		require.NoError(t, conn.Exec(ctx, ddl))
+		t.Cleanup(func() {
+			require.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS test_ipv4_mapped"))
+		})
+
+		const ipv6 = "2001:db8::1"
+		ipv6Inputs := map[string]any{
+			"string":     ipv6,
+			"netip.Addr": netip.MustParseAddr(ipv6),
+			"net.IP":     net.ParseIP(ipv6),
+		}
+		valid := netip.MustParseAddr("192.0.2.2")
+		for name, input := range ipv6Inputs {
+			t.Run("rejects IPv6 "+name, func(t *testing.T) {
+				batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_ipv4_mapped")
+				require.NoError(t, err)
+				err = batch.Append(input, valid, valid)
+				var convErr *column.ColumnConverterError
+				require.ErrorAs(t, err, &convErr, "input %v: expected a column converter error", input)
+				require.ErrorContains(t, err, ipv6)
+			})
+		}
+
+		const mapped = "::ffff:192.0.2.1"
+		batch, err := conn.PrepareBatch(ctx, "INSERT INTO test_ipv4_mapped")
+		require.NoError(t, err)
+		require.NoError(t, batch.Append(mapped, netip.MustParseAddr(mapped), net.ParseIP(mapped)))
+		require.NoError(t, batch.Send())
+
+		var col1, col2, col3 string
+		require.NoError(t, conn.QueryRow(ctx, "SELECT toString(Col1), toString(Col2), toString(Col3) FROM test_ipv4_mapped").Scan(&col1, &col2, &col3))
+		assert.Equal(t, "192.0.2.1", col1)
+		assert.Equal(t, "192.0.2.1", col2)
+		assert.Equal(t, "192.0.2.1", col3)
+	})
+}
