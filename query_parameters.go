@@ -154,11 +154,16 @@ func isQueryParameter(query string) bool {
 	}
 
 	nameEnd := nameStart
-	for nameEnd < len(query) && isNameChar(query[nameEnd]) {
+	// ClickHouse BareWord names can contain '$', unlike legacy @name placeholders.
+	for nameEnd < len(query) && (isNameChar(query[nameEnd]) || query[nameEnd] == '$') {
 		nameEnd++
 	}
+	// A standalone '$' is a separate lexer token, not a parameter name.
+	if nameEnd == nameStart || (nameEnd == nameStart+1 && query[nameStart] == '$') {
+		return false
+	}
 	colon := skipSpace(query, nameEnd)
-	if nameEnd == nameStart || colon >= len(query) || query[colon] != ':' {
+	if colon >= len(query) || query[colon] != ':' {
 		return false
 	}
 

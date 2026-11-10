@@ -46,3 +46,25 @@ func TestIssue1938_QuotedJSONWithPositionalArgument(t *testing.T) {
 		require.Equal(t, uint8(7), bound)
 	})
 }
+
+func TestIssue1938_DollarQueryParameterNames(t *testing.T) {
+	clickhouse_tests.TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		ctx := context.Background()
+		conn, err := clickhouse_tests.GetConnection("issues", t, protocol, nil, nil, nil)
+		require.NoError(t, err)
+		t.Cleanup(func() { conn.Close() })
+
+		if !clickhouse_tests.CheckMinServerServerVersion(conn, 22, 8, 0) {
+			t.Skip("server-side query parameters require ClickHouse 22.8+")
+		}
+
+		for _, name := range []string{"my$p", "$p", "p$"} {
+			t.Run(name, func(t *testing.T) {
+				var actual uint64
+				query := "SELECT {" + name + ":UInt64}"
+				require.NoError(t, conn.QueryRow(ctx, query, clickhouse.Named(name, 42)).Scan(&actual))
+				require.Equal(t, uint64(42), actual)
+			})
+		}
+	})
+}

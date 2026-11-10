@@ -283,6 +283,23 @@ func TestBindQueryDetectsQueryParameter(t *testing.T) {
 		assert.Equal(t, Parameters{"value": "hello"}, options.parameters)
 	})
 
+	for _, name := range []string{"my$p", "$p", "p$"} {
+		t.Run("dollar name "+name, func(t *testing.T) {
+			options := QueryOptions{}
+			query := "SELECT {" + name + ":UInt64}"
+
+			actual, err := bindQueryOrAppendParameters(true, &options, query, time.UTC, Named(name, 42))
+
+			require.NoError(t, err)
+			assert.Equal(t, query, actual)
+			assert.Equal(t, Parameters{name: "42"}, options.parameters)
+		})
+	}
+
+	t.Run("standalone dollar is not a parameter name", func(t *testing.T) {
+		assert.False(t, hasQueryParameters("SELECT {$:UInt64}"))
+	})
+
 	t.Run("map literal with a positional argument", func(t *testing.T) {
 		options := QueryOptions{}
 		query := `SELECT {1:'a'}, ?`
