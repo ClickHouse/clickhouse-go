@@ -52,7 +52,7 @@ func runIssue1827Native(t *testing.T, ctx context.Context, protocol clickhouse.P
 	t.Cleanup(func() { conn.Close() })
 
 	t.Cleanup(func() { conn.Exec(ctx, "DROP TABLE IF EXISTS issue_1827") })
-	require.NoError(t, conn.Exec(ctx, fmt.Sprintf("CREATE TABLE issue_1827 (col1 UInt8, %s UInt8, col3 UInt8) ENGINE = Memory", quotedCol)))
+	require.NoError(t, conn.Exec(ctx, fmt.Sprintf("CREATE TABLE issue_1827 (col1 UInt8, %s UInt8, col3 UInt8) ENGINE = MergeTree ORDER BY tuple()", quotedCol)))
 
 	batch, err := conn.PrepareBatch(ctx, fmt.Sprintf("INSERT INTO issue_1827 (col1, %s, col3)", quotedCol))
 	require.NoError(t, err)
@@ -73,7 +73,7 @@ func runIssue1827Std(t *testing.T, ctx context.Context, protocol clickhouse.Prot
 	t.Cleanup(func() { db.Close() })
 
 	t.Cleanup(func() { db.ExecContext(ctx, "DROP TABLE IF EXISTS issue_1827") })
-	_, err = db.ExecContext(ctx, fmt.Sprintf("CREATE TABLE issue_1827 (col1 UInt8, %s UInt8, col3 UInt8) ENGINE = Memory", quotedCol))
+	_, err = db.ExecContext(ctx, fmt.Sprintf("CREATE TABLE issue_1827 (col1 UInt8, %s UInt8, col3 UInt8) ENGINE = MergeTree ORDER BY tuple()", quotedCol))
 	require.NoError(t, err)
 
 	tx, err := db.Begin()
