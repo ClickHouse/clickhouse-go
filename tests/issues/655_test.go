@@ -26,7 +26,7 @@ func Test655(t *testing.T) {
 	conn.Exec(ctx, "DROP TABLE test_enum")
 	const ddl = `CREATE TABLE test_enum (
 				Col1 Enum8 ('Click'=5, 'House'=25)
-			) Engine Memory`
+			) Engine MergeTree ORDER BY tuple()`
 	require.NoError(t, conn.Exec(ctx, ddl))
 
 	defer func() {
