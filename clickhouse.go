@@ -28,16 +28,20 @@ type (
 )
 
 var (
-	ErrBatchInvalid              = errors.New("clickhouse: batch is invalid. check appended data is correct")
-	ErrBatchAlreadySent          = errors.New("clickhouse: batch has already been sent")
-	ErrBatchNotSent              = errors.New("clickhouse: invalid retry, batch not sent yet")
-	ErrAcquireConnTimeout        = errors.New("clickhouse: acquire conn timeout. you can increase the number of max open conn or the dial timeout")
-	ErrUnsupportedServerRevision = errors.New("clickhouse: unsupported server revision")
-	ErrBindMixedParamsFormats    = errors.New("clickhouse [bind]: mixed named, numeric or positional parameters")
-	ErrAcquireConnNoAddress      = errors.New("clickhouse: no valid address supplied")
-	ErrServerUnexpectedData      = errors.New("code: 101, message: Unexpected packet Data received from client")
-	ErrConnectionClosed          = errors.New("clickhouse: connection is closed")
-	ErrFormatNativeUnsupported   = errors.New("clickhouse: QueryFormat and InsertFormat are only supported over the HTTP protocol, where the server converts every format; connect with Options{Protocol: clickhouse.HTTP} or an http:// DSN")
+	ErrBatchInvalid                  = errors.New("clickhouse: batch is invalid. check appended data is correct")
+	ErrBatchAlreadySent              = errors.New("clickhouse: batch has already been sent")
+	ErrBatchNotSent                  = errors.New("clickhouse: invalid retry, batch not sent yet")
+	ErrAcquireConnTimeout            = errors.New("clickhouse: acquire conn timeout. you can increase the number of max open conn or the dial timeout")
+	ErrUnsupportedServerRevision     = errors.New("clickhouse: unsupported server revision")
+	ErrBindMixedParamsFormats        = errors.New("clickhouse [bind]: mixed named, numeric or positional parameters")
+	ErrAcquireConnNoAddress          = errors.New("clickhouse: no valid address supplied")
+	ErrServerUnexpectedData          = errors.New("code: 101, message: Unexpected packet Data received from client")
+	ErrConnectionClosed              = errors.New("clickhouse: connection is closed")
+	ErrClusterSecretRequiresName     = errors.New("clickhouse: cluster secret requires a cluster name")
+	ErrClusterSecretNeedsNative      = errors.New("clickhouse: cluster secret is only supported with the native protocol")
+	ErrClusterSecretRequiresUsername = errors.New("clickhouse: cluster secret requires an explicit auth username so the impersonated user is never the implicit \"default\"")
+	ErrClusterSecretWithJWT          = errors.New("clickhouse: cluster secret cannot be combined with JWT authentication")
+	ErrFormatNativeUnsupported       = errors.New("clickhouse: QueryFormat and InsertFormat are only supported over the HTTP protocol, where the server converts every format; connect with Options{Protocol: clickhouse.HTTP} or an http:// DSN")
 
 	errConnMaxLifetimeExceeded = errors.New("clickhouse: connection max lifetime exceeded")
 )
@@ -70,7 +74,21 @@ func Open(opt *Options) (driver.Conn, error) {
 	if opt == nil {
 		opt = &Options{}
 	}
+	if err := opt.validate(); err != nil {
+		return nil, err
+	}
 	o := opt.setDefaults()
+	if o.Cluster.Secret != "" {
+		// The secret permits impersonating any cluster user.
+		o.logger().Warn("clickhouse: cluster interserver-secret mode enabled — connection holds impersonation rights for any user on the cluster",
+			slog.String("cluster", o.Cluster.Name),
+			slog.Bool("tls", o.TLS != nil))
+		if o.TLS == nil {
+			// V1 signatures can be replayed without TLS.
+			o.logger().Warn("clickhouse: interserver-secret mode without TLS is not recommended — query bodies and signed query frames are sent in cleartext",
+				slog.String("cluster", o.Cluster.Name))
+		}
+	}
 
 	conn := &clickhouse{
 		opt:       o,
@@ -417,8 +435,10 @@ func (ch *clickhouse) release(conn nativeTransport, err error) {
 
 func (ch *clickhouse) Close() (err error) {
 	ch.closeOnce.Do(func() {
-		err = ch.idle.Close()
+		// Mark closed first so release() short-circuits to conn.close(); Put() also
+		// closes anything that still reaches the pool after the drain below.
 		ch.closed.Store(true)
+		err = ch.idle.Close()
 	})
 
 	return
