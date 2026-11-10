@@ -20,7 +20,7 @@ func TestBatchContextCancellation(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	require.NoError(t, conn.Exec(context.Background(), "create table if not exists test_batch_cancellation (x String) engine=Memory"))
+	require.NoError(t, conn.Exec(context.Background(), "create table if not exists test_batch_cancellation (x String) engine=MergeTree ORDER BY tuple()"))
 	defer conn.Exec(context.Background(), "drop table if exists test_batch_cancellation")
 
 	b, err := conn.PrepareBatch(ctx, "insert into test_batch_cancellation")
@@ -134,4 +134,39 @@ func TestBatchCloseConnectionHold(t *testing.T) {
 
 	// assert if connection is blocked if close is not called.
 	require.ErrorIs(t, conn.Exec(context.Background(), "SELECT 1"), clickhouse.ErrAcquireConnTimeout)
+}
+
+// TestBatchSendRetryWatchdogConnRace validates that the Send context watchdog
+// does not touch b.conn while the retry path in Send replaces it. A second Send
+// on a batch that was already sent goes through resetConnection, which assigns
+// b.conn. Before the fix, the watchdog was armed before that assignment, so
+// with an already-cancelled context its goroutine read b.conn concurrently
+// (a data race under -race). It could also close the previous connection,
+// which Send had already returned to the pool.
+func TestBatchSendRetryWatchdogConnRace(t *testing.T) {
+	te, err := GetTestEnvironment(testSet)
+	require.NoError(t, err)
+	opts := ClientOptionsFromEnv(te, clickhouse.Settings{}, false)
+	opts.MaxOpenConns = 1
+	opts.DialTimeout = 2 * time.Second
+	conn, err := GetConnectionWithOptions(&opts)
+	require.NoError(t, err)
+	t.Cleanup(func() { conn.Close() })
+
+	for i := 0; i < 20; i++ {
+		ctx, cancel := context.WithCancel(context.Background())
+
+		b, err := conn.PrepareBatch(ctx, "INSERT INTO function null('x UInt64')")
+		require.NoError(t, err, "round %d: prepare batch", i)
+		require.NoError(t, b.Append(uint64(i)), "round %d: append", i)
+		require.NoError(t, b.Send(), "round %d: first send", i)
+
+		// The watchdog of the next Send sees a done context at once and races
+		// with resetConnection.
+		cancel()
+		require.ErrorIs(t, b.Send(), context.Canceled, "round %d: retry send with a cancelled context", i)
+
+		// The connection pool must still be usable.
+		require.NoError(t, conn.Exec(context.Background(), "SELECT 1"), "round %d: query after retry send", i)
+	}
 }
