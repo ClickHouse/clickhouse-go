@@ -1,6 +1,10 @@
 name: Tests cloud
 
-permissions: write-all
+# Least privilege: fork code runs in this job with the base repo token.
+# contents:read for checkout, pull-requests:write to remove the label.
+permissions:
+  contents: read
+  pull-requests: write
 
 on:
   push:
@@ -20,7 +24,7 @@ jobs:
       run:
         shell: bash
     strategy:
-      # Run the Go-version jobs one at a time (1.25 then 1.26) instead of in parallel: they
+      # Run the Go-version jobs one at a time (1.26 then 1.27) instead of in parallel: they
       # share a single ClickHouse Cloud service, so concurrent jobs contend for its compute and
       # collide on shared object names. fail-fast: false keeps the second job running even if
       # the first fails.
@@ -28,13 +32,21 @@ jobs:
       fail-fast: false
       matrix:
         go:
-          - "1.25"
           - "1.26"
+          - "1.27"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          # head.sha is fixed at the time of the `labeled` event, so commits pushed
+          # after a maintainer adds the label do not run.
           ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.ref }}
+          # Fork code runs in a trusted context (secrets, base repo token). This is
+          # intentional: a maintainer must review the PR and add `tests:run-cloud`
+          # before this job runs. See https://gh.io/securely-using-pull_request_target
+          allow-unsafe-pr-checkout: true
+          # Do not leave GITHUB_TOKEN in .git/config, where fork code can read it.
+          persist-credentials: false
 
       - name: Install Go ${{ matrix.go }}
         uses: actions/setup-go@v5
