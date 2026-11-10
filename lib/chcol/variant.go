@@ -42,7 +42,7 @@ func (v Variant) Type() string {
 
 // HasType returns true if the value has a type ClickHouse included.
 func (v Variant) HasType() bool {
-	return v.chType == ""
+	return v.chType != ""
 }
 
 // Nil returns true if the underlying value is nil.
