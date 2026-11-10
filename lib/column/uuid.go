@@ -127,7 +127,7 @@ func (col *UUID) Append(v any) (nulls []uint8, err error) {
 					Op:   "Append",
 					To:   "UUID",
 					From: fmt.Sprintf("%T", v),
-					Hint: "could not get driver.Valuer value",
+					Hint: fmt.Sprintf("could not get driver.Valuer value: %s", err),
 				}
 			}
 			return col.Append(val)
@@ -182,7 +182,7 @@ func (col *UUID) AppendRow(v any) error {
 					Op:   "AppendRow",
 					To:   "UUID",
 					From: fmt.Sprintf("%T", v),
-					Hint: "could not get driver.Valuer value",
+					Hint: fmt.Sprintf("could not get driver.Valuer value: %s", err),
 				}
 			}
 			return col.AppendRow(val)
@@ -195,7 +195,7 @@ func (col *UUID) AppendRow(v any) error {
 					Op:   "AppendRow",
 					To:   "UUID",
 					From: fmt.Sprintf("%T", v),
-					Hint: "could not get encoding.TextMarshaler value",
+					Hint: fmt.Sprintf("could not get encoding.TextMarshaler value: %s", err),
 				}
 			}
 			return col.AppendRow(string(val))
