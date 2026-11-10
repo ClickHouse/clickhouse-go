@@ -75,7 +75,7 @@ func TestIssue1917_BigIntBindParameter(t *testing.T) {
 		// form coerced to Int128 and worked here; the new form must keep working
 		// (and, unlike a bare literal, still match the exact row).
 		t.Run("matches an Int128 column", func(t *testing.T) {
-			const ddl = "CREATE TABLE test_1917 (`id` Int128) ENGINE = Memory"
+			const ddl = "CREATE TABLE test_1917 (`id` Int128) ENGINE = MergeTree ORDER BY tuple()"
 			require.NoError(t, conn.Exec(ctx, ddl))
 			t.Cleanup(func() { _ = conn.Exec(ctx, "DROP TABLE IF EXISTS test_1917") })
 
@@ -99,7 +99,7 @@ func TestIssue1917_BigIntBindParameter(t *testing.T) {
 		// type unless use_variant_as_common_type is on (off by default before
 		// 26.x), so WHERE ... IN ? has to keep matching here.
 		t.Run("mixed-width array matches a UInt256 column", func(t *testing.T) {
-			const ddl = "CREATE TABLE test_1917_array (`id` UInt256) ENGINE = Memory"
+			const ddl = "CREATE TABLE test_1917_array (`id` UInt256) ENGINE = MergeTree ORDER BY tuple()"
 			require.NoError(t, conn.Exec(ctx, ddl))
 			t.Cleanup(func() { _ = conn.Exec(ctx, "DROP TABLE IF EXISTS test_1917_array") })
 
