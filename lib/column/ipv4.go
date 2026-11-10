@@ -107,10 +107,50 @@ func strToIPV4(strIp string) (netip.Addr, error) {
 	return ip, nil
 }
 
-func (col *IPv4) AppendV4IPs(ips []netip.Addr) {
-	for i := range ips {
-		col.col.Append(proto.ToIPv4(ips[i]))
+func invalidIPv4Error(op, from, address string, index int) error {
+	hint := fmt.Sprintf("invalid IPv4 address %q", address)
+	if index >= 0 {
+		hint = fmt.Sprintf("%s at index %d", hint, index)
 	}
+	return &ColumnConverterError{
+		Op:   op,
+		To:   "IPv4",
+		From: from,
+		Hint: hint,
+	}
+}
+
+func toIPv4(ip netip.Addr, op, from string, index int) (proto.IPv4, error) {
+	original := ip
+	ip = ip.Unmap()
+	if !ip.Is4() {
+		return 0, invalidIPv4Error(op, from, original.String(), index)
+	}
+	return proto.ToIPv4(ip), nil
+}
+
+func (col *IPv4) appendV4IPs(ips []netip.Addr, nulls []uint8, from string) error {
+	values := make([]proto.IPv4, len(ips))
+	for i := range ips {
+		if len(nulls) != 0 && nulls[i] != 0 {
+			continue
+		}
+		value, err := toIPv4(ips[i], "Append", from, i)
+		if err != nil {
+			return err
+		}
+		values[i] = value
+	}
+	for i := range values {
+		col.col.Append(values[i])
+	}
+	return nil
+}
+
+// AppendV4IPs appends ips to the column. It returns a *ColumnConverterError
+// if an address is not IPv4 or IPv4-mapped IPv6. On error, no rows are appended.
+func (col *IPv4) AppendV4IPs(ips []netip.Addr) error {
+	return col.appendV4IPs(ips, nil, "netip.Addr")
 }
 
 func (col *IPv4) Append(v any) (nulls []uint8, err error) {
@@ -126,7 +166,9 @@ func (col *IPv4) Append(v any) (nulls []uint8, err error) {
 			}
 			ips[i] = ip
 		}
-		col.AppendV4IPs(ips)
+		if err := col.appendV4IPs(ips, nil, "string"); err != nil {
+			return nulls, err
+		}
 	case []*string:
 		nulls = make([]uint8, len(v))
 		ips := make([]netip.Addr, len(v))
@@ -143,36 +185,56 @@ func (col *IPv4) Append(v any) (nulls []uint8, err error) {
 				nulls[i] = 1
 			}
 		}
-		col.AppendV4IPs(ips)
+		if err := col.appendV4IPs(ips, nulls, "*string"); err != nil {
+			return nulls, err
+		}
 	case []netip.Addr:
 		nulls = make([]uint8, len(v))
-		col.AppendV4IPs(v)
+		if err := col.AppendV4IPs(v); err != nil {
+			return nulls, err
+		}
 	case []*netip.Addr:
 		nulls = make([]uint8, len(v))
+		ips := make([]netip.Addr, len(v))
 		for i := range v {
-			switch {
-			case v[i] != nil:
-				col.col.Append(proto.ToIPv4(*v[i]))
-			default:
+			if v[i] == nil {
 				nulls[i] = 1
-				col.col.Append(0)
+				continue
 			}
+			ips[i] = *v[i]
+		}
+		if err := col.appendV4IPs(ips, nulls, "*netip.Addr"); err != nil {
+			return nulls, err
 		}
 	case []net.IP:
 		nulls = make([]uint8, len(v))
+		values := make([]proto.IPv4, len(v))
 		for i := range v {
-			col.col.Append(proto.ToIPv4(netIPToNetIPAddr(v[i])))
+			value, err := netIPToIPv4(v[i], "Append", "net.IP", i)
+			if err != nil {
+				return nulls, err
+			}
+			values[i] = value
+		}
+		for i := range values {
+			col.col.Append(values[i])
 		}
 	case []*net.IP:
 		nulls = make([]uint8, len(v))
+		values := make([]proto.IPv4, len(v))
 		for i := range v {
-			switch {
-			case v[i] != nil:
-				col.col.Append(proto.ToIPv4(netIPToNetIPAddr(*v[i])))
-			default:
+			if v[i] == nil {
 				nulls[i] = 1
-				col.col.Append(0)
+				continue
 			}
+			value, err := netIPToIPv4(*v[i], "Append", "*net.IP", i)
+			if err != nil {
+				return nulls, err
+			}
+			values[i] = value
+		}
+		for i := range values {
+			col.col.Append(values[i])
 		}
 	case []uint32:
 		nulls = make([]uint8, len(v))
@@ -220,7 +282,11 @@ func (col *IPv4) AppendRow(v any) (err error) {
 		if err != nil {
 			return err
 		}
-		col.col.Append(proto.ToIPv4(ip))
+		value, err := toIPv4(ip, "AppendRow", "string", -1)
+		if err != nil {
+			return err
+		}
+		col.col.Append(value)
 	case *string:
 		switch {
 		case v != nil:
@@ -228,30 +294,45 @@ func (col *IPv4) AppendRow(v any) (err error) {
 			if err != nil {
 				return err
 			}
-			col.col.Append(proto.ToIPv4(ip))
+			value, err := toIPv4(ip, "AppendRow", "*string", -1)
+			if err != nil {
+				return err
+			}
+			col.col.Append(value)
 		default:
 			col.col.Append(0)
 		}
 	case netip.Addr:
-		col.col.Append(proto.ToIPv4(v))
+		value, err := toIPv4(v, "AppendRow", "netip.Addr", -1)
+		if err != nil {
+			return err
+		}
+		col.col.Append(value)
 	case *netip.Addr:
 		switch {
 		case v != nil:
-			col.col.Append(proto.ToIPv4(*v))
+			value, err := toIPv4(*v, "AppendRow", "*netip.Addr", -1)
+			if err != nil {
+				return err
+			}
+			col.col.Append(value)
 		default:
 			col.col.Append(0)
 		}
 	case net.IP:
-		switch {
-		case len(v) == 0:
-			col.col.Append(0)
-		default:
-			col.col.Append(proto.ToIPv4(netIPToNetIPAddr(v)))
+		value, err := netIPToIPv4(v, "AppendRow", "net.IP", -1)
+		if err != nil {
+			return err
 		}
+		col.col.Append(value)
 	case *net.IP:
 		switch {
 		case v != nil:
-			col.col.Append(proto.ToIPv4(netIPToNetIPAddr(*v)))
+			value, err := netIPToIPv4(*v, "AppendRow", "*net.IP", -1)
+			if err != nil {
+				return err
+			}
+			col.col.Append(value)
 		default:
 			col.col.Append(0)
 		}
@@ -308,14 +389,15 @@ func (col *IPv4) rowAddr(i int) netip.Addr {
 	return col.col.Row(i).ToIP()
 }
 
-func netIPToNetIPAddr(ip net.IP) netip.Addr {
-	switch len(ip) {
-	case 4:
-		return netip.AddrFrom4([4]byte{ip[0], ip[1], ip[2], ip[3]})
-	case 16:
-		return netip.AddrFrom4([4]byte{ip[12], ip[13], ip[14], ip[15]})
+func netIPToIPv4(ip net.IP, op, from string, index int) (proto.IPv4, error) {
+	if len(ip) == 0 {
+		return 0, nil
 	}
-	return netip.Addr{}
+	ip4 := ip.To4()
+	if ip4 == nil {
+		return 0, invalidIPv4Error(op, from, ip.String(), index)
+	}
+	return proto.IPv4(binary.BigEndian.Uint32(ip4)), nil
 }
 
 var _ Interface = (*IPv4)(nil)
