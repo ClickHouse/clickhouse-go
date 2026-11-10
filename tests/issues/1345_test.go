@@ -17,9 +17,11 @@ func TestIssue1345(t *testing.T) {
 	defer conn.Close()
 
 	require.NoError(t, conn.Exec(ctx, "CREATE DATABASE IF NOT EXISTS `_test_1345#$.ДБ`"))
-	defer conn.Exec(ctx, "DROP TABLE `_test_1345#$.ДБ`")
+	defer func() {
+		require.NoError(t, conn.Exec(ctx, "DROP DATABASE IF EXISTS `_test_1345#$.ДБ`"))
+	}()
 
-	require.NoError(t, conn.Exec(ctx, "CREATE  TABLE  IF NOT EXISTS `_test_1345#$.ДБ`.`2. Таблица №2` (i UInt64, s String) ENGINE = Memory()"))
+	require.NoError(t, conn.Exec(ctx, "CREATE  TABLE  IF NOT EXISTS `_test_1345#$.ДБ`.`2. Таблица №2` (i UInt64, s String) ENGINE = MergeTree ORDER BY tuple()"))
 
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO `_test_1345#$.ДБ`.`2. Таблица №2`")
 	require.NoError(t, err)
