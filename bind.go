@@ -592,7 +592,7 @@ func formatValueAt(tz *time.Location, scale TimeUnit, v any, mode formatMode, ne
 		return fmt.Sprintf("[%s]", strings.Join(values, ", ")), nil
 	case time.Time:
 		if mode == formatParamText {
-			return quote(formatParamTime(tz, declType, v)), nil
+			return quote(formatParamTime(declType, v)), nil
 		}
 		return formatTime(tz, scale, v)
 	case *time.Time:
@@ -600,7 +600,7 @@ func formatValueAt(tz *time.Location, scale TimeUnit, v any, mode formatMode, ne
 			return "NULL", nil
 		}
 		if mode == formatParamText {
-			return quote(formatParamTime(tz, declType, *v)), nil
+			return quote(formatParamTime(declType, *v)), nil
 		}
 		return formatTime(tz, scale, *v)
 	case time.Duration:
@@ -666,9 +666,9 @@ func formatValueAt(tz *time.Location, scale TimeUnit, v any, mode formatMode, ne
 		return quote(v.String()), nil
 	case column.OrderedMap:
 		entries := make([]mapEntry, 0)
-		_, valueType := paramMapTypes(declType)
+		keyType, valueType := paramMapTypes(declType)
 		for key := range v.Keys() {
-			name, err := formatValueAt(tz, scale, key, mode, true, "")
+			name, err := formatValueAt(tz, scale, key, mode, true, keyType)
 			if err != nil {
 				return "", err
 			}
@@ -682,11 +682,11 @@ func formatValueAt(tz *time.Location, scale TimeUnit, v any, mode formatMode, ne
 		return formatMap(entries, mode), nil
 	case column.IterableOrderedMap:
 		entries := make([]mapEntry, 0)
-		_, valueType := paramMapTypes(declType)
+		keyType, valueType := paramMapTypes(declType)
 		iter := v.Iterator()
 		for iter.Next() {
 			key, value := iter.Key(), iter.Value()
-			name, err := formatValueAt(tz, scale, key, mode, true, "")
+			name, err := formatValueAt(tz, scale, key, mode, true, keyType)
 			if err != nil {
 				return "", err
 			}

@@ -159,16 +159,17 @@ func TestBindQueryOrAppendParametersDateTypes(t *testing.T) {
 	assert.Equal(t, "1778803200", options.parameters["s"])
 }
 
-// A Date has no timezone, so the date is the value's calendar day in the
-// server's zone, the same day client-side binding would produce.
-func TestBindQueryOrAppendParametersDateUsesServerTimezone(t *testing.T) {
+// A Date has no timezone: the date is the calendar day of the value as
+// passed, so a midnight value in a zone ahead of the server is not shifted to
+// the previous day.
+func TestBindQueryOrAppendParametersDateUsesValueCalendarDay(t *testing.T) {
 	tokyo := time.FixedZone("Asia/Tokyo", 9*3600)
 	in := time.Date(2026, 5, 16, 1, 0, 0, 0, tokyo) // 2026-05-15 16:00 UTC
 
 	options := &QueryOptions{}
 	_, err := bindQueryOrAppendParameters(true, options, "SELECT {d:Date}", time.UTC, Named("d", in))
 	require.NoError(t, err)
-	assert.Equal(t, "2026-05-15", options.parameters["d"])
+	assert.Equal(t, "2026-05-16", options.parameters["d"])
 }
 
 func TestBindQueryOrAppendParametersDateNamedDateType(t *testing.T) {

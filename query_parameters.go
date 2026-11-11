@@ -98,10 +98,10 @@ func bindQueryOrAppendParameters(paramsProtocolSupport bool, options *QueryOptio
 					options.parameters[p.Name] = namedStringEscaper.Replace(string(*v))
 					continue
 				case time.Time:
-					options.parameters[p.Name] = formatParamTime(timezone, paramTypes[p.Name], v)
+					options.parameters[p.Name] = formatParamTime(paramTypes[p.Name], v)
 					continue
 				case *time.Time:
-					options.parameters[p.Name] = formatParamTime(timezone, paramTypes[p.Name], *v)
+					options.parameters[p.Name] = formatParamTime(paramTypes[p.Name], *v)
 					continue
 				case time.Duration:
 					options.parameters[p.Name] = formatDurationBody(v)
@@ -125,7 +125,7 @@ func bindQueryOrAppendParameters(paramsProtocolSupport bool, options *QueryOptio
 				if !p.Value.IsZero() && p.Name != "" {
 					var formatted string
 					if isDateParamType(paramTypes[p.Name]) {
-						formatted = formatParamTime(timezone, paramTypes[p.Name], p.Value)
+						formatted = formatParamTime(paramTypes[p.Name], p.Value)
 					} else {
 						formatted = formatTimeWithScale(p.Value, TimeUnit(p.Scale))
 					}
@@ -224,19 +224,21 @@ func paramMapTypes(t string) (string, string) {
 }
 
 // isDateParamType reports whether t is Date or Date32: the two types whose
-// text reader takes a calendar date and rejects epoch seconds.
+// text reader takes a calendar date and rejects epoch seconds. ClickHouse
+// accepts the type names case-insensitively (for instance DATE).
 func isDateParamType(t string) bool {
 	name, args := splitParamType(unwrapParamType(t))
-	return len(args) == 0 && (name == "Date" || name == "Date32")
+	return len(args) == 0 && (strings.EqualFold(name, "Date") || strings.EqualFold(name, "Date32"))
 }
 
 // formatParamTime renders a time.Time for a server-side query parameter of
-// the declared type. Date and Date32 take the calendar day as seen in the
-// server's zone, matching what client-side binding produces; every other
-// temporal type keeps the epoch form so the instant survives any timezone.
-func formatParamTime(tz *time.Location, declType string, t time.Time) string {
+// the declared type. Date and Date32 take the calendar day of the value
+// itself, so a midnight value in a zone ahead of the server is not read as
+// the previous day; every other temporal type keeps the epoch form so the
+// instant survives any timezone.
+func formatParamTime(declType string, t time.Time) string {
 	if isDateParamType(declType) {
-		return t.In(tz).Format("2006-01-02")
+		return t.Format("2006-01-02")
 	}
 	return formatTimeParam(t)
 }

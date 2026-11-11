@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/ClickHouse/clickhouse-go/v2/lib/column/orderedmap"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 )
 
@@ -942,6 +943,51 @@ func TestFormatValueModesOrderedMap(t *testing.T) {
 	got, err = formatValue(time.UTC, Seconds, om, formatSQL)
 	require.NoError(t, err)
 	assert.Equal(t, "map('b', 1, 'a', 0)", got)
+}
+
+// TestBindMapDateKey covers #1927: a Map(Date, String) declared in the query
+// must render its time.Time key as the calendar date, both for a plain Go map
+// and for the two ordered-map implementations used by the driver.
+func TestBindMapDateKey(t *testing.T) {
+	ts := time.Date(2020, 1, 2, 3, 4, 5, 0, time.UTC)
+
+	ordered := NewOrderedMap()
+	ordered.Put(ts, "x")
+	iterable := orderedmap.FromMapFunc(map[time.Time]string{ts: "x"}, func(a, b time.Time) int { return a.Compare(b) })
+
+	cases := []struct {
+		name  string
+		value any
+	}{
+		{"plain map", map[time.Time]string{ts: "x"}},
+		{"OrderedMap", ordered},
+		{"IterableOrderedMap", iterable},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			opts := &QueryOptions{}
+			_, err := bindQueryOrAppendParameters(true, opts, "SELECT {m:Map(Date, String)}", time.UTC,
+				driver.NamedValue{Name: "m", Value: tc.value})
+			require.NoError(t, err)
+			assert.Equal(t, "{'2020-01-02':'x'}", opts.parameters["m"])
+		})
+	}
+}
+
+// TestBindDateTypeAlias checks that the type name is matched
+// case-insensitively, so {d:DATE} renders the calendar date like {d:Date}.
+func TestBindDateTypeAlias(t *testing.T) {
+	ts := time.Date(2020, 1, 2, 3, 4, 5, 0, time.UTC)
+
+	for _, decl := range []string{"Date", "Date32", "DATE", "DATE32", "date"} {
+		t.Run(decl, func(t *testing.T) {
+			opts := &QueryOptions{}
+			_, err := bindQueryOrAppendParameters(true, opts, "SELECT {d:"+decl+"}", time.UTC,
+				driver.NamedValue{Name: "d", Value: ts})
+			require.NoError(t, err)
+			assert.Equal(t, "2020-01-02", opts.parameters["d"])
+		})
+	}
 }
 
 func TestBindNamedWithTernaryOperator(t *testing.T) {
