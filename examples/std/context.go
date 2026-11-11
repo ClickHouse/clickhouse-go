@@ -45,7 +45,7 @@ func UseContext() error {
 	ctx, cancel = context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
 	defer cancel()
 	if err := conn.PingContext(ctx); err == nil {
-		return fmt.Errorf("expected deadline exceeeded")
+		return fmt.Errorf("expected deadline exceeded")
 	}
 
 	// set a query id to assist tracing queries in logs e.g. see system.query_log
