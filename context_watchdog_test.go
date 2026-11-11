@@ -84,4 +84,40 @@ func TestContextWatchdog(t *testing.T) {
 			synctest.Wait()
 		})
 	})
+
+	t.Run("stop should wait for a running callback to complete", func(t *testing.T) {
+		synctest.Test(t, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			started := make(chan struct{})
+			release := make(chan struct{})
+			completed := atomic.Bool{}
+
+			stopCW := contextWatchdog(ctx, func() {
+				close(started)
+				<-release
+				completed.Store(true)
+			})
+
+			cancel()
+			<-started
+
+			stopped := make(chan struct{})
+			go func() {
+				stopCW()
+				close(stopped)
+			}()
+
+			// stopCW must block while the callback runs.
+			synctest.Wait()
+			select {
+			case <-stopped:
+				t.Fatal("stopCW returned before the callback completed")
+			default:
+			}
+
+			close(release)
+			<-stopped
+			assert.True(t, completed.Load(), "callback should complete before stopCW returns")
+		})
+	})
 }
