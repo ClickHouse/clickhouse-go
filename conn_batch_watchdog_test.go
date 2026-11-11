@@ -9,8 +9,9 @@ import (
 	"time"
 
 	chproto "github.com/ClickHouse/ch-go/proto"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 
 // endOfStreamConn wraps mockNetConn so reads return a server EndOfStream
@@ -59,7 +60,8 @@ func (g *gatedEndOfStreamConn) Close() error {
 
 // newGatedWatchdogBatchConnect builds a connect whose writes succeed, whose
 // single read (the one closeQuery performs) parks on a gate, and whose Close()
-// is observable by the test.
+// is observable by the test. createMockConnect supplies the shared connect
+// boilerplate; the test turns compression off so the writes stay plain.
 func newGatedWatchdogBatchConnect() (*connect, *mockNetConn, *gatedEndOfStreamConn) {
 	mock := &mockNetConn{}
 	gate := &gatedEndOfStreamConn{
@@ -68,19 +70,14 @@ func newGatedWatchdogBatchConnect() (*connect, *mockNetConn, *gatedEndOfStreamCo
 		readGate:        make(chan struct{}),
 		closedSignal:    make(chan struct{}),
 	}
-	return &connect{
-		id:                   1,
-		conn:                 gate,
-		buffer:               new(chproto.Buffer),
-		reader:               chproto.NewReader(gate),
-		connectedAt:          time.Now(),
-		readTimeout:          10 * time.Second,
-		compression:          CompressionNone,
-		maxCompressionBuffer: 1024 * 1024,
-		logger:               newNoopLogger(),
-		opt:                  &Options{},
-		revision:             ClientTCPProtocolVersion,
-	}, mock, gate
+	c := createMockConnect(gate.mockNetConn)
+	// Reads and the observed Close must go through the gated wrapper, not the
+	// plain mock inside it, and the writes must stay uncompressed as before.
+	c.conn = gate
+	c.reader = chproto.NewReader(gate)
+	c.compression = CompressionNone
+	c.compressor = nil
+	return c, mock, gate
 }
 
 // inContextWatchdogGoroutine reports whether the caller runs on the goroutine
@@ -102,9 +99,8 @@ func inContextWatchdogGoroutine() bool {
 // watchdogGateCtx is a test context that makes the batch watchdog
 // interleaving deterministic. Done() behaves differently per caller:
 //
-//   - Called from the contextWatchdog goroutine (detected by stack frame, the
-//     same trick the integration tests' lateWatchdogCtx uses), it signals
-//     watchdogParked and then blocks until the test closes releaseWatchdog.
+//   - Called from the contextWatchdog goroutine (detected by stack frame), it
+//     signals watchdogParked and then blocks until the test closes releaseWatchdog.
 //     This parks the watchdog goroutine before it can reach its select. The
 //     call then returns watchdogDone, which the test closes so the select has
 //     exactly one ready case and the callback runs deterministically.
@@ -178,6 +174,17 @@ func waitSignal(t *testing.T, ch chan struct{}, msg string) {
 	}
 }
 
+// closeGate closes ch at most once, so the failure drain in the test below
+// can run after the happy path already closed the channel. Every close of
+// these gates happens on the test goroutine, so the select check cannot race.
+func closeGate(ch chan struct{}) {
+	select {
+	case <-ch:
+	default:
+		close(ch)
+	}
+}
+
 // TestBatchSendWatchdogClosedConnNotReleasedAsHealthy forces, instead of
 // racing for it, the interleaving from
 // https://github.com/ClickHouse/clickhouse-go/issues/2076: the batch context
@@ -215,6 +222,16 @@ func TestBatchSendWatchdogClosedConnNotReleasedAsHealthy(t *testing.T) {
 			releasedErr = err
 		},
 	}
+
+	// If a waitSignal times out, t.Fatal exits while the Send goroutine is
+	// parked on the read gate and the watchdog goroutine is parked inside its
+	// Done() call. Open every gate on the way out so a failure path drains
+	// those goroutines instead of leaking them.
+	t.Cleanup(func() {
+		closeGate(gate.readGate)
+		closeGate(ctx.watchdogDone)
+		closeGate(ctx.releaseWatchdog)
+	})
 
 	sendErrCh := make(chan error, 1)
 	go func() { sendErrCh <- b.Send() }()
