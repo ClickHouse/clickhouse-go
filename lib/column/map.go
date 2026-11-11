@@ -37,6 +37,12 @@ type IterableOrderedMap interface {
 	Iterator() MapIterator
 }
 
+// OrderedMapElementTyper is optional. Types such as orderedmap.Map implement it
+// so nested Map values scan with the correct element type.
+type OrderedMapElementTyper interface {
+	OrderedMapElementReflectType() reflect.Type
+}
+
 func (col *Map) Reset() {
 	col.keys.Reset()
 	col.values.Reset()
@@ -159,7 +165,15 @@ func (col *Map) ScanRow(dest any, i int) error {
 // so orderedmap destinations can keep duplicate keys.
 func (col *Map) scan(destType reflect.Type, n int) (reflect.Value, error) {
 	if destType.Kind() == reflect.Interface {
-		return col.row(n), nil
+		if destType.NumMethod() == 0 && col.scanType.AssignableTo(destType) {
+			return col.row(n), nil
+		}
+		return reflect.Value{}, &ColumnConverterError{
+			Op:   "ScanRow",
+			To:   destType.String(),
+			From: string(col.chType),
+			Hint: fmt.Sprintf("try using %s", col.scanType),
+		}
 	}
 	if destType.Kind() == reflect.Pointer {
 		inner, err := col.scan(destType.Elem(), n)
@@ -241,14 +255,24 @@ func (col *Map) scanMapValue(valueType reflect.Type, idx int) (any, error) {
 			}
 			return v.Interface(), nil
 		}
+		if tup, ok := col.values.(*Tuple); ok {
+			v, err := tup.scan(valueType, idx)
+			if err != nil {
+				return nil, err
+			}
+			return v.Interface(), nil
+		}
 	}
 	v := col.values.Row(idx, false)
 	if v == nil {
-		// typed nil so map/orderedmap element assignment stays valid
-		if valueType != nil {
+		if valueType == nil {
+			return nil, nil
+		}
+		// typed nil so Go map element assignment stays valid (#1515)
+		if valueType.Kind() == reflect.Map || valueType.Kind() == reflect.Pointer {
 			return reflect.Zero(valueType).Interface(), nil
 		}
-		return reflect.Zero(col.values.ScanType()).Interface(), nil
+		return reflect.Zero(valueType).Interface(), nil
 	}
 	return v, nil
 }
@@ -428,17 +452,25 @@ func (col *Map) WriteStatePrefix(encoder *proto.Buffer) error {
 }
 
 func (col *Map) row(n int) reflect.Value {
-	v, err := col.scanGoMap(col.scanType, n)
+	// scanGoMap never errors for col.scanType after validateGoMapDestination.
+	return col.scanGoMapMust(col.scanType, n)
+}
+
+func (col *Map) scanGoMapMust(destType reflect.Type, n int) reflect.Value {
+	v, err := col.scanGoMap(destType, n)
 	if err != nil {
-		// row() has no error path; fall back to an empty typed map
 		return reflect.MakeMap(col.scanType)
 	}
 	return v
 }
 
 func (col *Map) scanGoMap(destType reflect.Type, n int) (reflect.Value, error) {
+	if err := col.validateGoMapDestination(destType); err != nil {
+		return reflect.Value{}, err
+	}
 	value := reflect.MakeMap(destType)
 	elemType := destType.Elem()
+	keyType := destType.Key()
 	var prev int64
 	if n != 0 {
 		prev = col.offsets.col.Row(n - 1)
@@ -457,16 +489,133 @@ func (col *Map) scanGoMap(destType reflect.Type, n int) (reflect.Value, error) {
 			mapReflectValue = reflect.New(elemType).Elem()
 		} else {
 			mapReflectValue = reflect.ValueOf(mapValue)
-			if mapReflectValue.Type() != elemType && mapReflectValue.CanConvert(elemType) {
-				mapReflectValue = mapReflectValue.Convert(elemType)
+			if mapReflectValue.Type() != elemType {
+				if !mapReflectValue.Type().AssignableTo(elemType) {
+					return reflect.Value{}, &ColumnConverterError{
+						Op:   "ScanRow",
+						To:   destType.String(),
+						From: string(col.chType),
+						Hint: fmt.Sprintf("try using %s", col.scanType),
+					}
+				}
 			}
 		}
-		value.SetMapIndex(
-			reflect.ValueOf(col.keys.Row(from+next, false)),
-			mapReflectValue,
-		)
+		keyReflectValue := reflect.ValueOf(col.keys.Row(from+next, false))
+		if !keyReflectValue.Type().AssignableTo(keyType) {
+			return reflect.Value{}, &ColumnConverterError{
+				Op:   "ScanRow",
+				To:   destType.String(),
+				From: string(col.chType),
+				Hint: fmt.Sprintf("try using %s", col.scanType),
+			}
+		}
+		value.SetMapIndex(keyReflectValue, mapReflectValue)
 	}
 	return value, nil
+}
+
+func (col *Map) validateGoMapDestination(destType reflect.Type) error {
+	if destType.Kind() != reflect.Map {
+		return &ColumnConverterError{
+			Op:   "ScanRow",
+			To:   destType.String(),
+			From: string(col.chType),
+		}
+	}
+	colKey := col.keys.ScanType()
+	if !colKey.AssignableTo(destType.Key()) {
+		return &ColumnConverterError{
+			Op:   "ScanRow",
+			To:   destType.String(),
+			From: string(col.chType),
+			Hint: fmt.Sprintf("try using %s", col.scanType),
+		}
+	}
+	elem := destType.Elem()
+	colElem := col.values.ScanType()
+	if elem == colElem || isOrderedMapType(elem) {
+		return nil
+	}
+	if elem.Kind() == reflect.Map {
+		if nested, ok := col.values.(*Map); ok {
+			return nested.validateGoMapDestination(elem)
+		}
+	}
+	if elem.Kind() == reflect.Slice && colElem.Kind() == reflect.Slice {
+		return nil
+	}
+	if colElem.AssignableTo(elem) || elem.AssignableTo(colElem) {
+		return nil
+	}
+	return &ColumnConverterError{
+		Op:   "ScanRow",
+		To:   destType.String(),
+		From: string(col.chType),
+		Hint: fmt.Sprintf("try using %s", col.scanType),
+	}
+}
+
+// mapScanUsesTypedScan reports whether Map.scan should run for destType.
+// Other destinations keep the Row + setJSONFieldValue path (for example sql.Scanner).
+func mapScanUsesTypedScan(destType reflect.Type) bool {
+	destType = dereference(destType)
+	if destType == nil {
+		return false
+	}
+	if destType.Kind() == reflect.Map || isOrderedMapType(destType) {
+		return true
+	}
+	return destType.Kind() == reflect.Interface && destType.NumMethod() == 0
+}
+
+func dereference(t reflect.Type) reflect.Type {
+	for t != nil && t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+	return t
+}
+
+func mapScanArrayElement(dcol *Map, sliceType reflect.Type, row int, isPtr bool) (reflect.Value, error) {
+	elemType := sliceType
+	if sliceType.Kind() == reflect.Slice {
+		elemType = sliceType.Elem()
+	}
+	if mapScanUsesTypedScan(elemType) {
+		return dcol.scan(elemType, row)
+	}
+	v := dcol.Row(row, isPtr)
+	val := reflect.ValueOf(v)
+	if v == nil {
+		val = reflect.Zero(dcol.ScanType())
+	}
+	if sliceType.Kind() == reflect.Interface {
+		value := reflect.New(sliceType).Elem()
+		if err := setJSONFieldValue(value, val); err != nil {
+			return reflect.Value{}, err
+		}
+		return value, nil
+	}
+	value := reflect.New(sliceType.Elem()).Elem()
+	if err := setJSONFieldValue(value, val); err != nil {
+		return reflect.Value{}, err
+	}
+	return value, nil
+}
+
+func mapScanIntoReflect(dcol *Map, c Interface, destType reflect.Type, row int) (reflect.Value, error) {
+	destType = dereference(destType)
+	if mapScanUsesTypedScan(destType) {
+		return dcol.scan(destType, row)
+	}
+	field := reflect.New(destType).Elem()
+	v := c.Row(row, false)
+	if v == nil {
+		return field, nil
+	}
+	if err := setJSONFieldValue(field, reflect.ValueOf(v)); err != nil {
+		return reflect.Value{}, err
+	}
+	return field, nil
 }
 
 var (
@@ -516,9 +665,11 @@ func asOrderedMap(v any) (OrderedMap, bool) {
 	return nil, false
 }
 
-// orderedMapValueType returns V for orderedmap.Map[K,V] (a []entry[K,V] slice).
-// Custom IterableOrderedMap types return nil and keep the default Row path.
 func orderedMapValueType(t reflect.Type) reflect.Type {
+	if v := orderedMapElementReflectType(t); v != nil {
+		return v
+	}
+	// Fallback for orderedmap.Map when the optional interface is not used.
 	for t != nil && t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
@@ -533,6 +684,24 @@ func orderedMapValueType(t reflect.Type) reflect.Type {
 		return nil
 	}
 	return entry.Field(1).Type
+}
+
+func orderedMapElementReflectType(t reflect.Type) reflect.Type {
+	for t != nil && t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+	if t == nil {
+		return nil
+	}
+	typer := reflect.TypeFor[OrderedMapElementTyper]()
+	if !reflect.PointerTo(t).Implements(typer) && !t.Implements(typer) {
+		return nil
+	}
+	v := reflect.New(t)
+	if p, ok := v.Interface().(OrderedMapElementTyper); ok {
+		return p.OrderedMapElementReflectType()
+	}
+	return nil
 }
 
 var (

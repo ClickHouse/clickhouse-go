@@ -67,6 +67,13 @@ func TestIssue1976(t *testing.T) {
 			require.Len(t, nested, 2)
 		})
 
+		t.Run("Tuple map orderedmap", func(t *testing.T) {
+			var tup []orderedmap.Map[string, string]
+			require.NoError(t, conn.QueryRow(ctx, "SELECT tuple(map('key', 'X', 'key', 'Y'))").Scan(&tup))
+			require.Len(t, tup, 1)
+			require.Len(t, tup[0], 2)
+		})
+
 		t.Run("Go map nested still collapses", func(t *testing.T) {
 			var am []map[string]string
 			require.NoError(t, conn.QueryRow(ctx, "SELECT [map('key', 'X', 'key', 'Y')]").Scan(&am))

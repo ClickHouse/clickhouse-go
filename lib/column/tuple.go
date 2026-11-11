@@ -291,7 +291,7 @@ func (col *Tuple) scanMap(targetMap reflect.Value, row int) error {
 			}
 			targetMap.SetMapIndex(reflect.ValueOf(colName), subSlice)
 		case *Map:
-			mapped, err := dCol.scan(targetMap.Type().Elem(), row)
+			mapped, err := mapScanIntoReflect(dCol, c, targetMap.Type().Elem(), row)
 			if err != nil {
 				return err
 			}
@@ -366,7 +366,7 @@ func (col *Tuple) scanStruct(targetStruct reflect.Value, row int) error {
 			}
 			sField.Set(subSlice)
 		case *Map:
-			mapped, err := dCol.scan(sField.Type(), row)
+			mapped, err := mapScanIntoReflect(dCol, c, sField.Type(), row)
 			if err != nil {
 				return err
 			}
@@ -411,7 +411,7 @@ func (col *Tuple) scanSlice(targetType reflect.Type, row int) (reflect.Value, er
 			}
 			rSlice = reflect.Append(rSlice, subSlice)
 		case *Map:
-			mapped, err := dCol.scan(rSlice.Type().Elem(), row)
+			mapped, err := mapScanIntoReflect(dCol, c, rSlice.Type().Elem(), row)
 			if err != nil {
 				return reflect.Value{}, err
 			}
