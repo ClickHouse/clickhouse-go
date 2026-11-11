@@ -47,8 +47,11 @@ func (c *connect) firstBlock(ctx context.Context, on *onProcess) (*proto.Block, 
 		return nil, ctx.Err()
 
 	case err := <-errCh:
-		// firstBlockImpl returns io.EOF itself only at the end of stream. Read
-		// errors are wrapped, so they still retire the connection.
+		// firstBlockImpl returns the bare io.EOF only at the end of the stream.
+		// A response that stops inside a packet gives a wrapped error. The typed
+		// methods of the ch-go reader wrap each read error, and readData wraps
+		// with %w. So the connection is retired. The packet boundary cases in
+		// TestQueryProtocolErrorRetiresConnection check this.
 		if err != io.EOF {
 			c.closeOnQueryError(err)
 		}

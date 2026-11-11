@@ -35,6 +35,13 @@ func TestQueryProtocolErrorRetiresConnection(t *testing.T) {
 				{"unknown packet with unread response", append([]byte{42}, exception.Buf...), true},
 				{"transport EOF", nil, true},
 				{"truncated exception", []byte{proto.ServerException, 60}, true},
+				// The transport closes right after the packet type byte. The decoder
+				// must return a wrapped error. A bare io.EOF looks like a clean end
+				// of the stream, and firstBlock keeps the connection after it.
+				{"exception cut at packet boundary", []byte{proto.ServerException}, true},
+				{"progress cut at packet boundary", []byte{proto.ServerProgress}, true},
+				{"profile info cut at packet boundary", []byte{proto.ServerProfileInfo}, true},
+				{"table columns cut at packet boundary", []byte{proto.ServerTableColumns}, true},
 				{"server exception", exception.Buf, false},
 				{"end of stream", []byte{proto.ServerEndOfStream}, false},
 			} {
@@ -66,7 +73,7 @@ func TestQueryProtocolErrorRetiresConnection(t *testing.T) {
 						require.Error(t, err)
 						require.NotErrorIs(t, err, driver.ErrBadConn, "a query may already have executed")
 					}
-					require.Equal(t, tc.closed, c.isClosed(), "retire before exposing the error to the caller")
+					require.Equal(t, tc.closed, c.isClosed(), "retire before exposing the error to the caller, got error: %v", err)
 					if tc.closed {
 						_, readErr := server.Read(make([]byte, 1))
 						require.ErrorIs(t, readErr, io.EOF, "close the socket, not just the pool state")
