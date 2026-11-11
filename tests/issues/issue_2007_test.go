@@ -27,7 +27,7 @@ func TestIssue2007LowCardinalityFloats(t *testing.T) {
 				id UInt8,
 				f32 LowCardinality(Float32), f64 LowCardinality(Float64),
 				n32 LowCardinality(Nullable(Float32)), n64 LowCardinality(Nullable(Float64))
-			) ENGINE = Memory`))
+			) ENGINE = MergeTree ORDER BY tuple()`))
 			t.Cleanup(func() { assert.NoError(t, conn.Exec(ctx, "DROP TABLE IF EXISTS "+table)) })
 			values := []float64{0, math.Copysign(0, -1), math.NaN(), math.NaN(), math.Inf(1), math.Inf(-1), 1.5}
 			batch, err := conn.PrepareBatch(ctx, "INSERT INTO "+table)
