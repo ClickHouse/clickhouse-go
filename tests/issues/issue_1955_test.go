@@ -50,6 +50,20 @@ func Test1955(t *testing.T) {
 					require.ErrorContains(t, err, "@"+name)
 				})
 			}
+			// database/sql rejects a sql.Named name that does not start with a letter.
+			// These cases leave out "$x" and "$".
+			for _, name := range []string{"id$x", "id$", "id$1"} {
+				t.Run("sql_named_"+name, func(t *testing.T) {
+					var value, prefix int64
+					query := "SELECT toInt64(@" + name + "), toInt64(@id)"
+					require.NoError(t, db.QueryRowContext(context.Background(), query,
+						sql.Named("id", 7), sql.Named(name, 42)).Scan(&value, &prefix))
+					require.Equal(t, int64(42), value)
+					require.Equal(t, int64(7), prefix)
+					err := db.QueryRowContext(context.Background(), query, sql.Named("id", 7)).Scan(&value, &prefix)
+					require.ErrorContains(t, err, "@"+name)
+				})
+			}
 		})
 	}
 }
