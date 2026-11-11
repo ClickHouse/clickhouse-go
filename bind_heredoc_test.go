@@ -29,9 +29,17 @@ func TestBindHeredoc(t *testing.T) {
 		{"case_sensitive_tag", "SELECT $TAG$? $tag$ $1$TAG$, ?", []any{42}, "SELECT $TAG$? $tag$ $1$TAG$, 42"},
 		{"different_tag", "SELECT $a$? $b$ @n $a$, ?", []any{42}, "SELECT $a$? $b$ @n $a$, 42"},
 		{"several_literals", "SELECT ?, $$?$$, $t$?$t$, ?", []any{1, 2}, "SELECT 1, $$?$$, $t$?$t$, 2"},
+		// A closing tag ends its token, so a literal can start right after it.
+		{"adjacent_literals", "SELECT $$a$$$t$?$t$, ?", []any{42}, "SELECT $$a$$$t$?$t$, 42"},
+		{"adjacent_literals_numeric", "SELECT $$a$$$t$$1$t$, $1", []any{42}, "SELECT $$a$$$t$$1$t$, 42"},
+		{"adjacent_literals_named", "SELECT $$a$$$t$@n$t$, @n", []any{Named("n", 42)}, "SELECT $$a$$$t$@n$t$, 42"},
+		// The first $ is a token of its own, so it does not block the literal after it.
+		{"literal_after_lone_dollar", "SELECT $$t$?$t$, ?", []any{42}, "SELECT $$t$?$t$, 42"},
 		{"at_start", "$$? $1 @n$$ || ?", []any{"x"}, "$$? $1 @n$$ || 'x'"},
 		{"only_literal", "SELECT $$? $1 @n$$", []any{42}, "SELECT $$? $1 @n$$"},
 		{"identifier_boundary", "WITH 1 AS b$c$ SELECT ?, b$c$", []any{42}, "WITH 1 AS b$c$ SELECT 42, b$c$"},
+		// Every $ in a bare word is part of it, also the one that follows another $.
+		{"dollar_run_in_identifier", "WITH 1 AS a$$b$ SELECT ?, a$$b$", []any{42}, "WITH 1 AS a$$b$ SELECT 42, a$$b$"},
 		{"numeric_unchanged", "SELECT $1, $2", []any{1, 2}, "SELECT 1, 2"},
 		{"single_quoted_tag", "SELECT '$t$', ?, '$t$'", []any{42}, "SELECT '$t$', 42, '$t$'"},
 		{"commented_tag", "SELECT /* $t$ */ ? /* $t$ */", []any{42}, "SELECT /* $t$ */ 42 /* $t$ */"},

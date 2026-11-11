@@ -127,6 +127,7 @@ type bindQuoteState struct {
 	inDouble      bool
 	inLineComment bool
 	blockComment  int // nesting depth of /* */ comments (ClickHouse nests them)
+	afterHeredoc  int // index just after the last heredoc that skipHeredoc skipped
 }
 
 // inProtectedContext reports whether the current position is inside a quoted
@@ -215,28 +216,42 @@ func (s *bindQuoteState) update(query string, pos int) int {
 }
 
 // skipHeredoc returns the last byte of a complete dollar-quoted literal at pos,
-// or pos if there is none. Like the server lexer, it accepts empty and numeric
-// tags, requires a matching closing tag, and does not start inside a bare word.
+// or pos if there is none. heredocEnd finds the literal, as it does for
+// PrepareBatch, so both paths agree where a literal ends. It accepts empty and
+// numeric tags and requires a matching closing tag. The checks here are special
+// to binding: a literal does not start in a quoted region or a comment, after a
+// backslash, or inside a bare word.
 // Call this before recognizing placeholders: $1$ is a valid heredoc delimiter.
 func (s *bindQuoteState) skipHeredoc(query string, pos int) int {
 	if query[pos] != '$' || s.inProtectedContext() || isEscaped(query, pos) {
 		return pos
 	}
-	if pos > 0 && (isNameChar(query[pos-1]) || query[pos-1] == '$') {
+	if s.inBareWord(query, pos) {
 		return pos
 	}
-	tagEnd := pos + 1
-	for tagEnd < len(query) && isNameChar(query[tagEnd]) && query[tagEnd] != '$' {
-		tagEnd++
-	}
-	if tagEnd == len(query) || query[tagEnd] != '$' {
+	n := heredocEnd(query[pos:])
+	if n == 0 {
 		return pos
 	}
-	delimiter := query[pos : tagEnd+1]
-	if end := strings.Index(query[tagEnd+1:], delimiter); end >= 0 {
-		return tagEnd + end + len(delimiter)
+	s.afterHeredoc = pos + n
+	return pos + n - 1
+}
+
+// inBareWord reports whether the $ at pos is part of a bare word such as b$c$.
+// The server lexer reads a bare word as one token: after its first word byte, it
+// takes all the word bytes and $ bytes that follow. A literal cannot start inside
+// a token. So the $ bytes that end at pos are part of a bare word only if a word
+// byte comes before them. A lone $ is a token of its own.
+// The closing tag of a literal ends its token, so the look-back stops at
+// afterHeredoc. This lets a literal start right after another one: $$a$$$t$?$t$.
+// A digit counts as a word byte here. The server ends a number before a $, so
+// this check is wider than the server for a number that comes before a $.
+func (s *bindQuoteState) inBareWord(query string, pos int) bool {
+	start := pos
+	for start > s.afterHeredoc && query[start-1] == '$' {
+		start--
 	}
-	return pos
+	return start > s.afterHeredoc && isNameChar(query[start-1])
 }
 
 func isEscaped(query string, pos int) bool {
