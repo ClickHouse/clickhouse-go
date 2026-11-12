@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -528,6 +529,112 @@ func TestConnPool_FIFOOrdering(t *testing.T) {
 		assert.Equal(t, id, conn.connID(),
 			"connections should be returned in FIFO insertion order")
 	}
+}
+
+// TestConnPool_CloseDoesNotDeadlockWithDrainTick is a regression test for
+// issue #1990. Close used to hold mu while it waited for runDrainPool to exit.
+// If runDrainPool had already received a tick and was blocked on mu, neither
+// side made progress.
+//
+// The test forces that order:
+//  1. Hold a read lock so Close blocks on mu.Lock.
+//  2. Wait until Close is the pending writer (TryRLock fails).
+//  3. Send a tick on an unbuffered channel, so runDrainPool is in the tick
+//     branch and goes to mu.Lock behind Close.
+//  4. Release the read lock. RWMutex gives the lock to Close first.
+func TestConnPool_CloseDoesNotDeadlockWithDrainTick(t *testing.T) {
+	tick := make(chan time.Time)
+	pool := newConnPoolWithTick(time.Hour, 5, tick, func() {})
+	conn := newMockTransport(1)
+	pool.Put(conn)
+
+	pool.mu.RLock()
+
+	closeErr := make(chan error, 1)
+	go func() { closeErr <- pool.Close() }()
+
+	// TryRLock fails only when a writer waits for the lock.
+	for pool.mu.TryRLock() {
+		pool.mu.RUnlock()
+		runtime.Gosched()
+	}
+
+	// The send completes only when runDrainPool receives the tick. finish is
+	// not closed yet, because Close still waits for mu.
+	tick <- time.Now()
+
+	pool.mu.RUnlock()
+
+	select {
+	case err := <-closeErr:
+		require.NoError(t, err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("Close deadlocked against runDrainPool")
+	}
+
+	assert.True(t, conn.isClosed(), "pooled connection not closed by Close")
+	assert.Equal(t, 0, pool.Len())
+	require.NoError(t, pool.Close())
+}
+
+// TestConnPool_ClosingRejectsGetPutAndSecondCloseWaits verifies the pool
+// state while Close waits for runDrainPool to exit, with mu released:
+// Get must not hand out an idle connection, Put must close the connection,
+// and a second Close must wait until the first Close has drained the pool.
+func TestConnPool_ClosingRejectsGetPutAndSecondCloseWaits(t *testing.T) {
+	stopped := make(chan struct{})
+	resume := make(chan struct{})
+	// stopTick runs in runDrainPool before it closes finished. Blocking here
+	// holds the first Close in its wait on finished.
+	pool := newConnPoolWithTick(time.Hour, 5, nil, func() {
+		close(stopped)
+		<-resume
+	})
+
+	idle := newMockTransport(1)
+	pool.Put(idle)
+
+	firstClose := make(chan error, 1)
+	go func() { firstClose <- pool.Close() }()
+
+	select {
+	case <-stopped:
+	case <-time.After(5 * time.Second):
+		t.Fatal("runDrainPool did not exit after Close")
+	}
+
+	conn, err := pool.Get(context.Background())
+	assert.ErrorIs(t, err, ErrConnectionClosed)
+	assert.Nil(t, conn)
+	assert.Equal(t, 1, pool.Len(), "Get must not take an idle connection from a closing pool")
+
+	late := newMockTransport(2)
+	pool.Put(late)
+	assert.True(t, late.isClosed(), "Put on a closing pool must close the connection")
+	assert.Equal(t, 1, pool.Len())
+
+	secondClose := make(chan error, 1)
+	go func() { secondClose <- pool.Close() }()
+
+	select {
+	case <-secondClose:
+		t.Fatal("second Close returned before the first Close drained the pool")
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	close(resume)
+
+	for name, ch := range map[string]chan error{"first": firstClose, "second": secondClose} {
+		select {
+		case err := <-ch:
+			require.NoError(t, err, "%s Close", name)
+		case <-time.After(5 * time.Second):
+			t.Fatalf("%s Close did not return", name)
+		}
+	}
+
+	assert.True(t, idle.isClosed(), "idle connection not closed by Close")
+	assert.Equal(t, 0, pool.Len())
 }
 
 // mockTransport implements nativeTransport for testing
