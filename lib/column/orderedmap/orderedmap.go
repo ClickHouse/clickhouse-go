@@ -2,6 +2,7 @@ package orderedmap
 
 import (
 	"cmp"
+	"reflect"
 	"slices"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
@@ -9,6 +10,8 @@ import (
 
 // Map is a simple implementation of [column.IterableOrderedMap] interface.
 // It is intended to be used as a serdes wrapper for map[K]V and not as a general purpose container.
+// Use the native driver (clickhouse.Open) to scan nested Map columns into orderedmap;
+// database/sql always materialises Go maps and cannot preserve duplicate keys.
 type Map[K comparable, V any] []entry[K, V]
 
 type entry[K comparable, V any] struct {
@@ -74,6 +77,9 @@ func (om *Map[K, V]) ToMap() map[K]V {
 func (om *Map[K, V]) Put(key any, value any) {
 	*om = append(*om, entry[K, V]{key.(K), value.(V)})
 }
+
+// OrderedMapElementReflectType implements [column.OrderedMapElementTyper].
+func (om *Map[K, V]) OrderedMapElementReflectType() reflect.Type { return reflect.TypeFor[V]() }
 
 // All is an iter.Seq[K,V] iterator that yields all key-value pairs in order.
 func (om *Map[K, V]) All(yield func(k K, v V) bool) {
