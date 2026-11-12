@@ -101,15 +101,22 @@ func (col *Date) Append(v any) (nulls []uint8, err error) {
 	case []sql.NullTime:
 		nulls = make([]uint8, len(v))
 		for i := range v {
-			col.AppendRow(v[i])
+			if !v[i].Valid {
+				nulls[i] = 1
+			}
+			if err := col.AppendRow(v[i]); err != nil {
+				return nil, err
+			}
 		}
 	case []*sql.NullTime:
 		nulls = make([]uint8, len(v))
 		for i := range v {
-			if v[i] == nil {
+			if v[i] == nil || !v[i].Valid {
 				nulls[i] = 1
 			}
-			col.AppendRow(v[i])
+			if err := col.AppendRow(v[i]); err != nil {
+				return nil, err
+			}
 		}
 	case []string:
 		nulls = make([]uint8, len(v))
@@ -175,10 +182,9 @@ func (col *Date) AppendRow(v any) error {
 			col.col.Append(time.Time{})
 		}
 	case *sql.NullTime:
-		switch v.Valid {
-		case true:
+		if v != nil && v.Valid {
 			col.col.Append(v.Time)
-		default:
+		} else {
 			col.col.Append(time.Time{})
 		}
 	case nil:
