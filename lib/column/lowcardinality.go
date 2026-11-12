@@ -143,6 +143,14 @@ func (col *LowCardinality) AppendRow(v any) error {
 	switch x := v.(type) {
 	case time.Time:
 		v = x.Truncate(time.Second)
+	case []byte:
+		v = string(x)
+	case *[]byte:
+		if x == nil {
+			col.append.keys = append(col.append.keys, 0)
+			return nil
+		}
+		v = string(*x)
 	}
 	if _, found := col.append.index[v]; !found {
 		if err := col.index.AppendRow(v); err != nil {
