@@ -48,6 +48,7 @@ func EphemeralColumnHTTP() error {
 	if err != nil {
 		return err
 	}
+	defer rows.Close()
 
 	fmt.Println("Query Results:")
 	for rows.Next() {
@@ -61,5 +62,5 @@ func EphemeralColumnHTTP() error {
 		}
 		fmt.Println("id: ", id, "un: ", un, "hex: ", hex)
 	}
-	return nil
+	return rows.Err()
 }
