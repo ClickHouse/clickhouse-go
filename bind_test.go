@@ -322,6 +322,13 @@ func TestBindMixedParamsFormatsQuotedContexts(t *testing.T) {
 			params:   []any{"value"},
 			expected: `SELECT "$1?", 'value'`,
 		},
+		{
+			// The ? sits inside a // line comment, so it must not count as a
+			// positional placeholder next to the numeric $1.
+			query:    "SELECT $1 // ?\n, $1",
+			params:   []any{42},
+			expected: "SELECT 42 // ?\n, 42",
+		},
 	}
 
 	for _, asset := range assets {
@@ -364,6 +371,26 @@ func TestBindPositionalComments(t *testing.T) {
 			query:    "SELECT ? -- \\?\n",
 			params:   []any{1},
 			expected: "SELECT 1 -- \\?\n",
+		},
+		{
+			// "//" also starts a single-line comment in ClickHouse; the ? inside
+			// it is not a placeholder, and the one after the newline still binds.
+			query:    "SELECT ? // comment ?\n, ?",
+			params:   []any{1, 2},
+			expected: "SELECT 1 // comment ?\n, 2",
+		},
+		{
+			// "//" inside a block comment is plain comment text, not a nested
+			// line comment.
+			query:    "SELECT ? /* // not a line comment */, ?",
+			params:   []any{1, 2},
+			expected: "SELECT 1 /* // not a line comment */, 2",
+		},
+		{
+			// A lone "/" is division, not the start of a comment.
+			query:    "SELECT 10/?",
+			params:   []any{5},
+			expected: "SELECT 10/5",
 		},
 	}
 
@@ -424,6 +451,13 @@ func TestBindNumericComments(t *testing.T) {
 			params:   []any{42},
 			expected: "SELECT 42 /* $2 */",
 		},
+		{
+			// "//" behaves like "--": $2 stays verbatim inside the comment, and
+			// the scanner resumes binding after the newline.
+			query:    "SELECT $1 // $2\n, $1",
+			params:   []any{42},
+			expected: "SELECT 42 // $2\n, 42",
+		},
 	}
 
 	for _, asset := range assets {
@@ -468,6 +502,11 @@ func TestBindNamedQuotedContexts(t *testing.T) {
 			query:    "SELECT @id /* @ignored */",
 			params:   []any{Named("id", 7)},
 			expected: "SELECT 7 /* @ignored */",
+		},
+		{
+			query:    "SELECT @id // @ignored\n",
+			params:   []any{Named("id", 7)},
+			expected: "SELECT 7 // @ignored\n",
 		},
 	}
 
