@@ -217,3 +217,34 @@ func TestWithoutProfileEvents(t *testing.T) {
 		require.Equal(t, 0, opts.settings["send_profile_events"])
 	})
 }
+
+func TestQueryOptionsMaxExecutionTime(t *testing.T) {
+	tests := []struct {
+		name     string
+		settings Settings
+		kept     bool
+	}{
+		{name: "not set uses the deadline", settings: nil},
+		{name: "lower int is kept", settings: Settings{"max_execution_time": 2}, kept: true},
+		{name: "lower string is kept", settings: Settings{"max_execution_time": "2"}, kept: true},
+		{name: "lower custom setting is kept", settings: Settings{"max_execution_time": CustomSetting{Value: "2.5"}}, kept: true},
+		{name: "higher uses the deadline", settings: Settings{"max_execution_time": 600}},
+		{name: "zero uses the deadline", settings: Settings{"max_execution_time": 0}},
+		{name: "not a number uses the deadline", settings: Settings{"max_execution_time": "abc"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(Context(context.Background(), WithSettings(tt.settings)), time.Minute)
+			t.Cleanup(cancel)
+
+			opts := queryOptions(ctx)
+			if tt.kept {
+				require.Equal(t, tt.settings["max_execution_time"], opts.settings["max_execution_time"])
+				return
+			}
+			// The deadline is one minute away, so the driver sets 64 or 65 seconds.
+			require.InDelta(t, 65, opts.settings["max_execution_time"], 1)
+		})
+	}
+}

@@ -2,8 +2,10 @@ package clickhouse
 
 import (
 	"context"
+	"fmt"
 	"maps"
 	"slices"
+	"strconv"
 	"time"
 
 	"go.opentelemetry.io/otel/trace"
@@ -236,7 +238,8 @@ func Context(parent context.Context, options ...QueryOption) context.Context {
 
 // queryOptions returns a mutable copy of the QueryOptions struct within the given context.
 // If ClickHouse context was not provided, an empty struct with a valid Settings map is returned.
-// If the context has a deadline greater than 1s then max_execution_time setting is appended.
+// If the context has a deadline greater than 1s then max_execution_time setting is appended,
+// unless the settings already have a lower, non-zero max_execution_time.
 func queryOptions(ctx context.Context) QueryOptions {
 	var opt QueryOptions
 
@@ -254,10 +257,34 @@ func queryOptions(ctx context.Context) QueryOptions {
 	}
 
 	if sec := time.Until(deadline).Seconds(); sec > 1 {
-		opt.settings["max_execution_time"] = int(sec + 5)
+		timeout := int(sec + 5)
+		if current, ok := maxExecutionTime(opt.settings); ok && current > 0 && current <= float64(timeout) {
+			return opt
+		}
+		opt.settings["max_execution_time"] = timeout
 	}
 
 	return opt
+}
+
+// maxExecutionTime returns the max_execution_time in settings, in seconds.
+// It returns false if the setting is not set or is not a number.
+func maxExecutionTime(settings Settings) (float64, bool) {
+	value, ok := settings["max_execution_time"]
+	if !ok {
+		return 0, false
+	}
+
+	if custom, ok := value.(CustomSetting); ok {
+		value = custom.Value
+	}
+
+	seconds, err := strconv.ParseFloat(fmt.Sprint(value), 64)
+	if err != nil {
+		return 0, false
+	}
+
+	return seconds, true
 }
 
 // queryOptionsAsync returns the AsyncOptions struct within the given context's QueryOptions.
