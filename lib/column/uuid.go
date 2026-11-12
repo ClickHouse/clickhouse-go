@@ -3,6 +3,7 @@ package column
 import (
 	"database/sql"
 	"database/sql/driver"
+	"encoding"
 	"fmt"
 	"reflect"
 
@@ -45,6 +46,7 @@ func (col *UUID) Row(i int, ptr bool) any {
 }
 
 func (col *UUID) ScanRow(dest any, row int) error {
+	// TODO: add cases for the standard uuid type once go version is updated to >=1.27.
 	switch d := dest.(type) {
 	case *string:
 		*d = col.row(row).String()
@@ -57,8 +59,11 @@ func (col *UUID) ScanRow(dest any, row int) error {
 		*d = new(uuid.UUID)
 		**d = col.row(row)
 	default:
-		if scan, ok := dest.(sql.Scanner); ok {
-			return scan.Scan(col.row(row).String())
+		switch dest := dest.(type) {
+		case sql.Scanner:
+			return dest.Scan(col.row(row).String())
+		case encoding.TextUnmarshaler:
+			return dest.UnmarshalText([]byte(col.row(row).String()))
 		}
 		return &ColumnConverterError{
 			Op:   "ScanRow",
@@ -122,7 +127,7 @@ func (col *UUID) Append(v any) (nulls []uint8, err error) {
 					Op:   "Append",
 					To:   "UUID",
 					From: fmt.Sprintf("%T", v),
-					Hint: "could not get driver.Valuer value",
+					Hint: fmt.Sprintf("could not get driver.Valuer value: %s", err),
 				}
 			}
 			return col.Append(val)
@@ -138,6 +143,7 @@ func (col *UUID) Append(v any) (nulls []uint8, err error) {
 }
 
 func (col *UUID) AppendRow(v any) error {
+	// TODO: add cases for the standard uuid type once go version is updated to >=1.27.
 	switch v := v.(type) {
 	case string:
 		u, err := uuid.Parse(v)
@@ -168,20 +174,31 @@ func (col *UUID) AppendRow(v any) error {
 	case nil:
 		col.col.Append(uuid.UUID{})
 	default:
-		if valuer, ok := v.(driver.Valuer); ok {
-			val, err := valuer.Value()
+		switch v := v.(type) {
+		case driver.Valuer:
+			val, err := v.Value()
 			if err != nil {
 				return &ColumnConverterError{
 					Op:   "AppendRow",
 					To:   "UUID",
 					From: fmt.Sprintf("%T", v),
-					Hint: "could not get driver.Valuer value",
+					Hint: fmt.Sprintf("could not get driver.Valuer value: %s", err),
 				}
 			}
 			return col.AppendRow(val)
-		}
-		if s, ok := v.(fmt.Stringer); ok {
-			return col.AppendRow(s.String())
+		case fmt.Stringer:
+			return col.AppendRow(v.String())
+		case encoding.TextMarshaler:
+			val, err := v.MarshalText()
+			if err != nil {
+				return &ColumnConverterError{
+					Op:   "AppendRow",
+					To:   "UUID",
+					From: fmt.Sprintf("%T", v),
+					Hint: fmt.Sprintf("could not get encoding.TextMarshaler value: %s", err),
+				}
+			}
+			return col.AppendRow(string(val))
 		}
 		return &ColumnConverterError{
 			Op:   "AppendRow",
