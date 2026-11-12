@@ -929,6 +929,22 @@ INSERT INTO ` + "`_test_1345# $.ДБ`.`2. Таблица №2`" + ` (col1, col2)
 			expectedError:           false,
 		},
 		{
+			name:                    "Insert with TABLE keyword into a table named values",
+			query:                   "INSERT INTO TABLE values (col1, col2) VALUES (1, 2)",
+			expectedNormalizedQuery: "INSERT INTO TABLE values (col1, col2) FORMAT Native",
+			expectedTableName:       "values",
+			expectedColumns:         []string{"col1", "col2"},
+			expectedError:           false,
+		},
+		{
+			name:                    "Insert with TABLE keyword into a table named format",
+			query:                   "INSERT INTO TABLE format (col1, col2) VALUES (1, 2)",
+			expectedNormalizedQuery: "INSERT INTO TABLE format (col1, col2) FORMAT Native",
+			expectedTableName:       "format",
+			expectedColumns:         []string{"col1", "col2"},
+			expectedError:           false,
+		},
+		{
 			name:                    "Insert with a heredoc setting value holding a quote and VALUES tuples",
 			query:                   "INSERT INTO table_name (col1, col2) SETTINGS log_comment=$$don't VALUES$$ VALUES (1, 2)",
 			expectedNormalizedQuery: "INSERT INTO table_name (col1, col2) SETTINGS log_comment=$$don't VALUES$$ FORMAT Native",

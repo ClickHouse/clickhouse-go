@@ -140,8 +140,8 @@ func trimTableKeyword(name string) string {
 //
 // The scan is quote aware, so a comment marker, a VALUES keyword or a FORMAT keyword
 // inside a quoted value, an identifier or a heredoc is kept. The VALUES and FORMAT
-// keywords are only recognized outside a parenthesized list and not directly after INTO,
-// so a table or column named "values" or "format" is kept as well.
+// keywords are only recognized outside a parenthesized list and not directly after INTO or
+// INTO TABLE, so a table or column named "values" or "format" is kept as well.
 func sanitizeInsertQuery(query string) string {
 	out := make([]byte, 0, len(query))
 	var quote byte
@@ -294,18 +294,29 @@ func isKeyword(s string, preceding []byte, keyword string) bool {
 	return true
 }
 
-// followsInto reports whether the last word of the query sanitized so far is INTO, which
-// makes the keyword that follows it the name of the table instead.
+// followsInto reports whether the last word of the query sanitized so far is INTO, or INTO
+// followed by the optional TABLE keyword, which makes the keyword that follows it the name
+// of the table instead.
 func followsInto(preceding []byte) bool {
-	end := len(preceding)
-	for end > 0 && isBoundaryByte(preceding[end-1]) {
+	word, before := lastWord(preceding)
+	if strings.EqualFold(word, tableKeyword) {
+		word, _ = lastWord(before)
+	}
+	return strings.EqualFold(word, "INTO")
+}
+
+// lastWord returns the last word of s, after any trailing token boundaries, and the bytes
+// of s before that word.
+func lastWord(s []byte) (word string, before []byte) {
+	end := len(s)
+	for end > 0 && isBoundaryByte(s[end-1]) {
 		end--
 	}
 	start := end
-	for start > 0 && isWordByte(preceding[start-1]) {
+	for start > 0 && isWordByte(s[start-1]) {
 		start--
 	}
-	return strings.EqualFold(string(preceding[start:end]), "INTO")
+	return string(s[start:end]), s[:start]
 }
 
 // formatClauseEnd returns the length of the FORMAT clause s starts with, or 0 when s does
