@@ -22,11 +22,8 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 
-func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, error) {
-	var (
-		err  error
-		conn net.Conn
-	)
+func dial(ctx context.Context, addr string, num int, opt *Options) (c *connect, err error) {
+	var conn net.Conn
 
 	switch {
 	case opt.DialContext != nil:
@@ -39,6 +36,13 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 			conn, err = net.DialTimeout("tcp", addr, opt.DialTimeout)
 		}
 	}
+
+	// Close the connection if the dial or a later setup step fails, otherwise its fd leaks.
+	defer func() {
+		if err != nil && conn != nil {
+			_ = conn.Close()
+		}
+	}()
 
 	if err != nil {
 		return nil, err
