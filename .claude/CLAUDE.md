@@ -60,7 +60,7 @@ Follow [Go Code Review Comments](https://go.dev/wiki/CodeReviewComments) in full
 
 **Goroutines**
 - Always document when a goroutine exits and how it is stopped.
-- Prefer synchronous APIs. Async variants (e.g., `WithAsync`) are opt-in through context, not the default path.
+- Prefer synchronous APIs. If an API needs an async variant, make it opt-in through context, not the default path.
 
 **Imports**
 - Three groups separated by blank lines: stdlib → external → internal (`github.com/ClickHouse/clickhouse-go`).
