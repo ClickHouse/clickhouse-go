@@ -451,6 +451,19 @@ INSERT INTO ` + "`_test_1345# $.ДБ`.`2. Таблица №2`" + ` (col1, col2)
 			expectedError:           false,
 		},
 		{
+			name:                    "Insert with an unterminated Unicode quote before a // comment",
+			query:                   "INSERT INTO table_name (col1, col2) SETTINGS log_comment=‘a // b",
+			expectedNormalizedQuery: "INSERT INTO table_name (col1, col2) SETTINGS log_comment=‘a FORMAT Native",
+			expectedTableName:       "table_name",
+			expectedColumns:         []string{"col1", "col2"},
+			expectedError:           false,
+		},
+		{
+			name:          "Insert after an unbalanced nested block comment, should produce error",
+			query:         "/* a /* b */ INSERT INTO table_name (col1, col2) VALUES (1, 2)",
+			expectedError: true,
+		},
+		{
 			name:                    "Insert with SETTINGS after column list",
 			query:                   "INSERT INTO table_name (col1, col2) SETTINGS async_insert=1",
 			expectedNormalizedQuery: "INSERT INTO table_name (col1, col2) SETTINGS async_insert=1 FORMAT Native",
