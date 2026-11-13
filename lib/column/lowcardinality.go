@@ -144,13 +144,24 @@ func (col *LowCardinality) AppendRow(v any) error {
 	case time.Time:
 		v = x.Truncate(time.Second)
 	}
-	if _, found := col.append.index[v]; !found {
+	key := v
+	value := reflect.ValueOf(v)
+	if value.Kind() == reflect.Ptr {
+		value = value.Elem()
+	}
+	if value.Kind() == reflect.Slice && value.Type().Elem().Kind() == reflect.Uint8 {
+		// Byte slices are valid inputs for String, but cannot be used as map keys.
+		// Normalize them by value so []byte, json.RawMessage, and string inputs
+		// with the same contents share one low-cardinality dictionary entry.
+		key = string(value.Bytes())
+	}
+	if _, found := col.append.index[key]; !found {
 		if err := col.index.AppendRow(v); err != nil {
 			return err
 		}
-		col.append.index[v] = col.index.Rows() - 1
+		col.append.index[key] = col.index.Rows() - 1
 	}
-	col.append.keys = append(col.append.keys, col.append.index[v])
+	col.append.keys = append(col.append.keys, col.append.index[key])
 	return nil
 }
 
