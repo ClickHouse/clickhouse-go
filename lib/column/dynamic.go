@@ -1,8 +1,11 @@
 package column
 
 import (
+	"bytes"
 	"database/sql/driver"
+	"errors"
 	"fmt"
+	"io"
 	"math"
 	"reflect"
 	"strconv"
@@ -36,6 +39,9 @@ type Dynamic struct {
 
 	columns           []Interface
 	columnIndexByType map[string]int
+	explicitColumns   map[int]bool
+	conversionInput   bytes.Reader
+	conversionReader  *proto.Reader
 
 	deprecated deprecatedDynamic
 }
@@ -244,6 +250,40 @@ func (c *Dynamic) AppendRow(v any) error {
 		}
 	}
 
+	explicitType := requestedType != ""
+	if !explicitType {
+		requestedType = inferClickHouseTypeFromGoType(v)
+		// Keep explicit type conversions, but do not probe columns that hold rows.
+		// A rejected append can change offsets or nested column data.
+		if requestedType == "" || len(c.explicitColumns) != 0 {
+			candidate := v
+			if valuer, ok := v.(driver.Valuer); ok {
+				var err error
+				candidate, err = valuer.Value()
+				if err != nil {
+					return fmt.Errorf("unable to get dynamic value: %w", err)
+				}
+			}
+			for i, col := range c.columns {
+				if col.Type() == "SharedVariant" || (requestedType != "" && !c.explicitColumns[i]) {
+					continue
+				}
+				value, compatible, err := c.prepareValue(candidate, col.Type())
+				if err != nil {
+					return err
+				}
+				if !compatible {
+					continue
+				}
+				if err := col.AppendRow(value); err != nil {
+					return fmt.Errorf("unable to append converted value to dynamic type %s: %w", col.Type(), err)
+				}
+				c.appendDiscriminatorRow(i)
+				return nil
+			}
+		}
+	}
+
 	if requestedType != "" {
 		var col Interface
 		colIndex, ok := c.columnIndexByType[requestedType]
@@ -263,30 +303,81 @@ func (c *Dynamic) AppendRow(v any) error {
 			return fmt.Errorf("value \"%v\" cannot be stored in dynamic column %s with requested type %s: %w", v, c.chType, requestedType, err)
 		}
 
+		if explicitType {
+			if c.explicitColumns == nil {
+				c.explicitColumns = make(map[int]bool)
+			}
+			c.explicitColumns[colIndex] = true
+		}
 		c.appendDiscriminatorRow(colIndex)
 		return nil
 	}
 
-	// If preferred type wasn't provided, try each column
-	for i, col := range c.columns {
-		if c.deprecated.typeNames[i] == "SharedVariant" {
-			// Do not try to fit into SharedVariant
-			continue
-		}
-
-		if err := col.AppendRow(v); err == nil {
-			c.appendDiscriminatorRow(i)
-			return nil
-		}
-	}
-
-	// If no existing columns match, try matching a ClickHouse type from common Go types
-	inferredTypeName := inferClickHouseTypeFromGoType(v)
-	if inferredTypeName != "" {
-		return c.AppendRow(chcol.NewDynamicWithType(v, inferredTypeName))
-	}
-
 	return fmt.Errorf("value \"%v\" cannot be stored in dynamic column: no compatible types. hint: either use fixed types like int64, int32, etc or use clickhouse.DynamicWithType to wrap the value with concrete ClickHouse column type", v)
+}
+
+// prepareValue tries a conversion without changing a stored column. The
+// single-row round trip gives AppendRow a typed value, so user conversions such
+// as driver.Valuer are not called again when the value is committed.
+func (c *Dynamic) prepareValue(v any, t Type) (any, bool, error) {
+	probe, err := t.Column("", c.sc)
+	if err != nil {
+		return nil, false, err
+	}
+	if _, ok := probe.(*Array); ok {
+		value, ok := v.(reflect.Value)
+		if !ok {
+			value = reflect.ValueOf(v)
+		}
+		value = reflect.Indirect(value)
+		if !value.IsValid() || (value.Kind() != reflect.Slice && value.Kind() != reflect.Array) {
+			return nil, false, nil
+		}
+	}
+	if _, ok := probe.(*LowCardinality); ok && v != nil && !reflect.ValueOf(v).Comparable() {
+		return nil, false, nil
+	}
+	if err := probe.AppendRow(v); err != nil {
+		return nil, false, nil
+	}
+
+	buffer := &proto.Buffer{}
+	if serial, ok := probe.(CustomSerialization); ok {
+		if err := serial.WriteStatePrefix(buffer); err != nil {
+			return nil, false, err
+		}
+	}
+	probe.Encode(buffer)
+	converted, err := t.Column("", c.sc)
+	if err != nil {
+		return nil, false, err
+	}
+	// Reuse the decoder's buffers instead of allocating them for every value.
+	c.conversionInput.Reset(buffer.Buf)
+	if c.conversionReader == nil {
+		c.conversionReader = proto.NewReader(&c.conversionInput)
+	}
+	reader := c.conversionReader
+	if serial, ok := converted.(CustomSerialization); ok {
+		if err := serial.ReadStatePrefix(reader); err != nil {
+			c.conversionReader = nil
+			return nil, false, err
+		}
+	}
+	if err := converted.Decode(reader, 1); err != nil {
+		c.conversionReader = nil
+		return nil, false, err
+	}
+	// Consume EOF before resetting the input, so no buffered bytes or error
+	// from this value can affect the next conversion.
+	if _, err := reader.ReadByte(); !errors.Is(err, io.EOF) {
+		c.conversionReader = nil
+		if err == nil {
+			err = fmt.Errorf("unexpected trailing data while converting dynamic type %s", t)
+		}
+		return nil, false, err
+	}
+	return converted.Row(0, false), true, nil
 }
 
 func (c *Dynamic) encodeHeader(buffer *proto.Buffer) error {
