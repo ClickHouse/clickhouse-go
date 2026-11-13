@@ -4,7 +4,7 @@ go 1.26.0
 
 require (
 	github.com/ClickHouse/ch-go v0.75.0
-	github.com/andybalholm/brotli v1.2.8
+	github.com/andybalholm/brotli v1.3.0
 	github.com/docker/go-units v0.5.0
 	github.com/google/uuid v1.6.0
 	github.com/moby/moby/api v1.56.1
