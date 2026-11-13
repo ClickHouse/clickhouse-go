@@ -169,10 +169,10 @@ func TestLowCardinalityAppend_StringPtrEmbeddedNils(t *testing.T) {
 
 	require.Equal(t, 5, lc.Rows())
 	assert.Equal(t, 2, len(lc.append.index),
-		"appendLCPtr should dedupe by value, not by *string identity")
+		"Append([]*string) should dedupe by value, not by *string identity")
 
-	var buf chproto.Buffer
-	lc.Encode(&buf)
+	// Encode fills the typed key columns that Row reads.
+	encodeColumnBytes(t, lc)
 
 	deref := func(v any) any {
 		if v == nil {
@@ -200,89 +200,51 @@ func encodeColumnBytes(t *testing.T, col Interface) []byte {
 	return slices.Clone(buf.Buf)
 }
 
-const lcBenchResetEveryN = 1024
-
-func newBenchLowCardinalityColumn(b *testing.B, chType string) *LowCardinality {
-	b.Helper()
-	col, err := Type(chType).Column("bench", nil)
-	if err != nil {
-		b.Fatalf("parse %s: %v", chType, err)
-	}
-	lc, ok := col.(*LowCardinality)
-	if !ok {
-		b.Fatalf("expected *LowCardinality, got %T", col)
-	}
-	return lc
-}
-
-func benchLowCardinalityAppend(b *testing.B, col *LowCardinality, data any) {
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		if _, err := col.Append(data); err != nil {
-			b.Fatalf("Append: %v", err)
-		}
-		if (i+1)%lcBenchResetEveryN == 0 {
-			col.Reset()
-		}
-	}
-}
-
 func makeLCStrings(n, unique int) []string {
-	dict := make([]string, unique)
-	for i := range dict {
-		dict[i] = "value_" + strconv.Itoa(i)
-	}
 	out := make([]string, n)
 	for i := range out {
-		out[i] = dict[i%unique]
+		out[i] = "value_" + strconv.Itoa(i%unique)
 	}
 	return out
 }
 
-func makeLCStringPtrs(n, unique int, nullEvery int) []*string {
-	dict := make([]string, unique)
-	for i := range dict {
-		dict[i] = "value_" + strconv.Itoa(i)
-	}
+func makeLCStringPtrs(n, unique, nullEvery int) []*string {
+	vals := makeLCStrings(n, unique)
 	out := make([]*string, n)
 	for i := range out {
-		if nullEvery > 0 && i%nullEvery == 0 {
-			continue
+		if nullEvery == 0 || i%nullEvery != 0 {
+			out[i] = &vals[i]
 		}
-		s := dict[i%unique]
-		out[i] = &s
 	}
 	return out
 }
 
-func BenchmarkLowCardinalityAppend_String_1000x26(b *testing.B) {
-	col := newBenchLowCardinalityColumn(b, "LowCardinality(String)")
-	benchLowCardinalityAppend(b, col, makeLCStrings(1000, 26))
-}
-
-func BenchmarkLowCardinalityAppend_String_1000x1000(b *testing.B) {
-	// All-unique stress case: every row grows the dictionary.
-	col := newBenchLowCardinalityColumn(b, "LowCardinality(String)")
-	benchLowCardinalityAppend(b, col, makeLCStrings(1000, 1000))
-}
-
-func BenchmarkLowCardinalityAppend_String_10000x26(b *testing.B) {
-	col := newBenchLowCardinalityColumn(b, "LowCardinality(String)")
-	benchLowCardinalityAppend(b, col, makeLCStrings(10000, 26))
-}
-
-func BenchmarkLowCardinalityAppend_StringPtr_1000x26(b *testing.B) {
-	col := newBenchLowCardinalityColumn(b, "LowCardinality(Nullable(String))")
-	benchLowCardinalityAppend(b, col, makeLCStringPtrs(1000, 26, 0))
-}
-
-func BenchmarkLowCardinalityAppend_StringPtr_1000x26_WithNulls(b *testing.B) {
-	col := newBenchLowCardinalityColumn(b, "LowCardinality(Nullable(String))")
-	benchLowCardinalityAppend(b, col, makeLCStringPtrs(1000, 26, 4))
-}
-
-func BenchmarkLowCardinalityAppend_StringPtr_10000x26(b *testing.B) {
-	col := newBenchLowCardinalityColumn(b, "LowCardinality(Nullable(String))")
-	benchLowCardinalityAppend(b, col, makeLCStringPtrs(10000, 26, 0))
+func BenchmarkLowCardinalityAppend(b *testing.B) {
+	cases := []struct {
+		name, chType string
+		data         any
+	}{
+		{"String_1000x26", "LowCardinality(String)", makeLCStrings(1000, 26)},
+		{"String_1000x1000", "LowCardinality(String)", makeLCStrings(1000, 1000)}, // every row grows the dictionary
+		{"String_10000x26", "LowCardinality(String)", makeLCStrings(10000, 26)},
+		{"StringPtr_1000x26", "LowCardinality(Nullable(String))", makeLCStringPtrs(1000, 26, 0)},
+		{"StringPtr_1000x26_WithNulls", "LowCardinality(Nullable(String))", makeLCStringPtrs(1000, 26, 4)},
+		{"StringPtr_10000x26", "LowCardinality(Nullable(String))", makeLCStringPtrs(10000, 26, 0)},
+	}
+	for _, c := range cases {
+		b.Run(c.name, func(b *testing.B) {
+			col, err := Type(c.chType).Column("bench", nil)
+			require.NoError(b, err)
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				if _, err := col.Append(c.data); err != nil {
+					b.Fatalf("Append: %v", err)
+				}
+				if (i+1)%resetEveryN == 0 {
+					col.Reset()
+				}
+			}
+		})
+	}
 }

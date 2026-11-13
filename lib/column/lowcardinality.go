@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"slices"
 	"time"
 
 	"github.com/ClickHouse/ch-go/proto"
@@ -109,6 +110,30 @@ func (col *LowCardinality) ScanRow(dest any, row int) error {
 }
 
 func (col *LowCardinality) Append(v any) (nulls []uint8, err error) {
+	// Typed fast paths: no per-row reflection or boxing.
+	switch arr := v.(type) {
+	case []string:
+		col.prepareAppend(len(arr))
+		for _, s := range arr {
+			if err := appendKey(col, s); err != nil {
+				return nil, err
+			}
+		}
+		return nil, nil
+	case []*string:
+		col.prepareAppend(len(arr))
+		for _, p := range arr {
+			if p == nil {
+				col.append.keys = append(col.append.keys, 0)
+				col.rows++
+				continue
+			}
+			if err := appendKey(col, *p); err != nil {
+				return nil, err
+			}
+		}
+		return nil, nil
+	}
 	value := reflect.Indirect(reflect.ValueOf(v))
 	if value.Kind() != reflect.Slice {
 		return nil, &ColumnConverterError{
@@ -123,6 +148,35 @@ func (col *LowCardinality) Append(v any) (nulls []uint8, err error) {
 		}
 	}
 	return
+}
+
+// prepareAppend does the same setup as AppendRow and reserves room for n keys.
+func (col *LowCardinality) prepareAppend(n int) {
+	if col.append.index == nil {
+		col.append.index = make(map[any]int)
+	}
+	if col.index.Rows() == 0 {
+		if col.index.AppendRow(nil); col.nullable {
+			col.index.AppendRow(nil)
+		}
+	}
+	col.append.keys = slices.Grow(col.append.keys, n)
+}
+
+// appendKey appends v to a LowCardinality column without reflection.
+// Allocations only happen when the dictionary actually grows.
+func appendKey[T comparable](col *LowCardinality, v T) error {
+	idx, found := col.append.index[v]
+	if !found {
+		if err := col.index.AppendRow(v); err != nil {
+			return err
+		}
+		idx = col.index.Rows() - 1
+		col.append.index[v] = idx
+	}
+	col.append.keys = append(col.append.keys, idx)
+	col.rows++
+	return nil
 }
 
 func (col *LowCardinality) AppendRow(v any) error {
