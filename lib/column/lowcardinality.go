@@ -113,19 +113,22 @@ func (col *LowCardinality) Append(v any) (nulls []uint8, err error) {
 	// Typed fast paths: no per-row reflection or boxing.
 	switch arr := v.(type) {
 	case []string:
-		col.prepareAppend(len(arr))
+		col.initIndex()
+		col.append.keys = slices.Grow(col.append.keys, len(arr))
 		for _, s := range arr {
+			col.rows++
 			if err := appendKey(col, s); err != nil {
 				return nil, err
 			}
 		}
 		return nil, nil
 	case []*string:
-		col.prepareAppend(len(arr))
+		col.initIndex()
+		col.append.keys = slices.Grow(col.append.keys, len(arr))
 		for _, p := range arr {
+			col.rows++
 			if p == nil {
 				col.append.keys = append(col.append.keys, 0)
-				col.rows++
 				continue
 			}
 			if err := appendKey(col, *p); err != nil {
@@ -150,17 +153,18 @@ func (col *LowCardinality) Append(v any) (nulls []uint8, err error) {
 	return
 }
 
-// prepareAppend does the same setup as AppendRow and reserves room for n keys.
-func (col *LowCardinality) prepareAppend(n int) {
+func (col *LowCardinality) initIndex() {
 	if col.append.index == nil {
 		col.append.index = make(map[any]int)
 	}
-	if col.index.Rows() == 0 {
-		if col.index.AppendRow(nil); col.nullable {
-			col.index.AppendRow(nil)
-		}
+	if col.index.Rows() != 0 {
+		return
 	}
-	col.append.keys = slices.Grow(col.append.keys, n)
+
+	col.index.AppendRow(nil)
+	if col.nullable {
+		col.index.AppendRow(nil)
+	}
 }
 
 // appendKey appends v to a LowCardinality column without reflection.
@@ -175,20 +179,12 @@ func appendKey[T comparable](col *LowCardinality, v T) error {
 		col.append.index[v] = idx
 	}
 	col.append.keys = append(col.append.keys, idx)
-	col.rows++
 	return nil
 }
 
 func (col *LowCardinality) AppendRow(v any) error {
 	col.rows++
-	if col.append.index == nil {
-		col.append.index = make(map[any]int)
-	}
-	if col.index.Rows() == 0 { // init
-		if col.index.AppendRow(nil); col.nullable {
-			col.index.AppendRow(nil)
-		}
-	}
+	col.initIndex()
 	// second check is unfortunate - but we could be passed a *type(nil) e.g. via LowCardinality(Nullable(String))
 	if v == nil || (reflect.ValueOf(v).Kind() == reflect.Ptr && reflect.ValueOf(v).IsNil()) {
 		col.append.keys = append(col.append.keys, 0)
@@ -198,14 +194,7 @@ func (col *LowCardinality) AppendRow(v any) error {
 	case time.Time:
 		v = x.Truncate(time.Second)
 	}
-	if _, found := col.append.index[v]; !found {
-		if err := col.index.AppendRow(v); err != nil {
-			return err
-		}
-		col.append.index[v] = col.index.Rows() - 1
-	}
-	col.append.keys = append(col.append.keys, col.append.index[v])
-	return nil
+	return appendKey(col, v)
 }
 
 func (col *LowCardinality) Decode(reader *proto.Reader, rows int) error {
