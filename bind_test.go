@@ -492,14 +492,14 @@ func TestFormatTime(t *testing.T) {
 	)
 	if assert.NoError(t, err) {
 		val, _ := format(t1.Location(), Seconds, t1)
-		if assert.Equal(t, "toDateTime('2022-01-12 15:00:00')", val) {
+		if assert.Equal(t, "toDateTime('2022-01-12 15:00:00', 'UTC')", val) {
 			val, _ = format(tz, Seconds, t1)
 			assert.Equal(t, "toDateTime('2022-01-12 15:00:00', 'UTC')", val)
 		}
 
 		// test with pointer to time.Time
 		val, _ = format(t1.Location(), Seconds, &t1)
-		assert.Equal(t, "toDateTime('2022-01-12 15:00:00')", val)
+		assert.Equal(t, "toDateTime('2022-01-12 15:00:00', 'UTC')", val)
 	}
 
 	// test with nil pointer to time.Time
@@ -540,7 +540,7 @@ func TestFormatScaledTime(t *testing.T) {
 	require.NoError(t, err)
 	// seconds
 	val, _ := format(t1.Location(), Seconds, t1)
-	require.Equal(t, "toDateTime('2022-01-12 15:00:00')", val)
+	require.Equal(t, "toDateTime('2022-01-12 15:00:00', 'UTC')", val)
 	val, _ = format(t1.Location(), Seconds, t1.In(time.Now().Location()))
 	require.Equal(t, "toDateTime('1641999600')", val)
 	val, _ = format(t1.Location(), Seconds, time.Unix(0, 0))
@@ -549,7 +549,7 @@ func TestFormatScaledTime(t *testing.T) {
 	require.Equal(t, "toDateTime('2022-01-12 15:00:00', 'UTC')", val)
 	// milliseconds
 	val, _ = format(t1.Location(), MilliSeconds, t1)
-	require.Equal(t, "toDateTime64('2022-01-12 15:00:00.123', 3)", val)
+	require.Equal(t, "toDateTime64('2022-01-12 15:00:00.123', 3, 'UTC')", val)
 	val, _ = format(t1.Location(), MilliSeconds, t1.In(time.Now().Location()))
 	require.Equal(t, "toDateTime64('1641999600123', 3)", val)
 	val, _ = format(t1.Location(), MilliSeconds, time.Unix(0, 0))
@@ -558,7 +558,7 @@ func TestFormatScaledTime(t *testing.T) {
 	require.Equal(t, "toDateTime64('2022-01-12 15:00:00.123', 3, 'UTC')", val)
 	// microseconds
 	val, _ = format(t1.Location(), MicroSeconds, t1)
-	require.Equal(t, "toDateTime64('2022-01-12 15:00:00.123456', 6)", val)
+	require.Equal(t, "toDateTime64('2022-01-12 15:00:00.123456', 6, 'UTC')", val)
 	val, _ = format(t1.Location(), MicroSeconds, t1.In(time.Now().Location()))
 	require.Equal(t, "toDateTime64('1641999600123456', 6)", val)
 	val, _ = format(t1.Location(), MicroSeconds, time.Unix(0, 0))
@@ -567,7 +567,7 @@ func TestFormatScaledTime(t *testing.T) {
 	require.Equal(t, "toDateTime64('2022-01-12 15:00:00.123456', 6, 'UTC')", val)
 	// nanoseconds
 	val, _ = format(t1.Location(), NanoSeconds, t1)
-	require.Equal(t, "toDateTime64('2022-01-12 15:00:00.123456789', 9)", val)
+	require.Equal(t, "toDateTime64('2022-01-12 15:00:00.123456789', 9, 'UTC')", val)
 	val, _ = format(t1.Location(), NanoSeconds, t1.In(time.Now().Location()))
 	require.Equal(t, "toDateTime64('1641999600123456789', 9)", val)
 	val, _ = format(t1.Location(), NanoSeconds, time.Unix(0, 0))
@@ -789,12 +789,12 @@ func TestFormatValueModes(t *testing.T) {
 		{"Map(String, Float64)", map[string]float64{"a": 1.5}, "{'a':1.5}", "map('a', cast(1.5, 'Float64'))"},
 		// nested times: quoted epoch (zone-free) vs toDateTime() SQL function
 		{"Array(DateTime)", []time.Time{ts},
-			"['1577934245']", "[toDateTime('2020-01-02 03:04:05')]"},
+			"['1577934245']", "[toDateTime('2020-01-02 03:04:05', 'UTC')]"},
 		{"Map(String, DateTime)", map[string]time.Time{"a": ts},
-			"{'a':'1577934245'}", "map('a', toDateTime('2020-01-02 03:04:05'))"},
+			"{'a':'1577934245'}", "map('a', toDateTime('2020-01-02 03:04:05', 'UTC'))"},
 		// a sub-second time keeps its fraction in param mode (for DateTime64)
 		{"Map(String, DateTime64)", map[string]time.Time{"a": ts.Add(123 * time.Millisecond)},
-			"{'a':'1577934245.123'}", "map('a', toDateTime('2020-01-02 03:04:05'))"},
+			"{'a':'1577934245.123'}", "map('a', toDateTime('2020-01-02 03:04:05', 'UTC'))"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
