@@ -60,18 +60,11 @@ func TestConnFailoverRoundRobin(t *testing.T) {
 }
 
 func TestConnFailoverRandom(t *testing.T) {
-	t.Skip("Go 1.25 math/random changes")
-	//rand.Seed(85206178671753423)
-	//defer ResetRandSeed()
 	testConnFailover(t, clickhouse.ConnOpenRandom)
 }
 
 func testConnFailover(t *testing.T, connOpenStrategy clickhouse.ConnOpenStrategy) {
 	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
-		if connOpenStrategy == clickhouse.ConnOpenRandom {
-			SkipOnHTTP(t, protocol, "random seed")
-		}
-
 		env, err := GetNativeTestEnvironment()
 		require.NoError(t, err)
 		useSSL, err := strconv.ParseBool(GetEnv("CLICKHOUSE_USE_SSL", "false"))

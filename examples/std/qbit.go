@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"math/rand"
+	"math/rand/v2"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 )
