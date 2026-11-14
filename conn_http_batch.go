@@ -15,7 +15,10 @@ import (
 
 func fetchColumnNamesAndTypesForInsert(h *httpConnect, release nativeTransportRelease, ctx context.Context, tableName string, requestedColumnNames []string) ([]ColumnNameAndType, error) {
 	describeTableQuery := fmt.Sprintf("DESCRIBE TABLE %s", tableName)
-	r, err := h.query(ctx, release, describeTableQuery)
+	// Internal DESCRIBE must not reuse the caller's query_id — that id is reserved for the INSERT.
+	// Reusing it risks QUERY_WITH_SAME_ID_IS_ALREADY_RUNNING and pollutes system.query_log.
+	describeCtx := Context(ctx, WithQueryID(""))
+	r, err := h.query(describeCtx, release, describeTableQuery)
 	if err != nil {
 		return nil, err
 	}
