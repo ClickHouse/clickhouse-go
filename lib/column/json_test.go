@@ -737,3 +737,59 @@ func TestJSONAppendRejectsNonSlice(t *testing.T) {
 		})
 	}
 }
+
+// TestJSONAppendRowNilWithArrayAndTupleTypedPaths verifies that nil rows (or
+// rows missing a typed path) append an empty array and a zero-valued tuple to
+// Array and Tuple typed path columns, keeping row counts in sync.
+func TestJSONAppendRowNilWithArrayAndTupleTypedPaths(t *testing.T) {
+	const jsonType = "JSON(a Array(Int64), n Array(Array(String)), t Tuple(x Int64, y String), u Tuple(Int64, Array(Int64), Nullable(String)))"
+	var (
+		nilMap  map[string]any
+		nilJSON *chcol.JSON
+	)
+	value := map[string]any{
+		"a": []int64{1, 2},
+		"n": [][]string{{"x"}, {"y", "z"}},
+		"t": []any{int64(3), "foo"},
+		"u": []any{int64(4), []int64{5}, "bar"},
+	}
+
+	for _, chType := range []string{jsonType, "Nullable(" + jsonType + ")"} {
+		t.Run(chType, func(t *testing.T) {
+			col, err := Type(chType).Column("test", &ServerContext{})
+			require.NoError(t, err)
+
+			for _, row := range []any{nilMap, value, nil, nilJSON, map[string]any{}, value} {
+				require.NoError(t, col.AppendRow(row))
+			}
+			require.Equal(t, 6, col.Rows())
+
+			jsonCol := col
+			if nullable, ok := col.(*Nullable); ok {
+				jsonCol = nullable.base
+			}
+			c := jsonCol.(*JSON)
+			for i, typedCol := range c.typedColumns {
+				require.Equal(t, 6, typedCol.Rows(), "typed path %s", c.typedPaths[i])
+			}
+
+			a := c.typedColumns[c.typedPathsIndex["a"]]
+			n := c.typedColumns[c.typedPathsIndex["n"]]
+			tup := c.typedColumns[c.typedPathsIndex["t"]]
+			u := c.typedColumns[c.typedPathsIndex["u"]]
+			for _, row := range []int{0, 2, 3, 4} {
+				assert.Equal(t, []int64{}, a.Row(row, false))
+				assert.Equal(t, [][]string{}, n.Row(row, false))
+				assert.Equal(t, map[string]any{"x": int64(0), "y": ""}, tup.Row(row, false))
+				assert.Equal(t, []any{int64(0), []int64{}, (*string)(nil)}, u.Row(row, false))
+			}
+			bar := "bar"
+			for _, row := range []int{1, 5} {
+				assert.Equal(t, []int64{1, 2}, a.Row(row, false))
+				assert.Equal(t, [][]string{{"x"}, {"y", "z"}}, n.Row(row, false))
+				assert.Equal(t, map[string]any{"x": int64(3), "y": "foo"}, tup.Row(row, false))
+				assert.Equal(t, []any{int64(4), []int64{5}, &bar}, u.Row(row, false))
+			}
+		})
+	}
+}
