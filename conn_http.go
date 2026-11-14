@@ -6,6 +6,7 @@ import (
 	"compress/gzip"
 	"compress/zlib"
 	"context"
+	"crypto/tls"
 	sqldriver "database/sql/driver"
 	"errors"
 	"fmt"
@@ -122,10 +123,11 @@ func applyOptionsToRequest(ctx context.Context, req *http.Request, opt *Options)
 		req.Header.Set("Authorization", "Bearer "+jwt)
 	case opt.TLS != nil && len(opt.Auth.Username) > 0:
 		req.Header.Set("X-ClickHouse-User", opt.Auth.Username)
-		if len(opt.Auth.Password) > 0 {
+		switch {
+		case len(opt.Auth.Password) > 0:
 			req.Header.Set("X-ClickHouse-Key", opt.Auth.Password)
 			req.Header.Set("X-ClickHouse-SSL-Certificate-Auth", "off")
-		} else {
+		case hasClientCertificate(opt.TLS):
 			req.Header.Set("X-ClickHouse-SSL-Certificate-Auth", "on")
 		}
 	case opt.TLS == nil && len(opt.Auth.Username) > 0:
@@ -148,6 +150,12 @@ func applyOptionsToRequest(ctx context.Context, req *http.Request, opt *Options)
 	}
 
 	return nil
+}
+
+// hasClientCertificate reports whether the TLS config can present a client
+// certificate, which ClickHouse needs to authenticate a user by certificate.
+func hasClientCertificate(cfg *tls.Config) bool {
+	return cfg != nil && (len(cfg.Certificates) > 0 || cfg.GetClientCertificate != nil)
 }
 
 func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpConnect, error) {
