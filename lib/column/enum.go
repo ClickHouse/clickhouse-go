@@ -70,9 +70,7 @@ func extractEnumNamedValues(chType Type) (typ string, values []string, indexes [
 
 	var bracketOpen, stringOpen bool
 
-	var foundValueOffset int
-	var foundValueLen int
-	var skippedValueTokens []int
+	var foundName []byte
 	var indexFound bool
 	var valueFound bool
 	var valueIndex = 0
@@ -93,17 +91,20 @@ func extractEnumNamedValues(chType Type) (typ string, values []string, indexes [
 			bracketOpen = true
 		// when inside a bracket, we can start capture value inside single quotes
 		case bracketOpen && token == '\'' && !stringOpen:
-			foundValueOffset = c + 1
+			foundName = foundName[:0]
 			stringOpen = true
 		// close the string and capture the value
 		case token == '\'' && stringOpen:
 			stringOpen = false
-			foundValueLen = c - foundValueOffset
 			valueFound = true
-		// escape character, skip the next character
+		// escape character, decode the character that follows it
 		case token == '\\' && stringOpen:
-			skippedValueTokens = append(skippedValueTokens, c-foundValueOffset)
 			c++
+			if c < len(src) {
+				foundName = append(foundName, unescapeEnumChar(src[c]))
+			}
+		case stringOpen:
+			foundName = append(foundName, token)
 		// capture optional index. `=` token is followed with an integer index
 		case token == '=' && !stringOpen:
 			if !valueFound {
@@ -143,11 +144,6 @@ func extractEnumNamedValues(chType Type) (typ string, values []string, indexes [
 				return
 			}
 
-			foundName := src[foundValueOffset : foundValueOffset+foundValueLen]
-			for _, skipped := range skippedValueTokens {
-				foundName = append(foundName[:skipped], foundName[skipped+1:]...)
-			}
-
 			indexes = append(indexes, valueIndex)
 			values = append(values, string(foundName))
 			indexFound = false
@@ -162,4 +158,26 @@ func extractEnumNamedValues(chType Type) (typ string, values []string, indexes [
 
 	valid = true
 	return
+}
+
+// unescapeEnumChar returns the character that the escape sequence \c stands
+// for in an Enum name. The server writes control characters in the type name
+// as \b, \f, \n, \r, \t and \0. Any other character, like a quote or a
+// backslash, stands for itself.
+func unescapeEnumChar(c byte) byte {
+	switch c {
+	case 'b':
+		return '\b'
+	case 'f':
+		return '\f'
+	case 'n':
+		return '\n'
+	case 'r':
+		return '\r'
+	case 't':
+		return '\t'
+	case '0':
+		return 0
+	}
+	return c
 }

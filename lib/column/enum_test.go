@@ -122,6 +122,57 @@ func TestExtractEnumNamedValues(t *testing.T) {
 			},
 		},
 		{
+			name:         "Enum8 with several escaped quotes",
+			chType:       `Enum8('a\'b\'c'=1,'d\'e'=2,'f'=3)`,
+			expectedType: "Enum8",
+			expectedValues: map[int]string{
+				1: "a'b'c",
+				2: "d'e",
+				3: "f",
+			},
+		},
+		{
+			name:         "Enum8 with escaped control characters",
+			chType:       `Enum8('a\nb' = 1, 'c\td\te' = 2, 'f\0g' = 3, 'h\ri' = 4, 'j\bk' = 5, 'l\fm' = 6)`,
+			expectedType: "Enum8",
+			expectedValues: map[int]string{
+				1: "a\nb",
+				2: "c\td\te",
+				3: "f\x00g",
+				4: "h\ri",
+				5: "j\bk",
+				6: "l\fm",
+			},
+		},
+		{
+			name:         "Enum16 with escaped control characters",
+			chType:       `Enum16('a\nb' = 1, 'c\td' = 300)`,
+			expectedType: "Enum16",
+			expectedValues: map[int]string{
+				1:   "a\nb",
+				300: "c\td",
+			},
+		},
+		{
+			name:         "Enum8 with escaped backslash",
+			chType:       `Enum8('a\\nb' = 1, 'c\\' = 2, '\\\'d' = 3)`,
+			expectedType: "Enum8",
+			expectedValues: map[int]string{
+				1: `a\nb`,
+				2: `c\`,
+				3: `\'d`,
+			},
+		},
+		{
+			name:         "Enum8 with characters the server does not escape",
+			chType:       "Enum8('a\x01b\x7f' = 1, 'c\"d`e' = 2)",
+			expectedType: "Enum8",
+			expectedValues: map[int]string{
+				1: "a\x01b\x7f",
+				2: "c\"d`e",
+			},
+		},
+		{
 			name:       "Enum8 with invalid index",
 			chType:     "Enum8('a'=1,'b'=256)",
 			isNotValid: true,
