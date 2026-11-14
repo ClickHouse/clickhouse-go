@@ -226,10 +226,10 @@ func isDigit(ch byte) bool {
 	return ch >= '0' && ch <= '9'
 }
 
-// isNameChar reports whether ch is valid in a named placeholder (@name); it
-// mirrors the previous bindNamedRe pattern `@[a-zA-Z0-9_]+`.
+// isNameChar reports whether ch is valid in a named placeholder (@name).
+// ClickHouse allows dollar signs in identifier and parameter names.
 func isNameChar(ch byte) bool {
-	return ch == '_' ||
+	return ch == '_' || ch == '$' ||
 		(ch >= '0' && ch <= '9') ||
 		(ch >= 'a' && ch <= 'z') ||
 		(ch >= 'A' && ch <= 'Z')
