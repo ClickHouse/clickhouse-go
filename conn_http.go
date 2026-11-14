@@ -286,6 +286,11 @@ type httpConnect struct {
 	blockBufferSize uint8
 	handshake       proto.ServerHandshake
 	waitEndOfQuery  bool // connection-level wait_end_of_query from Options.Settings
+	// compressionSettings reports whether requests can set network_compression_method and
+	// network_zstd_compression_level. It is false until the server hello query returns, and
+	// it stays false for a user with readonly = 1, because the server rejects a request
+	// that changes a setting for such a user.
+	compressionSettings bool
 }
 
 func (h *httpConnect) serverVersion() (*ServerVersion, error) {
@@ -325,7 +330,7 @@ func (h *httpConnect) healthCheck() error {
 func (h *httpConnect) queryHello(ctx context.Context, release nativeTransportRelease) (proto.ServerHandshake, error) {
 	h.logger.Debug("querying server info via HTTP")
 	ctx = Context(ctx, ignoreExternalTables())
-	query := "SELECT displayName(), version(), revision(), timezone()"
+	query := "SELECT displayName(), version(), revision(), timezone(), toUInt8(getSetting('readonly'))"
 	rows, err := h.query(ctx, release, query)
 	if err != nil {
 		return proto.ServerHandshake{}, fmt.Errorf("failed to query server hello info: %w", err)
@@ -341,10 +346,13 @@ func (h *httpConnect) queryHello(ctx context.Context, release nativeTransportRel
 		versionStr  string
 		revision    uint32
 		tz          string
+		readOnly    uint8
 	)
-	if err := rows.Scan(&displayName, &versionStr, &revision, &tz); err != nil {
+	if err := rows.Scan(&displayName, &versionStr, &revision, &tz, &readOnly); err != nil {
 		return proto.ServerHandshake{}, err
 	}
+	// Only readonly = 1 stops a user from changing settings. With readonly = 2 the user can.
+	h.compressionSettings = readOnly != 1
 
 	location, err := timezone.Load(tz)
 	if err != nil {
@@ -408,8 +416,12 @@ func createCompressionPool(compression *Compression) (Pool[HTTPReaderWriter], er
 	return pool, nil
 }
 
-func applyHTTPNativeCompressionSettings(settings Settings, method CompressionMethod, level int, requestCompressed bool) {
-	if method != CompressionLZ4 && method != CompressionZSTD {
+// applyNativeCompressionSettings adds the request parameters for LZ4 and ZSTD compression of
+// native blocks. compress and decompress are HTTP parameters, so every user can send them.
+// The codec and the ZSTD level are settings. They are sent only when the user can change
+// settings and the caller did not set them in Options.Settings or for the query.
+func (h *httpConnect) applyNativeCompressionSettings(settings Settings, requestCompressed bool) {
+	if h.compression != CompressionLZ4 && h.compression != CompressionZSTD {
 		return
 	}
 
@@ -418,10 +430,32 @@ func applyHTTPNativeCompressionSettings(settings Settings, method CompressionMet
 		settings["decompress"] = "1"
 	}
 
-	if _, ok := settings["network_compression_method"]; !ok {
-		settings["network_compression_method"] = strings.ToUpper(method.String())
+	if !h.compressionSettings {
+		return
 	}
-	if method == CompressionZSTD && level > 0 {
+
+	var (
+		level        int
+		connSettings Settings
+	)
+	if h.opt != nil {
+		connSettings = h.opt.Settings
+		if h.opt.Compression != nil {
+			level = h.opt.Compression.Level
+		}
+	}
+	isSet := func(name string) bool {
+		if _, ok := settings[name]; ok {
+			return true
+		}
+		_, ok := connSettings[name]
+		return ok
+	}
+
+	if !isSet("network_compression_method") {
+		settings["network_compression_method"] = strings.ToUpper(h.compression.String())
+	}
+	if h.compression == CompressionZSTD && level > 0 && !isSet("network_zstd_compression_level") {
 		settings["network_zstd_compression_level"] = level
 	}
 }
