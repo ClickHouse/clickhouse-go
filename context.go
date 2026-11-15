@@ -227,6 +227,17 @@ func ignoreExternalTables() QueryOption {
 	}
 }
 
+// contextWithoutQueryOptions returns a child of parent that keeps the parent's
+// cancellation and deadline but carries no per-query options. Internal queries
+// such as the HTTP server-info handshake must not see the caller's settings,
+// query id, parameters or external tables. An empty settings map is required:
+// queryOptions appends max_execution_time when the context has a deadline.
+func contextWithoutQueryOptions(parent context.Context) context.Context {
+	return context.WithValue(parent, _contextOptionKey, QueryOptions{
+		settings: make(Settings),
+	})
+}
+
 // Context returns a derived context with the given ClickHouse QueryOptions.
 // Existing QueryOptions will be overwritten per option if present.
 // The QueryOptions Settings map will be initialized if nil.
