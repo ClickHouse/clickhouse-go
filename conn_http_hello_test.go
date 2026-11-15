@@ -2,6 +2,7 @@ package clickhouse
 
 import (
 	"context"
+	"crypto/tls"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -215,13 +216,17 @@ func TestContextWithoutQueryOptionsDropsCallerOptions(t *testing.T) {
 	require.NoError(t, err)
 	parent, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	t.Cleanup(cancel)
+	loc := time.FixedZone("caller", 9*60*60)
 	parent = Context(parent,
 		WithSettings(Settings{"session_timezone": "Asia/Tokyo"}),
 		WithQueryID("caller-query"),
 		WithQuotaKey("caller-quota"),
+		WithJWT("tok-hello"),
+		WithInitialUser("caller-user"),
 		WithParameters(Parameters{"p": "v"}),
 		WithExternalTable(extTable),
 		WithClientInfo(ClientInfo{Comment: []string{"caller"}}),
+		WithUserLocation(loc),
 	)
 
 	stripped := contextWithoutQueryOptions(parent)
@@ -230,13 +235,98 @@ func TestContextWithoutQueryOptionsDropsCallerOptions(t *testing.T) {
 	require.Contains(t, opts.settings, "max_execution_time",
 		"the dial deadline still bounds the handshake; that is independent of per-query settings")
 	require.Empty(t, opts.queryID)
+	// quota_key is a query parameter and initial_user is native-protocol only.
+	// Neither is an HTTP header, so the handshake must not carry them.
 	require.Empty(t, opts.quotaKey)
+	require.Empty(t, opts.initialUser)
 	require.Empty(t, opts.parameters)
 	require.Empty(t, opts.external)
-	require.Empty(t, opts.clientInfo.Comment)
+	require.Nil(t, opts.userLocation)
+	// The JWT is an Authorization header. The dial context is the first
+	// query's context, so dropping it makes an HTTPS handshake with WithJWT
+	// and no connection GetJWT go out unauthenticated.
+	require.Equal(t, "tok-hello", opts.jwt)
+	require.Equal(t, []string{"caller"}, opts.clientInfo.Comment)
 
 	cancel()
 	require.Error(t, stripped.Err())
+}
+
+func TestQueryHelloCarriesPerQueryJWT(t *testing.T) {
+	var mu sync.Mutex
+	type hit struct {
+		body  string
+		auth  string
+		query url.Values
+	}
+	got := make([]hit, 0, 4)
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		mu.Lock()
+		got = append(got, hit{body: string(raw), auth: r.Header.Get("Authorization"), query: r.URL.Query()})
+		mu.Unlock()
+
+		if strings.Contains(string(raw), "displayName()") {
+			body, err := encodeNativeHello("UTC")
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			_, _ = w.Write(body)
+			return
+		}
+		_, _ = io.WriteString(w, "1\n")
+	}))
+	t.Cleanup(srv.Close)
+
+	conn, err := Open(&Options{
+		Addr:         []string{srv.Listener.Addr().String()},
+		Protocol:     HTTP,
+		TLS:          &tls.Config{InsecureSkipVerify: true},
+		MaxOpenConns: 1,
+		MaxIdleConns: 1,
+		DialTimeout:  5 * time.Second,
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = conn.Close() })
+
+	// No Options.GetJWT: the only credential is the per-query JWT. Open fills
+	// an empty username with "default", so a handshake that drops the JWT
+	// authenticates as that user instead of sending Authorization.
+	ctx := Context(context.Background(),
+		WithJWT("tok-hello"),
+		WithSettings(Settings{"session_timezone": "Asia/Tokyo"}),
+		WithQuotaKey("caller-quota"),
+	)
+	stream, err := conn.QueryFormat(ctx, "CSV", "SELECT 1")
+	require.NoError(t, err)
+	payload, err := io.ReadAll(stream)
+	require.NoError(t, err)
+	require.NoError(t, stream.Close())
+	require.Equal(t, "1\n", string(payload))
+
+	var hello, user *hit
+	for i := range got {
+		if strings.Contains(got[i].body, "displayName()") {
+			hello = &got[i]
+			continue
+		}
+		if strings.Contains(got[i].body, "SELECT 1") {
+			user = &got[i]
+		}
+	}
+	require.NotNil(t, hello)
+	require.NotNil(t, user)
+	require.Equal(t, "Bearer tok-hello", hello.auth)
+	require.Empty(t, hello.query.Get("session_timezone"))
+	require.Empty(t, hello.query.Get("quota_key"))
+	require.Equal(t, "Bearer tok-hello", user.auth)
+	require.Equal(t, "Asia/Tokyo", user.query.Get("session_timezone"))
+	require.Equal(t, "caller-quota", user.query.Get("quota_key"))
 }
 
 func splitHello(got []capturedHTTPQuery) (hello, rest []capturedHTTPQuery) {
