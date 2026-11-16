@@ -142,6 +142,7 @@ func TestBindQueryOrAppendParametersErrors(t *testing.T) {
 		{"NamedDateValue with zero value", DateNamed("p", time.Time{}, Seconds), "SELECT {p:DateTime}", ErrInvalidValueInNamedDateValue},
 		{"NamedDateValue with empty name", DateNamed("", time.Now(), Seconds), "SELECT {p:DateTime}", ErrInvalidValueInNamedDateValue},
 		{"unsupported arg type", 42, "SELECT {p:Int32}", ErrUnsupportedQueryParameter},
+		{"unsupported arg type beside literal with braces", 42, `SELECT '{"a":1}', {p:Int32}`, ErrUnsupportedQueryParameter},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -211,6 +212,319 @@ func TestFormatEpochBeforeUnixEpoch(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			assert.Equal(t, tc.want, formatEpoch(tm, tc.digits))
+		})
+	}
+}
+
+func TestBindQueryOrAppendParametersDetection(t *testing.T) {
+	cases := []struct {
+		name           string
+		query          string
+		args           []any
+		wantServerSide bool
+		wantQuery      string
+		wantParams     Parameters
+	}{
+		// Issue #1489: braces and colons inside string literals must not trigger server-side mode.
+		{
+			name:           "#1489 literals with braces and colon on one line",
+			query:          "SELECT '{' as one, ':' as two, '}' as three WHERE ?",
+			args:           []any{1},
+			wantServerSide: false,
+			wantQuery:      "SELECT '{' as one, ':' as two, '}' as three WHERE 1",
+		},
+		{
+			name:           "#1489 concat literals with braces and colon",
+			query:          "SELECT concat('{', ':', '}') FROM issue1489 WHERE id = ?",
+			args:           []any{2},
+			wantServerSide: false,
+			wantQuery:      "SELECT concat('{', ':', '}') FROM issue1489 WHERE id = 2",
+		},
+		{
+			name:           "#1489 jsonMergePatch on one line",
+			query:          `SELECT jsonMergePatch('{"test":' || test_value || '}') FROM some_table WHERE id = ?`,
+			args:           []any{42},
+			wantServerSide: false,
+			wantQuery:      `SELECT jsonMergePatch('{"test":' || test_value || '}') FROM some_table WHERE id = 42`,
+		},
+		{
+			name:           "#1489 jsonMergePatch multiline",
+			query:          "SELECT jsonMergePatch('{\"test\":' || test_value ||\n   '}') FROM some_table WHERE id = ?",
+			args:           []any{42},
+			wantServerSide: false,
+			wantQuery:      "SELECT jsonMergePatch('{\"test\":' || test_value ||\n   '}') FROM some_table WHERE id = 42",
+		},
+		{
+			name:           "#1489 json object literal in WHERE with ?",
+			query:          `SELECT count() FROM numbers(?) WHERE '{"a":1}' != ''`,
+			args:           []any{uint32(5)},
+			wantServerSide: false,
+			wantQuery:      `SELECT count() FROM numbers(5) WHERE '{"a":1}' != ''`,
+		},
+		{
+			name:           "json object literal with numeric $1",
+			query:          `SELECT '{"a":1}' WHERE id = $1`,
+			args:           []any{42},
+			wantServerSide: false,
+			wantQuery:      `SELECT '{"a":1}' WHERE id = 42`,
+		},
+		{
+			name:           "escaped single quote before placeholder-like text in literal",
+			query:          `SELECT 'it\'s {id:UInt32}' WHERE id = ?`,
+			args:           []any{1},
+			wantServerSide: false,
+			wantQuery:      `SELECT 'it\'s {id:UInt32}' WHERE id = 1`,
+		},
+		{
+			name:           "doubled single quote before placeholder-like text in literal",
+			query:          "SELECT 'it''s {id:UInt32}' WHERE id = ?",
+			args:           []any{1},
+			wantServerSide: false,
+			wantQuery:      "SELECT 'it''s {id:UInt32}' WHERE id = 1",
+		},
+
+		// Issue #1828: {name:Type} inside SQL comments must not trigger server-side mode.
+		{
+			name:           "#1828 matching name in -- comment with @name",
+			query:          "-- server-side: {limit:UInt32}\nSELECT count() FROM numbers(@limit)",
+			args:           []any{Named("limit", uint32(5))},
+			wantServerSide: false,
+			wantQuery:      "-- server-side: {limit:UInt32}\nSELECT count() FROM numbers(5)",
+		},
+		{
+			name:           "#1828 other name in -- comment with @name",
+			query:          "-- see {name:Type}\nSELECT count() FROM numbers(@limit)",
+			args:           []any{Named("limit", uint32(5))},
+			wantServerSide: false,
+			wantQuery:      "-- see {name:Type}\nSELECT count() FROM numbers(5)",
+		},
+		{
+			name:           "#1828 {name:Type} in /* */ comment with @name",
+			query:          "/* {limit:UInt32} */ SELECT count() FROM numbers(@limit)",
+			args:           []any{Named("limit", uint32(5))},
+			wantServerSide: false,
+			wantQuery:      "/* {limit:UInt32} */ SELECT count() FROM numbers(5)",
+		},
+		{
+			name:           "#1828 {name:Type} in -- comment with ?",
+			query:          "-- see {name:Type}\nSELECT count() FROM numbers(?)",
+			args:           []any{uint32(5)},
+			wantServerSide: false,
+			wantQuery:      "-- see {name:Type}\nSELECT count() FROM numbers(5)",
+		},
+		{
+			name:           "{name:Type} in # line comment with ?",
+			query:          "# {limit:UInt32}\nSELECT count() FROM numbers(?)",
+			args:           []any{uint32(5)},
+			wantServerSide: false,
+			wantQuery:      "# {limit:UInt32}\nSELECT count() FROM numbers(5)",
+		},
+		{
+			name:           "{name:Type} in #! line comment with ?",
+			query:          "#! {limit:UInt32}\nSELECT count() FROM numbers(?)",
+			args:           []any{uint32(5)},
+			wantServerSide: false,
+			wantQuery:      "#! {limit:UInt32}\nSELECT count() FROM numbers(5)",
+		},
+		{
+			name:           "{name:Type} in nested /* /* */ */ block comment with ?",
+			query:          "/* outer /* {a:Int32} */ {b:String} */ SELECT count() FROM numbers(?)",
+			args:           []any{uint32(5)},
+			wantServerSide: false,
+			wantQuery:      "/* outer /* {a:Int32} */ {b:String} */ SELECT count() FROM numbers(5)",
+		},
+
+		// Quoted identifiers must not trigger server-side mode.
+		{
+			name:           "{name:Type} inside backtick identifier",
+			query:          "SELECT `{id:UInt32}` FROM t WHERE id = ?",
+			args:           []any{7},
+			wantServerSide: false,
+			wantQuery:      "SELECT `{id:UInt32}` FROM t WHERE id = 7",
+		},
+		{
+			name:           "{name:Type} after doubled backtick inside identifier",
+			query:          "SELECT `col``{id:UInt32}` FROM t WHERE id = ?",
+			args:           []any{7},
+			wantServerSide: false,
+			wantQuery:      "SELECT `col``{id:UInt32}` FROM t WHERE id = 7",
+		},
+		{
+			name:           "{name:Type} inside double-quoted identifier",
+			query:          `SELECT "{id:UInt32}" FROM t WHERE id = ?`,
+			args:           []any{7},
+			wantServerSide: false,
+			wantQuery:      `SELECT "{id:UInt32}" FROM t WHERE id = 7`,
+		},
+		{
+			name:           "{name:Type} after doubled double-quote inside identifier",
+			query:          `SELECT "col""{id:UInt32}" FROM t WHERE id = ?`,
+			args:           []any{7},
+			wantServerSide: false,
+			wantQuery:      `SELECT "col""{id:UInt32}" FROM t WHERE id = 7`,
+		},
+
+		// Malformed or non-identifier braces outside quotes/comments must not trigger server-side mode.
+		{
+			name:           "numeric key {1:2} is not a server-side parameter",
+			query:          "SELECT {1:2} WHERE id = ?",
+			args:           []any{1},
+			wantServerSide: false,
+			wantQuery:      "SELECT {1:2} WHERE id = 1",
+		},
+		{
+			name:           "empty braces {}",
+			query:          "SELECT {} WHERE id = ?",
+			args:           []any{1},
+			wantServerSide: false,
+			wantQuery:      "SELECT {} WHERE id = 1",
+		},
+		{
+			name:           "missing name {:String}",
+			query:          "SELECT {:String} WHERE id = ?",
+			args:           []any{1},
+			wantServerSide: false,
+			wantQuery:      "SELECT {:String} WHERE id = 1",
+		},
+		{
+			name:           "missing type {id:}",
+			query:          "SELECT {id:} WHERE id = ?",
+			args:           []any{1},
+			wantServerSide: false,
+			wantQuery:      "SELECT {id:} WHERE id = 1",
+		},
+		{
+			name:           "nested non-parameter {a:{b}}",
+			query:          "SELECT {a:{b}} WHERE id = ?",
+			args:           []any{1},
+			wantServerSide: false,
+			wantQuery:      "SELECT {a:{b}} WHERE id = 1",
+		},
+		{
+			name:           "comment-only type {id: /* c */}",
+			query:          "SELECT {id: /* c */} WHERE id = ?",
+			args:           []any{1},
+			wantServerSide: false,
+			wantQuery:      "SELECT {id: /* c */} WHERE id = 1",
+		},
+		{
+			name:           "unclosed brace {id:UInt32",
+			query:          "SELECT {id:UInt32 WHERE id = ?",
+			args:           []any{1},
+			wantServerSide: false,
+			wantQuery:      "SELECT {id:UInt32 WHERE id = 1",
+		},
+
+		// Positive cases: genuine server-side placeholders must still select server-side parameters.
+		{
+			name:           "single server-side placeholder {id:UInt32}",
+			query:          "SELECT {id:UInt32}",
+			args:           []any{Named("id", uint32(7))},
+			wantServerSide: true,
+			wantQuery:      "SELECT {id:UInt32}",
+			wantParams:     Parameters{"id": "7"},
+		},
+		{
+			name:           "multiple server-side placeholders",
+			query:          "SELECT {id:UInt32}, {name:String}",
+			args:           []any{Named("id", uint32(7)), Named("name", "alice")},
+			wantServerSide: true,
+			wantQuery:      "SELECT {id:UInt32}, {name:String}",
+			wantParams:     Parameters{"id": "7", "name": "alice"},
+		},
+		{
+			name:           "literal with braces before real placeholder",
+			query:          `SELECT '{"a":1}', {id:UInt32}`,
+			args:           []any{Named("id", uint32(7))},
+			wantServerSide: true,
+			wantQuery:      `SELECT '{"a":1}', {id:UInt32}`,
+			wantParams:     Parameters{"id": "7"},
+		},
+		{
+			name:           "real placeholder before literal with braces",
+			query:          `SELECT {id:UInt32}, jsonMergePatch('{"test":1}')`,
+			args:           []any{Named("id", uint32(7))},
+			wantServerSide: true,
+			wantQuery:      `SELECT {id:UInt32}, jsonMergePatch('{"test":1}')`,
+			wantParams:     Parameters{"id": "7"},
+		},
+		{
+			name:           "comment with placeholder before real placeholder",
+			query:          "-- {ignored:String}\nSELECT {id:UInt32}",
+			args:           []any{Named("id", uint32(7))},
+			wantServerSide: true,
+			wantQuery:      "-- {ignored:String}\nSELECT {id:UInt32}",
+			wantParams:     Parameters{"id": "7"},
+		},
+		{
+			name:           "parameterized type with single quotes DateTime64(3, 'UTC')",
+			query:          "SELECT {ts:DateTime64(3, 'UTC')}",
+			args:           []any{Named("ts", "2026-01-01 00:00:00.000")},
+			wantServerSide: true,
+			wantQuery:      "SELECT {ts:DateTime64(3, 'UTC')}",
+			wantParams:     Parameters{"ts": "2026-01-01 00:00:00.000"},
+		},
+		{
+			name:           "Enum type with brace inside quoted enum name",
+			query:          "SELECT {e:Enum8('}' = 1, '{' = 2)}",
+			args:           []any{Named("e", "}")},
+			wantServerSide: true,
+			wantQuery:      "SELECT {e:Enum8('}' = 1, '{' = 2)}",
+			wantParams:     Parameters{"e": "}"},
+		},
+		{
+			name:           "whitespace around placeholder name and type",
+			query:          "SELECT { value : Int64 }",
+			args:           []any{Named("value", int64(9))},
+			wantServerSide: true,
+			wantQuery:      "SELECT { value : Int64 }",
+			wantParams:     Parameters{"value": "9"},
+		},
+		{
+			name:           "dollar sign in parameter name",
+			query:          "SELECT {id$x:Int32}",
+			args:           []any{Named("id$x", int32(42))},
+			wantServerSide: true,
+			wantQuery:      "SELECT {id$x:Int32}",
+			wantParams:     Parameters{"id$x": "42"},
+		},
+		{
+			name:           "unclosed outer brace before valid placeholder",
+			query:          "SELECT {broken, {id:UInt32}",
+			args:           []any{Named("id", uint32(7))},
+			wantServerSide: true,
+			wantQuery:      "SELECT {broken, {id:UInt32}",
+			wantParams:     Parameters{"id": "7"},
+		},
+		{
+			name:           "unclosed outer param prefix before valid placeholder",
+			query:          "SELECT {outer: {id:UInt32}",
+			args:           []any{Named("id", uint32(7))},
+			wantServerSide: true,
+			wantQuery:      "SELECT {outer: {id:UInt32}",
+			wantParams:     Parameters{"id": "7"},
+		},
+		{
+			name:           "multiline Tuple placeholder",
+			query:          "SELECT {p:Tuple(\n    a String,\n    b Int32\n)}",
+			args:           []any{Named("p", "('x', 1)")},
+			wantServerSide: true,
+			wantQuery:      "SELECT {p:Tuple(\n    a String,\n    b Int32\n)}",
+			wantParams:     Parameters{"p": "('x', 1)"},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			options := &QueryOptions{}
+			query, err := bindQueryOrAppendParameters(true, options, tc.query, time.UTC, tc.args...)
+			require.NoError(t, err)
+			assert.Equal(t, tc.wantQuery, query)
+			if tc.wantServerSide {
+				assert.Equal(t, tc.wantParams, options.parameters)
+			} else {
+				assert.Nil(t, options.parameters)
+			}
 		})
 	}
 }
