@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Mark and close stale pull requests
-        uses: actions/stale@v11
+        uses: actions/stale@v10
         with:
           days-before-issue-stale: -1
           days-before-issue-close: -1
