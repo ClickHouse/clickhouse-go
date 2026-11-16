@@ -301,7 +301,20 @@ func (ch *clickhouse) dial(ctx context.Context) (conn nativeTransport, err error
 		dialStrategy = ch.opt.DialStrategy
 	}
 
-	result, err := dialStrategy(ctx, connID, ch.opt, dialFunc)
+	opt := ch.opt
+	if ch.opt.ResolveSRV {
+		addrs, err := resolveAddr(ctx, ch.opt)
+		if err != nil {
+			return nil, err
+		}
+		// Shallow copy so DialStrategy sees resolved Addr without mutating
+		// the shared Options.
+		o := *ch.opt
+		o.Addr = addrs
+		opt = &o
+	}
+
+	result, err := dialStrategy(ctx, connID, opt, dialFunc)
 	if err != nil {
 		return nil, err
 	}

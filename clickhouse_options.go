@@ -202,6 +202,21 @@ type Options struct {
 	// Set a custom transport for the http client.
 	// The default transport configured by the library is passed in as an argument.
 	TransportFunc func(*http.Transport) (http.RoundTripper, error)
+
+	// ResolveSRV enables DNS SRV resolution of Addr. Each entry of Addr is
+	// treated as a DNS SRV name and resolved at dial time, on every new
+	// connection. Any ":port" in an Addr entry is stripped before the
+	// lookup. An entry that starts with "_" (for example
+	// "_clickhouse._tcp.example.com") is looked up verbatim; any other
+	// entry is looked up as `_<service>._tcp.<host>`, where <service> is
+	// "clickhouse" for the native protocol, "clickhouse-http" for the HTTP
+	// protocol, or "clickhouse-https" for the HTTP protocol with TLS.
+	// Results are sorted by Priority ascending then Weight descending (stable)
+	// per entry and concatenated in the order of Addr. Nothing is cached.
+	ResolveSRV bool
+
+	// lookupSRV is a test hook. nil means net.DefaultResolver.LookupSRV.
+	lookupSRV func(ctx context.Context, service, proto, name string) (string, []*net.SRV, error)
 }
 
 func (o *Options) fromDSN(in string) error {
@@ -308,6 +323,16 @@ func (o *Options) fromDSN(in string) error {
 				secure, err = strconv.ParseBool(secureParam)
 				if err != nil {
 					return fmt.Errorf("clickhouse [dsn parse]:secure: %s", err)
+				}
+			}
+		case "resolve_srv":
+			resolveSRVParam := params.Get(v)
+			if resolveSRVParam == "" {
+				o.ResolveSRV = true
+			} else {
+				o.ResolveSRV, err = strconv.ParseBool(resolveSRVParam)
+				if err != nil {
+					return fmt.Errorf("clickhouse [dsn parse]:resolve_srv: %s", err)
 				}
 			}
 		case "skip_verify":
