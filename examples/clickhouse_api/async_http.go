@@ -34,7 +34,7 @@ func AsyncInsertHTTP() error {
 		return err
 	}
 
-	ctx = clickhouse.Context(ctx, clickhouse.WithAsync(false))
+	ctx = clickhouse.Context(ctx, clickhouse.WithSettings(clickhouse.Settings{"async_insert": 1, "wait_for_async_insert": 0}))
 	{
 		for i := 0; i < 100; i++ {
 			err := conn.Exec(ctx, `INSERT INTO example VALUES (
@@ -74,8 +74,8 @@ func AsyncInsertHTTP_WithBatch() error {
 		return err
 	}
 
-	// The batch uses only the context from PrepareBatch, so WithAsync must be on it.
-	ctx = clickhouse.Context(ctx, clickhouse.WithAsync(true))
+	// The batch uses only the context from PrepareBatch, so the async insert settings must be on it.
+	ctx = clickhouse.Context(ctx, clickhouse.WithSettings(clickhouse.Settings{"async_insert": 1, "wait_for_async_insert": 1}))
 	batch, err := conn.PrepareBatch(ctx, "INSERT INTO example")
 	if err != nil {
 		return err
