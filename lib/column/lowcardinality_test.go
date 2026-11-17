@@ -128,3 +128,24 @@ func TestLowCardinalityAppendManyRowsWithoutPanic(t *testing.T) {
 
 	assert.Equal(t, 1000, lc.Rows())
 }
+
+func TestLowCardinalityStringAcceptsBytes(t *testing.T) {
+	strCol, err := Type("String").Column("c", nil)
+	require.NoError(t, err)
+	require.NoError(t, strCol.AppendRow([]byte("x")))
+	require.Equal(t, 1, strCol.Rows())
+	assert.Equal(t, "x", strCol.Row(0, false))
+
+	col, err := Type("LowCardinality(String)").Column("c", nil)
+	require.NoError(t, err)
+	require.NoError(t, col.AppendRow([]byte("x")))
+	require.NoError(t, col.AppendRow("x"))
+	require.NoError(t, col.AppendRow([]byte("y")))
+	require.Equal(t, 3, col.Rows())
+
+	lc := col.(*LowCardinality)
+	// []byte("x") and "x" share one dictionary key; "y" is distinct.
+	assert.Equal(t, lc.append.index["x"], lc.append.index[string([]byte("x"))])
+	assert.NotEqual(t, lc.append.index["x"], lc.append.index["y"])
+	assert.Equal(t, []int{lc.append.index["x"], lc.append.index["x"], lc.append.index["y"]}, lc.append.keys)
+}
