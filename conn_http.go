@@ -18,6 +18,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/ClickHouse/ch-go/compress"
@@ -279,6 +280,7 @@ type httpConnect struct {
 	encodeRevision  uint64
 	url             *url.URL
 	client          *http.Client
+	wroteBytes      atomic.Bool
 	buffer          *chproto.Buffer
 	compression     CompressionMethod
 	blockCompressor *compress.Writer
@@ -286,6 +288,19 @@ type httpConnect struct {
 	blockBufferSize uint8
 	handshake       proto.ServerHandshake
 	waitEndOfQuery  bool // connection-level wait_end_of_query from Options.Settings
+}
+
+func (h *httpConnect) resetWriteState() {
+	h.wroteBytes.Store(false)
+}
+
+func (h *httpConnect) hasWrittenBytes() bool {
+	return h.wroteBytes.Load()
+}
+
+func isHTTPConnEstablishError(err error) bool {
+	var opErr *net.OpError
+	return errors.As(err, &opErr) && (opErr.Op == "dial" || opErr.Op == "proxyconnect")
 }
 
 func (h *httpConnect) serverVersion() (*ServerVersion, error) {
@@ -774,8 +789,12 @@ func (h *httpConnect) executeRequest(req *http.Request) (*http.Response, error) 
 	}
 	resp, err := h.client.Do(req)
 	if err != nil {
+		if !isHTTPConnEstablishError(err) {
+			h.wroteBytes.Store(true)
+		}
 		return nil, err
 	}
+	h.wroteBytes.Store(true)
 
 	if resp.StatusCode != http.StatusOK {
 		defer discardAndClose(resp.Body)
