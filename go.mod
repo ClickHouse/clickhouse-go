@@ -7,7 +7,7 @@ require (
 	github.com/andybalholm/brotli v1.3.0
 	github.com/docker/go-units v0.5.0
 	github.com/google/uuid v1.6.0
-	github.com/moby/moby/api v1.56.1
+	github.com/moby/moby/api v1.57.0
 	github.com/moby/moby/client v0.6.2
 	github.com/paulmach/orb v0.14.0
 	github.com/shopspring/decimal v1.6.0
