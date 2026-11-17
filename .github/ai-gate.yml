@@ -1,0 +1,6 @@
+# Configuration for the AI review gate on this repository.
+#
+# This file opts the repository into automated approval: when Cursor Bugbot's
+# review of a pull request is clean, the gate approves it. Without this file the
+# gate still runs, but a person approves.
+reviewers: [bugbot]
