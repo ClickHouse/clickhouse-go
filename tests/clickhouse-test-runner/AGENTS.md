@@ -127,10 +127,11 @@ These are **not** environment causes. Find the bug:
   passes only after other tests ran must not go in.
 - Do not run two sweeps at the same time on one server. The memory pressure
   causes `MEMORY_LIMIT_EXCEEDED` failures that are not real.
-- CI runs each failed test once more (`RETRY_FAILED_ONCE=1`), because of the
-  pool race. Read the warnings of the passed-on-retry tests in the nightly
-  runs: a test that is there often has a cause of its own. Do not use the
-  retry when you grow or check the allowlist.
+- CI runs the failed tests again, at most twice (`RETRY_FAILED=2`), because
+  of the pool race. Read the warnings of the passed-on-retry tests in the
+  nightly runs: a test that is there often has a cause of its own, or hits
+  the race often enough to belong in its group. Do not use the retry when you
+  grow or check the allowlist.
 - When a test in the allowlist starts to fail intermittently, find the cause
   first (rule 1). Intermittent native failures of tests that use `SET` can
   come from the pool race of `[native-pool-race-new-connection]`: the session

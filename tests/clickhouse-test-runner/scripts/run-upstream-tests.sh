@@ -136,46 +136,57 @@ echo "Protocol: ${CLICKHOUSE_TEST_RUNNER_PROTOCOL}" >&2
 cd "${UPSTREAM_CLICKHOUSE_DIR}"
 runner=(python3 tests/clickhouse-test --no-stateful --no-random-settings --no-random-merge-tree-settings)
 
-if [[ "${RETRY_FAILED_ONCE:-0}" != "1" ]]; then
+retries="${RETRY_FAILED:-0}"
+if ! [[ "${retries}" =~ ^[0-9]+$ ]]; then
+  echo "Error: RETRY_FAILED must be a number of retries (got: '${retries}')." >&2
+  exit 1
+fi
+if (( retries == 0 )); then
   exec "${runner[@]}" "$@" -- "${selectors[@]}"
 fi
 
-# RETRY_FAILED_ONCE=1 (CI): run the failed tests once more. A known client
-# bug, [native-pool-race-new-connection] in allowlist.txt, makes a random
-# test that uses SET fail now and then over the native protocol. A test that
-# passes on the second run is reported as a warning; a test that fails
-# twice fails the run. Do not use this to grow the allowlist.
-first_log="$(mktemp)"
-set +e
-"${runner[@]}" --max-failures-chain 1000000 "$@" -- "${selectors[@]}" 2>&1 | tee "${first_log}"
-first_status=${PIPESTATUS[0]}
-set -e
-failed=()
-while IFS= read -r t; do
-  failed+=("${t}")
-done < <(sed -nE 's/^\[[ 0-9]+\/[ 0-9]+\] ([^ :]+): +\[ FAIL \].*/\1/p' "${first_log}" | sort -u)
-rm -f "${first_log}"
+# RETRY_FAILED=<n> (CI): run the failed tests again, at most n times. A known
+# client bug, [native-pool-race-new-connection] in allowlist.txt, makes about
+# 40 random tests with SET fail per native run. A test that passes on a retry
+# is reported as a warning; a test that fails on every attempt fails the run.
+# Do not use this to grow or check the allowlist.
 
-if [[ ${first_status} -eq 0 ]]; then
-  exit 0
-fi
-if [[ ${#failed[@]} -eq 0 ]]; then
-  echo "Error: the run failed (exit code ${first_status}), but no test failed. See the output above." >&2
-  exit "${first_status}"
-fi
+# run_attempt <log> runs the runner on the current selectors and sets
+# attempt_status, attempt_failed and attempt_passed.
+run_attempt() {
+  local log="$1" t
+  shift
+  set +e
+  "${runner[@]}" --max-failures-chain 1000000 "$@" -- "${selectors[@]}" 2>&1 | tee "${log}"
+  attempt_status=${PIPESTATUS[0]}
+  set -e
+  attempt_failed=()
+  while IFS= read -r t; do
+    attempt_failed+=("${t}")
+  done < <(sed -nE 's/^\[[ 0-9]+\/[ 0-9]+\] ([^ :]+): +\[ FAIL \].*/\1/p' "${log}" | sort -u)
+  attempt_passed="$(sed -nE 's/^\[[ 0-9]+\/[ 0-9]+\] ([^ :]+): +\[ OK \].*/\1/p' "${log}" | sort -u | tr '\n' ' ')"
+}
 
-echo "Retrying ${#failed[@]} failed test(s) once: ${failed[*]}" >&2
-build_selectors "${failed[@]}"
-retry_log="$(mktemp)"
-set +e
-"${runner[@]}" --max-failures-chain 1000000 "$@" -- "${selectors[@]}" 2>&1 | tee "${retry_log}"
-retry_status=${PIPESTATUS[0]}
-set -e
-passed_on_retry="$(sed -nE 's/^\[[ 0-9]+\/[ 0-9]+\] ([^ :]+): +\[ OK \].*/\1/p' "${retry_log}" | sort -u | tr '\n' ' ')"
-rm -f "${retry_log}"
+log="$(mktemp)"
+trap 'rm -f "${log}"' EXIT
+runner_args=("$@")
+run_attempt "${log}" "${runner_args[@]}"
+passed_on_retry=""
+attempt=0
+while (( attempt_status != 0 && attempt < retries )); do
+  if [[ ${#attempt_failed[@]} -eq 0 ]]; then
+    echo "Error: the run failed (exit code ${attempt_status}), but no test failed. See the output above." >&2
+    exit "${attempt_status}"
+  fi
+  attempt=$(( attempt + 1 ))
+  echo "Retry ${attempt}/${retries}: ${#attempt_failed[@]} failed test(s): ${attempt_failed[*]}" >&2
+  build_selectors "${attempt_failed[@]}"
+  run_attempt "${log}" "${runner_args[@]}"
+  passed_on_retry="${passed_on_retry}${attempt_passed}"
+done
 
 if [[ -n "${passed_on_retry}" ]]; then
-  msg="These tests failed once and passed on the second run (the known pool race, [native-pool-race-new-connection] in allowlist.txt): ${passed_on_retry}"
+  msg="These tests failed and then passed on a retry (the known pool race, [native-pool-race-new-connection] in allowlist.txt): ${passed_on_retry}"
   if [[ -n "${GITHUB_ACTIONS:-}" ]]; then echo "::warning::${msg}"; else echo "Warning: ${msg}" >&2; fi
 fi
-exit "${retry_status}"
+exit "${attempt_status}"

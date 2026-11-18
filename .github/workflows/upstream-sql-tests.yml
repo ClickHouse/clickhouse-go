@@ -102,11 +102,12 @@ jobs:
           CLICKHOUSE_CLIENT_CLI_LOG: ${{ github.workspace }}/upstream-run.log
           SHARD_INDEX: ${{ matrix.shard }}
           SHARD_TOTAL: 8
-          # Run the failed tests once more: a known client bug (the pool race,
-          # [native-pool-race-new-connection] in allowlist.txt) makes random
-          # tests with SET fail now and then over native. A test that passes on
-          # the second run is a warning; a test that fails twice fails the job.
-          RETRY_FAILED_ONCE: "1"
+          # Run the failed tests again, at most twice: a known client bug (the
+          # pool race, [native-pool-race-new-connection] in allowlist.txt)
+          # makes about 40 random tests with SET fail per native run, and one
+          # of them is now and then hit twice. A test that passes on a retry is
+          # a warning; a test that fails all three times fails the job.
+          RETRY_FAILED: "2"
         run: tests/clickhouse-test-runner/scripts/run-upstream-tests.sh -j 4
 
       - name: Upload test artifacts
