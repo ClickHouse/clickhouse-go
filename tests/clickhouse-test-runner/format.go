@@ -98,7 +98,9 @@ func findFormatClause(sql string) (start, end int, name string) {
 				j++
 			}
 			if depth == 0 && strings.EqualFold(sql[i:j], "FORMAT") && (i == 0 || sql[i-1] != '.') {
-				if m, name, ok := formatName(sql, j); ok && endsQuery(sql, m) {
+				// `ORDER BY format DESC` ends the query too: a clause keyword
+				// after FORMAT shows an identifier named `format`.
+				if m, name, ok := formatName(sql, j); ok && !isClauseKeyword(name) && endsQuery(sql, m) {
 					return i, m, name
 				}
 			}

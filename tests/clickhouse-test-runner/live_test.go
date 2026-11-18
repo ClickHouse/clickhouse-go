@@ -74,6 +74,11 @@ func TestLiveRenderMatchesServer(t *testing.T) {
 		"toTime('12:34:56'), toTime('-1:02:03'), toTime64('12:00:00.5', 3)",
 		"(1.5, 2.5)::Point, [(1, 2), (3, 4)]::Ring",
 		"number, toString(number) FROM numbers(3)",
+		// A column or alias named `format` is not the FORMAT clause.
+		"1 AS format ORDER BY format DESC",
+		"1 AS format ORDER BY format ASC",
+		"format FROM (SELECT 1 AS format)",
+		"1 AS format FROM numbers(1)",
 	}
 	for _, protocol := range []string{"native", "http"} {
 		for _, expr := range exprs {

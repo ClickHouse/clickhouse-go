@@ -194,7 +194,67 @@ func insertDataStart(text string, start, formatEnd int) (int, bool) {
 	if j == i || strings.EqualFold(text[i:j], "Values") || isClauseKeyword(text[i:j]) {
 		return 0, false
 	}
+	// After a SELECT, the FORMAT clause comes at the end of the SELECT, so
+	// after its top-level FROM: `INSERT INTO t SELECT * FROM input('x UInt8')
+	// FORMAT TSV`. Before that FROM, `format` is in the select list
+	// (`SELECT format x FROM s`, `SELECT format DIV 2 FROM s`).
+	if !formatAfterSelectFrom(text[start : formatEnd-len("FORMAT")]) {
+		return 0, false
+	}
 	return j, true
+}
+
+// formatAfterSelectFrom tells if a FORMAT that follows head can be the
+// FORMAT clause of an INSERT: head has no top-level SELECT, or a top-level
+// FROM follows its last top-level SELECT.
+func formatAfterSelectFrom(head string) bool {
+	afterSelect, sawFrom := false, false
+	for _, w := range topLevelWords(head) {
+		switch strings.ToUpper(w) {
+		case "SELECT":
+			afterSelect, sawFrom = true, false
+		case "FROM":
+			sawFrom = true
+		}
+	}
+	return !afterSelect || sawFrom
+}
+
+// topLevelWords returns the words of sql outside quotes, comments and
+// parentheses.
+func topLevelWords(sql string) []string {
+	var words []string
+	depth := 0
+	for i := 0; i < len(sql); {
+		c := sql[i]
+		switch {
+		case c == '\'' || c == '"' || c == '`':
+			i = skipQuoted(sql, i)
+		case strings.HasPrefix(sql[i:], "--"),
+			strings.HasPrefix(sql[i:], "#!"), strings.HasPrefix(sql[i:], "# "):
+			i = skipLineComment(sql, i)
+		case strings.HasPrefix(sql[i:], "/*"):
+			i = skipBlockComment(sql, i)
+		case c == '(' || c == '[':
+			depth++
+			i++
+		case c == ')' || c == ']':
+			depth--
+			i++
+		case isWordByte(c):
+			j := i
+			for j < len(sql) && isWordByte(sql[j]) {
+				j++
+			}
+			if depth == 0 {
+				words = append(words, sql[i:j])
+			}
+			i = j
+		default:
+			i++
+		}
+	}
+	return words
 }
 
 // clauseKeywords are SQL words that can follow a column or an alias named
@@ -212,6 +272,8 @@ var clauseKeywords = map[string]bool{
 	"ARRAY": true, "ON": true, "USING": true, "SETTINGS": true, "INTO": true,
 	"ASC": true, "DESC": true, "NULLS": true, "COLLATE": true, "WITH": true,
 	"THEN": true, "ELSE": true, "END": true, "WHEN": true, "OVER": true,
+	"GLOBAL": true, "DIV": true, "MOD": true, "REGEXP": true, "FINAL": true,
+	"SAMPLE": true, "FILL": true, "TIES": true, "BY": true,
 }
 
 func isClauseKeyword(word string) bool {

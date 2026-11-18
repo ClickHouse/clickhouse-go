@@ -73,6 +73,26 @@ func TestSplitStatements(t *testing.T) {
 			"INSERT INTO t SELECT 1 AS format FROM numbers(1);\nSELECT 1;",
 			[]string{"INSERT INTO t SELECT 1 AS format FROM numbers(1);", "SELECT 1;"},
 		},
+		{
+			"insert select with an implicit alias after format",
+			"INSERT INTO t SELECT format x FROM s;\nSELECT 1;",
+			[]string{"INSERT INTO t SELECT format x FROM s;", "SELECT 1;"},
+		},
+		{
+			"insert select with format DIV",
+			"INSERT INTO t SELECT format DIV 2 FROM s;\nSELECT 1;",
+			[]string{"INSERT INTO t SELECT format DIV 2 FROM s;", "SELECT 1;"},
+		},
+		{
+			"insert select with format GLOBAL IN after FROM",
+			"INSERT INTO t SELECT x FROM s WHERE format GLOBAL IN (1);\nSELECT 1;",
+			[]string{"INSERT INTO t SELECT x FROM s WHERE format GLOBAL IN (1);", "SELECT 1;"},
+		},
+		{
+			"insert with format before the data",
+			"INSERT INTO t (a) SETTINGS async_insert = 0 FORMAT CSV\n1\n\nSELECT 1;",
+			[]string{"INSERT INTO t (a) SETTINGS async_insert = 0 FORMAT CSV\n1", "SELECT 1;"},
+		},
 		{"double semicolon", "SELECT 1;;\nSELECT 2", []string{"SELECT 1;", "SELECT 2"}},
 	}
 	for _, tt := range tests {
