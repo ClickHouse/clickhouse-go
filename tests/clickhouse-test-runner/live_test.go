@@ -79,6 +79,7 @@ func TestLiveRenderMatchesServer(t *testing.T) {
 		"1 AS format ORDER BY format ASC",
 		"format FROM (SELECT 1 AS format)",
 		"1 AS format FROM numbers(1)",
+		"1 AS format, format x",
 	}
 	for _, protocol := range []string{"native", "http"} {
 		for _, expr := range exprs {

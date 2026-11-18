@@ -198,10 +198,44 @@ func insertDataStart(text string, start, formatEnd int) (int, bool) {
 	// after its top-level FROM: `INSERT INTO t SELECT * FROM input('x UInt8')
 	// FORMAT TSV`. Before that FROM, `format` is in the select list
 	// (`SELECT format x FROM s`, `SELECT format DIV 2 FROM s`).
-	if !formatAfterSelectFrom(text[start : formatEnd-len("FORMAT")]) {
+	if !formatAfterSelectFrom(text[start:formatEnd-len("FORMAT")]) || startsExpression(text[start:], formatEnd-len("FORMAT")-start) {
 		return 0, false
 	}
 	return j, true
+}
+
+// expressionKeywords are words after which a word starts an expression, so
+// a `format` after them is an identifier (`SELECT format x`,
+// `WHERE format = 1`), not the FORMAT clause.
+var expressionKeywords = map[string]bool{
+	"SELECT": true, "DISTINCT": true, "BY": true, "WHERE": true, "PREWHERE": true,
+	"HAVING": true, "QUALIFY": true, "AND": true, "OR": true, "NOT": true, "ON": true,
+	"USING": true, "WHEN": true, "THEN": true, "ELSE": true, "CASE": true, "AS": true,
+	"IN": true, "LIKE": true, "ILIKE": true, "BETWEEN": true, "IS": true, "DIV": true,
+	"MOD": true, "TOP": true, "INTERVAL": true,
+}
+
+// startsExpression tells if the word at offset i of sql starts an
+// expression: the text before it ends with a comma, an opening parenthesis,
+// an operator, or a word of expressionKeywords. Then a `format` at i is an
+// identifier, as in `SELECT 1 AS format, format x`. A FORMAT clause follows
+// a complete query, which ends with an identifier, a literal or `)`.
+func startsExpression(sql string, i int) bool {
+	k := i
+	for k > 0 && isSpace(sql[k-1]) {
+		k--
+	}
+	if k == 0 {
+		return true
+	}
+	if strings.IndexByte(",([=<>+-*/%|&!^~?:", sql[k-1]) >= 0 {
+		return true
+	}
+	j := k
+	for j > 0 && isWordByte(sql[j-1]) {
+		j--
+	}
+	return j < k && expressionKeywords[strings.ToUpper(sql[j:k])]
 }
 
 // formatAfterSelectFrom tells if a FORMAT that follows head can be the

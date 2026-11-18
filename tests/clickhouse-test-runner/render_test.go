@@ -182,6 +182,14 @@ func TestSplitOutputFormat(t *testing.T) {
 		{"SELECT 1 AS format ORDER BY format DESC", "SELECT 1 AS format ORDER BY format DESC", "TabSeparated", true},
 		{"SELECT 1 AS format ORDER BY format ASC", "SELECT 1 AS format ORDER BY format ASC", "TabSeparated", true},
 		{"SELECT 1 AS format ORDER BY format DESC FORMAT TSV", "SELECT 1 AS format ORDER BY format DESC ", "TSV", true},
+		// An implicit alias after a column named `format`.
+		{"SELECT 1 AS format, format x", "SELECT 1 AS format, format x", "TabSeparated", true},
+		{"SELECT 1 AS format, format x FORMAT TSV", "SELECT 1 AS format, format x ", "TSV", true},
+		{"SELECT number + format y FROM (SELECT 1 AS format, number FROM numbers(1))", "SELECT number + format y FROM (SELECT 1 AS format, number FROM numbers(1))", "TabSeparated", true},
+		{"SELECT (1) FORMAT TSV", "SELECT (1) ", "TSV", true},
+		{"SELECT x FROM t GROUP BY ALL FORMAT TSV", "SELECT x FROM t GROUP BY ALL ", "TSV", true},
+		{"SELECT x FROM t ORDER BY ALL DESC FORMAT TSV", "SELECT x FROM t ORDER BY ALL DESC ", "TSV", true},
+		{"SELECT 'a' FORMAT TSV", "SELECT 'a' ", "TSV", true},
 		{"SELECT 1 FORMAT TSV -- c\n;", "SELECT 1  -- c\n;", "TSV", true},
 	}
 	for _, tt := range tests {
