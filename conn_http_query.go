@@ -8,11 +8,16 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"strings"
 
 	chproto "github.com/ClickHouse/ch-go/proto"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
+
+// formatHeader is the response header that names the format of the response
+// body. The server sends it when the statement has a result.
+const formatHeader = "X-ClickHouse-Format"
 
 // captureTailSize bounds how much recently-read data capturingReader retains:
 // enough to hold an exception block (at most 16KiB) plus buffered read-ahead,
@@ -65,6 +70,21 @@ func (h *httpConnect) query(ctx context.Context, release nativeTransportRelease,
 		err = fmt.Errorf("sendQuery: %w", err)
 		release(h, err)
 		return nil, err
+	}
+
+	// A FORMAT clause in the query text takes priority over default_format=Native,
+	// and the server then sends the result in that format. Query can decode only
+	// Native, so stop with an error that tells the caller what to change. FORMAT Null
+	// sends no data, and statements without a result send no header. Both keep the
+	// old behavior.
+	if format := res.Header.Get(formatHeader); format != "" && !strings.EqualFold(format, "Native") && !strings.EqualFold(format, "Null") {
+		// Read the rest of a small body so that the HTTP connection can be used again.
+		// For a large body, closing it costs less than reading all of it.
+		_, _ = io.CopyN(io.Discard, res.Body, maxCloseDrainBytes)
+		_ = res.Body.Close()
+		// The connection is healthy, so it goes back to the pool.
+		release(h, nil)
+		return nil, fmt.Errorf("clickhouse: the server sent the result in format %s, but Query over HTTP can read only Native, so remove the FORMAT clause from the query or use QueryFormat to read the %s bytes", format, format)
 	}
 
 	if res.ContentLength == 0 {
