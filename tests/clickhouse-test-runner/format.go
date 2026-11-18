@@ -28,6 +28,12 @@ var resultKeywords = map[string]bool{
 	"CHECK":    true,
 	// FROM-first syntax: FROM t SELECT x, and pipe syntax: FROM t |> ...
 	"FROM": true,
+	// A leading table constructor (`VALUES (1), (2)`) and `TABLE t`. The
+	// pinned server (26.10) rejects both with a syntax error, and no upstream
+	// test of that release uses them; they are here so that a release that
+	// accepts them gets their rows.
+	"VALUES": true,
+	"TABLE":  true,
 }
 
 func returnsRows(sql string) bool {

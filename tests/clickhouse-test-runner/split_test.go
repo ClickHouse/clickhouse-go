@@ -164,6 +164,15 @@ func TestImplicitSelect(t *testing.T) {
 	assert.False(t, (&runner{}).implicitSelect("1 + 2"))
 }
 
+func TestReturnsRows(t *testing.T) {
+	for _, q := range []string{"SELECT 1", "with x AS (SELECT 1) SELECT * FROM x", "FROM t SELECT x", "VALUES (1), (2)", "TABLE t", "-- c\n(SELECT 1)"} {
+		assert.True(t, returnsRows(q), q)
+	}
+	for _, q := range []string{"INSERT INTO t VALUES (1)", "CREATE TABLE t (x UInt8) ENGINE = Memory", "SET x = 1", "DROP TABLE t"} {
+		assert.False(t, returnsRows(q), q)
+	}
+}
+
 func TestLeadingKeyword(t *testing.T) {
 	assert.Equal(t, "SELECT", leadingKeyword("  -- c\n/* d */ (select 1)"))
 	assert.Equal(t, "INSERT", leadingKeyword("insert into t values (1)"))
