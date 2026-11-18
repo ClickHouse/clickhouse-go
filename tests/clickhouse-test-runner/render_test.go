@@ -204,6 +204,10 @@ func TestSplitOutputFormat(t *testing.T) {
 		{"SELECT x FROM format TSV", "SELECT x FROM format TSV", "TabSeparated", true},
 		{"SELECT x FROM a JOIN format CSV ON 1", "SELECT x FROM a JOIN format CSV ON 1", "TabSeparated", true},
 		{"SELECT x FROM format TSV FORMAT Null", "SELECT x FROM format TSV ", "Null", true},
+		// An alias or a column that is a keyword, before a real clause.
+		{"SELECT 1 AS into FORMAT TSVWithNames", "SELECT 1 AS into ", "TSVWithNames", true},
+		{"SELECT t.from FROM t FORMAT TSV", "SELECT t.from FROM t ", "TSV", true},
+		{"SELECT 1 AS from FORMAT TSV", "SELECT 1 AS from ", "TSV", true},
 		// Format names are the server's (formats.go), in any case.
 		{"SELECT 1 FORMAT jsoneachrow", "SELECT 1 ", "jsoneachrow", false},
 		{"SELECT 1 FORMAT NoSuchFormat", "SELECT 1 FORMAT NoSuchFormat", "TabSeparated", true},

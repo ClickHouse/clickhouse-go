@@ -120,6 +120,19 @@ func TestLiveFormatIdentifiers(t *testing.T) {
 	}
 }
 
+// TestLiveFormatAfterKeywordAlias checks a real FORMAT clause after an alias
+// that is a keyword.
+func TestLiveFormatAfterKeywordAlias(t *testing.T) {
+	requireLive(t)
+	for _, protocol := range []string{"native", "http"} {
+		t.Run(protocol, func(t *testing.T) {
+			got, stderr, code := runShim(t, protocol, "SELECT 1 AS into FORMAT TSVWithNames")
+			require.Equal(t, 0, code, stderr)
+			assert.Equal(t, "into\n1\n", got)
+		})
+	}
+}
+
 // TestLiveImplicitSelectMutation checks that a DELETE under
 // `implicit_select = 1` does not run as a query: over native, a query
 // without a result resets the session, and the temporary table is lost.

@@ -247,7 +247,18 @@ func startsExpression(sql string, i int) bool {
 	if len(last) == 1 && strings.Contains(",([=<>+-/%|&!^~?:", last) {
 		return true
 	}
-	return expressionKeywords[strings.ToUpper(last)]
+	if !expressionKeywords[strings.ToUpper(last)] {
+		return false
+	}
+	// A keyword right after AS or `.` is a name: an alias
+	// (`SELECT 1 AS into FORMAT TSV`) or a column (`t.from`). The query is
+	// then complete.
+	if len(toks) >= 2 {
+		if prev := strings.ToUpper(toks[len(toks)-2]); prev == "AS" || prev == "." {
+			return false
+		}
+	}
+	return true
 }
 
 // significantTokens returns the tokens of sql outside comments: words,
