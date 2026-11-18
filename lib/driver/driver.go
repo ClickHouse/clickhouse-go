@@ -121,7 +121,8 @@ type (
 		// clickhouse.ErrFormatNativeUnsupported.
 		InsertFormat(ctx context.Context, format string, query string, data io.Reader) error
 
-		// Deprecated: use context aware `WithAsync()` for any async operations
+		// Deprecated: use Exec with clickhouse.WithSettings, with `async_insert`
+		// and `wait_for_async_insert`, instead.
 		AsyncInsert(ctx context.Context, query string, wait bool, args ...any) error
 		Ping(context.Context) error
 		Stats() Stats
