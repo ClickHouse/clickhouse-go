@@ -187,6 +187,15 @@ func TestSplitOutputFormat(t *testing.T) {
 		{"SELECT 1 AS format, format x FORMAT TSV", "SELECT 1 AS format, format x ", "TSV", true},
 		{"SELECT number + format y FROM (SELECT 1 AS format, number FROM numbers(1))", "SELECT number + format y FROM (SELECT 1 AS format, number FROM numbers(1))", "TabSeparated", true},
 		{"SELECT (1) FORMAT TSV", "SELECT (1) ", "TSV", true},
+		// A FORMAT clause after a select-star or a comment.
+		{"SELECT * FORMAT TSV", "SELECT * ", "TSV", true},
+		{"FROM t SELECT * FORMAT TSV", "FROM t SELECT * ", "TSV", true},
+		{"SELECT t.* FROM t FORMAT TSV", "SELECT t.* FROM t ", "TSV", true},
+		{"SELECT 1 /* c */ FORMAT TSV", "SELECT 1 /* c */ ", "TSV", true},
+		{"SELECT 1 -- c,\nFORMAT TSV", "SELECT 1 -- c,\n", "TSV", true},
+		{"SELECT 'a,' FORMAT TSV", "SELECT 'a,' ", "TSV", true},
+		// A multiplication by a column named `format`.
+		{"SELECT 2 * format x FROM (SELECT 1 AS format)", "SELECT 2 * format x FROM (SELECT 1 AS format)", "TabSeparated", true},
 		{"SELECT x FROM t GROUP BY ALL FORMAT TSV", "SELECT x FROM t GROUP BY ALL ", "TSV", true},
 		{"SELECT x FROM t ORDER BY ALL DESC FORMAT TSV", "SELECT x FROM t ORDER BY ALL DESC ", "TSV", true},
 		{"SELECT 'a' FORMAT TSV", "SELECT 'a' ", "TSV", true},

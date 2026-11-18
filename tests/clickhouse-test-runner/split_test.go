@@ -89,6 +89,11 @@ func TestSplitStatements(t *testing.T) {
 			[]string{"INSERT INTO t SELECT x FROM s WHERE format GLOBAL IN (1);", "SELECT 1;"},
 		},
 		{
+			"insert with a comment before the format",
+			"INSERT INTO t /* data: */ FORMAT CSV\n1\n\nSELECT 1;",
+			[]string{"INSERT INTO t /* data: */ FORMAT CSV\n1", "SELECT 1;"},
+		},
+		{
 			"insert with format before the data",
 			"INSERT INTO t (a) SETTINGS async_insert = 0 FORMAT CSV\n1\n\nSELECT 1;",
 			[]string{"INSERT INTO t (a) SETTINGS async_insert = 0 FORMAT CSV\n1", "SELECT 1;"},

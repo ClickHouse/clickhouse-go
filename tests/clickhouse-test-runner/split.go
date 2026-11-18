@@ -216,26 +216,67 @@ var expressionKeywords = map[string]bool{
 }
 
 // startsExpression tells if the word at offset i of sql starts an
-// expression: the text before it ends with a comma, an opening parenthesis,
-// an operator, or a word of expressionKeywords. Then a `format` at i is an
-// identifier, as in `SELECT 1 AS format, format x`. A FORMAT clause follows
-// a complete query, which ends with an identifier, a literal or `)`.
+// expression: the last significant token before it (comments do not count)
+// is a comma, an opening parenthesis, an operator, or a word of
+// expressionKeywords. Then a `format` at i is an identifier, as in
+// `SELECT 1 AS format, format x`. A FORMAT clause follows a complete query,
+// which ends with an identifier, a literal, `)` or a select-star
+// (`SELECT * FORMAT TSV`).
 func startsExpression(sql string, i int) bool {
-	k := i
-	for k > 0 && isSpace(sql[k-1]) {
-		k--
-	}
-	if k == 0 {
+	toks := significantTokens(sql[:i])
+	if len(toks) == 0 {
 		return true
 	}
-	if strings.IndexByte(",([=<>+-*/%|&!^~?:", sql[k-1]) >= 0 {
+	last := toks[len(toks)-1]
+	if last == "*" {
+		// A star after SELECT, DISTINCT, `,`, `(` or `.` (t.*) is a
+		// select-star, which can end a query; otherwise it multiplies.
+		if len(toks) == 1 {
+			return true
+		}
+		switch prev := strings.ToUpper(toks[len(toks)-2]); prev {
+		case "SELECT", "DISTINCT", ",", "(", ".":
+			return false
+		}
 		return true
 	}
-	j := k
-	for j > 0 && isWordByte(sql[j-1]) {
-		j--
+	if len(last) == 1 && strings.Contains(",([=<>+-/%|&!^~?:", last) {
+		return true
 	}
-	return j < k && expressionKeywords[strings.ToUpper(sql[j:k])]
+	return expressionKeywords[strings.ToUpper(last)]
+}
+
+// significantTokens returns the tokens of sql outside comments: words,
+// quoted strings and identifiers (as `'` or the quote character), and single
+// punctuation characters.
+func significantTokens(sql string) []string {
+	var toks []string
+	for i := 0; i < len(sql); {
+		c := sql[i]
+		switch {
+		case isSpace(c):
+			i++
+		case strings.HasPrefix(sql[i:], "--"),
+			strings.HasPrefix(sql[i:], "#!"), strings.HasPrefix(sql[i:], "# "):
+			i = skipLineComment(sql, i)
+		case strings.HasPrefix(sql[i:], "/*"):
+			i = skipBlockComment(sql, i)
+		case c == '\'' || c == '"' || c == '`':
+			toks = append(toks, string(c))
+			i = skipQuoted(sql, i)
+		case isWordByte(c):
+			j := i
+			for j < len(sql) && isWordByte(sql[j]) {
+				j++
+			}
+			toks = append(toks, sql[i:j])
+			i = j
+		default:
+			toks = append(toks, string(c))
+			i++
+		}
+	}
+	return toks
 }
 
 // formatAfterSelectFrom tells if a FORMAT that follows head can be the
