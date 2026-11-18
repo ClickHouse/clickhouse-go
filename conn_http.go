@@ -353,6 +353,10 @@ func (h *httpConnect) queryHello(ctx context.Context, release nativeTransportRel
 	}
 	// Only readonly = 1 stops a user from changing settings. With readonly = 2 the user can.
 	h.compressionSettings = readOnly != 1
+	if !h.compressionSettings && (h.compression == CompressionLZ4 || h.compression == CompressionZSTD) {
+		h.logger.Debug("user has readonly = 1: network_compression_method and network_zstd_compression_level are not sent, the server default codec is used",
+			slog.String("compression", h.compression.String()))
+	}
 
 	location, err := timezone.Load(tz)
 	if err != nil {

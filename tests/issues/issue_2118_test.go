@@ -116,3 +116,40 @@ func Test2118_ConnectionSettings(t *testing.T) {
 	require.NoError(t, conn.QueryRow(queryCtx, "SELECT getSetting('network_zstd_compression_level')").Scan(&level))
 	assert.Equal(t, int8(5), level)
 }
+
+// Test2118_ReadOnlyChangeSettings verifies that a user with readonly = 2 still gets the
+// codec and the ZSTD level from Options.Compression, because such a user can change settings.
+func Test2118_ReadOnlyChangeSettings(t *testing.T) {
+	env, err := clickhouse_tests.GetTestEnvironment("issues")
+	require.NoError(t, err)
+	ctx := context.Background()
+
+	admin, err := clickhouse_tests.GetConnectionTCP("issues", nil, nil, nil)
+	require.NoError(t, err)
+	t.Cleanup(func() { admin.Close() })
+
+	username := fmt.Sprintf("readonly_user_%s", clickhouse_tests.RandAsciiString(6))
+	password := clickhouse_tests.RandAsciiString(10) + "1#"
+	require.NoError(t, admin.Exec(ctx, fmt.Sprintf("CREATE USER %s IDENTIFIED BY '%s' SETTINGS readonly = 2", username, password)))
+	t.Cleanup(func() {
+		if err := admin.Exec(ctx, fmt.Sprintf("DROP USER IF EXISTS %s", username)); err != nil {
+			t.Logf("DROP USER %s failed: %v", username, err)
+		}
+	})
+
+	opts := clickhouse_tests.ClientOptionsFromEnv(env, nil, true)
+	opts.Auth.Username = username
+	opts.Auth.Password = password
+	opts.Compression = &clickhouse.Compression{Method: clickhouse.CompressionZSTD, Level: 9}
+
+	conn, err := clickhouse.Open(&opts)
+	require.NoError(t, err)
+	t.Cleanup(func() { conn.Close() })
+
+	var method string
+	require.NoError(t, conn.QueryRow(ctx, "SELECT getSetting('network_compression_method')").Scan(&method))
+	assert.Equal(t, "ZSTD", strings.ToUpper(method), "readonly = 2: network_compression_method")
+	var level int8
+	require.NoError(t, conn.QueryRow(ctx, "SELECT getSetting('network_zstd_compression_level')").Scan(&level))
+	assert.Equal(t, int8(9), level, "readonly = 2: network_zstd_compression_level")
+}
