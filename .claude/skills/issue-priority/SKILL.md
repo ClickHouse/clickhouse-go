@@ -116,6 +116,14 @@ authentication method that does not work by its failure ("Broken, no
 workaround" or "Workaround exists"), and a request for a missing method as a
 feature request.
 
+A request to make an operation faster has the impact Performance, but it is a
+feature request: use "Cosmetic, docs, feature". Only a defect with the impact
+Performance (a correct result that is too slow) uses "Workaround exists".
+
+A dependency with a published vulnerability (a CVE or GHSA) uses "Wrong data or
+security" when the client calls the vulnerable code. When it does not, the
+issue asks for a dependency update: use "Cosmetic, docs, feature".
+
 ## 3. Base level
 
 | Severity ↓ / Reach →    | Core   | Common | Narrow | Satellite |
