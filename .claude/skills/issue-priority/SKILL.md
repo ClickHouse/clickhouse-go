@@ -37,16 +37,21 @@ Set no priority when one of these is true:
 ## Vulnerabilities that are not public yet
 
 A security issue must not stay public with a description of how to reproduce
-it. When a reproduction confirms a vulnerability that is not public yet
-(credentials or data are exposed, a value changes the meaning of a query, a TLS
-or identity check is skipped or weakened, or input that an untrusted party
-controls stops the client):
+it. This section applies when a reproduction or code inspection confirms a
+vulnerability that is not public yet (impact Security, part vulnerability, in
+section 2): a leak of credentials or data, a value that changes the meaning of
+a query, a TLS or identity check that is skipped or weakened, memory
+corruption, or input from the application's users that stops the client. A
+hang or a crash that only a hostile server or network causes is not one: rate
+it by the failure, as usual.
 
 - Report it in a private GitHub vulnerability report for this repository
-  (**Security** → **Report a vulnerability**), not in a public issue or
-  comment.
-- Set no Priority on the public issue. The issue is closed with a comment that
-  gives no details, and a repository administrator can delete it.
+  (**Security** → **Report a vulnerability**), never in a public issue,
+  comment, or pull request. If a public issue reports it, copy the title, the
+  text, and the comments of the issue into the report first.
+- Set no Priority on the public issue. Close it with a comment that gives no
+  details, and ask a repository administrator to delete it: closing does not
+  hide the text of the issue.
 - Rate the vulnerability with the rules below, and put the level and its reason
   into the private report as the proposed severity.
 
@@ -94,7 +99,7 @@ every ClickHouse client repository. An issue has none, one, or more of them:
 
 | Impact         | Use when |
 | -------------- | -------- |
-| Security       | a **vulnerability**: a defect makes the protection weaker: it exposes credentials or data, lets a value change the meaning of a query, skips or weakens a TLS or identity check, or lets a remote party stop the client. Also **authentication**: an authentication method that does not work or is missing |
+| Security       | a **vulnerability**: a defect makes the protection weaker: it exposes credentials or data, lets a value change the meaning of a query, skips or weakens a TLS or identity check, corrupts memory (an out-of-bounds write, a use after free), or lets input that the application takes from its users stop the client (a hang or a crash that only a hostile server or network causes is Stability). Also **authentication**: an authentication method that does not work or is missing |
 | Data integrity | data that the caller wrote, or a result that the caller reads, is missing, incomplete, or different from the value given or stored, and the client reports no error; this includes a failed operation that the client reports as a success |
 | Stability      | the process stops in a way that the caller cannot handle as a normal error, a call does not return, or a resource leaks until none is left |
 | Performance    | the result is correct, but the operation is too slow, or uses too much memory or CPU |
