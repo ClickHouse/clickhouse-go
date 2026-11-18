@@ -393,6 +393,11 @@ func (r *runner) implicitSelect(sql string) bool {
 	if !r.implicit {
 		return false
 	}
+	// A first word followed by `(` is a function call, such as
+	// `replace('abc', 'b', 'x')`, so the statement is an expression.
+	if startsWithCall(sql) {
+		return true
+	}
 	switch leadingKeyword(sql) {
 	case "INSERT", "CREATE", "DROP", "ALTER", "SET", "USE", "TRUNCATE", "RENAME", "OPTIMIZE",
 		"SYSTEM", "GRANT", "REVOKE", "ATTACH", "DETACH", "KILL", "EXCHANGE", "UNDROP", "BACKUP", "RESTORE",
@@ -400,6 +405,21 @@ func (r *runner) implicitSelect(sql string) bool {
 		return false
 	}
 	return true
+}
+
+// startsWithCall tells if the first word of sql, after comments and
+// whitespace, is directly followed by `(`.
+func startsWithCall(sql string) bool {
+	i := skipWhitespaceAndComments(sql, 0)
+	j := i
+	for j < len(sql) && isWordByte(sql[j]) {
+		j++
+	}
+	if j == i {
+		return false
+	}
+	k := skipWhitespaceAndComments(sql, j)
+	return k < len(sql) && sql[k] == '('
 }
 
 func (r *runner) writeRows(rows driver.Rows, format outputFormat) error {

@@ -152,6 +152,18 @@ func TestSplitStatementsEcho(t *testing.T) {
 	assert.Equal(t, "-- { echoOn }\nSELECT 2; -- two", stmts[1].Full)
 }
 
+func TestImplicitSelect(t *testing.T) {
+	r := &runner{implicit: true}
+	assert.True(t, r.implicitSelect("1 + 2"))
+	// replace() is a string function, not REPLACE TABLE.
+	assert.True(t, r.implicitSelect("replace('abc', 'b', 'x');"))
+	assert.True(t, r.implicitSelect("-- c\nupdate ('x')"))
+	assert.False(t, r.implicitSelect("REPLACE TABLE t AS SELECT 1"))
+	assert.False(t, r.implicitSelect("DELETE FROM t WHERE x = 1"))
+	assert.False(t, r.implicitSelect("INSERT INTO t VALUES (1)"))
+	assert.False(t, (&runner{}).implicitSelect("1 + 2"))
+}
+
 func TestLeadingKeyword(t *testing.T) {
 	assert.Equal(t, "SELECT", leadingKeyword("  -- c\n/* d */ (select 1)"))
 	assert.Equal(t, "INSERT", leadingKeyword("insert into t values (1)"))

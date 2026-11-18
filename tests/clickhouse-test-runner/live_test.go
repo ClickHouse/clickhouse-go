@@ -136,13 +136,15 @@ func TestLiveImplicitSelectMutation(t *testing.T) {
 				"CREATE TABLE " + table + " (x UInt8) ENGINE = MergeTree ORDER BY x;",
 				"INSERT INTO " + table + " VALUES (1), (2);",
 				"DELETE FROM " + table + " WHERE x = 1;",
+				// replace() is the string function: a query.
+				"replace('abc', 'b', 'x');",
 				"SELECT sum(x) FROM " + table + ";",
 				"SELECT sum(x) FROM tmp;",
 				"DROP TABLE " + table + ";",
 			}, "\n")
 			got, stderr, code := runShim(t, protocol, script)
 			require.Equal(t, 0, code, stderr)
-			assert.Equal(t, "2\n5\n", got)
+			assert.Equal(t, "axc\n2\n5\n", got)
 		})
 	}
 }
