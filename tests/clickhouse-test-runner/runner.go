@@ -395,7 +395,8 @@ func (r *runner) implicitSelect(sql string) bool {
 	}
 	switch leadingKeyword(sql) {
 	case "INSERT", "CREATE", "DROP", "ALTER", "SET", "USE", "TRUNCATE", "RENAME", "OPTIMIZE",
-		"SYSTEM", "GRANT", "REVOKE", "ATTACH", "DETACH", "KILL", "EXCHANGE", "UNDROP", "BACKUP", "RESTORE":
+		"SYSTEM", "GRANT", "REVOKE", "ATTACH", "DETACH", "KILL", "EXCHANGE", "UNDROP", "BACKUP", "RESTORE",
+		"DELETE", "UPDATE", "REPLACE", "MOVE", "BEGIN", "COMMIT", "ROLLBACK", "START":
 		return false
 	}
 	return true

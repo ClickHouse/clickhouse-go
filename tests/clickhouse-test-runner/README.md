@@ -209,7 +209,11 @@ some tests read their own queries from `system.query_log`.
   `...WithNames[AndTypes]`) or `Null`. A statement with any other output
   format fails. Over native, the program sends the statement as it is (the
   server ignores the `FORMAT` clause). Over HTTP, it removes the clause,
-  except for `FORMAT Null`.
+  except for `FORMAT Null`. `FORMAT <word>` is the clause only when `<word>`
+  is a format name of the pinned server ([`formats.go`](formats.go), from
+  `system.formats`; [`scripts/gen-formats.sh`](scripts/gen-formats.sh)
+  generates it). Otherwise `format` is a table, a column or an alias, as in
+  `FROM format src` or `SELECT format x`.
 - **Settings.** Of the settings on the command line, only `log_comment`,
   `max_insert_threads`, `max_threads` and `send_logs_level` go to the server,
   with each query, as in `clickhouse-client`. A `SET` of the same setting in

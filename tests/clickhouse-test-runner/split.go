@@ -191,7 +191,7 @@ func insertDataStart(text string, start, formatEnd int) (int, bool) {
 	for j < len(text) && isWordByte(text[j]) {
 		j++
 	}
-	if j == i || strings.EqualFold(text[i:j], "Values") || isClauseKeyword(text[i:j]) {
+	if j == i || strings.EqualFold(text[i:j], "Values") || !isFormatName(text[i:j]) {
 		return 0, false
 	}
 	// After a SELECT, the FORMAT clause comes at the end of the SELECT, so
@@ -332,27 +332,13 @@ func topLevelWords(sql string) []string {
 	return words
 }
 
-// clauseKeywords are SQL words that can follow a column or an alias named
-// `format`, as in `INSERT INTO t SELECT format FROM s`. No input or output
-// format has such a name, so after FORMAT they show an identifier, not the
-// FORMAT clause. A word after FORMAT that is not in this list is a format
-// name: `INSERT INTO t SELECT * FROM input('x UInt8') FORMAT TSV` has inline
-// data.
-var clauseKeywords = map[string]bool{
-	"FROM": true, "WHERE": true, "PREWHERE": true, "AS": true, "AND": true, "OR": true,
-	"NOT": true, "IN": true, "IS": true, "LIKE": true, "ILIKE": true, "BETWEEN": true,
-	"GROUP": true, "ORDER": true, "LIMIT": true, "OFFSET": true, "HAVING": true,
-	"QUALIFY": true, "WINDOW": true, "UNION": true, "EXCEPT": true, "INTERSECT": true,
-	"JOIN": true, "INNER": true, "LEFT": true, "RIGHT": true, "FULL": true, "CROSS": true,
-	"ARRAY": true, "ON": true, "USING": true, "SETTINGS": true, "INTO": true,
-	"ASC": true, "DESC": true, "NULLS": true, "COLLATE": true, "WITH": true,
-	"THEN": true, "ELSE": true, "END": true, "WHEN": true, "OVER": true,
-	"GLOBAL": true, "DIV": true, "MOD": true, "REGEXP": true, "FINAL": true,
-	"SAMPLE": true, "FILL": true, "TIES": true, "BY": true,
-}
-
-func isClauseKeyword(word string) bool {
-	return clauseKeywords[strings.ToUpper(word)]
+// isFormatName tells if word is the name of a format of the pinned server
+// (formats.go, from system.formats). After the word FORMAT, any other word
+// shows that `format` is an identifier: a column (`SELECT format x`), a
+// table (`INSERT INTO format SELECT ...`, `FROM format src`), or a sort key
+// (`ORDER BY format DESC`).
+func isFormatName(word string) bool {
+	return formatNames[strings.ToLower(word)]
 }
 
 func skipQuoted(text string, i int) int {

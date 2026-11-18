@@ -89,6 +89,16 @@ func TestSplitStatements(t *testing.T) {
 			[]string{"INSERT INTO t SELECT x FROM s WHERE format GLOBAL IN (1);", "SELECT 1;"},
 		},
 		{
+			"insert from a table named format with an alias",
+			"INSERT INTO dst SELECT * FROM format src;\nSELECT 2;",
+			[]string{"INSERT INTO dst SELECT * FROM format src;", "SELECT 2;"},
+		},
+		{
+			"insert into a table named format",
+			"INSERT INTO format SELECT 1;\nSELECT 2;",
+			[]string{"INSERT INTO format SELECT 1;", "SELECT 2;"},
+		},
+		{
 			"insert with a comment before the format",
 			"INSERT INTO t /* data: */ FORMAT CSV\n1\n\nSELECT 1;",
 			[]string{"INSERT INTO t /* data: */ FORMAT CSV\n1", "SELECT 1;"},

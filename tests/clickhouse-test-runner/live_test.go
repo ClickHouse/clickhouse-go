@@ -96,6 +96,57 @@ func TestLiveRenderMatchesServer(t *testing.T) {
 
 // TestLiveSessionState checks that `SET` and temporary tables last for the
 // whole invocation, also after an error that a test hint expects.
+// TestLiveFormatIdentifiers checks queries with a table, a CTE, a column or
+// an alias named `format`: the shim must not read them as a FORMAT clause.
+func TestLiveFormatIdentifiers(t *testing.T) {
+	requireLive(t)
+	queries := []string{
+		"WITH format AS (SELECT 1 AS x) SELECT x FROM format src",
+		"WITH format AS (SELECT 1 AS x) SELECT * FROM format src FORMAT TSV",
+		"SELECT 1 AS format, format x",
+		"SELECT 1 AS format ORDER BY format DESC",
+	}
+	for _, protocol := range []string{"native", "http"} {
+		for _, query := range queries {
+			t.Run(protocol+"/"+query, func(t *testing.T) {
+				want := serverTSV(t, strings.TrimSuffix(query, " FORMAT TSV"))
+				got, stderr, code := runShim(t, protocol, query)
+				require.Equal(t, 0, code, stderr)
+				assert.Equal(t, want, got)
+			})
+		}
+	}
+}
+
+// TestLiveImplicitSelectMutation checks that a DELETE under
+// `implicit_select = 1` does not run as a query: over native, a query
+// without a result resets the session, and the temporary table is lost.
+func TestLiveImplicitSelectMutation(t *testing.T) {
+	requireLive(t)
+	for _, protocol := range []string{"native", "http"} {
+		t.Run(protocol, func(t *testing.T) {
+			// A lightweight DELETE needs a table of the database; the
+			// temporary table shows whether the session survived.
+			table := "default.live_implicit_select_" + protocol
+			script := strings.Join([]string{
+				"SET implicit_select = 1;",
+				"CREATE TEMPORARY TABLE tmp (x UInt8);",
+				"INSERT INTO tmp VALUES (5);",
+				"DROP TABLE IF EXISTS " + table + ";",
+				"CREATE TABLE " + table + " (x UInt8) ENGINE = MergeTree ORDER BY x;",
+				"INSERT INTO " + table + " VALUES (1), (2);",
+				"DELETE FROM " + table + " WHERE x = 1;",
+				"SELECT sum(x) FROM " + table + ";",
+				"SELECT sum(x) FROM tmp;",
+				"DROP TABLE " + table + ";",
+			}, "\n")
+			got, stderr, code := runShim(t, protocol, script)
+			require.Equal(t, 0, code, stderr)
+			assert.Equal(t, "2\n5\n", got)
+		})
+	}
+}
+
 func TestLiveSessionState(t *testing.T) {
 	requireLive(t)
 	script := strings.Join([]string{

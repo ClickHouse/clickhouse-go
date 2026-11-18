@@ -163,8 +163,9 @@ and make that pull request pass before it merges:
    checkout (upstream renamed or removed them).
 6. Optionally, try the new tests of the release (see "Grow the allowlist" in
    the README).
-7. Change `clickhouse-version`, run `fetch-upstream.sh`, and commit
-   `errorcodes.go` with it.
+7. Change `clickhouse-version`, run `fetch-upstream.sh`, and run
+   `gen-formats.sh` against a server of the new version. Commit
+   `errorcodes.go` and `formats.go` with the new version.
 
 ## Keep the documents in sync
 

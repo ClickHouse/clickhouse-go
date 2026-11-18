@@ -196,6 +196,12 @@ func TestSplitOutputFormat(t *testing.T) {
 		{"SELECT 'a,' FORMAT TSV", "SELECT 'a,' ", "TSV", true},
 		// A multiplication by a column named `format`.
 		{"SELECT 2 * format x FROM (SELECT 1 AS format)", "SELECT 2 * format x FROM (SELECT 1 AS format)", "TabSeparated", true},
+		// A table or CTE named `format`, with an alias.
+		{"WITH format AS (SELECT 1 AS x) SELECT x FROM format src", "WITH format AS (SELECT 1 AS x) SELECT x FROM format src", "TabSeparated", true},
+		{"SELECT * FROM format src FORMAT TSV", "SELECT * FROM format src ", "TSV", true},
+		// Format names are the server's (formats.go), in any case.
+		{"SELECT 1 FORMAT jsoneachrow", "SELECT 1 ", "jsoneachrow", false},
+		{"SELECT 1 FORMAT NoSuchFormat", "SELECT 1 FORMAT NoSuchFormat", "TabSeparated", true},
 		{"SELECT x FROM t GROUP BY ALL FORMAT TSV", "SELECT x FROM t GROUP BY ALL ", "TSV", true},
 		{"SELECT x FROM t ORDER BY ALL DESC FORMAT TSV", "SELECT x FROM t ORDER BY ALL DESC ", "TSV", true},
 		{"SELECT 'a' FORMAT TSV", "SELECT 'a' ", "TSV", true},
