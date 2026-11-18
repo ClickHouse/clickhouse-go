@@ -103,6 +103,8 @@ func TestLiveFormatIdentifiers(t *testing.T) {
 	queries := []string{
 		"WITH format AS (SELECT 1 AS x) SELECT x FROM format src",
 		"WITH format AS (SELECT 1 AS x) SELECT * FROM format src FORMAT TSV",
+		"WITH format AS (SELECT 1 AS x) SELECT x FROM format `Null`",
+		"WITH format AS (SELECT 1 AS x) SELECT x FROM format TSV",
 		"SELECT 1 AS format, format x",
 		"SELECT 1 AS format ORDER BY format DESC",
 	}

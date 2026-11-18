@@ -94,6 +94,16 @@ func TestSplitStatements(t *testing.T) {
 			[]string{"INSERT INTO dst SELECT * FROM format src;", "SELECT 2;"},
 		},
 		{
+			"insert from a table named format with a format-name alias",
+			"INSERT INTO dst SELECT * FROM format TSV;\nSELECT 2;",
+			[]string{"INSERT INTO dst SELECT * FROM format TSV;", "SELECT 2;"},
+		},
+		{
+			"insert into a table named format, with inline data",
+			"INSERT INTO format FORMAT CSV\n1\n\nSELECT 2;",
+			[]string{"INSERT INTO format FORMAT CSV\n1", "SELECT 2;"},
+		},
+		{
 			"insert into a table named format",
 			"INSERT INTO format SELECT 1;\nSELECT 2;",
 			[]string{"INSERT INTO format SELECT 1;", "SELECT 2;"},

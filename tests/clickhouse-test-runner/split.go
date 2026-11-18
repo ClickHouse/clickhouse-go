@@ -204,15 +204,19 @@ func insertDataStart(text string, start, formatEnd int) (int, bool) {
 	return j, true
 }
 
-// expressionKeywords are words after which a word starts an expression, so
-// a `format` after them is an identifier (`SELECT format x`,
-// `WHERE format = 1`), not the FORMAT clause.
+// expressionKeywords are words after which a word starts an expression or a
+// table reference, so a `format` after them is an identifier
+// (`SELECT format x`, `WHERE format = 1`, `FROM format Null`,
+// `INSERT INTO format SELECT ...`), not the FORMAT clause. The FORMAT
+// clause never comes right after FROM, JOIN or INTO, so an alias that is a
+// format name (`FROM format TSV`) does not count.
 var expressionKeywords = map[string]bool{
 	"SELECT": true, "DISTINCT": true, "BY": true, "WHERE": true, "PREWHERE": true,
 	"HAVING": true, "QUALIFY": true, "AND": true, "OR": true, "NOT": true, "ON": true,
 	"USING": true, "WHEN": true, "THEN": true, "ELSE": true, "CASE": true, "AS": true,
 	"IN": true, "LIKE": true, "ILIKE": true, "BETWEEN": true, "IS": true, "DIV": true,
 	"MOD": true, "TOP": true, "INTERVAL": true,
+	"FROM": true, "JOIN": true, "INTO": true,
 }
 
 // startsExpression tells if the word at offset i of sql starts an

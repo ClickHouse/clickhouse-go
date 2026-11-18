@@ -199,6 +199,11 @@ func TestSplitOutputFormat(t *testing.T) {
 		// A table or CTE named `format`, with an alias.
 		{"WITH format AS (SELECT 1 AS x) SELECT x FROM format src", "WITH format AS (SELECT 1 AS x) SELECT x FROM format src", "TabSeparated", true},
 		{"SELECT * FROM format src FORMAT TSV", "SELECT * FROM format src ", "TSV", true},
+		// A table named `format` whose alias is a format name.
+		{"WITH format AS (SELECT 1 AS x) SELECT x FROM format `Null`", "WITH format AS (SELECT 1 AS x) SELECT x FROM format `Null`", "TabSeparated", true},
+		{"SELECT x FROM format TSV", "SELECT x FROM format TSV", "TabSeparated", true},
+		{"SELECT x FROM a JOIN format CSV ON 1", "SELECT x FROM a JOIN format CSV ON 1", "TabSeparated", true},
+		{"SELECT x FROM format TSV FORMAT Null", "SELECT x FROM format TSV ", "Null", true},
 		// Format names are the server's (formats.go), in any case.
 		{"SELECT 1 FORMAT jsoneachrow", "SELECT 1 ", "jsoneachrow", false},
 		{"SELECT 1 FORMAT NoSuchFormat", "SELECT 1 FORMAT NoSuchFormat", "TabSeparated", true},
