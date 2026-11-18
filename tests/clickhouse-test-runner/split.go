@@ -180,6 +180,11 @@ func insertDataStart(text string, start, formatEnd int) (int, bool) {
 	if leadingKeyword(text[start:formatEnd]) != "INSERT" {
 		return 0, false
 	}
+	// In `INSERT ... SELECT format FROM t`, FORMAT is an identifier: the
+	// FORMAT clause of an INSERT comes before any SELECT.
+	if hasWord(text[start:formatEnd-len("FORMAT")], "SELECT") {
+		return 0, false
+	}
 	i := formatEnd
 	if i >= len(text) || (text[i] != ' ' && text[i] != '\t' && text[i] != '\n' && text[i] != '\r') {
 		return 0, false
@@ -195,6 +200,34 @@ func insertDataStart(text string, start, formatEnd int) (int, bool) {
 		return 0, false
 	}
 	return j, true
+}
+
+// hasWord tells if sql has the keyword word (case-insensitive) outside
+// quotes and comments.
+func hasWord(sql, word string) bool {
+	for i := 0; i < len(sql); {
+		c := sql[i]
+		switch {
+		case c == '\'' || c == '"' || c == '`':
+			i = skipQuoted(sql, i)
+		case strings.HasPrefix(sql[i:], "--"):
+			i = skipLineComment(sql, i)
+		case strings.HasPrefix(sql[i:], "/*"):
+			i = skipBlockComment(sql, i)
+		case isWordByte(c):
+			j := i
+			for j < len(sql) && isWordByte(sql[j]) {
+				j++
+			}
+			if strings.EqualFold(sql[i:j], word) {
+				return true
+			}
+			i = j
+		default:
+			i++
+		}
+	}
+	return false
 }
 
 func skipQuoted(text string, i int) int {

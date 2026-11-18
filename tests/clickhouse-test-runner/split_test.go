@@ -58,6 +58,11 @@ func TestSplitStatements(t *testing.T) {
 			"SELECT 1 FORMAT TSV;\nSELECT 2;",
 			[]string{"SELECT 1 FORMAT TSV;", "SELECT 2;"},
 		},
+		{
+			"insert select with a column named format",
+			"INSERT INTO t SELECT format FROM s;\nSELECT 1;",
+			[]string{"INSERT INTO t SELECT format FROM s;", "SELECT 1;"},
+		},
 		{"double semicolon", "SELECT 1;;\nSELECT 2", []string{"SELECT 1;", "SELECT 2"}},
 	}
 	for _, tt := range tests {

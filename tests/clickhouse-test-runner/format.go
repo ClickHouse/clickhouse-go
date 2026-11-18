@@ -98,20 +98,8 @@ func findFormatClause(sql string) (start, end int, name string) {
 				j++
 			}
 			if depth == 0 && strings.EqualFold(sql[i:j], "FORMAT") && (i == 0 || sql[i-1] != '.') {
-				k := skipWhitespaceAndComments(sql, j)
-				if k > j && k < len(sql) && (sql[k] == '`' || sql[k] == '"') {
-					// A quoted format name: FORMAT `Null`.
-					m := skipQuoted(sql, k)
-					if name, ok := unquoteIdentifier(sql[k:m]); ok {
-						return i, m, name
-					}
-				}
-				m := k
-				for m < len(sql) && isWordByte(sql[m]) {
-					m++
-				}
-				if m > k && k > j {
-					return i, m, sql[k:m]
+				if m, name, ok := formatName(sql, j); ok && endsQuery(sql, m) {
+					return i, m, name
 				}
 			}
 			i = j
@@ -120,4 +108,42 @@ func findFormatClause(sql string) (start, end int, name string) {
 		}
 	}
 	return -1, -1, ""
+}
+
+// formatName reads the format name after the FORMAT keyword that ends at j.
+// It returns the end of the name.
+func formatName(sql string, j int) (end int, name string, ok bool) {
+	k := skipWhitespaceAndComments(sql, j)
+	if k == j || k >= len(sql) {
+		return 0, "", false
+	}
+	if sql[k] == '`' || sql[k] == '"' {
+		// A quoted format name: FORMAT `Null`.
+		m := skipQuoted(sql, k)
+		name, ok := unquoteIdentifier(sql[k:m])
+		return m, name, ok
+	}
+	m := k
+	for m < len(sql) && isWordByte(sql[m]) {
+		m++
+	}
+	if m == k {
+		return 0, "", false
+	}
+	return m, sql[k:m], true
+}
+
+// endsQuery tells if the text from i on can follow the FORMAT clause of a
+// query: nothing, a semicolon, or a SETTINGS clause. Otherwise FORMAT is an
+// identifier, as in `SELECT format FROM t`.
+func endsQuery(sql string, i int) bool {
+	k := skipWhitespaceAndComments(sql, i)
+	if k >= len(sql) || sql[k] == ';' {
+		return true
+	}
+	m := k
+	for m < len(sql) && isWordByte(sql[m]) {
+		m++
+	}
+	return strings.EqualFold(sql[k:m], "SETTINGS")
 }

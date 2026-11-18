@@ -128,13 +128,10 @@ if [[ -n "${CLICKHOUSE_CLIENT_CLI_LOG:-}" ]]; then
   export CLICKHOUSE_CLIENT_CLI_LOG
 fi
 
-# tests/clickhouse-test reads each test argument as a regular expression and
-# selects every file that it matches anywhere in the name, so `00396_uuid`
-# would also select `00396_uuid_v7`. One anchored expression selects exactly
-# the listed tests, and is much faster than one expression per test.
-escaped=("${tests[@]//./\\.}")
-selector="^($(IFS='|'; echo "${escaped[*]}"))\\.(sql|sql\\.j2)\$"
+# shellcheck source=selectors.sh
+source "${SCRIPT_DIR}/selectors.sh"
+build_selectors "${tests[@]}"
 
 echo "Protocol: ${CLICKHOUSE_TEST_RUNNER_PROTOCOL}" >&2
 cd "${UPSTREAM_CLICKHOUSE_DIR}"
-exec python3 tests/clickhouse-test --no-stateful --no-random-settings --no-random-merge-tree-settings "$@" -- "${selector}"
+exec python3 tests/clickhouse-test --no-stateful --no-random-settings --no-random-merge-tree-settings "$@" -- "${selectors[@]}"

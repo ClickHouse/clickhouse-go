@@ -53,14 +53,16 @@ while IFS= read -r line || [[ -n "${line}" ]]; do
   line="${line#"${line%%[![:space:]]*}"}"
   line="${line%"${line##*[![:space:]]}"}"
   [[ -z "${line}" ]] && continue
-  tests+=("${line//./\\.}")
+  tests+=("${line}")
 done < "${UPSTREAM_TEST_LIST}"
 if [[ ${#tests[@]} -eq 0 ]]; then
   echo "Error: no tests selected from ${UPSTREAM_TEST_LIST}." >&2
   exit 1
 fi
-selector="^($(IFS='|'; echo "${tests[*]}"))\\.(sql|sql\\.j2)\$"
+# shellcheck source=selectors.sh
+source "${SCRIPT_DIR}/selectors.sh"
+build_selectors "${tests[@]}"
 
 export PATH="${BIN_DIR}:${PATH}"
 cd "${UPSTREAM_CLICKHOUSE_DIR}"
-exec python3 tests/clickhouse-test --no-stateful --no-random-settings --no-random-merge-tree-settings "$@" -- "${selector}"
+exec python3 tests/clickhouse-test --no-stateful --no-random-settings --no-random-merge-tree-settings "$@" -- "${selectors[@]}"
