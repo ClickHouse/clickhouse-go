@@ -176,6 +176,9 @@ func TestSplitOutputFormat(t *testing.T) {
 		// FORMAT as an identifier, not the clause.
 		{"SELECT format FROM t", "SELECT format FROM t", "TabSeparated", true},
 		{"SELECT x AS format FROM t WHERE format = 1", "SELECT x AS format FROM t WHERE format = 1", "TabSeparated", true},
+		{"SELECT 1 AS format FROM numbers(1)", "SELECT 1 AS format FROM numbers(1)", "TabSeparated", true},
+		{"SELECT format FROM (SELECT 1 AS format)", "SELECT format FROM (SELECT 1 AS format)", "TabSeparated", true},
+		{"SELECT 1 AS format", "SELECT 1 AS format", "TabSeparated", true},
 		{"SELECT 1 FORMAT TSV -- c\n;", "SELECT 1  -- c\n;", "TSV", true},
 	}
 	for _, tt := range tests {

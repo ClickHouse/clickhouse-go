@@ -210,7 +210,8 @@ func hasWord(sql, word string) bool {
 		switch {
 		case c == '\'' || c == '"' || c == '`':
 			i = skipQuoted(sql, i)
-		case strings.HasPrefix(sql[i:], "--"):
+		case strings.HasPrefix(sql[i:], "--"),
+			strings.HasPrefix(sql[i:], "#!"), strings.HasPrefix(sql[i:], "# "):
 			i = skipLineComment(sql, i)
 		case strings.HasPrefix(sql[i:], "/*"):
 			i = skipBlockComment(sql, i)

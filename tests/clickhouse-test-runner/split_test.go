@@ -63,6 +63,11 @@ func TestSplitStatements(t *testing.T) {
 			"INSERT INTO t SELECT format FROM s;\nSELECT 1;",
 			[]string{"INSERT INTO t SELECT format FROM s;", "SELECT 1;"},
 		},
+		{
+			"hash comment before the format of an insert",
+			"INSERT INTO t # not a SELECT\nFORMAT CSV\n1;2\n\nSELECT 1;",
+			[]string{"INSERT INTO t # not a SELECT\nFORMAT CSV\n1;2", "SELECT 1;"},
+		},
 		{"double semicolon", "SELECT 1;;\nSELECT 2", []string{"SELECT 1;", "SELECT 2"}},
 	}
 	for _, tt := range tests {

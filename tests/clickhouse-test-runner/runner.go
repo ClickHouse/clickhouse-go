@@ -356,10 +356,13 @@ func (r *runner) execute(ctx context.Context, sql string) error {
 		query = sql
 	}
 	rows, err := r.conn.Query(ctx, query)
-	if errors.Is(err, io.EOF) && r.protocol == clickhouse.Native {
+	//nolint:errorlint // Only the bare io.EOF sentinel, not a wrapped one.
+	if err == io.EOF && r.protocol == clickhouse.Native {
 		// The statement returned no result block, for example
-		// `WITH ... INSERT`. clickhouse-go returns io.EOF for this, and it
-		// closes the connection.
+		// `WITH ... INSERT`. For the ServerEndOfStream packet, clickhouse-go
+		// returns the bare io.EOF, and it closes the connection. A read
+		// failure (a disconnect, a truncated block) wraps io.EOF with %w; it
+		// must stay an error, or a failed query looks like an empty result.
 		r.needsReset = true
 		return nil
 	}
