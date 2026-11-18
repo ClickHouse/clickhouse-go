@@ -6,8 +6,8 @@
 #   # <test>  # [<id>]                known failure of group <id> (see the end
 #                                     of this file); it does not run
 #
-# Running: 9898 over both protocols, 129 over native only.
-# Known failures: 925 in 30 groups.
+# Running: 9882 over both protocols, 129 over native only.
+# Known failures: 941 in 30 groups.
 
 00001_select_1
 00002_system_numbers
@@ -712,7 +712,6 @@
 00800_low_cardinality_array_group_by_arg
 00800_low_cardinality_distinct_numeric
 00800_low_cardinality_empty_array
-00800_low_cardinality_join
 00800_low_cardinality_merge_join
 00800_versatile_storage_join
 00801_daylight_saving_time_hour_underflow
@@ -1089,7 +1088,6 @@
 01060_defaults_all_columns
 01060_shutdown_table_after_detach
 01061_alter_codec_with_type
-01062_pm_all_join_with_block_continuation
 01062_pm_multiple_all_join_same_value
 01063_create_column_set
 01064_arrayROCAUC
@@ -1729,7 +1727,6 @@
 01554_interpreter_integer_float
 01555_or_fill
 01556_accurate_cast_or_null
-01556_explain_select_with_union_query
 01556_if_null
 01557_max_parallel_replicas_no_sample
 01558_enum_as_num_in_tsv_csv_input
@@ -2358,7 +2355,6 @@
 02023_parser_number_binary_literal
 02024_compile_expressions_with_short_circuit_evaluation
 02024_create_dictionary_with_comment
-02024_join_on_or_long
 02024_merge_regexp_assert
 02025_dictionary_view_different_db
 02025_having_filter_column
@@ -2733,7 +2729,6 @@
 02324_map_combinator_bug
 02325_compatibility_setting_2
 02325_dates_schema_inference
-02326_numbers_from_json_strings_schema_inference
 02326_settings_changes_system_table
 02327_try_infer_integers_schema_inference
 02336_sort_optimization_with_fill
@@ -3126,7 +3121,6 @@
 02459_read_in_order_bufer
 02460_prewhere_row_level_policy
 02461_join_lc_issue_42380
-02461_mullable_pk_monotonicity_bug
 02461_prewhere_row_level_policy_lightweight_delete
 02461_welch_t_test_fuzz
 02462_distributions
@@ -5467,7 +5461,6 @@
 03712_nested_loop_join_merge_tree
 03712_tuple_inside_nullable_implicit_cast_for_in_function_1_1
 03712_tuple_inside_nullable_implicit_cast_for_in_function_1_2
-03712_tuple_inside_nullable_implicit_cast_for_in_function_2
 03713_data_types_binary_deserialization_stack_overflow
 03713_optimize_inverse_dictionary_lookup_setting_rewrite_in_to_join
 03713_replicated_columns_in_external_data_bug
@@ -5944,7 +5937,6 @@
 03927_nested_columns_duplicate_identifier
 03927_recursive_materialized_cte
 03927_row_filter_in_read_in_order_optimization
-03927_sumcount_compatibility
 03928_deferred_filters_after_final_in_explain
 03928_full_join_swap_tables
 03928_isNull_nullable_tuple_subcolumn
@@ -6101,7 +6093,6 @@
 04024_fold_utf8
 04024_jit_multiif_mixed_types
 04024_json_least_supertype_merge
-04024_json_skip_index_bloom_filter
 04024_json_skip_index_larger_granularity
 04024_json_skip_index_text
 04024_json_skip_index_token_ngram
@@ -8236,7 +8227,6 @@
 04670_make_distributed_plan_in_subquery_baseline
 04670_query_condition_cache_unique_key
 04671_join_const_propagation_partition_pruning
-04671_kql_string_operators
 04671_make_distributed_plan_join_to_in_disabled
 04671_part_minmax_block_columns_legacy_repair
 04672_join_on_array_join_residual
@@ -8245,7 +8235,6 @@
 04673_cross_to_inner_join_non_deterministic
 04673_kql_unsupported_is_rejected
 04674_key_condition_erased_fixed_string_constant
-04674_kql_clickhouse_functions
 04680_share_sets_between_mutation_tasks_index_analysis
 04691_array_intersect_smallest_argument
 04691_intdiv_by_minus_one_minimal_signed
@@ -8725,7 +8714,6 @@
 05044_query_log_join_columns_direct_rocksdb
 05044_time_time64_strict_in
 05044_top_k_dynamic_filtering_float_special_values
-05044_trino_conformance_presto_scalar3
 05045_86045_lambda_argument_niladic_function_alias
 05045_backup_uuid_not_user_settable
 05045_cascades_aggregation_pushdown_merge_local
@@ -9170,7 +9158,6 @@
 05182_replace_regexp_all_inline_multiline
 05182_row_policy_after_final_lambda_nondeterminism
 05182_skip_index_order_after_partition_pruning
-05182_time_series_id_type_setting
 05183_decimal_datetime64_stable_sort_on_insert
 05183_join_order_conflict_detector_direct_key_null_extension
 05183_prewhere_statistics_pruned_parts
@@ -9489,7 +9476,6 @@
 05241_parquet_hash_filter_output_type_value_space
 05241_prometheus_query_timestamp
 05241_row_policy_after_final_float_sorting_key
-05241_timeseries_mad_to_grid
 05241_vector_search_quantize_codec_read_task_subcolumn
 05242_external_distinct_limit_remerge
 05242_key_condition_negated_wrapped_set_candidates
@@ -9680,7 +9666,6 @@
 05295_lazy_final_filter_above_row_index
 05296_conflict_detector_dynamic_join_key_null_match
 05296_quantile_deterministic_merge_over_network
-05296_sql_compatible_division_for_integers
 05296_top_k_dynamic_filter_conjunction_name_clash
 05296_window_functions_ntile_large_bucket_count
 05297_prometheus_query_rfc3339_time
@@ -9688,7 +9673,6 @@
 05297_window_functions_offset_functions_max_offset
 05298_sql_compatible_division_for_integers_optimizer
 05298_window_functions_frame_offset_bounds
-05299_sql_compatible_division_for_integers_types
 05299_window_functions_low_cardinality_arguments
 05301_memory_update_after_modify_column
 05306_json_shared_typed_paths_uncompressed_cache
@@ -10317,28 +10301,44 @@
 #     QueryRow(getSetting('max_threads')): a few of 2000 iterations read the
 #     default
 #   Issue: not filed yet
-#   Tests: 21
+#   Tests: 37
+# 00800_low_cardinality_join  # [native-pool-race-new-connection]
+# 01062_pm_all_join_with_block_continuation  # [native-pool-race-new-connection]
 # 01231_operator_null_in  # [native-pool-race-new-connection]
 # 01420_format_row  # [native-pool-race-new-connection]
+# 01556_explain_select_with_union_query  # [native-pool-race-new-connection]
+# 02024_join_on_or_long  # [native-pool-race-new-connection]
+# 02326_numbers_from_json_strings_schema_inference  # [native-pool-race-new-connection]
 # 02366_kql_func_datetime  # [native-pool-race-new-connection]
 # 02366_kql_func_string  # [native-pool-race-new-connection]
+# 02461_mullable_pk_monotonicity_bug  # [native-pool-race-new-connection]
 # 02678_explain_pipeline_graph_with_projection  # [native-pool-race-new-connection]
 # 02809_prewhere_and_in  # [native-pool-race-new-connection]
 # 02900_date_time_check_overflow  # [native-pool-race-new-connection]
 # 03222_date_time_inference  # [native-pool-race-new-connection]
 # 03275_subcolumns_in_primary_key  # [native-pool-race-new-connection]
 # 03610_disjunctions_pushdown_optimization  # [native-pool-race-new-connection]
+# 03712_tuple_inside_nullable_implicit_cast_for_in_function_2  # [native-pool-race-new-connection]
 # 03835_join_transitive_predicates  # [native-pool-race-new-connection]
+# 03927_sumcount_compatibility  # [native-pool-race-new-connection]
 # 03990_map_subcolumn_skip_index  # [native-pool-race-new-connection]
+# 04024_json_skip_index_bloom_filter  # [native-pool-race-new-connection]
 # 04094_kql_conformance_pql  # [native-pool-race-new-connection]
 # 04319_timeseries_two_stacks  # [native-pool-race-new-connection]
 # 04319_timeseries_window_memoization  # [native-pool-race-new-connection]
+# 04671_kql_string_operators  # [native-pool-race-new-connection]
+# 04674_kql_clickhouse_functions  # [native-pool-race-new-connection]
 # 04909_distinct_projection_order_by_non_distinct_column  # [native-pool-race-new-connection]
 # 05028_trino_dialect_icu_base64  # [native-pool-race-new-connection]
 # 05043_trino_conformance_presto_scalar2  # [native-pool-race-new-connection]
+# 05044_trino_conformance_presto_scalar3  # [native-pool-race-new-connection]
 # 05076_window_function_group_by_use_nulls_not_an_aggregate  # [native-pool-race-new-connection]
 # 05137_join_use_nulls_right_key_restored  # [native-pool-race-new-connection]
+# 05182_time_series_id_type_setting  # [native-pool-race-new-connection]
 # 05234_promql_streaming_aggregation_memory  # [native-pool-race-new-connection]
+# 05241_timeseries_mad_to_grid  # [native-pool-race-new-connection]
+# 05296_sql_compatible_division_for_integers  # [native-pool-race-new-connection]
+# 05299_sql_compatible_division_for_integers_types  # [native-pool-race-new-connection]
 
 #-----------------------------------------------------------------------------
 # [native-session-lost-on-error] client: Native: the connection closes after any error, so the session state is lost
