@@ -107,7 +107,7 @@ highest row applies:
 | ----------------------- | -------- |
 | Wrong data or security  | impact **Data integrity**: the client returns or stores wrong or incomplete data with no error, or reports success for a query that failed; or impact **Security** with a vulnerability: a security defect |
 | Broken, no workaround   | the feature fails (an error, a hang, a panic, a leak that ends in a crash or in exhausted connections), and the caller has no reasonable workaround; also a wrong or incomplete error with no workaround: the failure is reported, but its type, code, or message is wrong or lost. The impact **Stability** (a hang, a panic, such a leak) uses this row when the caller has no reasonable workaround |
-| Workaround exists       | the feature fails, but the caller can avoid the failure with a small change in their own code (name the workaround in the reason); also impact **Performance**: a result that is correct but slow or uses too much memory |
+| Workaround exists       | the feature fails, but the caller can avoid the failure with a small change in their own code (name the workaround in the reason); also impact **Performance** of a defect: a result that is correct but slow or uses too much memory (a request to make an operation faster is a feature request: last row) |
 | Cosmetic, docs, feature | wrong log or message text, documentation, a feature request |
 
 An issue that has the impact Security with no vulnerability (an authentication
