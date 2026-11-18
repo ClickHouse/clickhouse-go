@@ -104,8 +104,8 @@ every ClickHouse client repository. An issue has none, one, or more of them:
 | Stability      | the process stops in a way that the caller cannot handle as a normal error, a call does not return, or a resource leaks until none is left |
 | Performance    | the result is correct, but the operation is too slow, or uses too much memory or CPU |
 
-Give an impact only when the issue or a reproduction shows it. Most issues have
-none.
+Give an impact only when the issue, a reproduction, or code inspection of the
+current code shows it. Most issues have none.
 
 Then use the first severity row that fits. With more than one impact, the
 highest row applies:
