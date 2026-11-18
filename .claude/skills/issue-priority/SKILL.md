@@ -120,10 +120,12 @@ A request to make an operation faster has the impact Performance, but it is a
 feature request: use "Cosmetic, docs, feature". Only a defect with the impact
 Performance (a correct result that is too slow) uses "Workaround exists".
 
-A vulnerability in a dependency (published as a CVE or GHSA, or not published
-yet) uses "Wrong data or security" when the client calls the vulnerable code.
-When it does not, the issue asks for a dependency update: use "Cosmetic, docs,
-feature".
+A vulnerability in a dependency uses "Wrong data or security" when the client
+calls the vulnerable code. When it does not, use "Cosmetic, docs, feature": for
+a published one (a CVE or GHSA), the issue asks for a dependency update. One
+that is not published yet stays private also then (see "Vulnerabilities that
+are not public yet"), and this level is the proposed severity of the private
+report.
 
 ## 3. Base level
 
