@@ -87,7 +87,7 @@ When proposing a new API surface, ask: *can a caller use this incorrectly withou
 
 ## Issue triage
 
-To set, check, or explain the Priority of an issue, follow [`.claude/skills/issue-priority/SKILL.md`](.claude/skills/issue-priority/SKILL.md). It is the single source of truth for the priority rules.
+To set, check, or explain the Priority of an issue, follow [`.claude/skills/issue-priority/SKILL.md`](/.claude/skills/issue-priority/SKILL.md). It is the single source of truth for the priority rules.
 
 ---
 
