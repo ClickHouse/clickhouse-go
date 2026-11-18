@@ -180,11 +180,6 @@ func insertDataStart(text string, start, formatEnd int) (int, bool) {
 	if leadingKeyword(text[start:formatEnd]) != "INSERT" {
 		return 0, false
 	}
-	// In `INSERT ... SELECT format FROM t`, FORMAT is an identifier: the
-	// FORMAT clause of an INSERT comes before any SELECT.
-	if hasWord(text[start:formatEnd-len("FORMAT")], "SELECT") {
-		return 0, false
-	}
 	i := formatEnd
 	if i >= len(text) || (text[i] != ' ' && text[i] != '\t' && text[i] != '\n' && text[i] != '\r') {
 		return 0, false
@@ -196,39 +191,31 @@ func insertDataStart(text string, start, formatEnd int) (int, bool) {
 	for j < len(text) && isWordByte(text[j]) {
 		j++
 	}
-	if j == i || strings.EqualFold(text[i:j], "Values") {
+	if j == i || strings.EqualFold(text[i:j], "Values") || isClauseKeyword(text[i:j]) {
 		return 0, false
 	}
 	return j, true
 }
 
-// hasWord tells if sql has the keyword word (case-insensitive) outside
-// quotes and comments.
-func hasWord(sql, word string) bool {
-	for i := 0; i < len(sql); {
-		c := sql[i]
-		switch {
-		case c == '\'' || c == '"' || c == '`':
-			i = skipQuoted(sql, i)
-		case strings.HasPrefix(sql[i:], "--"),
-			strings.HasPrefix(sql[i:], "#!"), strings.HasPrefix(sql[i:], "# "):
-			i = skipLineComment(sql, i)
-		case strings.HasPrefix(sql[i:], "/*"):
-			i = skipBlockComment(sql, i)
-		case isWordByte(c):
-			j := i
-			for j < len(sql) && isWordByte(sql[j]) {
-				j++
-			}
-			if strings.EqualFold(sql[i:j], word) {
-				return true
-			}
-			i = j
-		default:
-			i++
-		}
-	}
-	return false
+// clauseKeywords are SQL words that can follow a column or an alias named
+// `format`, as in `INSERT INTO t SELECT format FROM s`. No input or output
+// format has such a name, so after FORMAT they show an identifier, not the
+// FORMAT clause. A word after FORMAT that is not in this list is a format
+// name: `INSERT INTO t SELECT * FROM input('x UInt8') FORMAT TSV` has inline
+// data.
+var clauseKeywords = map[string]bool{
+	"FROM": true, "WHERE": true, "PREWHERE": true, "AS": true, "AND": true, "OR": true,
+	"NOT": true, "IN": true, "IS": true, "LIKE": true, "ILIKE": true, "BETWEEN": true,
+	"GROUP": true, "ORDER": true, "LIMIT": true, "OFFSET": true, "HAVING": true,
+	"QUALIFY": true, "WINDOW": true, "UNION": true, "EXCEPT": true, "INTERSECT": true,
+	"JOIN": true, "INNER": true, "LEFT": true, "RIGHT": true, "FULL": true, "CROSS": true,
+	"ARRAY": true, "ON": true, "USING": true, "SETTINGS": true, "INTO": true,
+	"ASC": true, "DESC": true, "NULLS": true, "COLLATE": true, "WITH": true,
+	"THEN": true, "ELSE": true, "END": true, "WHEN": true, "OVER": true,
+}
+
+func isClauseKeyword(word string) bool {
+	return clauseKeywords[strings.ToUpper(word)]
 }
 
 func skipQuoted(text string, i int) int {

@@ -64,9 +64,14 @@ func TestSplitStatements(t *testing.T) {
 			[]string{"INSERT INTO t SELECT format FROM s;", "SELECT 1;"},
 		},
 		{
-			"hash comment before the format of an insert",
-			"INSERT INTO t # not a SELECT\nFORMAT CSV\n1;2\n\nSELECT 1;",
-			[]string{"INSERT INTO t # not a SELECT\nFORMAT CSV\n1;2", "SELECT 1;"},
+			"insert select from input has inline data",
+			"INSERT INTO t SELECT x FROM input('x UInt8') FORMAT TSV\n1;\n2\n\nSELECT 1;",
+			[]string{"INSERT INTO t SELECT x FROM input('x UInt8') FORMAT TSV\n1;\n2", "SELECT 1;"},
+		},
+		{
+			"insert select with a format alias",
+			"INSERT INTO t SELECT 1 AS format FROM numbers(1);\nSELECT 1;",
+			[]string{"INSERT INTO t SELECT 1 AS format FROM numbers(1);", "SELECT 1;"},
 		},
 		{"double semicolon", "SELECT 1;;\nSELECT 2", []string{"SELECT 1;", "SELECT 2"}},
 	}
