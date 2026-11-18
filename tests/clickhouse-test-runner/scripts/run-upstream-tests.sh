@@ -134,4 +134,48 @@ build_selectors "${tests[@]}"
 
 echo "Protocol: ${CLICKHOUSE_TEST_RUNNER_PROTOCOL}" >&2
 cd "${UPSTREAM_CLICKHOUSE_DIR}"
-exec python3 tests/clickhouse-test --no-stateful --no-random-settings --no-random-merge-tree-settings "$@" -- "${selectors[@]}"
+runner=(python3 tests/clickhouse-test --no-stateful --no-random-settings --no-random-merge-tree-settings)
+
+if [[ "${RETRY_FAILED_ONCE:-0}" != "1" ]]; then
+  exec "${runner[@]}" "$@" -- "${selectors[@]}"
+fi
+
+# RETRY_FAILED_ONCE=1 (CI): run the failed tests once more. A known client
+# bug, [native-pool-race-new-connection] in allowlist.txt, makes a random
+# test that uses SET fail now and then over the native protocol. A test that
+# passes on the second run is reported as a warning; a test that fails
+# twice fails the run. Do not use this to grow the allowlist.
+first_log="$(mktemp)"
+set +e
+"${runner[@]}" --max-failures-chain 1000000 "$@" -- "${selectors[@]}" 2>&1 | tee "${first_log}"
+first_status=${PIPESTATUS[0]}
+set -e
+failed=()
+while IFS= read -r t; do
+  failed+=("${t}")
+done < <(sed -nE 's/^\[[ 0-9]+\/[ 0-9]+\] ([^ :]+): +\[ FAIL \].*/\1/p' "${first_log}" | sort -u)
+rm -f "${first_log}"
+
+if [[ ${first_status} -eq 0 ]]; then
+  exit 0
+fi
+if [[ ${#failed[@]} -eq 0 ]]; then
+  echo "Error: the run failed (exit code ${first_status}), but no test failed. See the output above." >&2
+  exit "${first_status}"
+fi
+
+echo "Retrying ${#failed[@]} failed test(s) once: ${failed[*]}" >&2
+build_selectors "${failed[@]}"
+retry_log="$(mktemp)"
+set +e
+"${runner[@]}" --max-failures-chain 1000000 "$@" -- "${selectors[@]}" 2>&1 | tee "${retry_log}"
+retry_status=${PIPESTATUS[0]}
+set -e
+passed_on_retry="$(sed -nE 's/^\[[ 0-9]+\/[ 0-9]+\] ([^ :]+): +\[ OK \].*/\1/p' "${retry_log}" | sort -u | tr '\n' ' ')"
+rm -f "${retry_log}"
+
+if [[ -n "${passed_on_retry}" ]]; then
+  msg="These tests failed once and passed on the second run (the known pool race, [native-pool-race-new-connection] in allowlist.txt): ${passed_on_retry}"
+  if [[ -n "${GITHUB_ACTIONS:-}" ]]; then echo "::warning::${msg}"; else echo "Warning: ${msg}" >&2; fi
+fi
+exit "${retry_status}"

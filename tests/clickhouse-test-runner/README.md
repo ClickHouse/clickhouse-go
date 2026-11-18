@@ -239,6 +239,13 @@ runs the allowlist nightly, manually, and on pushes and pull requests that
 change this directory or the workflow.
 
 - The matrix is `{protocol: native, http} × {shard: 1..N}`.
+- CI runs each failed test once more (`RETRY_FAILED_ONCE=1`). A known client
+  bug, `[native-pool-race-new-connection]` in the allowlist, makes a random
+  test with `SET` fail now and then over the native protocol. A test that
+  passes on the second run shows as a warning in the job summary; a test
+  that fails twice fails the job. Do not set `RETRY_FAILED_ONCE` when you
+  grow or check the allowlist: a test that needs the retry is not reliable.
+  Remove the retry when the pool race is fixed.
 - The server version and the upstream tests are pinned together in
   [`clickhouse-version`](clickhouse-version). A new ClickHouse release
   changes nothing in CI, so a pull request never fails because of a release

@@ -6,8 +6,8 @@
 #   # <test>  # [<id>]                known failure of group <id> (see the end
 #                                     of this file); it does not run
 #
-# Running: 9903 over both protocols, 129 over native only.
-# Known failures: 920 in 30 groups.
+# Running: 9898 over both protocols, 129 over native only.
+# Known failures: 925 in 30 groups.
 
 00001_select_1
 00002_system_numbers
@@ -2987,7 +2987,6 @@
 02366_kql_func_iif
 02366_kql_func_math
 02366_kql_func_scalar
-02366_kql_func_string
 02366_normalize_aggregate_function_types_and_states
 02366_window_function_order_by
 02366_with_fill_date
@@ -4522,7 +4521,6 @@
 03221_key_condition_bug
 03221_refreshable_matview_progress
 03222_create_timeseries_table
-03222_date_time_inference
 03222_ignore_nulls_query_tree_elimination
 03222_parallel_replicas_final_in_subquery
 03223_analyzer_with_cube_fuzz
@@ -4694,7 +4692,6 @@
 03275_block_number_update
 03275_count_digits_argument_evaluation
 03275_matview_with_union
-03275_subcolumns_in_primary_key
 03275_subcolumns_in_primary_key_bug
 03276_empty_variant_type
 03276_functions_to_subcolumns_lc
@@ -8025,7 +8022,6 @@
 04615_ast_json_optimize_manifest_show_like_where
 04615_join_runtime_filters_shared_fixed_hash_table_pruning
 04615_lambda_captures_lazy_replication
-04615_logsql_dialect
 04615_parameterized_view_scalar_subquery_param_ctas
 04615_substreams_prefix_cache_map_shared_data_subobject
 04616_ast_json_column_type_and_cursor_tree_validation
@@ -9705,7 +9701,6 @@
 05315_group_by_limit_dynamic_filter_block_dependent
 05315_jit_multiif_decimal_scale_lift_overflow
 05315_lateral_join_duplicate_projection_names
-05315_logsql_scientific_decimals_subquery_values_and_max_offsets
 05315_low_cardinality_subcolumn_mutation_lazy_stream
 05315_projection_order_by_single_element_tuple
 05315_regr_aggregates_with_nan
@@ -10322,13 +10317,16 @@
 #     QueryRow(getSetting('max_threads')): a few of 2000 iterations read the
 #     default
 #   Issue: not filed yet
-#   Tests: 18
+#   Tests: 21
 # 01231_operator_null_in  # [native-pool-race-new-connection]
 # 01420_format_row  # [native-pool-race-new-connection]
 # 02366_kql_func_datetime  # [native-pool-race-new-connection]
+# 02366_kql_func_string  # [native-pool-race-new-connection]
 # 02678_explain_pipeline_graph_with_projection  # [native-pool-race-new-connection]
 # 02809_prewhere_and_in  # [native-pool-race-new-connection]
 # 02900_date_time_check_overflow  # [native-pool-race-new-connection]
+# 03222_date_time_inference  # [native-pool-race-new-connection]
+# 03275_subcolumns_in_primary_key  # [native-pool-race-new-connection]
 # 03610_disjunctions_pushdown_optimization  # [native-pool-race-new-connection]
 # 03835_join_transitive_predicates  # [native-pool-race-new-connection]
 # 03990_map_subcolumn_skip_index  # [native-pool-race-new-connection]
@@ -10373,11 +10371,13 @@
 #     SET dialect = 'kusto'; <a query that fails>; print 'x'  -- Multi-
 #     statements are not allowed
 #   Issue: not filed yet
-#   Tests: 4
+#   Tests: 6
 # 01281_unsucceeded_insert_select_queries_counter  # [http-server-hello-in-session]
 # 02126_dist_desc  # [http-server-hello-in-session]
 # 02131_used_row_policies_in_query_log  # [http-server-hello-in-session]
+# 04615_logsql_dialect  # [http-server-hello-in-session]
 # 05255_s3_extra_credentials_role_session_name_mask  # [http-server-hello-in-session]
+# 05315_logsql_scientific_decimals_subquery_values_and_max_offsets  # [http-server-hello-in-session]
 
 #-----------------------------------------------------------------------------
 # [session-timezone] client: session_timezone is ignored
