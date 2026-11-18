@@ -46,7 +46,7 @@ repository" at the end.
 
 | Impact | Use when |
 |---|---|
-| **Security** | Two parts. A **vulnerability**: a defect makes the protection weaker: it exposes credentials or data, lets a value change the meaning of a query (injection), skips or weakens a TLS or identity check, corrupts memory (an out-of-bounds write, a use after free, also when only a hostile server or network causes it), or lets input that the application takes from its users stop the client; also a vulnerability in a dependency: a published one (CVE or GHSA) in code that the client calls, and any one that is not published yet. A hang, or a crash with no memory corruption, that only a hostile server or network causes is Stability, not Security. **Authentication**: an authentication method that does not work or is missing, or how the client takes credentials (for example a token provider or a credentials file). A secret that leaks (to a log, an error message, a URL, or another host) is a vulnerability, not authentication. Say which part applies: the priority rules of a repo rate the two parts differently. |
+| **Security** | Two parts. A **vulnerability**: a defect makes the protection weaker: it exposes credentials or data (also a secret that leaks to a log, an error message, a URL, or another host), lets a value change the meaning of a query (injection), skips or weakens a TLS or identity check, corrupts memory (an out-of-bounds write, a use after free), or lets input that the application takes from its users stop the client; also a vulnerability in a dependency. The boundaries "Hostile server or network" and "Dependencies" below say when these count. **Authentication**: an authentication method that does not work or is missing, or how the client takes credentials (for example a token provider or a credentials file); a secret that leaks is a vulnerability, not authentication. Say which part applies: the priority rules of a repo rate the two parts differently. |
 | **Data integrity** | Data that the caller wrote, or a result that the caller reads, is missing, incomplete, or different from the value given or stored, and the client reports no error. This includes a failed operation that the client reports as a success, a server error that the client ignores, overflow, lost precision, a time zone shift, a wrong decode, a stream that loses synchronization, a duplicate write, and a write to the wrong table. |
 | **Stability** | The process stops in a way that the caller cannot handle as a normal error (abort, segmentation fault, unrecovered panic, stack overflow), a call does not return (deadlock, hang), or a resource leaks until none is left (connections, sockets, memory). Also a thread-safety defect. |
 | **Performance** | The result is correct, but the operation is too slow, or uses too much memory or CPU. Also a request to make an operation faster. |
@@ -65,6 +65,17 @@ Boundaries:
 - **TLS.** A TLS check that the client skips or weakens is Security. A connection with TLS
   that fails has no impact; its area is Connectivity.
 - **Memory.** High memory use without a failure is Performance, not Stability.
+- **Hostile server or network.** A hang, or a crash with no memory corruption, that only a
+  hostile server or network causes is Stability, not Security. Memory corruption is a
+  vulnerability also when only a hostile server or network causes it. A crash while the
+  client reads data from the server (for example an access violation or `SIGSEGV`) can be
+  memory corruption: rule that out by code inspection before you classify it as Stability.
+- **Dependencies.** A vulnerability in a dependency is Security (vulnerability) when the
+  client calls the vulnerable code, and also when it is not published yet. A published one
+  (CVE or GHSA) in code that the client does not call has no impact: the issue asks for a
+  dependency update (area Environment). Report one that is not published yet also to the
+  maintainers of that dependency, in private, through their security policy, never in a
+  public issue.
 - **An error is not Stability.** A normal exception or error value is not a crash. In Go
   and Rust, a panic that the library does not recover is Stability. In Java, a
   `StackOverflowError`, `OutOfMemoryError`, or `VerifyError` is Stability.
@@ -74,20 +85,12 @@ Boundaries:
 A security issue must not stay public with a description of how to reproduce it. An issue
 is a **confirmed vulnerability** when a run or code inspection shows one of these:
 
-- credentials or data are exposed to a party that must not get them;
+- credentials or data are exposed to a party that must not get them (also a secret that leaks);
 - a value changes the meaning of a query (injection);
 - a TLS or identity check is skipped or weakened;
-- memory corruption (an out-of-bounds write, a use after free), also when only a hostile
-  server or network causes it;
-- a vulnerability in a dependency that is not published yet, also in code that the client
-  does not call (also report it to the maintainers of that dependency in private, through
-  their security policy, never in a public issue);
+- memory corruption (see "Hostile server or network" in the boundaries above);
+- a vulnerability in a dependency that is not published yet (see "Dependencies" above);
 - input that the application takes from its users stops the client.
-
-A hang, or a crash with no memory corruption, that only a hostile server or network causes is
-not a vulnerability: it is Stability, and it is triaged in public. A crash while the client
-reads data from the server (for example an access violation or `SIGSEGV`) can be memory
-corruption: rule that out by code inspection before you treat it as Stability.
 
 Never put a confirmed vulnerability into a public comment, issue, pull request, or
 Classification line. Report it in a private GitHub vulnerability report for this repository
