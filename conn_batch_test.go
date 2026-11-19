@@ -59,4 +59,5 @@ func TestBatchAppendRowsSourceStreamError(t *testing.T) {
 		assert.ErrorIs(t, err, ErrBatchInvalid, tc.name)
 		assert.ErrorIs(t, err, streamErr, tc.name)
 	}
+	assert.Equal(t, 1, releaseCalls)
 }
