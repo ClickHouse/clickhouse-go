@@ -249,7 +249,9 @@ change this directory or the workflow.
   time. A test that passes on a retry shows as a warning in the job summary;
   a test that fails all three times fails the job. Do not set `RETRY_FAILED`
   when you grow or check the allowlist: a test that needs a retry is not
-  reliable. Remove the retry when the pool race is fixed.
+  reliable. Remove the retry when the pool race is fixed. The script turns
+  off the runner's own retries (`--dont_retry_failures`), so each test that
+  passes only on a retry shows in the warning.
 - The server version and the upstream tests are pinned together in
   [`clickhouse-version`](clickhouse-version). A new ClickHouse release
   changes nothing in CI, so a pull request never fails because of a release
