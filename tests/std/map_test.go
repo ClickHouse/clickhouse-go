@@ -3,6 +3,7 @@ package std
 import (
 	"fmt"
 	"net/url"
+	"reflect"
 	"strconv"
 	"testing"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 
 	"github.com/stretchr/testify/assert"
@@ -161,6 +163,32 @@ func TestStdInsertNilMap(t *testing.T) {
 			// We started supporting nil to Map
 			// see https://github.com/ClickHouse/clickhouse-go/pull/1667
 			require.NoError(t, err)
+		})
+	}
+}
+
+func TestStdOrderedMaps(t *testing.T) {
+	dsns := map[string]clickhouse.Protocol{"Native": clickhouse.Native, "Http": clickhouse.HTTP}
+	for name, protocol := range dsns {
+		t.Run(fmt.Sprintf("%s Interface", name), func(t *testing.T) {
+			conn, err := GetStdDSNConnection(protocol, false, url.Values{"ordered_maps": []string{"true"}})
+			require.NoError(t, err)
+			defer conn.Close()
+
+			var (
+				repeated any
+				nested   [][]column.MapEntry
+			)
+			require.NoError(t, conn.QueryRow("SELECT map('b', 1, 'a', 2, 'b', 3), [map('y', 1, 'y', 2)]").Scan(&repeated, &nested))
+			assert.Equal(t, []column.MapEntry{{Key: "b", Value: uint8(1)}, {Key: "a", Value: uint8(2)}, {Key: "b", Value: uint8(3)}}, repeated)
+			assert.Equal(t, [][]column.MapEntry{{{Key: "y", Value: uint8(1)}, {Key: "y", Value: uint8(2)}}}, nested)
+
+			rows, err := conn.Query("SELECT map('b', 1)")
+			require.NoError(t, err)
+			defer rows.Close()
+			types, err := rows.ColumnTypes()
+			require.NoError(t, err)
+			assert.Equal(t, reflect.TypeFor[[]column.MapEntry](), types[0].ScanType())
 		})
 	}
 }

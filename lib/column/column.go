@@ -79,4 +79,6 @@ type ServerContext struct {
 	VersionMinor uint64
 	VersionPatch uint64
 	Timezone     *time.Location
+	// OrderedMaps is Options.OrderedMaps: a Map's Row is []MapEntry.
+	OrderedMaps bool
 }

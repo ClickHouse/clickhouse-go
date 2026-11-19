@@ -451,6 +451,7 @@ func (h *httpConnect) readData(reader *chproto.Reader, timezone *time.Location, 
 
 	serverContext := serverVersionToContext(h.handshake)
 	serverContext.Timezone = location
+	serverContext.OrderedMaps = h.opt.OrderedMaps
 	block := proto.Block{ServerContext: &serverContext}
 	if h.compression == CompressionLZ4 || h.compression == CompressionZSTD {
 		reader.EnableCompression()

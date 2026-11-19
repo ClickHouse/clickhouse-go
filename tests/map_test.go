@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ClickHouse/clickhouse-go/v2/lib/chcol"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/column"
 
 	"github.com/stretchr/testify/require"
@@ -624,4 +625,59 @@ func BenchmarkOrderedMapReflectMapIter(b *testing.B) {
 			_ = iter.Value().Interface()
 		}
 	}
+}
+
+func TestOrderedMaps(t *testing.T) {
+	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		env, err := GetTestEnvironment(testSet)
+		require.NoError(t, err)
+		opts := ClientOptionsFromEnv(env, clickhouse.Settings{}, protocol == clickhouse.HTTP)
+		opts.OrderedMaps = true
+		conn, err := GetConnectionWithOptions(&opts)
+		require.NoError(t, err)
+		CleanupNativeConn(t, conn)
+		ctx := context.Background()
+
+		var (
+			repeated  []column.MapEntry
+			nested    [][]column.MapEntry
+			tupleKeys []column.MapEntry
+		)
+		require.NoError(t, conn.QueryRow(ctx, "SELECT map('b', 1, 'a', 2, 'b', 3), [map('y', 1, 'y', 2)], map((1, 'x'), 1)").
+			Scan(&repeated, &nested, &tupleKeys))
+		assert.Equal(t, []column.MapEntry{{Key: "b", Value: uint8(1)}, {Key: "a", Value: uint8(2)}, {Key: "b", Value: uint8(3)}}, repeated)
+		assert.Equal(t, [][]column.MapEntry{{{Key: "y", Value: uint8(1)}, {Key: "y", Value: uint8(2)}}}, nested)
+		assert.Equal(t, []column.MapEntry{{Key: []any{uint8(1), "x"}, Value: uint8(1)}}, tupleKeys)
+
+		var (
+			inTuple   []any
+			inVariant chcol.Variant
+			inDynamic chcol.Dynamic
+		)
+		require.NoError(t, conn.QueryRow(ctx, "SELECT tuple(map('a', 1, 'a', 2)), map('a', 1, 'a', 2)::Variant(Map(String, UInt8), String), map('a', 1, 'a', 2)::Dynamic").
+			Scan(&inTuple, &inVariant, &inDynamic))
+		twice := []column.MapEntry{{Key: "a", Value: uint8(1)}, {Key: "a", Value: uint8(2)}}
+		assert.Equal(t, []any{twice}, inTuple)
+		assert.Equal(t, twice, inVariant.Any())
+		assert.Equal(t, twice, inDynamic.Any())
+
+		const table = "test_ordered_maps"
+		t.Cleanup(func() {
+			if err := conn.Exec(ctx, "DROP TABLE IF EXISTS "+table); err != nil {
+				t.Logf("failed to drop %s: %v", table, err)
+			}
+		})
+		require.NoError(t, conn.Exec(ctx, "CREATE TABLE "+table+" (Col1 Map(String, UInt64)) Engine MergeTree() ORDER BY tuple()"))
+		batch, err := conn.PrepareBatch(ctx, "INSERT INTO "+table)
+		require.NoError(t, err)
+		input := []column.MapEntry{{Key: "z", Value: uint64(1)}, {Key: "a", Value: uint64(2)}, {Key: "z", Value: uint64(3)}}
+		require.NoError(t, batch.Append(input))
+		require.NoError(t, batch.Send())
+		var output []column.MapEntry
+		require.NoError(t, conn.QueryRow(ctx, "SELECT Col1 FROM "+table).Scan(&output))
+		assert.Equal(t, input, output)
+		var text string
+		require.NoError(t, conn.QueryRow(ctx, "SELECT toString(Col1) FROM "+table).Scan(&text))
+		assert.Equal(t, "{'z':1,'a':2,'z':3}", text)
+	})
 }
