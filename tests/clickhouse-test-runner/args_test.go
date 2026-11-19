@@ -54,6 +54,29 @@ func TestParseArgsErrors(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestRedactPassword(t *testing.T) {
+	for _, tc := range []struct{ in, want []string }{
+		{
+			in:   []string{"--user", "u", "--password", "secret", "--password=secret2", "--query", "SELECT 1", "--password"},
+			want: []string{"--user", "u", "--password", "***", "--password=***", "--query", "SELECT 1", "--password"},
+		},
+		// The value of --password can start with "-".
+		{in: []string{"--password", "-q", "--max_threads", "1"}, want: []string{"--password", "***", "--max_threads", "1"}},
+		// The first --password is the value of -u; the second one takes the password.
+		{in: []string{"-u", "--password", "--password", "secret"}, want: []string{"-u", "--password", "--password", "***"}},
+		// Contrast: the value of --query, and the arguments after "--", are no password.
+		{in: []string{"--query", "--password", "x"}, want: []string{"--query", "--password", "x"}},
+		{in: []string{"--", "--password", "x"}, want: []string{"--", "--password", "x"}},
+	} {
+		got := redactPassword(tc.in)
+		assert.Equal(t, tc.want, got, tc.in)
+		opts, err := parseArgs(tc.in)
+		if err == nil && opts.Password != "" {
+			assert.NotContains(t, got, opts.Password, tc.in)
+		}
+	}
+}
+
 func TestHTTPPort(t *testing.T) {
 	t.Setenv("CLICKHOUSE_PORT_TCP", "")
 	t.Setenv("CLICKHOUSE_PORT_HTTP", "")

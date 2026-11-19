@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -191,6 +192,51 @@ func parseArgs(argv []string) (*options, error) {
 		// Positional arguments are ignored.
 	}
 	return opts, nil
+}
+
+// redactPassword returns argv with the value of --password replaced by
+// `***`, for the invocation log. It walks argv by the rules of parseArgs, so
+// that it hides the value that parseArgs takes as the password and no other
+// argument. For example, in `-u --password --password x` the first
+// `--password` is the value of `-u`, and `x` is the password.
+func redactPassword(argv []string) []string {
+	out := slices.Clone(argv)
+	for i := 0; i < len(argv); i++ {
+		arg := argv[i]
+		switch {
+		case arg == "--":
+			return out
+		case strings.HasPrefix(arg, "--"):
+			name, _, hasValue := strings.Cut(arg[2:], "=")
+			o, ok := findOption(name, "")
+			switch {
+			case !ok:
+				// A setting or a query parameter: the value is optional.
+				if !hasValue && i+1 < len(argv) {
+					if next := argv[i+1]; !strings.HasPrefix(next, "-") || negativeNumber.MatchString(next) {
+						i++
+					}
+				}
+			case !o.hasArg:
+			case hasValue:
+				if o.long == "password" {
+					out[i] = "--password=***"
+				}
+			case i+1 < len(argv):
+				i++
+				if o.long == "password" {
+					out[i] = "***"
+				}
+			}
+		case strings.HasPrefix(arg, "-") && len(arg) > 1:
+			// No short option is the password; skip the value of one that
+			// has an argument.
+			if o, ok := findOption("", arg[1:]); ok && o.hasArg {
+				i++
+			}
+		}
+	}
+	return out
 }
 
 const usageText = `usage: clickhouse-client [options]

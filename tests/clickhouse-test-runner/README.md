@@ -90,7 +90,7 @@ CLICKHOUSE_TEST_RUNNER_LIVE=1 go test ./tests/clickhouse-test-runner/
 | `UPSTREAM_CLICKHOUSE_DIR` | `.upstream/ClickHouse` | The checkout of `ClickHouse/ClickHouse`. |
 | `UPSTREAM_TEST_LIST` | `allowlist.txt` | The file with the tests to run. |
 | `SHARD_INDEX`, `SHARD_TOTAL` | `1`, `1` | Run only shard `SHARD_INDEX` of `SHARD_TOTAL` round-robin shards of the list. |
-| `CLICKHOUSE_CLIENT_CLI_LOG` | (none) | A file. Each invocation of the program adds its arguments, statements and errors to it. |
+| `CLICKHOUSE_CLIENT_CLI_LOG` | (none) | A file. Each invocation of the program adds its arguments (the `--password` value hidden), statements and errors to it. |
 | `CLICKHOUSE_PORT_TCP`, `CLICKHOUSE_PORT_HTTP` | `9000`, `8123` | The ports of the server. The runner gives `--port=$CLICKHOUSE_PORT_TCP`; with `http`, the program uses `CLICKHOUSE_PORT_HTTP` for it. |
 
 ## The allowlist

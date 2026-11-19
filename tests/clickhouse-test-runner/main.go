@@ -33,7 +33,7 @@ func run(argv []string, stdin io.Reader, stdout, stderr io.Writer) int {
 
 	log := newInvocationLog()
 	defer log.flush()
-	log.add("argv", strings.Join(argv, " "))
+	log.add("argv", strings.Join(redactPassword(argv), " "))
 
 	opts, err := parseArgs(argv)
 	if err != nil {

@@ -8,8 +8,11 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -209,6 +212,28 @@ func TestLiveSessionState(t *testing.T) {
 			got, stderr, code := runShim(t, protocol, script)
 			require.Equal(t, 0, code, stderr)
 			assert.Equal(t, "3\n6\n", got)
+		})
+	}
+}
+
+// TestLiveLogHidesPassword checks that no record of the invocation log holds
+// the value of --password. The server can reject the password, so only the
+// log is checked, not the result of the query: the log then also holds the
+// error.
+func TestLiveLogHidesPassword(t *testing.T) {
+	requireLive(t)
+	password := "pw-" + strconv.FormatInt(time.Now().UnixNano(), 36)
+	for _, protocol := range []string{"native", "http"} {
+		t.Run(protocol, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "cli.log")
+			t.Setenv(logPathEnv, path)
+			t.Setenv(protocolEnv, protocol)
+			var out, errOut bytes.Buffer
+			run([]string{"--password", password, "--query", "SELECT 1"}, strings.NewReader(""), &out, &errOut)
+			b, err := os.ReadFile(path)
+			require.NoError(t, err)
+			assert.Contains(t, string(b), "--password ***")
+			assert.NotContains(t, string(b), password)
 		})
 	}
 }
