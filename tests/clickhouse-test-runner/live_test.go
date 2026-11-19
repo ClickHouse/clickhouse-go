@@ -107,6 +107,9 @@ func TestLiveFormatIdentifiers(t *testing.T) {
 		"WITH format AS (SELECT 1 AS x) SELECT x FROM format TSV",
 		"SELECT 1 AS format, format x",
 		"SELECT 1 AS format ORDER BY format DESC",
+		// The `--` in the heredoc is not a comment: `format` follows a
+		// comma, so it is a column with the alias TSV.
+		"WITH 1 AS format SELECT $$--$$, format TSV",
 	}
 	for _, protocol := range []string{"native", "http"} {
 		for _, query := range queries {
@@ -130,6 +133,30 @@ func TestLiveFormatAfterKeywordAlias(t *testing.T) {
 			require.Equal(t, 0, code, stderr)
 			assert.Equal(t, "into\n1\n", got)
 		})
+	}
+}
+
+// TestLiveHeaderOfFormat checks the header lines (names, types): a Raw
+// format writes them without escapes, as its rows. Contrast: TSVWithNames
+// escapes the header.
+func TestLiveHeaderOfFormat(t *testing.T) {
+	requireLive(t)
+	formats := []string{
+		"TSVWithNames",
+		"TSVWithNamesAndTypes",
+		"TSVRawWithNames",
+		"TabSeparatedRawWithNamesAndTypes",
+	}
+	for _, protocol := range []string{"native", "http"} {
+		for _, format := range formats {
+			t.Run(protocol+"/"+format, func(t *testing.T) {
+				query := "SELECT 1 AS `a\\tb\\\\c'd`, 'x' AS `é\\nf` FORMAT " + format
+				want := serverTSV(t, query)
+				got, stderr, code := runShim(t, protocol, query)
+				require.Equal(t, 0, code, stderr)
+				assert.Equal(t, want, got)
+			})
+		}
 	}
 }
 

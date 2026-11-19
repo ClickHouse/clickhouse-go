@@ -205,3 +205,61 @@ func TestSplitStatementsEchoOfLastStatementWithoutSemicolon(t *testing.T) {
 	assert.Equal(t, "SELECT 2\n\n", stmts[1].Full)
 	assert.Equal(t, "SELECT 2", stmts[1].SQL)
 }
+
+func TestTopLevelWords(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want []string
+	}{
+		{
+			"literals, heredocs, comments and parentheses are skipped",
+			"SELECT a, 'b c', `d`, \"e\", $$f g$$, $t$h$t$ -- i\nFROM (SELECT j) /* k */",
+			[]string{"SELECT", "a", "FROM"},
+		},
+		{
+			"FROM in a heredoc",
+			"INSERT INTO t SELECT $$x FROM y$$ FROM (SELECT z)",
+			[]string{"INSERT", "INTO", "t", "SELECT", "FROM"},
+		},
+		{
+			"a dollar sign in an identifier does not start a heredoc",
+			"SELECT 1 AS $a$b$ FROM t",
+			[]string{"SELECT", "1", "AS", "a", "b", "FROM", "t"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, topLevelWords(tt.in))
+		})
+	}
+}
+
+func TestSignificantTokens(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want []string
+	}{
+		{
+			"quotes and comments",
+			"SELECT 'a', `b` /* c */ -- d\n+ \"e\"",
+			[]string{"SELECT", "'", ",", "`", "+", `"`},
+		},
+		{
+			"a heredoc is one string literal",
+			"SELECT $$a -- b$$ + $t$ 'c /* $t$, x",
+			[]string{"SELECT", "'", "+", "'", ",", "x"},
+		},
+		{
+			"a dollar sign in an identifier does not start a heredoc",
+			"SELECT $a$b$ * x",
+			[]string{"SELECT", "$", "a", "$", "b", "$", "*", "x"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, significantTokens(tt.in))
+		})
+	}
+}

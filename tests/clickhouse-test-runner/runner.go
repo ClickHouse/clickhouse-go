@@ -433,12 +433,18 @@ func (r *runner) writeRows(rows driver.Rows, format outputFormat) error {
 		renderers[i] = c
 	}
 	var sb strings.Builder
+	// A Raw format writes the header without escapes, as its rows
+	// (TabSeparatedRowOutputFormat::writeLine on the server).
 	writeHeader := func(get func(i int) string) {
 		for i := range types {
 			if i > 0 {
 				sb.WriteByte('\t')
 			}
-			writeString(&sb, get(i), false)
+			if format.Raw {
+				sb.WriteString(get(i))
+			} else {
+				writeString(&sb, get(i), false)
+			}
 		}
 		sb.WriteByte('\n')
 	}

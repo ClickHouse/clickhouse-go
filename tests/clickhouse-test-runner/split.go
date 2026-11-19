@@ -262,8 +262,8 @@ func startsExpression(sql string, i int) bool {
 }
 
 // significantTokens returns the tokens of sql outside comments: words,
-// quoted strings and identifiers (as `'` or the quote character), and single
-// punctuation characters.
+// quoted strings and identifiers (as the quote character), heredocs (as `'`:
+// a heredoc is a string literal), and single punctuation characters.
 func significantTokens(sql string) []string {
 	var toks []string
 	for i := 0; i < len(sql); {
@@ -279,6 +279,14 @@ func significantTokens(sql string) []string {
 		case c == '\'' || c == '"' || c == '`':
 			toks = append(toks, string(c))
 			i = skipQuoted(sql, i)
+		case c == '$':
+			if e := heredocEnd(sql, i); e > 0 {
+				toks = append(toks, "'")
+				i = e
+			} else {
+				toks = append(toks, "$")
+				i++
+			}
 		case isWordByte(c):
 			j := i
 			for j < len(sql) && isWordByte(sql[j]) {
@@ -310,8 +318,8 @@ func formatAfterSelectFrom(head string) bool {
 	return !afterSelect || sawFrom
 }
 
-// topLevelWords returns the words of sql outside quotes, comments and
-// parentheses.
+// topLevelWords returns the words of sql outside quotes, heredocs, comments
+// and parentheses.
 func topLevelWords(sql string) []string {
 	var words []string
 	depth := 0
@@ -320,6 +328,12 @@ func topLevelWords(sql string) []string {
 		switch {
 		case c == '\'' || c == '"' || c == '`':
 			i = skipQuoted(sql, i)
+		case c == '$':
+			if e := heredocEnd(sql, i); e > 0 {
+				i = e
+			} else {
+				i++
+			}
 		case strings.HasPrefix(sql[i:], "--"),
 			strings.HasPrefix(sql[i:], "#!"), strings.HasPrefix(sql[i:], "# "):
 			i = skipLineComment(sql, i)
