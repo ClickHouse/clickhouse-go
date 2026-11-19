@@ -236,7 +236,8 @@ func getPrepareBatchOptions(opts ...driver.PrepareBatchOption) driver.PrepareBat
 	return options
 }
 
-// Deprecated: use context aware `WithAsync()` for any async operations
+// Deprecated: use Exec with WithSettings, with `async_insert` and
+// `wait_for_async_insert`, instead. See WithAsync.
 func (ch *clickhouse) AsyncInsert(ctx context.Context, query string, wait bool, args ...any) error {
 	conn, err := ch.acquire(ctx)
 	if err != nil {

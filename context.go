@@ -185,6 +185,18 @@ func WithExternalTable(t ...*ext.Table) QueryOption {
 // A batch uses only the context that you give to PrepareBatch. With database/sql, a
 // batch uses only the context that you give to PrepareContext. The context that you
 // give to Stmt.ExecContext has no effect on the batch.
+//
+// Deprecated: ClickHouse 26.2 and later enable async insert by default, so with the
+// default server settings WithAsync(true) has no effect. WithAsync(false) does not
+// disable async insert: it only stops the client from waiting for the server, so the
+// client does not get insert errors. Use WithSettings instead:
+//
+//	WithSettings(Settings{"async_insert": 0})                              // disable async insert
+//	WithSettings(Settings{"async_insert": 1, "wait_for_async_insert": 1}) // WithAsync(true)
+//	WithSettings(Settings{"async_insert": 1, "wait_for_async_insert": 0}) // WithAsync(false)
+//
+// WithSettings replaces the settings of an earlier WithSettings. If you already use
+// WithSettings, add the async insert settings to the same Settings map.
 func WithAsync(wait bool) QueryOption {
 	return func(o *QueryOptions) error {
 		o.async.ok, o.async.wait = true, wait
@@ -192,7 +204,8 @@ func WithAsync(wait bool) QueryOption {
 	}
 }
 
-// Deprecated: use `WithAsync` instead.
+// Deprecated: use WithSettings with `async_insert` and `wait_for_async_insert`
+// instead. See WithAsync.
 func WithStdAsync(wait bool) QueryOption {
 	return func(o *QueryOptions) error {
 		o.async.ok, o.async.wait = true, wait

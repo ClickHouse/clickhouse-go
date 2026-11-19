@@ -60,7 +60,7 @@ Follow [Go Code Review Comments](https://go.dev/wiki/CodeReviewComments) in full
 
 **Goroutines**
 - Always document when a goroutine exits and how it is stopped.
-- Prefer synchronous APIs. Async variants (e.g., `WithAsync`) are opt-in through context, not the default path.
+- Prefer synchronous APIs. If an API needs an async variant, make it opt-in through context, not the default path.
 
 **Imports**
 - Three groups separated by blank lines: stdlib → external → internal (`github.com/ClickHouse/clickhouse-go`).
@@ -82,6 +82,16 @@ Every API decision in this driver reflects this principle:
 - Deprecated APIs (`AsyncInsert`) remain available alongside their replacements — callers are never broken silently.
 
 When proposing a new API surface, ask: *can a caller use this incorrectly without the compiler or runtime catching it?* If yes, redesign.
+
+---
+
+## Issue triage
+
+To set, check, or explain the Priority of an issue, follow [`.claude/skills/issue-priority/SKILL.md`](/.claude/skills/issue-priority/SKILL.md). It is the single source of truth for the priority rules.
+
+To classify an issue (its impacts and its area), follow [`.claude/skills/issue-classification/SKILL.md`](/.claude/skills/issue-classification/SKILL.md).
+
+A vulnerability that is not public yet goes into a private security report (**Security** → **Report a vulnerability**), never into an issue or a pull request. The classification skill defines such a vulnerability, and the priority skill says how to handle the public issue.
 
 ---
 
