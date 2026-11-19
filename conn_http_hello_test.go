@@ -24,7 +24,7 @@ import (
 
 // helloQuery is the internal server-info statement. A request is the handshake
 // when its body carries this text, including a multipart body.
-const helloQuery = "SELECT displayName(), version(), revision(), timezone()"
+const helloQuery = "SELECT displayName(), version(), revision(), timezone(), toUInt8(getSetting('readonly'))"
 
 type capturedHTTPQuery struct {
 	body  string
@@ -78,12 +78,13 @@ func encodeNativeHello(tz string) ([]byte, error) {
 		{"version()", column.Type("String")},
 		{"revision()", column.Type("UInt32")},
 		{"timezone()", column.Type("String")},
+		{"toUInt8(getSetting('readonly'))", column.Type("UInt8")},
 	} {
 		if err := block.AddColumn(col.name, col.typ); err != nil {
 			return nil, err
 		}
 	}
-	if err := block.Append("test", "26.9.1.1", uint32(1), tz); err != nil {
+	if err := block.Append("test", "26.9.1.1", uint32(1), tz, uint8(0)); err != nil {
 		return nil, err
 	}
 	var buf chproto.Buffer

@@ -1,0 +1,126 @@
+package clickhouse
+
+import (
+	"bytes"
+	"context"
+	"database/sql/driver"
+	"io"
+	"log/slog"
+	"net"
+	"testing"
+	"time"
+
+	chproto "github.com/ClickHouse/ch-go/proto"
+	"github.com/stretchr/testify/require"
+
+	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
+)
+
+func TestQueryProtocolErrorRetiresConnection(t *testing.T) {
+	exception := new(chproto.Buffer)
+	exception.PutByte(proto.ServerException)
+	exception.PutInt32(60)
+	exception.PutString("UNKNOWN_TABLE")
+	exception.PutString("Table does not exist")
+	exception.PutString("")
+	exception.PutBool(false)
+
+	for _, phase := range []string{"first block", "stream"} {
+		t.Run(phase, func(t *testing.T) {
+			for _, tc := range []struct {
+				name    string
+				payload []byte
+				closed  bool
+			}{
+				{"unknown packet with unread response", append([]byte{42}, exception.Buf...), true},
+				{"transport EOF", nil, true},
+				{"truncated exception", []byte{proto.ServerException, 60}, true},
+				// The transport closes right after the packet type byte. The decoder
+				// must return a wrapped error. A bare io.EOF looks like a clean end
+				// of the stream, and firstBlock keeps the connection after it.
+				{"exception cut at packet boundary", []byte{proto.ServerException}, true},
+				{"progress cut at packet boundary", []byte{proto.ServerProgress}, true},
+				{"profile info cut at packet boundary", []byte{proto.ServerProfileInfo}, true},
+				{"table columns cut at packet boundary", []byte{proto.ServerTableColumns}, true},
+				{"server exception", exception.Buf, false},
+				{"end of stream", []byte{proto.ServerEndOfStream}, false},
+			} {
+				t.Run(tc.name, func(t *testing.T) {
+					client, server := net.Pipe()
+					require.NoError(t, server.SetReadDeadline(time.Now().Add(time.Second)))
+					c := &connect{
+						conn: client, reader: chproto.NewReader(bytes.NewReader(tc.payload)),
+						logger:      slog.New(slog.NewTextHandler(io.Discard, nil)),
+						readTimeout: time.Second,
+					}
+					t.Cleanup(func() {
+						require.NoError(t, c.close())
+						require.NoError(t, server.Close())
+					})
+					var err error
+					if phase == "first block" {
+						_, err = c.firstBlock(context.Background(), &onProcess{})
+					} else {
+						err = c.process(context.Background(), &onProcess{})
+					}
+					if tc.name == "end of stream" {
+						if phase == "first block" {
+							require.ErrorIs(t, err, io.EOF)
+						} else {
+							require.NoError(t, err)
+						}
+					} else {
+						require.Error(t, err)
+						require.NotErrorIs(t, err, driver.ErrBadConn, "a query may already have executed")
+					}
+					require.Equal(t, tc.closed, c.isClosed(), "retire before exposing the error to the caller, got error: %v", err)
+					if tc.closed {
+						_, readErr := server.Read(make([]byte, 1))
+						require.ErrorIs(t, readErr, io.EOF, "close the socket, not just the pool state")
+					}
+				})
+			}
+		})
+	}
+}
+
+// A context deadline stops the blocked read while firstBlock or process cancels
+// the query. Only the caller goroutine may retire the connection then. A close()
+// in the reader goroutine races with cancel() for the write buffer.
+func TestQueryDeadlineRetiresConnectionWithoutRace(t *testing.T) {
+	for _, phase := range []string{"first block", "stream"} {
+		t.Run(phase, func(t *testing.T) {
+			for range 20 {
+				client, server := net.Pipe()
+				drained := make(chan struct{})
+				go func() {
+					// Read the cancel packet until the client side closes.
+					defer close(drained)
+					buf := make([]byte, 64)
+					for {
+						if _, err := server.Read(buf); err != nil {
+							return
+						}
+					}
+				}()
+				c := &connect{
+					conn: client, reader: chproto.NewReader(client), buffer: new(chproto.Buffer),
+					logger:      slog.New(slog.NewTextHandler(io.Discard, nil)),
+					readTimeout: time.Second,
+				}
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Millisecond)
+				var err error
+				if phase == "first block" {
+					_, err = c.firstBlock(ctx, &onProcess{})
+				} else {
+					err = c.process(ctx, &onProcess{})
+				}
+				cancel()
+				require.Error(t, err)
+				require.True(t, c.isClosed(), "a timed-out query can leave unread response bytes")
+				<-drained
+				require.NoError(t, server.Close())
+			}
+		})
+	}
+}
