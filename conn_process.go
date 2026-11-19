@@ -47,6 +47,14 @@ func (c *connect) firstBlock(ctx context.Context, on *onProcess) (*proto.Block, 
 		return nil, ctx.Err()
 
 	case err := <-errCh:
+		// firstBlockImpl returns the bare io.EOF only at the end of the stream.
+		// A response that stops inside a packet gives a wrapped error. The typed
+		// methods of the ch-go reader wrap each read error, and readData wraps
+		// with %w. So the connection is retired. The packet boundary cases in
+		// TestQueryProtocolErrorRetiresConnection check this.
+		if err != io.EOF {
+			c.closeOnQueryError(err)
+		}
 		return nil, err
 
 	case block := <-resultCh:
@@ -121,6 +129,7 @@ func (c *connect) process(ctx context.Context, on *onProcess) error {
 		return ctx.Err()
 
 	case err := <-errCh:
+		c.closeOnQueryError(err)
 		return err
 
 	case <-doneCh:
@@ -158,6 +167,21 @@ func (c *connect) processImpl(ctx context.Context, on *onProcess) error {
 		}
 
 		// handled okay, read next byte
+	}
+}
+
+// A decoded server exception terminates the response cleanly. Other read errors
+// can leave unread response bytes, so retire the connection before returning the
+// error to database/sql. Only firstBlock and process call this, on the goroutine
+// that also calls cancel(), after the reader goroutine has returned: close() and
+// cancel() must not run at the same time.
+func (c *connect) closeOnQueryError(err error) {
+	var exception *Exception
+	if err == nil || errors.As(err, &exception) {
+		return
+	}
+	if closeErr := c.close(); closeErr != nil {
+		c.logger.Debug("failed to close connection after query error", slog.Any("error", closeErr))
 	}
 }
 
