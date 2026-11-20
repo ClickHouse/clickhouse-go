@@ -8,12 +8,16 @@
 # ClickHouse/clickhouse-client-benchmarks; when the run finishes, StressHouse
 # posts a sticky comparison comment back onto this PR.
 #
-# Trigger: a `/benchmark-compare` PR comment from a maintainer, or manually from
-# the Actions tab (supply the PR number).
+# Trigger: every PR opened, reopened, or updated, a `/benchmark-compare` PR
+# comment from a maintainer, or manually from the Actions tab (supply the PR number).
 ---
 name: StressHouse Benchmark (PR vs main)
 
 on:
+  # Use the base branch workflow and secrets for fork PRs. The shared workflow
+  # only dispatches benchmarks; never check out or execute PR code here.
+  pull_request_target:
+    types: [opened, synchronize, reopened]
   issue_comment:
     types: [created]
   workflow_dispatch:
@@ -32,6 +36,7 @@ jobs:
     # Comment path: only on PRs, only `/benchmark-compare`, only from someone
     # with write access. Manual path: always allowed.
     if: >-
+      github.event_name == 'pull_request_target' ||
       github.event_name == 'workflow_dispatch' ||
       (github.event.issue.pull_request &&
        startsWith(github.event.comment.body, '/benchmark-compare') &&
@@ -40,5 +45,5 @@ jobs:
     with:
       client: clickhouse-go
       profile: pr-compare
-      pr_number: ${{ github.event.issue.number || inputs.pr_number }}
+      pr_number: ${{ github.event.pull_request.number || github.event.issue.number || inputs.pr_number }}
     secrets: inherit
