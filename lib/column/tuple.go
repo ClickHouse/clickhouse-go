@@ -20,17 +20,22 @@ type Tuple struct {
 	name    string
 	isNamed bool           // true if all columns are named
 	index   map[string]int // map from col name to offset in columns
+	rows    int            // the rows of an empty tuple, which has no column to count them
 }
 
 func (col *Tuple) Reset() {
 	for i := range col.columns {
 		col.columns[i].Reset()
 	}
+	col.rows = 0
 }
 
 func (col *Tuple) Name() string {
 	return col.name
 }
+
+// emptyTupleRow is the byte the server writes for a row of an empty tuple.
+const emptyTupleRow = '0'
 
 type namedCol struct {
 	name    string
@@ -43,14 +48,20 @@ func (col *Tuple) parse(t Type, sc *ServerContext) (_ Interface, err error) {
 		element       []rune
 		elements      []namedCol
 		brackets      int
+		quote         rune // the quote of the name or the string the parser is inside, 0 outside one
+		escaped       bool // the rune follows a backslash inside a quote
 		appendElement = func() {
 			if len(element) != 0 {
 				cType := strings.TrimSpace(string(element))
 				name := ""
-				if parts := strings.SplitN(cType, " ", 2); len(parts) == 2 {
+				if end := quotedNameEnd(cType); end != -1 {
+					// the server backquotes names that are not plain identifiers, since 26.5 also
+					// reserved words such as `values` and `from` (ClickHouse/ClickHouse#102338).
+					// A quoted name can contain a space
+					name = unescapeColName(cType[:end+1])
+					cType = cType[end+1:]
+				} else if parts := strings.SplitN(cType, " ", 2); len(parts) == 2 {
 					if !strings.Contains(parts[0], "(") {
-						// the server backquotes names that are not plain identifiers, since 26.5 also
-						// reserved words such as `values` and `from` (ClickHouse/ClickHouse#102338)
 						name = unescapeColName(parts[0])
 						cType = parts[1]
 					}
@@ -63,22 +74,33 @@ func (col *Tuple) parse(t Type, sc *ServerContext) (_ Interface, err error) {
 		}
 	)
 	for _, r := range t.params() {
-		switch r {
-		case '(':
-			brackets++
-		case ')':
-			brackets--
-		case ',':
-			if brackets == 0 {
-				appendElement()
-				element = element[:0]
-				continue
+		switch {
+		case escaped:
+			escaped = false
+		case quote != 0:
+			// a comma or a bracket inside a quoted name or a string, such as an Enum's, is not the tuple's
+			switch r {
+			case '\\':
+				escaped = true
+			case quote:
+				quote = 0
 			}
+		case r == '`' || r == '\'':
+			quote = r
+		case r == '(':
+			brackets++
+		case r == ')':
+			brackets--
+		case r == ',' && brackets == 0:
+			appendElement()
+			element = element[:0]
+			continue
 		}
 		element = append(element, r)
 	}
 	appendElement()
-	isNamed := true
+	// an empty tuple, `Tuple()`, has no names
+	isNamed := len(elements) != 0
 	col.index = make(map[string]int)
 	for i, ct := range elements {
 		if ct.name == "" {
@@ -92,12 +114,7 @@ func (col *Tuple) parse(t Type, sc *ServerContext) (_ Interface, err error) {
 		col.index[ct.name] = i
 	}
 	col.isNamed = isNamed
-	if len(col.columns) != 0 {
-		return col, nil
-	}
-	return nil, &UnsupportedColumnTypeError{
-		t: t,
-	}
+	return col, nil
 }
 
 func (col *Tuple) Type() Type {
@@ -115,7 +132,7 @@ func (col *Tuple) Rows() int {
 	if len(col.columns) != 0 {
 		return col.columns[0].Rows()
 	}
-	return 0
+	return col.rows
 }
 
 func (col *Tuple) Row(i int, ptr bool) any {
@@ -230,6 +247,26 @@ func getStructFieldValue(field reflect.Value, name string) (reflect.Value, bool)
 	return sField, sField.IsValid()
 }
 
+// quotedNameEnd returns the index of the backquote that closes the quoted name at the start of element.
+// It returns -1 if element does not start with a quoted name that a type follows.
+func quotedNameEnd(element string) int {
+	if !strings.HasPrefix(element, "`") {
+		return -1
+	}
+	for i := 1; i < len(element); i++ {
+		switch element[i] {
+		case '\\':
+			i++
+		case '`':
+			if i+1 < len(element) && element[i+1] == ' ' {
+				return i
+			}
+			return -1
+		}
+	}
+	return -1
+}
+
 func unescapeColName(colName string) string {
 	s := []rune(colName)
 	if len(s) >= 2 && s[0] == '`' && s[len(s)-1] == '`' {
@@ -249,33 +286,12 @@ func (col *Tuple) scanMap(targetMap reflect.Value, row int) error {
 		colName := c.Name()
 		switch dCol := c.(type) {
 		case *Tuple:
-			switch targetMap.Type().Elem().Kind() {
-			case reflect.Struct:
-				rStruct := reflect.New(targetMap.Type().Elem()).Elem()
-				if err := dCol.scanStruct(rStruct, row); err != nil {
-					return err
-				}
-				targetMap.SetMapIndex(reflect.ValueOf(colName), rStruct)
-			case reflect.Map:
-				// get a typed map
-				newMap := reflect.MakeMap(targetMap.Type().Elem())
-				if err := dCol.scanMap(newMap, row); err != nil {
-					return err
-				}
-				targetMap.SetMapIndex(reflect.ValueOf(colName), newMap)
-			case reflect.Interface:
-				// catches any - Note this swallows custom interfaces to which maps couldn't conform
-				newMap := reflect.ValueOf(make(map[string]any))
-				if err := dCol.scanMap(newMap, row); err != nil {
-					return err
-				}
-				targetMap.SetMapIndex(reflect.ValueOf(colName), newMap)
-			default:
-				return &Error{
-					ColumnType: fmt.Sprint(targetMap.Type().Elem().Kind()),
-					Err:        fmt.Errorf("column %s - needs a map/struct or any", col.Name()),
-				}
+			// a struct, a typed map, a slice, or any, which takes a map for a named tuple and a slice for an unnamed one
+			value, err := dCol.scan(targetMap.Type().Elem(), row)
+			if err != nil {
+				return err
 			}
+			targetMap.SetMapIndex(reflect.ValueOf(colName), value)
 		case *Nested:
 			aCol := dCol.Interface.(*Array)
 			subSlice, err := aCol.scan(targetMap.Type().Elem(), row)
@@ -322,30 +338,11 @@ func (col *Tuple) scanStruct(targetStruct reflect.Value, row int) error {
 		}
 		switch dCol := c.(type) {
 		case *Tuple:
-			switch sField.Kind() {
-			case reflect.Struct:
-				if err := dCol.scanStruct(sField, row); err != nil {
-					return err
-				}
-			case reflect.Map:
-				newMap := reflect.MakeMap(sField.Type())
-				if err := dCol.scanMap(newMap, row); err != nil {
-					return err
-				}
-				sField.Set(newMap)
-			case reflect.Interface:
-				// catches []any -Note this swallows custom interfaces to which maps couldn't conform
-				newMap := reflect.ValueOf(make(map[string]any))
-				if err := dCol.scanMap(newMap, row); err != nil {
-					return err
-				}
-				sField.Set(newMap)
-			default:
-				return &Error{
-					ColumnType: fmt.Sprint(sField.Kind()),
-					Err:        fmt.Errorf("column %s - needs a map/struct/slice or any", col.Name()),
-				}
+			value, err := dCol.scan(sField.Type(), row)
+			if err != nil {
+				return err
 			}
+			sField.Set(value)
 		case *Nested:
 			aCol := dCol.Interface.(*Array)
 			subSlice, err := aCol.scan(sField.Type(), row)
@@ -446,12 +443,8 @@ func (col *Tuple) scan(targetType reflect.Type, row int) (reflect.Value, error) 
 	case reflect.Interface:
 		// catches any -Note this swallows custom interfaces to which maps couldn't conform
 		if !col.isNamed {
-			return reflect.Value{}, &ColumnConverterError{
-				Op:   "ScanRow",
-				To:   targetType.String(),
-				From: string(col.chType),
-				Hint: "cannot use interface for unnamed tuples, use slice",
-			}
+			// an unnamed tuple has no keys for a map: any takes it as a slice, as Row gives it
+			return col.scanSlice(scanTypeSlice, row)
 		}
 		rMap := reflect.ValueOf(make(map[string]any))
 		if err := col.scanMap(rMap, row); err != nil {
@@ -622,6 +615,9 @@ func (col *Tuple) AppendRow(v any) error {
 				return err
 			}
 		}
+		if len(col.columns) == 0 {
+			col.rows++
+		}
 		return nil
 	}
 
@@ -646,6 +642,14 @@ func (col *Tuple) AppendRow(v any) error {
 }
 
 func (col *Tuple) Decode(reader *proto.Reader, rows int) error {
+	if len(col.columns) == 0 {
+		// the server writes an empty tuple as one byte for each row
+		if _, err := reader.ReadRaw(rows); err != nil {
+			return err
+		}
+		col.rows += rows
+		return nil
+	}
 	for _, c := range col.columns {
 		if err := c.Decode(reader, rows); err != nil {
 			return err
@@ -655,6 +659,9 @@ func (col *Tuple) Decode(reader *proto.Reader, rows int) error {
 }
 
 func (col *Tuple) Encode(buffer *proto.Buffer) {
+	for i := 0; i < col.rows; i++ {
+		buffer.PutByte(emptyTupleRow)
+	}
 	for _, c := range col.columns {
 		c.Encode(buffer)
 	}

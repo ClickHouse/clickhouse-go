@@ -175,6 +175,7 @@ conn.SetConnMaxLifetime(time.Hour)
     * round_robin - choose a round-robin server from the set
     * in_order    - first live server is chosen in specified order
 * debug - enable debug output (boolean value)
+* ordered_maps - read a `Map` as `[]column.MapEntry`, its entries in the server's order and a key repeated as often as the map holds it, instead of as a Go map (boolean value)
 * compress - specify the compression algorithm: `none` (default), `zstd`, `lz4`, `lz4hc`, `gzip`, `deflate`, `br`. If set to `true`, `lz4` will be used. For HTTP connections, `gzip`/`deflate`/`br` use HTTP web compression, while `lz4`/`zstd` use ClickHouse native block compression over HTTP (`lz4hc` is native-only).
 * compress_level - Level of compression (algorithm-specific, default is 3 when compression is enabled):
   - `gzip`/`deflate`: `-2` (Best Speed) to `9` (Best Compression)

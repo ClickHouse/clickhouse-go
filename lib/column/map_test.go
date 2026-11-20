@@ -1,6 +1,7 @@
 package column
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -76,4 +77,53 @@ func requireMap(t *testing.T, column Interface) *Map {
 	m, ok := column.(*Map)
 	require.True(t, ok)
 	return m
+}
+
+func TestMapOrdered(t *testing.T) {
+	sc := &ServerContext{OrderedMaps: true}
+	entries := []MapEntry{{Key: "b", Value: uint64(1)}, {Key: "a", Value: uint64(2)}, {Key: "b", Value: uint64(3)}}
+
+	col, err := Type("Map(String, UInt64)").Column("test", sc)
+	require.NoError(t, err)
+	assert.Equal(t, reflect.TypeFor[[]MapEntry](), col.ScanType())
+	require.NoError(t, col.AppendRow(entries))
+	require.NoError(t, col.AppendRow(nil))
+	require.NoError(t, col.AppendRow(map[string]uint64{"c": 4}))
+	assert.Equal(t, entries, col.Row(0, false))
+	assert.Equal(t, []MapEntry{}, col.Row(1, false))
+	assert.Equal(t, []MapEntry{{Key: "c", Value: uint64(4)}}, col.Row(2, false))
+
+	var scanned []MapEntry
+	require.NoError(t, col.ScanRow(&scanned, 0))
+	assert.Equal(t, entries, scanned)
+	var goMap map[string]uint64
+	require.NoError(t, col.ScanRow(&goMap, 0))
+	assert.Equal(t, map[string]uint64{"a": 2, "b": 3}, goMap)
+}
+
+func TestMapOrderedKeys(t *testing.T) {
+	sc := &ServerContext{OrderedMaps: true}
+	col, err := Type("Map(Array(String), UInt8)").Column("test", sc)
+	require.NoError(t, err)
+	entries := []MapEntry{{Key: []string{"x", "y"}, Value: uint8(1)}, {Key: []string{"x", "y"}, Value: uint8(2)}}
+	require.NoError(t, col.AppendRow(entries))
+	assert.Equal(t, entries, col.Row(0, false))
+	var goMap map[string]uint8
+	assert.Error(t, col.ScanRow(&goMap, 0))
+}
+
+func TestMapOrderedNested(t *testing.T) {
+	sc := &ServerContext{OrderedMaps: true}
+	col, err := Type("Array(Map(String, UInt8))").Column("test", sc)
+	require.NoError(t, err)
+	rows := [][]MapEntry{{{Key: "y", Value: uint8(1)}, {Key: "y", Value: uint8(2)}}, {}}
+	require.NoError(t, col.AppendRow(rows))
+	assert.Equal(t, rows, col.Row(0, false))
+
+	col, err = Type("Map(String, Map(String, UInt8))").Column("test", sc)
+	require.NoError(t, err)
+	inner := []MapEntry{{Key: "k", Value: uint8(1)}, {Key: "k", Value: uint8(2)}}
+	outer := []MapEntry{{Key: "a", Value: inner}, {Key: "a", Value: []MapEntry{}}}
+	require.NoError(t, col.AppendRow(outer))
+	assert.Equal(t, outer, col.Row(0, false))
 }

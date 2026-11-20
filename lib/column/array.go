@@ -370,10 +370,11 @@ func (col *Array) scanSlice(sliceType reflect.Type, row int, level int) (reflect
 
 func (col *Array) scanSliceOfObjects(sliceType reflect.Type, row int) (reflect.Value, error) {
 	if sliceType.Kind() == reflect.Interface {
-		// catches any - Note this swallows custom interfaces to which maps couldn't conform
-		subMap := make(map[string]any)
-		return col.scanSliceOfMaps(reflect.SliceOf(reflect.TypeOf(subMap)), row)
-	} else if sliceType.Kind() == reflect.Slice {
+		// catches any - Note this swallows custom interfaces to which maps couldn't conform.
+		// It takes the column's own type: maps for a named tuple, slices for an unnamed one, at the array's depth
+		sliceType = col.scanType
+	}
+	if sliceType.Kind() == reflect.Slice {
 		// make a slice of the right type - we need this to be a slice of a type capable of taking an object as nested
 		switch sliceType.Elem().Kind() {
 		case reflect.Struct:

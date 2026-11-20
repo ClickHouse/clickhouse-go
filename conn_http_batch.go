@@ -93,6 +93,7 @@ func newBlock(h *httpConnect, release nativeTransportRelease, ctx context.Contex
 
 	var block proto.Block
 	serverContext := serverVersionToContext(h.handshake)
+	serverContext.OrderedMaps = h.opt.OrderedMaps
 	block.ServerContext = &serverContext
 	for _, col := range columns {
 		if err := block.AddColumn(col.Name, column.Type(col.Type)); err != nil {

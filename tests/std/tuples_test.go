@@ -3,6 +3,7 @@ package std
 import (
 	"crypto/tls"
 	"fmt"
+	"net/url"
 	"strconv"
 	"testing"
 	"time"
@@ -103,4 +104,51 @@ func TestTuple(t *testing.T) {
 	assert.Equal(t, col5Data, col5)
 	assert.Equal(t, col6Data, col6)
 	assert.Equal(t, *col7Data, col7)
+}
+
+func TestStdTupleNested(t *testing.T) {
+	dsns := map[string]clickhouse.Protocol{"Native": clickhouse.Native, "Http": clickhouse.HTTP}
+	for name, protocol := range dsns {
+		t.Run(fmt.Sprintf("%s Interface", name), func(t *testing.T) {
+			conn, err := GetStdDSNConnection(protocol, false, url.Values{})
+			require.NoError(t, err)
+			t.Cleanup(func() {
+				if err := conn.Close(); err != nil {
+					t.Logf("failed to close the connection: %v", err)
+				}
+			})
+			if !CheckMinServerVersion(conn, 21, 9, 0) {
+				t.Skip(fmt.Errorf("unsupported clickhouse version"))
+				return
+			}
+
+			var (
+				inTuple      any
+				inArray      any
+				arrayInTuple any
+				inNamed      any
+			)
+			require.NoError(t, conn.QueryRow(`SELECT
+				  ((1, 'a'), 2)
+				, [((1, 'a'), 2)]
+				, ([(1, 2)], 3)
+				, CAST(((1, 'a'), 2) AS Tuple(a Tuple(UInt8, String), b UInt8))
+			`).Scan(&inTuple, &inArray, &arrayInTuple, &inNamed))
+			assert.Equal(t, []any{[]any{uint8(1), "a"}, uint8(2)}, inTuple)
+			assert.Equal(t, [][]any{{[]any{uint8(1), "a"}, uint8(2)}}, inArray)
+			assert.Equal(t, []any{[][]any{{uint8(1), uint8(2)}}, uint8(3)}, arrayInTuple)
+			assert.Equal(t, map[string]any{"a": []any{uint8(1), "a"}, "b": uint8(2)}, inNamed)
+
+			if !CheckMinServerVersion(conn, 24, 3, 0) {
+				return
+			}
+			var (
+				empty any
+				after uint8
+			)
+			require.NoError(t, conn.QueryRow("SELECT (tuple(), [tuple()]), toUInt8(1)").Scan(&empty, &after))
+			assert.Equal(t, []any{[]any{}, [][]any{{}}}, empty)
+			assert.Equal(t, uint8(1), after)
+		})
+	}
 }
