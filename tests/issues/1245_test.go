@@ -31,7 +31,9 @@ func Test1245Native(t *testing.T) {
 	assert.True(t, rows.Next())
 	var id int32
 	var segment []any
-	assert.Errorf(t, rows.Scan(&id, &segment), "cannot use interface for unnamed tuples, use slice")
+	require.NoError(t, rows.Scan(&id, &segment))
+	assert.Equal(t, int32(1), id)
+	assert.Equal(t, []any{[]any{uint16(1), uint16(3)}, []any{uint16(8), uint16(9)}}, segment)
 }
 
 func Test1245DatabaseSQLDriver(t *testing.T) {
@@ -57,5 +59,7 @@ func Test1245DatabaseSQLDriver(t *testing.T) {
 	assert.True(t, rows.Next())
 	var id int32
 	var segment []any
-	assert.Errorf(t, rows.Scan(&id, &segment), "cannot use interface for unnamed tuples, use slice")
+	require.NoError(t, rows.Scan(&id, &segment))
+	assert.Equal(t, int32(1), id)
+	assert.Equal(t, []any{[]any{uint16(1), uint16(3)}, []any{uint16(8), uint16(9)}}, segment)
 }

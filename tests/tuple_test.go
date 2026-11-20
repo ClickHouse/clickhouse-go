@@ -752,3 +752,133 @@ func TestTupleValuer(t *testing.T) {
 		require.Equal(t, 1000, i)
 	})
 }
+
+func TestTupleNested(t *testing.T) {
+	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		conn, err := GetNativeConnection(t, protocol, nil, nil, nil)
+		require.NoError(t, err)
+		ctx := context.Background()
+		if !CheckMinServerServerVersion(conn, 21, 9, 0) {
+			t.Skip(fmt.Errorf("unsupported clickhouse version"))
+			return
+		}
+
+		var (
+			inTuple      any
+			inArray      any
+			arrayInTuple any
+			inNamed      any
+			namedInTuple any
+			inMap        map[string][]any
+			arrays       any
+		)
+		require.NoError(t, conn.QueryRow(ctx, `SELECT
+			  ((1, 'a'), 2)
+			, [((1, 'a'), 2)]
+			, ([(1, 2)], 3)
+			, CAST(((1, 'a'), 2) AS Tuple(a Tuple(UInt8, String), b UInt8))
+			, CAST(((1, 'a'), 2) AS Tuple(Tuple(a UInt8, b String), UInt8))
+			, map('k', (1, (2, 3)))
+			, CAST(([[(1, 2)], [(3, 4), (5, 6)]], 7) AS Tuple(Array(Array(Tuple(a UInt8, b UInt8))), UInt8))
+		`).Scan(&inTuple, &inArray, &arrayInTuple, &inNamed, &namedInTuple, &inMap, &arrays))
+		assert.Equal(t, []any{[]any{uint8(1), "a"}, uint8(2)}, inTuple)
+		assert.Equal(t, [][]any{{[]any{uint8(1), "a"}, uint8(2)}}, inArray)
+		assert.Equal(t, []any{[][]any{{uint8(1), uint8(2)}}, uint8(3)}, arrayInTuple)
+		assert.Equal(t, map[string]any{"a": []any{uint8(1), "a"}, "b": uint8(2)}, inNamed)
+		assert.Equal(t, []any{map[string]any{"a": uint8(1), "b": "a"}, uint8(2)}, namedInTuple)
+		assert.Equal(t, map[string][]any{"k": {uint8(1), []any{uint8(2), uint8(3)}}}, inMap)
+		assert.Equal(t, []any{[][]map[string]any{
+			{{"a": uint8(1), "b": uint8(2)}},
+			{{"a": uint8(3), "b": uint8(4)}, {"a": uint8(5), "b": uint8(6)}},
+		}, uint8(7)}, arrays)
+
+		const table = "test_tuple_nested"
+		t.Cleanup(func() {
+			if err := conn.Exec(ctx, "DROP TABLE IF EXISTS "+table); err != nil {
+				t.Logf("failed to drop %s: %v", table, err)
+			}
+		})
+		require.NoError(t, conn.Exec(ctx, "CREATE TABLE "+table+" (Col1 Tuple(Tuple(UInt16, String), Array(Tuple(UInt16, Tuple(UInt16, String)))), Col2 Tuple(`a b` Tuple(UInt16, String), c UInt16)) Engine MergeTree() ORDER BY tuple()"))
+		batch, err := conn.PrepareBatch(ctx, "INSERT INTO "+table)
+		require.NoError(t, err)
+		var (
+			col1Data = []any{[]any{uint16(1), "a"}, [][]any{{uint16(2), []any{uint16(3), "b"}}, {uint16(4), []any{uint16(5), "c"}}}}
+			col2Data = map[string]any{"a b": []any{uint16(6), "d"}, "c": uint16(7)}
+		)
+		require.NoError(t, batch.Append(col1Data, col2Data))
+		require.NoError(t, batch.Append(col1Data, col2Data))
+		require.NoError(t, batch.Send())
+		rows, err := conn.Query(ctx, "SELECT Col1, Col2, toString(Col1) FROM "+table)
+		require.NoError(t, err)
+		count := 0
+		for rows.Next() {
+			var (
+				col1 any
+				col2 any
+				text string
+			)
+			require.NoError(t, rows.Scan(&col1, &col2, &text))
+			assert.Equal(t, col1Data, col1)
+			assert.Equal(t, col2Data, col2)
+			assert.Equal(t, "((1,'a'),[(2,(3,'b')),(4,(5,'c'))])", text)
+			count++
+		}
+		require.NoError(t, rows.Close())
+		require.NoError(t, rows.Err())
+		assert.Equal(t, 2, count)
+	})
+}
+
+func TestTupleEmpty(t *testing.T) {
+	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		conn, err := GetNativeConnection(t, protocol, nil, nil, nil)
+		require.NoError(t, err)
+		ctx := context.Background()
+		if !CheckMinServerServerVersion(conn, 24, 3, 0) {
+			t.Skip(fmt.Errorf("unsupported clickhouse version"))
+			return
+		}
+
+		rows, err := conn.Query(ctx, "SELECT tuple(), [tuple(), tuple()], (tuple(), number), number FROM numbers(3)")
+		require.NoError(t, err)
+		var number uint64
+		for rows.Next() {
+			var (
+				empty   []any
+				inArray any
+				inTuple any
+				after   uint64
+			)
+			require.NoError(t, rows.Scan(&empty, &inArray, &inTuple, &after))
+			assert.Equal(t, []any{}, empty)
+			assert.Equal(t, [][]any{{}, {}}, inArray)
+			assert.Equal(t, []any{[]any{}, number}, inTuple)
+			// the column after the empty tuples is read from its own bytes
+			assert.Equal(t, number, after)
+			number++
+		}
+		require.NoError(t, rows.Close())
+		require.NoError(t, rows.Err())
+		assert.Equal(t, uint64(3), number)
+
+		const table = "test_tuple_empty"
+		t.Cleanup(func() {
+			if err := conn.Exec(ctx, "DROP TABLE IF EXISTS "+table); err != nil {
+				t.Logf("failed to drop %s: %v", table, err)
+			}
+		})
+		require.NoError(t, conn.Exec(ctx, "CREATE TABLE "+table+" (Col1 Tuple(), Col2 Array(Tuple()), Col3 UInt8) Engine MergeTree() ORDER BY tuple()"))
+		batch, err := conn.PrepareBatch(ctx, "INSERT INTO "+table)
+		require.NoError(t, err)
+		require.NoError(t, batch.Append([]any{}, [][]any{{}, {}}, uint8(1)))
+		require.NoError(t, batch.Append([]any{}, [][]any{}, uint8(2)))
+		require.NoError(t, batch.Send())
+		var (
+			count uint64
+			text  string
+		)
+		require.NoError(t, conn.QueryRow(ctx, "SELECT count(), toString(groupArray((Col1, Col2, Col3))) FROM (SELECT * FROM "+table+" ORDER BY Col3)").Scan(&count, &text))
+		assert.Equal(t, uint64(2), count)
+		assert.Equal(t, "[((),[(),()],1),((),[],2)]", text)
+	})
+}
