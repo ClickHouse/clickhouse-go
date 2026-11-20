@@ -643,6 +643,7 @@ func (h *httpConnect) sendQuery(ctx context.Context, query string, options *Quer
 	if err != nil {
 		return nil, err
 	}
+	h.reportSummary(res.Header, options)
 	return res, nil
 }
 
