@@ -46,9 +46,25 @@ func TestIssue2127(t *testing.T) {
 			_, err = stmt.ExecContext(ctx, uint64(42))
 			require.NoError(t, err)
 			require.NoError(t, stmt.Close())
+			// Closing the statement leaves the batch pending until commit.
+			_, err = tx.PrepareContext(ctx, insert)
+			require.ErrorContains(t, err, "pending batch")
 			require.NoError(t, tx.Commit())
 			checkOutsideTx()
 
+			tx, err = db.BeginTx(ctx, nil)
+			require.NoError(t, err)
+			defer tx.Rollback()
+			stmt, err = tx.PrepareContext(ctx, insert)
+			require.NoError(t, err)
+			_, err = stmt.ExecContext(ctx, uint64(99))
+			require.NoError(t, err)
+			require.NoError(t, tx.Rollback())
+			checkOutsideTx()
+
+			var rows uint64
+			require.NoError(t, db.QueryRowContext(ctx, "SELECT count() FROM "+table).Scan(&rows))
+			require.Equal(t, uint64(1), rows)
 			var n uint64
 			require.NoError(t, db.QueryRowContext(ctx, "SELECT n FROM "+table).Scan(&n))
 			require.Equal(t, uint64(42), n)

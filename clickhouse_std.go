@@ -318,6 +318,10 @@ func (std *stdDriver) PrepareContext(ctx context.Context, query string) (driver.
 		return nil, errors.New("clickhouse: prepare a batch in a transaction using Tx.Prepare or Tx.PrepareContext")
 	}
 
+	if std.commit != nil {
+		return nil, errors.New("clickhouse: transaction already has a pending batch")
+	}
+
 	batch, err := std.conn.prepareBatch(ctx, func(nativeTransport, error) {}, func(context.Context) (nativeTransport, error) { return nil, nil }, query, chdriver.PrepareBatchOptions{})
 	if err != nil {
 		if isConnBrokenError(err) {
