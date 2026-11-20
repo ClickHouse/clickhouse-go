@@ -6,8 +6,8 @@
 #   # <test>  # [<id>]                known failure of group <id> (see the end
 #                                     of this file); it does not run
 #
-# Running: 9882 over both protocols, 129 over native only.
-# Known failures: 941 in 30 groups.
+# Running: 9880 over both protocols, 129 over native only.
+# Known failures: 943 in 30 groups.
 
 00001_select_1
 00002_system_numbers
@@ -6313,7 +6313,6 @@
 04055_optimize_prewhere_final_and_unused_columns
 04055_rand_distribution_parameter_limits
 04055_storage_alias_bake_currentDatabase
-04056_ast_json_limits
 04056_highlight_null_terminator
 04056_jit_sort_string_columns
 04056_negative_limit_with_ties_large_mt
@@ -8748,7 +8747,6 @@
 05046_json_cached_serialization_compact_wrapped
 05046_minmax_index_nested_bool
 05046_query_log_spilled_to_disk_needs_a_write
-05046_trino_dialect_review_regressions
 05047_adaptive_codec_size_substreams
 05047_cascades_aggregation_pushdown_merge_spill
 05047_coalescing_merge_tree_map_lowcardinality_key
@@ -10301,7 +10299,7 @@
 #     QueryRow(getSetting('max_threads')): a few of 2000 iterations read the
 #     default
 #   Issue: not filed yet
-#   Tests: 37
+#   Tests: 38
 # 00800_low_cardinality_join  # [native-pool-race-new-connection]
 # 01062_pm_all_join_with_block_continuation  # [native-pool-race-new-connection]
 # 01231_operator_null_in  # [native-pool-race-new-connection]
@@ -10332,6 +10330,7 @@
 # 05028_trino_dialect_icu_base64  # [native-pool-race-new-connection]
 # 05043_trino_conformance_presto_scalar2  # [native-pool-race-new-connection]
 # 05044_trino_conformance_presto_scalar3  # [native-pool-race-new-connection]
+# 05046_trino_dialect_review_regressions  # [native-pool-race-new-connection]
 # 05076_window_function_group_by_use_nulls_not_an_aggregate  # [native-pool-race-new-connection]
 # 05137_join_use_nulls_right_key_restored  # [native-pool-race-new-connection]
 # 05182_time_series_id_type_setting  # [native-pool-race-new-connection]
@@ -10371,10 +10370,11 @@
 #     SET dialect = 'kusto'; <a query that fails>; print 'x'  -- Multi-
 #     statements are not allowed
 #   Issue: not filed yet
-#   Tests: 6
+#   Tests: 7
 # 01281_unsucceeded_insert_select_queries_counter  # [http-server-hello-in-session]
 # 02126_dist_desc  # [http-server-hello-in-session]
 # 02131_used_row_policies_in_query_log  # [http-server-hello-in-session]
+# 04056_ast_json_limits  # [http-server-hello-in-session]
 # 04615_logsql_dialect  # [http-server-hello-in-session]
 # 05255_s3_extra_credentials_role_session_name_mask  # [http-server-hello-in-session]
 # 05315_logsql_scientific_decimals_subquery_values_and_max_offsets  # [http-server-hello-in-session]
