@@ -228,6 +228,12 @@ This method doesn't support receiving a context - by default, it executes with t
 
 Batch semantics can be achieved by creating a `sql.Tx` via the `Being` method. From this, a batch can be obtained using the `Prepare` method with the `INSERT` statement. This returns a `sql.Stmt` to which rows can be appended using the `Exec` method. The batch will be accumulated in memory until `Commit` is executed on the original `sql.Tx`.
 
+<Note title="One query ID for a batch">
+`async_insert` is on by default in ClickHouse 26.2 and later. A batch that runs as an async insert has two `INSERT` rows in `system.query_log`. The first row is the `INSERT` of the client. It has the `query_id` of the client, for example the one from `clickhouse.WithQueryID`. The second row is the flush of the server. It has a new `query_id` and the table name with the database name. Only one write reaches the table. The `query_id` and `flush_query_id` columns of `system.asynchronous_insert_log` link the two IDs. This applies to the Native protocol and to the HTTP protocol.
+
+To get one `query_id` for a batch, set `async_insert` to `0`. Add `async_insert=0` to the DSN, or set it in `Options.Settings` when you use `clickhouse.OpenDB`, to apply it to all queries on the connection. To apply it to one batch, pass `clickhouse.WithSettings(clickhouse.Settings{"async_insert": 0})` in the context of `tx.PrepareContext`. `clickhouse.WithSettings` replaces the settings that the context already has, so put all settings for the batch in one `Settings` map. `clickhouse.WithAsync` on the context of the batch overrides `async_insert`.
+</Note>
+
 ```go
 batch, err := scope.Prepare("INSERT INTO example")
 if err != nil {
