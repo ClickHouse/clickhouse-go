@@ -251,7 +251,12 @@ change this directory or the workflow.
   when you grow or check the allowlist: a test that needs a retry is not
   reliable. Remove the retry when the pool race is fixed. The script turns
   off the runner's own retries (`--dont_retry_failures`), so each test that
-  passes only on a retry shows in the warning.
+  passes only on a retry shows in the warning. A retry replaces only a run
+  that completed: every test has a result line, and the runner exited with 0
+  or 1. A run that the runner did not complete (for example, it was killed)
+  fails at once, because its tests without a result never ran. The logic is
+  in [`scripts/retry.sh`](scripts/retry.sh), and `retry_test.go` tests it
+  with fake runners.
 - The server version and the upstream tests are pinned together in
   [`clickhouse-version`](clickhouse-version). A new ClickHouse release
   changes nothing in CI, so a pull request never fails because of a release
