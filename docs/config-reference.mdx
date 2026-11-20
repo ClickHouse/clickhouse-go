@@ -278,7 +278,7 @@ ClientInfo: clickhouse.ClientInfo{
 
 | Option | Type | Default | DSN param | Per-query | Description | Best practice | When misconfigured |
 |--------|------|---------|-----------|-----------|-------------|---------------|-------------------|
-| `Settings` | `map[string]any` | `nil` | Any unrecognized param (e.g. `?max_execution_time=60`) | Yes (`WithSettings`, context wins on conflict) | ClickHouse server settings applied to every query. DSN conversion: `"true"`→`1`, `"false"`→`0`, numeric→`int`. | Set common limits at connection level, override per-query via context. | Typos: silently ignored or error by version. Wrong types: `"Cannot parse string 'abc' as Int64"`. `max_execution_time=0` + no deadline: queries run forever. |
+| `Settings` | `map[string]any` | `nil` | Any unrecognized param (e.g. `?max_execution_time=60`) | Yes (`WithSettings`, context wins on conflict) | ClickHouse server settings applied to every query. DSN conversion: `"true"`→`1`, `"false"`→`0`, numeric→`int`. | Set common limits at connection level, override per-query via context. | Typos: silently ignored or error by version. Wrong types: `"Cannot parse string 'abc' as Int64"`. `max_execution_time=0`: the server never stops the query; a context deadline only stops the client. |
 | `CustomSetting` | `CustomSetting{Value string}` | — | — | Yes (via `WithSettings`) | Marks a setting as "custom" (non-important) for Native protocol. Won't error if server doesn't recognize it. HTTP treats all settings as custom by default. | Use for experimental or version-specific settings. | Marking important settings as custom: silently ignored if unsupported. |
 
 **Common settings:**
