@@ -127,6 +127,7 @@ type bindQuoteState struct {
 	inDouble      bool
 	inLineComment bool
 	blockComment  int // nesting depth of /* */ comments (ClickHouse nests them)
+	afterHeredoc  int // index just after the last heredoc that skipHeredoc skipped
 }
 
 // inProtectedContext reports whether the current position is inside a quoted
@@ -214,6 +215,45 @@ func (s *bindQuoteState) update(query string, pos int) int {
 	return pos
 }
 
+// skipHeredoc returns the last byte of a complete dollar-quoted literal at pos,
+// or pos if there is none. heredocEnd finds the literal, as it does for
+// PrepareBatch, so both paths agree where a literal ends. It accepts empty and
+// numeric tags and requires a matching closing tag. The checks here are special
+// to binding: a literal does not start in a quoted region or a comment, after a
+// backslash, or inside a bare word.
+// Call this before recognizing placeholders: $1$ is a valid heredoc delimiter.
+func (s *bindQuoteState) skipHeredoc(query string, pos int) int {
+	if query[pos] != '$' || s.inProtectedContext() || isEscaped(query, pos) {
+		return pos
+	}
+	if s.inBareWord(query, pos) {
+		return pos
+	}
+	n := heredocEnd(query[pos:])
+	if n == 0 {
+		return pos
+	}
+	s.afterHeredoc = pos + n
+	return pos + n - 1
+}
+
+// inBareWord reports whether the $ at pos is part of a bare word such as b$c$.
+// The server lexer reads a bare word as one token: after its first word byte, it
+// takes all the word bytes and $ bytes that follow. A literal cannot start inside
+// a token. So the $ bytes that end at pos are part of a bare word only if a word
+// byte comes before them. A lone $ is a token of its own.
+// The closing tag of a literal ends its token, so the look-back stops at
+// afterHeredoc. This lets a literal start right after another one: $$a$$$t$?$t$.
+// A digit counts as a word byte here. The server ends a number before a $, so
+// this check is wider than the server for a number that comes before a $.
+func (s *bindQuoteState) inBareWord(query string, pos int) bool {
+	start := pos
+	for start > s.afterHeredoc && query[start-1] == '$' {
+		start--
+	}
+	return start > s.afterHeredoc && isNameChar(query[start-1])
+}
+
 func isEscaped(query string, pos int) bool {
 	backslashes := 0
 	for i := pos - 1; i >= 0 && query[i] == '\\'; i-- {
@@ -238,6 +278,10 @@ func isNameChar(ch byte) bool {
 func bindParamsFormats(query string) (haveNumeric, havePositional bool) {
 	var state bindQuoteState
 	for i := 0; i < len(query); i++ {
+		if end := state.skipHeredoc(query, i); end > i {
+			i = end
+			continue
+		}
 		if !state.inProtectedContext() {
 			switch {
 			case query[i] == '?' && (i == 0 || query[i-1] != '\\'):
@@ -264,6 +308,10 @@ func bindPositional(tz *time.Location, query string, args ...any) (_ string, err
 	)
 
 	for i := 0; i < len(query); i++ {
+		if end := state.skipHeredoc(query, i); end > i {
+			i = end
+			continue
+		}
 		// It's fine looping through the query string as bytes, because the (fixed) characters we're looking for
 		// are in the ASCII range to won't take up more than one byte.
 		if query[i] == '?' {
@@ -293,7 +341,7 @@ func bindPositional(tz *time.Location, query string, args ...any) (_ string, err
 			if argIndex < len(args) {
 				v := args[argIndex]
 				if fn, ok := v.(std_driver.Valuer); ok {
-					if v, err = fn.Value(); err != nil {
+					if v, err = callValuerValue(fn); err != nil {
 						return "", err
 					}
 				}
@@ -340,7 +388,7 @@ func bindNumeric(tz *time.Location, query string, args ...any) (_ string, err er
 	)
 	for i, v := range args {
 		if fn, ok := v.(std_driver.Valuer); ok {
-			if v, err = fn.Value(); err != nil {
+			if v, err = callValuerValue(fn); err != nil {
 				return "", err
 			}
 		}
@@ -352,6 +400,10 @@ func bindNumeric(tz *time.Location, query string, args ...any) (_ string, err er
 	}
 
 	for i := 0; i < len(query); i++ {
+		if end := state.skipHeredoc(query, i); end > i {
+			i = end
+			continue
+		}
 		if !state.inProtectedContext() && query[i] == '$' && i+1 < len(query) && isDigit(query[i+1]) {
 			j := i + 2
 			for j < len(query) && isDigit(query[j]) {
@@ -380,6 +432,20 @@ func bindNumeric(tz *time.Location, query string, args ...any) (_ string, err er
 	return string(buf), nil
 }
 
+var valuerType = reflect.TypeOf((*std_driver.Valuer)(nil)).Elem()
+
+// callValuerValue returns vr.Value(), except that a nil pointer whose element
+// type implements driver.Valuer binds as NULL, as in database/sql: calling the
+// value-receiver method through the nil pointer would panic.
+func callValuerValue(vr std_driver.Valuer) (std_driver.Value, error) {
+	if rv := reflect.ValueOf(vr); rv.Kind() == reflect.Pointer &&
+		rv.IsNil() &&
+		rv.Type().Elem().Implements(valuerType) {
+		return nil, nil
+	}
+	return vr.Value()
+}
+
 func bindNamed(tz *time.Location, query string, args ...any) (_ string, err error) {
 	var (
 		lastMatchIndex = -1
@@ -393,7 +459,7 @@ func bindNamed(tz *time.Location, query string, args ...any) (_ string, err erro
 		case driver.NamedValue:
 			value := v.Value
 			if fn, ok := v.Value.(std_driver.Valuer); ok {
-				if value, err = fn.Value(); err != nil {
+				if value, err = callValuerValue(fn); err != nil {
 					return "", err
 				}
 			}
@@ -412,6 +478,10 @@ func bindNamed(tz *time.Location, query string, args ...any) (_ string, err erro
 	}
 
 	for i := 0; i < len(query); i++ {
+		if end := state.skipHeredoc(query, i); end > i {
+			i = end
+			continue
+		}
 		// A named placeholder is "@" followed by at least one name character, and
 		// only counts outside of quoted identifiers, string literals and comments.
 		if !state.inProtectedContext() && query[i] == '@' && i+1 < len(query) && isNameChar(query[i+1]) {
