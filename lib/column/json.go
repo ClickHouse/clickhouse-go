@@ -126,7 +126,7 @@ func (c *JSON) parse(t Type, sc *ServerContext) (_ *JSON, err error) {
 
 		if strings.HasPrefix(typePart, "SKIP") {
 			path := strings.TrimPrefix(typePart, "SKIP")
-			path = strings.Trim(path, " `")
+			path = unescapeColName(strings.TrimSpace(path))
 			c.skipPaths = append(c.skipPaths, path)
 			c.skipPathsIndex[path] = len(c.skipPaths) - 1
 
@@ -143,9 +143,11 @@ func (c *JSON) parse(t Type, sc *ServerContext) (_ *JSON, err error) {
 			continue
 		}
 
-		typedPath := strings.Trim(typePart[:pathEnd+sep], "`")
+		var typedPath string
 		if pathEnd > 0 {
 			typedPath = unescapeColName(typePart[:pathEnd+sep])
+		} else {
+			typedPath = strings.Trim(typePart[:sep], "`")
 		}
 		typeName := strings.TrimSpace(typePart[pathEnd+sep:])
 
@@ -1124,10 +1126,14 @@ func splitWithDelimiters(s string) []string {
 			inBackticks = !inBackticks
 			currentPart.WriteByte(s[i])
 		case '(':
-			brackets++
+			if !inBackticks {
+				brackets++
+			}
 			currentPart.WriteByte(s[i])
 		case ')':
-			brackets--
+			if !inBackticks {
+				brackets--
+			}
 			currentPart.WriteByte(s[i])
 		case ',':
 			if !inBackticks && brackets == 0 {
