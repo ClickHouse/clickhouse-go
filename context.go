@@ -249,28 +249,14 @@ func Context(parent context.Context, options ...QueryOption) context.Context {
 
 // queryOptions returns a mutable copy of the QueryOptions struct within the given context.
 // If ClickHouse context was not provided, an empty struct with a valid Settings map is returned.
-// If the context has a deadline greater than 1s then max_execution_time setting is appended.
 func queryOptions(ctx context.Context) QueryOptions {
-	var opt QueryOptions
-
-	if ctxOpt, ok := ctx.Value(_contextOptionKey).(QueryOptions); ok {
-		opt = ctxOpt.clone()
-	} else {
-		opt = QueryOptions{
-			settings: make(Settings),
-		}
+	if opt, ok := ctx.Value(_contextOptionKey).(QueryOptions); ok {
+		return opt.clone()
 	}
 
-	deadline, ok := ctx.Deadline()
-	if !ok {
-		return opt
+	return QueryOptions{
+		settings: make(Settings),
 	}
-
-	if sec := time.Until(deadline).Seconds(); sec > 1 {
-		opt.settings["max_execution_time"] = int(sec + 5)
-	}
-
-	return opt
 }
 
 // queryOptionsAsync returns the AsyncOptions struct within the given context's QueryOptions.
