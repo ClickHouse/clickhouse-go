@@ -227,6 +227,32 @@ func ignoreExternalTables() QueryOption {
 	}
 }
 
+// contextWithoutQueryOptions returns a child of parent that keeps the parent's
+// cancellation and deadline but drops the per-query fields that change the
+// HTTP server-info handshake: settings, parameters, the query id, external
+// tables and the user location. quota_key is a query parameter, not a header,
+// and initial_user is sent only on the native protocol, so those are dropped
+// too. The JWT stays. dial uses the first query's context, and HTTPS copies
+// QueryOptions.jwt into Authorization; without a connection GetJWT, dropping
+// it makes the handshake fail. An empty settings map is required: queryOptions
+// appends max_execution_time when the context has a deadline.
+func contextWithoutQueryOptions(parent context.Context) context.Context {
+	opt := QueryOptions{
+		settings: make(Settings),
+	}
+	if ctxOpt, ok := parent.Value(_contextOptionKey).(QueryOptions); ok {
+		opt = ctxOpt.clone()
+		opt.settings = make(Settings)
+		opt.parameters = nil
+		opt.queryID = ""
+		opt.external = nil
+		opt.userLocation = nil
+		opt.quotaKey = ""
+		opt.initialUser = ""
+	}
+	return context.WithValue(parent, _contextOptionKey, opt)
+}
+
 // Context returns a derived context with the given ClickHouse QueryOptions.
 // Existing QueryOptions will be overwritten per option if present.
 // The QueryOptions Settings map will be initialized if nil.

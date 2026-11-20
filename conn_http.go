@@ -329,7 +329,14 @@ func (h *httpConnect) healthCheck() error {
 
 func (h *httpConnect) queryHello(ctx context.Context, release nativeTransportRelease) (proto.ServerHandshake, error) {
 	h.logger.Debug("querying server info via HTTP")
-	ctx = Context(ctx, ignoreExternalTables())
+	// Settings, the query id, parameters, external tables and the user location
+	// belong to the caller's statement, not to this handshake. A caller's
+	// session_timezone would be stored as the connection timezone, and a setting
+	// that changes Native encoding would make this response undecodable. The JWT
+	// stays: this context is the dial context, and HTTPS reads it into
+	// Authorization. Cancellation and the dial deadline stay on ctx.
+	// Connection-level settings stay on the connection URL.
+	ctx = contextWithoutQueryOptions(ctx)
 	query := "SELECT displayName(), version(), revision(), timezone(), toUInt8(getSetting('readonly'))"
 	rows, err := h.query(ctx, release, query)
 	if err != nil {
