@@ -217,3 +217,11 @@ func TestWithoutProfileEvents(t *testing.T) {
 		require.Equal(t, 0, opts.settings["send_profile_events"])
 	})
 }
+
+func TestContextClearsQueryID(t *testing.T) {
+	parent := Context(context.Background(), WithQueryID("user-qid"), WithQuotaKey("qk"))
+	cleared := Context(parent, WithQueryID(""))
+	opts := queryOptions(cleared)
+	require.Equal(t, "", opts.queryID)
+	require.Equal(t, "qk", opts.quotaKey, "other options from the parent context should remain")
+}
