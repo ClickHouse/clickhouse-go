@@ -505,6 +505,15 @@ func (col *Tuple) Append(v any) (nulls []uint8, err error) {
 }
 
 func (col *Tuple) AppendRow(v any) error {
+	if v == nil {
+		// nil is appended as a tuple of zero values, e.g. for absent typed paths in a JSON column
+		for _, c := range col.columns {
+			if err := c.AppendRow(nil); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 	// allows support of tuples where map or slice is typed and NOT any. Will fail if tuple isn't consistent
 	value := reflect.ValueOf(v)
 	if value.Kind() == reflect.Pointer {
