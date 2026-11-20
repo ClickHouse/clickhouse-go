@@ -72,6 +72,13 @@ func TestTupleParseElementNames(t *testing.T) {
 			isNamed: true,
 		},
 		{
+			// a parenthesis inside an enum value does not end the element
+			chType:  "Tuple(a Enum8('x)y' = 1, 'z' = 2), b Int8)",
+			names:   []string{"a", "b"},
+			types:   []string{"Enum8('x)y' = 1, 'z' = 2)", "Int8"},
+			isNamed: true,
+		},
+		{
 			// a lone backtick is not a quoted name and must not panic
 			chType:  "Tuple(` String)",
 			names:   []string{"`"},

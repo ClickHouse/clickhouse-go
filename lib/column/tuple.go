@@ -40,12 +40,10 @@ type namedCol struct {
 func (col *Tuple) parse(t Type, sc *ServerContext) (_ Interface, err error) {
 	col.chType = t
 	var (
-		element       []rune
 		elements      []namedCol
-		brackets      int
-		appendElement = func() {
+		appendElement = func(element string) {
 			if len(element) != 0 {
-				cType := strings.TrimSpace(string(element))
+				cType := strings.TrimSpace(element)
 				name := ""
 				// a backquoted name may contain spaces, so look for the separator after its closing backtick
 				nameEnd := 0
@@ -76,42 +74,16 @@ func (col *Tuple) parse(t Type, sc *ServerContext) (_ Interface, err error) {
 			}
 		}
 	)
-	var (
-		inName  bool // inside the backquoted name that opens the element
-		escaped bool // the previous rune in the name was a backslash
-	)
-	for _, r := range t.params() {
-		if inName {
-			// brackets and commas inside a backquoted name do not split the element
-			switch {
-			case escaped:
-				escaped = false
-			case r == '\\':
-				escaped = true
-			case r == '`':
-				inName = false
-			}
-			element = append(element, r)
-			continue
+	params := t.params()
+	for {
+		i := indexTopLevelComma(params)
+		if i < 0 {
+			break
 		}
-		switch r {
-		case '`':
-			// only a backquote that opens the element starts a name, one inside a type does not
-			inName = strings.TrimSpace(string(element)) == ""
-		case '(':
-			brackets++
-		case ')':
-			brackets--
-		case ',':
-			if brackets == 0 {
-				appendElement()
-				element = element[:0]
-				continue
-			}
-		}
-		element = append(element, r)
+		appendElement(params[:i])
+		params = params[i+1:]
 	}
-	appendElement()
+	appendElement(params)
 	isNamed := true
 	col.index = make(map[string]int)
 	for i, ct := range elements {
