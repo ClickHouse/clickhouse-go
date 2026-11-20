@@ -358,7 +358,7 @@ Passed to `PrepareBatch()`. Import: `github.com/ClickHouse/clickhouse-go/v2/lib/
 | Option | Default | Description | Best practice | When misconfigured |
 |--------|---------|-------------|---------------|-------------------|
 | `WithReleaseConnection` | Connection held until `Send()` | Release connection to pool immediately after `PrepareBatch()`. Re-acquires on `Send()`/`Flush()`. | Use for long-lived batches (minutes/hours) to prevent pool exhaustion. | Not using for long batches: `"acquire conn timeout"` if many active. |
-| `WithCloseOnFlush` | Batch stays open | Auto-close batch when `Flush()` is called. | Use for one-shot batches. Saves explicit `Close()`. | Using with multiple `Flush()` calls: first flush closes batch, subsequent ops fail. |
+| `WithCloseOnFlush` | Batch stays open | Auto-close batch when `Flush()` is called. | Use for one-shot batches. Saves explicit `Close()`. | Each `Flush()` is a separate `INSERT`. If a later `Flush()` fails, the rows of the earlier calls stay in the table. |
 
 ```go
 batch, err := conn.PrepareBatch(ctx, "INSERT INTO table",
