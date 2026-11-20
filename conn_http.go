@@ -6,7 +6,6 @@ import (
 	"compress/gzip"
 	"compress/zlib"
 	"context"
-	"crypto/tls"
 	sqldriver "database/sql/driver"
 	"errors"
 	"fmt"
@@ -109,6 +108,10 @@ func applyOptionsToRequest(ctx context.Context, req *http.Request, opt *Options)
 
 	jwt := queryOpt.jwt
 	useJWT := jwt != "" || useJWTAuth(opt)
+	// Certificate authentication only applies when the TLS config can present a
+	// client certificate and no password is set.
+	useCertAuth := opt.TLS != nil && len(opt.Auth.Password) == 0 &&
+		(len(opt.TLS.Certificates) > 0 || opt.TLS.GetClientCertificate != nil)
 
 	switch {
 	case opt.TLS != nil && useJWT:
@@ -121,14 +124,14 @@ func applyOptionsToRequest(ctx context.Context, req *http.Request, opt *Options)
 		}
 
 		req.Header.Set("Authorization", "Bearer "+jwt)
+	case useCertAuth && len(opt.Auth.Username) > 0:
+		req.Header.Set("X-ClickHouse-User", opt.Auth.Username)
+		req.Header.Set("X-ClickHouse-SSL-Certificate-Auth", "on")
 	case opt.TLS != nil && len(opt.Auth.Username) > 0:
 		req.Header.Set("X-ClickHouse-User", opt.Auth.Username)
-		switch {
-		case len(opt.Auth.Password) > 0:
+		if len(opt.Auth.Password) > 0 {
 			req.Header.Set("X-ClickHouse-Key", opt.Auth.Password)
 			req.Header.Set("X-ClickHouse-SSL-Certificate-Auth", "off")
-		case hasClientCertificate(opt.TLS):
-			req.Header.Set("X-ClickHouse-SSL-Certificate-Auth", "on")
 		}
 	case opt.TLS == nil && len(opt.Auth.Username) > 0:
 		if len(opt.Auth.Password) > 0 {
@@ -150,12 +153,6 @@ func applyOptionsToRequest(ctx context.Context, req *http.Request, opt *Options)
 	}
 
 	return nil
-}
-
-// hasClientCertificate reports whether the TLS config can present a client
-// certificate, which ClickHouse needs to authenticate a user by certificate.
-func hasClientCertificate(cfg *tls.Config) bool {
-	return cfg != nil && (len(cfg.Certificates) > 0 || cfg.GetClientCertificate != nil)
 }
 
 func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpConnect, error) {

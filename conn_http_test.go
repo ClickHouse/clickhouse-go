@@ -194,6 +194,16 @@ func TestApplyOptionsToRequest_TLSUsernameAuth(t *testing.T) {
 			},
 		},
 		{
+			name: "password with client certificate keeps password auth",
+			tls:  &tls.Config{Certificates: []tls.Certificate{clientCert}},
+			auth: Auth{Username: "service", Password: "secret"},
+			expectedInMap: map[string]string{
+				"X-ClickHouse-User":                 "service",
+				"X-ClickHouse-Key":                  "secret",
+				"X-ClickHouse-SSL-Certificate-Auth": "off",
+			},
+		},
+		{
 			// Regression for #1630: a passwordless user over HTTPS without a
 			// client certificate must not be switched to certificate auth.
 			name:            "empty password without client certificate",
