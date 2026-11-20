@@ -222,15 +222,10 @@ func TestQueryOptionsMaxExecutionTime(t *testing.T) {
 	tests := []struct {
 		name     string
 		settings Settings
-		kept     bool
 	}{
-		{name: "not set uses the deadline", settings: nil},
-		{name: "lower int is kept", settings: Settings{"max_execution_time": 2}, kept: true},
-		{name: "lower string is kept", settings: Settings{"max_execution_time": "2"}, kept: true},
-		{name: "lower custom setting is kept", settings: Settings{"max_execution_time": CustomSetting{Value: "2.5"}}, kept: true},
-		{name: "higher uses the deadline", settings: Settings{"max_execution_time": 600}},
-		{name: "zero uses the deadline", settings: Settings{"max_execution_time": 0}},
-		{name: "not a number uses the deadline", settings: Settings{"max_execution_time": "abc"}},
+		{name: "not set is not added", settings: nil},
+		{name: "set is kept", settings: Settings{"max_execution_time": 600}},
+		{name: "zero is kept", settings: Settings{"max_execution_time": 0}},
 	}
 
 	for _, tt := range tests {
@@ -239,12 +234,10 @@ func TestQueryOptionsMaxExecutionTime(t *testing.T) {
 			t.Cleanup(cancel)
 
 			opts := queryOptions(ctx)
-			if tt.kept {
-				require.Equal(t, tt.settings["max_execution_time"], opts.settings["max_execution_time"])
-				return
-			}
-			// The deadline is one minute away, so the driver sets 64 or 65 seconds.
-			require.InDelta(t, 65, opts.settings["max_execution_time"], 1)
+			value, ok := opts.settings["max_execution_time"]
+			want, set := tt.settings["max_execution_time"]
+			require.Equal(t, set, ok)
+			require.Equal(t, want, value)
 		})
 	}
 }

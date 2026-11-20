@@ -313,7 +313,7 @@ ctx := clickhouse.Context(context.Background(),
 <Info>
 **Context deadline behavior**
 
-If the context has a deadline > 1s, `max_execution_time` is automatically set to `seconds_remaining + 5`. This overrides any manually set value.
+The context deadline only limits how long the client waits. The driver does not derive `max_execution_time` from it. To limit server processing time, set `max_execution_time` on the connection or with `WithSettings`.
 </Info>
 
 | Option | Type | Default | Protocol | Description | Best practice | When misconfigured |

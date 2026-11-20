@@ -3,41 +3,53 @@ package issues
 import (
 	"context"
 	"fmt"
-	"strings"
+	"maps"
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	clickhouse_tests "github.com/ClickHouse/clickhouse-go/v2/tests"
 )
 
-// Test2100 verifies that a `max_execution_time` set on the context is kept when the context
-// deadline is later than it. Before the fix, the driver replaced it with the deadline + 5s, so
-// the query ran past the limit.
+// Test2100 verifies that the context deadline does not change the `max_execution_time` the
+// server uses.
 // See https://github.com/ClickHouse/clickhouse-go/issues/2100.
 func Test2100(t *testing.T) {
 	testEnv, err := clickhouse_tests.GetTestEnvironment("issues")
 	require.NoError(t, err)
 
+	limit := clickhouse.Settings{"max_execution_time": 2}
+	cases := []struct {
+		name         string
+		ctxSettings  clickhouse.Settings
+		connSettings clickhouse.Settings
+	}{
+		{name: "not set"},
+		{name: "context", ctxSettings: limit},
+		{name: "connection", connSettings: limit},
+	}
+
 	for _, protocol := range []clickhouse.Protocol{clickhouse.Native, clickhouse.HTTP} {
-		t.Run(fmt.Sprintf("%v", protocol), func(t *testing.T) {
-			conn, err := clickhouse_tests.GetConnection("issues", t, protocol, clickhouse_tests.TestClientDefaultSettings(testEnv), nil, nil)
-			require.NoError(t, err)
-			t.Cleanup(func() { conn.Close() })
+		for _, tc := range cases {
+			t.Run(fmt.Sprintf("%v/%s", protocol, tc.name), func(t *testing.T) {
+				settings := clickhouse_tests.TestClientDefaultSettings(testEnv)
+				maps.Copy(settings, tc.connSettings)
+				conn, err := clickhouse_tests.GetConnection("issues", t, protocol, settings, nil, nil)
+				require.NoError(t, err)
+				t.Cleanup(func() { conn.Close() })
 
-			ctx := clickhouse.Context(context.Background(), clickhouse.WithSettings(clickhouse.Settings{"max_execution_time": 1}))
-			ctx, cancel := context.WithTimeout(ctx, time.Minute)
-			t.Cleanup(cancel)
+				ctx := clickhouse.Context(context.Background(), clickhouse.WithSettings(tc.ctxSettings))
+				deadlineCtx, cancel := context.WithTimeout(ctx, time.Minute)
+				t.Cleanup(cancel)
 
-			start := time.Now()
-			err = conn.Exec(ctx, "SELECT sleepEachRow(1) FROM numbers(5) SETTINGS max_block_size = 1")
-			require.Error(t, err)
-			// 159 is TIMEOUT_EXCEEDED.
-			assert.Contains(t, strings.ToLower(err.Error()), "code: 159")
-			assert.Less(t, time.Since(start), 5*time.Second)
-		})
+				const query = "SELECT toString(getSetting('max_execution_time'))"
+				var want, got string
+				require.NoError(t, conn.QueryRow(ctx, query).Scan(&want))
+				require.NoError(t, conn.QueryRow(deadlineCtx, query).Scan(&got))
+				require.Equal(t, want, got)
+			})
+		}
 	}
 }
