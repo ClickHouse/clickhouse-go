@@ -455,21 +455,32 @@ func (r *runner) writeRows(rows driver.Rows, format outputFormat) error {
 		writeHeader(func(i int) string { return types[i].DatabaseTypeName() })
 	}
 
+	// The rows rendered so far go to the output also when the stream fails
+	// later, as clickhouse-client prints the blocks it received before an
+	// exception. The `.reference` files of tests that expect an error in a
+	// later block hold those rows.
+	defer func() { r.result.WriteString(sb.String()) }()
+
 	dests := make([]any, len(renderers))
+	var row strings.Builder
 	writeRow := func() error {
 		if format.Discard {
 			// `FORMAT Null`: the values are scanned, but not rendered.
 			return nil
 		}
+		// Render the row apart, so that a row that fails to render is not
+		// written in part.
+		row.Reset()
 		for i, c := range renderers {
 			if i > 0 {
-				sb.WriteByte('\t')
+				row.WriteByte('\t')
 			}
-			if err := c.render(&sb, dests[i], format.Raw); err != nil {
+			if err := c.render(&row, dests[i], format.Raw); err != nil {
 				return fmt.Errorf("column %q: %w", types[i].Name(), err)
 			}
 		}
-		sb.WriteByte('\n')
+		row.WriteByte('\n')
+		sb.WriteString(row.String())
 		return nil
 	}
 	newDests := func() {
@@ -502,7 +513,6 @@ func (r *runner) writeRows(rows driver.Rows, format outputFormat) error {
 			return err
 		}
 	}
-	r.result.WriteString(sb.String())
 	return nil
 }
 

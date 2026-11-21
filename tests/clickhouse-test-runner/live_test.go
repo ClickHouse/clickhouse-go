@@ -232,6 +232,20 @@ func TestLiveSetWithCommentReplacesCommandLineSetting(t *testing.T) {
 	}
 }
 
+// TestLiveRowsBeforeStreamError checks that the rows received before an
+// exception in a later block are written, as clickhouse-client does.
+func TestLiveRowsBeforeStreamError(t *testing.T) {
+	requireLive(t)
+	script := "SELECT throwIf(number = 3) FROM numbers(6) SETTINGS max_block_size = 1, max_threads = 1; -- { serverError FUNCTION_THROW_IF_VALUE_IS_NON_ZERO }\nSELECT 'after';"
+	for _, protocol := range []string{"native", "http"} {
+		t.Run(protocol, func(t *testing.T) {
+			got, stderr, code := runShim(t, protocol, script)
+			require.Equal(t, 0, code, stderr)
+			assert.Equal(t, "0\n0\n0\nafter\n", got)
+		})
+	}
+}
+
 func TestLiveSessionState(t *testing.T) {
 	requireLive(t)
 	script := strings.Join([]string{
