@@ -203,7 +203,9 @@ func (c *connect) handle(ctx context.Context, packet byte, on *onProcess) error 
 			}
 		}
 	case proto.ServerException:
-		return c.exception()
+		err := c.exception()
+		c.jsonSerialization.observeError(c.automaticJSON, err)
+		return err
 	case proto.ServerProfileInfo:
 		var info proto.ProfileInfo
 		if err := info.Decode(c.reader, c.revision); err != nil {

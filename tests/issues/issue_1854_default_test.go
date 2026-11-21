@@ -289,6 +289,7 @@ func TestIssue1854SessionRecovery(t *testing.T) {
 	test1854Clients(t, func(opts *clickhouse.Options) {
 		opts.Settings = clickhouse.Settings{}
 		opts.DialTimeout = 0
+		opts.Compression = nil
 		if opts.Protocol == clickhouse.HTTP {
 			opts.Settings["session_id"] = "issue1854_" + clickhouse_tests.RandAsciiString(16)
 		}
@@ -296,11 +297,8 @@ func TestIssue1854SessionRecovery(t *testing.T) {
 		if !client.flattened {
 			t.Skip("flattened serialization requires ClickHouse 25.6")
 		}
-		if client.db != nil && client.protocol == clickhouse.Native {
-			t.Skip("Native retirement is tested with the ClickHouse pool")
-		}
 		ctx := context.Background()
-		if client.db != nil {
+		if client.db != nil && client.protocol == clickhouse.HTTP {
 			conn, err := client.db.Conn(ctx)
 			require.NoError(t, err)
 			t.Cleanup(func() { require.NoError(t, conn.Close()) })
@@ -316,14 +314,14 @@ func TestIssue1854SessionRecovery(t *testing.T) {
 		require.ErrorAs(t, client.scan(ctx, "SELECT toUInt8(1)", &value), &exception)
 		require.EqualValues(t, 164, exception.Code)
 		check1854Alive(t, client)
-		if client.protocol == clickhouse.Native {
-			check1854Setting(t, client, ctx, 1)
-			require.NoError(t, client.scan(ctx, "SELECT toUInt8(getSetting('readonly'))", &value))
+		require.NoError(t, client.scan(ctx, "SELECT toUInt8(getSetting('readonly'))", &value))
+		// Some servers close a Native connection after the rejection.
+		if client.protocol == clickhouse.Native && (client.db == nil || value == 0) {
 			require.Zero(t, value, "a new Native connection has a fresh session")
+			check1854Setting(t, client, ctx, 1)
 		} else {
-			check1854Setting(t, client, ctx, 0)
-			require.NoError(t, client.scan(ctx, "SELECT toUInt8(getSetting('readonly'))", &value))
 			require.Equal(t, uint8(1), value)
+			check1854Setting(t, client, ctx, 0)
 			var plain chcol.JSON
 			require.NoError(t, client.scan(ctx, `SELECT '{"a":13}'::JSON`, &plain))
 			require.ErrorContains(t, client.scan(ctx, `SELECT '{"a":13}'::JSON(max_dynamic_paths=0)`, &plain), "cannot decode JSON shared data")

@@ -28,8 +28,9 @@ func (c *connect) sendQuery(body string, o *QueryOptions) error {
 		ClusterSecret:            c.opt.Cluster.Secret,
 		ClusterSalt:              c.clusterSalt,
 	}
+	c.automaticJSON = false
 	if !o.settingsProbe {
-		q.Settings = c.settings(o.settings)
+		q.Settings, c.automaticJSON = c.settings(o.settings)
 	}
 	if err := q.Encode(c.buffer, c.revision); err != nil {
 		return err
