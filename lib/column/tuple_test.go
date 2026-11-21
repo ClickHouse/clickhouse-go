@@ -52,10 +52,79 @@ func TestTupleParseElementNames(t *testing.T) {
 			isNamed: true,
 		},
 		{
+			chType:  "Tuple(`a b` Int64, `c\\` d` Decimal(10, 2), e String)",
+			names:   []string{"a b", "c` d", "e"},
+			types:   []string{"Int64", "Decimal(10, 2)", "String"},
+			isNamed: true,
+		},
+		{
+			// parentheses and commas in a backquoted name belong to the name
+			chType:  "Tuple(`price (usd)` Float64, `a, b` Int64, `x (y` Int8, `z)` Int8, e String)",
+			names:   []string{"price (usd)", "a, b", "x (y", "z)", "e"},
+			types:   []string{"Float64", "Int64", "Int8", "Int8", "String"},
+			isNamed: true,
+		},
+		{
+			// a backtick inside an enum value is not a name
+			chType:  "Tuple(a Enum8('x`y' = 1, 'z' = 2), `b c` Int64)",
+			names:   []string{"a", "b c"},
+			types:   []string{"Enum8('x`y' = 1, 'z' = 2)", "Int64"},
+			isNamed: true,
+		},
+		{
+			// a parenthesis inside an enum value does not end the element
+			chType:  "Tuple(a Enum8('x)y' = 1, 'z' = 2), b Int8)",
+			names:   []string{"a", "b"},
+			types:   []string{"Enum8('x)y' = 1, 'z' = 2)", "Int8"},
+			isNamed: true,
+		},
+		{
 			// a lone backtick is not a quoted name and must not panic
 			chType:  "Tuple(` String)",
 			names:   []string{"`"},
 			types:   []string{"String"},
+			isNamed: true,
+		},
+		{
+			// a newline or tab may separate a name from its type
+			chType:  "Tuple(`a b`\nDecimal(10, 2), `c`\tInt64, d\tString, e\n    UInt8)",
+			names:   []string{"a b", "c", "d", "e"},
+			types:   []string{"Decimal(10, 2)", "Int64", "String", "UInt8"},
+			isNamed: true,
+		},
+		{
+			// the type may follow the closing quote directly
+			chType:  "Tuple(`a b`Int64, \"c d\"String)",
+			names:   []string{"a b", "c d"},
+			types:   []string{"Int64", "String"},
+			isNamed: true,
+		},
+		{
+			// double-quoted names: plain, with an escaped quote, with a comma and parentheses
+			chType:  `Tuple("a b" Int64, "c\"d" String, "e, (f)" Int8)`,
+			names:   []string{"a b", `c"d`, "e, (f)"},
+			types:   []string{"Int64", "String", "Int8"},
+			isNamed: true,
+		},
+		{
+			// escaped backslashes, on the wire `a\\`, `b\\\`` and "c\\": the names a\, b\` and c\
+			chType:  "Tuple(`a\\\\` Int64, `b\\\\\\`` String, \"c\\\\\" UInt8)",
+			names:   []string{`a\`, "b\\`", `c\`},
+			types:   []string{"Int64", "String", "UInt8"},
+			isNamed: true,
+		},
+		{
+			// the other quote inside a quoted name is plain text
+			chType:  "Tuple(`a\"b` Int8, \"c`d\" String)",
+			names:   []string{`a"b`, "c`d"},
+			types:   []string{"Int8", "String"},
+			isNamed: true,
+		},
+		{
+			// the server writes control characters in a name as \t, \n, \r, \0, \b and \f
+			chType:  "Tuple(`a\\tb` Int64, `c\\nd` String, `e\\rf\\0g\\bh\\fi` UInt8)",
+			names:   []string{"a\tb", "c\nd", "e\rf\x00g\bh\fi"},
+			types:   []string{"Int64", "String", "UInt8"},
 			isNamed: true,
 		},
 		{
