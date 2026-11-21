@@ -261,6 +261,18 @@ func (col *Array) ScanRow(dest any, row int) error {
 		}
 		return scanner.Scan(value.Interface())
 	}
+	if d, ok := dest.(*[]string); ok && len(col.offsets) == 1 {
+		// Array(String) into []string skips the reflection per element (#1747).
+		if values, ok := col.values.(*String); ok {
+			start, end := col.offsetRange(0, row)
+			s := make([]string, end-start)
+			for i := range s {
+				s[i] = values.col.Row(int(start) + i)
+			}
+			*d = s
+			return nil
+		}
+	}
 	elem := reflect.Indirect(reflect.ValueOf(dest))
 	value, err := col.scan(elem.Type(), row)
 	if err != nil {
@@ -287,16 +299,20 @@ func (col *Array) scan(sliceType reflect.Type, row int) (reflect.Value, error) {
 	}
 }
 
+// offsetRange returns the range of the elements of row at level.
+func (col *Array) offsetRange(level, row int) (start, end uint64) {
+	values := col.offsets[level].values.col
+	end = values.Row(row)
+	if row > 0 {
+		start = values.Row(row - 1)
+	}
+	return start, end
+}
+
 func (col *Array) scanSlice(sliceType reflect.Type, row int, level int) (reflect.Value, error) {
 	// We could try and set - if it exceeds just return immediately
 	offset := col.offsets[level]
-	var (
-		end   = offset.values.col.Row(row)
-		start = uint64(0)
-	)
-	if row > 0 {
-		start = offset.values.col.Row(row - 1)
-	}
+	start, end := col.offsetRange(level, row)
 	base := offset.scanType.Elem()
 	isPtr := base.Kind() == reflect.Ptr
 
