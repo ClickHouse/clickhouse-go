@@ -221,7 +221,7 @@ func TestIssue1854Settings(t *testing.T) {
 
 func TestIssue1854ReadonlySetting(t *testing.T) {
 	test1854Clients(t, func(opts *clickhouse.Options) {
-		opts.Settings = clickhouse.Settings{"readonly": 1}
+		opts.Settings["readonly"] = 1
 		opts.DialTimeout = 0
 	}, func(t *testing.T, client issue1854Client) {
 		check1854Alive(t, client)
