@@ -132,6 +132,55 @@ func TestBindQueryOrAppendParametersNamedDateValue(t *testing.T) {
 	assert.Equal(t, "1700000000.123", options.parameters["p"])
 }
 
+// Date and Date32 parameters need calendar-date text, not epoch seconds: the
+// server's date reader consumes at most YYYYMMDD from a numeric value and
+// rejects the rest, so "1778803200" fails with BAD_QUERY_PARAMETER (issue
+// #1927). Temporal types that carry a time of day keep the epoch form, which
+// is what makes them zone-independent.
+func TestBindQueryOrAppendParametersDateTypes(t *testing.T) {
+	d := time.Date(2026, 5, 15, 0, 0, 0, 0, time.UTC)
+	d32 := time.Date(2026, 5, 20, 0, 0, 0, 0, time.UTC)
+
+	options := &QueryOptions{}
+	_, err := bindQueryOrAppendParameters(true, options,
+		"SELECT {d:Date}, {n:Nullable(Date32)}, {a:Array(Date)}, {m:Map(String, Date)}, {s:DateTime}",
+		time.UTC,
+		Named("d", d),
+		Named("n", &d32),
+		Named("a", []time.Time{d, d32}),
+		Named("m", map[string]time.Time{"k": d}),
+		Named("s", d),
+	)
+	require.NoError(t, err)
+	assert.Equal(t, "2026-05-15", options.parameters["d"])
+	assert.Equal(t, "2026-05-20", options.parameters["n"])
+	assert.Equal(t, "['2026-05-15', '2026-05-20']", options.parameters["a"])
+	assert.Equal(t, "{'k':'2026-05-15'}", options.parameters["m"])
+	assert.Equal(t, "1778803200", options.parameters["s"])
+}
+
+// A Date has no timezone: the date is the calendar day of the value as
+// passed, so a midnight value in a zone ahead of the server is not shifted to
+// the previous day.
+func TestBindQueryOrAppendParametersDateUsesValueCalendarDay(t *testing.T) {
+	tokyo := time.FixedZone("Asia/Tokyo", 9*3600)
+	in := time.Date(2026, 5, 16, 1, 0, 0, 0, tokyo) // 2026-05-15 16:00 UTC
+
+	options := &QueryOptions{}
+	_, err := bindQueryOrAppendParameters(true, options, "SELECT {d:Date}", time.UTC, Named("d", in))
+	require.NoError(t, err)
+	assert.Equal(t, "2026-05-16", options.parameters["d"])
+}
+
+func TestBindQueryOrAppendParametersDateNamedDateType(t *testing.T) {
+	in := time.Date(2026, 5, 15, 13, 45, 0, 0, time.UTC)
+
+	options := &QueryOptions{}
+	_, err := bindQueryOrAppendParameters(true, options, "SELECT {p:Date}", time.UTC, DateNamed("p", in, Seconds))
+	require.NoError(t, err)
+	assert.Equal(t, "2026-05-15", options.parameters["p"])
+}
+
 func TestBindQueryOrAppendParametersErrors(t *testing.T) {
 	cases := []struct {
 		name  string
