@@ -1,0 +1,5 @@
+# The ClickHouse server version that the upstream SQL tests run against. CI
+# starts the server image of this version, and takes the tests from its
+# release tag (v<version>-stable). Change it only in a pull request of its
+# own; see "Bump the server version" in AGENTS.md.
+26.10.4.207
