@@ -26,12 +26,17 @@ func Test2150(t *testing.T) {
 		name   string
 		method clickhouse.CompressionMethod
 		level  int
+		set    string
 	}{
 		{name: "lz4", method: clickhouse.CompressionLZ4},
 		{name: "zstd", method: clickhouse.CompressionZSTD},
 		{name: "zstd level 9", method: clickhouse.CompressionZSTD, level: 9},
+		{name: "lz4 comments", method: clickhouse.CompressionLZ4, set: "/* a */ -- b\nSET readonly = 1"},
 	}
 	for _, tc := range testCases {
+		if tc.set == "" {
+			tc.set = "SET readonly = 1"
+		}
 		options := func() *clickhouse.Options {
 			opts := clickhouse_tests.ClientOptionsFromEnv(env, clickhouse.Settings{
 				"session_id": fmt.Sprintf("issue_2150_%s", clickhouse_tests.RandAsciiString(8)),
@@ -46,7 +51,7 @@ func Test2150(t *testing.T) {
 			require.NoError(t, err)
 			t.Cleanup(func() { conn.Close() })
 
-			require.NoError(t, conn.Exec(ctx, "SET readonly = 1"))
+			require.NoError(t, conn.Exec(ctx, tc.set))
 			for i := 0; i < 3; i++ {
 				var readOnly uint8
 				require.NoError(t, conn.QueryRow(ctx, query).Scan(&readOnly))
@@ -63,7 +68,7 @@ func Test2150(t *testing.T) {
 			require.NoError(t, err)
 			t.Cleanup(func() { conn.Close() })
 
-			_, err = conn.ExecContext(ctx, "SET readonly = 1")
+			_, err = conn.ExecContext(ctx, tc.set)
 			require.NoError(t, err)
 			for i := 0; i < 3; i++ {
 				var readOnly uint8
