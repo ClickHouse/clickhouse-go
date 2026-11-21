@@ -176,5 +176,8 @@ func (c *Dynamic) decodeData_v1(reader *proto.Reader, rows int) error {
 		}
 	}
 
+	if sharedIndex, ok := c.columnIndexByType["SharedVariant"]; ok && rowCountByType[sharedIndex] != 0 {
+		return unsupportedSharedDataError("Dynamic SharedVariant")
+	}
 	return nil
 }

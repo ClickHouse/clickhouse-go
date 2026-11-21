@@ -786,6 +786,12 @@ fmt.Printf("Col1: %v, Col2: %v\n", col1, col2)
 
 [Full Example](https://github.com/ClickHouse/clickhouse-go/blob/main/examples/clickhouse_api/bfloat16.go)
 
+### JSON and Dynamic {#json-dynamic}
+
+With the legacy V1 Native format, the driver returns a decode error if `JSON` paths exceed `max_dynamic_paths` and use shared storage, or if a `Dynamic` value uses `SharedVariant` storage. This includes `Dynamic` values inside `JSON` columns. The error can occur on either the Native or HTTP transport.
+
+On ClickHouse 25.6 and later, set `output_format_native_use_flattened_dynamic_and_json_serialization=1` in `Options.Settings` or for the query to read these values. For a `readonly=1` user, an administrator can enable the setting in the user's settings profile. On earlier servers, read `JSON` into a Go `string` with `output_format_native_write_json_as_string=1`, or cast `Dynamic` values to a concrete type in the query.
+
 ### QBit {#qbit}
 
 `QBit` is an experimental column type for storing vector embeddings in bit-sliced format, optimized for vector similarity search. It requires the `allow_experimental_qbit_type` setting to be enabled.

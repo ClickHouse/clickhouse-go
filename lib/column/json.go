@@ -55,11 +55,6 @@ type JSON struct {
 
 	maxDynamicPaths int
 	maxDynamicTypes int
-
-	// sharedData is JSON v0 overflow storage: Array(Tuple(String, String)).
-	// Populated only by decodeObjectData_v1. Each tuple is (path, Dynamic
-	// serializeBinary payload) for paths that exceeded max_dynamic_paths.
-	sharedData Interface
 }
 
 // jsonMode is the mode preference a value carries when offered to a JSON
@@ -249,8 +244,6 @@ func (c *JSON) rowAsJSON(row int) *chcol.JSON {
 		col := c.dynamicColumns[i]
 		obj.SetValueAtPath(path, col.Row(row, false))
 	}
-
-	c.mergeSharedDataRow(obj, row)
 
 	return obj
 }
@@ -947,11 +940,6 @@ func (c *JSON) Reset() {
 		}
 	case JSONStringSerializationVersion:
 		c.jsonStrings.Reset()
-	}
-
-	if c.sharedData != nil {
-		c.sharedData.Reset()
-		c.sharedData = nil
 	}
 
 	// Clear the latched mode so the next batch starts unbiased. An all-null
