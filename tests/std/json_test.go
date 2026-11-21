@@ -36,14 +36,6 @@ func setupJSONTest(t *testing.T) *sql.DB {
 		return nil
 	}
 
-	if CheckMinServerVersion(conn, 25, 6, 0) {
-		_, err = conn.ExecContext(context.Background(), "SET output_format_native_use_flattened_dynamic_and_json_serialization = 1")
-		if err != nil {
-			t.Fatal(err)
-			return nil
-		}
-	}
-
 	return conn
 }
 

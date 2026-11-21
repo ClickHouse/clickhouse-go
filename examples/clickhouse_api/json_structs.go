@@ -44,8 +44,7 @@ func JSONStructExample() error {
 	ctx := context.Background()
 
 	conn, err := GetNativeConnection(clickhouse.Settings{
-		"allow_experimental_json_type":                                      true,
-		"output_format_native_use_flattened_dynamic_and_json_serialization": true,
+		"allow_experimental_json_type": true,
 	}, nil, nil)
 	if err != nil {
 		return err

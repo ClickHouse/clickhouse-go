@@ -52,6 +52,9 @@ type (
 			profileInfo   func(*ProfileInfo)
 			profileEvents func([]ProfileEvent)
 		}
+		autoJSON            bool
+		settingsProbe       bool
+		rawFormat           bool
 		settings            Settings
 		parameters          Parameters
 		external            []*ext.Table

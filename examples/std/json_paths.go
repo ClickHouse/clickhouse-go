@@ -24,10 +24,6 @@ func JSONPathsExample() error {
 	if err != nil {
 		return err
 	}
-	_, err = conn.ExecContext(ctx, "SET output_format_native_use_flattened_dynamic_and_json_serialization = 1")
-	if err != nil {
-		return err
-	}
 
 	defer func() {
 		conn.Exec("DROP TABLE go_json_example")

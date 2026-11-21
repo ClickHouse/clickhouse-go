@@ -233,6 +233,14 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 	}
 	conn.handshake = handshake
 	conn.revision = conn.handshake.Revision
+	if opt.useFlattenedJSON(supportsFlattenedJSON(conn.handshake.Version), nil) {
+		if err := conn.probeJSONSerialization(ctx); err != nil {
+			if closeErr := conn.close(); closeErr != nil {
+				conn.logger.Debug("failed to close connection after JSON settings probe", slog.Any("error", closeErr))
+			}
+			return nil, err
+		}
+	}
 
 	return &conn, nil
 }
@@ -291,6 +299,8 @@ type httpConnect struct {
 	// it stays false for a user with readonly = 1, because the server rejects a request
 	// that changes a setting for such a user.
 	compressionSettings bool
+	flattenedJSON       bool
+	jsonSerialization   jsonSerializationState
 }
 
 func (h *httpConnect) serverVersion() (*ServerVersion, error) {
@@ -662,7 +672,7 @@ func (h *httpConnect) sendStreamQuery(ctx context.Context, r io.Reader, options 
 		return nil, err
 	}
 
-	res, err := h.executeRequest(req)
+	res, err := h.executeRequest(req, options != nil && options.autoJSON)
 	if err != nil {
 		return nil, err
 	}
@@ -676,7 +686,7 @@ func (h *httpConnect) sendQuery(ctx context.Context, query string, options *Quer
 		return nil, err
 	}
 
-	res, err := h.executeRequest(req)
+	res, err := h.executeRequest(req, options != nil && options.autoJSON)
 	if err != nil {
 		return nil, err
 	}
@@ -732,6 +742,21 @@ func (h *httpConnect) createRequest(ctx context.Context, requestUrl string, read
 	var query url.Values
 	if options != nil {
 		query = req.URL.Query()
+		if options.settingsProbe {
+			for key := range h.opt.Settings {
+				switch key {
+				case "session_id", "session_timeout", "session_check":
+				default:
+					query.Del(key)
+				}
+			}
+			query.Set("default_format", "Native")
+			query.Set("client_protocol_version", strconv.Itoa(ClientTCPProtocolVersion))
+		}
+		options.autoJSON = !options.settingsProbe && !options.rawFormat && h.opt.useFlattenedJSON(h.flattenedJSON && !h.jsonSerialization.disabled.Load(), options.settings)
+		if options.autoJSON {
+			query.Set(flattenedJSONSetting, "1")
+		}
 		if options.queryID != "" {
 			query.Set(queryIDParamName, options.queryID)
 		}
@@ -806,7 +831,8 @@ func (h *httpConnect) createRequestWithExternalTables(ctx context.Context, query
 	return h.createRequest(ctx, currentUrl.String(), bytes.NewReader(payload.Bytes()), options, headers)
 }
 
-func (h *httpConnect) executeRequest(req *http.Request) (*http.Response, error) {
+func (h *httpConnect) executeRequest(req *http.Request, automaticJSON bool) (_ *http.Response, err error) {
+	defer func() { h.jsonSerialization.observeError(automaticJSON, err) }()
 	if h.client == nil {
 		return nil, sqldriver.ErrBadConn
 	}

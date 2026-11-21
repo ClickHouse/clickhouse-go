@@ -170,6 +170,14 @@ type Options struct {
 	// instead of Logger.
 	Logger *slog.Logger
 
+	// DisableAutoFlattenedJSONOutput disables the automatic flattened JSON and Dynamic
+	// output setting and its connection probe on ClickHouse 25.6 and later.
+	// Explicit settings still apply.
+	// Sessions that change readonly, profiles, or roles after connecting can receive
+	// READONLY or SETTING_CONSTRAINT_VIOLATION errors from this default. Set this
+	// option to true to avoid the automatic default.
+	DisableAutoFlattenedJSONOutput bool
+
 	Settings             Settings
 	Compression          *Compression
 	DialTimeout          time.Duration // default 30 second
@@ -232,6 +240,11 @@ func (o *Options) fromDSN(in string) error {
 
 	for v := range params {
 		switch v {
+		case "disable_auto_flattened_json_output":
+			o.DisableAutoFlattenedJSONOutput, err = strconv.ParseBool(params.Get(v))
+			if err != nil {
+				return fmt.Errorf("clickhouse [dsn parse]: invalid disable_auto_flattened_json_output: %w", err)
+			}
 		case "hosts":
 			o.Addr = append(parseHostList(params.Get(v)), o.Addr...)
 		case "alt_hosts":

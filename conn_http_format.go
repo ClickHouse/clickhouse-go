@@ -274,6 +274,7 @@ func (s *httpFormatStream) Close() error {
 func (h *httpConnect) queryFormat(ctx context.Context, release nativeTransportRelease, formatName string, query string, args ...any) (io.ReadCloser, error) {
 	h.logger.Debug("HTTP format query", slog.String("sql", query), slog.String("format", formatName))
 	options := queryOptions(ctx)
+	options.rawFormat = true
 	query, err := bindQueryOrAppendParameters(true, &options, query, h.handshake.Timezone, args...)
 	if err != nil {
 		err = fmt.Errorf("bindQueryOrAppendParameters: %w", err)
@@ -316,7 +317,7 @@ func (h *httpConnect) queryFormat(ctx context.Context, release nativeTransportRe
 	q.Set("default_format", formatName)
 	req.URL.RawQuery = q.Encode()
 
-	res, err := h.executeRequest(req) //nolint:bodyclose // closed via httpFormatStream.Close
+	res, err := h.executeRequest(req, false) //nolint:bodyclose // closed via httpFormatStream.Close
 	if err != nil {
 		release(h, err)
 		return nil, err
@@ -369,6 +370,7 @@ func (h *httpConnect) insertFormat(ctx context.Context, release nativeTransportR
 	}
 
 	options := queryOptions(ctx)
+	options.rawFormat = true
 	headers := make(map[string]string)
 	body := data
 	switch h.compression {

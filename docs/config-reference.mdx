@@ -297,6 +297,30 @@ Settings: clickhouse.Settings{
 }
 ```
 
+### JSON and Dynamic serialization {#json-serialization}
+
+| Option | Type | Default | DSN param | Description |
+|--------|------|---------|-----------|-------------|
+| `DisableAutoFlattenedJSONOutput` | `bool` | `false` | `disable_auto_flattened_json_output` | Disables the automatic flattened output setting for `JSON` and `Dynamic` and its connection probe. Explicit `Options.Settings` and `WithSettings` still apply. |
+
+On ClickHouse 25.6 and later, the driver requests `output_format_native_use_flattened_dynamic_and_json_serialization=1` by default. This applies to the ClickHouse API and the `database/sql` API over both the Native protocol and the HTTP protocol. Raw `QueryFormat` and `InsertFormat` requests do not receive this automatic setting.
+
+The driver probes eligibility once per connection, unless `DisableAutoFlattenedJSONOutput` is `true` or `Options.Settings` explicitly contains the setting. This adds one query per connection, which counts toward the user's quotas and `max_concurrent_queries_for_user` limit. The probe runs under the user's settings profile. It bypasses connection settings but preserves the HTTP session parameters `session_id`, `session_timeout`, and `session_check`. Servers before 25.6 are not probed and do not receive the automatic setting.
+
+The probe reads the setting's effective `readonly` and `max` columns in `system.settings`. The automatic setting is eligible when `readonly=0` and `max` is unset or equals `1`. The `readonly` column accounts for the user's read-only mode and `changeable_in_readonly` permissions.
+
+When eligible, the driver adds the setting to each request unless `Options.Settings` or `WithSettings` explicitly contains it. A DSN value for the server setting counts as an explicit connection setting. Query settings take precedence over connection settings, including an explicit value of `0`. A session `SET output_format_native_use_flattened_dynamic_and_json_serialization = 0` does not opt out: the automatic request setting overrides it. Sending `1` when the effective value is already `1` is safe because the server skips checks for unchanged values.
+
+For a `readonly=1` user, an administrator can enable flattened output in the user's settings profile. The administrator can instead mark the setting `changeable_in_readonly`, which lets the driver add it automatically when `max` is unset or equals `1`. `readonly=2` also permits the automatic setting subject to those constraints.
+
+Eligibility is cached when the connection opens. Sessions that change `readonly`, profiles, or roles afterward should opt out to avoid a first automatic-setting error. On HTTP, if a request carries the automatic setting and receives a non-200 response with code 164 (`READONLY`) or 452 (`SETTING_CONSTRAINT_VIOLATION`) with a message that names `output_format_native_use_flattened_dynamic_and_json_serialization`, the driver disables the automatic setting for that connection. It returns the original error without retry. Later requests on a retained connection use the profile and session settings unless explicitly overridden. A replacement connection probes again and preserves any configured HTTP session. A 164 or 452 error that does not name this setting does not disable the default. Requests with an explicit `Options.Settings` or `WithSettings` value do not disable it either. On the Native protocol, a real setting rejection retires the socket. A later query can open a new connection and lose session state.
+
+On both protocols, a ClickHouse server exception (`*Exception`) from the probe keeps the connection open and disables the automatic setting for that connection. The driver emits a `Warn` log that names `output_format_native_use_flattened_dynamic_and_json_serialization` and `DisableAutoFlattenedJSONOutput`. This includes exceptions caused by profile settings or temporary query limits. The driver does not probe again on that connection.
+
+The probe is limited by `DialTimeout` and the caller's context. Other failures, including HTTP errors without a wrapped ClickHouse exception, transport errors, decode errors, unexpected results, cancellation, and `DialTimeout` expiry, fail the connection attempt with `json settings probe` context on both protocols.
+
+To opt out, set `Options.DisableAutoFlattenedJSONOutput` to `true` or add `disable_auto_flattened_json_output=true` to the DSN. Settings profiles, explicit `Options.Settings`, and `WithSettings` still control the output. See [JSON and Dynamic read limitations](/integrations/language-clients/go/data-types#json-dynamic) before opting out.
+
 ---
 
 ## Context-level query options {#context-options}
@@ -412,6 +436,7 @@ batch, err := conn.PrepareBatch(ctx, "INSERT INTO table",
 | `secure` | `TLS` | `?secure=true` |
 | `skip_verify` | `TLS.InsecureSkipVerify` | `?skip_verify=true` |
 | `debug` | `Debug` | `?debug=true` |
+| `disable_auto_flattened_json_output` | `DisableAutoFlattenedJSONOutput` | `?disable_auto_flattened_json_output=true` |
 | `client_info_product` | `ClientInfo.Products` | `?client_info_product=myapp/1.0` |
 | `http_proxy` | `HTTPProxyURL` | `?http_proxy=http%3A%2F%2Fproxy%3A8080` |
 | `http_path` | `HttpUrlPath` | `?http_path=/clickhouse` |

@@ -187,6 +187,7 @@ conn.SetConnMaxLifetime(time.Hour)
 * http_proxy - HTTP proxy address
 * http_path - URL path for HTTP requests (e.g. for proxies or custom endpoints that require a specific path)
 * tls_server_name - set TLS SNI/verification name (sets `tls.Config.ServerName` when `secure=true`)
+* disable_auto_flattened_json_output - disable the automatic flattened output setting for `JSON` and `Dynamic` and its connection probe (default `false`). See [JSON and Dynamic serialization](https://clickhouse.com/docs/integrations/language-clients/go/config-reference#json-serialization).
 
 ## Connection Settings Reference
 
@@ -620,6 +621,10 @@ For `clickhouse.Conn.PrepareBatch` (native interface):
 - Use `Flush` to send currently buffered rows while keeping the batch usable (native protocol). For HTTP protocol, `Flush` is currently a no-op.
 - Use `Send` to flush any remaining rows and finalize the INSERT. After `Send`, the batch is considered sent and should not be reused.
 - Use `defer batch.Close()` to ensure resources are released if `Send` is not reached.
+
+## JSON and Dynamic results
+
+On ClickHouse 25.6 and later, the driver requests flattened output for `JSON` and `Dynamic` by default when the connection probe confirms that the user's settings profile permits it. This applies to both APIs and both protocols. See [JSON and Dynamic serialization](https://clickhouse.com/docs/integrations/language-clients/go/config-reference#json-serialization) for probe failures, explicit overrides, `Options.DisableAutoFlattenedJSONOutput`, and session behavior, and [read limitations](https://clickhouse.com/docs/integrations/language-clients/go/data-types#json-dynamic) for older servers and restricted profiles.
 
 ## JSON columns: append contract
 
