@@ -164,3 +164,142 @@ func (col *Array) appendRowPlain(v any) error {
 		return col.appendRowDefault(v)
 	}
 }
+
+// appendBulkPlain dispatches typed [][]T inputs (one slice per row of a depth-1
+// Array column) through the inner column's typed Append fast path, avoiding
+// the reflection loop in Array.Append. Returns (true, err) when a typed case
+// matched, (false, nil) to signal the caller should fall through to reflection.
+func (col *Array) appendBulkPlain(v any) (bool, error) {
+	switch tv := v.(type) {
+	case [][]float32:
+		return true, appendBulkPlain(col, tv)
+	case [][]*float32:
+		return true, appendNullableBulkPlain(col, tv)
+	case [][]float64:
+		return true, appendBulkPlain(col, tv)
+	case [][]*float64:
+		return true, appendNullableBulkPlain(col, tv)
+	case [][]int8:
+		return true, appendBulkPlain(col, tv)
+	case [][]*int8:
+		return true, appendNullableBulkPlain(col, tv)
+	case [][]int16:
+		return true, appendBulkPlain(col, tv)
+	case [][]*int16:
+		return true, appendNullableBulkPlain(col, tv)
+	case [][]int32:
+		return true, appendBulkPlain(col, tv)
+	case [][]*int32:
+		return true, appendNullableBulkPlain(col, tv)
+	case [][]int64:
+		return true, appendBulkPlain(col, tv)
+	case [][]*int64:
+		return true, appendNullableBulkPlain(col, tv)
+	case [][]uint8:
+		return true, appendBulkPlain(col, tv)
+	case [][]*uint8:
+		return true, appendNullableBulkPlain(col, tv)
+	case [][]uint16:
+		return true, appendBulkPlain(col, tv)
+	case [][]*uint16:
+		return true, appendNullableBulkPlain(col, tv)
+	case [][]uint32:
+		return true, appendBulkPlain(col, tv)
+	case [][]*uint32:
+		return true, appendNullableBulkPlain(col, tv)
+	case [][]uint64:
+		return true, appendBulkPlain(col, tv)
+	case [][]*uint64:
+		return true, appendNullableBulkPlain(col, tv)
+	case [][]string:
+		return true, appendBulkPlain(col, tv)
+	case [][]*string:
+		return true, appendNullableBulkPlain(col, tv)
+	case [][][]byte:
+		return true, appendBulkPlain(col, tv)
+	case [][]*[]byte:
+		return true, appendNullableBulkPlain(col, tv)
+	case [][]sql.NullString:
+		return true, appendBulkPlain(col, tv)
+	case [][]*sql.NullString:
+		return true, appendNullableBulkPlain(col, tv)
+	case [][]int:
+		return true, appendBulkPlain(col, tv)
+	case [][]*int:
+		return true, appendNullableBulkPlain(col, tv)
+	case [][]uint:
+		return true, appendBulkPlain(col, tv)
+	case [][]*uint:
+		return true, appendNullableBulkPlain(col, tv)
+	case [][]big.Int:
+		return true, appendBulkPlain(col, tv)
+	case [][]*big.Int:
+		return true, appendNullableBulkPlain(col, tv)
+	case [][]decimal.Decimal:
+		return true, appendBulkPlain(col, tv)
+	case [][]*decimal.Decimal:
+		return true, appendNullableBulkPlain(col, tv)
+	case [][]bool:
+		return true, appendBulkPlain(col, tv)
+	case [][]*bool:
+		return true, appendNullableBulkPlain(col, tv)
+	case [][]sql.NullBool:
+		return true, appendBulkPlain(col, tv)
+	case [][]*sql.NullBool:
+		return true, appendNullableBulkPlain(col, tv)
+	case [][]time.Time:
+		return true, appendBulkPlain(col, tv)
+	case [][]*time.Time:
+		return true, appendNullableBulkPlain(col, tv)
+	case [][]sql.NullTime:
+		return true, appendBulkPlain(col, tv)
+	case [][]*sql.NullTime:
+		return true, appendNullableBulkPlain(col, tv)
+	case [][]uuid.UUID:
+		return true, appendBulkPlain(col, tv)
+	case [][]*uuid.UUID:
+		return true, appendNullableBulkPlain(col, tv)
+	case [][]netip.Addr:
+		return true, appendBulkPlain(col, tv)
+	case [][]*netip.Addr:
+		return true, appendNullableBulkPlain(col, tv)
+	case [][]net.IP:
+		return true, appendBulkPlain(col, tv)
+	case [][]*net.IP:
+		return true, appendNullableBulkPlain(col, tv)
+	case [][]proto.IPv6:
+		return true, appendBulkPlain(col, tv)
+	case [][]*proto.IPv6:
+		return true, appendNullableBulkPlain(col, tv)
+	case [][][16]byte:
+		return true, appendBulkPlain(col, tv)
+	case [][]*[16]byte:
+		return true, appendNullableBulkPlain(col, tv)
+	case [][]orb.LineString:
+		return true, appendBulkPlain(col, tv)
+	case [][]*orb.LineString:
+		return true, appendNullableBulkPlain(col, tv)
+	case [][]orb.MultiLineString:
+		return true, appendBulkPlain(col, tv)
+	case [][]*orb.MultiLineString:
+		return true, appendNullableBulkPlain(col, tv)
+	case [][]orb.MultiPolygon:
+		return true, appendBulkPlain(col, tv)
+	case [][]*orb.MultiPolygon:
+		return true, appendNullableBulkPlain(col, tv)
+	case [][]orb.Point:
+		return true, appendBulkPlain(col, tv)
+	case [][]*orb.Point:
+		return true, appendNullableBulkPlain(col, tv)
+	case [][]orb.Polygon:
+		return true, appendBulkPlain(col, tv)
+	case [][]*orb.Polygon:
+		return true, appendNullableBulkPlain(col, tv)
+	case [][]orb.Ring:
+		return true, appendBulkPlain(col, tv)
+	case [][]*orb.Ring:
+		return true, appendNullableBulkPlain(col, tv)
+	default:
+		return false, nil
+	}
+}
