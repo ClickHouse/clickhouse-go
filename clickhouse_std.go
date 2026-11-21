@@ -55,26 +55,33 @@ func (o *stdConnOpener) Connect(ctx context.Context) (_ driver.Conn, err error) 
 		}
 	}
 
-	if len(o.opt.Addr) == 0 {
+	// Bound the SRV lookup by DialTimeout, as the native acquire path does.
+	resolveCtx, cancel := context.WithTimeout(ctx, o.opt.DialTimeout)
+	addrs, err := resolveAddr(resolveCtx, o.opt)
+	cancel()
+	if err != nil {
+		return nil, err
+	}
+	if len(addrs) == 0 {
 		return nil, ErrAcquireConnNoAddress
 	}
 
-	for i := range o.opt.Addr {
+	for i := range addrs {
 		var num int
 		switch o.opt.ConnOpenStrategy {
 		case ConnOpenInOrder:
 			num = i
 		case ConnOpenRoundRobin:
-			num = (connID + i) % len(o.opt.Addr)
+			num = (connID + i) % len(addrs)
 		case ConnOpenRandom:
 			random := rand.Int()
-			num = (random + i) % len(o.opt.Addr)
+			num = (random + i) % len(addrs)
 		}
-		if conn, err = dialFunc(ctx, o.opt.Addr[num], connID, o.opt); err == nil {
+		if conn, err = dialFunc(ctx, addrs[num], connID, o.opt); err == nil {
 			// Create a logger with connection-specific context
 			connLogger := o.logger.With(
 				slog.Int("conn_num", num),
-				slog.String("addr", o.opt.Addr[num]),
+				slog.String("addr", addrs[num]),
 			)
 			return &stdDriver{
 				conn:   conn,
@@ -82,7 +89,7 @@ func (o *stdConnOpener) Connect(ctx context.Context) (_ driver.Conn, err error) 
 			}, nil
 		} else {
 			o.logger.Error("connection error",
-				slog.String("addr", o.opt.Addr[num]),
+				slog.String("addr", addrs[num]),
 				slog.Int("conn_id", connID),
 				slog.Any("error", err))
 		}
