@@ -39,7 +39,7 @@ func splitStatements(text string) []statement {
 			return out
 		}
 		begin := pos
-		end := scanStatementEnd(text, pos)
+		end, inlineData := scanStatementEnd(text, pos)
 		sqlEnd := end
 		// Consume the semicolons after the statement.
 		pos = end
@@ -63,7 +63,13 @@ func splitStatements(text string) []statement {
 		// clickhouse-client sends the statement with its semicolon. Tests
 		// that read `system.query_log` see it.
 		sql := strings.TrimRight(text[begin:sqlEnd], " \t\r\n")
-		if sqlEnd < len(text) && text[sqlEnd] == ';' {
+		switch {
+		case inlineData:
+			// Trailing spaces and tabs of inline data are data: in TSV, a
+			// trailing tab is an empty last column. Only the line breaks
+			// before the empty line that ends the data go.
+			sql = strings.TrimRight(text[begin:sqlEnd], "\r\n")
+		case sqlEnd < len(text) && text[sqlEnd] == ';':
 			sql = text[begin : sqlEnd+1]
 		}
 		st := statement{
@@ -122,8 +128,9 @@ func testTagsLength(text string) int {
 }
 
 // scanStatementEnd returns the offset of the `;` that ends the statement at
-// start, or len(text).
-func scanStatementEnd(text string, start int) int {
+// start, or len(text). inlineData is true for an INSERT whose inline data
+// ends the statement (at an empty line, or at the end of the text).
+func scanStatementEnd(text string, start int) (end int, inlineData bool) {
 	parens := 0
 	for i := start; i < len(text); {
 		c := text[i]
@@ -149,7 +156,7 @@ func scanStatementEnd(text string, start int) int {
 			parens--
 			i++
 		case c == ';' && parens <= 0:
-			return i
+			return i, false
 		case isWordByte(c):
 			j := i
 			for j < len(text) && isWordByte(text[j]) {
@@ -159,9 +166,9 @@ func scanStatementEnd(text string, start int) int {
 				if dataStart, ok := insertDataStart(text, start, j); ok {
 					// The inline data ends at an empty line.
 					if k := strings.Index(text[dataStart:], "\n\n"); k >= 0 {
-						return dataStart + k
+						return dataStart + k, true
 					}
-					return len(text)
+					return len(text), true
 				}
 			}
 			i = j
@@ -169,7 +176,7 @@ func scanStatementEnd(text string, start int) int {
 			i++
 		}
 	}
-	return len(text)
+	return len(text), false
 }
 
 // insertDataStart reports whether the `FORMAT` keyword that ends at

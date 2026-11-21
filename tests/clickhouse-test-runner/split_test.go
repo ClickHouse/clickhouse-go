@@ -118,6 +118,16 @@ func TestSplitStatements(t *testing.T) {
 			"INSERT INTO t (a) SETTINGS async_insert = 0 FORMAT CSV\n1\n\nSELECT 1;",
 			[]string{"INSERT INTO t (a) SETTINGS async_insert = 0 FORMAT CSV\n1", "SELECT 1;"},
 		},
+		{
+			"insert data keeps a trailing tab",
+			"INSERT INTO t FORMAT TSV\n1\t\n\nSELECT 1;",
+			[]string{"INSERT INTO t FORMAT TSV\n1\t", "SELECT 1;"},
+		},
+		{
+			"insert data at the end of the text keeps a trailing space",
+			"INSERT INTO t FORMAT CSV\n1,a \n",
+			[]string{"INSERT INTO t FORMAT CSV\n1,a "},
+		},
 		{"double semicolon", "SELECT 1;;\nSELECT 2", []string{"SELECT 1;", "SELECT 2"}},
 	}
 	for _, tt := range tests {

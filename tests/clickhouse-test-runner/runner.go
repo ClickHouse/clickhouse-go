@@ -573,7 +573,8 @@ func unquoteIdentifier(s string) (string, bool) {
 // statement assigns, with their values (string values without quotes).
 func parseSetAssignments(sql string) map[string]string {
 	i := skipWhitespaceAndComments(sql, 0) + len("SET")
-	body := strings.TrimSuffix(strings.TrimSpace(sql[i:]), ";")
+	// Comments are not part of a name or a value: `SET /* c */ x = 1`.
+	body := strings.TrimSuffix(strings.TrimSpace(withoutComments(sql[i:])), ";")
 	out := map[string]string{}
 	depth, start := 0, 0
 	add := func(part string) {
@@ -604,4 +605,34 @@ func parseSetAssignments(sql string) map[string]string {
 	}
 	add(body[start:])
 	return out
+}
+
+// withoutComments replaces each comment of sql (outside quotes and
+// heredocs) with a space.
+func withoutComments(sql string) string {
+	var sb strings.Builder
+	for i := 0; i < len(sql); {
+		c := sql[i]
+		switch {
+		case c == '\'' || c == '"' || c == '`':
+			j := skipQuoted(sql, i)
+			sb.WriteString(sql[i:j])
+			i = j
+		case c == '$' && heredocEnd(sql, i) > 0:
+			j := heredocEnd(sql, i)
+			sb.WriteString(sql[i:j])
+			i = j
+		case strings.HasPrefix(sql[i:], "--"),
+			strings.HasPrefix(sql[i:], "#!"), strings.HasPrefix(sql[i:], "# "):
+			i = skipLineComment(sql, i)
+			sb.WriteByte(' ')
+		case strings.HasPrefix(sql[i:], "/*"):
+			i = skipBlockComment(sql, i)
+			sb.WriteByte(' ')
+		default:
+			sb.WriteByte(c)
+			i++
+		}
+	}
+	return sb.String()
 }

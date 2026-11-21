@@ -118,6 +118,14 @@ func TestParseUseDatabase(t *testing.T) {
 	assert.False(t, ok)
 }
 
+func TestParseSetAssignmentsWithComments(t *testing.T) {
+	assert.Equal(t, map[string]string{"max_threads": "3", "dialect": "kusto"},
+		parseSetAssignments("SET /* c */ max_threads /* d */ = 3 -- note\n, dialect = 'kusto' # x\n;"))
+	// A comment marker inside a quoted value is not a comment.
+	assert.Equal(t, map[string]string{"log_comment": "a -- b"},
+		parseSetAssignments("SET log_comment = 'a -- b';"))
+}
+
 func TestParseSetAssignments(t *testing.T) {
 	assert.Equal(t, map[string]string{"dialect": "kusto", "max_threads": "1", "x": "(1, 2)"},
 		parseSetAssignments("SET dialect = 'kusto', max_threads=1, x = (1, 2);"))

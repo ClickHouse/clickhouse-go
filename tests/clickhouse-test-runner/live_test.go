@@ -18,8 +18,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// liveEnv enables the tests that need a ClickHouse server on localhost
-// (native port 9000, HTTP port 8123), such as `make up` starts.
+// liveEnv enables the tests that need a ClickHouse server on localhost,
+// such as `make up` starts. The ports are CLICKHOUSE_PORT_TCP (default 9000)
+// and CLICKHOUSE_PORT_HTTP (default 8123), as for the upstream runner.
 const liveEnv = "CLICKHOUSE_TEST_RUNNER_LIVE"
 
 func requireLive(t *testing.T) {
@@ -33,7 +34,7 @@ func requireLive(t *testing.T) {
 func serverTSV(t *testing.T, query string) string {
 	t.Helper()
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost,
-		"http://localhost:8123/?"+url.Values{"default_format": {"TabSeparated"}}.Encode(), strings.NewReader(query))
+		"http://localhost:"+strconv.Itoa(envInt("CLICKHOUSE_PORT_HTTP", 8123))+"/?"+url.Values{"default_format": {"TabSeparated"}}.Encode(), strings.NewReader(query))
 	require.NoError(t, err)
 	res, err := http.DefaultClient.Do(req)
 	require.NoError(t, err)
@@ -48,8 +49,14 @@ func runShim(t *testing.T, protocol, query string) (stdout, stderr string, code 
 	t.Helper()
 	t.Setenv(protocolEnv, protocol)
 	var out, errOut bytes.Buffer
-	code = run([]string{"--query", query}, strings.NewReader(""), &out, &errOut)
+	code = run(append(livePortArgs(), "--query", query), strings.NewReader(""), &out, &errOut)
 	return out.String(), errOut.String(), code
+}
+
+// livePortArgs gives the shim the native port of the live server. Over
+// HTTP, the shim maps that port to CLICKHOUSE_PORT_HTTP.
+func livePortArgs() []string {
+	return []string{"--port", strconv.Itoa(envInt("CLICKHOUSE_PORT_TCP", 9000))}
 }
 
 // TestLiveRenderMatchesServer checks the TabSeparated renderer: for each
@@ -190,6 +197,37 @@ func TestLiveImplicitSelectMutation(t *testing.T) {
 			got, stderr, code := runShim(t, protocol, script)
 			require.Equal(t, 0, code, stderr)
 			assert.Equal(t, "axc\n2\n5\n", got)
+		})
+	}
+}
+
+// TestLiveInsertDataTrailingTab checks that the trailing tab of a TSV row
+// (an empty last column) reaches the server.
+func TestLiveInsertDataTrailingTab(t *testing.T) {
+	requireLive(t)
+	script := "CREATE TEMPORARY TABLE t (a UInt8, b String);\nINSERT INTO t FORMAT TSV\n1\t\n\nSELECT a, length(b) FROM t;\n"
+	for _, protocol := range []string{"native", "http"} {
+		t.Run(protocol, func(t *testing.T) {
+			got, stderr, code := runShim(t, protocol, script)
+			require.Equal(t, 0, code, stderr)
+			assert.Equal(t, "1\t0\n", got)
+		})
+	}
+}
+
+// TestLiveSetWithCommentReplacesCommandLineSetting: a SET of a
+// command-line setting, with a comment in it, replaces the command-line
+// value.
+func TestLiveSetWithCommentReplacesCommandLineSetting(t *testing.T) {
+	requireLive(t)
+	for _, protocol := range []string{"native", "http"} {
+		t.Run(protocol, func(t *testing.T) {
+			t.Setenv(protocolEnv, protocol)
+			var out, errOut bytes.Buffer
+			code := run(append(livePortArgs(), "--max_threads=5", "--query",
+				"SET /* c */ max_threads = 3; SELECT getSetting('max_threads');"), strings.NewReader(""), &out, &errOut)
+			require.Equal(t, 0, code, errOut.String())
+			assert.Equal(t, "3\n", out.String())
 		})
 	}
 }
