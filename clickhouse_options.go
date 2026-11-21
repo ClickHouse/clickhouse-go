@@ -239,24 +239,29 @@ func (o *Options) fromDSN(in string) error {
 		case "debug":
 			o.Debug, _ = strconv.ParseBool(params.Get(v))
 		case "compress":
-			if on, _ := strconv.ParseBool(params.Get(v)); on {
-				if o.Compression == nil {
-					o.Compression = &Compression{}
-				}
+			value := params.Get(v)
+			if on, err := strconv.ParseBool(value); err == nil || value == "" {
+				if on {
+					if o.Compression == nil {
+						o.Compression = &Compression{}
+					}
 
-				o.Compression.Method = CompressionLZ4
+					o.Compression.Method = CompressionLZ4
+				}
 				continue
 			}
-			if compressMethod, ok := compressionMap[params.Get(v)]; ok {
-				if o.Compression == nil {
-					o.Compression = &Compression{
-						// default for now same as Clickhouse - https://clickhouse.com/docs/en/operations/settings/settings#settings-http_zlib_compression_level
-						Level: 3,
-					}
-				}
-
-				o.Compression.Method = compressMethod
+			compressMethod, ok := compressionMap[strings.ToLower(value)]
+			if !ok {
+				return fmt.Errorf("clickhouse [dsn parse]: compress: unknown method %q, valid values are none, lz4, lz4hc, zstd, gzip, deflate, br, true and false", value)
 			}
+			if o.Compression == nil {
+				o.Compression = &Compression{
+					// default for now same as Clickhouse - https://clickhouse.com/docs/en/operations/settings/settings#settings-http_zlib_compression_level
+					Level: 3,
+				}
+			}
+
+			o.Compression.Method = compressMethod
 		case "compress_level":
 			level, err := strconv.ParseInt(params.Get(v), 10, 8)
 			if err != nil {
@@ -333,6 +338,9 @@ func (o *Options) fromDSN(in string) error {
 				o.ConnOpenStrategy = ConnOpenRoundRobin
 			case "random":
 				o.ConnOpenStrategy = ConnOpenRandom
+			case "":
+			default:
+				return fmt.Errorf("clickhouse [dsn parse]: connection_open_strategy: unknown strategy %q, valid values are in_order, round_robin and random", params.Get(v))
 			}
 		case "max_open_conns":
 			maxOpenConns, err := strconv.Atoi(params.Get(v))
