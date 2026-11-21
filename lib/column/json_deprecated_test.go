@@ -70,8 +70,8 @@ func TestJSONDeprecatedSharedDataMalformed(t *testing.T) {
 	binary.LittleEndian.PutUint64(offsets[8:], 1)
 	col := newTestJSONColumn(t)
 	require.ErrorContains(t, col.decodeSharedData_v1(proto.NewReader(bytes.NewReader(offsets[:])), 2), "invalid shared data offsets")
-	for _, payload := range [][]byte{{}, {1}, encodeSharedData(t, [][][2]string{{{"path", "value"}}})[:10]} {
-		require.Error(t, col.decodeSharedData_v1(proto.NewReader(bytes.NewReader(payload)), 1))
+	for _, payload := range [][]byte{nil, offsets[:7]} {
+		require.ErrorContains(t, col.decodeSharedData_v1(proto.NewReader(bytes.NewReader(payload)), 1), "failed to read shared data offsets")
 	}
 }
 

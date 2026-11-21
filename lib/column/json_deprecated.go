@@ -148,5 +148,5 @@ func (c *JSON) decodeSharedData_v1(reader *proto.Reader, rows int) error {
 }
 
 func unsupportedSharedDataError(storage string) error {
-	return fmt.Errorf("cannot decode %s: on ClickHouse 25.6 or later, enable output_format_native_use_flattened_dynamic_and_json_serialization=1; for readonly=1, an administrator must set it to 1 in the settings profile or mark it changeable_in_readonly; on earlier servers, upgrade to ClickHouse 25.6 or later, or read JSON as a string with output_format_native_write_json_as_string=1, or cast Dynamic values to a concrete type in the query", storage)
+	return fmt.Errorf("cannot decode %s: on ClickHouse 25.6 or later, enable output_format_native_use_flattened_dynamic_and_json_serialization=1; for readonly=1, an administrator must set it to 1 in the settings profile or mark it changeable_in_readonly; on earlier servers, use CAST(json_column AS String) for JSON or cast Dynamic values to a concrete type in the query", storage)
 }
