@@ -485,6 +485,31 @@ func TestBindNamedUnbound(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestBindNamedDollar(t *testing.T) {
+	for _, name := range []string{"id$x", "$x", "id$", "a$$b", "id$1"} {
+		t.Run(name, func(t *testing.T) {
+			got, err := bind(time.UTC, "SELECT @"+name+", @id", Named("id", 7), Named(name, 42))
+			require.NoError(t, err)
+			require.Equal(t, "SELECT 42, 7", got)
+
+			_, err = bind(time.UTC, "SELECT @"+name, Named("id", 7))
+			require.ErrorContains(t, err, "@"+name)
+		})
+	}
+	t.Run("quoted_and_commented", func(t *testing.T) {
+		query := "SELECT '@id$x', \"@id$x\", `@id$x`, @id$x /* @id$x */ -- @id$x\n"
+		got, err := bind(time.UTC, query, Named("id$x", 42))
+		require.NoError(t, err)
+		require.Equal(t, "SELECT '@id$x', \"@id$x\", `@id$x`, 42 /* @id$x */ -- @id$x\n", got)
+	})
+	t.Run("date_named", func(t *testing.T) {
+		value := time.Date(2026, 1, 2, 3, 4, 5, 123000000, time.UTC)
+		got, err := bind(time.UTC, "SELECT @date$value", DateNamed("date$value", value, MilliSeconds))
+		require.NoError(t, err)
+		require.Equal(t, "SELECT toDateTime64('2026-01-02 03:04:05.123', 3)", got)
+	})
+}
+
 func TestFormatTime(t *testing.T) {
 	var (
 		t1, _   = time.Parse("2006-01-02 15:04:05", "2022-01-12 15:00:00")
