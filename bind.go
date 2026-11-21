@@ -449,21 +449,20 @@ func formatTime(tz *time.Location, scale TimeUnit, value time.Time) (string, err
 
 	switch locVal {
 	case "Local", "":
-		// It's required to pass timestamp as string due to decimal overflow for higher precision,
-		// but zero-value string "toDateTime('0')" will be not parsed by ClickHouse.
-		if value.Unix() == 0 {
-			return "toDateTime(0)", nil
-		}
-
+		// Local and unnamed FixedZones have no zone name to send, so bind the
+		// instant as an unquoted Unix integer. The result keeps the server or
+		// session timezone. A quoted number such as toDateTime64('1000', 3) is
+		// ambiguous: the server can read it as a date, a year, or seconds, so
+		// sub-second values near the epoch lost their precision.
 		switch scale {
 		case Seconds:
-			return fmt.Sprintf("toDateTime('%d')", value.Unix()), nil
+			return fmt.Sprintf("toDateTime(%d)", value.Unix()), nil
 		case MilliSeconds:
-			return fmt.Sprintf("toDateTime64('%d', 3)", value.UnixMilli()), nil
+			return fmt.Sprintf("fromUnixTimestamp64Milli(%d)", value.UnixMilli()), nil
 		case MicroSeconds:
-			return fmt.Sprintf("toDateTime64('%d', 6)", value.UnixMicro()), nil
+			return fmt.Sprintf("fromUnixTimestamp64Micro(%d)", value.UnixMicro()), nil
 		case NanoSeconds:
-			return fmt.Sprintf("toDateTime64('%d', 9)", value.UnixNano()), nil
+			return fmt.Sprintf("fromUnixTimestamp64Nano(%d)", value.UnixNano()), nil
 		}
 	case tz.String():
 		if scale == Seconds {
