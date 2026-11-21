@@ -7,7 +7,7 @@
 #                                     of this file); it does not run
 #
 # Running: 9880 over both protocols, 129 over native only.
-# Known failures: 943 in 30 groups.
+# Known failures: 943 in 31 groups.
 
 00001_select_1
 00002_system_numbers
@@ -10338,6 +10338,20 @@
 # 05241_timeseries_mad_to_grid  # [native-pool-race-new-connection]
 # 05296_sql_compatible_division_for_integers  # [native-pool-race-new-connection]
 # 05299_sql_compatible_division_for_integers_types  # [native-pool-race-new-connection]
+
+#-----------------------------------------------------------------------------
+# [native-rows-dropped-before-error] client: Native: Rows can drop blocks that it received before an exception
+#   rows.Next() reads the block channel and the error channel in one
+#   select. When the error arrives while received blocks still wait in the
+#   channel, Go can pick the error first, and those blocks are lost. No
+#   allowlisted test is known to fail because of it, but it can make a test
+#   with an expected error in a later block fail intermittently over native.
+#   Reproduction:
+#     SELECT throwIf(number = 1000) FROM numbers(2000) SETTINGS
+#     max_block_size = 10, max_threads = 1  -- the server sends 1000 rows;
+#     Rows gives 970 or 990 in some runs
+#   Issue: not filed yet
+#   Tests: 0
 
 #-----------------------------------------------------------------------------
 # [native-session-lost-on-error] client: Native: the connection closes after any error, so the session state is lost

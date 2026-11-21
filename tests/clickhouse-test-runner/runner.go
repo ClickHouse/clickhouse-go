@@ -531,7 +531,8 @@ func formatServerError(e *proto.Exception) string {
 func parseUseDatabase(sql string, params map[string]string) (string, bool) {
 	i := skipWhitespaceAndComments(sql, 0)
 	i += len("USE")
-	rest := strings.TrimSpace(sql[i:])
+	// Comments are not part of the name: `USE /* c */ db`.
+	rest := strings.TrimSpace(withoutComments(sql[i:]))
 	rest = strings.TrimSpace(strings.TrimSuffix(rest, ";"))
 	if word, after, ok := strings.Cut(rest, " "); ok && strings.EqualFold(word, "DATABASE") {
 		rest = strings.TrimSpace(after)

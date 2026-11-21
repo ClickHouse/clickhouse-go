@@ -232,6 +232,41 @@ func TestLiveSetWithCommentReplacesCommandLineSetting(t *testing.T) {
 	}
 }
 
+// TestLiveRowsBeforeStreamError checks, over both protocols, that the rows
+// received before an exception in a later block are written. The server
+// decides how many blocks it sends first, and over native clickhouse-go can
+// drop some of them ([native-rows-dropped-before-error]), so the test needs
+// only some rows, all of them the values of the query, and then the next
+// statement. writerows_test.go checks the exact output with a fake Rows.
+func TestLiveRowsBeforeStreamError(t *testing.T) {
+	requireLive(t)
+	script := "SELECT throwIf(number = 1000) FROM numbers(2000) SETTINGS max_block_size = 10, max_threads = 1; -- { serverError FUNCTION_THROW_IF_VALUE_IS_NON_ZERO }\nSELECT 'after';"
+	for _, protocol := range []string{"native", "http"} {
+		t.Run(protocol, func(t *testing.T) {
+			got, stderr, code := runShim(t, protocol, script)
+			require.Equal(t, 0, code, stderr)
+			lines := strings.Split(strings.TrimSuffix(got, "\n"), "\n")
+			require.Greater(t, len(lines), 1, "no rows before the error: %q", got)
+			assert.Equal(t, "after", lines[len(lines)-1])
+			for _, l := range lines[:len(lines)-1] {
+				require.Equal(t, "0", l)
+			}
+		})
+	}
+}
+
+// TestLiveUseWithComment: a USE statement with a comment in it.
+func TestLiveUseWithComment(t *testing.T) {
+	requireLive(t)
+	for _, protocol := range []string{"native", "http"} {
+		t.Run(protocol, func(t *testing.T) {
+			got, stderr, code := runShim(t, protocol, "USE /* c */ system; SELECT currentDatabase();")
+			require.Equal(t, 0, code, stderr)
+			assert.Equal(t, "system\n", got)
+		})
+	}
+}
+
 func TestLiveSessionState(t *testing.T) {
 	requireLive(t)
 	script := strings.Join([]string{

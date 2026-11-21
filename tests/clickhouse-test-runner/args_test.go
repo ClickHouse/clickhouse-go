@@ -109,6 +109,8 @@ func TestParseUseDatabase(t *testing.T) {
 		"-- c\nUSE DATABASE db2":                "db2",
 		"USE {CLICKHOUSE_DATABASE:Identifier};": "test_x",
 		"USE \"db3\"":                           "db3",
+		"USE /* c */ db4 -- d\n;":               "db4",
+		"USE DATABASE /* c */ `db 5`;":          "db 5",
 	} {
 		got, ok := parseUseDatabase(in, params)
 		assert.True(t, ok, in)
