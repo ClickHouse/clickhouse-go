@@ -86,6 +86,48 @@ func TestTupleParseElementNames(t *testing.T) {
 			isNamed: true,
 		},
 		{
+			// a newline or tab may separate a name from its type
+			chType:  "Tuple(`a b`\nDecimal(10, 2), `c`\tInt64, d\tString, e\n    UInt8)",
+			names:   []string{"a b", "c", "d", "e"},
+			types:   []string{"Decimal(10, 2)", "Int64", "String", "UInt8"},
+			isNamed: true,
+		},
+		{
+			// the type may follow the closing quote directly
+			chType:  "Tuple(`a b`Int64, \"c d\"String)",
+			names:   []string{"a b", "c d"},
+			types:   []string{"Int64", "String"},
+			isNamed: true,
+		},
+		{
+			// double-quoted names: plain, with an escaped quote, with a comma and parentheses
+			chType:  `Tuple("a b" Int64, "c\"d" String, "e, (f)" Int8)`,
+			names:   []string{"a b", `c"d`, "e, (f)"},
+			types:   []string{"Int64", "String", "Int8"},
+			isNamed: true,
+		},
+		{
+			// escaped backslashes, on the wire `a\\`, `b\\\`` and "c\\": the names a\, b\` and c\
+			chType:  "Tuple(`a\\\\` Int64, `b\\\\\\`` String, \"c\\\\\" UInt8)",
+			names:   []string{`a\`, "b\\`", `c\`},
+			types:   []string{"Int64", "String", "UInt8"},
+			isNamed: true,
+		},
+		{
+			// the other quote inside a quoted name is plain text
+			chType:  "Tuple(`a\"b` Int8, \"c`d\" String)",
+			names:   []string{`a"b`, "c`d"},
+			types:   []string{"Int8", "String"},
+			isNamed: true,
+		},
+		{
+			// the server writes control characters in a name as \t, \n, \r, \0, \b and \f
+			chType:  "Tuple(`a\\tb` Int64, `c\\nd` String, `e\\rf\\0g\\bh\\fi` UInt8)",
+			names:   []string{"a\tb", "c\nd", "e\rf\x00g\bh\fi"},
+			types:   []string{"Int64", "String", "UInt8"},
+			isNamed: true,
+		},
+		{
 			chType:  "Tuple(String, Decimal(9, 2))",
 			names:   []string{"", ""},
 			types:   []string{"String", "Decimal(9, 2)"},

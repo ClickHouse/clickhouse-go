@@ -43,33 +43,10 @@ func (col *Tuple) parse(t Type, sc *ServerContext) (_ Interface, err error) {
 		elements      []namedCol
 		appendElement = func(element string) {
 			if len(element) != 0 {
-				cType := strings.TrimSpace(element)
-				name := ""
-				// a backquoted name may contain spaces, so look for the separator after its closing backtick
-				nameEnd := 0
-				if strings.HasPrefix(cType, "`") {
-					for i := 1; i < len(cType); i++ {
-						if cType[i] == '\\' {
-							i++
-						} else if cType[i] == '`' {
-							nameEnd = i + 1
-							break
-						}
-					}
-				}
-				if sep := strings.Index(cType[nameEnd:], " "); sep >= 0 {
-					sep += nameEnd
-					// a backquoted name may contain parentheses, an unquoted word that does is the start of a type
-					if nameEnd > 0 || !strings.Contains(cType[:sep], "(") {
-						// the server backquotes names that are not plain identifiers, since 26.5 also
-						// reserved words such as `values` and `from` (ClickHouse/ClickHouse#102338)
-						name = unescapeColName(cType[:sep])
-						cType = cType[sep+1:]
-					}
-				}
+				name, colType := splitTupleElement(element)
 				elements = append(elements, namedCol{
 					name:    name,
-					colType: Type(strings.TrimSpace(cType)),
+					colType: Type(colType),
 				})
 			}
 		}
@@ -242,6 +219,38 @@ func unescapeColName(colName string) string {
 		return colUnEscape.Replace(string(s[1 : len(s)-1]))
 	}
 	return colUnEscape.Replace(colName)
+}
+
+// tupleNameUnescape undoes the escapes the server writes in a quoted name: a backslash before the quote or before a
+// backslash, and \b \f \n \r \t \0 for those control characters
+var tupleNameUnescape = strings.NewReplacer(`\\`, `\`, "\\`", "`", `\"`, `"`,
+	`\b`, "\b", `\f`, "\f", `\n`, "\n", `\r`, "\r", `\t`, "\t", `\0`, "\x00")
+
+// splitTupleElement splits one Tuple element into its name and type. A name in backticks or double quotes is the
+// text between the quotes, unescaped, so it may contain spaces, commas and parentheses; the server backquotes names
+// that are not plain identifiers and, since 26.5, reserved words such as `values` and `from`
+// (ClickHouse/ClickHouse#102338), and double quotes are read the same way. An element that is only a quoted name
+// stays a type, and a quote that never closes is read as part of an unquoted name. An unquoted name ends at the
+// first whitespace, unless that first word holds a parenthesis, as in Decimal(9, 2): then the element is a type
+// without a name.
+func splitTupleElement(element string) (name, colType string) {
+	element = strings.TrimSpace(element)
+	if element != "" && (element[0] == '`' || element[0] == '"') {
+		for i := 1; i < len(element); i++ {
+			if element[i] == '\\' {
+				i++
+			} else if element[i] == element[0] {
+				if colType = strings.TrimSpace(element[i+1:]); colType == "" {
+					return "", element
+				}
+				return tupleNameUnescape.Replace(element[1:i]), colType
+			}
+		}
+	}
+	if i := strings.IndexAny(element, " \t\n\r\f\v"); i > 0 && !strings.Contains(element[:i], "(") {
+		return element[:i], strings.TrimSpace(element[i:])
+	}
+	return "", element
 }
 
 func (col *Tuple) scanMap(targetMap reflect.Value, row int) error {
