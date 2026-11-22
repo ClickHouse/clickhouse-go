@@ -1,6 +1,7 @@
 package column
 
 import (
+	"database/sql/driver"
 	"errors"
 	"fmt"
 	"math"
@@ -139,6 +140,18 @@ func (col *LowCardinality) AppendRow(v any) error {
 	if v == nil || (reflect.ValueOf(v).Kind() == reflect.Ptr && reflect.ValueOf(v).IsNil()) {
 		col.append.keys = append(col.append.keys, 0)
 		return nil
+	}
+	// A driver.Valuer such as sql.NullString{} is NULL when Value returns nil.
+	// The null map of the inner Nullable column is off, so NULL must use key 0.
+	if valuer, ok := v.(driver.Valuer); ok && col.nullable {
+		value, err := valuer.Value()
+		if err != nil {
+			return err
+		}
+		if value == nil {
+			col.append.keys = append(col.append.keys, 0)
+			return nil
+		}
 	}
 	switch x := v.(type) {
 	case time.Time:
