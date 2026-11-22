@@ -156,14 +156,24 @@ func (col *LowCardinality) AppendRow(v any) error {
 	switch x := v.(type) {
 	case time.Time:
 		v = x.Truncate(time.Second)
+	case *time.Time:
+		v = x.Truncate(time.Second)
 	}
-	if _, found := col.append.index[v]; !found {
+	// Use the value that a pointer points to as the key, not the pointer address.
+	// A caller can reuse one pointer for rows with different values.
+	key := v
+	if rv := reflect.ValueOf(v); rv.Kind() == reflect.Pointer && rv.Elem().Comparable() {
+		key = rv.Elem().Interface()
+	}
+	idx, found := col.append.index[key]
+	if !found {
 		if err := col.index.AppendRow(v); err != nil {
 			return err
 		}
-		col.append.index[v] = col.index.Rows() - 1
+		idx = col.index.Rows() - 1
+		col.append.index[key] = idx
 	}
-	col.append.keys = append(col.append.keys, col.append.index[v])
+	col.append.keys = append(col.append.keys, idx)
 	return nil
 }
 

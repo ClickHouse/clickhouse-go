@@ -6,6 +6,7 @@ import (
 	"database/sql/driver"
 	"errors"
 	"testing"
+	"time"
 
 	chproto "github.com/ClickHouse/ch-go/proto"
 	"github.com/stretchr/testify/assert"
@@ -103,4 +104,80 @@ func TestLowCardinalityAppendRowValuerError(t *testing.T) {
 		require.NoError(t, err)
 		assert.Error(t, col.AppendRow(errorValuer{}), chType)
 	}
+}
+
+// TestLowCardinalityAppendRowReusedPointer verifies that AppendRow uses the value that
+// a pointer points to as the dictionary key, not the pointer address. A caller can
+// reuse one pointer for rows with different values.
+func TestLowCardinalityAppendRowReusedPointer(t *testing.T) {
+	for _, chType := range []Type{"LowCardinality(String)", "LowCardinality(Nullable(String))"} {
+		t.Run(string(chType), func(t *testing.T) {
+			col, err := chType.Column("test", nil)
+			require.NoError(t, err)
+			var v string
+			for _, name := range []string{"apple", "banana", "apple", "cherry"} {
+				v = name
+				require.NoError(t, col.AppendRow(&v))
+			}
+			// A value and a pointer to the same value use one dictionary entry.
+			require.NoError(t, col.AppendRow("banana"))
+			assert.Len(t, col.(*LowCardinality).append.index, 3)
+
+			decoded := encodeDecodeColumn(t, col)
+			for i, expected := range []string{"apple", "banana", "apple", "cherry", "banana"} {
+				assert.Equal(t, expected, rowValue(decoded, i), "%s: row %d", chType, i)
+			}
+		})
+	}
+
+	t.Run("*sql.NullString", func(t *testing.T) {
+		col, err := Type("LowCardinality(Nullable(String))").Column("test", nil)
+		require.NoError(t, err)
+		var v sql.NullString
+		for _, value := range []sql.NullString{{String: "a", Valid: true}, {}, {String: "b", Valid: true}} {
+			v = value
+			require.NoError(t, col.AppendRow(&v))
+		}
+
+		decoded := encodeDecodeColumn(t, col)
+		for i, expected := range []any{"a", nil, "b"} {
+			assert.Equal(t, expected, rowValue(decoded, i), "row %d", i)
+		}
+	})
+
+	t.Run("*time.Time", func(t *testing.T) {
+		col, err := Type("LowCardinality(DateTime('UTC'))").Column("test", &ServerContext{})
+		require.NoError(t, err)
+		start := time.Date(2026, 11, 22, 10, 0, 0, 0, time.UTC)
+		offsets := []time.Duration{0, time.Second, 500 * time.Millisecond, 2 * time.Second}
+		var v time.Time
+		for _, offset := range offsets {
+			v = start.Add(offset)
+			require.NoError(t, col.AppendRow(&v))
+		}
+		// The truncation to seconds also applies to a pointer, so the values at
+		// 0s and at 0.5s use one dictionary entry.
+		assert.Len(t, col.(*LowCardinality).append.index, 3)
+
+		decoded := encodeDecodeColumn(t, col)
+		for i, offset := range offsets {
+			expected := start.Add(offset).Truncate(time.Second)
+			assert.Equal(t, expected.Unix(), decoded.Row(i, false).(time.Time).Unix(), "row %d", i)
+		}
+	})
+
+	t.Run("*[]byte", func(t *testing.T) {
+		// A slice is not comparable, so the pointer address stays the key.
+		col, err := Type("LowCardinality(String)").Column("test", nil)
+		require.NoError(t, err)
+		a, b := []byte("a"), []byte("b")
+		for _, v := range []*[]byte{&a, &b, &a} {
+			require.NoError(t, col.AppendRow(v))
+		}
+
+		decoded := encodeDecodeColumn(t, col)
+		for i, expected := range []string{"a", "b", "a"} {
+			assert.Equal(t, expected, rowValue(decoded, i), "row %d", i)
+		}
+	})
 }
