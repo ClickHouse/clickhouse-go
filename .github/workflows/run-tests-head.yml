@@ -1,6 +1,7 @@
 name: Tests head
 
-permissions: write-all
+permissions:
+  contents: read
 
 on:
   schedule:
@@ -20,10 +21,10 @@ jobs:
           - "1.26"
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.4.0
 
       - name: Install Go ${{ matrix.go }}
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v5.6.0
         with:
           go-version: ${{ matrix.go }}
 

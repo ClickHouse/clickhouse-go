@@ -1,6 +1,7 @@
 name: release
 
-permissions: write-all
+permissions:
+  contents: read
 
 on:
   workflow_dispatch:
@@ -11,19 +12,19 @@ jobs:
     steps:
       - name: Generate Token
         id: generate-token
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@v1.12.0
         with:
           app-id: ${{ secrets.WORKFLOW_AUTH_PUBLIC_APP_ID }}
           private-key: ${{ secrets.WORKFLOW_AUTH_PUBLIC_PRIVATE_KEY }}
 
-      - uses: actions/checkout@main
+      - uses: actions/checkout@v5.1.0
         with:
           ref: main
           fetch-depth: 0 # required to generate contributor list
           token: ${{ steps.generate-token.outputs.token }}
 
       - name: Install Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v5.6.0
         with:
           go-version: 1.26
 

@@ -113,7 +113,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout docs source
-        uses: actions/checkout@v5
+        uses: actions/checkout@v5.1.0
         with:
           # On a release, take the docs as of the released tag; otherwise take
           # the default checkout (post-merge default branch / dispatched ref).
@@ -128,7 +128,7 @@ jobs:
 
       - name: Generate token for target repo
         id: app-token
-        uses: actions/create-github-app-token@v3
+        uses: actions/create-github-app-token@v3.4.0
         with:
           app-id: ${{ secrets.WORKFLOW_AUTH_PUBLIC_APP_ID }}
           private-key: ${{ secrets.WORKFLOW_AUTH_PUBLIC_PRIVATE_KEY }}
