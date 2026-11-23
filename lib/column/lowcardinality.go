@@ -1,6 +1,7 @@
 package column
 
 import (
+	"database/sql/driver"
 	"errors"
 	"fmt"
 	"math"
@@ -140,17 +141,39 @@ func (col *LowCardinality) AppendRow(v any) error {
 		col.append.keys = append(col.append.keys, 0)
 		return nil
 	}
+	// A driver.Valuer such as sql.NullString{} is NULL when Value returns nil.
+	// The null map of the inner Nullable column is off, so NULL must use key 0.
+	if valuer, ok := v.(driver.Valuer); ok && col.nullable {
+		value, err := valuer.Value()
+		if err != nil {
+			return err
+		}
+		if value == nil {
+			col.append.keys = append(col.append.keys, 0)
+			return nil
+		}
+	}
 	switch x := v.(type) {
 	case time.Time:
 		v = x.Truncate(time.Second)
+	case *time.Time:
+		v = x.Truncate(time.Second)
 	}
-	if _, found := col.append.index[v]; !found {
+	// Use the value that a pointer points to as the key, not the pointer address.
+	// A caller can reuse one pointer for rows with different values.
+	key := v
+	if rv := reflect.ValueOf(v); rv.Kind() == reflect.Pointer && rv.Elem().Comparable() {
+		key = rv.Elem().Interface()
+	}
+	idx, found := col.append.index[key]
+	if !found {
 		if err := col.index.AppendRow(v); err != nil {
 			return err
 		}
-		col.append.index[v] = col.index.Rows() - 1
+		idx = col.index.Rows() - 1
+		col.append.index[key] = idx
 	}
-	col.append.keys = append(col.append.keys, col.append.index[v])
+	col.append.keys = append(col.append.keys, idx)
 	return nil
 }
 
