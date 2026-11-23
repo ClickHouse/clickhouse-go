@@ -187,6 +187,7 @@ conn.SetConnMaxLifetime(time.Hour)
 * http_proxy - HTTP proxy address
 * http_path - URL path for HTTP requests (e.g. for proxies or custom endpoints that require a specific path)
 * tls_server_name - set TLS SNI/verification name (sets `tls.Config.ServerName` when `secure=true`)
+* resolve_srv - treat each address as a DNS SRV name and resolve it at dial time on every new connection (boolean value; empty means `true`). Any `:port` in an address is stripped before the lookup. An address that starts with `_` is looked up verbatim; any other address is looked up as `_<service>._tcp.<host>` where `<service>` is `clickhouse` (native), `clickhouse-http` (HTTP), or `clickhouse-https` (HTTP with TLS). Results are sorted by priority ascending then weight descending, and concatenated across addresses in order. Nothing is cached.
 
 ## Connection Settings Reference
 

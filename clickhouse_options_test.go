@@ -639,6 +639,53 @@ func TestParseDSN(t *testing.T) {
 			"",
 		},
 		{
+			"resolve_srv enabled explicitly",
+			"clickhouse://_clickhouse._tcp.example.com/test_database?resolve_srv=true",
+			&Options{
+				Protocol:   Native,
+				TLS:        nil,
+				Addr:       []string{"_clickhouse._tcp.example.com"},
+				Settings:   Settings{},
+				Auth:       Auth{Database: "test_database"},
+				ResolveSRV: true,
+				scheme:     "clickhouse",
+			},
+			"",
+		},
+		{
+			"resolve_srv legacy (empty value)",
+			"clickhouse://_clickhouse._tcp.example.com/test_database?resolve_srv",
+			&Options{
+				Protocol:   Native,
+				TLS:        nil,
+				Addr:       []string{"_clickhouse._tcp.example.com"},
+				Settings:   Settings{},
+				Auth:       Auth{Database: "test_database"},
+				ResolveSRV: true,
+				scheme:     "clickhouse",
+			},
+			"",
+		},
+		{
+			"resolve_srv disabled",
+			"clickhouse://127.0.0.1/test_database?resolve_srv=false",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"127.0.0.1"},
+				Settings: Settings{},
+				Auth:     Auth{Database: "test_database"},
+				scheme:   "clickhouse",
+			},
+			"",
+		},
+		{
+			"resolve_srv invalid",
+			"clickhouse://127.0.0.1/test_database?resolve_srv=ture",
+			nil,
+			"clickhouse [dsn parse]:resolve_srv: strconv.ParseBool: parsing \"ture\": invalid syntax",
+		},
+		{
 			"multiple hosts in HA mode",
 			"clickhouse://127.0.0.1:9440,127.0.0.2:9440/test_database",
 			&Options{
