@@ -1,6 +1,7 @@
 package column
 
 import (
+	"encoding/json"
 	"testing"
 
 	chproto "github.com/ClickHouse/ch-go/proto"
@@ -21,6 +22,30 @@ func TestLowCardinalityAppendAnySlice(t *testing.T) {
 	}
 
 	assert.Equal(t, 10, lc.Rows())
+}
+
+func TestLowCardinalityAppendByteSliceValues(t *testing.T) {
+	col, err := Type("LowCardinality(String)").Column("test", nil)
+	require.NoError(t, err)
+
+	lc, ok := col.(*LowCardinality)
+	require.True(t, ok)
+
+	bytes := []byte("value")
+	rawMessage := json.RawMessage("value")
+	for _, value := range []any{
+		[]byte("value"),
+		"value",
+		json.RawMessage("value"),
+		&bytes,
+		&rawMessage,
+	} {
+		require.NoError(t, lc.AppendRow(value))
+	}
+
+	assert.Equal(t, 5, lc.Rows())
+	assert.Equal(t, []int{1, 1, 1, 1, 1}, lc.append.keys)
+	assert.Len(t, lc.append.index, 1)
 }
 
 func TestLowCardinalityAppendAnySliceManyRows(t *testing.T) {
