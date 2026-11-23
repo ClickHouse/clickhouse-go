@@ -72,42 +72,6 @@ func (col *Map) parse(t Type, sc *ServerContext) (_ Interface, err error) {
 	return col, nil
 }
 
-func indexTopLevelComma(s string) int {
-	var (
-		depth   int
-		quote   byte
-		escaped bool
-	)
-	for i := range len(s) {
-		if escaped {
-			escaped = false
-			continue
-		}
-		if quote != 0 {
-			switch s[i] {
-			case '\\':
-				escaped = true
-			case quote:
-				quote = 0
-			}
-			continue
-		}
-		switch s[i] {
-		case '\'', '"', '`':
-			quote = s[i]
-		case '(':
-			depth++
-		case ')':
-			depth--
-		case ',':
-			if depth == 0 {
-				return i
-			}
-		}
-	}
-	return -1
-}
-
 func (col *Map) Type() Type {
 	return col.chType
 }

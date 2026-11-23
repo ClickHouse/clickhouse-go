@@ -17,26 +17,33 @@ func TestColVariant_parse(t *testing.T) {
 		{typ: "Variant(Array(String), Int64, String)", expectedTypes: []Type{"Array(String)", "Int64", "String"}},
 		{typ: "Variant(Array(Map(String, String)), Map(String, Int64))", expectedTypes: []Type{"Array(Map(String, String))", "Map(String, Int64)"}},
 		{typ: "Variant(Array(Map(String, Tuple(a String, b Int64))), Map(String, Int64))", expectedTypes: []Type{"Array(Map(String, Tuple(a String, b Int64)))", "Map(String, Int64)"}},
+		// Issue #2073: quoted delimiters must not hide or split Variant members.
+		{typ: "Variant(Tuple(`z)` Int8), String)", expectedTypes: []Type{"Tuple(`z)` Int8)", "String"}},
+		{typ: "Variant(Tuple(\"x(y\" Int8), String)", expectedTypes: []Type{"Tuple(\"x(y\" Int8)", "String"}},
+		{typ: "Variant(Tuple(`a, b` Int8, `c\\` d` String), String)", expectedTypes: []Type{"Tuple(`a, b` Int8, `c\\` d` String)", "String"}},
+		{typ: "Variant(Enum8('x)y' = 1, 'z' = 2), String)", expectedTypes: []Type{"Enum8('x)y' = 1, 'z' = 2)", "String"}},
 	}
 
 	for i, c := range cases {
-		col, err := (&Variant{name: "vt"}).parse(c.typ, nil)
-		require.NoError(t, err, "case index %d failed to parse Variant column", i)
+		t.Run(string(c.typ), func(t *testing.T) {
+			col, err := (&Variant{name: "vt"}).parse(c.typ, nil)
+			require.NoError(t, err, "case index %d failed to parse Variant column", i)
 
-		require.Equal(t, "vt", col.Name())
-		require.Equal(t, c.typ, col.chType)
-		require.Equal(t, len(c.expectedTypes), len(col.columns))
-		require.Equal(t, len(c.expectedTypes), len(col.columnTypeIndex))
+			require.Equal(t, "vt", col.Name())
+			require.Equal(t, c.typ, col.chType)
+			require.Equal(t, len(c.expectedTypes), len(col.columns))
+			require.Equal(t, len(c.expectedTypes), len(col.columnTypeIndex))
 
-		for j, subCol := range col.columns {
-			expectedType := c.expectedTypes[j]
-			actualType := subCol.Type()
-			assert.Equal(t, expectedType, actualType, "case index %d Variant type index %d column type does not match", i, j)
+			for j, subCol := range col.columns {
+				expectedType := c.expectedTypes[j]
+				actualType := subCol.Type()
+				assert.Equal(t, expectedType, actualType, "case index %d Variant type index %d column type does not match", i, j)
 
-			expectedColumnTypeIndex := uint8(j)
-			actualColumnTypeIndex := col.columnTypeIndex[string(actualType)]
-			assert.Equal(t, expectedColumnTypeIndex, actualColumnTypeIndex, "case index %d Variant type index %d columnTypeIndex does not match", i, j)
-		}
+				expectedColumnTypeIndex := uint8(j)
+				actualColumnTypeIndex := col.columnTypeIndex[string(actualType)]
+				assert.Equal(t, expectedColumnTypeIndex, actualColumnTypeIndex, "case index %d Variant type index %d columnTypeIndex does not match", i, j)
+			}
+		})
 	}
 }
 

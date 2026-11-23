@@ -4,7 +4,6 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"reflect"
-	"strings"
 
 	"github.com/ClickHouse/ch-go/proto"
 
@@ -28,40 +27,24 @@ type Variant struct {
 func (c *Variant) parse(t Type, sc *ServerContext) (_ *Variant, err error) {
 	c.chType = t
 	var (
-		element       []rune
 		elements      []Type
-		brackets      int
-		appendElement = func() {
+		appendElement = func(element string) {
 			if len(element) != 0 {
-				cType := strings.TrimSpace(string(element))
-				if parts := strings.SplitN(cType, " ", 2); len(parts) == 2 {
-					if !strings.Contains(parts[0], "(") {
-						cType = parts[1]
-					}
-				}
-
-				elements = append(elements, Type(strings.TrimSpace(cType)))
+				_, cType := splitTupleElement(element)
+				elements = append(elements, Type(cType))
 			}
 		}
 	)
-
-	for _, r := range t.params() {
-		switch r {
-		case '(':
-			brackets++
-		case ')':
-			brackets--
-		case ',':
-			if brackets == 0 {
-				appendElement()
-				element = element[:0]
-				continue
-			}
+	params := t.params()
+	for {
+		i := indexTopLevelComma(params)
+		if i < 0 {
+			break
 		}
-		element = append(element, r)
+		appendElement(params[:i])
+		params = params[i+1:]
 	}
-
-	appendElement()
+	appendElement(params)
 
 	c.columnTypeIndex = make(map[string]uint8, len(elements))
 	for _, columnType := range elements {

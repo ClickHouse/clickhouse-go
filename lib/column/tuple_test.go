@@ -148,6 +148,62 @@ func TestTupleParseElementNames(t *testing.T) {
 	}
 }
 
+func TestNestedParseQuotedNamesIssue2073(t *testing.T) {
+	for _, tc := range []struct {
+		chType Type
+		names  []string
+		types  []Type
+	}{
+		{
+			chType: "Nested(`z)` Int8, value String)",
+			names:  []string{"z)", "value"},
+			types:  []Type{"Int8", "String"},
+		},
+		{
+			chType: "Nested(\"x(y\" Int8, value String)",
+			names:  []string{"x(y", "value"},
+			types:  []Type{"Int8", "String"},
+		},
+		{
+			chType: "Nested(`a, b` Decimal(10, 2), `c\\` d` String)",
+			names:  []string{"a, b", "c` d"},
+			types:  []Type{"Decimal(10, 2)", "String"},
+		},
+		{
+			chType: "Nested(value Enum8('x)y' = 1, 'z' = 2), other String)",
+			names:  []string{"value", "other"},
+			types:  []Type{"Enum8('x)y' = 1, 'z' = 2)", "String"},
+		},
+		{
+			// Recursive Nested columns must remain canonical Array(Tuple) children.
+			chType: "Nested(id UInt8, children Nested(name String, count UInt8))",
+			names:  []string{"id", "children"},
+			types:  []Type{"UInt8", "Array(Tuple(name String, count UInt8))"},
+		},
+		{
+			chType: "Nested(id UInt8, children Nested(`a b` Int8, leaf Nested(`z)` String)))",
+			names:  []string{"id", "children"},
+			types:  []Type{"UInt8", "Array(Tuple(`a b` Int8, leaf Array(Tuple(`z)` String))))"},
+		},
+	} {
+		t.Run(string(tc.chType), func(t *testing.T) {
+			col, err := tc.chType.Column("nested", nil)
+			require.NoError(t, err)
+			nested := col.(*Nested)
+			array := nested.Interface.(*Array)
+			tuple := array.Base().(*Tuple)
+			require.Len(t, tuple.columns, len(tc.names))
+			for i, name := range tc.names {
+				require.Equal(t, name, tuple.columns[i].Name())
+				require.Equal(t, tc.types[i], tuple.columns[i].Type())
+				if name == "children" {
+					require.IsType(t, &Array{}, tuple.columns[i])
+				}
+			}
+		})
+	}
+}
+
 func TestUnescapeColName(t *testing.T) {
 	for _, tc := range []struct {
 		in, want string

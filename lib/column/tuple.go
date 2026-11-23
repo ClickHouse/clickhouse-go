@@ -237,9 +237,10 @@ func splitTupleElement(element string) (name, colType string) {
 	element = strings.TrimSpace(element)
 	if element != "" && (element[0] == '`' || element[0] == '"') {
 		for i := 1; i < len(element); i++ {
-			if element[i] == '\\' {
+			switch element[i] {
+			case '\\':
 				i++
-			} else if element[i] == element[0] {
+			case element[0]:
 				if colType = strings.TrimSpace(element[i+1:]); colType == "" {
 					return "", element
 				}
