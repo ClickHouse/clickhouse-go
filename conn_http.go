@@ -337,7 +337,7 @@ func (h *httpConnect) queryHello(ctx context.Context, release nativeTransportRel
 	// Authorization. Cancellation and the dial deadline stay on ctx.
 	// Connection-level settings stay on the connection URL.
 	ctx = contextWithoutQueryOptions(ctx)
-	query := "SELECT displayName(), version(), revision(), timezone(), toUInt8(getSetting('readonly'))"
+	query := "SELECT displayName(), version(), revision(), serverTimezone(), toUInt8(getSetting('readonly'))"
 	rows, err := h.query(ctx, release, query)
 	if err != nil {
 		return proto.ServerHandshake{}, fmt.Errorf("failed to query server hello info: %w", err)

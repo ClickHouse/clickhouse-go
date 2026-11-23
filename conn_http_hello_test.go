@@ -24,7 +24,7 @@ import (
 
 // helloQuery is the internal server-info statement. A request is the handshake
 // when its body carries this text, including a multipart body.
-const helloQuery = "SELECT displayName(), version(), revision(), timezone(), toUInt8(getSetting('readonly'))"
+const helloQuery = "SELECT displayName(), version(), revision(), serverTimezone(), toUInt8(getSetting('readonly'))"
 
 type capturedHTTPQuery struct {
 	body  string
@@ -32,8 +32,9 @@ type capturedHTTPQuery struct {
 }
 
 // serveHTTPHello records every request. The handshake is answered with a Native
-// block whose timezone() follows the session_timezone query parameter, which is
-// what the server does. Any other statement is answered as CSV.
+// block whose timezone follows the session_timezone query parameter. The real
+// serverTimezone() does not, but the mock does so that a leaked setting stays
+// visible. Any other statement is answered as CSV.
 func serveHTTPHello(t *testing.T) (*httptest.Server, *[]capturedHTTPQuery) {
 	t.Helper()
 	var mu sync.Mutex
@@ -77,7 +78,7 @@ func encodeNativeHello(tz string) ([]byte, error) {
 		{"displayName()", column.Type("String")},
 		{"version()", column.Type("String")},
 		{"revision()", column.Type("UInt32")},
-		{"timezone()", column.Type("String")},
+		{"serverTimezone()", column.Type("String")},
 		{"toUInt8(getSetting('readonly'))", column.Type("UInt8")},
 	} {
 		if err := block.AddColumn(col.name, col.typ); err != nil {
