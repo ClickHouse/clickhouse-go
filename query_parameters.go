@@ -52,7 +52,7 @@ func bindQueryOrAppendParameters(paramsProtocolSupport bool, options *QueryOptio
 	// parameter values will be loaded from `args ...any` for compatibility
 	if paramsProtocolSupport &&
 		len(args) > 0 &&
-		hasQueryParamsRe.MatchString(query) {
+		hasQueryParams(query) {
 		options.parameters = make(Parameters, len(args))
 		for _, a := range args {
 			switch p := a.(type) {
@@ -133,6 +133,43 @@ func bindQueryOrAppendParameters(paramsProtocolSupport bool, options *QueryOptio
 	}
 
 	return bind(timezone, query, args...)
+}
+
+// hasQueryParams reports whether query holds a {<name>:<data type>} server-side
+// parameter outside heredoc literals, quoted strings and identifiers, and
+// comments. The server only substitutes parameters in query text, so a
+// {name:type} inside one of those regions is data, and a query like
+// SELECT $${a:b}$$, ? must still go through bind. It skips the same regions as
+// bind, through bindQuoteState.
+func hasQueryParams(query string) bool {
+	if !hasQueryParamsRe.MatchString(query) {
+		return false
+	}
+	// Blank out the protected regions and match again. Newlines are kept so
+	// the match does not span lines it could not span before.
+	masked := []byte(query)
+	blank := func(from, to int) {
+		for j := from; j <= to; j++ {
+			if masked[j] != '\n' {
+				masked[j] = ' '
+			}
+		}
+	}
+	var state bindQuoteState
+	for i := 0; i < len(query); i++ {
+		if end := state.skipHeredoc(query, i); end > i {
+			blank(i, end)
+			i = end
+			continue
+		}
+		protected := state.inProtectedContext()
+		end := state.update(query, i)
+		if protected || state.inProtectedContext() {
+			blank(i, end)
+		}
+		i = end
+	}
+	return hasQueryParamsRe.Match(masked)
 }
 
 // isNilParamValue reports whether v is nil itself or a typed nil pointer —
