@@ -222,8 +222,8 @@ func (col *DateTime) AppendRow(v any) error {
 			col.col.Append(time.Time{})
 		}
 	case *sql.NullTime:
-		switch v.Valid {
-		case true:
+		switch {
+		case v != nil && v.Valid:
 			col.col.Append(v.Time)
 		default:
 			col.col.Append(time.Time{})

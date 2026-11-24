@@ -700,8 +700,8 @@ func (col *Float64) AppendRow(v any) error {
 			col.col.Append(0)
 		}
 	case *sql.NullFloat64:
-		switch v.Valid {
-		case true:
+		switch {
+		case v != nil && v.Valid:
 			col.col.Append(v.Float64)
 		default:
 			col.col.Append(0)
@@ -1050,8 +1050,8 @@ func (col *Int16) AppendRow(v any) error {
 			col.col.Append(0)
 		}
 	case *sql.NullInt16:
-		switch v.Valid {
-		case true:
+		switch {
+		case v != nil && v.Valid:
 			col.col.Append(v.Int16)
 		default:
 			col.col.Append(0)
@@ -1220,8 +1220,8 @@ func (col *Int32) AppendRow(v any) error {
 			col.col.Append(0)
 		}
 	case *sql.NullInt32:
-		switch v.Valid {
-		case true:
+		switch {
+		case v != nil && v.Valid:
 			col.col.Append(v.Int32)
 		default:
 			col.col.Append(0)
@@ -1392,8 +1392,8 @@ func (col *Int64) AppendRow(v any) error {
 			col.col.Append(0)
 		}
 	case *sql.NullInt64:
-		switch v.Valid {
-		case true:
+		switch {
+		case v != nil && v.Valid:
 			col.col.Append(v.Int64)
 		default:
 			col.col.Append(0)
@@ -1401,7 +1401,12 @@ func (col *Int64) AppendRow(v any) error {
 	case time.Duration:
 		col.col.Append(int64(v))
 	case *time.Duration:
-		col.col.Append(int64(*v))
+		switch {
+		case v != nil:
+			col.col.Append(int64(*v))
+		default:
+			col.col.Append(0)
+		}
 	default:
 
 		if valuer, ok := v.(driver.Valuer); ok {
