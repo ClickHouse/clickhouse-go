@@ -183,22 +183,21 @@ func scanStatementEnd(text string, start int) (end int, inlineData bool) {
 // formatEnd starts the inline data of an INSERT statement that begins at
 // start. It returns the offset of the data after the format name. The
 // `Values` format is excluded: its data ends at `;`, like a query.
+//
+// As in the server parser (`ParserInsertQuery`), comments can come between
+// FORMAT and the format name, and the name can be a quoted identifier
+// (`FORMAT "TSV"`). The data starts right after the name, so a comment after
+// the name is data, for the server and for clickhouse-client.
 func insertDataStart(text string, start, formatEnd int) (int, bool) {
 	if leadingKeyword(text[start:formatEnd]) != "INSERT" {
 		return 0, false
 	}
-	i := formatEnd
-	if i >= len(text) || (text[i] != ' ' && text[i] != '\t' && text[i] != '\n' && text[i] != '\r') {
+	i := skipWhitespaceAndComments(text, formatEnd)
+	if i == formatEnd || i >= len(text) {
 		return 0, false
 	}
-	for i < len(text) && (text[i] == ' ' || text[i] == '\t' || text[i] == '\n' || text[i] == '\r') {
-		i++
-	}
-	j := i
-	for j < len(text) && isWordByte(text[j]) {
-		j++
-	}
-	if j == i || strings.EqualFold(text[i:j], "Values") || !isFormatName(text[i:j]) {
+	j, name := formatNameToken(text, i)
+	if j == i || strings.EqualFold(name, "Values") || !isFormatName(name) {
 		return 0, false
 	}
 	// After a SELECT, the FORMAT clause comes at the end of the SELECT, so
@@ -375,6 +374,26 @@ func topLevelWords(sql string) []string {
 // (`ORDER BY format DESC`).
 func isFormatName(word string) bool {
 	return formatNames[strings.ToLower(word)]
+}
+
+// formatNameToken reads the identifier at offset i: a bare word, or a name
+// in double quotes or backquotes. It returns the end offset of the token and
+// the name without its quotes, or i and "" when there is no identifier at i.
+// An escaped or doubled quote is not part of any format name, so the name is
+// the text between the quotes as is.
+func formatNameToken(text string, i int) (int, string) {
+	if c := text[i]; c == '"' || c == '`' {
+		end := skipQuoted(text, i)
+		if end-i < 2 || text[end-1] != c {
+			return i, ""
+		}
+		return end, text[i+1 : end-1]
+	}
+	j := i
+	for j < len(text) && isWordByte(text[j]) {
+		j++
+	}
+	return j, text[i:j]
 }
 
 func skipQuoted(text string, i int) int {

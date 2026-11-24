@@ -128,6 +128,33 @@ func TestSplitStatements(t *testing.T) {
 			"INSERT INTO t FORMAT CSV\n1,a \n",
 			[]string{"INSERT INTO t FORMAT CSV\n1,a "},
 		},
+		{
+			"insert with a comment between format and its name",
+			"INSERT INTO t FORMAT /* c */ CSV\n1;2\n\nSELECT 1;",
+			[]string{"INSERT INTO t FORMAT /* c */ CSV\n1;2", "SELECT 1;"},
+		},
+		{
+			"insert with a line comment between format and its name",
+			"INSERT INTO t FORMAT -- c\nCSV\n1;2\n\nSELECT 1;",
+			[]string{"INSERT INTO t FORMAT -- c\nCSV\n1;2", "SELECT 1;"},
+		},
+		{
+			"insert with a quoted format name",
+			"INSERT INTO t FORMAT \"CSV\"\n1;2\n\nSELECT 1;",
+			[]string{"INSERT INTO t FORMAT \"CSV\"\n1;2", "SELECT 1;"},
+		},
+		{
+			"insert with a backquoted Values format",
+			"INSERT INTO t FORMAT `Values` (1);\nSELECT 1;",
+			[]string{"INSERT INTO t FORMAT `Values` (1);", "SELECT 1;"},
+		},
+		{
+			// The server data starts right after the format name, so a
+			// comment after the name is data, as in clickhouse-client.
+			"insert with a comment after the format name",
+			"INSERT INTO t FORMAT CSV -- c;\n1\n\nSELECT 1;",
+			[]string{"INSERT INTO t FORMAT CSV -- c;\n1", "SELECT 1;"},
+		},
 		{"double semicolon", "SELECT 1;;\nSELECT 2", []string{"SELECT 1;", "SELECT 2"}},
 	}
 	for _, tt := range tests {
