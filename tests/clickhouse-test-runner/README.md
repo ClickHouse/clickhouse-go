@@ -242,6 +242,14 @@ tests.
 runs the allowlist nightly, manually, and on pushes and pull requests that
 change this directory or the workflow.
 
+A pull request that changes only the client does not start it. To run it on
+such a pull request, add the `tests:run-core-sql` label
+([`upstream-sql-tests-label.yml`](../../.github/workflows/upstream-sql-tests-label.yml)).
+The run tests the pull request as it is when the label is added, and removes
+the label when it ends: to test a later push, add the label again. The token
+of a pull request from a fork cannot remove the label, so remove it by hand
+before you add it again.
+
 - The matrix is `{protocol: native, http} × {shard: 1..N}`.
 - CI runs the failed tests again, at most twice (`RETRY_FAILED=2`). A known
   client bug, `[native-pool-race-new-connection]` in the allowlist, makes

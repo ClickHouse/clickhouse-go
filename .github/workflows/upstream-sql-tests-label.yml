@@ -1,0 +1,45 @@
+name: Upstream SQL tests by label
+
+# Runs upstream-sql-tests.yml on a pull request when a maintainer adds the
+# tests:run-core-sql label. Use it for a pull request that does not start
+# that workflow itself, for example a change in the client. The run removes
+# the label when it ends, so to run the tests again, add the label again.
+on:
+  # Not pull_request_target: the tests need no secrets, and pull_request runs
+  # the code of a fork with a read-only token. The `paths` filter of the
+  # pull_request trigger in upstream-sql-tests.yml also applies to a
+  # `labeled` event, so the label needs this workflow of its own.
+  pull_request:
+    types: [labeled]
+
+permissions: {}
+
+jobs:
+  upstream-sql-tests:
+    name: Upstream SQL tests
+    if: github.event.label.name == 'tests:run-core-sql'
+    uses: ./.github/workflows/upstream-sql-tests.yml
+    permissions:
+      contents: read
+
+  remove-label:
+    name: Remove the tests:run-core-sql label
+    needs: upstream-sql-tests
+    # The token of a pull request from a fork cannot write: remove the label
+    # by hand there.
+    if: >-
+      always() && github.event.label.name == 'tests:run-core-sql' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # A separate job, so that the pull request code in upstream-sql-tests
+    # never gets a token that can write.
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Remove the label
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          NUMBER: ${{ github.event.pull_request.number }}
+        run: gh api -X DELETE "repos/$REPO/issues/$NUMBER/labels/tests%3Arun-core-sql" || true

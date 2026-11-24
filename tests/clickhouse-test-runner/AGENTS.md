@@ -20,9 +20,11 @@ goal. A failed test is information. Do not hide it.
      server (see [Environment causes](#environment-causes)).
 2. **The default for a client bug is a fix in the client.** Open a pull
    request that fixes clickhouse-go, with a regression test in
-   `tests/issues/` (see the root `CLAUDE.md`). When the bug is in `ch-go`,
-   report it in `ClickHouse/ch-go` and link the report from the
-   clickhouse-go issue.
+   `tests/issues/` (see the root `CLAUDE.md`). Such a pull request does not
+   start the workflow of the harness: to check that the fix breaks no test
+   of the allowlist, add the `tests:run-core-sql` label (see the README,
+   CI). When the bug is in `ch-go`, report it in `ClickHouse/ch-go` and link
+   the report from the clickhouse-go issue.
 3. **The default for a shim bug is a fix in the shim.** Make the shim copy
    `clickhouse-client` more exactly. Do not change the shim to hide a client
    bug, for example by a different scan type or a workaround for a wrong
