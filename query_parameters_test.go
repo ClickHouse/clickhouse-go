@@ -29,6 +29,14 @@ func TestBindQueryOrAppendParameters(t *testing.T) {
 			"SELECT $1", []any{42}, "SELECT 42", nil},
 		{"falls back to bind when no args given", true, &QueryOptions{},
 			"SELECT {name:String}", nil, "SELECT {name:String}", nil},
+		// Issue #1951: a {name:type} inside a heredoc literal is data, not a
+		// server-side parameter, so the query goes through bind.
+		{"falls back to bind when param syntax is only in a heredoc", true, &QueryOptions{},
+			"SELECT $${a:b}$$, ?", []any{42}, "SELECT $${a:b}$$, 42", nil},
+		{"falls back to bind when param syntax is only in a tagged heredoc", true, &QueryOptions{},
+			"SELECT $t${a:b}$t$, ?", []any{42}, "SELECT $t${a:b}$t$, 42", nil},
+		{"falls back to bind when param syntax is only in a string", true, &QueryOptions{},
+			"SELECT '{a:b}', ?", []any{42}, "SELECT '{a:b}', 42", nil},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -36,6 +44,37 @@ func TestBindQueryOrAppendParameters(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, tc.wantQuery, query)
 			assert.Equal(t, tc.wantParameters, tc.options.parameters)
+		})
+	}
+}
+
+func TestHasQueryParams(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		query string
+		want  bool
+	}{
+		{"placeholder", "SELECT {a:String}", true},
+		{"placeholder_after_heredoc", "SELECT $$x$$, {a:String}", true},
+		{"placeholder_after_string", "SELECT '{', {a:String}", true},
+		{"placeholder_after_comment", "SELECT 1 -- {a:b}\n, {a:String}", true},
+		{"no_placeholder", "SELECT 1, ?", false},
+		{"heredoc", "SELECT $${a:b}$$, ?", false},
+		{"tagged_heredoc", "SELECT $tag${a:b}$tag$, ?", false},
+		{"numeric_tag_heredoc", "SELECT $1${a:b}$1$, ?", false},
+		{"single_quoted", "SELECT '{a:b}', ?", false},
+		{"double_quoted", "SELECT \"{a:b}\", ?", false},
+		{"backtick_quoted", "SELECT `{a:b}`, ?", false},
+		{"line_comment", "SELECT ? -- {a:b}", false},
+		{"hash_comment", "SELECT ? # {a:b}", false},
+		{"block_comment", "SELECT ? /* {a:b} */", false},
+		{"nested_block_comment", "SELECT ? /* /* */ {a:b} */", false},
+		{"split_across_regions", "SELECT '{a', ':b}'", false},
+		{"unclosed_heredoc", "SELECT $t$ {a:String}", true},
+		{"quoted_type_argument", "SELECT {d:DateTime64(3, 'UTC')}, {e:Enum8('a' = 1)}", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, hasQueryParams(tc.query))
 		})
 	}
 }

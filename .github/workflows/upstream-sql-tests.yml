@@ -1,0 +1,128 @@
+name: Upstream SQL tests
+
+# Runs a curated subset of the ClickHouse core SQL tests
+# (tests/queries/0_stateless) through clickhouse-go. See
+# tests/clickhouse-test-runner/README.md.
+#
+# upstream-sql-tests-label.yml also calls it, for the tests:run-core-sql
+# label on a pull request.
+
+permissions:
+  contents: read
+
+on:
+  workflow_call:
+  workflow_dispatch:
+    inputs:
+      clickhouse_version:
+        description: "ClickHouse version to try, for example 26.11.1.10 (default: tests/clickhouse-test-runner/clickhouse-version)"
+        required: false
+        default: ""
+        type: string
+  schedule:
+    - cron: "0 4 * * *"
+  push:
+    branches:
+      - main
+    paths:
+      - "tests/clickhouse-test-runner/**"
+      - ".github/workflows/upstream-sql-tests.yml"
+  pull_request:
+    paths:
+      - "tests/clickhouse-test-runner/**"
+      - ".github/workflows/upstream-sql-tests.yml"
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+
+jobs:
+  upstream-sql-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        protocol: [native, http]
+        # Round-robin shards of the allowlist, about 1,250 tests each. A full
+        # run of one protocol takes about 14 minutes at -j 8 on 18 cores, so
+        # a shard takes a few minutes on a 4-vCPU runner. Change SHARD_TOTAL
+        # below together with this list.
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.27"
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies of tests/clickhouse-test
+        run: pip install jinja2
+
+      # The server version and the upstream tests are pinned together in
+      # tests/clickhouse-test-runner/clickhouse-version: the `.reference`
+      # files of another release do not match the output of the server. A
+      # new server release changes nothing here until a pull request bumps
+      # the pin. The `clickhouse_version` input of a manual run tries
+      # another version without a commit.
+      - name: Select the ClickHouse version
+        id: version
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.clickhouse_version }}
+        run: |
+          version="${INPUT_VERSION:-$(tests/clickhouse-test-runner/scripts/pinned-version.sh)}"
+          if ! [[ "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::clickhouse_version must be a full version such as 26.10.4.207 (got: '${version}')"
+            exit 1
+          fi
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+
+      - name: Start ClickHouse ${{ steps.version.outputs.version }}
+        env:
+          CLICKHOUSE_VERSION: ${{ steps.version.outputs.version }}
+        run: docker compose up --wait
+
+      # Also generates errorcodes.go from the same checkout.
+      - name: Get the upstream tests of ClickHouse ${{ steps.version.outputs.version }}
+        id: upstream
+        run: tests/clickhouse-test-runner/scripts/fetch-upstream.sh "${{ steps.version.outputs.version }}"
+
+      - name: Unit and live tests of the harness
+        if: matrix.shard == 1
+        env:
+          CLICKHOUSE_TEST_RUNNER_LIVE: "1"
+        run: go test -count=1 ./tests/clickhouse-test-runner/
+
+      - name: Run upstream SQL tests
+        env:
+          CLICKHOUSE_TEST_RUNNER_PROTOCOL: ${{ matrix.protocol }}
+          CLICKHOUSE_CLIENT_CLI_LOG: ${{ github.workspace }}/upstream-run.log
+          SHARD_INDEX: ${{ matrix.shard }}
+          SHARD_TOTAL: 8
+          # Run the failed tests again, at most twice: a known client bug (the
+          # pool race, [native-pool-race-new-connection] in allowlist.txt)
+          # makes about 40 random tests with SET fail per native run, and one
+          # of them is now and then hit twice. A test that passes on a retry is
+          # a warning; a test that fails all three times fails the job.
+          RETRY_FAILED: "2"
+        run: tests/clickhouse-test-runner/scripts/run-upstream-tests.sh -j 4
+
+      - name: Upload test artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: upstream-sql-tests-${{ steps.upstream.outputs.ref }}-${{ matrix.protocol }}-shard-${{ matrix.shard }}
+          retention-days: 14
+          if-no-files-found: ignore
+          path: |
+            upstream-run.log
+            tests/clickhouse-test-runner/.upstream/ClickHouse/tests/queries/**/*.stdout
+            tests/clickhouse-test-runner/.upstream/ClickHouse/tests/queries/**/*.stderr
+            tests/clickhouse-test-runner/.upstream/ClickHouse/tests/queries/**/*.diff

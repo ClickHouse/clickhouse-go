@@ -13,7 +13,7 @@ on:
 
 jobs:
   lint:
-    runs-on: [self-hosted, style-checker-aarch64]
+    runs-on: [self-hosted, pr-style-checker-aarch64]
     steps:
       - name: Checkout
         uses: actions/checkout@v6
