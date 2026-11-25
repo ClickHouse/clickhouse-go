@@ -9,8 +9,6 @@ import (
 	"reflect"
 
 	"github.com/ClickHouse/ch-go/proto"
-
-	"github.com/ClickHouse/clickhouse-go/v2/lib/binary"
 )
 
 type String struct {
@@ -47,30 +45,29 @@ func (col *String) Row(i int, ptr bool) any {
 }
 
 func (col *String) ScanRow(dest any, row int) error {
-	val := col.Row(row, false).(string)
 	switch d := dest.(type) {
 	case *string:
-		*d = val
+		*d = col.col.Row(row)
 	case **string:
 		*d = new(string)
-		**d = val
+		**d = col.col.Row(row)
 	case *sql.NullString:
-		return d.Scan(val)
+		return d.Scan(col.col.Row(row))
 	case *[]byte:
-		*d = binary.Str2Bytes(val, len(val))
+		*d = col.rowBytes(row)
 	case **[]byte:
 		*d = new([]byte)
-		**d = binary.Str2Bytes(val, len(val))
+		**d = col.rowBytes(row)
 	case *json.RawMessage:
-		*d = binary.Str2Bytes(val, len(val))
+		*d = col.rowBytes(row)
 	case **json.RawMessage:
 		*d = new(json.RawMessage)
-		**d = binary.Str2Bytes(val, len(val))
+		**d = col.rowBytes(row)
 	case encoding.BinaryUnmarshaler:
-		return d.UnmarshalBinary(binary.Str2Bytes(val, len(val)))
+		return d.UnmarshalBinary(col.rowBytes(row))
 	default:
 		if scan, ok := dest.(sql.Scanner); ok {
-			return scan.Scan(val)
+			return scan.Scan(col.col.Row(row))
 		}
 		return &ColumnConverterError{
 			Op:   "ScanRow",
@@ -79,6 +76,10 @@ func (col *String) ScanRow(dest any, row int) error {
 		}
 	}
 	return nil
+}
+
+func (col *String) rowBytes(i int) []byte {
+	return append([]byte(nil), col.col.RowBytes(i)...)
 }
 
 func (col *String) AppendRow(v any) error {
