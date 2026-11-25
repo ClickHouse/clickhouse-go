@@ -231,6 +231,12 @@ func TestIPv4AppendBulkPointersRejectAfterNull(t *testing.T) {
 				return col.Append([]*net.IP{nil, &ipv6NetIP})
 			},
 		},
+		{
+			name: "net.IP",
+			append: func(col *IPv4) ([]uint8, error) {
+				return col.Append([]net.IP{nil, ipv6NetIP})
+			},
+		},
 	}
 
 	for _, tt := range tests {

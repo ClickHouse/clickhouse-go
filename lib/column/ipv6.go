@@ -158,7 +158,10 @@ func (col *IPv6) Append(v any) (nulls []uint8, err error) {
 		}
 	case []net.IP:
 		nulls = make([]uint8, len(v))
-		for _, v := range v {
+		for i, v := range v {
+			if v == nil {
+				nulls[i] = 1
+			}
 			col.col.Append(proto.ToIPv6(netip.AddrFrom16(IPv6ToBytes(v))))
 		}
 	case []*net.IP:
@@ -174,7 +177,10 @@ func (col *IPv6) Append(v any) (nulls []uint8, err error) {
 		}
 	case [][]byte:
 		nulls = make([]uint8, len(v))
-		for _, v := range v {
+		for i, v := range v {
+			if v == nil {
+				nulls[i] = 1
+			}
 			col.col.Append(proto.ToIPv6(netip.AddrFrom16(IPv6ToBytes(v))))
 		}
 	case []*[]byte:
