@@ -144,13 +144,24 @@ func (col *LowCardinality) AppendRow(v any) error {
 	case time.Time:
 		v = x.Truncate(time.Second)
 	}
-	if _, found := col.append.index[v]; !found {
+	key := v
+	// Float equality merges signed zero and cannot look up NaN. Use the wire
+	// representation so dictionary entries preserve both values and NaN payloads.
+	switch x := v.(type) {
+	case float32:
+		key = struct{ bits uint32 }{math.Float32bits(x)}
+	case float64:
+		key = struct{ bits uint64 }{math.Float64bits(x)}
+	}
+	idx, found := col.append.index[key]
+	if !found {
 		if err := col.index.AppendRow(v); err != nil {
 			return err
 		}
-		col.append.index[v] = col.index.Rows() - 1
+		idx = col.index.Rows() - 1
+		col.append.index[key] = idx
 	}
-	col.append.keys = append(col.append.keys, col.append.index[v])
+	col.append.keys = append(col.append.keys, idx)
 	return nil
 }
 

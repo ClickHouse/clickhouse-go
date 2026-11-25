@@ -85,6 +85,16 @@ When proposing a new API surface, ask: *can a caller use this incorrectly withou
 
 ---
 
+## Issue triage
+
+To set, check, or explain the Priority of an issue, follow [`.claude/skills/issue-priority/SKILL.md`](/.claude/skills/issue-priority/SKILL.md). It is the single source of truth for the priority rules.
+
+To classify an issue (its impacts and its area), follow [`.claude/skills/issue-classification/SKILL.md`](/.claude/skills/issue-classification/SKILL.md).
+
+A vulnerability that is not public yet goes into a private security report (**Security** → **Report a vulnerability**), never into an issue or a pull request. The classification skill defines such a vulnerability, and the priority skill says how to handle the public issue.
+
+---
+
 ## Workflow
 
 - Do not commit directly to `main`. All changes go through a pull request.
@@ -95,4 +105,5 @@ When proposing a new API surface, ask: *can a caller use this incorrectly withou
 - Register `t.Cleanup(func() { conn.Close() })` for every connection a test opens — both a native `driver.Conn` and a `database/sql` `*sql.DB` — so subtests don't leak connections across the native/HTTP runs.
 - Integration tests also run on ClickHouse Cloud, where the service has more than one replica and each new connection can go to a different replica. Do not use the `Memory` engine for a table that a test writes and then reads: its data stays on the replica that got the `INSERT`, so another replica reads an empty table and the test is flaky. Use `MergeTree ORDER BY tuple()` (or a real sorting key). A `TEMPORARY TABLE` in a session is the only exception. For the same reason, read `system.*` log tables with `clusterAllReplicas('default', ...)` and flush them with `SYSTEM FLUSH LOGS ON CLUSTER 'default'` when `clickhouse_tests.CloudClickHouse` is true.
 - New ClickHouse type support requires: a column implementation in `lib/column/`, a round-trip test in `tests/`, and an example in `examples/clickhouse_api/`.
+- Before you change the upstream SQL test allowlist, or examine a failure of the `Upstream SQL tests` workflow, read `tests/clickhouse-test-runner/AGENTS.md`.
 - When referencing ClickHouse SQL types, functions, or log messages in text, wrap them in backticks: `` `DateTime64` ``, `` `MergeTree` ``.

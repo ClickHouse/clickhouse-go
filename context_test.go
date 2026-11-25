@@ -220,6 +220,30 @@ func TestWithoutProfileEvents(t *testing.T) {
 	})
 }
 
+func TestQueryOptionsMaxExecutionTime(t *testing.T) {
+	tests := []struct {
+		name     string
+		settings Settings
+	}{
+		{name: "not set is not added", settings: nil},
+		{name: "set is kept", settings: Settings{"max_execution_time": 600}},
+		{name: "zero is kept", settings: Settings{"max_execution_time": 0}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(Context(context.Background(), WithSettings(tt.settings)), time.Minute)
+			t.Cleanup(cancel)
+
+			opts := queryOptions(ctx)
+			value, ok := opts.settings["max_execution_time"]
+			want, set := tt.settings["max_execution_time"]
+			require.Equal(t, set, ok)
+			require.Equal(t, want, value)
+		})
+	}
+}
+
 // TestContextExternalTables is a regression test for
 // https://github.com/ClickHouse/clickhouse-go/issues/1724.
 func TestContextExternalTables(t *testing.T) {

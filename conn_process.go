@@ -47,6 +47,14 @@ func (c *connect) firstBlock(ctx context.Context, on *onProcess) (*proto.Block, 
 		return nil, ctx.Err()
 
 	case err := <-errCh:
+		// firstBlockImpl returns the bare io.EOF only at the end of the stream.
+		// A response that stops inside a packet gives a wrapped error. The typed
+		// methods of the ch-go reader wrap each read error, and readData wraps
+		// with %w. So the connection is retired. The packet boundary cases in
+		// TestQueryProtocolErrorRetiresConnection check this.
+		if err != io.EOF {
+			c.closeOnQueryError(err)
+		}
 		return nil, err
 
 	case block := <-resultCh:
@@ -121,6 +129,7 @@ func (c *connect) process(ctx context.Context, on *onProcess) error {
 		return ctx.Err()
 
 	case err := <-errCh:
+		c.closeOnQueryError(err)
 		return err
 
 	case <-doneCh:
@@ -161,6 +170,21 @@ func (c *connect) processImpl(ctx context.Context, on *onProcess) error {
 	}
 }
 
+// A decoded server exception terminates the response cleanly. Other read errors
+// can leave unread response bytes, so retire the connection before returning the
+// error to database/sql. Only firstBlock and process call this, on the goroutine
+// that also calls cancel(), after the reader goroutine has returned: close() and
+// cancel() must not run at the same time.
+func (c *connect) closeOnQueryError(err error) {
+	var exception *Exception
+	if err == nil || errors.As(err, &exception) {
+		return
+	}
+	if closeErr := c.close(); closeErr != nil {
+		c.logger.Debug("failed to close connection after query error", slog.Any("error", closeErr))
+	}
+}
+
 func (c *connect) handle(ctx context.Context, packet byte, on *onProcess) error {
 	switch packet {
 	case proto.ServerData, proto.ServerTotals, proto.ServerExtremes:
@@ -168,8 +192,15 @@ func (c *connect) handle(ctx context.Context, packet byte, on *onProcess) error 
 		if err != nil {
 			return err
 		}
-		if block.Rows() != 0 && on.data != nil {
-			on.data(block)
+		if on.data != nil {
+			if block.Rows() != 0 {
+				on.data(block)
+			}
+			// time spent blocked on a slow consumer must not count against ReadTimeout,
+			// and empty blocks reset it too
+			if err := c.startReadWriteTimeout(ctx); err != nil {
+				return fmt.Errorf("query processing: failed to reset read deadline: %w", err)
+			}
 		}
 	case proto.ServerException:
 		return c.exception()
