@@ -2,6 +2,7 @@ package clickhouse
 
 import (
 	"database/sql"
+	"errors"
 	"io"
 
 	"github.com/ClickHouse/clickhouse-go/v2/lib/proto"
@@ -173,7 +174,7 @@ func (r *row) ScanStruct(dest any) error {
 	}
 	values, err := r.rows.structMap.Map("ScanStruct", r.rows.columns, dest, true)
 	if err != nil {
-		return err
+		return r.closeAfterError(err)
 	}
 	return r.Scan(values...)
 }
@@ -190,7 +191,14 @@ func (r *row) Scan(dest ...any) error {
 		return sql.ErrNoRows
 	}
 	if err := r.rows.Scan(dest...); err != nil {
-		return err
+		return r.closeAfterError(err)
 	}
 	return r.rows.Close()
+}
+
+func (r *row) closeAfterError(err error) error {
+	if closeErr := r.rows.Close(); closeErr != nil {
+		return errors.Join(err, closeErr)
+	}
+	return err
 }
