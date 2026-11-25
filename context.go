@@ -234,8 +234,7 @@ func ignoreExternalTables() QueryOption {
 // and initial_user is sent only on the native protocol, so those are dropped
 // too. The JWT stays. dial uses the first query's context, and HTTPS copies
 // QueryOptions.jwt into Authorization; without a connection GetJWT, dropping
-// it makes the handshake fail. An empty settings map is required: queryOptions
-// appends max_execution_time when the context has a deadline.
+// it makes the handshake fail. The settings map stays empty.
 func contextWithoutQueryOptions(parent context.Context) context.Context {
 	opt := QueryOptions{
 		settings: make(Settings),

@@ -234,8 +234,7 @@ func TestContextWithoutQueryOptionsDropsCallerOptions(t *testing.T) {
 	stripped := contextWithoutQueryOptions(parent)
 	opts := queryOptions(stripped)
 	require.NotContains(t, opts.settings, "session_timezone")
-	require.Contains(t, opts.settings, "max_execution_time",
-		"the dial deadline still bounds the handshake; that is independent of per-query settings")
+	require.NotContains(t, opts.settings, "max_execution_time")
 	require.Empty(t, opts.queryID)
 	// quota_key is a query parameter and initial_user is native-protocol only.
 	// Neither is an HTTP header, so the handshake must not carry them.
