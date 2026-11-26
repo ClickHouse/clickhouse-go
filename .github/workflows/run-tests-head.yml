@@ -42,3 +42,21 @@ jobs:
           GOTOOLCHAIN: "local"
         run: |
           CLICKHOUSE_VERSION=head make test
+
+  notify-failure:
+    # Report failures of the nightly and manual runs to Slack. A run on a pull request is
+    # not reported: its author sees the result on the pull request.
+    needs: test
+    if: failure() && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    # The job uses only the Slack webhook secret. It does not need the GITHUB_TOKEN.
+    permissions: {}
+    steps:
+      - name: Post to #integrations-escalation
+        uses: slackapi/slack-github-action@0bc3581177d9a0f8d555e07689384b376528e8fa # v4.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_INTEGRATIONS_ESCALATION }}
+          webhook-type: incoming-webhook
+          errors: true
+          payload: |
+            text: ":red_circle: clickhouse-go *${{ github.workflow }}* failed against `clickhouse/clickhouse-server:head` (${{ github.event_name }}, commit `${{ github.sha }}`): ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
