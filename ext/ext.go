@@ -30,10 +30,15 @@ func (tbl *Table) Name() string {
 	return tbl.name
 }
 
+var columnNameEscaper = strings.NewReplacer(
+	`\`, `\\`,
+	"`", "\\`",
+)
+
 func (tbl *Table) Structure() string {
 	columnStructure := make([]string, 0, len(tbl.block.Columns))
 	for _, c := range tbl.block.Columns {
-		columnStructure = append(columnStructure, fmt.Sprintf("%v %v", c.Name(), c.Type()))
+		columnStructure = append(columnStructure, fmt.Sprintf("`%s` %v", columnNameEscaper.Replace(c.Name()), c.Type()))
 	}
 	return strings.Join(columnStructure, ", ")
 }

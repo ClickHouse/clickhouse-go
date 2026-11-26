@@ -68,3 +68,33 @@ func TestExternalTable(t *testing.T) {
 		assert.Equal(t, uint64(20), count)
 	})
 }
+
+func TestExternalTableQuotedColumnNames(t *testing.T) {
+	TestProtocols(t, func(t *testing.T, protocol clickhouse.Protocol) {
+		tbl, err := ext.NewTable("quoted_ext",
+			ext.Column("test id", "UInt64"),
+			ext.Column("`test id`", "UInt64"),
+			ext.Column("back`tick", "UInt64"),
+			ext.Column("x UInt8, y", "UInt64"),
+			ext.Column("é", "UInt64"),
+		)
+		require.NoError(t, err)
+		require.NoError(t, tbl.Append(uint64(42), uint64(43), uint64(44), uint64(45), uint64(46)))
+
+		conn, err := GetNativeConnection(t, protocol, nil, nil, nil)
+		require.NoError(t, err)
+
+		ctx := clickhouse.Context(context.Background(), clickhouse.WithExternalTable(tbl))
+		rows, err := conn.Query(ctx, "SELECT * FROM quoted_ext")
+		require.NoError(t, err)
+		defer rows.Close()
+
+		assert.Equal(t, []string{"test id", "`test id`", "back`tick", "x UInt8, y", "é"}, rows.Columns())
+		require.True(t, rows.Next())
+
+		var v1, v2, v3, v4, v5 uint64
+		require.NoError(t, rows.Scan(&v1, &v2, &v3, &v4, &v5))
+		assert.Equal(t, []uint64{42, 43, 44, 45, 46}, []uint64{v1, v2, v3, v4, v5})
+		require.NoError(t, rows.Err())
+	})
+}
