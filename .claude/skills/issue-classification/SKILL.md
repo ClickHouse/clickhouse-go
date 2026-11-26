@@ -4,7 +4,9 @@ description: >
   The classes of an issue in this ClickHouse client repository: the impacts
   (Security, Data integrity, Stability, Performance) and the area (Connectivity,
   Data types & formats, Queries, Configuration, API & diagnostics, Environment,
-  Docs & project, Other). Use this skill when the task is to "classify an
+  Docs & project, Other), and the native classes (format, protocol) of an issue
+  that needs a change in the client's code for the Native format or the native
+  TCP protocol. Use this skill when the task is to "classify an
   issue" or "give the classes of an issue", and when you triage, file, or
   prioritize an issue: the issue-priority skill uses the impacts.
 ---
@@ -19,6 +21,8 @@ An issue has:
 
 - **Impacts** — what goes wrong: none, one, or more of the four impact classes.
 - **One area** — the part of the client whose behavior is wrong or missing.
+- **Native classes** — none, one, or both of format and protocol: the issue needs a change in
+  the client's code for the Native format or for the native TCP protocol.
 
 The classes do not replace the kind of request (bug, feature, question) or the reach tier of
 a repo's priority rules.
@@ -30,13 +34,14 @@ repository" at the end.
 
 ## Rules
 
-1. Give each impact that applies, and one area.
+1. Give each impact that applies, one area, and each native class that applies.
 2. Use only what the issue, a reproduction, or code inspection of the current code
    **shows**. Do not give a class for an effect
    that is only possible. Classes can raise the priority, so each class needs evidence.
 3. Classify by the **observed effect**, not by the location of the code. Example: a
    connection-string defect that makes the client drop rows with no error has the impact
-   Data integrity.
+   Data integrity. The native classes are the exception: they follow the code (section
+   "Native classes").
 4. Data integrity and Stability are for defects only. Security and Performance are also for
    feature requests: a new authentication method, a request to make an operation faster.
    The priority rules rate such requests as feature requests.
@@ -136,6 +141,53 @@ Rules for **Other**:
 - Other does not raise the priority.
 - A subject that repeats in Other is a sign that a class is missing: report it.
 
+## Native classes
+
+The native classes mark an issue that needs a change in the client's **native code**: its
+codec for the ClickHouse `Native` format, or its implementation of the native TCP protocol. A
+shared core for this code is planned (`ClickHouse/ch-core-rs`). The native classes count how
+much maintenance this code needs in each client.
+
+| Native class | Code |
+|---|---|
+| **format** | Reading and writing data in the `Native` format, over HTTP (`FORMAT Native`) and in the Data packets of the native protocol: the block structure (column and row counts, column names, type names), the parsing of the type names of a block, and the bytes of each column type: fixed widths, null maps, offsets, LowCardinality dictionaries and keys, serialization versions and kinds (also sparse columns), Variant and Dynamic discriminators, JSON paths. |
+| **protocol** | The native TCP protocol: the packets and their fields (Hello and its addendum, Query with the client information, the settings, and the parameters, Data, Exception, Progress, ProfileInfo, ProfileEvents, Totals, Extremes, Log, TableColumns, Ping, Cancel, EndOfStream), the negotiation of the protocol revision and the features that the revision controls, the order of the packets, the framing of compressed blocks (checksum, method, sizes), and external tables in the protocol. |
+
+Rules:
+
+1. Classify by the **code**, not by the observed effect (an exception to rule 3 of "Rules").
+   Give a native class when a run, code inspection, or the fix shows that the cause is in that
+   code. A feature request gets a native class when the feature changes that code, for
+   example support for the native protocol, for a new type in the Native format, or for a new
+   packet.
+2. The code around the native code gets no native class: the conversion between a decoded
+   value and a language type (a scan into a struct or an object, a time type of the
+   language), the connection pool, TLS, the socket, timeouts and retries, the public API, and
+   the other formats (RowBinary, JSON, Arrow, Parquet, ODBCDriver2). A failure that occurs
+   only with the native protocol, but that has its cause in this code, gets no native class.
+3. Code that the client uses for the Native format and for another format (for example one
+   parser of type names) gets the class format when the defect also occurs on the Native
+   path.
+4. When the evidence does not show where the cause is, give no native class.
+5. The native classes do not change the impacts, the area, or the priority. A format issue
+   usually has the area Data types & formats. A protocol issue usually has the area
+   Connectivity, Queries, or API & diagnostics. A failure with one server version only has
+   the area Environment.
+6. A client that has no native code gets a native class only for a request to add it.
+
+On GitHub, the label `native-format` shows the class format, and the label `native-protocol`
+shows the class protocol.
+
+| Issue | Classification |
+|---|---|
+| A `LowCardinality(String)` column is written with wrong dictionary keys | `impact: Data integrity · area: Data types & formats (LowCardinality(String)) · native: format` |
+| The client cannot read a new serialization version of `JSON` that one new server version sends | `impact: none · area: Environment (JSON, ClickHouse 26.x) · native: format` |
+| The client sends the client version 0.0.0 in the Hello packet, and one server version rejects it | `impact: none · area: Environment (client version, ClickHouse 26.10) · native: protocol` |
+| The client allocates a new buffer for each compressed block | `impact: Performance · area: Connectivity (compression) · native: protocol` |
+| A request to support the native TCP protocol | `impact: none · area: Connectivity (native protocol) · native: protocol` |
+| A scan of a `DateTime64` column into a time type of the language loses the time zone | `impact: Data integrity · area: Data types & formats (DateTime64)`: the conversion to a language type is not native code |
+| The connection pool leaks connections that use the native protocol | `impact: Stability · area: Connectivity (connection pool)` |
+
 ## Examples
 
 | Issue | Impacts | Area |
@@ -156,6 +208,9 @@ One line, in this form. In a triage comment, the line has the name **Classificat
 
 `impact: <impacts, separated by a comma, or "none"> · area: <area> (<subject>)`
 
+When a native class applies, add it at the end of the line: ` · native: format`,
+` · native: protocol`, or ` · native: format, protocol`. When none applies, add nothing.
+
 For Security, add the part in parentheses: `Security (vulnerability)` or
 `Security (authentication)`.
 
@@ -171,8 +226,20 @@ names that ClickHouse or the client API uses:
 
 Examples: `impact: Data integrity · area: Data types & formats (Map)`,
 `impact: none · area: Configuration (URL parameters)`,
-`impact: Security (vulnerability), Stability · area: Connectivity (TLS)`.
+`impact: Security (vulnerability), Stability · area: Connectivity (TLS)`,
+`impact: none · area: Connectivity (ZSTD compression) · native: protocol`.
 
 ## This repository
 
-No changes to the shared text.
+**Native code.** clickhouse-go reads and writes the Native format over TCP and over HTTP
+(`default_format=Native`), with the column types of the ch-go `proto` package. Format:
+`lib/column/` (`Decode` and `Encode` of each column type, and the type names in `column_gen.go`)
+and the blocks (`lib/proto/block.go`, `sendData` and `readData` in `conn.go`, `writeData` and
+`readData` in `conn_http.go`). Protocol: the packets of `lib/proto/` (also the quoting of
+parameter values in `query.go`), the packet flow of `conn.go`, `conn_handshake.go`,
+`conn_send_query.go` (also external tables), `conn_process.go`, `conn_ping.go`, `conn_logs.go`,
+and `conn_profile_events.go`, and the compressed blocks of the ch-go `compress` package (over
+TCP, and over HTTP with `compress=1`). Not native code: the conversion between column values and
+Go types (`Append`, `AppendRow`, `ScanRow`, and `Row` in `lib/column/`, `scan.go`,
+`struct_map.go`), the parameter values as text (`bind.go`, `query_parameters.go`), the other
+formats over HTTP (`conn_http_format.go`), and the connection pool.
