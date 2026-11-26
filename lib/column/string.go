@@ -81,10 +81,6 @@ func (col *String) ScanRow(dest any, row int) error {
 	return nil
 }
 
-func (col *String) appendSlice(v []string) {
-	col.col.AppendArr(v)
-}
-
 func (col *String) AppendRow(v any) error {
 	switch v := v.(type) {
 	case string:

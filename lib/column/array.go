@@ -157,17 +157,13 @@ func (col *Array) appendRowDefault(v any) error {
 	return col.append(elem, 0)
 }
 
-// sliceAppender is implemented by columns that can append a whole slice
-// without boxing each element into an interface.
-type sliceAppender[T any] interface {
-	appendSlice(v []T)
-}
-
 func appendRowPlain[T any](col *Array, arr []T) error {
 	col.appendOffset(0, uint64(len(arr)))
-	if values, ok := col.values.(sliceAppender[T]); ok {
-		values.appendSlice(arr)
-		return nil
+	if values, ok := col.values.(*String); ok {
+		if strs, ok := any(arr).([]string); ok {
+			values.col.AppendArr(strs)
+			return nil
+		}
 	}
 	for _, item := range arr {
 		if err := col.values.AppendRow(item); err != nil {

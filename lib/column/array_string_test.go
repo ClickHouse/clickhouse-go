@@ -26,12 +26,12 @@ func testStringRows(rows, elems int) [][]string {
 		}
 		out[i] = row
 	}
-	out[0] = nil
 	return out
 }
 
 func TestArrayStringAppend(t *testing.T) {
 	rows := testStringRows(5, 3)
+	rows[0] = nil
 	for _, chType := range []Type{"Array(String)", "Array(Nullable(String))"} {
 		t.Run(string(chType)+"/AppendRow", func(t *testing.T) {
 			col := newTestArrayColumn(t, chType)
