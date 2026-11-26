@@ -175,8 +175,8 @@ Rules:
    the area Environment.
 6. A client that has no native code gets a native class only for a request to add it.
 
-On GitHub, the labels `native` and `format` show the class format, and the labels `native`
-and `protocol` show the class protocol.
+On GitHub, the label `native-format` shows the class format, and the label `native-protocol`
+shows the class protocol.
 
 | Issue | Classification |
 |---|---|
