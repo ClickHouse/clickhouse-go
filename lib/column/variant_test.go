@@ -8,6 +8,9 @@ import (
 )
 
 func TestColVariant_parse(t *testing.T) {
+	const escapedTuple = "Tuple(\"c\\\"d\" String, `a\\\\` Int64, `b\\\\\\`` Int8, `a\"b` UInt8, \"c`d\" String)"
+	const formattedTuple = "Tuple(\n    `a b`\tInt8,\n    \"c d\"String)"
+	const controlTuple = "Tuple(`a\\tb` Int64, `c\\nd` String, `e\\rf\\0g\\bh\\fi` UInt8)"
 	cases := []struct {
 		typ           Type
 		expectedTypes []Type
@@ -22,6 +25,11 @@ func TestColVariant_parse(t *testing.T) {
 		{typ: "Variant(Tuple(\"x(y\" Int8), String)", expectedTypes: []Type{"Tuple(\"x(y\" Int8)", "String"}},
 		{typ: "Variant(Tuple(`a, b` Int8, `c\\` d` String), String)", expectedTypes: []Type{"Tuple(`a, b` Int8, `c\\` d` String)", "String"}},
 		{typ: "Variant(Enum8('x)y' = 1, 'z' = 2), String)", expectedTypes: []Type{"Enum8('x)y' = 1, 'z' = 2)", "String"}},
+		{typ: Type("Variant(" + escapedTuple + ", UInt64)"), expectedTypes: []Type{escapedTuple, "UInt64"}},
+		{typ: Type("Variant(\n\t" + formattedTuple + ",\n\tUInt64)"), expectedTypes: []Type{formattedTuple, "UInt64"}},
+		{typ: Type("Variant(" + controlTuple + ", UInt64)"), expectedTypes: []Type{controlTuple, "UInt64"}},
+		{typ: "Variant(Array(Tuple(`a, b` Int8, `z)` String)), UInt64)", expectedTypes: []Type{"Array(Tuple(`a, b` Int8, `z)` String))", "UInt64"}},
+		{typ: "Variant(Map(String, Tuple(`x(y` Int8, `c\\` d` String)), UInt64)", expectedTypes: []Type{"Map(String, Tuple(`x(y` Int8, `c\\` d` String))", "UInt64"}},
 	}
 
 	for i, c := range cases {

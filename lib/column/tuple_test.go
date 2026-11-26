@@ -133,6 +133,18 @@ func TestTupleParseElementNames(t *testing.T) {
 			types:   []string{"String", "Decimal(9, 2)"},
 			isNamed: false,
 		},
+		{
+			chType:  "Tuple(Enum8('x)y' = 1, 'z' = 2), Enum8('x`y' = 1, 'z' = 2), String)",
+			names:   []string{"", "", ""},
+			types:   []string{"Enum8('x)y' = 1, 'z' = 2)", "Enum8('x`y' = 1, 'z' = 2)", "String"},
+			isNamed: false,
+		},
+		{
+			chType:  "Tuple(Tuple(`z)` Int8), String)",
+			names:   []string{"", ""},
+			types:   []string{"Tuple(`z)` Int8)", "String"},
+			isNamed: false,
+		},
 	} {
 		t.Run(tc.chType, func(t *testing.T) {
 			col, err := Type(tc.chType).Column("tuple", nil)
@@ -185,6 +197,26 @@ func TestNestedParseQuotedNamesIssue2073(t *testing.T) {
 			names:  []string{"id", "children"},
 			types:  []Type{"UInt8", "Array(Tuple(`a b` Int8, leaf Array(Tuple(`z)` String))))"},
 		},
+		{
+			chType: "Nested(\"c\\\"d\" String, `a\\\\` Int64, `b\\\\\\`` Int8, `a\"b` UInt8, \"c`d\" String)",
+			names:  []string{"c\"d", `a\`, "b\\`", `a"b`, "c`d"},
+			types:  []Type{"String", "Int64", "Int8", "UInt8", "String"},
+		},
+		{
+			chType: "Nested(`a\\tb` Int64, `c\\nd` String, `e\\rf\\0g\\bh\\fi` UInt8)",
+			names:  []string{"a\tb", "c\nd", "e\rf\x00g\bh\fi"},
+			types:  []Type{"Int64", "String", "UInt8"},
+		},
+		{
+			chType: "Nested(\n    `a b`\nDecimal(10, 2), `c`\tInt64, \"d e\"String, f\tUInt8)",
+			names:  []string{"a b", "c", "d e", "f"},
+			types:  []Type{"Decimal(10, 2)", "Int64", "String", "UInt8"},
+		},
+		{
+			chType: "Nested(value Enum8('x`y' = 1, 'z)' = 2), other String)",
+			names:  []string{"value", "other"},
+			types:  []Type{"Enum8('x`y' = 1, 'z)' = 2)", "String"},
+		},
 	} {
 		t.Run(string(tc.chType), func(t *testing.T) {
 			col, err := tc.chType.Column("nested", nil)
@@ -200,6 +232,53 @@ func TestNestedParseQuotedNamesIssue2073(t *testing.T) {
 					require.IsType(t, &Array{}, tuple.columns[i])
 				}
 			}
+		})
+	}
+}
+
+func TestTupleQuotedNamesThroughWrappersIssue2073(t *testing.T) {
+	const enumType = "Enum8('x`y' = 1, 'z)' = 2)"
+	const tupleType = "Tuple(`a, b` Nullable(" + enumType + "), `z)` String)"
+	for _, tc := range []struct {
+		name   string
+		chType Type
+	}{
+		{name: "array", chType: "Array(" + tupleType + ")"},
+		{name: "array of variant", chType: "Array(Variant(" + tupleType + ", UInt64))"},
+		{name: "simple aggregate function", chType: "SimpleAggregateFunction(anyLast, " + tupleType + ")"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			col, err := tc.chType.Column("wrapped", nil)
+			require.NoError(t, err)
+			require.Equal(t, tc.chType, col.Type())
+			require.Equal(t, "wrapped", col.Name())
+			var inner Interface
+			switch wrapper := col.(type) {
+			case *Array:
+				require.Equal(t, 1, wrapper.depth)
+				inner = wrapper.Base()
+			case *SimpleAggregateFunction:
+				inner = wrapper.base
+			default:
+				t.Fatalf("unexpected wrapper type %T", col)
+			}
+			if variant, ok := inner.(*Variant); ok {
+				require.Len(t, variant.columns, 2)
+				require.Equal(t, Type("UInt64"), variant.columns[1].Type())
+				require.Equal(t, map[string]uint8{tupleType: 0, "UInt64": 1}, variant.columnTypeIndex)
+				inner = variant.columns[0]
+			}
+			tuple := inner.(*Tuple)
+			require.Equal(t, Type(tupleType), tuple.Type())
+			require.True(t, tuple.isNamed)
+			require.Len(t, tuple.columns, 2)
+			require.Equal(t, map[string]int{"a, b": 0, "z)": 1}, tuple.index)
+			nullable := tuple.columns[0].(*Nullable)
+			require.True(t, nullable.enable)
+			require.Equal(t, "a, b", nullable.Name())
+			require.Equal(t, Type(enumType), nullable.Base().Type())
+			require.Equal(t, "z)", tuple.columns[1].Name())
+			require.Equal(t, Type("String"), tuple.columns[1].Type())
 		})
 	}
 }
