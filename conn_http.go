@@ -1,6 +1,7 @@
 package clickhouse
 
 import (
+	"bufio"
 	"bytes"
 	"compress/flate"
 	"compress/gzip"
@@ -683,8 +684,40 @@ func (h *httpConnect) sendQuery(ctx context.Context, query string, options *Quer
 	return res, nil
 }
 
-// readRawResponse reads an error response body, capped at maxErrorBodySize so
-// a misbehaving server or proxy cannot exhaust memory.
+// errTrackingReader records the first non-EOF error returned by r so callers
+// wrapping it (e.g. native block decompression over plain-text fallback) can
+// distinguish transport failures from format mismatches.
+type errTrackingReader struct {
+	r   io.Reader
+	err error
+}
+
+func (t *errTrackingReader) Read(p []byte) (int, error) {
+	n, err := t.r.Read(p)
+	if err != nil && !errors.Is(err, io.EOF) && t.err == nil {
+		t.err = err
+	}
+	return n, err
+}
+
+// readResponseTail drains r while keeping only the trailing maxErrorBodySize bytes.
+func readResponseTail(r io.Reader) ([]byte, error) {
+	capR := &capturingReader{reader: r}
+	buf := make([]byte, 32*1024)
+	for {
+		_, err := capR.Read(buf)
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return bytes.Clone(capR.buffer.Bytes()), nil
+			}
+			return bytes.Clone(capR.buffer.Bytes()), err
+		}
+	}
+}
+
+// readRawResponse reads an error response body, retaining only the trailing
+// maxErrorBodySize bytes so buffered query output before a trailing exception
+// does not truncate the error text or grow memory unboundedly.
 func (h *httpConnect) readRawResponse(response *http.Response) (body []byte, err error) {
 	rw := h.compressionPool.Get()
 	defer h.compressionPool.Put(rw)
@@ -694,24 +727,39 @@ func (h *httpConnect) readRawResponse(response *http.Response) (body []byte, err
 		return nil, err
 	}
 
-	body, err = io.ReadAll(io.LimitReader(reader, maxErrorBodySize))
-	if err != nil && !errors.Is(err, io.EOF) {
-		return nil, err
-	}
-
 	if h.compression == CompressionLZ4 || h.compression == CompressionZSTD {
 		// The server native-compresses an error body only when the failing
 		// request asked for it (compress=1 on the query path); exec and async
 		// insert error bodies arrive as plain text on the same connection.
-		// Try to decompress the buffered bytes and fall back to them raw.
-		chReader := chproto.NewReader(bytes.NewReader(body))
+		// Stream-decompress all native frames and retain the trailing bytes so
+		// large buffered results before the exception block are not truncated.
+		rawTracker := &errTrackingReader{r: reader}
+		rawCap := &capturingReader{reader: rawTracker}
+		chReader := chproto.NewReader(bufio.NewReader(rawCap))
 		chReader.EnableCompression()
-		decompressed, derr := io.ReadAll(io.LimitReader(chReader, maxErrorBodySize))
-		if (derr == nil || errors.Is(derr, io.EOF)) && len(decompressed) > 0 {
+
+		decompressed, derr := readResponseTail(chReader)
+		if rawTracker.err != nil {
+			return nil, rawTracker.err
+		}
+		if derr == nil && len(decompressed) > 0 {
 			return decompressed, nil
 		}
+
+		// Plain-text body (exec / async_insert / proxy error) or an
+		// uncompressed trailer appended after compressed blocks: drain the
+		// remaining raw bytes so rawCap retains the trailing text.
+		if _, err := readResponseTail(rawCap); err != nil {
+			return nil, err
+		}
+		rawBytes := bytes.Clone(rawCap.buffer.Bytes())
+		if len(decompressed) > 0 && isFramedException(decompressed) && !isFramedException(rawBytes) {
+			return decompressed, nil
+		}
+		return rawBytes, nil
 	}
-	return body, nil
+
+	return readResponseTail(reader)
 }
 
 func (h *httpConnect) createRequest(ctx context.Context, requestUrl string, reader io.Reader, options *QueryOptions, headers map[string]string) (*http.Request, error) {

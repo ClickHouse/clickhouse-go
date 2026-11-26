@@ -1,11 +1,16 @@
 package clickhouse
 
 import (
+	"bytes"
+	"compress/gzip"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/ClickHouse/ch-go/compress"
 )
 
 func TestParseHTTPException(t *testing.T) {
@@ -334,6 +339,153 @@ func TestMidStreamException(t *testing.T) {
 		}
 		if !strings.Contains(err.Error(), "ClickHouse exception: something unstructured") {
 			t.Errorf("expected legacy fallback message, got %q", err.Error())
+		}
+	})
+}
+
+type failingReader struct {
+	prefix []byte
+	err    error
+	sent   bool
+}
+
+func (f *failingReader) Read(p []byte) (int, error) {
+	if !f.sent && len(f.prefix) > 0 {
+		n := copy(p, f.prefix)
+		f.prefix = f.prefix[n:]
+		if len(f.prefix) == 0 {
+			f.sent = true
+		}
+		return n, nil
+	}
+	return 0, f.err
+}
+
+func encodeClickHouseBlocks(t *testing.T, method compress.Method, chunks ...[]byte) []byte {
+	t.Helper()
+	w := compress.NewWriter(compress.LevelZero, method)
+	var out bytes.Buffer
+	for _, chunk := range chunks {
+		if err := w.Compress(chunk); err != nil {
+			t.Fatalf("compress chunk: %v", err)
+		}
+		out.Write(w.Data)
+	}
+	return out.Bytes()
+}
+
+func TestReadRawResponse_BufferedOutputBeforeException(t *testing.T) {
+	const exceptionTail = "\r\n__exception__\r\n1234567890123456\r\nCode: 395. DB::Exception: boom: while executing 'FUNCTION throwIf'. (FUNCTION_THROW_IF_VALUE_IS_NON_ZERO) (version 26.11.2.4 (official build))\n132 1234567890123456\r\n__exception__\r\n"
+
+	newConn := func(t *testing.T, method CompressionMethod) *httpConnect {
+		t.Helper()
+		pool, err := createCompressionPool(&Compression{Method: method})
+		if err != nil {
+			t.Fatalf("createCompressionPool(%v): %v", method, err)
+		}
+		return &httpConnect{
+			compression:     method,
+			compressionPool: pool,
+		}
+	}
+
+	assertParsedBoom := func(t *testing.T, method CompressionMethod, status int, headers http.Header, body []byte) {
+		t.Helper()
+		h := newConn(t, method)
+		res := &http.Response{
+			StatusCode: status,
+			Header:     headers,
+			Body:       io.NopCloser(bytes.NewReader(body)),
+		}
+		raw, err := h.readRawResponse(res)
+		if err != nil {
+			t.Fatalf("readRawResponse returned error: %v", err)
+		}
+		httpErr := newHTTPError(status, headers, raw)
+		var ex *Exception
+		if !errors.As(httpErr, &ex) {
+			t.Fatalf("expected *Exception, got %v", httpErr)
+		}
+		if ex.Code != 395 || ex.Name != "DB::Exception" || ex.CodeName != "FUNCTION_THROW_IF_VALUE_IS_NON_ZERO" {
+			t.Fatalf("unexpected exception metadata: %+v", ex)
+		}
+		if !strings.Contains(ex.Message, "boom: while executing") {
+			t.Fatalf("expected server exception message, got %q", ex.Message)
+		}
+	}
+
+	t.Run("uncompressed response larger than 64 KiB preserves trailing exception", func(t *testing.T) {
+		prefix := strings.Repeat("0,0\n", 30000)
+		headers := http.Header{exceptionCodeHeader: []string{"395"}}
+		assertParsedBoom(t, CompressionNone, http.StatusInternalServerError, headers, []byte(prefix+exceptionTail))
+	})
+
+	t.Run("gzip response larger than 64 KiB preserves trailing exception", func(t *testing.T) {
+		prefix := strings.Repeat("0,0\n", 40000)
+		var gzBuf bytes.Buffer
+		gw := gzip.NewWriter(&gzBuf)
+		if _, err := io.WriteString(gw, prefix+exceptionTail); err != nil {
+			t.Fatalf("write gzip payload: %v", err)
+		}
+		if err := gw.Close(); err != nil {
+			t.Fatalf("close gzip writer: %v", err)
+		}
+		headers := http.Header{
+			"Content-Encoding":  []string{"gzip"},
+			exceptionCodeHeader: []string{"395"},
+		}
+		assertParsedBoom(t, CompressionGZIP, http.StatusInternalServerError, headers, gzBuf.Bytes())
+	})
+
+	for _, tc := range []struct {
+		name     string
+		method   CompressionMethod
+		chMethod compress.Method
+	}{
+		{name: "LZ4 native blocks larger than 64 KiB", method: CompressionLZ4, chMethod: compress.LZ4},
+		{name: "ZSTD native blocks larger than 64 KiB", method: CompressionZSTD, chMethod: compress.ZSTD},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			block1 := bytes.Repeat([]byte("A"), 90*1024)
+			block2 := append(bytes.Repeat([]byte("B"), 50*1024), []byte(exceptionTail)...)
+			payload := encodeClickHouseBlocks(t, tc.chMethod, block1, block2)
+			headers := http.Header{exceptionCodeHeader: []string{"395"}}
+			assertParsedBoom(t, tc.method, http.StatusInternalServerError, headers, payload)
+		})
+	}
+
+	t.Run("LZ4 connection keeps plain-text non-query error body", func(t *testing.T) {
+		h := newConn(t, CompressionLZ4)
+		plain := []byte("Code: 60. DB::Exception: Unknown table 'foo'. (UNKNOWN_TABLE)\n")
+		res := &http.Response{
+			StatusCode: http.StatusNotFound,
+			Header:     http.Header{exceptionCodeHeader: []string{"60"}},
+			Body:       io.NopCloser(bytes.NewReader(plain)),
+		}
+		got, err := h.readRawResponse(res)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		httpErr := newHTTPError(http.StatusNotFound, res.Header, got)
+		var ex *Exception
+		if !errors.As(httpErr, &ex) {
+			t.Fatalf("expected *Exception, got %v", httpErr)
+		}
+		if ex.Code != 60 || ex.CodeName != "UNKNOWN_TABLE" {
+			t.Fatalf("unexpected exception: %+v", ex)
+		}
+	})
+
+	t.Run("transport read failure propagates error", func(t *testing.T) {
+		h := newConn(t, CompressionLZ4)
+		boom := errors.New("connection reset by peer")
+		res := &http.Response{
+			StatusCode: http.StatusInternalServerError,
+			Header:     http.Header{},
+			Body:       io.NopCloser(&failingReader{prefix: []byte("Code: 395."), err: boom}),
+		}
+		if _, err := h.readRawResponse(res); !errors.Is(err, boom) {
+			t.Fatalf("expected error %v, got %v", boom, err)
 		}
 	})
 }
