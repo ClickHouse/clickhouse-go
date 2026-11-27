@@ -8,6 +8,7 @@ import (
 	"os"
 	"regexp"
 	"slices"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -202,8 +203,21 @@ func (b *batch) Column(idx int) driver.BatchColumn {
 }
 
 func (b *batch) Send() (err error) {
+	// watchdogClosedConn records that the watchdog callback below closed conn.
+	// The deferred release reads it only after stopCW() has waited for the
+	// watchdog goroutine to exit, so the load is ordered after the store.
+	var watchdogClosedConn atomic.Bool
 	defer func() {
 		b.sent = true
+		if err == nil && watchdogClosedConn.Load() {
+			// The context ended after Send's work had already succeeded, and
+			// the watchdog closed conn. Release it with an error so the pool
+			// discards it instead of handing a closed conn to the next caller.
+			err = b.ctx.Err()
+			if err == nil {
+				err = errors.New("clickhouse: connection closed by context watchdog")
+			}
+		}
 		b.release(err)
 	}()
 	if b.err != nil {
@@ -223,6 +237,7 @@ func (b *batch) Send() (err error) {
 	// that is already back in the pool.
 	conn := b.conn
 	stopCW := contextWatchdog(b.ctx, func() {
+		watchdogClosedConn.Store(true)
 		// close TCP connection on context cancel. There is no other simple way to interrupt underlying operations.
 		// as verified in the test, this is safe to do and cleanups resources later on
 		if conn != nil {
