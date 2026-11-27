@@ -23,6 +23,42 @@ func (t Type) params() string {
 	}
 }
 
+func indexTopLevelComma(s string) int {
+	var (
+		depth   int
+		quote   byte
+		escaped bool
+	)
+	for i := range len(s) {
+		if escaped {
+			escaped = false
+			continue
+		}
+		if quote != 0 {
+			switch s[i] {
+			case '\\':
+				escaped = true
+			case quote:
+				quote = 0
+			}
+			continue
+		}
+		switch s[i] {
+		case '\'', '"', '`':
+			quote = s[i]
+		case '(':
+			depth++
+		case ')':
+			depth--
+		case ',':
+			if depth == 0 {
+				return i
+			}
+		}
+	}
+	return -1
+}
+
 type Error struct {
 	ColumnType string
 	Err        error
