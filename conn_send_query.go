@@ -24,10 +24,13 @@ func (c *connect) sendQuery(body string, o *QueryOptions) error {
 		Compression:              c.compression != CompressionNone,
 		InitialUser:              c.effectiveInitialUser(o.initialUser),
 		InitialAddress:           c.conn.LocalAddr().String(),
-		Settings:                 c.settings(o.settings),
 		Parameters:               parametersToProtoParameters(o.parameters),
 		ClusterSecret:            c.opt.Cluster.Secret,
 		ClusterSalt:              c.clusterSalt,
+	}
+	c.automaticJSON = false
+	if !o.settingsProbe {
+		q.Settings, c.automaticJSON = c.settings(o.settings)
 	}
 	if err := q.Encode(c.buffer, c.revision); err != nil {
 		return err

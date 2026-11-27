@@ -10,9 +10,8 @@ func JSONStringExample() error {
 	ctx := context.Background()
 
 	conn, err := GetNativeConnection(clickhouse.Settings{
-		"allow_experimental_json_type":                                      true,
-		"output_format_native_write_json_as_string":                         true,
-		"output_format_native_use_flattened_dynamic_and_json_serialization": true,
+		"allow_experimental_json_type":              true,
+		"output_format_native_write_json_as_string": true,
 	}, nil, nil)
 	if err != nil {
 		return err

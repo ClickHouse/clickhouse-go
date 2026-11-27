@@ -105,6 +105,14 @@ func dial(ctx context.Context, addr string, num int, opt *Options) (*connect, er
 			return nil, err
 		}
 	}
+	if opt.useFlattenedJSON(supportsFlattenedJSON(connect.server.Version), nil) {
+		if err := connect.probeJSONSerialization(ctx); err != nil {
+			if closeErr := conn.Close(); closeErr != nil {
+				connect.logger.Debug("failed to close connection after JSON settings probe", slog.Any("error", closeErr))
+			}
+			return nil, err
+		}
+	}
 
 	// warn only on the first connection in the pool
 	if num == 1 && !proto.CheckMinVersion(resources.MinSupportedVersion, connect.server.Version) {
@@ -135,6 +143,9 @@ type connect struct {
 	readTimeout          time.Duration
 	blockBufferSize      uint8
 	maxCompressionBuffer int
+	flattenedJSON        bool
+	automaticJSON        bool
+	jsonSerialization    jsonSerializationState
 	readerMutex          sync.Mutex
 	closeMutex           sync.Mutex
 	// clusterSalt signs queries on this connection.
@@ -168,7 +179,7 @@ func (c *connect) serverVersion() (*ServerVersion, error) {
 	return &c.server, nil
 }
 
-func (c *connect) settings(querySettings Settings) []proto.Setting {
+func (c *connect) settings(querySettings Settings) ([]proto.Setting, bool) {
 	settingToProtoSetting := func(k string, v any) proto.Setting {
 		isCustom := false
 		if cv, ok := v.(CustomSetting); ok {
@@ -184,7 +195,12 @@ func (c *connect) settings(querySettings Settings) []proto.Setting {
 		}
 	}
 
-	settings := make([]proto.Setting, 0, len(c.opt.Settings)+len(querySettings))
+	useFlattenedJSON := c.opt.useFlattenedJSON(c.flattenedJSON && !c.jsonSerialization.disabled.Load(), querySettings)
+	capacity := len(c.opt.Settings) + len(querySettings)
+	if useFlattenedJSON {
+		capacity++
+	}
+	settings := make([]proto.Setting, 0, capacity)
 	for k, v := range c.opt.Settings {
 		settings = append(settings, settingToProtoSetting(k, v))
 	}
@@ -192,8 +208,11 @@ func (c *connect) settings(querySettings Settings) []proto.Setting {
 	for k, v := range querySettings {
 		settings = append(settings, settingToProtoSetting(k, v))
 	}
+	if useFlattenedJSON {
+		settings = append(settings, settingToProtoSetting(flattenedJSONSetting, 1))
+	}
 
-	return settings
+	return settings, useFlattenedJSON
 }
 
 func (c *connect) healthCheck() error {
