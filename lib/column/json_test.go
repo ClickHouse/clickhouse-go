@@ -737,3 +737,34 @@ func TestJSONAppendRejectsNonSlice(t *testing.T) {
 		})
 	}
 }
+
+func TestJSONParseTypedPaths(t *testing.T) {
+	tests := []struct {
+		chType string
+		paths  []string
+		skip   []string
+	}{
+		{"JSON(`a b` Int64)", []string{"a b"}, nil},
+		{"JSON(`a b` Decimal(10, 2))", []string{"a b"}, nil},
+		{"JSON(`a,b` Int64)", []string{"a,b"}, nil},
+		{"JSON(`a.b` Int64)", []string{"a.b"}, nil},
+		{"JSON(`c\\`d e` String)", []string{"c`d e"}, nil},
+		{"JSON(`c\\`d` String, `e f` Int64)", []string{"c`d", "e f"}, nil},
+		{"JSON(`x\\\\y z` String, `u v` Int8)", []string{"x\\y z", "u v"}, nil},
+		{"JSON(`a b` Tuple(`c` Int64), `e` Int8)", []string{"a b", "e"}, nil},
+		{"JSON(`a(b` Int64, c String)", []string{"a(b", "c"}, nil},
+		{"JSON(`a(b` Int64, `c)d` String, e Int8)", []string{"a(b", "c)d", "e"}, nil},
+		{"JSON(SKIP a.b, c Int8)", []string{"c"}, []string{"a.b"}},
+		{"JSON(SKIP `a b`, c Int8)", []string{"c"}, []string{"a b"}},
+		{"JSON(SKIP `c\\`d e`, f Int8)", []string{"f"}, []string{"c`d e"}},
+		{"JSON(SKIP `a(b`, c Int8)", []string{"c"}, []string{"a(b"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.chType, func(t *testing.T) {
+			col, err := (&JSON{name: "test"}).parse(Type(tt.chType), &ServerContext{})
+			require.NoError(t, err)
+			assert.Equal(t, tt.paths, col.typedPaths)
+			assert.Equal(t, tt.skip, col.skipPaths)
+		})
+	}
+}

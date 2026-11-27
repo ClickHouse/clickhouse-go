@@ -126,20 +126,30 @@ func (c *JSON) parse(t Type, sc *ServerContext) (_ *JSON, err error) {
 
 		if strings.HasPrefix(typePart, "SKIP") {
 			path := strings.TrimPrefix(typePart, "SKIP")
-			path = strings.Trim(path, " `")
+			path = unescapeColName(strings.TrimSpace(path))
 			c.skipPaths = append(c.skipPaths, path)
 			c.skipPathsIndex[path] = len(c.skipPaths) - 1
 
 			continue
 		}
 
-		typedPathParts := strings.SplitN(typePart, " ", 2)
-		if len(typedPathParts) != 2 {
+		pathEnd := 0
+		if strings.HasPrefix(typePart, "`") {
+			pathEnd = quotedPathEnd(typePart)
+		}
+
+		sep := strings.Index(typePart[pathEnd:], " ")
+		if sep < 0 {
 			continue
 		}
 
-		typedPath := strings.Trim(typedPathParts[0], "`")
-		typeName := strings.TrimSpace(typedPathParts[1])
+		var typedPath string
+		if pathEnd > 0 {
+			typedPath = unescapeColName(typePart[:pathEnd+sep])
+		} else {
+			typedPath = strings.Trim(typePart[:sep], "`")
+		}
+		typeName := strings.TrimSpace(typePart[pathEnd+sep:])
 
 		c.typedPaths = append(c.typedPaths, typedPath)
 		c.typedPathsIndex[typedPath] = len(c.typedPaths) - 1
@@ -1080,6 +1090,22 @@ func (c *JSON) Decode(reader *proto.Reader, rows int) error {
 	}
 }
 
+// quotedPathEnd returns the index just past the closing backtick of the quoted
+// path that starts s, skipping backslash-escaped characters, or 0 if the quote
+// is never closed.
+func quotedPathEnd(s string) int {
+	for i := 1; i < len(s); i++ {
+		switch s[i] {
+		case '\\':
+			i++
+		case '`':
+			return i + 1
+		}
+	}
+
+	return 0
+}
+
 // splitWithDelimiters splits the string while considering backticks and parentheses
 func splitWithDelimiters(s string) []string {
 	var parts []string
@@ -1089,14 +1115,25 @@ func splitWithDelimiters(s string) []string {
 
 	for i := 0; i < len(s); i++ {
 		switch s[i] {
+		case '\\':
+			currentPart.WriteByte(s[i])
+			// a backslash escapes the next character inside a quoted path
+			if inBackticks && i+1 < len(s) {
+				i++
+				currentPart.WriteByte(s[i])
+			}
 		case '`':
 			inBackticks = !inBackticks
 			currentPart.WriteByte(s[i])
 		case '(':
-			brackets++
+			if !inBackticks {
+				brackets++
+			}
 			currentPart.WriteByte(s[i])
 		case ')':
-			brackets--
+			if !inBackticks {
+				brackets--
+			}
 			currentPart.WriteByte(s[i])
 		case ',':
 			if !inBackticks && brackets == 0 {
