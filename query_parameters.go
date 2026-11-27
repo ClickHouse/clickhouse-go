@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -15,8 +14,6 @@ import (
 var (
 	ErrInvalidValueInNamedDateValue = errors.New("invalid value in NamedDateValue for query parameter")
 	ErrUnsupportedQueryParameter    = errors.New("unsupported query parameter type")
-
-	hasQueryParamsRe = regexp.MustCompile("{.+:.+}")
 )
 
 // namedStringEscaper escapes control characters in a raw Go string sent as a
@@ -251,4 +248,81 @@ func formatTimeWithScale(t time.Time, scale TimeUnit) string {
 	default:
 		return formatEpoch(t, 0)
 	}
+}
+
+// hasQueryParams reports whether query contains a server-side {name:Type}
+// placeholder outside string literals, quoted identifiers, and comments.
+func hasQueryParams(query string) bool {
+	var state bindQuoteState
+	for i := 0; i < len(query); i++ {
+		if !state.inProtectedContext() && query[i] == '{' {
+			if matchQueryParamAt(query, i) {
+				return true
+			}
+		}
+		i = state.update(query, i)
+	}
+	return false
+}
+
+// matchQueryParamAt reports whether query[start:] starts with a {name:Type}
+// placeholder, where name is an identifier (`$` allowed, leading digit rejected).
+// The caller must invoke it only when query[start] == '{' outside any protected context.
+func matchQueryParamAt(query string, start int) bool {
+	j := skipQueryParamSpace(query, start+1)
+	if j >= len(query) || !isQueryParamNameStart(query[j]) {
+		return false
+	}
+	j++
+	for j < len(query) && isQueryParamNameChar(query[j]) {
+		j++
+	}
+
+	j = skipQueryParamSpace(query, j)
+	if j >= len(query) || query[j] != ':' {
+		return false
+	}
+
+	j = skipQueryParamSpace(query, j+1)
+	var state bindQuoteState
+	hasType := false
+	for ; j < len(query); j++ {
+		if !state.inProtectedContext() {
+			switch query[j] {
+			case '}':
+				return hasType
+			case '{':
+				return false
+			}
+		}
+		wasComment := state.inLineComment || state.blockComment > 0
+		next := state.update(query, j)
+		nowComment := state.inLineComment || state.blockComment > 0
+		if !wasComment && !nowComment && !isQueryParamSpace(query[j]) {
+			hasType = true
+		}
+		j = next
+	}
+	return false
+}
+
+func skipQueryParamSpace(query string, pos int) int {
+	for pos < len(query) && isQueryParamSpace(query[pos]) {
+		pos++
+	}
+	return pos
+}
+
+func isQueryParamSpace(ch byte) bool {
+	return ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n'
+}
+
+func isQueryParamNameStart(ch byte) bool {
+	return ch == '_' || ch == '$' ||
+		(ch >= 'a' && ch <= 'z') ||
+		(ch >= 'A' && ch <= 'Z')
+}
+
+func isQueryParamNameChar(ch byte) bool {
+	return isQueryParamNameStart(ch) || isDigit(ch)
 }
