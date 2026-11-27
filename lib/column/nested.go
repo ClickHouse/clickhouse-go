@@ -33,31 +33,22 @@ func (col *Nested) parse(t Type, sc *ServerContext) (_ Interface, err error) {
 }
 
 func nestedColumns(raw string) (columns []namedCol) {
-	var (
-		nBegin   int
-		begin    int
-		brackets int
-	)
-	for i, r := range raw + "," {
-		switch r {
-		case '(':
-			brackets++
-		case ')':
-			brackets--
-		case ' ':
-			if brackets == 0 {
-				begin = i + 1
-			}
-		case ',':
-			if brackets == 0 {
-				columns, begin = append(columns, namedCol{
-					name:    strings.TrimSpace(raw[nBegin:begin]),
-					colType: Type(raw[begin:i]),
-				}), i+1
-				nBegin = i + 1
-				continue
-			}
+	for {
+		i := indexTopLevelComma(raw)
+		if i < 0 {
+			i = len(raw)
 		}
+		element := strings.TrimSpace(raw[:i])
+		_, colType := splitTupleElement(element)
+		columns = append(columns, namedCol{
+			// Keep the quoted name for the Tuple parser that consumes this DDL.
+			name:    strings.TrimSpace(element[:len(element)-len(colType)]),
+			colType: Type(colType),
+		})
+		if i == len(raw) {
+			break
+		}
+		raw = raw[i+1:]
 	}
 	for i, column := range columns {
 		if strings.HasPrefix(string(column.colType), "Nested(") {
