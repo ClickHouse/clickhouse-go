@@ -402,6 +402,89 @@ func TestParseDSN(t *testing.T) {
 			"",
 		},
 		{
+			"native protocol with upper case compression method",
+			"clickhouse://127.0.0.1/test_database?compress=ZSTD",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"127.0.0.1"},
+				Settings: Settings{},
+				Compression: &Compression{
+					Method: CompressionZSTD,
+					Level:  3,
+				},
+				Auth: Auth{
+					Database: "test_database",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
+			"native protocol with compression disabled by false",
+			"clickhouse://127.0.0.1/test_database?compress=false",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"127.0.0.1"},
+				Settings: Settings{},
+				Auth: Auth{
+					Database: "test_database",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
+			"native protocol with empty compression",
+			"clickhouse://127.0.0.1/test_database?compress=",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"127.0.0.1"},
+				Settings: Settings{},
+				Auth: Auth{
+					Database: "test_database",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
+			"native protocol with misspelled compression method",
+			"clickhouse://127.0.0.1/test_database?compress=gzp",
+			nil,
+			"clickhouse [dsn parse]: compress: unknown method \"gzp\", valid values are none, lz4, lz4hc, zstd, gzip, deflate, br, true and false",
+		},
+		{
+			"native protocol with unsupported compression method",
+			"clickhouse://127.0.0.1/test_database?compress=xz",
+			nil,
+			"clickhouse [dsn parse]: compress: unknown method \"xz\", valid values are none, lz4, lz4hc, zstd, gzip, deflate, br, true and false",
+		},
+		{
+			"native protocol with round robin connection open strategy",
+			"clickhouse://127.0.0.1/test_database?connection_open_strategy=round_robin",
+			&Options{
+				Protocol:         Native,
+				TLS:              nil,
+				Addr:             []string{"127.0.0.1"},
+				Settings:         Settings{},
+				ConnOpenStrategy: ConnOpenRoundRobin,
+				Auth: Auth{
+					Database: "test_database",
+				},
+				scheme: "clickhouse",
+			},
+			"",
+		},
+		{
+			"native protocol with unknown connection open strategy",
+			"clickhouse://127.0.0.1/test_database?connection_open_strategy=roundrobin",
+			nil,
+			"clickhouse [dsn parse]: connection_open_strategy: unknown strategy \"roundrobin\", valid values are in_order, round_robin and random",
+		},
+		{
 			"native protocol with default lz4 compression and compression level 5",
 			"clickhouse://127.0.0.1/test_database?compress=true&compress_level=5",
 			&Options{
