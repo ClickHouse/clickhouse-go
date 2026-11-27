@@ -104,12 +104,15 @@ func TestIssue2012_PrepareBatch_WithoutSpaceBeforeColumns(t *testing.T) {
 				require.NoError(t, err)
 				t.Cleanup(func() { db.ExecContext(ctx, "DROP TABLE IF EXISTS "+tableName) })
 
-				stmt, err := db.PrepareContext(ctx, "INSERT INTO "+tableName+"(col1, col2)")
+				tx, err := db.BeginTx(ctx, nil)
+				require.NoError(t, err)
+				stmt, err := tx.PrepareContext(ctx, "INSERT INTO "+tableName+"(col1, col2)")
 				require.NoError(t, err)
 				defer stmt.Close()
 
 				_, err = stmt.ExecContext(ctx, uint32(5), "std_sql")
 				require.NoError(t, err)
+				require.NoError(t, tx.Commit())
 
 				var (
 					col1 uint32

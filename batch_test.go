@@ -1040,6 +1040,30 @@ INSERT INTO ` + "`_test_1345# $.ДБ`.`2. Таблица №2`" + ` (col1, col2)
 			expectedColumns:         []string{"col1", "my_weird,col2", "col3"},
 			expectedError:           false,
 		},
+		{
+			name:                    "Insert into table function without explicit columns",
+			query:                   "INSERT INTO function null('x FixedString(16)') VALUES ('a')",
+			expectedNormalizedQuery: "INSERT INTO function null('x FixedString(16)') FORMAT Native",
+			expectedTableName:       "function null('x FixedString(16)')",
+			expectedColumns:         []string{},
+			expectedError:           false,
+		},
+		{
+			name:                    "Insert into table function with explicit columns",
+			query:                   "INSERT INTO function null('x UInt64, y String') (y, x)",
+			expectedNormalizedQuery: "INSERT INTO function null('x UInt64, y String') (y, x) FORMAT Native",
+			expectedTableName:       "function null('x UInt64, y String')",
+			expectedColumns:         []string{"y", "x"},
+			expectedError:           false,
+		},
+		{
+			name:                    "Insert into table named function with columns",
+			query:                   "INSERT INTO function (col1, col2) VALUES (1, 2)",
+			expectedNormalizedQuery: "INSERT INTO function (col1, col2) FORMAT Native",
+			expectedTableName:       "function",
+			expectedColumns:         []string{"col1", "col2"},
+			expectedError:           false,
+		},
 	}
 
 	for _, tc := range testCases {

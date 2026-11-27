@@ -68,28 +68,46 @@ func extractNormalizedInsertQueryAndColumns(query string) (normalizedQuery strin
 	return fmt.Sprintf("%s FORMAT Native", insertStmt), tableName, columns, nil
 }
 
-// parseInsertTableAndColumns extracts the table name and optional column list from a
-// sanitized INSERT statement. It scans with quote awareness so parentheses inside
-// quoted table identifiers (e.g. `table(1)`) are not mistaken for the column list start.
-func parseInsertTableAndColumns(sanitized string) (tableName string, columnsPart string, ok bool) {
-	s := strings.TrimSpace(sanitized)
-	if !isKeyword(s, nil, insertKeyword) {
-		return "", "", false
-	}
-	s = strings.TrimSpace(s[len(insertKeyword):])
-	if !isKeyword(s, nil, intoKeyword) {
-		return "", "", false
-	}
-	s = strings.TrimSpace(s[len(intoKeyword):])
-	if s == "" {
-		return "", "", false
-	}
-
+// scanBalancedParens starts at openIdx (which must point to '(') and returns the
+// index of its matching ')', respecting single-quoted, double-quoted, and
+// backtick-quoted segments. Returns -1 if parentheses are unbalanced.
+func scanBalancedParens(s string, openIdx int) int {
+	depth := 1
 	var quote byte
-	tableEnd := -1
-	colStart := -1
-	colEnd := -1
+	for i := openIdx + 1; i < len(s); i++ {
+		c := s[i]
+		if quote != 0 {
+			if c == '\\' && i+1 < len(s) {
+				i++
+				continue
+			}
+			if c == quote {
+				quote = 0
+			}
+			continue
+		}
 
+		if c == '\'' || c == '"' || c == '`' {
+			quote = c
+			continue
+		}
+
+		if c == '(' {
+			depth++
+		} else if c == ')' {
+			depth--
+			if depth == 0 {
+				return i
+			}
+		}
+	}
+	return -1
+}
+
+// findUnquotedParen returns the index of the first '(' in s outside of backtick- or
+// double-quoted identifiers, or -1 if none is found.
+func findUnquotedParen(s string) int {
+	var quote byte
 	for i := 0; i < len(s); i++ {
 		c := s[i]
 		if quote != 0 {
@@ -109,52 +127,66 @@ func parseInsertTableAndColumns(sanitized string) (tableName string, columnsPart
 		}
 
 		if c == '(' {
-			tableEnd = i
-			colStart = i + 1
-			break
+			return i
+		}
+	}
+	return -1
+}
+
+// parseInsertTableAndColumns extracts the table name and optional column list from a
+// sanitized INSERT statement. It scans with quote awareness so parentheses inside
+// quoted table identifiers (e.g. `table(1)`) or table function arguments
+// (e.g. `INSERT INTO function null('x UInt64')`) are not mistaken for the column list.
+func parseInsertTableAndColumns(sanitized string) (tableName string, columnsPart string, ok bool) {
+	s := strings.TrimSpace(sanitized)
+	if !isKeyword(s, nil, insertKeyword) {
+		return "", "", false
+	}
+	s = strings.TrimSpace(s[len(insertKeyword):])
+	if !isKeyword(s, nil, intoKeyword) {
+		return "", "", false
+	}
+	s = strings.TrimSpace(s[len(intoKeyword):])
+	if s == "" {
+		return "", "", false
+	}
+
+	if isKeyword(s, nil, tableKeyword) {
+		if rest := strings.TrimSpace(s[len(tableKeyword):]); rest != "" && rest[0] != '(' {
+			s = rest
 		}
 	}
 
+	if isKeyword(s, nil, functionKeyword) {
+		if rest := strings.TrimSpace(s[len(functionKeyword):]); rest != "" && rest[0] != '(' {
+			funcOpen := findUnquotedParen(s)
+			if funcOpen == -1 {
+				return strings.TrimSpace(s), "", true
+			}
+			funcClose := scanBalancedParens(s, funcOpen)
+			if funcClose == -1 {
+				return strings.TrimSpace(s), "", true
+			}
+			tableName = strings.TrimSpace(s[:funcClose+1])
+			afterFunc := strings.TrimSpace(s[funcClose+1:])
+			if afterFunc != "" && afterFunc[0] == '(' {
+				if colClose := scanBalancedParens(afterFunc, 0); colClose != -1 {
+					columnsPart = afterFunc[1:colClose]
+				}
+			}
+			return tableName, columnsPart, true
+		}
+	}
+
+	tableEnd := findUnquotedParen(s)
 	if tableEnd == -1 {
 		tableName = strings.TrimSpace(s)
 		return tableName, "", true
 	}
 
 	tableName = strings.TrimSpace(s[:tableEnd])
-
-	depth := 1
-	quote = 0
-	for i := colStart; i < len(s); i++ {
-		c := s[i]
-		if quote != 0 {
-			if c == '\\' && i+1 < len(s) {
-				i++
-				continue
-			}
-			if c == quote {
-				quote = 0
-			}
-			continue
-		}
-
-		if c == '`' || c == '"' {
-			quote = c
-			continue
-		}
-
-		if c == '(' {
-			depth++
-		} else if c == ')' {
-			depth--
-			if depth == 0 {
-				colEnd = i
-				break
-			}
-		}
-	}
-
-	if colEnd != -1 {
-		columnsPart = s[colStart:colEnd]
+	if colEnd := scanBalancedParens(s, tableEnd); colEnd != -1 {
+		columnsPart = s[tableEnd+1 : colEnd]
 	}
 
 	return tableName, columnsPart, true
@@ -341,6 +373,8 @@ func appendCommentSeparator(out []byte, rest string) []byte {
 const (
 	insertKeyword   = "INSERT"
 	intoKeyword     = "INTO"
+	tableKeyword    = "TABLE"
+	functionKeyword = "FUNCTION"
 	valuesKeyword   = "VALUES"
 	formatKeyword   = "FORMAT"
 	settingsKeyword = "SETTINGS"
