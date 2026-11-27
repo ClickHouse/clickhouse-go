@@ -75,6 +75,7 @@ func DynamicExample() error {
 	if err != nil {
 		return err
 	}
+	defer rows.Close()
 
 	for i := 0; rows.Next(); i++ {
 		var row clickhouse.Dynamic
@@ -94,6 +95,9 @@ func DynamicExample() error {
 			fmt.Printf("row at index %d is NULL\n", i)
 		}
 	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
 
 	// Switch on ClickHouse Type
 
@@ -101,6 +105,7 @@ func DynamicExample() error {
 	if err != nil {
 		return err
 	}
+	defer rows.Close()
 
 	for i := 0; rows.Next(); i++ {
 		var row clickhouse.Dynamic
@@ -119,6 +124,9 @@ func DynamicExample() error {
 		case "":
 			fmt.Printf("row at index %d is nil\n", i)
 		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
 	}
 
 	return nil
