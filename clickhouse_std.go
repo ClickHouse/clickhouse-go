@@ -156,6 +156,8 @@ type stdConnect interface {
 	// healthCheck reports why the connection is unusable; nil means healthy.
 	healthCheck() error
 	close() error
+	resetWriteState()
+	hasWrittenBytes() bool
 	query(ctx context.Context, release nativeTransportRelease, query string, args ...any) (*rows, error)
 	exec(ctx context.Context, query string, args ...any) error
 	ping(ctx context.Context) (err error)
@@ -168,6 +170,7 @@ type stdDriver struct {
 	conn   stdConnect
 	commit func() error
 	logger *slog.Logger
+	broken atomic.Bool
 }
 
 var _ driver.Conn = (*stdDriver)(nil)
@@ -193,40 +196,97 @@ func (std *stdDriver) Open(dsn string) (_ driver.Conn, err error) {
 
 var _ driver.Driver = (*stdDriver)(nil)
 
-func (std *stdDriver) ResetSession(ctx context.Context) error {
+func (std *stdDriver) markBroken() {
+	std.broken.Store(true)
+}
+
+// IsValid implements driver.Validator so database/sql discards broken
+// connections on return without duplicating the healthCheck done in ResetSession.
+func (std *stdDriver) IsValid() bool {
+	return std.conn != nil && !std.broken.Load()
+}
+
+var _ driver.Validator = (*stdDriver)(nil)
+
+func (std *stdDriver) checkHealth(op string) error {
+	if std.broken.Load() {
+		std.logger.Debug(op + ": connection is marked broken")
+		return driver.ErrBadConn
+	}
 	if err := std.conn.healthCheck(); err != nil {
-		std.logger.Debug("resetting session because connection is bad", slog.Any("reason", err))
+		std.markBroken()
+		std.logger.Debug(op+": connection is bad", slog.Any("reason", err))
 		return driver.ErrBadConn
 	}
 	return nil
 }
 
+func (std *stdDriver) handleOpError(ctx context.Context, op string, err error) error {
+	if errors.Is(err, driver.ErrBadConn) {
+		std.markBroken()
+		if !std.conn.hasWrittenBytes() && (ctx == nil || ctx.Err() == nil) {
+			return driver.ErrBadConn
+		}
+		sanitized := fmt.Errorf("%s failed after send: %v", op, err)
+		std.logger.Error(op+" error after sending", slog.Any("error", sanitized))
+		return sanitized
+	}
+	if ctx != nil && ctx.Err() != nil {
+		if std.conn.hasWrittenBytes() || std.conn.healthCheck() != nil {
+			std.markBroken()
+		}
+		std.logger.Error(op+" error", slog.Any("error", err))
+		return err
+	}
+	if isConnBrokenError(err) {
+		std.markBroken()
+		if !std.conn.hasWrittenBytes() {
+			std.logger.Error(op+" got a fatal error before sending, resetting connection", slog.Any("error", err))
+			return driver.ErrBadConn
+		}
+		std.logger.Error(op+" got a fatal error after sending, not retrying", slog.Any("error", err))
+		return err
+	}
+	if std.conn.healthCheck() != nil {
+		std.markBroken()
+	}
+	std.logger.Error(op+" error", slog.Any("error", err))
+	return err
+}
+
+func (std *stdDriver) ResetSession(ctx context.Context) error {
+	return std.checkHealth("resetting session")
+}
+
 var _ driver.SessionResetter = (*stdDriver)(nil)
 
 func (std *stdDriver) Ping(ctx context.Context) error {
-	if err := std.conn.healthCheck(); err != nil {
-		std.logger.Debug("ping: connection is bad", slog.Any("reason", err))
-		return driver.ErrBadConn
+	if err := std.checkHealth("ping"); err != nil {
+		return err
 	}
 
-	return std.conn.ping(ctx)
+	if err := std.conn.ping(ctx); err != nil {
+		if isConnBrokenError(err) || (ctx != nil && ctx.Err() != nil) || std.conn.healthCheck() != nil {
+			std.markBroken()
+		}
+		return err
+	}
+	return nil
 }
 
 var _ driver.Pinger = (*stdDriver)(nil)
 
 func (std *stdDriver) Begin() (driver.Tx, error) {
-	if err := std.conn.healthCheck(); err != nil {
-		std.logger.Debug("begin: connection is bad", slog.Any("reason", err))
-		return nil, driver.ErrBadConn
+	if err := std.checkHealth("begin"); err != nil {
+		return nil, err
 	}
 
 	return std, nil
 }
 
 func (std *stdDriver) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
-	if err := std.conn.healthCheck(); err != nil {
-		std.logger.Debug("begin tx: connection is bad", slog.Any("reason", err))
-		return nil, driver.ErrBadConn
+	if err := std.checkHealth("begin tx"); err != nil {
+		return nil, err
 	}
 
 	return std, nil
@@ -241,6 +301,9 @@ func (std *stdDriver) Commit() error {
 	}()
 
 	if err := std.commit(); err != nil {
+		if isConnBrokenError(err) || std.conn.healthCheck() != nil {
+			std.markBroken()
+		}
 		if isConnBrokenError(err) {
 			std.logger.Debug("commit got EOF error: resetting connection")
 			return driver.ErrBadConn
@@ -253,6 +316,7 @@ func (std *stdDriver) Commit() error {
 
 func (std *stdDriver) Rollback() error {
 	std.commit = nil
+	std.markBroken()
 	std.conn.close()
 	return nil
 }
@@ -264,10 +328,11 @@ func (std *stdDriver) CheckNamedValue(nv *driver.NamedValue) error { return nil 
 var _ driver.NamedValueChecker = (*stdDriver)(nil)
 
 func (std *stdDriver) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
-	if err := std.conn.healthCheck(); err != nil {
-		std.logger.Debug("exec context: connection is bad", slog.Any("reason", err))
-		return nil, driver.ErrBadConn
+	if err := std.checkHealth("exec context"); err != nil {
+		return nil, err
 	}
+
+	std.conn.resetWriteState()
 
 	var err error
 	if asyncOpt := queryOptionsAsync(ctx); asyncOpt.ok {
@@ -277,34 +342,26 @@ func (std *stdDriver) ExecContext(ctx context.Context, query string, args []driv
 	}
 
 	if err != nil {
-		if isConnBrokenError(err) {
-			std.logger.Error("exec context got a fatal error, resetting connection", slog.Any("error", err))
-			return nil, driver.ErrBadConn
-		}
-		std.logger.Error("exec context error", slog.Any("error", err))
-		return nil, err
+		return nil, std.handleOpError(ctx, "exec context", err)
 	}
 	return driver.RowsAffected(0), nil
 }
 
 func (std *stdDriver) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
-	if err := std.conn.healthCheck(); err != nil {
-		std.logger.Debug("query context: connection is bad", slog.Any("reason", err))
-		return nil, driver.ErrBadConn
-	}
-
-	r, err := std.conn.query(ctx, func(nativeTransport, error) {}, query, rebind(args)...)
-	if isConnBrokenError(err) {
-		std.logger.Error("query context got a fatal error, resetting connection", slog.Any("error", err))
-		return nil, driver.ErrBadConn
-	}
-	if err != nil {
-		std.logger.Error("query context error", slog.Any("error", err))
+	if err := std.checkHealth("query context"); err != nil {
 		return nil, err
 	}
+
+	std.conn.resetWriteState()
+
+	r, err := std.conn.query(ctx, func(nativeTransport, error) {}, query, rebind(args)...)
+	if err != nil {
+		return nil, std.handleOpError(ctx, "query context", err)
+	}
 	return &stdRows{
-		rows:   r,
-		logger: std.logger,
+		rows:        r,
+		logger:      std.logger,
+		onStreamErr: std.markBrokenIfFatal,
 	}, nil
 }
 
@@ -313,19 +370,15 @@ func (std *stdDriver) Prepare(query string) (driver.Stmt, error) {
 }
 
 func (std *stdDriver) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
-	if err := std.conn.healthCheck(); err != nil {
-		std.logger.Debug("prepare context: connection is bad", slog.Any("reason", err))
-		return nil, driver.ErrBadConn
+	if err := std.checkHealth("prepare context"); err != nil {
+		return nil, err
 	}
+
+	std.conn.resetWriteState()
 
 	batch, err := std.conn.prepareBatch(ctx, func(nativeTransport, error) {}, func(context.Context) (nativeTransport, error) { return nil, nil }, query, chdriver.PrepareBatchOptions{})
 	if err != nil {
-		if isConnBrokenError(err) {
-			std.logger.Error("prepare context got a fatal error, resetting connection", slog.Any("error", err))
-			return nil, driver.ErrBadConn
-		}
-		std.logger.Error("prepare context error", slog.Any("error", err))
-		return nil, err
+		return nil, std.handleOpError(ctx, "prepare context", err)
 	}
 	std.commit = batch.Send
 	return &stdBatch{
@@ -335,6 +388,7 @@ func (std *stdDriver) PrepareContext(ctx context.Context, query string) (driver.
 }
 
 func (std *stdDriver) Close() error {
+	std.markBroken()
 	err := std.conn.close()
 	if err != nil {
 		if isConnBrokenError(err) {
@@ -344,6 +398,12 @@ func (std *stdDriver) Close() error {
 		std.logger.Error("close error", slog.Any("error", err))
 	}
 	return err
+}
+
+func (std *stdDriver) markBrokenIfFatal(err error) {
+	if isConnBrokenError(err) || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || (std.conn != nil && std.conn.healthCheck() != nil) {
+		std.markBroken()
+	}
 }
 
 type stdBatch struct {
@@ -381,8 +441,9 @@ func (s *stdBatch) Query(args []driver.Value) (driver.Rows, error) {
 func (s *stdBatch) Close() error { return nil }
 
 type stdRows struct {
-	rows   *rows
-	logger *slog.Logger
+	rows        *rows
+	logger      *slog.Logger
+	onStreamErr func(error)
 }
 
 func (r *stdRows) Columns() []string {
@@ -471,6 +532,9 @@ func (r *stdRows) Next(dest []driver.Value) error {
 		return nil
 	}
 	if err := r.rows.Err(); err != nil {
+		if r.onStreamErr != nil {
+			r.onStreamErr(err)
+		}
 		r.logger.Error("next rows error", slog.Any("error", err))
 		return err
 	}
@@ -497,6 +561,9 @@ var _ driver.RowsNextResultSet = (*stdRows)(nil)
 func (r *stdRows) Close() error {
 	err := r.rows.Close()
 	if err != nil {
+		if r.onStreamErr != nil {
+			r.onStreamErr(err)
+		}
 		r.logger.Error("rows close error", slog.Any("error", err))
 	}
 	return err

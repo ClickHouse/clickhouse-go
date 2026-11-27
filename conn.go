@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -137,8 +138,17 @@ type connect struct {
 	maxCompressionBuffer int
 	readerMutex          sync.Mutex
 	closeMutex           sync.Mutex
+	wroteBytes           atomic.Bool
 	// clusterSalt signs queries on this connection.
 	clusterSalt string
+}
+
+func (c *connect) resetWriteState() {
+	c.wroteBytes.Store(false)
+}
+
+func (c *connect) hasWrittenBytes() bool {
+	return c.wroteBytes.Load()
 }
 
 func (c *connect) connID() int {
@@ -454,6 +464,9 @@ func (c *connect) flush() error {
 	}
 
 	n, err := c.conn.Write(c.buffer.Buf)
+	if n > 0 {
+		c.wroteBytes.Store(true)
+	}
 	if err != nil {
 		return fmt.Errorf("write: %w", err)
 	}
