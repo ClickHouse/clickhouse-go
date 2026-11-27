@@ -4,7 +4,10 @@ import (
 	"context"
 	"crypto/tls"
 	"net/http"
+	"net/url"
 	"testing"
+
+	"github.com/ClickHouse/clickhouse-go/v2/ext"
 )
 
 func TestCreateHTTPRoundTripper(t *testing.T) {
@@ -170,5 +173,42 @@ func TestApplyOptionsToRequest_JWTAuth(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestCreateRequestWithExternalTables_StructureQuoting(t *testing.T) {
+	tbl, err := ext.NewTable("ext",
+		ext.Column("test id", "UInt64"),
+		ext.Column("`test id`", "UInt64"),
+		ext.Column("x UInt8, y", "UInt64"),
+	)
+	if err != nil {
+		t.Fatalf("ext.NewTable failed: %s", err)
+	}
+	if err := tbl.Append(uint64(42), uint64(43), uint64(44)); err != nil {
+		t.Fatalf("tbl.Append failed: %s", err)
+	}
+
+	u, err := url.Parse("http://localhost:8123/")
+	if err != nil {
+		t.Fatalf("url.Parse failed: %s", err)
+	}
+	h := &httpConnect{
+		opt:            &Options{},
+		encodeRevision: 0,
+		url:            u,
+	}
+	opts := &QueryOptions{
+		external: []*ext.Table{tbl},
+	}
+
+	req, err := h.createRequestWithExternalTables(context.Background(), "SELECT * FROM ext", opts, nil)
+	if err != nil {
+		t.Fatalf("createRequestWithExternalTables failed: %s", err)
+	}
+
+	want := "`test id` UInt64, `\\`test id\\`` UInt64, `x UInt8, y` UInt64"
+	if got := req.URL.Query().Get("ext_structure"); got != want {
+		t.Errorf("ext_structure = %q, want %q", got, want)
 	}
 }
