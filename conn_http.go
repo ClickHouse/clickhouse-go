@@ -178,6 +178,9 @@ func dialHttp(ctx context.Context, addr string, num int, opt *Options) (*httpCon
 	if len(opt.Auth.Database) > 0 {
 		query.Set("database", opt.Auth.Database)
 	}
+	if len(opt.QuotaKey) > 0 {
+		query.Set(quotaKeyParamName, opt.QuotaKey)
+	}
 
 	if compression == nil {
 		compression = &Compression{

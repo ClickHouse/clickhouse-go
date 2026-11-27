@@ -262,6 +262,7 @@ TransportFunc: func(t *http.Transport) (http.RoundTripper, error) {
 | Option | Type | Default | DSN param | Per-query | Description | Best practice | When misconfigured |
 |--------|------|---------|-----------|-----------|-------------|---------------|-------------------|
 | `ClientInfo` | `ClientInfo` struct | Auto: `clickhouse-go` version + Go runtime | `client_info_product=myapp/1.0` | Yes (`WithClientInfo`, appends) | App identification sent to ClickHouse. Contains `Products` (`[]struct{Name,Version}`) and `Comment` (`[]string`). Visible in `system.query_log`. | Always set app name + version. Query attribution: `SELECT client_name FROM system.query_log WHERE client_name LIKE '%myapp%'` | Not setting: can't identify which service issued queries in multi-service environments. |
+| `QuotaKey` | `string` | `""` | `quota_key` | Yes (`WithQuotaKey`, replaces) | Quota key for the connection. Sent when the connection opens and used by quotas `KEYED BY client_key`. | Use for per-tenant limits when each tenant has its own connection pool. | Quota not keyed by `client_key`: ignored. Quota `KEYED BY client_key` without a key: `QUOTA_REQUIRES_CLIENT_KEY`. |
 
 ```go
 ClientInfo: clickhouse.ClientInfo{
@@ -319,7 +320,7 @@ The context deadline only limits how long the client waits. The driver does not 
 | Option | Type | Default | Protocol | Description | Best practice | When misconfigured |
 |--------|------|---------|----------|-------------|---------------|-------------------|
 | `WithQueryID` | `string` | Auto-generated | Both | Custom query identifier. Visible in `system.query_log` and `system.processes`. | Use UUIDs. Useful for `KILL QUERY WHERE query_id='...'`. | Duplicate IDs: confusion in `system.query_log`. |
-| `WithQuotaKey` | `string` | `""` | Both | Quota key for multi-tenant resource limits. Requires server-side quota config. | Use for per-customer/per-user limits. | Quota not configured: silently ignored. |
+| `WithQuotaKey` | `string` | `""` | Both | Quota key for multi-tenant resource limits. Requires server-side quota config. Overrides the connection-level `QuotaKey`. | Use for per-customer/per-user limits. | Quota not configured: silently ignored. |
 | `WithJWT` | `string` | `""` | HTTPS only | Per-query JWT override for ClickHouse Cloud. *(Since v2.35.0)* | Use for per-request auth in multi-tenant proxies. | Without TLS: ignored, falls back to connection auth. Expired: `"Token has expired"`. |
 | `WithSettings` | `Settings` | Inherits connection | Both | Per-query server settings. Merged with connection settings; context wins on conflict. | Override `max_execution_time` or `max_rows_to_read` per query type. | Same as connection-level `Settings`. |
 | `WithParameters` | `Parameters` (`map[string]string`) | `nil` | Both | Server-side parameterized query values. Query syntax: `{param_name:Type}`. Values use ClickHouse's [`Escaped` parameter text format](/integrations/language-clients/go/clickhouse-api#query-parameter-escaping). | Use instead of string concatenation for SQL injection safety. | Missing param: `"Substitution {param_name:Type} isn't set"`. Wrong type: `"Cannot parse string 'abc' as UInt64"`. |
@@ -414,6 +415,7 @@ batch, err := conn.PrepareBatch(ctx, "INSERT INTO table",
 | `debug` | `Debug` | `?debug=true` |
 | `client_info_product` | `ClientInfo.Products` | `?client_info_product=myapp/1.0` |
 | `http_proxy` | `HTTPProxyURL` | `?http_proxy=http%3A%2F%2Fproxy%3A8080` |
+| `quota_key` | `QuotaKey` | `?quota_key=tenant_a` |
 | `http_path` | `HttpUrlPath` | `?http_path=/clickhouse` |
 | *(any other)* | `Settings[key]` | `?max_execution_time=60` |
 

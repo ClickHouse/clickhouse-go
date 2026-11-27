@@ -13,6 +13,10 @@ func (c *connect) sendQuery(body string, o *QueryOptions) error {
 		slog.String("compression", c.compression.String()),
 		slog.String("query", body))
 	c.buffer.PutByte(proto.ClientQuery)
+	quotaKey := o.quotaKey
+	if quotaKey == "" {
+		quotaKey = c.opt.QuotaKey
+	}
 	q := proto.Query{
 		ClientTCPProtocolVersion: ClientTCPProtocolVersion,
 		ClientName:               c.opt.ClientInfo.Append(o.clientInfo).String(),
@@ -20,7 +24,7 @@ func (c *connect) sendQuery(body string, o *QueryOptions) error {
 		ID:                       o.queryID,
 		Body:                     body,
 		Span:                     o.span,
-		QuotaKey:                 o.quotaKey,
+		QuotaKey:                 quotaKey,
 		Compression:              c.compression != CompressionNone,
 		InitialUser:              c.effectiveInitialUser(o.initialUser),
 		InitialAddress:           c.conn.LocalAddr().String(),
