@@ -425,6 +425,7 @@ func (c *connect) readData(ctx context.Context, packet byte, compressible bool) 
 
 	serverContext := serverVersionToContext(c.server)
 	serverContext.Timezone = location
+	serverContext.OrderedMaps = c.opt.OrderedMaps
 	block := proto.Block{ServerContext: &serverContext}
 	if err := block.Decode(c.reader, c.revision); err != nil {
 		c.logger.Error("read data failed: decode error",

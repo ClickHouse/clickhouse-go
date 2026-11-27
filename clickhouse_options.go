@@ -199,6 +199,11 @@ type Options struct {
 	// Can be overridden with context.WithDeadline.
 	ReadTimeout time.Duration
 
+	// OrderedMaps reads a Map value as []column.MapEntry instead of a Go map: its entries in the order the server
+	// sent them, a key repeated as often as the map holds it, and keys of any type. A Go map keeps no order and one
+	// value a key, while ClickHouse's Map is an array of key-value pairs.
+	OrderedMaps bool
+
 	// Set a custom transport for the http client.
 	// The default transport configured by the library is passed in as an argument.
 	TransportFunc func(*http.Transport) (http.RoundTripper, error)
@@ -238,6 +243,8 @@ func (o *Options) fromDSN(in string) error {
 			o.Addr = append(o.Addr, parseHostList(params.Get(v))...)
 		case "debug":
 			o.Debug, _ = strconv.ParseBool(params.Get(v))
+		case "ordered_maps":
+			o.OrderedMaps, _ = strconv.ParseBool(params.Get(v))
 		case "compress":
 			if on, _ := strconv.ParseBool(params.Get(v)); on {
 				if o.Compression == nil {

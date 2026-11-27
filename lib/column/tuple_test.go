@@ -3,6 +3,8 @@ package column
 import (
 	"testing"
 
+	"github.com/ClickHouse/ch-go/proto"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -62,6 +64,24 @@ func TestTupleParseElementNames(t *testing.T) {
 			chType:  "Tuple(String, Decimal(9, 2))",
 			names:   []string{"", ""},
 			types:   []string{"String", "Decimal(9, 2)"},
+			isNamed: false,
+		},
+		{
+			// a quoted name can contain a space, a comma, and a bracket
+			chType:  "Tuple(`a b` UInt8, `c,d` UInt8, `e(f` UInt8, `g\\`h` Tuple(`i j` UInt8))",
+			names:   []string{"a b", "c,d", "e(f", "g`h"},
+			types:   []string{"UInt8", "UInt8", "UInt8", "Tuple(`i j` UInt8)"},
+			isNamed: true,
+		},
+		{
+			// a string in a type can contain a comma and a bracket
+			chType:  "Tuple(Enum8('x)' = 1, 'c,d' = 2), UInt8)",
+			names:   []string{"", ""},
+			types:   []string{"Enum8('x)' = 1, 'c,d' = 2)", "UInt8"},
+			isNamed: false,
+		},
+		{
+			chType:  "Tuple()",
 			isNamed: false,
 		},
 	} {
@@ -150,4 +170,110 @@ func TestTupleQuotedElementNamesRoundTrip(t *testing.T) {
 
 	err = col.AppendRow(map[string]any{"values": []string{}, "from": "z", "missing": uint8(0)})
 	require.ErrorContains(t, err, "sub column 'missing' does not exist")
+}
+
+func TestTupleNestedRow(t *testing.T) {
+	for _, tc := range []struct {
+		chType string
+		row    any
+	}{
+		{
+			chType: "Tuple(Tuple(UInt8, String), UInt8)",
+			row:    []any{[]any{uint8(1), "a"}, uint8(2)},
+		},
+		{
+			chType: "Tuple(UInt8, Tuple(UInt8, Tuple(UInt8, String)))",
+			row:    []any{uint8(1), []any{uint8(2), []any{uint8(3), "a"}}},
+		},
+		{
+			chType: "Tuple(a Tuple(UInt8, String), b UInt8)",
+			row:    map[string]any{"a": []any{uint8(1), "a"}, "b": uint8(2)},
+		},
+		{
+			chType: "Tuple(Tuple(a UInt8, b String), UInt8)",
+			row:    []any{map[string]any{"a": uint8(1), "b": "a"}, uint8(2)},
+		},
+		{
+			chType: "Array(Tuple(Tuple(UInt8, String), UInt8))",
+			row:    [][]any{{[]any{uint8(1), "a"}, uint8(2)}},
+		},
+		{
+			chType: "Tuple(Array(Tuple(UInt8, UInt8)), UInt8)",
+			row:    []any{[][]any{{uint8(1), uint8(2)}}, uint8(3)},
+		},
+		{
+			chType: "Tuple(a Array(Tuple(UInt8, UInt8)), b UInt8)",
+			row:    map[string]any{"a": [][]any{{uint8(1), uint8(2)}}, "b": uint8(3)},
+		},
+		{
+			chType: "Tuple(Array(Array(Tuple(a UInt8, b UInt8))), UInt8)",
+			row: []any{[][]map[string]any{
+				{{"a": uint8(1), "b": uint8(2)}},
+				{{"a": uint8(3), "b": uint8(4)}, {"a": uint8(5), "b": uint8(6)}},
+			}, uint8(7)},
+		},
+		{
+			chType: "Tuple(Tuple(), Array(Tuple()))",
+			row:    []any{[]any{}, [][]any{{}, {}}},
+		},
+	} {
+		t.Run(tc.chType, func(t *testing.T) {
+			col, err := Type(tc.chType).Column("test", nil)
+			require.NoError(t, err)
+			require.NoError(t, col.AppendRow(tc.row))
+			assert.Equal(t, tc.row, col.Row(0, false))
+			var scanned any
+			require.NoError(t, col.ScanRow(&scanned, 0))
+			assert.Equal(t, tc.row, scanned)
+		})
+	}
+}
+
+func TestTupleNestedScanTyped(t *testing.T) {
+	col, err := Type("Tuple(a Tuple(UInt8, String), b Tuple(UInt8, String))").Column("test", nil)
+	require.NoError(t, err)
+	require.NoError(t, col.AppendRow(map[string]any{"a": []any{uint8(1), "a"}, "b": []any{uint8(2), "b"}}))
+
+	var slices map[string][]any
+	require.NoError(t, col.ScanRow(&slices, 0))
+	assert.Equal(t, map[string][]any{"a": {uint8(1), "a"}, "b": {uint8(2), "b"}}, slices)
+
+	var maps map[string]map[string]any
+	require.ErrorContains(t, col.ScanRow(&maps, 0), "cannot use maps for unnamed tuples, use slice")
+
+	var numbers map[string]uint8
+	require.ErrorContains(t, col.ScanRow(&numbers, 0), "needs a map/struct/slice or any")
+
+	var st struct {
+		A []any `ch:"a"`
+		B any   `ch:"b"`
+	}
+	require.NoError(t, col.ScanRow(&st, 0))
+	assert.Equal(t, []any{uint8(1), "a"}, st.A)
+	assert.Equal(t, []any{uint8(2), "b"}, st.B)
+}
+
+func TestTupleEmpty(t *testing.T) {
+	col, err := Type("Tuple()").Column("test", nil)
+	require.NoError(t, err)
+	require.NoError(t, col.AppendRow([]any{}))
+	require.NoError(t, col.AppendRow([]any{}))
+	require.Error(t, col.AppendRow([]any{uint8(1)}))
+	require.Equal(t, 2, col.Rows())
+	assert.Equal(t, []any{}, col.Row(1, false))
+
+	var buffer proto.Buffer
+	col.Encode(&buffer)
+	assert.Equal(t, []byte("00"), buffer.Buf)
+
+	decoded, err := Type("Tuple()").Column("test", nil)
+	require.NoError(t, err)
+	require.NoError(t, decoded.Decode(buffer.Reader(), 2))
+	require.Equal(t, 2, decoded.Rows())
+	var scanned []any
+	require.NoError(t, decoded.ScanRow(&scanned, 1))
+	assert.Equal(t, []any{}, scanned)
+
+	col.Reset()
+	require.Equal(t, 0, col.Rows())
 }

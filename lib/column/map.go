@@ -16,9 +16,19 @@ type Map struct {
 	values   Interface
 	chType   Type
 	offsets  Int64
-	scanType reflect.Type
+	scanType reflect.Type // the Go map a row scans into; nil where the keys are not comparable
 	name     string
+	ordered  bool
 }
+
+// MapEntry is one of a Map's entries. With ServerContext.OrderedMaps, a Map's Row is []MapEntry, in the order the
+// server sent them.
+type MapEntry struct {
+	Key   any
+	Value any
+}
+
+var mapEntriesType = reflect.TypeFor[[]MapEntry]()
 
 type OrderedMap interface {
 	Get(key any) (any, bool)
@@ -65,10 +75,12 @@ func (col *Map) parse(t Type, sc *ServerContext) (_ Interface, err error) {
 	if col.values, err = valueType.Column(col.name, sc); err != nil {
 		return nil, err
 	}
-	if !col.keys.ScanType().Comparable() {
+	col.ordered = sc != nil && sc.OrderedMaps
+	if col.keys.ScanType().Comparable() {
+		col.scanType = reflect.MapOf(col.keys.ScanType(), col.values.ScanType())
+	} else if !col.ordered {
 		return nil, &UnsupportedColumnTypeError{t: t}
 	}
-	col.scanType = reflect.MapOf(col.keys.ScanType(), col.values.ScanType())
 	return col, nil
 }
 
@@ -113,6 +125,9 @@ func (col *Map) Type() Type {
 }
 
 func (col *Map) ScanType() reflect.Type {
+	if col.ordered {
+		return mapEntriesType
+	}
 	return col.scanType
 }
 
@@ -121,15 +136,22 @@ func (col *Map) Rows() int {
 }
 
 func (col *Map) Row(i int, ptr bool) any {
+	if col.ordered {
+		return col.entries(i)
+	}
 	return col.row(i).Interface()
 }
 
 func (col *Map) ScanRow(dest any, i int) error {
 	if scanner, ok := dest.(sql.Scanner); ok {
-		return scanner.Scan(col.row(i).Interface())
+		return scanner.Scan(col.Row(i, false))
+	}
+	if entries, ok := dest.(*[]MapEntry); ok {
+		*entries = col.entries(i)
+		return nil
 	}
 	value := reflect.Indirect(reflect.ValueOf(dest))
-	if value.Type() == col.scanType {
+	if col.scanType != nil && value.Type() == col.scanType {
 		value.Set(col.row(i))
 		return nil
 	}
@@ -151,7 +173,7 @@ func (col *Map) ScanRow(dest any, i int) error {
 		Op:   "ScanRow",
 		To:   fmt.Sprintf("%T", dest),
 		From: string(col.chType),
-		Hint: fmt.Sprintf("try using %s", col.scanType),
+		Hint: fmt.Sprintf("try using %s", col.ScanType()),
 	}
 }
 
@@ -165,7 +187,7 @@ func (col *Map) Append(v any) (nulls []uint8, err error) {
 					Op:   "Append",
 					To:   string(col.chType),
 					From: fmt.Sprintf("%T", v),
-					Hint: fmt.Sprintf("could not get driver.Valuer value, try using %s", col.scanType),
+					Hint: fmt.Sprintf("could not get driver.Valuer value, try using %s", col.ScanType()),
 				}
 			}
 			return col.Append(val)
@@ -174,7 +196,7 @@ func (col *Map) Append(v any) (nulls []uint8, err error) {
 			Op:   "Append",
 			To:   string(col.chType),
 			From: fmt.Sprintf("%T", v),
-			Hint: fmt.Sprintf("try using %s", col.scanType),
+			Hint: fmt.Sprintf("try using %s", col.ScanType()),
 		}
 	}
 	for i := 0; i < value.Len(); i++ {
@@ -186,14 +208,20 @@ func (col *Map) Append(v any) (nulls []uint8, err error) {
 }
 
 func (col *Map) AppendRow(v any) error {
-	if v == nil {
-		// NOTE: successful Map.parse() make sure we have
-		// valid col.scanType
-		v = reflect.Zero(col.scanType).Interface()
+	switch entries := v.(type) {
+	case nil:
+		return col.appendEntries(nil)
+	case []MapEntry:
+		return col.appendEntries(entries)
+	case *[]MapEntry:
+		if entries == nil {
+			return col.appendEntries(nil)
+		}
+		return col.appendEntries(*entries)
 	}
 
 	value := reflect.Indirect(reflect.ValueOf(v))
-	if value.Type() == col.scanType {
+	if col.scanType != nil && value.Type() == col.scanType {
 		var (
 			size int64
 			iter = value.MapRange()
@@ -266,7 +294,7 @@ func (col *Map) AppendRow(v any) error {
 				Op:   "AppendRow",
 				To:   string(col.chType),
 				From: fmt.Sprintf("%T", v),
-				Hint: fmt.Sprintf("could not get driver.Valuer value, try using %s", col.scanType),
+				Hint: fmt.Sprintf("could not get driver.Valuer value, try using %s", col.ScanType()),
 			}
 		}
 		return col.AppendRow(val)
@@ -276,7 +304,7 @@ func (col *Map) AppendRow(v any) error {
 		Op:   "AppendRow",
 		To:   string(col.chType),
 		From: fmt.Sprintf("%T", v),
-		Hint: fmt.Sprintf("try using %s", col.scanType),
+		Hint: fmt.Sprintf("try using %s", col.ScanType()),
 	}
 
 }
@@ -358,6 +386,32 @@ func (col *Map) row(n int) reflect.Value {
 		)
 	}
 	return value
+}
+
+func (col *Map) appendEntries(entries []MapEntry) error {
+	for _, e := range entries {
+		if err := col.keys.AppendRow(e.Key); err != nil {
+			return err
+		}
+		if err := col.values.AppendRow(e.Value); err != nil {
+			return err
+		}
+	}
+	var prev int64
+	if n := col.offsets.Rows(); n != 0 {
+		prev = col.offsets.col.Row(n - 1)
+	}
+	col.offsets.col.Append(prev + int64(len(entries)))
+	return nil
+}
+
+func (col *Map) entries(n int) []MapEntry {
+	keys, values := col.orderedRow(n)
+	entries := make([]MapEntry, len(keys))
+	for i := range keys {
+		entries[i] = MapEntry{Key: keys[i], Value: values[i]}
+	}
+	return entries
 }
 
 func (col *Map) orderedRow(n int) ([]any, []any) {
