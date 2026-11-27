@@ -397,8 +397,8 @@ func (col *{{ .ChType }}) AppendRow(v any) error {
             col.col.Append(0)
         }
     case *sql.Null{{ .ChType }}:
-        switch v.Valid {
-        case true:
+        switch {
+        case v != nil && v.Valid:
             col.col.Append(v.{{ .ChType }})
         default:
             col.col.Append(0)
@@ -408,7 +408,12 @@ func (col *{{ .ChType }}) AppendRow(v any) error {
     case time.Duration:
         col.col.Append(int64(v))
     case *time.Duration:
-        col.col.Append(int64(*v))
+        switch {
+        case v != nil:
+            col.col.Append(int64(*v))
+        default:
+            col.col.Append(0)
+        }
 	{{- end }}
 	{{- if eq .ChType "Int8" }}
     case bool:
