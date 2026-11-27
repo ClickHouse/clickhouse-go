@@ -210,6 +210,10 @@ func (col *IPv4) Append(v any) (nulls []uint8, err error) {
 		nulls = make([]uint8, len(v))
 		values := make([]proto.IPv4, len(v))
 		for i := range v {
+			if v[i] == nil {
+				nulls[i] = 1
+				continue
+			}
 			value, err := netIPToIPv4(v[i], "Append", "net.IP", i)
 			if err != nil {
 				return nulls, err

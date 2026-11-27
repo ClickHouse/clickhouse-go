@@ -175,6 +175,9 @@ func (col *String) Append(v any) (nulls []uint8, err error) {
 	case []json.RawMessage:
 		nulls = make([]uint8, len(v))
 		for i := range v {
+			if v[i] == nil {
+				nulls[i] = 1
+			}
 			col.col.Append(string(v[i]))
 		}
 	case []*json.RawMessage:
@@ -195,6 +198,9 @@ func (col *String) Append(v any) (nulls []uint8, err error) {
 	case [][]byte:
 		nulls = make([]uint8, len(v))
 		for i := range v {
+			if v[i] == nil {
+				nulls[i] = 1
+			}
 			col.col.Append(string(v[i]))
 		}
 	default:
