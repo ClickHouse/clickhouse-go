@@ -486,6 +486,22 @@ func TestParseDSN(t *testing.T) {
 			"",
 		},
 		{
+			"quota key",
+			"clickhouse://127.0.0.1/test_database?quota_key=tenant_a",
+			&Options{
+				Protocol: Native,
+				TLS:      nil,
+				Addr:     []string{"127.0.0.1"},
+				Settings: Settings{},
+				Auth: Auth{
+					Database: "test_database",
+				},
+				QuotaKey: "tenant_a",
+				scheme:   "clickhouse",
+			},
+			"",
+		},
+		{
 			"client connection pool settings",
 			"clickhouse://127.0.0.1/test_database?max_open_conns=-1&max_idle_conns=0&conn_max_lifetime=1h",
 			&Options{

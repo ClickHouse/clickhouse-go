@@ -137,6 +137,9 @@ type HTTPProxy func(*http.Request) (*url.URL, error)
 type Options struct {
 	Protocol   Protocol
 	ClientInfo ClientInfo
+	// QuotaKey is sent to the server when the connection is opened and is used
+	// by quotas KEYED BY client_key. A per-query WithQuotaKey takes precedence.
+	QuotaKey string
 
 	TLS  *tls.Config
 	Addr []string
@@ -369,6 +372,8 @@ func (o *Options) fromDSN(in string) error {
 					version,
 				})
 			}
+		case "quota_key":
+			o.QuotaKey = params.Get(v)
 		case "http_proxy":
 			rawProxyURL := params.Get(v)
 			proxyURL, err := url.Parse(rawProxyURL)

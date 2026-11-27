@@ -94,7 +94,7 @@ func (c *connect) handshake(auth Auth) error {
 
 func (c *connect) sendAddendum() error {
 	if c.revision >= proto.DBMS_MIN_PROTOCOL_VERSION_WITH_QUOTA_KEY {
-		c.buffer.PutString("") // todo quota key support
+		c.buffer.PutString(c.opt.QuotaKey)
 	}
 
 	return c.flush()
