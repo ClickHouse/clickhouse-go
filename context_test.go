@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/ClickHouse/clickhouse-go/v2/ext"
 )
 
 func TestContext(t *testing.T) {
@@ -240,4 +242,65 @@ func TestQueryOptionsMaxExecutionTime(t *testing.T) {
 			require.Equal(t, want, value)
 		})
 	}
+}
+
+// TestContextExternalTables is a regression test for
+// https://github.com/ClickHouse/clickhouse-go/issues/1724.
+func TestContextExternalTables(t *testing.T) {
+	newTable := func(t *testing.T, name string) *ext.Table {
+		t.Helper()
+		table, err := ext.NewTable(name, ext.Column("id", "UInt64"))
+		require.NoError(t, err)
+		return table
+	}
+	// requireTables compares pointers, because two tables can have the same name.
+	requireTables := func(t *testing.T, ctx context.Context, want ...*ext.Table) {
+		t.Helper()
+		got := queryOptions(ctx).external
+		require.Len(t, got, len(want))
+		for i := range want {
+			require.Samef(t, want[i], got[i], "external table %d (%q) is not the expected table", i, got[i].Name())
+		}
+	}
+
+	t.Run("a child context does not change the tables of a sibling context", func(t *testing.T) {
+		// Use three separate calls. If WithExternalTable appends in place, the slice
+		// of the parent then has spare capacity, and the two children write to the
+		// same element.
+		t1, t2, t3 := newTable(t, "t1"), newTable(t, "t2"), newTable(t, "t3")
+		parent := Context(context.Background(), WithExternalTable(t1))
+		parent = Context(parent, WithExternalTable(t2))
+		parent = Context(parent, WithExternalTable(t3))
+
+		ids1, ids2 := newTable(t, "ids"), newTable(t, "ids")
+		child1 := Context(parent, WithExternalTable(ids1))
+		child2 := Context(parent, WithExternalTable(ids2))
+
+		requireTables(t, child1, t1, t2, t3, ids1)
+		requireTables(t, child2, t1, t2, t3, ids2)
+		requireTables(t, parent, t1, t2, t3)
+	})
+
+	t.Run("a table replaces the table with the same name from the parent context", func(t *testing.T) {
+		other, ids1, ids2 := newTable(t, "other"), newTable(t, "ids"), newTable(t, "ids")
+		parent := Context(context.Background(), WithExternalTable(other, ids1))
+		child := Context(parent, WithExternalTable(ids2))
+
+		requireTables(t, child, other, ids2)
+		requireTables(t, parent, other, ids1)
+	})
+
+	t.Run("a table replaces the table with the same name from an earlier option", func(t *testing.T) {
+		ids1, ids2 := newTable(t, "ids"), newTable(t, "ids")
+		ctx := Context(context.Background(), WithExternalTable(ids1), WithExternalTable(ids2))
+
+		requireTables(t, ctx, ids2)
+	})
+
+	t.Run("one call keeps two tables with the same name", func(t *testing.T) {
+		ids1, ids2 := newTable(t, "ids"), newTable(t, "ids")
+		ctx := Context(context.Background(), WithExternalTable(ids1, ids2))
+
+		requireTables(t, ctx, ids1, ids2)
+	})
 }

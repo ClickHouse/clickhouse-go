@@ -167,9 +167,24 @@ func WithProfileEvents(fn func([]ProfileEvent)) QueryOption {
 	}
 }
 
+// WithExternalTable adds external tables to the query. A table replaces a table
+// with the same name from the parent context or from an earlier
+// WithExternalTable option.
 func WithExternalTable(t ...*ext.Table) QueryOption {
 	return func(o *QueryOptions) error {
-		o.external = append(o.external, t...)
+		// Make a new slice. o.external can share its array with the parent
+		// context and with other contexts that have the same parent.
+		external := make([]*ext.Table, 0, len(o.external)+len(t))
+		for _, old := range o.external {
+			replaced := slices.ContainsFunc(t, func(table *ext.Table) bool {
+				return table.Name() == old.Name()
+			})
+			if !replaced {
+				external = append(external, old)
+			}
+		}
+		external = append(external, t...)
+		o.external = external
 		return nil
 	}
 }
