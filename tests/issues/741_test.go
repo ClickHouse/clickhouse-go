@@ -40,9 +40,14 @@ func TestIssue741(t *testing.T) {
 			defer func() {
 				conn.Exec("DROP TABLE issue_741")
 			}()
-			stmt, err := conn.Prepare("INSERT INTO issue_741 (Col2, Col1) VALUES (? ?)")
+			tx, err := conn.Begin()
+			require.NoError(t, err)
+			defer tx.Rollback()
+			stmt, err := tx.Prepare("INSERT INTO issue_741 (Col2, Col1) VALUES (? ?)")
+			require.NoError(t, err)
 			_, err = stmt.Exec(int64(1), "1")
 			require.NoError(t, err)
+			require.NoError(t, tx.Commit())
 		})
 	}
 }
@@ -68,9 +73,14 @@ func TestIssue741SingleColumn(t *testing.T) {
 			defer func() {
 				conn.Exec("DROP TABLE issue_741_single")
 			}()
-			stmt, err := conn.Prepare("INSERT INTO issue_741_single (Col1) VALUES (?)")
+			tx, err := conn.Begin()
+			require.NoError(t, err)
+			defer tx.Rollback()
+			stmt, err := tx.Prepare("INSERT INTO issue_741_single (Col1) VALUES (?)")
+			require.NoError(t, err)
 			_, err = stmt.Exec("1")
 			require.NoError(t, err)
+			require.NoError(t, tx.Commit())
 		})
 	}
 }
@@ -130,10 +140,14 @@ func TestIssue741RandomOrder(t *testing.T) {
 			ddl, insertStatement, values := generateRandomInsert("issue_741_random")
 			_, err = conn.Exec(ddl)
 			require.NoError(t, err)
-			stmt, err := conn.Prepare(insertStatement)
+			tx, err := conn.Begin()
+			require.NoError(t, err)
+			defer tx.Rollback()
+			stmt, err := tx.Prepare(insertStatement)
 			require.NoError(t, err)
 			_, err = stmt.Exec(values...)
 			require.NoError(t, err)
+			require.NoError(t, tx.Commit())
 		})
 	}
 }

@@ -164,6 +164,7 @@ type stdConnect interface {
 }
 
 type stdDriver struct {
+	inTx   bool
 	opt    *Options
 	conn   stdConnect
 	commit func() error
@@ -215,12 +216,7 @@ func (std *stdDriver) Ping(ctx context.Context) error {
 var _ driver.Pinger = (*stdDriver)(nil)
 
 func (std *stdDriver) Begin() (driver.Tx, error) {
-	if err := std.conn.healthCheck(); err != nil {
-		std.logger.Debug("begin: connection is bad", slog.Any("reason", err))
-		return nil, driver.ErrBadConn
-	}
-
-	return std, nil
+	return std.BeginTx(context.Background(), driver.TxOptions{})
 }
 
 func (std *stdDriver) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
@@ -229,10 +225,12 @@ func (std *stdDriver) BeginTx(ctx context.Context, opts driver.TxOptions) (drive
 		return nil, driver.ErrBadConn
 	}
 
+	std.inTx = true
 	return std, nil
 }
 
 func (std *stdDriver) Commit() error {
+	std.inTx = false
 	if std.commit == nil {
 		return nil
 	}
@@ -252,6 +250,7 @@ func (std *stdDriver) Commit() error {
 }
 
 func (std *stdDriver) Rollback() error {
+	std.inTx = false
 	std.commit = nil
 	std.conn.close()
 	return nil
@@ -316,6 +315,15 @@ func (std *stdDriver) PrepareContext(ctx context.Context, query string) (driver.
 	if err := std.conn.healthCheck(); err != nil {
 		std.logger.Debug("prepare context: connection is bad", slog.Any("reason", err))
 		return nil, driver.ErrBadConn
+	}
+
+	// Only Commit sends the rows appended to a prepared batch.
+	if !std.inTx {
+		return nil, errors.New("clickhouse: prepare a batch in a transaction using Tx.Prepare or Tx.PrepareContext")
+	}
+
+	if std.commit != nil {
+		return nil, errors.New("clickhouse: transaction already has a pending batch")
 	}
 
 	batch, err := std.conn.prepareBatch(ctx, func(nativeTransport, error) {}, func(context.Context) (nativeTransport, error) { return nil, nil }, query, chdriver.PrepareBatchOptions{})
