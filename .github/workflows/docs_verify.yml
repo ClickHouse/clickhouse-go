@@ -27,7 +27,7 @@ jobs:
       image: clickhouse/docs-builder
     steps:
       - name: Checkout docs source
-        uses: actions/checkout@v5
+        uses: actions/checkout@v5.1.0
 
       # Fetch the check driver from ClickHouse/ClickHouse rather than vendoring
       # it. The driver shallow/sparse-clones the aggregator docs plus its CI

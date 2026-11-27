@@ -36,7 +36,7 @@ jobs:
           - "1.27"
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.4.0
         with:
           # head.sha is fixed at the time of the `labeled` event, so commits pushed
           # after a maintainer adds the label do not run.
@@ -49,7 +49,7 @@ jobs:
           persist-credentials: false
 
       - name: Install Go ${{ matrix.go }}
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v5.6.0
         with:
           go-version: ${{ matrix.go }}
 
