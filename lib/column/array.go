@@ -339,6 +339,11 @@ func (col *Array) scanSlice(sliceType reflect.Type, row int, level int) (reflect
 				if err != nil {
 					return reflect.Value{}, err
 				}
+			case *Map:
+				value, err = mapScanArrayElement(dcol, sliceType, int(i), isPtr)
+				if err != nil {
+					return reflect.Value{}, err
+				}
 			default:
 				v := col.values.Row(int(i), isPtr)
 				val := reflect.ValueOf(v)
