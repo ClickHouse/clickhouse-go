@@ -119,6 +119,11 @@ func (col *Array) Append(v any) (nulls []uint8, err error) {
 }
 
 func (col *Array) AppendRow(v any) error {
+	if v == nil {
+		// nil is appended as an empty array, e.g. for absent typed paths in a JSON column
+		col.appendOffset(0, 0)
+		return nil
+	}
 	if col.depth == 1 {
 		// try to use reflection-free method.
 		return col.appendRowPlain(v)
