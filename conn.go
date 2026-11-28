@@ -467,6 +467,7 @@ func (c *connect) readData(ctx context.Context, packet byte, compressible bool) 
 func (c *connect) freeBuffer() {
 	c.buffer = new(chproto.Buffer)
 	c.compressor.Data = nil
+	c.compressed = nil
 }
 
 func (c *connect) flush() error {
