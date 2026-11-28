@@ -303,7 +303,12 @@ func (b *batch) Flush() error {
 			return err
 		}
 		if b.closeOnFlush {
-			b.release(b.closeQuery())
+			err := b.closeQuery()
+			b.release(err)
+			if err != nil {
+				// Keep the rows, so that the next Flush or Send sends them again.
+				return err
+			}
 		}
 	}
 	b.block.Reset()
