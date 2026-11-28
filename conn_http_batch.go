@@ -249,10 +249,14 @@ func (b *httpBatch) Send() (err error) {
 	pipeReader, pipeWriter := io.Pipe()
 	connWriter := compressionWriter.reset(pipeWriter)
 
+	// The goroutine exits after it writes the block or after a step fails. It
+	// closes the pipe with the error of the failed step, so the HTTP request fails
+	// and Send returns the error. Do not close connWriter after a failure. Without
+	// gzip, deflate or br, connWriter is pipeWriter, and Close ends the body with
+	// no error.
 	go func() {
 		var err error
-		defer pipeWriter.CloseWithError(err)
-		defer connWriter.Close()
+		defer func() { pipeWriter.CloseWithError(err) }()
 		b.conn.buffer.Reset()
 		if err = b.conn.writeData(b.block); err != nil {
 			return
@@ -260,6 +264,7 @@ func (b *httpBatch) Send() (err error) {
 		if _, err = connWriter.Write(b.conn.buffer.Buf); err != nil {
 			return
 		}
+		err = connWriter.Close()
 	}()
 
 	options.settings["query"] = b.query
