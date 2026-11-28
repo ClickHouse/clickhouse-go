@@ -132,6 +132,7 @@ type connect struct {
 	compression          CompressionMethod
 	connectedAt          time.Time
 	compressor           *compress.Writer
+	compressed           []byte
 	readTimeout          time.Duration
 	blockBufferSize      uint8
 	maxCompressionBuffer int
@@ -283,13 +284,34 @@ func (c *connect) exception() error {
 	return &e
 }
 
+// maxCompressBlockSize is the maximum uncompressed size of a compressed block sent to the server,
+// the default `max_compress_block_size` that `clickhouse-client` also uses.
+// The server rejects a block above 256 MiB uncompressed.
+const maxCompressBlockSize = 1024 * 1024
+
+// compressBlocks appends data to dst as compressed blocks of at most maxCompressBlockSize bytes each.
+func compressBlocks(w *compress.Writer, dst, data []byte) ([]byte, error) {
+	for {
+		n := min(len(data), maxCompressBlockSize)
+		if err := w.Compress(data[:n]); err != nil {
+			return dst, err
+		}
+		dst = append(dst, w.Data...)
+		data = data[n:]
+		if len(data) == 0 {
+			return dst, nil
+		}
+	}
+}
+
 func (c *connect) compressBuffer(start int) error {
 	if c.compression != CompressionNone && len(c.buffer.Buf) > 0 {
-		data := c.buffer.Buf[start:]
-		if err := c.compressor.Compress(data); err != nil {
+		compressed, err := compressBlocks(c.compressor, c.compressed[:0], c.buffer.Buf[start:])
+		if err != nil {
 			return fmt.Errorf("compress: %w", err)
 		}
-		c.buffer.Buf = append(c.buffer.Buf[:start], c.compressor.Data...)
+		c.compressed = compressed
+		c.buffer.Buf = append(c.buffer.Buf[:start], compressed...)
 	}
 	return nil
 }
@@ -445,6 +467,7 @@ func (c *connect) readData(ctx context.Context, packet byte, compressible bool) 
 func (c *connect) freeBuffer() {
 	c.buffer = new(chproto.Buffer)
 	c.compressor.Data = nil
+	c.compressed = nil
 }
 
 func (c *connect) flush() error {
