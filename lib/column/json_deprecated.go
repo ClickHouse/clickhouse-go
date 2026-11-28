@@ -1,6 +1,7 @@
 package column
 
 import (
+	"encoding/binary"
 	"fmt"
 
 	"github.com/ClickHouse/ch-go/proto"
@@ -114,11 +115,38 @@ func (c *JSON) decodeObjectData_v1(reader *proto.Reader, rows int) error {
 		}
 	}
 
-	// SharedData per row, ignored for now. May cause stream offset issues if present
-	_, err := reader.ReadRaw(8 * rows) // one UInt64 per row
-	if err != nil {
-		return fmt.Errorf("failed to read shared data for json column: %w", err)
+	if err := c.decodeSharedData_v1(reader, rows); err != nil {
+		return err
 	}
 
 	return nil
+}
+
+func (c *JSON) decodeSharedData_v1(reader *proto.Reader, rows int) error {
+	if rows == 0 {
+		return nil
+	}
+	if rows < 0 || rows > int(^uint(0)>>1)/8 {
+		return fmt.Errorf("invalid json row count %d", rows)
+	}
+	offsets, err := reader.ReadRaw(8 * rows)
+	if err != nil {
+		return fmt.Errorf("failed to read shared data offsets for json column: %w", err)
+	}
+	var total uint64
+	for i := 0; i < rows; i++ {
+		offset := binary.LittleEndian.Uint64(offsets[8*i:])
+		if offset < total {
+			return fmt.Errorf("invalid shared data offsets for json column")
+		}
+		total = offset
+	}
+	if total == 0 {
+		return nil
+	}
+	return unsupportedSharedDataError("JSON shared data")
+}
+
+func unsupportedSharedDataError(storage string) error {
+	return fmt.Errorf("cannot decode %s: on ClickHouse 25.6 or later, enable output_format_native_use_flattened_dynamic_and_json_serialization=1; for readonly=1, an administrator must set it to 1 in the settings profile or mark it changeable_in_readonly; on earlier servers, use CAST(json_column AS String) for JSON or cast Dynamic values to a concrete type in the query", storage)
 }
