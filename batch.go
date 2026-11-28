@@ -6,12 +6,6 @@ import (
 	"strings"
 )
 
-// normalizeInsertQueryMatch captures the INSERT statement and its table name. It runs on
-// a query sanitizeInsertQuery has already stripped of comments, so it does not have to
-// skip them itself.
-var normalizeInsertQueryMatch = regexp.MustCompile(`(?i)(INSERT\s+INTO\s+([^(]+)(?:\s*\([^()]*(?:\([^()]*\)[^()]*)*\))?)(?:\s*VALUES)?`)
-var extractInsertColumnsMatch = regexp.MustCompile(`(?si)INSERT INTO .+\s\((?P<Columns>.+)\)$`)
-
 // extractInsertSettingsMatch captures a trailing SETTINGS clause. The `\w+\s*=`
 // after the SETTINGS keyword requires an actual `name = value` assignment so a table
 // or column merely named "settings" is not mistaken for a settings clause. The `s` flag
@@ -74,6 +68,130 @@ func extractNormalizedInsertQueryAndColumns(query string) (normalizedQuery strin
 	return fmt.Sprintf("%s FORMAT Native", insertStmt), tableName, columns, nil
 }
 
+// scanBalancedParens starts at openIdx (which must point to '(') and returns the
+// index of its matching ')', respecting single-quoted, double-quoted, and
+// backtick-quoted segments. Returns -1 if parentheses are unbalanced.
+func scanBalancedParens(s string, openIdx int) int {
+	depth := 1
+	var quote byte
+	for i := openIdx + 1; i < len(s); i++ {
+		c := s[i]
+		if quote != 0 {
+			if c == '\\' && i+1 < len(s) {
+				i++
+				continue
+			}
+			if c == quote {
+				quote = 0
+			}
+			continue
+		}
+
+		if c == '\'' || c == '"' || c == '`' {
+			quote = c
+			continue
+		}
+
+		if c == '(' {
+			depth++
+		} else if c == ')' {
+			depth--
+			if depth == 0 {
+				return i
+			}
+		}
+	}
+	return -1
+}
+
+// findUnquotedParen returns the index of the first '(' in s outside of backtick- or
+// double-quoted identifiers, or -1 if none is found.
+func findUnquotedParen(s string) int {
+	var quote byte
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if quote != 0 {
+			if c == '\\' && i+1 < len(s) {
+				i++
+				continue
+			}
+			if c == quote {
+				quote = 0
+			}
+			continue
+		}
+
+		if c == '`' || c == '"' {
+			quote = c
+			continue
+		}
+
+		if c == '(' {
+			return i
+		}
+	}
+	return -1
+}
+
+// parseInsertTableAndColumns extracts the table name and optional column list from a
+// sanitized INSERT statement. It scans with quote awareness so parentheses inside
+// quoted table identifiers (e.g. `table(1)`) or table function arguments
+// (e.g. `INSERT INTO function null('x UInt64')`) are not mistaken for the column list.
+func parseInsertTableAndColumns(sanitized string) (tableName string, columnsPart string, ok bool) {
+	s := strings.TrimSpace(sanitized)
+	if !isKeyword(s, nil, insertKeyword) {
+		return "", "", false
+	}
+	s = strings.TrimSpace(s[len(insertKeyword):])
+	if !isKeyword(s, nil, intoKeyword) {
+		return "", "", false
+	}
+	s = strings.TrimSpace(s[len(intoKeyword):])
+	if s == "" {
+		return "", "", false
+	}
+
+	if isKeyword(s, nil, tableKeyword) {
+		if rest := strings.TrimSpace(s[len(tableKeyword):]); rest != "" && rest[0] != '(' {
+			s = rest
+		}
+	}
+
+	if isKeyword(s, nil, functionKeyword) {
+		if rest := strings.TrimSpace(s[len(functionKeyword):]); rest != "" && rest[0] != '(' {
+			funcOpen := findUnquotedParen(s)
+			if funcOpen == -1 {
+				return strings.TrimSpace(s), "", true
+			}
+			funcClose := scanBalancedParens(s, funcOpen)
+			if funcClose == -1 {
+				return strings.TrimSpace(s), "", true
+			}
+			tableName = strings.TrimSpace(s[:funcClose+1])
+			afterFunc := strings.TrimSpace(s[funcClose+1:])
+			if afterFunc != "" && afterFunc[0] == '(' {
+				if colClose := scanBalancedParens(afterFunc, 0); colClose != -1 {
+					columnsPart = afterFunc[1:colClose]
+				}
+			}
+			return tableName, columnsPart, true
+		}
+	}
+
+	tableEnd := findUnquotedParen(s)
+	if tableEnd == -1 {
+		tableName = strings.TrimSpace(s)
+		return tableName, "", true
+	}
+
+	tableName = strings.TrimSpace(s[:tableEnd])
+	if colEnd := scanBalancedParens(s, tableEnd); colEnd != -1 {
+		columnsPart = s[tableEnd+1 : colEnd]
+	}
+
+	return tableName, columnsPart, true
+}
+
 // extractInsertQueryComponents strips any FORMAT clause or VALUES suffix from
 // an INSERT query and returns the bare statement, so the caller can append the
 // FORMAT of its choosing.
@@ -91,24 +209,23 @@ func extractInsertQueryComponents(query string) (insertStmt string, tableName st
 		sanitized = sanitized[:loc[0]]
 	}
 
-	matches := normalizeInsertQueryMatch.FindStringSubmatch(sanitized)
-	if len(matches) == 0 {
+	parsedTable, parsedColumnsPart, ok := parseInsertTableAndColumns(sanitized)
+	if !ok || parsedTable == "" {
 		// The query as given by the caller is reported, not the sanitized one, so the
 		// error still shows what was passed in.
 		err = fmt.Errorf("invalid INSERT query: %s", query)
 		return
 	}
 
-	insertStmt = matches[1]
+	insertStmt = strings.TrimSpace(sanitized)
 	if settingsClause != "" {
 		insertStmt += " " + settingsClause
 	}
-	tableName = strings.TrimSpace(matches[2])
+	tableName = parsedTable
 
 	columns = make([]string, 0)
-	matches = extractInsertColumnsMatch.FindStringSubmatch(matches[1])
-	if len(matches) == 2 {
-		rawColumns := splitColumnsRespectingQuotes(matches[1])
+	if parsedColumnsPart != "" {
+		rawColumns := splitColumnsRespectingQuotes(parsedColumnsPart)
 		// refers to https://clickhouse.com/docs/en/sql-reference/syntax#identifiers
 		// we can use identifiers with double quotes or backticks, for example: "id", `id`, but not both, like `"id"`.
 		for _, col := range rawColumns {
@@ -254,6 +371,10 @@ func appendCommentSeparator(out []byte, rest string) []byte {
 }
 
 const (
+	insertKeyword   = "INSERT"
+	intoKeyword     = "INTO"
+	tableKeyword    = "TABLE"
+	functionKeyword = "FUNCTION"
 	valuesKeyword   = "VALUES"
 	formatKeyword   = "FORMAT"
 	settingsKeyword = "SETTINGS"
