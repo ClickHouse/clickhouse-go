@@ -314,6 +314,14 @@ func (h *httpConnect) queryFormat(ctx context.Context, release nativeTransportRe
 	// is to pass the format as the argument instead.
 	q := req.URL.Query()
 	q.Set("default_format", formatName)
+	// The connection sends client_protocol_version so that Query can decode
+	// Native responses with the TCP revision. With this parameter the server
+	// writes the TCP variant of Native, which Native input does not read.
+	// Remove it so that the stream is standard Native. Keep it when the
+	// caller sets it per query.
+	if _, ok := options.settings["client_protocol_version"]; !ok {
+		q.Del("client_protocol_version")
+	}
 	req.URL.RawQuery = q.Encode()
 
 	res, err := h.executeRequest(req) //nolint:bodyclose // closed via httpFormatStream.Close
