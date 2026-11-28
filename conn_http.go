@@ -282,6 +282,7 @@ type httpConnect struct {
 	buffer          *chproto.Buffer
 	compression     CompressionMethod
 	blockCompressor *compress.Writer
+	compressed      []byte
 	compressionPool Pool[HTTPReaderWriter]
 	blockBufferSize uint8
 	handshake       proto.ServerHandshake
@@ -479,11 +480,12 @@ func (h *httpConnect) writeData(block *proto.Block) error {
 	}
 	if h.compression == CompressionLZ4 || h.compression == CompressionZSTD {
 		// Performing compression. Supported and requires
-		data := h.buffer.Buf[start:]
-		if err := h.blockCompressor.Compress(data); err != nil {
+		compressed, err := compressBlocks(h.blockCompressor, h.compressed[:0], h.buffer.Buf[start:])
+		if err != nil {
 			return fmt.Errorf("compress: %w", err)
 		}
-		h.buffer.Buf = append(h.buffer.Buf[:start], h.blockCompressor.Data...)
+		h.compressed = compressed
+		h.buffer.Buf = append(h.buffer.Buf[:start], compressed...)
 	}
 	return nil
 }
